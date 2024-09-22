@@ -17,13 +17,15 @@
     }
   },
   "sectionVariants": {
-    "efe36d90-cd07-4588-af5f-0492d01d8da0": {
-      "name": "financial_chocolate",
-      "values": {},
-      "children": [],
-      "selectedItem": null,
-      "code": "",
-      "keywordPositions": []
+    "default": {
+      "efe36d90-cd07-4588-af5f-0492d01d8da0": {
+        "name": "financial_chocolate",
+        "values": {},
+        "children": [],
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": []
+      }
     }
   },
   "uiTypes": {},
@@ -56,6 +58,7 @@
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
       "isFrozen": false,
+      "dbSource": "",
       "jsonSource": "setta-settings.json",
       "isHorizontalOrientation": false,
       "hideParams": false,
@@ -82,5 +85,8 @@
       "isSelected": false,
       "keywordPositions": []
     }
+  },
+  "dbSourceMapping": {
+    "default": "default"
   }
 }

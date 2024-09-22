@@ -7,7 +7,10 @@ import {
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
+import {
+  getMappedSectionDBSource,
+  getSectionInfo,
+} from "state/getters/sectionInfo";
 import { getValueForUIType } from "utils/objs/ev";
 import { setEnteredValue } from "../sectionVariants";
 import { maybeCloneUIType } from "./cloneUITypes";
@@ -99,9 +102,10 @@ function _updateEVs(uiType) {
 
     for (const s of Object.values(useSectionInfos.getState().x)) {
       if (s.uiTypeColId === colId) {
+        const dbSource = getMappedSectionDBSource(s.id);
         const variantId = s.variantId;
         for (const [pid, valueInfo] of Object.entries(
-          eState.x[variantId].values,
+          eState.x[dbSource][variantId].values,
         )) {
           if (paramsWithUITypeId.has(pid)) {
             const newVal = getValueForUIType({
@@ -110,6 +114,7 @@ function _updateEVs(uiType) {
             });
             if (newVal !== valueInfo.value) {
               setEnteredValue({
+                dbSource,
                 collectionId: variantId,
                 paramInfoId: pid,
                 value: newVal,

@@ -3,6 +3,7 @@ import _ from "lodash";
 import { useSectionInfos, useUITypeCols, useUITypes } from "state/definitions";
 import {
   BASE_UI_TYPE_IDS,
+  DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
   QUICKINFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
@@ -139,6 +140,7 @@ export function useRequiredUIEditorTabs(sectionId) {
         QUICKINFO_CONFIG_TAB,
         // SECTION_CONFIG_TAB,
         SECTION_VARIANTS_TAB,
+        DB_SOURCES_TAB,
       ];
   }
 }

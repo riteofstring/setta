@@ -53,443 +53,445 @@
     }
   },
   "sectionVariants": {
-    "0022f0d8-b97f-4345-90ac-66615e576fb2": {
-      "name": "frog_dog",
-      "selectedItem": "199d8d34-21f9-4c7e-b6b0-dd938a9736d0",
-      "code": "",
-      "keywordPositions": [],
-      "values": {
-        "1642efb6-c5cd-41e1-b346-cacb44d43c87": {
-          "value": "",
-          "keywordPositions": []
+    "default": {
+      "0022f0d8-b97f-4345-90ac-66615e576fb2": {
+        "name": "frog_dog",
+        "selectedItem": "199d8d34-21f9-4c7e-b6b0-dd938a9736d0",
+        "code": "",
+        "keywordPositions": [],
+        "values": {
+          "1642efb6-c5cd-41e1-b346-cacb44d43c87": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "197c09ec-176b-4b63-99d5-94522b8fc6f3": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "1d6897b7-3dae-4f8a-8729-068e11a36008": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "47377fe6-a365-4540-bf8a-468788f754e0": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "5efb2418-747c-4bba-b1b6-0d53cac2ab40": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "7415f187-1f29-40d6-be47-7d608bd4b215": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "810b3251-8d80-42f2-b01a-e36ec47928f8": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "b8036ace-03dd-4dc3-88c5-069957276d1d": {
+            "value": "987",
+            "keywordPositions": []
+          },
+          "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "fc3182cc-369b-4a19-811f-b5e8c6d182c3": {
+            "value": "",
+            "keywordPositions": []
+          }
         },
-        "197c09ec-176b-4b63-99d5-94522b8fc6f3": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "1d6897b7-3dae-4f8a-8729-068e11a36008": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "47377fe6-a365-4540-bf8a-468788f754e0": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "5efb2418-747c-4bba-b1b6-0d53cac2ab40": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "7415f187-1f29-40d6-be47-7d608bd4b215": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "810b3251-8d80-42f2-b01a-e36ec47928f8": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "b8036ace-03dd-4dc3-88c5-069957276d1d": {
-          "value": "987",
-          "keywordPositions": []
-        },
-        "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "fc3182cc-369b-4a19-811f-b5e8c6d182c3": {
-          "value": "",
-          "keywordPositions": []
-        }
+        "children": []
       },
-      "children": []
-    },
-    "09179586-8ddd-4f0b-91a0-0398d928d408": {
-      "name": "soup_coin",
-      "selectedItem": null,
-      "code": "",
-      "keywordPositions": [],
-      "values": {},
-      "children": [
-        "45ee78a4-2ad3-4541-8a65-87a21a798887",
-        "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7",
-        "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
-        "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
-      ]
-    },
-    "10ea5acf-9c24-4351-bc81-252625623507": {
-      "name": "roasted_maroon",
-      "selectedItem": null,
-      "code": "",
-      "keywordPositions": [],
-      "values": {},
-      "children": []
-    },
-    "380a6d0c-a96e-48f1-b431-074c7e98eed9": {
-      "name": "classical_olive",
-      "selectedItem": null,
-      "code": "",
-      "keywordPositions": [],
-      "values": {},
-      "children": []
-    },
-    "4253da34-9a1a-43eb-b80f-c6708e339024": {
-      "name": "substantial_brown",
-      "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
-      "code": "",
-      "keywordPositions": [],
-      "values": {
-        "0a8a909f-4821-4880-81ac-373b1ce09084": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "3ab421e7-1f82-4baa-a0bc-44875bf13adc": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "944abf2e-f5ec-47c7-9286-370faa75c3bf": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "e5a2037f-60a7-4052-bb72-0763319f6000": {
-          "value": "25",
-          "keywordPositions": []
-        },
-        "ffeb5e40-5c66-4e31-a47a-6eac10385294": {
-          "value": "",
-          "keywordPositions": []
-        }
+      "09179586-8ddd-4f0b-91a0-0398d928d408": {
+        "name": "soup_coin",
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": [],
+        "values": {},
+        "children": [
+          "45ee78a4-2ad3-4541-8a65-87a21a798887",
+          "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7",
+          "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
+          "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
+        ]
       },
-      "children": []
-    },
-    "4c9bee35-38ab-471e-873d-62e1233eeaaf": {
-      "name": "uncomfortable_tan",
-      "selectedItem": null,
-      "code": "",
-      "keywordPositions": [],
-      "values": {},
-      "children": []
-    },
-    "56758b16-1bb1-4167-852c-321b23cfce38": {
-      "name": "ultimate_tomato",
-      "selectedItem": null,
-      "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    img = data[\"mid_peach\"][\"strokes\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=5))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"displayName\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
-      "keywordPositions": [],
-      "values": {},
-      "children": []
-    },
-    "645069e7-0657-4c2e-9128-88c701bbd069": {
-      "name": "sparkling_brown",
-      "selectedItem": null,
-      "code": "",
-      "keywordPositions": [],
-      "values": {},
-      "children": []
-    },
-    "756e7bb0-ac13-4790-a05c-f10425d508e9": {
-      "name": "secure_jade",
-      "selectedItem": "b9bf393b-96d9-4264-ad9f-bad777e6777a",
-      "code": "",
-      "keywordPositions": [],
-      "values": {
-        "4a447d64-aa9e-4fff-8b5c-a6a2ace04c25": {
-          "value": "[0.2,0.2,0.2]",
-          "keywordPositions": []
-        },
-        "7a9b411c-e319-4813-8bf2-f341cf05df4a": {
-          "value": "\"lr\" in __optimizer",
-          "keywordPositions": [
-            {
-              "startPos": 8,
-              "endPos": 19
-            }
-          ]
-        },
-        "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": {
-          "value": "[0.5,0.5,0.5]",
-          "keywordPositions": []
-        }
+      "10ea5acf-9c24-4351-bc81-252625623507": {
+        "name": "roasted_maroon",
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": [],
+        "values": {},
+        "children": []
       },
-      "children": []
-    },
-    "7d6b798f-f0eb-44b7-b9a9-1bb9bb01185b": {
-      "name": "alien_star",
-      "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
-      "code": "",
-      "keywordPositions": [],
-      "values": {
-        "0a8a909f-4821-4880-81ac-373b1ce09084": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "3ab421e7-1f82-4baa-a0bc-44875bf13adc": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": {
-          "value": "12",
-          "keywordPositions": []
-        },
-        "944abf2e-f5ec-47c7-9286-370faa75c3bf": {
-          "value": "False",
-          "keywordPositions": []
-        },
-        "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": {
-          "value": "25",
-          "keywordPositions": []
-        },
-        "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "e5a2037f-60a7-4052-bb72-0763319f6000": {
-          "value": "300",
-          "keywordPositions": []
-        },
-        "ffeb5e40-5c66-4e31-a47a-6eac10385294": {
-          "value": "",
-          "keywordPositions": []
-        }
+      "380a6d0c-a96e-48f1-b431-074c7e98eed9": {
+        "name": "classical_olive",
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": [],
+        "values": {},
+        "children": []
       },
-      "children": []
-    },
-    "8481e81d-f417-4914-b5d8-2797202392ab": {
-      "name": "fast_gray",
-      "selectedItem": null,
-      "code": "",
-      "keywordPositions": [],
-      "values": {},
-      "children": [
-        "04a2d718-6476-446f-bda7-4b7fc22f8972",
-        "93b410c0-33e9-4d66-95be-37d223d99c0a"
-      ]
-    },
-    "9083beca-25c9-4a31-885a-fb19064efd3d": {
-      "name": "yeasty_magenta",
-      "selectedItem": "4c97d0f4-0221-4640-b5c8-6067d47fc131",
-      "code": "",
-      "keywordPositions": [],
-      "values": {
-        "0a62f48a-54e6-4871-afa6-95c09bc49d61": {
-          "value": "list_of_transforms",
-          "keywordPositions": [
-            {
-              "startPos": 0,
-              "endPos": 18
-            }
-          ]
-        }
+      "4253da34-9a1a-43eb-b80f-c6708e339024": {
+        "name": "substantial_brown",
+        "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
+        "code": "",
+        "keywordPositions": [],
+        "values": {
+          "0a8a909f-4821-4880-81ac-373b1ce09084": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "3ab421e7-1f82-4baa-a0bc-44875bf13adc": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "944abf2e-f5ec-47c7-9286-370faa75c3bf": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "e5a2037f-60a7-4052-bb72-0763319f6000": {
+            "value": "25",
+            "keywordPositions": []
+          },
+          "ffeb5e40-5c66-4e31-a47a-6eac10385294": {
+            "value": "",
+            "keywordPositions": []
+          }
+        },
+        "children": []
       },
-      "children": []
-    },
-    "9b39ad4c-8887-43ea-b759-a1fc067ac3ef": {
-      "name": "central_amethyst",
-      "selectedItem": null,
-      "code": "",
-      "keywordPositions": [],
-      "values": {},
-      "children": [
-        "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
-        "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3"
-      ]
-    },
-    "a853185e-5b0d-400a-a94c-6c14a9c9809e": {
-      "name": "vivid_moccasin",
-      "selectedItem": "ea138acc-58d2-4cfb-a2db-b5c44061f10f",
-      "code": "",
-      "keywordPositions": [],
-      "values": {
-        "17f3f1d8-4459-4d8b-a132-ab42df1bf241": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "2acbcb71-f180-42b0-94bf-46edfe809de3": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "5fda1f62-0834-41de-a58e-2fe7f0e97558": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "681f4df7-ddd9-4a84-979f-ff0d243cdbff": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "6b52f167-e867-41c6-a398-4253147c5672": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "83f732ba-1244-40aa-b189-c324d1cbbccb": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "aa45a0fa-bc33-420a-9b1b-88792303e0a7": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "f2098038-2341-47cc-95d1-c4653b1ba1d3": {
-          "value": "",
-          "keywordPositions": []
-        }
+      "4c9bee35-38ab-471e-873d-62e1233eeaaf": {
+        "name": "uncomfortable_tan",
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": [],
+        "values": {},
+        "children": []
       },
-      "children": []
-    },
-    "c1873fea-a24d-4367-97b1-88614045a575": {
-      "name": "wet_teal",
-      "selectedItem": "e7bd857a-770d-47da-9b8e-811baa29620c",
-      "code": "",
-      "keywordPositions": [],
-      "values": {
-        "1642efb6-c5cd-41e1-b346-cacb44d43c87": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "197c09ec-176b-4b63-99d5-94522b8fc6f3": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "1d6897b7-3dae-4f8a-8729-068e11a36008": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "47377fe6-a365-4540-bf8a-468788f754e0": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "5efb2418-747c-4bba-b1b6-0d53cac2ab40": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "7415f187-1f29-40d6-be47-7d608bd4b215": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "810b3251-8d80-42f2-b01a-e36ec47928f8": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "b8036ace-03dd-4dc3-88c5-069957276d1d": {
-          "value": "987",
-          "keywordPositions": []
-        },
-        "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "fc3182cc-369b-4a19-811f-b5e8c6d182c3": {
-          "value": "",
-          "keywordPositions": []
-        }
+      "56758b16-1bb1-4167-852c-321b23cfce38": {
+        "name": "ultimate_tomato",
+        "selectedItem": null,
+        "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    img = data[\"mid_peach\"][\"strokes\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=5))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"displayName\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
+        "keywordPositions": [],
+        "values": {},
+        "children": []
       },
-      "children": []
-    },
-    "c58d323d-382a-47b2-919f-a7f06bcac760": {
-      "name": "secure_tan",
-      "selectedItem": "10aeb934-d614-4b88-a15a-890c825860e1",
-      "code": "",
-      "keywordPositions": [],
-      "values": {
-        "3fdec365-9d3f-4f5b-94fe-75adbb767d08": {
-          "value": "224",
-          "keywordPositions": []
-        }
+      "645069e7-0657-4c2e-9128-88c701bbd069": {
+        "name": "sparkling_brown",
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": [],
+        "values": {},
+        "children": []
       },
-      "children": []
-    },
-    "dbb76902-0b6c-46fa-a765-46bdfcf92d92": {
-      "name": "horizontal_green",
-      "selectedItem": "c8a7d3aa-02d6-456c-8247-efc02bf86332",
-      "code": "",
-      "keywordPositions": [],
-      "values": {
-        "0472a28a-cc7b-42e7-8628-173a7b953214": {
-          "value": "",
-          "keywordPositions": []
+      "756e7bb0-ac13-4790-a05c-f10425d508e9": {
+        "name": "secure_jade",
+        "selectedItem": "b9bf393b-96d9-4264-ad9f-bad777e6777a",
+        "code": "",
+        "keywordPositions": [],
+        "values": {
+          "4a447d64-aa9e-4fff-8b5c-a6a2ace04c25": {
+            "value": "[0.2,0.2,0.2]",
+            "keywordPositions": []
+          },
+          "7a9b411c-e319-4813-8bf2-f341cf05df4a": {
+            "value": "\"lr\" in __optimizer",
+            "keywordPositions": [
+              {
+                "startPos": 8,
+                "endPos": 19
+              }
+            ]
+          },
+          "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": {
+            "value": "[0.5,0.5,0.5]",
+            "keywordPositions": []
+          }
         },
-        "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "31d94ca2-5b68-41f5-8380-ad62348ef1b0": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "44a300eb-c969-41fc-95e4-dcf3a5716d6e": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "4cc2b16e-0946-44de-85e6-131ccc8dec41": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "62bd6021-0834-4317-87f4-3961d8f2e890": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "6553f807-4fc6-40d2-9df1-990bf1b094f5": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "6c3fae29-caa1-4650-a2c4-7a1b1a816929": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "bbb754a2-06e5-4b57-8e5d-308865f81a94": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "d9a35253-835b-425d-abdf-2a678ddc1924": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "f807b59d-a434-41b6-a54c-9b35ffb61c8d": {
-          "value": "model.parameters()",
-          "keywordPositions": [
-            {
-              "startPos": 0,
-              "endPos": 5
-            }
-          ]
-        }
+        "children": []
       },
-      "children": []
-    },
-    "e3280349-7dda-43f6-9cea-0b98971435a5": {
-      "name": "geographical_chocolate",
-      "selectedItem": null,
-      "code": "",
-      "keywordPositions": [],
-      "values": {},
-      "children": []
-    },
-    "fb08c4e1-9809-46ef-bfa5-52a4a944ef74": {
-      "name": "marginal_coral",
-      "selectedItem": null,
-      "code": "",
-      "keywordPositions": [],
-      "values": {},
-      "children": [
-        "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
-        "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
-      ]
+      "7d6b798f-f0eb-44b7-b9a9-1bb9bb01185b": {
+        "name": "alien_star",
+        "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
+        "code": "",
+        "keywordPositions": [],
+        "values": {
+          "0a8a909f-4821-4880-81ac-373b1ce09084": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "3ab421e7-1f82-4baa-a0bc-44875bf13adc": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": {
+            "value": "12",
+            "keywordPositions": []
+          },
+          "944abf2e-f5ec-47c7-9286-370faa75c3bf": {
+            "value": "False",
+            "keywordPositions": []
+          },
+          "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": {
+            "value": "25",
+            "keywordPositions": []
+          },
+          "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "e5a2037f-60a7-4052-bb72-0763319f6000": {
+            "value": "300",
+            "keywordPositions": []
+          },
+          "ffeb5e40-5c66-4e31-a47a-6eac10385294": {
+            "value": "",
+            "keywordPositions": []
+          }
+        },
+        "children": []
+      },
+      "8481e81d-f417-4914-b5d8-2797202392ab": {
+        "name": "fast_gray",
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": [],
+        "values": {},
+        "children": [
+          "04a2d718-6476-446f-bda7-4b7fc22f8972",
+          "93b410c0-33e9-4d66-95be-37d223d99c0a"
+        ]
+      },
+      "9083beca-25c9-4a31-885a-fb19064efd3d": {
+        "name": "yeasty_magenta",
+        "selectedItem": "4c97d0f4-0221-4640-b5c8-6067d47fc131",
+        "code": "",
+        "keywordPositions": [],
+        "values": {
+          "0a62f48a-54e6-4871-afa6-95c09bc49d61": {
+            "value": "list_of_transforms",
+            "keywordPositions": [
+              {
+                "startPos": 0,
+                "endPos": 18
+              }
+            ]
+          }
+        },
+        "children": []
+      },
+      "9b39ad4c-8887-43ea-b759-a1fc067ac3ef": {
+        "name": "central_amethyst",
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": [],
+        "values": {},
+        "children": [
+          "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
+          "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3"
+        ]
+      },
+      "a853185e-5b0d-400a-a94c-6c14a9c9809e": {
+        "name": "vivid_moccasin",
+        "selectedItem": "ea138acc-58d2-4cfb-a2db-b5c44061f10f",
+        "code": "",
+        "keywordPositions": [],
+        "values": {
+          "17f3f1d8-4459-4d8b-a132-ab42df1bf241": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "2acbcb71-f180-42b0-94bf-46edfe809de3": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "5fda1f62-0834-41de-a58e-2fe7f0e97558": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "681f4df7-ddd9-4a84-979f-ff0d243cdbff": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "6b52f167-e867-41c6-a398-4253147c5672": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "83f732ba-1244-40aa-b189-c324d1cbbccb": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "aa45a0fa-bc33-420a-9b1b-88792303e0a7": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "f2098038-2341-47cc-95d1-c4653b1ba1d3": {
+            "value": "",
+            "keywordPositions": []
+          }
+        },
+        "children": []
+      },
+      "c1873fea-a24d-4367-97b1-88614045a575": {
+        "name": "wet_teal",
+        "selectedItem": "e7bd857a-770d-47da-9b8e-811baa29620c",
+        "code": "",
+        "keywordPositions": [],
+        "values": {
+          "1642efb6-c5cd-41e1-b346-cacb44d43c87": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "197c09ec-176b-4b63-99d5-94522b8fc6f3": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "1d6897b7-3dae-4f8a-8729-068e11a36008": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "47377fe6-a365-4540-bf8a-468788f754e0": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "5efb2418-747c-4bba-b1b6-0d53cac2ab40": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "7415f187-1f29-40d6-be47-7d608bd4b215": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "810b3251-8d80-42f2-b01a-e36ec47928f8": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "b8036ace-03dd-4dc3-88c5-069957276d1d": {
+            "value": "987",
+            "keywordPositions": []
+          },
+          "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "fc3182cc-369b-4a19-811f-b5e8c6d182c3": {
+            "value": "",
+            "keywordPositions": []
+          }
+        },
+        "children": []
+      },
+      "c58d323d-382a-47b2-919f-a7f06bcac760": {
+        "name": "secure_tan",
+        "selectedItem": "10aeb934-d614-4b88-a15a-890c825860e1",
+        "code": "",
+        "keywordPositions": [],
+        "values": {
+          "3fdec365-9d3f-4f5b-94fe-75adbb767d08": {
+            "value": "224",
+            "keywordPositions": []
+          }
+        },
+        "children": []
+      },
+      "dbb76902-0b6c-46fa-a765-46bdfcf92d92": {
+        "name": "horizontal_green",
+        "selectedItem": "c8a7d3aa-02d6-456c-8247-efc02bf86332",
+        "code": "",
+        "keywordPositions": [],
+        "values": {
+          "0472a28a-cc7b-42e7-8628-173a7b953214": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "31d94ca2-5b68-41f5-8380-ad62348ef1b0": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "44a300eb-c969-41fc-95e4-dcf3a5716d6e": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "4cc2b16e-0946-44de-85e6-131ccc8dec41": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "62bd6021-0834-4317-87f4-3961d8f2e890": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "6553f807-4fc6-40d2-9df1-990bf1b094f5": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "6c3fae29-caa1-4650-a2c4-7a1b1a816929": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "bbb754a2-06e5-4b57-8e5d-308865f81a94": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "d9a35253-835b-425d-abdf-2a678ddc1924": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "f807b59d-a434-41b6-a54c-9b35ffb61c8d": {
+            "value": "model.parameters()",
+            "keywordPositions": [
+              {
+                "startPos": 0,
+                "endPos": 5
+              }
+            ]
+          }
+        },
+        "children": []
+      },
+      "e3280349-7dda-43f6-9cea-0b98971435a5": {
+        "name": "geographical_chocolate",
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": [],
+        "values": {},
+        "children": []
+      },
+      "fb08c4e1-9809-46ef-bfa5-52a4a944ef74": {
+        "name": "marginal_coral",
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": [],
+        "values": {},
+        "children": [
+          "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
+          "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
+        ]
+      }
     }
   },
   "uiTypes": {
@@ -834,6 +836,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "6cf98492-2d4c-426e-beff-4b5a500e615a",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -866,6 +869,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "cdb23914-0147-4fad-9219-94d170315f34",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -899,6 +903,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "9a630340-9bfe-4cb0-81ac-2818d1647503",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -931,6 +936,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "acd91249-b338-43d4-8808-fc0a68525daf",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -963,6 +969,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "92d4e3f4-4a4b-445d-b68e-0a6ff275ff7a",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -1001,6 +1008,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "2a349a39-6990-48d2-8fe9-292d4735efd7",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -1034,6 +1042,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "d50f188d-bed6-4f04-b662-7d837aaec254",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -1066,6 +1075,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "386beb84-68e7-431f-8e74-14d893cb0a06",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -1098,6 +1108,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "ad4803fd-0052-40ad-a83d-7c4bea0501ef",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -1130,6 +1141,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "522bfdb5-96c4-42af-8a6b-26ae7b489743",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -1162,6 +1174,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "afd777fb-53e3-411c-a284-e7cb157e794e",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -1195,6 +1208,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "7844a257-44ab-4aa9-b0d1-25d6d4b08134",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -1227,6 +1241,7 @@
       "description": "",
       "codeLanguage": "python",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "5f311a69-ec63-446a-a85a-9201578b1f0f",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -1259,6 +1274,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "1451f3ab-4361-4aba-82c4-625a96cdffff",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -1291,6 +1307,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "1d66cf3e-b6a1-4a63-a0aa-73bc7114b88c",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -1323,6 +1340,7 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
+      "dbSource": "",
       "codeInfoId": "d015737a-8207-4d29-86bf-d3e80c8c6e72",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -2284,6 +2302,9 @@
       "keywordPositions": [],
       "children": []
     }
+  },
+  "dbSourceMapping": {
+    "default": "default"
   },
   "fullNameToInfo": {
     "__other_models[\"retail_olive\"][\"weights\"]": {

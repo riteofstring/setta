@@ -9,6 +9,7 @@ import { sendMessage } from "requests/websocket";
 import { useWebsocketConnectionList } from "state/definitions";
 import { INITIAL_MESSAGE, TERMINAL_WEBSOCKETS } from "state/hooks/terminal";
 import { createNewId } from "utils/idNameCreation";
+import { getMappedSectionDBSource } from "../../getters/sectionInfo";
 import { addSectionInEmptySpace } from "../sections/createSections";
 import { getProjectData } from "./saveProject";
 
@@ -138,7 +139,9 @@ function* getProjectVariants(project) {
           x.paramSweepIds.includes(paramSweepId),
         ).id;
         const { variantId: sectionVariantId } = project.sections[forSectionId];
-        const sectionVariant = variant.sectionVariants[sectionVariantId];
+        const dbSource = getMappedSectionDBSource(forSectionId);
+        const sectionVariant =
+          variant.sectionVariants[dbSource][sectionVariantId];
         sectionVariant.values[paramInfoId].value = value;
       }
       yield variant;

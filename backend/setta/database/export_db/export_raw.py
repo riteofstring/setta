@@ -1,9 +1,9 @@
 import yaml
 
 
-def export_raw(db, filename):
-    schema = fetch_schema(db)
-    data = fetch_all_data(db)
+def export_raw(dbs, filename):
+    schema = fetch_schema(dbs.default)
+    data = fetch_all_data(dbs.default)
 
     # Combined schema and data for JSON export
     database_export = {"schema": schema, "data": data}

@@ -1,7 +1,8 @@
 import json
 
 
-def save_sections(db, sections):
+def save_sections(dbs, sections):
+    db = dbs.default
     query = """
         INSERT INTO Section (
             id,
@@ -13,6 +14,7 @@ def save_sections(db, sections):
             codeLanguage,
             configLanguage,
             isFrozen,
+            dbSource,
             jsonSource,
             codeInfoId,
             hideUnpinnedParams,
@@ -28,6 +30,7 @@ def save_sections(db, sections):
             :codeLanguage,
             :configLanguage,
             :isFrozen,
+            :dbSource,
             :jsonSource,
             :codeInfoId,
             :hideUnpinnedParams,
@@ -43,6 +46,7 @@ def save_sections(db, sections):
             codeLanguage = :codeLanguage,
             configLanguage = :configLanguage,
             isFrozen = :isFrozen,
+            dbSource = :dbSource,
             jsonSource = :jsonSource,
             codeInfoId = :codeInfoId,
             hideUnpinnedParams = :hideUnpinnedParams,
@@ -60,6 +64,7 @@ def save_sections(db, sections):
             "codeLanguage": s["codeLanguage"],
             "configLanguage": s["configLanguage"],
             "isFrozen": s["isFrozen"],
+            "dbSource": s.get("dbSource"),
             "jsonSource": s.get("jsonSource"),
             "codeInfoId": s["codeInfoId"],
             "hideUnpinnedParams": s["hideUnpinnedParams"],

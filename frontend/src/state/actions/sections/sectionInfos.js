@@ -60,15 +60,19 @@ export function removeSectionInfos(payload) {
       }
 
       let isStillUsedInAVariant = false;
-      for (const variantInfo of Object.values(
+      for (const variantsInOneDbSource of Object.values(
         useSectionVariants.getState().x,
       )) {
-        if (variantInfo.children.includes(id)) {
-          isStillUsedInAVariant = true;
+        for (const variantInfo of Object.values(variantsInOneDbSource)) {
+          if (variantInfo.children.includes(id)) {
+            isStillUsedInAVariant = true;
+            break;
+          }
+        }
+        if (isStillUsedInAVariant) {
           break;
         }
       }
-
       if (!isStillUsedInAVariant) {
         delete state.x[id];
       }

@@ -149,6 +149,7 @@
         "4fe62be1-f939-4d84-9c3f-f20412754e0c"
       ],
       "parentId": null,
+      "dbSource": "",
       "size": {
         "width": "auto",
         "height": "auto"
@@ -449,79 +450,85 @@
       "keywordPositions": []
     }
   },
+  "dbSourceMapping": {
+    "default": "default",
+    "settings": "default"
+  },
   "sectionVariants": {
-    "3dbb4893-bd44-4e67-a6c3-1148d7205d42": {
-      "name": "mathematical_magenta",
-      "values": {},
-      "children": [],
-      "selectedItem": null,
-      "code": "",
-      "keywordPositions": []
-    },
-    "3ec298ce-5d49-42f8-8700-3e2efb26855b": {
-      "name": "config1",
-      "values": {},
-      "children": [],
-      "selectedItem": null,
-      "code": "import argparse\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"Example script using argparse.\")\n\n    parser.add_argument(\"--name\", type=str, help=\"Your name\", required=True)\n    parser.add_argument(\"--age\", type=int, help=\"Your age\", required=True)\n    parser.add_argument(\"--verbose\", action=\"store_true\", help=\"Enable verbose output\")\n    parser.add_argument(\n        \"--number\", type=int, default=0, help=\"An example integer flag\", required=True\n    )\n\n    args = parser.parse_args()\n\n    if args.verbose:\n        print(\"Verbose mode is enabled.\")\n    print(f\"Hello, {args.name}! You are {args.age} years old.\")\n    print(f\"The number provided is {args.number}.\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
-      "keywordPositions": []
-    },
-    "40fd1a3c-6fca-4b87-b427-5bee353cef09": {
-      "name": "config1",
-      "values": {},
-      "children": [],
-      "selectedItem": null,
-      "code": "printf \"***START***\\n\\n\"\n\npython {{ Code }} {{ SETTA_PYTHON_ARGPARSE }}\n\nprintf \"\\n***END***\"",
-      "keywordPositions": []
-    },
-    "dc1879dd-4591-46c0-8fc6-f733c6b177ca": {
-      "name": "config1",
-      "values": {
-        "03b6a0ad-0815-4697-af57-167d2accc06a": {
-          "value": "31",
-          "keywordPositions": []
-        },
-        "20fe3b32-be65-4b59-9f32-013435901dcc": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "61948f59-832b-4a29-9dac-facf187f8fc3": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "305eb7df-068a-419a-a321-2bf87d2c833b": {
-          "value": "\"cancer\"",
-          "keywordPositions": []
-        },
-        "80b6429e-fbb9-4070-a574-b32e0e061ab4": {
-          "value": "\"very sexy\"",
-          "keywordPositions": []
-        },
-        "0da2c277-e1d8-4838-ba1a-71d5638a4ade": {
-          "value": "\"doodoo\"",
-          "keywordPositions": []
-        },
-        "af82bade-133f-4878-9688-91672f8fa2ee": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "0eac6e6f-6f26-47af-a9a3-89d9c365b26b": {
-          "value": "\"grave music\"",
-          "keywordPositions": []
-        },
-        "5f91dbfe-6ae2-4741-a434-f56544cf5bd3": {
-          "value": "false",
-          "keywordPositions": []
-        },
-        "b1318655-3495-4d2d-8fef-89a138386641": {
-          "value": "1000",
-          "keywordPositions": []
-        }
+    "default": {
+      "3dbb4893-bd44-4e67-a6c3-1148d7205d42": {
+        "name": "mathematical_magenta",
+        "values": {},
+        "children": [],
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": []
       },
-      "children": [],
-      "selectedItem": null,
-      "code": "",
-      "keywordPositions": []
+      "3ec298ce-5d49-42f8-8700-3e2efb26855b": {
+        "name": "config1",
+        "values": {},
+        "children": [],
+        "selectedItem": null,
+        "code": "import argparse\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"Example script using argparse.\")\n\n    parser.add_argument(\"--name\", type=str, help=\"Your name\", required=True)\n    parser.add_argument(\"--age\", type=int, help=\"Your age\", required=True)\n    parser.add_argument(\"--verbose\", action=\"store_true\", help=\"Enable verbose output\")\n    parser.add_argument(\n        \"--number\", type=int, default=0, help=\"An example integer flag\", required=True\n    )\n\n    args = parser.parse_args()\n\n    if args.verbose:\n        print(\"Verbose mode is enabled.\")\n    print(f\"Hello, {args.name}! You are {args.age} years old.\")\n    print(f\"The number provided is {args.number}.\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+        "keywordPositions": []
+      },
+      "40fd1a3c-6fca-4b87-b427-5bee353cef09": {
+        "name": "config1",
+        "values": {},
+        "children": [],
+        "selectedItem": null,
+        "code": "printf \"***START***\\n\\n\"\n\npython {{ Code }} {{ SETTA_PYTHON_ARGPARSE }}\n\nprintf \"\\n***END***\"",
+        "keywordPositions": []
+      },
+      "dc1879dd-4591-46c0-8fc6-f733c6b177ca": {
+        "name": "config1",
+        "values": {
+          "03b6a0ad-0815-4697-af57-167d2accc06a": {
+            "value": "31",
+            "keywordPositions": []
+          },
+          "20fe3b32-be65-4b59-9f32-013435901dcc": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "61948f59-832b-4a29-9dac-facf187f8fc3": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "305eb7df-068a-419a-a321-2bf87d2c833b": {
+            "value": "\"cancer\"",
+            "keywordPositions": []
+          },
+          "80b6429e-fbb9-4070-a574-b32e0e061ab4": {
+            "value": "\"very sexy\"",
+            "keywordPositions": []
+          },
+          "0da2c277-e1d8-4838-ba1a-71d5638a4ade": {
+            "value": "\"doodoo\"",
+            "keywordPositions": []
+          },
+          "af82bade-133f-4878-9688-91672f8fa2ee": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "0eac6e6f-6f26-47af-a9a3-89d9c365b26b": {
+            "value": "\"grave music\"",
+            "keywordPositions": []
+          },
+          "5f91dbfe-6ae2-4741-a434-f56544cf5bd3": {
+            "value": "false",
+            "keywordPositions": []
+          },
+          "b1318655-3495-4d2d-8fef-89a138386641": {
+            "value": "1000",
+            "keywordPositions": []
+          }
+        },
+        "children": [],
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": []
+      }
     }
   },
   "artifacts": {}

@@ -3,7 +3,10 @@ import { dbSaveCodeInfo } from "requests/sectionConfig";
 import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getKwargIds } from "../../getters/codeInfo";
-import { getSectionInfo } from "../../getters/sectionInfo";
+import {
+  getMappedSectionDBSource,
+  getSectionInfo,
+} from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
 import { initializeParam } from "../initializeParam";
 import { updateKeywordRegex } from "../keywordRegex";
@@ -69,9 +72,10 @@ export function deleteSelectedKwargs({ sectionId }) {
 function deleteKwargIds({ sectionId, ids, incrementVersion }) {
   const { uiTypeColId } = getSectionInfo(sectionId);
   const { variantId } = useSectionInfos.getState().x[sectionId];
+  const dbSource = getMappedSectionDBSource(sectionId);
 
   deleteCodeInfo({ ids });
-  deleteParamInfoFromSectionVariant({ variantId, ids });
+  deleteParamInfoFromSectionVariant({ dbSource, variantId, ids });
   deleteParamInfoFromUITypeCol({ uiTypeColId, ids });
   deleteParamsFromParamSweep({ sectionId, ids });
   maybeIncrementProjectStateVersion(incrementVersion);
