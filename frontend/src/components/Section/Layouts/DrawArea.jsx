@@ -190,7 +190,7 @@ export function DrawOnImage({ sectionId }) {
   }, []);
 
   function startNewStroke(firstPoint) {
-    console.log("startNewStroke", firstPoint)
+    console.log("startNewStroke", firstPoint);
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     strokesRef.current.push({
       color: isEraser ? dCtx.strokeStyle : color,
@@ -203,18 +203,29 @@ export function DrawOnImage({ sectionId }) {
     });
   }
 
+  function drawDraftStroke(from, to) {
+    const ctx = getCtx(draftCanvasRef);
+    ctx.beginPath();
+    ctx.moveTo(from[0], from[1]);
+    ctx.lineTo(to[0], to[1]);
+    ctx.stroke();
+  }
+
   function onMouseDown(e, offsetX, offsetY) {
     // nothing to erase
     if (isEraser && strokesRef.current.length === 0) {
       return;
     }
     setIsDrawing(true);
+    let point;
     if (offsetX && offsetY) {
-      prevPointRef.current = [offsetX, offsetY];
+      point = [offsetX, offsetY];
     } else {
-      prevPointRef.current = getXY(e);
+      point = getXY(e);
     }
-    startNewStroke(prevPointRef.current);
+    startNewStroke(point);
+    drawDraftStroke(point, point);
+    prevPointRef.current = point;
   }
 
   function onMouseMove(e) {
@@ -222,19 +233,16 @@ export function DrawOnImage({ sectionId }) {
       return;
     }
     const point = getXY(e);
-    const ctx = getCtx(draftCanvasRef);
-    ctx.beginPath();
-    ctx.moveTo(prevPointRef.current[0], prevPointRef.current[1]);
-    ctx.lineTo(point[0], point[1]);
-    ctx.stroke();
-    prevPointRef.current = point;
     const currStroke = strokesRef.current[strokesRef.current.length - 1];
     if (!isEraser && currStroke.points.length >= 50) {
       drawLatestStroke(canvasRef, strokesRef.current);
       clearCanvas(draftCanvasRef);
-      startNewStroke(prevPointRef.current)
+      startNewStroke(point);
+      prevPointRef.current = point;
     } else {
+      drawDraftStroke(prevPointRef.current, point);
       currStroke.points.push(point);
+      prevPointRef.current = point;
     }
   }
 
