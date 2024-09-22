@@ -37,8 +37,9 @@ export function DrawOnImage({ sectionId }) {
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState("#ff0000");
-  const [opacity, setOpacity] = useState(0.5);
+  const [opacity, setOpacity] = useState(1);
   const [brushSize, setBrushSize] = useState(16);
+  const [canvasOpacity, setCanvasOpacity] = useState(0.5);
   const [eraserBrushSize, setEraserBrushSize] = useState(16);
   const [isEraser, setIsEraser] = useState(false);
   const strokesRef = useRef([]);
@@ -60,7 +61,7 @@ export function DrawOnImage({ sectionId }) {
       dCtx.lineWidth = brushSize;
       dCtx.lineCap = "round";
       dCtx.globalAlpha = 1;
-      draftCanvas.style.opacity = 1;
+      draftCanvas.style.opacity = opacity;
     }
   }
 
@@ -226,7 +227,7 @@ export function DrawOnImage({ sectionId }) {
     }
     strokesRef.current.push({
       color: isEraser ? dCtx.strokeStyle : color,
-      opacity: 1,
+      opacity: opacity,
       lineWidth: dCtx.lineWidth,
       points: [prevPointRef.current],
       canvasHeight: draftCanvas.height,
@@ -369,19 +370,16 @@ export function DrawOnImage({ sectionId }) {
 
         <StandardPopover
           popoverContent={
-            <EraserSettings
-              brushSize={eraserBrushSize}
-              setBrushSize={setEraserBrushSize}
+            <CanvasSettings
+              opacity={canvasOpacity}
+              setOpacity={setCanvasOpacity}
             />
           }
           arrowClasses="fill-white dark:fill-setta-800"
           inputClasses="rounded-lg"
           contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
           trigger={
-            <button
-              className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
-              onClick={clearStrokes}
-            >
+            <button className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white">
               <i className="gg-image" />
             </button>
           }
@@ -397,7 +395,10 @@ export function DrawOnImage({ sectionId }) {
       </div>
       <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
         <canvas ref={backgroundCanvasRef} className={canvasClassName} />
-        <div className="single-cell-child single-cell-container opacity-50">
+        <div
+          className="single-cell-child single-cell-container"
+          style={{ opacity: canvasOpacity }}
+        >
           <canvas
             ref={canvasRef}
             onMouseDown={onMouseDown}
@@ -496,23 +497,6 @@ function EraserSettings({ brushSize, setBrushSize }) {
     "my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400";
   return (
     <div className="grid w-full grid-cols-[1fr,_2fr] gap-2">
-      {/* <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
-        Opacity
-      </p>
-      <SliderInput
-        sliderRootClassName={sliderRootClassName}
-        sliderTrackClassName={sliderTrackClassName}
-        sliderRangeClassName={sliderRangeClassName}
-        sliderThumbClassName={sliderThumbClassName}
-        textInputClassName={textInputClassName}
-        wrapperDivClass="flex gap-2"
-        min={0.1}
-        max={1}
-        step={0.1}
-        value={localOpacity}
-        onChange={setLocalOpacity}
-        onCommit={setOpacity}
-      /> */}
       <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
         Size
       </p>
@@ -529,6 +513,45 @@ function EraserSettings({ brushSize, setBrushSize }) {
         value={localBrushSize}
         onChange={setLocalBrushSize}
         onCommit={setBrushSize}
+      />
+    </div>
+  );
+}
+
+function CanvasSettings({ opacity, setOpacity }) {
+  const [localOpacity, setLocalOpacity] = useState(opacity);
+
+  useEffect(() => {
+    setLocalOpacity(opacity);
+  }, [opacity]);
+
+  const sliderRootClassName =
+    "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
+  const sliderTrackClassName =
+    "relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700";
+  const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
+  const sliderThumbClassName =
+    "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
+  const textInputClassName =
+    "my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400";
+  return (
+    <div className="grid w-full grid-cols-[1fr,_2fr] gap-2">
+      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
+        Size
+      </p>
+      <SliderInput
+        sliderRootClassName={sliderRootClassName}
+        sliderTrackClassName={sliderTrackClassName}
+        sliderRangeClassName={sliderRangeClassName}
+        sliderThumbClassName={sliderThumbClassName}
+        textInputClassName={textInputClassName}
+        wrapperDivClass="flex gap-2"
+        min={0.1}
+        max={1}
+        step={0.1}
+        value={localOpacity}
+        onChange={setLocalOpacity}
+        onCommit={setOpacity}
       />
     </div>
   );
