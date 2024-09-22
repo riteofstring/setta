@@ -64,11 +64,13 @@ export function useParamIdsToShowInArea(sectionId, isPinned) {
   }, _.isEqual);
 }
 
-export function useNumParams(sectionId) {
+export function useNumChildlessParams(sectionId) {
   const selectedItem = useSectionSelectedItem(sectionId);
   const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
 
   return useCodeInfo((x) => {
-    return getParamIds(sectionId, x.x, selectedItem, codeInfoId).length;
+    return getParamIds(sectionId, x.x, selectedItem, codeInfoId).filter(
+      (p) => x.x[p].children.length === 0,
+    ).length;
   });
 }
