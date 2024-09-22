@@ -108,8 +108,6 @@ function RunGroupList({
     _.isEqual,
   );
 
-  console.log();
-
   return (
     <ul className="noscroll nowheel flex flex-grow flex-col overflow-y-scroll">
       {Object.entries(runGroups).map(([id, x]) => (
@@ -199,16 +197,13 @@ function _VersionsList({ sectionInfo, runGroupId, runGroupSection }) {
       });
   }
 
-  function isChecked(id) {
-    return !!runGroupSection?.selected && !!runGroupSection?.versions?.[id];
-  }
-
   return (
     <GenericList
       minLength={1}
       inputList={allVersions}
       listName="Versions"
-      isChecked={isChecked}
+      sectionIsSelected={!!runGroupSection?.selected}
+      listSelection={runGroupSection?.versions}
       onChange={getOnVersionCheckboxChange}
     />
   );
@@ -228,24 +223,28 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
       });
   }
 
-  function isChecked(id) {
-    return !!runGroupSection?.selected && !!runGroupSection?.paramSweeps?.[id];
-  }
-
   return (
     <GenericList
       minLength={0}
       inputList={allParamSweeps}
       listName="Param Sweeps"
-      isChecked={isChecked}
       onChange={getOnParamSweepCheckboxChange}
+      sectionIsSelected={!!runGroupSection?.selected}
+      listSelection={runGroupSection?.paramSweeps}
     />
   );
 }
 
 const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
 
-function _GenericList({ minLength, inputList, listName, isChecked, onChange }) {
+function _GenericList({
+  minLength,
+  inputList,
+  listName,
+  sectionIsSelected,
+  listSelection,
+  onChange,
+}) {
   return (
     inputList.length > minLength && (
       <>
@@ -268,7 +267,7 @@ function _GenericList({ minLength, inputList, listName, isChecked, onChange }) {
                 className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded"
               >
                 <CheckboxGroup
-                  checked={isChecked(e.id)}
+                  checked={sectionIsSelected && !!listSelection?.[e.id]}
                   onChange={onChange(e.id)}
                 >
                   {e.name}
