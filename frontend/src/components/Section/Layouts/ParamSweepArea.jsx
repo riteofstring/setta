@@ -284,7 +284,6 @@ function ParamCombobox({
       placeholder="Filter & Add Sweep"
       outerDivClasses="section-w-full justify-center not:last-child:mt-3"
       small={true}
-      bg="bg-transparent"
     />
   );
 }
@@ -337,7 +336,7 @@ export function useNumChildlessParams(selectedItem, sectionId) {
   const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
 
   return useCodeInfo((x) => {
-    return getParamIds(sectionId, x.x, selectedItem, codeInfoId).filter(
+    return getParamIds(sectionId, x.x, selectedItem, codeInfoId)["ids"].filter(
       (p) => x.x[p].children.length === 0,
     ).length;
   });
@@ -352,7 +351,7 @@ function useChildlessObjParams({
   const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
 
   return useCodeInfo((x) => {
-    const idsAndPaths = getParamIds(
+    const { ids, pathMap } = getParamIds(
       forSectionId,
       x.x,
       objInfoId,
@@ -360,25 +359,25 @@ function useChildlessObjParams({
       (p) => p.rcType === C.PARAMETER,
     );
     const output = [];
-    for (const f of idsAndPaths) {
+    for (const f of ids) {
       if (
-        (f.id !== paramInfoId && alreadySelected.includes(f.id)) ||
-        x.x[f.id].children.length > 0
+        (f !== paramInfoId && alreadySelected.includes(f)) ||
+        x.x[f].children.length > 0
       ) {
         continue;
       }
-      if (f.path.length === 1) {
-        output.push({ id: f.id, name: x.x[f.path[0]].name });
+      if (pathMap[f].length === 1) {
+        output.push({ id: f, name: x.x[pathMap[f][0]].name });
       } else {
         let name = "";
-        for (const [pathIdx, currId] of f.path.entries()) {
+        for (const [pathIdx, currId] of pathMap[f].entries()) {
           if (pathIdx === 0) {
             name = x.x[currId].name;
           } else {
             name += `["${x.x[currId].name}"]`;
           }
         }
-        output.push({ id: f.id, name });
+        output.push({ id: f, name });
       }
     }
     return output;

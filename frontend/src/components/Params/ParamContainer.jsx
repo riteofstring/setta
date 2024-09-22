@@ -2,7 +2,6 @@ import * as Accordion from "@radix-ui/react-accordion";
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
-import { matchSorter } from "match-sorter";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
@@ -12,7 +11,6 @@ import {
   useCodeInfo,
   useParamShortcuts,
   useProjectSearch,
-  useSectionParamFilter,
   useTypeErrors,
 } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
@@ -21,7 +19,7 @@ import { ParamInput } from "./ParamItems/ParamInput";
 function _ParamContainer({
   sectionId,
   paramInfoId,
-  requiredParamIds,
+  requiredParamIdsToPaths,
   setDidUpdate,
   ancestorIsSelected,
   children,
@@ -66,13 +64,7 @@ function _ParamContainer({
     }
   }
 
-  const paramName = useCodeInfo((x) => x.x[paramInfoId].name);
-  const paramIsMatchedByFilter = useSectionParamFilter((x) => {
-    const filter = x.x[sectionId];
-    return !filter || matchSorter([paramName], filter).length !== 0;
-  });
-
-  return paramChildren.length === 0 && paramIsMatchedByFilter ? (
+  return paramChildren.length === 0 ? (
     <>
       <article
         className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between overflow-clip rounded-md ${bg} ${border}`}
@@ -97,13 +89,13 @@ function _ParamContainer({
       {...getInfoViewHandlers(paramDescription)}
       onClick={onClickSelect}
     >
-      {paramIsMatchedByFilter && children}
+      {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">
         <div className="absolute bottom-0 h-[calc(100%_-_0.25rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
         <GetParamSwitch
           sectionId={sectionId}
           paramIds={paramChildren}
-          requiredParamIds={requiredParamIds}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
           setDidUpdate={setDidUpdate}
           ancestorIsSelected={ancestorIsSelected || paramIsSelected}
         />

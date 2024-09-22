@@ -153,7 +153,9 @@ CREATE_TABLES_COMMANDS = [
         isDefault BOOLEAN DEFAULT 0,
         previewImgNodes TEXT DEFAULT '[]',
         previewImgColor TEXT,
-        UNIQUE (name)
+        shownRunGroup TEXT,
+        UNIQUE (name),
+        FOREIGN KEY (shownRunGroup) REFERENCES RunGroup(id) ON DELETE CASCADE
     );
     """,
     # ProjectConfigChildren model

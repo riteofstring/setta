@@ -41,7 +41,8 @@
         "zIndex": 6
       }
     },
-    "runGroupSelection": {}
+    "runGroupSelection": {},
+    "shownRunGroup": null
   },
   "sectionVariants": {
     "00d5ac58-7a66-4ff1-a62f-af873c0a094b": {

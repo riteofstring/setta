@@ -14,5 +14,11 @@ export function getProjectConfigMetadata() {
     "name",
     "isDefault",
     "runGroupSelection",
+    "shownRunGroup",
   ]);
+}
+
+export function setShownRunGroup(runGroupId) {
+  console.log("setShownRunGroup", runGroupId)
+  useProjectConfig.setState({ shownRunGroup: runGroupId });
 }

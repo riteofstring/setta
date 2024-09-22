@@ -24,8 +24,12 @@ export const debouncedTypeCheckRequest = _.debounce(dbRequestTypeCheck, 500);
 
 export async function dbSectionToDict(sectionId, pinnedIds, unpinnedIds) {
   const project = getProjectDataToGenerateCode({});
-  pinnedIds.requiredParamIds = Array.from(pinnedIds.requiredParamIds);
-  unpinnedIds.requiredParamIds = Array.from(unpinnedIds.requiredParamIds);
+  pinnedIds.requiredParamIds = Object.keys(pinnedIds.requiredParamIdsToPaths);
+  unpinnedIds.requiredParamIds = Object.keys(
+    unpinnedIds.requiredParamIdsToPaths,
+  );
+  delete pinnedIds.requiredParamIdsToPaths;
+  delete unpinnedIds.requiredParamIdsToPaths;
   return await post({
     body: { project, sectionId, pinnedIds, unpinnedIds },
     address: C.ROUTE_SECTION_TO_DICT,
