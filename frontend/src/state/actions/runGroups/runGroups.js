@@ -66,8 +66,12 @@ export function toggleRunGroupSectionAttr({ id, sectionId, attrName, attrId }) {
   });
   useRunGroups.setState((state) => {
     const s = state.x[id].sections[sectionId];
-    s[attrName][attrId] = !s[attrName][attrId];
-    if (s[attrName][attrId] && !s.selected) {
+    if (s.selected) {
+      s[attrName][attrId] = !s[attrName][attrId];
+    } else {
+      for (const _attrId of Object.keys(s[attrName])) {
+        s[attrName][_attrId] = _attrId === attrId;
+      }
       s.selected = true;
     }
   });
