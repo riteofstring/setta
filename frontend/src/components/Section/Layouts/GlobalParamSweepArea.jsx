@@ -29,6 +29,29 @@ export function GlobalParamSweepArea({ sectionId }) {
   );
 }
 
+function GlobalParamSweepCode({ sectionId }) {
+  const code = useGetSectionInfo(sectionId, "code");
+  const theme = useCodeMirrorStyle();
+  const extensions = getExtensions({ sectionId, language: "python" });
+
+  function onChange(v) {
+    setSectionVariantAttr(sectionId, "code", v);
+  }
+
+  return (
+    <article
+      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0`}
+    >
+      <CodeMirror
+        value={code}
+        onChange={onChange}
+        theme={theme}
+        extensions={extensions}
+      />
+    </article>
+  );
+}
+
 function GlobalParamSweepGUI() {
   const runGroups = useRunGroups((x) => x.x);
   const firstRunGroupId = Object.keys(runGroups)[0];
@@ -288,22 +311,21 @@ function CheckboxNextToLabel({
   const font = shown ? "font-bold" : "";
 
   return (
-    <li
-      onMouseLeave={onMouseLeave}
-      className={`${font} flex min-h-6 items-center gap-2 rounded px-1 py-0.5 text-xs text-setta-700 dark:text-setta-200`}
-      onMouseOver={onMouseOver}
-    >
-      <div className="flex items-center">
+    <li onMouseLeave={onMouseLeave}>
+      <label
+        className={`${font} flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs text-setta-700 dark:text-setta-200 `}
+        onMouseOver={onMouseOver}
+        onClick={onClick}
+      >
         <input
           type="checkbox"
           className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
           checked={checked}
           onChange={onChange}
         />
-      </div>
-      <div className="flex-grow cursor-pointer" onClick={onClick}>
+
         <p className="truncate">{children}</p>
-      </div>
+      </label>
     </li>
   );
 }
@@ -338,28 +360,5 @@ function CreateNewRunGroupButton({ setShownRunGroup }) {
     >
       <i className="gg-add-r" /> New Run Group
     </button>
-  );
-}
-
-function GlobalParamSweepCode({ sectionId }) {
-  const code = useGetSectionInfo(sectionId, "code");
-  const theme = useCodeMirrorStyle();
-  const extensions = getExtensions({ sectionId, language: "python" });
-
-  function onChange(v) {
-    setSectionVariantAttr(sectionId, "code", v);
-  }
-
-  return (
-    <article
-      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0`}
-    >
-      <CodeMirror
-        value={code}
-        onChange={onChange}
-        theme={theme}
-        extensions={extensions}
-      />
-    </article>
   );
 }
