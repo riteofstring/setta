@@ -106,7 +106,7 @@ function RunGroupList({
           onChange={() => {
             toggleRunGroup(id);
           }}
-          onDoubleClick={() => setShownRunGroup(id)}
+          onClick={() => setShownRunGroup(id)}
           onMouseOver={() => setPreviewRunGroup(id)}
           onMouseLeave={() => setPreviewRunGroup(null)}
         >
@@ -304,36 +304,26 @@ function CheckboxNextToLabel({
   checked,
   shown,
   onChange,
-  onDoubleClick,
+  onClick,
   onMouseOver,
   onMouseLeave,
 }) {
   const font = shown ? "font-bold" : "";
 
   return (
-    <li
-      onMouseLeave={onMouseLeave}
-      onDoubleClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onDoubleClick(e);
-      }}
-    >
+    <li onMouseLeave={onMouseLeave}>
       <label
         className={`${font} flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs text-setta-700 dark:text-setta-200 `}
         onMouseOver={onMouseOver}
+        onClick={onClick}
       >
         <input
           type="checkbox"
           className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
           checked={checked}
           onChange={onChange}
-          onDoubleClick={(e) => {
-            console.log("onDoubleClick checkbox")
-            e.preventDefault();
-            e.stopPropagation();
-          }}
         />
+
         <p className="truncate">{children}</p>
       </label>
     </li>
