@@ -7,13 +7,14 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import {
-  createNewRunGroup,
+  initRunGroup,
   toggleRunGroup,
-  toggleRunGroupParamSweep,
   toggleRunGroupSection,
+  toggleRunGroupSectionParamSweep,
+  toggleRunGroupSectionVersion,
 } from "state/actions/runGroups/runGroups";
 import { setSectionVariantAttr } from "state/actions/sectionVariants";
-import { useRunGroups } from "state/definitions";
+import { useProjectConfig, useRunGroups } from "state/definitions";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useGetSectionInfo } from "state/hooks/sections";
@@ -68,11 +69,8 @@ function GlobalParamSweepGUI() {
   return (
     <>
       <section className="section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll @sm/multipane:flex-row  @sm/multipane:overflow-visible">
-        <article className="mt-2 flex flex-col gap-2 ">
-          <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-            Run Groups
-          </h3>
-          {/* <FilterSection /> */}
+        <article className="flex flex-col gap-2 ">
+          <FilterSection />
 
           <RunGroupList
             runGroups={runGroups}
@@ -83,10 +81,7 @@ function GlobalParamSweepGUI() {
           <CreateNewRunGroupButton setShownRunGroup={setShownRunGroup} />
         </article>
         {runGroups[toShow] && (
-          <article className="mt-2 flex flex-1 flex-col gap-2 overflow-x-hidden">
-            <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-              Sections
-            </h3>
+          <article className="flex flex-1 flex-col gap-2 overflow-x-hidden ">
             <FilterSection />
             <SectionList runGroupId={toShow} runGroup={runGroups[toShow]} />
           </article>
@@ -102,19 +97,26 @@ function RunGroupList({
   setShownRunGroup,
   setPreviewRunGroup,
 }) {
+  const runGroupSelection = useProjectConfig(
+    (x) => x.runGroupSelection,
+    _.isEqual,
+  );
+
+  console.log();
+
   return (
     <ul className="noscroll nowheel flex flex-grow flex-col overflow-y-scroll">
-      {Object.entries(runGroups).map(([id, x], idx) => (
+      {Object.entries(runGroups).map(([id, x]) => (
         <CheckboxNextToLabel
-          key={idx}
+          key={id}
           shown={shownRunGroup === id}
-          checked={x.selected}
+          checked={runGroupSelection[id]}
           onChange={() => {
             toggleRunGroup(id);
           }}
+          onClick={() => setShownRunGroup(id)}
           onMouseOver={() => setPreviewRunGroup(id)}
           onMouseLeave={() => setPreviewRunGroup(null)}
-          onClick={() => setShownRunGroup(id)}
         >
           {x.name}
         </CheckboxNextToLabel>
@@ -159,7 +161,7 @@ function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
     <div style={{ paddingLeft: `${0.75 * sectionInfo.depth}rem` }}>
       <li className="flex flex-col">
         <CheckboxGroup
-          checked={!_.isNil(runGroupSection)}
+          checked={runGroupSection?.selected ?? false}
           onChange={onSectionCheckboxChange}
         >
           {sectionInfo.name}
@@ -182,17 +184,17 @@ function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
 function _VersionsList({ sectionInfo, runGroupId, runGroupSection }) {
   const allVersions = useGetSectionVariantNames(sectionInfo.id);
 
-  function getOnParamSweepCheckboxChange(paramSweepId) {
+  function getOnVersionCheckboxChange(versionId) {
     return () =>
-      toggleRunGroupParamSweep({
+      toggleRunGroupSectionVersion({
         id: runGroupId,
         sectionId: sectionInfo.id,
-        paramSweepId,
+        versionId,
       });
   }
 
   function isChecked(id) {
-    return !!runGroupSection?.[id];
+    return !!runGroupSection?.selected && !!runGroupSection?.versions?.[id];
   }
 
   return (
@@ -201,7 +203,7 @@ function _VersionsList({ sectionInfo, runGroupId, runGroupSection }) {
       inputList={allVersions}
       listName="Versions"
       isChecked={isChecked}
-      onChange={getOnParamSweepCheckboxChange}
+      onChange={getOnVersionCheckboxChange}
     />
   );
 }
@@ -213,7 +215,7 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
 
   function getOnParamSweepCheckboxChange(paramSweepId) {
     return () =>
-      toggleRunGroupParamSweep({
+      toggleRunGroupSectionParamSweep({
         id: runGroupId,
         sectionId: sectionInfo.id,
         paramSweepId,
@@ -221,7 +223,7 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
   }
 
   function isChecked(id) {
-    return !!runGroupSection?.[id];
+    return !!runGroupSection?.selected && !!runGroupSection?.paramSweeps?.[id];
   }
 
   return (
@@ -236,32 +238,17 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
 }
 
 const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
-{
-  /* <StandardAccordion
-rootStyles="w-full"
-itemStyles="focus-within:relative focus-within:z-10"
-headerStyles="flex flex-1 cursor-default items-center justify-between mb-2"
-triggerStyles="flex w-full items-center outline-none hover:cursor-pointer rounded-md"
-contentStyles="rounded-xl text-xs data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp bg-[rgba(226,_232,_240,_0.2)] overflow-hidden"
-heading={heading}
-value={value}
-defaultValue={defaultValue}
-data-state={open}
->
-{children}
-</StandardAccordion> */
-}
 
 function _GenericList({ minLength, inputList, listName, isChecked, onChange }) {
   return (
     inputList.length > minLength && (
       <>
         <StandardAccordion
-          rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700  rounded-lg px-2 ml-4 -mr-2 -mt-1"
+          rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700 py-0.5 rounded-lg px-2 ml-4 -mr-2"
           itemStyles="focus-within:relative focus-within:z-10"
           headerStyles="flex flex-1 cursor-default items-center justify-between my-1"
-          triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md text-xs text-setta-500 dark:text-setta-300"
-          contentStyles="text-xs overflow-hidden  mb-1"
+          triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md text-xs text-setta-500 dark:text-setta-500 uppercase font-bold "
+          contentStyles="text-xs data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp overflow-hidden  mb-1"
           heading={listName}
           value={listName}
           internalWrapper={false}
@@ -314,30 +301,24 @@ function CheckboxNextToLabel({
   onMouseOver,
   onMouseLeave,
 }) {
+  const font = shown ? "font-bold" : "";
+
   return (
-    <li
-      className="group/runitem flex justify-between"
-      onMouseOver={onMouseOver}
-      onMouseLeave={onMouseLeave}
-    >
+    <li onMouseLeave={onMouseLeave}>
       <label
-        className={`flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs text-setta-700 group-hover/runitem:!text-blue-500 dark:text-setta-200 ${shown ? "font-bold !text-blue-500" : ""}`}
+        className={`${font} flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs text-setta-700 dark:text-setta-200 `}
+        onMouseOver={onMouseOver}
+        onClick={onClick}
       >
         <input
           type="checkbox"
-          className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/15 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+          className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
           checked={checked}
           onChange={onChange}
         />
 
         <p className="truncate">{children}</p>
       </label>
-      <button
-        className={`cursor-pointer text-transparent hover:!text-setta-500 group-hover/runitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/runitem:text-setta-600 ${shown ? "!text-blue-500" : ""}`}
-        onClick={onClick}
-      >
-        <i className="gg-pen  " />
-      </button>
     </li>
   );
 }
@@ -361,7 +342,7 @@ function FilterSection() {
 function CreateNewRunGroupButton({ setShownRunGroup }) {
   function onClick() {
     const id = createNewId();
-    createNewRunGroup({ id, name: createRandomName() });
+    initRunGroup({ id, name: createRandomName() });
     setShownRunGroup(id);
   }
 

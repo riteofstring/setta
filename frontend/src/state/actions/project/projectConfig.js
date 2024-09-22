@@ -9,5 +9,10 @@ export function setProjectConfigName(name) {
 }
 
 export function getProjectConfigMetadata() {
-  return _.pick(useProjectConfig.getState(), ["id", "name", "isDefault"]);
+  return _.pick(useProjectConfig.getState(), [
+    "id",
+    "name",
+    "isDefault",
+    "runGroupSelection",
+  ]);
 }

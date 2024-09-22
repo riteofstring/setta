@@ -54,6 +54,7 @@ function PythonCodeArea({ sectionId, language }) {
       null,
       dbCodeAreaCompletion,
       setLocalKeywordPositions,
+      language,
     ),
     [sectionId],
   );

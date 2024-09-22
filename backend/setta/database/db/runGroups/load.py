@@ -1,28 +1,20 @@
+import json
+
+
 def load_run_groups(db, projectConfigId):
     query = """
-        SELECT RunGroupId.id, RunGroupId.name, RunGroupId.selected, RunGroup.sectionId, RunGroup.paramSweepId
-        FROM RunGroupId
+        SELECT ProjectConfigRunGroup.selected, RunGroup.id, RunGroup.jsonRepr
+        FROM ProjectConfigRunGroup
         LEFT JOIN RunGroup
-        ON RunGroupId.id = RunGroup.idid
-        WHERE RunGroupId.projectConfigId = :projectConfigId
-        ORDER BY RunGroupId."order"
+        ON ProjectConfigRunGroup.runGroupId = RunGroup.id
+        WHERE ProjectConfigRunGroup.projectConfigId = :projectConfigId
+        ORDER BY ProjectConfigRunGroup."order"
     """
     db.execute(query, {"projectConfigId": projectConfigId})
-    output = {}
+    runGroups = {}
+    selected = {}
     for row in db.fetchall():
-        id = row["id"]
-        if id not in output:
-            output[id] = {
-                "name": row["name"],
-                "selected": row["selected"],
-                "sections": {},
-            }
-        curr = output[id]["sections"]
-        sectionId = row["sectionId"]
-        paramSweepId = row["paramSweepId"]
-        if sectionId is not None:
-            if sectionId not in curr:
-                curr[sectionId] = {}
-            if paramSweepId:
-                curr[sectionId][paramSweepId] = True
-    return output
+        runGroups[row["id"]] = json.loads(row["jsonRepr"])
+        selected[row["id"]] = row["selected"]
+
+    return runGroups, selected

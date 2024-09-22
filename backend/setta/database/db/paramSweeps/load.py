@@ -1,7 +1,7 @@
 def load_param_sweeps(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT ParamSweepId.id, ParamSweepId.name, ParamSweep.selectedItem, ParamSweep.paramInfoId, ParamSweep.value
+        SELECT ParamSweepId.id, ParamSweepId.name, ParamSweep.selectedItemGroupNum, ParamSweep.paramInfoGroupNum, ParamSweep.selectedItem, ParamSweep.paramInfoId, ParamSweep.value
         FROM ParamSweepId
         LEFT JOIN ParamSweep
         ON ParamSweepId.id = ParamSweep.idid
@@ -18,21 +18,23 @@ def load_param_sweeps(db, ids):
                 "sweep": [],
             }
         curr = output[id]["sweep"]
-        if row["selectedItem"] is None and row["paramInfoId"] is None:
+
+        selectedItemGroupNum = row["selectedItemGroupNum"]
+        if selectedItemGroupNum is None:
             continue
-        matching_selected_item = find_matching_and_append(curr, row, "selectedItem")
-        if not matching_selected_item:
+        if len(curr) <= selectedItemGroupNum:
             curr.append({"selectedItem": row["selectedItem"], "params": []})
-            matching_selected_item = curr[-1]
+        curr = curr[selectedItemGroupNum]["params"]
 
-        curr = matching_selected_item["params"]
-        matching_param = find_matching_and_append(curr, row, "paramInfoId")
-        if not matching_param:
+        paramInfoGroupNum = row["paramInfoGroupNum"]
+        if paramInfoGroupNum is None:
+            continue
+        if len(curr) <= paramInfoGroupNum:
             curr.append({"paramInfoId": row["paramInfoId"], "values": []})
-            matching_param = curr[-1]
+        curr = curr[paramInfoGroupNum]["values"]
 
-        curr = matching_param["values"]
-        curr.append(row["value"])
+        if row["value"] is not None:
+            curr.append(row["value"])
 
     return output
 

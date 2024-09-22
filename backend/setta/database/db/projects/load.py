@@ -72,7 +72,9 @@ def load_project_config_metadata(db, config_name):
 
 def load_project_config(db, project_config_name):
     projectConfig = load_project_config_metadata(db, project_config_name)
-    runGroups = load_run_groups(db, projectConfig["id"])
+    runGroups, projectConfig["runGroupSelection"] = load_run_groups(
+        db, projectConfig["id"]
+    )
     sections_data = load_sections(db, list(projectConfig["children"].keys()))
     sectionConfigs = load_section_configs(db, projectConfig["id"])
     sections = sections_data["sections"]

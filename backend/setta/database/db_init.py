@@ -53,7 +53,6 @@ CREATE_TABLES_COMMANDS = [
     );
     """,
     # SectionConfig model
-    # No foreign key to SectionVariantId
     """
     CREATE TABLE IF NOT EXISTS SectionConfig (
         projectConfigId TEXT,
@@ -68,11 +67,11 @@ CREATE_TABLES_COMMANDS = [
         PRIMARY KEY (projectConfigId, sectionId),
         FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
         FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE
+        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
+        FOREIGN KEY (variantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
     );
     """,
     # SectionVariantId model
-    # No foreign keys, to avoid having to store duplicate data when different db sources are used.
     """
     CREATE TABLE IF NOT EXISTS SectionVariantId (
         id TEXT PRIMARY KEY,
@@ -80,11 +79,12 @@ CREATE_TABLES_COMMANDS = [
         selectedItem TEXT,
         code TEXT,
         keywordPositions TEXT,
-        originSectionId TEXT
+        originSectionId TEXT,
+        FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
+        FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
     # SectionVariantEV model
-    # Only foreign key to SectionVariantId, to avoid having to store duplicate data when different db sources are used.
     """
     CREATE TABLE IF NOT EXISTS SectionVariantEV (
         idid TEXT,
@@ -92,18 +92,19 @@ CREATE_TABLES_COMMANDS = [
         value TEXT,
         keywordPositions TEXT,
         PRIMARY KEY (idid, codeInfoId),
-        FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE
+        FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
+        FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
     );
     """,
     # SectionVariantChildren model
-    # Only foreign key to SectionVariantId, to avoid having to store duplicate data when different db sources are used.
     """
     CREATE TABLE IF NOT EXISTS SectionVariantChildren (
         idid TEXT,
         childId TEXT,
         "order" INTEGER,
         PRIMARY KEY (idid, childId),
-        FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE
+        FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
+        FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
     # UIType model
@@ -181,24 +182,20 @@ CREATE_TABLES_COMMANDS = [
     );
     """,
     """
-    CREATE TABLE IF NOT EXISTS RunGroupId (
+    CREATE TABLE IF NOT EXISTS RunGroup (
         id TEXT PRIMARY KEY,
-        name TEXT,
-        projectConfigId TEXT,
-        "order" INTEGER,
-        selected BOOLEAN,
-        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE
+        jsonRepr TEXT
     );
     """,
     """
-    CREATE TABLE IF NOT EXISTS RunGroup (
-        idid TEXT,
-        sectionId TEXT,
-        paramSweepId TEXT,
-        PRIMARY KEY (idid, sectionId, paramSweepId),
-        FOREIGN KEY (idid) REFERENCES RunGroupId(id) ON DELETE CASCADE,
-        FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE
+    CREATE TABLE IF NOT EXISTS ProjectConfigRunGroup (
+        projectConfigId TEXT KEY,
+        runGroupId TEXT KEY,
+        selected BOOLEAN,
+        "order" INTEGER,
+        PRIMARY KEY (projectConfigId, runGroupId),
+        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id),
+        FOREIGN KEY (runGroupId) REFERENCES RunGroup(id)
     );
     """,
     """
@@ -209,15 +206,16 @@ CREATE_TABLES_COMMANDS = [
         FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
-    # No foreign key to SectionVariantId
     """
     CREATE TABLE IF NOT EXISTS ParamSweep (
         idid TEXT,
+        selectedItemGroupNum INTEGER,
+        paramInfoGroupNum INTEGER,
         selectedItem TEXT,
         paramInfoId TEXT,
         "order" INTEGER,
         value TEXT,
-        PRIMARY KEY (idid, selectedItem, paramInfoId, "order"),
+        PRIMARY KEY (idid, "order"),
         FOREIGN KEY (idid) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
         FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
         FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
