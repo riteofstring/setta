@@ -105,7 +105,6 @@ export function DrawOnImage({ sectionId }) {
         image.width * scale,
         image.height * scale,
       );
-      ctx.globalCompositeOperation = "source-over";
     } else {
       const [defaultWidth, defaultHeight] = [500, 500];
       backgroundCanvas.width =
@@ -130,9 +129,6 @@ export function DrawOnImage({ sectionId }) {
         drawStrokes(canvas, ctx);
       }
     }
-
-    ctx.globalCompositeOperation = "source-over";
-    canvas.style.opacity = 1;
   }
 
   function drawStrokes(canvas, ctx) {
@@ -248,6 +244,13 @@ export function DrawOnImage({ sectionId }) {
     ctx.stroke();
     prevPointRef.current = point;
     strokesRef.current[strokesRef.current.length - 1].points.push(point);
+    if (strokesRef.current[strokesRef.current.length - 1].points.length >= 50) {
+      console.log("transfering to real canvas");
+      setCanvasProperties({ doDrawStrokes: true });
+      setDraftCanvasProperties();
+      clearCanvas(draftCanvasRef);
+      onMouseDown(e);
+    }
   }
 
   function onMouseUp() {
