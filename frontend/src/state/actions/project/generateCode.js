@@ -119,8 +119,14 @@ function* getProjectVariants(project) {
         allSweeps.push([{ selectedItem: s.selectedItem }]);
       } else {
         for (const paramDetails of s.params) {
+          if (!paramDetails.paramInfoId) {
+            continue;
+          }
           const curr = [];
           for (const value of paramDetails.values) {
+            if (!value) {
+              continue;
+            }
             curr.push({
               paramSweepId,
               selectedItem: s.selectedItem,
