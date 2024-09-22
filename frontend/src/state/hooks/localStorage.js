@@ -17,7 +17,6 @@ export const localStorageFns = {
   uiEditorVis: { init: false },
   uiEditorWidth: { init: INITIAL_UI_EDITOR_WIDTH },
   uiEditorTrueWidth: { init: CLOSED_PANE_WIDTH },
-  shownRunGroup: { init: null },
 };
 
 for (const [k, v] of Object.entries(localStorageFns)) {
