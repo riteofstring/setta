@@ -36,7 +36,8 @@ export function DrawOnImage({ sectionId }) {
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState("#ff0000");
-  const [opacity, setOpacity] = useState(0.5);
+  const [opacity, setOpacity] = useState(1);
+  const brushOpacity = 0.5
   const [brushSize, setBrushSize] = useState(16);
   const [eraserBrushSize, setEraserBrushSize] = useState(16);
   const [isEraser, setIsEraser] = useState(false);
@@ -58,8 +59,8 @@ export function DrawOnImage({ sectionId }) {
       dCtx.strokeStyle = color;
       dCtx.lineWidth = brushSize;
       dCtx.lineCap = "round";
-      dCtx.globalAlpha = 1;
-      draftCanvas.style.opacity = opacity;
+      dCtx.globalAlpha = brushOpacity;
+      // draftCanvas.style.opacity = brushOpacity;
     }
   }
 
@@ -225,7 +226,7 @@ export function DrawOnImage({ sectionId }) {
     }
     strokesRef.current.push({
       color: isEraser ? dCtx.strokeStyle : color,
-      opacity: 1,
+      opacity: brushOpacity,
       lineWidth: dCtx.lineWidth,
       points: [prevPointRef.current],
       canvasHeight: draftCanvas.height,
@@ -243,7 +244,7 @@ export function DrawOnImage({ sectionId }) {
     ctx.beginPath();
     ctx.moveTo(prevPointRef.current[0], prevPointRef.current[1]);
     ctx.lineTo(point[0], point[1]);
-    ctx.stroke();
+    
     prevPointRef.current = point;
     strokesRef.current[strokesRef.current.length - 1].points.push(point);
   }
@@ -254,6 +255,8 @@ export function DrawOnImage({ sectionId }) {
     }
     setIsDrawing(false);
     if (!isEraser) {
+      const ctx = getCtx(draftCanvasRef);
+      ctx.stroke();
       setCanvasProperties({ doDrawStrokes: true });
       setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
