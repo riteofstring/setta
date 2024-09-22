@@ -3,11 +3,11 @@ import type { Selection as D3Selection } from "d3";
 import { setActiveSectionIds } from "state/actions/sections/activeSections";
 import { useSectionInfos, useSectionRefs } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
+import { clamp } from "utils/utils";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import { Node, Rect, Transform, Viewport, XYPosition } from "../types";
 import {
   boxToRect,
-  clamp,
   getBoundsOfBoxes,
   getOverlappingArea,
   rectToBox,

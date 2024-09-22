@@ -15,6 +15,7 @@ import { closeAllContextMenus } from "state/actions/contextMenus";
 import { setProjectConfigFitViewOnInit } from "state/actions/project/projectConfig";
 import { useProjectConfig, useSettings } from "state/definitions";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
+import { clamp } from "utils/utils";
 import { shallow } from "zustand/shallow";
 import useResizeHandler from "../hooks/useResizeHandler";
 import { infiniteExtent } from "../store/initialState";
@@ -25,7 +26,7 @@ import {
   type ReactFlowState,
   type Viewport,
 } from "../types";
-import { clamp, isMacOs } from "../utils";
+import { isMacOs } from "../utils";
 
 const eventToFlowTransform = (eventTransform: ZoomTransform): Viewport => ({
   x: eventTransform.x,
