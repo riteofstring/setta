@@ -66,6 +66,8 @@ const ZoomPane = ({
   zoomOnDoubleClick = true,
   elementsSelectable,
   panOnDrag = true,
+  panActivationKeyPressed,
+  zoomActivationKeyPressed,
   translateExtent = infiniteExtent,
   preventScrolling = true,
   children,
@@ -76,8 +78,6 @@ const ZoomPane = ({
   const prevTransform = useRef<Viewport>({ x: 0, y: 0, zoom: 0 });
   const { d3Zoom, d3Selection, d3ZoomHandler, userSelectionActive } =
     useReactFlow(selector, shallow);
-  // const zoomActivationKeyPressed = useKeyPress(zoomActivationKeyCode);
-  const zoomActivationKeyPressed = false;
   const mouseButton = useRef<number>(0);
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
@@ -94,7 +94,10 @@ const ZoomPane = ({
         d3Selection.on(
           "wheel.zoom",
           (event: any) => {
-            if (isWrappedWithClass(event, NO_WHEEL_CLASS_NAME)) {
+            if (
+              isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
+              !zoomActivationKeyPressed
+            ) {
               return false;
             }
             event.preventDefault();
@@ -163,7 +166,8 @@ const ZoomPane = ({
           function (this: any, event: any, d: any) {
             if (
               !preventScrolling ||
-              isWrappedWithClass(event, NO_WHEEL_CLASS_NAME)
+              (isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
+                !zoomActivationKeyPressed)
             ) {
               return null;
             }
@@ -288,7 +292,8 @@ const ZoomPane = ({
         // if the target element is inside an element with the nowheel class, we prevent zooming
         if (
           isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
-          event.type === "wheel"
+          event.type === "wheel" &&
+          !zoomActivationKeyPressed
         ) {
           return false;
         }
@@ -296,7 +301,7 @@ const ZoomPane = ({
         // if the target element is inside an element with the nopan class, we prevent panning
         if (
           isWrappedWithClass(event, NO_PAN_CLASS_NAME) &&
-          (event.type !== "wheel" ||
+          ((event.type !== "wheel" && !panActivationKeyPressed) ||
             (panOnScroll &&
               event.type === "wheel" &&
               !zoomActivationKeyPressed))
@@ -354,6 +359,7 @@ const ZoomPane = ({
     zoomOnDoubleClick,
     panOnDrag,
     elementsSelectable,
+    panActivationKeyPressed,
     zoomActivationKeyPressed,
   ]);
 
