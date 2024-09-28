@@ -186,8 +186,10 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
     return indexA - indexB;
   });
 
-  const { codeInfoId } = getSectionInfo(sectionId);
-  const idsToChildren = { [codeInfoId]: [] };
+  //TODO: what should editing selectedName do? The following assumes it has no effect.
+  const selectedItem = getSectionSelectedItem(sectionId);
+  const parentId = selectedItem ?? getSectionInfo(sectionId).codeInfoId;
+  const idsToChildren = { [parentId]: [] };
 
   for (const v of output) {
     idsToChildren[v.id] = [];
@@ -203,7 +205,7 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
         idsToChildren[match.id].push(v.id);
       }
     } else {
-      idsToChildren[codeInfoId].push(v.id);
+      idsToChildren[parentId].push(v.id);
     }
   }
 
@@ -216,7 +218,7 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
       newInfos[v.id] = newCodeInfo({
         id: v.id,
         name: v.key,
-        editable: v.editable,
+        editable: v.editable ?? selectedItem === null,
         rcType: C.PARAMETER,
         isPinned: v.isPinned,
       });
