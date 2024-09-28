@@ -46,7 +46,6 @@ const NodeRenderer = ({}) => {
 
   useEffect(() => {
     return () => {
-      console.log("noderenderer garbage")
       resizeObserverRef?.current?.disconnect();
     };
   }, []);
