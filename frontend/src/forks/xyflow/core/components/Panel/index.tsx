@@ -1,7 +1,7 @@
 import cc from "classcat";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { type HTMLAttributes, type ReactNode } from "react";
-import type { PanelPosition, ReactFlowState } from "../types";
+import type { PanelPosition, ReactFlowState } from "../../types";
 
 export type PanelProps = HTMLAttributes<HTMLDivElement> & {
   position: PanelPosition;
@@ -14,6 +14,8 @@ const selector = (s: ReactFlowState) =>
 function Panel({ position, children, className, style, ...rest }: PanelProps) {
   const pointerEvents = useReactFlow(selector);
   const positionClasses = `${position}`.split("-");
+
+  // console.log("Panel")
 
   return (
     <div

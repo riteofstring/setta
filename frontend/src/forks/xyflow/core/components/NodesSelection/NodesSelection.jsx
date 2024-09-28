@@ -20,9 +20,21 @@ function _NodesSelection({ x, y, width, height }) {
     openSelectionContextMenu(event, selectedNodeIds);
   };
 
+  //   useEffect(() => {
+  //     if (!disableKeyboardA11y) {
+  //       nodeRef.current?.focus({
+  //         preventScroll: true,
+  //       });
+  //     }
+  //   }, [disableKeyboardA11y]);
+
   useDrag({
     nodeRef,
   });
+
+  //   if (userSelectionActive || !width || !height) {
+  //     return null;
+  //   }
 
   return (
     <div
@@ -39,6 +51,8 @@ function _NodesSelection({ x, y, width, height }) {
         ref={nodeRef}
         className="react-flow__nodesselection-rect"
         onContextMenu={onContextMenu}
+        // tabIndex={disableKeyboardA11y ? undefined : -1}
+        // onKeyDown={disableKeyboardA11y ? undefined : onKeyDown}
         style={{
           width,
           height,

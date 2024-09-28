@@ -1,6 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { type ReactNode } from "react";
-import type { ReactFlowState } from "../types";
+import type { ReactFlowState } from "../../types";
 
 const selector = (s: ReactFlowState) =>
   `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`;
