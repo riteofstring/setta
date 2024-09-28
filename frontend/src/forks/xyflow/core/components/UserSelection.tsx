@@ -1,6 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { shallow } from "zustand/shallow";
-import type { ReactFlowState } from "../../types";
+import type { ReactFlowState } from "../types";
 
 const selector = (s: ReactFlowState) => ({
   userSelectionActive: s.userSelectionActive,

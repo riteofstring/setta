@@ -18,7 +18,6 @@ const initialState: ReactFlowStore = {
   userSelectionRect: null,
   domNode: null,
   paneDragging: false,
-  noPanClassName: "nopan",
   nodeDragThreshold: 0,
   nodesDraggable: true,
   nodesFocusable: true,

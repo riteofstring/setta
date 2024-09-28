@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 
 import { useActiveSection } from "state/definitions";
-import type { Node, NodeDragItem, NodeInternals } from "../../types";
+import type { Node, NodeDragItem, NodeInternals } from "../types";
 
 export function hasSelector(
   target: Element,

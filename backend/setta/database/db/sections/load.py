@@ -251,6 +251,6 @@ def load_json_sources(sections, codeInfo, sectionVariants):
             }
             for variantId in s["variantIds"]:
                 sectionVariants[variantId]["values"][key] = {
-                    "value": v if isinstance(v, str) else json.dumps(v),
+                    "value": json.dumps(v),
                     "keywordPositions": [],
                 }

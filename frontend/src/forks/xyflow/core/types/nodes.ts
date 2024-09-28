@@ -38,10 +38,7 @@ export type WrapNodeProps<T = any> = Pick<Node<T>, "id" | "style"> &
     isSelectable: boolean;
     isDraggable: boolean;
     isFocusable: boolean;
-    selectNodesOnDrag: boolean;
     resizeObserver: ResizeObserver | null;
-    noDragClassName: string;
-    noPanClassName: string;
     zIndex: number;
   };
 

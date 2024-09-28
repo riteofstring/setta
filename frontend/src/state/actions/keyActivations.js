@@ -1,6 +1,7 @@
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { isMacOs } from "forks/xyflow/core/utils";
 import {
   activateParamSelect,
   deactivateParamSelect,
@@ -39,7 +40,7 @@ function parseShortcut(shortcutString) {
   let key = parts.find(
     (part) => !["ctrl", "shift", "alt", "mod"].includes(part),
   );
-  if (key !== undefined && key !== "enter") {
+  if (key !== undefined && key !== "enter" && key !== "space") {
     key = `key${key}`;
   }
 
@@ -52,15 +53,24 @@ function parseShortcut(shortcutString) {
   };
 }
 
-function isShortcutPressed(event, shortcut) {
+function isShortcutPressed(event, shortcut, _isMacOs) {
   const { mod, ctrl, shift, alt, key } = shortcut;
-  return (
-    event.metaKey === (ctrl || mod) &&
-    event.ctrlKey === ctrl &&
-    event.shiftKey === shift &&
-    event.altKey === alt &&
-    (key === undefined || event.code.toLowerCase() === key)
-  );
+  if (_isMacOs) {
+    return (
+      event.metaKey === mod &&
+      event.ctrlKey === ctrl &&
+      event.shiftKey === shift &&
+      event.altKey === alt &&
+      (key === undefined || event.code.toLowerCase() === key)
+    );
+  } else {
+    return (
+      event.ctrlKey === (ctrl || mod) &&
+      event.shiftKey === shift &&
+      event.altKey === alt &&
+      (key === undefined || event.code.toLowerCase() === key)
+    );
+  }
 }
 
 export function attachKeyEventListeners() {
@@ -81,14 +91,21 @@ export function attachKeyEventListeners() {
     [settings.formatCode, formatCode],
     [settings.paramSelect, activateParamSelect, deactivateParamSelect],
     [
-      settings.drawSelectionShortcut,
+      settings.selectionKeyCode,
       activateSelectionKeyPressed,
       deactivateSelectionKeyPressed,
     ],
     [
-      settings.multiSelectionShortcut,
+      settings.multiSelectionKeyCode,
       activateMultiSelectionPressed,
       deactivateMultiSelectionPressed,
+    ],
+    [settings.panActivationKeyCode, activatePanMode, deactivatePanMode],
+    [settings.zoomActivationKeyCode, activateZoomMode, deactivateZoomMode],
+    [
+      settings.moveSectionKeyCode,
+      activateMoveSectionMode,
+      deactivateMoveSectionMode,
     ],
     [
       settings.sortingShortcut,
@@ -104,6 +121,7 @@ export function attachKeyEventListeners() {
 
   const cleanup_functions = [];
   const keyUpActions = [];
+  const _isMacOs = isMacOs();
   for (const [keyCombo, action, keyUpAction] of conditionAndAction) {
     let cleanup;
     let lowercaseKeyCombo = keyCombo.toLowerCase();
@@ -112,7 +130,7 @@ export function attachKeyEventListeners() {
     //   cleanup = attachBuiltInListener(condition, action);
     // } else {
     cleanup = attachKeyDownListener((e) => {
-      if (lowercaseKeyCombo && isShortcutPressed(e, parsedShortcut)) {
+      if (lowercaseKeyCombo && isShortcutPressed(e, parsedShortcut, _isMacOs)) {
         // We don't want to prevent default if the shortcut is just Control or Alt
         // because this would prevent things like Ctrl + R for refreshing the page.
         if (
@@ -125,6 +143,7 @@ export function attachKeyEventListeners() {
             "ctrl + v",
             "mod + c",
             "mod + v",
+            "space",
           ].includes(lowercaseKeyCombo)
         ) {
           e.preventDefault();
@@ -173,4 +192,28 @@ function activateMultiSelectionPressed() {
 
 function deactivateMultiSelectionPressed() {
   useReactFlow.setState({ multiSelectionActive: false });
+}
+
+function activatePanMode() {
+  useReactFlow.setState({ panActivationKeyPressed: true });
+}
+
+function deactivatePanMode() {
+  useReactFlow.setState({ panActivationKeyPressed: false });
+}
+
+function activateZoomMode() {
+  useReactFlow.setState({ zoomActivationKeyPressed: true });
+}
+
+function deactivateZoomMode() {
+  useReactFlow.setState({ zoomActivationKeyPressed: false });
+}
+
+function activateMoveSectionMode() {
+  useReactFlow.setState({ moveSectionActivationKeyPressed: true });
+}
+
+function deactivateMoveSectionMode() {
+  useReactFlow.setState({ moveSectionActivationKeyPressed: false });
 }

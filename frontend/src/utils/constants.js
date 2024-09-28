@@ -147,3 +147,7 @@ export const PAGE_LOAD_TYPES = {
   LOAD_PROJECT_CONFIG: "LOAD_PROJECT_CONFIG",
   CHANGE_PROJECT_CONFIG_NAME: "CHANGE_PROJECT_CONFIG_NAME",
 };
+
+export const NO_DRAG_CLASS_NAME = "nodrag";
+export const NO_WHEEL_CLASS_NAME = "nowheel";
+export const NO_PAN_CLASS_NAME = "nopan";
