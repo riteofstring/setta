@@ -96,7 +96,8 @@ const ZoomPane = ({
           (event: any) => {
             if (
               isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
-              !zoomActivationKeyPressed
+              !zoomActivationKeyPressed &&
+              !(event.ctrlKey && zoomOnPinch && isMacOs())
             ) {
               return false;
             }
