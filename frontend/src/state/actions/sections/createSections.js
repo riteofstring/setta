@@ -15,6 +15,7 @@ import { newSectionPosition } from "utils/objs/sectionPosition";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
+import { updateKeywordRegex } from "../keywordRegex";
 import {
   getSectionChildren,
   initManySectionVariantIds,
@@ -106,6 +107,8 @@ export function addChildrenToSeries({
     newStateFn: (x) => insertIntoArray(x, startIdx, ...newIds),
   });
 
+  // TODO: either use a better subscription (current one looks at section names which gets updated before children are updated) so that we don't have to call updateKeywordRegex a second time here, or get rid of the subscription
+  updateKeywordRegex();
   maybeIncrementProjectStateVersion(incrementVersion);
 
   return newIds;
