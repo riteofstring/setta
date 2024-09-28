@@ -37,7 +37,7 @@
   "multiSelectionKeyCode": "Mod",
   "panActivationKeyCode": "Space",
   "zoomActivationKeyCode": "Mod",
-  "moveSectionKey": null,
+  "moveSectionKeyCode": "Mod",
   "panOnDrag": true,
   "panOnScroll": false,
   "panOnScrollSpeed": 0.5,

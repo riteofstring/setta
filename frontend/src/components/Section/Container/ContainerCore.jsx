@@ -1,3 +1,4 @@
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React from "react";
 import { openDeckContextMenu } from "state/actions/contextMenus";
@@ -25,12 +26,19 @@ function _Container({
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
   const width = !hasNested ? "min-w-[298px]" : "";
+  const moveSectionActivationKeyPressed = useReactFlow(
+    (x) => x.moveSectionActivationKeyPressed,
+  );
+
+  const pointerSelectCSS = moveSectionActivationKeyPressed
+    ? "pointer-events-none select-none"
+    : "";
 
   // transition-all active:shadow-lg
   if (isDeck) {
     return (
       <div
-        className={`flex ${width} flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
+        className={`${pointerSelectCSS} flex ${width} flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
         {...commonProps}
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
       >
@@ -49,7 +57,11 @@ function _Container({
     );
   }
   return (
-    <div className={className} style={style} {...commonProps}>
+    <div
+      className={`${pointerSelectCSS} ${className}`}
+      style={style}
+      {...commonProps}
+    >
       {children}
     </div>
   );

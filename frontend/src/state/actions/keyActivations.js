@@ -93,6 +93,11 @@ export function attachKeyEventListeners() {
     [settings.panActivationKeyCode, activatePanMode, deactivatePanMode],
     [settings.zoomActivationKeyCode, activateZoomMode, deactivateZoomMode],
     [
+      settings.moveSectionKeyCode,
+      activateMoveSectionMode,
+      deactivateMoveSectionMode,
+    ],
+    [
       settings.sortingShortcut,
       useDndState.getState().activateSortingMode,
       useDndState.getState().deactivateSortingMode,
@@ -191,4 +196,12 @@ function activateZoomMode() {
 
 function deactivateZoomMode() {
   useReactFlow.setState({ zoomActivationKeyPressed: false });
+}
+
+function activateMoveSectionMode() {
+  useReactFlow.setState({ moveSectionActivationKeyPressed: true });
+}
+
+function deactivateMoveSectionMode() {
+  useReactFlow.setState({ moveSectionActivationKeyPressed: false });
 }
