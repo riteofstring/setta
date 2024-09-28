@@ -24,7 +24,8 @@ function _Container({
   }
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
-  const width = !hasNested ? "min-w-[298px]" : "";
+  // const width = !hasNested ? "min-w-[298px]" : "";
+  const width = ""
 
   // transition-all active:shadow-lg
   if (isDeck) {
