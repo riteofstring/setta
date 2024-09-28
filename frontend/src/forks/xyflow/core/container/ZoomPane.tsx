@@ -167,7 +167,8 @@ const ZoomPane = ({
             if (
               !preventScrolling ||
               (isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
-                !zoomActivationKeyPressed)
+                !zoomActivationKeyPressed &&
+                !(event.ctrlKey && zoomOnPinch && isMacOs()))
             ) {
               return null;
             }
@@ -293,7 +294,8 @@ const ZoomPane = ({
         if (
           isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
           event.type === "wheel" &&
-          !zoomActivationKeyPressed
+          !zoomActivationKeyPressed &&
+          !(event.ctrlKey && zoomOnPinch && isMacOs())
         ) {
           return false;
         }
@@ -301,7 +303,7 @@ const ZoomPane = ({
         // if the target element is inside an element with the nopan class, we prevent panning
         if (
           isWrappedWithClass(event, NO_PAN_CLASS_NAME) &&
-          ((event.type !== "wheel" && !panActivationKeyPressed) ||
+          (event.type !== "wheel" ||
             (panOnScroll &&
               event.type === "wheel" &&
               !zoomActivationKeyPressed))
