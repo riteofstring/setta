@@ -83,7 +83,7 @@ export function updateNodeDimensions(updates) {
     return res;
   }, []);
 
-  console.log("updateNodeDimensions", fitViewOnInit, fitViewOnInitDone);
+  console.log("updateNodeDimensions", fitViewOnInitDone);
 
   const nextFitViewOnInitDone =
     fitViewOnInitDone ||
@@ -97,7 +97,10 @@ export function updateNodeDimensions(updates) {
   useNodeInternals.setState({
     x: _.cloneDeep(nodeInternals),
   });
+
+  console.log("nextFitViewOnInitDone", nextFitViewOnInitDone)
   useReactFlow.setState({ fitViewOnInitDone: nextFitViewOnInitDone });
+  console.log("useReactFlow.getState().fitViewOnInitDone", useReactFlow.getState().fitViewOnInitDone)
 
   if (changes?.length > 0) {
     onNodesChange(changes);

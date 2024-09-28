@@ -54,6 +54,7 @@ export function loadProjectState({
   setProjectConfig(_.omit(projectConfig, ["children"]));
   if (!projectConfig.viewport) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
+    console.log("loadProjectState set fitViewOnInitDone")
   } else {
     useReactFlow.setState({ fitViewOnInit: false, fitViewOnInitDone: true });
   }

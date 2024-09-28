@@ -27,6 +27,8 @@ export function fitView(
     fitViewOnInit,
   } = get();
 
+  console.log("fitView", fitViewOnInitDone)
+
   const { minZoom, maxZoom } = useSettings.getState();
 
   const isInitialFitView =
