@@ -13,6 +13,8 @@
   "resetZoomShortcut": "Mod + ,",
   "copyShortcut": "Mod + C",
   "pasteShortcut": "Mod + V",
+  "drawSelectionShortcut": "Shift",
+  "multiSelectionShortcut": "Mod",
   "sortingShortcut": "Shift",
   "movingFreeShortcut": "Alt",
   "updateInteractiveCode": "Mod + Enter",
@@ -31,18 +33,5 @@
   "autobackup": false,
   "autobackupFreq": 300,
   "autobackupKeepLastN": 10,
-  "leftSidePaneShiftsMap": true,
-  "selectionMode": "partial",
-  "selectionKeyCode": "Shift",
-  "multiSelectionKeyCode": "Mod",
-  "panActivationKeyCode": "Space",
-  "zoomActivationKeyCode": "Mod",
-  "moveSectionKeyCode": "Mod",
-  "panOnDrag": true,
-  "panOnScroll": false,
-  "panOnScrollSpeed": 0.5,
-  "panOnScrollMode": "free",
-  "zoomOnScroll": true,
-  "zoomOnPinch": true,
-  "zoomOnDoubleClick": true
+  "leftSidePaneShiftsMap": true 
 }

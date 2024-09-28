@@ -14,19 +14,30 @@ import { useEffect, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { setProjectConfigFitViewOnInit } from "state/actions/project/projectConfig";
 import { useProjectConfig, useSettings } from "state/definitions";
-import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import { clamp } from "utils/utils";
 import { shallow } from "zustand/shallow";
-import useResizeHandler from "../hooks/useResizeHandler";
-import { infiniteExtent } from "../store/initialState";
-import { containerStyle } from "../styles";
+import useResizeHandler from "../../hooks/useResizeHandler";
+import { containerStyle } from "../../styles";
 import {
   CoordinateExtent,
   PanOnScrollMode,
   type ReactFlowState,
   type Viewport,
-} from "../types";
-import { isMacOs } from "../utils";
+} from "../../types";
+import { clamp, isMacOs } from "../../utils";
+import type { FlowRendererProps } from "../FlowRenderer";
+
+type ZoomPaneProps = Omit<
+  FlowRendererProps,
+  "noDragClassName" | "selectionOnDrag"
+>;
+
+const viewChanged = (
+  prevViewport: Viewport,
+  eventTransform: ZoomTransform,
+): boolean =>
+  prevViewport.x !== eventTransform.x ||
+  prevViewport.y !== eventTransform.y ||
+  prevViewport.zoom !== eventTransform.k;
 
 const eventToFlowTransform = (eventTransform: ZoomTransform): Viewport => ({
   x: eventTransform.x,
@@ -37,8 +48,10 @@ const eventToFlowTransform = (eventTransform: ZoomTransform): Viewport => ({
 const isWrappedWithClass = (event: any, className: string | undefined) =>
   event.target.closest(`.${className}`);
 
-const isRightClickPan = (panOnDrag: boolean, usedButton: number) =>
-  usedButton === 2 && Array.isArray(panOnDrag) && panOnDrag.includes(2);
+const isRightClickPan = (
+  panOnDrag: FlowRendererProps["panOnDrag"],
+  usedButton: number,
+) => usedButton === 2 && Array.isArray(panOnDrag) && panOnDrag.includes(2);
 
 const wheelDelta = (event: any) => {
   const factor = event.ctrlKey && isMacOs() ? 10 : 1;
@@ -66,27 +79,81 @@ const ZoomPane = ({
   zoomOnDoubleClick = true,
   elementsSelectable,
   panOnDrag = true,
-  panActivationKeyPressed,
-  zoomActivationKeyPressed,
-  translateExtent = infiniteExtent,
+  translateExtent,
   preventScrolling = true,
   children,
-}) => {
+  noWheelClassName,
+  noPanClassName,
+}: ZoomPaneProps) => {
   const isZoomingOrPanning = useRef(false);
   const zoomedWithRightMouseButton = useRef(false);
   const zoomPane = useRef<HTMLDivElement>(null);
   const prevTransform = useRef<Viewport>({ x: 0, y: 0, zoom: 0 });
   const { d3Zoom, d3Selection, d3ZoomHandler, userSelectionActive } =
     useReactFlow(selector, shallow);
+  // const zoomActivationKeyPressed = useKeyPress(zoomActivationKeyCode);
+  const zoomActivationKeyPressed = false;
   const mouseButton = useRef<number>(0);
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const initialViewport = useProjectConfig(
+    (x) => x.viewport ?? { x: null, y: null, zoom: null },
+    _.isEqual,
+  );
+
   useResizeHandler(zoomPane);
 
   useEffect(() => {
-    const unsub = initialViewportSubscription({ zoomPane, translateExtent });
-    return unsub;
-  }, []);
+    // if fitview...
+    if (
+      initialViewport.x === null &&
+      initialViewport.y === null &&
+      initialViewport.zoom === null
+    ) {
+      return;
+    }
+
+    if (zoomPane.current) {
+      const bbox = zoomPane.current.getBoundingClientRect();
+      // .interpolate(interpolate) makes the interpolations linear instead of curved
+      const { minZoom, maxZoom } = useSettings.getState();
+      const d3ZoomInstance = zoom()
+        .interpolate(interpolate)
+        .scaleExtent([minZoom, maxZoom])
+        .translateExtent(translateExtent);
+      const selection = select(zoomPane.current as Element).call(
+        d3ZoomInstance,
+      );
+      const updatedTransform = zoomIdentity
+        .translate(initialViewport.x, initialViewport.y)
+        .scale(clamp(initialViewport.zoom, minZoom, maxZoom));
+      const extent: CoordinateExtent = [
+        [0, 0],
+        [bbox.width, bbox.height],
+      ];
+
+      const constrainedTransform = d3ZoomInstance.constrain()(
+        updatedTransform,
+        extent,
+        translateExtent,
+      );
+      d3ZoomInstance.transform(selection, constrainedTransform);
+      d3ZoomInstance.wheelDelta(wheelDelta);
+
+      useReactFlow.setState({
+        d3Zoom: d3ZoomInstance,
+        d3Selection: selection,
+        d3ZoomHandler: selection.on("wheel.zoom"),
+        // we need to pass transform because zoom handler is not registered when we set the initial transform
+        transform: [
+          constrainedTransform.x,
+          constrainedTransform.y,
+          constrainedTransform.k,
+        ],
+        domNode: zoomPane.current.closest(".react-flow") as HTMLDivElement,
+      });
+    }
+  }, [initialViewport.x, initialViewport.y, initialViewport.zoom]);
 
   useEffect(() => {
     if (d3Selection && d3Zoom) {
@@ -94,12 +161,7 @@ const ZoomPane = ({
         d3Selection.on(
           "wheel.zoom",
           (event: any) => {
-            if (
-              isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
-              !zoomActivationKeyPressed &&
-              !(event.ctrlKey && zoomOnPinch && isMacOs()) &&
-              !(panOnScroll && isPanScrolling.current)
-            ) {
+            if (isWrappedWithClass(event, noWheelClassName)) {
               return false;
             }
             event.preventDefault();
@@ -159,12 +221,6 @@ const ZoomPane = ({
             if (!isPanScrolling.current) {
               isPanScrolling.current = true;
             }
-
-            if (isPanScrolling.current) {
-              panScrollTimeout.current = setTimeout(() => {
-                isPanScrolling.current = false;
-              }, 150);
-            }
           },
           { passive: false },
         );
@@ -174,9 +230,7 @@ const ZoomPane = ({
           function (this: any, event: any, d: any) {
             if (
               !preventScrolling ||
-              (isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
-                !zoomActivationKeyPressed &&
-                !(event.ctrlKey && zoomOnPinch && isMacOs()))
+              isWrappedWithClass(event, noWheelClassName)
             ) {
               return null;
             }
@@ -198,6 +252,7 @@ const ZoomPane = ({
     zoomActivationKeyPressed,
     zoomOnPinch,
     preventScrolling,
+    noWheelClassName,
   ]);
 
   useEffect(() => {
@@ -300,17 +355,15 @@ const ZoomPane = ({
 
         // if the target element is inside an element with the nowheel class, we prevent zooming
         if (
-          isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
-          event.type === "wheel" &&
-          !zoomActivationKeyPressed &&
-          !(event.ctrlKey && zoomOnPinch && isMacOs())
+          isWrappedWithClass(event, noWheelClassName) &&
+          event.type === "wheel"
         ) {
           return false;
         }
 
         // if the target element is inside an element with the nopan class, we prevent panning
         if (
-          isWrappedWithClass(event, NO_PAN_CLASS_NAME) &&
+          isWrappedWithClass(event, noPanClassName) &&
           (event.type !== "wheel" ||
             (panOnScroll &&
               event.type === "wheel" &&
@@ -369,7 +422,6 @@ const ZoomPane = ({
     zoomOnDoubleClick,
     panOnDrag,
     elementsSelectable,
-    panActivationKeyPressed,
     zoomActivationKeyPressed,
   ]);
 
@@ -381,61 +433,3 @@ const ZoomPane = ({
 };
 
 export default ZoomPane;
-
-function initialViewportSubscription({ zoomPane, translateExtent }) {
-  let doneInit = false;
-  const unsub = useProjectConfig.subscribe(
-    (x) => x.viewport,
-    (viewport) => {
-      if (!viewport && doneInit) {
-        return;
-      }
-      const initialViewport = viewport ?? { x: 0, y: 0, zoom: 1 };
-      zoomPaneInit({ zoomPane, translateExtent, initialViewport });
-      doneInit = true;
-    },
-    { equalityFn: _.isEqual, fireImmediately: true },
-  );
-  return unsub;
-}
-
-function zoomPaneInit({ zoomPane, translateExtent, initialViewport }) {
-  if (zoomPane.current) {
-    const bbox = zoomPane.current.getBoundingClientRect();
-    const { minZoom, maxZoom } = useSettings.getState();
-    // .interpolate(interpolate) makes the interpolations linear instead of curved
-    const d3ZoomInstance = zoom()
-      .interpolate(interpolate)
-      .scaleExtent([minZoom, maxZoom])
-      .translateExtent(translateExtent);
-    const selection = select(zoomPane.current as Element).call(d3ZoomInstance);
-    const updatedTransform = zoomIdentity
-      .translate(initialViewport.x, initialViewport.y)
-      .scale(clamp(initialViewport.zoom, minZoom, maxZoom));
-    const extent: CoordinateExtent = [
-      [0, 0],
-      [bbox.width, bbox.height],
-    ];
-
-    const constrainedTransform = d3ZoomInstance.constrain()(
-      updatedTransform,
-      extent,
-      translateExtent,
-    );
-    d3ZoomInstance.transform(selection, constrainedTransform);
-    d3ZoomInstance.wheelDelta(wheelDelta);
-
-    useReactFlow.setState({
-      d3Zoom: d3ZoomInstance,
-      d3Selection: selection,
-      d3ZoomHandler: selection.on("wheel.zoom"),
-      // we need to pass transform because zoom handler is not registered when we set the initial transform
-      transform: [
-        constrainedTransform.x,
-        constrainedTransform.y,
-        constrainedTransform.k,
-      ],
-      domNode: zoomPane.current.closest(".react-flow") as HTMLDivElement,
-    });
-  }
-}

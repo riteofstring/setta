@@ -499,7 +499,11 @@ class SectionToDict:
                 value, prettyValue = self.export_params(param_children)
             else:
                 value, prettyValue = self.export_param_value(param_id)
-            params[codeInfo["name"]] = {"value": value, "id": param_id}
+            params[codeInfo["name"]] = {
+                "id": param_id,
+                "value": value,
+                "editable": codeInfo["editable"],
+            }
             prettyParams[codeInfo["name"]] = prettyValue
         return params, prettyParams
 

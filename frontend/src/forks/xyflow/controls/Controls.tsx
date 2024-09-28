@@ -1,4 +1,5 @@
 import cc from "classcat";
+import { Panel } from "forks/xyflow/core";
 import { zoomIn, zoomOut } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
@@ -11,7 +12,6 @@ import {
 } from "react";
 import { useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
-import Panel from "../core/components/Panel";
 import ControlButton from "./ControlButton";
 import FitviewIcon from "./Icons/FitView";
 import LockIcon from "./Icons/Lock";

@@ -124,7 +124,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   );
 }
 
-export function useCodeAreaHeight({ sectionId }) {
+function useCodeAreaHeight({ sectionId }) {
   const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
   const height = useSectionInfos((x) => x.x[sectionId].size.height);
 

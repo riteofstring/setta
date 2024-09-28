@@ -85,6 +85,7 @@ export function TextInputCodeMirror({
           keywordPositions={keywordPositions}
           placeholder={defaultVal}
           language={language}
+          isDisabled={isDisabled}
         />
       )}
       {activationEvent && (

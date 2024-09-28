@@ -1,26 +1,29 @@
-import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
+import { NodeWrapper } from "forks/xyflow/core/components/Nodes/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { updateNodeDimensions } from "state/actions/nodeInternals";
 import { shallow } from "zustand/shallow";
-import useVisibleNodes from "../hooks/useVisibleNodes";
-import { containerStyle } from "../styles";
-import type { ReactFlowState } from "../types";
+import useVisibleNodes from "../../hooks/useVisibleNodes";
+import { containerStyle } from "../../styles";
+import type { ReactFlowState } from "../../types";
+import { GraphViewProps } from "../GraphView";
+
+type NodeRendererProps = Pick<
+  GraphViewProps,
+  "selectNodesOnDrag" | "noPanClassName" | "noDragClassName"
+>;
 
 const selector = (s: ReactFlowState) => ({
   nodesDraggable: s.nodesDraggable,
   nodesFocusable: s.nodesFocusable,
   elementsSelectable: s.elementsSelectable,
-  panActivationKeyPressed: s.panActivationKeyPressed,
 });
 
-const NodeRenderer = ({}) => {
-  const {
-    nodesDraggable,
-    nodesFocusable,
-    elementsSelectable,
-    panActivationKeyPressed,
-  } = useReactFlow(selector, shallow);
+const NodeRenderer = (props: NodeRendererProps) => {
+  const { nodesDraggable, nodesFocusable, elementsSelectable } = useReactFlow(
+    selector,
+    shallow,
+  );
   const nodes = useVisibleNodes();
   const resizeObserverRef = useRef<ResizeObserver>();
 
@@ -54,14 +57,12 @@ const NodeRenderer = ({}) => {
     <div className="react-flow__nodes" style={containerStyle}>
       {nodes.map((node) => {
         const isDraggable = !!(
-          !panActivationKeyPressed &&
-          (node.draggable ||
-            (nodesDraggable && typeof node.draggable === "undefined"))
+          node.draggable ||
+          (nodesDraggable && typeof node.draggable === "undefined")
         );
         const isSelectable = !!(
-          !panActivationKeyPressed &&
-          (node.selectable ||
-            (elementsSelectable && typeof node.selectable === "undefined"))
+          node.selectable ||
+          (elementsSelectable && typeof node.selectable === "undefined")
         );
         const isFocusable = !!(
           node.focusable ||
@@ -78,11 +79,14 @@ const NodeRenderer = ({}) => {
             style={node.style}
             xPos={posX}
             yPos={posY}
+            selectNodesOnDrag={props.selectNodesOnDrag}
             selected={!!node.selected}
             isDraggable={isDraggable}
             isSelectable={isSelectable}
             isFocusable={isFocusable}
             resizeObserver={resizeObserver}
+            noDragClassName={props.noDragClassName}
+            noPanClassName={props.noPanClassName}
             initialized={!!node.width && !!node.height}
             zIndex={node.tempZIndex}
           />
