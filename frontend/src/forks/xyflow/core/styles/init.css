@@ -115,7 +115,7 @@
   pointer-events: all;
   transform-origin: 0 0;
   box-sizing: border-box;
-  cursor: grab;
+  cursor: move;
 
   &.dragging {
     cursor: grabbing;
