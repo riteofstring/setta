@@ -1,20 +1,26 @@
 import CodeMirror from "@uiw/react-codemirror";
+import { useCodeAreaHeight } from "components/Section/Layouts/CodeArea";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 
 export function YamlView({ sectionId, yamlValue, setYamlValue }) {
   const theme = useCodeMirrorStyle();
   const extensions = getExtensions({ sectionId, language: "yaml" });
+  const { wrapperRef, handleCreateEditor, maxHeight, overflow } =
+    useCodeAreaHeight({ sectionId });
 
   return (
     <article
-      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0`}
+      ref={wrapperRef}
+      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow}`}
     >
       <CodeMirror
+        maxHeight={maxHeight}
         value={yamlValue}
         onChange={setYamlValue}
         theme={theme}
         extensions={extensions}
+        onCreateEditor={handleCreateEditor}
       />
     </article>
   );
