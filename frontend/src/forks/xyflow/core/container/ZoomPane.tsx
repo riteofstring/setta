@@ -97,7 +97,8 @@ const ZoomPane = ({
             if (
               isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
               !zoomActivationKeyPressed &&
-              !(event.ctrlKey && zoomOnPinch && isMacOs())
+              !(event.ctrlKey && zoomOnPinch && isMacOs()) &&
+              !(panOnScroll && isPanScrolling.current)
             ) {
               return false;
             }
@@ -157,6 +158,12 @@ const ZoomPane = ({
             // because start and move gets called on every scroll event and not once at the beginning
             if (!isPanScrolling.current) {
               isPanScrolling.current = true;
+            }
+
+            if (isPanScrolling.current) {
+              panScrollTimeout.current = setTimeout(() => {
+                isPanScrolling.current = false;
+              }, 150);
             }
           },
           { passive: false },
