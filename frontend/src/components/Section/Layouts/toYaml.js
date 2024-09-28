@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { dbSectionToDict } from "requests/sections";
 import {
   addCodeInfoBatch,
+  batchUpdateCodeInfoAttrs,
   batchUpdateCodeInfoChildren,
 } from "state/actions/codeInfo";
 import { initializeParam } from "state/actions/initializeParam";
@@ -207,26 +208,28 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
   }
 
   const cState = useCodeInfo.getState().x;
-  const infos = {};
-  const newInfoIds = [];
+  const newInfos = {};
+  const updatedInfos = {};
   const paramInfoIdToValue = {};
   for (const v of output) {
-    infos[v.id] = newCodeInfo({
-      id: v.id,
-      name: v.key,
-      editable: v.editable,
-      rcType: C.PARAMETER,
-      isPinned: v.isPinned,
-    });
     if (!(v.id in cState)) {
-      newInfoIds.push(v.id);
+      newInfos[v.id] = newCodeInfo({
+        id: v.id,
+        name: v.key,
+        editable: v.editable,
+        rcType: C.PARAMETER,
+        isPinned: v.isPinned,
+      });
+    } else {
+      updatedInfos[v.id] = { name: v.key, isPinned: v.isPinned };
     }
     paramInfoIdToValue[v.id] = unprocessValue(v.value);
   }
 
-  addCodeInfoBatch(infos);
+  addCodeInfoBatch(newInfos);
+  batchUpdateCodeInfoAttrs(updatedInfos);
   batchUpdateCodeInfoChildren(idsToChildren);
-  initializeParam(sectionId, newInfoIds);
+  initializeParam(sectionId, Object.keys(newInfos));
   setParamEnteredValueBatch({ sectionId, paramInfoIdToValue });
 }
 
