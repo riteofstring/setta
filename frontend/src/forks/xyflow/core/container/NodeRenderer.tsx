@@ -11,13 +11,16 @@ const selector = (s: ReactFlowState) => ({
   nodesDraggable: s.nodesDraggable,
   nodesFocusable: s.nodesFocusable,
   elementsSelectable: s.elementsSelectable,
+  panActivationKeyPressed: s.panActivationKeyPressed,
 });
 
 const NodeRenderer = ({}) => {
-  const { nodesDraggable, nodesFocusable, elementsSelectable } = useReactFlow(
-    selector,
-    shallow,
-  );
+  const {
+    nodesDraggable,
+    nodesFocusable,
+    elementsSelectable,
+    panActivationKeyPressed,
+  } = useReactFlow(selector, shallow);
   const nodes = useVisibleNodes();
   const resizeObserverRef = useRef<ResizeObserver>();
 
@@ -51,12 +54,14 @@ const NodeRenderer = ({}) => {
     <div className="react-flow__nodes" style={containerStyle}>
       {nodes.map((node) => {
         const isDraggable = !!(
-          node.draggable ||
-          (nodesDraggable && typeof node.draggable === "undefined")
+          !panActivationKeyPressed &&
+          (node.draggable ||
+            (nodesDraggable && typeof node.draggable === "undefined"))
         );
         const isSelectable = !!(
-          node.selectable ||
-          (elementsSelectable && typeof node.selectable === "undefined")
+          !panActivationKeyPressed &&
+          (node.selectable ||
+            (elementsSelectable && typeof node.selectable === "undefined"))
         );
         const isFocusable = !!(
           node.focusable ||

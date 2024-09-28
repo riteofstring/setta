@@ -233,8 +233,7 @@ function useDrag({
             const target = event.target as HTMLDivElement;
             const isDraggable =
               !event.button &&
-              !hasSelector(target, `.${NO_DRAG_CLASS_NAME}`, nodeRef) &&
-              !useReactFlow.getState().panActivationKeyPressed;
+              !hasSelector(target, `.${NO_DRAG_CLASS_NAME}`, nodeRef);
 
             return isDraggable;
           });
