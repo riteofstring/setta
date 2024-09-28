@@ -39,7 +39,7 @@ function parseShortcut(shortcutString) {
   let key = parts.find(
     (part) => !["ctrl", "shift", "alt", "mod"].includes(part),
   );
-  if (key !== undefined && key !== "enter") {
+  if (key !== undefined && key !== "enter" && key !== "space") {
     key = `key${key}`;
   }
 
@@ -81,14 +81,21 @@ export function attachKeyEventListeners() {
     [settings.formatCode, formatCode],
     [settings.paramSelect, activateParamSelect, deactivateParamSelect],
     [
-      settings.drawSelectionShortcut,
+      settings.selectionKeyCode,
       activateSelectionKeyPressed,
       deactivateSelectionKeyPressed,
     ],
     [
-      settings.multiSelectionShortcut,
+      settings.multiSelectionKeyCode,
       activateMultiSelectionPressed,
       deactivateMultiSelectionPressed,
+    ],
+    [settings.panActivationKeyCode, activatePanMode, deactivatePanMode],
+    [settings.zoomActivationKeyCode, activateZoomMode, deactivateZoomMode],
+    [
+      settings.moveSectionKeyCode,
+      activateMoveSectionMode,
+      deactivateMoveSectionMode,
     ],
     [
       settings.sortingShortcut,
@@ -125,6 +132,7 @@ export function attachKeyEventListeners() {
             "ctrl + v",
             "mod + c",
             "mod + v",
+            "space",
           ].includes(lowercaseKeyCombo)
         ) {
           e.preventDefault();
@@ -173,4 +181,28 @@ function activateMultiSelectionPressed() {
 
 function deactivateMultiSelectionPressed() {
   useReactFlow.setState({ multiSelectionActive: false });
+}
+
+function activatePanMode() {
+  useReactFlow.setState({ panActivationKeyPressed: true });
+}
+
+function deactivatePanMode() {
+  useReactFlow.setState({ panActivationKeyPressed: false });
+}
+
+function activateZoomMode() {
+  useReactFlow.setState({ zoomActivationKeyPressed: true });
+}
+
+function deactivateZoomMode() {
+  useReactFlow.setState({ zoomActivationKeyPressed: false });
+}
+
+function activateMoveSectionMode() {
+  useReactFlow.setState({ moveSectionActivationKeyPressed: true });
+}
+
+function deactivateMoveSectionMode() {
+  useReactFlow.setState({ moveSectionActivationKeyPressed: false });
 }

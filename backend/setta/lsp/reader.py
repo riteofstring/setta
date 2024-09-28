@@ -105,9 +105,6 @@ def get_pyright_param_proposals(signature, _):
     proposals = []
     for param, description in params:
         # Extract parameter name and default value
-        if param.startswith("/"):
-            proposals.append((param, None, None))
-            continue
         parts = param.split("=")
         name = extract_variable_name(parts[0].strip())
         default = parts[1].strip() if len(parts) > 1 else None

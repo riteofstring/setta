@@ -1,6 +1,6 @@
-import json
 from collections import defaultdict
 
+import json
 from setta.code_gen.export_selected import (
     get_section_type,
     get_section_variants,
@@ -102,16 +102,11 @@ def create_project_config(db, name, previewImgColor):
         name = generate_memorable_string()
 
     query = """
-        INSERT INTO ProjectConfig (id, name, previewImgColor, viewport)
-        VALUES (:id, :name, :previewImgColor, :viewport)
+        INSERT INTO ProjectConfig (id, name, previewImgColor)
+        VALUES (:id, :name, :previewImgColor)
     """
     projectId = create_new_id()
-    query_params = {
-        "id": projectId,
-        "name": name,
-        "previewImgColor": previewImgColor,
-        "viewport": json.dumps({"x": 0, "y": 0, "zoom": 1}),
-    }
+    query_params = {"id": projectId, "name": name, "previewImgColor": previewImgColor}
     db.execute(query, query_params)
 
     query = """

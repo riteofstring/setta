@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Node, PanelPosition, XYPosition } from "forks/xyflow/core";
 import type {
   ComponentType,
   CSSProperties,
   HTMLAttributes,
   MouseEvent,
 } from "react";
+import { Node, PanelPosition, XYPosition } from "../core/types";
 
 export type GetMiniMapNodeAttribute<NodeData = any> = (
   node: Node<NodeData>,

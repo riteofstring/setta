@@ -61,16 +61,6 @@ export function addCodeInfoBatch(x) {
   });
 }
 
-export function batchUpdateCodeInfoAttrs(idToNewAttrs) {
-  useCodeInfo.setState((state) => {
-    for (const [id, newAttrs] of Object.entries(idToNewAttrs)) {
-      for (const [k, v] of Object.entries(newAttrs)) {
-        state.x[id][k] = v;
-      }
-    }
-  });
-}
-
 export function batchUpdateCodeInfoChildren(idToNewChildren) {
   useCodeInfo.setState((state) => {
     for (const [id, newChildren] of Object.entries(idToNewChildren)) {

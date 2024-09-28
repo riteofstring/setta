@@ -52,7 +52,7 @@ export function removeSectionInfos(payload) {
   useSectionInfos.setState((state) => {
     for (const id of payload) {
       const parentId = state.x[id]?.parentId;
-      if (parentId && state.x[parentId]?.variantId) {
+      if (parentId) {
         setSectionVariantChildren({
           sectionId: parentId,
           newStateFn: (children) => children.filter((x) => x !== id),
@@ -70,11 +70,6 @@ export function removeSectionInfos(payload) {
       }
 
       if (!isStillUsedInAVariant) {
-        useSectionVariants.setState((v) => {
-          for (const variantId of state.x[id].variantIds) {
-            delete v.x[variantId];
-          }
-        });
         delete state.x[id];
       }
     }

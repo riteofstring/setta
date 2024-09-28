@@ -96,15 +96,6 @@ export function setParamEnteredValue({
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
-export function setParamEnteredValueBatch({ sectionId, paramInfoIdToValue }) {
-  const { variantId } = getSectionVariantId(sectionId);
-  useSectionVariants.setState((state) => {
-    for (const [id, value] of Object.entries(paramInfoIdToValue)) {
-      state.x[variantId].values[id].value = value;
-    }
-  });
-}
-
 export function setParamKeywordPositions({
   sectionId,
   paramInfoId,
