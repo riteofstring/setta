@@ -8,7 +8,10 @@ import {
 } from "state/actions/codeInfo";
 import { initializeParam } from "state/actions/initializeParam";
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
-import { getSectionSelectedItem } from "state/actions/sectionVariants";
+import {
+  getSectionSelectedItem,
+  setParamEnteredValueBatch,
+} from "state/actions/sectionVariants";
 import { useCodeInfo } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { useGetSectionInfo } from "state/hooks/sections";
@@ -46,7 +49,8 @@ export async function toYaml(sectionId, setYamlValue, setOriginalObj) {
 
   const res = await dbSectionToDict(sectionId, pinnedIds, unpinnedIds);
   if (res.status === 200) {
-    const fullOriginalObj = parseValues(res.data);
+    const fullOriginalObj = processObject(res.data);
+    console.log("fullOriginalObj", fullOriginalObj);
     setOriginalObj(_.pick(fullOriginalObj, ["pinned", "unpinned"]));
     const pinnedStr = stringify(fullOriginalObj.prettyPinned);
     const unpinnedStr = stringify(fullOriginalObj.prettyUnpinned);
@@ -67,19 +71,36 @@ export async function toYaml(sectionId, setYamlValue, setOriginalObj) {
   }
 }
 
-function parseValues(obj) {
-  for (let key in obj) {
-    if (typeof obj[key] === "object" && obj[key] !== null) {
-      obj[key] = parseValues(obj[key]);
-    } else if (typeof obj[key] === "string") {
-      try {
-        obj[key] = JSON.parse(obj[key]);
-      } catch (e) {
-        // If parsing fails, keep the original value
-      }
+function processValue(value) {
+  if (typeof value === "string") {
+    if (value === "true") {
+      return true; // Convert string "true" to boolean true
+    } else if (value === "false") {
+      return false; // Convert string "false" to boolean false
+    } else if (!isNaN(value) && value !== "") {
+      return Number(value); // Convert numeric strings to numbers
+    } else {
+      return value; // Keep the string as is
+    }
+  } else if (Array.isArray(value)) {
+    // Recursively process each element in the array
+    return value.map(processValue);
+  } else if (typeof value === "object" && value !== null) {
+    // Recursively process nested objects
+    return processObject(value);
+  } else {
+    return value; // Return the value as is for other data types
+  }
+}
+
+function processObject(obj) {
+  const result = {};
+  for (const key in obj) {
+    if (Object.hasOwn(obj, key)) {
+      result[key] = processValue(obj[key]);
     }
   }
-  return obj;
+  return result;
 }
 
 export async function toGUI(sectionId, yamlValue, originalObj) {
@@ -186,6 +207,7 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
   const cState = useCodeInfo.getState().x;
   const infos = {};
   const newInfoIds = [];
+  const paramInfoIdToValue = {};
   for (const v of output) {
     infos[v.id] = newCodeInfo({
       id: v.id,
@@ -197,11 +219,13 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
     if (!(v.id in cState)) {
       newInfoIds.push(v.id);
     }
+    paramInfoIdToValue[v.id] = unprocessValue(v.value);
   }
 
   addCodeInfoBatch(infos);
   batchUpdateCodeInfoChildren(idsToChildren);
   initializeParam(sectionId, newInfoIds);
+  setParamEnteredValueBatch({ sectionId, paramInfoIdToValue });
 }
 
 function updateOutputs({ v, matches, usedOriginalIds, usedPaths, output }) {
@@ -223,6 +247,7 @@ function flattenObject(obj, isPrettyObj = false) {
           id,
           keyPath,
           value: null,
+          editable,
           key: keyPath[keyPath.length - 1],
         });
       }
@@ -290,4 +315,30 @@ function mergePinnedAndUnpinned(pinned, unpinned) {
   }
 
   return [...pinnedNotInUnpinned, ...unpinned];
+}
+
+function unprocessValue(value) {
+  if (typeof value === "boolean") {
+    return value.toString(); // Convert boolean to string "true" or "false"
+  } else if (typeof value === "number") {
+    return value.toString(); // Convert number to string
+  } else if (Array.isArray(value)) {
+    // Recursively process each element in the array
+    return value.map(unprocessValue);
+  } else if (typeof value === "object" && value !== null) {
+    // Recursively process nested objects
+    return unprocessObject(value);
+  } else {
+    return value; // Return the value as is for other data types (e.g., strings)
+  }
+}
+
+function unprocessObject(obj) {
+  const result = {};
+  for (const key in obj) {
+    if (Object.hasOwn(obj, key)) {
+      result[key] = unprocessValue(obj[key]);
+    }
+  }
+  return result;
 }
