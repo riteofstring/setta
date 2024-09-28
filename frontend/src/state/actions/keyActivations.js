@@ -132,6 +132,7 @@ export function attachKeyEventListeners() {
             "ctrl + v",
             "mod + c",
             "mod + v",
+            "space",
           ].includes(lowercaseKeyCombo)
         ) {
           e.preventDefault();
