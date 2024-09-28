@@ -1,19 +1,9 @@
-import type {
-  CoordinateExtent,
-  FitViewOptions,
-  Node,
-  PanOnScrollMode,
-  SelectionMode,
-} from ".";
+import type { CoordinateExtent, PanOnScrollMode } from ".";
 
 export type ReactFlowProps = {
-  nodes?: Node[];
-  selectionOnDrag?: boolean;
-  selectionMode?: SelectionMode;
   nodesDraggable?: boolean;
   nodesFocusable?: boolean;
   elementsSelectable?: boolean;
-  selectNodesOnDrag?: boolean;
   panOnDrag?: boolean | number[];
   translateExtent?: CoordinateExtent;
   preventScrolling?: boolean;
@@ -23,13 +13,7 @@ export type ReactFlowProps = {
   panOnScrollSpeed?: number;
   panOnScrollMode?: PanOnScrollMode;
   zoomOnDoubleClick?: boolean;
-  noDragClassName?: string;
-  noWheelClassName?: string;
-  noPanClassName?: string;
-  fitView?: boolean;
-  fitViewOptions?: FitViewOptions;
   autoPanOnNodeDrag?: boolean;
-  nodeDragThreshold?: number;
 };
 
 export type ReactFlowRefType = HTMLDivElement;

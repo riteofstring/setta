@@ -2,10 +2,11 @@ import cc from "classcat";
 import { SectionContainerNode } from "components/Section/Container/SectionContainerNode";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
-import useDrag from "../../hooks/useDrag";
-import useUpdateNodePositions from "../../hooks/useUpdateNodePositions";
-import type { WrapNodeProps, XYPosition } from "../../types";
-import { isInputDOMNode } from "../../utils";
+import { NO_PAN_CLASS_NAME } from "utils/constants";
+import useDrag from "../hooks/useDrag";
+import useUpdateNodePositions from "../hooks/useUpdateNodePositions";
+import type { WrapNodeProps, XYPosition } from "../types";
+import { isInputDOMNode } from "../utils";
 
 export const arrowKeyDiffs: Record<string, XYPosition> = {
   ArrowUp: { x: 0, y: -1 },
@@ -23,10 +24,7 @@ const _NodeWrapper = ({
   isDraggable,
   isSelectable,
   isFocusable,
-  selectNodesOnDrag,
   resizeObserver,
-  noDragClassName,
-  noPanClassName,
   initialized,
   zIndex,
 }: WrapNodeProps) => {
@@ -64,10 +62,8 @@ const _NodeWrapper = ({
   useDrag({
     nodeRef,
     disabled: !isDraggable,
-    noDragClassName,
     nodeId: id,
     isSelectable,
-    selectNodesOnDrag,
   });
 
   return (
@@ -76,7 +72,7 @@ const _NodeWrapper = ({
         "react-flow__node",
         {
           // this is overwritable by passing `nopan` as a class name
-          [noPanClassName]: isDraggable,
+          [NO_PAN_CLASS_NAME]: isDraggable,
         },
         {
           selectable: isSelectable,

@@ -11,9 +11,10 @@ import {
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
-import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
-import { calcAutoPan, getEventPosition } from "../../utils";
-import useGetPointerPosition from "../useGetPointerPosition";
+import { NO_DRAG_CLASS_NAME } from "utils/constants";
+import type { NodeDragItem, UseDragEvent, XYPosition } from "../types";
+import { calcAutoPan, getEventPosition } from "../utils";
+import useGetPointerPosition from "./useGetPointerPosition";
 import { getDragItems, hasSelector } from "./utils";
 
 export type UseDragData = { dx: number; dy: number };
@@ -21,19 +22,15 @@ export type UseDragData = { dx: number; dy: number };
 type UseDragParams = {
   nodeRef: RefObject<Element>;
   disabled?: boolean;
-  noDragClassName?: string;
   nodeId?: string;
   isSelectable?: boolean;
-  selectNodesOnDrag?: boolean;
 };
 
 function useDrag({
   nodeRef,
   disabled = false,
-  noDragClassName,
   nodeId,
   isSelectable,
-  selectNodesOnDrag,
 }: UseDragParams) {
   const [dragging, setDragging] = useState<boolean>(false);
   const dragItems = useRef<NodeDragItem[]>([]);
@@ -132,14 +129,12 @@ function useDrag({
         dragStarted.current = true;
 
         if (
-          (!selectNodesOnDrag || !isSelectable) &&
+          !isSelectable &&
           !multiSelectionActive &&
-          nodeId
+          nodeId &&
+          !nodeInternals.get(nodeId)?.selected
         ) {
-          if (!nodeInternals.get(nodeId)?.selected) {
-            // we need to reset selected nodes when selectNodesOnDrag=false
-            unselectNodesAndEdges();
-          }
+          unselectNodesAndEdges();
         }
 
         const pointerPos = getPointerPosition(event);
@@ -238,8 +233,7 @@ function useDrag({
             const target = event.target as HTMLDivElement;
             const isDraggable =
               !event.button &&
-              (!noDragClassName ||
-                !hasSelector(target, `.${noDragClassName}`, nodeRef));
+              !hasSelector(target, `.${NO_DRAG_CLASS_NAME}`, nodeRef);
 
             return isDraggable;
           });
@@ -251,15 +245,7 @@ function useDrag({
         };
       }
     }
-  }, [
-    nodeRef,
-    disabled,
-    noDragClassName,
-    isSelectable,
-    nodeId,
-    selectNodesOnDrag,
-    getPointerPosition,
-  ]);
+  }, [nodeRef, disabled, isSelectable, nodeId, getPointerPosition]);
 
   return dragging;
 }
