@@ -50,10 +50,10 @@ export async function toYaml(sectionId, setYamlValue, setOriginalObj) {
   const res = await dbSectionToDict(sectionId, pinnedIds, unpinnedIds);
   if (res.status === 200) {
     const fullOriginalObj = processObject(res.data);
-    console.log("fullOriginalObj", fullOriginalObj);
     setOriginalObj(_.pick(fullOriginalObj, ["pinned", "unpinned"]));
-    const pinnedStr = stringify(fullOriginalObj.prettyPinned);
-    const unpinnedStr = stringify(fullOriginalObj.prettyUnpinned);
+    const strConfig = { nullStr: "" };
+    const pinnedStr = stringify(fullOriginalObj.prettyPinned, strConfig);
+    const unpinnedStr = stringify(fullOriginalObj.prettyUnpinned, strConfig);
 
     let newYamlValue = "";
     if (!_.isNil(selectedItemName)) {
@@ -73,11 +73,13 @@ export async function toYaml(sectionId, setYamlValue, setOriginalObj) {
 
 function processValue(value) {
   if (typeof value === "string") {
-    if (value === "true") {
+    if (value === "") {
+      return null;
+    } else if (value === "true") {
       return true; // Convert string "true" to boolean true
     } else if (value === "false") {
       return false; // Convert string "false" to boolean false
-    } else if (!isNaN(value) && value !== "") {
+    } else if (!isNaN(value)) {
       return Number(value); // Convert numeric strings to numbers
     } else {
       return value; // Keep the string as is
@@ -328,6 +330,8 @@ function unprocessValue(value) {
   } else if (typeof value === "object" && value !== null) {
     // Recursively process nested objects
     return unprocessObject(value);
+  } else if (value === null) {
+    return "";
   } else {
     return value; // Return the value as is for other data types (e.g., strings)
   }
