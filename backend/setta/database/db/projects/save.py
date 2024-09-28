@@ -1,6 +1,6 @@
+import json
 from collections import defaultdict
 
-import json
 from setta.code_gen.export_selected import (
     get_section_type,
     get_section_variants,
