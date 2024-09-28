@@ -96,3 +96,8 @@ export function useSectionCode(sectionId) {
 export function useSectionKeywordPositions(sectionId) {
   return useSectionVariantAttr(sectionId, "keywordPositions", _.isEqual);
 }
+
+export function usePermanentHasNested(sectionId) {
+  const { variantId } = useSectionVariantMetadataIds(sectionId);
+  return useSectionVariants((x) => x.x[variantId].children.length > 0);
+}
