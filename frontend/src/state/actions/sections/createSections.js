@@ -96,6 +96,7 @@ export function addChildrenToSeries({
   const newIds = createSectionInfo({
     sectionProps: {
       parentId,
+      size: { height: "auto", width: getSectionInfo(parentId).size.width },
     },
     numSections: numChildren,
   });
