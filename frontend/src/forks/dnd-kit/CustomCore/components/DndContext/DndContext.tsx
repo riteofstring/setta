@@ -226,6 +226,7 @@ export const DndContext = memo(function DndContext({
     draggingNodeRect: null,
     droppableContainers,
     over: null,
+    sortableOver: null,
     scrollableAncestors: [],
     scrollAdjustedTranslate: null,
   });

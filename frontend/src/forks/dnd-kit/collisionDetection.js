@@ -193,27 +193,27 @@ export function getCustomCollisionDetection(isSorting) {
       }
     }
 
-    if (bestCollision) {
-      const _isTempSection = isTempSection(bestCollision.id);
-      const id = _isTempSection
-        ? sourceOfTempSection(bestCollision.id)
-        : bestCollision.id;
-      console.log(
-        "bestCollision",
-        `${getSectionInfo(id).name}${_isTempSection ? "TEMP" : ""}`,
-      );
-    }
+    // if (bestCollision) {
+    //   const _isTempSection = isTempSection(bestCollision.id);
+    //   const id = _isTempSection
+    //     ? sourceOfTempSection(bestCollision.id)
+    //     : bestCollision.id;
+    //   console.log(
+    //     "bestCollision",
+    //     `${getSectionInfo(id).name}${_isTempSection ? "TEMP" : ""}`,
+    //   );
+    // }
 
-    if (bestCollisionSortable) {
-      const _isTempSection = isTempSection(bestCollisionSortable.id);
-      const id = _isTempSection
-        ? sourceOfTempSection(bestCollisionSortable.id)
-        : bestCollisionSortable.id;
-      console.log(
-        "bestCollisionSortable",
-        `${getSectionInfo(id).name}${_isTempSection ? "TEMP" : ""}`,
-      );
-    }
+    // if (bestCollisionSortable) {
+    //   const _isTempSection = isTempSection(bestCollisionSortable.id);
+    //   const id = _isTempSection
+    //     ? sourceOfTempSection(bestCollisionSortable.id)
+    //     : bestCollisionSortable.id;
+    //   console.log(
+    //     "bestCollisionSortable",
+    //     `${getSectionInfo(id).name}${_isTempSection ? "TEMP" : ""}`,
+    //   );
+    // }
 
     return {
       bestCollision: bestCollision ? [bestCollision] : [],
