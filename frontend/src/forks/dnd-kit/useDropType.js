@@ -157,6 +157,7 @@ function maybeMoveToNewParent({
       childId: dndSectionId,
       index,
     });
+    console.log(dndChildrenState)
   }
 
   setNullBehavior(overId);

@@ -1,3 +1,5 @@
+import _ from "lodash";
+
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
 
 function compareCollisions(a, b) {
@@ -75,40 +77,38 @@ function getIntersectionRatio(entry, target) {
   return 0;
 }
 
-export const customCollisionDetection = ({
-  active,
-  collisionRect,
-  droppableRects,
-  droppableContainers,
-}) => {
-  let bestCollision = null;
-  const left = collisionRect.left;
+export const customCollisionDetection = _.throttle(
+  ({ active, collisionRect, droppableRects, droppableContainers }) => {
+    let bestCollision = null;
+    const left = collisionRect.left;
 
-  for (const droppableContainer of droppableContainers) {
-    const { id } = droppableContainer;
-    const rect = droppableRects.get(id);
+    for (const droppableContainer of droppableContainers) {
+      const { id } = droppableContainer;
+      const rect = droppableRects.get(id);
 
-    // rect must exist.
-    // If active doesn't have a parent, then don't look for overlap with self.
-    if (
-      rect &&
-      (active.data.current.sortable?.containerId || active.id !== id)
-    ) {
-      const ratio = getIntersectionRatio(rect, collisionRect);
-      if (ratio) {
-        const dist = left - rect.left;
-        bestCollision = compareCollisions(bestCollision, {
-          id,
-          data: {
-            droppableContainer,
-            absLeftDist: Math.abs(dist),
-            leftDist: dist,
-            intersectionRatio: ratio,
-          },
-        });
+      // rect must exist.
+      // If active doesn't have a parent, then don't look for overlap with self.
+      if (
+        rect &&
+        (active.data.current.sortable?.containerId || active.id !== id)
+      ) {
+        const ratio = getIntersectionRatio(rect, collisionRect);
+        if (ratio) {
+          const dist = left - rect.left;
+          bestCollision = compareCollisions(bestCollision, {
+            id,
+            data: {
+              droppableContainer,
+              absLeftDist: Math.abs(dist),
+              leftDist: dist,
+              intersectionRatio: ratio,
+            },
+          });
+        }
       }
     }
-  }
 
-  return bestCollision ? [bestCollision] : [];
-};
+    return bestCollision ? [bestCollision] : [];
+  },
+  500,
+);

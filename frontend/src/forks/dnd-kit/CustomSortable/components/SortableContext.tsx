@@ -75,6 +75,9 @@ export function SortableContext({
   // SETTA FORK CHANGE
   const activeIndex = getActiveIndex(active, items);
   // END OF SETTA FORK CHANGE
+  // console.log("items", items)
+  // console.log("active.id", active?.id);
+  // console.log("over.id", over?.id);
   const overIndex = over ? items.indexOf(over.id) : -1;
   const previousItemsRef = useRef(items);
   const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
