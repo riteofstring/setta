@@ -72,7 +72,9 @@ export function SortableContext({
     [userDefinedItems],
   );
   const isDragging = active != null;
+  // SETTA FORK CHANGE
   const activeIndex = getActiveIndex(active, items);
+  // END OF SETTA FORK CHANGE
   const overIndex = over ? items.indexOf(over.id) : -1;
   const previousItemsRef = useRef(items);
   const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
@@ -120,6 +122,7 @@ export function SortableContext({
   return <Context.Provider value={contextValue}>{children}</Context.Provider>;
 }
 
+// SETTA FORK CHANGE
 function getActiveIndex(active, items) {
   if (!active) {
     return -1;
@@ -127,3 +130,4 @@ function getActiveIndex(active, items) {
   const tempIndex = items.indexOf(getDndSectionId(active.id));
   return tempIndex >= 0 ? tempIndex : items.indexOf(active.id);
 }
+// END OF SETTA FORK CHANGE
