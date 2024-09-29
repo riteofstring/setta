@@ -1,8 +1,9 @@
 import C from "constants/constants.json";
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { getSectionIdToChildren } from "state/actions/sectionVariants";
-import { useSectionInfos, useSectionVariants } from "state/definitions";
+import {
+  manualDndChildrenReset,
+  setSectionInfoAttr,
+} from "state/actions/sections/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import {
   getForSectionId,
   useCurrParamSweepId,
@@ -56,9 +57,7 @@ function EVItems({ sectionId }) {
 
   function onClick(id) {
     setSectionInfoAttr({ sectionId, attr: "variantId", value: id });
-    useDndChildren
-      .getState()
-      .update(getSectionIdToChildren(useSectionVariants.getState().x));
+    manualDndChildrenReset();
   }
 
   return sectionVariantNames.map((e) => (

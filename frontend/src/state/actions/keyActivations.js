@@ -153,12 +153,12 @@ export function attachKeyEventListeners() {
     [
       settings.sortingShortcut,
       useDndState.getState().activateSortingMode,
-      useDndState.getState().deactivateSortingMode,
+      useDndState.getState().deactivate,
     ],
     [
       settings.movingFreeShortcut,
       useDndState.getState().activateMovingFreeMode,
-      useDndState.getState().deactivateMovingFreeMode,
+      useDndState.getState().deactivate,
     ],
   ];
 
