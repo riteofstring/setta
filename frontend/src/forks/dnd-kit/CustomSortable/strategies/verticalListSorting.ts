@@ -14,12 +14,7 @@ export const verticalListSortingStrategy: SortingStrategy = ({
   rects,
   overIndex,
 }) => {
-  console.log(
-    "rect tops",
-    rects.map((x) => x.top),
-  );
   const activeNodeRect = rects[activeIndex] ?? fallbackActiveRect;
-  // console.log("activeNodeRect", activeNodeRect);
 
   if (!activeNodeRect) {
     return null;
@@ -27,8 +22,6 @@ export const verticalListSortingStrategy: SortingStrategy = ({
 
   if (index === activeIndex) {
     const overIndexRect = rects[overIndex];
-
-    // console.log("activeIndex, overIndex", activeIndex, overIndex);
 
     if (!overIndexRect) {
       return null;

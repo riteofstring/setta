@@ -118,8 +118,6 @@ export function useSortable({
   const strategy = localStrategy ?? globalStrategy;
   const finalTransform = displaceItem
     ? dragSourceDisplacement ??
-      // _.throttle(
-      // () =>
       strategy({
         rects: sortedRects,
         activeNodeRect,
@@ -127,9 +125,7 @@ export function useSortable({
         overIndex,
         index,
       })
-    : // 0,
-      // )
-      null;
+    : null;
   const newIndex =
     isValidIndex(activeIndex) && isValidIndex(overIndex)
       ? getNewIndex({ id, items, activeIndex, overIndex })

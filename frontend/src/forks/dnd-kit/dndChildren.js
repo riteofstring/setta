@@ -14,20 +14,16 @@ export const useDndChildren = createProjectState(
           );
         }
 
-        console.log("add childId", newParentId, childId, index);
-
         state.x[newParentId] = [
           ...state.x[newParentId].slice(0, index),
           childId,
           ...state.x[newParentId].slice(index),
         ];
-        console.log("state.x[newParentId]", state.x[newParentId]);
 
         state.y[childId] = newParentId;
       }),
     removeChild: (childId) =>
       set((state) => {
-        console.log("removeChild");
         const oldParentId = state.y[childId];
         if (oldParentId) {
           state.x[oldParentId] = state.x[oldParentId].filter(
@@ -38,7 +34,6 @@ export const useDndChildren = createProjectState(
       }),
     replaceWithTemp: (id) =>
       set((state) => {
-        console.log("replaceWithTemp")
         const parentId = state.y[id];
         if (parentId) {
           const index = state.x[parentId].indexOf(id);
@@ -50,7 +45,6 @@ export const useDndChildren = createProjectState(
       }),
     update: (sectionIdsToChildren) =>
       set((state) => {
-        console.log("update")
         state.x = sectionIdsToChildren;
         state.y = {};
         for (const [id, children] of Object.entries(sectionIdsToChildren)) {
