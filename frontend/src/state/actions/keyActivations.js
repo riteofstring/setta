@@ -120,7 +120,7 @@ function keyUpLoop(e, shortcutInfo) {
 
 export function attachKeyEventListeners() {
   const settings = useSettings.getState();
-
+  
   const conditionAndAction = [
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, redoProjectState],
@@ -217,9 +217,10 @@ export function attachKeyEventListeners() {
   });
   cleanup_functions.push(cleanup);
 
-  window.addEventListener("blur", (e) => {
+  cleanup = window.addEventListener("blur", (e) => {
     keyUpLoop(e, shortcutInfo);
   });
+  cleanup_functions.push(cleanup);
 
   return () => {
     cleanup_functions.forEach((x) => x());
