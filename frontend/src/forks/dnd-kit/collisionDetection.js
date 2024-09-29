@@ -1,5 +1,8 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
 
+import { getSectionInfo } from "state/getters/sectionInfo";
+import { isTempSection, sourceOfTempSection } from "./dndState";
+
 function compareCollisions(a, b) {
   if (!a) {
     return b;
@@ -75,40 +78,148 @@ function getIntersectionRatio(entry, target) {
   return 0;
 }
 
-export const customCollisionDetection = ({
-  active,
-  collisionRect,
-  droppableRects,
-  droppableContainers,
-}) => {
-  let bestCollision = null;
-  const left = collisionRect.left;
-
-  for (const droppableContainer of droppableContainers) {
-    const { id } = droppableContainer;
-    const rect = droppableRects.get(id);
-
-    // rect must exist.
-    // If active doesn't have a parent, then don't look for overlap with self.
-    if (
-      rect &&
-      (active.data.current.sortable?.containerId || active.id !== id)
-    ) {
-      const ratio = getIntersectionRatio(rect, collisionRect);
-      if (ratio) {
-        const dist = left - rect.left;
-        bestCollision = compareCollisions(bestCollision, {
-          id,
-          data: {
-            droppableContainer,
-            absLeftDist: Math.abs(dist),
-            leftDist: dist,
-            intersectionRatio: ratio,
-          },
-        });
-      }
-    }
+function compareCollisionsForSorting(a, b) {
+  if (!a) {
+    return b;
+  }
+  if (!b) {
+    return a;
   }
 
-  return bestCollision ? [bestCollision] : [];
-};
+  return a.data.effectiveDistance < b.data.effectiveDistance ? a : b;
+}
+
+function distanceBetween(p1, p2) {
+  return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+}
+
+function cornersOfRectangle({ left, top, height, width }) {
+  return [
+    {
+      x: left,
+      y: top,
+    },
+    {
+      x: left + width,
+      y: top,
+    },
+    {
+      x: left,
+      y: top + height,
+    },
+    {
+      x: left + width,
+      y: top + height,
+    },
+  ];
+}
+
+function getBestCollisionSortable(
+  id,
+  corners,
+  rect,
+  bestCollisionSortable,
+  droppableContainer,
+) {
+  const rectCorners = cornersOfRectangle(rect);
+  const distances = corners.reduce((accumulator, corner, index) => {
+    return accumulator + distanceBetween(rectCorners[index], corner);
+  }, 0);
+  const effectiveDistance = Number((distances / 4).toFixed(4));
+  return compareCollisionsForSorting(bestCollisionSortable, {
+    id,
+    data: {
+      droppableContainer,
+      effectiveDistance,
+    },
+  });
+}
+
+export function getCustomCollisionDetection(isSorting) {
+  return ({ active, collisionRect, droppableRects, droppableContainers }) => {
+    if (isSorting && !active.data.current.sortable) {
+      return { bestCollision: [], bestCollisionSortable: [] };
+    }
+
+    let bestCollision = null;
+    let bestCollisionSortable = null;
+    const left = collisionRect.left;
+    const corners = cornersOfRectangle(collisionRect);
+
+    for (const droppableContainer of droppableContainers) {
+      const { id } = droppableContainer;
+      const rect = droppableRects.get(id);
+      if (!rect) {
+        continue;
+      }
+
+      if (!isSorting) {
+        // If active doesn't have a parent, then don't look for overlap with self.
+        if (active.data.current.sortable?.containerId || active.id !== id) {
+          const ratio = getIntersectionRatio(rect, collisionRect);
+          if (ratio) {
+            const dist = left - rect.left;
+            bestCollision = compareCollisions(bestCollision, {
+              id,
+              data: {
+                droppableContainer,
+                absLeftDist: Math.abs(dist),
+                leftDist: dist,
+                intersectionRatio: ratio,
+              },
+            });
+            bestCollisionSortable = getBestCollisionSortable(
+              id,
+              corners,
+              rect,
+              bestCollisionSortable,
+              droppableContainer,
+            );
+          }
+        }
+      } else {
+        if (
+          active.data.current.sortable.containerId ===
+          droppableContainer.data.current.sortable?.containerId
+        ) {
+          bestCollisionSortable = getBestCollisionSortable(
+            id,
+            corners,
+            rect,
+            bestCollisionSortable,
+            droppableContainer,
+          );
+        }
+      }
+    }
+
+    if (bestCollision) {
+      const _isTempSection = isTempSection(bestCollision.id);
+      const id = _isTempSection
+        ? sourceOfTempSection(bestCollision.id)
+        : bestCollision.id;
+      console.log(
+        "bestCollision",
+        `${getSectionInfo(id).name}${_isTempSection ? "TEMP" : ""}`,
+      );
+    }
+
+    if (bestCollisionSortable) {
+      const _isTempSection = isTempSection(bestCollisionSortable.id);
+      const id = _isTempSection
+        ? sourceOfTempSection(bestCollisionSortable.id)
+        : bestCollisionSortable.id;
+      console.log(
+        "bestCollisionSortable",
+        `${getSectionInfo(id).name}${_isTempSection ? "TEMP" : ""}`,
+      );
+    }
+
+    return {
+      bestCollision: bestCollision ? [bestCollision] : [],
+      bestCollisionSortable: bestCollisionSortable
+        ? [bestCollisionSortable]
+        : [],
+    };
+  };
+}

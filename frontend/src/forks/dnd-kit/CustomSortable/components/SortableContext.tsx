@@ -59,7 +59,7 @@ export function SortableContext({
     active,
     dragOverlay,
     droppableRects,
-    over,
+    sortableOver: over,
     measureDroppableContainers,
   } = useDndContext();
   const containerId = useUniqueId(ID_PREFIX, id);

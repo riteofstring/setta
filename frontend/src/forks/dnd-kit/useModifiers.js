@@ -4,8 +4,7 @@ import {
 } from "@dnd-kit/modifiers";
 import _ from "lodash";
 import { getSectionInfo, getSectionParentId } from "state/getters/sectionInfo";
-import { customCollisionDetection } from "./collisionDetection";
-import { customCollisionDetectionSorting } from "./collisionDetectionSorting";
+import { getCustomCollisionDetection } from "./collisionDetection";
 import { useDndState } from "./dndState";
 
 export function useModifiers() {
@@ -15,9 +14,7 @@ export function useModifiers() {
   );
 
   const modifiers = getModifiers(isSorting, activeId);
-  const collisionDetection = isSorting
-    ? customCollisionDetectionSorting
-    : customCollisionDetection;
+  const collisionDetection = getCustomCollisionDetection(isSorting);
 
   return { modifiers, collisionDetection };
 }
