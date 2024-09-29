@@ -18,22 +18,21 @@ import { groupSections } from "./sections/groupSections";
 import { focusOnArgsFilter } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
 
-function attachKeyDownListener(action) {
-  document.addEventListener("keydown", action);
+function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {
+  attachTo.addEventListener(eventName, action);
 
   // Return a cleanup function
   return () => {
-    document.removeEventListener("keydown", action);
+    attachTo.removeEventListener(eventName, action);
   };
 }
 
-function attachKeyUpListener(action) {
-  document.addEventListener("keyup", action);
+function attachKeyDownListener(action) {
+  return attachEventListenerAndReturnCleanup(document, "keydown", action);
+}
 
-  // Return a cleanup function
-  return () => {
-    document.removeEventListener("keyup", action);
-  };
+function attachKeyUpListener(action) {
+  return attachEventListenerAndReturnCleanup(document, "keyup", action);
 }
 
 function shouldAddKeyPrefix(key) {
@@ -120,7 +119,7 @@ function keyUpLoop(e, shortcutInfo) {
 
 export function attachKeyEventListeners() {
   const settings = useSettings.getState();
-  
+
   const conditionAndAction = [
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, redoProjectState],
@@ -217,7 +216,7 @@ export function attachKeyEventListeners() {
   });
   cleanup_functions.push(cleanup);
 
-  cleanup = window.addEventListener("blur", (e) => {
+  cleanup = attachEventListenerAndReturnCleanup(window, "blur", (e) => {
     keyUpLoop(e, shortcutInfo);
   });
   cleanup_functions.push(cleanup);
