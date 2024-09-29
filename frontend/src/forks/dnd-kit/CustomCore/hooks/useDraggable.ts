@@ -62,9 +62,11 @@ export function useDraggable({
     roleDescription = "draggable",
     tabIndex = 0,
   } = attributes ?? {};
+  // SETTA FORK CHANGE
   const isDragging = isTempSection(id)
     ? getDndSectionId(active?.id) === id
     : active?.id === id;
+  // END OF SETTA FORK CHANGE
   const transform: Transform | null = useContext(
     isDragging ? ActiveDraggableContext : NullContext,
   );
