@@ -226,7 +226,6 @@ export const DndContext = memo(function DndContext({
     draggingNodeRect: null,
     droppableContainers,
     over: null,
-    sortableOver: null,
     scrollableAncestors: [],
     scrollAdjustedTranslate: null,
   });
@@ -308,14 +307,8 @@ export const DndContext = memo(function DndContext({
           pointerCoordinates,
         })
       : null;
-
-  const overId = getFirstCollision(collisions?.bestCollision, "id");
-  const sortableOverId = getFirstCollision(
-    collisions?.bestCollisionSortable,
-    "id",
-  );
+  const overId = getFirstCollision(collisions, "id");
   const [over, setOver] = useState<Over | null>(null);
-  const [sortableOver, setSortableOver] = useState<Over | null>(null);
 
   // When there is no drag overlay used, we need to account for the
   // window scroll delta
@@ -538,21 +531,38 @@ export const DndContext = memo(function DndContext({
 
   useEffect(
     () => {
-      const result = getCollisionsAndDroppableContainers(
-        sensorContext,
-        activeRef,
-      );
-      if (!result) {
+      const {
+        active,
+        activatorEvent,
+        collisions,
+        droppableContainers,
+        scrollAdjustedTranslate,
+      } = sensorContext.current;
+
+      if (
+        !active ||
+        activeRef.current == null ||
+        !activatorEvent ||
+        !scrollAdjustedTranslate
+      ) {
         return;
       }
 
       const { onDragOver } = latestProps.current;
-      const over = getOverFromOverId(overId, result.droppableContainers);
-
+      const overContainer = droppableContainers.get(overId);
+      const over =
+        overContainer && overContainer.rect.current
+          ? {
+              id: overContainer.id,
+              rect: overContainer.rect.current,
+              data: overContainer.data,
+              disabled: overContainer.disabled,
+            }
+          : null;
       const event: DragOverEvent = {
         active,
         activatorEvent,
-        collisions: result.collisions,
+        collisions,
         delta: {
           x: scrollAdjustedTranslate.x,
           y: scrollAdjustedTranslate.y,
@@ -568,26 +578,6 @@ export const DndContext = memo(function DndContext({
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [overId],
-  );
-
-  useEffect(
-    () => {
-      const result = getCollisionsAndDroppableContainers(
-        sensorContext,
-        activeRef,
-      );
-      if (!result) {
-        return;
-      }
-
-      const over = getOverFromOverId(
-        sortableOverId,
-        result.droppableContainers,
-      );
-      setSortableOver(over);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sortableOverId],
   );
 
   useIsomorphicLayoutEffect(() => {
@@ -648,7 +638,6 @@ export const DndContext = memo(function DndContext({
       droppableContainers,
       droppableRects,
       over,
-      sortableOver,
       measureDroppableContainers,
       scrollableAncestors,
       scrollableAncestorRects,
@@ -745,36 +734,3 @@ export const DndContext = memo(function DndContext({
     return { enabled };
   }
 });
-
-function getOverFromOverId(overId, droppableContainers) {
-  const overContainer = droppableContainers.get(overId);
-  return overContainer && overContainer.rect.current
-    ? {
-        id: overContainer.id,
-        rect: overContainer.rect.current,
-        data: overContainer.data,
-        disabled: overContainer.disabled,
-      }
-    : null;
-}
-
-function getCollisionsAndDroppableContainers(sensorContext, activeRef) {
-  const {
-    active,
-    activatorEvent,
-    collisions,
-    droppableContainers,
-    scrollAdjustedTranslate,
-  } = sensorContext.current;
-
-  if (
-    !active ||
-    activeRef.current == null ||
-    !activatorEvent ||
-    !scrollAdjustedTranslate
-  ) {
-    return null;
-  }
-
-  return { collisions, droppableContainers };
-}
