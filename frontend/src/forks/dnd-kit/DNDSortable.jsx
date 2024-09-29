@@ -13,6 +13,7 @@ export function DNDSortable({ sectionId, items, children }) {
   const idForDeterminingStrategy = useDndState((x) =>
     x.isSorting ? x.activeId : x.overId,
   );
+  // console.log("items", items)
 
   return (
     <SortableContext
