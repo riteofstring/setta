@@ -107,9 +107,6 @@ function getShouldPreventDefault(lowercaseKeyCombo) {
 function keyUpLoop(e, shortcutInfo) {
   for (const x of shortcutInfo) {
     if (x.wasPressed) {
-      if (x.shouldPreventDefault) {
-        e.preventDefault();
-      }
       x.wasPressed = false;
       x.keyUpAction?.();
     }
@@ -181,16 +178,23 @@ export function attachKeyEventListeners() {
 
   let cleanup = attachKeyDownListener((e) => {
     for (const x of shortcutInfo) {
-      const isPressed = isShortcutPressed(e, x.parsedShortcut, _isMacOs);
-      if (isPressed && x.shouldPreventDefault) {
-        e.preventDefault();
+      if (e.repeat) {
+        if (x.shouldPreventDefault) {
+          e.preventDefault();
+        }
+        continue;
       }
-      if (!x.wasPressed && isPressed) {
-        x.wasPressed = true;
+
+      const isPressed = isShortcutPressed(e, x.parsedShortcut, _isMacOs);
+      if (isPressed) {
+        if (x.shouldPreventDefault) {
+          e.preventDefault();
+        }
         x.keyDownAction();
-      } else if (x.wasPressed && !isPressed) {
-        x.wasPressed = false;
+        x.wasPressed = true;
+      } else if (x.wasPressed) {
         x.keyUpAction?.();
+        x.wasPressed = false;
       }
     }
   });
