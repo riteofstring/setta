@@ -3,6 +3,7 @@ import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
+import { getSectionChildren } from "state/actions/sectionVariants";
 import {
   getSectionCanOnlyBeChildOfDeck,
   getSectionIsDeck,
@@ -135,6 +136,11 @@ function maybeMoveToNewParent({
   if (behaviorDropType === BehaviorDropType.INVALID) {
     dndChildrenState.removeChild(dndSectionId);
     useDndState.setState({ behaviorDropType, overId });
+    return;
+  }
+
+  if (overId === newParentId && getSectionChildren(newParentId).length > 0) {
+    dndChildrenState.removeChild(dndSectionId);
     return;
   }
 
