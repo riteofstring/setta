@@ -34,13 +34,17 @@ function attachKeyUpListener(action) {
   };
 }
 
+function shouldAddKeyPrefix(key) {
+  return ![undefined, "enter", "space", "comma", "period"].includes(key);
+}
+
 // shortcutString is a lowercase string.
 function parseShortcut(shortcutString) {
   const parts = shortcutString.split("+").map((part) => part.trim());
   let key = parts.find(
     (part) => !["ctrl", "shift", "alt", "mod"].includes(part),
   );
-  if (key !== undefined && key !== "enter" && key !== "space") {
+  if (shouldAddKeyPrefix(key)) {
     key = `key${key}`;
   }
 
