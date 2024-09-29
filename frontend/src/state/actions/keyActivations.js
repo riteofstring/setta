@@ -184,21 +184,22 @@ export function attachKeyEventListeners() {
   });
   cleanup_functions.push(cleanup);
 
+  const shortcutInfoWithKeyUpAction = shortcutInfo.filter((x) => x.keyUpAction);
   cleanup = attachKeyUpListener((e) => {
-    for (const x of shortcutInfo) {
+    for (const x of shortcutInfoWithKeyUpAction) {
       if (x.wasPressed) {
         if (x.shouldPreventDefault) {
           e.preventDefault();
         }
         x.wasPressed = false;
-        x.keyUpAction?.();
+        x.keyUpAction();
       }
     }
   });
   cleanup_functions.push(cleanup);
 
   window.addEventListener("blur", () => {
-    for (const x of shortcutInfo) {
+    for (const x of shortcutInfoWithKeyUpAction) {
       x.keyUpAction?.();
     }
   });
