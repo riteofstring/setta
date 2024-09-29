@@ -90,6 +90,20 @@ function isShortcutPressed(event, shortcut, _isMacOs) {
   }
 }
 
+function getShouldPreventDefault(lowercaseKeyCombo) {
+  return ![
+    "mod",
+    "ctrl",
+    "alt",
+    "shift",
+    "ctrl + c",
+    "ctrl + v",
+    "mod + c",
+    "mod + v",
+    "space",
+  ].includes(lowercaseKeyCombo);
+}
+
 export function attachKeyEventListeners() {
   const settings = useSettings.getState();
 
@@ -137,67 +151,55 @@ export function attachKeyEventListeners() {
   ];
 
   const cleanup_functions = [];
-  const keyUpActions = [];
-  const wasPressed = [];
+  const shortcutInfo = [];
   const _isMacOs = isMacOs();
-  for (const [
-    idx,
-    [keyCombo, action, keyUpAction],
-  ] of conditionAndAction.entries()) {
-    let cleanup;
-    let lowercaseKeyCombo = keyCombo.toLowerCase();
-    wasPressed.push(false);
-    const parsedShortcut = parseShortcut(lowercaseKeyCombo);
-    const shouldPreventDefault = ![
-      "mod",
-      "ctrl",
-      "alt",
-      "shift",
-      "ctrl + c",
-      "ctrl + v",
-      "mod + c",
-      "mod + v",
-      "space",
-    ].includes(lowercaseKeyCombo);
-
-    if (!lowercaseKeyCombo) {
+  for (const [keyCombo, keyDownAction, keyUpAction] of conditionAndAction) {
+    if (!keyCombo) {
       continue;
     }
-    cleanup = attachKeyDownListener((e) => {
-      const isPressed = isShortcutPressed(e, parsedShortcut, _isMacOs);
-      if (isPressed && shouldPreventDefault) {
-        e.preventDefault();
-      }
-      if (!wasPressed[idx] && isPressed) {
-        wasPressed[idx] = true;
-        action();
-      } else if (wasPressed[idx] && !isPressed) {
-        wasPressed[idx] = false;
-        if (keyUpAction) {
-          keyUpAction();
-        }
-      }
+    const lowercaseKeyCombo = keyCombo.toLowerCase();
+    shortcutInfo.push({
+      parsedShortcut: parseShortcut(lowercaseKeyCombo),
+      wasPressed: false,
+      shouldPreventDefault: getShouldPreventDefault(lowercaseKeyCombo),
+      keyDownAction,
+      keyUpAction,
     });
-    cleanup_functions.push(cleanup);
-
-    if (keyUpAction) {
-      cleanup = attachKeyUpListener((e) => {
-        if (wasPressed[idx]) {
-          if (shouldPreventDefault) {
-            e.preventDefault();
-          }
-          wasPressed[idx] = false;
-          keyUpAction();
-        }
-      });
-      cleanup_functions.push(cleanup);
-      keyUpActions.push(keyUpAction);
-    }
   }
 
+  let cleanup = attachKeyDownListener((e) => {
+    for (const x of shortcutInfo) {
+      const isPressed = isShortcutPressed(e, x.parsedShortcut, _isMacOs);
+      if (isPressed && x.shouldPreventDefault) {
+        e.preventDefault();
+      }
+      if (!x.wasPressed && isPressed) {
+        x.wasPressed = true;
+        x.keyDownAction();
+      } else if (x.wasPressed && !isPressed) {
+        x.wasPressed = false;
+        x.keyUpAction?.();
+      }
+    }
+  });
+  cleanup_functions.push(cleanup);
+
+  cleanup = attachKeyUpListener((e) => {
+    for (const x of shortcutInfo) {
+      if (x.wasPressed) {
+        if (x.shouldPreventDefault) {
+          e.preventDefault();
+        }
+        x.wasPressed = false;
+        x.keyUpAction?.();
+      }
+    }
+  });
+  cleanup_functions.push(cleanup);
+
   window.addEventListener("blur", () => {
-    for (const x of keyUpActions) {
-      x();
+    for (const x of shortcutInfo) {
+      x.keyUpAction?.();
     }
   });
 
@@ -243,9 +245,11 @@ function deactivateZoomMode() {
 }
 
 function activateMoveSectionMode() {
+  console.log("activateMoveSectionMode");
   useReactFlow.setState({ moveSectionActivationKeyPressed: true });
 }
 
 function deactivateMoveSectionMode() {
+  console.log("deactivateMoveSectionMode");
   useReactFlow.setState({ moveSectionActivationKeyPressed: false });
 }
