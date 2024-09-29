@@ -53,6 +53,17 @@ function parseShortcut(shortcutString) {
   };
 }
 
+const considerAsUndefined = new Set([
+  "ControlLeft",
+  "ControlRight",
+  "AltLeft",
+  "AltRight",
+  "MetaLeft",
+  "MetaRight",
+  "ShiftLeft",
+  "ShiftRight",
+]);
+
 function isShortcutPressed(event, shortcut, _isMacOs) {
   const { mod, ctrl, shift, alt, key } = shortcut;
   if (_isMacOs) {
@@ -61,14 +72,16 @@ function isShortcutPressed(event, shortcut, _isMacOs) {
       event.ctrlKey === ctrl &&
       event.shiftKey === shift &&
       event.altKey === alt &&
-      (key === undefined || event.code.toLowerCase() === key)
+      ((key === undefined && considerAsUndefined.has(event.code)) ||
+        key === event.code.toLowerCase())
     );
   } else {
     return (
       event.ctrlKey === (ctrl || mod) &&
       event.shiftKey === shift &&
       event.altKey === alt &&
-      (key === undefined || event.code.toLowerCase() === key)
+      ((key === undefined && considerAsUndefined.has(event.code)) ||
+        key === event.code.toLowerCase())
     );
   }
 }
@@ -121,42 +134,57 @@ export function attachKeyEventListeners() {
 
   const cleanup_functions = [];
   const keyUpActions = [];
+  const wasPressed = [];
   const _isMacOs = isMacOs();
-  for (const [keyCombo, action, keyUpAction] of conditionAndAction) {
+  for (const [
+    idx,
+    [keyCombo, action, keyUpAction],
+  ] of conditionAndAction.entries()) {
     let cleanup;
     let lowercaseKeyCombo = keyCombo.toLowerCase();
+    wasPressed.push(false);
     const parsedShortcut = parseShortcut(lowercaseKeyCombo);
-    // if (typeof condition === "string") {
-    //   cleanup = attachBuiltInListener(condition, action);
-    // } else {
+    const shouldPreventDefault = ![
+      "mod",
+      "ctrl",
+      "alt",
+      "shift",
+      "ctrl + c",
+      "ctrl + v",
+      "mod + c",
+      "mod + v",
+      "space",
+    ].includes(lowercaseKeyCombo);
+
+    if (!lowercaseKeyCombo) {
+      continue;
+    }
     cleanup = attachKeyDownListener((e) => {
-      if (lowercaseKeyCombo && isShortcutPressed(e, parsedShortcut, _isMacOs)) {
-        // We don't want to prevent default if the shortcut is just Control or Alt
-        // because this would prevent things like Ctrl + R for refreshing the page.
-        if (
-          ![
-            "mod",
-            "ctrl",
-            "alt",
-            "shift",
-            "ctrl + c",
-            "ctrl + v",
-            "mod + c",
-            "mod + v",
-            "space",
-          ].includes(lowercaseKeyCombo)
-        ) {
-          e.preventDefault();
-        }
+      const isPressed = isShortcutPressed(e, parsedShortcut, _isMacOs);
+      if (isPressed && shouldPreventDefault) {
+        e.preventDefault();
+      }
+      if (!wasPressed[idx] && isPressed) {
+        wasPressed[idx] = true;
         action();
+      } else if (wasPressed[idx] && !isPressed) {
+        wasPressed[idx] = false;
+        if (keyUpAction) {
+          keyUpAction();
+        }
       }
     });
     cleanup_functions.push(cleanup);
 
     if (keyUpAction) {
       cleanup = attachKeyUpListener((e) => {
-        e.preventDefault();
-        keyUpAction();
+        if (wasPressed[idx]) {
+          if (shouldPreventDefault) {
+            e.preventDefault();
+          }
+          wasPressed[idx] = false;
+          keyUpAction();
+        }
       });
       cleanup_functions.push(cleanup);
       keyUpActions.push(keyUpAction);
