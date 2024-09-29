@@ -11,6 +11,7 @@ import { useSettings } from "state/definitions";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
 import { formatCode, updateInteractiveCode } from "./interactive";
+import { unselectAllParams } from "./kwargs/kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { groupSections } from "./sections/groupSections";
@@ -36,7 +37,9 @@ function attachKeyUpListener(action) {
 }
 
 function shouldAddKeyPrefix(key) {
-  return ![undefined, "enter", "space", "comma", "period"].includes(key);
+  return ![undefined, "escape", "enter", "space", "comma", "period"].includes(
+    key,
+  );
 }
 
 // shortcutString is a lowercase string.
@@ -102,6 +105,7 @@ function getShouldPreventDefault(lowercaseKeyCombo) {
     "mod + c",
     "mod + v",
     "space",
+    "escape",
   ].includes(lowercaseKeyCombo);
 }
 
@@ -158,6 +162,7 @@ export function attachKeyEventListeners() {
       useDndState.getState().activateMovingFreeMode,
       useDndState.getState().deactivate,
     ],
+    ["Escape", onEscapeKey],
   ];
 
   const cleanup_functions = [];
@@ -223,6 +228,10 @@ export function attachKeyEventListeners() {
 
 export function variableClick(e) {
   return e.ctrlKey && !e.shiftKey;
+}
+
+function onEscapeKey() {
+  unselectAllParams();
 }
 
 function activateSelectionKeyPressed() {
