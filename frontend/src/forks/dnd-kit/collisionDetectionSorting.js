@@ -36,15 +36,37 @@ function cornersOfRectangle({ left, top, height, width }) {
   ];
 }
 
+function getIntersectionRatio(entry, target) {
+  const top = Math.max(target.top, entry.top);
+  const left = Math.max(target.left, entry.left);
+  const right = Math.min(target.left + target.width, entry.left + entry.width);
+  const bottom = Math.min(target.top + target.height, entry.top + entry.height);
+  const width = right - left;
+  const height = bottom - top;
+
+  if (left < right && top < bottom) {
+    // const targetArea = target.width * target.height;
+    // const entryArea = entry.width * entry.height;
+    const intersectionArea = width * height;
+    // const intersectionRatio =
+    // intersectionArea / (targetArea + entryArea - intersectionArea);
+
+    return Number(intersectionArea.toFixed(4));
+  }
+
+  // Rectangles do not overlap, or overlap has an area of zero (edge/corner overlap)
+  return 0;
+}
+
 export const customCollisionDetectionSorting = ({
   active,
   collisionRect,
   droppableRects,
   droppableContainers,
 }) => {
-  if (!active.data.current.sortable) {
-    return [];
-  }
+  // if (!active.data.current.sortable) {
+  //   return [];
+  // }
   let bestCollision = null;
   const corners = cornersOfRectangle(collisionRect);
 
@@ -53,23 +75,22 @@ export const customCollisionDetectionSorting = ({
     const rect = droppableRects.get(id);
 
     // if droppableContainer is a sibling of active
-    if (
-      rect &&
-      active.data.current.sortable.containerId ===
-        droppableContainer.data.current.sortable?.containerId
-    ) {
-      const rectCorners = cornersOfRectangle(rect);
-      const distances = corners.reduce((accumulator, corner, index) => {
-        return accumulator + distanceBetween(rectCorners[index], corner);
-      }, 0);
-      const effectiveDistance = Number((distances / 4).toFixed(4));
-      bestCollision = compareCollisions(bestCollision, {
-        id,
-        data: {
-          droppableContainer,
-          effectiveDistance,
-        },
-      });
+    if (rect && id !== active.id) {
+      const ratio = getIntersectionRatio(rect, collisionRect);
+      if (ratio) {
+        const rectCorners = cornersOfRectangle(rect);
+        const distances = corners.reduce((accumulator, corner, index) => {
+          return accumulator + distanceBetween(rectCorners[index], corner);
+        }, 0);
+        const effectiveDistance = Number((distances / 4).toFixed(4));
+        bestCollision = compareCollisions(bestCollision, {
+          id,
+          data: {
+            droppableContainer,
+            effectiveDistance,
+          },
+        });
+      }
     }
   }
 

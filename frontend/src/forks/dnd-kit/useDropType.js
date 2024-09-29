@@ -58,6 +58,7 @@ export function useOnDragOver() {
 
 function onDragOver({ active, over, triggeredByLeftDist }) {
   const overId = over ? over.id : null;
+  console.log("overId", overId)
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
@@ -131,6 +132,7 @@ function maybeMoveToNewParent({
   newParentId,
   dndChildrenState,
 }) {
+  console.log("maybeMoveToNewParent")
   // Check if section can actually be dropped onto newParentId
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {

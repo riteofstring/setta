@@ -17,7 +17,7 @@ export function useModifiers() {
   const modifiers = getModifiers(isSorting, activeId);
   const collisionDetection = isSorting
     ? customCollisionDetectionSorting
-    : customCollisionDetection;
+    : customCollisionDetectionSorting;
 
   return { modifiers, collisionDetection };
 }
