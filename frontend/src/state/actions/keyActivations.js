@@ -2,6 +2,7 @@ import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { isMacOs } from "forks/xyflow/core/utils";
+import _ from "lodash";
 import {
   activateParamSelect,
   deactivateParamSelect,
@@ -117,7 +118,7 @@ export function attachKeyEventListeners() {
   const settings = useSettings.getState();
 
   const conditionAndAction = [
-    [settings.undoShortcut, undoProjectState],
+    [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, redoProjectState],
     [settings.groupShortcut, groupSections],
     [settings.saveShortcut, saveProject],
@@ -162,7 +163,12 @@ export function attachKeyEventListeners() {
   const cleanup_functions = [];
   const shortcutInfo = [];
   const _isMacOs = isMacOs();
-  for (const [keyCombo, keyDownAction, keyUpAction] of conditionAndAction) {
+  for (const [
+    keyCombo,
+    keyDownAction,
+    keyUpAction,
+    allowRepeat,
+  ] of conditionAndAction) {
     if (!keyCombo) {
       continue;
     }
@@ -173,12 +179,13 @@ export function attachKeyEventListeners() {
       shouldPreventDefault: getShouldPreventDefault(lowercaseKeyCombo),
       keyDownAction,
       keyUpAction,
+      allowRepeat,
     });
   }
 
   let cleanup = attachKeyDownListener((e) => {
     for (const x of shortcutInfo) {
-      if (e.repeat) {
+      if (e.repeat && !x.allowRepeat) {
         if (x.shouldPreventDefault) {
           e.preventDefault();
         }
