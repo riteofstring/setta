@@ -247,11 +247,9 @@ function deactivateZoomMode() {
 }
 
 function activateMoveSectionMode() {
-  console.log("activateMoveSectionMode");
   useReactFlow.setState({ moveSectionActivationKeyPressed: true });
 }
 
 function deactivateMoveSectionMode() {
-  console.log("deactivateMoveSectionMode");
   useReactFlow.setState({ moveSectionActivationKeyPressed: false });
 }
