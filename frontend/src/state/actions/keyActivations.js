@@ -104,6 +104,18 @@ function getShouldPreventDefault(lowercaseKeyCombo) {
   ].includes(lowercaseKeyCombo);
 }
 
+function keyUpLoop(e, shortcutInfo) {
+  for (const x of shortcutInfo) {
+    if (x.wasPressed) {
+      if (x.shouldPreventDefault) {
+        e.preventDefault();
+      }
+      x.wasPressed = false;
+      x.keyUpAction?.();
+    }
+  }
+}
+
 export function attachKeyEventListeners() {
   const settings = useSettings.getState();
 
@@ -184,24 +196,13 @@ export function attachKeyEventListeners() {
   });
   cleanup_functions.push(cleanup);
 
-  const shortcutInfoWithKeyUpAction = shortcutInfo.filter((x) => x.keyUpAction);
   cleanup = attachKeyUpListener((e) => {
-    for (const x of shortcutInfoWithKeyUpAction) {
-      if (x.wasPressed) {
-        if (x.shouldPreventDefault) {
-          e.preventDefault();
-        }
-        x.wasPressed = false;
-        x.keyUpAction();
-      }
-    }
+    keyUpLoop(e, shortcutInfo);
   });
   cleanup_functions.push(cleanup);
 
-  window.addEventListener("blur", () => {
-    for (const x of shortcutInfoWithKeyUpAction) {
-      x.keyUpAction?.();
-    }
+  window.addEventListener("blur", (e) => {
+    keyUpLoop(e, shortcutInfo);
   });
 
   return () => {
