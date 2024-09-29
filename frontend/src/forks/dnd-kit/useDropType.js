@@ -60,7 +60,7 @@ function onDragOver({ active, over, triggeredByLeftDist }) {
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
-  const oldParentId = getDndParentId(dndSectionId);
+  const oldParentId = getParentId(dndSectionId);
 
   if (triggeredByLeftDist === true) {
     leftDistBehavior({
@@ -110,7 +110,7 @@ function onDragOver({ active, over, triggeredByLeftDist }) {
   }
 
   // If overId doesn't have a parent, then set newParent to be overId
-  const newParentId = getDndParentId(overId) ?? overId;
+  const newParentId = getParentId(overId) ?? overId;
 
   maybeMoveToNewParent({
     active,
@@ -191,7 +191,7 @@ function getTimeDiff(state, sectionId) {
   return Date.now() - (state.times[sectionId] ?? 0);
 }
 
-export function getDndParentId(dndSectionId) {
+function getParentId(dndSectionId) {
   return useDndChildren.getState().y[dndSectionId];
 }
 

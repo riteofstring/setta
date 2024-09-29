@@ -81,12 +81,7 @@ export function useOnDragEnd() {
     } else {
       manualDndChildrenReset();
     }
-    // don't reset isMovingFree or isSorting
-    const additionalResetState = (state) => ({
-      isMovingFree: state.getState().isMovingFree,
-      isSorting: state.getState().isSorting,
-    });
-    useDndState.getState().reset(additionalResetState);
+    useDndState.getState().reset();
   }
 
   return { dummyRef, onDragEnd };

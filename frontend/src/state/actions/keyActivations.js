@@ -2,7 +2,6 @@ import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { isMacOs } from "forks/xyflow/core/utils";
-import _ from "lodash";
 import {
   activateParamSelect,
   deactivateParamSelect,
@@ -11,34 +10,28 @@ import { useSettings } from "state/definitions";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
 import { formatCode, updateInteractiveCode } from "./interactive";
-import { unselectAllParams } from "./kwargs/kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { groupSections } from "./sections/groupSections";
 import { focusOnArgsFilter } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
 
-function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {
-  attachTo.addEventListener(eventName, action);
+function attachKeyDownListener(action) {
+  document.addEventListener("keydown", action);
 
   // Return a cleanup function
   return () => {
-    attachTo.removeEventListener(eventName, action);
+    document.removeEventListener("keydown", action);
   };
 }
 
-function attachKeyDownListener(action) {
-  return attachEventListenerAndReturnCleanup(document, "keydown", action);
-}
-
 function attachKeyUpListener(action) {
-  return attachEventListenerAndReturnCleanup(document, "keyup", action);
-}
+  document.addEventListener("keyup", action);
 
-function shouldAddKeyPrefix(key) {
-  return ![undefined, "escape", "enter", "space", "comma", "period"].includes(
-    key,
-  );
+  // Return a cleanup function
+  return () => {
+    document.removeEventListener("keyup", action);
+  };
 }
 
 // shortcutString is a lowercase string.
@@ -47,7 +40,7 @@ function parseShortcut(shortcutString) {
   let key = parts.find(
     (part) => !["ctrl", "shift", "alt", "mod"].includes(part),
   );
-  if (shouldAddKeyPrefix(key)) {
+  if (key !== undefined && key !== "enter" && key !== "space") {
     key = `key${key}`;
   }
 
@@ -60,17 +53,6 @@ function parseShortcut(shortcutString) {
   };
 }
 
-const considerAsUndefined = new Set([
-  "ControlLeft",
-  "ControlRight",
-  "AltLeft",
-  "AltRight",
-  "MetaLeft",
-  "MetaRight",
-  "ShiftLeft",
-  "ShiftRight",
-]);
-
 function isShortcutPressed(event, shortcut, _isMacOs) {
   const { mod, ctrl, shift, alt, key } = shortcut;
   if (_isMacOs) {
@@ -79,41 +61,15 @@ function isShortcutPressed(event, shortcut, _isMacOs) {
       event.ctrlKey === ctrl &&
       event.shiftKey === shift &&
       event.altKey === alt &&
-      ((key === undefined && considerAsUndefined.has(event.code)) ||
-        key === event.code.toLowerCase())
+      (key === undefined || event.code.toLowerCase() === key)
     );
   } else {
     return (
       event.ctrlKey === (ctrl || mod) &&
       event.shiftKey === shift &&
       event.altKey === alt &&
-      ((key === undefined && considerAsUndefined.has(event.code)) ||
-        key === event.code.toLowerCase())
+      (key === undefined || event.code.toLowerCase() === key)
     );
-  }
-}
-
-function getShouldPreventDefault(lowercaseKeyCombo) {
-  return ![
-    "mod",
-    "ctrl",
-    "alt",
-    "shift",
-    "ctrl + c",
-    "ctrl + v",
-    "mod + c",
-    "mod + v",
-    "space",
-    "escape",
-  ].includes(lowercaseKeyCombo);
-}
-
-function keyUpLoop(e, shortcutInfo) {
-  for (const x of shortcutInfo) {
-    if (x.wasPressed) {
-      x.wasPressed = false;
-      x.keyUpAction?.();
-    }
   }
 }
 
@@ -121,7 +77,7 @@ export function attachKeyEventListeners() {
   const settings = useSettings.getState();
 
   const conditionAndAction = [
-    [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
+    [settings.undoShortcut, undoProjectState],
     [settings.redoShortcut, redoProjectState],
     [settings.groupShortcut, groupSections],
     [settings.saveShortcut, saveProject],
@@ -154,72 +110,64 @@ export function attachKeyEventListeners() {
     [
       settings.sortingShortcut,
       useDndState.getState().activateSortingMode,
-      useDndState.getState().deactivate,
+      useDndState.getState().deactivateSortingMode,
     ],
     [
       settings.movingFreeShortcut,
       useDndState.getState().activateMovingFreeMode,
-      useDndState.getState().deactivate,
+      useDndState.getState().deactivateMovingFreeMode,
     ],
-    ["Escape", onEscapeKey],
   ];
 
   const cleanup_functions = [];
-  const shortcutInfo = [];
+  const keyUpActions = [];
   const _isMacOs = isMacOs();
-  for (const [
-    keyCombo,
-    keyDownAction,
-    keyUpAction,
-    allowRepeat,
-  ] of conditionAndAction) {
-    if (!keyCombo) {
-      continue;
-    }
-    const lowercaseKeyCombo = keyCombo.toLowerCase();
-    shortcutInfo.push({
-      parsedShortcut: parseShortcut(lowercaseKeyCombo),
-      wasPressed: false,
-      shouldPreventDefault: getShouldPreventDefault(lowercaseKeyCombo),
-      keyDownAction,
-      keyUpAction,
-      allowRepeat,
+  for (const [keyCombo, action, keyUpAction] of conditionAndAction) {
+    let cleanup;
+    let lowercaseKeyCombo = keyCombo.toLowerCase();
+    const parsedShortcut = parseShortcut(lowercaseKeyCombo);
+    // if (typeof condition === "string") {
+    //   cleanup = attachBuiltInListener(condition, action);
+    // } else {
+    cleanup = attachKeyDownListener((e) => {
+      if (lowercaseKeyCombo && isShortcutPressed(e, parsedShortcut, _isMacOs)) {
+        // We don't want to prevent default if the shortcut is just Control or Alt
+        // because this would prevent things like Ctrl + R for refreshing the page.
+        if (
+          ![
+            "mod",
+            "ctrl",
+            "alt",
+            "shift",
+            "ctrl + c",
+            "ctrl + v",
+            "mod + c",
+            "mod + v",
+            "space",
+          ].includes(lowercaseKeyCombo)
+        ) {
+          e.preventDefault();
+        }
+        action();
+      }
     });
+    cleanup_functions.push(cleanup);
+
+    if (keyUpAction) {
+      cleanup = attachKeyUpListener((e) => {
+        e.preventDefault();
+        keyUpAction();
+      });
+      cleanup_functions.push(cleanup);
+      keyUpActions.push(keyUpAction);
+    }
   }
 
-  let cleanup = attachKeyDownListener((e) => {
-    for (const x of shortcutInfo) {
-      if (e.repeat && !x.allowRepeat) {
-        if (x.shouldPreventDefault) {
-          e.preventDefault();
-        }
-        continue;
-      }
-
-      const isPressed = isShortcutPressed(e, x.parsedShortcut, _isMacOs);
-      if (isPressed) {
-        if (x.shouldPreventDefault) {
-          e.preventDefault();
-        }
-        x.keyDownAction();
-        x.wasPressed = true;
-      } else if (x.wasPressed) {
-        x.keyUpAction?.();
-        x.wasPressed = false;
-      }
+  window.addEventListener("blur", () => {
+    for (const x of keyUpActions) {
+      x();
     }
   });
-  cleanup_functions.push(cleanup);
-
-  cleanup = attachKeyUpListener((e) => {
-    keyUpLoop(e, shortcutInfo);
-  });
-  cleanup_functions.push(cleanup);
-
-  cleanup = attachEventListenerAndReturnCleanup(window, "blur", (e) => {
-    keyUpLoop(e, shortcutInfo);
-  });
-  cleanup_functions.push(cleanup);
 
   return () => {
     cleanup_functions.forEach((x) => x());
@@ -228,10 +176,6 @@ export function attachKeyEventListeners() {
 
 export function variableClick(e) {
   return e.ctrlKey && !e.shiftKey;
-}
-
-function onEscapeKey() {
-  unselectAllParams();
 }
 
 function activateSelectionKeyPressed() {

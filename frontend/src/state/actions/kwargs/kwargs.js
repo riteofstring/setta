@@ -124,16 +124,6 @@ export function toggleParamSelected(paramInfoId) {
   });
 }
 
-export function unselectAllParams() {
-  useCodeInfo.setState((x) => {
-    for (const codeInfo of Object.values(x.x)) {
-      if (codeInfo.isSelected) {
-        codeInfo.isSelected = false;
-      }
-    }
-  });
-}
-
 function setAttrOfSelfAndDescendants(state, id, attr, value, setSelf = true) {
   if (setSelf) {
     state[id][attr] = value;
