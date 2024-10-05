@@ -110,5 +110,9 @@ export const customCollisionDetection = ({
     }
   }
 
-  return bestCollision ? [bestCollision] : [];
+  if (bestCollision) {
+    bestCollision.activeRect = collisionRect;
+    return [bestCollision];
+  }
+  return [];
 };

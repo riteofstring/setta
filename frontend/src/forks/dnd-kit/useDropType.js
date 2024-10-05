@@ -56,8 +56,8 @@ export function useOnDragOver() {
   return () => {};
 }
 
-function onDragOver({ active, over, triggeredByLeftDist }) {
-  const overId = over ? over.id : null;
+function onDragOver({ active, over, collisions, triggeredByLeftDist }) {
+  const overId = getOverId(over);
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
@@ -66,10 +66,11 @@ function onDragOver({ active, over, triggeredByLeftDist }) {
   if (triggeredByLeftDist === true) {
     leftDistBehavior({
       active,
+      over,
       dndChildrenState,
       oldParentId,
       dndSectionId,
-      overId,
+      collisions,
     });
     return;
   }
@@ -96,10 +97,11 @@ function onDragOver({ active, over, triggeredByLeftDist }) {
   if (dndState.leftDistCondition) {
     leftDistBehavior({
       active,
+      over,
       dndChildrenState,
       oldParentId,
       dndSectionId,
-      overId,
+      collisions,
     });
     return;
   }
@@ -115,22 +117,25 @@ function onDragOver({ active, over, triggeredByLeftDist }) {
 
   maybeMoveToNewParent({
     active,
-    overId,
+    over,
     dndSectionId,
     oldParentId,
     newParentId,
     dndChildrenState,
+    collisions,
   });
 }
 
 function maybeMoveToNewParent({
   active,
-  overId,
+  over,
   dndSectionId,
   oldParentId,
   newParentId,
   dndChildrenState,
+  collisions,
 }) {
+  const overId = getOverId(over);
   // Check if section can actually be dropped onto newParentId
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
@@ -149,8 +154,22 @@ function maybeMoveToNewParent({
     // If the active was from a sortable, and we're not in that sortable anymore.
     const newParentChildren = dndChildrenState.x[newParentId];
     const _index = newParentChildren.indexOf(overId);
-    const index = _index >= 0 ? _index : 0;
-
+    let index;
+    if (_index >= 0) {
+      // console.log("collisions", collisions);
+      const activeRect = collisions[0].activeRect;
+      // console.log("activerect", collisions[0].activeRect);
+      // console.log("over?.rect", over?.rect);
+      console.log("over", over)
+      if (activeRect.top > (over.rect.top + over.rect.bottom) / 2) {
+        console.log("past halfway")
+        index = _index + 1;
+      } else {
+        index = _index;
+      }
+    } else {
+      index = 0;
+    }
     dndChildrenState.addChild({
       oldParentId,
       newParentId,
@@ -164,11 +183,13 @@ function maybeMoveToNewParent({
 
 function leftDistBehavior({
   active,
+  over,
   dndChildrenState,
   oldParentId,
   dndSectionId,
-  overId,
+  collisions,
 }) {
+  const overId = getOverId(over);
   // Remove temporary section if it's not the only child.
   if (dndChildrenState.x[oldParentId]?.length > 1) {
     dndChildrenState.removeChild(dndSectionId);
@@ -177,11 +198,12 @@ function leftDistBehavior({
   if (overId !== dndSectionId) {
     maybeMoveToNewParent({
       active,
-      overId,
+      over,
       dndSectionId,
       oldParentId,
       newParentId: overId,
       dndChildrenState,
+      collisions,
     });
   }
 }
@@ -207,7 +229,7 @@ function getLeftDistCondition(collisions) {
   return (
     !collisions[0]?.data.droppableContainer.data.current.isTopLevel &&
     !collisions[0]?.data.droppableContainer.data.current.hasNested &&
-    collisions[0]?.data.leftDist > 200 * useReactFlow.getState().transform[2]
+    collisions[0]?.data.leftDist > 100 * useReactFlow.getState().transform[2]
   );
 }
 
@@ -222,4 +244,8 @@ function getBehaviorDropType(activeId, newParentId) {
   }
 
   return null;
+}
+
+function getOverId(over) {
+  return over ? over.id : null;
 }
