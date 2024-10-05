@@ -56,7 +56,7 @@ import {
   PublicContextDescriptor,
   reducer,
 } from "../../store";
-import type { Active, Over } from "../../store/types";
+import type { Active } from "../../store/types";
 import type {
   DragCancelEvent,
   DragEndEvent,
@@ -309,7 +309,16 @@ export const DndContext = memo(function DndContext({
       : null;
   const overId = getFirstCollision(collisions, "id");
   const pastHalfway = getFirstCollision(collisions, "pastHalfway");
-  const [over, setOver] = useState<Over | null>(null);
+  const overContainer = droppableContainers.get(overId);
+  const over =
+    overContainer && overContainer.rect.current
+      ? {
+          id: overContainer.id,
+          rect: overContainer.rect.current,
+          data: overContainer.data,
+          disabled: overContainer.disabled,
+        }
+      : null;
 
   // When there is no drag overlay used, we need to account for the
   // window scroll delta
@@ -423,7 +432,6 @@ export const DndContext = memo(function DndContext({
           unstable_batchedUpdates(() => {
             dispatch({ type });
             setStatus(Status.Uninitialized);
-            setOver(null);
             setActiveSensor(null);
             setActivatorEvent(null);
 
@@ -550,16 +558,7 @@ export const DndContext = memo(function DndContext({
       }
 
       const { onDragOver } = latestProps.current;
-      const overContainer = droppableContainers.get(overId);
-      const over =
-        overContainer && overContainer.rect.current
-          ? {
-              id: overContainer.id,
-              rect: overContainer.rect.current,
-              data: overContainer.data,
-              disabled: overContainer.disabled,
-            }
-          : null;
+
       const event: DragOverEvent = {
         active,
         activatorEvent,
@@ -572,7 +571,6 @@ export const DndContext = memo(function DndContext({
       };
 
       unstable_batchedUpdates(() => {
-        setOver(over);
         onDragOver?.(event);
         dispatchMonitorEvent({ type: "onDragOver", event });
       });

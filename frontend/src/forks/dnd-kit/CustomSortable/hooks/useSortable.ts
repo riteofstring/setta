@@ -26,6 +26,9 @@ import type {
 } from "./types";
 import { useDerivedTransform } from "./utilities";
 
+const lastTransform = {};
+const lastTransformPopulated = {};
+
 export interface Arguments
   extends Omit<UseDraggableArguments, "disabled">,
     Pick<UseDroppableArguments, "resizeObserverConfig"> {
@@ -117,18 +120,48 @@ export function useSortable({
   const dragSourceDisplacement =
     shouldDisplaceDragSource && displaceItem ? transform : null;
   const strategy = localStrategy ?? globalStrategy;
-  const [finalTransform, effectiveOverIndex] = displaceItem
-    ? dragSourceDisplacement
-      ? [dragSourceDisplacement, overIndex]
-      : strategy({
-          rects: sortedRects,
-          activeNodeRect,
-          activeIndex,
-          overIndex,
-          index,
-          pastHalfway,
-        })
-    : [null, overIndex];
+
+  let _finalTransform;
+
+  if (displaceItem) {
+    if (dragSourceDisplacement) {
+      _finalTransform = [dragSourceDisplacement, overIndex];
+    } else {
+      _finalTransform = strategy({
+        rects: sortedRects,
+        activeNodeRect,
+        activeIndex,
+        overIndex,
+        index,
+        pastHalfway,
+      });
+    }
+  } else {
+    _finalTransform = [lastTransform[containerId]?.[index] ?? null, overIndex];
+  }
+
+  if (containerId === "80cd990c-7bfe-4c4d-a9eb-b5f650223b57" && index === 0) {
+    console.log(lastTransform[containerId]?.[index]);
+  }
+
+  const [finalTransform, effectiveOverIndex] = _finalTransform;
+  if (!(containerId in lastTransform)) {
+    lastTransform[containerId] = {};
+  }
+  if (
+    lastTransformPopulated[containerId] &&
+    sortedRects.length !== Object.keys(lastTransform[containerId]).length
+  ) {
+    lastTransform[containerId] = {};
+    lastTransformPopulated[containerId] = false;
+  } else {
+    lastTransform[containerId][index] = finalTransform;
+  }
+
+  if (sortedRects.length === Object.keys(lastTransform[containerId]).length) {
+    lastTransformPopulated[containerId] = true;
+  }
+
   const newIndex =
     isValidIndex(activeIndex) && isValidIndex(effectiveOverIndex)
       ? getNewIndex({ id, items, activeIndex, overIndex: effectiveOverIndex })
