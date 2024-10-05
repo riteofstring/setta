@@ -8,6 +8,12 @@ export const useDndChildren = createProjectState(
     y: {}, // child id to parent id
     addChild: ({ oldParentId, newParentId, childId, index }) =>
       set((state) => {
+        if (oldParentId) {
+          state.x[oldParentId] = state.x[oldParentId].filter(
+            (x) => x !== childId,
+          );
+        }
+
         state.x[newParentId] = [
           ...state.x[newParentId].slice(0, index),
           childId,
@@ -24,12 +30,6 @@ export const useDndChildren = createProjectState(
             (x) => x !== childId,
           );
           state.y[childId] = undefined;
-        }
-      }),
-    removeChildFromSpecificParent: (parentId, childId) =>
-      set((state) => {
-        if (parentId) {
-          state.x[parentId] = state.x[parentId].filter((x) => x !== childId);
         }
       }),
     replaceWithTemp: (id) =>

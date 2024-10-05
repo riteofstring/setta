@@ -8,7 +8,7 @@ import React from "react";
 import { SectionContainer } from "./SectionContainer";
 
 function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
-  // const animateLayoutChanges = useAnimateLayoutChanges();
+  const animateLayoutChanges = useAnimateLayoutChanges();
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
   // remove 'role' because we don't want sections to be "role=button"
@@ -19,7 +19,7 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
     transform,
     transition,
     overIndex,
-  } = useSortable({ ...dndProps, animateLayoutChanges: () => true });
+  } = useSortable({ ...dndProps });
   return (
     <SortableCore
       sectionId={sectionId}
@@ -30,7 +30,6 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
       transition={transition}
       isHorizontalOrientation={isHorizontalOrientation}
       applyTransform={overIndex !== null && overIndex !== -1}
-      // applyTransform={true}
     />
   );
 }
