@@ -61,7 +61,7 @@ export function useOnDragOver() {
 
 function onDragOver({ active, over, collisions, triggeredByLeftDist }) {
   const overId = getOverId(over);
-  console.log("over", getSectionInfo(overId)?.name);
+  // console.log("over", getSectionInfo(overId)?.name);
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
@@ -166,7 +166,7 @@ function maybeMoveToNewParent({
     } else {
       index = 0;
     }
-    console.log("index", index);
+    // console.log("index", index);
     dndChildrenState.addChild({
       oldParentId,
       newParentId,

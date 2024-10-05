@@ -72,6 +72,7 @@ export const verticalListSortingStrategy: SortingStrategy = ({
     ];
   }
 
+  console.log("returnin default")
   return [
     {
       x: 0,

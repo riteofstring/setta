@@ -117,7 +117,7 @@ export function useSortable({
   const dragSourceDisplacement =
     shouldDisplaceDragSource && displaceItem ? transform : null;
   const strategy = localStrategy ?? globalStrategy;
-  const [finalTransform, effectiveOverIndex] = displaceItem
+  const _finalTransform = displaceItem
     ? dragSourceDisplacement
       ? [dragSourceDisplacement, overIndex]
       : strategy({
@@ -129,6 +129,15 @@ export function useSortable({
           pastHalfway,
         })
     : [null, overIndex];
+
+  const [finalTransform, effectiveOverIndex] = _finalTransform;
+
+  if (index === activeIndex) {
+    console.log("over", over);
+    console.log("overIndex", overIndex);
+    console.log(finalTransform);
+  }
+
   const newIndex =
     isValidIndex(activeIndex) && isValidIndex(effectiveOverIndex)
       ? getNewIndex({ id, items, activeIndex, overIndex: effectiveOverIndex })

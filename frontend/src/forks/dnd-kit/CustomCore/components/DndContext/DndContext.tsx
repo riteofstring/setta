@@ -43,7 +43,6 @@ import { applyModifiers, Modifiers } from "../../modifiers";
 import type {
   Sensor,
   SensorActivatorFunction,
-  SensorContext,
   SensorDescriptor,
   SensorInstance,
 } from "../../sensors";
@@ -56,7 +55,7 @@ import {
   PublicContextDescriptor,
   reducer,
 } from "../../store";
-import type { Active, Over } from "../../store/types";
+import type { Active } from "../../store/types";
 import type {
   DragCancelEvent,
   DragEndEvent,
@@ -214,24 +213,7 @@ export const DndContext = memo(function DndContext({
   const containerNodeRect = useRect(
     activeNode ? activeNode.parentElement : null,
   );
-  const sensorContext = useRef<SensorContext>({
-    activatorEvent: null,
-    active: null,
-    activeNode,
-    collisionRect: null,
-    collisions: null,
-    droppableRects,
-    draggableNodes,
-    draggingNode: null,
-    draggingNodeRect: null,
-    droppableContainers,
-    over: null,
-    scrollableAncestors: [],
-    scrollAdjustedTranslate: null,
-  });
-  const overNode = droppableContainers.getNodeFor(
-    sensorContext.current.over?.id,
-  );
+
   const dragOverlay = useDragOverlayMeasuring({
     measure: measuringConfiguration.dragOverlay.measure,
   });
@@ -272,7 +254,7 @@ export const DndContext = memo(function DndContext({
     activeNodeRect,
     containerNodeRect,
     draggingNodeRect,
-    over: sensorContext.current.over,
+    over,
     overlayNodeRect: dragOverlay.rect,
     scrollableAncestors,
     scrollableAncestorRects,
@@ -309,7 +291,18 @@ export const DndContext = memo(function DndContext({
       : null;
   const overId = getFirstCollision(collisions, "id");
   const pastHalfway = getFirstCollision(collisions, "pastHalfway");
-  const [over, setOver] = useState<Over | null>(null);
+  const overContainer = droppableContainers.get(overId);
+  const over =
+    overContainer && overContainer.rect.current
+      ? {
+          id: overContainer.id,
+          rect: overContainer.rect.current,
+          data: overContainer.data,
+          disabled: overContainer.disabled,
+        }
+      : null;
+
+  const overNode = droppableContainers.getNodeFor(overId);
 
   // When there is no drag overlay used, we need to account for the
   // window scroll delta
@@ -394,8 +387,6 @@ export const DndContext = memo(function DndContext({
 
       function createHandler(type: Action.DragEnd | Action.DragCancel) {
         return async function handler() {
-          const { active, collisions, over, scrollAdjustedTranslate } =
-            sensorContext.current;
           let event: DragEndEvent | null = null;
 
           if (active && scrollAdjustedTranslate) {
@@ -423,7 +414,6 @@ export const DndContext = memo(function DndContext({
           unstable_batchedUpdates(() => {
             dispatch({ type });
             setStatus(Status.Uninitialized);
-            setOver(null);
             setActiveSensor(null);
             setActivatorEvent(null);
 
@@ -503,8 +493,6 @@ export const DndContext = memo(function DndContext({
   useEffect(
     () => {
       const { onDragMove } = latestProps.current;
-      const { active, activatorEvent, collisions, over } =
-        sensorContext.current;
 
       if (!active || !activatorEvent) {
         return;
@@ -532,14 +520,6 @@ export const DndContext = memo(function DndContext({
 
   useEffect(
     () => {
-      const {
-        active,
-        activatorEvent,
-        collisions,
-        droppableContainers,
-        scrollAdjustedTranslate,
-      } = sensorContext.current;
-
       if (
         !active ||
         activeRef.current == null ||
@@ -550,16 +530,7 @@ export const DndContext = memo(function DndContext({
       }
 
       const { onDragOver } = latestProps.current;
-      const overContainer = droppableContainers.get(overId);
-      const over =
-        overContainer && overContainer.rect.current
-          ? {
-              id: overContainer.id,
-              rect: overContainer.rect.current,
-              data: overContainer.data,
-              disabled: overContainer.disabled,
-            }
-          : null;
+
       const event: DragOverEvent = {
         active,
         activatorEvent,
@@ -572,7 +543,6 @@ export const DndContext = memo(function DndContext({
       };
 
       unstable_batchedUpdates(() => {
-        setOver(over);
         onDragOver?.(event);
         dispatchMonitorEvent({ type: "onDragOver", event });
       });
@@ -581,41 +551,10 @@ export const DndContext = memo(function DndContext({
     [overId],
   );
 
-  useIsomorphicLayoutEffect(() => {
-    sensorContext.current = {
-      activatorEvent,
-      active,
-      activeNode,
-      collisionRect,
-      collisions,
-      droppableRects,
-      draggableNodes,
-      draggingNode,
-      draggingNodeRect,
-      droppableContainers,
-      over,
-      scrollableAncestors,
-      scrollAdjustedTranslate,
-    };
-
-    activeRects.current = {
-      initial: draggingNodeRect,
-      translated: collisionRect,
-    };
-  }, [
-    active,
-    activeNode,
-    collisions,
-    collisionRect,
-    draggableNodes,
-    draggingNode,
-    draggingNodeRect,
-    droppableRects,
-    droppableContainers,
-    over,
-    scrollableAncestors,
-    scrollAdjustedTranslate,
-  ]);
+  activeRects.current = {
+    initial: draggingNodeRect,
+    translated: collisionRect,
+  };
 
   useAutoScroller({
     ...autoScrollOptions,
@@ -639,7 +578,6 @@ export const DndContext = memo(function DndContext({
       droppableContainers,
       droppableRects,
       over,
-      overId,
       measureDroppableContainers,
       scrollableAncestors,
       scrollableAncestorRects,
@@ -661,7 +599,6 @@ export const DndContext = memo(function DndContext({
     droppableContainers,
     droppableRects,
     over,
-    overId,
     measureDroppableContainers,
     scrollableAncestors,
     scrollableAncestorRects,
@@ -682,7 +619,6 @@ export const DndContext = memo(function DndContext({
       dispatch,
       draggableNodes,
       over,
-      overId,
       pastHalfway,
       measureDroppableContainers,
     };
@@ -697,7 +633,6 @@ export const DndContext = memo(function DndContext({
     draggableDescribedById,
     draggableNodes,
     over,
-    overId,
     pastHalfway,
     measureDroppableContainers,
   ]);

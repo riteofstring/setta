@@ -59,7 +59,7 @@ export function SortableContext({
     active,
     dragOverlay,
     droppableRects,
-    overId,
+    over,
     measureDroppableContainers,
   } = useDndContext();
   const containerId = useUniqueId(ID_PREFIX, id);
@@ -75,7 +75,7 @@ export function SortableContext({
   // SETTA FORK CHANGE
   const activeIndex = getActiveIndex(active, items);
   // END OF SETTA FORK CHANGE
-  const overIndex = overId ? items.indexOf(overId) : -1;
+  const overIndex = over?.id ? items.indexOf(over.id) : -1;
   const previousItemsRef = useRef(items);
   const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
   const disableTransforms =
