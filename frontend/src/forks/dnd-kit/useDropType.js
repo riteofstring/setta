@@ -176,7 +176,6 @@ function maybeMoveToNewParent({
     } else {
       index = 0;
     }
-    console.log("index", index);
     dndChildrenState.addChild({
       oldParentId,
       newParentId,

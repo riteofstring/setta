@@ -1,7 +1,5 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
 
-import { getSectionInfo } from "state/getters/sectionInfo";
-
 function compareCollisions(a, b) {
   if (!a) {
     return b;
@@ -81,74 +79,63 @@ export function getIntersectionRatio(entry, target) {
 let prevCollisionId = null;
 let prevPastHalfway = null;
 
-export function getCollisionDetection(isSorting) {
-  const rectCondition = !isSorting
-    ? (id, active) =>
-        active.data.current.sortable?.containerId || active.id !== id
-    : (id, active, droppableContainer) =>
-        active.data.current.sortable.containerId ===
-        droppableContainer.data.current.sortable?.containerId;
+export function customCollisionDetection({
+  active,
+  collisionRect,
+  droppableRects,
+  droppableContainers,
+}) {
+  let bestCollision = null;
+  const left = collisionRect.left;
+  let ratio, rect, id;
 
-  return ({ active, collisionRect, droppableRects, droppableContainers }) => {
-    let bestCollision = null;
-    const left = collisionRect.left;
-    let ratio, rect, id;
+  for (const droppableContainer of droppableContainers) {
+    id = droppableContainer.id;
+    rect = droppableRects.get(id);
 
-    for (const droppableContainer of droppableContainers) {
-      id = droppableContainer.id;
-      rect = droppableRects.get(id);
-
-      // rect must exist.
-      // If active doesn't have a parent, then don't look for overlap with self.
-      if (rect && rectCondition(id, active, droppableContainer)) {
-        ratio = getIntersectionRatio(rect, collisionRect);
-        if (ratio) {
-          if (prevCollisionId === id) {
-            // console.log("prevCollisionId === id")
-            ratio *= 1.1;
-          }
-          const dist = left - rect.left;
-          bestCollision = compareCollisions(bestCollision, {
-            id,
-            data: {
-              droppableContainer,
-              absLeftDist: Math.abs(dist),
-              leftDist: dist,
-              intersectionRatio: ratio,
-            },
-          });
+    // rect must exist.
+    if (rect && active.id !== id) {
+      ratio = getIntersectionRatio(rect, collisionRect);
+      if (ratio) {
+        if (prevCollisionId === id) {
+          // console.log("prevCollisionId === id")
+          ratio *= 1.1;
         }
+        const dist = left - rect.left;
+        bestCollision = compareCollisions(bestCollision, {
+          id,
+          data: {
+            droppableContainer,
+            absLeftDist: Math.abs(dist),
+            leftDist: dist,
+            intersectionRatio: ratio,
+          },
+        });
+      }
+    }
+  }
+
+  if (bestCollision) {
+    let buffer = 0;
+    if (prevCollisionId === bestCollision.id) {
+      if (prevPastHalfway === true) {
+        buffer = 10;
+      } else if (prevPastHalfway === false) {
+        buffer = -10;
       }
     }
 
-    console.log(
-      "bestCollision",
-      bestCollision,
-      getSectionInfo(bestCollision?.id)?.name,
-    );
-    if (bestCollision) {
-      let buffer = 0;
-      if (prevCollisionId === bestCollision.id) {
-        if (prevPastHalfway === true) {
-          buffer = 10;
-        } else if (prevPastHalfway === false) {
-          buffer = -10;
-        }
-      }
+    bestCollision.pastHalfway =
+      (collisionRect.top + collisionRect.bottom) / 2 + buffer >
+      (droppableRects.get(bestCollision.id).top +
+        droppableRects.get(bestCollision.id).bottom) /
+        2;
 
-      bestCollision.pastHalfway =
-        collisionRect.bottom + buffer >
-        (droppableRects.get(bestCollision.id).top +
-          droppableRects.get(bestCollision.id).bottom +
-          collisionRect.height) /
-          2;
+    prevCollisionId = bestCollision.id;
+    prevPastHalfway = bestCollision.pastHalfway;
+    return [bestCollision];
+  }
 
-      prevCollisionId = bestCollision.id;
-      prevPastHalfway = bestCollision.pastHalfway;
-      return [bestCollision];
-    }
-
-    prevCollisionId = null;
-    return [];
-  };
+  prevCollisionId = null;
+  return [];
 }

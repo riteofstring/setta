@@ -16,12 +16,10 @@ export const verticalListSortingStrategy: SortingStrategy = ({
   pastHalfway,
 }) => {
   const activeNodeRect = rects[activeIndex] ?? fallbackActiveRect;
-  const effectiveOverIndex = computeNewIndex(
-    activeIndex,
-    overIndex,
-    pastHalfway,
-    rects.length,
-  );
+  const effectiveOverIndex =
+    pastHalfway !== undefined
+      ? computeNewIndex(activeIndex, overIndex, pastHalfway, rects.length)
+      : overIndex;
 
   if (!activeNodeRect) {
     return [null, effectiveOverIndex];

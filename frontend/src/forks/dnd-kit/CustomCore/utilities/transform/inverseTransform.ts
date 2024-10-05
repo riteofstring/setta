@@ -26,7 +26,7 @@ export function inverseTransform(
     translateY * zoom -
     (1 - scaleY) *
       parseFloat(transformOrigin.slice(transformOrigin.indexOf(" ") + 1));
-// END OF SETTA FORK CHANGE
+  // END OF SETTA FORK CHANGE
 
   const w = scaleX ? rect.width / scaleX : rect.width;
   const h = scaleY ? rect.height / scaleY : rect.height;
