@@ -19,12 +19,7 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
     transform,
     transition,
     overIndex,
-    items,
   } = useSortable({ ...dndProps });
-  if (isTempSection(sectionId)) {
-    console.log("overIndex", overIndex);
-    console.log("items", items);
-  }
   return (
     <SortableCore
       sectionId={sectionId}
@@ -34,10 +29,7 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
       transform={transform}
       transition={transition}
       isHorizontalOrientation={isHorizontalOrientation}
-      // applyTransform={
-      //   items.length <= 1 || (overIndex !== null && overIndex !== -1)
-      // }
-      applyTransform={true}
+      applyTransform={overIndex !== null && overIndex !== -1}
     />
   );
 }
@@ -54,9 +46,6 @@ function _SortableCore({
   isHorizontalOrientation,
   applyTransform,
 }) {
-  if (isTempSection(sectionId)) {
-    console.log("applyTransform", applyTransform);
-  }
   const overIsSelf = useOverIsSelf(sectionId);
   const scaledTransform = transformWithZoom(applyTransform ? transform : null);
 

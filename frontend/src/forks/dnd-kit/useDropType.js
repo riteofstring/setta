@@ -149,7 +149,6 @@ function maybeMoveToNewParent({
   }
 
   if (overId === newParentId && getSectionChildren(newParentId).length > 0) {
-    console.log("removechild")
     dndChildrenState.removeChild(dndSectionId);
     return;
   }
