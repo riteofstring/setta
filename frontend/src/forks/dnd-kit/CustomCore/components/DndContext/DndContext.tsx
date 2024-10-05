@@ -682,6 +682,7 @@ export const DndContext = memo(function DndContext({
       dispatch,
       draggableNodes,
       over,
+      overId,
       pastHalfway,
       measureDroppableContainers,
     };
@@ -696,6 +697,7 @@ export const DndContext = memo(function DndContext({
     draggableDescribedById,
     draggableNodes,
     over,
+    overId,
     pastHalfway,
     measureDroppableContainers,
   ]);
