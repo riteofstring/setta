@@ -15,7 +15,6 @@ export const verticalListSortingStrategy: SortingStrategy = ({
   overIndex,
   pastHalfway,
 }) => {
-  // console.log("overIndex", overIndex);
   const activeNodeRect = rects[activeIndex] ?? fallbackActiveRect;
   const effectiveOverIndex = computeNewIndex(
     activeIndex,
@@ -25,19 +24,14 @@ export const verticalListSortingStrategy: SortingStrategy = ({
   );
 
   if (!activeNodeRect) {
-    // console.log("!activeNodeRect");
     return [null, effectiveOverIndex];
   }
 
   if (index === activeIndex) {
     const overIndexRect = rects[effectiveOverIndex];
     if (!overIndexRect) {
-      // console.log("!overIndexRect");
       return [null, effectiveOverIndex];
     }
-
-    // console.log("activeIndex", activeIndex);
-    // console.log("effectiveOverIndex", effectiveOverIndex);
 
     return [
       {
