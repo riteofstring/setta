@@ -7,6 +7,10 @@ import { SortableSectionContainer } from "./SortableSectionContainer";
 export function ManyNestedSections({ sectionId, isDeck }) {
   const tempChildIds = useDndChildren((x) => x.x[sectionId]);
 
+  if (sectionId === "c36c883d-babc-435b-8cbf-efe28fb5b3e5") {
+    console.log("tempChildIds", tempChildIds);
+  }
+
   return (
     <DNDSortable sectionId={sectionId} items={tempChildIds}>
       <NestedSectionsWithMargin

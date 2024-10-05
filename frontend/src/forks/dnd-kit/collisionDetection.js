@@ -13,12 +13,15 @@ function compareCollisions(a, b) {
   // If they are left-aligned, then prioritize the section with most intersection.
   const cidA = a.data.droppableContainer.data.current.sortable?.containerId;
   const cidB = b.data.droppableContainer.data.current.sortable?.containerId;
+  console.log("a, b", a, b);
   // sortable A prioritized before non-sortable B
   if (cidA && !cidB) {
+    console.log("returning", a);
     return a;
   }
   // sortable B prioritized before non-sortable A
   if (!cidA && cidB) {
+    console.log("returning", b);
     return b;
   }
 
@@ -32,7 +35,6 @@ function compareCollisions(a, b) {
     const rawLb = b.data.leftDist;
     // if left-aligned, return rect with larger intersection
     if (la - lb === 0) {
-      // console.log('returning largest intersection')
       return rb - ra > 0 ? b : a;
     }
     // if the active rect is to the right of both rects, then return the one that has the closest left edge
@@ -63,13 +65,13 @@ export function getIntersectionRatio(entry, target) {
   const height = bottom - top;
 
   if (left < right && top < bottom) {
-    // const targetArea = target.width * target.height;
-    // const entryArea = entry.width * entry.height;
+    const targetArea = target.width * target.height;
+    const entryArea = entry.width * entry.height;
     const intersectionArea = width * height;
-    // const intersectionRatio =
-    // intersectionArea / (targetArea + entryArea - intersectionArea);
+    const intersectionRatio =
+      intersectionArea / (targetArea + entryArea - intersectionArea);
 
-    return Number(intersectionArea.toFixed(4));
+    return Number(intersectionRatio.toFixed(4));
   }
 
   // Rectangles do not overlap, or overlap has an area of zero (edge/corner overlap)
@@ -103,8 +105,11 @@ export const customCollisionDetection = ({
       if (ratio) {
         if (prevCollisionId === id) {
           // console.log("prevCollisionId === id")
-          ratio *= 1.1;
+          // ratio *= 2;
         }
+        // if (isTempSection(id)) {
+        //   console.log("ratio", ratio);
+        // }
         const dist = left - rect.left;
         bestCollision = compareCollisions(bestCollision, {
           id,
@@ -117,6 +122,14 @@ export const customCollisionDetection = ({
         });
       }
     }
+  }
+
+  if (prevCollisionId !== (bestCollision ? bestCollision.id : null)) {
+    console.log(
+      "bestCollision",
+      bestCollision,
+      getSectionInfo(bestCollision?.id)?.name,
+    );
   }
 
   if (bestCollision) {
