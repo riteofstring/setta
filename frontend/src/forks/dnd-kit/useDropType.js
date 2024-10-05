@@ -190,10 +190,6 @@ function leftDistBehavior({
   collisions,
 }) {
   const overId = getOverId(over);
-  // Remove temporary section if it's not the only child.
-  if (dndChildrenState.x[oldParentId]?.length > 1) {
-    dndChildrenState.removeChild(dndSectionId);
-  }
   // Consider overId to be the new parent, if it's not the temp section.
   if (overId !== dndSectionId) {
     maybeMoveToNewParent({

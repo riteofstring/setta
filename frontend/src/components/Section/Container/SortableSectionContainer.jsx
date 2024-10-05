@@ -49,6 +49,9 @@ function _SortableCore({
   isHorizontalOrientation,
   applyTransform,
 }) {
+  // if(isTempSection(sectionId)){
+  //   console.log("applyTransform", applyTransform)
+  // }
   const overIsSelf = useOverIsSelf(sectionId);
   const scaledTransform = transformWithZoom(applyTransform ? transform : null);
 
@@ -83,7 +86,7 @@ function _SortableCore({
 function TempSectionOrNot({ sectionId, applyTransform, listeners }) {
   if (isTempSection(sectionId)) {
     if (applyTransform) {
-      return <DummySection forceShow={true} />;
+      return <DummySection forceShow={true} invisiblePartWidth={200} />;
     }
     return null;
   } else {
