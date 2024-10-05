@@ -156,13 +156,18 @@ function maybeMoveToNewParent({
     const _index = newParentChildren.indexOf(overId);
     let index;
     if (_index >= 0) {
-      // console.log("collisions", collisions);
+      console.log("over", overId);
       const activeRect = collisions[0].activeRect;
-      // console.log("activerect", collisions[0].activeRect);
-      // console.log("over?.rect", over?.rect);
-      console.log("over", over)
-      if (activeRect.top > (over.rect.top + over.rect.bottom) / 2) {
-        console.log("past halfway")
+      let halfwayPoint;
+      const overChildren = dndChildrenState.x[overId];
+      if (overChildren && overChildren.includes(dndSectionId)) {
+        halfwayPoint =
+          (over.rect.top + over.rect.bottom - activeRect.height) / 2;
+      } else {
+        halfwayPoint = (over.rect.top + over.rect.bottom) / 2;
+      }
+      if (activeRect.top > halfwayPoint) {
+        console.log("past halfway");
         index = _index + 1;
       } else {
         index = _index;
