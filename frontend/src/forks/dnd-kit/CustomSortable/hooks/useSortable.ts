@@ -116,21 +116,19 @@ export function useSortable({
   const dragSourceDisplacement =
     shouldDisplaceDragSource && displaceItem ? transform : null;
   const strategy = localStrategy ?? globalStrategy;
-  const [finalTransform, effectiveOverIndex] = displaceItem
-    ? dragSourceDisplacement
-      ? [dragSourceDisplacement, overIndex]
-      : strategy({
-          active,
-          rects: sortedRects,
-          activeNodeRect,
-          activeIndex,
-          overIndex,
-          index,
-        })
-    : [null, overIndex];
+  const finalTransform = displaceItem
+    ? dragSourceDisplacement ??
+      strategy({
+        rects: sortedRects,
+        activeNodeRect,
+        activeIndex,
+        overIndex,
+        index,
+      })
+    : null;
   const newIndex =
-    isValidIndex(activeIndex) && isValidIndex(effectiveOverIndex)
-      ? getNewIndex({ id, items, activeIndex, overIndex: effectiveOverIndex })
+    isValidIndex(activeIndex) && isValidIndex(overIndex)
+      ? getNewIndex({ id, items, activeIndex, overIndex })
       : index;
   const activeId = active?.id;
   const previous = useRef({
