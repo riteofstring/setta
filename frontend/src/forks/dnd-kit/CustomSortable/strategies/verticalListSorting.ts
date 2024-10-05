@@ -15,57 +15,72 @@ export const verticalListSortingStrategy: SortingStrategy = ({
   overIndex,
 }) => {
   const activeNodeRect = rects[activeIndex] ?? fallbackActiveRect;
+  const overIndexRect = rects[overIndex];
 
-  if (!activeNodeRect) {
-    return null;
+  if (!activeNodeRect || !overIndexRect) {
+    return [null, overIndex];
+  }
+
+  const activeRect = active.rect.current.translated;
+
+  const effectiveOverIndex =
+    activeRect.bottom > (overIndexRect.top + overIndexRect.bottom) / 2
+      ? overIndex
+      : overIndex - 1;
+
+  const effectiveOverRect = rects[effectiveOverIndex];
+  if (!effectiveOverRect) {
+    return [null, effectiveOverIndex];
   }
 
   if (index === activeIndex) {
-    const overIndexRect = rects[overIndex];
-
-    if (!overIndexRect) {
-      return null;
-    }
-
-    // console.log("activeIndex", activeIndex)
-    // console.log("overIndex", overIndex)
-    // console.log("rects", rects)
-
-    return {
-      x: 0,
-      y:
-        activeIndex < overIndex
-          ? overIndexRect.top +
-            overIndexRect.height -
-            (activeNodeRect.top + activeNodeRect.height)
-          : overIndexRect.top - activeNodeRect.top,
-      ...defaultScale,
-    };
+    return [
+      {
+        x: 0,
+        y:
+          activeIndex < effectiveOverIndex
+            ? effectiveOverRect.top +
+              effectiveOverRect.height -
+              (activeNodeRect.top + activeNodeRect.height)
+            : effectiveOverRect.top - activeNodeRect.top,
+        ...defaultScale,
+      },
+      effectiveOverIndex,
+    ];
   }
 
   const itemGap = getItemGap(rects, index, activeIndex);
 
-  if (index > activeIndex && index <= overIndex) {
-    return {
-      x: 0,
-      y: -activeNodeRect.height - itemGap,
-      ...defaultScale,
-    };
+  if (index > activeIndex && index <= effectiveOverIndex) {
+    return [
+      {
+        x: 0,
+        y: -activeNodeRect.height - itemGap,
+        ...defaultScale,
+      },
+      effectiveOverIndex,
+    ];
   }
 
-  if (index < activeIndex && index >= overIndex) {
-    return {
-      x: 0,
-      y: activeNodeRect.height + itemGap,
-      ...defaultScale,
-    };
+  if (index < activeIndex && index >= effectiveOverIndex) {
+    return [
+      {
+        x: 0,
+        y: activeNodeRect.height + itemGap,
+        ...defaultScale,
+      },
+      effectiveOverIndex,
+    ];
   }
 
-  return {
-    x: 0,
-    y: 0,
-    ...defaultScale,
-  };
+  return [
+    {
+      x: 0,
+      y: 0,
+      ...defaultScale,
+    },
+    effectiveOverIndex,
+  ];
 };
 
 function getItemGap(
