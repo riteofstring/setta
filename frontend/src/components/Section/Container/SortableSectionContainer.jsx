@@ -18,6 +18,7 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
     setNodeRef,
     transform,
     transition,
+    overIndex,
   } = useSortable({ ...dndProps });
   return (
     <SortableCore
@@ -28,6 +29,7 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
       transform={transform}
       transition={transition}
       isHorizontalOrientation={isHorizontalOrientation}
+      applyTransform={overIndex !== null && overIndex !== -1}
     />
   );
 }
@@ -42,9 +44,10 @@ function _SortableCore({
   transform,
   transition,
   isHorizontalOrientation,
+  applyTransform,
 }) {
   const overIsSelf = useOverIsSelf(sectionId);
-  const scaledTransform = transformWithZoom(transform);
+  const scaledTransform = transformWithZoom(applyTransform ? transform : null);
 
   const style = {
     transform: CSS.Translate.toString(scaledTransform),
@@ -55,11 +58,11 @@ function _SortableCore({
 
   return (
     <div className="relative" {...stackProps}>
-      {isTempSection(sectionId) ? (
-        <DummySection forceShow={true} />
-      ) : (
-        <SectionContainer sectionId={sectionId} dragListeners={listeners} />
-      )}
+      <TempSectionOrNot
+        sectionId={sectionId}
+        applyTransform={applyTransform}
+        listeners={listeners}
+      />
     </div>
   );
 
@@ -72,6 +75,17 @@ function _SortableCore({
   //     <SectionContainer sectionId={sectionId} dragListeners={listeners} />
   //   </div>
   // );
+}
+
+function TempSectionOrNot({ sectionId, applyTransform, listeners }) {
+  if (isTempSection(sectionId)) {
+    if (applyTransform) {
+      return <DummySection forceShow={true} />;
+    }
+    return null;
+  } else {
+    return <SectionContainer sectionId={sectionId} dragListeners={listeners} />;
+  }
 }
 
 const SortableCore = React.memo(
