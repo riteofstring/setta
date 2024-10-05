@@ -110,7 +110,7 @@ function getItemGap(
       : 0;
 }
 
-function computeNewIndex(activeIdx, overIdx, pastHalfway, maxIdx) {
+export function computeNewIndex(activeIdx, overIdx, pastHalfway, maxIdx) {
   // Handle special case when activeIdx is 0
   if (activeIdx === 0) {
     if (overIdx === 0) {
