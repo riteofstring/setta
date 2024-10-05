@@ -137,9 +137,10 @@ export function getCollisionDetection(isSorting) {
       }
 
       bestCollision.pastHalfway =
-        (collisionRect.top + collisionRect.bottom) / 2 + buffer >
+        collisionRect.bottom + buffer >
         (droppableRects.get(bestCollision.id).top +
-          droppableRects.get(bestCollision.id).bottom) /
+          droppableRects.get(bestCollision.id).bottom +
+          collisionRect.height) /
           2;
 
       prevCollisionId = bestCollision.id;

@@ -3,7 +3,6 @@ import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React from "react";
-import { MINIMIZE_SECTION_HEIGHT } from "utils/constants";
 
 export const TempDNDSection = React.forwardRef(({}, ref) => {
   const { width, height, highestAncestorWidth } = useDndState(
@@ -20,7 +19,7 @@ export const TempDNDSection = React.forwardRef(({}, ref) => {
   return (
     <div className="flex">
       <div
-        style={{ width: `${width}px`, height: `${MINIMIZE_SECTION_HEIGHT}px` }}
+        style={{ width: `${width}px`, height: `${height}px` }}
         className="rounded-md bg-setta-50/25"
         ref={ref}
       />
@@ -32,7 +31,7 @@ export const TempDNDSection = React.forwardRef(({}, ref) => {
           // }}
           style={{
             width: "200px",
-            height: `${MINIMIZE_SECTION_HEIGHT}px`,
+            height: `${height}px`,
           }}
           className="rounded-md bg-setta-100/25"
         />
@@ -59,7 +58,7 @@ export const DummySection = React.forwardRef(({}, ref) => {
       <div
         style={{
           width: `${displayWidth}px`,
-          height: `${MINIMIZE_SECTION_HEIGHT * zoom}px`,
+          height: `${displayHeight}px`,
         }}
         className="rounded-md bg-setta-50/25"
         ref={ref}
