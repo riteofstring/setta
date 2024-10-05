@@ -32,7 +32,6 @@ function compareCollisions(a, b) {
     const rawLb = b.data.leftDist;
     // if left-aligned, return rect with larger intersection
     if (la - lb === 0) {
-      // console.log('returning largest intersection')
       return rb - ra > 0 ? b : a;
     }
     // if the active rect is to the right of both rects, then return the one that has the closest left edge
@@ -54,7 +53,7 @@ function compareCollisions(a, b) {
   return rb - ra > 0 ? b : a;
 }
 
-export function getIntersectionRatio(entry, target) {
+function getIntersectionRatio(entry, target) {
   const top = Math.max(target.top, entry.top);
   const left = Math.max(target.left, entry.left);
   const right = Math.min(target.left + target.width, entry.left + entry.width);
@@ -76,9 +75,6 @@ export function getIntersectionRatio(entry, target) {
   return 0;
 }
 
-let prevCollisionId = null;
-let prevPastHalfway = null;
-
 export const customCollisionDetection = ({
   active,
   collisionRect,
@@ -87,11 +83,10 @@ export const customCollisionDetection = ({
 }) => {
   let bestCollision = null;
   const left = collisionRect.left;
-  let ratio, rect, id;
 
   for (const droppableContainer of droppableContainers) {
-    id = droppableContainer.id;
-    rect = droppableRects.get(id);
+    const { id } = droppableContainer;
+    const rect = droppableRects.get(id);
 
     // rect must exist.
     // If active doesn't have a parent, then don't look for overlap with self.
@@ -99,12 +94,8 @@ export const customCollisionDetection = ({
       rect &&
       (active.data.current.sortable?.containerId || active.id !== id)
     ) {
-      ratio = getIntersectionRatio(rect, collisionRect);
+      const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
-        if (prevCollisionId === id) {
-          // console.log("prevCollisionId === id")
-          ratio *= 1.1;
-        }
         const dist = left - rect.left;
         bestCollision = compareCollisions(bestCollision, {
           id,
@@ -119,28 +110,5 @@ export const customCollisionDetection = ({
     }
   }
 
-  if (bestCollision) {
-    let buffer = 0;
-    if (prevCollisionId === bestCollision.id) {
-      if (prevPastHalfway === true) {
-        buffer = 10;
-      } else if (prevPastHalfway === false) {
-        buffer = -10;
-      }
-    }
-
-    bestCollision.pastHalfway =
-      collisionRect.bottom + buffer >
-      (droppableRects.get(bestCollision.id).top +
-        droppableRects.get(bestCollision.id).bottom +
-        collisionRect.height) /
-        2;
-
-    prevCollisionId = bestCollision.id;
-    prevPastHalfway = bestCollision.pastHalfway;
-    return [bestCollision];
-  }
-
-  prevCollisionId = null;
-  return [];
+  return bestCollision ? [bestCollision] : [];
 };

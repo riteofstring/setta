@@ -14,7 +14,6 @@ export function inverseTransform(
     return rect;
   }
 
-  // SETTA FORK CHANGE
   const zoom = useReactFlow.getState().transform[2];
 
   const { scaleX, scaleY, x: translateX, y: translateY } = parsedTransform;
@@ -26,8 +25,6 @@ export function inverseTransform(
     translateY * zoom -
     (1 - scaleY) *
       parseFloat(transformOrigin.slice(transformOrigin.indexOf(" ") + 1));
-// END OF SETTA FORK CHANGE
-
   const w = scaleX ? rect.width / scaleX : rect.width;
   const h = scaleY ? rect.height / scaleY : rect.height;
 
