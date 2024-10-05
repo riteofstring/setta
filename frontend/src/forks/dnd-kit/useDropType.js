@@ -6,10 +6,10 @@ import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import { getSectionChildren } from "state/actions/sectionVariants";
 import {
   getSectionCanOnlyBeChildOfDeck,
+  getSectionInfo,
   getSectionIsDeck,
   getSectionIsRoot,
 } from "state/getters/sectionInfo";
-import { getIntersectionRatio } from "./collisionDetection";
 
 const NESTED_SECTION_GAP = 8; // pixels
 
@@ -61,7 +61,7 @@ export function useOnDragOver() {
 
 function onDragOver({ active, over, collisions, triggeredByLeftDist }) {
   const overId = getOverId(over);
-  console.log("overId", overId);
+  console.log("over", getSectionInfo(overId)?.name);
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
@@ -158,27 +158,11 @@ function maybeMoveToNewParent({
     // If the active was from a sortable, and we're not in that sortable anymore.
     const newParentChildren = dndChildrenState.x[newParentId];
     const _index = newParentChildren.indexOf(overId);
-    let index = _index
+    let index = _index;
     if (_index >= 0) {
       if (collisions[0].pastHalfway) {
         index = _index + 1;
       }
-
-      // let halfwayPoint;
-      // const overChildren = dndChildrenState.x[overId];
-      // if (overChildren && overChildren.includes(dndSectionId)) {
-      //   halfwayPoint =
-      //     (over.rect.top + over.rect.bottom - activeRect.height) / 2;
-      // } else {
-      //   halfwayPoint = (over.rect.top + over.rect.bottom) / 2;
-      // }
-      // if (activeRect.top > halfwayPoint) {
-      //   console.log("past halfway");
-      //   index = _index + 1;
-      // } else {
-      //   console.log("before halfway");
-      //   index = _index;
-      // }
     } else {
       index = 0;
     }
@@ -261,50 +245,4 @@ function getBehaviorDropType(activeId, newParentId) {
 
 function getOverId(over) {
   return over ? over.id : null;
-}
-
-function tryAboveOver(activeRect, over) {
-  const newActiveTop = over.rect.top;
-  const newActiveBottom = newActiveTop + activeRect.height;
-  const newActiveLeft = over.rect.left;
-  const newActiveRight = newActiveLeft + activeRect.width;
-  const newOverTop = newActiveBottom + NESTED_SECTION_GAP;
-  const newOverBottom = newOverTop + over.rect.height;
-  const newActiveRect = {
-    ...activeRect,
-    top: newActiveTop,
-    bottom: newActiveBottom,
-    left: newActiveLeft,
-    right: newActiveRight,
-  };
-  const newOverRect = {
-    ...over.rect,
-    top: newOverTop,
-    bottom: newOverBottom,
-  };
-
-  const newActiveRatio = getIntersectionRatio(newActiveRect, activeRect);
-  const newOverRatio = getIntersectionRatio(newOverRect, activeRect);
-
-  console.log("tryAboveOver", newActiveRatio, newOverRatio);
-  return newActiveRatio > newOverRatio;
-}
-
-function tryBelowOver(activeRect, over) {
-  const newActiveTop = over.rect.bottom + NESTED_SECTION_GAP;
-  const newActiveBottom = newActiveTop + activeRect.height;
-  const newActiveLeft = over.rect.left;
-  const newActiveRight = newActiveLeft + activeRect.width;
-  const newActiveRect = {
-    ...activeRect,
-    top: newActiveTop,
-    bottom: newActiveBottom,
-    left: newActiveLeft,
-    right: newActiveRight,
-  };
-
-  const newActiveRatio = getIntersectionRatio(newActiveRect, activeRect);
-  const newOverRatio = getIntersectionRatio(over.rect, activeRect);
-  console.log("tryBelowOver", newActiveRatio, newOverRatio);
-  return newActiveRatio > newOverRatio;
 }

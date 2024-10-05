@@ -127,7 +127,6 @@ export function useSortable({
           overIndex,
           index,
           pastHalfway,
-          over,
         })
     : [null, overIndex];
   const newIndex =
