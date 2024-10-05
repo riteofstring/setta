@@ -31,7 +31,10 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
       transition={transition}
       isHorizontalOrientation={isHorizontalOrientation}
       applyTransform={
-        items.length === 1 || (overIndex !== null && overIndex !== -1)
+        (overIndex !== null && overIndex !== -1) ||
+        (items.length === 1 &&
+          items[0] === sectionId &&
+          isTempSection(sectionId))
       }
     />
   );
@@ -49,9 +52,6 @@ function _SortableCore({
   isHorizontalOrientation,
   applyTransform,
 }) {
-  // if(isTempSection(sectionId)){
-  //   console.log("applyTransform", applyTransform)
-  // }
   const overIsSelf = useOverIsSelf(sectionId);
   const scaledTransform = transformWithZoom(applyTransform ? transform : null);
 
