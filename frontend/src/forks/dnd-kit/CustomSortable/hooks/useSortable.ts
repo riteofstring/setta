@@ -194,6 +194,14 @@ export function useSortable({
     return () => clearTimeout(timeoutId);
   }, [activeId]);
 
+  if (containerId === "80cd990c-7bfe-4c4d-a9eb-b5f650223b57") {
+    // console.log("index", index);
+    // console.log("activeIndex", activeIndex);
+    // console.log("overIndex", overIndex)
+    // console.log("effectiveOverIndex", effectiveOverIndex)
+    // console.log("transform", derivedTransform ?? finalTransform);
+  }
+
   return {
     active,
     activeIndex,

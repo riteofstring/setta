@@ -173,6 +173,14 @@ function maybeMoveToNewParent({
       childId: dndSectionId,
       index,
     });
+    setTimeout(
+      () =>
+        dndChildrenState.removeChildFromSpecificParent(
+          oldParentId,
+          dndSectionId,
+        ),
+      0,
+    );
   }
 
   setNullBehavior(overId);

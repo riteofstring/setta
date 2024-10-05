@@ -27,6 +27,11 @@ export const verticalListSortingStrategy: SortingStrategy = ({
     return [null, effectiveOverIndex];
   }
 
+  if (activeIndex === effectiveOverIndex) {
+    // console.log("activeIndex === effectiveOverIndex")
+    return [null, effectiveOverIndex];
+  }
+
   if (index === activeIndex) {
     const overIndexRect = rects[effectiveOverIndex];
     if (!overIndexRect) {
