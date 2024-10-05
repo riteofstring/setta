@@ -49,6 +49,9 @@ function _SortableCore({
   isHorizontalOrientation,
   applyTransform,
 }) {
+  // if (isTempSection(sectionId)) {
+  //   console.log("applyTransform", applyTransform);
+  // }
   const overIsSelf = useOverIsSelf(sectionId);
   const scaledTransform = transformWithZoom(applyTransform ? transform : null);
 
@@ -59,35 +62,21 @@ function _SortableCore({
   };
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
-  return (
-    <div className="relative" {...stackProps}>
-      <TempSectionOrNot
-        sectionId={sectionId}
-        applyTransform={applyTransform}
-        listeners={listeners}
-      />
-    </div>
-  );
-
-  // return isTempSection(sectionId) ? (
-  //   <div className="relative first:mt-2">
-  //     <DummySection forceShow={true} />
-  //   </div>
-  // ) : (
-  //   <div className="relative first:mt-2" {...stackProps}>
-  //     <SectionContainer sectionId={sectionId} dragListeners={listeners} />
-  //   </div>
-  // );
-}
-
-function TempSectionOrNot({ sectionId, applyTransform, listeners }) {
   if (isTempSection(sectionId)) {
     if (applyTransform) {
-      return <DummySection forceShow={true} />;
+      return (
+        <div className="relative" {...stackProps}>
+          <DummySection forceShow={true} />
+        </div>
+      );
     }
     return null;
   } else {
-    return <SectionContainer sectionId={sectionId} dragListeners={listeners} />;
+    return (
+      <div className="relative" {...stackProps}>
+        <SectionContainer sectionId={sectionId} dragListeners={listeners} />
+      </div>
+    );
   }
 }
 
@@ -96,7 +85,8 @@ const SortableCore = React.memo(
   (p, n) =>
     p.sectionId === n.sectionId &&
     p.transform === n.transform &&
-    p.transition === n.transition,
+    p.transition === n.transition &&
+    p.applyTransform === n.applyTransform,
 );
 
 function transformWithZoom(transform) {

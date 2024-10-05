@@ -1,5 +1,6 @@
 import { createProjectState } from "state/utils";
 import { immer } from "zustand/middleware/immer";
+import { arrayMove } from "./CustomSortable";
 import { getDndSectionId } from "./dndState";
 
 export const useDndChildren = createProjectState(
@@ -30,6 +31,17 @@ export const useDndChildren = createProjectState(
             (x) => x !== childId,
           );
           state.y[childId] = undefined;
+        }
+      }),
+    moveChildWithinSameParent: (newIdx, childId) =>
+      set((state) => {
+        const parentId = state.y[childId];
+        if (parentId && newIdx !== null && newIdx !== -1) {
+          const currIdx = state.x[parentId].indexOf(childId);
+          if (currIdx !== -1) {
+            console.log("moveChildWithinSameParent", currIdx, newIdx);
+            state.x[parentId] = arrayMove(state.x[parentId], currIdx, newIdx);
+          }
         }
       }),
     replaceWithTemp: (id) =>
