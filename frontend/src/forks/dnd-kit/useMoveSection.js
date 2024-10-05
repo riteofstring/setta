@@ -14,7 +14,7 @@ import { useDndChildren } from "./dndChildren";
 import { BehaviorDropType } from "./dropTypes";
 
 function onSortEnd({ active, over }) {
-  if (active.id !== over.id) {
+  if (over && active.id !== over.id) {
     setSectionVariantChildren({
       sectionId: active.data.current.sortable?.containerId,
       newStateFn: updateWithArrayMove(active, over),
