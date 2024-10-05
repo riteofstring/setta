@@ -77,6 +77,7 @@ export function getIntersectionRatio(entry, target) {
 }
 
 let prevCollisionId = null;
+let prevPastHalfway = null;
 
 export const customCollisionDetection = ({
   active,
@@ -100,11 +101,10 @@ export const customCollisionDetection = ({
     ) {
       ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
-        // if (prevCollisionId === id) {
-        //   // console.log("prevCollisionId === id")
-        //   ratio *= 1
-        // }
-        // console.log("ratio", ratio)
+        if (prevCollisionId === id) {
+          // console.log("prevCollisionId === id")
+          ratio *= 1.1;
+        }
         const dist = left - rect.left;
         bestCollision = compareCollisions(bestCollision, {
           id,
@@ -119,17 +119,28 @@ export const customCollisionDetection = ({
     }
   }
 
-  prevCollisionId = bestCollision?.id;
-
   if (bestCollision) {
+    let buffer = 0;
+    if (prevCollisionId === bestCollision.id) {
+      if (prevPastHalfway === true) {
+        buffer = 10;
+      } else if (prevPastHalfway === false) {
+        buffer = -10;
+      }
+    }
+
     bestCollision.pastHalfway =
-      collisionRect.bottom >
+      collisionRect.bottom + buffer >
       (droppableRects.get(bestCollision.id).top +
         droppableRects.get(bestCollision.id).bottom +
         collisionRect.height) /
         2;
+
+    prevCollisionId = bestCollision.id;
+    prevPastHalfway = bestCollision.pastHalfway;
     return [bestCollision];
   }
 
+  prevCollisionId = null;
   return [];
 };
