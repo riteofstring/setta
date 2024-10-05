@@ -27,6 +27,10 @@ export const verticalListSortingStrategy: SortingStrategy = ({
       return null;
     }
 
+    // console.log("activeIndex", activeIndex)
+    // console.log("overIndex", overIndex)
+    // console.log("rects", rects)
+
     return {
       x: 0,
       y:

@@ -9,6 +9,9 @@ import {
   getSectionIsDeck,
   getSectionIsRoot,
 } from "state/getters/sectionInfo";
+import { getIntersectionRatio } from "./collisionDetection";
+
+const NESTED_SECTION_GAP = 8; // pixels
 
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);
@@ -58,6 +61,7 @@ export function useOnDragOver() {
 
 function onDragOver({ active, over, collisions, triggeredByLeftDist }) {
   const overId = getOverId(over);
+  console.log("overId", overId);
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
@@ -156,25 +160,44 @@ function maybeMoveToNewParent({
     const _index = newParentChildren.indexOf(overId);
     let index;
     if (_index >= 0) {
-      console.log("over", overId);
-      const activeRect = collisions[0].activeRect;
-      let halfwayPoint;
-      const overChildren = dndChildrenState.x[overId];
-      if (overChildren && overChildren.includes(dndSectionId)) {
-        halfwayPoint =
-          (over.rect.top + over.rect.bottom - activeRect.height) / 2;
-      } else {
-        halfwayPoint = (over.rect.top + over.rect.bottom) / 2;
-      }
-      if (activeRect.top > halfwayPoint) {
-        console.log("past halfway");
-        index = _index + 1;
-      } else {
+      const activeRect = active.rect.current.translated;
+      const aboveResult = tryAboveOver(activeRect, over);
+      const belowResult = tryBelowOver(activeRect, over);
+
+      console.log("aboveResult", aboveResult);
+      console.log("belowResult", belowResult);
+
+      if (!aboveResult && !belowResult) {
+        if (_index === newParentChildren.length - 1) {
+          index = _index - 1;
+        } else {
+          index = _index + 1;
+        }
+      } else if (aboveResult) {
         index = _index;
+      } else if (belowResult) {
+        index = _index + 1;
       }
+
+      // let halfwayPoint;
+      // const overChildren = dndChildrenState.x[overId];
+      // if (overChildren && overChildren.includes(dndSectionId)) {
+      //   halfwayPoint =
+      //     (over.rect.top + over.rect.bottom - activeRect.height) / 2;
+      // } else {
+      //   halfwayPoint = (over.rect.top + over.rect.bottom) / 2;
+      // }
+      // if (activeRect.top > halfwayPoint) {
+      //   console.log("past halfway");
+      //   index = _index + 1;
+      // } else {
+      //   console.log("before halfway");
+      //   index = _index;
+      // }
     } else {
       index = 0;
     }
+    console.log("index", index);
     dndChildrenState.addChild({
       oldParentId,
       newParentId,
@@ -253,4 +276,50 @@ function getBehaviorDropType(activeId, newParentId) {
 
 function getOverId(over) {
   return over ? over.id : null;
+}
+
+function tryAboveOver(activeRect, over) {
+  const newActiveTop = over.rect.top;
+  const newActiveBottom = newActiveTop + activeRect.height;
+  const newActiveLeft = over.rect.left;
+  const newActiveRight = newActiveLeft + activeRect.width;
+  const newOverTop = newActiveBottom + NESTED_SECTION_GAP;
+  const newOverBottom = newOverTop + over.rect.height;
+  const newActiveRect = {
+    ...activeRect,
+    top: newActiveTop,
+    bottom: newActiveBottom,
+    left: newActiveLeft,
+    right: newActiveRight,
+  };
+  const newOverRect = {
+    ...over.rect,
+    top: newOverTop,
+    bottom: newOverBottom,
+  };
+
+  const newActiveRatio = getIntersectionRatio(newActiveRect, activeRect);
+  const newOverRatio = getIntersectionRatio(newOverRect, activeRect);
+
+  console.log("tryAboveOver", newActiveRatio, newOverRatio);
+  return newActiveRatio > newOverRatio;
+}
+
+function tryBelowOver(activeRect, over) {
+  const newActiveTop = over.rect.bottom + NESTED_SECTION_GAP;
+  const newActiveBottom = newActiveTop + activeRect.height;
+  const newActiveLeft = over.rect.left;
+  const newActiveRight = newActiveLeft + activeRect.width;
+  const newActiveRect = {
+    ...activeRect,
+    top: newActiveTop,
+    bottom: newActiveBottom,
+    left: newActiveLeft,
+    right: newActiveRight,
+  };
+
+  const newActiveRatio = getIntersectionRatio(newActiveRect, activeRect);
+  const newOverRatio = getIntersectionRatio(over.rect, activeRect);
+  console.log("tryBelowOver", newActiveRatio, newOverRatio);
+  return newActiveRatio > newOverRatio;
 }
