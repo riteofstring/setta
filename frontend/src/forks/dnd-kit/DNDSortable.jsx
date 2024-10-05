@@ -28,7 +28,7 @@ export function DNDSortable({ sectionId, items, children }) {
 }
 
 function DisabledSortingStrategy() {
-  return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+  return [{ x: 0, y: 0, scaleX: 1, scaleY: 1 }, -1];
 }
 
 function getSortingStrategy(disabled, idForDeterminingStrategy) {
