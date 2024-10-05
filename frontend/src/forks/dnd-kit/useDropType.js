@@ -38,12 +38,13 @@ export function useOnDragMove() {
   return () => {};
 }
 
-function onDragMove({ active, over, collisions }) {
+function onDragMove({ active, collisions }) {
   const leftDistCondition = getLeftDistCondition(collisions);
   const dndState = useDndState.getState();
 
   if (leftDistCondition !== dndState.leftDistCondition) {
     useDndState.setState({ leftDistCondition });
+    const over = collisions[0];
     if (over && over.id === dndState.overId) {
       onDragOver({
         active,
