@@ -308,6 +308,7 @@ export const DndContext = memo(function DndContext({
         })
       : null;
   const overId = getFirstCollision(collisions, "id");
+  const pastHalfway = getFirstCollision(collisions, "pastHalfway");
   const [over, setOver] = useState<Over | null>(null);
 
   // When there is no drag overlay used, we need to account for the
@@ -679,6 +680,7 @@ export const DndContext = memo(function DndContext({
       dispatch,
       draggableNodes,
       over,
+      pastHalfway,
       measureDroppableContainers,
     };
 
@@ -692,6 +694,7 @@ export const DndContext = memo(function DndContext({
     draggableDescribedById,
     draggableNodes,
     over,
+    pastHalfway,
     measureDroppableContainers,
   ]);
 

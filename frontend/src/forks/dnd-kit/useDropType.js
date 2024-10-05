@@ -158,24 +158,9 @@ function maybeMoveToNewParent({
     // If the active was from a sortable, and we're not in that sortable anymore.
     const newParentChildren = dndChildrenState.x[newParentId];
     const _index = newParentChildren.indexOf(overId);
-    let index;
+    let index = _index
     if (_index >= 0) {
-      const activeRect = active.rect.current.translated;
-      const aboveResult = tryAboveOver(activeRect, over);
-      const belowResult = tryBelowOver(activeRect, over);
-
-      console.log("aboveResult", aboveResult);
-      console.log("belowResult", belowResult);
-
-      if (!aboveResult && !belowResult) {
-        if (_index === newParentChildren.length - 1) {
-          index = _index - 1;
-        } else {
-          index = _index + 1;
-        }
-      } else if (aboveResult) {
-        index = _index;
-      } else if (belowResult) {
+      if (collisions[0].pastHalfway) {
         index = _index + 1;
       }
 

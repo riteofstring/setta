@@ -121,5 +121,15 @@ export const customCollisionDetection = ({
 
   prevCollisionId = bestCollision?.id;
 
-  return bestCollision ? [bestCollision] : [];
+  if (bestCollision) {
+    bestCollision.pastHalfway =
+      collisionRect.bottom >
+      (droppableRects.get(bestCollision.id).top +
+        droppableRects.get(bestCollision.id).bottom +
+        collisionRect.height) /
+        2;
+    return [bestCollision];
+  }
+
+  return [];
 };
