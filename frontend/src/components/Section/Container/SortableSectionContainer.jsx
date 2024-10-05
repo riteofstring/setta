@@ -19,6 +19,7 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
     transform,
     transition,
     overIndex,
+    items,
   } = useSortable({ ...dndProps });
   return (
     <SortableCore
@@ -29,7 +30,9 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
       transform={transform}
       transition={transition}
       isHorizontalOrientation={isHorizontalOrientation}
-      applyTransform={overIndex !== null && overIndex !== -1}
+      applyTransform={
+        items.length === 1 || (overIndex !== null && overIndex !== -1)
+      }
     />
   );
 }
