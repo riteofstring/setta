@@ -79,13 +79,12 @@ function _Container({
 export const Container = React.memo(_Container, _.isEqual);
 
 function DeckSectionTitle({ sectionId }) {
-  const className = "min-w-";
   const titleProps = {
     editing:
-      "nodrag min-w-96 w-full cursor-auto bg-[#64748b83] rounded-lg dark:bg-setta-900 font-heading text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-500",
+      "nodrag -mx-4 w-full cursor-auto self-stretch rounded-full bg-[#64748b83] dark:bg-setta-850 px-4 font-heading text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-500",
 
     notEditing:
-      "cursor-pointer min-w-96 w-full truncate font-heading text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-600 cursor-pointer",
+      "-mx-4 w-full truncate px-4 font-heading text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-600 cursor-pointer",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;

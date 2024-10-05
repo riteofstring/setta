@@ -55,7 +55,6 @@ export function SliderInput({
   value,
   defaultVal,
   onChange,
-  onCommit,
   min,
   max,
   step,
@@ -73,7 +72,6 @@ export function SliderInput({
         value={value}
         defaultVal={defaultVal}
         onChange={onChange}
-        onCommit={onCommit}
         min={min}
         max={max}
         step={step}
@@ -87,7 +85,6 @@ export function SliderInput({
         className={textInputClassName}
         value={value}
         onChange={onChange}
-        onCommit={onCommit}
         min={min}
         max={max}
       />
@@ -95,30 +92,23 @@ export function SliderInput({
   );
 }
 
-function SliderTextField({
-  className,
-  value,
-  onChange,
-  onCommit,
-  min,
-  max,
-  step,
-}) {
+function SliderTextField({ className, value, onChange, min, max, step }) {
   const [tempValue, setTempValue] = useState(value);
   function localOnChange(e) {
-    setTempValue(e.target.value);
+    const num = _.toNumber(e.target.value);
+    if (e.target.value === "" || !_.isFinite(num)) {
+      setTempValue(e.target.value);
+    } else {
+      setTempValue(num);
+      onChange(num);
+    }
   }
 
   function onBlur(e) {
     const num = _.toNumber(e.target.value);
     if (e.target.value === "" || !_.isFinite(num)) {
       setTempValue(value);
-      return;
     }
-    const clamped = clamp(num, min, max);
-    setTempValue(clamped);
-    onChange?.(clamped);
-    onCommit?.(clamped);
   }
 
   useEffect(() => {
@@ -139,7 +129,6 @@ function SliderOnly({
   value,
   defaultVal,
   onChange,
-  onCommit,
   min,
   max,
   step,
@@ -160,8 +149,7 @@ function SliderOnly({
       max={max}
       step={step}
       disabled={isDisabled}
-      onValueChange={(v) => onChange?.(v[0])}
-      onValueCommit={(v) => onCommit?.(v[0])}
+      onValueChange={(v) => onChange(v[0])}
     >
       <Slider.Track className={sliderTrackClassName}>
         <Slider.Range className={sliderRangeClassName} />
