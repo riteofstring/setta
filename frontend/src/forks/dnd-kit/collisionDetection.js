@@ -76,20 +76,6 @@ export function getIntersectionRatio(entry, target) {
   return 0;
 }
 
-function getLeftDistCondition(collision) {
-  // true if section is not top level and doesn't have children
-  // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
-
-  // console.log("!collision.data.droppableContainer.data.current.isTopLevel", !collision.data.droppableContainer.data.current.isTopLevel)
-  // console.log("!collision.data.droppableContainer.data.current.hasNested", !collision.data.droppableContainer.data.current.hasNested)
-  // console.log("100 * useReactFlow.getState().transform[2]", 100 * useReactFlow.getState().transform[2])
-  return (
-    !collision.data.droppableContainer.data.current.isTopLevel &&
-    !collision.data.droppableContainer.data.current.hasNested &&
-    collision.data.leftDist > 100 * useReactFlow.getState().transform[2]
-  );
-}
-
 let prevCollisionId = null;
 let prevPastHalfway = null;
 
@@ -101,7 +87,7 @@ export const customCollisionDetection = ({
 }) => {
   let bestCollision = null;
   const left = collisionRect.left;
-  let ratio, rect, id, dist;
+  let ratio, rect, id;
 
   for (const droppableContainer of droppableContainers) {
     id = droppableContainer.id;
@@ -115,11 +101,11 @@ export const customCollisionDetection = ({
     ) {
       ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
-        dist = left - rect.left;
         if (prevCollisionId === id) {
+          // console.log("prevCollisionId === id")
           ratio *= 1.1;
-          // dist *= 0.9;
         }
+        const dist = left - rect.left;
         bestCollision = compareCollisions(bestCollision, {
           id,
           data: {
@@ -132,12 +118,6 @@ export const customCollisionDetection = ({
       }
     }
   }
-
-  // console.log(
-  //   "bestCollision",
-  //   bestCollision?.id,
-  //   getSectionInfo(bestCollision?.id)?.name,
-  // );
 
   if (bestCollision) {
     let buffer = 0;
@@ -155,16 +135,6 @@ export const customCollisionDetection = ({
         droppableRects.get(bestCollision.id).bottom +
         collisionRect.height) /
         2;
-
-    // bestCollision.leftDistCondition = getLeftDistCondition(bestCollision);
-    // if (!bestCollision.leftDistCondition) {
-    // console.log(
-    //   "leftDistCondition",
-    //   getSectionInfo(bestCollision.id)?.name,
-    //   bestCollision.leftDistCondition,
-    //   bestCollision,
-    // );
-    // }
 
     prevCollisionId = bestCollision.id;
     prevPastHalfway = bestCollision.pastHalfway;

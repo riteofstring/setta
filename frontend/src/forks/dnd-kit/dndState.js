@@ -14,7 +14,6 @@ const initialState = {
   width: null,
   height: null,
   times: {},
-  tempDndIdx: null,
 };
 
 export const useDndState = createProjectState(

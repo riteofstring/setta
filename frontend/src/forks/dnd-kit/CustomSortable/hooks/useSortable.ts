@@ -8,7 +8,6 @@ import {
 } from "forks/dnd-kit/CustomCore";
 import { useContext, useEffect, useMemo, useRef } from "react";
 
-import { isTempSection, useDndState } from "forks/dnd-kit/dndState";
 import { Context } from "../components";
 import type { Disabled, SortableData, SortingStrategy } from "../types";
 import { isValidIndex } from "../utilities";
@@ -175,10 +174,6 @@ export function useSortable({
 
     if (items !== previous.current.items) {
       previous.current.items = items;
-    }
-
-    if (isTempSection(id)) {
-      useDndState.setState({ tempDndIdx: newIndex });
     }
   }, [isSorting, newIndex, containerId, items]);
 
