@@ -150,15 +150,10 @@ export const getD3Transition = (
   return selection.transition().duration(duration);
 };
 
-export function getSectionRect(
-  sectionId,
-  ignoreGrid = false,
-  withNested = false,
-) {
-  const ref = withNested
-    ? useSectionRefs.getState().withNested[sectionId]
-    : useSectionRefs.getState().selfOnly[sectionId] ??
-      useSectionRefs.getState().withNested[sectionId];
+export function getSectionRect(sectionId, ignoreGrid = false) {
+  const ref =
+    useSectionRefs.getState().selfOnly[sectionId] ??
+    useSectionRefs.getState().withNested[sectionId];
   if (!ref) {
     return null;
   }
