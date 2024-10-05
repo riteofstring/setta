@@ -1,7 +1,7 @@
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "forks/dnd-kit/CustomSortable";
 import { isTempSection, useDndState } from "forks/dnd-kit/dndState";
-import { DummySection } from "forks/dnd-kit/DummySection";
+import { TempDNDSection } from "forks/dnd-kit/DummySection";
 import { useDndProps, useOverIsSelf } from "forks/dnd-kit/useDndUtils";
 import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
@@ -71,22 +71,12 @@ function _SortableCore({
       />
     </div>
   );
-
-  // return isTempSection(sectionId) ? (
-  //   <div className="relative first:mt-2">
-  //     <DummySection forceShow={true} />
-  //   </div>
-  // ) : (
-  //   <div className="relative first:mt-2" {...stackProps}>
-  //     <SectionContainer sectionId={sectionId} dragListeners={listeners} />
-  //   </div>
-  // );
 }
 
 function TempSectionOrNot({ sectionId, applyTransform, listeners }) {
   if (isTempSection(sectionId)) {
     if (applyTransform) {
-      return <DummySection forceShow={true} invisiblePartWidth={200} />;
+      return <TempDNDSection />;
     }
     return null;
   } else {

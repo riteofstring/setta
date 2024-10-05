@@ -4,8 +4,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React from "react";
 
-export const DummySection = React.forwardRef(({ forceShow }, ref) => {
-  const zoom = useReactFlow((x) => x.transform[2]);
+export const TempDNDSection = React.forwardRef(({}, ref) => {
   const { width, height, highestAncestorWidth } = useDndState(
     (x) => ({
       width: x.width,
@@ -15,27 +14,55 @@ export const DummySection = React.forwardRef(({ forceShow }, ref) => {
     _.isEqual,
   );
 
-  const displayWidth = forceShow ? width : width * zoom;
-  const displayHeight = forceShow ? height : height * zoom;
-
-  console.log("highestAncestorWidth", highestAncestorWidth);
+  // console.log("highestAncestorWidth", highestAncestorWidth)
 
   return (
     <div className="flex">
       <div
-        style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}
+        style={{ width: `${width}px`, height: `${height}px` }}
         className="rounded-md bg-setta-50/25"
         ref={ref}
       />
-      {forceShow && highestAncestorWidth && (
+      {highestAncestorWidth && (
         <div
+          // style={{
+          //   width: `${highestAncestorWidth.width - highestAncestorWidth.depth * 56 - displayWidth}px`,
+          //   height: `${displayHeight}px`,
+          // }}
           style={{
-            width: `${highestAncestorWidth.width - highestAncestorWidth.depth * 56 - displayWidth}px`,
-            height: `${displayHeight}px`,
+            width: "200px",
+            height: `${height}px`,
           }}
-          className="invisible"
+          className="rounded-md bg-setta-100/25"
         />
       )}
+    </div>
+  );
+});
+
+export const DummySection = React.forwardRef(({}, ref) => {
+  const zoom = useReactFlow((x) => x.transform[2]);
+  const { width, height } = useDndState(
+    (x) => ({
+      width: x.width,
+      height: x.height,
+    }),
+    _.isEqual,
+  );
+
+  const displayWidth = width * zoom;
+  const displayHeight = height * zoom;
+
+  return (
+    <div className="flex">
+      <div
+        style={{
+          width: `${displayWidth}px`,
+          height: `${displayHeight}px`,
+        }}
+        className="rounded-md bg-setta-50/25"
+        ref={ref}
+      />
     </div>
   );
 });
