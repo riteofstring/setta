@@ -2,7 +2,11 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
+import {
+  getSectionRect,
+  getSectionRectWithNested,
+} from "forks/xyflow/core/utils/graph";
+import { getHighestAncestor } from "state/actions/sections/sectionSizes";
 import { getSectionChildren } from "state/actions/sectionVariants";
 import {
   getSectionCanOnlyBeChildOfDeck,
@@ -65,6 +69,8 @@ function onDragOver({ active, over, collisions, calledFromOnDragMove }) {
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
   const oldParentId = getDndParentId(dndSectionId);
+
+  setHighestAncestorWidth(overId);
 
   // There can be discrepancy between over and collisions due to the way state updates in DndContext.
   // Collisions will be more up-to-date. If it's empty, reset relevant state and return early.
@@ -244,4 +250,21 @@ function getBehaviorDropType(activeId, newParentId) {
 
 function getOverId(over) {
   return over ? over.id : null;
+}
+
+function setHighestAncestorWidth(overId) {
+  if (overId && !(overId in useDndState.getState().highestAncestorWidth)) {
+    const dndChildrenState = useDndChildren.getState();
+    let depth = -1;
+    const highestAncestor = getHighestAncestor(overId, (id) => {
+      depth += 1;
+      return dndChildrenState.y[id];
+    });
+    const width = highestAncestor
+      ? getSectionRect(highestAncestor, false, true).width
+      : null;
+    useDndState.setState((x) => {
+      x.highestAncestorWidth[overId] = { width, depth };
+    });
+  }
 }
