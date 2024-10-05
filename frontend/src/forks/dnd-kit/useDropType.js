@@ -6,7 +6,6 @@ import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import { getSectionChildren } from "state/actions/sectionVariants";
 import {
   getSectionCanOnlyBeChildOfDeck,
-  getSectionInfo,
   getSectionIsDeck,
   getSectionIsRoot,
 } from "state/getters/sectionInfo";
@@ -42,11 +41,12 @@ function onDragMove({ active, over, collisions }) {
   if (leftDistCondition !== dndState.leftDistCondition) {
     useDndState.setState({ leftDistCondition });
     if (over && over.id === dndState.overId) {
-      if (leftDistCondition) {
-        onDragOver({ active, over, triggeredByLeftDist: true });
-      } else {
-        onDragOver({ active, over, triggeredByLeftDist: false });
-      }
+      onDragOver({
+        active,
+        over,
+        collisions,
+        calledFromOnDragMove: true,
+      });
     }
   }
 }
@@ -59,15 +59,22 @@ export function useOnDragOver() {
   return () => {};
 }
 
-function onDragOver({ active, over, collisions, triggeredByLeftDist }) {
+function onDragOver({ active, over, collisions, calledFromOnDragMove }) {
   const overId = getOverId(over);
-  console.log("over", getSectionInfo(overId)?.name);
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
   const oldParentId = getDndParentId(dndSectionId);
 
-  if (triggeredByLeftDist === true) {
+  // There can be discrepancy between over and collisions due to the way state updates in DndContext.
+  // Collisions will be more up-to-date. If it's empty, reset relevant state and return early.
+  if (collisions.length === 0) {
+    dndChildrenState.removeChild(dndSectionId);
+    setNullBehavior(null);
+    return;
+  }
+
+  if (calledFromOnDragMove && dndState.leftDistCondition) {
     leftDistBehavior({
       active,
       over,
@@ -80,11 +87,7 @@ function onDragOver({ active, over, collisions, triggeredByLeftDist }) {
   }
 
   // Don't allow very recent overId to be revisited (hack to avoid infinite loops)
-  if (
-    triggeredByLeftDist === undefined &&
-    overId &&
-    getTimeDiff(dndState, overId) < 100
-  ) {
+  if (!calledFromOnDragMove && overId && getTimeDiff(dndState, overId) < 100) {
     setNullBehavior(overId);
     return;
   }
