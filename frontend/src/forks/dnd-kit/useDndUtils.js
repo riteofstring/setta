@@ -45,24 +45,25 @@ export function useDisableSortable(sectionId) {
   }
 
   function disableSort({ active }) {
-    // Freely moving this section or ancestor of this section
+    // Freely moving a section outside of the current section and its children
     if (
       isMovingFree &&
-      (active.id === sectionId || activeIdInAncestorSet(active.id))
+      active.id !== sectionId &&
+      !activeIdInAncestorSet(active.id)
     ) {
-      setDisabled(sectionId, { draggable: true, droppable: true });
+      setDisabled(sectionId, { draggable: false, droppable: false });
     }
-    // Sorting a child of different section
+    // Sorting a child of this section
     else if (
       isSorting &&
-      active.data.current.sortable?.containerId !== sectionId
+      active.data.current.sortable?.containerId === sectionId
     ) {
-      setDisabled(sectionId, { draggable: true, droppable: true });
+      setDisabled(sectionId, { draggable: false, droppable: false });
     }
   }
 
   function onDragDone() {
-    setDisabled(sectionId, { draggable: false, droppable: false });
+    setDisabled(sectionId, { draggable: false, droppable: true });
   }
 
   useDndMonitor({
@@ -71,7 +72,7 @@ export function useDisableSortable(sectionId) {
     onDragCancel: onDragDone,
   });
 
-  return disabled ?? { draggable: false, droppable: false };
+  return disabled ?? { draggable: false, droppable: true };
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
