@@ -35,6 +35,8 @@ export const horizontalListSortingStrategy: SortingStrategy = ({
       return [null, effectiveOverIndex];
     }
 
+    // console.log("effectiveOverIndex",effectiveOverIndex)
+
     return [
       {
         x:

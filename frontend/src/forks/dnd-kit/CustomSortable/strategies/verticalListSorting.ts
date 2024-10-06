@@ -32,6 +32,8 @@ export const verticalListSortingStrategy: SortingStrategy = ({
       return [null, effectiveOverIndex];
     }
 
+    // console.log("effectiveOverIndex",effectiveOverIndex)
+
     return [
       {
         x: 0,

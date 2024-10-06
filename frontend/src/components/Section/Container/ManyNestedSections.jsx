@@ -3,9 +3,12 @@ import { DNDSortable } from "forks/dnd-kit/DNDSortable";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useSectionInfos } from "state/definitions";
 import { SortableSectionContainer } from "./SortableSectionContainer";
+import useDeepCompareEffect from "use-deep-compare-effect";
 
 export function ManyNestedSections({ sectionId, isDeck }) {
   const tempChildIds = useDndChildren((x) => x.x[sectionId]);
+
+  // useDeepCompareEffect(()=>{console.log("tempChildIds", tempChildIds)},[tempChildIds])
 
   return (
     <DNDSortable sectionId={sectionId} items={tempChildIds}>

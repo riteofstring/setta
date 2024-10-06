@@ -142,6 +142,7 @@ export function useDroppable({
 
   useEffect(() => {
     if (disabled !== previous.current.disabled) {
+      // console.log("disabled !== previous.current.disabled", id);
       dispatch({
         type: Action.SetDroppableDisabled,
         id,

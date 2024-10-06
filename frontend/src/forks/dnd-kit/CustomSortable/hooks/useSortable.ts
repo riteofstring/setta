@@ -8,6 +8,7 @@ import {
 } from "forks/dnd-kit/CustomCore";
 import { useContext, useEffect, useMemo, useRef } from "react";
 
+import { isTempSection } from "forks/dnd-kit/dndState";
 import { Context } from "../components";
 import type { Disabled, SortableData, SortingStrategy } from "../types";
 import { isValidIndex } from "../utilities";
@@ -133,6 +134,17 @@ export function useSortable({
     isValidIndex(activeIndex) && isValidIndex(effectiveOverIndex)
       ? getNewIndex({ id, items, activeIndex, overIndex: effectiveOverIndex })
       : index;
+
+  // useEffect(() => {
+  //   if (isTempSection(id)) {
+  //     console.log("newIndex", newIndex);
+  //   }
+  // }, [id, newIndex]);
+
+  // if (id === "1252064e-3eee-4fd8-9192-a2d3555e3ed6") {
+  //   console.log("disabled", id, disabled);
+  // }
+
   const activeId = active?.id;
   const previous = useRef({
     activeId,

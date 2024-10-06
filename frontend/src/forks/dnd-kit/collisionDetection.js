@@ -150,6 +150,11 @@ export function customCollisionDetection({
           2;
     }
 
+    // console.log("containerIsHorizontal", containerIsHorizontal)
+    // console.log("pastHalfway", bestCollision.pastHalfway);
+    // console.log("active.id", active.id);
+    console.log("bestCollision", bestCollision);
+
     prevCollisionId = bestCollision.id;
     prevPastHalfway = bestCollision.pastHalfway;
     return [bestCollision];

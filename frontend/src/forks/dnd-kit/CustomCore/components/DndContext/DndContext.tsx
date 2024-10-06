@@ -155,6 +155,7 @@ export const DndContext = memo(function DndContext({
     draggable: { active: activeId, nodes: draggableNodes, translate },
     droppable: { containers: droppableContainers },
   } = state;
+  // console.log("droppableContainers", [...droppableContainers]);
   const node = activeId ? draggableNodes.get(activeId) : null;
   const activeRects = useRef<Active["rect"]["current"]>({
     initial: null,
