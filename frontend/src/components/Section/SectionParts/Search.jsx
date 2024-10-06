@@ -65,14 +65,26 @@ export function ParamSweepSectionSearch({
   }
 
   return (
-    <SectionSearchCore
-      dataSectionId={forSectionId}
-      visualSectionId={sectionId}
-      selectedItem={selectedItem}
-      onEnter={onEnter}
-      dummyCodeClassName="section-search rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono text-xs [tab-size:4] [word-break:break-word]"
-      realCodeClassName="nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-search rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
-    />
+    <div className="section-search flex items-center justify-between gap-0.5">
+      <div className="single-cell-container w-full">
+        <SectionSearchCore
+          dataSectionId={forSectionId}
+          visualSectionId={sectionId}
+          selectedItem={selectedItem}
+          onEnter={onEnter}
+          dummyCodeClassName="single-cell-child rounded-2xl w-full border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono text-xs [tab-size:4] [word-break:break-word]"
+          realCodeClassName="single-cell-child nodrag w-full [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
+        />
+      </div>
+      <div className="flex gap-0.5">
+        <button className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-setta-400 hover:bg-setta-100/50 dark:text-setta-600 dark:hover:bg-setta-950 dark:hover:text-setta-400">
+          <i className="gg-add" />
+        </button>
+        <button className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-setta-400 hover:bg-setta-100/50 dark:text-setta-600 dark:hover:bg-setta-950 dark:hover:text-setta-400">
+          <i className="gg-trash" />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -168,7 +180,7 @@ function LoadingSpinner({ sectionId }) {
   });
   return (
     waitingForResult && (
-      <i className="section-search gg-spinner mr-2 self-center justify-self-end text-blue-500/70" />
+      <i className="single-cell-child gg-spinner mr-2 self-center justify-self-end text-blue-500/70" />
     )
   );
 }

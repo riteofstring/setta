@@ -299,8 +299,8 @@ export function DrawOnImage({ sectionId }) {
 
   const canvasClassName = "single-cell-child max-w-full place-self-center";
   const cursorIcon = isEraser
-    ? "cursor-[url(../../../../erase.svg),_pointer]"
-    : "cursor-[url(../../../../pen.svg),_pointer]";
+    ? "cursor-[url(../../../erase.svg)_0_24,_pointer]"
+    : "cursor-[url(../../../pen.svg)_0_24,_pointer]";
 
   return (
     <>
@@ -315,7 +315,7 @@ export function DrawOnImage({ sectionId }) {
 
         <div className="flex">
           <button
-            className="flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+            className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${!isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
             onClick={() => {
               setIsEraser(false);
             }}
@@ -335,7 +335,7 @@ export function DrawOnImage({ sectionId }) {
             inputClasses="rounded-lg"
             contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
             trigger={
-              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-800  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-200 py-1  text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800  dark:text-setta-400 dark:hover:bg-setta-900">
                 <i className="gg-chevron-down" />
               </button>
             }
@@ -344,7 +344,7 @@ export function DrawOnImage({ sectionId }) {
         </div>
         <div className="flex">
           <button
-            className="flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+            className={`flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
             onClick={() => {
               setIsEraser(true);
             }}
@@ -362,7 +362,7 @@ export function DrawOnImage({ sectionId }) {
             inputClasses="rounded-lg"
             contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
             trigger={
-              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-800  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-200 py-1  text-xs text-setta-700 hover:bg-setta-300 dark:bg-setta-800  dark:text-setta-400 dark:hover:bg-setta-900">
                 <i className="gg-chevron-down" />
               </button>
             }
@@ -564,14 +564,14 @@ function CanvasSettings({ opacity, setOpacity, brushShape, setBrushShape }) {
       </p>
       <div className="flex gap-1">
         <button
-          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 dark:border-setta-700" : "border-transparent"}  p-1 text-xs font-bold text-setta-600 hover:bg-setta-200/50  dark:text-setta-400 dark:hover:bg-setta-900/50`}
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"}  p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
           onClick={() => setBrushShape("round")}
         >
           <i className="gg-shape-circle" />
           {/* <p>Circle</p> */}
         </button>
         <button
-          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "butt" ? "border-setta-300 dark:border-setta-700" : "border-transparent"} p-1 text-xs font-bold text-setta-600 hover:bg-setta-200/50  dark:text-setta-400 dark:hover:bg-setta-900/50`}
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "butt" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
           onClick={() => setBrushShape("butt")}
         >
           <i className="gg-shape-square" />
