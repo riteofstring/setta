@@ -71,7 +71,7 @@ export function useMaxSectionWidth(sectionId) {
   if (isTwitter) {
     // 550 is max width of a tweet. Add 100 for margin
     // https://developer.twitter.com/en/docs/twitter-for-websites/embedded-tweets/guides/embedded-tweet-parameter-reference
-    return 650;
+    return undefined;
   }
   return undefined;
 }

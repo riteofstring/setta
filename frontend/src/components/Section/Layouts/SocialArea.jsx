@@ -4,6 +4,7 @@ import React from "react";
 import { Tweet } from "react-twitter-widgets";
 import YouTube from "react-youtube";
 import { useSectionInfos } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
 
 function _SocialArea({ sectionId }) {
@@ -35,14 +36,15 @@ pb-1 pt-1 [&>div]:overflow-hidden [&>div]:rounded-xl [&>div]:border [&>div]:bord
 
 function TwitterEmbed({ url }) {
   const id = _.last(url.split("/")).split("?")[0];
+  const [darkMode] = localStorageFns.darkMode.hook();
 
   return (
     id && (
       <div
-        className="grid h-full w-full place-items-center
-px-9 py-4 [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-solid [&_.twitter-tweet]:border-white [&_.twitter-tweet]:shadow-lg [&_div:has(.twitter-tweet)]:contents"
+        className="section-w-full section-row-main flex overflow-clip px-3 px-9 px-9
+py-4 py-4 [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-solid [&_.twitter-tweet]:border-white [&_.twitter-tweet]:shadow-lg [&_div:has(.twitter-tweet)]:contents"
       >
-        <Tweet tweetId={id} />
+        <Tweet tweetId={id} options={darkMode ? { theme: "dark" } : {}} />
       </div>
     )
   );

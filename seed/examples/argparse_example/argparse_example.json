@@ -6,11 +6,11 @@
     "runGroupSelection": {},
     "shownRunGroup": null,
     "viewport": {
-      "x": 2098.183887111658,
-      "y": 458.12551382754043,
-      "zoom": 0.8561882845464582
+      "x": 1966.4990810538588,
+      "y": 393.42087472292815,
+      "zoom": 0.5126336189442992
     },
-    "previewImgNodes": "[{\"x\":303,\"y\":8,\"w\":301,\"h\":389},{\"x\":642,\"y\":114,\"w\":644,\"h\":481},{\"x\":-1061,\"y\":-436,\"w\":250,\"h\":468},{\"x\":-1860,\"y\":390,\"w\":202,\"h\":34},{\"x\":638,\"y\":-153,\"w\":485,\"h\":192},{\"x\":-1569,\"y\":342,\"w\":1110,\"h\":879},{\"x\":-1926,\"y\":-399,\"w\":562,\"h\":435},{\"x\":52,\"y\":8,\"w\":202,\"h\":351},{\"x\":-1869,\"y\":215,\"w\":202,\"h\":56}]",
+    "previewImgNodes": "[{\"x\":303,\"y\":8,\"w\":301,\"h\":389},{\"x\":642,\"y\":114,\"w\":644,\"h\":481},{\"x\":-1061,\"y\":-436,\"w\":250,\"h\":468},{\"x\":-1860,\"y\":390,\"w\":202,\"h\":34},{\"x\":638,\"y\":-153,\"w\":485,\"h\":192},{\"x\":-1569,\"y\":342,\"w\":1110,\"h\":879},{\"x\":-1926,\"y\":-399,\"w\":562,\"h\":476},{\"x\":52,\"y\":8,\"w\":202,\"h\":351},{\"x\":-1869,\"y\":215,\"w\":202,\"h\":56},{\"x\":-2802,\"y\":-564,\"w\":651,\"h\":963}]",
     "children": {
       "2a7156ce-56f0-4f44-a415-190464979f61": {
         "x": 302.5163436016152,
@@ -45,7 +45,7 @@
       "b9763d11-7dd2-4a98-a390-e1ae9799def0": {
         "x": -1925.5506081714009,
         "y": -398.8349193780566,
-        "zIndex": 9
+        "zIndex": 8
       },
       "c27f4f05-7a54-44e6-b222-c77581c4ea37": {
         "x": 51.51634360161517,
@@ -56,6 +56,11 @@
         "x": -1869.1968578954725,
         "y": 215.1279019875598,
         "zIndex": 7
+      },
+      "d82c1e46-126f-4fa9-b08b-15341a1433a7": {
+        "x": -2802.0014634488857,
+        "y": -563.8394530302992,
+        "zIndex": 10
       }
     }
   },
@@ -161,6 +166,14 @@
     },
     "8226a890-8524-430c-8d8f-861b5db786f1": {
       "name": "disturbing_harlequin",
+      "selectedItem": null,
+      "code": "",
+      "keywordPositions": [],
+      "values": {},
+      "children": []
+    },
+    "956bd407-95e4-457a-bbca-2ee6fecde7d5": {
+      "name": "youthful_lavender",
       "selectedItem": null,
       "code": "",
       "keywordPositions": [],
@@ -431,6 +444,7 @@
     "71d31928-1d53-483b-8ea4-f16b39f97e02": {},
     "73a2bf21-5e2d-45bb-8c89-25d2f5518d00": {},
     "7b572a8d-8e1d-4b35-8beb-f9e1df4d6a02": {},
+    "881c223c-e354-426a-b311-949357712059": {},
     "8b20e30b-7a10-4775-914f-ba43b528a2fc": {},
     "8d5d4b90-e34e-467e-876b-9b064620f4f0": {},
     "b165f346-d8b2-4d25-96b5-c69d889c1234": {},
@@ -970,7 +984,7 @@
       "isInOtherProjectConfigs": false,
       "size": {
         "width": 560,
-        "height": 433
+        "height": 474
       },
       "variantId": "71cb48cb-b3f1-4a31-8dd1-01ff7341facd",
       "paramSweepId": null,
@@ -1063,6 +1077,36 @@
         "height": "auto"
       },
       "variantId": "058253cf-28cd-48a3-90ed-6b94971d2656",
+      "paramSweepId": null,
+      "isHorizontalOrientation": 0,
+      "pinnedAreaHeight": "auto",
+      "isMinimized": 0
+    },
+    "d82c1e46-126f-4fa9-b08b-15341a1433a7": {
+      "id": "d82c1e46-126f-4fa9-b08b-15341a1433a7",
+      "name": "important_ivory",
+      "paramSweepSectionId": null,
+      "uiTypeId": "76cd4b19-cc63-4e2c-8214-5a4246ca637c",
+      "uiTypeColId": "881c223c-e354-426a-b311-949357712059",
+      "social": "https://x.com/KevMusgrave/status/1841192499160789355",
+      "description": "",
+      "codeLanguage": "",
+      "configLanguage": "python",
+      "isFrozen": 0,
+      "jsonSource": null,
+      "codeInfoId": "3c69b2a9-9688-48d4-9142-e31e48528bf0",
+      "hideUnpinnedParams": 0,
+      "showYaml": 0,
+      "nonPresetUITypeIds": [],
+      "variantIds": ["956bd407-95e4-457a-bbca-2ee6fecde7d5"],
+      "paramSweepIds": [],
+      "artifacts": [],
+      "isInOtherProjectConfigs": false,
+      "size": {
+        "width": 649,
+        "height": 961
+      },
+      "variantId": "956bd407-95e4-457a-bbca-2ee6fecde7d5",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
@@ -1240,6 +1284,19 @@
     },
     "346b6140-4b33-4c43-a102-44f634401829": {
       "id": "346b6140-4b33-4c43-a102-44f634401829",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": [],
+      "children": []
+    },
+    "3c69b2a9-9688-48d4-9142-e31e48528bf0": {
+      "id": "3c69b2a9-9688-48d4-9142-e31e48528bf0",
       "name": "Contents",
       "editable": 0,
       "rcType": "collection",

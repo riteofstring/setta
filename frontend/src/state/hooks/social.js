@@ -22,5 +22,5 @@ export function linkIsYouTube(x) {
 }
 
 export function linkIsTwitter(x) {
-  return x && x.includes("twitter");
+  return x && (x.includes("twitter") || x.includes("x.com"));
 }
