@@ -18,7 +18,7 @@ import { updateStateWithSectionCopy } from "./loadSections";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
 
-export function moveSections({
+export async function moveSections({
   sectionIds,
   oldParentIds,
   newParentIds,
@@ -27,7 +27,7 @@ export function moveSections({
   newParentId,
 }) {
   for (const [idx, sectionId] of sectionIds.entries()) {
-    moveSection({
+    await moveSection({
       oldParentId: oldParentIds ? oldParentIds[sectionId] : oldParentId,
       newParentId: newParentIds ? newParentIds[sectionId] : newParentId,
       sectionId,

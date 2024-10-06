@@ -1,8 +1,9 @@
 import C from "constants/constants.json";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { moveSections } from "state/actions/sections/moveSections";
-import { useNodeInternals, useSectionInfos } from "state/definitions";
+import { useNodeInternals } from "state/definitions";
 import { PANEID } from "utils/constants";
+import { getSectionChildren } from "../sectionVariants";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { onClickAddSection } from "./createSections";
 import { deleteSections } from "./deleteSections";
@@ -38,14 +39,14 @@ export function groupSections() {
   }
 }
 
-export function undeck(deckId) {
-  const childIds = useSectionInfos.getState().x[deckId].children;
+export async function undeck(deckId) {
+  const childIds = getSectionChildren(deckId);
   const positions = {};
   childIds.forEach((id) => {
     const { x, y } = getSectionRect(id);
     positions[id] = { x, y };
   });
-  moveSections({
+  await moveSections({
     oldParentId: deckId,
     newParentId: PANEID,
     sectionIds: childIds,
