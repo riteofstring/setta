@@ -1,3 +1,4 @@
+import { isSectionFullyVisible } from "forks/xyflow/core/utils/graph";
 import React, { useRef } from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useSectionRefs } from "state/definitions";
@@ -52,13 +53,13 @@ function useTabIntercepter() {
 
       nextElement = focusableArray[nextIndex];
       if (nextElement.className.includes("react-flow__node")) {
-        goToSection(nextElement.dataset.id, 0);
+        goToSectionIfNotFullyVisible(nextElement.dataset.id);
       } else {
         for (const [sectionId, ref] of Object.entries(
           useSectionRefs.getState().selfOnly,
         )) {
           if (ref.contains(nextElement)) {
-            goToSection(sectionId, 0);
+            goToSectionIfNotFullyVisible(sectionId);
             break;
           }
         }
@@ -69,4 +70,10 @@ function useTabIntercepter() {
   }
 
   return { containerRef, onKeyDown };
+}
+
+function goToSectionIfNotFullyVisible(sectionId) {
+  if (!isSectionFullyVisible(sectionId)) {
+    goToSection(sectionId, 0);
+  }
 }
