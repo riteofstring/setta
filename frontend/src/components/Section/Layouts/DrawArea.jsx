@@ -40,7 +40,6 @@ export function DrawOnImage({ sectionId }) {
   const [color, setColor] = useState("#ff0000");
   const [opacity, setOpacity] = useState(1);
   const [brushSize, setBrushSize] = useState(16);
-  const [brushShape, setBrushShape] = useState("round");
   const [canvasOpacity, setCanvasOpacity] = useState(0.5);
   const [eraserBrushSize, setEraserBrushSize] = useState(16);
   const [isEraser, setIsEraser] = useState(false);
@@ -54,14 +53,14 @@ export function DrawOnImage({ sectionId }) {
       dCtx.globalCompositeOperation = "destination-out";
       dCtx.strokeStyle = "rgba(0,0,0,1)";
       dCtx.lineWidth = eraserBrushSize;
-      dCtx.lineCap = brushShape;
+      dCtx.lineCap = "round";
       dCtx.globalAlpha = 1;
       draftCanvas.style.opacity = 1;
     } else {
       dCtx.globalCompositeOperation = "source-over";
       dCtx.strokeStyle = color;
       dCtx.lineWidth = brushSize;
-      dCtx.lineCap = brushShape;
+      dCtx.lineCap = "round";
       dCtx.globalAlpha = 1;
       draftCanvas.style.opacity = opacity;
     }
@@ -176,7 +175,7 @@ export function DrawOnImage({ sectionId }) {
       setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
-  }, [isEraser, opacity, color, brushSize, eraserBrushSize, brushShape]);
+  }, [isEraser, opacity, color, brushSize, eraserBrushSize]);
 
   useEffect(() => {
     const id = base64RequestId(sectionId);
@@ -198,7 +197,6 @@ export function DrawOnImage({ sectionId }) {
       color: isEraser ? dCtx.strokeStyle : color,
       opacity: isEraser ? 1 : opacity,
       lineWidth: dCtx.lineWidth,
-      lineCap: dCtx.lineCap,
       points: [firstPoint],
       canvasHeight: draftCanvas.height,
       canvasWidth: draftCanvas.width,
@@ -375,8 +373,6 @@ export function DrawOnImage({ sectionId }) {
             <CanvasSettings
               opacity={canvasOpacity}
               setOpacity={setCanvasOpacity}
-              brushShape={brushShape}
-              setBrushShape={setBrushShape}
             />
           }
           arrowClasses="fill-white dark:fill-setta-800"
@@ -522,7 +518,7 @@ function EraserSettings({ brushSize, setBrushSize }) {
   );
 }
 
-function CanvasSettings({ opacity, setOpacity, brushShape, setBrushShape }) {
+function CanvasSettings({ opacity, setOpacity }) {
   const [localOpacity, setLocalOpacity] = useState(opacity);
 
   useEffect(() => {
@@ -541,7 +537,7 @@ function CanvasSettings({ opacity, setOpacity, brushShape, setBrushShape }) {
   return (
     <div className="grid w-full grid-cols-[1fr,_2fr] gap-2">
       <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
-        Canvas Opacity
+        Size
       </p>
       <SliderInput
         sliderRootClassName={sliderRootClassName}
@@ -557,15 +553,6 @@ function CanvasSettings({ opacity, setOpacity, brushShape, setBrushShape }) {
         onChange={setLocalOpacity}
         onCommit={setOpacity}
       />
-      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
-        Brush Shape
-      </p>
-      <button
-        className="flex cursor-pointer gap-2 text-xs font-bold text-setta-600 dark:text-setta-400"
-        onClick={() => setBrushShape(brushShape === "round" ? "butt" : "round")}
-      >
-        {brushShape === "round" ? "Round" : "Square"}
-      </button>
     </div>
   );
 }
@@ -673,7 +660,7 @@ function drawStroke(canvas, ctx, stroke) {
   ctx.strokeStyle = stroke.color;
   ctx.globalAlpha = stroke.opacity;
   ctx.lineWidth = stroke.lineWidth;
-  ctx.lineCap = stroke.lineCap;
+  ctx.lineCap = "round";
   let prevPoint = stroke.points[0];
   stroke.points.forEach((point) => {
     ctx.moveTo(prevPoint[0], prevPoint[1]);
