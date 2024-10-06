@@ -111,7 +111,7 @@ function _SortableCore({
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
   return (
-    <div className="relative flex w-full" {...stackProps} tabIndex="-1" >
+    <div className="relative flex w-full" {...stackProps}>
       <TempSectionOrNot
         sectionId={sectionId}
         applyTransform={applyTransform}
