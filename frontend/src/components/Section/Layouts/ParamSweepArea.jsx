@@ -1,10 +1,8 @@
 import { ParamSweepUI } from "components/Params/ParamUIs/ParamUI";
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
-import { IoClose } from "react-icons/io5";
 import {
   addParamSweepCallable,
   addParamSweepParamInfoId,
@@ -34,7 +32,7 @@ function _ParamSweepArea({ sectionId }) {
 
   return (
     <>
-      <div className="section-main-full-w ml-1.5 flex flex-col gap-6 overflow-y-scroll">
+      <div className="section-main-full-w ml-1.5 flex flex-col gap-4 overflow-y-scroll">
         {paramSweep.length > 0 &&
           paramSweep.map((sweep, idx) => (
             <ParamSweepForOneSelectedItem
@@ -47,7 +45,7 @@ function _ParamSweepArea({ sectionId }) {
               showParamSweepSectionSearch={showParamSweepSectionSearch}
             />
           ))}
-        {paramSweep.length === 0 && !showParamSweepSectionSearch && (
+        {/* {paramSweep.length === 0 && !showParamSweepSectionSearch && (
           <PlaceholderArgItem
             forSectionId={forSectionId}
             paramSweepId={paramSweepId}
@@ -55,10 +53,10 @@ function _ParamSweepArea({ sectionId }) {
             selectedItem={null}
             selectedItemIdx={null}
           />
-        )}
+        )} */}
         {showParamSweepSectionSearch && (
           <button
-            className="-mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
+            className="mt-1 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
             onClick={onAddCallableClick}
           >
             <i className="gg-play-list-add !scale-75" />
@@ -81,7 +79,7 @@ function ParamSweepForOneSelectedItem({
   showParamSweepSectionSearch,
 }) {
   return (
-    <div className="section-min-rows section-grid-cols section-grid-sweep-areas grid">
+    <div className="section-min-rows section-grid-cols section-grid-sweep-areas mt-1 grid">
       {showParamSweepSectionSearch && (
         <ParamSweepSectionSearch
           sectionId={sectionId}
@@ -114,7 +112,7 @@ function Args({
   const alreadySelected = paramSweep.map((x) => x.paramInfoId);
 
   return (
-    <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1 overflow-y-auto overflow-x-clip">
+    <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1">
       {paramSweep.map((x, idx) => (
         <ArgItem
           key={idx}
@@ -128,13 +126,13 @@ function Args({
           selectedItemIdx={selectedItemIdx}
         />
       ))}
-      <PlaceholderArgItem
+      {/* <PlaceholderArgItem
         forSectionId={forSectionId}
         paramSweepId={paramSweepId}
         alreadySelected={alreadySelected}
         selectedItem={objInfoId}
         selectedItemIdx={selectedItemIdx}
-      />
+      /> */}
     </section>
   );
 }
@@ -303,17 +301,14 @@ function Input({
   value,
 }) {
   return (
-    <>
-      <IconButton
-        icon={<IoClose />}
-        bg="bg-transparent"
-        color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
-        twClasses="opacity-75 ml-2 section-left-gutter cursor-pointer place-self-center"
-        padding=""
-        size="h-[.66rem] w-[.66rem]"
+    <div className="group contents">
+      <button
+        className="section-left-gutter ml-2 flex h-[0.66rem] w-[0.66rem] cursor-pointer items-center justify-center place-self-center bg-transparent text-transparent opacity-75 hover:!text-setta-600 group-hover:text-setta-300 dark:hover:!text-setta-200 group-hover:dark:text-setta-600"
         onClick={onDelete}
         tabIndex="-1"
-      />
+      >
+        <i className="gg-close !scale-50" />
+      </button>
       <article className="section-key-value group/arg-group group/textinput -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2">
         <ParamSweepUI
           dataSectionId={forSectionId}
@@ -326,7 +321,7 @@ function Input({
           setKeywordPositions={() => {}}
         />
       </article>
-    </>
+    </div>
   );
 }
 
