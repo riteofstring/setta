@@ -10,7 +10,7 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import { PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
-import { computeNewIndex } from "./CustomSortable/strategies/verticalListSorting";
+import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropType } from "./dropTypes";
 

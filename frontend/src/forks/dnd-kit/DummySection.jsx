@@ -14,7 +14,7 @@ export const TempDNDSection = React.forwardRef(({}, ref) => {
     _.isEqual,
   );
 
-  // console.log("highestAncestorWidth", highestAncestorWidth)
+  // console.log("highestAncestorWidth", highestAncestorWidth);
 
   return (
     <div className="flex">
@@ -23,19 +23,19 @@ export const TempDNDSection = React.forwardRef(({}, ref) => {
         className="rounded-md bg-setta-50/25"
         ref={ref}
       />
-      {highestAncestorWidth && (
+      {/* {highestAncestorWidth && (
         <div
-          // style={{
-          //   width: `${highestAncestorWidth.width - highestAncestorWidth.depth * 56 - displayWidth}px`,
-          //   height: `${displayHeight}px`,
-          // }}
           style={{
-            width: "200px",
-            height: `${height}px`,
+            width: `${highestAncestorWidth.width - displayWidth}px`,
+            height: `${displayHeight}px`,
           }}
+          // style={{
+          //   width: "200px",
+          //   height: `${height}px`,
+          // }}
           className="rounded-md bg-setta-100/25"
         />
-      )}
+      )} */}
     </div>
   );
 });
