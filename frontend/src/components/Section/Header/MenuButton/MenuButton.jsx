@@ -1,7 +1,6 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import C from "constants/constants.json";
-import { useState } from "react";
 import { HeaderIcon } from "../HeaderIcon";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
@@ -16,7 +15,6 @@ import { ShowYaml } from "./ShowYaml";
 
 function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
   // hover:bg-setta-100 dark:hover:bg-setta-900
-  const [isHovering, setIsHovering] = useState(false);
 
   const isSpecial = [
     C.CODE,
@@ -35,12 +33,8 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
             sectionId={sectionId}
             sectionTypeName={sectionTypeName}
             isInOtherProjectConfigs={isInOtherProjectConfigs}
-            isHover={isHovering}
           />
         }
-        setIsHovering={setIsHovering}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
       >
         {sectionTypeName === C.INFO && <ShowMarkdown sectionId={sectionId} />}
 

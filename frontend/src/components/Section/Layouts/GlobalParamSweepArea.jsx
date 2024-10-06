@@ -250,18 +250,18 @@ function _GenericList({
     inputList.length > minLength && (
       <>
         <StandardAccordion
-          rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700  rounded-lg px-2 ml-8 -mr-2 -mt-0.5"
+          rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700  rounded-lg px-2 ml-4 -mr-2 -mt-1"
           itemStyles="focus-within:relative focus-within:z-10"
-          headerStyles="flex flex-1 cursor-default items-center justify-between my-0.5"
-          triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md italic text-xs font-semibold opacity-60 group-hover:opacity-100 text-setta-500 dark:text-setta-300"
-          contentStyles="text-xs overflow-hidden mb-1"
+          headerStyles="flex flex-1 cursor-default items-center justify-between my-1"
+          triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md text-xs text-setta-500 dark:text-setta-300"
+          contentStyles="text-xs overflow-hidden  mb-1"
           heading={listName}
           value={listName}
           internalWrapper={false}
           // defaultValue={defaultValue}
           data-state={open}
         >
-          <ul className="">
+          <ul className="pl-4">
             {inputList.map((e, idx) => (
               <li
                 key={idx}
@@ -286,7 +286,7 @@ const GenericList = React.memo(_GenericList, _.isEqual);
 
 function CheckboxGroup({ children, checked, onChange }) {
   return (
-    <label className="flex min-h-6 cursor-pointer items-center gap-2 text-xs text-setta-700 dark:text-setta-300">
+    <label className="flex min-h-6 cursor-pointer items-center gap-2 text-xs text-setta-500 dark:text-setta-300">
       <input
         type="checkbox"
         className="h-4 w-4 min-w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"

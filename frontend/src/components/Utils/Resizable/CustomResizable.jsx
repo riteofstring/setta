@@ -117,7 +117,7 @@ function useSizeMode(sectionId) {
   if (sectionType === C.ARTIFACT) {
     return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
   } else if (isTwitter) {
-    return { height: SIZE_MODE.any, width: SIZE_MODE.any };
+    return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
   } else {
     return { height: SIZE_MODE.any, width: SIZE_MODE.any };
   }

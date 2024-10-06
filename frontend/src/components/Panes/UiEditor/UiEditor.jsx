@@ -1,9 +1,10 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import { FiEdit3 } from "react-icons/fi";
-import { useActiveSection } from "state/definitions";
+import { setUIEditorTab } from "state/actions/uiEditor";
+import { useActiveSection, useUIEditor } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
-import { useUIEditorTab } from "state/hooks/uiTypes";
+import { useRequiredUIEditorTabs } from "state/hooks/uiTypes";
 import {
   INFO_CONFIG_TAB,
   QUICKINFO_CONFIG_TAB,
@@ -40,14 +41,17 @@ export function UiEditor() {
 }
 
 function TabsVisible({ sectionId }) {
-  const [tab, setTab, requiredTabs] = useUIEditorTab(sectionId);
+  const rawTab = useUIEditor((x) => x.tab);
+  const requiredTabs = useRequiredUIEditorTabs(sectionId);
+  // when sectionId changes, the requiredTabs might not include the previously active tab
+  const tab = requiredTabs.includes(rawTab) ? rawTab : requiredTabs[0];
 
   return (
     <Tabs.Root
       className="flex h-full min-h-0 w-[calc(100%_-_2rem)] min-w-0 flex-1 flex-col overflow-hidden pl-2"
       defaultValue={SECTION_CONFIG_TAB}
       value={tab}
-      onValueChange={setTab}
+      onValueChange={setUIEditorTab}
     >
       <Tabs.List asChild>
         <nav className="flex gap-4 overflow-x-auto">

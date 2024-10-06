@@ -10,7 +10,6 @@ import {
   UI_CONFIG_TAB,
 } from "utils/constants";
 import { isRoot } from "utils/sectionTypeHelpers";
-import { localStorageFns } from "./localStorage";
 import { useGetSectionInfo } from "./sections";
 
 export function useGetParamUIType(sectionId, paramInfoId) {
@@ -125,22 +124,10 @@ export function useIsDrawArea(sectionId) {
   return useIsType(sectionId, C.DRAW);
 }
 
-export function useUIEditorTab(sectionId) {
+export function useRequiredUIEditorTabs(sectionId) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  const uiTypeName = useUITypes((x) => x.x[uiTypeId].type);
-  const requiredTabs = getRequiredUIEditorTabs(uiTypeName);
-  const [_storedTab, _setStoredTab] = localStorageFns["uiEditorTab"].hook();
-  const storedTab = _storedTab[uiTypeName] ?? SECTION_CONFIG_TAB;
-
-  // when sectionId changes, the requiredTabs might not include the previously active tab
-  const tab = requiredTabs.includes(storedTab) ? storedTab : requiredTabs[0];
-  const setTab = (newTabState) =>
-    _setStoredTab((state) => ({ ...state, [uiTypeName]: newTabState }));
-  return [tab, setTab, requiredTabs];
-}
-
-function getRequiredUIEditorTabs(uiTypeName) {
-  switch (uiTypeName) {
+  const uiTypeType = useUITypes((x) => x.x[uiTypeId].type);
+  switch (uiTypeType) {
     case C.INFO:
       return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
     case C.ARTIFACT:

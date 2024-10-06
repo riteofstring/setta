@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { BiPaint } from "react-icons/bi";
-import { FaMarkdown, FaTerminal } from "react-icons/fa";
+import { FaTerminal } from "react-icons/fa";
 import { IoLogoJavascript } from "react-icons/io";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
@@ -14,7 +14,6 @@ export function HeaderIcon({
   sectionTypeName,
   classes,
   isInOtherProjectConfigs,
-  isHovering,
 }) {
   const isListElement = useIsListElement(sectionId);
 
@@ -52,10 +51,7 @@ export function HeaderIcon({
       );
     case C.INFO:
       return (
-        <FaMarkdown
-          className={` ${isHovering ? "text-[#0084ff]" : "text-transparent"} transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]`}
-        />
-        // <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
+        <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
       );
     case C.ARTIFACT:
       return (

@@ -38,15 +38,13 @@ function _Container({
   if (isDeck) {
     return (
       <div
-        className={`${pointerSelectCSS} flex ${width} min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
+        className={`${pointerSelectCSS} flex ${width} flex-[0_0_auto] flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
         {...commonProps}
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
       >
         <div className="absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline outline-2  outline-transparent backdrop-blur dark:border-setta-700 dark:bg-[#06070a3e]" />
-        <div className="relative min-h-8 w-full">
-          <div className="absolute inset-0 overflow-hidden">
-            <DeckSectionTitle sectionId={sectionId} />
-          </div>
+        <div className="relative w-full min-w-0">
+          <DeckSectionTitle sectionId={sectionId} />
         </div>
 
         {!hasNested && (
