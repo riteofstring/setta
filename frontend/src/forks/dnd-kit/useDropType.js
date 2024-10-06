@@ -159,14 +159,12 @@ function maybeMoveToNewParent({
   }
 
   if (overId === newParentId && getSectionChildren(newParentId).length > 0) {
-    // console.log("overId===newParentId")
     dndChildrenState.removeChild(dndSectionId);
     return;
   }
 
   // Check if the temporary section has a new parent
   if (newParentId !== oldParentId) {
-    // console.log("newParentId !== oldParentId")
     // If the active was from a sortable, and we're not in that sortable anymore.
     const newParentChildren = dndChildrenState.x[newParentId];
     const _index = newParentChildren.indexOf(overId);

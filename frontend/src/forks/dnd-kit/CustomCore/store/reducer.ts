@@ -82,7 +82,6 @@ export function reducer(state: State, action: Actions): State {
         ...element,
         disabled,
       });
-      console.log("new containers", containers);
 
       return {
         ...state,

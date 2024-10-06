@@ -35,7 +35,6 @@ export const useDndChildren = createProjectState(
     replaceWithTemp: (id) =>
       set((state) => {
         const parentId = state.y[id];
-        // console.log("replaceWithTemp", parentId);
         if (parentId) {
           const index = state.x[parentId].indexOf(id);
           const tempId = getDndSectionId(id);

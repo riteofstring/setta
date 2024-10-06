@@ -13,9 +13,7 @@ export function DNDSortable({ sectionId, items, children }) {
   const idForDeterminingStrategy = useDndState((x) =>
     x.isSorting ? x.activeId : x.overId,
   );
-  // if (sectionId === "4b71ccae-dc5f-4151-be02-9cbbf661d822") {
-  //   console.log("disabled", disabled);
-  // }
+  // console.log("items", items)
 
   return (
     <SortableContext

@@ -42,13 +42,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
     const overIdx = children.indexOf(overId);
     const pastHalfway = collisions[0].pastHalfway;
     const maxIdx = children.length;
-    console.log("activeIdx", activeIdx);
-    console.log("overIdx", overIdx);
-    console.log("pastHalfway", pastHalfway);
-    console.log("maxIdx", maxIdx);
-
     newIndex = computeNewIndex(activeIdx, overIdx, pastHalfway, maxIdx);
-    console.log("newIndex", newIndex);
   }
   // dropping nested section onto pane
   else if (!overId) {
