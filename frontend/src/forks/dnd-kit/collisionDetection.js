@@ -1,8 +1,5 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
 
-import { useReactFlow } from "forks/xyflow/core/store";
-import { getSectionInfo } from "state/getters/sectionInfo";
-
 function compareCollisions(a, b) {
   if (!a) {
     return b;
@@ -29,13 +26,12 @@ function compareCollisions(a, b) {
   const rb = b.data.intersectionRatio;
 
   if (cidA && cidB) {
-    const la = a.data.absTriggerDist;
-    const lb = b.data.absTriggerDist;
-    const rawLa = a.data.triggerDist;
-    const rawLb = b.data.triggerDist;
+    const la = a.data.absLeftDist;
+    const lb = b.data.absLeftDist;
+    const rawLa = a.data.leftDist;
+    const rawLb = b.data.leftDist;
     // if left-aligned, return rect with larger intersection
     if (la - lb === 0) {
-      // console.log('returning largest intersection')
       return rb - ra > 0 ? b : a;
     }
     // if the active rect is to the right of both rects, then return the one that has the closest left edge
@@ -57,7 +53,7 @@ function compareCollisions(a, b) {
   return rb - ra > 0 ? b : a;
 }
 
-export function getIntersectionRatio(entry, target) {
+function getIntersectionRatio(entry, target) {
   const top = Math.max(target.top, entry.top);
   const left = Math.max(target.left, entry.left);
   const right = Math.min(target.left + target.width, entry.left + entry.width);
@@ -79,54 +75,34 @@ export function getIntersectionRatio(entry, target) {
   return 0;
 }
 
-function getTriggerDistCondition(collision, containerIsHorizontal) {
-  // true if section is not top level and doesn't have children
-  // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
-  return (
-    !collision?.data.droppableContainer.data.current.isTopLevel &&
-    !collision?.data.droppableContainer.data.current.hasNested &&
-    collision?.data.triggerDist >
-      (!containerIsHorizontal ? 100 : 20) * useReactFlow.getState().transform[2]
-  );
-}
-
-let prevCollisionId = null;
-let prevPastHalfway = null;
-
-export function customCollisionDetection({
+export const customCollisionDetection = ({
   active,
   collisionRect,
   droppableRects,
   droppableContainers,
-}) {
+}) => {
   let bestCollision = null;
-  const { left, top } = collisionRect;
-  let ratio, rect, id, triggerDist, containerIsHorizontal;
+  const left = collisionRect.left;
 
   for (const droppableContainer of droppableContainers) {
-    id = droppableContainer.id;
-    rect = droppableRects.get(id);
+    const { id } = droppableContainer;
+    const rect = droppableRects.get(id);
 
     // rect must exist.
-    if (rect && active.id !== id) {
-      ratio = getIntersectionRatio(rect, collisionRect);
+    // If active doesn't have a parent, then don't look for overlap with self.
+    if (
+      rect &&
+      (active.data.current.sortable?.containerId || active.id !== id)
+    ) {
+      const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
-        if (prevCollisionId === id) {
-          // console.log("prevCollisionId === id")
-          ratio *= 1.1;
-        }
-        containerIsHorizontal = getSectionInfo(
-          droppableContainer.data.current.sortable?.containerId,
-        )?.isHorizontalOrientation;
-        triggerDist = !containerIsHorizontal
-          ? left - rect.left
-          : top - rect.top;
+        const dist = left - rect.left;
         bestCollision = compareCollisions(bestCollision, {
           id,
           data: {
             droppableContainer,
-            absTriggerDist: Math.abs(triggerDist),
-            triggerDist,
+            absLeftDist: Math.abs(dist),
+            leftDist: dist,
             intersectionRatio: ratio,
           },
         });
@@ -134,44 +110,5 @@ export function customCollisionDetection({
     }
   }
 
-  if (bestCollision) {
-    let buffer = 0;
-    if (prevCollisionId === bestCollision.id) {
-      if (prevPastHalfway === true) {
-        buffer = 10;
-      } else if (prevPastHalfway === false) {
-        buffer = -10;
-      }
-    }
-
-    const containerIsHorizontal = getSectionInfo(
-      bestCollision.data.droppableContainer.data.current.sortable?.containerId,
-    )?.isHorizontalOrientation;
-
-    if (!containerIsHorizontal) {
-      bestCollision.pastHalfway =
-        (collisionRect.top + collisionRect.bottom) / 2 + buffer >
-        (droppableRects.get(bestCollision.id).top +
-          droppableRects.get(bestCollision.id).bottom) /
-          2;
-    } else {
-      bestCollision.pastHalfway =
-        (collisionRect.left + collisionRect.right) / 2 + buffer >
-        (droppableRects.get(bestCollision.id).left +
-          droppableRects.get(bestCollision.id).right) /
-          2;
-    }
-
-    bestCollision.triggerDistCondition = getTriggerDistCondition(
-      bestCollision,
-      containerIsHorizontal,
-    );
-
-    prevCollisionId = bestCollision.id;
-    prevPastHalfway = bestCollision.pastHalfway;
-    return [bestCollision];
-  }
-
-  prevCollisionId = null;
-  return [];
-}
+  return bestCollision ? [bestCollision] : [];
+};

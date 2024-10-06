@@ -1,6 +1,6 @@
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
-import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
+import { getSectionParentId } from "../../getters/sectionInfo";
 import { setSectionInfoAttr } from "./sectionInfos";
 import { setSectionSize } from "./setters";
 
@@ -17,15 +17,7 @@ export function setSelfParentSiblingChildrenWidths({ sectionId, size }) {
 }
 
 function setAllOtherWidths({ sectionId, width }) {
-  // We want to stop width propagation as soon as we hit a horizontal group.
-  const parentIdGetter = (id) => {
-    const parentId = getSectionParentId(id);
-    if (parentId && !getSectionInfo(parentId).isHorizontalOrientation) {
-      return parentId;
-    }
-    return null;
-  };
-  const highestAncestor = getHighestAncestor(sectionId, parentIdGetter);
+  const highestAncestor = getHighestAncestor(sectionId);
   setAllChildrenWidths({
     sectionId: highestAncestor,
     exclude: sectionId,
@@ -46,16 +38,13 @@ export function setAllChildrenWidths({ sectionId, exclude, width }) {
   });
 }
 
-export function getHighestAncestor(
-  sectionId,
-  parentIdGetter = getSectionParentId,
-) {
-  let parentId = parentIdGetter(sectionId);
+export function getHighestAncestor(sectionId) {
+  let parentId = getSectionParentId(sectionId);
   let highestAncestor = sectionId;
 
   while (parentId) {
     highestAncestor = parentId;
-    parentId = parentIdGetter(parentId);
+    parentId = getSectionParentId(parentId);
   }
 
   return highestAncestor;

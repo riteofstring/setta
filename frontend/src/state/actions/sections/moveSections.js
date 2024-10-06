@@ -18,7 +18,7 @@ import { updateStateWithSectionCopy } from "./loadSections";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
 
-export async function moveSections({
+export function moveSections({
   sectionIds,
   oldParentIds,
   newParentIds,
@@ -27,7 +27,7 @@ export async function moveSections({
   newParentId,
 }) {
   for (const [idx, sectionId] of sectionIds.entries()) {
-    await moveSection({
+    moveSection({
       oldParentId: oldParentIds ? oldParentIds[sectionId] : oldParentId,
       newParentId: newParentIds ? newParentIds[sectionId] : newParentId,
       sectionId,
@@ -115,15 +115,12 @@ function setSectionSize({ newParentId, sectionId }) {
   const s = useSectionInfos.getState();
   const isDeck = getSectionType(newParentId).type === C.DECK;
 
-  // if new parent is a deck and the deck has children and is not horizontal
+  // if new parent is a deck and the deck has children
   if (isDeck) {
-    const { isHorizontalOrientation } = getSectionInfo(newParentId);
-    if (!isHorizontalOrientation) {
-      const deckChildren = getSectionChildren(newParentId);
-      if (deckChildren.length > 0) {
-        const width = s.x[deckChildren[0]].size.width;
-        setAllChildrenWidths({ sectionId, width });
-      }
+    const deckChildren = getSectionChildren(newParentId);
+    if (deckChildren.length > 0) {
+      const width = s.x[deckChildren[0]].size.width;
+      setAllChildrenWidths({ sectionId, width });
     }
   } else {
     const width = s.x[newParentId].size.width;

@@ -83,6 +83,8 @@ export function updateNodeDimensions(updates) {
     return res;
   }, []);
 
+  console.log("updateNodeDimensions", fitViewOnInit, fitViewOnInitDone);
+
   const nextFitViewOnInitDone =
     fitViewOnInitDone ||
     (fitViewOnInit &&

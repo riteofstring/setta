@@ -27,6 +27,3 @@ pnpm start
 ```
 
 There is reload mode where the backend reloads on file changes, but it's broken.
-
-
-Find dnd-kit fork changes by searching for SETTA FORK CHANGE

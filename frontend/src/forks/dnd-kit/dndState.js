@@ -7,14 +7,13 @@ const initialState = {
   activeId: null,
   activeIsTopLevel: false,
   overId: null,
-  triggerDistCondition: false,
+  leftDistCondition: false,
   isSorting: false,
   isMovingFree: false,
   disabled: {},
   width: null,
   height: null,
   times: {},
-  highestAncestorWidth: {},
 };
 
 export const useDndState = createProjectState(
