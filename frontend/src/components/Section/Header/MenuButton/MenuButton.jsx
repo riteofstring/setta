@@ -1,7 +1,6 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import C from "constants/constants.json";
-import { useState } from "react";
 import { HeaderIcon } from "../HeaderIcon";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
@@ -15,9 +14,6 @@ import { ShowMarkdown } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
 
 function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
-  // hover:bg-setta-100 dark:hover:bg-setta-900
-  const [isHovering, setIsHovering] = useState(false);
-
   const isSpecial = [
     C.CODE,
     C.TERMINAL,
@@ -35,12 +31,8 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
             sectionId={sectionId}
             sectionTypeName={sectionTypeName}
             isInOtherProjectConfigs={isInOtherProjectConfigs}
-            isHover={isHovering}
           />
         }
-        setIsHovering={setIsHovering}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
       >
         {sectionTypeName === C.INFO && <ShowMarkdown sectionId={sectionId} />}
 
@@ -82,10 +74,10 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
 
 export default MenuButton;
 
-function CardHeaderMenuButton({ children, trigger }) {
+function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
   return (
     <MenuDropdown
-      triggerClassName="nodrag flex cursor-pointer select-none items-center justify-center rounded-full p-1 mr-1 aspect-square text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800"
+      triggerClassName="nodrag flex cursor-pointer select-none items-center justify-center rounded-full p-1 mr-1 aspect-square text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-blue-500 dark:[&_*]:data-[state=open]:!text-[#0084ff]"
       contentClassName="z-20 min-w-[200px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50  dark:bg-setta-850"
       contentAlign="start"
       contentSideOffset={5}
