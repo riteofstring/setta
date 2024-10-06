@@ -5,38 +5,24 @@ import _ from "lodash";
 import React from "react";
 
 export const TempDNDSection = React.forwardRef(({}, ref) => {
-  const { width, height, highestAncestorWidth } = useDndState(
+  const { width, height } = useDndState(
     (x) => ({
       width: x.width,
       height: x.height,
-      highestAncestorWidth: x.highestAncestorWidth[x.overId],
     }),
     _.isEqual,
   );
 
-  // console.log("highestAncestorWidth", highestAncestorWidth);
-
+  // The 2nd div (flex-auto) is needed to make dnd work from the right
   return (
-    <div className="flex">
+    <>
       <div
         style={{ width: `${width}px`, height: `${height}px` }}
-        className="rounded-md bg-setta-50/25"
+        className="rounded-xl bg-setta-300/25"
         ref={ref}
       />
-      {/* {highestAncestorWidth && (
-        <div
-          style={{
-            width: `${highestAncestorWidth.width - displayWidth}px`,
-            height: `${displayHeight}px`,
-          }}
-          // style={{
-          //   width: "200px",
-          //   height: `${height}px`,
-          // }}
-          className="rounded-md bg-setta-100/25"
-        />
-      )} */}
-    </div>
+      <div className="flex-auto bg-transparent" />
+    </>
   );
 });
 
@@ -60,7 +46,7 @@ export const DummySection = React.forwardRef(({}, ref) => {
           width: `${displayWidth}px`,
           height: `${displayHeight}px`,
         }}
-        className="rounded-md bg-setta-50/25"
+        className="rounded-xl bg-setta-50/25"
         ref={ref}
       />
     </div>

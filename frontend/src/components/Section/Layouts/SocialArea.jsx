@@ -4,6 +4,7 @@ import React from "react";
 import { Tweet } from "react-twitter-widgets";
 import YouTube from "react-youtube";
 import { useSectionInfos } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
 
 function _SocialArea({ sectionId }) {
@@ -21,28 +22,26 @@ export const SocialArea = React.memo(_SocialArea);
 
 function YoutubeEmbed({ size, url }) {
   const id = getYouTubeID(url, { fuzzy: false });
-  const sizeWithMargin = { width: size.width - 50, height: size.height - 100 };
+  // const sizeWithMargin = { width: size.width - 50, height: size.height - 100 };
 
   return (
     <div
-      className="grid h-full w-full place-items-center
-px-9 py-4 [&>div]:overflow-hidden [&>div]:rounded-xl [&>div]:border [&>div]:border-solid [&>div]:border-white [&>div]:shadow-lg [&_.twitter-tweet]:!m-0 "
+      className="section-w-full section-row-main flex overflow-clip px-3
+pb-1 pt-1 [&>div]:overflow-hidden [&>div]:rounded-xl [&>div]:border [&>div]:border-none  [&_.twitter-tweet]:!m-0 "
     >
-      <YouTube videoId={id} opts={sizeWithMargin} />
+      <YouTube videoId={id} opts={size} />
     </div>
   );
 }
 
 function TwitterEmbed({ url }) {
   const id = _.last(url.split("/")).split("?")[0];
+  const [darkMode] = localStorageFns.darkMode.hook();
 
   return (
     id && (
-      <div
-        className="grid h-full w-full place-items-center
-px-9 py-4 [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-solid [&_.twitter-tweet]:border-white [&_.twitter-tweet]:shadow-lg [&_div:has(.twitter-tweet)]:contents"
-      >
-        <Tweet tweetId={id} />
+      <div className="section-key-value section-row-main flex items-start justify-center overflow-auto [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:h-full [&_.twitter-tweet]:w-full [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-none [&_.twitter-tweet]:pt-2 [&_div:has(.twitter-tweet)]:contents">
+        <Tweet tweetId={id} options={darkMode ? { theme: "dark" } : {}} />
       </div>
     )
   );

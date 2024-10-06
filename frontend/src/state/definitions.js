@@ -1,4 +1,3 @@
-import { SECTION_CONFIG_TAB } from "utils/constants";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -180,10 +179,6 @@ export const useTypeErrors = createProjectState(() => ({
     "80b6429e-fbb9-4070-a574-b32e0e061ab4":
       "error: Argument 1 to 'process_data' of 'DataProcessor' has incompatible type 'List[Union[int, str, List[Any]]]'; expected 'List[Union[int, float, Dict[str, Union[int, float]]]]'",
   },
-}));
-
-export const useUIEditor = createProjectState(() => ({
-  tab: SECTION_CONFIG_TAB,
 }));
 
 export const useUITypeCols = createProjectState(
