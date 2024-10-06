@@ -76,12 +76,12 @@ export function ParamSweepSectionSearch({
           realCodeClassName="single-cell-child nodrag w-full [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
         />
       </div>
-      <div className="flex gap-0.5">
-        <button className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-setta-400 hover:bg-setta-100/50 dark:text-setta-600 dark:hover:bg-setta-950 dark:hover:text-setta-400">
-          <i className="gg-add" />
+      <div className="flex">
+        <button className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-setta-300 hover:bg-setta-100/50 dark:text-setta-700 dark:hover:bg-setta-950 dark:hover:text-setta-400">
+          <i className="gg-remove" />
         </button>
-        <button className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-setta-400 hover:bg-setta-100/50 dark:text-setta-600 dark:hover:bg-setta-950 dark:hover:text-setta-400">
-          <i className="gg-trash" />
+        <button className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-setta-300 hover:bg-setta-100/50 dark:text-setta-700 dark:hover:bg-setta-950 dark:hover:text-setta-400">
+          <i className="gg-add" />
         </button>
       </div>
     </div>

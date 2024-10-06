@@ -4,7 +4,6 @@ import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
-import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { IoClose } from "react-icons/io5";
 import {
   addParamSweepCallable,
@@ -204,13 +203,19 @@ function ArgItem({
           forSectionId={forSectionId}
         />
 
-        <div className="ml-auto flex pl-2">
-          <IconButton
-            icon={<AiOutlineMinus />}
-            type="minus"
+        <div className="ml-auto flex items-center pl-0.5">
+          <button
+            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-setta-300 hover:bg-setta-100/50 dark:text-setta-700 dark:hover:bg-setta-950 dark:hover:text-setta-400"
             onClick={onMinus}
-          />
-          <IconButton icon={<AiOutlinePlus />} type="add" onClick={onPlus} />
+          >
+            <i className="gg-remove" />
+          </button>
+          <button
+            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-setta-300 hover:bg-setta-100/50 dark:text-setta-700 dark:hover:bg-setta-950 dark:hover:text-setta-400"
+            onClick={onPlus}
+          >
+            <i className="gg-add " />
+          </button>
         </div>
       </div>
       {paramInfoId &&
@@ -282,7 +287,7 @@ function ParamCombobox({
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
       placeholder="Filter & Add Sweep"
-      outerDivClasses="section-w-full justify-center not:last-child:mt-3"
+      outerDivClasses="section-w-full justify-center not:last-child:mt-3 ml-3"
       small={true}
       bg="bg-transparent"
     />
