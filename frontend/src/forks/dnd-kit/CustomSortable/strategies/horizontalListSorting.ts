@@ -26,10 +26,8 @@ export const horizontalListSortingStrategy: SortingStrategy = ({
     return [null, effectiveOverIndex];
   }
 
-  const itemGap = getItemGap(rects, index, activeIndex);
-
   if (index === activeIndex) {
-    const newIndexRect = rects[overIndex];
+    const newIndexRect = rects[effectiveOverIndex];
 
     if (!newIndexRect) {
       return [null, effectiveOverIndex];
@@ -38,7 +36,7 @@ export const horizontalListSortingStrategy: SortingStrategy = ({
     return [
       {
         x:
-          activeIndex < overIndex
+          activeIndex < effectiveOverIndex
             ? newIndexRect.left +
               newIndexRect.width -
               (activeNodeRect.left + activeNodeRect.width)
@@ -50,7 +48,9 @@ export const horizontalListSortingStrategy: SortingStrategy = ({
     ];
   }
 
-  if (index > activeIndex && index <= overIndex) {
+  const itemGap = getItemGap(rects, index, activeIndex);
+
+  if (index > activeIndex && index <= effectiveOverIndex) {
     return [
       {
         x: -activeNodeRect.width - itemGap,
@@ -61,7 +61,7 @@ export const horizontalListSortingStrategy: SortingStrategy = ({
     ];
   }
 
-  if (index < activeIndex && index >= overIndex) {
+  if (index < activeIndex && index >= effectiveOverIndex) {
     return [
       {
         x: activeNodeRect.width + itemGap,
