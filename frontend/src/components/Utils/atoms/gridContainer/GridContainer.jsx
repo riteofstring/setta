@@ -32,7 +32,7 @@ function useTabIntercepter() {
 
   function onKeyDown(e) {
     if (e.key === "Tab") {
-      e.preventDefault();
+      let preventedDefault = false;
       const focusableArray = tabbable(containerRef.current);
       if (focusableArray.length === 0) {
         return;
@@ -53,27 +53,35 @@ function useTabIntercepter() {
 
       nextElement = focusableArray[nextIndex];
       if (nextElement.className.includes("react-flow__node")) {
-        goToSectionIfNotFullyVisible(nextElement.dataset.id);
+        preventedDefault = goToSectionIfNotFullyVisible(
+          e,
+          nextElement.dataset.id,
+        );
       } else {
         for (const [sectionId, ref] of Object.entries(
           useSectionRefs.getState().selfOnly,
         )) {
           if (ref.contains(nextElement)) {
-            goToSectionIfNotFullyVisible(sectionId);
+            preventedDefault = goToSectionIfNotFullyVisible(e, sectionId);
             break;
           }
         }
       }
 
-      nextElement.focus({ preventScroll: true });
+      if (preventedDefault) {
+        nextElement.focus({ preventScroll: true });
+      }
     }
   }
 
   return { containerRef, onKeyDown };
 }
 
-function goToSectionIfNotFullyVisible(sectionId) {
+function goToSectionIfNotFullyVisible(e, sectionId) {
   if (!isSectionFullyVisible(sectionId)) {
+    e.preventDefault();
     goToSection(sectionId, 0);
+    return true;
   }
+  return false;
 }
