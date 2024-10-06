@@ -115,12 +115,15 @@ function setSectionSize({ newParentId, sectionId }) {
   const s = useSectionInfos.getState();
   const isDeck = getSectionType(newParentId).type === C.DECK;
 
-  // if new parent is a deck and the deck has children
+  // if new parent is a deck and the deck has children and is not horizontal
   if (isDeck) {
-    const deckChildren = getSectionChildren(newParentId);
-    if (deckChildren.length > 0) {
-      const width = s.x[deckChildren[0]].size.width;
-      setAllChildrenWidths({ sectionId, width });
+    const { isHorizontalOrientation } = getSectionInfo(newParentId);
+    if (!isHorizontalOrientation) {
+      const deckChildren = getSectionChildren(newParentId);
+      if (deckChildren.length > 0) {
+        const width = s.x[deckChildren[0]].size.width;
+        setAllChildrenWidths({ sectionId, width });
+      }
     }
   } else {
     const width = s.x[newParentId].size.width;
