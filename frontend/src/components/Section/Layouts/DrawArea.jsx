@@ -329,6 +329,8 @@ export function DrawOnImage({ sectionId }) {
                 setOpacity={setOpacity}
                 brushSize={brushSize}
                 setBrushSize={setBrushSize}
+                brushShape={brushShape}
+                setBrushShape={setBrushShape}
               />
             }
             arrowClasses="fill-white dark:fill-setta-800"
@@ -375,8 +377,6 @@ export function DrawOnImage({ sectionId }) {
             <CanvasSettings
               opacity={canvasOpacity}
               setOpacity={setCanvasOpacity}
-              brushShape={brushShape}
-              setBrushShape={setBrushShape}
             />
           }
           arrowClasses="fill-white dark:fill-setta-800"
@@ -423,7 +423,14 @@ export function DrawOnImage({ sectionId }) {
   );
 }
 
-function BrushSettings({ opacity, setOpacity, brushSize, setBrushSize }) {
+function BrushSettings({
+  opacity,
+  setOpacity,
+  brushSize,
+  setBrushSize,
+  brushShape,
+  setBrushShape,
+}) {
   const [localOpacity, setLocalOpacity] = useState(opacity);
   const [localBrushSize, setLocalBrushSize] = useState(brushSize);
 
@@ -480,6 +487,23 @@ function BrushSettings({ opacity, setOpacity, brushSize, setBrushSize }) {
         onChange={setLocalBrushSize}
         onCommit={setBrushSize}
       />
+      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
+        Brush Shape
+      </p>
+      <div className="flex gap-1">
+        <button
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"}  p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
+          onClick={() => setBrushShape("round")}
+        >
+          <i className="gg-shape-circle" />
+        </button>
+        <button
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "butt" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
+          onClick={() => setBrushShape("butt")}
+        >
+          <i className="gg-shape-square" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -523,7 +547,7 @@ function EraserSettings({ brushSize, setBrushSize }) {
   );
 }
 
-function CanvasSettings({ opacity, setOpacity, brushShape, setBrushShape }) {
+function CanvasSettings({ opacity, setOpacity }) {
   const [localOpacity, setLocalOpacity] = useState(opacity);
 
   useEffect(() => {
@@ -558,26 +582,6 @@ function CanvasSettings({ opacity, setOpacity, brushShape, setBrushShape }) {
         onChange={setLocalOpacity}
         onCommit={setOpacity}
       />
-
-      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
-        Brush Shape
-      </p>
-      <div className="flex gap-1">
-        <button
-          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"}  p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
-          onClick={() => setBrushShape("round")}
-        >
-          <i className="gg-shape-circle" />
-          {/* <p>Circle</p> */}
-        </button>
-        <button
-          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "butt" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
-          onClick={() => setBrushShape("butt")}
-        >
-          <i className="gg-shape-square" />
-          {/* <p>Square</p> */}
-        </button>
-      </div>
     </div>
   );
 }
