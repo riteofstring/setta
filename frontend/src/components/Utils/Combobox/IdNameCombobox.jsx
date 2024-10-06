@@ -14,6 +14,7 @@ export function IdNameCombobox({
   inputCallback,
   onInputMouseDown,
   placeholder,
+  bg,
 }) {
   const {
     localOnSelectedItemChange,
@@ -67,6 +68,7 @@ export function IdNameCombobox({
         onInputMouseDown={onInputMouseDown}
         onInputClick={onInputClick}
         placeholder={placeholder}
+        bg={bg}
       />
 
       <ComboboxList

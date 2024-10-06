@@ -10,12 +10,11 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import { PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
-import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropType } from "./dropTypes";
 
 function onSortEnd({ active, over }) {
-  if (over && active.id !== over.id) {
+  if (active.id !== over.id) {
     setSectionVariantChildren({
       sectionId: active.data.current.sortable?.containerId,
       newStateFn: updateWithArrayMove(active, over),
@@ -25,24 +24,18 @@ function onSortEnd({ active, over }) {
   }
 }
 
-async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
+async function onFreeMoveEnd({ dummyRef }) {
+  const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
-  const sectionId = active.id;
-  const dndSectionId = getDndSectionId(sectionId);
-  const overId = over?.id;
+  const { activeId: sectionId, overId } = dndState;
   const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
-  let newParentId = dndChildrenState.y[dndSectionId] ?? null;
+  let newParentId = dndChildrenState.y[getDndSectionId(sectionId)] ?? null;
   let newIndex = null;
   let position = null;
-  const behaviorDropType = useDndState.getState().behaviorDropType;
+  const behaviorDropType = dndState.behaviorDropType;
 
   if (newParentId) {
-    const children = dndChildrenState.x[newParentId];
-    const activeIdx = children.indexOf(dndSectionId);
-    const overIdx = children.indexOf(overId);
-    const pastHalfway = collisions[0].pastHalfway;
-    const maxIdx = children.length;
-    newIndex = computeNewIndex(activeIdx, overIdx, pastHalfway, maxIdx);
+    newIndex = dndChildrenState.x[newParentId].indexOf(overId);
   }
   // dropping nested section onto pane
   else if (!overId) {

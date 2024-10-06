@@ -3,7 +3,7 @@ import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import colors from "tailwindcss/colors";
-import { useHasPermanentNested } from "../../state/hooks/sections";
+import { useTempHasNested } from "../../state/hooks/sections";
 
 export function useHighlightDroppable(sectionId) {
   const overIsSelf = useOverIsSelf(sectionId);
@@ -45,25 +45,24 @@ export function useDisableSortable(sectionId) {
   }
 
   function disableSort({ active }) {
-    // Freely moving a section outside of the current section and its children
+    // Freely moving this section or ancestor of this section
     if (
       isMovingFree &&
-      active.id !== sectionId &&
-      !activeIdInAncestorSet(active.id)
+      (active.id === sectionId || activeIdInAncestorSet(active.id))
     ) {
-      setDisabled(sectionId, { draggable: false, droppable: false });
+      setDisabled(sectionId, { draggable: true, droppable: true });
     }
-    // Sorting a child of this section
+    // Sorting a child of different section
     else if (
       isSorting &&
-      active.data.current.sortable?.containerId === sectionId
+      active.data.current.sortable?.containerId !== sectionId
     ) {
-      setDisabled(sectionId, { draggable: false, droppable: false });
+      setDisabled(sectionId, { draggable: true, droppable: true });
     }
   }
 
   function onDragDone() {
-    setDisabled(sectionId, { draggable: false, droppable: true });
+    setDisabled(sectionId, { draggable: false, droppable: false });
   }
 
   useDndMonitor({
@@ -72,11 +71,11 @@ export function useDisableSortable(sectionId) {
     onDragCancel: onDragDone,
   });
 
-  return disabled ?? { draggable: false, droppable: true };
+  return disabled ?? { draggable: false, droppable: false };
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
-  const hasNested = useHasPermanentNested(sectionId);
+  const hasNested = useTempHasNested(sectionId);
 
   return {
     id: sectionId,

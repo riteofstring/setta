@@ -43,7 +43,7 @@ export function useDroppable({
   resizeObserverConfig,
 }: UseDroppableArguments) {
   const key = useUniqueId(ID_PREFIX);
-  const { active, dispatch, overId, measureDroppableContainers } =
+  const { active, dispatch, over, measureDroppableContainers } =
     useContext(InternalContext);
   const previous = useRef({ disabled });
   const resizeObserverConnected = useRef(false);
@@ -156,8 +156,9 @@ export function useDroppable({
   return {
     active,
     rect,
-    isOver: overId === id,
+    isOver: over?.id === id,
     node: nodeRef,
+    over,
     setNodeRef,
   };
 }
