@@ -1,5 +1,6 @@
 import type { ClientRect } from "forks/dnd-kit/CustomCore";
 import type { SortingStrategy } from "../types";
+import { computeNewIndex } from "./computeNewIndex";
 
 // To-do: We should be calculating scale transformation
 const defaultScale = {
@@ -13,55 +14,72 @@ export const horizontalListSortingStrategy: SortingStrategy = ({
   activeIndex,
   overIndex,
   index,
+  pastHalfway,
 }) => {
   const activeNodeRect = rects[activeIndex] ?? fallbackActiveRect;
+  const effectiveOverIndex =
+    pastHalfway !== undefined
+      ? computeNewIndex(activeIndex, overIndex, pastHalfway, rects.length)
+      : overIndex;
 
   if (!activeNodeRect) {
-    return null;
+    return [null, effectiveOverIndex];
+  }
+
+  if (index === activeIndex) {
+    const newIndexRect = rects[effectiveOverIndex];
+
+    if (!newIndexRect) {
+      return [null, effectiveOverIndex];
+    }
+
+    return [
+      {
+        x:
+          activeIndex < effectiveOverIndex
+            ? newIndexRect.left +
+              newIndexRect.width -
+              (activeNodeRect.left + activeNodeRect.width)
+            : newIndexRect.left - activeNodeRect.left,
+        y: 0,
+        ...defaultScale,
+      },
+      effectiveOverIndex,
+    ];
   }
 
   const itemGap = getItemGap(rects, index, activeIndex);
 
-  if (index === activeIndex) {
-    const newIndexRect = rects[overIndex];
-
-    if (!newIndexRect) {
-      return null;
-    }
-
-    return {
-      x:
-        activeIndex < overIndex
-          ? newIndexRect.left +
-            newIndexRect.width -
-            (activeNodeRect.left + activeNodeRect.width)
-          : newIndexRect.left - activeNodeRect.left,
-      y: 0,
-      ...defaultScale,
-    };
+  if (index > activeIndex && index <= effectiveOverIndex) {
+    return [
+      {
+        x: -activeNodeRect.width - itemGap,
+        y: 0,
+        ...defaultScale,
+      },
+      effectiveOverIndex,
+    ];
   }
 
-  if (index > activeIndex && index <= overIndex) {
-    return {
-      x: -activeNodeRect.width - itemGap,
-      y: 0,
-      ...defaultScale,
-    };
+  if (index < activeIndex && index >= effectiveOverIndex) {
+    return [
+      {
+        x: activeNodeRect.width + itemGap,
+        y: 0,
+        ...defaultScale,
+      },
+      effectiveOverIndex,
+    ];
   }
 
-  if (index < activeIndex && index >= overIndex) {
-    return {
-      x: activeNodeRect.width + itemGap,
+  return [
+    {
+      x: 0,
       y: 0,
       ...defaultScale,
-    };
-  }
-
-  return {
-    x: 0,
-    y: 0,
-    ...defaultScale,
-  };
+    },
+    effectiveOverIndex,
+  ];
 };
 
 function getItemGap(rects: ClientRect[], index: number, activeIndex: number) {

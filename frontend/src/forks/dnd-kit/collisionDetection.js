@@ -1,5 +1,7 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
 
+import { getSectionInfo } from "state/getters/sectionInfo";
+
 function compareCollisions(a, b) {
   if (!a) {
     return b;
@@ -26,12 +28,13 @@ function compareCollisions(a, b) {
   const rb = b.data.intersectionRatio;
 
   if (cidA && cidB) {
-    const la = a.data.absLeftDist;
-    const lb = b.data.absLeftDist;
-    const rawLa = a.data.leftDist;
-    const rawLb = b.data.leftDist;
+    const la = a.data.absTriggerDist;
+    const lb = b.data.absTriggerDist;
+    const rawLa = a.data.triggerDist;
+    const rawLb = b.data.triggerDist;
     // if left-aligned, return rect with larger intersection
     if (la - lb === 0) {
+      // console.log('returning largest intersection')
       return rb - ra > 0 ? b : a;
     }
     // if the active rect is to the right of both rects, then return the one that has the closest left edge
@@ -53,7 +56,7 @@ function compareCollisions(a, b) {
   return rb - ra > 0 ? b : a;
 }
 
-function getIntersectionRatio(entry, target) {
+export function getIntersectionRatio(entry, target) {
   const top = Math.max(target.top, entry.top);
   const left = Math.max(target.left, entry.left);
   const right = Math.min(target.left + target.width, entry.left + entry.width);
@@ -75,34 +78,43 @@ function getIntersectionRatio(entry, target) {
   return 0;
 }
 
-export const customCollisionDetection = ({
+let prevCollisionId = null;
+let prevPastHalfway = null;
+
+export function customCollisionDetection({
   active,
   collisionRect,
   droppableRects,
   droppableContainers,
-}) => {
+}) {
   let bestCollision = null;
-  const left = collisionRect.left;
+  const { left, top } = collisionRect;
+  let ratio, rect, id, triggerDist, containerIsHorizontal;
 
   for (const droppableContainer of droppableContainers) {
-    const { id } = droppableContainer;
-    const rect = droppableRects.get(id);
+    id = droppableContainer.id;
+    rect = droppableRects.get(id);
 
     // rect must exist.
-    // If active doesn't have a parent, then don't look for overlap with self.
-    if (
-      rect &&
-      (active.data.current.sortable?.containerId || active.id !== id)
-    ) {
-      const ratio = getIntersectionRatio(rect, collisionRect);
+    if (rect && active.id !== id) {
+      ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
-        const dist = left - rect.left;
+        if (prevCollisionId === id) {
+          // console.log("prevCollisionId === id")
+          ratio *= 1.1;
+        }
+        containerIsHorizontal = getSectionInfo(
+          droppableContainer.data.current.sortable?.containerId,
+        )?.isHorizontalOrientation;
+        triggerDist = !containerIsHorizontal
+          ? left - rect.left
+          : top - rect.top;
         bestCollision = compareCollisions(bestCollision, {
           id,
           data: {
             droppableContainer,
-            absLeftDist: Math.abs(dist),
-            leftDist: dist,
+            absTriggerDist: Math.abs(triggerDist),
+            triggerDist,
             intersectionRatio: ratio,
           },
         });
@@ -110,5 +122,39 @@ export const customCollisionDetection = ({
     }
   }
 
-  return bestCollision ? [bestCollision] : [];
-};
+  if (bestCollision) {
+    let buffer = 0;
+    if (prevCollisionId === bestCollision.id) {
+      if (prevPastHalfway === true) {
+        buffer = 10;
+      } else if (prevPastHalfway === false) {
+        buffer = -10;
+      }
+    }
+
+    const containerIsHorizontal = getSectionInfo(
+      bestCollision.data.droppableContainer.data.current.sortable?.containerId,
+    )?.isHorizontalOrientation;
+
+    if (!containerIsHorizontal) {
+      bestCollision.pastHalfway =
+        (collisionRect.top + collisionRect.bottom) / 2 + buffer >
+        (droppableRects.get(bestCollision.id).top +
+          droppableRects.get(bestCollision.id).bottom) /
+          2;
+    } else {
+      bestCollision.pastHalfway =
+        (collisionRect.left + collisionRect.right) / 2 + buffer >
+        (droppableRects.get(bestCollision.id).left +
+          droppableRects.get(bestCollision.id).right) /
+          2;
+    }
+
+    prevCollisionId = bestCollision.id;
+    prevPastHalfway = bestCollision.pastHalfway;
+    return [bestCollision];
+  }
+
+  prevCollisionId = null;
+  return [];
+}

@@ -142,7 +142,7 @@ function getTitleStyles({
   }
 
   const fixed =
-    "select-none italic font-heading tracking-tighter text-xs text-setta-400 max-w-full truncate pr-0.5";
+    "select-none italic font-heading tracking-tighter text-xs text-setta-400";
 
   return { editing, notEditing, fixed };
 }
