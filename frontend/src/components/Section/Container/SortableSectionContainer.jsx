@@ -4,10 +4,55 @@ import { isTempSection, useDndState } from "forks/dnd-kit/dndState";
 import { TempDNDSection } from "forks/dnd-kit/DummySection";
 import { useDndProps, useOverIsSelf } from "forks/dnd-kit/useDndUtils";
 import { useReactFlow } from "forks/xyflow/core/store";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { SectionContainer } from "./SectionContainer";
 
 function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
+  return isTempSection(sectionId) ? (
+    <TempDNDSortableSectionContainer
+      sectionId={sectionId}
+      isHorizontalOrientation={isHorizontalOrientation}
+    />
+  ) : (
+    <RegularSortableSectionContainer
+      sectionId={sectionId}
+      isHorizontalOrientation={isHorizontalOrientation}
+      forceApplyTransform={false}
+    />
+  );
+}
+
+export const SortableSectionContainer = React.memo(_SortableSectionContainer);
+
+function _TempDNDSortableSectionContainer({
+  sectionId,
+  isHorizontalOrientation,
+}) {
+  const [forceApplyTransform, setForceApplyTransform] = useState(true);
+
+  useEffect(() => {
+    // we want to force the temp section to appear on first render
+    setForceApplyTransform(false);
+  }, []);
+
+  return (
+    <RegularSortableSectionContainer
+      sectionId={sectionId}
+      isHorizontalOrientation={isHorizontalOrientation}
+      forceApplyTransform={forceApplyTransform}
+    />
+  );
+}
+
+const TempDNDSortableSectionContainer = React.memo(
+  _TempDNDSortableSectionContainer,
+);
+
+function _RegularSortableSectionContainer({
+  sectionId,
+  isHorizontalOrientation,
+  forceApplyTransform,
+}) {
   const animateLayoutChanges = useAnimateLayoutChanges();
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
@@ -31,6 +76,7 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
       transition={transition}
       isHorizontalOrientation={isHorizontalOrientation}
       applyTransform={
+        forceApplyTransform ||
         (overIndex !== null && overIndex !== -1) ||
         (items.length === 1 &&
           items[0] === sectionId &&
@@ -40,7 +86,9 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
   );
 }
 
-export const SortableSectionContainer = React.memo(_SortableSectionContainer);
+const RegularSortableSectionContainer = React.memo(
+  _RegularSortableSectionContainer,
+);
 
 function _SortableCore({
   sectionId,
