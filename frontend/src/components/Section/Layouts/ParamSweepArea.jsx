@@ -56,7 +56,7 @@ function _ParamSweepArea({ sectionId }) {
         )} */}
         {showParamSweepSectionSearch && (
           <button
-            className="mt-1 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
+            className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
             onClick={onAddCallableClick}
           >
             <i className="gg-play-list-add !scale-75" />
@@ -79,7 +79,7 @@ function ParamSweepForOneSelectedItem({
   showParamSweepSectionSearch,
 }) {
   return (
-    <div className="section-min-rows section-grid-cols section-grid-sweep-areas mt-1 grid">
+    <div className="section-min-rows section-grid-cols section-grid-sweep-areas grid">
       {showParamSweepSectionSearch && (
         <ParamSweepSectionSearch
           sectionId={sectionId}
@@ -201,18 +201,20 @@ function ArgItem({
           forSectionId={forSectionId}
         />
 
-        <div className="ml-auto flex items-center pl-0.5">
+        <div className="flex items-center pl-0.5">
           <button
-            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-setta-300 hover:bg-setta-100/50 dark:text-setta-700 dark:hover:bg-setta-950 dark:hover:text-setta-400"
+            className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
             onClick={onMinus}
           >
             <i className="gg-remove" />
           </button>
           <button
-            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-setta-300 hover:bg-setta-100/50 dark:text-setta-700 dark:hover:bg-setta-950 dark:hover:text-setta-400"
+            className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
             onClick={onPlus}
           >
-            <i className="gg-add " />
+            <i className="gg-add" />
           </button>
         </div>
       </div>
