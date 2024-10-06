@@ -383,8 +383,9 @@ export function DrawOnImage({ sectionId }) {
           inputClasses="rounded-lg"
           contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
           trigger={
-            <button className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white">
+            <button className="flex w-12 cursor-pointer items-center justify-center gap-0 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
               <i className="gg-image" />
+              <i className="gg-chevron-down" />
             </button>
           }
           header={"Layer Opacity"}
@@ -557,15 +558,26 @@ function CanvasSettings({ opacity, setOpacity, brushShape, setBrushShape }) {
         onChange={setLocalOpacity}
         onCommit={setOpacity}
       />
+
       <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
         Brush Shape
       </p>
-      <button
-        className="flex cursor-pointer gap-2 text-xs font-bold text-setta-600 dark:text-setta-400"
-        onClick={() => setBrushShape(brushShape === "round" ? "butt" : "round")}
-      >
-        {brushShape === "round" ? "Round" : "Square"}
-      </button>
+      <div className="flex gap-1">
+        <button
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 dark:border-setta-700" : "border-transparent"}  p-1 text-xs font-bold text-setta-600 hover:bg-setta-200/50  dark:text-setta-400 dark:hover:bg-setta-900/50`}
+          onClick={() => setBrushShape("round")}
+        >
+          <i className="gg-shape-circle" />
+          {/* <p>Circle</p> */}
+        </button>
+        <button
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "butt" ? "border-setta-300 dark:border-setta-700" : "border-transparent"} p-1 text-xs font-bold text-setta-600 hover:bg-setta-200/50  dark:text-setta-400 dark:hover:bg-setta-900/50`}
+          onClick={() => setBrushShape("butt")}
+        >
+          <i className="gg-shape-square" />
+          {/* <p>Square</p> */}
+        </button>
+      </div>
     </div>
   );
 }
