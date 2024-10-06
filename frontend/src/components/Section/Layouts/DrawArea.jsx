@@ -562,15 +562,9 @@ function CanvasSettings({ opacity, setOpacity, brushShape, setBrushShape }) {
       </p>
       <button
         className="flex cursor-pointer gap-2 text-xs font-bold text-setta-600 dark:text-setta-400"
-        onClick={() => setBrushShape("round")}
+        onClick={() => setBrushShape(brushShape === "round" ? "butt" : "round")}
       >
-        Round
-      </button>
-      <button
-        className="flex cursor-pointer gap-2 text-xs font-bold text-setta-600 dark:text-setta-400"
-        onClick={() => setBrushShape("butt")}
-      >
-        Square
+        {brushShape === "round" ? "Round" : "Square"}
       </button>
     </div>
   );
