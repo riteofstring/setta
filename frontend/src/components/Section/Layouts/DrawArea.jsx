@@ -333,7 +333,7 @@ export function DrawOnImage({ sectionId }) {
             }
             arrowClasses="fill-white dark:fill-setta-800"
             inputClasses="rounded-lg"
-            contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
+            contentClasses="bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
             trigger={
               <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-200 py-1  text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800  dark:text-setta-400 dark:hover:bg-setta-900">
                 <i className="gg-chevron-down" />
@@ -360,7 +360,7 @@ export function DrawOnImage({ sectionId }) {
             }
             arrowClasses="fill-white dark:fill-setta-800"
             inputClasses="rounded-lg"
-            contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
+            contentClasses="bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
             trigger={
               <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-200 py-1  text-xs text-setta-700 hover:bg-setta-300 dark:bg-setta-800  dark:text-setta-400 dark:hover:bg-setta-900">
                 <i className="gg-chevron-down" />
@@ -381,7 +381,7 @@ export function DrawOnImage({ sectionId }) {
           }
           arrowClasses="fill-white dark:fill-setta-800"
           inputClasses="rounded-lg"
-          contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
+          contentClasses="bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
           trigger={
             <button className="flex w-12 cursor-pointer items-center justify-center gap-0 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
               <i className="gg-image" />
