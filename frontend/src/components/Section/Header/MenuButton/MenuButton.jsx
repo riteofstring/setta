@@ -38,9 +38,6 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
             isHover={isHovering}
           />
         }
-        setIsHovering={setIsHovering}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
       >
         {sectionTypeName === C.INFO && <ShowMarkdown sectionId={sectionId} />}
 
