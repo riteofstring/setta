@@ -13,71 +13,55 @@ export const verticalListSortingStrategy: SortingStrategy = ({
   index,
   rects,
   overIndex,
-  pastHalfway,
 }) => {
   const activeNodeRect = rects[activeIndex] ?? fallbackActiveRect;
-  const effectiveOverIndex =
-    pastHalfway !== undefined
-      ? computeNewIndex(activeIndex, overIndex, pastHalfway, rects.length)
-      : overIndex;
 
   if (!activeNodeRect) {
-    return [null, effectiveOverIndex];
+    return null;
   }
 
   if (index === activeIndex) {
-    const overIndexRect = rects[effectiveOverIndex];
+    const overIndexRect = rects[overIndex];
+
     if (!overIndexRect) {
-      return [null, effectiveOverIndex];
+      return null;
     }
 
-    return [
-      {
-        x: 0,
-        y:
-          activeIndex < effectiveOverIndex
-            ? overIndexRect.top +
-              overIndexRect.height -
-              (activeNodeRect.top + activeNodeRect.height)
-            : overIndexRect.top - activeNodeRect.top,
-        ...defaultScale,
-      },
-      effectiveOverIndex,
-    ];
+    return {
+      x: 0,
+      y:
+        activeIndex < overIndex
+          ? overIndexRect.top +
+            overIndexRect.height -
+            (activeNodeRect.top + activeNodeRect.height)
+          : overIndexRect.top - activeNodeRect.top,
+      ...defaultScale,
+    };
   }
 
   const itemGap = getItemGap(rects, index, activeIndex);
 
-  if (index > activeIndex && index <= effectiveOverIndex) {
-    return [
-      {
-        x: 0,
-        y: -activeNodeRect.height - itemGap,
-        ...defaultScale,
-      },
-      effectiveOverIndex,
-    ];
-  }
-
-  if (index < activeIndex && index >= effectiveOverIndex) {
-    return [
-      {
-        x: 0,
-        y: activeNodeRect.height + itemGap,
-        ...defaultScale,
-      },
-      effectiveOverIndex,
-    ];
-  }
-
-  return [
-    {
+  if (index > activeIndex && index <= overIndex) {
+    return {
       x: 0,
-      y: 0,
+      y: -activeNodeRect.height - itemGap,
       ...defaultScale,
-    },
-    effectiveOverIndex,
-  ];
+    };
+  }
+
+  if (index < activeIndex && index >= overIndex) {
+    return {
+      x: 0,
+      y: activeNodeRect.height + itemGap,
+      ...defaultScale,
+    };
+  }
+
+  return {
+    x: 0,
+    y: 0,
+    ...defaultScale,
+  };
 };
 
 function getItemGap(
@@ -106,37 +90,4 @@ function getItemGap(
     : previousRect
       ? currentRect.top - (previousRect.top + previousRect.height)
       : 0;
-}
-
-export function computeNewIndex(activeIdx, overIdx, pastHalfway, maxIdx) {
-  // Handle special case when activeIdx is 0
-  if (activeIdx === 0) {
-    if (overIdx === 0) {
-      return 0;
-    } else if (pastHalfway) {
-      return overIdx;
-    } else {
-      return Math.max(0, overIdx - 1);
-    }
-  }
-
-  // Handle special case when activeIdx is maxIdx
-  if (activeIdx === maxIdx) {
-    if (overIdx === maxIdx) {
-      return maxIdx;
-    } else if (pastHalfway) {
-      return Math.min(maxIdx, overIdx + 1);
-    } else {
-      return overIdx;
-    }
-  }
-
-  // Handle general case
-  if (overIdx < activeIdx) {
-    return pastHalfway ? Math.min(activeIdx, overIdx + 1) : overIdx;
-  } else if (overIdx > activeIdx) {
-    return pastHalfway ? overIdx : Math.max(activeIdx, overIdx - 1);
-  } else {
-    return activeIdx;
-  }
 }

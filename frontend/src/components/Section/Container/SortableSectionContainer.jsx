@@ -1,7 +1,7 @@
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "forks/dnd-kit/CustomSortable";
 import { isTempSection, useDndState } from "forks/dnd-kit/dndState";
-import { TempDNDSection } from "forks/dnd-kit/DummySection";
+import { DummySection } from "forks/dnd-kit/DummySection";
 import { useDndProps, useOverIsSelf } from "forks/dnd-kit/useDndUtils";
 import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
@@ -18,8 +18,6 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
     setNodeRef,
     transform,
     transition,
-    overIndex,
-    items,
   } = useSortable({ ...dndProps });
   return (
     <SortableCore
@@ -30,12 +28,6 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
       transform={transform}
       transition={transition}
       isHorizontalOrientation={isHorizontalOrientation}
-      applyTransform={
-        (overIndex !== null && overIndex !== -1) ||
-        (items.length === 1 &&
-          items[0] === sectionId &&
-          isTempSection(sectionId))
-      }
     />
   );
 }
@@ -50,10 +42,9 @@ function _SortableCore({
   transform,
   transition,
   isHorizontalOrientation,
-  applyTransform,
 }) {
   const overIsSelf = useOverIsSelf(sectionId);
-  const scaledTransform = transformWithZoom(applyTransform ? transform : null);
+  const scaledTransform = transformWithZoom(transform);
 
   const style = {
     transform: CSS.Translate.toString(scaledTransform),
@@ -64,24 +55,23 @@ function _SortableCore({
 
   return (
     <div className="relative" {...stackProps}>
-      <TempSectionOrNot
-        sectionId={sectionId}
-        applyTransform={applyTransform}
-        listeners={listeners}
-      />
+      {isTempSection(sectionId) ? (
+        <DummySection forceShow={true} />
+      ) : (
+        <SectionContainer sectionId={sectionId} dragListeners={listeners} />
+      )}
     </div>
   );
-}
 
-function TempSectionOrNot({ sectionId, applyTransform, listeners }) {
-  if (isTempSection(sectionId)) {
-    if (applyTransform) {
-      return <TempDNDSection />;
-    }
-    return null;
-  } else {
-    return <SectionContainer sectionId={sectionId} dragListeners={listeners} />;
-  }
+  // return isTempSection(sectionId) ? (
+  //   <div className="relative first:mt-2">
+  //     <DummySection forceShow={true} />
+  //   </div>
+  // ) : (
+  //   <div className="relative first:mt-2" {...stackProps}>
+  //     <SectionContainer sectionId={sectionId} dragListeners={listeners} />
+  //   </div>
+  // );
 }
 
 const SortableCore = React.memo(

@@ -38,16 +38,13 @@ export function setAllChildrenWidths({ sectionId, exclude, width }) {
   });
 }
 
-export function getHighestAncestor(
-  sectionId,
-  parentIdGetter = getSectionParentId,
-) {
-  let parentId = parentIdGetter(sectionId);
+export function getHighestAncestor(sectionId) {
+  let parentId = getSectionParentId(sectionId);
   let highestAncestor = sectionId;
 
   while (parentId) {
     highestAncestor = parentId;
-    parentId = parentIdGetter(parentId);
+    parentId = getSectionParentId(parentId);
   }
 
   return highestAncestor;

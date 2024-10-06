@@ -3,7 +3,7 @@ import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import colors from "tailwindcss/colors";
-import { useHasPermanentNested } from "../../state/hooks/sections";
+import { useTempHasNested } from "../../state/hooks/sections";
 
 export function useHighlightDroppable(sectionId) {
   const overIsSelf = useOverIsSelf(sectionId);
@@ -75,7 +75,7 @@ export function useDisableSortable(sectionId) {
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
-  const hasNested = useHasPermanentNested(sectionId);
+  const hasNested = useTempHasNested(sectionId);
 
   return {
     id: sectionId,
