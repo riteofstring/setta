@@ -1,5 +1,7 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
 
+import { getSectionInfo } from "state/getters/sectionInfo";
+
 function compareCollisions(a, b) {
   if (!a) {
     return b;
@@ -125,11 +127,23 @@ export function customCollisionDetection({
       }
     }
 
-    bestCollision.pastHalfway =
-      (collisionRect.top + collisionRect.bottom) / 2 + buffer >
-      (droppableRects.get(bestCollision.id).top +
-        droppableRects.get(bestCollision.id).bottom) /
-        2;
+    const containerIsHorizontal = getSectionInfo(
+      bestCollision.data.droppableContainer.data.current.sortable?.containerId,
+    )?.isHorizontalOrientation;
+
+    if (!containerIsHorizontal) {
+      bestCollision.pastHalfway =
+        (collisionRect.top + collisionRect.bottom) / 2 + buffer >
+        (droppableRects.get(bestCollision.id).top +
+          droppableRects.get(bestCollision.id).bottom) /
+          2;
+    } else {
+      bestCollision.pastHalfway =
+        (collisionRect.left + collisionRect.right) / 2 + buffer >
+        (droppableRects.get(bestCollision.id).left +
+          droppableRects.get(bestCollision.id).right) /
+          2;
+    }
 
     prevCollisionId = bestCollision.id;
     prevPastHalfway = bestCollision.pastHalfway;
