@@ -73,6 +73,7 @@
     "react-youtube": "10.1.0",
     "remark-gfm": "3.0.1",
     "tailwindcss": "3.4.1",
+    "tabbable": "6.2.0",
     "unique-names-generator": "4.7.1",
     "use-deep-compare-effect": "1.8.1",
     "uuid": "9.0.0",
