@@ -26,8 +26,8 @@ function YoutubeEmbed({ size, url }) {
 
   return (
     <div
-      className="section-w-full section-row-main flex overflow-clip px-3 px-9 py-4
-pb-1 pt-1 [&>div]:overflow-hidden [&>div]:rounded-xl [&>div]:border [&>div]:border-solid [&>div]:border-white [&>div]:shadow-lg [&_.twitter-tweet]:!m-0 "
+      className="section-w-full section-row-main flex overflow-clip px-3
+pb-1 pt-1 [&>div]:overflow-hidden [&>div]:rounded-xl [&>div]:border [&>div]:border-none  [&_.twitter-tweet]:!m-0 "
     >
       <YouTube videoId={id} opts={size} />
     </div>
@@ -40,10 +40,7 @@ function TwitterEmbed({ url }) {
 
   return (
     id && (
-      <div
-        className="section-w-full section-row-main flex overflow-clip px-3 px-9 px-9
-py-4 py-4 [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-solid [&_.twitter-tweet]:border-white [&_.twitter-tweet]:shadow-lg [&_div:has(.twitter-tweet)]:contents"
-      >
+      <div className="section-key-value section-row-main flex items-start justify-center overflow-auto [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:h-full [&_.twitter-tweet]:w-full [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-none [&_.twitter-tweet]:pt-2 [&_div:has(.twitter-tweet)]:contents">
         <Tweet tweetId={id} options={darkMode ? { theme: "dark" } : {}} />
       </div>
     )
