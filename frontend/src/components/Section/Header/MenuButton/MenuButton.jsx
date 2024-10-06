@@ -77,7 +77,7 @@ export default MenuButton;
 function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
   return (
     <MenuDropdown
-      triggerClassName="nodrag flex cursor-pointer select-none items-center justify-center rounded-full p-1 mr-1 aspect-square text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-blue-500 dark:[&_*]:data-[state=open]:!text-[#0084ff]"
+      triggerClassName="nodrag flex cursor-pointer select-none items-center justify-center rounded-full p-1 mr-1 aspect-square text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-setta-300 dark:[&_*]:data-[state=open]:!text-setta-500"
       contentClassName="z-20 min-w-[200px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50  dark:bg-setta-850"
       contentAlign="start"
       contentSideOffset={5}
