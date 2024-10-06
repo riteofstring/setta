@@ -21,14 +21,14 @@ export const SocialArea = React.memo(_SocialArea);
 
 function YoutubeEmbed({ size, url }) {
   const id = getYouTubeID(url, { fuzzy: false });
-  const sizeWithMargin = { width: size.width - 50, height: size.height - 100 };
+  // const sizeWithMargin = { width: size.width - 50, height: size.height - 100 };
 
   return (
     <div
-      className="grid h-full w-full place-items-center
-px-9 py-4 [&>div]:overflow-hidden [&>div]:rounded-xl [&>div]:border [&>div]:border-solid [&>div]:border-white [&>div]:shadow-lg [&_.twitter-tweet]:!m-0 "
+      className="section-w-full section-row-main flex overflow-clip px-3 px-9 py-4
+pb-1 pt-1 [&>div]:overflow-hidden [&>div]:rounded-xl [&>div]:border [&>div]:border-solid [&>div]:border-white [&>div]:shadow-lg [&_.twitter-tweet]:!m-0 "
     >
-      <YouTube videoId={id} opts={sizeWithMargin} />
+      <YouTube videoId={id} opts={size} />
     </div>
   );
 }
