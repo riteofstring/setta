@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
+import { useSectionRefs } from "state/definitions";
 import { tabbable } from "tabbable";
 
 export const GridContainer = React.forwardRef(
@@ -51,10 +52,19 @@ function useTabIntercepter() {
 
       nextElement = focusableArray[nextIndex];
       if (nextElement.className.includes("react-flow__node")) {
-        goToSection(nextElement.getAttribute("data-id"), 0);
+        goToSection(nextElement.dataset.id, 0);
+      } else {
+        for (const [sectionId, ref] of Object.entries(
+          useSectionRefs.getState().selfOnly,
+        )) {
+          if (ref.contains(nextElement)) {
+            goToSection(sectionId, 0);
+            break;
+          }
+        }
       }
 
-      nextElement.focus();
+      nextElement.focus({ preventScroll: true });
     }
   }
 
