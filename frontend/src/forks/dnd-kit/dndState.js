@@ -14,7 +14,6 @@ const initialState = {
   width: null,
   height: null,
   times: {},
-  highestAncestorWidth: {},
 };
 
 export const useDndState = createProjectState(
