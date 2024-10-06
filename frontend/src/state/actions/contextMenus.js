@@ -15,6 +15,8 @@ export function openPaneContextMenu(e) {
 }
 
 export function openDeckContextMenu(e, sectionId) {
+  // stopPropagation so that context menus work for nested groups.
+  e.stopPropagation();
   openContextMenu(e, "deck", { sectionId });
 }
 
