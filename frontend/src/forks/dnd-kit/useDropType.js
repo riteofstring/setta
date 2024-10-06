@@ -1,7 +1,6 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
-import { useReactFlow } from "forks/xyflow/core/store";
 import {
   getSectionRect,
   getSectionRectWithNested,
@@ -13,8 +12,6 @@ import {
   getSectionIsDeck,
   getSectionIsRoot,
 } from "state/getters/sectionInfo";
-
-const NESTED_SECTION_GAP = 8; // pixels
 
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);
@@ -39,7 +36,7 @@ export function useOnDragMove() {
 }
 
 function onDragMove({ active, collisions }) {
-  const triggerDistCondition = getTriggerDistCondition(collisions);
+  const triggerDistCondition = collisions[0]?.triggerDistCondition;
   const dndState = useDndState.getState();
 
   if (triggerDistCondition !== dndState.triggerDistCondition) {
@@ -223,16 +220,6 @@ function getTimeDiff(state, sectionId) {
 
 export function getDndParentId(dndSectionId) {
   return useDndChildren.getState().y[dndSectionId];
-}
-
-function getTriggerDistCondition(collisions) {
-  // true if section is not top level and doesn't have children
-  // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
-  return (
-    !collisions[0]?.data.droppableContainer.data.current.isTopLevel &&
-    !collisions[0]?.data.droppableContainer.data.current.hasNested &&
-    collisions[0]?.data.triggerDist > 100 * useReactFlow.getState().transform[2]
-  );
 }
 
 function getBehaviorDropType(activeId, newParentId) {

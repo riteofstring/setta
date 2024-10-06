@@ -1,5 +1,6 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
 
+import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionInfo } from "state/getters/sectionInfo";
 
 function compareCollisions(a, b) {
@@ -78,6 +79,17 @@ export function getIntersectionRatio(entry, target) {
   return 0;
 }
 
+function getTriggerDistCondition(collision, containerIsHorizontal) {
+  // true if section is not top level and doesn't have children
+  // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
+  return (
+    !collision?.data.droppableContainer.data.current.isTopLevel &&
+    !collision?.data.droppableContainer.data.current.hasNested &&
+    collision?.data.triggerDist >
+      (!containerIsHorizontal ? 100 : 20) * useReactFlow.getState().transform[2]
+  );
+}
+
 let prevCollisionId = null;
 let prevPastHalfway = null;
 
@@ -149,6 +161,11 @@ export function customCollisionDetection({
           droppableRects.get(bestCollision.id).right) /
           2;
     }
+
+    bestCollision.triggerDistCondition = getTriggerDistCondition(
+      bestCollision,
+      containerIsHorizontal,
+    );
 
     prevCollisionId = bestCollision.id;
     prevPastHalfway = bestCollision.pastHalfway;
