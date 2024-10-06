@@ -7,7 +7,7 @@ const initialState = {
   activeId: null,
   activeIsTopLevel: false,
   overId: null,
-  leftDistCondition: false,
+  triggerDistCondition: false,
   isSorting: false,
   isMovingFree: false,
   disabled: {},

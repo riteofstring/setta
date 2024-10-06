@@ -39,11 +39,11 @@ export function useOnDragMove() {
 }
 
 function onDragMove({ active, collisions }) {
-  const leftDistCondition = getLeftDistCondition(collisions);
+  const triggerDistCondition = getTriggerDistCondition(collisions);
   const dndState = useDndState.getState();
 
-  if (leftDistCondition !== dndState.leftDistCondition) {
-    useDndState.setState({ leftDistCondition });
+  if (triggerDistCondition !== dndState.triggerDistCondition) {
+    useDndState.setState({ triggerDistCondition });
     const over = collisions[0];
     if (over && over.id === dndState.overId) {
       onDragOver({
@@ -81,7 +81,7 @@ function onDragOver({ active, over, collisions, calledFromOnDragMove }) {
     return;
   }
 
-  if (calledFromOnDragMove && dndState.leftDistCondition) {
+  if (calledFromOnDragMove && dndState.triggerDistCondition) {
     leftDistBehavior({
       active,
       over,
@@ -108,7 +108,7 @@ function onDragOver({ active, over, collisions, calledFromOnDragMove }) {
     return;
   }
 
-  if (dndState.leftDistCondition) {
+  if (dndState.triggerDistCondition) {
     leftDistBehavior({
       active,
       over,
@@ -225,13 +225,13 @@ export function getDndParentId(dndSectionId) {
   return useDndChildren.getState().y[dndSectionId];
 }
 
-function getLeftDistCondition(collisions) {
+function getTriggerDistCondition(collisions) {
   // true if section is not top level and doesn't have children
   // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
   return (
     !collisions[0]?.data.droppableContainer.data.current.isTopLevel &&
     !collisions[0]?.data.droppableContainer.data.current.hasNested &&
-    collisions[0]?.data.leftDist > 100 * useReactFlow.getState().transform[2]
+    collisions[0]?.data.triggerDist > 100 * useReactFlow.getState().transform[2]
   );
 }
 

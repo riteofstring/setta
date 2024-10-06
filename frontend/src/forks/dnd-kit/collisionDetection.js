@@ -28,10 +28,10 @@ function compareCollisions(a, b) {
   const rb = b.data.intersectionRatio;
 
   if (cidA && cidB) {
-    const la = a.data.absLeftDist;
-    const lb = b.data.absLeftDist;
-    const rawLa = a.data.leftDist;
-    const rawLb = b.data.leftDist;
+    const la = a.data.absTriggerDist;
+    const lb = b.data.absTriggerDist;
+    const rawLa = a.data.triggerDist;
+    const rawLb = b.data.triggerDist;
     // if left-aligned, return rect with larger intersection
     if (la - lb === 0) {
       // console.log('returning largest intersection')
@@ -88,8 +88,8 @@ export function customCollisionDetection({
   droppableContainers,
 }) {
   let bestCollision = null;
-  const left = collisionRect.left;
-  let ratio, rect, id;
+  const { left, top } = collisionRect;
+  let ratio, rect, id, triggerDist, containerIsHorizontal;
 
   for (const droppableContainer of droppableContainers) {
     id = droppableContainer.id;
@@ -103,13 +103,18 @@ export function customCollisionDetection({
           // console.log("prevCollisionId === id")
           ratio *= 1.1;
         }
-        const dist = left - rect.left;
+        containerIsHorizontal = getSectionInfo(
+          droppableContainer.data.current.sortable?.containerId,
+        )?.isHorizontalOrientation;
+        triggerDist = !containerIsHorizontal
+          ? left - rect.left
+          : top - rect.top;
         bestCollision = compareCollisions(bestCollision, {
           id,
           data: {
             droppableContainer,
-            absLeftDist: Math.abs(dist),
-            leftDist: dist,
+            absTriggerDist: Math.abs(triggerDist),
+            triggerDist,
             intersectionRatio: ratio,
           },
         });
