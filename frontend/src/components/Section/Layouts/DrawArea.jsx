@@ -116,18 +116,23 @@ export function DrawOnImage({ sectionId }) {
       return;
     }
     console.log(artifacts);
+    let isNewImg = false;
     for (const v of Object.values(artifacts)) {
       console.log("v", v);
       if (v.type === "img") {
-        const image = new Image();
-        image.src = `data:image/png;base64,${v.value}`;
-        await image.decode();
-        imageRef.current = image;
+        const base64String = `data:image/png;base64,${v.value}`;
+        if (imageRef.current?.src !== base64String) {
+          const image = new Image();
+          image.src = base64String;
+          await image.decode();
+          imageRef.current = image;
+          isNewImg = true;
+        }
       } else if (v.type === "brushStrokes") {
         strokesRef.current = _.cloneDeep(v.value);
       }
     }
-    setCanvasProperties({ doDrawStrokes: true, isNewImg: true });
+    setCanvasProperties({ doDrawStrokes: true, isNewImg });
     setDraftCanvasProperties();
   }
 

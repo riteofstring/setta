@@ -1,5 +1,6 @@
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import C from "constants/constants.json";
+import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import {
   adjustAspectRatio,
@@ -159,8 +160,7 @@ export function useOverflow(sectionId) {
   return { overflow, ref, setDidUpdate };
 }
 
-export async function setImgArtifactSectionSizeOnLoad(sectionId, base64String) {
-  const imgSize = await getImageDimensionsFromBase64(base64String);
+export async function setImgArtifactSectionSize(sectionId, imgSize) {
   const sectionType = C.ARTIFACT;
   const minHeight = getMinSectionHeight({ sectionType });
   const minWidth = getMinSectionWidth({ sectionType });
@@ -187,6 +187,34 @@ export async function setImgArtifactSectionSizeOnLoad(sectionId, base64String) {
     aspectRatio: imgSize.width / imgSize.height,
     aspectRatioExtraHeight: extraHeight,
   });
+}
+
+export function useImgArtifactAreaSize(sectionId, base64String) {
+  const [imgSize, setImgSize] = useState(null);
+
+  const widthOrHeightIsAuto = useSectionInfos((x) => {
+    const { width, height } = x.x[sectionId].size;
+    return width === "auto" || height === "auto";
+  });
+
+  useEffect(() => {
+    async function fn() {
+      const x = await getImageDimensionsFromBase64(base64String);
+      if (!_.isEqual(x, imgSize)) {
+        setImgArtifactSectionSize(sectionId, x);
+      }
+      setImgSize(x);
+    }
+    fn();
+  }, [base64String]);
+
+  useEffect(() => {
+    if (imgSize) {
+      setImgArtifactSectionSize(sectionId, imgSize);
+    }
+  }, [widthOrHeightIsAuto]);
+
+  return imgSize !== null;
 }
 
 export function setDrawAreaSectionSize({ sectionId, imgSize, isNewImg }) {
