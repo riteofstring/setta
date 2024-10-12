@@ -73,6 +73,8 @@ function CustomResizableCore({
     !isMinimized && sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
+  console.log("size", size)
+
   const enable =
     isSorting || isMovingFree
       ? false

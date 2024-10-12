@@ -2,6 +2,10 @@ import { ParentSize } from "@visx/responsive";
 import { LineChart } from "components/Utils/Charts/LineChart";
 import React, { useEffect } from "react";
 import {
+  adjustAspectRatio,
+  adjustSizeToBeAtLeastMin,
+} from "state/actions/sections/sectionSizes";
+import {
   setAspectRatioInfo,
   setSectionSize,
 } from "state/actions/sections/setters";
@@ -11,11 +15,7 @@ import {
   getMinSectionHeight,
   getMinSectionWidth,
 } from "state/hooks/sectionSizes";
-import {
-  adjustAspectRatio,
-  adjustSizeToBeAtLeastMin,
-  getImageDimensionsFromBase64,
-} from "utils/utils";
+import { getImageDimensionsFromBase64 } from "utils/utils";
 
 function _ArtifactArea({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);

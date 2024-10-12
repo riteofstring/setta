@@ -1,34 +1,48 @@
+import C from "constants/constants.json";
 import { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
 import { MINIMIZE_SECTION_HEIGHT, ROOT_SECTION_HEIGHT } from "utils/constants";
 import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
-import { useIsArtifact, useIsRoot } from "./uiTypes";
+import { useGetSectionType } from "./uiTypes";
 
 export function getMinSectionHeight({
-  isRoot,
+  sectionType,
+  hideSearch,
+  hideParams,
   isMinimized,
-  isOutput,
-  hasTitle,
-  hasSearch,
-  hasKwargControl,
 }) {
-  if (isRoot) {
+  if (sectionType === C.SECTION || sectionType === C.REFERENCE_SECTION) {
+    if (isMinimized) {
+      return MINIMIZE_SECTION_HEIGHT;
+    } else if (hideSearch) {
+      return 78;
+    } else if (hideParams) {
+      return 58;
+    } else {
+      return 104;
+    }
+  } else if (sectionType === C.LIST_ROOT || sectionType === C.DICT_ROOT) {
     return ROOT_SECTION_HEIGHT;
+  } else if (sectionType === C.DECK) {
+    return 0;
+  } else if (sectionType === C.GLOBAL_VARIABLES) {
+    return 50;
+  } else if (sectionType === C.CODE || sectionType === C.INTERACTIVE_CODE) {
+    return 50;
+  } else if (sectionType === C.INFO) {
+    return 50;
+  } else if (sectionType === C.PARAM_SWEEP) {
+    return 50;
+  } else if (sectionType === C.TERMINAL) {
+    return 50;
+  } else if (sectionType === C.GLOBAL_PARAM_SWEEP) {
+    return 50;
+  } else if (sectionType === C.DRAW || sectionType === C.ARTIFACT) {
+    return 100;
+  } else if (sectionType === C.SOCIAL) {
+    return 50;
   }
-
-  if (isMinimized) {
-    return MINIMIZE_SECTION_HEIGHT;
-  }
-
-  if (isOutput) {
-    return 300;
-  }
-
-  return (
-    (hasTitle ? 56 : 0) + (hasSearch ? 48 : 0) + 52 + (hasKwargControl ? 34 : 0)
-    // (hasInfo ? 64 : 0)
-  );
 }
 
 export function getMinSectionWidth({ isTwitter }) {
@@ -42,22 +56,16 @@ export function getMinSectionWidth({ isTwitter }) {
 }
 
 export function useMinSectionHeight(sectionId) {
-  const isOutput = useIsArtifact(sectionId);
-  const isRoot = useIsRoot(sectionId);
+  const sectionType = useGetSectionType(sectionId, "type");
   const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
   const hideParams = useGetSectionInfo(sectionId, "hideParams");
   const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
-  const hasTitle = true;
-  const hasSearch = !isRoot && !hideSearch;
-  const hasKwargControl = !hideParams && !isRoot;
 
   return getMinSectionHeight({
-    isRoot,
+    sectionType,
+    hideSearch,
+    hideParams,
     isMinimized,
-    isOutput,
-    hasTitle,
-    hasSearch,
-    hasKwargControl,
   });
 }
 
