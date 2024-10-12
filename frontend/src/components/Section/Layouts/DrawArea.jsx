@@ -7,10 +7,6 @@ import { BiPaint } from "react-icons/bi";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
 import {
-  setAspectRatioInfo,
-  setSectionSize,
-} from "state/actions/sections/setters";
-import {
   base64RequestId,
   setTemporaryMiscState,
 } from "state/actions/temporaryMiscState";
@@ -21,11 +17,9 @@ import {
   useTemporaryMiscState,
 } from "state/definitions";
 import { useArtifactData } from "state/hooks/artifacts";
+import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createRandomName } from "utils/idNameCreation";
-
-const SECTION_SIZE_CANVAS_HEIGHT_DIFF = 120;
-const SECTION_SIZE_CANVAS_WIDTH_DIFF = 24;
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -69,33 +63,35 @@ export function DrawOnImage({ sectionId }) {
     }
   }
 
-  function setCanvasProperties({ doDrawStrokes }) {
+  function setCanvasProperties({ doDrawStrokes, isNewImg }) {
     const [canvas] = getCanvasAndCtx(canvasRef);
     const [backgroundCanvas, backgroundCtx] =
       getCanvasAndCtx(backgroundCanvasRef);
 
     const image = imageRef.current;
-    if (image && image.complete) {
-      if (width === "auto" || height === "auto") {
-        backgroundCanvas.width = image.width;
-        backgroundCanvas.height = image.height;
-        setSectionSize(sectionId, {
-          width: image.width + SECTION_SIZE_CANVAS_WIDTH_DIFF,
-          height: image.height + SECTION_SIZE_CANVAS_HEIGHT_DIFF,
-        });
-      } else {
-        backgroundCanvas.width = width - SECTION_SIZE_CANVAS_WIDTH_DIFF;
-        backgroundCanvas.height = height - SECTION_SIZE_CANVAS_HEIGHT_DIFF;
-      }
-      canvas.width = backgroundCanvas.width;
-      canvas.height = backgroundCanvas.height;
+    const imgSize = image?.complete
+      ? {
+          width: image.width,
+          height: image.height,
+        }
+      : null;
+    const canvasSize = setDrawAreaSectionSize({
+      sectionId,
+      imgSize,
+      isNewImg,
+    });
+    backgroundCanvas.width = canvasSize.width;
+    backgroundCanvas.height = canvasSize.height;
+    canvas.width = canvasSize.width;
+    canvas.height = canvasSize.height;
 
+    if (image?.complete) {
       const scale = Math.min(
-        backgroundCanvas.width / image.width,
-        backgroundCanvas.height / image.height,
+        canvasSize.width / image.width,
+        canvasSize.height / image.height,
       );
-      const x = backgroundCanvas.width / 2 - (image.width / 2) * scale;
-      const y = backgroundCanvas.height / 2 - (image.height / 2) * scale;
+      const x = canvasSize.width / 2 - (image.width / 2) * scale;
+      const y = canvasSize.height / 2 - (image.height / 2) * scale;
       clearCanvas(backgroundCanvasRef);
       backgroundCtx.globalAlpha = 1;
       backgroundCtx.drawImage(
@@ -106,23 +102,6 @@ export function DrawOnImage({ sectionId }) {
         image.height * scale,
       );
     } else {
-      const [defaultWidth, defaultHeight] = [500, 500];
-      backgroundCanvas.width =
-        width === "auto"
-          ? defaultWidth
-          : width - SECTION_SIZE_CANVAS_WIDTH_DIFF;
-      backgroundCanvas.height =
-        height === "auto"
-          ? defaultHeight
-          : height - SECTION_SIZE_CANVAS_HEIGHT_DIFF;
-      canvas.width = backgroundCanvas.width;
-      canvas.height = backgroundCanvas.height;
-      if (width === "auto" || height === "auto") {
-        setSectionSize(sectionId, {
-          width: backgroundCanvas.width + SECTION_SIZE_CANVAS_WIDTH_DIFF,
-          height: backgroundCanvas.height + SECTION_SIZE_CANVAS_HEIGHT_DIFF,
-        });
-      }
       clearCanvas(backgroundCanvasRef);
     }
 
@@ -144,17 +123,11 @@ export function DrawOnImage({ sectionId }) {
         image.src = `data:image/png;base64,${v.value}`;
         await image.decode();
         imageRef.current = image;
-        setAspectRatioInfo({
-          sectionId,
-          aspectRatio: imageRef.current.width / imageRef.current.height,
-          aspectRatioExtraHeight: SECTION_SIZE_CANVAS_HEIGHT_DIFF,
-          aspectRatioExtraWidth: SECTION_SIZE_CANVAS_WIDTH_DIFF,
-        });
       } else if (v.type === "brushStrokes") {
         strokesRef.current = _.cloneDeep(v.value);
       }
     }
-    setCanvasProperties({ doDrawStrokes: true });
+    setCanvasProperties({ doDrawStrokes: true, isNewImg: true });
     setDraftCanvasProperties();
   }
 

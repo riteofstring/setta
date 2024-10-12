@@ -69,12 +69,15 @@ export function getMaxSectionHeight({ sectionType, isMinimized }) {
   return INFINITE_MAX_HEIGHT;
 }
 
-export function getMinSectionWidth() {
+export function getMinSectionWidth({ sectionType }) {
   // if (isTwitter) {
   //   // 250 is min width of a tweet. Add 150 for margin
   //   // https://developer.twitter.com/en/docs/twitter-for-websites/embedded-tweets/guides/embedded-tweet-parameter-reference
   //   return 400;
   // }
+  if (sectionType === C.DRAW) {
+    return 272;
+  }
 
   return 200;
 }
@@ -116,7 +119,7 @@ export function useSectionMinMaxDims(sectionId) {
     isMinimized,
   });
 
-  const minWidth = getMinSectionWidth();
+  const minWidth = getMinSectionWidth({ sectionType });
   const maxWidth = getMaxSectionWidth();
 
   const sizeMode = getSizeMode({ sectionType, hideParams, isMinimized });
@@ -177,12 +180,55 @@ export async function setImgArtifactSectionSizeOnLoad(sectionId, base64String) {
     minWidth,
   );
 
-  const sectionHeaderHeight = 28;
-  adjustedSize.height += sectionHeaderHeight;
+  const extraHeight = 24;
+  adjustedSize.height += extraHeight;
   setSectionSize(sectionId, adjustedSize);
   setAspectRatioInfo({
     sectionId,
     aspectRatio: imgSize.width / imgSize.height,
-    aspectRatioExtraHeight: sectionHeaderHeight,
+    aspectRatioExtraHeight: extraHeight,
   });
+}
+
+export function setDrawAreaSectionSize({ sectionId, imgSize, isNewImg }) {
+  let canvasSize = {};
+  const extraHeight = 120;
+  const extraWidth = 24;
+
+  const { width, height } = useSectionInfos.getState().x[sectionId].size;
+  if (imgSize) {
+    if (width === "auto" || height === "auto" || isNewImg) {
+      canvasSize.width = imgSize.width;
+      canvasSize.height = imgSize.height;
+      setSectionSize(sectionId, {
+        width: imgSize.width + extraWidth,
+        height: imgSize.height + extraHeight,
+      });
+    } else {
+      canvasSize.width = width - extraWidth;
+      canvasSize.height = height - extraHeight;
+    }
+
+    if (isNewImg) {
+      setAspectRatioInfo({
+        sectionId,
+        aspectRatio: imgSize.width / imgSize.height,
+        aspectRatioExtraHeight: extraHeight,
+        aspectRatioExtraWidth: extraWidth,
+      });
+    }
+  } else {
+    const [defaultWidth, defaultHeight] = [500, 500];
+    canvasSize.width = width === "auto" ? defaultWidth : width - extraWidth;
+    canvasSize.height =
+      height === "auto" ? defaultHeight : height - extraHeight;
+    if (width === "auto" || height === "auto") {
+      setSectionSize(sectionId, {
+        width: canvasSize.width + extraWidth,
+        height: canvasSize.height + extraHeight,
+      });
+    }
+  }
+
+  return canvasSize;
 }
