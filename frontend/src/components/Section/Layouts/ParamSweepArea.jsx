@@ -37,7 +37,7 @@ function _ParamSweepArea({ sectionId }) {
         {paramSweep.length > 0 &&
           paramSweep.map((sweep, idx) => (
             <ParamSweepForOneSelectedItem
-              key={idx}
+              key={`${idx}-${sweep.selectedItem}`}
               sectionId={sectionId}
               forSectionId={forSectionId}
               sweep={sweep}
@@ -130,7 +130,7 @@ function Args({
     <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1">
       {paramSweep.map((x, idx) => (
         <ArgItem
-          key={idx}
+          key={`${selectedItemIdx}-${x.paramInfoId}-${idx}`}
           objInfoId={objInfoId}
           paramSweepId={paramSweepId}
           paramIdx={idx}
@@ -238,7 +238,7 @@ function ArgItem({
           <Input
             forSectionId={forSectionId}
             paramInfoId={paramInfoId}
-            key={valueIdx}
+            key={`${paramInfoId}-${valueIdx}`}
             onChange={getOnChange(valueIdx)}
             onDelete={getOnDelete(valueIdx)}
             value={x}
