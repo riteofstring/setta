@@ -50,8 +50,6 @@ export function getMaxSectionHeight({ sectionType, hideParams, isMinimized }) {
   if (sectionType === C.SECTION || sectionType === C.REFERENCE_SECTION) {
     if (isMinimized) {
       return MINIMIZE_SECTION_HEIGHT;
-    } else if (hideParams) {
-      return 58;
     }
   } else if (sectionType === C.LIST_ROOT || sectionType === C.DICT_ROOT) {
     return ROOT_SECTION_HEIGHT;
@@ -70,9 +68,9 @@ export function getMinSectionWidth({ isTwitter }) {
   return 200;
 }
 
-export function getSizeMode({ sectionType, isMinimized }) {
+export function getSizeMode({ sectionType, hideParams, isMinimized }) {
   if (sectionType === C.SECTION || sectionType === C.REFERENCE_SECTION) {
-    if (isMinimized) {
+    if (hideParams) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
     }
   }
@@ -99,7 +97,9 @@ export function useSectionMinMaxDims(sectionId) {
     isMinimized,
   });
 
-  return { minHeight, maxHeight };
+  const sizeMode = getSizeMode({ sectionType, hideParams, isMinimized });
+
+  return { minHeight, maxHeight, sizeMode };
 }
 
 export function useMinSectionWidth(sectionId) {
@@ -147,10 +147,4 @@ export function useOverflow(sectionId) {
   }, [didUpdate]);
 
   return { overflow, ref, setDidUpdate };
-}
-
-export function useSizeMode(sectionId) {
-  const sectionType = useGetSectionType(sectionId, "type");
-  const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
-  return getSizeMode({ sectionType, isMinimized });
 }

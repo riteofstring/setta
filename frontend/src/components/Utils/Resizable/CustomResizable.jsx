@@ -1,5 +1,5 @@
-import { useDndMode } from "forks/dnd-kit/dndState";
 import _ from "lodash";
+import { useEffect } from "react";
 import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
@@ -7,13 +7,18 @@ import {
   useMaxSectionWidth,
   useMinSectionWidth,
   useSectionMinMaxDims,
-  useSizeMode,
 } from "state/hooks/sectionSizes";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "./utils";
 
-export function CustomResizable({ sectionId, children, inputClasses, as }) {
-  const { minHeight, maxHeight } = useSectionMinMaxDims(sectionId);
+export function CustomResizable({
+  sectionId,
+  disablePointerEvents,
+  children,
+  inputClasses,
+  as,
+}) {
+  const { minHeight, maxHeight, sizeMode } = useSectionMinMaxDims(sectionId);
   const minWidth = useMinSectionWidth(sectionId);
   const maxWidth = useMaxSectionWidth(sectionId);
   return (
@@ -23,7 +28,9 @@ export function CustomResizable({ sectionId, children, inputClasses, as }) {
       maxHeight={maxHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
+      sizeMode={sizeMode}
       inputClasses={inputClasses}
+      disablePointerEvents={disablePointerEvents}
       as={as}
     >
       {children}
@@ -37,12 +44,27 @@ function CustomResizableCore({
   maxHeight,
   minWidth,
   maxWidth,
+  sizeMode,
   inputClasses = "",
+  disablePointerEvents,
   children,
   as,
 }) {
-  const { isSorting, isMovingFree } = useDndMode();
-  const sizeMode = useSizeMode(sectionId);
+  useEffect(() => {
+    const changedSize = {};
+    if (sizeMode.height === SIZE_MODE.auto_only) {
+      changedSize.height = "auto";
+    }
+    if (sizeMode.width === SIZE_MODE.auto_only) {
+      changedSize.width = "auto";
+    }
+    if (_.size(changedSize) > 0) {
+      setSectionResizeEvent({ sectionId, resizeEvent: "start" });
+      setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
+      setSectionResizeEvent({ sectionId, resizeEvent: "end" });
+    }
+  }, [sizeMode.height, sizeMode.width]);
+
   const size = useSectionInfos((x) => x.x[sectionId].size);
   const { aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
     useAspectRatio(sectionId);
@@ -58,30 +80,27 @@ function CustomResizableCore({
       minHeight: "auto",
       sizeMode,
     });
-    console.log("changedSize", changedSize);
     setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
     setSectionResizeEvent({ sectionId, resizeEvent: "end" });
   }
 
-  console.log("sizeMode", sizeMode);
-  console.log("size", size);
-
   const heightResizable = sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
-  const enable =
-    isSorting || isMovingFree
-      ? false
-      : {
-          top: false,
-          left: false,
-          bottom: heightResizable,
-          right: widthResizable,
-          topRight: false,
-          bottomRight: heightResizable && widthResizable,
-          topLeft: false,
-          bottomLeft: false,
-        };
+  const enable = disablePointerEvents
+    ? false
+    : {
+        top: false,
+        left: false,
+        bottom: heightResizable,
+        right: widthResizable,
+        topRight: false,
+        bottomRight: heightResizable && widthResizable,
+        topLeft: false,
+        bottomLeft: false,
+      };
+
+  console.log("size", size);
 
   return (
     <ResizableWithScale
