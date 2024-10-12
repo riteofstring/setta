@@ -266,3 +266,40 @@ export function setDrawAreaSectionSize({ sectionId, imgSize, isNewImg }) {
 
   return canvasSize;
 }
+
+export function useYouTubeSectionSize(sectionId, url) {
+  const extraHeight = 24;
+  const defaultSize = { width: 640, height: 360 };
+  const { width, height } = useSectionInfos(
+    (x) => x.x[sectionId].size,
+    _.isEqual,
+  );
+
+  function setToDefaultSize() {
+    defaultSize.height += extraHeight;
+    setSectionSize(sectionId, defaultSize);
+    setAspectRatioInfo({
+      sectionId,
+      aspectRatio: 16 / 9,
+      aspectRatioExtraHeight: extraHeight,
+    });
+  }
+
+  useEffect(() => {
+    if (url) {
+      setToDefaultSize();
+    }
+  }, [url]);
+
+  useEffect(() => {
+    if (width === "auto" || height === "auto") {
+      setToDefaultSize();
+    }
+  }, [width, height]);
+
+  const playerSize =
+    width === "auto" || height === "auto"
+      ? {}
+      : { width, height: height - extraHeight };
+  return playerSize;
+}

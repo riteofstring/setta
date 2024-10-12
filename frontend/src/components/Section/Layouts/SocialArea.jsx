@@ -5,15 +5,14 @@ import { Tweet } from "react-twitter-widgets";
 import YouTube from "react-youtube";
 import { useSectionInfos } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
+import { useYouTubeSectionSize } from "state/hooks/sectionSizes";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
 
 function _SocialArea({ sectionId }) {
-  const size = useSectionInfos((x) => x.x[sectionId].size);
   const url = useSectionInfos((x) => x.x[sectionId].social);
 
   if (linkIsYouTube(url)) {
-    console.log("size", size);
-    return <YoutubeEmbed size={size} url={url} />;
+    return <YoutubeEmbed sectionId={sectionId} url={url} />;
   } else if (linkIsTwitter(url)) {
     return <TwitterEmbed url={url} />;
   }
@@ -21,14 +20,13 @@ function _SocialArea({ sectionId }) {
 
 export const SocialArea = React.memo(_SocialArea);
 
-function YoutubeEmbed({ size, url }) {
+function YoutubeEmbed({ sectionId, url }) {
   const id = getYouTubeID(url, { fuzzy: false });
-  const sizeWithMargin = { width: size.width, height: size.height - 24 };
-  console.log("sizeWithMargin", sizeWithMargin);
+  const playerSize = useYouTubeSectionSize(sectionId, url);
 
   return (
     <div className="section-w-full section-row-main flex">
-      <YouTube videoId={id} opts={sizeWithMargin} />
+      <YouTube videoId={id} opts={playerSize} />
     </div>
   );
 }
