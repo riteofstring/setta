@@ -1,7 +1,7 @@
-import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React from "react";
 import { openDeckContextMenu } from "state/actions/contextMenus";
+import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { useTempHasNested } from "state/hooks/sections";
 import { SectionTitle } from "../Header/SectionTitle";
@@ -25,12 +25,12 @@ function _Container({
   }
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
-  const width = "";
-  const moveSectionActivationKeyPressed = useReactFlow(
-    (x) => x.moveSectionActivationKeyPressed,
-  );
+  const disablePointerEvents = useShouldDisablePointerEvents();
 
-  const pointerSelectCSS = moveSectionActivationKeyPressed
+  // Apply this only to the deck title.
+  // For sections, this is applied in SectionContainerCore.
+  // We want to apply this lower down in the component tree, because dnd needs onPointerDown to work.
+  const pointerSelectCSS = disablePointerEvents
     ? "pointer-events-none select-none"
     : "";
 
@@ -38,13 +38,15 @@ function _Container({
   if (isDeck) {
     return (
       <div
-        className={`${pointerSelectCSS} flex ${width} min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
+        className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
         {...commonProps}
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
       >
         <div className="absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline outline-2  outline-transparent backdrop-blur dark:border-setta-700 dark:bg-[#06070a3e]" />
         <div className="relative min-h-8 w-full">
-          <div className="absolute inset-0 overflow-hidden">
+          <div
+            className={`${pointerSelectCSS} absolute inset-0 overflow-hidden`}
+          >
             <DeckSectionTitle sectionId={sectionId} />
           </div>
         </div>
@@ -60,11 +62,7 @@ function _Container({
     );
   }
   return (
-    <div
-      className={`${pointerSelectCSS} ${className}`}
-      style={style}
-      {...commonProps}
-    >
+    <div className={className} style={style} {...commonProps}>
       {children}
     </div>
   );

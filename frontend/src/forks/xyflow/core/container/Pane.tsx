@@ -18,7 +18,7 @@ import {
   resetSelectedElements,
 } from "state/actions/nodeInternals";
 import { clearActiveSectionIds } from "state/actions/sections/activeSections";
-import { useSettings } from "state/definitions";
+import { useMisc, useSettings } from "state/definitions";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";
@@ -70,6 +70,10 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
   };
 
   const onClick = (event: ReactMouseEvent) => {
+    if (useMisc.getState().mouseDownDrawArea) {
+      useMisc.setState({ mouseDownDrawArea: false });
+      return;
+    }
     clearActiveSectionIds();
     REACT_FLOW_STORE.lastPaneClickLocation = screenToFlowPosition({
       x: event.clientX,
