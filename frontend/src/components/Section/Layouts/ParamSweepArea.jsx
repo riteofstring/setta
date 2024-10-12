@@ -8,7 +8,6 @@ import {
   addParamSweepParamInfoId,
   addParamSweepValue,
   changeParamSweepParamInfoId,
-  deleteLastParamSweepParamInfoId,
   deleteLastParamSweepValue,
   deleteParamSweepValue,
   setParamSweepValue,
@@ -34,17 +33,10 @@ function _ParamSweepArea({ sectionId }) {
   return (
     <>
       <div className="section-main-full-w ml-1.5 flex flex-col gap-4 overflow-y-scroll">
-        {!showParamSweepSectionSearch && (
-          <AddRemoveButtonsForNoCallableSection
-            forSectionId={forSectionId}
-            paramSweepId={paramSweepId}
-            paramSweep={paramSweep}
-          />
-        )}
         {paramSweep.length > 0 &&
           paramSweep.map((sweep, idx) => (
             <ParamSweepForOneSelectedItem
-              key={`${idx}-${sweep.selectedItem}`}
+              key={idx}
               sectionId={sectionId}
               forSectionId={forSectionId}
               sweep={sweep}
@@ -53,6 +45,15 @@ function _ParamSweepArea({ sectionId }) {
               showParamSweepSectionSearch={showParamSweepSectionSearch}
             />
           ))}
+        {/* {paramSweep.length === 0 && !showParamSweepSectionSearch && (
+          <PlaceholderArgItem
+            forSectionId={forSectionId}
+            paramSweepId={paramSweepId}
+            alreadySelected={[]}
+            selectedItem={null}
+            selectedItemIdx={null}
+          />
+        )} */}
         {showParamSweepSectionSearch && (
           <button
             className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
@@ -77,18 +78,6 @@ function ParamSweepForOneSelectedItem({
   selectedItemIdx,
   showParamSweepSectionSearch,
 }) {
-  const alreadySelected = sweep.params.map((x) => x.paramInfoId);
-  const { onClickAddParam, disabled: disablePlusButton } = useOnClickAddParam({
-    forSectionId,
-    paramSweepId,
-    selectedItem: sweep.selectedItem,
-    selectedItemIdx,
-    alreadySelected,
-  });
-
-  const onClickRemoveParam = () =>
-    deleteLastParamSweepParamInfoId({ paramSweepId, selectedItemIdx });
-
   return (
     <div className="section-min-rows section-grid-cols section-grid-sweep-areas grid">
       {showParamSweepSectionSearch && (
@@ -98,9 +87,6 @@ function ParamSweepForOneSelectedItem({
           selectedItem={sweep.selectedItem}
           paramSweepId={paramSweepId}
           selectedItemIdx={selectedItemIdx}
-          onPlusClick={onClickAddParam}
-          onMinusClick={onClickRemoveParam}
-          disablePlusButton={disablePlusButton}
         />
       )}
       <Args
@@ -110,7 +96,6 @@ function ParamSweepForOneSelectedItem({
         forSectionId={forSectionId}
         sectionId={sectionId}
         selectedItemIdx={selectedItemIdx}
-        alreadySelected={alreadySelected}
       />
     </div>
   );
@@ -123,13 +108,14 @@ function Args({
   forSectionId,
   sectionId,
   selectedItemIdx,
-  alreadySelected,
 }) {
+  const alreadySelected = paramSweep.map((x) => x.paramInfoId);
+
   return (
     <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1">
       {paramSweep.map((x, idx) => (
         <ArgItem
-          key={`${selectedItemIdx}-${x.paramInfoId}-${idx}`}
+          key={idx}
           objInfoId={objInfoId}
           paramSweepId={paramSweepId}
           paramIdx={idx}
@@ -140,6 +126,13 @@ function Args({
           selectedItemIdx={selectedItemIdx}
         />
       ))}
+      {/* <PlaceholderArgItem
+        forSectionId={forSectionId}
+        paramSweepId={paramSweepId}
+        alreadySelected={alreadySelected}
+        selectedItem={objInfoId}
+        selectedItemIdx={selectedItemIdx}
+      /> */}
     </section>
   );
 }
@@ -230,7 +223,7 @@ function ArgItem({
           <Input
             forSectionId={forSectionId}
             paramInfoId={paramInfoId}
-            key={`${paramInfoId}-${valueIdx}`}
+            key={valueIdx}
             onChange={getOnChange(valueIdx)}
             onDelete={getOnDelete(valueIdx)}
             value={x}
@@ -238,6 +231,37 @@ function ArgItem({
           />
         ))}
     </>
+  );
+}
+
+function PlaceholderArgItem({
+  forSectionId,
+  paramSweepId,
+  alreadySelected,
+  selectedItem,
+  selectedItemIdx,
+}) {
+  function onButtonClick() {
+    addParamSweepParamInfoId({
+      paramSweepId,
+      selectedItemIdx,
+      paramInfoId: null,
+    });
+  }
+
+  const numParams = useNumChildlessParams(selectedItem, forSectionId);
+
+  if (alreadySelected.length >= numParams) {
+    return null;
+  }
+  return (
+    <button
+      className="section-w-full mt-1 flex cursor-pointer items-center justify-center  gap-0.5 rounded-xl bg-setta-200/30 px-3 py-1 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+      onClick={onButtonClick}
+    >
+      <i className="gg-add-r -ml-3" />
+      <p>Param</p>
+    </button>
   );
 }
 
@@ -303,49 +327,6 @@ function Input({
   );
 }
 
-function AddRemoveButtonsForNoCallableSection({
-  forSectionId,
-  paramSweepId,
-  paramSweep,
-}) {
-  const alreadySelected = paramSweep[0]?.params.map((x) => x.paramInfoId) ?? [];
-  const selectedItemIdx = paramSweep.length > 0 ? 0 : null;
-
-  const { onClickAddParam, disabled: disablePlusButton } = useOnClickAddParam({
-    forSectionId,
-    paramSweepId,
-    selectedItem: null,
-    selectedItemIdx,
-    alreadySelected,
-  });
-
-  const onClickRemoveParam = () =>
-    deleteLastParamSweepParamInfoId({ paramSweepId, selectedItemIdx });
-
-  return (
-    <div className="flex">
-      <p className="text-xs font-bold uppercase text-setta-700 dark:text-setta-400">
-        Params
-      </p>
-      <button
-        className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
-        onClick={onClickRemoveParam}
-      >
-        <i className="gg-remove" />
-      </button>
-      <button
-        className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
-        onClick={onClickAddParam}
-        disabled={disablePlusButton}
-      >
-        <i className="gg-add" />
-      </button>
-    </div>
-  );
-}
-
 function useShowParamSweepSectionSearch(sectionId) {
   const hideSearch = useSectionInfos((x) => x.x[sectionId].hideSearch);
   const _isGlobalVariables =
@@ -404,24 +385,4 @@ function useChildlessObjParams({
     }
     return output;
   }, _.isEqual);
-}
-
-function useOnClickAddParam({
-  forSectionId,
-  paramSweepId,
-  selectedItem,
-  selectedItemIdx,
-  alreadySelected,
-}) {
-  function onClickAddParam() {
-    addParamSweepParamInfoId({
-      paramSweepId,
-      selectedItemIdx,
-      paramInfoId: null,
-    });
-  }
-
-  const numParams = useNumChildlessParams(selectedItem, forSectionId);
-
-  return { onClickAddParam, disabled: alreadySelected.length >= numParams };
 }
