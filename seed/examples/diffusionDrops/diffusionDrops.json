@@ -975,7 +975,7 @@
       "paramSweepIds": [],
       "artifacts": [
         {
-          "path": "seed/examples/interactive_example/img.png",
+          "path": "seed/examples/diffusionDrops/kevin-musgrave2.png",
           "type": "img",
           "displayName": "profile pic"
         }
