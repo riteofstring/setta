@@ -13,6 +13,7 @@ import {
 import { useSectionInfos } from "state/definitions";
 import { getImageDimensionsFromBase64 } from "utils/utils";
 import { useGetSectionInfo } from "./sections";
+import { useIsTwitter } from "./social";
 import { useGetSectionType } from "./uiTypes";
 
 export const INFINITE_MAX_HEIGHT = 100000;
@@ -70,12 +71,10 @@ export function getMaxSectionHeight({ sectionType, isMinimized }) {
   return INFINITE_MAX_HEIGHT;
 }
 
-export function getMinSectionWidth({ sectionType }) {
-  // if (isTwitter) {
-  //   // 250 is min width of a tweet. Add 150 for margin
-  //   // https://developer.twitter.com/en/docs/twitter-for-websites/embedded-tweets/guides/embedded-tweet-parameter-reference
-  //   return 400;
-  // }
+export function getMinSectionWidth({ sectionType, isTwitter }) {
+  if (isTwitter) {
+    return 324;
+  }
   if (sectionType === C.DRAW) {
     return 272;
   }
@@ -83,21 +82,21 @@ export function getMinSectionWidth({ sectionType }) {
   return 200;
 }
 
-export function getMaxSectionWidth() {
-  // const isTwitter = useIsTwitter(sectionId);
-  // if (isTwitter) {
-  //   // 550 is max width of a tweet. Add 100 for margin
-  //   // https://developer.twitter.com/en/docs/twitter-for-websites/embedded-tweets/guides/embedded-tweet-parameter-reference
-  //   return undefined;
-  // }
+export function getMaxSectionWidth({ isTwitter }) {
+  if (isTwitter) {
+    return 574;
+  }
   return INFINITE_MAX_WIDTH;
 }
 
-export function getSizeMode({ sectionType, hideParams, isMinimized }) {
+export function getSizeMode({ sectionType, hideParams, isTwitter }) {
   if (sectionType === C.SECTION || sectionType === C.REFERENCE_SECTION) {
     if (hideParams) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
     }
+  }
+  if (isTwitter) {
+    return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
   }
   return { height: SIZE_MODE.any, width: SIZE_MODE.any };
 }
@@ -107,6 +106,7 @@ export function useSectionMinMaxDims(sectionId) {
   const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
   const hideParams = useGetSectionInfo(sectionId, "hideParams");
   const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
+  const isTwitter = useIsTwitter(sectionId);
 
   const minHeight = getMinSectionHeight({
     sectionType,
@@ -120,10 +120,10 @@ export function useSectionMinMaxDims(sectionId) {
     isMinimized,
   });
 
-  const minWidth = getMinSectionWidth({ sectionType });
-  const maxWidth = getMaxSectionWidth();
+  const minWidth = getMinSectionWidth({ sectionType, isTwitter });
+  const maxWidth = getMaxSectionWidth({ isTwitter });
 
-  const sizeMode = getSizeMode({ sectionType, hideParams, isMinimized });
+  const sizeMode = getSizeMode({ sectionType, hideParams, isTwitter });
 
   return { minHeight, maxHeight, minWidth, maxWidth, sizeMode };
 }

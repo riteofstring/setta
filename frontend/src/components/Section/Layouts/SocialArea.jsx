@@ -34,11 +34,14 @@ function YoutubeEmbed({ sectionId, url }) {
 function TwitterEmbed({ url }) {
   const id = _.last(url.split("/")).split("?")[0];
   const [darkMode] = localStorageFns.darkMode.hook();
+  const options = {
+    theme: darkMode ? "dark" : undefined,
+  };
 
   return (
     id && (
       <div className="section-key-value section-row-main flex items-start justify-center overflow-auto [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:h-full [&_.twitter-tweet]:w-full [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-none [&_.twitter-tweet]:pt-2 [&_div:has(.twitter-tweet)]:contents">
-        <Tweet tweetId={id} options={darkMode ? { theme: "dark" } : {}} />
+        <Tweet tweetId={id} options={options} />
       </div>
     )
   );
