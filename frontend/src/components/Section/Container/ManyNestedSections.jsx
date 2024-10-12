@@ -40,7 +40,11 @@ function NestedSectionsWithMargin({ childIds, sectionId, isDeck }) {
         className={`mt-2 flex ${isHorizontalOrientation ? "flex-row" : "flex-col "} items-start gap-2`}
       >
         {childIds.map((e) => (
-          <SortableSectionContainer sectionId={e} key={`Nested-Sec-${e}`} />
+          <SortableSectionContainer
+            sectionId={e}
+            key={`Nested-Sec-${e}`}
+            isHorizontalOrientation={isHorizontalOrientation}
+          />
         ))}
       </div>
     </div>

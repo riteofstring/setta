@@ -235,7 +235,7 @@ export function useSortable({
       return undefined;
     }
 
-    if (shouldAnimateLayoutChanges) {
+    if (isSorting || shouldAnimateLayoutChanges) {
       return CSS.Transition.toString({
         ...transition,
         property: transitionProperty,

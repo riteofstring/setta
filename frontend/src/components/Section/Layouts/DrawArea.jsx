@@ -5,7 +5,6 @@ import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { BiPaint } from "react-icons/bi";
 import { sendToInteractiveTasks } from "state/actions/interactive";
-import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
 import {
   setAspectRatioInfo,
   setSectionSize,
@@ -16,7 +15,6 @@ import {
 } from "state/actions/temporaryMiscState";
 import {
   useArtifacts,
-  useMisc,
   useSectionInfos,
   useTemporaryMiscState,
 } from "state/definitions";
@@ -217,12 +215,6 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function onMouseDown(e, offsetX, offsetY) {
-    if (!useMisc.getState().mouseDownDrawArea) {
-      // We want to do this just on the first mouse down.
-      setActiveSectionIdAndUpdateZIndex(sectionId);
-    }
-    useMisc.setState({ mouseDownDrawArea: true });
-
     // nothing to erase
     if (isEraser && strokesRef.current.length === 0) {
       return;

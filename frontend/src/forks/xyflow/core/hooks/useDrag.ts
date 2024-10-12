@@ -89,8 +89,7 @@ function useDrag({
         }
 
         updateNodePositions(dragItems.current, true, true);
-        // When dragging a selection, nodeId is undefined.
-        if (!nodeId && nodesSelectionDims) {
+        if (nodesSelectionDims) {
           if (dragEnd && snapToGrid) {
             setNodesSelection(dragItems.current.length);
           } else {
