@@ -122,6 +122,8 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
   } else {
     unpinned = docs[0].toJS();
   }
+  pinned = pinned ?? {};
+  unpinned = unpinned ?? {};
 
   const fOriginalObj = mergePinnedAndUnpinned(
     flattenObject(originalObj.pinned),

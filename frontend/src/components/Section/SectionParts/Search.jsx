@@ -36,9 +36,6 @@ export function ParamSweepSectionSearch({
   selectedItem,
   paramSweepId,
   selectedItemIdx,
-  onPlusClick,
-  onMinusClick,
-  disablePlusButton,
 }) {
   async function onEnter(value) {
     let newSelectedItem;
@@ -83,15 +80,12 @@ export function ParamSweepSectionSearch({
         <button
           className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
             hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
-          onClick={onMinusClick}
         >
           <i className="gg-remove" />
         </button>
         <button
           className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
             hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
-          onClick={onPlusClick}
-          disabled={disablePlusButton}
         >
           <i className="gg-add" />
         </button>

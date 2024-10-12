@@ -122,32 +122,11 @@ export function addParamSweepParamInfoId({
   });
 }
 
-export function deleteLastParamSweepParamInfoId({
-  paramSweepId,
-  selectedItemIdx,
-}) {
-  if (selectedItemIdx === null) {
-    // special case for a section without callables
-    // that has no params yet.
-    return;
-  }
-  useParamSweep.setState((state) => {
-    const s = state.x[paramSweepId];
-    if (s.sweep[selectedItemIdx].params.length === 0) {
-      s.sweep = s.sweep.filter((_, idx) => idx !== selectedItemIdx);
-    } else {
-      s.sweep[selectedItemIdx].params.pop();
-    }
-  });
-}
-
 export function deleteParamsFromParamSweep({ sectionId, ids }) {
   const { paramSweepId } = getSectionInfo(sectionId);
-  if (paramSweepId) {
-    useParamSweep.setState((x) => {
-      for (const s of x.x[paramSweepId].sweep) {
-        s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
-      }
-    });
-  }
+  useParamSweep.setState((x) => {
+    for (const s of x.x[paramSweepId].sweep) {
+      s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
+    }
+  });
 }
