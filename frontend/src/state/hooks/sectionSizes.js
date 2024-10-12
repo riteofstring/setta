@@ -159,30 +159,54 @@ export function useOverflow(sectionId) {
   return { overflow, ref, setDidUpdate };
 }
 
-export async function setImgArtifactSectionSizeOnLoad(sectionId, base64String) {
-  const imgSize = await getImageDimensionsFromBase64(base64String);
-  const minHeight = getMinSectionHeight({
-    sectionType: C.ARTIFACT,
-  });
+function getSectionSizeBasedOnImgSize({
+  sectionId,
+  sectionType,
+  imgSize,
+  extraHeight,
+  extraWidth,
+}) {
+  const minHeight = getMinSectionHeight({ sectionType });
   const minWidth = getMinSectionWidth({});
   const currSize = useSectionInfos.getState().x[sectionId].size;
 
-  let adjustedSize = adjustAspectRatio(
+  console.log("currSize", currSize);
+  let sectionSize = adjustAspectRatio(
     currSize.height,
     currSize.width,
     imgSize.height,
     imgSize.width,
   );
-  adjustedSize = adjustSizeToBeAtLeastMin(
-    adjustedSize.height,
-    adjustedSize.width,
+
+  console.log("after adjusting aspect ratio", sectionSize);
+  sectionSize = adjustSizeToBeAtLeastMin(
+    sectionSize.height,
+    sectionSize.width,
     minHeight,
     minWidth,
   );
 
+  console.log("to be at least min", sectionSize);
+
+  if (extraHeight) {
+    sectionSize.height += extraHeight;
+  }
+  if (extraWidth) {
+    sectionSize.width += extraWidth;
+  }
+  return sectionSize;
+}
+
+export async function setImgArtifactSectionSizeOnLoad(sectionId, base64String) {
+  const imgSize = await getImageDimensionsFromBase64(base64String);
   const extraHeight = 24;
-  adjustedSize.height += extraHeight;
-  setSectionSize(sectionId, adjustedSize);
+  const sectionSize = getSectionSizeBasedOnImgSize({
+    sectionId,
+    sectionType: C.ARTIFACT,
+    imgSize,
+    extraHeight,
+  });
+  setSectionSize(sectionId, sectionSize);
   setAspectRatioInfo({
     sectionId,
     aspectRatio: imgSize.width / imgSize.height,
@@ -200,10 +224,15 @@ export function setDrawAreaSectionSize({ sectionId, imgSize, isNewImg }) {
     if (width === "auto" || height === "auto" || isNewImg) {
       canvasSize.width = imgSize.width;
       canvasSize.height = imgSize.height;
-      setSectionSize(sectionId, {
-        width: imgSize.width + extraWidth,
-        height: imgSize.height + extraHeight,
+      const sectionSize = getSectionSizeBasedOnImgSize({
+        sectionId,
+        sectionType: C.DRAW,
+        imgSize,
+        extraHeight,
+        extraWidth,
       });
+      console.log("sectionSize", sectionSize);
+      setSectionSize(sectionId, sectionSize);
     } else {
       canvasSize.width = width - extraWidth;
       canvasSize.height = height - extraHeight;
