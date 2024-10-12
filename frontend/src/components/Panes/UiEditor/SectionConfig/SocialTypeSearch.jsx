@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { setSectionSize } from "state/actions/sections/setters";
+import { setAspectRatioInfo, setSectionSize } from "state/actions/sections/setters";
 import { useGetSectionInfo } from "state/hooks/sections";
 
 export function SocialTypeSearch({ sectionId }) {
@@ -11,17 +11,17 @@ export function SocialTypeSearch({ sectionId }) {
     const blurValue = e.target.value;
     if (blurValue) {
       setSectionInfoAttr({ sectionId, attr: "social", value: blurValue });
-      let size = { width: 300, height: 300 };
+      let size = { width: 640, height: 360+24 };
       // size = adjustAspectRatio(size.height, size.width, 9, 16);
       // const sectionHeaderHeight = 28;
       // size.height += sectionHeaderHeight;
       // console.log("size", size)
       setSectionSize(sectionId, size);
-      // setAspectRatioInfo({
-      //   sectionId,
-      //   aspectRatio: youtubeSectionAspectRatio,
-      //   aspectRatioExtraHeight: sectionHeaderHeight,
-      // });
+      setAspectRatioInfo({
+        sectionId,
+        aspectRatio: 16 / 9,
+        aspectRatioExtraHeight: 24,
+      });
 
       // const width = 550;
       // const height = linkIsTwitter(blurValue)

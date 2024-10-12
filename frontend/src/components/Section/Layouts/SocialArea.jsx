@@ -12,6 +12,7 @@ function _SocialArea({ sectionId }) {
   const url = useSectionInfos((x) => x.x[sectionId].social);
 
   if (linkIsYouTube(url)) {
+    console.log("size", size);
     return <YoutubeEmbed size={size} url={url} />;
   } else if (linkIsTwitter(url)) {
     return <TwitterEmbed url={url} />;
@@ -22,14 +23,12 @@ export const SocialArea = React.memo(_SocialArea);
 
 function YoutubeEmbed({ size, url }) {
   const id = getYouTubeID(url, { fuzzy: false });
-  // const sizeWithMargin = { width: size.width - 50, height: size.height - 100 };
+  const sizeWithMargin = { width: size.width, height: size.height - 24 };
+  console.log("sizeWithMargin", sizeWithMargin);
 
   return (
-    <div
-      className="section-w-full section-row-main flex overflow-clip px-3
-pb-1 pt-1 [&>div]:overflow-hidden [&>div]:rounded-xl [&>div]:border [&>div]:border-none  [&_.twitter-tweet]:!m-0 "
-    >
-      <YouTube videoId={id} opts={size} />
+    <div className="section-w-full section-row-main flex">
+      <YouTube videoId={id} opts={sizeWithMargin} />
     </div>
   );
 }
