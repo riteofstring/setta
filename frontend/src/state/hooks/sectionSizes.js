@@ -17,10 +17,12 @@ export function getMinSectionHeight({
   hideParams,
   isMinimized,
 }) {
+  if (isMinimized) {
+    return MINIMIZE_SECTION_HEIGHT;
+  }
+
   if (sectionType === C.SECTION || sectionType === C.REFERENCE_SECTION) {
-    if (isMinimized) {
-      return MINIMIZE_SECTION_HEIGHT;
-    } else if (hideSearch) {
+    if (hideSearch) {
       return 78;
     } else if (hideParams) {
       return 58;
@@ -30,17 +32,17 @@ export function getMinSectionHeight({
   } else if (sectionType === C.LIST_ROOT || sectionType === C.DICT_ROOT) {
     return ROOT_SECTION_HEIGHT;
   } else if (sectionType === C.GLOBAL_VARIABLES) {
-    return 50;
+    return 78;
   } else if (sectionType === C.CODE || sectionType === C.INTERACTIVE_CODE) {
-    return 50;
+    return 58.2;
   } else if (sectionType === C.INFO) {
-    return 50;
+    return 98;
   } else if (sectionType === C.PARAM_SWEEP) {
     return 50;
   } else if (sectionType === C.TERMINAL) {
-    return 50;
+    return 100;
   } else if (sectionType === C.GLOBAL_PARAM_SWEEP) {
-    return 50;
+    return 112;
   } else if (sectionType === C.DRAW || sectionType === C.ARTIFACT) {
     return 100;
   } else if (sectionType === C.SOCIAL) {
@@ -49,11 +51,10 @@ export function getMinSectionHeight({
 }
 
 export function getMaxSectionHeight({ sectionType, hideParams, isMinimized }) {
-  if (sectionType === C.SECTION || sectionType === C.REFERENCE_SECTION) {
-    if (isMinimized) {
-      return MINIMIZE_SECTION_HEIGHT;
-    }
-  } else if (sectionType === C.LIST_ROOT || sectionType === C.DICT_ROOT) {
+  if (isMinimized) {
+    return MINIMIZE_SECTION_HEIGHT;
+  }
+  if (sectionType === C.LIST_ROOT || sectionType === C.DICT_ROOT) {
     return ROOT_SECTION_HEIGHT;
   }
   return INFINITE_MAX_HEIGHT;
