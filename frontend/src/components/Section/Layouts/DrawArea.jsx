@@ -15,7 +15,6 @@ import {
   setTemporaryMiscState,
 } from "state/actions/temporaryMiscState";
 import {
-  useActiveSection,
   useArtifacts,
   useMisc,
   useSectionInfos,
@@ -218,7 +217,8 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function onMouseDown(e, offsetX, offsetY) {
-    if (!useActiveSection.getState().ids.includes(sectionId)) {
+    if (!useMisc.getState().mouseDownDrawArea) {
+      // We want to do this just on the first mouse down.
       setActiveSectionIdAndUpdateZIndex(sectionId);
     }
     useMisc.setState({ mouseDownDrawArea: true });
