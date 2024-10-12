@@ -126,6 +126,11 @@ export function deleteLastParamSweepParamInfoId({
   paramSweepId,
   selectedItemIdx,
 }) {
+  if (selectedItemIdx === null) {
+    // special case for a section without callables
+    // that has no params yet.
+    return;
+  }
   useParamSweep.setState((state) => {
     const s = state.x[paramSweepId];
     if (s.sweep[selectedItemIdx].params.length === 0) {
