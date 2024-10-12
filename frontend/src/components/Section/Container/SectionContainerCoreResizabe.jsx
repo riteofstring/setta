@@ -1,6 +1,7 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import C from "constants/constants.json";
 import { useSectionInfos } from "state/definitions";
+import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
@@ -31,6 +32,11 @@ export function SectionContainerCoreResizable({
     "isInOtherProjectConfigs",
   );
   const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
+  const disablePointerEvents = useShouldDisablePointerEvents();
+
+  const pointerSelectCSS = disablePointerEvents
+    ? "pointer-events-none select-none"
+    : "";
 
   const getOutlineColor = () => {
     if (isWrongType) {
@@ -78,7 +84,7 @@ export function SectionContainerCoreResizable({
   const borderClasses =
     "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700";
 
-  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  ${
+  const inputClasses = `${pointerSelectCSS} outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${borderClasses}`;
 
