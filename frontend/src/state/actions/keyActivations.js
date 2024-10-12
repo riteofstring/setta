@@ -189,17 +189,13 @@ export function attachKeyEventListeners() {
 
   let cleanup = attachKeyDownListener((e) => {
     for (const x of shortcutInfo) {
-      if (e.repeat && !x.allowRepeat) {
-        if (x.shouldPreventDefault) {
-          e.preventDefault();
-        }
-        continue;
-      }
-
       const isPressed = isShortcutPressed(e, x.parsedShortcut, _isMacOs);
       if (isPressed) {
         if (x.shouldPreventDefault) {
           e.preventDefault();
+        }
+        if (e.repeat && !x.allowRepeat) {
+          continue;
         }
         x.keyDownAction();
         x.wasPressed = true;
