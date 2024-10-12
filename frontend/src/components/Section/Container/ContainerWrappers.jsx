@@ -69,7 +69,6 @@ function _DndWatcherAndContainer({
       trueDragListeners={trueDragListeners}
       className={className}
       style={fullStyle}
-      isSortingOrMovingFree={isSorting || isMovingFree}
     >
       {children}
     </Container>

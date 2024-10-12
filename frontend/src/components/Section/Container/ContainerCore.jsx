@@ -15,30 +15,22 @@ function _Container({
   style,
   trueDragListeners,
   children,
-  isSortingOrMovingFree,
 }) {
   const refForPosition = useSectionRefAndInit(sectionId, "withNested");
   const hasNested = useTempHasNested(sectionId);
-
   function totalRef(e) {
     refForPosition.current = e;
     droppableRef && droppableRef(e);
     draggableRef && draggableRef(e);
   }
 
-  function dndRef(e) {
-    droppableRef && droppableRef(e);
-    draggableRef && draggableRef(e);
-  }
-
-  const specialKeysPressed = useReactFlow(
-    (x) =>
-      x.moveSectionActivationKeyPressed ||
-      x.selectionKeyPressed ||
-      x.multiSelectionActive,
+  const commonProps = { ref: totalRef, ...trueDragListeners };
+  const width = "";
+  const moveSectionActivationKeyPressed = useReactFlow(
+    (x) => x.moveSectionActivationKeyPressed,
   );
 
-  const pointerSelectCSS = specialKeysPressed
+  const pointerSelectCSS = moveSectionActivationKeyPressed
     ? "pointer-events-none select-none"
     : "";
 
@@ -46,8 +38,8 @@ function _Container({
   if (isDeck) {
     return (
       <div
-        ref={refForPosition}
-        className={`${pointerSelectCSS} flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
+        className={`${pointerSelectCSS} flex ${width} min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
+        {...commonProps}
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
       >
         <div className="absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline outline-2  outline-transparent backdrop-blur dark:border-setta-700 dark:bg-[#06070a3e]" />
@@ -68,20 +60,13 @@ function _Container({
     );
   }
   return (
-    <>
-      <div
-        className={`absolute inset-0 ${isSortingOrMovingFree ? "z-0" : "z-0"} nodrag bg-transparent`}
-        ref={dndRef}
-        {...trueDragListeners}
-      />
-      <div
-        ref={refForPosition}
-        className={`${pointerSelectCSS} ${className}`}
-        style={style}
-      >
-        {children}
-      </div>
-    </>
+    <div
+      className={`${pointerSelectCSS} ${className}`}
+      style={style}
+      {...commonProps}
+    >
+      {children}
+    </div>
   );
   // TRY TO ELIMINATE ABOVE USELESS DIV
   // if (className || (style && Object.keys(style).length > 0)) {
