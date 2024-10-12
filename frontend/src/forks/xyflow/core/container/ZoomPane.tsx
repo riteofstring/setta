@@ -94,11 +94,11 @@ const ZoomPane = ({
         d3Selection.on(
           "wheel.zoom",
           (event: any) => {
-            console.log("wheel.zoom")
             if (
               isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
               !zoomActivationKeyPressed &&
-              !(event.ctrlKey && zoomOnPinch && isMacOs())
+              !(event.ctrlKey && zoomOnPinch && isMacOs()) &&
+              !(panOnScroll && isPanScrolling.current)
             ) {
               return false;
             }
@@ -172,7 +172,6 @@ const ZoomPane = ({
         d3Selection.on(
           "wheel.zoom",
           function (this: any, event: any, d: any) {
-            console.log("wheel.zoom")
             if (
               !preventScrolling ||
               (isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
@@ -204,7 +203,6 @@ const ZoomPane = ({
   useEffect(() => {
     if (d3Zoom) {
       d3Zoom.on("start", (event: D3ZoomEvent<HTMLDivElement, any>) => {
-        console.log("d3zoom start");
         if (!event.sourceEvent || event.sourceEvent.internal) {
           return null;
         }
@@ -232,7 +230,6 @@ const ZoomPane = ({
         d3Zoom.on("zoom", null);
       } else if (!userSelectionActive) {
         d3Zoom.on("zoom", (event: D3ZoomEvent<HTMLDivElement, any>) => {
-          console.log('zoom')
           useReactFlow.setState({
             transform: [
               event.transform.x,
@@ -253,7 +250,6 @@ const ZoomPane = ({
   useEffect(() => {
     if (d3Zoom) {
       d3Zoom.on("end", (event: D3ZoomEvent<HTMLDivElement, any>) => {
-        console.log("end")
         if (!event.sourceEvent || event.sourceEvent.internal) {
           return null;
         }
@@ -268,7 +264,6 @@ const ZoomPane = ({
   useEffect(() => {
     if (d3Zoom) {
       d3Zoom.filter((event: any) => {
-        console.log("filter")
         const zoomScroll = zoomActivationKeyPressed || zoomOnScroll;
         const pinchZoom = zoomOnPinch && event.ctrlKey;
 

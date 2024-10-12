@@ -38,34 +38,9 @@ function TwitterEmbed({ url }) {
     theme: darkMode ? "dark" : undefined,
   };
 
-  // useEffect(() => {
-  //   const { d3Selection } = useReactFlow.getState();
-  //   const wrapper = d3Selection.selectAll("[data-zoomable-wrapper]");
-  //   console.log("wrapper", wrapper);
-
-  //   // Create a zoom behavior
-  //   const zoom = wrapper.on(
-  //     "wheel.zoom",
-  //     (event) => {
-  //       console.log("wrapper zoom event");
-  //       // Apply the zoom transform to the container
-  //       // container.attr("transform", event.transform);
-  //     },
-  //     { passive: false },
-  //   );
-  // }, []);
-
-  // function toggleIframeInteraction(wrapper, enable) {
-  //   wrapper.style('pointer-events', enable ? 'auto' : 'none');
-  // }
-
   return (
     id && (
-      <div
-        data-zoomable-wrapper
-        className="section-key-value section-row-main flex items-start justify-center overflow-auto [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:h-full [&_.twitter-tweet]:w-full [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-none [&_.twitter-tweet]:pt-2 [&_div:has(.twitter-tweet)]:contents"
-        onPointerEnter={(e)=>{e.preventDefault()}}
-      >
+      <div className="section-key-value section-row-main flex items-start justify-center overflow-auto [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:h-full [&_.twitter-tweet]:w-full [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-none [&_.twitter-tweet]:pt-2 [&_div:has(.twitter-tweet)]:contents">
         <Tweet tweetId={id} options={options} />
       </div>
     )
