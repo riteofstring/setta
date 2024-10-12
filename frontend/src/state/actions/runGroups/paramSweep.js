@@ -122,6 +122,20 @@ export function addParamSweepParamInfoId({
   });
 }
 
+export function deleteLastParamSweepParamInfoId({
+  paramSweepId,
+  selectedItemIdx,
+}) {
+  useParamSweep.setState((state) => {
+    const s = state.x[paramSweepId];
+    if (s.sweep[selectedItemIdx].params.length === 0) {
+      s.sweep = s.sweep.filter((_, idx) => idx !== selectedItemIdx);
+    } else {
+      s.sweep[selectedItemIdx].params.pop();
+    }
+  });
+}
+
 export function deleteParamsFromParamSweep({ sectionId, ids }) {
   const { paramSweepId } = getSectionInfo(sectionId);
   useParamSweep.setState((x) => {

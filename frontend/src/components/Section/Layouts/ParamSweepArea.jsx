@@ -8,6 +8,7 @@ import {
   addParamSweepParamInfoId,
   addParamSweepValue,
   changeParamSweepParamInfoId,
+  deleteLastParamSweepParamInfoId,
   deleteLastParamSweepValue,
   deleteParamSweepValue,
   setParamSweepValue,
@@ -78,6 +79,17 @@ function ParamSweepForOneSelectedItem({
   selectedItemIdx,
   showParamSweepSectionSearch,
 }) {
+  const { onClickAddParam, disabled: disablePlusButton } = useOnClickAddParam({
+    forSectionId,
+    paramSweepId,
+    selectedItem: sweep.selectedItem,
+    selectedItemIdx,
+    alreadySelected: sweep.params.map((x) => x.paramInfoId),
+  });
+
+  const onClickRemoveParam = () =>
+    deleteLastParamSweepParamInfoId({ paramSweepId, selectedItemIdx });
+
   return (
     <div className="section-min-rows section-grid-cols section-grid-sweep-areas grid">
       {showParamSweepSectionSearch && (
@@ -87,6 +99,9 @@ function ParamSweepForOneSelectedItem({
           selectedItem={sweep.selectedItem}
           paramSweepId={paramSweepId}
           selectedItemIdx={selectedItemIdx}
+          onPlusClick={onClickAddParam}
+          onMinusClick={onClickRemoveParam}
+          disablePlusButton={disablePlusButton}
         />
       )}
       <Args
@@ -385,4 +400,24 @@ function useChildlessObjParams({
     }
     return output;
   }, _.isEqual);
+}
+
+function useOnClickAddParam({
+  forSectionId,
+  paramSweepId,
+  selectedItem,
+  selectedItemIdx,
+  alreadySelected,
+}) {
+  function onClickAddParam() {
+    addParamSweepParamInfoId({
+      paramSweepId,
+      selectedItemIdx,
+      paramInfoId: null,
+    });
+  }
+
+  const numParams = useNumChildlessParams(selectedItem, forSectionId);
+
+  return { onClickAddParam, disabled: alreadySelected.length >= numParams };
 }
