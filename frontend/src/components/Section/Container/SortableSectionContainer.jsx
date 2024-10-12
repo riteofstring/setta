@@ -7,16 +7,12 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import React, { useEffect, useState } from "react";
 import { SectionContainer } from "./SectionContainer";
 
-function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
+function _SortableSectionContainer({ sectionId }) {
   return isTempSection(sectionId) ? (
-    <TempDNDSortableSectionContainer
-      sectionId={sectionId}
-      isHorizontalOrientation={isHorizontalOrientation}
-    />
+    <TempDNDSortableSectionContainer sectionId={sectionId} />
   ) : (
     <RegularSortableSectionContainer
       sectionId={sectionId}
-      isHorizontalOrientation={isHorizontalOrientation}
       forceApplyTransform={false}
     />
   );
@@ -24,10 +20,7 @@ function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
 
 export const SortableSectionContainer = React.memo(_SortableSectionContainer);
 
-function _TempDNDSortableSectionContainer({
-  sectionId,
-  isHorizontalOrientation,
-}) {
+function _TempDNDSortableSectionContainer({ sectionId }) {
   const [forceApplyTransform, setForceApplyTransform] = useState(true);
 
   useEffect(() => {
@@ -38,7 +31,6 @@ function _TempDNDSortableSectionContainer({
   return (
     <RegularSortableSectionContainer
       sectionId={sectionId}
-      isHorizontalOrientation={isHorizontalOrientation}
       forceApplyTransform={forceApplyTransform}
     />
   );
@@ -48,11 +40,7 @@ const TempDNDSortableSectionContainer = React.memo(
   _TempDNDSortableSectionContainer,
 );
 
-function _RegularSortableSectionContainer({
-  sectionId,
-  isHorizontalOrientation,
-  forceApplyTransform,
-}) {
+function _RegularSortableSectionContainer({ sectionId, forceApplyTransform }) {
   const animateLayoutChanges = useAnimateLayoutChanges();
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
@@ -65,7 +53,7 @@ function _RegularSortableSectionContainer({
     transition,
     overIndex,
     items,
-  } = useSortable({ ...dndProps });
+  } = useSortable({ ...dndProps, animateLayoutChanges });
   return (
     <SortableCore
       sectionId={sectionId}
@@ -74,7 +62,6 @@ function _RegularSortableSectionContainer({
       setNodeRef={setNodeRef}
       transform={transform}
       transition={transition}
-      isHorizontalOrientation={isHorizontalOrientation}
       applyTransform={
         forceApplyTransform ||
         (overIndex !== null && overIndex !== -1) ||
@@ -97,7 +84,6 @@ function _SortableCore({
   setNodeRef,
   transform,
   transition,
-  isHorizontalOrientation,
   applyTransform,
 }) {
   const overIsSelf = useOverIsSelf(sectionId);
@@ -105,7 +91,7 @@ function _SortableCore({
 
   const style = {
     transform: CSS.Translate.toString(scaledTransform),
-    // transition,
+    transition,
     zIndex: overIsSelf ? 500 : undefined,
   };
   const stackProps = { style, ref: setNodeRef, ...attributes };
@@ -157,6 +143,6 @@ function transformWithZoom(transform) {
 }
 
 function useAnimateLayoutChanges() {
-  const isMovingFree = useDndState((x) => x.isMovingFree);
-  return () => isMovingFree;
+  const isSorting = useDndState((x) => x.isSorting);
+  return () => isSorting;
 }
