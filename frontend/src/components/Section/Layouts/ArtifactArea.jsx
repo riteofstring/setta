@@ -1,6 +1,7 @@
 import { ParentSize } from "@visx/responsive";
 import { LineChart } from "components/Utils/Charts/LineChart";
 import React, { useEffect } from "react";
+import { useSectionInfos } from "state/definitions";
 import { useArtifactData } from "state/hooks/artifacts";
 import { setImgArtifactSectionSizeOnLoad } from "state/hooks/sectionSizes";
 
@@ -53,9 +54,21 @@ function OneChart({ series, title }) {
 function OneImg({ sectionId, img }) {
   const base64String = `data:image/png;base64,${img}`;
 
-  useEffect(() => {
-    setImgArtifactSectionSizeOnLoad(sectionId, base64String);
+  const widthOrHeightIsAuto = useSectionInfos((x) => {
+    const { width, height } = x.x[sectionId].size;
+    return width === "auto" || height === "auto";
+  });
+
+  useEffect(async () => {
+    const imgSize = await getImageDimensionsFromBase64(base64String);
+    setImgArtifactSectionSizeOnLoad(sectionId, imgSize);
   }, [base64String]);
+
+  // useEffect(() => {
+  //   if (widthOrHeightIsAuto) {
+  //     setImgArtifactSectionSizeOnLoad(sectionId, base64String);
+  //   }
+  // }, [widthOrHeightIsAuto]);
 
   return (
     <figure className="section-w-full section-row-main flex overflow-clip px-3 pb-1 pt-1">

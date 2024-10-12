@@ -159,7 +159,7 @@ export function useOverflow(sectionId) {
   return { overflow, ref, setDidUpdate };
 }
 
-export async function setImgArtifactSectionSizeOnLoad(sectionId, base64String) {
+export async function setImgArtifactSectionSizeOnLoad(sectionId, imgSize) {
   const imgSize = await getImageDimensionsFromBase64(base64String);
   const minHeight = getMinSectionHeight({
     sectionType: C.ARTIFACT,
