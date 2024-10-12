@@ -143,9 +143,11 @@ export function deleteLastParamSweepParamInfoId({
 
 export function deleteParamsFromParamSweep({ sectionId, ids }) {
   const { paramSweepId } = getSectionInfo(sectionId);
-  useParamSweep.setState((x) => {
-    for (const s of x.x[paramSweepId].sweep) {
-      s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
-    }
-  });
+  if (paramSweepId) {
+    useParamSweep.setState((x) => {
+      for (const s of x.x[paramSweepId].sweep) {
+        s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
+      }
+    });
+  }
 }
