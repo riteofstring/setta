@@ -6,6 +6,7 @@ import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
 import { useGetSectionType } from "./uiTypes";
 
+export const INFINITE_MAX_HEIGHT = 100000;
 export const PINNED_PARAMS_AREA_MIN_HEIGHT = 64;
 const ROOT_SECTION_HEIGHT = 50;
 const MINIMIZE_SECTION_HEIGHT = 32;
@@ -55,8 +56,7 @@ export function getMaxSectionHeight({ sectionType, hideParams, isMinimized }) {
   } else if (sectionType === C.LIST_ROOT || sectionType === C.DICT_ROOT) {
     return ROOT_SECTION_HEIGHT;
   }
-  // has to be undefined (not null) to allow any height
-  return undefined;
+  return INFINITE_MAX_HEIGHT;
 }
 
 export function getMinSectionWidth({ isTwitter }) {
@@ -75,7 +75,6 @@ export function getSizeMode({ sectionType, hideParams, isMinimized }) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
     }
   }
-  // has to be undefined (not null) to allow any height
   return { height: SIZE_MODE.any, width: SIZE_MODE.any };
 }
 
