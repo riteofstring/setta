@@ -1,6 +1,6 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import C from "constants/constants.json";
-import { useSectionInfos } from "state/definitions";
+import { useParamShortcuts, useSectionInfos } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { isRoot } from "utils/sectionTypeHelpers";
@@ -33,6 +33,7 @@ export function SectionContainerCoreResizable({
   );
   const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
   const disablePointerEvents = useShouldDisablePointerEvents();
+  const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
 
   const pointerSelectCSS = disablePointerEvents
     ? "pointer-events-none select-none"
@@ -49,14 +50,14 @@ export function SectionContainerCoreResizable({
       if (isActiveSection) {
         return "outline-purple-600 dark:outline-purple-700";
       }
-      return "outline-transparent active:outline-fuchsia-400";
+      return `outline-transparent ${!isSelectingParams ? "active:outline-fuchsia-400" : ""}`;
     }
 
     if (isActiveSection) {
       return "outline-blue-600 dark:outline-blue-700";
     }
 
-    return "outline-transparent active:outline-cyan-300";
+    return `outline-transparent ${!isSelectingParams ? "active:outline-cyan-300" : ""}`;
   };
 
   const getBgColor = () => {
