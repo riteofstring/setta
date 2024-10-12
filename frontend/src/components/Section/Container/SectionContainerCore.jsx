@@ -8,7 +8,11 @@ import {
 import { getParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { getHighestAncestor } from "state/actions/sections/sectionSizes";
-import { useActiveSection, useParamShortcuts } from "state/definitions";
+import {
+  useActiveSection,
+  useMisc,
+  useParamShortcuts,
+} from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useSectionTypeName } from "state/hooks/uiTypes";
@@ -22,6 +26,11 @@ function _SectionContainerCore({ sectionId }) {
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
 
   function onClick(e) {
+    if (useMisc.getState().mouseDownDrawArea) {
+      useMisc.setState({ mouseDownDrawArea: false });
+      return;
+    }
+
     if (useParamShortcuts.getState().isSelectingParams) {
       // depends on bubbling behavior (child div onclicks get executed first)
       const atLeastOneParamSelected = getParamInfos(sectionId).some(

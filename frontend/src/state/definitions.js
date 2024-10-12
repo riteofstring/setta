@@ -213,3 +213,5 @@ export const useTemporaryMiscState = createProjectState(
 export const useParamShortcuts = create(() => ({
   isSelectingParams: false,
 }));
+
+export const useMisc = create(() => ({ mouseDownDrawArea: false }));

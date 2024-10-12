@@ -5,6 +5,7 @@ import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { BiPaint } from "react-icons/bi";
 import { sendToInteractiveTasks } from "state/actions/interactive";
+import { setActiveSectionIds } from "state/actions/sections/activeSections";
 import {
   setAspectRatioInfo,
   setSectionSize,
@@ -14,7 +15,9 @@ import {
   setTemporaryMiscState,
 } from "state/actions/temporaryMiscState";
 import {
+  useActiveSection,
   useArtifacts,
+  useMisc,
   useSectionInfos,
   useTemporaryMiscState,
 } from "state/definitions";
@@ -215,6 +218,11 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function onMouseDown(e, offsetX, offsetY) {
+    if (!useActiveSection.getState().ids.includes(sectionId)) {
+      setActiveSectionIds([sectionId]);
+    }
+    useMisc.setState({ mouseDownDrawArea: true });
+
     // nothing to erase
     if (isEraser && strokesRef.current.length === 0) {
       return;
