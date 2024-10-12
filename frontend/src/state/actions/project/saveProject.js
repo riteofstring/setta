@@ -5,6 +5,7 @@ import {
   dbSaveAsNewProjectConfig,
   dbSaveProject,
 } from "requests/projects";
+import { dbSaveSettings } from "requests/settings";
 import {
   useArtifacts,
   useCodeInfo,
@@ -87,13 +88,17 @@ export function getProjectData({ withArtifactMetadata = false }) {
 }
 
 export async function saveProject() {
+  let res;
   setNotificationMessage("Saving...");
-  const res = await dbSaveProject({
-    project: getProjectData({ withArtifactMetadata: true }),
-  });
   if (useProjectConfig.getState().name === SETTINGS_PROJECT_NAME) {
+    res = await dbSaveSettings(getProjectData({}));
     await loadSettings();
+  } else {
+    res = await dbSaveProject({
+      project: getProjectData({ withArtifactMetadata: true }),
+    });
   }
+
   if (res.status === 200) {
     setNotificationMessage("Saved!");
   }
