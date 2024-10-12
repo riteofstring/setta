@@ -71,9 +71,8 @@ function CustomResizableCore({
   function onResizeStop(...props) {
     const changedSize = getChangedSize({
       props,
-      minWidth,
-      minHeight: "auto",
       sizeMode,
+      aspectRatio,
     });
     setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
     setSectionResizeEvent({ sectionId, resizeEvent: "end" });
@@ -96,7 +95,8 @@ function CustomResizableCore({
         bottomLeft: false,
       };
 
-  console.log("size", size);
+  // console.log("size", size);
+  // console.log("aspectRatio", aspectRatio)
 
   return (
     <ResizableWithScale

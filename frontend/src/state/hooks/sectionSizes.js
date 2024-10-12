@@ -1,7 +1,16 @@
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import C from "constants/constants.json";
 import { useEffect, useRef, useState } from "react";
+import {
+  adjustAspectRatio,
+  adjustSizeToBeAtLeastMin,
+} from "state/actions/sections/sectionSizes";
+import {
+  setAspectRatioInfo,
+  setSectionSize,
+} from "state/actions/sections/setters";
 import { useSectionInfos } from "state/definitions";
+import { getImageDimensionsFromBase64 } from "utils/utils";
 import { useGetSectionInfo } from "./sections";
 import { useGetSectionType } from "./uiTypes";
 
@@ -145,4 +154,35 @@ export function useOverflow(sectionId) {
   }, [didUpdate]);
 
   return { overflow, ref, setDidUpdate };
+}
+
+export async function setImgArtifactSectionSizeOnLoad(sectionId, base64String) {
+  const imgSize = await getImageDimensionsFromBase64(base64String);
+  const minHeight = getMinSectionHeight({
+    sectionType: C.ARTIFACT,
+  });
+  const minWidth = getMinSectionWidth({});
+  const currSize = useSectionInfos.getState().x[sectionId].size;
+
+  let adjustedSize = adjustAspectRatio(
+    currSize.height,
+    currSize.width,
+    imgSize.height,
+    imgSize.width,
+  );
+  adjustedSize = adjustSizeToBeAtLeastMin(
+    adjustedSize.height,
+    adjustedSize.width,
+    minHeight,
+    minWidth,
+  );
+
+  const sectionHeaderHeight = 28;
+  adjustedSize.height += sectionHeaderHeight;
+  setSectionSize(sectionId, adjustedSize);
+  setAspectRatioInfo({
+    sectionId,
+    aspectRatio: imgSize.width / imgSize.height,
+    aspectRatioExtraHeight: sectionHeaderHeight,
+  });
 }

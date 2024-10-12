@@ -1,22 +1,8 @@
 import { ParentSize } from "@visx/responsive";
 import { LineChart } from "components/Utils/Charts/LineChart";
-import C from "constants/constants.json";
 import React, { useEffect } from "react";
-import {
-  adjustAspectRatio,
-  adjustSizeToBeAtLeastMin,
-} from "state/actions/sections/sectionSizes";
-import {
-  setAspectRatioInfo,
-  setSectionSize,
-} from "state/actions/sections/setters";
-import { useSectionInfos } from "state/definitions";
 import { useArtifactData } from "state/hooks/artifacts";
-import {
-  getMinSectionHeight,
-  getMinSectionWidth,
-} from "state/hooks/sectionSizes";
-import { getImageDimensionsFromBase64 } from "utils/utils";
+import { setImgArtifactSectionSizeOnLoad } from "state/hooks/sectionSizes";
 
 function _ArtifactArea({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -67,39 +53,8 @@ function OneChart({ series, title }) {
 function OneImg({ sectionId, img }) {
   const base64String = `data:image/png;base64,${img}`;
 
-  async function setSectionSizeOnLoad() {
-    const imgSize = await getImageDimensionsFromBase64(base64String);
-    const minHeight = getMinSectionHeight({
-      sectionType: C.ARTIFACT,
-    });
-    const minWidth = getMinSectionWidth({});
-    const currSize = useSectionInfos.getState().x[sectionId].size;
-
-    let adjustedSize = adjustAspectRatio(
-      currSize.height,
-      currSize.width,
-      imgSize.height,
-      imgSize.width,
-    );
-    adjustedSize = adjustSizeToBeAtLeastMin(
-      adjustedSize.height,
-      adjustedSize.width,
-      minHeight,
-      minWidth,
-    );
-
-    const sectionHeaderHeight = 28;
-    adjustedSize.height += sectionHeaderHeight;
-    setSectionSize(sectionId, adjustedSize);
-    setAspectRatioInfo({
-      sectionId,
-      aspectRatio: imgSize.width / imgSize.height,
-      aspectRatioExtraHeight: sectionHeaderHeight,
-    });
-  }
-
   useEffect(() => {
-    setSectionSizeOnLoad();
+    setImgArtifactSectionSizeOnLoad(sectionId, base64String);
   }, [base64String]);
 
   return (
