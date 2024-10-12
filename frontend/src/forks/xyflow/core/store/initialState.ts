@@ -18,7 +18,7 @@ const initialState: ReactFlowStore = {
   userSelectionRect: null,
   domNode: null,
   paneDragging: false,
-  nodeDragThreshold: 0,
+  nodeDragThreshold: 1,
   nodesDraggable: true,
   nodesFocusable: true,
   elementsSelectable: true,

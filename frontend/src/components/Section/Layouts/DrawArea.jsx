@@ -5,7 +5,7 @@ import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { BiPaint } from "react-icons/bi";
 import { sendToInteractiveTasks } from "state/actions/interactive";
-import { setActiveSectionIds } from "state/actions/sections/activeSections";
+import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
 import {
   setAspectRatioInfo,
   setSectionSize,
@@ -219,7 +219,7 @@ export function DrawOnImage({ sectionId }) {
 
   function onMouseDown(e, offsetX, offsetY) {
     if (!useActiveSection.getState().ids.includes(sectionId)) {
-      setActiveSectionIds([sectionId]);
+      setActiveSectionIdAndUpdateZIndex(sectionId);
     }
     useMisc.setState({ mouseDownDrawArea: true });
 
