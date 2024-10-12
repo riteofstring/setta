@@ -3,10 +3,10 @@ import C from "constants/constants.json";
 import { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "./sections";
-import { useIsTwitter } from "./social";
 import { useGetSectionType } from "./uiTypes";
 
 export const INFINITE_MAX_HEIGHT = 100000;
+const INFINITE_MAX_WIDTH = 100000;
 export const PINNED_PARAMS_AREA_MIN_HEIGHT = 64;
 const ROOT_SECTION_HEIGHT = 50;
 const MINIMIZE_SECTION_HEIGHT = 32;
@@ -50,7 +50,7 @@ export function getMinSectionHeight({
   }
 }
 
-export function getMaxSectionHeight({ sectionType, hideParams, isMinimized }) {
+export function getMaxSectionHeight({ sectionType, isMinimized }) {
   if (isMinimized) {
     return MINIMIZE_SECTION_HEIGHT;
   }
@@ -60,14 +60,24 @@ export function getMaxSectionHeight({ sectionType, hideParams, isMinimized }) {
   return INFINITE_MAX_HEIGHT;
 }
 
-export function getMinSectionWidth({ isTwitter }) {
-  if (isTwitter) {
-    // 250 is min width of a tweet. Add 150 for margin
-    // https://developer.twitter.com/en/docs/twitter-for-websites/embedded-tweets/guides/embedded-tweet-parameter-reference
-    return 400;
-  }
+export function getMinSectionWidth() {
+  // if (isTwitter) {
+  //   // 250 is min width of a tweet. Add 150 for margin
+  //   // https://developer.twitter.com/en/docs/twitter-for-websites/embedded-tweets/guides/embedded-tweet-parameter-reference
+  //   return 400;
+  // }
 
   return 200;
+}
+
+export function getMaxSectionWidth() {
+  // const isTwitter = useIsTwitter(sectionId);
+  // if (isTwitter) {
+  //   // 550 is max width of a tweet. Add 100 for margin
+  //   // https://developer.twitter.com/en/docs/twitter-for-websites/embedded-tweets/guides/embedded-tweet-parameter-reference
+  //   return undefined;
+  // }
+  return INFINITE_MAX_WIDTH;
 }
 
 export function getSizeMode({ sectionType, hideParams, isMinimized }) {
@@ -94,28 +104,15 @@ export function useSectionMinMaxDims(sectionId) {
 
   const maxHeight = getMaxSectionHeight({
     sectionType,
-    hideParams,
     isMinimized,
   });
 
+  const minWidth = getMinSectionWidth();
+  const maxWidth = getMaxSectionWidth();
+
   const sizeMode = getSizeMode({ sectionType, hideParams, isMinimized });
 
-  return { minHeight, maxHeight, sizeMode };
-}
-
-export function useMinSectionWidth(sectionId) {
-  const isTwitter = useIsTwitter(sectionId);
-  return getMinSectionWidth({ isTwitter });
-}
-
-export function useMaxSectionWidth(sectionId) {
-  const isTwitter = useIsTwitter(sectionId);
-  if (isTwitter) {
-    // 550 is max width of a tweet. Add 100 for margin
-    // https://developer.twitter.com/en/docs/twitter-for-websites/embedded-tweets/guides/embedded-tweet-parameter-reference
-    return undefined;
-  }
-  return undefined;
+  return { minHeight, maxHeight, minWidth, maxWidth, sizeMode };
 }
 
 export function useOverflow(sectionId) {

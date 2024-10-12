@@ -3,11 +3,7 @@ import { useEffect } from "react";
 import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
-import {
-  useMaxSectionWidth,
-  useMinSectionWidth,
-  useSectionMinMaxDims,
-} from "state/hooks/sectionSizes";
+import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "./utils";
 
@@ -18,9 +14,8 @@ export function CustomResizable({
   inputClasses,
   as,
 }) {
-  const { minHeight, maxHeight, sizeMode } = useSectionMinMaxDims(sectionId);
-  const minWidth = useMinSectionWidth(sectionId);
-  const maxWidth = useMaxSectionWidth(sectionId);
+  const { minHeight, maxHeight, minWidth, maxWidth, sizeMode } =
+    useSectionMinMaxDims(sectionId);
   return (
     <CustomResizableCore
       sectionId={sectionId}
