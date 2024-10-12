@@ -5,24 +5,26 @@ import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
 import {
+  useMaxSectionHeight,
   useMaxSectionWidth,
   useMinSectionHeight,
   useMinSectionWidth,
 } from "state/hooks/sectionSizes";
 import { useIsTwitter } from "state/hooks/social";
 import { useGetSectionType } from "state/hooks/uiTypes";
-import { MINIMIZE_SECTION_HEIGHT } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
 
 export function CustomResizable({ sectionId, children, inputClasses, as }) {
   const minHeight = useMinSectionHeight(sectionId);
+  const maxHeight = useMaxSectionHeight(sectionId);
   const minWidth = useMinSectionWidth(sectionId);
   const maxWidth = useMaxSectionWidth(sectionId);
   return (
     <CustomResizableCore
       sectionId={sectionId}
       minHeight={minHeight}
+      maxHeight={maxHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
       inputClasses={inputClasses}
@@ -36,6 +38,7 @@ export function CustomResizable({ sectionId, children, inputClasses, as }) {
 function CustomResizableCore({
   sectionId,
   minHeight,
+  maxHeight,
   minWidth,
   maxWidth,
   inputClasses = "",
@@ -45,12 +48,7 @@ function CustomResizableCore({
   const { isSorting, isMovingFree } = useDndMode();
   const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
   const sizeMode = useSizeMode(sectionId);
-  const size = useSectionInfos((x) => {
-    const s = x.x[sectionId];
-    return s.isMinimized
-      ? { width: s.size.width, height: MINIMIZE_SECTION_HEIGHT }
-      : s.size;
-  });
+  const size = useSectionInfos((x) => x.x[sectionId].size);
   const { aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
     useAspectRatio(sectionId);
 
@@ -73,7 +71,7 @@ function CustomResizableCore({
     !isMinimized && sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
-  console.log("size", size)
+  console.log("size", size);
 
   const enable =
     isSorting || isMovingFree
@@ -95,6 +93,7 @@ function CustomResizableCore({
       as={as}
       size={size}
       minHeight={minHeight}
+      maxHeight={maxHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
       onResizeStart={onResizeStart}

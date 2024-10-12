@@ -45,6 +45,20 @@ export function getMinSectionHeight({
   }
 }
 
+export function getMaxSectionHeight({ sectionType, hideParams, isMinimized }) {
+  if (sectionType === C.SECTION || sectionType === C.REFERENCE_SECTION) {
+    if (isMinimized) {
+      return MINIMIZE_SECTION_HEIGHT;
+    } else if (hideParams) {
+      return 58;
+    }
+  } else if (sectionType === C.LIST_ROOT || sectionType === C.DICT_ROOT) {
+    return ROOT_SECTION_HEIGHT;
+  }
+  // has to be undefined (not null) to allow any height
+  return undefined;
+}
+
 export function getMinSectionWidth({ isTwitter }) {
   if (isTwitter) {
     // 250 is min width of a tweet. Add 150 for margin
@@ -64,6 +78,18 @@ export function useMinSectionHeight(sectionId) {
   return getMinSectionHeight({
     sectionType,
     hideSearch,
+    hideParams,
+    isMinimized,
+  });
+}
+
+export function useMaxSectionHeight(sectionId) {
+  const sectionType = useGetSectionType(sectionId, "type");
+  const hideParams = useGetSectionInfo(sectionId, "hideParams");
+  const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
+
+  return getMaxSectionHeight({
+    sectionType,
     hideParams,
     isMinimized,
   });

@@ -1,5 +1,6 @@
 import { ParentSize } from "@visx/responsive";
 import { LineChart } from "components/Utils/Charts/LineChart";
+import C from "constants/constants.json";
 import React, { useEffect } from "react";
 import {
   adjustAspectRatio,
@@ -69,7 +70,7 @@ function OneImg({ sectionId, img }) {
   async function setSectionSizeOnLoad() {
     const imgSize = await getImageDimensionsFromBase64(base64String);
     const minHeight = getMinSectionHeight({
-      isOutput: true,
+      sectionType: C.ARTIFACT,
     });
     const minWidth = getMinSectionWidth({});
     const currSize = useSectionInfos.getState().x[sectionId].size;
