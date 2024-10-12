@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
 import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
@@ -8,14 +9,16 @@ import {
 import { setSectionInfoAttr } from "./sectionInfos";
 import { setSectionSize } from "./setters";
 
-export function setSelfParentSiblingChildrenWidths({ sectionId, size }) {
+export function setSelfParentSiblingChildrenWidths({ sectionId, changedSize }) {
   // set own width
-  setSectionSize(sectionId, size);
+  setSectionSize(sectionId, changedSize);
 
-  setAllOtherWidths({
-    sectionId,
-    width: size.width,
-  });
+  if (!_.isNil(changedSize.width)) {
+    setAllOtherWidths({
+      sectionId,
+      width: changedSize.width,
+    });
+  }
 
   maybeIncrementProjectStateVersion(true);
 }

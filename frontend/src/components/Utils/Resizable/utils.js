@@ -19,27 +19,45 @@ function getDoubleClickSize({ direction, ref, minWidth, minHeight, sizeMode }) {
   const pxHeight = parseCurrPx(ref.style.height);
 
   if (direction === "bottomRight") {
-    return [
-      maybeAutoPx(minWidth, pxWidth, sizeMode.width),
-      maybeAutoPx(minHeight, pxHeight, sizeMode.height),
-    ];
+    return {
+      width: maybeAutoPx(minWidth, pxWidth, sizeMode.width),
+      height: maybeAutoPx(minHeight, pxHeight, sizeMode.height),
+    };
   }
   if (direction === "right" && sizeMode.width) {
-    return [maybeAutoPx(minWidth, pxWidth, sizeMode.width), pxHeight];
+    return { width: maybeAutoPx(minWidth, pxWidth, sizeMode.width) };
   }
   if (direction === "bottom" && sizeMode.height) {
-    return [pxWidth, maybeAutoPx(minHeight, pxHeight, sizeMode.height)];
+    return { height: maybeAutoPx(minHeight, pxHeight, sizeMode.height) };
   }
-  return [pxWidth, pxHeight];
+  return {};
 }
 
-export function getNewSize({ props, minWidth, minHeight, sizeMode }) {
+function getSingleClickSize({ direction, ref, sizeMode }) {
+  // width returns minWidth instead of auto because
+  // it seems like once width is resized, auto does nothing
+  const pxWidth = parseCurrPx(ref.style.width);
+  const pxHeight = parseCurrPx(ref.style.height);
+
+  if (direction === "bottomRight") {
+    return {
+      width: pxWidth,
+      height: pxHeight,
+    };
+  }
+  if (direction === "right" && sizeMode.width) {
+    return { width: pxWidth };
+  }
+  if (direction === "bottom" && sizeMode.height) {
+    return { height: pxHeight };
+  }
+  return {};
+}
+
+export function getChangedSize({ props, minWidth, minHeight, sizeMode }) {
   const [e, direction, ref, d] = props;
-  let width;
-  let height;
-  // detect double click (but only for non-output sections)
   if (d.width === 0 && d.height === 0 && e.detail === 2) {
-    [width, height] = getDoubleClickSize({
+    return getDoubleClickSize({
       direction,
       ref,
       minWidth,
@@ -47,8 +65,6 @@ export function getNewSize({ props, minWidth, minHeight, sizeMode }) {
       sizeMode,
     });
   } else {
-    width = parseCurrPx(ref.style.width);
-    height = parseCurrPx(ref.style.height);
+    return getSingleClickSize({ direction, ref, sizeMode });
   }
-  return { width, height };
 }

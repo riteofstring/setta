@@ -91,7 +91,11 @@ export function setSectionParentId(sectionId, parentId) {
 }
 
 export function setSectionSize(sectionId, size) {
-  setSectionInfoAttr({ sectionId, attr: "size", value: size });
+  setSectionInfoAttr({
+    sectionId,
+    attr: "size",
+    newValueFn: (currSize) => ({ ...currSize, ...size }),
+  });
 }
 
 export async function createNewCodeInfoAndKeywordPositions({

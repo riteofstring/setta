@@ -1,3 +1,4 @@
+import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import C from "constants/constants.json";
 import { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
@@ -69,30 +70,36 @@ export function getMinSectionWidth({ isTwitter }) {
   return 200;
 }
 
-export function useMinSectionHeight(sectionId) {
+export function getSizeMode({ sectionType, isMinimized }) {
+  if (sectionType === C.SECTION || sectionType === C.REFERENCE_SECTION) {
+    if (isMinimized) {
+      return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
+    }
+  }
+  // has to be undefined (not null) to allow any height
+  return { height: SIZE_MODE.any, width: SIZE_MODE.any };
+}
+
+export function useSectionMinMaxDims(sectionId) {
   const sectionType = useGetSectionType(sectionId, "type");
   const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
   const hideParams = useGetSectionInfo(sectionId, "hideParams");
   const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
 
-  return getMinSectionHeight({
+  const minHeight = getMinSectionHeight({
     sectionType,
     hideSearch,
     hideParams,
     isMinimized,
   });
-}
 
-export function useMaxSectionHeight(sectionId) {
-  const sectionType = useGetSectionType(sectionId, "type");
-  const hideParams = useGetSectionInfo(sectionId, "hideParams");
-  const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
-
-  return getMaxSectionHeight({
+  const maxHeight = getMaxSectionHeight({
     sectionType,
     hideParams,
     isMinimized,
   });
+
+  return { minHeight, maxHeight };
 }
 
 export function useMinSectionWidth(sectionId) {
@@ -140,4 +147,10 @@ export function useOverflow(sectionId) {
   }, [didUpdate]);
 
   return { overflow, ref, setDidUpdate };
+}
+
+export function useSizeMode(sectionId) {
+  const sectionType = useGetSectionType(sectionId, "type");
+  const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
+  return getSizeMode({ sectionType, isMinimized });
 }

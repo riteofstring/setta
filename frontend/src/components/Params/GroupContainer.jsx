@@ -1,5 +1,5 @@
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
-import { getNewSize, SIZE_MODE } from "components/Utils/Resizable/utils";
+import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
 import React, { useEffect, useRef, useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
@@ -80,7 +80,7 @@ function ResizablePinnedArea({
   const [initialMaxHeight, setInitialMaxHeight] = useState(100000);
 
   function onResizeStop(...props) {
-    const { height } = getNewSize({
+    const { height } = getChangedSize({
       props,
       minHeight: "auto",
       sizeMode: { height: SIZE_MODE.any },

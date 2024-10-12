@@ -1,23 +1,19 @@
-import C from "constants/constants.json";
 import { useDndMode } from "forks/dnd-kit/dndState";
 import _ from "lodash";
 import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
 import {
-  useMaxSectionHeight,
   useMaxSectionWidth,
-  useMinSectionHeight,
   useMinSectionWidth,
+  useSectionMinMaxDims,
+  useSizeMode,
 } from "state/hooks/sectionSizes";
-import { useIsTwitter } from "state/hooks/social";
-import { useGetSectionType } from "state/hooks/uiTypes";
 import { ResizableWithScale } from "./ResizableWithScale";
-import { getNewSize, SIZE_MODE } from "./utils";
+import { getChangedSize, SIZE_MODE } from "./utils";
 
 export function CustomResizable({ sectionId, children, inputClasses, as }) {
-  const minHeight = useMinSectionHeight(sectionId);
-  const maxHeight = useMaxSectionHeight(sectionId);
+  const { minHeight, maxHeight } = useSectionMinMaxDims(sectionId);
   const minWidth = useMinSectionWidth(sectionId);
   const maxWidth = useMaxSectionWidth(sectionId);
   return (
@@ -46,7 +42,6 @@ function CustomResizableCore({
   as,
 }) {
   const { isSorting, isMovingFree } = useDndMode();
-  const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
   const sizeMode = useSizeMode(sectionId);
   const size = useSectionInfos((x) => x.x[sectionId].size);
   const { aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
@@ -57,21 +52,22 @@ function CustomResizableCore({
   }
 
   function onResizeStop(...props) {
-    const { width, height } = getNewSize({
+    const changedSize = getChangedSize({
       props,
       minWidth,
       minHeight: "auto",
       sizeMode,
     });
-    setSelfParentSiblingChildrenWidths({ sectionId, size: { width, height } });
+    console.log("changedSize", changedSize);
+    setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
     setSectionResizeEvent({ sectionId, resizeEvent: "end" });
   }
 
-  const heightResizable =
-    !isMinimized && sizeMode.height !== SIZE_MODE.auto_only;
-  const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
-
+  console.log("sizeMode", sizeMode);
   console.log("size", size);
+
+  const heightResizable = sizeMode.height !== SIZE_MODE.auto_only;
+  const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
   const enable =
     isSorting || isMovingFree
@@ -110,18 +106,6 @@ function CustomResizableCore({
       {children}
     </ResizableWithScale>
   );
-}
-
-function useSizeMode(sectionId) {
-  const sectionType = useGetSectionType(sectionId, "type");
-  const isTwitter = useIsTwitter(sectionId);
-  if (sectionType === C.ARTIFACT) {
-    return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
-  } else if (isTwitter) {
-    return { height: SIZE_MODE.any, width: SIZE_MODE.any };
-  } else {
-    return { height: SIZE_MODE.any, width: SIZE_MODE.any };
-  }
 }
 
 function useAspectRatio(sectionId) {
