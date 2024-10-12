@@ -161,10 +161,9 @@ export function useOverflow(sectionId) {
 
 export async function setImgArtifactSectionSizeOnLoad(sectionId, base64String) {
   const imgSize = await getImageDimensionsFromBase64(base64String);
-  const minHeight = getMinSectionHeight({
-    sectionType: C.ARTIFACT,
-  });
-  const minWidth = getMinSectionWidth({});
+  const sectionType = C.ARTIFACT;
+  const minHeight = getMinSectionHeight({ sectionType });
+  const minWidth = getMinSectionWidth({ sectionType });
   const currSize = useSectionInfos.getState().x[sectionId].size;
 
   let adjustedSize = adjustAspectRatio(
@@ -198,11 +197,18 @@ export function setDrawAreaSectionSize({ sectionId, imgSize, isNewImg }) {
   const { width, height } = useSectionInfos.getState().x[sectionId].size;
   if (imgSize) {
     if (width === "auto" || height === "auto" || isNewImg) {
-      canvasSize.width = imgSize.width;
-      canvasSize.height = imgSize.height;
+      const sectionType = C.DRAW;
+      const minHeight = getMinSectionHeight({ sectionType });
+      const minWidth = getMinSectionWidth({ sectionType });
+      canvasSize = adjustSizeToBeAtLeastMin(
+        imgSize.height,
+        imgSize.width,
+        minHeight - extraHeight,
+        minWidth - extraWidth,
+      );
       setSectionSize(sectionId, {
-        width: imgSize.width + extraWidth,
-        height: imgSize.height + extraHeight,
+        width: canvasSize.width + extraWidth,
+        height: canvasSize.height + extraHeight,
       });
     } else {
       canvasSize.width = width - extraWidth;
