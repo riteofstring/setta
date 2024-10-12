@@ -2,10 +2,13 @@ import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import C from "constants/constants.json";
 import { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
-import { MINIMIZE_SECTION_HEIGHT, ROOT_SECTION_HEIGHT } from "utils/constants";
 import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
 import { useGetSectionType } from "./uiTypes";
+
+export const PINNED_PARAMS_AREA_MIN_HEIGHT = 64;
+const ROOT_SECTION_HEIGHT = 50;
+const MINIMIZE_SECTION_HEIGHT = 32;
 
 export function getMinSectionHeight({
   sectionType,
@@ -25,8 +28,6 @@ export function getMinSectionHeight({
     }
   } else if (sectionType === C.LIST_ROOT || sectionType === C.DICT_ROOT) {
     return ROOT_SECTION_HEIGHT;
-  } else if (sectionType === C.DECK) {
-    return 0;
   } else if (sectionType === C.GLOBAL_VARIABLES) {
     return 50;
   } else if (sectionType === C.CODE || sectionType === C.INTERACTIVE_CODE) {

@@ -5,8 +5,10 @@ import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { useOverflow } from "state/hooks/sectionSizes";
-import { PINNED_PARAMS_AREA_MIN_HEIGHT } from "utils/constants";
+import {
+  PINNED_PARAMS_AREA_MIN_HEIGHT,
+  useOverflow,
+} from "state/hooks/sectionSizes";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {

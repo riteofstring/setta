@@ -84,7 +84,8 @@ function CustomResizableCore({
     setSectionResizeEvent({ sectionId, resizeEvent: "end" });
   }
 
-  const heightResizable = sizeMode.height !== SIZE_MODE.auto_only;
+  const heightResizable =
+    minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
   const enable = disablePointerEvents
