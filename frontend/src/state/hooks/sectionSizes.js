@@ -267,7 +267,7 @@ export function setDrawAreaSectionSize({ sectionId, imgSize, isNewImg }) {
   return canvasSize;
 }
 
-export function useYouTubeSectionSize(sectionId, url) {
+export function useYouTubeSectionSize(sectionId) {
   const extraHeight = 24;
   const defaultSize = { width: 640, height: 360 };
   const { width, height } = useSectionInfos(
@@ -284,12 +284,6 @@ export function useYouTubeSectionSize(sectionId, url) {
       aspectRatioExtraHeight: extraHeight,
     });
   }
-
-  useEffect(() => {
-    if (url) {
-      setToDefaultSize();
-    }
-  }, [url]);
 
   useEffect(() => {
     if (width === "auto" || height === "auto") {
