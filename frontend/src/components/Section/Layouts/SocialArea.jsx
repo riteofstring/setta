@@ -26,9 +26,11 @@ export const SocialArea = React.memo(_SocialArea);
 function YoutubeEmbed({ sectionId, url }) {
   const id = getYouTubeID(url, { fuzzy: false });
   const playerSize = useYouTubeSectionSize(sectionId);
+  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
+  const pointerCSS = resizeEvent === "start" ? "pointer-events-none" : "";
 
   return (
-    <div className="section-w-full section-row-main flex">
+    <div className={`section-w-full section-row-main flex ${pointerCSS}`}>
       <YouTube videoId={id} opts={playerSize} />
     </div>
   );
