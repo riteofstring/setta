@@ -11,15 +11,6 @@ export const INITIAL_UI_EDITOR_WIDTH = 500;
 export const CLOSED_PANE_WIDTH = 40;
 export const INITIAL_CHART_SIZE = { width: 200, height: 200 };
 
-export const REACT_FLOW_STORE = {
-  lastPaneClickLocation: {},
-};
-
-export const SINGLETON_SECTIONS = {
-  globalVariables: null,
-  globalParamSweep: null,
-};
-
 // constants object
 export const URLS = {};
 export const BASE_UI_TYPE_IDS = {};

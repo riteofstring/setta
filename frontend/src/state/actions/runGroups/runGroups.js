@@ -1,6 +1,5 @@
-import { useProjectConfig, useRunGroups } from "state/definitions";
+import { useMisc, useProjectConfig, useRunGroups } from "state/definitions";
 import { getSectionByName } from "state/getters/sectionInfo";
-import { SINGLETON_SECTIONS } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 
 export function setAllRunGroups(payload) {
@@ -112,7 +111,7 @@ export function setAllRunGroupsAndMaybeCreateSection(runGroups) {
   console.log("stateFormt", stateFormat);
 
   setAllRunGroups(stateFormat);
-  if (!SINGLETON_SECTIONS.globalParamSweep) {
+  if (!useMisc.getState().singletonSections.globalParamSweep) {
     console.log("will create section");
   } else {
     console.log("section already exists");

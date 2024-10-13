@@ -1,5 +1,5 @@
 import { dbCreateCopyOfSections } from "requests/pasteSections";
-import { REACT_FLOW_STORE } from "utils/constants";
+import { useMisc } from "state/definitions";
 import { loadSectionIntoState } from "../sections/loadSections";
 
 export async function paste() {
@@ -35,7 +35,7 @@ async function pasteSections(data) {
     loadSectionIntoState({
       ...res.data,
       topLevelIds,
-      ...REACT_FLOW_STORE.lastPaneClickLocation,
+      ...useMisc.getState().lastPaneClickLocation,
       incrementVersion: true,
     });
   }
