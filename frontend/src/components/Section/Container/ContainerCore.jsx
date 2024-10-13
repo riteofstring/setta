@@ -45,6 +45,7 @@ function _Container({
   const outlineColor = getOutlineColor({
     isActiveSection,
     isInOtherProjectConfigs,
+    outlineOnMouseDown: false,
   });
 
   // transition-all active:shadow-lg
