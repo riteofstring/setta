@@ -64,7 +64,7 @@ export function SectionContainerCoreResizable({
     isActiveSection,
     isGlobalVariables,
     isInOtherProjectConfigs,
-    outlineOnMouseDown: !isSelectingParams,
+    isSelectingParams,
   });
   const bgColor = getBgColor();
 
