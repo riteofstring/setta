@@ -101,10 +101,6 @@ export function useIsDeck(sectionId) {
   return useIsType(sectionId, C.DECK);
 }
 
-export function useIsArtifact(sectionId) {
-  return useIsType(sectionId, C.ARTIFACT);
-}
-
 export function useIsSocial(sectionId) {
   return useIsType(sectionId, C.SOCIAL);
 }
@@ -126,31 +122,32 @@ export function useIsDrawArea(sectionId) {
 }
 
 export function useUIEditorTab(sectionId) {
-  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  const uiTypeName = useUITypes((x) => x.x[uiTypeId].type);
-  const requiredTabs = getRequiredUIEditorTabs(uiTypeName);
+  const uiTypeId = useSectionInfos((x) =>
+    sectionId ? x.x[sectionId].uiTypeId : null,
+  );
+  const uiTypeName = useUITypes((x) => (uiTypeId ? x.x[uiTypeId].type : null));
   const [_storedTab, _setStoredTab] = localStorageFns["uiEditorTab"].hook();
+  const requiredTabs = getRequiredUIEditorTabs(uiTypeName);
   const storedTab = _storedTab[uiTypeName] ?? SECTION_CONFIG_TAB;
-
   // when sectionId changes, the requiredTabs might not include the previously active tab
   const tab = requiredTabs.includes(storedTab) ? storedTab : requiredTabs[0];
   const setTab = (newTabState) =>
     _setStoredTab((state) => ({ ...state, [uiTypeName]: newTabState }));
-  return [tab, setTab, requiredTabs];
+  return [tab, setTab, new Set(requiredTabs)];
 }
 
 function getRequiredUIEditorTabs(uiTypeName) {
   switch (uiTypeName) {
     case C.INFO:
-      return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
-    case C.ARTIFACT:
+      return [INFO_CONFIG_TAB];
     case C.SOCIAL:
       return [SECTION_CONFIG_TAB];
     default:
       return [
+        SECTION_CONFIG_TAB,
         UI_CONFIG_TAB,
         QUICKINFO_CONFIG_TAB,
-        // SECTION_CONFIG_TAB,
+        INFO_CONFIG_TAB,
         SECTION_VARIANTS_TAB,
       ];
   }

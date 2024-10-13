@@ -70,6 +70,15 @@ export function addSectionAtPosition({
     sectionProps.name = "Global Param Sweep";
   } else if (type === C.INFO) {
     sectionProps.name = getDefaultInfoTitle();
+  } else if (type === C.DRAW) {
+    sectionProps.canvasSettings = {
+      color: "#ff0000",
+      opacity: 1,
+      brushSize: 16,
+      brushShape: "round",
+      canvasOpacity: 0.5,
+      eraserBrushSize: 16,
+    };
   }
 
   sectionProps.uiTypeId = BASE_UI_TYPE_IDS[type];

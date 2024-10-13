@@ -16,7 +16,8 @@ def save_sections(db, sections, section_variants):
             jsonSource,
             codeInfoId,
             hideUnpinnedParams,
-            showYaml
+            showYaml,
+            canvasSettings
         )
         VALUES (
             :id,
@@ -31,7 +32,8 @@ def save_sections(db, sections, section_variants):
             :jsonSource,
             :codeInfoId,
             :hideUnpinnedParams,
-            :showYaml
+            :showYaml,
+            :canvasSettings
         )
         ON CONFLICT (id)
         DO UPDATE SET
@@ -46,7 +48,8 @@ def save_sections(db, sections, section_variants):
             jsonSource = :jsonSource,
             codeInfoId = :codeInfoId,
             hideUnpinnedParams = :hideUnpinnedParams,
-            showYaml = :showYaml
+            showYaml = :showYaml,
+            canvasSettings = :canvasSettings
     """
 
     query_params = [
@@ -64,6 +67,7 @@ def save_sections(db, sections, section_variants):
             "codeInfoId": s["codeInfoId"],
             "hideUnpinnedParams": s["hideUnpinnedParams"],
             "showYaml": s["showYaml"],
+            "canvasSettings": json.dumps(s["canvasSettings"]) if len(s["canvasSettings"]) > 0 else None,
         }
         for s in sections.values()
     ]

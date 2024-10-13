@@ -54,7 +54,8 @@ export function HeaderIcon({
         <FaMarkdown className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
         // <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
       );
-    case C.ARTIFACT:
+    case C.IMAGE:
+    case C.LINE_PLOT:
       return (
         <i className="gg-image !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
@@ -86,7 +87,7 @@ function CodeLanguageIcon({ sectionId, classes }) {
 function ListElementIcon({ sectionId }) {
   const idx = useListElementIdx(sectionId);
   return (
-    <p className="group/card-section:hover:bg font-mono text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]">
+    <p className="group/card-section:hover:bg font-mono text-[9px] tracking-tighter text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] ">
       [{idx}]
     </p>
   );

@@ -358,7 +358,14 @@
     },
     "06b511f3-dced-43be-97d7-1ceaddc763d5": {
       "id": "06b511f3-dced-43be-97d7-1ceaddc763d5",
-      "type": "ARTIFACT",
+      "type": "IMAGE",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "126547a6-d41e-4891-80f0-a0354f089c7c": {
+      "id": "126547a6-d41e-4891-80f0-a0354f089c7c",
+      "type": "LINE_PLOT",
       "name": "",
       "presetType": "BASE",
       "config": {}
@@ -536,11 +543,18 @@
           "params": [
             {
               "paramInfoId": "159e0416-3873-469b-915b-1f186579c380",
-              "values": ["100", "200", "300"]
+              "values": [
+                "100",
+                "200",
+                "300"
+              ]
             },
             {
               "paramInfoId": "2fae73d3-5756-42a9-beb0-7465b92ac626",
-              "values": ["True", "False"]
+              "values": [
+                "True",
+                "False"
+              ]
             }
           ]
         }
@@ -625,7 +639,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["9a6859c2-a79d-4da2-b460-b57fc982d495"],
+      "variantIds": [
+        "9a6859c2-a79d-4da2-b460-b57fc982d495"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -637,7 +653,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "canvasSettings": {}
     },
     "40c921b7-10e8-4c69-a9fa-f39db37ea98f": {
       "id": "40c921b7-10e8-4c69-a9fa-f39db37ea98f",
@@ -655,7 +672,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["3383d9b9-5cee-445f-a242-fde820c76c73"],
+      "variantIds": [
+        "3383d9b9-5cee-445f-a242-fde820c76c73"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -667,7 +686,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "canvasSettings": {}
     },
     "46dc6cab-03ac-4e73-919d-63b30da0688d": {
       "id": "46dc6cab-03ac-4e73-919d-63b30da0688d",
@@ -685,8 +705,12 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["54571c59-7a51-42d5-bb8e-b6c06b41b023"],
-      "paramSweepIds": ["b776ce22-7e00-4df4-944e-52127d9f8322"],
+      "variantIds": [
+        "54571c59-7a51-42d5-bb8e-b6c06b41b023"
+      ],
+      "paramSweepIds": [
+        "b776ce22-7e00-4df4-944e-52127d9f8322"
+      ],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
       "size": {
@@ -697,7 +721,8 @@
       "paramSweepId": "b776ce22-7e00-4df4-944e-52127d9f8322",
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "canvasSettings": {}
     },
     "53e4bdad-ff4e-499c-a659-07e7184d4111": {
       "id": "53e4bdad-ff4e-499c-a659-07e7184d4111",
@@ -715,7 +740,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["3fd1ddfd-e80f-41a2-bcad-c0702c39f04c"],
+      "variantIds": [
+        "3fd1ddfd-e80f-41a2-bcad-c0702c39f04c"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -727,7 +754,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "canvasSettings": {}
     },
     "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
       "id": "6bce72ee-335b-42f4-9949-af8cd83c9ffe",
@@ -745,7 +773,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["69220358-73c1-49c3-9b78-d7cf733b2aa8"],
+      "variantIds": [
+        "69220358-73c1-49c3-9b78-d7cf733b2aa8"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -757,7 +787,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "canvasSettings": {}
     },
     "a2b333dc-65bb-45be-8318-dfa3338a6090": {
       "id": "a2b333dc-65bb-45be-8318-dfa3338a6090",
@@ -775,7 +806,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["bc3f3f42-899b-4ef2-a550-d19fcbcfe38c"],
+      "variantIds": [
+        "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -787,7 +820,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "canvasSettings": {}
     },
     "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
       "id": "bea52bce-2689-41d8-a870-fa8fedcfd78a",
@@ -805,7 +839,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["fca181fc-c326-4d50-b028-37b368372f49"],
+      "variantIds": [
+        "fca181fc-c326-4d50-b028-37b368372f49"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -817,7 +853,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "canvasSettings": {}
     },
     "d96cb110-6f72-435a-b745-2d55e277f983": {
       "id": "d96cb110-6f72-435a-b745-2d55e277f983",
@@ -835,8 +872,12 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["66e4192c-c1fc-4935-b862-e722726c1217"],
-      "paramSweepIds": ["39e067ec-8392-4e83-86b7-010f60f5abce"],
+      "variantIds": [
+        "66e4192c-c1fc-4935-b862-e722726c1217"
+      ],
+      "paramSweepIds": [
+        "39e067ec-8392-4e83-86b7-010f60f5abce"
+      ],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
       "size": {
@@ -847,7 +888,8 @@
       "paramSweepId": "39e067ec-8392-4e83-86b7-010f60f5abce",
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "canvasSettings": {}
     },
     "e209e428-eea6-4e14-b61e-0648ec28dd76": {
       "id": "e209e428-eea6-4e14-b61e-0648ec28dd76",
@@ -880,7 +922,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "canvasSettings": {}
     },
     "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7": {
       "id": "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7",
@@ -898,7 +941,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["fb460dcd-d460-44fc-aeae-b0b8aca93c5b"],
+      "variantIds": [
+        "fb460dcd-d460-44fc-aeae-b0b8aca93c5b"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -910,7 +955,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "canvasSettings": {}
     },
     "a439f079-d1f0-4dee-8490-6bb69be8c3ea": {
       "id": "a439f079-d1f0-4dee-8490-6bb69be8c3ea",
@@ -930,7 +976,9 @@
       "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
-      "variantIds": ["f8d91f36-109b-43df-9770-b720dc3e74bd"],
+      "variantIds": [
+        "f8d91f36-109b-43df-9770-b720dc3e74bd"
+      ],
       "paramSweepIds": [],
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
@@ -942,7 +990,8 @@
       "showYaml": false,
       "pinnedAreaHeight": "auto",
       "isMinimized": false,
-      "codeInfoId": "2ba051fe-31da-4238-9c5e-02bf72812553"
+      "codeInfoId": "2ba051fe-31da-4238-9c5e-02bf72812553",
+      "canvasSettings": {}
     }
   },
   "codeInfo": {
@@ -1207,7 +1256,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "keywordPositions": [],
-      "children": ["c9a3e19c-6876-468a-a9a1-6f289c9367eb"]
+      "children": [
+        "c9a3e19c-6876-468a-a9a1-6f289c9367eb"
+      ]
     },
     "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": {
       "id": "8a10b368-9a0e-4390-b2f7-bd4ff27570d3",
@@ -1288,7 +1339,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "keywordPositions": [],
-      "children": ["bb52a19f-d69c-4973-94ae-c1d85596cbb7"]
+      "children": [
+        "bb52a19f-d69c-4973-94ae-c1d85596cbb7"
+      ]
     },
     "bb52a19f-d69c-4973-94ae-c1d85596cbb7": {
       "id": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
@@ -1419,169 +1472,245 @@
     "n_samples": {
       "sectionId": "46dc6cab-03ac-4e73-919d-63b30da0688d",
       "paramInfoId": "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4",
-      "componentIndices": [9],
+      "componentIndices": [
+        9
+      ],
       "isArgsObj": false
     },
     "n_clusters": {
       "sectionId": "46dc6cab-03ac-4e73-919d-63b30da0688d",
       "paramInfoId": "4e70c873-ead7-4c5a-b3a0-fe504e73ad27",
-      "componentIndices": [10],
+      "componentIndices": [
+        10
+      ],
       "isArgsObj": false
     },
     "__abstract_ivory[\"username\"]": {
       "sectionId": "53e4bdad-ff4e-499c-a659-07e7184d4111",
       "paramInfoId": "JSON-{\"filename\": \"auth.json\", \"key\": \"username\"}",
-      "componentIndices": [16, 28],
+      "componentIndices": [
+        16,
+        28
+      ],
       "isArgsObj": false
     },
     "__abstract_ivory[\"password\"]": {
       "sectionId": "53e4bdad-ff4e-499c-a659-07e7184d4111",
       "paramInfoId": "JSON-{\"filename\": \"auth.json\", \"key\": \"password\"}",
-      "componentIndices": [16, 28],
+      "componentIndices": [
+        16,
+        28
+      ],
       "isArgsObj": false
     },
     "abstract_ivory": {
       "sectionId": "53e4bdad-ff4e-499c-a659-07e7184d4111",
       "paramInfoId": null,
-      "componentIndices": [14],
+      "componentIndices": [
+        14
+      ],
       "isArgsObj": false
     },
     "__abstract_ivory": {
       "sectionId": "53e4bdad-ff4e-499c-a659-07e7184d4111",
       "paramInfoId": null,
-      "componentIndices": [16],
+      "componentIndices": [
+        16
+      ],
       "isArgsObj": true
     },
     "__dataset[\"n_samples\"]": {
       "sectionId": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramInfoId": "0aa0f46a-e923-4528-a411-500cbda6e77b",
-      "componentIndices": [9, 22],
+      "componentIndices": [
+        9,
+        22
+      ],
       "isArgsObj": false
     },
     "__dataset[\"n_features\"]": {
       "sectionId": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramInfoId": "159e0416-3873-469b-915b-1f186579c380",
-      "componentIndices": [9, 23],
+      "componentIndices": [
+        9,
+        23
+      ],
       "isArgsObj": false
     },
     "__dataset[\"args\"]": {
       "sectionId": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramInfoId": "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af",
-      "componentIndices": [9, 17],
+      "componentIndices": [
+        9,
+        17
+      ],
       "isArgsObj": false
     },
     "__dataset[\"centers\"]": {
       "sectionId": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramInfoId": "8a10b368-9a0e-4390-b2f7-bd4ff27570d3",
-      "componentIndices": [9, 20],
+      "componentIndices": [
+        9,
+        20
+      ],
       "isArgsObj": false
     },
     "__dataset[\"cluster_std\"]": {
       "sectionId": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramInfoId": "669986a2-03d6-4de4-af41-f9395cf0ef57",
-      "componentIndices": [9, 24],
+      "componentIndices": [
+        9,
+        24
+      ],
       "isArgsObj": false
     },
     "__dataset[\"center_box\"]": {
       "sectionId": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramInfoId": "3e15081a-9ca5-48bf-9159-9a95331a7894",
-      "componentIndices": [9, 23],
+      "componentIndices": [
+        9,
+        23
+      ],
       "isArgsObj": false
     },
     "__dataset[\"shuffle\"]": {
       "sectionId": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramInfoId": "2fae73d3-5756-42a9-beb0-7465b92ac626",
-      "componentIndices": [9, 20],
+      "componentIndices": [
+        9,
+        20
+      ],
       "isArgsObj": false
     },
     "__dataset[\"random_state\"]": {
       "sectionId": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramInfoId": "39ed839d-f632-4373-9d72-6ce95b5bc265",
-      "componentIndices": [9, 25],
+      "componentIndices": [
+        9,
+        25
+      ],
       "isArgsObj": false
     },
     "__dataset[\"return_centers\"]": {
       "sectionId": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramInfoId": "70f4e095-c286-4379-a5f5-4d02df40e1a5",
-      "componentIndices": [9, 27],
+      "componentIndices": [
+        9,
+        27
+      ],
       "isArgsObj": false
     },
     "__dataset[\"kwargs\"]": {
       "sectionId": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramInfoId": "03ee6530-d464-461c-a989-b310ee2d9b95",
-      "componentIndices": [9, 19],
+      "componentIndices": [
+        9,
+        19
+      ],
       "isArgsObj": false
     },
     "dataset": {
       "sectionId": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramInfoId": null,
-      "componentIndices": [7],
+      "componentIndices": [
+        7
+      ],
       "isArgsObj": false
     },
     "__dataset": {
       "sectionId": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramInfoId": null,
-      "componentIndices": [9],
+      "componentIndices": [
+        9
+      ],
       "isArgsObj": true
     },
     "__algorithm[\"X\"]": {
       "sectionId": "e209e428-eea6-4e14-b61e-0648ec28dd76",
       "paramInfoId": "7ae757c9-9327-4931-95a3-bc200f7e10b7",
-      "componentIndices": [11, 16],
+      "componentIndices": [
+        11,
+        16
+      ],
       "isArgsObj": false
     },
     "__algorithm[\"n_clusters\"]": {
       "sectionId": "e209e428-eea6-4e14-b61e-0648ec28dd76",
       "paramInfoId": "97e83315-adfc-4d50-a8ab-a8c34082eb93",
-      "componentIndices": [11, 25],
+      "componentIndices": [
+        11,
+        25
+      ],
       "isArgsObj": false
     },
     "__algorithm[\"args\"]": {
       "sectionId": "e209e428-eea6-4e14-b61e-0648ec28dd76",
       "paramInfoId": "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5",
-      "componentIndices": [11, 19],
+      "componentIndices": [
+        11,
+        19
+      ],
       "isArgsObj": false
     },
     "__algorithm[\"sample_weight\"]": {
       "sectionId": "e209e428-eea6-4e14-b61e-0648ec28dd76",
       "paramInfoId": "c066af9f-42b4-4359-8b44-cf774c400e81",
-      "componentIndices": [11, 28],
+      "componentIndices": [
+        11,
+        28
+      ],
       "isArgsObj": false
     },
     "__algorithm[\"x_squared_norms\"]": {
       "sectionId": "e209e428-eea6-4e14-b61e-0648ec28dd76",
       "paramInfoId": "7b4b2118-7cbf-4275-8582-90c66a966441",
-      "componentIndices": [11, 30],
+      "componentIndices": [
+        11,
+        30
+      ],
       "isArgsObj": false
     },
     "__algorithm[\"random_state\"]": {
       "sectionId": "e209e428-eea6-4e14-b61e-0648ec28dd76",
       "paramInfoId": "c2c05abc-dd95-4071-8f37-cb2019919bce",
-      "componentIndices": [11, 27],
+      "componentIndices": [
+        11,
+        27
+      ],
       "isArgsObj": false
     },
     "__algorithm[\"n_local_trials\"]": {
       "sectionId": "e209e428-eea6-4e14-b61e-0648ec28dd76",
       "paramInfoId": "3e754333-caea-451a-abba-dd254c49502f",
-      "componentIndices": [11, 29],
+      "componentIndices": [
+        11,
+        29
+      ],
       "isArgsObj": false
     },
     "__algorithm[\"kwargs\"]": {
       "sectionId": "e209e428-eea6-4e14-b61e-0648ec28dd76",
       "paramInfoId": "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2",
-      "componentIndices": [11, 21],
+      "componentIndices": [
+        11,
+        21
+      ],
       "isArgsObj": false
     },
     "algorithm": {
       "sectionId": "e209e428-eea6-4e14-b61e-0648ec28dd76",
       "paramInfoId": null,
-      "componentIndices": [9],
+      "componentIndices": [
+        9
+      ],
       "isArgsObj": false
     },
     "__algorithm": {
       "sectionId": "e209e428-eea6-4e14-b61e-0648ec28dd76",
       "paramInfoId": null,
-      "componentIndices": [11],
+      "componentIndices": [
+        11
+      ],
       "isArgsObj": true
     }
   }
