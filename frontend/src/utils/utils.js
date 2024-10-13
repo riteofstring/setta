@@ -61,3 +61,46 @@ export async function getImageDimensionsFromBase64(base64String) {
   await img.decode();
   return { width: img.width, height: img.height };
 }
+
+export function adjustSizeToBeAtLeastMin(height, width, minHeight, minWidth) {
+  const aspectRatio = width / height;
+
+  if (height < minHeight || width < minWidth) {
+    if (height < minHeight) {
+      height = minHeight;
+      width = height * aspectRatio;
+    }
+
+    if (width < minWidth) {
+      width = minWidth;
+      height = width / aspectRatio;
+    }
+
+    // Round the dimensions to avoid floating-point issues
+    return {
+      height: Math.round(height),
+      width: Math.round(width),
+    };
+  }
+
+  // If no adjustment is needed, return the original dimensions
+  return { height, width };
+}
+
+export function adjustAspectRatio(height, width, imgHeight, imgWidth) {
+  // If both height and width are "auto", return original image dimensions
+  if (height === "auto" && width === "auto") {
+    return { height: imgHeight, width: imgWidth };
+  }
+
+  // Calculate the aspect ratio of the original image
+  const imgAspectRatio = imgWidth / imgHeight;
+  // If both height and width are provided, adjust to match the image's aspect ratio
+  const currentAspectRatio = width / height;
+
+  // If height is "auto", adjust height based on width
+  if (height === "auto" || currentAspectRatio <= imgAspectRatio) {
+    const newHeight = width / imgAspectRatio;
+    return { height: newHeight, width: width };
+  }
+}

@@ -7,7 +7,7 @@ import {
 } from "state/actions/sections/activeSections";
 import { getParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import { getHighestAncestor } from "state/actions/sections/sectionChildren";
+import { getHighestAncestor } from "state/actions/sections/sectionSizes";
 import {
   useActiveSection,
   useMisc,

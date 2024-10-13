@@ -50,8 +50,7 @@ export function setSectionInfoAttr({
 
 export function removeSectionInfos(payload) {
   useSectionInfos.setState((state) => {
-    const payloadSet = new Set(payload);
-    for (const id of payloadSet) {
+    for (const id of payload) {
       const parentId = state.x[id]?.parentId;
       if (parentId && state.x[parentId]?.variantId) {
         setSectionVariantChildren({
@@ -81,7 +80,7 @@ export function removeSectionInfos(payload) {
     }
 
     for (const [k, v] of Object.entries(state.x)) {
-      if (payloadSet.has(v.paramSweepSectionId)) {
+      if (payload.includes(v.paramSweepSectionId)) {
         state.x[k].paramSweepSectionId = null;
       }
     }

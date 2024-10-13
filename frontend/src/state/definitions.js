@@ -214,4 +214,4 @@ export const useParamShortcuts = create(() => ({
   isSelectingParams: false,
 }));
 
-export const useMisc = create(() => ({ projectIsLoading: false, mouseDownDrawArea: false }));
+export const useMisc = create(() => ({ mouseDownDrawArea: false }));

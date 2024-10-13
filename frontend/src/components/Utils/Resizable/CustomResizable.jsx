@@ -1,31 +1,31 @@
+import C from "constants/constants.json";
+import { useDndMode } from "forks/dnd-kit/dndState";
 import _ from "lodash";
-import { useEffect } from "react";
 import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
-import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
+import {
+  useMaxSectionWidth,
+  useMinSectionHeight,
+  useMinSectionWidth,
+} from "state/hooks/sectionSizes";
+import { useIsTwitter } from "state/hooks/social";
+import { useGetSectionType } from "state/hooks/uiTypes";
+import { MINIMIZE_SECTION_HEIGHT } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
-import { getChangedSize, SIZE_MODE } from "./utils";
+import { getNewSize, SIZE_MODE } from "./utils";
 
-export function CustomResizable({
-  sectionId,
-  disablePointerEvents,
-  children,
-  inputClasses,
-  as,
-}) {
-  const { minHeight, maxHeight, minWidth, maxWidth, sizeMode } =
-    useSectionMinMaxDims(sectionId);
+export function CustomResizable({ sectionId, children, inputClasses, as }) {
+  const minHeight = useMinSectionHeight(sectionId);
+  const minWidth = useMinSectionWidth(sectionId);
+  const maxWidth = useMaxSectionWidth(sectionId);
   return (
     <CustomResizableCore
       sectionId={sectionId}
       minHeight={minHeight}
-      maxHeight={maxHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
-      sizeMode={sizeMode}
       inputClasses={inputClasses}
-      disablePointerEvents={disablePointerEvents}
       as={as}
     >
       {children}
@@ -36,31 +36,21 @@ export function CustomResizable({
 function CustomResizableCore({
   sectionId,
   minHeight,
-  maxHeight,
   minWidth,
   maxWidth,
-  sizeMode,
   inputClasses = "",
-  disablePointerEvents,
   children,
   as,
 }) {
-  useEffect(() => {
-    const changedSize = {};
-    if (sizeMode.height === SIZE_MODE.auto_only) {
-      changedSize.height = "auto";
-    }
-    if (sizeMode.width === SIZE_MODE.auto_only) {
-      changedSize.width = "auto";
-    }
-    if (_.size(changedSize) > 0) {
-      setSectionResizeEvent({ sectionId, resizeEvent: "start" });
-      setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
-      setSectionResizeEvent({ sectionId, resizeEvent: "end" });
-    }
-  }, [sizeMode.height, sizeMode.width]);
-
-  const size = useSectionInfos((x) => x.x[sectionId].size);
+  const { isSorting, isMovingFree } = useDndMode();
+  const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
+  const sizeMode = useSizeMode(sectionId);
+  const size = useSectionInfos((x) => {
+    const s = x.x[sectionId];
+    return s.isMinimized
+      ? { width: s.size.width, height: MINIMIZE_SECTION_HEIGHT }
+      : s.size;
+  });
   const { aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
     useAspectRatio(sectionId);
 
@@ -69,34 +59,33 @@ function CustomResizableCore({
   }
 
   function onResizeStop(...props) {
-    const changedSize = getChangedSize({
+    const { width, height } = getNewSize({
       props,
+      minWidth,
+      minHeight: "auto",
       sizeMode,
-      aspectRatio,
     });
-    setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
+    setSelfParentSiblingChildrenWidths({ sectionId, size: { width, height } });
     setSectionResizeEvent({ sectionId, resizeEvent: "end" });
   }
 
   const heightResizable =
-    minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only;
+    !isMinimized && sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
-  const enable = disablePointerEvents
-    ? false
-    : {
-        top: false,
-        left: false,
-        bottom: heightResizable,
-        right: widthResizable,
-        topRight: false,
-        bottomRight: heightResizable && widthResizable,
-        topLeft: false,
-        bottomLeft: false,
-      };
-
-  // console.log("size", size);
-  // console.log("aspectRatio", aspectRatio)
+  const enable =
+    isSorting || isMovingFree
+      ? false
+      : {
+          top: false,
+          left: false,
+          bottom: heightResizable,
+          right: widthResizable,
+          topRight: false,
+          bottomRight: heightResizable && widthResizable,
+          topLeft: false,
+          bottomLeft: false,
+        };
 
   return (
     <ResizableWithScale
@@ -104,7 +93,6 @@ function CustomResizableCore({
       as={as}
       size={size}
       minHeight={minHeight}
-      maxHeight={maxHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
       onResizeStart={onResizeStart}
@@ -121,6 +109,18 @@ function CustomResizableCore({
       {children}
     </ResizableWithScale>
   );
+}
+
+function useSizeMode(sectionId) {
+  const sectionType = useGetSectionType(sectionId, "type");
+  const isTwitter = useIsTwitter(sectionId);
+  if (sectionType === C.ARTIFACT) {
+    return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
+  } else if (isTwitter) {
+    return { height: SIZE_MODE.any, width: SIZE_MODE.any };
+  } else {
+    return { height: SIZE_MODE.any, width: SIZE_MODE.any };
+  }
 }
 
 function useAspectRatio(sectionId) {

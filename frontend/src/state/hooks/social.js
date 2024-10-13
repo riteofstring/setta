@@ -18,7 +18,7 @@ export function useIsYouTube(sectionId) {
 }
 
 export function linkIsYouTube(x) {
-  return x && (x.includes("youtube") || x.includes("youtu.be"));
+  return x && x.includes("youtube");
 }
 
 export function linkIsTwitter(x) {
