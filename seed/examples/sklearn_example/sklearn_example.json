@@ -543,6 +543,15 @@
               "values": ["True", "False"]
             }
           ]
+        },
+        {
+          "selectedItem": "c9a3e19c-6876-468a-a9a1-6f289c9367eb",
+          "params": [
+            {
+              "paramInfoId": "7ae757c9-9327-4931-95a3-bc200f7e10b7",
+              "values": ["6", "7"]
+            }
+          ]
         }
       ]
     },

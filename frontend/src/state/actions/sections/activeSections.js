@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useActiveSection } from "state/definitions";
-import { getHighestAncestor } from "./sectionChildren";
 import { setZIndices } from "./sectionPositions";
+import { getHighestAncestor } from "./sectionChildren";
 
 export function setActiveSectionIds(ids) {
   useActiveSection.setState({ ids });

@@ -4,12 +4,12 @@ import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { setModalData, setModalType } from "state/actions/modal";
 import { onClickAddSection } from "state/actions/sections/createSections";
-import { useContextMenus, useMisc } from "state/definitions";
+import { useContextMenus } from "state/definitions";
+import { SINGLETON_SECTIONS } from "utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
-  const singletonSections = useMisc((x) => x.singletonSections, _.isEqual);
 
   const commonProps = {
     x,
@@ -43,7 +43,7 @@ export function PaneContextMenu() {
       <Item onClick={getOnClickFn({ type: C.DICT_ROOT })}>New Dict</Item>
       <Item onClick={getOnClickFn({ type: C.DECK })}>New Group</Item>
       <Item onClick={getOnClickFn({ type: C.INFO })}>New Info</Item>
-      {!singletonSections.globalVariables && (
+      {!SINGLETON_SECTIONS.globalVariables && (
         <Item onClick={getOnClickFn({ type: C.GLOBAL_VARIABLES })}>
           New Global Variables
         </Item>
@@ -73,7 +73,7 @@ export function PaneContextMenu() {
         New Bash Script
       </Item>
       <Item onClick={getOnClickFn({ type: C.TERMINAL })}>New Terminal</Item>
-      {!singletonSections.globalParamSweep && (
+      {!SINGLETON_SECTIONS.globalParamSweep && (
         <Item onClick={getOnClickFn({ type: C.GLOBAL_PARAM_SWEEP })}>
           New Global Param Sweep
         </Item>
