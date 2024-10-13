@@ -94,7 +94,7 @@ export function SectionContainerCoreResizable({
       sectionId={sectionId}
       disablePointerEvents={disablePointerEvents}
       inputClasses={inputClasses}
-      as="section"
+      // as="section"
     >
       <>
         <SectionHeader
