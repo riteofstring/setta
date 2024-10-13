@@ -152,21 +152,3 @@ function getRequiredUIEditorTabs(uiTypeName) {
       ];
   }
 }
-
-export function useShowSectionConfigTypeSelection(sectionId) {
-  const sectionType = useSectionTypeName(sectionId);
-  return getOtherSectionTypeNamesToShow(sectionType).length > 0;
-}
-
-export function getOtherSectionTypeNamesToShow(currTypeName) {
-  switch (currTypeName) {
-    case C.SECTION:
-      return [C.LIST_ROOT, C.DICT_ROOT];
-    case C.LIST_ROOT:
-      return [C.SECTION, C.DICT_ROOT];
-    case C.DICT_ROOT:
-      return [C.SECTION, C.LIST_ROOT];
-    default:
-      return [];
-  }
-}
