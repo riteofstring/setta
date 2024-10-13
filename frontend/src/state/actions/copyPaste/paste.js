@@ -1,8 +1,5 @@
-import C from "constants/constants.json";
-import _ from "lodash";
 import { dbCreateCopyOfSections } from "requests/pasteSections";
-import { useMisc } from "state/definitions";
-import { setNotificationMessage } from "../notification";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { loadSectionIntoState } from "../sections/loadSections";
 
 export async function paste() {
@@ -29,7 +26,7 @@ export async function paste() {
 async function pasteSections(data) {
   const res = await dbCreateCopyOfSections(data);
   if (res.status === 200) {
-    res.data.sections = removeSingletonSectionsIfAlreadyPresent(res.data);
+    console.log("res.data", res.data);
     const topLevelIds = findTopLevelSections(
       res.data.sections,
       res.data.sectionVariants,
@@ -38,7 +35,7 @@ async function pasteSections(data) {
     loadSectionIntoState({
       ...res.data,
       topLevelIds,
-      ...useMisc.getState().lastPaneClickLocation,
+      ...REACT_FLOW_STORE.lastPaneClickLocation,
       incrementVersion: true,
     });
   }
@@ -46,9 +43,11 @@ async function pasteSections(data) {
 
 function findTopLevelSections(sections, sectionVariants) {
   const allChildren = new Set();
-  for (const v of Object.values(sectionVariants)) {
-    for (const c of v.children) {
-      allChildren.add(c);
+  for (const variants of Object.values(sectionVariants)) {
+    for (const v of Object.values(variants)) {
+      for (const c of v.children) {
+        allChildren.add(c);
+      }
     }
   }
 
@@ -59,29 +58,4 @@ function findTopLevelSections(sections, sectionVariants) {
     }
   }
   return topLevelIds;
-}
-
-function removeSingletonSectionsIfAlreadyPresent(pasteData) {
-  const { sections, uiTypes } = pasteData;
-
-  const { globalVariables, globalParamSweep } =
-    useMisc.getState().singletonSections;
-  if (!globalVariables && !globalParamSweep) {
-    return sections;
-  }
-
-  const toRemove = [];
-  for (const s of Object.values(sections)) {
-    const uiTypeName = uiTypes[s.uiTypeId].type;
-    if (
-      (globalVariables && uiTypeName === C.GLOBAL_VARIABLES) ||
-      (globalParamSweep && uiTypeName === C.GLOBAL_PARAM_SWEEP)
-    ) {
-      toRemove.push(s.id);
-      toRemove.push(s.paramSweepSectionId);
-      setNotificationMessage("Can't have more than 1 global section!");
-    }
-  }
-
-  return _.omit(sections, toRemove);
 }

@@ -4,13 +4,13 @@ import { getParamIds } from "state/actions/sections/sectionContents";
 import {
   useCodeInfo,
   useKeywordRegex,
-  useMisc,
   useSectionInfos,
 } from "state/definitions";
 import {
   getSectionType,
   hasParentInFlattenedStructure,
 } from "state/getters/sectionInfo";
+import { SINGLETON_SECTIONS } from "utils/constants";
 import { getSectionChildren } from "./sectionVariants";
 
 export function updateKeywordRegex(idsToNames = null) {
@@ -33,7 +33,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
   const fullNameToInfo = {};
   const sectionState = useSectionInfos.getState().x;
   for (const sid of topLevelIds) {
-    if (useMisc.getState().singletonSections.globalVariables === sid) {
+    if (SINGLETON_SECTIONS.globalVariables === sid) {
       setFullParamRegex(sid, null, names, fullNameToInfo, "", [], true);
     } else {
       const currName = sectionIdsToNames[sid];

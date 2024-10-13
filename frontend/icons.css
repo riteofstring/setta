@@ -968,3 +968,101 @@ main {
   mix-blend-mode: difference;
   color: white;
 }
+
+.gg-list {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  transform: scale(var(--ggs, 1));
+  width: 22px;
+  height: 20px;
+  border: 2px solid;
+  border-radius: 3px;
+}
+.gg-list::after,
+.gg-list::before {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: currentColor;
+  top: 3px;
+  left: 3px;
+  box-shadow:
+    0 4px 0,
+    0 8px 0;
+}
+.gg-list::after {
+  border-radius: 3px;
+  width: 8px;
+  left: 7px;
+}
+
+.gg-info {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  transform: scale(var(--ggs, 1));
+  width: 20px;
+  height: 20px;
+  border: 2px solid;
+  border-radius: 40px;
+}
+.gg-info::after,
+.gg-info::before {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  position: absolute;
+  border-radius: 3px;
+  width: 2px;
+  background: currentColor;
+  left: 7px;
+}
+.gg-info::after {
+  bottom: 2px;
+  height: 8px;
+}
+.gg-info::before {
+  height: 2px;
+  top: 2px;
+}
+
+.gg-git-branch {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  transform: scale(var(--ggs, 1));
+  width: 2px;
+  height: 14px;
+  background: currentColor;
+}
+.gg-git-branch::after,
+.gg-git-branch::before {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  position: absolute;
+}
+.gg-git-branch::before {
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+  border-bottom-right-radius: 4px;
+  bottom: 0;
+  width: 8px;
+  height: 6px;
+  left: 0;
+}
+.gg-git-branch::after {
+  width: 4px;
+  height: 4px;
+  background: currentColor;
+  box-shadow:
+    0 12px 0 0,
+    6px 6px 0 0;
+  border-radius: 100%;
+  left: -1px;
+  top: -1px;
+}

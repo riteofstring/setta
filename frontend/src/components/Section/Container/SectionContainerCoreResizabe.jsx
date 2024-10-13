@@ -18,7 +18,6 @@ import { SocialArea } from "../Layouts/SocialArea";
 import { MaybeTerminalArea } from "../Layouts/TerminalArea";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
-import { getOutlineColor } from "./utils";
 
 export function SectionContainerCoreResizable({
   sectionId,
@@ -40,6 +39,27 @@ export function SectionContainerCoreResizable({
     ? "pointer-events-none select-none"
     : "";
 
+  const getOutlineColor = () => {
+    if (isWrongType) {
+      return "outline-red-600 dark:outline-red-400";
+    }
+    if (isActiveSection && isGlobalVariables) {
+      return "outline-green-600 dark:outline-turquoise-400";
+    }
+    if (isInOtherProjectConfigs) {
+      if (isActiveSection) {
+        return "outline-purple-600 dark:outline-purple-700";
+      }
+      return `outline-transparent ${!isSelectingParams ? "active:outline-fuchsia-400" : ""}`;
+    }
+
+    if (isActiveSection) {
+      return "outline-blue-600 dark:outline-blue-700";
+    }
+
+    return `outline-transparent ${!isSelectingParams ? "active:outline-cyan-300" : ""}`;
+  };
+
   const getBgColor = () => {
     if (isGlobalVariables) {
       return "bg-white dark:bg-black";
@@ -59,13 +79,13 @@ export function SectionContainerCoreResizable({
   };
   const _isRoot = isRoot(sectionTypeName);
 
-
+  const outlineColor = getOutlineColor();
   const bgColor = getBgColor();
 
   const borderClasses =
     "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700";
 
-  const inputClasses = `${pointerSelectCSS} ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  ${
+  const inputClasses = `${pointerSelectCSS} outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${borderClasses}`;
 

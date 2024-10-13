@@ -10,6 +10,13 @@ export function SocialTypeSearch({ sectionId }) {
     const blurValue = e.target.value;
     if (blurValue) {
       setSectionInfoAttr({ sectionId, attr: "social", value: blurValue });
+
+      // const width = 550;
+      // const height = linkIsTwitter(blurValue)
+      //   ? "auto"
+      //   : 500 * (1 / youtubeSectionAspectRatio);
+      // setSectionSize(sectionId, { width, height });
+      // setAspectRatioInfo({ sectionId, aspectRatio: youtubeSectionAspectRatio });
     }
   }
 

@@ -1,41 +1,67 @@
-import C from "constants/constants.json";
+import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
-import { useActiveSection, useParamShortcuts } from "state/definitions";
+import {
+  addActiveSectionIds,
+  removeActiveSectionIds,
+  setActiveSectionIds,
+} from "state/actions/sections/activeSections";
+import { getParamInfos } from "state/actions/sections/sectionContents";
+import { setZIndices } from "state/actions/sections/sectionPositions";
+import { getHighestAncestor } from "state/actions/sections/sectionChildren";
+import {
+  useActiveSection,
+  useMisc,
+  useParamShortcuts,
+} from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useSectionTypeName } from "state/hooks/uiTypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
-import { getOnSectionClick, getOutlineColor } from "./utils";
 
 function _SectionContainerCore({ sectionId }) {
   const sectionTypeName = useSectionTypeName(sectionId);
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
-  const isGlobalVariables = sectionTypeName === C.GLOBAL_VARIABLES;
-  const isInOtherProjectConfigs = useGetSectionInfo(
-    sectionId,
-    "isInOtherProjectConfigs",
-  );
-  const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
+
+  function onClick(e) {
+    if (useMisc.getState().mouseDownDrawArea) {
+      useMisc.setState({ mouseDownDrawArea: false });
+      return;
+    }
+
+    if (useParamShortcuts.getState().isSelectingParams) {
+      // depends on bubbling behavior (child div onclicks get executed first)
+      const atLeastOneParamSelected = getParamInfos(sectionId).some(
+        (x) => x.isSelected,
+      );
+      if (!isActiveSection && atLeastOneParamSelected) {
+        addActiveSectionIds([sectionId]);
+      } else if (isActiveSection && !atLeastOneParamSelected) {
+        removeActiveSectionIds([sectionId]);
+      }
+    } else if (useReactFlow.getState().multiSelectionActive) {
+      if (isActiveSection) {
+        removeActiveSectionIds([sectionId]);
+      } else {
+        addActiveSectionIds([sectionId]);
+      }
+    } else {
+      setActiveSectionIds([sectionId]);
+    }
+    const highestAncestor = getHighestAncestor(sectionId);
+    setZIndices([highestAncestor], false);
+  }
 
   const boxShadow = isActiveSection
     ? "shadow-2xl"
     : "shadow-md active:shadow-2xl";
 
-  const outlineColor = getOutlineColor({
-    isWrongType: false,
-    isActiveSection,
-    isGlobalVariables,
-    isInOtherProjectConfigs,
-    isSelectingParams,
-  });
-
   return (
     <section
-      className={`group/card-section rounded-xl border border-white bg-white dark:border-setta-700 dark:bg-setta-925 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease] outline outline-4 [transition:_outline-color_200ms_ease] ${outlineColor} `}
-      onClick={getOnSectionClick({ sectionId, isActiveSection })}
+      className={`group/card-section rounded-xl border border-white bg-white dark:border-setta-700 dark:bg-setta-925 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
+      onClick={onClick}
       ref={refForPosition}
     >
       <SectionContainerCoreResizable

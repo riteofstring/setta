@@ -5,10 +5,7 @@ import { Tweet } from "react-tweet";
 import YouTube from "react-youtube";
 import { useSectionInfos } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
-import {
-  useTwitterSectionSize,
-  useYouTubeSectionSize,
-} from "state/hooks/sectionSizes";
+import { useYouTubeSectionSize } from "state/hooks/sectionSizes";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
 
 function _SocialArea({ sectionId }) {
@@ -17,7 +14,7 @@ function _SocialArea({ sectionId }) {
   if (linkIsYouTube(url)) {
     return <YoutubeEmbed sectionId={sectionId} url={url} />;
   } else if (linkIsTwitter(url)) {
-    return <TwitterEmbed sectionId={sectionId} url={url} />;
+    return <TwitterEmbed url={url} />;
   }
 }
 
@@ -26,20 +23,17 @@ export const SocialArea = React.memo(_SocialArea);
 function YoutubeEmbed({ sectionId, url }) {
   const id = getYouTubeID(url, { fuzzy: false });
   const playerSize = useYouTubeSectionSize(sectionId);
-  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
-  const pointerCSS = resizeEvent === "start" ? "pointer-events-none" : "";
 
   return (
-    <div className={`section-w-full section-row-main flex ${pointerCSS}`}>
+    <div className="section-w-full section-row-main flex">
       <YouTube videoId={id} opts={playerSize} />
     </div>
   );
 }
 
-function TwitterEmbed({ sectionId, url }) {
+function TwitterEmbed({ url }) {
   const id = _.last(url.split("/")).split("?")[0];
   const [darkMode] = localStorageFns.darkMode.hook();
-  useTwitterSectionSize(sectionId);
 
   return (
     id && (
