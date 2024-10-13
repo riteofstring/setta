@@ -65,10 +65,6 @@
     grid-row: left-gutter;
   }
 
-  .section-row-left-bottom {
-    grid-row: left-gutter / bottom-gutter;
-  }
-
   .section-row-pin {
     grid-row: pin-lg;
   }

@@ -1,10 +1,12 @@
 import _ from "lodash";
 import React from "react";
 import { openDeckContextMenu } from "state/actions/contextMenus";
+import { useActiveSection } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { useTempHasNested } from "state/hooks/sections";
+import { useGetSectionInfo, useTempHasNested } from "state/hooks/sections";
 import { SectionTitle } from "../Header/SectionTitle";
+import { getOnSectionClick, getOutlineColor } from "./utils";
 
 function _Container({
   isDeck,
@@ -16,6 +18,12 @@ function _Container({
   trueDragListeners,
   children,
 }) {
+  const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
+  const isInOtherProjectConfigs = useGetSectionInfo(
+    sectionId,
+    "isInOtherProjectConfigs",
+  );
+
   const refForPosition = useSectionRefAndInit(sectionId, "withNested");
   const hasNested = useTempHasNested(sectionId);
   function totalRef(e) {
@@ -34,13 +42,19 @@ function _Container({
     ? "pointer-events-none select-none"
     : "";
 
+  const outlineColor = getOutlineColor({
+    isActiveSection,
+    isInOtherProjectConfigs,
+  });
+
   // transition-all active:shadow-lg
   if (isDeck) {
     return (
       <div
-        className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
+        className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3 rounded-3xl ${className} outline outline-4 ${outlineColor}`}
         {...commonProps}
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
+        onClick={getOnSectionClick({ sectionId, isActiveSection })}
       >
         <div className="absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline outline-2  outline-transparent backdrop-blur dark:border-setta-700 dark:bg-[#06070a3e]" />
         <div className="relative min-h-8 w-full">
