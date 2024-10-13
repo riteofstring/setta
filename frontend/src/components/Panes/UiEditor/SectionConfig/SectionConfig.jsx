@@ -17,7 +17,7 @@ export const SectionConfig = React.memo(_SectionConfig);
 function SectionConfigCore({ sectionId }) {
   // pass infoViewHandlersContents down?
   return (
-    <div className="flex flex-1 flex-col gap-1 overflow-y-hidden">
+    <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
       <div className="flex justify-between">
         <p
           className="mt-2 text-xs font-semibold uppercase text-setta-400"

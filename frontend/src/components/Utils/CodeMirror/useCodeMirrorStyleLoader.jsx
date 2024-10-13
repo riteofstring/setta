@@ -47,7 +47,9 @@ export function useCodeMirrorStyleLoader(doneLoading) {
   useEffect(() => {
     if (view) {
       view.destroy();
-      document.body.removeChild(containerState);
+      if (document.body.contains(containerState)) {
+        document.body.removeChild(containerState);
+      }
     }
   }, [view]);
 

@@ -117,6 +117,7 @@ function ParamSweepForOneSelectedItem({
         sectionId={sectionId}
         selectedItemIdx={selectedItemIdx}
         alreadySelected={alreadySelected}
+        showParamSweepSectionSearch={showParamSweepSectionSearch}
       />
     </div>
   );
@@ -130,6 +131,7 @@ function Args({
   sectionId,
   selectedItemIdx,
   alreadySelected,
+  showParamSweepSectionSearch,
 }) {
   return (
     <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1">
@@ -144,6 +146,7 @@ function Args({
           forSectionId={forSectionId}
           sectionId={sectionId}
           selectedItemIdx={selectedItemIdx}
+          showParamSweepSectionSearch={showParamSweepSectionSearch}
         />
       ))}
     </section>
@@ -159,6 +162,7 @@ function ArgItem({
   forSectionId,
   sectionId,
   selectedItemIdx,
+  showParamSweepSectionSearch,
 }) {
   const { paramInfoId, values } = singleParamSweep;
 
@@ -212,6 +216,7 @@ function ArgItem({
           onSelectedItemChange={onSelectedItemChange}
           alreadySelected={alreadySelected}
           forSectionId={forSectionId}
+          showParamSweepSectionSearch={showParamSweepSectionSearch}
         />
 
         <div className="flex items-center pl-0.5">
@@ -253,6 +258,7 @@ function ParamCombobox({
   alreadySelected = [],
   onSelectedItemChange,
   forSectionId,
+  showParamSweepSectionSearch,
 }) {
   const initialSelection = paramInfoId;
 
@@ -269,7 +275,7 @@ function ParamCombobox({
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
       placeholder="Filter & Add Sweep"
-      outerDivClasses="section-w-full justify-center not:last-child:mt-3 ml-3"
+      outerDivClasses={`section-w-full justify-center not:last-child:mt-3 ${showParamSweepSectionSearch ? "ml-3" : ""} `}
       small={true}
       bg="bg-transparent"
     />
@@ -293,7 +299,7 @@ function Input({
       >
         <i className="gg-close !scale-50" />
       </button>
-      <article className="section-key-value group/arg-group group/textinput -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2">
+      <article className="section-key-value group/arg-group group/textinput mr-3  grid grid-cols-subgrid items-center justify-between rounded-lg">
         <ParamSweepUI
           dataSectionId={forSectionId}
           visualSectionId={sectionId}

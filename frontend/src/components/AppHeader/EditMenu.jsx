@@ -5,10 +5,12 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
+import { Link } from "react-router-dom";
 import { dbRequestTypeCheck } from "requests/sections";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
+import { SETTINGS_ROUTER_PATH } from "utils/constants";
 
 export function EditMenu() {
   return (
@@ -54,6 +56,9 @@ function Items() {
       <MenuItem onClick={undoProjectState} shortcut={shortcuts.undoShortcut}>
         Undo
       </MenuItem>
+      <Link to={SETTINGS_ROUTER_PATH}>
+        <MenuItem>Settings</MenuItem>
+      </Link>
     </>
   );
 }

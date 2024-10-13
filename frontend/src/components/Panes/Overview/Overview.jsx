@@ -30,7 +30,7 @@ export function Overview() {
 
   return (
     <>
-      <div className="absolute left-0 z-[19] flex h-full w-12 flex-col items-center gap-1 bg-setta-50 py-4 dark:bg-setta-900">
+      <div className="absolute left-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton tabName="tab1" {...commonProps}>
           <i className="gg-list  !scale-100" />
         </TabButton>
@@ -63,8 +63,8 @@ function TabsVisible({ tab }) {
   ];
   return (
     <div
-      className="flex h-full min-h-0 w-[calc(100%_-_2rem)] min-w-0 flex-1
-    flex-col overflow-hidden pr-2"
+      className="mx-[1px] flex h-full min-h-0 w-[calc(100%_-_3rem)] min-w-0 flex-1
+    flex-col overflow-hidden pl-1.5"
     >
       <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
         {title}
