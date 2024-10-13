@@ -73,7 +73,7 @@ export function getMaxSectionHeight({ sectionType, isMinimized }) {
 
 export function getMinSectionWidth({ sectionType, isTwitter }) {
   if (isTwitter) {
-    return 324;
+    return 370;
   }
   if (sectionType === C.DRAW) {
     return 272;
@@ -309,6 +309,7 @@ export function useYouTubeSectionSize(sectionId) {
 
 export function useTwitterSectionSize(sectionId) {
   useEffect(() => {
+    setSectionSize(sectionId, { height: "auto" });
     setAspectRatioInfo({
       sectionId,
       aspectRatio: null,
