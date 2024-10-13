@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { BiPaint } from "react-icons/bi";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
+import { setCanvasSettings } from "state/actions/sections/setters";
 import {
   base64RequestId,
   setTemporaryMiscState,
@@ -23,8 +24,19 @@ import { createRandomName } from "utils/idNameCreation";
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
-  const { width, height } = useSectionInfos(
-    (x) => x.x[sectionId].size,
+  const {
+    width,
+    height,
+    canvasSettings: {
+      color,
+      opacity,
+      brushSize,
+      brushShape,
+      canvasOpacity,
+      eraserBrushSize,
+    },
+  } = useSectionInfos(
+    (x) => _.pick(x.x[sectionId], ["width", "height", "canvasSettings"]),
     _.isEqual,
   );
   const backgroundCanvasRef = useRef(null);
@@ -33,14 +45,27 @@ export function DrawOnImage({ sectionId }) {
   const imageRef = useRef(null);
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [color, setColor] = useState("#ff0000");
-  const [opacity, setOpacity] = useState(1);
-  const [brushSize, setBrushSize] = useState(16);
-  const [brushShape, setBrushShape] = useState("round");
-  const [canvasOpacity, setCanvasOpacity] = useState(0.5);
-  const [eraserBrushSize, setEraserBrushSize] = useState(16);
   const [isEraser, setIsEraser] = useState(false);
   const strokesRef = useRef([]);
+
+  function setColor(v) {
+    setCanvasSettings(sectionId, "color", v);
+  }
+  function setOpacity(v) {
+    setCanvasSettings(sectionId, "opacity", v);
+  }
+  function setBrushSize(v) {
+    setCanvasSettings(sectionId, "brushSize", v);
+  }
+  function setBrushShape(v) {
+    setCanvasSettings(sectionId, "brushShape", v);
+  }
+  function setCanvasOpacity(v) {
+    setCanvasSettings(sectionId, "canvasOpacity", v);
+  }
+  function setEraserBrushSize(v) {
+    setCanvasSettings(sectionId, "eraserBrushSize", v);
+  }
 
   function setDraftCanvasProperties() {
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
@@ -602,6 +627,7 @@ const debouncedSetBrushStrokesArtifact = _.debounce((sectionId, strokes) => {
         type: "brushStrokes",
         displayName: createRandomName(),
         value: _.cloneDeep(strokes),
+        isSaved: true,
       };
     }
   });

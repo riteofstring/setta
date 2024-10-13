@@ -46,6 +46,7 @@ CREATE_TABLES_COMMANDS = [
         codeInfoId TEXT,
         hideUnpinnedParams BOOLEAN,
         showYaml BOOLEAN,
+        canvasSettings TEXT,
         FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE,
