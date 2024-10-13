@@ -2,7 +2,7 @@ import { useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useGetSectionInfo } from "state/hooks/sections";
 
-export function SocialTypeSearch({ sectionId }) {
+export function SocialAreaSettings({ sectionId }) {
   const url = useGetSectionInfo(sectionId, "social");
   console.log("url", url);
   const [value, setValue] = useState(url ?? "");

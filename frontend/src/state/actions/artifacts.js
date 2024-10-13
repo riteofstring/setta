@@ -32,7 +32,7 @@ function maybeAddArtifactSection(artifactPath, sectionType) {
 
 export async function loadArtifacts(sectionId, artifactPaths) {
   const res = await dbLoadArtifacts(sectionId, artifactPaths);
-  if (res.status == 200) {
+  if (res.status === 200) {
     updateArtifacts({ artifacts: res.data });
   }
 }

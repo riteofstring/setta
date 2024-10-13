@@ -137,18 +137,16 @@ export function useUIEditorTab(sectionId) {
 
 function getRequiredUIEditorTabs(uiTypeName) {
   switch (uiTypeName) {
-    case C.INFO:
-      return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
-    case C.IMAGE:
-    case C.LINE_PLOT:
-    case C.SOCIAL:
-      return [SECTION_CONFIG_TAB];
-    default:
+    case C.SECTION:
       return [
         UI_CONFIG_TAB,
         QUICKINFO_CONFIG_TAB,
         // SECTION_CONFIG_TAB,
         SECTION_VARIANTS_TAB,
       ];
+    case C.INFO:
+      return [INFO_CONFIG_TAB];
+    default:
+      return [SECTION_CONFIG_TAB];
   }
 }
