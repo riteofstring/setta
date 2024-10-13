@@ -46,7 +46,7 @@ export function PaneContainer({
     }
   }
 
-  const style = `${!right ? "-" : ""}${width - 40}px`;
+  const style = `${!right ? "-" : ""}${width - 53}px`;
 
   const rightCondition = right
     ? "justify-self-end left-auto border-l pr-14 justify-items-end"
