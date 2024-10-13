@@ -23,3 +23,12 @@ export function useArtifactData(sectionId) {
 
   return { artifacts, isLoaded };
 }
+
+export function useArtifactIsImg(sectionId) {
+  const artifactPaths = useSectionInfos(
+    (x) => x.x[sectionId].artifacts,
+    _.isEqual,
+  );
+  const artifacts = useArtifacts((x) => _.pick(x.x, artifactPaths));
+  return Object.values(artifacts)[0]?.type === "img";
+}

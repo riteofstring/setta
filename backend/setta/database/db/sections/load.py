@@ -87,7 +87,6 @@ def load_sections(db, ids):
             "paramSweepIds": v["paramSweepIds"].split(",")
             if v["paramSweepIds"]
             else [],
-            "canvasSettings": json.loads(v["canvasSettings"]) if v["canvasSettings"] else {}
         }
 
     variantIds = list(

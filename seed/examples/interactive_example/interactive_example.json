@@ -192,14 +192,7 @@
     },
     "06b511f3-dced-43be-97d7-1ceaddc763d5": {
       "id": "06b511f3-dced-43be-97d7-1ceaddc763d5",
-      "type": "IMAGE",
-      "name": "",
-      "presetType": "BASE",
-      "config": {}
-    },
-    "126547a6-d41e-4891-80f0-a0354f089c7c": {
-      "id": "126547a6-d41e-4891-80f0-a0354f089c7c",
-      "type": "LINE_PLOT",
+      "type": "ARTIFACT",
       "name": "",
       "presetType": "BASE",
       "config": {}
@@ -319,8 +312,7 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "jsonSource": "",
-      "configLanguage": "python",
-      "canvasSettings": {}
+      "configLanguage": "python"
     },
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
@@ -352,8 +344,7 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "jsonSource": "",
-      "configLanguage": "python",
-      "canvasSettings": {}
+      "configLanguage": "python"
     },
     "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
@@ -391,8 +382,7 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "jsonSource": "",
-      "configLanguage": "python",
-      "canvasSettings": {}
+      "configLanguage": "python"
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -424,14 +414,13 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "jsonSource": "",
-      "configLanguage": "python",
-      "canvasSettings": {}
+      "configLanguage": "python"
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
       "name": "institutional_fuchsia",
       "paramSweepSectionId": null,
-      "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c",
+      "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
       "uiTypeColId": "3072250c-fb83-4b58-9e3b-303f13b1e623",
       "social": null,
       "description": "",
@@ -463,8 +452,7 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "jsonSource": "",
-      "configLanguage": "python",
-      "canvasSettings": {}
+      "configLanguage": "python"
     },
     "25d0e656-bec2-44a0-9728-f41d657b8508": {
       "id": "25d0e656-bec2-44a0-9728-f41d657b8508",
@@ -500,8 +488,7 @@
       "codeInfoId": "c8807916-43ef-421f-a404-96bb75d6a79e",
       "resizeEvent": "end",
       "jsonSource": "",
-      "configLanguage": "python",
-      "canvasSettings": {}
+      "configLanguage": "python"
     }
   },
   "codeInfo": {

@@ -32,7 +32,6 @@ export function newSectionInfo({
   showYaml = false,
   pinnedAreaHeight = "auto",
   isMinimized = false,
-  canvasSettings = {},
 }) {
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _variantId = maybeNewId(variantId);
@@ -67,6 +66,5 @@ export function newSectionInfo({
     showYaml,
     pinnedAreaHeight,
     isMinimized,
-    canvasSettings,
   };
 }

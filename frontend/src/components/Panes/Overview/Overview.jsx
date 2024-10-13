@@ -22,13 +22,27 @@ export function Overview() {
   }
 
   return (
-    <PaneContainer
-      paneProps={paneProps}
-      paneTitle="Overview"
-      onResizeStop={onResizeStop}
-    >
-      {vis && <TabsVisible />}
-    </PaneContainer>
+    <>
+      <div className="absolute left-0 z-20 flex h-full w-12 flex-col items-center gap-1 bg-setta-900 py-2">
+        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
+          <i className="gg-list  !scale-100" />
+        </button>
+        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
+          <i className="gg-info !scale-100" />
+        </button>
+
+        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
+          <i className="gg-git-branch !scale-100" />
+        </button>
+      </div>
+      <PaneContainer
+        paneProps={paneProps}
+        paneTitle="Overview"
+        onResizeStop={onResizeStop}
+      >
+        {vis && <TabsVisible />}
+      </PaneContainer>
+    </>
   );
 }
 

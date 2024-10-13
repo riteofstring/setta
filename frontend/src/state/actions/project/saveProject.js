@@ -82,7 +82,7 @@ export function getProjectData({ withArtifactMetadata = false }) {
     fullNameToInfo,
   };
 
-  console.log(output);
+  console.log(Object.values(paramSweeps));
 
   return output;
 }

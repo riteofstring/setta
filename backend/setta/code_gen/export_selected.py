@@ -388,7 +388,7 @@ class SimpleExporter:
         flatten_groups(self.p)
         export_global_variables_and_remove_script(
             self.p,
-            [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.IMAGE, C.LINE_PLOT, C.DRAW],
+            [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.ARTIFACT, C.DRAW],
             self.export_global_variables,
         )
         for id in list(self.p["projectConfig"]["children"].keys()):
@@ -422,7 +422,7 @@ class SimpleExporter:
                     value[child_name] = self.export_section(
                         c, f'{name}["{child_name}"]'
                     )
-        elif type in [C.IMAGE, C.LINE_PLOT]:
+        elif type == C.ARTIFACT:
             value = get_artifacts(self.p, id)
             self.create_var_mapping((id, "artifact"), name)
         elif type == C.DRAW:
