@@ -9,7 +9,7 @@ import {
   updateNodePositions,
 } from "state/actions/nodeInternals";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import { useMisc, useNodeInternals, useSettings } from "state/definitions";
+import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { NO_DRAG_CLASS_NAME } from "utils/constants";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../types";
@@ -149,7 +149,6 @@ function useDrag({
 
         if (dragItems.current) {
           raiseTempZIndex(dragItems.current);
-          useMisc.setState({ mouseDownDraggingSection: true });
         }
       };
 
@@ -211,7 +210,6 @@ function useDrag({
             }
           })
           .on("end", (event: UseDragEvent) => {
-            useMisc.setState({ mouseDownDraggingSection: false });
             if (!dragStarted.current) {
               return;
             }
