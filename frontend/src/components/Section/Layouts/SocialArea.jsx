@@ -1,7 +1,8 @@
 import getYouTubeID from "get-youtube-id";
 import _ from "lodash";
-import React, { useRef } from "react";
+import React from "react";
 import { Tweet } from "react-tweet";
+import YouTube from "react-youtube";
 import { useSectionInfos } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useYouTubeSectionSize } from "state/hooks/sectionSizes";
@@ -22,79 +23,10 @@ export const SocialArea = React.memo(_SocialArea);
 function YoutubeEmbed({ sectionId, url }) {
   const id = getYouTubeID(url, { fuzzy: false });
   const playerSize = useYouTubeSectionSize(sectionId);
-  const frameRef = useRef();
-  const topDivRef = useRef(null);
-  const bottomDivRef = useRef(null);
-
-  const handleTopClick = (e) => {
-    e.preventDefault(); // Prevent any default behavior
-
-    if (topDivRef.current && bottomDivRef.current) {
-      // Temporarily hide the top div
-      topDivRef.current.style.display = "none";
-
-      // Get the element at the click coordinates
-      const elementAtPoint = document.elementFromPoint(e.clientX, e.clientY);
-      console.log("elementAtPoint", elementAtPoint)
-
-      // Show the top div again
-      topDivRef.current.style.display = "";
-
-      if (elementAtPoint && bottomDivRef.current.contains(elementAtPoint)) {
-        // Create a new click event
-        const clickEvent = new MouseEvent("click", {
-          bubbles: true,
-          cancelable: true,
-          view: window,
-          clientX: e.clientX,
-          clientY: e.clientY,
-        });
-
-        // Dispatch the event on the element at the click coordinates
-        elementAtPoint.dispatchEvent(clickEvent);
-      }
-    }
-  };
-
-  const handleBottomClick = (e) => {
-    // Using getBoundingClientRect to get click position relative to the div
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    console.log(
-      `Clicked bottom div at position (${x.toFixed(2)}, ${y.toFixed(2)})`,
-    );
-  };
 
   return (
     <div className="section-w-full section-row-main flex">
-      <div
-        className="absolute inset-0"
-        ref={topDivRef}
-        onClick={handleTopClick}
-      />
-      {/* <object
-        width={playerSize.width}
-        height={playerSize.height}
-        data={`https://www.youtube.com/embed/${id}`}
-        // onTouchStart={() => {
-        //   console.log("on touch start");
-        // }}
-        ref={frameRef}
-      /> */}
-
-      <iframe
-        width={playerSize.width}
-        height={playerSize.height}
-        src={`https://www.youtube.com/embed/${id}`}
-        title="YouTube video player"
-        // frameborder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        referrerPolicy="strict-origin-when-cross-origin"
-        // allowfullscreen
-        ref={bottomDivRef}
-        onClick={handleBottomClick}
-      />
+      <YouTube videoId={id} opts={playerSize} />
     </div>
   );
 }
