@@ -3,17 +3,15 @@ import C from "constants/constants.json";
 import { useParamShortcuts, useSectionInfos } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { useIsYouTube } from "state/hooks/social";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
+import { ArtifactArea } from "../Layouts/ArtifactArea";
 import { CodeArea } from "../Layouts/CodeArea";
 import { DrawOnImage } from "../Layouts/DrawArea";
 import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
-import { ImageArea } from "../Layouts/ImageArea";
 import { InfoArea } from "../Layouts/InfoArea";
 import { InputArea } from "../Layouts/InputArea";
-import { LinePlotArea } from "../Layouts/LinePlotArea";
 import { ParamSweepArea } from "../Layouts/ParamSweepArea";
 import { ReferenceArea } from "../Layouts/ReferenceArea";
 import { SocialArea } from "../Layouts/SocialArea";
@@ -69,21 +67,20 @@ export function SectionContainerCoreResizable({
     isSelectingParams,
   });
   const bgColor = getBgColor();
-  const youtube = useIsYouTube(sectionId);
 
   const borderClasses =
     "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700";
 
   const inputClasses = `${pointerSelectCSS} outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
-  } ${borderClasses} ${youtube ? "overflow-clip" : ""}`;
+  } ${borderClasses}`;
 
   return (
     <CustomResizable
       sectionId={sectionId}
       disablePointerEvents={disablePointerEvents}
       inputClasses={inputClasses}
-      // as="section"
+      as="section"
     >
       <>
         <SectionHeader
@@ -113,10 +110,8 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
       return <InputArea sectionId={sectionId} bgColor={bgColor} />;
     case C.REFERENCE_SECTION:
       return <ReferenceArea sectionId={sectionId} />;
-    case C.IMAGE:
-      return <ImageArea sectionId={sectionId} />;
-    case C.LINE_PLOT:
-      return <LinePlotArea sectionId={sectionId} />;
+    case C.ARTIFACT:
+      return <ArtifactArea sectionId={sectionId} />;
     case C.DRAW:
       return <DrawOnImage sectionId={sectionId} />;
     case C.SOCIAL:

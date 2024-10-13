@@ -8,7 +8,7 @@ export const UI_EDITOR = "uiEditor";
 
 export const INITIAL_OVERVIEW_WIDTH = 335;
 export const INITIAL_UI_EDITOR_WIDTH = 500;
-export const CLOSED_PANE_WIDTH = 50;
+export const CLOSED_PANE_WIDTH = 40;
 export const INITIAL_CHART_SIZE = { width: 200, height: 200 };
 
 // constants object

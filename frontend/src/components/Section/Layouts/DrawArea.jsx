@@ -2,14 +2,10 @@ import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useEffect, useRef, useState } from "react";
 import { BiPaint } from "react-icons/bi";
-import { updateArtifacts } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { setCanvasSettings } from "state/actions/sections/setters";
 import {
   base64RequestId,
   setTemporaryMiscState,
@@ -27,18 +23,8 @@ import { createRandomName } from "utils/idNameCreation";
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
-  const {
-    size: { width, height },
-    canvasSettings: {
-      color,
-      opacity,
-      brushSize,
-      brushShape,
-      canvasOpacity,
-      eraserBrushSize,
-    },
-  } = useSectionInfos(
-    (x) => _.pick(x.x[sectionId], ["size", "canvasSettings"]),
+  const { width, height } = useSectionInfos(
+    (x) => x.x[sectionId].size,
     _.isEqual,
   );
   const backgroundCanvasRef = useRef(null);
@@ -47,27 +33,14 @@ export function DrawOnImage({ sectionId }) {
   const imageRef = useRef(null);
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [color, setColor] = useState("#ff0000");
+  const [opacity, setOpacity] = useState(1);
+  const [brushSize, setBrushSize] = useState(16);
+  const [brushShape, setBrushShape] = useState("round");
+  const [canvasOpacity, setCanvasOpacity] = useState(0.5);
+  const [eraserBrushSize, setEraserBrushSize] = useState(16);
   const [isEraser, setIsEraser] = useState(false);
   const strokesRef = useRef([]);
-
-  function setColor(v) {
-    setCanvasSettings(sectionId, "color", v);
-  }
-  function setOpacity(v) {
-    setCanvasSettings(sectionId, "opacity", v);
-  }
-  function setBrushSize(v) {
-    setCanvasSettings(sectionId, "brushSize", v);
-  }
-  function setBrushShape(v) {
-    setCanvasSettings(sectionId, "brushShape", v);
-  }
-  function setCanvasOpacity(v) {
-    setCanvasSettings(sectionId, "canvasOpacity", v);
-  }
-  function setEraserBrushSize(v) {
-    setCanvasSettings(sectionId, "eraserBrushSize", v);
-  }
 
   function setDraftCanvasProperties() {
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
@@ -314,43 +287,7 @@ export function DrawOnImage({ sectionId }) {
     return base64;
   }
 
-  const onDrop = useCallback((acceptedFiles) => {
-    acceptedFiles.forEach((file) => {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        // The base64 string is in reader.result
-        const base64String = reader.result.replace(
-          /^data:image\/[a-z]+;base64,/,
-          "",
-        );
-        const artifactPath = `data:${sectionId}-${file.name}`;
-        updateArtifacts({
-          artifacts: {
-            [artifactPath]: {
-              value: base64String,
-              type: "img",
-            },
-          },
-        });
-        setSectionInfoAttr({
-          sectionId,
-          attr: "artifacts",
-          newValueFn: (x) => [...x, artifactPath],
-        });
-      };
-
-      reader.onerror = (error) => {
-        console.error("Error reading file:", error);
-      };
-
-      // Read the file as a Data URL (base64)
-      reader.readAsDataURL(file);
-    });
-  }, []);
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
-
-  const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
+  const canvasClassName = "single-cell-child max-w-full place-self-center";
   const cursorIcon = isEraser
     ? "cursor-[url(../../../erase.svg)_0_24,_pointer]"
     : "cursor-[url(../../../pen.svg)_0_24,_pointer]";
@@ -451,10 +388,7 @@ export function DrawOnImage({ sectionId }) {
           <i className="gg-trash" />
         </button>
       </div>
-      <section
-        className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0"
-        {...getRootProps()}
-      >
+      <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
         <canvas ref={backgroundCanvasRef} className={canvasClassName} />
         <div
           className="single-cell-child single-cell-container"
@@ -672,7 +606,6 @@ const debouncedSetBrushStrokesArtifact = _.debounce((sectionId, strokes) => {
         type: "brushStrokes",
         displayName: createRandomName(),
         value: _.cloneDeep(strokes),
-        isSaved: true,
       };
     }
   });

@@ -187,7 +187,7 @@ export function useDefaultConfigName() {
 
   async function fn() {
     const res = await dbGetDefaultConfigName();
-    if (res.status === 200) {
+    if (res.status == 200) {
       setDefaultConfigName(res.data);
     }
   }

@@ -5,9 +5,8 @@ import { useGetSectionType } from "state/hooks/uiTypes";
 import { CONST_INFO_VIEWS } from "utils/constants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";
-import { DrawAreaSettings } from "./DrawAreaSettings";
 import { SectionConfigTypeSelection } from "./SectionConfigTypeSelection";
-import { SocialAreaSettings } from "./SocialAreaSettings";
+import { SocialTypeSearch } from "./SocialTypeSearch";
 
 const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
   return <SectionConfigCore sectionId={sectionId} />;
@@ -18,7 +17,7 @@ export const SectionConfig = React.memo(_SectionConfig);
 function SectionConfigCore({ sectionId }) {
   // pass infoViewHandlersContents down?
   return (
-    <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
+    <div className="flex flex-1 flex-col gap-1 overflow-y-hidden">
       <div className="flex justify-between">
         <p
           className="mt-2 text-xs font-semibold uppercase text-setta-400"
@@ -39,20 +38,18 @@ function SectionConfigCore({ sectionId }) {
       >
         Contents
       </p>
-      <SpecializedConfiguration sectionId={sectionId} />
+      <SearchSwitch sectionId={sectionId} />
     </div>
   );
 }
 
-function SpecializedConfiguration({ sectionId }) {
+function SearchSwitch({ sectionId }) {
   const sectionType = useGetSectionType(sectionId, "type");
   // if (sectionType === C.OUTPUT) {
   //   return <OutputsSearch sectionId={sectionId} />;
   // } else
   if (sectionType === C.SOCIAL) {
-    return <SocialAreaSettings sectionId={sectionId} />;
-  } else if (sectionType === C.DRAW) {
-    return <DrawAreaSettings sectionId={sectionId} />;
+    return <SocialTypeSearch sectionId={sectionId} />;
   } else {
     return <CollectionsSearch sectionId={sectionId} />;
   }

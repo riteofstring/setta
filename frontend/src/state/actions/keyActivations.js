@@ -36,15 +36,9 @@ function attachKeyUpListener(action) {
 }
 
 function shouldAddKeyPrefix(key) {
-  return ![
-    undefined,
-    "escape",
-    "enter",
-    "space",
-    "comma",
-    "period",
-    "tab",
-  ].includes(key);
+  return ![undefined, "escape", "enter", "space", "comma", "period"].includes(
+    key,
+  );
 }
 
 // shortcutString is a lowercase string.
@@ -111,7 +105,6 @@ function getShouldPreventDefault(lowercaseKeyCombo) {
     "mod + v",
     "space",
     "escape",
-    "tab",
   ].includes(lowercaseKeyCombo);
 }
 
@@ -119,7 +112,7 @@ function keyUpLoop(e, shortcutInfo) {
   for (const x of shortcutInfo) {
     if (x.wasPressed) {
       x.wasPressed = false;
-      x.keyUpAction?.(e);
+      x.keyUpAction?.();
     }
   }
 }
@@ -128,9 +121,8 @@ export function attachKeyEventListeners() {
   const settings = useSettings.getState();
 
   const conditionAndAction = [
-    ["tab", onTab],
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
-    [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
+    [settings.redoShortcut, redoProjectState],
     [settings.groupShortcut, groupSections],
     [settings.saveShortcut, saveProject],
     [settings.loadShortcut, openLoadModal],
@@ -205,10 +197,10 @@ export function attachKeyEventListeners() {
         if (e.repeat && !x.allowRepeat) {
           continue;
         }
-        x.keyDownAction(e);
+        x.keyDownAction();
         x.wasPressed = true;
       } else if (x.wasPressed) {
-        x.keyUpAction?.(e);
+        x.keyUpAction?.();
         x.wasPressed = false;
       }
     }
@@ -276,14 +268,4 @@ function activateMoveSectionMode() {
 
 function deactivateMoveSectionMode() {
   useReactFlow.setState({ moveSectionActivationKeyPressed: false });
-}
-
-function onTab(e) {
-  const currentFocusedElement = document.activeElement;
-  if (currentFocusedElement === document.body) {
-    e.preventDefault();
-    document
-      .getElementById("ProjectOverviewButtonDiv")
-      .focus({ preventScroll: true });
-  }
 }

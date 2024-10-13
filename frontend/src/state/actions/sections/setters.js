@@ -157,10 +157,3 @@ export function setAspectRatioInfo({
     s.aspectRatioExtraWidth = aspectRatioExtraWidth;
   });
 }
-
-export function setCanvasSettings(sectionId, attr, value) {
-  useSectionInfos.setState((x) => {
-    const s = x.x[sectionId];
-    s.canvasSettings[attr] = value;
-  });
-}

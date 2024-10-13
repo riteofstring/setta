@@ -1,8 +1,7 @@
 import C from "constants/constants.json";
-import { getActiveSectionsBounds } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { dbCreateCopyOfSections } from "requests/pasteSections";
-import { useActiveSection, useMisc, useSectionInfos } from "state/definitions";
+import { useMisc } from "state/definitions";
 import { setNotificationMessage } from "../notification";
 import { loadSectionIntoState } from "../sections/loadSections";
 
@@ -29,7 +28,6 @@ export async function paste() {
 
 async function pasteSections(data) {
   const res = await dbCreateCopyOfSections(data);
-  console.log("res.data", res.data)
   if (res.status === 200) {
     res.data.sections = removeSingletonSectionsIfAlreadyPresent(res.data);
     const topLevelIds = findTopLevelSections(
@@ -40,7 +38,7 @@ async function pasteSections(data) {
     loadSectionIntoState({
       ...res.data,
       topLevelIds,
-      ...getPasteLocation(),
+      ...useMisc.getState().lastPaneClickLocation,
       incrementVersion: true,
     });
   }
@@ -73,13 +71,6 @@ function removeSingletonSectionsIfAlreadyPresent(pasteData) {
   }
 
   const toRemove = [];
-  const usedJsonSources = new Set();
-  for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (s.jsonSource) {
-      usedJsonSources.add(s.jsonSource);
-    }
-  }
-
   for (const s of Object.values(sections)) {
     const uiTypeName = uiTypes[s.uiTypeId].type;
     if (
@@ -90,22 +81,7 @@ function removeSingletonSectionsIfAlreadyPresent(pasteData) {
       toRemove.push(s.paramSweepSectionId);
       setNotificationMessage("Can't have more than 1 global section!");
     }
-    if (usedJsonSources.has(s.jsonSource)) {
-      toRemove.push(s.id);
-      setNotificationMessage(
-        "Can't have more than 1 section referring to the same json source",
-      );
-    }
   }
 
   return _.omit(sections, toRemove);
-}
-
-function getPasteLocation() {
-  if (useActiveSection.getState().ids.length === 0) {
-    return useMisc.getState().lastPaneClickLocation;
-  }
-  // paste directly to the right of the active sections
-  const { x, y, width } = getActiveSectionsBounds();
-  return { x: x + width, y };
 }

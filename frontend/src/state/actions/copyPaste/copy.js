@@ -163,9 +163,7 @@ function getRelativePositions(sections) {
   const positions = {};
   for (const k of Object.keys(sections)) {
     const rect = getSectionRect(k);
-    if (rect) {
-      positions[k] = { x: rect.x, y: rect.y, zIndex: 0 };
-    }
+    positions[k] = { x: rect.x, y: rect.y, zIndex: 0 };
   }
 
   let minX = Infinity;

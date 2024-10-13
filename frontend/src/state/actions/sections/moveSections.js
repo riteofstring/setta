@@ -132,7 +132,7 @@ function setSectionSize({ newParentId, sectionId }) {
 }
 
 async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
-  if (oldParentId === PANEID || oldParentId === newParentId) {
+  if (oldParentId === PANEID || oldParentId == newParentId) {
     return sectionId;
   }
 
@@ -163,7 +163,7 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
 
   if (isInOtherVariants) {
     const res = await dbCreateCopyOfSections(copySections([sectionId]));
-    if (res.status === 200) {
+    if (res.status == 200) {
       console.log("data", res.data);
       updateStateWithSectionCopy({ ...res.data });
       return Object.keys(res.data.sections)[0];
