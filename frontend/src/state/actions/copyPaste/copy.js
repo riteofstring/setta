@@ -1,9 +1,9 @@
 import C from "constants/constants.json";
+import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import {
   useActiveSection,
   useCodeInfo,
-  useNodeInternals,
   useSectionInfos,
   useSectionVariants,
   useUITypeCols,
@@ -84,7 +84,7 @@ function getCodeInfo(sections) {
   let output = [];
   const codeInfoState = useCodeInfo.getState().x;
   for (const cid of sectionCodeInfoIds) {
-    const codeInfos = findAll(codeInfoState, [cid]).map(
+    const codeInfos = findAll(codeInfoState, [cid]).ids.map(
       (x) => codeInfoState[x],
     );
     if (codeInfos.some((x) => x.isSelected)) {
@@ -127,25 +127,26 @@ function getUITypeCols(sections) {
 }
 
 function getRelativePositions(sections) {
-  const positions = _.pick(
-    Object.fromEntries(useNodeInternals.getState().x),
-    _.map(sections, (x) => x.id),
-  );
+  const positions = {};
+  for (const k of Object.keys(sections)) {
+    const rect = getSectionRect(k);
+    positions[k] = { x: rect.x, y: rect.y, zIndex: 0 };
+  }
 
   let minX = Infinity;
   let minY = Infinity;
   for (const p of Object.values(positions)) {
-    if (p.position.x < minX) {
-      minX = p.position.x;
+    if (p.x < minX) {
+      minX = p.x;
     }
-    if (p.position.y < minY) {
-      minY = p.position.y;
+    if (p.y < minY) {
+      minY = p.y;
     }
   }
 
   return _.mapValues(positions, (v) => ({
-    x: v.position.x - minX,
-    y: v.position.y - minY,
+    x: v.x - minX,
+    y: v.y - minY,
     zIndex: v.zIndex,
   }));
 }
