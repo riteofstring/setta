@@ -58,7 +58,7 @@ function getColor({ vis, isCurrSelected, disabled }) {
   if (vis && isCurrSelected) {
     return "text-blue-500";
   } else if (disabled) {
-    return "text-setta-600 dark:text-setta-800";
+    return "text-setta-300/50 dark:text-setta-700/50";
   }
   return "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500";
 }

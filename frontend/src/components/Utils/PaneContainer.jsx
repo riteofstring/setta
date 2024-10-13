@@ -49,8 +49,8 @@ export function PaneContainer({
   const style = `${!right ? "-" : ""}${width - 40}px`;
 
   const rightCondition = right
-    ? "justify-self-end left-auto border-l pr-12 justify-items-end"
-    : "justify-self-start right-auto border-r pl-12";
+    ? "justify-self-end left-auto border-l pr-14 justify-items-end"
+    : "justify-self-start right-auto border-r pl-14";
 
   // flex flex-grow flex-col
 
@@ -71,7 +71,7 @@ export function PaneContainer({
         bottomLeft: false,
         topLeft: false,
       }}
-      className={`single-cell-container z-10 col-start-1 col-end-2 row-start-2 row-end-3 -mx-1  min-h-0 min-w-0 border-setta-200 bg-setta-50 py-8 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${rightCondition} overflow-clip`}
+      className={`single-cell-container z-10 col-start-1 col-end-2 row-start-2 row-end-3 -mx-1  min-h-0 min-w-0 border-setta-200 bg-setta-50 py-6 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${rightCondition} overflow-clip`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
     >
       {children}

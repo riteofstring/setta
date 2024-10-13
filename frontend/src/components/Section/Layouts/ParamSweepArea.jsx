@@ -329,7 +329,7 @@ function AddRemoveButtonsForNoCallableSection({
     deleteLastParamSweepParamInfoId({ paramSweepId, selectedItemIdx });
 
   return (
-    <div className="mb-0.5 flex rounded-lg bg-setta-950 py-1 pl-0.5 pr-0.5">
+    <div className="mb-0.5 flex rounded-lg bg-setta-100 py-1 pl-0.5 pr-0.5 dark:bg-setta-950">
       <p className="ml-1.5 mr-auto text-xs font-bold tracking-tighter text-setta-500 dark:text-setta-400">
         Add/Remove Parameters
       </p>

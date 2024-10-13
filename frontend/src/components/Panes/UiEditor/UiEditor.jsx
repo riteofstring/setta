@@ -11,6 +11,7 @@ import {
   QUICKINFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   SECTION_VARIANTS_TAB,
+  tabNameToPretty,
   UI_CONFIG_TAB,
   UI_EDITOR,
 } from "utils/constants";
@@ -40,7 +41,7 @@ export function UiEditor() {
 
   return (
     <>
-      <div className="absolute right-0 z-20 flex h-full w-12 flex-col items-center gap-1 bg-setta-900 py-2">
+      <div className="absolute right-0 z-[19] flex h-full w-12 flex-col items-center gap-1 bg-setta-50 py-4 dark:bg-setta-900">
         <TabButton tabName={SECTION_CONFIG_TAB} {...commonProps}>
           <MdOutlineSettingsApplications />
         </TabButton>
@@ -76,8 +77,13 @@ export function UiEditor() {
 }
 
 function TabsVisible({ sectionId, tab }) {
+  const title = tabNameToPretty.get(tab);
+  console.log("title", tab);
   return (
     <div className="flex h-full min-h-0 w-[calc(100%_-_2rem)] min-w-0 flex-1 flex-col overflow-hidden pl-2">
+      <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+        {title}
+      </h2>
       <TabContent sectionId={sectionId} tab={tab} />
     </div>
   );

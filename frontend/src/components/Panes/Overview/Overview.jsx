@@ -30,7 +30,7 @@ export function Overview() {
 
   return (
     <>
-      <div className="absolute left-0 z-20 flex h-full w-12 flex-col items-center gap-1 bg-setta-900 py-2">
+      <div className="absolute left-0 z-[19] flex h-full w-12 flex-col items-center gap-1 bg-setta-50 py-4 dark:bg-setta-900">
         <TabButton tabName="tab1" {...commonProps}>
           <i className="gg-list  !scale-100" />
         </TabButton>
@@ -57,11 +57,18 @@ export function Overview() {
 }
 
 function TabsVisible({ tab }) {
+  // const title = tabNameToPretty[tab];
+  const title = { tab1: "Overview", tab2: "Info", tab3: "Project Configs" }[
+    tab
+  ];
   return (
     <div
       className="flex h-full min-h-0 w-[calc(100%_-_2rem)] min-w-0 flex-1
     flex-col overflow-hidden pr-2"
     >
+      <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+        {title}
+      </h2>
       <TabContent tab={tab} />
     </div>
   );
