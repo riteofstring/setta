@@ -5,7 +5,7 @@ import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
 import { TbEdit, TbVersions } from "react-icons/tb";
 import { useActiveSection } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useUIEditorTab } from "state/hooks/uiTypes";
 import {
   INFO_CONFIG_TAB,
   QUICKINFO_CONFIG_TAB,
@@ -23,8 +23,7 @@ import { UIConfig } from "./UIConfig/UIConfig";
 
 export function UiEditor() {
   const sectionIds = useActiveSection((x) => x.ids);
-
-  const [tab, setTab] = localStorageFns.uiEditorTab.hook();
+  const [tab, setTab, requiredTabs] = useUIEditorTab(sectionIds[0]);
   const { vis, width, setWidth, setTrueWidth, getOnTabClick } = usePaneFns({
     paneName: UI_EDITOR,
     tab,
@@ -36,6 +35,7 @@ export function UiEditor() {
     getOnTabClick,
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl",
+    requiredTabs,
   };
 
   return (
