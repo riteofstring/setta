@@ -308,7 +308,9 @@ export function DrawOnImage({ sectionId }) {
     return base64;
   }
 
-  const canvasClassName = "single-cell-child max-w-full place-self-center";
+  const { onDragOver, onDrop, onDragLeave, imgIsDraggingOver } = useImgDrop();
+
+  const canvasClassName = `single-cell-child max-w-full place-self-center ${imgIsDraggingOver ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
   const cursorIcon = isEraser
     ? "cursor-[url(../../../erase.svg)_0_24,_pointer]"
     : "cursor-[url(../../../pen.svg)_0_24,_pointer]";
@@ -409,7 +411,12 @@ export function DrawOnImage({ sectionId }) {
           <i className="gg-trash" />
         </button>
       </div>
-      <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
+      <section
+        className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0"
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        onDragLeave={onDragLeave}
+      >
         <canvas ref={backgroundCanvasRef} className={canvasClassName} />
         <div
           className="single-cell-child single-cell-container"
@@ -726,3 +733,22 @@ const debouncedSendDrawingToInteractiveTasks = _.debounce(
   },
   500,
 );
+
+function useImgDrop() {
+  const [imgIsDraggingOver, setImgIsDraggingOver] = useState(false);
+
+  function onDragOver(e) {
+    e.preventDefault();
+    e.nativeEvent.stopImmediatePropagation();
+    setImgIsDraggingOver(true);
+    console.log("onDragOver");
+  }
+  function onDrop() {
+    console.log("onDrop");
+  }
+  function onDragLeave() {
+    setImgIsDraggingOver(false);
+  }
+
+  return { onDragOver, onDrop, onDragLeave, imgIsDraggingOver };
+}
