@@ -1,7 +1,7 @@
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,
@@ -291,9 +291,29 @@ export function useYouTubeSectionSize(sectionId) {
     }
   }, [width, height]);
 
+  useLayoutEffect(() => {
+    setAspectRatioInfo({
+      sectionId,
+      aspectRatio: 16 / 9,
+      aspectRatioExtraHeight: extraHeight,
+    });
+  }, []);
+
   const playerSize =
     width === "auto" || height === "auto"
       ? {}
       : { width, height: height - extraHeight };
+
   return playerSize;
+}
+
+export function useTwitterSectionSize(sectionId) {
+  useEffect(() => {
+    setAspectRatioInfo({
+      sectionId,
+      aspectRatio: null,
+      aspectRatioExtraHeight: null,
+      aspectRatioExtraWidth: null,
+    });
+  }, []);
 }

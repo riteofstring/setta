@@ -5,7 +5,10 @@ import { Tweet } from "react-tweet";
 import YouTube from "react-youtube";
 import { useSectionInfos } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
-import { useYouTubeSectionSize } from "state/hooks/sectionSizes";
+import {
+  useTwitterSectionSize,
+  useYouTubeSectionSize,
+} from "state/hooks/sectionSizes";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
 
 function _SocialArea({ sectionId }) {
@@ -14,7 +17,7 @@ function _SocialArea({ sectionId }) {
   if (linkIsYouTube(url)) {
     return <YoutubeEmbed sectionId={sectionId} url={url} />;
   } else if (linkIsTwitter(url)) {
-    return <TwitterEmbed url={url} />;
+    return <TwitterEmbed sectionId={sectionId} url={url} />;
   }
 }
 
@@ -31,9 +34,10 @@ function YoutubeEmbed({ sectionId, url }) {
   );
 }
 
-function TwitterEmbed({ url }) {
+function TwitterEmbed({ sectionId, url }) {
   const id = _.last(url.split("/")).split("?")[0];
   const [darkMode] = localStorageFns.darkMode.hook();
+  useTwitterSectionSize(sectionId);
 
   return (
     id && (
