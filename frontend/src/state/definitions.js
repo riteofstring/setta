@@ -220,6 +220,7 @@ export const useMisc = create(
     mouseDownDrawArea: false,
     mouseDownDraggingSection: false,
     lastPaneClickLocation: {},
+    lastPaneClickLocation: { x: 0, y: 0 },
     singletonSections: { globalVariables: null, globalParamSweep: null },
   })),
 );
