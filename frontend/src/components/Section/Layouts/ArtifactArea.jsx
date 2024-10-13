@@ -1,21 +1,8 @@
 import { ParentSize } from "@visx/responsive";
 import { LineChart } from "components/Utils/Charts/LineChart";
-import React, { useEffect } from "react";
-import {
-  setAspectRatioInfo,
-  setSectionSize,
-} from "state/actions/sections/setters";
-import { useSectionInfos } from "state/definitions";
+import React from "react";
 import { useArtifactData } from "state/hooks/artifacts";
-import {
-  getMinSectionHeight,
-  getMinSectionWidth,
-} from "state/hooks/sectionSizes";
-import {
-  adjustAspectRatio,
-  adjustSizeToBeAtLeastMin,
-  getImageDimensionsFromBase64,
-} from "utils/utils";
+import { useImgArtifactAreaSize } from "state/hooks/sectionSizes";
 
 function _ArtifactArea({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -65,48 +52,16 @@ function OneChart({ series, title }) {
 
 function OneImg({ sectionId, img }) {
   const base64String = `data:image/png;base64,${img}`;
-
-  async function setSectionSizeOnLoad() {
-    const imgSize = await getImageDimensionsFromBase64(base64String);
-    const minHeight = getMinSectionHeight({
-      isOutput: true,
-    });
-    const minWidth = getMinSectionWidth({});
-    const currSize = useSectionInfos.getState().x[sectionId].size;
-
-    let adjustedSize = adjustAspectRatio(
-      currSize.height,
-      currSize.width,
-      imgSize.height,
-      imgSize.width,
-    );
-    adjustedSize = adjustSizeToBeAtLeastMin(
-      adjustedSize.height,
-      adjustedSize.width,
-      minHeight,
-      minWidth,
-    );
-
-    const sectionHeaderHeight = 28;
-    adjustedSize.height += sectionHeaderHeight;
-    setSectionSize(sectionId, adjustedSize);
-    setAspectRatioInfo({
-      sectionId,
-      aspectRatio: imgSize.width / imgSize.height,
-      aspectRatioExtraHeight: sectionHeaderHeight,
-    });
-  }
-
-  useEffect(() => {
-    setSectionSizeOnLoad();
-  }, [base64String]);
+  const imgSizeLoaded = useImgArtifactAreaSize(sectionId, base64String);
 
   return (
     <figure className="section-w-full section-row-main flex overflow-clip px-3 pb-1 pt-1">
-      <img
-        src={base64String}
-        className="h-auto max-h-full w-full self-center object-contain"
-      />
+      {imgSizeLoaded && (
+        <img
+          src={base64String}
+          className="h-auto max-h-full w-full self-center object-contain"
+        />
+      )}
     </figure>
   );
 }

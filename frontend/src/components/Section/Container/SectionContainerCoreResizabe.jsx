@@ -92,6 +92,7 @@ export function SectionContainerCoreResizable({
   return (
     <CustomResizable
       sectionId={sectionId}
+      disablePointerEvents={disablePointerEvents}
       inputClasses={inputClasses}
       as="section"
     >

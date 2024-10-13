@@ -1,17 +1,24 @@
+import _ from "lodash";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
 import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
+import {
+  getAllSectionChildrenIds,
+  getHighestAncestor,
+} from "./sectionChildren";
 import { setSectionInfoAttr } from "./sectionInfos";
 import { setSectionSize } from "./setters";
 
-export function setSelfParentSiblingChildrenWidths({ sectionId, size }) {
+export function setSelfParentSiblingChildrenWidths({ sectionId, changedSize }) {
   // set own width
-  setSectionSize(sectionId, size);
+  setSectionSize(sectionId, changedSize);
 
-  setAllOtherWidths({
-    sectionId,
-    width: size.width,
-  });
+  if (!_.isNil(changedSize.width)) {
+    setAllOtherWidths({
+      sectionId,
+      width: changedSize.width,
+    });
+  }
 
   maybeIncrementProjectStateVersion(true);
 }
@@ -46,34 +53,66 @@ export function setAllChildrenWidths({ sectionId, exclude, width }) {
   });
 }
 
-export function getHighestAncestor(
-  sectionId,
-  parentIdGetter = getSectionParentId,
-) {
-  let parentId = parentIdGetter(sectionId);
-  let highestAncestor = sectionId;
+export function adjustSizeToBeAtLeastMin(height, width, minHeight, minWidth) {
+  const aspectRatio = width / height;
 
-  while (parentId) {
-    highestAncestor = parentId;
-    parentId = parentIdGetter(parentId);
+  if (height < minHeight || width < minWidth) {
+    if (height < minHeight) {
+      height = minHeight;
+      width = height * aspectRatio;
+    }
+
+    if (width < minWidth) {
+      width = minWidth;
+      height = width / aspectRatio;
+    }
+
+    // Round the dimensions to avoid floating-point issues
+    return {
+      height: Math.round(height),
+      width: Math.round(width),
+    };
   }
 
-  return highestAncestor;
+  // If no adjustment is needed, return the original dimensions
+  return { height, width };
 }
 
-export function getAllSectionChildrenIds(
-  sectionInfoState,
-  sectionVariantState,
-  sectionIds,
-) {
-  const ids = [...sectionIds];
-  let idx = 0;
-  while (idx < ids.length) {
-    const currId = ids[idx];
-    ids.push(
-      ...sectionVariantState[sectionInfoState[currId].variantId].children,
-    );
-    idx += 1;
+export function adjustAspectRatio(height, width, imgHeight, imgWidth) {
+  // If both height and width are "auto", return original image dimensions
+  if (height === "auto" && width === "auto") {
+    return { height: imgHeight, width: imgWidth };
   }
-  return ids;
+
+  // Calculate the aspect ratio of the original image
+  const imgAspectRatio = imgWidth / imgHeight;
+
+  // If height is "auto", adjust height based on width
+  if (height === "auto") {
+    const newHeight = width / imgAspectRatio;
+    return { height: newHeight, width: width };
+  }
+
+  // If width is "auto", adjust width based on height
+  if (width === "auto") {
+    const newWidth = height * imgAspectRatio;
+    return { height: height, width: newWidth };
+  }
+
+  // Calculate the current aspect ratio
+  const currentAspectRatio = width / height;
+
+  // Adjust dimensions to maintain the original aspect ratio
+  if (currentAspectRatio > imgAspectRatio) {
+    // Adjust width based on height
+    const newWidth = height * imgAspectRatio;
+    return { height: height, width: newWidth };
+  } else if (currentAspectRatio < imgAspectRatio) {
+    // Adjust height based on width
+    const newHeight = width / imgAspectRatio;
+    return { height: newHeight, width: width };
+  } else {
+    // Aspect ratios match, return the provided dimensions
+    return { height: height, width: width };
+  }
 }

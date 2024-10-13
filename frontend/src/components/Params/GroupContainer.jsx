@@ -1,12 +1,16 @@
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
-import { getNewSize, SIZE_MODE } from "components/Utils/Resizable/utils";
+import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
 import React, { useEffect, useRef, useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { useOverflow } from "state/hooks/sectionSizes";
-import { PINNED_PARAMS_AREA_MIN_HEIGHT } from "utils/constants";
+import {
+  INFINITE_MAX_HEIGHT,
+  PINNED_PARAMS_AREA_MIN_HEIGHT,
+  useOverflow,
+} from "state/hooks/sectionSizes";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {
@@ -76,11 +80,12 @@ function ResizablePinnedArea({
   setDidUpdate,
   outerRef,
 }) {
+  const sectionHeight = useSectionInfos((x) => x.x[sectionId].size.height);
   const height = useGetSectionInfo(sectionId, "pinnedAreaHeight");
-  const [initialMaxHeight, setInitialMaxHeight] = useState(100000);
+  const [initialMaxHeight, setInitialMaxHeight] = useState(INFINITE_MAX_HEIGHT);
 
   function onResizeStop(...props) {
-    const { height } = getNewSize({
+    const { height } = getChangedSize({
       props,
       minHeight: "auto",
       sizeMode: { height: SIZE_MODE.any },
@@ -92,7 +97,10 @@ function ResizablePinnedArea({
     setInitialMaxHeight(outerRef.current.clientHeight);
   }, []);
 
-  const maxHeight = outerRef.current?.clientHeight ?? initialMaxHeight;
+  const maxHeight =
+    sectionHeight === "auto"
+      ? INFINITE_MAX_HEIGHT
+      : outerRef.current?.clientHeight ?? initialMaxHeight;
 
   return (
     <ResizableWithScale
@@ -101,8 +109,8 @@ function ResizablePinnedArea({
       as="section"
       size={{ height }}
       onResizeStop={onResizeStop}
-      minHeight={`${PINNED_PARAMS_AREA_MIN_HEIGHT}px`}
-      maxHeight={`${maxHeight}px`}
+      minHeight={PINNED_PARAMS_AREA_MIN_HEIGHT}
+      maxHeight={maxHeight}
       enable={{
         top: false,
         left: false,
