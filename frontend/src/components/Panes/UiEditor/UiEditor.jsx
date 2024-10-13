@@ -22,47 +22,48 @@ import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { SectionVariants } from "./SectionVariants/SectionVariants";
 import { UIConfig } from "./UIConfig/UIConfig";
+import { localStorageFns } from "state/hooks/localStorage";
 
 export function UiEditor() {
   const sectionIds = useActiveSection((x) => x.ids);
-  const { vis, width, setWidth, setTrueWidth, visToggle } = usePaneFns({
-    paneName: UI_EDITOR,
-  });
 
-  function onClick() {
-    visToggle();
-  }
+  const [tab, setTab] = localStorageFns.uiEditorTab.hook();
+  const { vis, width, setWidth, setTrueWidth, getOnTabClick } = usePaneFns({
+    paneName: UI_EDITOR,
+    tab,
+    setTab,
+  });
 
   return (
     <>
       <div className="absolute right-0 z-20 flex h-full w-12 flex-col items-center gap-1 bg-setta-900 py-2">
         <button
           className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={onClick}
+          // onClick={getOnTabClick(SECTION_CONFIG_TAB)}
         >
           <MdOutlineSettingsApplications />
         </button>
         <button
           className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={onClick}
+          // onClick={getOnTabClick()}
         >
           <BsCardChecklist />
         </button>
         <button
           className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={onClick}
+          // onClick={onClick}
         >
           <TbEdit />
         </button>
         <button
           className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={onClick}
+          // onClick={onClick}
         >
           <FaMarkdown />
         </button>
         <button
           className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={onClick}
+          // onClick={onClick}
         >
           <TbVersions />
         </button>
@@ -86,7 +87,7 @@ export function UiEditor() {
 }
 
 function TabsVisible({ sectionId }) {
-  const [tab, setTab, requiredTabs] = useUIEditorTab(sectionId);
+  // const [tab, setTab, requiredTabs] = useUIEditorTab(sectionId);
 
   return (
     <Tabs.Root

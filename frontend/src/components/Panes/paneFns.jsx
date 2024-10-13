@@ -1,7 +1,7 @@
 import { localStorageFns } from "state/hooks/localStorage";
 import { CLOSED_PANE_WIDTH } from "utils/constants";
 
-export function usePaneFns({ paneName, onResizeStop }) {
+export function usePaneFns({ paneName, onResizeStop, tab, setTab }) {
   const [vis, setVis] = localStorageFns[`${paneName}Vis`].hook();
   const [width, setWidth] = localStorageFns[`${paneName}Width`].hook();
   const setTrueWidth = localStorageFns[`${paneName}TrueWidth`].state()[1];
@@ -15,5 +15,19 @@ export function usePaneFns({ paneName, onResizeStop }) {
       onResizeStop(newVis ? widthDiff : -widthDiff);
     }
   }
-  return { vis, width, setWidth, setTrueWidth, visToggle };
+
+  function getOnTabClick(tabValue) {
+    return () => {
+      if (tab !== tabValue) {
+        setTab(tabValue);
+        if (!vis) {
+          visToggle();
+        }
+      } else {
+        visToggle();
+      }
+    };
+  }
+
+  return { vis, width, setWidth, setTrueWidth, getOnTabClick };
 }
