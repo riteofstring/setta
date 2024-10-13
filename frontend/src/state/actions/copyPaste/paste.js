@@ -13,7 +13,6 @@ export async function paste() {
     return;
   }
   if (x.copyType === "sections") {
-    console.log("await navigator.clipboard.readText()", x);
     // const activeSectionIds = useActiveSection.getState().ids
     // if (activeSectionIds.length > 1 && Object.values(x.data.sections).length === 1) {
     //     for (const id of activeSectionIds){
@@ -29,7 +28,6 @@ export async function paste() {
 
 async function pasteSections(data) {
   const res = await dbCreateCopyOfSections(data);
-  console.log("res", res);
   if (res.status === 200) {
     res.data.sections = removeSingletonSectionsIfAlreadyPresent(res.data);
     const topLevelIds = findTopLevelSections(
