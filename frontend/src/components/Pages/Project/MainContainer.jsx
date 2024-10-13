@@ -8,19 +8,6 @@ import { UiEditor } from "../../../components/Panes/UiEditor/UiEditor";
 import { UIPage } from "./UiPage";
 
 export function MainContainer() {
-  return (
-    <>
-      <LoadingSpinner />
-      <Overview />
-      <UiEditor />
-      <GridWrapper>
-        <UIPage />
-      </GridWrapper>
-    </>
-  );
-}
-
-function LoadingSpinner({ children }) {
   const doneLoading = useLoadProjectConfig();
   useCodeMirrorStyleLoader(doneLoading);
 
@@ -30,16 +17,25 @@ function LoadingSpinner({ children }) {
     }
   }, [doneLoading]);
 
-  return !doneLoading ? (
+  return (
+    <>
+      {!doneLoading && <LoadingSpinner doneLoading={doneLoading} />}
+      <Overview />
+      <UiEditor />
+      <GridWrapper>{doneLoading && <UIPage />}</GridWrapper>
+    </>
+  );
+}
+
+function LoadingSpinner() {
+  return (
     <div className="single-cell-container absolute h-full w-full">
       <div
         className={`single-cell-child inset-0 place-self-center bg-transparent bg-opacity-50`}
       >
         <div className="gg-spinner !scale-150 before:!border-t-blue-500 after:!border-blue-500"></div>
       </div>
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10" />
     </div>
-  ) : (
-    children
   );
 }
