@@ -30,8 +30,6 @@ async function pasteSections(data) {
   const res = await dbCreateCopyOfSections(data);
   if (res.status === 200) {
     res.data.sections = removeSingletonSectionsIfAlreadyPresent(res.data);
-
-    console.log("res.data", res.data);
     const topLevelIds = findTopLevelSections(
       res.data.sections,
       res.data.sectionVariants,
@@ -69,7 +67,7 @@ function removeSingletonSectionsIfAlreadyPresent(pasteData) {
   const { globalVariables, globalParamSweep } =
     useMisc.getState().singletonSections;
   if (!globalVariables && !globalParamSweep) {
-    return;
+    return sections;
   }
 
   const toRemove = [];
