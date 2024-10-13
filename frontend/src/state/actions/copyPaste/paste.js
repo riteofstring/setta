@@ -1,7 +1,8 @@
 import C from "constants/constants.json";
+import { getActiveSectionsBounds } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { dbCreateCopyOfSections } from "requests/pasteSections";
-import { useMisc } from "state/definitions";
+import { useActiveSection, useMisc } from "state/definitions";
 import { setNotificationMessage } from "../notification";
 import { loadSectionIntoState } from "../sections/loadSections";
 
@@ -38,7 +39,7 @@ async function pasteSections(data) {
     loadSectionIntoState({
       ...res.data,
       topLevelIds,
-      ...useMisc.getState().lastPaneClickLocation,
+      ...getPasteLocation(),
       incrementVersion: true,
     });
   }
@@ -84,4 +85,13 @@ function removeSingletonSectionsIfAlreadyPresent(pasteData) {
   }
 
   return _.omit(sections, toRemove);
+}
+
+function getPasteLocation() {
+  if (useActiveSection.getState().ids.length === 0) {
+    return useMisc.getState().lastPaneClickLocation;
+  }
+  // paste directly to the right of the active sections
+  const { x, y, width } = getActiveSectionsBounds();
+  return { x: x + width, y };
 }
