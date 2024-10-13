@@ -25,6 +25,12 @@ function _SectionItem({ sectionId, sectionHeading, checkbox }) {
     goToSection(sectionId);
   };
 
+  const onKeyDown = (e) => {
+    if (e.key === "Enter") {
+      onClick();
+    }
+  };
+
   if (checkbox) {
     return (
       <label
@@ -44,6 +50,8 @@ function _SectionItem({ sectionId, sectionHeading, checkbox }) {
     <p
       className="dark:text-rx-300 cursor-pointer truncate rounded px-1 py-0.5 text-sm text-setta-700 hover:bg-white hover:shadow-md dark:text-setta-200  dark:hover:bg-setta-700"
       onClick={onClick}
+      onKeyDown={onKeyDown}
+      tabIndex="0"
     >
       {sectionHeading}
     </p>

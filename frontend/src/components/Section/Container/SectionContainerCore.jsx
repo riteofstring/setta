@@ -15,6 +15,7 @@ import {
 } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { useGetSectionInfo } from "state/hooks/sections";
+import { useIsYouTube } from "state/hooks/social";
 import { useSectionTypeName } from "state/hooks/uiTypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
@@ -54,13 +55,15 @@ function _SectionContainerCore({ sectionId }) {
     setZIndices([highestAncestor], false);
   }
 
+  const youtube = useIsYouTube(sectionId);
+
   const boxShadow = isActiveSection
     ? "shadow-2xl"
     : "shadow-md active:shadow-2xl";
 
   return (
     <section
-      className={`group/card-section rounded-xl border border-white bg-white dark:border-setta-700 dark:bg-setta-925 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
+      className={`group/card-section rounded-xl border border-white bg-white dark:border-setta-700 dark:bg-setta-925 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease] ${youtube ? "overflow-clip" : ""}`}
       onClick={onClick}
       ref={refForPosition}
     >

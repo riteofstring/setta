@@ -41,7 +41,7 @@ export function UiEditor() {
 
   return (
     <>
-      <div className="absolute right-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
+      <div className="absolute right-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-4 dark:border-setta-850 dark:bg-setta-900">
         <TabButton tabName={SECTION_CONFIG_TAB} {...commonProps}>
           <MdOutlineSettingsApplications />
         </TabButton>
@@ -80,7 +80,7 @@ function TabsVisible({ sectionId, tab }) {
   const title = tabNameToPretty.get(tab);
   console.log("title", tab);
   return (
-    <div className="flex h-full min-h-0 w-[calc(100%_-_3rem)] min-w-0 flex-1 flex-col overflow-hidden pr-1.5">
+    <div className="flex h-full min-h-0 w-[calc(100%_-_2rem)] min-w-0 flex-1 flex-col overflow-hidden pr-6">
       <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
         {title}
       </h2>
