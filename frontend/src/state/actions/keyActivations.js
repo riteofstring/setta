@@ -282,6 +282,8 @@ function onTab(e) {
   const currentFocusedElement = document.activeElement;
   if (currentFocusedElement === document.body) {
     e.preventDefault();
-    e.stopPropagation()
+    document
+      .getElementById("ProjectOverviewButtonDiv")
+      .focus({ preventScroll: true });
   }
 }

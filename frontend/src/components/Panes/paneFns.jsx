@@ -33,6 +33,7 @@ export function usePaneFns({ paneName, onResizeStop, tab, setTab }) {
 }
 
 export function TabButton({
+  id,
   vis,
   tab,
   tabName,
@@ -45,6 +46,7 @@ export function TabButton({
   const color = getColor({ vis, isCurrSelected: tab === tabName, disabled });
   return (
     <button
+      id={id}
       className={`${className} ${color}`}
       onClick={getOnTabClick(tabName)}
       disabled={disabled}
