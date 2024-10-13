@@ -36,9 +36,15 @@ function attachKeyUpListener(action) {
 }
 
 function shouldAddKeyPrefix(key) {
-  return ![undefined, "escape", "enter", "space", "comma", "period"].includes(
-    key,
-  );
+  return ![
+    undefined,
+    "escape",
+    "enter",
+    "space",
+    "comma",
+    "period",
+    "tab",
+  ].includes(key);
 }
 
 // shortcutString is a lowercase string.
@@ -105,6 +111,7 @@ function getShouldPreventDefault(lowercaseKeyCombo) {
     "mod + v",
     "space",
     "escape",
+    "tab",
   ].includes(lowercaseKeyCombo);
 }
 
@@ -112,7 +119,7 @@ function keyUpLoop(e, shortcutInfo) {
   for (const x of shortcutInfo) {
     if (x.wasPressed) {
       x.wasPressed = false;
-      x.keyUpAction?.();
+      x.keyUpAction?.(e);
     }
   }
 }
@@ -121,6 +128,7 @@ export function attachKeyEventListeners() {
   const settings = useSettings.getState();
 
   const conditionAndAction = [
+    ["tab", onTab],
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
     [settings.groupShortcut, groupSections],
@@ -197,10 +205,10 @@ export function attachKeyEventListeners() {
         if (e.repeat && !x.allowRepeat) {
           continue;
         }
-        x.keyDownAction();
+        x.keyDownAction(e);
         x.wasPressed = true;
       } else if (x.wasPressed) {
-        x.keyUpAction?.();
+        x.keyUpAction?.(e);
         x.wasPressed = false;
       }
     }
@@ -268,4 +276,12 @@ function activateMoveSectionMode() {
 
 function deactivateMoveSectionMode() {
   useReactFlow.setState({ moveSectionActivationKeyPressed: false });
+}
+
+function onTab(e) {
+  const currentFocusedElement = document.activeElement;
+  if (currentFocusedElement === document.body) {
+    e.preventDefault();
+    e.stopPropagation()
+  }
 }
