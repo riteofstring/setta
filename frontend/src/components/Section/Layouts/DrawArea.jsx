@@ -2,10 +2,13 @@ import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useDropzone } from "react-dropzone";
 import { BiPaint } from "react-icons/bi";
+import { updateArtifacts } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { setCanvasSettings } from "state/actions/sections/setters";
 import {
   base64RequestId,
@@ -308,7 +311,43 @@ export function DrawOnImage({ sectionId }) {
     return base64;
   }
 
-  const canvasClassName = "single-cell-child max-w-full place-self-center";
+  const onDrop = useCallback((acceptedFiles) => {
+    acceptedFiles.forEach((file) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        // The base64 string is in reader.result
+        const base64String = reader.result.replace(
+          /^data:image\/[a-z]+;base64,/,
+          "",
+        );
+        const artifactPath = `data:${sectionId}-${file.name}`;
+        updateArtifacts({
+          artifacts: {
+            [artifactPath]: {
+              value: base64String,
+              type: "img",
+            },
+          },
+        });
+        setSectionInfoAttr({
+          sectionId,
+          attr: "artifacts",
+          newValueFn: (x) => [...x, artifactPath],
+        });
+      };
+
+      reader.onerror = (error) => {
+        console.error("Error reading file:", error);
+      };
+
+      // Read the file as a Data URL (base64)
+      reader.readAsDataURL(file);
+    });
+  }, []);
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+
+  const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
   const cursorIcon = isEraser
     ? "cursor-[url(../../../erase.svg)_0_24,_pointer]"
     : "cursor-[url(../../../pen.svg)_0_24,_pointer]";
@@ -409,7 +448,10 @@ export function DrawOnImage({ sectionId }) {
           <i className="gg-trash" />
         </button>
       </div>
-      <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
+      <section
+        className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0"
+        {...getRootProps()}
+      >
         <canvas ref={backgroundCanvasRef} className={canvasClassName} />
         <div
           className="single-cell-child single-cell-container"
