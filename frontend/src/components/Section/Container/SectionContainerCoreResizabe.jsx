@@ -59,19 +59,13 @@ export function SectionContainerCoreResizable({
   };
   const _isRoot = isRoot(sectionTypeName);
 
-  const outlineColor = getOutlineColor({
-    isWrongType,
-    isActiveSection,
-    isGlobalVariables,
-    isInOtherProjectConfigs,
-    isSelectingParams,
-  });
+
   const bgColor = getBgColor();
 
   const borderClasses =
     "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700";
 
-  const inputClasses = `${pointerSelectCSS} outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  ${
+  const inputClasses = `${pointerSelectCSS} ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${borderClasses}`;
 
