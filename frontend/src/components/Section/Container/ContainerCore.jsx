@@ -51,7 +51,7 @@ function _Container({
   if (isDeck) {
     return (
       <div
-        className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3  ${className} outline outline-4 ${outlineColor}`}
+        className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3 rounded-3xl ${className} outline outline-4 ${outlineColor}`}
         {...commonProps}
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
         onClick={getOnSectionClick({ sectionId, isActiveSection })}
