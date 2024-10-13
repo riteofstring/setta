@@ -1,8 +1,7 @@
 import getYouTubeID from "get-youtube-id";
 import _ from "lodash";
-import React from "react";
+import React, {useRef, useEffect} from "react";
 import { Tweet } from "react-tweet";
-import YouTube from "react-youtube";
 import { useSectionInfos } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useYouTubeSectionSize } from "state/hooks/sectionSizes";
@@ -23,10 +22,45 @@ export const SocialArea = React.memo(_SocialArea);
 function YoutubeEmbed({ sectionId, url }) {
   const id = getYouTubeID(url, { fuzzy: false });
   const playerSize = useYouTubeSectionSize(sectionId);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+
+    const preventDefault = (event) => {
+      event.preventDefault();
+    };
+
+    // Add event listeners to prevent default behavior for wheel and touch events
+    container.addEventListener('wheel', preventDefault, { passive: false, capture: true });
+    container.addEventListener('touchmove', preventDefault, { passive: false, capture: true });
+
+    // Clean up event listeners on component unmount
+    return () => {
+      container.removeEventListener('wheel', preventDefault, { capture: true });
+      container.removeEventListener('touchmove', preventDefault, { capture: true });
+    };
+  }, []);
+
 
   return (
-    <div className="section-w-full section-row-main flex">
-      <YouTube videoId={id} opts={playerSize} />
+    <div ref={containerRef} className={`section-w-full section-row-main flex pointer-events-auto`}>
+      <iframe
+      className="pointer-events-auto"
+        width={playerSize.width}
+        height={playerSize.height}
+        src={`https://www.youtube.com/embed/${id}`}
+        title="YouTube video player"
+        // frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerPolicy="strict-origin-when-cross-origin"
+        // allowfullscreen
+        // ref={bottomDivRef}
+      />
+      {/* <div
+        className="pointer-events-none absolute inset-0"
+        onWheel={handleWheel}
+      ></div> */}
     </div>
   );
 }
