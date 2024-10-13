@@ -1,10 +1,6 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/Utils/PaneContainer";
-import { BsCardChecklist } from "react-icons/bs";
-import { FaMarkdown } from "react-icons/fa";
 import { FiEdit3 } from "react-icons/fi";
-import { MdOutlineSettingsApplications } from "react-icons/md";
-import { TbEdit, TbVersions } from "react-icons/tb";
 import { useActiveSection } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useUIEditorTab } from "state/hooks/uiTypes";
@@ -33,32 +29,13 @@ export function UiEditor() {
   const [vis] = localStorageFns[`${paneProps.paneName}Vis`].hook();
 
   return (
-    <>
-      <div className="absolute right-0 z-20 flex h-full w-12 flex-col items-center gap-1 bg-setta-900 py-2">
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
-          <MdOutlineSettingsApplications />
-        </button>
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
-          <BsCardChecklist />
-        </button>
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
-          <TbEdit />
-        </button>
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
-          <FaMarkdown />
-        </button>
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
-          <TbVersions />
-        </button>
-      </div>
-      <PaneContainer paneProps={paneProps} paneTitle="Edit" minimumWidth={425}>
-        {sectionIds.length === 1 && vis ? (
-          <TabsVisible sectionId={sectionIds[0]} />
-        ) : (
-          <Placeholder />
-        )}
-      </PaneContainer>
-    </>
+    <PaneContainer paneProps={paneProps} paneTitle="Edit" minimumWidth={425}>
+      {sectionIds.length === 1 && vis ? (
+        <TabsVisible sectionId={sectionIds[0]} />
+      ) : (
+        <Placeholder />
+      )}
+    </PaneContainer>
   );
 }
 
