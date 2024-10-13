@@ -1,5 +1,8 @@
+import C from "constants/constants.json";
+import _ from "lodash";
 import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { useMisc } from "state/definitions";
+import { setNotificationMessage } from "../notification";
 import { loadSectionIntoState } from "../sections/loadSections";
 
 export async function paste() {
@@ -26,6 +29,8 @@ export async function paste() {
 async function pasteSections(data) {
   const res = await dbCreateCopyOfSections(data);
   if (res.status === 200) {
+    res.data.sections = removeSingletonSectionsIfAlreadyPresent(res.data);
+
     console.log("res.data", res.data);
     const topLevelIds = findTopLevelSections(
       res.data.sections,
@@ -56,4 +61,28 @@ function findTopLevelSections(sections, sectionVariants) {
     }
   }
   return topLevelIds;
+}
+
+function removeSingletonSectionsIfAlreadyPresent(pasteData) {
+  const { sections, uiTypes } = pasteData;
+
+  const { globalVariables, globalParamSweep } =
+    useMisc.getState().singletonSections;
+  if (!globalVariables && !globalParamSweep) {
+    return;
+  }
+
+  const toRemove = [];
+  for (const s of Object.values(sections)) {
+    const uiTypeName = uiTypes[s.uiTypeId].type;
+    if (
+      (globalVariables && uiTypeName === C.GLOBAL_VARIABLES) ||
+      (globalParamSweep && uiTypeName === C.GLOBAL_PARAM_SWEEP)
+    ) {
+      toRemove.push(s.id);
+      setNotificationMessage("Can't have more than 1 global section!");
+    }
+  }
+
+  return _.omit(sections, toRemove);
 }
