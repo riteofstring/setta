@@ -43,11 +43,9 @@ async function pasteSections(data) {
 
 function findTopLevelSections(sections, sectionVariants) {
   const allChildren = new Set();
-  for (const variants of Object.values(sectionVariants)) {
-    for (const v of Object.values(variants)) {
-      for (const c of v.children) {
-        allChildren.add(c);
-      }
+  for (const v of Object.values(sectionVariants)) {
+    for (const c of v.children) {
+      allChildren.add(c);
     }
   }
 

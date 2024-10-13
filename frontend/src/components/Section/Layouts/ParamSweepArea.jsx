@@ -3,7 +3,6 @@ import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
-import { FiEdit3 } from "react-icons/fi";
 import {
   addParamSweepCallable,
   addParamSweepParamInfoId,
@@ -34,7 +33,7 @@ function _ParamSweepArea({ sectionId }) {
 
   return (
     <>
-      <div className="section-main-full-w ml-1.5 flex flex-col overflow-x-clip overflow-y-scroll">
+      <div className="section-main-full-w ml-1.5 flex flex-col gap-4 overflow-y-scroll">
         {!showParamSweepSectionSearch && (
           <AddRemoveButtonsForNoCallableSection
             forSectionId={forSectionId}
@@ -42,7 +41,7 @@ function _ParamSweepArea({ sectionId }) {
             paramSweep={paramSweep}
           />
         )}
-        {paramSweep.length > 0 ? (
+        {paramSweep.length > 0 &&
           paramSweep.map((sweep, idx) => (
             <ParamSweepForOneSelectedItem
               key={`${idx}-${sweep.selectedItem}`}
@@ -53,15 +52,10 @@ function _ParamSweepArea({ sectionId }) {
               selectedItemIdx={idx}
               showParamSweepSectionSearch={showParamSweepSectionSearch}
             />
-          ))
-        ) : (
-          <div className="section-main-full-w single-cell-container h-full place-items-center">
-            <FiEdit3 className="single-cell-child h-10 w-10 text-setta-200 dark:text-setta-700 " />
-          </div>
-        )}
+          ))}
         {showParamSweepSectionSearch && (
           <button
-            className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500/30 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
+            className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
             onClick={onAddCallableClick}
           >
             <i className="gg-play-list-add !scale-75" />
@@ -96,7 +90,7 @@ function ParamSweepForOneSelectedItem({
     deleteLastParamSweepParamInfoId({ paramSweepId, selectedItemIdx });
 
   return (
-    <div className="section-min-rows section-grid-cols section-grid-sweep-areas mb-4 grid">
+    <div className="section-min-rows section-grid-cols section-grid-sweep-areas grid">
       {showParamSweepSectionSearch && (
         <ParamSweepSectionSearch
           sectionId={sectionId}
@@ -329,9 +323,9 @@ function AddRemoveButtonsForNoCallableSection({
     deleteLastParamSweepParamInfoId({ paramSweepId, selectedItemIdx });
 
   return (
-    <div className="mb-0.5 flex rounded-lg bg-setta-950 py-1 pl-0.5 pr-0.5">
-      <p className="ml-1.5 mr-auto text-xs font-bold tracking-tighter text-setta-500 dark:text-setta-400">
-        Add/Remove Parameters
+    <div className="flex">
+      <p className="text-xs font-bold uppercase text-setta-700 dark:text-setta-400">
+        Params
       </p>
       <button
         className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
