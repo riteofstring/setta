@@ -126,18 +126,17 @@ export function useIsDrawArea(sectionId) {
 }
 
 export function useUIEditorTab(sectionId) {
-  const uiTypeId = useSectionInfos((x) =>
-    sectionId ? x.x[sectionId].uiTypeId : null,
-  );
-  const uiTypeName = useUITypes((x) => (uiTypeId ? x.x[uiTypeId].type : null));
-  const [_storedTab, _setStoredTab] = localStorageFns["uiEditorTab"].hook();
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
+  const uiTypeName = useUITypes((x) => x.x[uiTypeId].type);
   const requiredTabs = getRequiredUIEditorTabs(uiTypeName);
+  const [_storedTab, _setStoredTab] = localStorageFns["uiEditorTab"].hook();
   const storedTab = _storedTab[uiTypeName] ?? SECTION_CONFIG_TAB;
+
   // when sectionId changes, the requiredTabs might not include the previously active tab
   const tab = requiredTabs.includes(storedTab) ? storedTab : requiredTabs[0];
   const setTab = (newTabState) =>
     _setStoredTab((state) => ({ ...state, [uiTypeName]: newTabState }));
-  return [tab, setTab, new Set(requiredTabs)];
+  return [tab, setTab, requiredTabs];
 }
 
 function getRequiredUIEditorTabs(uiTypeName) {
@@ -147,15 +146,12 @@ function getRequiredUIEditorTabs(uiTypeName) {
     case C.ARTIFACT:
     case C.SOCIAL:
       return [SECTION_CONFIG_TAB];
-    case null:
+    default:
       return [
-        SECTION_CONFIG_TAB,
         UI_CONFIG_TAB,
         QUICKINFO_CONFIG_TAB,
-        INFO_CONFIG_TAB,
+        // SECTION_CONFIG_TAB,
         SECTION_VARIANTS_TAB,
       ];
-    default:
-      return [UI_CONFIG_TAB, QUICKINFO_CONFIG_TAB, SECTION_VARIANTS_TAB];
   }
 }

@@ -18,6 +18,7 @@ import { SocialArea } from "../Layouts/SocialArea";
 import { MaybeTerminalArea } from "../Layouts/TerminalArea";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
+import { getOutlineColor } from "./utils";
 
 export function SectionContainerCoreResizable({
   sectionId,
@@ -39,27 +40,6 @@ export function SectionContainerCoreResizable({
     ? "pointer-events-none select-none"
     : "";
 
-  const getOutlineColor = () => {
-    if (isWrongType) {
-      return "outline-red-600 dark:outline-red-400";
-    }
-    if (isActiveSection && isGlobalVariables) {
-      return "outline-green-600 dark:outline-turquoise-400";
-    }
-    if (isInOtherProjectConfigs) {
-      if (isActiveSection) {
-        return "outline-purple-600 dark:outline-purple-700";
-      }
-      return `outline-transparent ${!isSelectingParams ? "active:outline-fuchsia-400" : ""}`;
-    }
-
-    if (isActiveSection) {
-      return "outline-blue-600 dark:outline-blue-700";
-    }
-
-    return `outline-transparent ${!isSelectingParams ? "active:outline-cyan-300" : ""}`;
-  };
-
   const getBgColor = () => {
     if (isGlobalVariables) {
       return "bg-white dark:bg-black";
@@ -79,7 +59,13 @@ export function SectionContainerCoreResizable({
   };
   const _isRoot = isRoot(sectionTypeName);
 
-  const outlineColor = getOutlineColor();
+  const outlineColor = getOutlineColor({
+    isWrongType,
+    isActiveSection,
+    isGlobalVariables,
+    isInOtherProjectConfigs,
+    isSelectingParams,
+  });
   const bgColor = getBgColor();
 
   const borderClasses =
