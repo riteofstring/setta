@@ -11,7 +11,7 @@ export async function updateInteractiveCode() {
   setNotificationMessage("Importing your code...");
   const res = await dbUpdateInteractiveCode();
   setNotificationMessage("Done importing");
-  if (res.status == 200) {
+  if (res.status === 200) {
     const taskMetadata = res.data.taskMetadata;
     for (const t of taskMetadata) {
       t.dependencies = new Set(t.dependencies.map((d) => JSON.stringify(d)));
@@ -41,7 +41,7 @@ export async function updateInteractiveData(data) {
 
 export async function formatCode() {
   const res = await dbFormateCode();
-  if (res.status == 200) {
+  if (res.status === 200) {
     for (const [sectionId, code] of Object.entries(res.data)) {
       setSectionVariantAttr(sectionId, "code", code);
     }

@@ -6,13 +6,14 @@ import { useGetSectionInfo } from "state/hooks/sections";
 import { useIsYouTube } from "state/hooks/social";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
-import { ArtifactArea } from "../Layouts/ArtifactArea";
 import { CodeArea } from "../Layouts/CodeArea";
 import { DrawOnImage } from "../Layouts/DrawArea";
 import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
+import { ImageArea } from "../Layouts/ImageArea";
 import { InfoArea } from "../Layouts/InfoArea";
 import { InputArea } from "../Layouts/InputArea";
+import { LinePlotArea } from "../Layouts/LinePlotArea";
 import { ParamSweepArea } from "../Layouts/ParamSweepArea";
 import { ReferenceArea } from "../Layouts/ReferenceArea";
 import { SocialArea } from "../Layouts/SocialArea";
@@ -112,8 +113,10 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
       return <InputArea sectionId={sectionId} bgColor={bgColor} />;
     case C.REFERENCE_SECTION:
       return <ReferenceArea sectionId={sectionId} />;
-    case C.ARTIFACT:
-      return <ArtifactArea sectionId={sectionId} />;
+    case C.IMAGE:
+      return <ImageArea sectionId={sectionId} />;
+    case C.LINE_PLOT:
+      return <LinePlotArea sectionId={sectionId} />;
     case C.DRAW:
       return <DrawOnImage sectionId={sectionId} />;
     case C.SOCIAL:

@@ -101,10 +101,6 @@ export function useIsDeck(sectionId) {
   return useIsType(sectionId, C.DECK);
 }
 
-export function useIsArtifact(sectionId) {
-  return useIsType(sectionId, C.ARTIFACT);
-}
-
 export function useIsSocial(sectionId) {
   return useIsType(sectionId, C.SOCIAL);
 }
@@ -143,11 +139,10 @@ export function useUIEditorTab(sectionId) {
 function getRequiredUIEditorTabs(uiTypeName) {
   switch (uiTypeName) {
     case C.INFO:
-      return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
-    case C.ARTIFACT:
+      return [INFO_CONFIG_TAB];
     case C.SOCIAL:
       return [SECTION_CONFIG_TAB];
-    case null:
+    default:
       return [
         SECTION_CONFIG_TAB,
         UI_CONFIG_TAB,
@@ -155,7 +150,5 @@ function getRequiredUIEditorTabs(uiTypeName) {
         INFO_CONFIG_TAB,
         SECTION_VARIANTS_TAB,
       ];
-    default:
-      return [UI_CONFIG_TAB, QUICKINFO_CONFIG_TAB, SECTION_VARIANTS_TAB];
   }
 }
