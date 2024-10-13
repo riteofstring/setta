@@ -55,7 +55,7 @@ def rename_keys(x, to_rename):
     output = copy.deepcopy(x)
     for old_key in to_rename.keys():
         new_key = to_rename[old_key]
-        if old_key in output:
+        if old_key in output and new_key != old_key:
             output[new_key] = output[old_key]
             del output[old_key]
     return output
