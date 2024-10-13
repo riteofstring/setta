@@ -1,7 +1,10 @@
 import C from "constants/constants.json";
 import React from "react";
 import { getInfoViewHandlers } from "state/actions/infoView";
-import { useGetSectionType } from "state/hooks/uiTypes";
+import {
+  useGetSectionType,
+  useShowSectionConfigTypeSelection,
+} from "state/hooks/uiTypes";
 import { CONST_INFO_VIEWS } from "utils/constants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";
@@ -15,6 +18,9 @@ const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
 export const SectionConfig = React.memo(_SectionConfig);
 
 function SectionConfigCore({ sectionId }) {
+  const showSectionConfigTypeSelection =
+    useShowSectionConfigTypeSelection(sectionId);
+
   // pass infoViewHandlersContents down?
   return (
     <div className="flex flex-1 flex-col gap-1 overflow-y-hidden">
@@ -30,7 +36,9 @@ function SectionConfigCore({ sectionId }) {
         <SaveUITypeConfig />
       </div>
 
-      <SectionConfigTypeSelection sectionId={sectionId} />
+      {showSectionConfigTypeSelection && (
+        <SectionConfigTypeSelection sectionId={sectionId} />
+      )}
 
       <p
         className="mt-4 text-xs font-semibold uppercase text-setta-400"
