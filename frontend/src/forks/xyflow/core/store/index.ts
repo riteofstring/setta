@@ -1,15 +1,21 @@
 import { zoomIdentity } from "d3-zoom";
-import { createProjectState } from "state/utils";
+import { useActiveSection } from "state/definitions";
+import { createWithEqualityFn } from "zustand/traditional";
 import type { CoordinateExtent, ReactFlowState, XYPosition } from "../types";
-import { getActiveSectionsBounds } from "../utils/graph";
+import { getNodesBounds, getSectionRect } from "../utils/graph";
 import initialState from "./initialState";
 
-export const useReactFlow = createProjectState<ReactFlowState>(
+export const useReactFlow = createWithEqualityFn<ReactFlowState>(
   (set, get) => ({
     ...initialState,
     setNodesSelection: (selectedNodesCount, ignoreGrid = false) => {
       if (selectedNodesCount > 0) {
-        set({ nodesSelectionDims: getActiveSectionsBounds(ignoreGrid) });
+        const activeSectionIds = useActiveSection.getState().ids;
+        const sections = activeSectionIds.map((sectionId) => {
+          const { x, y, width, height } = getSectionRect(sectionId, ignoreGrid);
+          return { position: { x, y }, width, height };
+        });
+        set({ nodesSelectionDims: getNodesBounds(sections) });
       }
     },
     shiftNodesSelection: (delta) => {

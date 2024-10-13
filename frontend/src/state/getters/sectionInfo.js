@@ -29,7 +29,7 @@ export function getSectionIsRoot(sectionId) {
 }
 
 export function getSectionCanOnlyBeChildOfDeck(sectionId) {
-  return ![C.SECTION, C.LIST_ROOT, C.DICT_ROOT].includes(
+  return [C.ARTIFACT, C.INFO, C.SOCIAL].includes(
     getSectionType(sectionId).type,
   );
 }
