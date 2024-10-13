@@ -1,7 +1,7 @@
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,
@@ -11,6 +11,7 @@ import {
   setSectionSize,
 } from "state/actions/sections/setters";
 import { useSectionInfos } from "state/definitions";
+import { getSectionType } from "state/getters/sectionInfo";
 import { getImageDimensionsFromBase64 } from "utils/utils";
 import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
@@ -160,8 +161,11 @@ export function useOverflow(sectionId) {
   return { overflow, ref, setDidUpdate };
 }
 
-export async function setImgArtifactSectionSize(sectionId, imgSize) {
-  const sectionType = C.ARTIFACT;
+export async function setSectionToHaveAspectRatioAndMinSize(
+  sectionId,
+  imgSize,
+) {
+  const sectionType = getSectionType(sectionId).type;
   const minHeight = getMinSectionHeight({ sectionType });
   const minWidth = getMinSectionWidth({ sectionType });
   const currSize = useSectionInfos.getState().x[sectionId].size;
@@ -201,7 +205,7 @@ export function useImgArtifactAreaSize(sectionId, base64String) {
     async function fn() {
       const x = await getImageDimensionsFromBase64(base64String);
       if (!_.isEqual(x, imgSize)) {
-        setImgArtifactSectionSize(sectionId, x);
+        setSectionToHaveAspectRatioAndMinSize(sectionId, x);
       }
       setImgSize(x);
     }
@@ -210,7 +214,7 @@ export function useImgArtifactAreaSize(sectionId, base64String) {
 
   useEffect(() => {
     if (imgSize) {
-      setImgArtifactSectionSize(sectionId, imgSize);
+      setSectionToHaveAspectRatioAndMinSize(sectionId, imgSize);
     }
   }, [widthOrHeightIsAuto]);
 
@@ -291,12 +295,8 @@ export function useYouTubeSectionSize(sectionId) {
     }
   }, [width, height]);
 
-  useLayoutEffect(() => {
-    setAspectRatioInfo({
-      sectionId,
-      aspectRatio: 16 / 9,
-      aspectRatioExtraHeight: extraHeight,
-    });
+  useEffect(() => {
+    setSectionToHaveAspectRatioAndMinSize(sectionId, defaultSize);
   }, []);
 
   const playerSize =
