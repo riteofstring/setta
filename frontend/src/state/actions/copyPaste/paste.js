@@ -71,6 +71,9 @@ function removeSingletonSectionsIfAlreadyPresent(pasteData) {
   }
 
   const toRemove = [];
+  const paramSweepSectionIds = new Set(
+    Object.values(sections).map((x) => x.paramSweepSectionIds),
+  );
   for (const s of Object.values(sections)) {
     const uiTypeName = uiTypes[s.uiTypeId].type;
     if (
@@ -79,6 +82,14 @@ function removeSingletonSectionsIfAlreadyPresent(pasteData) {
     ) {
       toRemove.push(s.id);
       setNotificationMessage("Can't have more than 1 global section!");
+    } else if (
+      uiTypeName === C.PARAM_SWEEP &&
+      !paramSweepSectionIds.has(s.id)
+    ) {
+      toRemove.push(s.id);
+      setNotificationMessage(
+        "Can't copy/paste a param sweep without its corresponding section.",
+      );
     }
   }
 
