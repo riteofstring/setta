@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { dbLoadArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { addSectionInEmptySpace } from "./sections/createSections";
@@ -12,13 +11,13 @@ export function updateArtifacts({ artifacts, addSection = false }) {
   });
 
   if (addSection) {
-    for (const fullPath of Object.keys(artifacts)) {
-      maybeAddArtifactSection(fullPath);
+    for (const [fullPath, data] of Object.entries(artifacts)) {
+      maybeAddArtifactSection(fullPath, data.sectionType);
     }
   }
 }
 
-function maybeAddArtifactSection(artifactPath) {
+function maybeAddArtifactSection(artifactPath, sectionType) {
   for (const s of Object.values(useSectionInfos.getState().x)) {
     if (s.artifacts.includes(artifactPath)) {
       return;
@@ -26,7 +25,7 @@ function maybeAddArtifactSection(artifactPath) {
   }
 
   addSectionInEmptySpace({
-    type: C.ARTIFACT,
+    type: sectionType,
     inputSectionProps: { artifacts: [artifactPath] },
   });
 }

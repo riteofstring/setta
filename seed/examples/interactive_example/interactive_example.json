@@ -192,7 +192,14 @@
     },
     "06b511f3-dced-43be-97d7-1ceaddc763d5": {
       "id": "06b511f3-dced-43be-97d7-1ceaddc763d5",
-      "type": "ARTIFACT",
+      "type": "IMAGE",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "126547a6-d41e-4891-80f0-a0354f089c7c": {
+      "id": "126547a6-d41e-4891-80f0-a0354f089c7c",
+      "type": "LINE_PLOT",
       "name": "",
       "presetType": "BASE",
       "config": {}
@@ -260,15 +267,11 @@
     "b3449dbb-8328-43bb-8e45-b76173bf679c": {
       "20512036-3e0f-41f3-9738-6573ee71bdaf": {
         "uiTypeId": "76c639bd-eae5-4497-bf8b-0e668d8baf6c",
-        "nonPresetUITypeIds": [
-          "76c639bd-eae5-4497-bf8b-0e668d8baf6c"
-        ]
+        "nonPresetUITypeIds": ["76c639bd-eae5-4497-bf8b-0e668d8baf6c"]
       },
       "c24c860d-2519-4a20-8acd-90fc0ffe48a8": {
         "uiTypeId": "f0593fb7-1a06-419b-af84-67d36995e1e2",
-        "nonPresetUITypeIds": [
-          "f0593fb7-1a06-419b-af84-67d36995e1e2"
-        ]
+        "nonPresetUITypeIds": ["f0593fb7-1a06-419b-af84-67d36995e1e2"]
       },
       "f14239d6-f206-4655-8c34-ddd6873391a5": {
         "uiTypeId": "eab8f446-17cc-4512-bab5-42bff8570f1f",
@@ -296,9 +299,7 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": [
-        "56218716-8dc7-4a8b-a253-1eb2bb9cfc56"
-      ],
+      "variantIds": ["56218716-8dc7-4a8b-a253-1eb2bb9cfc56"],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -328,9 +329,7 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": [
-        "91b7814e-8f93-4ad1-a966-00851b4e41d9"
-      ],
+      "variantIds": ["91b7814e-8f93-4ad1-a966-00851b4e41d9"],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -360,9 +359,7 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": [
-        "61ce0033-a59e-4c8e-8a52-d658feb18017"
-      ],
+      "variantIds": ["61ce0033-a59e-4c8e-8a52-d658feb18017"],
       "paramSweepIds": [],
       "artifacts": [
         {
@@ -398,9 +395,7 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": [
-        "00d5ac58-7a66-4ff1-a62f-af873c0a094b"
-      ],
+      "variantIds": ["00d5ac58-7a66-4ff1-a62f-af873c0a094b"],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -420,7 +415,7 @@
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
       "name": "institutional_fuchsia",
       "paramSweepSectionId": null,
-      "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
+      "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c",
       "uiTypeColId": "3072250c-fb83-4b58-9e3b-303f13b1e623",
       "social": null,
       "description": "",
@@ -430,9 +425,7 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": [
-        "efbf1e64-8932-4fa6-928a-e930314db45c"
-      ],
+      "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
       "paramSweepIds": [],
       "artifacts": [
         {
@@ -471,9 +464,7 @@
       "artifacts": [],
       "description": "",
       "codeLanguage": "python",
-      "variantIds": [
-        "8055d10b-3623-4665-b85c-977327fa40c6"
-      ],
+      "variantIds": ["8055d10b-3623-4665-b85c-977327fa40c6"],
       "paramSweepIds": [],
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
@@ -619,25 +610,19 @@
     "c": {
       "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
       "paramInfoId": "20512036-3e0f-41f3-9738-6573ee71bdaf",
-      "componentIndices": [
-        1
-      ],
+      "componentIndices": [1],
       "isArgsObj": false
     },
     "n": {
       "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
       "paramInfoId": "f14239d6-f206-4655-8c34-ddd6873391a5",
-      "componentIndices": [
-        1
-      ],
+      "componentIndices": [1],
       "isArgsObj": false
     },
     "blur_radius": {
       "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
       "paramInfoId": "c24c860d-2519-4a20-8acd-90fc0ffe48a8",
-      "componentIndices": [
-        11
-      ],
+      "componentIndices": [11],
       "isArgsObj": false
     }
   }

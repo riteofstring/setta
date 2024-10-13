@@ -358,7 +358,14 @@
     },
     "06b511f3-dced-43be-97d7-1ceaddc763d5": {
       "id": "06b511f3-dced-43be-97d7-1ceaddc763d5",
-      "type": "ARTIFACT",
+      "type": "IMAGE",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "126547a6-d41e-4891-80f0-a0354f089c7c": {
+      "id": "126547a6-d41e-4891-80f0-a0354f089c7c",
+      "type": "LINE_PLOT",
       "name": "",
       "presetType": "BASE",
       "config": {}

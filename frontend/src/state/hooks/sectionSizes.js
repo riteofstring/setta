@@ -55,8 +55,10 @@ export function getMinSectionHeight({
     return 100;
   } else if (sectionType === C.GLOBAL_PARAM_SWEEP) {
     return 112;
-  } else if (sectionType === C.DRAW || sectionType === C.ARTIFACT) {
+  } else if (sectionType === C.DRAW || sectionType === C.IMAGE) {
     return 100;
+  } else if (sectionType === C.LINE_PLOT) {
+    return 300;
   } else if (sectionType === C.SOCIAL) {
     return 50;
   }
@@ -78,6 +80,8 @@ export function getMinSectionWidth({ sectionType, isTwitter }) {
   }
   if (sectionType === C.DRAW) {
     return 272;
+  } else if (sectionType === C.LINE_PLOT) {
+    return 300;
   }
 
   return 200;
