@@ -6,23 +6,25 @@ export function SectionListItems({
   checkbox = false,
 }) {
   return listOfSectionIdsAndNames.map((e, idx) => (
-    <li
-      // className="-mx-3"
-      style={{ paddingLeft: `${0.75 * e.depth}rem` }}
+    <SectionItem
+      sectionId={e.id}
+      sectionHeading={e.name}
+      checkbox={checkbox}
+      depth={e.depth}
       key={`SectionItem-${e.id}-${idx}`}
-    >
-      <SectionItem
-        sectionId={e.id}
-        sectionHeading={e.name}
-        checkbox={checkbox}
-      />
-    </li>
+    />
   ));
 }
 
-function _SectionItem({ sectionId, sectionHeading, checkbox }) {
+function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
   const onClick = () => {
     goToSection(sectionId);
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === "Enter") {
+      onClick();
+    }
   };
 
   if (checkbox) {
@@ -41,12 +43,15 @@ function _SectionItem({ sectionId, sectionHeading, checkbox }) {
   }
 
   return (
-    <p
-      className="dark:text-rx-300 cursor-pointer truncate rounded px-1 py-0.5 text-sm text-setta-700 hover:bg-white hover:shadow-md dark:text-setta-200  dark:hover:bg-setta-700"
+    <li
+      className="focus-visible:ring-light-blue-500 cursor-pointer truncate rounded px-2 py-0.5 text-sm text-setta-700 hover:bg-white hover:shadow-md focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-700"
       onClick={onClick}
+      onKeyDown={onKeyDown}
+      style={{ marginLeft: `${0.75 * depth}rem` }}
+      tabIndex={0}
     >
       {sectionHeading}
-    </p>
+    </li>
   );
 }
 
