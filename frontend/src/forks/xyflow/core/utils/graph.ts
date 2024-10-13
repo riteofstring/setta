@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Selection as D3Selection } from "d3";
 import { setActiveSectionIds } from "state/actions/sections/activeSections";
-import { useSectionInfos, useSectionRefs } from "state/definitions";
+import {
+  useActiveSection,
+  useSectionInfos,
+  useSectionRefs,
+} from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { clamp } from "utils/utils";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
@@ -69,6 +73,16 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
 
   return boxToRect(box);
 };
+
+export function getActiveSectionsBounds(ignoreGrid=false) {
+  const activeSectionIds = useActiveSection.getState().ids;
+  const sections = activeSectionIds.map((sectionId) => {
+    const { x, y, width, height } = getSectionRect(sectionId, ignoreGrid);
+    return { position: { x, y }, width, height };
+  });
+
+  return getNodesBounds(sections);
+}
 
 export function getNodesInside(
   rect,

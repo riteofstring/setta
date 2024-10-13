@@ -195,6 +195,10 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function onMouseDown(e, offsetX, offsetY) {
+    if (useMisc.getState().mouseDownDraggingSection) {
+      return;
+    }
+
     if (!useMisc.getState().mouseDownDrawArea) {
       // We want to do this just on the first mouse down.
       setActiveSectionIdAndUpdateZIndex(sectionId);
