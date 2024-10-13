@@ -11,6 +11,7 @@ import {
   setSectionSize,
 } from "state/actions/sections/setters";
 import { useSectionInfos } from "state/definitions";
+import { getSectionType } from "state/getters/sectionInfo";
 import { getImageDimensionsFromBase64 } from "utils/utils";
 import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
@@ -73,7 +74,7 @@ export function getMaxSectionHeight({ sectionType, isMinimized }) {
 
 export function getMinSectionWidth({ sectionType, isTwitter }) {
   if (isTwitter) {
-    return 324;
+    return 370;
   }
   if (sectionType === C.DRAW) {
     return 272;
@@ -160,8 +161,11 @@ export function useOverflow(sectionId) {
   return { overflow, ref, setDidUpdate };
 }
 
-export async function setImgArtifactSectionSize(sectionId, imgSize) {
-  const sectionType = C.ARTIFACT;
+export async function setSectionToHaveAspectRatioAndMinSize(
+  sectionId,
+  imgSize,
+) {
+  const sectionType = getSectionType(sectionId).type;
   const minHeight = getMinSectionHeight({ sectionType });
   const minWidth = getMinSectionWidth({ sectionType });
   const currSize = useSectionInfos.getState().x[sectionId].size;
@@ -201,7 +205,7 @@ export function useImgArtifactAreaSize(sectionId, base64String) {
     async function fn() {
       const x = await getImageDimensionsFromBase64(base64String);
       if (!_.isEqual(x, imgSize)) {
-        setImgArtifactSectionSize(sectionId, x);
+        setSectionToHaveAspectRatioAndMinSize(sectionId, x);
       }
       setImgSize(x);
     }
@@ -210,7 +214,7 @@ export function useImgArtifactAreaSize(sectionId, base64String) {
 
   useEffect(() => {
     if (imgSize) {
-      setImgArtifactSectionSize(sectionId, imgSize);
+      setSectionToHaveAspectRatioAndMinSize(sectionId, imgSize);
     }
   }, [widthOrHeightIsAuto]);
 
@@ -291,9 +295,26 @@ export function useYouTubeSectionSize(sectionId) {
     }
   }, [width, height]);
 
+  useEffect(() => {
+    setSectionToHaveAspectRatioAndMinSize(sectionId, defaultSize);
+  }, []);
+
   const playerSize =
     width === "auto" || height === "auto"
       ? {}
       : { width, height: height - extraHeight };
+
   return playerSize;
+}
+
+export function useTwitterSectionSize(sectionId) {
+  useEffect(() => {
+    setSectionSize(sectionId, { height: "auto" });
+    setAspectRatioInfo({
+      sectionId,
+      aspectRatio: null,
+      aspectRatioExtraHeight: null,
+      aspectRatioExtraWidth: null,
+    });
+  }, []);
 }

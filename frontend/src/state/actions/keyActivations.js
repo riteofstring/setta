@@ -122,7 +122,7 @@ export function attachKeyEventListeners() {
 
   const conditionAndAction = [
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
-    [settings.redoShortcut, redoProjectState],
+    [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
     [settings.groupShortcut, groupSections],
     [settings.saveShortcut, saveProject],
     [settings.loadShortcut, openLoadModal],
