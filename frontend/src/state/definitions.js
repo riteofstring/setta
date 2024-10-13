@@ -218,6 +218,7 @@ export const useMisc = create(
   immer(() => ({
     projectIsLoading: false,
     mouseDownDrawArea: false,
+    mouseDownDraggingSection: false,
     lastPaneClickLocation: {},
     singletonSections: { globalVariables: null, globalParamSweep: null },
   })),
