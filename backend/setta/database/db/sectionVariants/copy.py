@@ -2,9 +2,6 @@ from setta.database.utils import remap_ids, rename_keys
 
 
 def copy_section_variants(section_variants, code_info_id_map):
-    new_section_variants = {}
-    section_variant_id_map = {}
-
     new_section_variants, section_variant_id_map = remap_ids(section_variants)
 
     for obj in new_section_variants.values():

@@ -151,3 +151,9 @@ export function deleteParamsFromParamSweep({ sectionId, ids }) {
     });
   }
 }
+
+export function updateParamSweeps(payload) {
+  useParamSweep.setState((state) => {
+    state.x = { ...state.x, ...payload };
+  });
+}

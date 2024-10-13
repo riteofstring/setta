@@ -4,13 +4,16 @@ import _ from "lodash";
 import {
   useActiveSection,
   useCodeInfo,
+  useParamSweep,
   useSectionInfos,
   useSectionVariants,
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
+import { getForSectionId } from "state/hooks/paramSweep";
 import { findAll } from "utils/getDescendants";
-import { getSectionInfo } from "../../getters/sectionInfo";
+import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
+import { setNotificationMessage } from "../notification";
 import { getSectionChildrenAcrossVariants } from "../sectionVariants";
 
 export async function copy() {
@@ -33,6 +36,7 @@ export function copySections(sectionIds) {
   const sectionVariants = getSectionVariants(sections);
   const uiTypeCols = getUITypeCols(sections);
   const uiTypes = getUITypes(sections, uiTypeCols);
+  const paramSweeps = getParamSweeps(sections);
   const relativePositions = getRelativePositions(sections);
   return {
     sections,
@@ -40,6 +44,7 @@ export function copySections(sectionIds) {
     codeInfo,
     sectionVariants,
     uiTypeCols,
+    paramSweeps,
     relativePositions,
   };
 }
@@ -58,7 +63,21 @@ function getSections(sectionIds) {
     }
     output.add(curr);
   }
-  return _.pick(useSectionInfos.getState().x, Array.from(output));
+  const allSections = _.pick(useSectionInfos.getState().x, Array.from(output));
+
+  const withoutLoneParamSweeps = _.pickBy(allSections, (s) => {
+    if (getSectionType(s.id).type !== C.PARAM_SWEEP) {
+      return true;
+    }
+    // if it's a param sweep section, then keep it only if it's corresponding section is also being copied.
+    return getForSectionId(allSections, s.id);
+  });
+
+  if (_.size(allSections) !== _.size(withoutLoneParamSweeps)) {
+    setNotificationMessage("Lone param sweeps won't be included in copy");
+  }
+
+  return withoutLoneParamSweeps;
 }
 
 function getUITypes(sections, uiTypeCols) {
@@ -124,6 +143,20 @@ function getUITypeCols(sections) {
     useUITypeCols.getState().y,
     _.map(sections, (x) => x.uiTypeColId),
   );
+}
+
+function getParamSweeps(sections) {
+  const output = {};
+  const state = useParamSweep.getState().x;
+  const sectionState = useSectionInfos.getState().x;
+  for (const s of Object.values(sections)) {
+    if (getSectionType(s.id).type === C.PARAM_SWEEP) {
+      const forSectionId = getForSectionId(sectionState, s.id);
+      const paramSweepIds = sectionState[forSectionId].paramSweepIds;
+      Object.assign(output, _.pick(state, paramSweepIds));
+    }
+  }
+  return output;
 }
 
 function getRelativePositions(sections) {
