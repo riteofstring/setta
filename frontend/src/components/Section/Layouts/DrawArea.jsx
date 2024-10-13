@@ -28,8 +28,7 @@ import { createRandomName } from "utils/idNameCreation";
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
   const {
-    width,
-    height,
+    size: { width, height },
     canvasSettings: {
       color,
       opacity,
@@ -39,7 +38,7 @@ export function DrawOnImage({ sectionId }) {
       eraserBrushSize,
     },
   } = useSectionInfos(
-    (x) => _.pick(x.x[sectionId], ["width", "height", "canvasSettings"]),
+    (x) => _.pick(x.x[sectionId], ["size", "canvasSettings"]),
     _.isEqual,
   );
   const backgroundCanvasRef = useRef(null);
