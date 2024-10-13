@@ -1,16 +1,19 @@
 import C from "constants/constants.json";
+import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import {
   useActiveSection,
   useCodeInfo,
-  useNodeInternals,
+  useParamSweep,
   useSectionInfos,
   useSectionVariants,
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
+import { getForSectionId } from "state/hooks/paramSweep";
 import { findAll } from "utils/getDescendants";
-import { getSectionInfo } from "../../getters/sectionInfo";
+import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
+import { setNotificationMessage } from "../notification";
 import { getSectionChildrenAcrossVariants } from "../sectionVariants";
 
 export async function copy() {
@@ -33,6 +36,7 @@ export function copySections(sectionIds) {
   const sectionVariants = getSectionVariants(sections);
   const uiTypeCols = getUITypeCols(sections);
   const uiTypes = getUITypes(sections, uiTypeCols);
+  const paramSweeps = getParamSweeps(sections);
   const relativePositions = getRelativePositions(sections);
   return {
     sections,
@@ -40,6 +44,7 @@ export function copySections(sectionIds) {
     codeInfo,
     sectionVariants,
     uiTypeCols,
+    paramSweeps,
     relativePositions,
   };
 }
@@ -58,7 +63,21 @@ function getSections(sectionIds) {
     }
     output.add(curr);
   }
-  return _.pick(useSectionInfos.getState().x, Array.from(output));
+  const allSections = _.pick(useSectionInfos.getState().x, Array.from(output));
+
+  const withoutLoneParamSweeps = _.pickBy(allSections, (s) => {
+    if (getSectionType(s.id).type !== C.PARAM_SWEEP) {
+      return true;
+    }
+    // if it's a param sweep section, then keep it only if it's corresponding section is also being copied.
+    return getForSectionId(allSections, s.id);
+  });
+
+  if (_.size(allSections) !== _.size(withoutLoneParamSweeps)) {
+    setNotificationMessage("Lone param sweeps won't be included in copy");
+  }
+
+  return withoutLoneParamSweeps;
 }
 
 function getUITypes(sections, uiTypeCols) {
@@ -84,7 +103,7 @@ function getCodeInfo(sections) {
   let output = [];
   const codeInfoState = useCodeInfo.getState().x;
   for (const cid of sectionCodeInfoIds) {
-    const codeInfos = findAll(codeInfoState, [cid]).map(
+    const codeInfos = findAll(codeInfoState, [cid]).ids.map(
       (x) => codeInfoState[x],
     );
     if (codeInfos.some((x) => x.isSelected)) {
@@ -126,26 +145,43 @@ function getUITypeCols(sections) {
   );
 }
 
+function getParamSweeps(sections) {
+  const output = {};
+  const state = useParamSweep.getState().x;
+  const sectionState = useSectionInfos.getState().x;
+  for (const s of Object.values(sections)) {
+    if (getSectionType(s.id).type === C.PARAM_SWEEP) {
+      const forSectionId = getForSectionId(sectionState, s.id);
+      const paramSweepIds = sectionState[forSectionId].paramSweepIds;
+      Object.assign(output, _.pick(state, paramSweepIds));
+    }
+  }
+  return output;
+}
+
 function getRelativePositions(sections) {
-  const positions = _.pick(
-    Object.fromEntries(useNodeInternals.getState().x),
-    _.map(sections, (x) => x.id),
-  );
+  const positions = {};
+  for (const k of Object.keys(sections)) {
+    const rect = getSectionRect(k);
+    if (rect) {
+      positions[k] = { x: rect.x, y: rect.y, zIndex: 0 };
+    }
+  }
 
   let minX = Infinity;
   let minY = Infinity;
   for (const p of Object.values(positions)) {
-    if (p.position.x < minX) {
-      minX = p.position.x;
+    if (p.x < minX) {
+      minX = p.x;
     }
-    if (p.position.y < minY) {
-      minY = p.position.y;
+    if (p.y < minY) {
+      minY = p.y;
     }
   }
 
   return _.mapValues(positions, (v) => ({
-    x: v.position.x - minX,
-    y: v.position.y - minY,
+    x: v.x - minX,
+    y: v.y - minY,
     zIndex: v.zIndex,
   }));
 }

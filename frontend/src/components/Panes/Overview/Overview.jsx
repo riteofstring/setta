@@ -1,86 +1,86 @@
+import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
-import { TabButton, usePaneFns } from "../paneFns";
 import { InfoViewBig } from "./InfoViewBig";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
 
+const paneProps = {
+  right: false,
+  paneName: OVERVIEW,
+};
+
 export function Overview() {
+  const [vis] = localStorageFns[`${paneProps.paneName}Vis`].hook();
   function onResizeStop(widthDiff) {
     if (useSettings.getState().leftSidePaneShiftsMap) {
       updateMapPosition(widthDiff);
     }
   }
-  const [tab, setTab] = localStorageFns.overviewTab.hook();
-  const { vis, width, setWidth, setTrueWidth, getOnTabClick } = usePaneFns({
-    paneName: OVERVIEW,
-    onResizeStop,
-    tab,
-    setTab,
-  });
-  const commonProps = {
-    vis,
-    tab,
-    getOnTabClick,
-    className: "flex h-10 w-10 cursor-pointer items-center justify-center",
-  };
 
   return (
-    <>
-      <div className="absolute left-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-4 dark:border-setta-850 dark:bg-setta-900">
-        <TabButton tabName="tab1" {...commonProps}>
-          <i className="gg-list  !scale-100" />
-        </TabButton>
-        <TabButton tabName="tab2" {...commonProps}>
-          <i className="gg-info !scale-100" />
-        </TabButton>
-        <TabButton tabName="tab3" {...commonProps}>
-          <i className="gg-git-branch !scale-100" />
-        </TabButton>
-      </div>
-      <PaneContainer
-        right={false}
-        onResizeStop={onResizeStop}
-        vis={vis}
-        width={width}
-        setWidth={setWidth}
-        setTrueWidth={setTrueWidth}
-        minimumWidth={350}
-      >
-        {vis && <TabsVisible tab={tab} />}
-      </PaneContainer>
-    </>
-  );
-}
-
-function TabsVisible({ tab }) {
-  // const title = tabNameToPretty[tab];
-  const title = { tab1: "Overview", tab2: "Info", tab3: "Project Configs" }[
-    tab
-  ];
-  return (
-    <div
-      className="flex h-full min-h-0 w-[calc(100%_-_2rem)] min-w-0 flex-1
-    flex-col overflow-hidden pl-6"
+    <PaneContainer
+      paneProps={paneProps}
+      paneTitle="Overview"
+      onResizeStop={onResizeStop}
     >
-      <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
-        {title}
-      </h2>
-      <TabContent tab={tab} />
-    </div>
+      {vis && <TabsVisible />}
+    </PaneContainer>
   );
 }
 
-function TabContent({ tab }) {
-  switch (tab) {
-    case "tab1":
-      return <ProjectOverview />;
-    case "tab2":
-      return <InfoViewBig />;
-    case "tab3":
-      return <ProjectConfigs />;
-  }
+function TabsVisible() {
+  const [tab, setTab] = localStorageFns.overviewTab.hook();
+
+  return (
+    <Tabs.Root
+      // className={`contents ${vis ? "visible" : "invisible"}`}
+      value={tab}
+      onValueChange={setTab}
+      className="flex h-full min-h-0 w-[calc(100%_-_2rem)] min-w-0 flex-1 flex-col overflow-hidden pr-2"
+    >
+      <Tabs.List>
+        <nav className="flex gap-4 overflow-x-auto">
+          <TabItem name="Overview" value="tab1" />
+          <TabItem name="Info" value="tab2" />
+          <TabItem name="Configs" value="tab3" />
+        </nav>
+      </Tabs.List>
+      <TabContent value="tab1">
+        <ProjectOverview />
+      </TabContent>
+      <TabContent value="tab2">
+        <InfoViewBig />
+      </TabContent>
+      <TabContent value="tab3">
+        <ProjectConfigs />
+      </TabContent>
+    </Tabs.Root>
+  );
+}
+
+function TabItem({ name, value }) {
+  // border-b-2 isn't working for some reason. using border-bottom instead.
+  // tab-index isn't working? can't tab to inactive tab
+  return (
+    <Tabs.Trigger
+      className="mb-8 cursor-pointer select-none text-sm uppercase tracking-tight [border-bottom:3px_solid_transparent] [transition:font-weight_100ms_ease-in-out] hover:text-blue-800 focus-visible:ring-2 dark:text-setta-500 dark:hover:text-blue-500 [&[data-state='active']]:border-setta-500 [&[data-state='active']]:font-black [&[data-state='active']]:text-setta-500 [&[data-state='active']]:dark:border-setta-300 [&[data-state='active']]:dark:text-setta-300"
+      value={value}
+      tab-index="0"
+    >
+      {name}
+    </Tabs.Trigger>
+  );
+}
+
+function TabContent(props) {
+  const { children, value } = props;
+  return (
+    <Tabs.Content value={value} asChild className="overflow-x-auto">
+      {children}
+    </Tabs.Content>
+  );
 }

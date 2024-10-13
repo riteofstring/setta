@@ -3,11 +3,11 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { updateKeywordRegex } from "state/actions/keywordRegex";
 import {
+  useMisc,
   useSectionInfos,
   useSectionVariants,
   useUITypes,
 } from "state/definitions";
-import { SINGLETON_SECTIONS } from "utils/constants";
 import { getSectionIdToChildren } from "./actions/sectionVariants";
 
 function getSingletonSubscriptionFn(type) {
@@ -25,14 +25,18 @@ export function subscribe() {
   useSectionInfos.subscribe(
     getSingletonSubscriptionFn(C.GLOBAL_VARIABLES),
     (x) => {
-      SINGLETON_SECTIONS.globalVariables = x;
+      useMisc.setState((state) => {
+        state.singletonSections.globalVariables = x;
+      });
     },
   );
 
   useSectionInfos.subscribe(
     getSingletonSubscriptionFn(C.GLOBAL_PARAM_SWEEP),
     (x) => {
-      SINGLETON_SECTIONS.globalParamSweep = x;
+      useMisc.setState((state) => {
+        state.singletonSections.globalParamSweep = x;
+      });
     },
   );
 

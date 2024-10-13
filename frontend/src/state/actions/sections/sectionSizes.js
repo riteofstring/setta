@@ -86,12 +86,33 @@ export function adjustAspectRatio(height, width, imgHeight, imgWidth) {
 
   // Calculate the aspect ratio of the original image
   const imgAspectRatio = imgWidth / imgHeight;
-  // If both height and width are provided, adjust to match the image's aspect ratio
-  const currentAspectRatio = width / height;
 
   // If height is "auto", adjust height based on width
-  if (height === "auto" || currentAspectRatio <= imgAspectRatio) {
+  if (height === "auto") {
     const newHeight = width / imgAspectRatio;
     return { height: newHeight, width: width };
+  }
+
+  // If width is "auto", adjust width based on height
+  if (width === "auto") {
+    const newWidth = height * imgAspectRatio;
+    return { height: height, width: newWidth };
+  }
+
+  // Calculate the current aspect ratio
+  const currentAspectRatio = width / height;
+
+  // Adjust dimensions to maintain the original aspect ratio
+  if (currentAspectRatio > imgAspectRatio) {
+    // Adjust width based on height
+    const newWidth = height * imgAspectRatio;
+    return { height: height, width: newWidth };
+  } else if (currentAspectRatio < imgAspectRatio) {
+    // Adjust height based on width
+    const newHeight = width / imgAspectRatio;
+    return { height: newHeight, width: width };
+  } else {
+    // Aspect ratios match, return the provided dimensions
+    return { height: height, width: width };
   }
 }
