@@ -14,7 +14,7 @@ import {
   UI_CONFIG_TAB,
   UI_EDITOR,
 } from "utils/constants";
-import { usePaneFns } from "../paneFns";
+import { TabButton, usePaneFns } from "../paneFns";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
@@ -30,40 +30,32 @@ export function UiEditor() {
     tab,
     setTab,
   });
+  const commonProps = {
+    vis,
+    tab,
+    getOnTabClick,
+    className:
+      "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl",
+  };
 
   return (
     <>
       <div className="absolute right-0 z-20 flex h-full w-12 flex-col items-center gap-1 bg-setta-900 py-2">
-        <button
-          className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={getOnTabClick(SECTION_CONFIG_TAB)}
-        >
+        <TabButton tabName={SECTION_CONFIG_TAB} {...commonProps}>
           <MdOutlineSettingsApplications />
-        </button>
-        <button
-          className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={getOnTabClick(UI_CONFIG_TAB)}
-        >
+        </TabButton>
+        <TabButton tabName={UI_CONFIG_TAB} {...commonProps}>
           <BsCardChecklist />
-        </button>
-        <button
-          className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={getOnTabClick(QUICKINFO_CONFIG_TAB)}
-        >
+        </TabButton>
+        <TabButton tabName={QUICKINFO_CONFIG_TAB} {...commonProps}>
           <TbEdit />
-        </button>
-        <button
-          className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={getOnTabClick(INFO_CONFIG_TAB)}
-        >
+        </TabButton>
+        <TabButton tabName={INFO_CONFIG_TAB} {...commonProps}>
           <FaMarkdown />
-        </button>
-        <button
-          className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={getOnTabClick(SECTION_VARIANTS_TAB)}
-        >
+        </TabButton>
+        <TabButton tabName={SECTION_VARIANTS_TAB} {...commonProps}>
           <TbVersions />
-        </button>
+        </TabButton>
       </div>
       <PaneContainer
         right={true}

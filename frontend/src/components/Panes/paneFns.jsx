@@ -31,3 +31,26 @@ export function usePaneFns({ paneName, onResizeStop, tab, setTab }) {
 
   return { vis, width, setWidth, setTrueWidth, getOnTabClick };
 }
+
+export function TabButton({
+  vis,
+  tab,
+  tabName,
+  getOnTabClick,
+  children,
+  className,
+}) {
+  const color =
+    vis && tab === tabName
+      ? "text-blue-500"
+      : "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500";
+
+  return (
+    <button
+      className={`${className} ${color}`}
+      onClick={getOnTabClick(tabName)}
+    >
+      {children}
+    </button>
+  );
+}

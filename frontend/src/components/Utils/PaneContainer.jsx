@@ -49,8 +49,8 @@ export function PaneContainer({
   const style = `${!right ? "-" : ""}${width - 40}px`;
 
   const rightCondition = right
-    ? "justify-self-end right-12 left-auto border-l pr-12 justify-items-end"
-    : "justify-self-start right-auto left-12 border-r pl-12";
+    ? "justify-self-end left-auto border-l pr-12 justify-items-end"
+    : "justify-self-start right-auto border-r pl-12";
 
   // flex flex-grow flex-col
 

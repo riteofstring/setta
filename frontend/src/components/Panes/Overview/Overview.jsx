@@ -3,7 +3,7 @@ import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
-import { usePaneFns } from "../paneFns";
+import { TabButton, usePaneFns } from "../paneFns";
 import { InfoViewBig } from "./InfoViewBig";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
@@ -21,29 +21,25 @@ export function Overview() {
     tab,
     setTab,
   });
+  const commonProps = {
+    vis,
+    tab,
+    getOnTabClick,
+    className: "flex h-10 w-10 cursor-pointer items-center justify-center",
+  };
 
   return (
     <>
       <div className="absolute left-0 z-20 flex h-full w-12 flex-col items-center gap-1 bg-setta-900 py-2">
-        <button
-          className="flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={getOnTabClick("tab1")}
-        >
+        <TabButton tabName="tab1" {...commonProps}>
           <i className="gg-list  !scale-100" />
-        </button>
-        <button
-          className="flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={getOnTabClick("tab2")}
-        >
+        </TabButton>
+        <TabButton tabName="tab2" {...commonProps}>
           <i className="gg-info !scale-100" />
-        </button>
-
-        <button
-          className="flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-          onClick={getOnTabClick("tab3")}
-        >
+        </TabButton>
+        <TabButton tabName="tab3" {...commonProps}>
           <i className="gg-git-branch !scale-100" />
-        </button>
+        </TabButton>
       </div>
       <PaneContainer
         right={false}
