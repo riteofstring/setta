@@ -62,7 +62,8 @@
       "showYaml": false,
       "pinnedAreaHeight": "auto",
       "isMinimized": false,
-      "codeInfoId": "e188748d-886f-4412-aa23-49b5863f7c81"
+      "codeInfoId": "e188748d-886f-4412-aa23-49b5863f7c81",
+      "parentId": null
     }
   },
   "codeInfo": {
