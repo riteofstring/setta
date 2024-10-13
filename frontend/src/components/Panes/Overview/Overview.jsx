@@ -4,41 +4,57 @@ import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
+import { usePaneFns } from "../paneFns";
 import { InfoViewBig } from "./InfoViewBig";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
 
-const paneProps = {
-  right: false,
-  paneName: OVERVIEW,
-};
-
 export function Overview() {
-  const [vis] = localStorageFns[`${paneProps.paneName}Vis`].hook();
   function onResizeStop(widthDiff) {
     if (useSettings.getState().leftSidePaneShiftsMap) {
       updateMapPosition(widthDiff);
     }
   }
+  const { vis, width, setWidth, setTrueWidth, visToggle } = usePaneFns({
+    paneName: OVERVIEW,
+    onResizeStop,
+  });
+
+  function onClick() {
+    visToggle();
+  }
 
   return (
     <>
       <div className="absolute left-0 z-20 flex h-full w-12 flex-col items-center gap-1 bg-setta-900 py-2">
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
+        <button
+          className="flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
+          onClick={onClick}
+        >
           <i className="gg-list  !scale-100" />
         </button>
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
+        <button
+          className="flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
+          onClick={onClick}
+        >
           <i className="gg-info !scale-100" />
         </button>
 
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
+        <button
+          className="flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
+          onClick={onClick}
+        >
           <i className="gg-git-branch !scale-100" />
         </button>
       </div>
       <PaneContainer
-        paneProps={paneProps}
-        paneTitle="Overview"
+        right={false}
         onResizeStop={onResizeStop}
+        vis={vis}
+        width={width}
+        setWidth={setWidth}
+        setTrueWidth={setTrueWidth}
+        minimumWidth={350}
       >
         {vis && <TabsVisible />}
       </PaneContainer>

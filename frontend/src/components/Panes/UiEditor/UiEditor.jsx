@@ -6,7 +6,6 @@ import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
 import { TbEdit, TbVersions } from "react-icons/tb";
 import { useActiveSection } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import {
   INFO_CONFIG_TAB,
@@ -17,41 +16,65 @@ import {
   UI_CONFIG_TAB,
   UI_EDITOR,
 } from "utils/constants";
+import { usePaneFns } from "../paneFns";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { SectionVariants } from "./SectionVariants/SectionVariants";
 import { UIConfig } from "./UIConfig/UIConfig";
 
-const paneProps = {
-  right: true,
-  paneName: UI_EDITOR,
-};
-
 export function UiEditor() {
   const sectionIds = useActiveSection((x) => x.ids);
-  const [vis] = localStorageFns[`${paneProps.paneName}Vis`].hook();
+  const { vis, width, setWidth, setTrueWidth, visToggle } = usePaneFns({
+    paneName: UI_EDITOR,
+  });
+
+  function onClick() {
+    visToggle();
+  }
 
   return (
     <>
       <div className="absolute right-0 z-20 flex h-full w-12 flex-col items-center gap-1 bg-setta-900 py-2">
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
+        <button
+          className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
+          onClick={onClick}
+        >
           <MdOutlineSettingsApplications />
         </button>
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
+        <button
+          className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
+          onClick={onClick}
+        >
           <BsCardChecklist />
         </button>
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
+        <button
+          className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
+          onClick={onClick}
+        >
           <TbEdit />
         </button>
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
+        <button
+          className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
+          onClick={onClick}
+        >
           <FaMarkdown />
         </button>
-        <button className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500">
+        <button
+          className="flex h-10 w-10 cursor-pointer items-center justify-center text-2xl text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
+          onClick={onClick}
+        >
           <TbVersions />
         </button>
       </div>
-      <PaneContainer paneProps={paneProps} paneTitle="Edit" minimumWidth={425}>
+      <PaneContainer
+        right={true}
+        minimumWidth={425}
+        vis={vis}
+        width={width}
+        setWidth={setWidth}
+        setTrueWidth={setTrueWidth}
+      >
         {sectionIds.length === 1 && vis ? (
           <TabsVisible sectionId={sectionIds[0]} />
         ) : (
