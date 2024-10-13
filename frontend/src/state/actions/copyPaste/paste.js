@@ -1,5 +1,5 @@
 import { dbCreateCopyOfSections } from "requests/pasteSections";
-import { useMisc } from "state/definitions";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { loadSectionIntoState } from "../sections/loadSections";
 
 export async function paste() {
@@ -35,7 +35,7 @@ async function pasteSections(data) {
     loadSectionIntoState({
       ...res.data,
       topLevelIds,
-      ...useMisc.getState().lastPaneClickLocation,
+      ...REACT_FLOW_STORE.lastPaneClickLocation,
       incrementVersion: true,
     });
   }
@@ -43,9 +43,11 @@ async function pasteSections(data) {
 
 function findTopLevelSections(sections, sectionVariants) {
   const allChildren = new Set();
-  for (const v of Object.values(sectionVariants)) {
-    for (const c of v.children) {
-      allChildren.add(c);
+  for (const variants of Object.values(sectionVariants)) {
+    for (const v of Object.values(variants)) {
+      for (const c of v.children) {
+        allChildren.add(c);
+      }
     }
   }
 

@@ -214,11 +214,4 @@ export const useParamShortcuts = create(() => ({
   isSelectingParams: false,
 }));
 
-export const useMisc = create(
-  immer(() => ({
-    projectIsLoading: false,
-    mouseDownDrawArea: false,
-    lastPaneClickLocation: {},
-    singletonSections: { globalVariables: null, globalParamSweep: null },
-  })),
-);
+export const useMisc = create(() => ({ mouseDownDrawArea: false }));

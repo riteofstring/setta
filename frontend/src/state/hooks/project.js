@@ -14,11 +14,7 @@ import {
 } from "state/actions/project/loadProject";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
-import {
-  useAllProjectConfigs,
-  useMisc,
-  useProjectConfig,
-} from "state/definitions";
+import { useAllProjectConfigs, useProjectConfig } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { useEditableOnSubmit } from "./editableText";
@@ -75,22 +71,14 @@ export function useLoadProjectConfig() {
     setDoneLoading(false);
     const res = await loadProjectConfig({ projectConfigName });
     setDoneLoading(res);
-    useMisc.setState({ projectIsLoading: false });
   }
 
   async function loadSettingsProject() {
-    setDoneLoading(false);
     const res = await loadSettingsProjectConfig();
     setDoneLoading(res);
-    useMisc.setState({ projectIsLoading: false });
   }
 
   useEffect(() => {
-    if (useMisc.getState().projectIsLoading) {
-      return;
-    }
-    useMisc.setState({ projectIsLoading: true });
-
     if (projectConfigName === SETTINGS_PROJECT_NAME) {
       loadSettingsProject();
       return;
