@@ -18,7 +18,7 @@ export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
     Object.assign(project, computeEVReferences(project));
     project["infoToFullName"] = computeInfoToFullName(project);
   }
-  // console.log(project);
+  console.log(project);
   return project;
 }
 
