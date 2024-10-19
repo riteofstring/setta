@@ -46,9 +46,16 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
           <CreateNewParamSweepButton sectionId={sectionId} />
         )}
 
-        {[C.SECTION, C.GLOBAL_VARIABLES, C.LIST_ROOT, C.DICT_ROOT].includes(
-          sectionTypeName,
-        ) && <CreateNewVersionButton sectionId={sectionId} />}
+        {[
+          C.SECTION,
+          C.GLOBAL_VARIABLES,
+          C.LIST_ROOT,
+          C.DICT_ROOT,
+          C.CODE,
+          C.INTERACTIVE_CODE,
+        ].includes(sectionTypeName) && (
+          <CreateNewVersionButton sectionId={sectionId} />
+        )}
 
         {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
           <MultirunButton sectionId={sectionId} />
