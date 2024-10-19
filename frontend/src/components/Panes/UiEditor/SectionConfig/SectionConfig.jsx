@@ -3,10 +3,8 @@ import React from "react";
 import { getInfoViewHandlers } from "state/actions/infoView";
 import { useGetSectionType } from "state/hooks/uiTypes";
 import { CONST_INFO_VIEWS } from "utils/constants";
-import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";
 import { DrawAreaSettings } from "./DrawAreaSettings";
-import { SectionConfigTypeSelection } from "./SectionConfigTypeSelection";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 
 const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
@@ -19,7 +17,7 @@ function SectionConfigCore({ sectionId }) {
   // pass infoViewHandlersContents down?
   return (
     <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
-      <div className="flex justify-between">
+      {/* <div className="flex justify-between">
         <p
           className="mt-2 text-xs font-semibold uppercase text-setta-400"
           {...getInfoViewHandlers(
@@ -29,9 +27,9 @@ function SectionConfigCore({ sectionId }) {
           Card Types
         </p>
         <SaveUITypeConfig />
-      </div>
+      </div> */}
 
-      <SectionConfigTypeSelection sectionId={sectionId} />
+      {/* <SectionConfigTypeSelection sectionId={sectionId} /> */}
 
       <p
         className="mt-4 text-xs font-semibold uppercase text-setta-400"
