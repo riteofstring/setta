@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { dbLoadSectionJSONSource } from "requests/sections";
 import { setAllCodeInfo } from "state/actions/codeInfo";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
@@ -7,7 +7,7 @@ import { useGetSectionInfo } from "state/hooks/sections";
 
 export function InputAreaSettings({ sectionId }) {
   const jsonSource = useGetSectionInfo(sectionId, "jsonSource");
-  console.log("jsonSource", jsonSource);
+
   const [value, setValue] = useState(jsonSource ?? "");
   async function onBlur(e) {
     const blurValue = e.target.value;
@@ -21,6 +21,10 @@ export function InputAreaSettings({ sectionId }) {
       }
     }
   }
+
+  useEffect(() => {
+    setValue(jsonSource ?? "");
+  }, [jsonSource]);
 
   return (
     <div className="mb-2 mt-2 w-full select-text">
