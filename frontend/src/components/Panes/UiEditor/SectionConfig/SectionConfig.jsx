@@ -3,8 +3,8 @@ import React from "react";
 import { getInfoViewHandlers } from "state/actions/infoView";
 import { useGetSectionType } from "state/hooks/uiTypes";
 import { CONST_INFO_VIEWS } from "utils/constants";
-import { CollectionsSearch } from "./CollectionsSearch";
 import { DrawAreaSettings } from "./DrawAreaSettings";
+import { InputAreaSettings } from "./InputAreaSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 
 const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
@@ -51,7 +51,7 @@ function SpecializedConfiguration({ sectionId }) {
     return <SocialAreaSettings sectionId={sectionId} />;
   } else if (sectionType === C.DRAW) {
     return <DrawAreaSettings sectionId={sectionId} />;
-  } else {
-    return <CollectionsSearch sectionId={sectionId} />;
+  } else if (sectionType === C.SECTION || sectionType === C.GLOBAL_VARIABLES) {
+    return <InputAreaSettings sectionId={sectionId} />;
   }
 }
