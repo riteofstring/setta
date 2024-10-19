@@ -138,10 +138,30 @@ export function useUIEditorTab(sectionId) {
 
 function getRequiredUIEditorTabs(uiTypeName) {
   switch (uiTypeName) {
+    case C.SECTION:
+    case C.GLOBAL_VARIABLES:
+      return [
+        SECTION_CONFIG_TAB,
+        UI_CONFIG_TAB,
+        QUICKINFO_CONFIG_TAB,
+        SECTION_VARIANTS_TAB,
+      ];
+    case C.LIST_ROOT:
+    case C.DICT_ROOT:
+    case C.CODE:
+    case C.INTERACTIVE_CODE:
+      return [SECTION_CONFIG_TAB, SECTION_VARIANTS_TAB];
     case C.INFO:
       return [INFO_CONFIG_TAB];
     case C.SOCIAL:
       return [SECTION_CONFIG_TAB];
+    case C.DECK:
+    case C.TERMINAL:
+    case C.GLOBAL_PARAM_SWEEP:
+    case C.PARAM_SWEEP:
+    case C.DRAW:
+    case C.LINE_PLOT:
+      return [];
     default:
       return [
         SECTION_CONFIG_TAB,
