@@ -230,11 +230,15 @@ def load_artifact_metadata(db, section_id, artifact_paths):
 
 def load_json_sources(sections, codeInfo, sectionVariants):
     jsonSourceData = {}
+    jsonSourceMissing = {}
     for id, s in sections.items():
         filename = s["jsonSource"]
         if filename:
-            with open(filename, "r") as f:
-                jsonSourceData[id] = {"filename": filename, "data": json.load(f)}
+            try:
+                with open(filename, "r") as f:
+                    jsonSourceData[id] = {"filename": filename, "data": json.load(f)}
+            except:
+                jsonSourceMissing[id] = True                
 
     for sectionId, jsonSource in jsonSourceData.items():
         s = sections[sectionId]
@@ -255,3 +259,5 @@ def load_json_sources(sections, codeInfo, sectionVariants):
                     "value": json.dumps(v),
                     "keywordPositions": [],
                 }
+
+    return jsonSourceMissing

@@ -90,7 +90,7 @@ def load_project_config(db, project_config_name):
     paramSweeps = sections_data["paramSweeps"]
     uiTypes = sections_data["nonPresetUITypes"]
     codeInfo = load_code_info_for_sections(db, sections)
-    load_json_sources(sections, codeInfo, sectionVariants)
+    jsonSourceMissing = load_json_sources(sections, codeInfo, sectionVariants)
 
     return {
         "projectConfig": projectConfig,
@@ -102,6 +102,7 @@ def load_project_config(db, project_config_name):
         "paramSweeps": paramSweeps,
         "runGroups": runGroups,
         "codeInfo": codeInfo,
+        "jsonSourceMissing": jsonSourceMissing
     }
 
 

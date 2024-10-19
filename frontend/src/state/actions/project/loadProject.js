@@ -4,6 +4,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { dbCreateProjectConfig, dbLoadProjectConfig } from "requests/projects";
 import { dbLoadSettingsProject } from "requests/settings";
+import { useJSONSourceMissing } from "state/definitions";
 import {
   PAGE_LOAD_TYPES,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
@@ -49,6 +50,7 @@ export function loadProjectState({
   uiTypeCols,
   paramSweeps,
   runGroups,
+  jsonSourceMissing,
 }) {
   setAllCodeInfo(codeInfo);
   setProjectConfig(_.omit(projectConfig, ["children"]));
@@ -71,6 +73,8 @@ export function loadProjectState({
   setAllParamSweeps(paramSweeps);
   setAllRunGroups(runGroups);
   setAllSectionInfos({ sections, sectionConfigs });
+  useJSONSourceMissing.getState().reset();
+  useJSONSourceMissing.setState(jsonSourceMissing);
   maybeIncrementProjectStateVersion(true, false);
   return true;
 }

@@ -1,8 +1,10 @@
+import _ from "lodash";
 import { useEffect, useState } from "react";
 import { dbLoadSectionJSONSource } from "requests/sections";
 import { setAllCodeInfo } from "state/actions/codeInfo";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { updateSectionVariants } from "state/actions/sectionVariants";
+import { useJSONSourceMissing } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 
 export function InputAreaSettings({ sectionId }) {
@@ -15,9 +17,14 @@ export function InputAreaSettings({ sectionId }) {
       setSectionInfoAttr({ sectionId, attr: "jsonSource", value: blurValue });
       const res = await dbLoadSectionJSONSource(blurValue);
       if (res.status === 200) {
-        const { codeInfo, sectionVariants } = res.data;
-        setAllCodeInfo(codeInfo);
-        updateSectionVariants({ sectionVariants });
+        const { codeInfo, sectionVariants, jsonSourceMissing } = res.data;
+        if (jsonSourceMissing[sectionId]) {
+          useJSONSourceMissing.setState(jsonSourceMissing);
+        } else {
+          useJSONSourceMissing.setState((x) => _.omit(x, [sectionId]), true);
+          setAllCodeInfo(codeInfo);
+          updateSectionVariants({ sectionVariants });
+        }
       }
     }
   }
