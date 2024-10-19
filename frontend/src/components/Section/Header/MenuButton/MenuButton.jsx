@@ -38,17 +38,19 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
       >
         {sectionTypeName === C.INFO && <ShowMarkdown sectionId={sectionId} />}
 
-        {![C.PARAM_SWEEP, C.CODE, C.INFO].includes(sectionTypeName) && (
+        {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
           <SaveCustomArgumentsButton sectionId={sectionId} />
         )}
 
-        {sectionTypeName === C.PARAM_SWEEP ? (
+        {sectionTypeName === C.PARAM_SWEEP && (
           <CreateNewParamSweepButton sectionId={sectionId} />
-        ) : (
-          <CreateNewVersionButton sectionId={sectionId} />
         )}
 
-        {![C.PARAM_SWEEP, C.CODE, C.INFO].includes(sectionTypeName) && (
+        {[C.SECTION, C.GLOBAL_VARIABLES, C.LIST_ROOT, C.DICT_ROOT].includes(
+          sectionTypeName,
+        ) && <CreateNewVersionButton sectionId={sectionId} />}
+
+        {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
           <MultirunButton sectionId={sectionId} />
         )}
 
@@ -64,10 +66,9 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
           <HideShowUnpinnedParamsButton sectionId={sectionId} />
         )}
 
-        {[C.SECTION, C.GLOBAL_VARIABLES, C.GLOBAL_PARAM_SWEEP].includes(
-          sectionTypeName,
-        ) && <ShowYaml sectionId={sectionId} />}
-
+        {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
+          <ShowYaml sectionId={sectionId} />
+        )}
         <FreezeButton sectionId={sectionId} />
       </CardHeaderMenuButton>
     </Menubar.Root>
