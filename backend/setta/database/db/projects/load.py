@@ -35,6 +35,7 @@ def load_project_config_metadata(db, config_name):
             ProjectConfig.viewport,
             ProjectConfig.isDefault,
             ProjectConfig.shownRunGroup,
+            ProjectConfig.previewImgColor,
             ProjectConfigChildren.childId as childId,
             ProjectConfigChildren.x as childX,
             ProjectConfigChildren.y as childY,
@@ -78,6 +79,7 @@ def load_project_config_metadata(db, config_name):
         "children": children,
         "viewport": viewport,
         "shownRunGroup": out["shownRunGroup"],
+        "previewImgColor": out["previewImgColor"],
     }
 
 

@@ -56,7 +56,7 @@ export function useExportProjectJson() {
     setProjectJson(theRest);
   }
   async function exportFullProjectJson() {
-    const res = await dbLoadFullProject();
+    const res = await dbLoadFullProject({});
     if (res.status === 200) {
       setProjectJson(res.data);
     }
