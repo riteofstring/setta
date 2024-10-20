@@ -22,7 +22,7 @@ function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
   };
 
   const onKeyDown = (e) => {
-    if (e.key === "Enter") {
+    if (e.code === "Space") {
       onClick();
     }
   };
