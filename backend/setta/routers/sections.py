@@ -1,4 +1,6 @@
+import copy
 from typing import Dict, List
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -7,9 +9,8 @@ from setta.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
 )
+from setta.database.db.sections.load import load_json_source
 from setta.utils.constants import C
-import copy
-from setta.database.db.sections.load import load_json_sources
 
 router = APIRouter()
 
@@ -27,9 +28,6 @@ class SectionToDictRequest(BaseModel):
 
 class LoadSectionJSONSourceRequest(BaseModel):
     jsonSource: str
-    sections: dict
-    codeInfo: dict
-    sectionVariants: dict
 
 
 @router.post(C.ROUTE_SECTIONS)
@@ -71,5 +69,9 @@ def route_section_to_yaml(x: SectionToDictRequest):
 
 @router.post(C.ROUTE_LOAD_SECTION_JSON_SOURCE)
 def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
-    jsonSourceMissing = load_json_sources(x.sections, x.codeInfo, x.sectionVariants)
-    return {"codeInfo": x.codeInfo, "sectionVariants": x.sectionVariants, "jsonSourceMissing": jsonSourceMissing}
+    new_code_infos, new_variant_values = load_json_source(x.jsonSource)
+    return {
+        "newCodeInfos": new_code_infos,
+        "newVariantValues": new_variant_values,
+        "jsonSourceMissing": new_code_infos is None,
+    }

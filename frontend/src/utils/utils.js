@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import _ from "lodash";
 
@@ -60,4 +61,8 @@ export async function getImageDimensionsFromBase64(base64String) {
   img.src = base64String;
   await img.decode();
   return { width: img.width, height: img.height };
+}
+
+export function isFromJSONSource(id) {
+  return id.startsWith(C.JSON_SOURCE_PREFIX);
 }

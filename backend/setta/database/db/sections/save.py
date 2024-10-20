@@ -67,7 +67,9 @@ def save_sections(db, sections, section_variants):
             "codeInfoId": s["codeInfoId"],
             "hideUnpinnedParams": s["hideUnpinnedParams"],
             "showYaml": s["showYaml"],
-            "canvasSettings": json.dumps(s["canvasSettings"]) if len(s["canvasSettings"]) > 0 else None,
+            "canvasSettings": json.dumps(s["canvasSettings"])
+            if len(s["canvasSettings"]) > 0
+            else None,
         }
         for s in sections.values()
     ]
