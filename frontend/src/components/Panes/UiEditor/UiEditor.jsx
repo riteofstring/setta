@@ -35,7 +35,7 @@ export function UiEditor() {
     tab,
     getOnTabClick,
     className:
-      "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl",
+      "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs,
   };
 
