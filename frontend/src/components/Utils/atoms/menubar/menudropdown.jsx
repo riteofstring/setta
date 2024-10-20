@@ -7,11 +7,14 @@ export function MenuDropdown({
   contentAlign,
   contentSideOffset,
   contentAlignOffset,
+  tabIndex,
   children,
 }) {
   return (
     <Menubar.Menu>
-      <Menubar.Trigger className={triggerClassName}>{trigger}</Menubar.Trigger>
+      <Menubar.Trigger className={triggerClassName} tabIndex={tabIndex}>
+        {trigger}
+      </Menubar.Trigger>
       <Menubar.Portal>
         <Menubar.Content
           className={contentClassName}
@@ -26,7 +29,7 @@ export function MenuDropdown({
   );
 }
 
-export function NavbarMenuDropdown({ children, trigger }) {
+export function NavbarMenuDropdown({ children, trigger, tabIndex }) {
   return (
     <MenuDropdown
       triggerClassName="nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-md py-1 px-2 text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-900"
@@ -35,6 +38,7 @@ export function NavbarMenuDropdown({ children, trigger }) {
       contentSideOffset={5}
       contentAlignOffset={-3}
       trigger={trigger}
+      tabIndex={tabIndex}
     >
       {children}
     </MenuDropdown>
