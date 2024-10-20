@@ -23,6 +23,7 @@ function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
 
   const onKeyDown = (e) => {
     if (e.code === "Space") {
+      e.preventDefault();
       onClick();
     }
   };
