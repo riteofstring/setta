@@ -18,11 +18,13 @@ import {
   useMisc,
   useProjectConfig,
 } from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import {
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
   SETTINGS_PROJECT_NAME,
 } from "utils/constants";
+import { useHotReload } from "utils/hotReload";
 import { useEditableOnSubmit } from "./editableText";
 
 export function useGetAllProjectConfigMetadata() {
@@ -72,8 +74,11 @@ export function useLoadProjectConfig() {
   const { state } = useLocation();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
+  const isHotReload = useHotReload();
 
   async function loadFn() {
+    console.log("LOADING ************");
+    resetProjectStores();
     setDoneLoading(false);
     const res = await loadProjectConfig({ projectConfigName });
     setDoneLoading(res);
@@ -81,28 +86,36 @@ export function useLoadProjectConfig() {
   }
 
   async function loadSettingsProject() {
+    console.log("LOADING ************");
+    resetProjectStores();
     setDoneLoading(false);
     const res = await loadSettingsProjectConfig();
     setDoneLoading(res);
     useMisc.setState({ projectIsLoading: false });
   }
 
+  function changeFn() {
+    console.log("CHANGING CONFIG NAME********");
+    setProjectConfigName(projectConfigName);
+    useMisc.setState({ projectIsLoading: false });
+  }
+
   useEffect(() => {
-    if (useMisc.getState().projectIsLoading) {
+    if (isHotReload || useMisc.getState().projectIsLoading) {
       return;
     }
+
     useMisc.setState({ projectIsLoading: true });
 
     if (projectConfigName === SETTINGS_PROJECT_NAME) {
       loadSettingsProject();
-      return;
-    }
-    // The first if-statement triggers for a page refresh or navigating to a different project
-    if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
+    } else if (
+      !doneLoading ||
+      pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG
+    ) {
       loadFn();
     } else if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
-      setProjectConfigName(projectConfigName);
-      useMisc.setState({ projectIsLoading: false });
+      changeFn();
     }
   }, [pageLoadType, projectConfigName]);
 

@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { dbCreateProjectConfig, dbLoadProjectConfig } from "requests/projects";
 import { dbLoadSettingsProject } from "requests/settings";
 import { useJSONSourceMissing } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import {
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
@@ -54,7 +53,6 @@ export function loadProjectState({
   runGroups,
   jsonSourceMissing,
 }) {
-  resetProjectStores();
   setAllCodeInfo(codeInfo);
   setProjectConfig(_.omit(projectConfig, ["children"]));
   if (!projectConfig.viewport) {

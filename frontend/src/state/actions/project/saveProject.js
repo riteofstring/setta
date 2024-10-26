@@ -68,7 +68,7 @@ export function getProjectData({ withArtifactMetadata = false }) {
 
   const codeInfo = useCodeInfo.getState().x;
   const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
-  console.log("fullNameToInfo", fullNameToInfo);
+  // console.log("fullNameToInfo", fullNameToInfo);
 
   const output = {
     projectConfig,
@@ -82,7 +82,7 @@ export function getProjectData({ withArtifactMetadata = false }) {
     fullNameToInfo,
   };
 
-  console.log(output);
+  // console.log(output);
 
   return output;
 }
