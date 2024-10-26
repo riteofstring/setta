@@ -16,7 +16,8 @@ import { ShowMarkdown } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
 
 function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
-  const isSpecial = [ C.CODE,
+  const isSpecial = [
+    C.CODE,
     C.TERMINAL,
     C.GLOBAL_PARAM_SWEEP,
     C.GLOBAL_VARIABLES,

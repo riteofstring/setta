@@ -92,7 +92,6 @@ function TabContent({ tab }) {
 }
 
 export function focusOnProjectOverviewButton(e) {
-  console.log("focusOnProjectOverviewButton")
   e.preventDefault();
-  document.getElementById("ProjectOverviewButtonDiv").focus({preventScroll: true});
+  document.getElementById("ProjectOverviewButtonDiv").focus();
 }
