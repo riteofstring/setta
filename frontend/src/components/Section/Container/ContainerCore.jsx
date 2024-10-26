@@ -5,6 +5,7 @@ import { useActiveSection } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { useGetSectionInfo, useTempHasNested } from "state/hooks/sections";
+import { containerCoreOnKeyDown } from "utils/tabbingLogic";
 import { SectionTitle } from "../Header/SectionTitle";
 import { getOnSectionClick, getOutlineColor } from "./utils";
 
@@ -88,6 +89,7 @@ function _Container({
       style={style}
       {...commonProps}
       tabIndex="-1"
+      onKeyDown={(e) => containerCoreOnKeyDown(e, refForPosition, sectionId)}
     >
       {children}
     </div>

@@ -33,6 +33,23 @@ export function siteLogoOnKeyDown(e, navigate) {
   }
 }
 
+export function containerCoreOnKeyDown(e, ref, sectionId) {
+  if (e.code !== "Tab") {
+    return;
+  }
+
+  if (e.shiftKey) {
+    if (
+      e.target === firstFocusableElement(ref.current) ||
+      e.target === e.currentTarget
+    ) {
+      shiftTabBackToOverviewListItem(e, sectionId);
+    }
+  } else if (e.target === lastFocusableElement(ref.current)) {
+    tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
+  }
+}
+
 export function useReactFlowTabInterceptor() {
   const containerRef = useRef();
   const isTabPress = useRef(false);
@@ -41,7 +58,9 @@ export function useReactFlowTabInterceptor() {
     if (!isTabPress.current) {
       return;
     }
-    movePaneToIncludeElement(e);
+    if (containerRef.current.contains(e.relatedTarget)) {
+      movePaneToIncludeElement(e);
+    }
   }
 
   function onKeyUp() {
@@ -56,57 +75,6 @@ export function useReactFlowTabInterceptor() {
 
   function onKeyDown(e) {
     isTabPress.current = e.key === "Tab";
-    if (e.key === "Tab") {
-      if (e.shiftKey) {
-        if (e.target.id.endsWith("-MenuButtonTrigger")) {
-          const sectionId = e.target.id.split("-MenuButtonTrigger")[0];
-          shiftTabBackToOverviewListItem(e, sectionId);
-        } else if (e.target.id.endsWith("-ContainerCore")) {
-          const sectionId = e.target.id.split("-ContainerCore")[0];
-          shiftTabBackToOverviewListItem(e, sectionId);
-        }
-      }
-
-      // let preventedDefault = false;
-      // const focusableArray = tabbable(containerRef.current);
-      // if (focusableArray.length === 0) {
-      //   return;
-      // }
-
-      // let nextElement;
-      // const currentFocusedElement = document.activeElement;
-      // const currentIndex = focusableArray.indexOf(currentFocusedElement);
-
-      // let nextIndex;
-      // if (e.shiftKey) {
-      //   nextIndex =
-      //     currentIndex > 0 ? currentIndex - 1 : focusableArray.length - 1;
-      // } else {
-      //   nextIndex =
-      //     currentIndex < focusableArray.length - 1 ? currentIndex + 1 : 0;
-      // }
-
-      // nextElement = focusableArray[nextIndex];
-      // if (nextElement.className.includes("react-flow__node")) {
-      //   preventedDefault = goToSectionIfNotFullyVisible(
-      //     e,
-      //     nextElement.dataset.id,
-      //   );
-      // } else {
-      //   for (const [sectionId, ref] of Object.entries(
-      //     useSectionRefs.getState().selfOnly,
-      //   )) {
-      //     if (ref.contains(nextElement)) {
-      //       preventedDefault = goToSectionIfNotFullyVisible(e, sectionId);
-      //       break;
-      //     }
-      //   }
-      // }
-
-      // if (preventedDefault) {
-      //   nextElement.focus({ preventScroll: true });
-      // }
-    }
   }
 
   return { containerRef, onKeyDown, onKeyUp, onFocus, onBlur };
@@ -183,7 +151,7 @@ export function focusOnSection(e, sectionId) {
 const getFocusableElements = (container) => {
   return Array.from(
     container.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"]):not([role="menubar"])',
     ),
   ).filter((element) => {
     // Check if the element is visible and not disabled
@@ -203,4 +171,14 @@ const lastFocusableElement = (container) => {
   }
 
   return focusableElements[focusableElements.length - 1];
+};
+
+const firstFocusableElement = (container) => {
+  const focusableElements = getFocusableElements(container);
+
+  if (focusableElements.length === 0) {
+    return null;
+  }
+
+  return focusableElements[0];
 };
