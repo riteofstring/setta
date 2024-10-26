@@ -3,6 +3,8 @@ import {
   focusOnSection,
   goToSection,
 } from "state/actions/sections/sectionPositions";
+import { localStorageFns } from "state/hooks/localStorage";
+import { focusOnProjectOverviewButton } from "./Overview";
 
 export function SectionListItems({
   listOfSectionIdsAndNames = [],
@@ -68,15 +70,20 @@ export function getShiftTabBackToOverviewListItem(sectionId) {
   return (e) => {
     if (e.key === "Tab") {
       if (e.shiftKey) {
-        // tab back to overview
-        const element = document.getElementById(
-          `${sectionId}-OverviewListItem`,
-        );
-        // need to do setTimeout for some reason,
-        // otherwise the div only briefly gets focus and then focus goes to a higher up div
-        setTimeout(() => {
-          element.focus({ preventScroll: true });
-        }, 0);
+        const [overviewVis] = localStorageFns.overviewVis.state();
+        if (overviewVis) {
+          // tab back to overview
+          const element = document.getElementById(
+            `${sectionId}-OverviewListItem`,
+          );
+          // need to do setTimeout for some reason,
+          // otherwise the div only briefly gets focus and then focus goes to a higher up div
+          setTimeout(() => {
+            element.focus();
+          }, 0);
+        } else {
+          focusOnProjectOverviewButton(e);
+        }
       }
     }
   };

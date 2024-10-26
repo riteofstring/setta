@@ -90,3 +90,8 @@ function TabContent({ tab }) {
       return <ProjectConfigs />;
   }
 }
+
+export function focusOnProjectOverviewButton(e) {
+  e.preventDefault();
+  document.getElementById("ProjectOverviewButtonDiv").focus();
+}

@@ -1,3 +1,4 @@
+import { focusOnProjectOverviewButton } from "components/Panes/Overview/Overview";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
@@ -281,9 +282,6 @@ function deactivateMoveSectionMode() {
 function onTab(e) {
   const currentFocusedElement = document.activeElement;
   if (currentFocusedElement === document.body) {
-    e.preventDefault();
-    document
-      .getElementById("ProjectOverviewButtonDiv")
-      .focus({ preventScroll: true });
+    focusOnProjectOverviewButton(e);
   }
 }
