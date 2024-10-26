@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { getHighestAncestor } from "state/actions/sections/sectionChildren";
 import { useNodeInternals, useSectionRefs } from "state/definitions";
-import { getSectionType } from "state/getters/sectionInfo";
+import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
 import { localStorageFns } from "state/hooks/localStorage";
 import { HOME_ROUTER_PATH } from "./constants";
 
@@ -34,7 +34,10 @@ export function siteLogoOnKeyDown(e, navigate) {
 }
 
 export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
-  if (e.code !== "Tab") {
+  if (
+    e.code !== "Tab" ||
+    (e.target.cmView && returnEarlyBecauseOfCodeMirror(sectionId))
+  ) {
     return;
   }
   e.preventDefault();
@@ -60,6 +63,15 @@ export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
       movePaneToIncludeElement(focusEl);
     }
   }
+}
+
+function returnEarlyBecauseOfCodeMirror(sectionId) {
+  const type = getSectionType(sectionId).type;
+  return (
+    type === C.CODE ||
+    type === C.INTERACTIVE_CODE ||
+    getSectionInfo(sectionId).showYaml
+  );
 }
 
 function getNextElement(e, ref, focusableArray) {
