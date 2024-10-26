@@ -19,9 +19,7 @@ import {
   useMisc,
   useProjectConfig,
 } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
-import { useHotReload } from "utils/hotReload";
 import { useEditableOnSubmit } from "./editableText";
 
 export function useGetAllProjectConfigMetadata() {
@@ -71,11 +69,9 @@ export function useLoadProjectConfig() {
   const { state } = useLocation();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
-  const isHotReload = useHotReload();
 
   async function loadFn() {
     setDoneLoading(false);
-    resetProjectStores();
     const res = await loadProjectConfig({ projectConfigName });
     setDoneLoading(res);
     useMisc.setState({ projectIsLoading: false });
@@ -83,20 +79,12 @@ export function useLoadProjectConfig() {
 
   async function loadSettingsProject() {
     setDoneLoading(false);
-    resetProjectStores();
     const res = await loadSettingsProjectConfig();
     setDoneLoading(res);
     useMisc.setState({ projectIsLoading: false });
   }
 
   useEffect(() => {
-    // console.log("isHotReload", isHotReload)
-    if (isHotReload) {
-      console.log("RETURNING EARLY!!!!!!!")
-      // setIsHotReload(false)
-      return;
-    }
-
     if (useMisc.getState().projectIsLoading) {
       return;
     }
