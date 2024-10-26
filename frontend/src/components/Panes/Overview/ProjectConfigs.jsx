@@ -40,6 +40,11 @@ export const ProjectConfigs = React.forwardRef(() => {
           {doneLoading ? (
             allConfigNames.map((name, idx) => (
               <Link
+                id={
+                  idx === allConfigNames.length - 1
+                    ? "FinalProjectConfigListing"
+                    : undefined
+                }
                 to={pathRelativeToProject(name)}
                 key={idx}
                 className="grouop flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-xl px-2 py-1 hover:bg-blue-300/40 dark:hover:bg-blue-900/50"

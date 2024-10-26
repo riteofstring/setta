@@ -10,7 +10,7 @@ export function SiteLogo() {
   };
 
   return (
-    <Link to={HOME_ROUTER_PATH} onKeyDown={onKeyDown}>
+    <Link id="SiteLogo" to={HOME_ROUTER_PATH} onKeyDown={onKeyDown}>
       <SVG
         styles="w-12 mt-[4px] group"
         color="fill-[#213158] dark:fill-[#00B5D8] group-hover:fill-[#00B5D8] dark:group-hover:fill-[#00E0FF] transition-colors"
