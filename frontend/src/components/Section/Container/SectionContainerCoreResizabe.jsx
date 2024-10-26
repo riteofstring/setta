@@ -66,7 +66,7 @@ export function SectionContainerCoreResizable({
     isGlobalVariables,
     isInOtherProjectConfigs,
     isSelectingParams,
-    jsonSourceMissing
+    jsonSourceMissing,
   });
   const bgColor = getBgColor();
   const youtube = useIsYouTube(sectionId);

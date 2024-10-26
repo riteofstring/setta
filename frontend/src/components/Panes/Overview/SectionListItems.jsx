@@ -1,11 +1,6 @@
 import React from "react";
-import {
-  focusOnSection,
-  goToSection,
-} from "state/actions/sections/sectionPositions";
-import { useNodeInternals } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
-import { focusOnProjectOverviewButton } from "./Overview";
+import { goToSection } from "state/actions/sections/sectionPositions";
+import { focusOnSection } from "utils/tabbingLogic";
 
 export function SectionListItems({
   listOfSectionIdsAndNames = [],
@@ -29,9 +24,8 @@ function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
 
   const onKeyDown = (e) => {
     if (e.code === "Space") {
-      e.preventDefault();
       onClick();
-      focusOnSection(sectionId);
+      focusOnSection(e, sectionId);
     }
   };
 
@@ -66,24 +60,3 @@ function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
 }
 
 const SectionItem = React.memo(_SectionItem);
-
-export function shiftTabBackToOverviewListItem(e, sectionId) {
-  if (!useNodeInternals.getState().x.has(sectionId)) {
-    // don't go to overview if section is not top level
-    return;
-  }
-
-  const [overviewVis] = localStorageFns.overviewVis.state();
-  const [overviewTab] = localStorageFns.overviewTab.state();
-  if (overviewVis && overviewTab === "tab1") {
-    // tab back to overview
-    const element = document.getElementById(`${sectionId}-OverviewListItem`);
-    // need to do setTimeout for some reason,
-    // otherwise the div only briefly gets focus and then focus goes to a higher up div
-    setTimeout(() => {
-      element.focus();
-    }, 0);
-  } else {
-    focusOnProjectOverviewButton(e);
-  }
-}

@@ -3,11 +3,8 @@ import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
-import {
-  TabButton,
-  tabToFirstEnabledButtonOrToNavBar,
-  usePaneFns,
-} from "../paneFns";
+import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
+import { TabButton, usePaneFns } from "../paneFns";
 import { InfoViewBig } from "./InfoViewBig";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
@@ -33,22 +30,9 @@ export function Overview() {
       "flex h-10 w-10 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
   };
 
-  function onKeyDown(e) {
-    if (e.key !== "Tab" || e.shiftKey) {
-      return;
-    }
-    if (
-      (e.target.id === "ProjectConfigsButtonDiv" && !vis) ||
-      e.target.id === "QuickHelpAccordionTrigger" ||
-      e.target.id === "FinalProjectConfigListing"
-    ) {
-      tabToFirstEnabledButtonOrToNavBar(e);
-    }
-  }
-
   // The ProjectOverviewButtonDiv div id is used when tabbing from document.body
   return (
-    <div onKeyDown={onKeyDown}>
+    <div onKeyDown={(e) => overviewPaneOnKeyDown(e, vis)}>
       <div className="absolute left-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton
           id="ProjectOverviewButtonDiv"
@@ -106,9 +90,4 @@ function TabContent({ tab }) {
     case "tab3":
       return <ProjectConfigs />;
   }
-}
-
-export function focusOnProjectOverviewButton(e) {
-  e.preventDefault();
-  document.getElementById("ProjectOverviewButtonDiv").focus();
 }

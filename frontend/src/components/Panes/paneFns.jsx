@@ -64,13 +64,3 @@ function getColor({ vis, isCurrSelected, disabled }) {
   }
   return "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500";
 }
-
-export function tabToFirstEnabledButtonOrToNavBar(e) {
-  e.preventDefault()
-  const element =
-    document.querySelector("#UiEditorTabButtons button:not([disabled])") ??
-    document.getElementById("SiteLogo");
-  setTimeout(() => {
-    element.focus();
-  }, 0);
-}

@@ -29,7 +29,7 @@ export async function paste() {
 
 async function pasteSections(data) {
   const res = await dbCreateCopyOfSections(data);
-  console.log("res.data", res.data)
+  console.log("res.data", res.data);
   if (res.status === 200) {
     res.data.sections = removeSingletonSectionsIfAlreadyPresent(res.data);
     const topLevelIds = findTopLevelSections(
