@@ -87,7 +87,9 @@ function _Container({
       className={`${className} focus-visible:outline-none`}
       style={style}
       {...commonProps}
-      onKeyDown={(e) => sectionContainerCoreOnKeyDown(e, sectionId)}
+      onKeyDown={(e) =>
+        sectionContainerCoreOnKeyDown(e, refForPosition, sectionId)
+      }
       tabIndex="-1" // needed so that onKeyDown works
     >
       {children}

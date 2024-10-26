@@ -33,7 +33,7 @@ export function siteLogoOnKeyDown(e, navigate) {
   }
 }
 
-export function sectionContainerCoreOnKeyDown(e, sectionId) {
+export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
   if (e.code !== "Tab") {
     return;
   }
@@ -42,27 +42,45 @@ export function sectionContainerCoreOnKeyDown(e, sectionId) {
   const highestAncestorRef =
     useSectionRefs.getState().withNested[getHighestAncestor(sectionId)];
   const focusableArray = getFocusableElements(highestAncestorRef);
-  const currentIndex = e.target.cmView
-    ? focusableArray.findIndex((f) => f.id.startsWith("CodeMirror-"))
-    : focusableArray.indexOf(document.activeElement);
 
   if (e.shiftKey) {
-    const nextElement = focusableArray[currentIndex - 1];
-    if (!nextElement) {
+    const focusEl = getPrevElement(e, ref, focusableArray);
+    if (!focusEl) {
       shiftTabBackToOverviewListItem(e, sectionId);
     } else {
-      nextElement.focus({ preventScroll: true });
-      movePaneToIncludeElement(nextElement);
+      focusEl.focus({ preventScroll: true });
+      movePaneToIncludeElement(focusEl);
     }
   } else {
-    const nextElement = focusableArray[currentIndex + 1];
-    if (!nextElement) {
+    const focusEl = getNextElement(e, ref, focusableArray);
+    if (!focusEl) {
       tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
     } else {
-      nextElement.focus({ preventScroll: true });
-      movePaneToIncludeElement(nextElement);
+      focusEl.focus({ preventScroll: true });
+      movePaneToIncludeElement(focusEl);
     }
   }
+}
+
+function getNextElement(e, ref, focusableArray) {
+  if (e.target === ref.current) {
+    return firstFocusableElement(ref.current);
+  }
+  return focusableArray[getCurrentElementIndex(e, focusableArray) + 1];
+}
+
+function getPrevElement(e, ref, focusableArray) {
+  if (e.target === ref.current) {
+    const firstElement = firstFocusableElement(ref.current);
+    return focusableArray[focusableArray.indexOf(firstElement) - 1];
+  }
+  return focusableArray[getCurrentElementIndex(e, focusableArray) - 1];
+}
+
+function getCurrentElementIndex(e, focusableArray) {
+  return e.target.cmView
+    ? focusableArray.findIndex((f) => f.id.startsWith("CodeMirror-"))
+    : focusableArray.indexOf(document.activeElement);
 }
 
 export function tabFromDocumentBody(e) {
