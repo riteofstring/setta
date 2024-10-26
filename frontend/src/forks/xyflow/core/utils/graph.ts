@@ -217,13 +217,18 @@ function isSectionOverlappingWithRect(sectionId, otherRect, partially) {
 }
 
 export function movePaneToIncludeElement(e) {
+  e.preventDefault();
+  e.stopPropagation();
   const point = screenToFlowPosition(e.target.getBoundingClientRect());
   const paneRect = getPaneRect(
     useReactFlow.getState(),
     localStorageFns.overviewTrueWidth.state()[0],
   );
+  console.log("point", point)
+  console.log("paneRect", paneRect)
   const { x, y, isInside } = getRectTranslation(point, paneRect, 10);
   if (!isInside) {
+    console.log("translating by", x, y)
     const { d3Zoom, d3Selection } = useReactFlow.getState();
     d3Zoom.translateBy(d3Selection, -x, -y);
   }

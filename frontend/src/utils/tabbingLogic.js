@@ -37,7 +37,7 @@ export function containerCoreOnKeyDown(e, ref, sectionId) {
   if (e.code !== "Tab") {
     return;
   }
-
+  console.log("containerCoreOnKeyDown");
   if (e.shiftKey) {
     if (
       e.target === firstFocusableElement(ref.current) ||
@@ -58,7 +58,9 @@ export function useReactFlowTabInterceptor() {
     if (!isTabPress.current) {
       return;
     }
+    // console.log("onFocus", e)
     if (containerRef.current.contains(e.relatedTarget)) {
+      // console.log("movePaneToIncludeElement")
       movePaneToIncludeElement(e);
     }
   }
@@ -75,6 +77,9 @@ export function useReactFlowTabInterceptor() {
 
   function onKeyDown(e) {
     isTabPress.current = e.key === "Tab";
+    console.log("onKeyDown");
+    if (isTabPress.current) {
+    }
   }
 
   return { containerRef, onKeyDown, onKeyUp, onFocus, onBlur };

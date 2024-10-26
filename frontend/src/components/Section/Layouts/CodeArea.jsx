@@ -119,6 +119,8 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
         onMouseDown={onMouseDown}
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
+        // indentWithTab={true}
+        // tabIndex="0"
       />
     </article>
   );
