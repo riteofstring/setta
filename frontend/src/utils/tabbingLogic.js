@@ -4,7 +4,7 @@ import { getHighestAncestor } from "state/actions/sections/sectionChildren";
 import { useSectionRefs } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { localStorageFns } from "state/hooks/localStorage";
-import { HOME_ROUTER_PATH } from "./constants";
+import { HOME_ROUTER_PATH, pathRelativeToProject } from "./constants";
 
 export function overviewPaneOnKeyDown(e) {
   if (e.key !== "Tab" || e.shiftKey) {
@@ -25,11 +25,20 @@ export function uiEditorPaneOnKeyDown(e) {
   }
 }
 
-export function siteLogoOnKeyDown(e, navigate) {
+export function siteLogoOnKeyDown(e, navigate, location) {
+  if (location.pathname === HOME_ROUTER_PATH) {
+    return;
+  }
   if (e.code === "Space") {
     navigate(HOME_ROUTER_PATH);
   } else if (e.key === "Tab" && e.shiftKey) {
     tabToLastFocusablePaneElement(e);
+  }
+}
+
+export function homePageProjectItemOnKeyDown(e, navigate, projectConfigName) {
+  if (e.code === "Space") {
+    navigate(pathRelativeToProject(projectConfigName));
   }
 }
 

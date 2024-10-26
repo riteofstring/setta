@@ -1,15 +1,16 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { HOME_ROUTER_PATH } from "utils/constants";
 import { siteLogoOnKeyDown } from "utils/tabbingLogic";
 
 export function SiteLogo() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <Link
       id="SiteLogo"
       to={HOME_ROUTER_PATH}
-      onKeyDown={(e) => siteLogoOnKeyDown(e, navigate)}
+      onKeyDown={(e) => siteLogoOnKeyDown(e, navigate, location)}
     >
       <SVG
         styles="w-12 mt-[4px] group"
