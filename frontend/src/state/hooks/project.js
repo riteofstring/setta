@@ -19,7 +19,6 @@ import {
   useMisc,
   useProjectConfig,
 } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { useEditableOnSubmit } from "./editableText";
 
@@ -96,11 +95,7 @@ export function useLoadProjectConfig() {
       return;
     }
     // The first if-statement triggers for a page refresh or navigating to a different project
-    if (
-      !doneLoading ||
-      pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG ||
-      !pageLoadType
-    ) {
+    if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
       loadFn();
     } else if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
       setProjectConfigName(projectConfigName);
@@ -124,16 +119,6 @@ export function useEditableProjectName() {
   }
 
   return useEditableOnSubmit(name, onSetName, condition);
-}
-
-export function useResetProjectState() {
-  const { pathname, state } = useLocation();
-  useEffect(() => {
-    if (state?.pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
-      return;
-    }
-    resetProjectStores();
-  }, [pathname]);
 }
 
 export function useConfigAddress({ project, configId }) {
