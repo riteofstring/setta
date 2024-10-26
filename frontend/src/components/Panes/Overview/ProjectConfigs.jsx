@@ -1,12 +1,9 @@
+import { router } from "components/Pages/router";
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 import React, { useState } from "react";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
 import { setAllPreviewVariantIdsToNull } from "state/actions/sections/sectionInfos";
-import {
-  useAllProjectConfigs,
-  useRouter,
-  useSectionInfos,
-} from "state/definitions";
+import { useAllProjectConfigs, useSectionInfos } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useLoadFullProject } from "state/hooks/project";
 import { PAGE_LOAD_TYPES } from "utils/constants";
@@ -101,9 +98,9 @@ function onMouseOver({
   }
 }
 
-function onClick({ currProjectConfigName, clickedOnName, navigate }) {
+function onClick({ currProjectConfigName, clickedOnName }) {
   if (clickedOnName !== currProjectConfigName) {
-    useRouter.getState().router.navigate(`../${clickedOnName}`, {
+    router.navigate(clickedOnName, {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });
   }

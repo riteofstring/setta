@@ -225,7 +225,3 @@ export const useMisc = create(
     singletonSections: { globalVariables: null, globalParamSweep: null },
   })),
 );
-
-export const useRouter = create(() => {
-  router: null;
-});

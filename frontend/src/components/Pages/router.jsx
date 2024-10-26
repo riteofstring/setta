@@ -3,7 +3,6 @@ import { ModalContainer } from "components/Modals/ModalContainer";
 import { HomePage } from "components/Pages/Home/HomePage";
 import { GridContainer } from "components/Utils/atoms/gridContainer/GridContainer";
 import { createBrowserRouter } from "react-router-dom";
-import { useRouter } from "state/definitions";
 import {
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
@@ -52,5 +51,3 @@ export const router = createBrowserRouter([
   homeRoute,
   projectRoute,
 ]);
-
-useRouter.setState({ router });
