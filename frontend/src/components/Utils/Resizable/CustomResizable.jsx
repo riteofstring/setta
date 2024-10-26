@@ -69,7 +69,6 @@ function CustomResizableCore({
   }
 
   function onResizeStop(...props) {
-    console.log("onResizeStop")
     const changedSize = getChangedSize({
       props,
       sizeMode,

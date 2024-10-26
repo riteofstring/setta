@@ -1,5 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
+import { getDimensions } from "forks/xyflow/core/utils";
 import { createSelectionChange } from "forks/xyflow/core/utils/changes";
 import _ from "lodash";
 import { useNodeInternals } from "state/definitions";
@@ -24,16 +25,6 @@ export function deleteNodes(nodeIds) {
   onNodesChange(changes);
 }
 
-export function setNodeDimensions(id, dimensions) {
-  onNodesChange([
-    {
-      id,
-      type: "dimensions",
-      dimensions,
-    },
-  ]);
-}
-
 function createNodeInternals(nodes, nodeInternals) {
   const nextNodeInternals = new Map();
 
@@ -52,14 +43,45 @@ function createNodeInternals(nodes, nodeInternals) {
   return nextNodeInternals;
 }
 
-export function updateNodeDimensions() {
+export function updateNodeDimensions(updates) {
   const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions, domNode } =
     useReactFlow.getState();
+  const nodeInternals = useNodeInternals.getState().x;
   const viewportNode = domNode?.querySelector(".react-flow__viewport");
 
   if (!viewportNode) {
     return;
   }
+
+  const changes = updates.reduce((res, update) => {
+    const node = nodeInternals.get(update.id);
+
+    if (node) {
+      const dimensions = getDimensions(update.nodeElement);
+      const doUpdate = !!(
+        dimensions.width &&
+        dimensions.height &&
+        (node.width !== dimensions.width ||
+          node.height !== dimensions.height ||
+          update.forceUpdate)
+      );
+
+      if (doUpdate) {
+        nodeInternals.set(node.id, {
+          ...node,
+          ...dimensions,
+        });
+
+        res.push({
+          id: node.id,
+          type: "dimensions",
+          dimensions,
+        });
+      }
+    }
+
+    return res;
+  }, []);
 
   const nextFitViewOnInitDone =
     fitViewOnInitDone ||
@@ -70,7 +92,14 @@ export function updateNodeDimensions() {
         ...fitViewOnInitOptions,
       }));
 
+  useNodeInternals.setState({
+    x: _.cloneDeep(nodeInternals),
+  });
   useReactFlow.setState({ fitViewOnInitDone: nextFitViewOnInitDone });
+
+  if (changes?.length > 0) {
+    onNodesChange(changes);
+  }
 }
 
 export function updateNodePositions(
@@ -118,10 +147,6 @@ export function onNodesChange(changes) {
       }
       case "remove": {
         newNodes.delete(c.id);
-        break;
-      }
-      case "dimensions": {
-        Object.assign(newNodes.get(c.id), c.dimensions);
         break;
       }
     }

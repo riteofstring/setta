@@ -38,6 +38,7 @@ export type WrapNodeProps<T = any> = Pick<Node<T>, "id" | "style"> &
     isSelectable: boolean;
     isDraggable: boolean;
     isFocusable: boolean;
+    resizeObserver: ResizeObserver | null;
     zIndex: number;
   };
 
