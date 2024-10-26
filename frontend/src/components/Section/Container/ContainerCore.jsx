@@ -10,6 +10,7 @@ import { SectionTitle } from "../Header/SectionTitle";
 import { getOnSectionClick, getOutlineColor } from "./utils";
 
 function _Container({
+  isTopLevel,
   isDeck,
   sectionId,
   droppableRef,
@@ -57,6 +58,7 @@ function _Container({
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
         onClick={getOnSectionClick({ sectionId, isActiveSection })}
         tabIndex="0"
+        // onKeyDown={(e) => containerCoreOnKeyDown(e, refForPosition, sectionId)}
       >
         <div
           className={`outline outline-4 ${outlineColor} absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline  outline-2 outline-transparent backdrop-blur dark:border-setta-700 dark:bg-[#06070a3e]`}
@@ -87,7 +89,11 @@ function _Container({
       style={style}
       {...commonProps}
       tabIndex="-1"
-      onKeyDown={(e) => containerCoreOnKeyDown(e, refForPosition, sectionId)}
+      onKeyDown={
+        isTopLevel
+          ? (e) => containerCoreOnKeyDown(e, refForPosition, sectionId)
+          : undefined
+      }
     >
       {children}
     </div>
