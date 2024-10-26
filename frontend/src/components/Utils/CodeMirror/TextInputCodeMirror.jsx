@@ -194,6 +194,7 @@ function CoreCodeMirror({
       onChange={onChange}
       onBlur={onBlur}
       indentWithTab={false}
+      tabIndex="0" // need this for tabbingLogic to work
     />
   );
 }

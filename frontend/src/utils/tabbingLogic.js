@@ -39,9 +39,11 @@ export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
   }
   e.preventDefault();
   e.stopPropagation();
-
   const focusableArray = getFocusableElements(ref.current);
-  const currentIndex = focusableArray.indexOf(document.activeElement);
+  const currentIndex = e.target.cmView
+    ? focusableArray.findIndex((f) => f.id.startsWith("CodeMirror-"))
+    : focusableArray.indexOf(document.activeElement);
+
   const highestAncestorRef =
     useSectionRefs.getState().withNested[getHighestAncestor(sectionId)];
 
