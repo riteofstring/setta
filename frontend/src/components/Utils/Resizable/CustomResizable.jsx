@@ -2,7 +2,8 @@ import _ from "lodash";
 import { useEffect } from "react";
 import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos, useSettings } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "./utils";
@@ -98,6 +99,9 @@ function CustomResizableCore({
   // console.log("size", size);
   // console.log("aspectRatio", aspectRatio)
 
+  const snapGrid = useSettings((x) => x.snapGrid);
+  const snapToGrid = localStorageFns.snapToGrid.hook()[0];
+
   return (
     <ResizableWithScale
       id={`${sectionId}-CustomResizable`} // IMPORTANT, used as parent for codemirror autocomplete
@@ -116,6 +120,7 @@ function CustomResizableCore({
       enable={enable}
       className={inputClasses}
       handleStyles={{ right: { right: "-8px" }, bottom: { bottom: "-8px" } }}
+      grid={snapToGrid ? snapGrid : null}
       // handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
       {children}
