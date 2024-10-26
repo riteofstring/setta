@@ -8,7 +8,6 @@ import { UiEditor } from "../../../components/Panes/UiEditor/UiEditor";
 import { UIPage } from "./UiPage";
 
 export function MainContainer() {
-  console.log("MainContainer")
   const doneLoading = useLoadProjectConfig();
   useCodeMirrorStyleLoader(doneLoading);
 

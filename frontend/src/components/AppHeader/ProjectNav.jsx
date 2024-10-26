@@ -15,7 +15,6 @@ export function ProjectNav() {
 
 function ProjectNavSwitch() {
   const { projectConfigName } = useParams();
-  console.log("ProjectNavSwitch", projectConfigName)
 
   return (
     projectConfigName && (
