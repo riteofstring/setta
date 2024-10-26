@@ -81,13 +81,13 @@ export function loadProjectState({
   return true;
 }
 
-export async function createAndGoToProjectConfig({ name }) {
+export async function createAndGoToProjectConfig({ name, navigate }) {
   const previewImgColor = getRandomProjectConfigPreviewImgColor();
   const { data: newProjectName } = await dbCreateProjectConfig({
     name,
     previewImgColor,
   });
-  router.navigate(newProjectName, {
+  navigate(newProjectName, {
     state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
   });
 }

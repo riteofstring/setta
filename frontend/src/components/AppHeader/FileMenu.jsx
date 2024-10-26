@@ -3,6 +3,7 @@ import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown"
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
+import { useNavigate } from "react-router-dom";
 import {
   openExportFullJSONModal,
   openExportJSONModal,
@@ -25,10 +26,12 @@ export function FileMenu() {
     ]),
   );
 
+  const navigate = useNavigate();
+
   return (
     <NavbarMenuDropdown trigger="File">
       <MenuItem
-        onClick={() => createAndGoToProjectConfig({})}
+        onClick={() => createAndGoToProjectConfig({ navigate })}
         shortcut={shortcuts.newProjectConfigShortcut}
       >
         New Config

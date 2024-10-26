@@ -1,6 +1,6 @@
-import { router } from "components/Pages/router";
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
 import { setAllPreviewVariantIdsToNull } from "state/actions/sections/sectionInfos";
 import { useAllProjectConfigs, useSectionInfos } from "state/definitions";
@@ -14,6 +14,7 @@ export const ProjectConfigs = React.forwardRef(() => {
   const { doneLoading, currProjectConfigName } =
     useLoadFullProject(previewEnabled);
   const [mousedOverName, setMousedOverName] = useState(currProjectConfigName);
+  const navigate = useNavigate();
 
   return (
     <>
@@ -51,7 +52,11 @@ export const ProjectConfigs = React.forwardRef(() => {
                   });
                 }}
                 onClick={() =>
-                  onClick({ currProjectConfigName, clickedOnName: name })
+                  onClick({
+                    currProjectConfigName,
+                    clickedOnName: name,
+                    navigate,
+                  })
                 }
               >
                 <p
@@ -98,9 +103,9 @@ function onMouseOver({
   }
 }
 
-function onClick({ currProjectConfigName, clickedOnName }) {
+function onClick({ currProjectConfigName, clickedOnName, navigate }) {
   if (clickedOnName !== currProjectConfigName) {
-    router.navigate(clickedOnName, {
+    navigate(`../${clickedOnName}`, {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });
   }

@@ -1,6 +1,6 @@
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
-import { router } from "components/Pages/router";
 import _ from "lodash";
+import { useNavigate } from "react-router-dom";
 import {
   saveAsExistingProjectConfig,
   saveAsNewProjectConfig,
@@ -12,6 +12,7 @@ import { MODAL_TYPE, PAGE_LOAD_TYPES } from "utils/constants";
 
 export function FileMenuSaveAsModal({ open, modalType }) {
   const projectConfigs = useGetAllProjectConfigMetadataForFileMenu(open);
+  const navigate = useNavigate();
 
   async function onClickSaveAsProject({ selected, filename }) {
     if (selected === useProjectConfig.getState().id) {
@@ -29,7 +30,7 @@ export function FileMenuSaveAsModal({ open, modalType }) {
             ),
           });
 
-      router.navigate(filename, {
+      navigate(filename, {
         state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
       });
     }

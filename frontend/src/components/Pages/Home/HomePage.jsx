@@ -8,7 +8,7 @@ import { forwardRef, useEffect, useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { dbDeleteProjectConfigs } from "requests/projects";
 import { createAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
@@ -37,9 +37,10 @@ export function HomePage() {
 
 function RightColumn({ projects, setDoRefresh }) {
   const [selectedProjects, setSelectedProjects] = useState([]);
+  const navigate = useNavigate();
 
   async function onClick() {
-    await createAndGoToProjectConfig({});
+    await createAndGoToProjectConfig({ navigate });
   }
 
   function onSelectProject(e, projectId) {
