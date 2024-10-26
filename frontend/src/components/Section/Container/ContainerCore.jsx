@@ -1,7 +1,7 @@
-import { getShiftTabBackToOverviewListItem } from "components/Panes/Overview/SectionListItems";
 import _ from "lodash";
 import React from "react";
 import { openDeckContextMenu } from "state/actions/contextMenus";
+import { getShiftTabBackToOverviewListItem } from "state/actions/keyActivations";
 import { useActiveSection } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";

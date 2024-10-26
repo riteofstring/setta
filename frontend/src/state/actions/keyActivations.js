@@ -9,6 +9,7 @@ import {
   deactivateParamSelect,
 } from "state/actions/paramSelect";
 import { useSettings } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
 import { formatCode, updateInteractiveCode } from "./interactive";
@@ -284,4 +285,32 @@ function onTab(e) {
   if (currentFocusedElement === document.body) {
     focusOnProjectOverviewButton(e);
   }
+}
+
+export function focusOnProjectOverviewButton(e) {
+  e.preventDefault();
+  document.getElementById("ProjectOverviewButtonDiv").focus({preventScroll: true});
+}
+
+export function getShiftTabBackToOverviewListItem(sectionId) {
+  return (e) => {
+    if (e.key === "Tab") {
+      if (e.shiftKey) {
+        const [overviewVis] = localStorageFns.overviewVis.state();
+        if (overviewVis) {
+          // tab back to overview
+          const element = document.getElementById(
+            `${sectionId}-OverviewListItem`,
+          );
+          // need to do setTimeout for some reason,
+          // otherwise the div only briefly gets focus and then focus goes to a higher up div
+          setTimeout(() => {
+            element.focus();
+          }, 0);
+        } else {
+          focusOnProjectOverviewButton(e);
+        }
+      }
+    }
+  };
 }
