@@ -24,6 +24,7 @@ const ReactFlow = ({ children }) => {
       onKeyDown={onKeyDown}
       onKeyUp={onKeyUp}
       onFocus={onFocus}
+      onBlur={onKeyUp}
       ref={containerRef}
     >
       <FlowRenderer>

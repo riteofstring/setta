@@ -74,7 +74,8 @@ export function shiftTabBackToOverviewListItem(e, sectionId) {
   }
 
   const [overviewVis] = localStorageFns.overviewVis.state();
-  if (overviewVis) {
+  const [overviewTab] = localStorageFns.overviewTab.state();
+  if (overviewVis && overviewTab === "tab1") {
     // tab back to overview
     const element = document.getElementById(`${sectionId}-OverviewListItem`);
     // need to do setTimeout for some reason,
