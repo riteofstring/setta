@@ -1,4 +1,4 @@
-import { getRouter } from "components/Pages/router";
+import { router } from "components/Pages/router";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
@@ -87,7 +87,7 @@ export async function createAndGoToProjectConfig({ name }) {
     name,
     previewImgColor,
   });
-  getRouter().navigate(newProjectName, {
+  router.navigate(newProjectName, {
     state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
   });
 }
