@@ -32,7 +32,7 @@ export function Overview() {
 
   // The ProjectOverviewButtonDiv div id is used when tabbing from document.body
   return (
-    <div className="contents" onKeyDown={(e) => overviewPaneOnKeyDown(e, vis, tab)}>
+    <div className="contents" onKeyDown={overviewPaneOnKeyDown}>
       <div className="absolute left-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton
           id="ProjectOverviewButtonDiv"
@@ -44,7 +44,7 @@ export function Overview() {
         <TabButton tabName="tab2" {...commonProps}>
           <i className="gg-info !scale-100" />
         </TabButton>
-        <TabButton id="ProjectConfigsButtonDiv" tabName="tab3" {...commonProps}>
+        <TabButton tabName="tab3" {...commonProps}>
           <i className="gg-git-branch !scale-100" />
         </TabButton>
       </div>

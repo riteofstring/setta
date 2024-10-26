@@ -5,16 +5,12 @@ import { useNodeInternals, useSectionRefs } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { localStorageFns } from "state/hooks/localStorage";
 
-export function overviewPaneOnKeyDown(e, vis, tab) {
+export function overviewPaneOnKeyDown(e) {
   if (e.key !== "Tab" || e.shiftKey) {
     return;
   }
-  if (
-    (e.target.id === "ProjectConfigsButtonDiv" && (!vis || tab === "tab2")) ||
-    e.target.id === "QuickHelpAccordionTrigger" ||
-    e.target.id === "FinalProjectConfigListing"
-  ) {
-    tabToFirstEnabledButtonOrToNavBar(e);
+  if (isLastFocusableElement(e, e.currentTarget)) {
+    tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
   }
 }
 
@@ -97,7 +93,7 @@ export function tabFromDocumentBody(e) {
   }
 }
 
-function tabToFirstEnabledButtonOrToNavBar(e) {
+function tabToFirstEnabledUIEditorButtonOrToSiteLogo(e) {
   e.preventDefault();
   const element =
     document.querySelector("#UiEditorTabButtons button:not([disabled])") ??
@@ -145,3 +141,29 @@ export function focusOnSection(e, sectionId) {
       .focus({ preventScroll: true });
   }
 }
+
+const getFocusableElements = (container) => {
+  return Array.from(
+    container.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((element) => {
+    // Check if the element is visible and not disabled
+    return (
+      !element.hasAttribute("disabled") &&
+      !element.getAttribute("aria-hidden") &&
+      element.offsetParent !== null
+    );
+  });
+};
+
+const isLastFocusableElement = (event, container) => {
+  const focusableElements = getFocusableElements(container);
+
+  if (focusableElements.length === 0) {
+    return false;
+  }
+
+  const lastFocusableElement = focusableElements[focusableElements.length - 1];
+  return event.target === lastFocusableElement;
+};

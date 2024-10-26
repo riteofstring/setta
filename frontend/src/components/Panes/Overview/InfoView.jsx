@@ -18,9 +18,7 @@ export function InfoView() {
     >
       <aside>
         <AccordionItem value="item-1">
-          <AccordionTrigger id="QuickHelpAccordionTrigger">
-            Quick Help
-          </AccordionTrigger>
+          <AccordionTrigger>Quick Help</AccordionTrigger>
           <AccordionContent>{currInfoView}</AccordionContent>
         </AccordionItem>
       </aside>
