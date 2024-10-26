@@ -13,7 +13,7 @@ const wrapperStyle: CSSProperties = {
 };
 
 const ReactFlow = ({ children }) => {
-  const { containerRef, onKeyDown, onKeyUp, onFocus } =
+  const { containerRef, onKeyDown, onKeyUp, onFocus, onBlur } =
     useReactFlowTabInterceptor();
 
   return (
@@ -24,7 +24,7 @@ const ReactFlow = ({ children }) => {
       onKeyDown={onKeyDown}
       onKeyUp={onKeyUp}
       onFocus={onFocus}
-      onBlur={onKeyUp}
+      onBlur={onBlur}
       ref={containerRef}
     >
       <FlowRenderer>

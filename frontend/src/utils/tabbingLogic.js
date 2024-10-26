@@ -29,6 +29,12 @@ export function useReactFlowTabInterceptor() {
     isTabPress.current = false;
   }
 
+  function onBlur(e) {
+    if (!containerRef.current.contains(e.relatedTarget)) {
+      isTabPress.current = false;
+    }
+  }
+
   function onKeyDown(e) {
     isTabPress.current = e.key === "Tab";
     if (e.key === "Tab") {
@@ -84,7 +90,7 @@ export function useReactFlowTabInterceptor() {
     }
   }
 
-  return { containerRef, onKeyDown, onKeyUp, onFocus };
+  return { containerRef, onKeyDown, onKeyUp, onFocus, onBlur };
 }
 
 export function tabFromDocumentBody(e) {
