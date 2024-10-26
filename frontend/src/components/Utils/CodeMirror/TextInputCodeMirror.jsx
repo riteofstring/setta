@@ -193,7 +193,7 @@ function CoreCodeMirror({
       extensions={extensions}
       onChange={onChange}
       onBlur={onBlur}
-      indentWithTab={false}
+      indentWithTab={false} // I take care of this in getExtensions
       tabIndex="0" // need this for tabbingLogic to work
     />
   );
