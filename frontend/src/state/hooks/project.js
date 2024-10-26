@@ -96,12 +96,17 @@ export function useLoadProjectConfig() {
       return;
     }
     // The first if-statement triggers for a page refresh or navigating to a different project
-    if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
+    if (
+      !doneLoading ||
+      pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG ||
+      !pageLoadType
+    ) {
       loadFn();
     } else if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
       setProjectConfigName(projectConfigName);
+      useMisc.setState({ projectIsLoading: false });
     }
-  }, [projectConfigName]);
+  }, [pageLoadType, projectConfigName]);
 
   return doneLoading;
 }
