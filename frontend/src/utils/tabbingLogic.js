@@ -89,7 +89,7 @@ export function tabFromDocumentBody(e) {
 function tabToFirstEnabledUIEditorButtonOrToSiteLogo(e) {
   e.preventDefault();
   const element =
-    document.querySelector("#UiEditorTabButtons button:not([disabled])") ??
+    firstFocusableElement(document.getElementById("UiEditorPane")) ??
     document.getElementById("SiteLogo");
   element.focus();
 }

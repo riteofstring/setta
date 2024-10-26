@@ -46,10 +46,7 @@ export function UiEditor() {
       className="contents"
       onKeyDown={uiEditorPaneOnKeyDown}
     >
-      <div
-        id="UiEditorTabButtons"
-        className="absolute right-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900"
-      >
+      <div className="absolute right-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton tabName={SECTION_CONFIG_TAB} {...commonProps}>
           <MdOutlineSettingsApplications />
         </TabButton>
