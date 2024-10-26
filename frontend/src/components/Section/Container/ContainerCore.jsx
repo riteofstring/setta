@@ -51,12 +51,10 @@ function _Container({
   if (isDeck) {
     return (
       <div
-        id={`${sectionId}-ContainerCore`}
-        className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3 focus-visible:outline-none ${className}`}
+        className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3 ${className}`}
         {...commonProps}
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
         onClick={getOnSectionClick({ sectionId, isActiveSection })}
-        tabIndex="0"
       >
         <div
           className={`outline outline-4 ${outlineColor} absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline  outline-2 outline-transparent backdrop-blur dark:border-setta-700 dark:bg-[#06070a3e]`}
@@ -79,16 +77,8 @@ function _Container({
       </div>
     );
   }
-
-  // -1 tabIndex needed by tab interceptor in GridContainer
   return (
-    <div
-      id={`${sectionId}-ContainerCore`}
-      className={`${className} focus-visible:outline-none`}
-      style={style}
-      {...commonProps}
-      tabIndex="-1"
-    >
+    <div className={className} style={style} {...commonProps}>
       {children}
     </div>
   );

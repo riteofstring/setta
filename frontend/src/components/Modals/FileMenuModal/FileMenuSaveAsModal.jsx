@@ -1,6 +1,6 @@
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
+import { router } from "components/Pages/router";
 import _ from "lodash";
-import { useNavigateToAnotherConfig } from "state/actions/project/loadProject";
 import {
   saveAsExistingProjectConfig,
   saveAsNewProjectConfig,
@@ -8,11 +8,10 @@ import {
 } from "state/actions/project/saveProject";
 import { useProjectConfig } from "state/definitions";
 import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
-import { MODAL_TYPE } from "utils/constants";
+import { MODAL_TYPE, PAGE_LOAD_TYPES } from "utils/constants";
 
 export function FileMenuSaveAsModal({ open, modalType }) {
   const projectConfigs = useGetAllProjectConfigMetadataForFileMenu(open);
-  const navigateToAnotherConfig = useNavigateToAnotherConfig();
 
   async function onClickSaveAsProject({ selected, filename }) {
     if (selected === useProjectConfig.getState().id) {
@@ -30,7 +29,9 @@ export function FileMenuSaveAsModal({ open, modalType }) {
             ),
           });
 
-      navigateToAnotherConfig(filename);
+      router.navigate(filename, {
+        state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+      });
     }
   }
 

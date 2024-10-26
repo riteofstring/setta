@@ -1,5 +1,4 @@
 import { type CSSProperties } from "react";
-import { useReactFlowTabInterceptor } from "utils/tabbingLogic";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
 import ViewportWrapper from "./Viewport";
@@ -13,19 +12,11 @@ const wrapperStyle: CSSProperties = {
 };
 
 const ReactFlow = ({ children }) => {
-  const { containerRef, onKeyDown, onKeyUp, onFocus } =
-    useReactFlowTabInterceptor();
-
   return (
     <div
       style={wrapperStyle}
       className="react-flow setta-light dark:setta-dark"
       data-testid="rf__wrapper"
-      onKeyDown={onKeyDown}
-      onKeyUp={onKeyUp}
-      onFocus={onFocus}
-      onBlur={onKeyUp}
-      ref={containerRef}
     >
       <FlowRenderer>
         <ViewportWrapper>

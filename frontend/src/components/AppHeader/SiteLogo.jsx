@@ -1,16 +1,9 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { HOME_ROUTER_PATH } from "utils/constants";
 
 export function SiteLogo() {
-  const navigate = useNavigate();
-  const onKeyDown = (e) => {
-    if (e.code === "Space") {
-      navigate(HOME_ROUTER_PATH);
-    }
-  };
-
   return (
-    <Link id="SiteLogo" to={HOME_ROUTER_PATH} onKeyDown={onKeyDown}>
+    <Link to={HOME_ROUTER_PATH}>
       <SVG
         styles="w-12 mt-[4px] group"
         color="fill-[#213158] dark:fill-[#00B5D8] group-hover:fill-[#00B5D8] dark:group-hover:fill-[#00E0FF] transition-colors"

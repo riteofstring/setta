@@ -60,7 +60,7 @@ export function computeEVReferences(project) {
     }
   }
 
-  // console.log("codeEVRefs", codeEVRefs);
+  console.log("codeEVRefs", codeEVRefs);
 
   return { paramEVRefs, selectedItemEVRefs, codeEVRefs };
 }

@@ -6,7 +6,13 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
-import { useKeywordRegex, useProjectConfig } from "state/definitions";
+import {
+  useCodeInfo,
+  useKeywordRegex,
+  useProjectConfig,
+  useSectionInfos,
+  useSectionVariants,
+} from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
@@ -14,6 +20,9 @@ import { sendMessage } from "./websocket";
 export async function dbLoadSectionJSONSource(jsonSource) {
   return await post({
     body: {
+      sections: useSectionInfos.getState().x,
+      codeInfo: useCodeInfo.getState().x,
+      sectionVariants: useSectionVariants.getState().x,
       jsonSource,
     },
     address: C.ROUTE_LOAD_SECTION_JSON_SOURCE,

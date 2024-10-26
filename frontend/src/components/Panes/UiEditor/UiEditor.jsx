@@ -35,16 +35,13 @@ export function UiEditor() {
     tab,
     getOnTabClick,
     className:
-      "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
+      "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl",
     requiredTabs,
   };
 
   return (
     <>
-      <div
-        id="UiEditorTabButtons"
-        className="absolute right-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900"
-      >
+      <div className="absolute right-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton tabName={SECTION_CONFIG_TAB} {...commonProps}>
           <MdOutlineSettingsApplications />
         </TabButton>

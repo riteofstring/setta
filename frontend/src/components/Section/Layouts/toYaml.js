@@ -120,7 +120,7 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
     pinned = docs[0].toJS();
     unpinned = docs[1].toJS();
   } else {
-    unpinned = docs[0]?.toJS();
+    unpinned = docs[0].toJS();
   }
   pinned = pinned ?? {};
   unpinned = unpinned ?? {};
@@ -174,7 +174,6 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
     }
     const curr = _.pick(v, ["key", "keyPath", "value", "isPinned"]);
     curr.id = createNewId();
-    curr.isNewParam = true;
     output.push(curr);
   }
 
@@ -192,29 +191,25 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
   //TODO: what should editing selectedName do? The following assumes it has no effect.
   const selectedItem = getSectionSelectedItem(sectionId);
   const parentId = selectedItem ?? getSectionInfo(sectionId).codeInfoId;
-  const idsToChildren = {};
-  if (parentId) {
-    idsToChildren[parentId] = [];
-  }
+  const idsToChildren = { [parentId]: [] };
+
   for (const v of output) {
     idsToChildren[v.id] = [];
   }
 
-  // process everything except pinned parameters that already exist
-  updateIdsToChildren({
-    idsToChildren,
-    output: output.filter((v) => !(v.isPinned && !v.isNewParam)),
-    inputParentId: parentId,
-    insertAtOriginalIdx: false,
-  });
-
-  // pinned parameters that already exist should be inserted at their original indices
-  updateIdsToChildren({
-    idsToChildren,
-    output: output.filter((v) => v.isPinned && !v.isNewParam),
-    inputParentId: parentId,
-    insertAtOriginalIdx: true,
-  });
+  for (const v of output) {
+    if (v.keyPath.length > 1) {
+      // find parent
+      const match = _.find(output, (x) =>
+        _.isEqual(x.keyPath, v.keyPath.slice(0, -1)),
+      );
+      if (match) {
+        idsToChildren[match.id].push(v.id);
+      }
+    } else {
+      idsToChildren[parentId].push(v.id);
+    }
+  }
 
   const cState = useCodeInfo.getState().x;
   const newInfos = {};
@@ -357,40 +352,4 @@ function unprocessObject(obj) {
     }
   }
   return result;
-}
-
-function updateIdsToChildren({
-  idsToChildren,
-  output,
-  inputParentId,
-  insertAtOriginalIdx,
-}) {
-  for (const v of output) {
-    let parentId = inputParentId;
-
-    if (v.keyPath.length > 1) {
-      // find parent
-      const match = _.find(output, (x) =>
-        _.isEqual(x.keyPath, v.keyPath.slice(0, -1)),
-      );
-      if (match) {
-        parentId = match.id;
-      } else {
-        continue;
-      }
-    }
-
-    if (!parentId) {
-      continue;
-    }
-
-    if (insertAtOriginalIdx) {
-      const originalIdx = useCodeInfo
-        .getState()
-        .x[parentId].children.indexOf(v.id);
-      idsToChildren[parentId].splice(originalIdx, 0, v.id);
-    } else {
-      idsToChildren[parentId].push(v.id);
-    }
-  }
 }
