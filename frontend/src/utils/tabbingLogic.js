@@ -1,5 +1,6 @@
 import C from "constants/constants.json";
 import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
+import { getHighestAncestor } from "state/actions/sections/sectionChildren";
 import { useNodeInternals, useSectionRefs } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -32,31 +33,31 @@ export function siteLogoOnKeyDown(e, navigate) {
   }
 }
 
-export function containerCoreOnKeyDown(e, ref, sectionId) {
+export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
   if (e.code !== "Tab") {
     return;
   }
   e.preventDefault();
+  e.stopPropagation();
 
   const focusableArray = getFocusableElements(ref.current);
   const currentIndex = focusableArray.indexOf(document.activeElement);
+  const highestAncestorRef =
+    useSectionRefs.getState().withNested[getHighestAncestor(sectionId)];
 
   if (e.shiftKey) {
-    if (
-      e.target === firstFocusableElement(ref.current) ||
-      e.target === e.currentTarget
-    ) {
+    const nextElement = focusableArray[currentIndex - 1];
+    if (!highestAncestorRef.contains(nextElement)) {
       shiftTabBackToOverviewListItem(e, sectionId);
     } else {
-      const nextElement = focusableArray[currentIndex - 1];
       nextElement.focus({ preventScroll: true });
       movePaneToIncludeElement(nextElement);
     }
   } else {
-    if (e.target === lastFocusableElement(ref.current)) {
+    const nextElement = focusableArray[currentIndex + 1];
+    if (!highestAncestorRef.contains(nextElement)) {
       tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
     } else {
-      const nextElement = focusableArray[currentIndex + 1];
       nextElement.focus({ preventScroll: true });
       movePaneToIncludeElement(nextElement);
     }

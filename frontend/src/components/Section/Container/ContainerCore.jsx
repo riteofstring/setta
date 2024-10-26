@@ -5,7 +5,7 @@ import { useActiveSection } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { useGetSectionInfo, useTempHasNested } from "state/hooks/sections";
-import { containerCoreOnKeyDown } from "utils/tabbingLogic";
+import { sectionContainerCoreOnKeyDown } from "utils/tabbingLogic";
 import { SectionTitle } from "../Header/SectionTitle";
 import { getOnSectionClick, getOutlineColor } from "./utils";
 
@@ -53,11 +53,11 @@ function _Container({
   if (isDeck) {
     return (
       <div
-        className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3 focus-visible:outline-none ${className}`}
+        className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3 ${className}`}
         {...commonProps}
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
         onClick={getOnSectionClick({ sectionId, isActiveSection })}
-        tabIndex="0"
+        // tabIndex="0"
         // onKeyDown={(e) => containerCoreOnKeyDown(e, refForPosition, sectionId)}
       >
         <div
@@ -82,18 +82,15 @@ function _Container({
     );
   }
 
-  // -1 tabIndex needed by tab interceptor in GridContainer
   return (
     <div
       className={`${className} focus-visible:outline-none`}
       style={style}
       {...commonProps}
-      tabIndex="-1"
-      onKeyDown={
-        isTopLevel
-          ? (e) => containerCoreOnKeyDown(e, refForPosition, sectionId)
-          : undefined
+      onKeyDown={(e) =>
+        sectionContainerCoreOnKeyDown(e, refForPosition, sectionId)
       }
+      tabIndex="-1"
     >
       {children}
     </div>
