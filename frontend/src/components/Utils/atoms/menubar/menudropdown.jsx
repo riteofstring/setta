@@ -9,10 +9,15 @@ export function MenuDropdown({
   contentAlignOffset,
   tabIndex,
   children,
+  triggerDivId,
 }) {
   return (
     <Menubar.Menu>
-      <Menubar.Trigger className={triggerClassName} tabIndex={tabIndex}>
+      <Menubar.Trigger
+        id={triggerDivId}
+        className={triggerClassName}
+        tabIndex={tabIndex}
+      >
         {trigger}
       </Menubar.Trigger>
       <Menubar.Portal>

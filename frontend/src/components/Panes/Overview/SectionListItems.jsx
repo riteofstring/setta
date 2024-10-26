@@ -1,5 +1,8 @@
 import React from "react";
-import { goToSection } from "state/actions/sections/sectionPositions";
+import {
+  focusOnSection,
+  goToSection,
+} from "state/actions/sections/sectionPositions";
 
 export function SectionListItems({
   listOfSectionIdsAndNames = [],
@@ -25,6 +28,7 @@ function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
     if (e.code === "Space") {
       e.preventDefault();
       onClick();
+      focusOnSection(sectionId);
     }
   };
 
