@@ -115,7 +115,7 @@ function focusOnLastElementOf(container) {
 
 function focusOnProjectOverviewButton(e) {
   e.preventDefault();
-  document.getElementById("ProjectOverviewButtonDiv").focus();
+  firstFocusableElement(document.getElementById("OverviewPane")).focus();
 }
 
 function shiftTabBackToOverviewListItem(e, sectionId) {
@@ -142,9 +142,9 @@ export function focusOnSection(e, sectionId) {
       .getState()
       .withNested[sectionId].focus({ preventScroll: true });
   } else {
-    document
-      .getElementById(`${sectionId}-MenuButtonTrigger`)
-      .focus({ preventScroll: true });
+    firstFocusableElement(useSectionRefs.getState().selfOnly[sectionId]).focus({
+      preventScroll: true,
+    });
   }
 }
 

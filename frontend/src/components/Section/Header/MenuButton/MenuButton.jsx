@@ -91,8 +91,6 @@ function CardHeaderMenuButton({
   sectionId,
 }) {
   const isListElement = useIsListElement(sectionId);
-  // the div id is used for tabbing
-  const triggerDivId = `${sectionId}-MenuButtonTrigger`;
 
   return (
     <MenuDropdown
@@ -102,7 +100,6 @@ function CardHeaderMenuButton({
       contentSideOffset={5}
       contentAlignOffset={-3}
       trigger={trigger}
-      triggerDivId={triggerDivId}
     >
       {children}
     </MenuDropdown>

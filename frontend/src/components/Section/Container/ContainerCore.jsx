@@ -52,7 +52,6 @@ function _Container({
   if (isDeck) {
     return (
       <div
-        id={`${sectionId}-ContainerCore`}
         className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3 focus-visible:outline-none ${className}`}
         {...commonProps}
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
@@ -84,7 +83,6 @@ function _Container({
   // -1 tabIndex needed by tab interceptor in GridContainer
   return (
     <div
-      id={`${sectionId}-ContainerCore`}
       className={`${className} focus-visible:outline-none`}
       style={style}
       {...commonProps}

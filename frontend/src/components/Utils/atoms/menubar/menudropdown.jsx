@@ -9,13 +9,11 @@ export function MenuDropdown({
   contentAlignOffset,
   tabIndex,
   children,
-  triggerDivId,
   triggerOnKeyDown,
 }) {
   return (
     <Menubar.Menu>
       <Menubar.Trigger
-        id={triggerDivId}
         className={triggerClassName}
         tabIndex={tabIndex}
         onKeyDown={triggerOnKeyDown}
