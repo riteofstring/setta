@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { getHighestAncestor } from "state/actions/sections/sectionChildren";
-import { useNodeInternals, useSectionRefs } from "state/definitions";
+import { useSectionRefs } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { localStorageFns } from "state/hooks/localStorage";
 import { HOME_ROUTER_PATH } from "./constants";
@@ -122,11 +122,6 @@ function focusOnProjectOverviewButton(e) {
 }
 
 function shiftTabBackToOverviewListItem(e, sectionId) {
-  if (!useNodeInternals.getState().x.has(sectionId)) {
-    // don't go to overview if section is not top level
-    return;
-  }
-
   const [overviewVis] = localStorageFns.overviewVis.state();
   const [overviewTab] = localStorageFns.overviewTab.state();
   if (overviewVis && overviewTab === "tab1") {

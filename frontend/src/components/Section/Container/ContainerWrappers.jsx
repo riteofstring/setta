@@ -62,7 +62,6 @@ function _DndWatcherAndContainer({
 
   return (
     <Container
-      isTopLevel={isTopLevel}
       isDeck={isDeck}
       sectionId={sectionId}
       droppableRef={droppableRef}
