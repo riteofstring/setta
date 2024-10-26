@@ -3,6 +3,7 @@ import {
   focusOnSection,
   goToSection,
 } from "state/actions/sections/sectionPositions";
+import { useNodeInternals } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { focusOnProjectOverviewButton } from "./Overview";
 
@@ -68,27 +69,31 @@ const SectionItem = React.memo(_SectionItem);
 
 export function getShiftTabBackToOverviewListItem(sectionId) {
   return (e) => {
-    if (e.target !== e.currentTarget) {
+    if (e.target !== e.currentTarget || e.key !== "Tab") {
       // If the keydown is not triggered on the div that this is called from, then don't do anything.
       // This prevents parent divs from triggering over child divs.
       return;
     }
-    if (e.key === "Tab") {
-      if (e.shiftKey) {
-        const [overviewVis] = localStorageFns.overviewVis.state();
-        if (overviewVis) {
-          // tab back to overview
-          const element = document.getElementById(
-            `${sectionId}-OverviewListItem`,
-          );
-          // need to do setTimeout for some reason,
-          // otherwise the div only briefly gets focus and then focus goes to a higher up div
-          setTimeout(() => {
-            element.focus();
-          }, 0);
-        } else {
-          focusOnProjectOverviewButton(e);
-        }
+
+    if (e.shiftKey) {
+      if (!useNodeInternals.getState().x.has(sectionId)) {
+        // don't go to overview if section is not top level
+        return;
+      }
+
+      const [overviewVis] = localStorageFns.overviewVis.state();
+      if (overviewVis) {
+        // tab back to overview
+        const element = document.getElementById(
+          `${sectionId}-OverviewListItem`,
+        );
+        // need to do setTimeout for some reason,
+        // otherwise the div only briefly gets focus and then focus goes to a higher up div
+        setTimeout(() => {
+          element.focus();
+        }, 0);
+      } else {
+        focusOnProjectOverviewButton(e);
       }
     }
   };
