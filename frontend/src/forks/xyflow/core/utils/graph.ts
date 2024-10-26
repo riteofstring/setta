@@ -216,8 +216,8 @@ function isSectionOverlappingWithRect(sectionId, otherRect, partially) {
   return notInitialized || partiallyVisible || overlappingArea >= area;
 }
 
-export function movePaneToIncludeElement(e) {
-  const point = screenToFlowPosition(e.target.getBoundingClientRect());
+export function movePaneToIncludeElement(element) {
+  const point = screenToFlowPosition(element.getBoundingClientRect());
   const paneRect = getPaneRect(
     useReactFlow.getState(),
     localStorageFns.overviewTrueWidth.state()[0],

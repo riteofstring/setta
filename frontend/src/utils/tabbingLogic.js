@@ -1,6 +1,5 @@
 import C from "constants/constants.json";
 import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
-import { useRef } from "react";
 import { useNodeInternals, useSectionRefs } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -37,6 +36,10 @@ export function containerCoreOnKeyDown(e, ref, sectionId) {
   if (e.code !== "Tab") {
     return;
   }
+  e.preventDefault();
+
+  const focusableArray = getFocusableElements(ref.current);
+  const currentIndex = focusableArray.indexOf(document.activeElement);
 
   if (e.shiftKey) {
     if (
@@ -44,40 +47,20 @@ export function containerCoreOnKeyDown(e, ref, sectionId) {
       e.target === e.currentTarget
     ) {
       shiftTabBackToOverviewListItem(e, sectionId);
+    } else {
+      const nextElement = focusableArray[currentIndex - 1];
+      nextElement.focus({ preventScroll: true });
+      movePaneToIncludeElement(nextElement);
     }
-  } else if (e.target === lastFocusableElement(ref.current)) {
-    tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
-  }
-}
-
-export function useReactFlowTabInterceptor() {
-  const containerRef = useRef();
-  const isTabPress = useRef(false);
-
-  function onFocus(e) {
-    if (!isTabPress.current) {
-      return;
-    }
-    if (containerRef.current.contains(e.relatedTarget)) {
-      movePaneToIncludeElement(e);
+  } else {
+    if (e.target === lastFocusableElement(ref.current)) {
+      tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
+    } else {
+      const nextElement = focusableArray[currentIndex + 1];
+      nextElement.focus({ preventScroll: true });
+      movePaneToIncludeElement(nextElement);
     }
   }
-
-  function onKeyUp() {
-    isTabPress.current = false;
-  }
-
-  function onBlur(e) {
-    if (!containerRef.current.contains(e.relatedTarget)) {
-      isTabPress.current = false;
-    }
-  }
-
-  function onKeyDown(e) {
-    isTabPress.current = e.key === "Tab";
-  }
-
-  return { containerRef, onKeyDown, onKeyUp, onFocus, onBlur };
 }
 
 export function tabFromDocumentBody(e) {
