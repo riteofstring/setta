@@ -123,9 +123,7 @@ function tabToFirstEnabledUIEditorButtonOrToSiteLogo(e) {
   const element =
     document.querySelector("#UiEditorTabButtons button:not([disabled])") ??
     document.getElementById("SiteLogo");
-  setTimeout(() => {
-    element.focus();
-  }, 0);
+  element.focus();
 }
 
 function tabToLastFocusablePaneElement(e) {
@@ -161,13 +159,9 @@ function shiftTabBackToOverviewListItem(e, sectionId) {
   const [overviewVis] = localStorageFns.overviewVis.state();
   const [overviewTab] = localStorageFns.overviewTab.state();
   if (overviewVis && overviewTab === "tab1") {
-    // tab back to overview
+    e.preventDefault();
     const element = document.getElementById(`${sectionId}-OverviewListItem`);
-    // need to do setTimeout for some reason,
-    // otherwise the div only briefly gets focus and then focus goes to a higher up div
-    setTimeout(() => {
-      element.focus();
-    }, 0);
+    element.focus();
   } else {
     focusOnProjectOverviewButton(e);
   }
