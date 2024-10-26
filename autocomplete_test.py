@@ -116,17 +116,13 @@ async def main():
     #     "test", "import torch\ntorch.nn.CrossEntropyLoss("
     # )
     # print(len(code.split("\n")[1])-2)
-    # await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
-    await lsp_writer.send_definition_request(1, 6, "test", "1234")
+    await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # pprint(lsp.sent_msg_info.keys())
     print("\n\n\n***********LISTENING*************")
     await lsp.server.wait()
 
-
-    import math
-    math.sqrt(5)
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -225,7 +225,6 @@ class LanguageServerReader(LanguageServerInteractor):
                 break
 
     async def process_response(self, response):
-        pprint(response)
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
