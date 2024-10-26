@@ -51,9 +51,9 @@ export function getProjectData({ withArtifactMetadata = false }) {
   const sections = _.mapValues(sectionInfosState.x, (x) => {
     const artifactState = useArtifacts.getState().x;
     if (!withArtifactMetadata) {
-      return _.omit(x, ["parentId", "artifacts"]);
+      return _.omit(x, ["artifacts"]);
     }
-    const currSection = _.omit(x, ["parentId"]);
+    const currSection = _.cloneDeep(x);
     // keep only artifact paths that are actually saved to disk
     currSection.artifacts = currSection.artifacts.filter(
       (a) => artifactState[a].isSaved,

@@ -1,18 +1,15 @@
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
-import { useNavigate } from "react-router-dom";
+import { useNavigateToAnotherConfig } from "state/actions/project/loadProject";
 import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
-import { PAGE_LOAD_TYPES } from "utils/constants";
 
 export function FileMenuLoadModal({ open, modalType }) {
   const projectConfigs = useGetAllProjectConfigMetadataForFileMenu(open);
-  const navigate = useNavigate();
+  const navigateToAnotherConfig = useNavigateToAnotherConfig();
 
   function onClickLoadProjectConfig({ selected }) {
     const config = projectConfigs.find((x) => x.id === selected);
     if (config) {
-      navigate(config.name, {
-        state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
-      });
+      navigateToAnotherConfig(config.name);
     }
   }
 

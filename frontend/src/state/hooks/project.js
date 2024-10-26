@@ -18,7 +18,11 @@ import {
   useMisc,
   useProjectConfig,
 } from "state/definitions";
-import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
+import {
+  PAGE_LOAD_TYPES,
+  pathRelativeToProject,
+  SETTINGS_PROJECT_NAME,
+} from "utils/constants";
 import { useEditableOnSubmit } from "./editableText";
 
 export function useGetAllProjectConfigMetadata() {
@@ -113,7 +117,7 @@ export function useEditableProjectName() {
     return res.status === 200;
   }
   async function onSetName(v) {
-    navigate(v, {
+    navigate(pathRelativeToProject(v), {
       state: { pageLoadType: PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME },
     });
   }
