@@ -27,7 +27,7 @@ export function Overview() {
     getOnTabClick,
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
-  };
+  }
 
   // The ProjectOverviewButtonDiv div id is used when tabbing from document.body
   return (

@@ -6,6 +6,13 @@ import { useCurrInfoView } from "state/hooks/infoView";
 
 export function InfoView() {
   const currInfoView = useCurrInfoView();
+  function onKeyDown(e) {
+    if (e.key === "Tab") {
+      if (!e.shiftKey){
+        
+      }
+    }
+  }
 
   // replace with accordion atom
   return (
@@ -18,7 +25,7 @@ export function InfoView() {
     >
       <aside>
         <AccordionItem value="item-1">
-          <AccordionTrigger>Quick Help</AccordionTrigger>
+          <AccordionTrigger onKeyDown={onKeyDown}>Quick Help</AccordionTrigger>
           <AccordionContent>{currInfoView}</AccordionContent>
         </AccordionItem>
       </aside>

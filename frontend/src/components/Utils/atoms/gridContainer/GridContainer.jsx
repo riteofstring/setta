@@ -19,9 +19,9 @@ export const GridContainer = React.forwardRef(
 );
 
 export function ProjectGridContainer({ children }) {
-  const { containerRef, onKeyDown } = useTabIntercepter();
+  // const { containerRef, onKeyDown } = useTabIntercepter();
   return (
-    <GridContainer ref={containerRef} onKeyDown={onKeyDown}>
+    <GridContainer>
       {children}
     </GridContainer>
   );
