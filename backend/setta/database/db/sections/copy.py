@@ -2,12 +2,12 @@ from setta.database.utils import remap_ids, rename_keys
 from setta.utils.constants import C
 
 from ..codeInfo.copy import copy_code_info
+from ..paramSweeps.copy import copy_param_sweeps
 from ..sectionVariants.copy import (
     copy_section_variants,
     update_section_variant_children,
 )
 from ..uiTypes.copy import copy_ui_type_cols, copy_ui_types
-from ..paramSweeps.copy import copy_param_sweeps
 
 
 def copy_sections(
@@ -33,9 +33,13 @@ def copy_sections(
         ]
         section["paramSweepId"] = param_sweep_id_map.get(section["paramSweepId"], None)
         section["paramSweepIds"] = [
-            param_sweep_id_map[x] for x in section["paramSweepIds"] if x in param_sweep_id_map
+            param_sweep_id_map[x]
+            for x in section["paramSweepIds"]
+            if x in param_sweep_id_map
         ]
-        section["paramSweepSectionId"] = section_id_map.get(section["paramSweepSectionId"], None)
+        section["paramSweepSectionId"] = section_id_map.get(
+            section["paramSweepSectionId"], None
+        )
         section["parentId"] = section_id_map.get(section["parentId"], None)
 
     return new_sections, section_id_map
@@ -50,7 +54,9 @@ def copy_sections_and_other_info(x):
     new_ui_type_cols, ui_type_col_id_map = copy_ui_type_cols(
         x["uiTypeCols"], ui_type_id_map, code_info_id_map
     )
-    new_param_sweeps, param_sweep_id_map = copy_param_sweeps(x["paramSweeps"], code_info_id_map)
+    new_param_sweeps, param_sweep_id_map = copy_param_sweeps(
+        x["paramSweeps"], code_info_id_map
+    )
     new_sections, section_id_map = copy_sections(
         x["sections"],
         code_info_id_map,
@@ -68,7 +74,7 @@ def copy_sections_and_other_info(x):
         "uiTypeCols": new_ui_type_cols,
         "sections": new_sections,
         "section_id_map": section_id_map,
-        "paramSweeps": new_param_sweeps
+        "paramSweeps": new_param_sweeps,
     }
 
 

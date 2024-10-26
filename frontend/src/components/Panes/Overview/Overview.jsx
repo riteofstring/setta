@@ -3,6 +3,7 @@ import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
+import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
 import { TabButton, usePaneFns } from "../paneFns";
 import { InfoViewBig } from "./InfoViewBig";
 import { ProjectConfigs } from "./ProjectConfigs";
@@ -25,20 +26,25 @@ export function Overview() {
     vis,
     tab,
     getOnTabClick,
-    className: "flex h-10 w-10 cursor-pointer items-center justify-center",
+    className:
+      "flex h-10 w-10 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
   };
 
   // The ProjectOverviewButtonDiv div id is used when tabbing from document.body
   return (
-    <>
+    <div onKeyDown={(e) => overviewPaneOnKeyDown(e, vis)}>
       <div className="absolute left-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
-        <TabButton id="ProjectOverviewButtonDiv" tabName="tab1" {...commonProps}>
+        <TabButton
+          id="ProjectOverviewButtonDiv"
+          tabName="tab1"
+          {...commonProps}
+        >
           <i className="gg-list  !scale-100" />
         </TabButton>
         <TabButton tabName="tab2" {...commonProps}>
           <i className="gg-info !scale-100" />
         </TabButton>
-        <TabButton tabName="tab3" {...commonProps}>
+        <TabButton id="ProjectConfigsButtonDiv" tabName="tab3" {...commonProps}>
           <i className="gg-git-branch !scale-100" />
         </TabButton>
       </div>
@@ -53,7 +59,7 @@ export function Overview() {
       >
         {vis && <TabsVisible tab={tab} />}
       </PaneContainer>
-    </>
+    </div>
   );
 }
 

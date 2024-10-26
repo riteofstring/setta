@@ -18,7 +18,9 @@ export function InfoView() {
     >
       <aside>
         <AccordionItem value="item-1">
-          <AccordionTrigger>Quick Help</AccordionTrigger>
+          <AccordionTrigger id="QuickHelpAccordionTrigger">
+            Quick Help
+          </AccordionTrigger>
           <AccordionContent>{currInfoView}</AccordionContent>
         </AccordionItem>
       </aside>
@@ -46,7 +48,7 @@ const AccordionTrigger = React.forwardRef(
     <Accordion.Header className="flex">
       <Accordion.Trigger
         className={classNames(
-          "group flex h-11 flex-1 cursor-default items-center justify-between overflow-hidden rounded-md bg-white px-5 font-heading text-xs font-bold uppercase leading-none tracking-widest text-setta-400 shadow-sm outline-none transition-all hover:cursor-pointer hover:bg-setta-500 hover:text-white dark:bg-setta-800",
+          "focus-visible:ring-light-blue-500 group flex h-11 flex-1 cursor-default items-center justify-between overflow-hidden rounded-md bg-white px-5 font-heading text-xs font-bold uppercase leading-none tracking-widest text-setta-400 shadow-sm outline-none transition-all hover:cursor-pointer hover:bg-setta-500 hover:text-white focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:bg-setta-800",
           className,
         )}
         {...props}

@@ -10,7 +10,7 @@ import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { Link } from "react-router-dom";
 import { dbDeleteProjectConfigs } from "requests/projects";
-import { createAndGoToProjectConfig } from "state/actions/project/loadProject";
+import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
 import { useGetAllProjectConfigMetadata } from "state/hooks/project";
 import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
@@ -37,10 +37,7 @@ export function HomePage() {
 
 function RightColumn({ projects, setDoRefresh }) {
   const [selectedProjects, setSelectedProjects] = useState([]);
-
-  async function onClick() {
-    await createAndGoToProjectConfig({});
-  }
+  const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
 
   function onSelectProject(e, projectId) {
     e.preventDefault();
@@ -64,7 +61,7 @@ function RightColumn({ projects, setDoRefresh }) {
         <div className="flex gap-4">
           <StandardButton
             twClasses="py-2 px-4 rounded-full font-bold font-heading text-white bg-setta-600  hover:bg-blue-500 gap-2"
-            onClick={onClick}
+            onClick={createAndGoToProjectConfig}
           >
             <BiPlus />
             New Config

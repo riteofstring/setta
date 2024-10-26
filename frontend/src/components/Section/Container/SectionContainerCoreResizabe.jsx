@@ -26,7 +26,7 @@ export function SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
   isActiveSection,
-  isWrongType,
+  jsonSourceMissing,
 }) {
   const isGlobalVariables = sectionTypeName === C.GLOBAL_VARIABLES;
   const isInfo = sectionTypeName === C.INFO;
@@ -62,11 +62,11 @@ export function SectionContainerCoreResizable({
   const _isRoot = isRoot(sectionTypeName);
 
   const outlineColor = getOutlineColor({
-    isWrongType,
     isActiveSection,
     isGlobalVariables,
     isInOtherProjectConfigs,
     isSelectingParams,
+    jsonSourceMissing,
   });
   const bgColor = getBgColor();
   const youtube = useIsYouTube(sectionId);

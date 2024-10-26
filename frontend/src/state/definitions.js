@@ -181,6 +181,8 @@ export const useTypeErrors = createProjectState(() => ({
   },
 }));
 
+export const useJSONSourceMissing = createProjectState(() => ({}));
+
 export const useUITypeCols = createProjectState(
   temporal(
     immer(() =>
