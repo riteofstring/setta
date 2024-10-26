@@ -1,12 +1,15 @@
 import cc from "classcat";
 import { SectionContainerNode } from "components/Section/Container/SectionContainerNode";
+import _ from "lodash";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
+import { setNodeDimensions } from "state/actions/nodeInternals";
+import { useSectionInfos } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import useDrag from "../hooks/useDrag";
 import useUpdateNodePositions from "../hooks/useUpdateNodePositions";
 import type { WrapNodeProps, XYPosition } from "../types";
-import { isInputDOMNode } from "../utils";
+import { getDimensions, isInputDOMNode } from "../utils";
 
 export const arrowKeyDiffs: Record<string, XYPosition> = {
   ArrowUp: { x: 0, y: -1 },
@@ -24,13 +27,13 @@ const _NodeWrapper = ({
   isDraggable,
   isSelectable,
   isFocusable,
-  resizeObserver,
   initialized,
   zIndex,
 }: WrapNodeProps) => {
   const nodeRef = useRef<HTMLDivElement>(null);
   const hasPointerEvents = isSelectable || isDraggable;
   const updatePositions = useUpdateNodePositions();
+  const size = useSectionInfos((x) => x.x[id].size, _.isEqual);
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (isInputDOMNode(event)) {
@@ -52,12 +55,10 @@ const _NodeWrapper = ({
 
   useEffect(() => {
     if (nodeRef.current) {
-      const currNode = nodeRef.current;
-      resizeObserver?.observe(currNode);
-
-      return () => resizeObserver?.unobserve(currNode);
+      const dimensions = getDimensions(nodeRef.current);
+      setNodeDimensions(id, dimensions);
     }
-  }, []);
+  }, [size.width, size.height]);
 
   useDrag({
     nodeRef,

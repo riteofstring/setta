@@ -1,7 +1,6 @@
 import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { memo, useEffect, useMemo, useRef } from "react";
-import { updateNodeDimensions } from "state/actions/nodeInternals";
+import { memo } from "react";
 import { shallow } from "zustand/shallow";
 import useVisibleNodes from "../hooks/useVisibleNodes";
 import { containerStyle } from "../styles";
@@ -22,33 +21,6 @@ const NodeRenderer = ({}) => {
     panActivationKeyPressed,
   } = useReactFlow(selector, shallow);
   const nodes = useVisibleNodes();
-  const resizeObserverRef = useRef<ResizeObserver>();
-
-  const resizeObserver = useMemo(() => {
-    if (typeof ResizeObserver === "undefined") {
-      return null;
-    }
-
-    const observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
-      const updates = entries.map((entry: ResizeObserverEntry) => ({
-        id: entry.target.getAttribute("data-id") as string,
-        nodeElement: entry.target as HTMLDivElement,
-        forceUpdate: true,
-      }));
-
-      updateNodeDimensions(updates);
-    });
-
-    resizeObserverRef.current = observer;
-
-    return observer;
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      resizeObserverRef?.current?.disconnect();
-    };
-  }, []);
 
   return (
     <div className="react-flow__nodes" style={containerStyle}>
@@ -82,7 +54,6 @@ const NodeRenderer = ({}) => {
             isDraggable={isDraggable}
             isSelectable={isSelectable}
             isFocusable={isFocusable}
-            resizeObserver={resizeObserver}
             initialized={!!node.width && !!node.height}
             zIndex={node.tempZIndex}
           />
