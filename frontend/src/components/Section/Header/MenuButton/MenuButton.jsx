@@ -1,7 +1,7 @@
 import * as Menubar from "@radix-ui/react-menubar";
+import { getShiftTabBackToOverviewListItem } from "components/Panes/Overview/SectionListItems";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import C from "constants/constants.json";
-import { getShiftTabBackToOverviewListItem } from "state/actions/keyActivations";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { HeaderIcon } from "../HeaderIcon";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton";
