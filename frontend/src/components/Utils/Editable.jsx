@@ -42,7 +42,7 @@ function InEditMode({ value, onChange, onBlur, onCancel, titleProps }) {
   const inputRef = useRef(null);
 
   useEffect(() => {
-    inputRef.current.focus();
+    inputRef.current.focus({ preventScroll: true });
     const s = value.length;
     inputRef.current.setSelectionRange(0, s);
   }, []);
