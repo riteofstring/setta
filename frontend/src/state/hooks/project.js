@@ -1,4 +1,4 @@
-import { router } from "components/Pages/router";
+import { getRouter } from "components/Pages/router";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { dbSetProjectConfigName } from "requests/projectName";
@@ -113,7 +113,7 @@ export function useEditableProjectName() {
     return res.status === 200;
   }
   async function onSetName(v) {
-    router.navigate(v, {
+    getRouter().navigate(v, {
       state: { pageLoadType: PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME },
     });
   }

@@ -1,5 +1,5 @@
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
-import { router } from "components/Pages/router";
+import { getRouter } from "components/Pages/router";
 import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 
@@ -9,7 +9,7 @@ export function FileMenuLoadModal({ open, modalType }) {
   function onClickLoadProjectConfig({ selected }) {
     const config = projectConfigs.find((x) => x.id === selected);
     if (config) {
-      router.navigate(config.name, {
+      getRouter().navigate(config.name, {
         state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
       });
     }

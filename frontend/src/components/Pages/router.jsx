@@ -51,3 +51,7 @@ export const router = createBrowserRouter([
   homeRoute,
   projectRoute,
 ]);
+
+export function getRouter() {
+  return router;
+}

@@ -1,5 +1,5 @@
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
-import { router } from "components/Pages/router";
+import { getRouter } from "components/Pages/router";
 import _ from "lodash";
 import {
   saveAsExistingProjectConfig,
@@ -29,7 +29,7 @@ export function FileMenuSaveAsModal({ open, modalType }) {
             ),
           });
 
-      router.navigate(filename, {
+      getRouter().navigate(filename, {
         state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
       });
     }

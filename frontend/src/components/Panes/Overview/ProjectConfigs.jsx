@@ -1,4 +1,4 @@
-import { router } from "components/Pages/router";
+import { getRouter } from "components/Pages/router";
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 import React, { useState } from "react";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
@@ -100,7 +100,7 @@ function onMouseOver({
 
 function onClick({ currProjectConfigName, clickedOnName }) {
   if (clickedOnName !== currProjectConfigName) {
-    router.navigate(clickedOnName, {
+    getRouter().navigate(clickedOnName, {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });
   }
