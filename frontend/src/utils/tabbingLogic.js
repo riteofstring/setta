@@ -5,12 +5,12 @@ import { useNodeInternals, useSectionRefs } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { localStorageFns } from "state/hooks/localStorage";
 
-export function overviewPaneOnKeyDown(e, vis) {
+export function overviewPaneOnKeyDown(e, vis, tab) {
   if (e.key !== "Tab" || e.shiftKey) {
     return;
   }
   if (
-    (e.target.id === "ProjectConfigsButtonDiv" && !vis) ||
+    (e.target.id === "ProjectConfigsButtonDiv" && (!vis || tab === "tab2")) ||
     e.target.id === "QuickHelpAccordionTrigger" ||
     e.target.id === "FinalProjectConfigListing"
   ) {
