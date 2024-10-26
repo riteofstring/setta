@@ -113,6 +113,7 @@ function getShouldPreventDefault(lowercaseKeyCombo) {
     "space",
     "escape",
     "tab",
+    "shift + tab",
   ].includes(lowercaseKeyCombo);
 }
 
@@ -130,6 +131,7 @@ export function attachKeyEventListeners() {
 
   const conditionAndAction = [
     ["tab", tabFromDocumentBody],
+    ["shift + tab", tabFromDocumentBody],
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
     [settings.groupShortcut, groupSections],
