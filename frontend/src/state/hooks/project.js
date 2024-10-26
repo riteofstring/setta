@@ -1,5 +1,5 @@
 import { router } from "components/Pages/router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { dbSetProjectConfigName } from "requests/projectName";
 import {
@@ -69,6 +69,9 @@ export function useLoadProjectConfig() {
   const { state } = useLocation();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
+  const prevProjectConfigName = useRef(projectConfigName);
+
+  console.log("projectConfigName", projectConfigName);
 
   async function loadFn() {
     setDoneLoading(false);
@@ -85,9 +88,24 @@ export function useLoadProjectConfig() {
   }
 
   useEffect(() => {
+    if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
+      setProjectConfigName(projectConfigName);
+      useMisc.setState({ projectIsLoading: false });
+      return;
+    }
+
     if (useMisc.getState().projectIsLoading) {
       return;
     }
+
+    if (projectConfigName !== prevProjectConfigName.current) {
+      prevProjectConfigName.current = projectConfigName;
+    } else if (doneLoading) {
+      console.log("doneLoading!!!!!!!!!!");
+      useMisc.setState({ projectIsLoading: false });
+      return;
+    }
+
     useMisc.setState({ projectIsLoading: true });
 
     if (projectConfigName === SETTINGS_PROJECT_NAME) {
@@ -95,11 +113,8 @@ export function useLoadProjectConfig() {
       return;
     }
     // The first if-statement triggers for a page refresh or navigating to a different project
-    if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
+    if (pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
       loadFn();
-    } else if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
-      setProjectConfigName(projectConfigName);
-      useMisc.setState({ projectIsLoading: false });
     }
   }, [pageLoadType, projectConfigName]);
 
