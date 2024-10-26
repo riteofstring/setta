@@ -47,13 +47,15 @@ function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
     );
   }
 
+  // The div id is used for tabbing purposes
   return (
     <li
+      id={`${sectionId}-OverviewListItem`}
       className="focus-visible:ring-light-blue-500 cursor-pointer truncate rounded px-2 py-0.5 text-sm text-setta-700 hover:bg-white hover:shadow-md focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-700"
       onClick={onClick}
       onKeyDown={onKeyDown}
       style={{ marginLeft: `${0.75 * depth}rem` }}
-      tabIndex={0}
+      tabIndex="0"
     >
       {sectionHeading}
     </li>
@@ -61,3 +63,21 @@ function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
 }
 
 const SectionItem = React.memo(_SectionItem);
+
+export function getShiftTabBackToOverviewListItem(sectionId) {
+  return (e) => {
+    if (e.key === "Tab") {
+      if (e.shiftKey) {
+        // tab back to overview
+        const element = document.getElementById(
+          `${sectionId}-OverviewListItem`,
+        );
+        // need to do setTimeout for some reason,
+        // otherwise the div only briefly gets focus and then focus goes to a higher up div
+        setTimeout(() => {
+          element.focus({ preventScroll: true });
+        }, 0);
+      }
+    }
+  };
+}

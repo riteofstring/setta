@@ -10,6 +10,7 @@ export function MenuDropdown({
   tabIndex,
   children,
   triggerDivId,
+  triggerOnKeyDown,
 }) {
   return (
     <Menubar.Menu>
@@ -17,6 +18,7 @@ export function MenuDropdown({
         id={triggerDivId}
         className={triggerClassName}
         tabIndex={tabIndex}
+        onKeyDown={triggerOnKeyDown}
       >
         {trigger}
       </Menubar.Trigger>

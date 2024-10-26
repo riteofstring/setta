@@ -1,4 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
+import { getShiftTabBackToOverviewListItem } from "components/Panes/Overview/SectionListItems";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import C from "constants/constants.json";
 import { useIsListElement } from "state/hooks/uiTypes";
@@ -103,6 +104,7 @@ function CardHeaderMenuButton({
       contentAlignOffset={-3}
       trigger={trigger}
       triggerDivId={triggerDivId}
+      triggerOnKeyDown={getShiftTabBackToOverviewListItem(sectionId)}
     >
       {children}
     </MenuDropdown>

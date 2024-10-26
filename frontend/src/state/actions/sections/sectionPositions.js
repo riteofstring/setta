@@ -9,7 +9,7 @@ import {
 import _ from "lodash";
 import potpack from "potpack";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useNodeInternals } from "state/definitions";
+import { useNodeInternals, useSectionRefs } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { getNodes, setNodes } from "../nodeInternals";
 import { setActiveSectionIds } from "./activeSections";
@@ -95,9 +95,9 @@ export function autoLayout() {
 
 export function focusOnSection(sectionId) {
   if (getSectionType(sectionId).type === C.DECK) {
-    document.body
-      .querySelector(`div[data-id='${sectionId}']`)
-      .focus({ preventScroll: true });
+    useSectionRefs
+      .getState()
+      .withNested[sectionId].focus({ preventScroll: true });
   } else {
     document
       .getElementById(`${sectionId}-MenuButtonTrigger`)
