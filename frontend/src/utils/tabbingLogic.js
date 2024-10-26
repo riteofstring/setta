@@ -4,13 +4,22 @@ import { useRef } from "react";
 import { useNodeInternals, useSectionRefs } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { localStorageFns } from "state/hooks/localStorage";
+import { HOME_ROUTER_PATH } from "./constants";
 
 export function overviewPaneOnKeyDown(e) {
   if (e.key !== "Tab" || e.shiftKey) {
     return;
   }
-  if (isLastFocusableElement(e, e.currentTarget)) {
+  if (e.target === lastFocusableElement(e.currentTarget)) {
     tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
+  }
+}
+
+export function siteLogoOnKeyDown(e, navigate) {
+  if (e.code === "Space") {
+    navigate(HOME_ROUTER_PATH);
+  } else if (e.key === "Tab" && e.shiftKey) {
+    tabToLastFocusablePaneElement(e);
   }
 }
 
@@ -109,6 +118,25 @@ function tabToFirstEnabledUIEditorButtonOrToSiteLogo(e) {
   }, 0);
 }
 
+function tabToLastFocusablePaneElement(e) {
+  e.preventDefault();
+  const didFocus = focusOnLastElementOf(
+    document.getElementById("UiEditorPane"),
+  );
+  if (!didFocus) {
+    focusOnLastElementOf(document.getElementById("OverviewPane"));
+  }
+}
+
+function focusOnLastElementOf(container) {
+  const lastElement = lastFocusableElement(container);
+  if (lastElement) {
+    lastElement.focus();
+    return true;
+  }
+  return false;
+}
+
 function focusOnProjectOverviewButton(e) {
   e.preventDefault();
   document.getElementById("ProjectOverviewButtonDiv").focus();
@@ -163,13 +191,12 @@ const getFocusableElements = (container) => {
   });
 };
 
-const isLastFocusableElement = (event, container) => {
+const lastFocusableElement = (container) => {
   const focusableElements = getFocusableElements(container);
 
   if (focusableElements.length === 0) {
-    return false;
+    return null;
   }
 
-  const lastFocusableElement = focusableElements[focusableElements.length - 1];
-  return event.target === lastFocusableElement;
+  return focusableElements[focusableElements.length - 1];
 };

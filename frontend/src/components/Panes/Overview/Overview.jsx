@@ -32,7 +32,7 @@ export function Overview() {
 
   // The ProjectOverviewButtonDiv div id is used when tabbing from document.body
   return (
-    <div className="contents" onKeyDown={overviewPaneOnKeyDown}>
+    <div id="OverviewPane" className="contents" onKeyDown={overviewPaneOnKeyDown}>
       <div className="absolute left-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton
           id="ProjectOverviewButtonDiv"
