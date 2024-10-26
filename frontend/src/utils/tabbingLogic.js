@@ -33,23 +33,22 @@ export function siteLogoOnKeyDown(e, navigate) {
   }
 }
 
-export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
+export function sectionContainerCoreOnKeyDown(e, sectionId) {
   if (e.code !== "Tab") {
     return;
   }
   e.preventDefault();
   e.stopPropagation();
-  const focusableArray = getFocusableElements(ref.current);
+  const highestAncestorRef =
+    useSectionRefs.getState().withNested[getHighestAncestor(sectionId)];
+  const focusableArray = getFocusableElements(highestAncestorRef);
   const currentIndex = e.target.cmView
     ? focusableArray.findIndex((f) => f.id.startsWith("CodeMirror-"))
     : focusableArray.indexOf(document.activeElement);
 
-  const highestAncestorRef =
-    useSectionRefs.getState().withNested[getHighestAncestor(sectionId)];
-
   if (e.shiftKey) {
     const nextElement = focusableArray[currentIndex - 1];
-    if (!highestAncestorRef.contains(nextElement)) {
+    if (!nextElement) {
       shiftTabBackToOverviewListItem(e, sectionId);
     } else {
       nextElement.focus({ preventScroll: true });
@@ -57,7 +56,7 @@ export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
     }
   } else {
     const nextElement = focusableArray[currentIndex + 1];
-    if (!highestAncestorRef.contains(nextElement)) {
+    if (!nextElement) {
       tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
     } else {
       nextElement.focus({ preventScroll: true });
