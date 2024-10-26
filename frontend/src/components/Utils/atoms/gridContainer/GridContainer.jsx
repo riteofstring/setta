@@ -1,6 +1,9 @@
 import { shiftTabBackToOverviewListItem } from "components/Panes/Overview/SectionListItems";
-import { isSectionFullyVisible } from "forks/xyflow/core/utils/graph";
-import React, { useRef } from "react";
+import {
+  isSectionFullyVisible,
+  movePaneToIncludeElement,
+} from "forks/xyflow/core/utils/graph";
+import React, { useEffect, useRef } from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
 
 export const GridContainer = React.forwardRef(
@@ -28,6 +31,35 @@ export function ProjectGridContainer({ children }) {
 
 function useTabIntercepter() {
   const containerRef = useRef();
+  const isTabPress = useRef(false);
+
+  useEffect(() => {
+    const handleFocusIn = (e) => {
+      if (!isTabPress.current) {
+        return;
+      }
+      movePaneToIncludeElement(e);
+    };
+
+    const handleKeyDown = (event) => {
+      isTabPress.current = event.key === "Tab";
+    };
+
+    const handleKeyUp = () => {
+      isTabPress.current = false;
+    };
+    // Listen for focus changes at the document level
+    document.addEventListener("focusin", handleFocusIn);
+    document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("keyup", handleKeyUp, true);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener("focusin", handleFocusIn);
+      document.addEventListener("keydown", handleKeyDown, true);
+      document.addEventListener("keyup", handleKeyUp, true);
+    };
+  }, []);
 
   function onKeyDown(e) {
     if (e.key === "Tab") {
@@ -89,7 +121,7 @@ function useTabIntercepter() {
 function goToSectionIfNotFullyVisible(e, sectionId) {
   if (!isSectionFullyVisible(sectionId)) {
     e.preventDefault();
-    goToSection(sectionId, 0);
+    goToSection(sectionId, 100, false);
     return true;
   }
   return false;
