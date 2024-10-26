@@ -15,6 +15,16 @@ export function overviewPaneOnKeyDown(e) {
   }
 }
 
+export function uiEditorPaneOnKeyDown(e) {
+  if (e.key !== "Tab" || e.shiftKey) {
+    return;
+  }
+  if (e.target === lastFocusableElement(e.currentTarget)) {
+    e.preventDefault();
+    document.getElementById("SiteLogo").focus();
+  }
+}
+
 export function siteLogoOnKeyDown(e, navigate) {
   if (e.code === "Space") {
     navigate(HOME_ROUTER_PATH);

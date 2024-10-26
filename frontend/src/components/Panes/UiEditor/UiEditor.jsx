@@ -15,6 +15,7 @@ import {
   UI_CONFIG_TAB,
   UI_EDITOR,
 } from "utils/constants";
+import { uiEditorPaneOnKeyDown } from "utils/tabbingLogic";
 import { TabButton, usePaneFns } from "../paneFns";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
@@ -40,7 +41,11 @@ export function UiEditor() {
   };
 
   return (
-    <div id="UiEditorPane" className="contents">
+    <div
+      id="UiEditorPane"
+      className="contents"
+      onKeyDown={uiEditorPaneOnKeyDown}
+    >
       <div
         id="UiEditorTabButtons"
         className="absolute right-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900"
