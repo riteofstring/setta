@@ -86,7 +86,7 @@ export const useNotification = create(() => ({
   timeoutId: null,
 }));
 
-export const useAllProjectConfigs = create(() => ({
+export const useAllProjectConfigs = createProjectState(() => ({
   x: {},
   names: [],
 }));
