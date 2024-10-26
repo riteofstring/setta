@@ -80,8 +80,16 @@ function _Container({
       </div>
     );
   }
+
+  // -1 tabIndex to make onKeyDown triggerable
   return (
-    <div className={className} style={style} {...commonProps}>
+    <div
+      className={`${className} focus-visible:outline-none`}
+      style={style}
+      {...commonProps}
+      tabIndex="-1"
+      onKeyDown={getShiftTabBackToOverviewListItem(sectionId, true)}
+    >
       {children}
     </div>
   );

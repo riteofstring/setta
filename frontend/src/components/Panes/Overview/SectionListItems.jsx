@@ -68,6 +68,11 @@ const SectionItem = React.memo(_SectionItem);
 
 export function getShiftTabBackToOverviewListItem(sectionId) {
   return (e) => {
+    if (e.target !== e.currentTarget) {
+      // If the keydown is not triggered on the div that this is called from, then don't do anything.
+      // This prevents parent divs from triggering over child divs.
+      return;
+    }
     if (e.key === "Tab") {
       if (e.shiftKey) {
         const [overviewVis] = localStorageFns.overviewVis.state();
