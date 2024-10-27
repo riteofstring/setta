@@ -40,7 +40,7 @@ export function useTerminal({ sectionId, width, height }) {
       if (ws.readyState === 1) {
         ws.send(message);
       } else {
-        addTerminalInitialMessage(sectionId, message, true);
+        addTerminalInitialMessage(sectionId, message);
       }
     });
 
@@ -77,12 +77,13 @@ function newTerminalWebsocket(sectionId) {
     const projectConfigId = useProjectConfig.getState().id;
     const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, id: sectionId })}`;
     ws = new WebSocket(wsTerminalAddress);
-    ws.addEventListener("open", async () => {
+    ws.addEventListener("open", () => {
       if (INITIAL_MESSAGES[sectionId]?.length > 0) {
         for (const initialMessage of INITIAL_MESSAGES[sectionId]) {
           // hack to get backend to receive distinct messages rather than 1 grouped message
-          ws.send(initialMessage);
-          await new Promise((resolve) => setTimeout(resolve, 300));
+          setTimeout(() => {
+            ws.send(initialMessage);
+          }, 0);
         }
         INITIAL_MESSAGES[sectionId] = [];
       }
@@ -137,15 +138,11 @@ const theme = {
 //     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;',
 // };
 
-export function addTerminalInitialMessage(sectionId, msg, asFirstMsg = false) {
+export function addTerminalInitialMessage(sectionId, msg) {
   if (!(sectionId in INITIAL_MESSAGES)) {
     INITIAL_MESSAGES[sectionId] = [];
   }
   if (!INITIAL_MESSAGES[sectionId].includes(msg)) {
-    if (asFirstMsg) {
-      INITIAL_MESSAGES[sectionId].unshift(msg);
-    } else {
-      INITIAL_MESSAGES[sectionId].push(msg);
-    }
+    INITIAL_MESSAGES[sectionId].push(msg);
   }
 }

@@ -129,7 +129,6 @@ class TerminalWebsockets:
         while True:
             try:
                 input_data = await websocket.receive_text()
-                print("write_to_terminal", input_data, flush=True)
                 try:
                     json_val = json.loads(input_data)
                 except json.decoder.JSONDecodeError:
