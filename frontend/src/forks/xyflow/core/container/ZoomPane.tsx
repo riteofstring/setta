@@ -9,15 +9,14 @@ import {
   type ZoomTransform,
 } from "d3-zoom";
 import { useReactFlow } from "forks/xyflow/core/store";
-import _ from "lodash";
 import { useEffect, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { setProjectConfigFitViewOnInit } from "state/actions/project/projectConfig";
-import { useProjectConfig, useSettings } from "state/definitions";
+import { useSettings } from "state/definitions";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { clamp } from "utils/utils";
 import { shallow } from "zustand/shallow";
 import useResizeHandler from "../hooks/useResizeHandler";
+import { getViewport } from "../hooks/useViewportHelper";
 import { infiniteExtent } from "../store/initialState";
 import { containerStyle } from "../styles";
 import {
@@ -82,11 +81,7 @@ const ZoomPane = ({
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
   useResizeHandler(zoomPane);
-
-  useEffect(() => {
-    const unsub = initialViewportSubscription({ zoomPane, translateExtent });
-    return unsub;
-  }, []);
+  useZoomPaneInit(zoomPane, translateExtent);
 
   useEffect(() => {
     if (d3Selection && d3Zoom) {
@@ -219,7 +214,7 @@ const ZoomPane = ({
         }
 
         closeAllContextMenus();
-        setProjectConfigFitViewOnInit(false);
+        useReactFlow.setState({ fitViewOnInit: false });
       });
     }
   }, [d3Zoom]);
@@ -382,21 +377,10 @@ const ZoomPane = ({
 
 export default ZoomPane;
 
-function initialViewportSubscription({ zoomPane, translateExtent }) {
-  let doneInit = false;
-  const unsub = useProjectConfig.subscribe(
-    (x) => x.viewport,
-    (viewport) => {
-      if (!viewport && doneInit) {
-        return;
-      }
-      const initialViewport = viewport ?? { x: 0, y: 0, zoom: 1 };
-      zoomPaneInit({ zoomPane, translateExtent, initialViewport });
-      doneInit = true;
-    },
-    { equalityFn: _.isEqual, fireImmediately: true },
-  );
-  return unsub;
+function useZoomPaneInit(zoomPane, translateExtent) {
+  useEffect(() => {
+    zoomPaneInit({ zoomPane, translateExtent, initialViewport: getViewport() });
+  }, []);
 }
 
 function zoomPaneInit({ zoomPane, translateExtent, initialViewport }) {
