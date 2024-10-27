@@ -24,7 +24,7 @@ class LanguageServerWriter(LanguageServerInteractor):
     async def send_initialize_request(self):
         params = {
             "capabilities": {},
-            "workspaceFolders": [{"uri": self.get_workspace_uri()}],
+            "workspaceFolders": [{"uri": self.get_file_uri()}],
         }
         await self.send_request("initialize", params=params, id=str(uuid.uuid4()))
         await self.send_didChangeConfiguration()  # pyright requires this step
@@ -117,11 +117,11 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
-    def get_workspace_uri(self):
-        return f"file://{self.workspace_folder}".lower()
+    def get_file_uri(self):
+        return f"file://{self.root_path}".lower()
 
     def get_virtual_uri(self, code_id):
-        uri = f"file://{self.code_folder / code_id}.py".lower()
+        uri = f"file://{self.root_path / code_id}.py".lower()
         if platform.system() == "Windows":
             uri += "/"  # need trailing slash on Windows for some reason
         return uri
