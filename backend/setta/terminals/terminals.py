@@ -75,14 +75,17 @@ class TerminalWebsockets:
                 "wasJustResized": False,
             }
         else:
+            print("sending pty history********", flush=True)
             await websocket.send_text("".join(self.PTY_PIDS[id]["history"]))
 
     def disconnect(self, websocket, id):
         self.sockets[id].remove(websocket)
         if not self.sockets[id]:
             del self.sockets[id]
+            self.delete_terminals([id])
 
     def delete_terminals(self, ids):
+        print('delete terminals', ids, flush=True)
         for id in ids:
             if id in self.PTY_PIDS:
                 self.PTY_PIDS[id]["process"].terminate()
@@ -110,8 +113,6 @@ class TerminalWebsockets:
                     pty_info["wasJustResized"] = False
                     await ws.send_text(output)
             except (WebSocketDisconnect, CancelledError):
-                self.delete_terminals([id])
-                print("read_from_terminal WebSocketDisconnect exception!")
                 break
             except Exception as e:
                 if isinstance(e, RuntimeError) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(e):
@@ -145,7 +146,6 @@ class TerminalWebsockets:
                     pty_process.write(input_data)
                     self.set_terminal_start_time(id)
             except (WebSocketDisconnect, CancelledError):
-                self.delete_terminals([id])
                 break
             except Exception as e:
                 if isinstance(e, RuntimeError) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(e):
