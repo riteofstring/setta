@@ -2,7 +2,8 @@ from setta.utils.constants import C
 
 
 def double_braces(x):
-    return f"{{{{ {x} }}}}"
+    # return f"{{{{ {x} }}}}"
+    return x
 
 
 def needs_yaml(script):
