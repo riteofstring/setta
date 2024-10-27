@@ -8,6 +8,7 @@ import {
   deactivateParamSelect,
 } from "state/actions/paramSelect";
 import { useSettings } from "state/definitions";
+import { tabFromDocumentBody } from "utils/tabbingLogic";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
 import { formatCode, updateInteractiveCode } from "./interactive";
@@ -112,6 +113,7 @@ function getShouldPreventDefault(lowercaseKeyCombo) {
     "space",
     "escape",
     "tab",
+    "shift + tab",
   ].includes(lowercaseKeyCombo);
 }
 
@@ -128,7 +130,8 @@ export function attachKeyEventListeners() {
   const settings = useSettings.getState();
 
   const conditionAndAction = [
-    ["tab", onTab],
+    ["tab", tabFromDocumentBody],
+    ["shift + tab", tabFromDocumentBody],
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
     [settings.groupShortcut, groupSections],
@@ -276,14 +279,4 @@ function activateMoveSectionMode() {
 
 function deactivateMoveSectionMode() {
   useReactFlow.setState({ moveSectionActivationKeyPressed: false });
-}
-
-function onTab(e) {
-  const currentFocusedElement = document.activeElement;
-  if (currentFocusedElement === document.body) {
-    e.preventDefault();
-    document
-      .getElementById("ProjectOverviewButtonDiv")
-      .focus({ preventScroll: true });
-  }
 }

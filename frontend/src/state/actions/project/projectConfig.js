@@ -16,6 +16,7 @@ export function getProjectConfigMetadata() {
     "runGroupSelection",
     "shownRunGroup",
     "viewport",
+    "previewImgColor",
   ]);
 }
 

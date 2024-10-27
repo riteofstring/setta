@@ -1,6 +1,5 @@
-import { router } from "components/Pages/router";
 import { useEffect, useState } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { dbSetProjectConfigName } from "requests/projectName";
 import {
   dbGetAllProjectConfigMetadata,
@@ -20,7 +19,12 @@ import {
   useProjectConfig,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
+import {
+  PAGE_LOAD_TYPES,
+  pathRelativeToProject,
+  SETTINGS_PROJECT_NAME,
+} from "utils/constants";
+import { useHotReload } from "utils/hotReload";
 import { useEditableOnSubmit } from "./editableText";
 
 export function useGetAllProjectConfigMetadata() {
@@ -56,7 +60,7 @@ export function useExportProjectJson() {
     setProjectJson(theRest);
   }
   async function exportFullProjectJson() {
-    const res = await dbLoadFullProject();
+    const res = await dbLoadFullProject({});
     if (res.status === 200) {
       setProjectJson(res.data);
     }
@@ -70,8 +74,11 @@ export function useLoadProjectConfig() {
   const { state } = useLocation();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
+  const isHotReload = useHotReload();
 
   async function loadFn() {
+    console.log("LOADING ************");
+    resetProjectStores();
     setDoneLoading(false);
     const res = await loadProjectConfig({ projectConfigName });
     setDoneLoading(res);
@@ -79,56 +86,56 @@ export function useLoadProjectConfig() {
   }
 
   async function loadSettingsProject() {
+    console.log("LOADING ************");
+    resetProjectStores();
     setDoneLoading(false);
     const res = await loadSettingsProjectConfig();
     setDoneLoading(res);
     useMisc.setState({ projectIsLoading: false });
   }
 
+  function changeFn() {
+    console.log("CHANGING CONFIG NAME********");
+    setProjectConfigName(projectConfigName);
+    useMisc.setState({ projectIsLoading: false });
+  }
+
   useEffect(() => {
-    if (useMisc.getState().projectIsLoading) {
+    if (isHotReload || useMisc.getState().projectIsLoading) {
       return;
     }
+
     useMisc.setState({ projectIsLoading: true });
 
     if (projectConfigName === SETTINGS_PROJECT_NAME) {
       loadSettingsProject();
-      return;
-    }
-    // The first if-statement triggers for a page refresh or navigating to a different project
-    if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
+    } else if (
+      !doneLoading ||
+      pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG
+    ) {
       loadFn();
     } else if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
-      setProjectConfigName(projectConfigName);
+      changeFn();
     }
-  }, [projectConfigName]);
+  }, [pageLoadType, projectConfigName]);
 
   return doneLoading;
 }
 
 export function useEditableProjectName() {
   const name = useProjectConfig((x) => x.name);
+  const navigate = useNavigate();
   async function condition(v) {
     const res = await dbSetProjectConfigName(v);
     return res.status === 200;
   }
   async function onSetName(v) {
-    router.navigate(v, {
+    navigate(pathRelativeToProject(v), {
       state: { pageLoadType: PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME },
     });
   }
 
   return useEditableOnSubmit(name, onSetName, condition);
-}
-
-export function useResetProjectState() {
-  const { pathname, state } = useLocation();
-  useEffect(() => {
-    if (state?.pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
-      return;
-    }
-    resetProjectStores();
-  }, [pathname]);
 }
 
 export function useConfigAddress({ project, configId }) {

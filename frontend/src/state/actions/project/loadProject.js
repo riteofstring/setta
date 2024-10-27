@@ -1,11 +1,13 @@
-import { router } from "components/Pages/router";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
+import { useNavigate } from "react-router-dom";
 import { dbCreateProjectConfig, dbLoadProjectConfig } from "requests/projects";
 import { dbLoadSettingsProject } from "requests/settings";
+import { useJSONSourceMissing } from "state/definitions";
 import {
   PAGE_LOAD_TYPES,
+  pathRelativeToProject,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
 import { setAllCodeInfo } from "../codeInfo";
@@ -49,6 +51,7 @@ export function loadProjectState({
   uiTypeCols,
   paramSweeps,
   runGroups,
+  jsonSourceMissing,
 }) {
   setAllCodeInfo(codeInfo);
   setProjectConfig(_.omit(projectConfig, ["children"]));
@@ -71,19 +74,21 @@ export function loadProjectState({
   setAllParamSweeps(paramSweeps);
   setAllRunGroups(runGroups);
   setAllSectionInfos({ sections, sectionConfigs });
+  useJSONSourceMissing.getState().reset();
+  useJSONSourceMissing.setState(jsonSourceMissing);
   maybeIncrementProjectStateVersion(true, false);
   return true;
 }
 
-export async function createAndGoToProjectConfig({ name }) {
-  const previewImgColor = getRandomProjectConfigPreviewImgColor();
-  const { data: newProjectName } = await dbCreateProjectConfig({
-    name,
-    previewImgColor,
-  });
-  router.navigate(newProjectName, {
-    state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
-  });
+export function useCreateAndGoToProjectConfig() {
+  const navigateToAnotherConfig = useNavigateToAnotherConfig();
+  return async () => {
+    const previewImgColor = getRandomProjectConfigPreviewImgColor();
+    const { data: newProjectName } = await dbCreateProjectConfig({
+      previewImgColor,
+    });
+    navigateToAnotherConfig(newProjectName);
+  };
 }
 
 function getRandomProjectConfigPreviewImgColor() {
@@ -91,4 +96,13 @@ function getRandomProjectConfigPreviewImgColor() {
     Math.random() * PROJECT_CONFIG_PREVIEW_IMG_COLORS.length,
   );
   return PROJECT_CONFIG_PREVIEW_IMG_COLORS[randomIndex];
+}
+
+export function useNavigateToAnotherConfig() {
+  const navigate = useNavigate();
+  return (projectConfigName) => {
+    navigate(pathRelativeToProject(projectConfigName), {
+      state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+    });
+  };
 }

@@ -11,7 +11,7 @@ import {
   openSaveAsModal,
   openSaveAsWithRefsModal,
 } from "state/actions/modal";
-import { createAndGoToProjectConfig } from "state/actions/project/loadProject";
+import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
 import { useSettings } from "state/definitions";
 
@@ -25,10 +25,12 @@ export function FileMenu() {
     ]),
   );
 
+  const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
+
   return (
     <NavbarMenuDropdown trigger="File">
       <MenuItem
-        onClick={() => createAndGoToProjectConfig({})}
+        onClick={createAndGoToProjectConfig}
         shortcut={shortcuts.newProjectConfigShortcut}
       >
         New Config

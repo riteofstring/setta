@@ -74,7 +74,7 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
   return boxToRect(box);
 };
 
-export function getActiveSectionsBounds(ignoreGrid=false) {
+export function getActiveSectionsBounds(ignoreGrid = false) {
   const activeSectionIds = useActiveSection.getState().ids;
   const sections = activeSectionIds.map((sectionId) => {
     const { x, y, width, height } = getSectionRect(sectionId, ignoreGrid);
@@ -214,4 +214,48 @@ function isSectionOverlappingWithRect(sectionId, otherRect, partially) {
   const partiallyVisible = partially && overlappingArea > 0;
   const area = (width || 0) * (height || 0);
   return notInitialized || partiallyVisible || overlappingArea >= area;
+}
+
+export function movePaneToIncludeElement(element) {
+  const point = screenToFlowPosition(element.getBoundingClientRect());
+  const paneRect = getPaneRect(
+    useReactFlow.getState(),
+    localStorageFns.overviewTrueWidth.state()[0],
+  );
+  const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
+  if (!isInside) {
+    const { d3Zoom, d3Selection } = useReactFlow.getState();
+    d3Zoom.translateBy(d3Selection, -x, -y);
+  }
+}
+
+function getRectTranslation(point, rect, padding = 0) {
+  // Calculate the boundaries with padding
+  const minX = rect.x + padding;
+  const maxX = rect.x + rect.width - padding;
+  const minY = rect.y + padding;
+  const maxY = rect.y + rect.height - padding;
+
+  let translateX = 0;
+  let translateY = 0;
+
+  // Calculate required X translation
+  if (point.x < minX) {
+    translateX = point.x - minX; // negative: move rectangle left
+  } else if (point.x > maxX) {
+    translateX = point.x - maxX; // positive: move rectangle right
+  }
+
+  // Calculate required Y translation
+  if (point.y < minY) {
+    translateY = point.y - minY; // negative: move rectangle up
+  } else if (point.y > maxY) {
+    translateY = point.y - maxY; // positive: move rectangle down
+  }
+
+  return {
+    x: translateX,
+    y: translateY,
+    isInside: translateX === 0 && translateY === 0,
+  };
 }

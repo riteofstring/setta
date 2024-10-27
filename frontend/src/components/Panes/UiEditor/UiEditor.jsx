@@ -15,6 +15,7 @@ import {
   UI_CONFIG_TAB,
   UI_EDITOR,
 } from "utils/constants";
+import { uiEditorPaneOnKeyDown } from "utils/tabbingLogic";
 import { TabButton, usePaneFns } from "../paneFns";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
@@ -35,12 +36,16 @@ export function UiEditor() {
     tab,
     getOnTabClick,
     className:
-      "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl",
+      "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs,
   };
 
   return (
-    <>
+    <div
+      id="UiEditorPane"
+      className="contents"
+      onKeyDown={uiEditorPaneOnKeyDown}
+    >
       <div className="absolute right-0 z-[19] flex h-full w-12 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton tabName={SECTION_CONFIG_TAB} {...commonProps}>
           <MdOutlineSettingsApplications />
@@ -72,7 +77,7 @@ export function UiEditor() {
           <Placeholder />
         )}
       </PaneContainer>
-    </>
+    </div>
   );
 }
 

@@ -3,6 +3,7 @@ import {
   autocompletion,
   completionStatus,
 } from "@codemirror/autocomplete";
+import { indentLess, indentMore } from "@codemirror/commands";
 import { javascript } from "@codemirror/lang-javascript";
 import { json } from "@codemirror/lang-json";
 import { python } from "@codemirror/lang-python";
@@ -18,6 +19,7 @@ export function getExtensions({
   keywordStylizer,
   singleLine,
   tabToAutocomplete,
+  indentWithTab,
   onEnter,
   onEscape,
   onModEnterDoNothing,
@@ -85,17 +87,40 @@ export function getExtensions({
     );
   }
 
-  if (tabToAutocomplete) {
+  if (tabToAutocomplete || indentWithTab) {
     extensions.push(
       keymap.of([
         {
           key: "Tab",
-          preventDefault: false,
-          // shift: indentLess,
+          preventDefault: false, // we want to control when preventDefault (and therefore also stopPropagation) is called
+          stopPropagation: true,
           run: (e) => {
-            if (completionStatus(e.state)) {
-              return acceptCompletion(e);
+            let completionResult = false;
+            if (tabToAutocomplete && completionStatus(e.state)) {
+              // trigger preventDefault & stopPropagation based on completion
+              completionResult = acceptCompletion(e);
+            } else if (indentWithTab) {
+              indentMore(e);
             }
+            // if tab controls indent, then we never want to propagate the keystroke, so return true
+            // otherwise it depends on the completion result
+            return indentWithTab || completionResult;
+          },
+        },
+      ]),
+    );
+  }
+
+  if (indentWithTab) {
+    extensions.push(
+      keymap.of([
+        {
+          key: "Shift-Tab",
+          // if tab controls indent, then always prevent default and stop propagation
+          preventDefault: true,
+          stopPropagation: true,
+          run: (view) => {
+            indentLess(view);
           },
         },
       ]),

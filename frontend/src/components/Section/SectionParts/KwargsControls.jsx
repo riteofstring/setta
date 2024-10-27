@@ -47,21 +47,21 @@ export function KwargsControls({
             <button
               className={classes}
               onClick={onClickDeleteKwarg}
-              tabIndex="-1"
+              tabIndex="0"
             >
               <i className="gg-math-minus before:!left-0 " />
             </button>
-            <button className={classes} onClick={onClickAddKwarg} tabIndex="-1">
+            <button className={classes} onClick={onClickAddKwarg} tabIndex="0">
               <i className="gg-math-plus !scale-50" />
             </button>
 
-            <button className={classes} onClick={onClickPinParam} tabIndex="-1">
+            <button className={classes} onClick={onClickPinParam} tabIndex="0">
               <i className="gg-pin-alt mt-1 !scale-50" />
             </button>
             <button
               className={classes}
               onClick={onClickDeleteSelectedKwargs}
-              tabIndex="-1"
+              tabIndex="0"
             >
               <i className="gg-close !scale-50" />
             </button>
@@ -94,7 +94,7 @@ export function KwargsControls({
             id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
             className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-300 placeholder-setta-600 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300"
             placeholder="Filter"
-            tabIndex="-1"
+            tabIndex="0"
             onChange={onSearchChange}
           />
         </search>
