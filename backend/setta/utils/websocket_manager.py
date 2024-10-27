@@ -2,9 +2,9 @@ import json
 
 from fastapi import WebSocket
 
-from setta.database.utils import generate_memorable_string
 from setta.tasks.fns.utils import TaskMessage
 from setta.utils.constants import C
+from setta.utils.generate_memorable_string import generate_memorable_string
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients

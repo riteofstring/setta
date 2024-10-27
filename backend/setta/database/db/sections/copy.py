@@ -1,5 +1,4 @@
 from setta.database.utils import remap_ids, rename_keys
-from setta.utils.constants import C
 
 from ..codeInfo.copy import copy_code_info
 from ..paramSweeps.copy import copy_param_sweeps
