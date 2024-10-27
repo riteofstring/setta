@@ -34,7 +34,11 @@ class ProjectLoadRequest(BaseModel):
 
 
 class ProjectLoadFullRequest(BaseModel):
-    excludeProjectConfigName: Optional[str] = None
+    excludeProjectConfigName: str
+
+
+class ProjectLoadConfigNamesRequest(BaseModel):
+    excludeProjectConfigName: str
 
 
 class ProjectSaveRequest(BaseModel):

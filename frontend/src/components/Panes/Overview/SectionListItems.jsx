@@ -1,6 +1,5 @@
 import React from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { focusOnSection } from "utils/tabbingLogic";
 
 export function SectionListItems({
   listOfSectionIdsAndNames = [],
@@ -23,9 +22,8 @@ function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
   };
 
   const onKeyDown = (e) => {
-    if (e.code === "Space") {
+    if (e.key === "Enter") {
       onClick();
-      focusOnSection(e, sectionId);
     }
   };
 
@@ -44,15 +42,13 @@ function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
     );
   }
 
-  // The div id is used for tabbing purposes
   return (
     <li
-      id={`${sectionId}-OverviewListItem`}
       className="focus-visible:ring-light-blue-500 cursor-pointer truncate rounded px-2 py-0.5 text-sm text-setta-700 hover:bg-white hover:shadow-md focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-700"
       onClick={onClick}
       onKeyDown={onKeyDown}
       style={{ marginLeft: `${0.75 * depth}rem` }}
-      tabIndex="0"
+      tabIndex={0}
     >
       {sectionHeading}
     </li>

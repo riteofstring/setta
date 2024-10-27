@@ -11,13 +11,13 @@ import { useMisc, useParamShortcuts } from "state/definitions";
 import "./dndline.css";
 
 export function getOutlineColor({
-  jsonSourceMissing,
+  isWrongType,
   isActiveSection,
   isGlobalVariables,
   isInOtherProjectConfigs,
   isSelectingParams,
 }) {
-  if (jsonSourceMissing) {
+  if (isWrongType) {
     return "outline-red-600 dark:outline-red-400";
   }
   if (isActiveSection && isGlobalVariables) {

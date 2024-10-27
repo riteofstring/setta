@@ -8,13 +8,12 @@ import { forwardRef, useEffect, useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { dbDeleteProjectConfigs } from "requests/projects";
-import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
+import { createAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
 import { useGetAllProjectConfigMetadata } from "state/hooks/project";
 import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
-import { homePageProjectItemOnKeyDown } from "utils/tabbingLogic";
 import "./homepage.css";
 
 export function HomePage() {
@@ -38,7 +37,10 @@ export function HomePage() {
 
 function RightColumn({ projects, setDoRefresh }) {
   const [selectedProjects, setSelectedProjects] = useState([]);
-  const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
+
+  async function onClick() {
+    await createAndGoToProjectConfig({});
+  }
 
   function onSelectProject(e, projectId) {
     e.preventDefault();
@@ -62,7 +64,7 @@ function RightColumn({ projects, setDoRefresh }) {
         <div className="flex gap-4">
           <StandardButton
             twClasses="py-2 px-4 rounded-full font-bold font-heading text-white bg-setta-600  hover:bg-blue-500 gap-2"
-            onClick={createAndGoToProjectConfig}
+            onClick={onClick}
           >
             <BiPlus />
             New Config
@@ -146,7 +148,6 @@ const ProjectItem = forwardRef(
 
 function ThumbnailArea({ project, isSelected, onSelectProject }) {
   const previewImgNodes = JSON.parse(project.previewImgNodes);
-  const navigate = useNavigate();
 
   return (
     <div
@@ -162,13 +163,7 @@ function ThumbnailArea({ project, isSelected, onSelectProject }) {
         />
       </aside>
 
-      <div
-        className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150"
-        tabIndex="0"
-        onKeyDown={(e) =>
-          homePageProjectItemOnKeyDown(e, navigate, project.name)
-        }
-      >
+      <div className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150">
         <PreviewImg previewImgNodes={previewImgNodes} />
       </div>
     </div>

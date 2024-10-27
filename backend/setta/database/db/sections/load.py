@@ -3,7 +3,7 @@ import itertools
 import json
 from collections import defaultdict
 
-from setta.utils.constants import C, is_from_json_source
+from setta.utils.constants import C
 
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
@@ -87,9 +87,7 @@ def load_sections(db, ids):
             "paramSweepIds": v["paramSweepIds"].split(",")
             if v["paramSweepIds"]
             else [],
-            "canvasSettings": json.loads(v["canvasSettings"])
-            if v["canvasSettings"]
-            else {},
+            "canvasSettings": json.loads(v["canvasSettings"]) if v["canvasSettings"] else {}
         }
 
     variantIds = list(
@@ -230,46 +228,30 @@ def load_artifact_metadata(db, section_id, artifact_paths):
     return output
 
 
-def load_json_sources_into_data_structures(sections, codeInfo, sectionVariants):
-    jsonSourceMissing = {}
+def load_json_sources(sections, codeInfo, sectionVariants):
+    jsonSourceData = {}
     for id, s in sections.items():
-        if not s["jsonSource"]:
-            continue
-        new_code_infos, new_variant_values = load_json_source(s["jsonSource"])
-        if new_code_infos is None:
-            jsonSourceMissing[id] = True
-            continue
-        for k, v in new_code_infos.items():
-            codeInfo[s["codeInfoId"]]["children"].append(k)
-            codeInfo[k] = v
-        for k, v in new_variant_values.items():
+        filename = s["jsonSource"]
+        if filename:
+            with open(filename, "r") as f:
+                jsonSourceData[id] = {"filename": filename, "data": json.load(f)}
+
+    for sectionId, jsonSource in jsonSourceData.items():
+        s = sections[sectionId]
+        collection_id = s["codeInfoId"]
+        filename = jsonSource["filename"]
+        for k, v in jsonSource["data"].items():
+            key = json.dumps({"filename": filename, "key": k})
+            key = f"{C.JSON_SOURCE_PREFIX}{key}"
+            codeInfo[collection_id]["children"].append(key)
+            codeInfo[key] = {
+                "id": key,
+                "name": k,
+                "rcType": C.PARAMETER,
+                "children": [],
+            }
             for variantId in s["variantIds"]:
-                sectionVariants[variantId]["values"][k] = v
-
-    return jsonSourceMissing
-
-
-def load_json_source(filename):
-    try:
-        with open(filename, "r") as f:
-            jsonSourceData = json.load(f)
-    except:
-        return None, None
-
-    new_code_infos = {}
-    new_variant_values = {}
-    for k, v in jsonSourceData.items():
-        key = json.dumps({"filename": filename, "key": k})
-        key = f"{C.JSON_SOURCE_PREFIX}{key}"
-        new_code_infos[key] = {
-            "id": key,
-            "name": k,
-            "rcType": C.PARAMETER,
-            "children": [],
-        }
-        new_variant_values[key] = {
-            "value": json.dumps(v),
-            "keywordPositions": [],
-        }
-
-    return new_code_infos, new_variant_values
+                sectionVariants[variantId]["values"][key] = {
+                    "value": json.dumps(v),
+                    "keywordPositions": [],
+                }

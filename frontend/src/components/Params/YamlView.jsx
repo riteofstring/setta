@@ -5,11 +5,7 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 
 export function YamlView({ sectionId, yamlValue, setYamlValue }) {
   const theme = useCodeMirrorStyle();
-  const extensions = getExtensions({
-    sectionId,
-    language: "yaml",
-    indentWithTab: true,
-  });
+  const extensions = getExtensions({ sectionId, language: "yaml" });
   const { wrapperRef, handleCreateEditor, maxHeight, overflow } =
     useCodeAreaHeight({ sectionId });
 
@@ -25,7 +21,6 @@ export function YamlView({ sectionId, yamlValue, setYamlValue }) {
         theme={theme}
         extensions={extensions}
         onCreateEditor={handleCreateEditor}
-        indentWithTab={false}
       />
     </article>
   );

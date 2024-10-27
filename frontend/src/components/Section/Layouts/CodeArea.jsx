@@ -104,8 +104,6 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     completionsFn,
     keywordStylizer,
     onModEnterDoNothing: true,
-    tabToAutocomplete: true,
-    indentWithTab: true
   });
 
   return (
@@ -121,7 +119,6 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
         onMouseDown={onMouseDown}
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
-        indentWithTab={false} // I take care of this in getExtensions
       />
     </article>
   );

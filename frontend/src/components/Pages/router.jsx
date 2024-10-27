@@ -1,7 +1,10 @@
 import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
 import { HomePage } from "components/Pages/Home/HomePage";
-import { GridContainer } from "components/Utils/atoms/gridContainer/GridContainer";
+import {
+  GridContainer,
+  ProjectGridContainer,
+} from "components/Utils/atoms/gridContainer/GridContainer";
 import { createBrowserRouter } from "react-router-dom";
 import {
   HOME_ROUTER_PATH,
@@ -38,9 +41,9 @@ const projectRoute = {
     <GlobalWrapper>
       <ModalContainer>
         <HeaderContainer path={PROJECT_CONFIG_ROUTER_PATH} />
-        <GridContainer>
+        <ProjectGridContainer>
           <MainContainer />
-        </GridContainer>
+        </ProjectGridContainer>
       </ModalContainer>
     </GlobalWrapper>
   ),

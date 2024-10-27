@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useGetSectionInfo } from "state/hooks/sections";
 
 export function DrawAreaSettings({ sectionId }) {
@@ -25,5 +27,5 @@ export function DrawAreaSettings({ sectionId }) {
   //     </div>
   //   </div>
   // );
-  return null;
+  return null
 }

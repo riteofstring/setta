@@ -4,11 +4,7 @@ from setta.database.utils import aggregate_results
 
 from ..codeInfo.load import load_code_info_for_sections
 from ..runGroups.load import load_run_groups
-from ..sections.load import (
-    load_json_sources_into_data_structures,
-    load_section_configs,
-    load_sections,
-)
+from ..sections.load import load_json_sources, load_section_configs, load_sections
 
 
 def load_all_project_config_metadata(db):
@@ -35,7 +31,6 @@ def load_project_config_metadata(db, config_name):
             ProjectConfig.viewport,
             ProjectConfig.isDefault,
             ProjectConfig.shownRunGroup,
-            ProjectConfig.previewImgColor,
             ProjectConfigChildren.childId as childId,
             ProjectConfigChildren.x as childX,
             ProjectConfigChildren.y as childY,
@@ -79,7 +74,6 @@ def load_project_config_metadata(db, config_name):
         "children": children,
         "viewport": viewport,
         "shownRunGroup": out["shownRunGroup"],
-        "previewImgColor": out["previewImgColor"],
     }
 
 
@@ -96,9 +90,7 @@ def load_project_config(db, project_config_name):
     paramSweeps = sections_data["paramSweeps"]
     uiTypes = sections_data["nonPresetUITypes"]
     codeInfo = load_code_info_for_sections(db, sections)
-    jsonSourceMissing = load_json_sources_into_data_structures(
-        sections, codeInfo, sectionVariants
-    )
+    load_json_sources(sections, codeInfo, sectionVariants)
 
     return {
         "projectConfig": projectConfig,
@@ -110,7 +102,6 @@ def load_project_config(db, project_config_name):
         "paramSweeps": paramSweeps,
         "runGroups": runGroups,
         "codeInfo": codeInfo,
-        "jsonSourceMissing": jsonSourceMissing,
     }
 
 

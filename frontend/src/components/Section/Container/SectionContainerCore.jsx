@@ -1,5 +1,5 @@
 import React from "react";
-import { useActiveSection, useJSONSourceMissing } from "state/definitions";
+import { useActiveSection } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useSectionTypeName } from "state/hooks/uiTypes";
@@ -12,7 +12,6 @@ function _SectionContainerCore({ sectionId }) {
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
-  const jsonSourceMissing = useJSONSourceMissing((x) => x[sectionId]);
 
   const boxShadow = isActiveSection
     ? "shadow-2xl"
@@ -28,7 +27,7 @@ function _SectionContainerCore({ sectionId }) {
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
         isActiveSection={isActiveSection}
-        jsonSourceMissing={jsonSourceMissing} // TODO add the logic for this
+        isWrongType={false} // TODO add the logic for this
       />
     </section>
   );

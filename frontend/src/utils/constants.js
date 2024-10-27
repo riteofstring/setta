@@ -80,10 +80,6 @@ export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
 export const SETTINGS_PROJECT_NAME = "settings";
 export const SETTINGS_ROUTER_PATH = `/${SETTINGS_PROJECT_NAME}`;
 
-export function pathRelativeToProject(projectConfigName) {
-  return `../${projectConfigName}`;
-}
-
 export const MODAL_PURPOSE = { LOAD: "LOAD", SAVE: "SAVE" };
 
 export const MODAL_TYPE = {
