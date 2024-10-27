@@ -37,7 +37,8 @@ async def lifespan(app: FastAPI):
     # startup
     app.state.settings_file = SettingsFile(C.SETTINGS_PATH, C.CREATE_IF_NOT_EXISTS)
     app.state.lsp = LanguageServer(
-        root_path=Path(os.getcwd()) / CODE_FOLDER,
+        workspace_folder=Path(os.getcwd()),
+        code_folder=Path(os.getcwd()) / CODE_FOLDER / "timestamped_folder",
     )
     app.state.lsp_writer = LanguageServerWriter(app.state.lsp)
     app.state.tasks = Tasks(app.state.lsp_writer)
