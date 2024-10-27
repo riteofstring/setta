@@ -27,6 +27,7 @@ from setta.code_gen.python.generate_argparse import generate_argparse
 from setta.code_gen.python.generate_code import generate_code, replace_keywords
 from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
+    CODE_FOLDER,
     CODE_FOLDER_ENV_VARIABLE,
     SEND_ARTIFACT_TO_ENV_VARIABLE,
     C,
@@ -156,7 +157,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     p = message["content"]
     exporter_obj = export_selected(p, always_export_args_objs=False)
     selected = exporter_obj.output
-    folder_path = create_timestamped_folder(".setta_code")
+    folder_path = create_timestamped_folder(CODE_FOLDER)
 
     code_sections = {
         id: copy.deepcopy(s)
