@@ -54,7 +54,7 @@ def get_param_ui_type(p, section_id, id):
     ui_type_col_id = p["sections"][section_id]["uiTypeColId"]
     ui_type_col = p["uiTypeCols"][ui_type_col_id]
     if id not in ui_type_col:
-        ui_type_id = BASE_UI_TYPE_IDS[C.TEXT]
+        ui_type_id = BASE_UI_TYPE_IDS[C.ONE_LINE_CODE]
     else:
         ui_type_id = ui_type_col[id]["uiTypeId"]
     ui_type = p["uiTypes"][ui_type_id]

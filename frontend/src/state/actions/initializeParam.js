@@ -73,7 +73,7 @@ function initializeParamUIType(
       if (paramId in inputParamIdToUITypeId) {
         newId = inputParamIdToUITypeId[paramId];
       } else {
-        newId = BASE_UI_TYPE_IDS.TEXT;
+        newId = BASE_UI_TYPE_IDS.ONE_LINE_CODE;
       }
       newIds[paramId] = { uiTypeId: newId, nonPresetUITypeIds: [] };
       paramIdToUITypeId[paramId] = newId;

@@ -78,7 +78,7 @@ const debouncedSetParamEnteredValue = asyncDebounce(
         value: vStr,
         incrementVersion: changedByUser,
       });
-      if (getParamUIType(sectionId, paramInfoId).type === C.TEXT) {
+      if (getParamUIType(sectionId, paramInfoId).type === C.ONE_LINE_CODE) {
         const { keywordPositions } = await getKeywordPositionsAndEVRefs({
           sectionId,
           paramInfoId,

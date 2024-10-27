@@ -4,6 +4,7 @@ import { clamp } from "utils/utils";
 
 export function getValueForUIType({ uiType, currValue }) {
   switch (uiType.type) {
+    case C.ONE_LINE_CODE:
     case C.TEXT:
       return convertValueForText({ currValue });
     case C.SLIDER:

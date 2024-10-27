@@ -55,8 +55,10 @@ def var_declaration(var_name, value, is_dict=False):
 
 def get_value(x, selected):
     type_value = x["type"]
-    if type_value in [C.TEXT, C.SLIDER]:
+    if type_value in [C.ONE_LINE_CODE, C.SLIDER]:
         return str(x["value"])
+    elif type_value == [C.TEXT]:
+        return f'\"{str(x["value"])}\"'
     elif type_value == C.SWITCH:
         return str(get_boolean(x["value"]))
     elif type_value in [C.SECTION]:

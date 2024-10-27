@@ -23,7 +23,7 @@ function useUITypeCol(sectionId, paramInfoId, key) {
   return useUITypeCols((x) => {
     if (paramInfoId.startsWith(C.JSON_SOURCE_PREFIX)) {
       if (key === "uiTypeId") {
-        return BASE_UI_TYPE_IDS[C.TEXT];
+        return BASE_UI_TYPE_IDS[C.ONE_LINE_CODE];
       } else if (key === "nonPresetUITypeIds") {
         return [];
       } else {
@@ -172,5 +172,19 @@ function getRequiredUIEditorTabs(uiTypeName) {
         INFO_CONFIG_TAB,
         SECTION_VARIANTS_TAB,
       ];
+  }
+}
+
+export function getTextInputCodeMirrorProperties(uiType) {
+  if (uiType.type === C.TEXT) {
+    return {
+      color: "green",
+      keywordPositions: [],
+      setKeywordPositions: () => {},
+      initializeGenCode: false,
+      autocomplete: false,
+    };
+  } else if (uiType.type === C.ONE_LINE_CODE) {
+    return {};
   }
 }

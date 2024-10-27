@@ -6,7 +6,10 @@ import {
   useSectionInfos,
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
-import { useGetParamUIType } from "state/hooks/uiTypes";
+import {
+  getTextInputCodeMirrorProperties,
+  useGetParamUIType,
+} from "state/hooks/uiTypes";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
 import { SwitchInput, SwitchInputConfig } from "./SwitchInput";
 import { TextInputConfig } from "./TextInput";
@@ -45,7 +48,8 @@ export function ParamUI({
   // need to put the group/textinput in a higher div
 
   switch (uiType.type) {
-    default:
+    case C.ONE_LINE_CODE:
+    case C.TEXT:
       return (
         <>
           <TextInputCodeMirror
@@ -61,6 +65,7 @@ export function ParamUI({
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
             isDisabled={_isDisabled}
+            {...getTextInputCodeMirrorProperties(uiType)}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
@@ -123,7 +128,8 @@ export function ParamSweepUI({
     paramInfoId,
   });
   switch (uiType.type) {
-    default:
+    case C.ONE_LINE_CODE:
+    case C.TEXT:
       return (
         <>
           <TextInputCodeMirror
@@ -139,6 +145,7 @@ export function ParamSweepUI({
             language={configLanguage}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
+            {...getTextInputCodeMirrorProperties(uiType)}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />

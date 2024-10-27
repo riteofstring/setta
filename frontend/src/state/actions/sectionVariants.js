@@ -74,7 +74,9 @@ export function updateSectionVariants({ sectionVariants }) {
 }
 
 export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
+  console.log("convertValue uiTypeId", uiTypeId);
   const uiType = useUITypes.getState().x[uiTypeId];
+  console.log('uiType', uiType)
   const currValue = getParamEV(sectionId, paramInfoId);
   const value = getValueForUIType({ uiType, currValue });
   setParamEnteredValue({ sectionId, paramInfoId, value });
