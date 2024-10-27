@@ -15,7 +15,6 @@ export function isSectionUIType(uiType) {
 export const uiTypesToPretty = Object.freeze(
   new Map(
     Object.entries({
-      [C.ONE_LINE_CODE]: "Code",
       [C.TEXT]: "Text",
       [C.SLIDER]: "Slider",
       [C.SWITCH]: "Switch",
