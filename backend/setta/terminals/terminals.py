@@ -27,7 +27,6 @@ from setta.code_gen.python.generate_argparse import generate_argparse
 from setta.code_gen.python.generate_code import generate_code, replace_keywords
 from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
-    CODE_FOLDER,
     CODE_FOLDER_ENV_VARIABLE,
     SEND_ARTIFACT_TO_ENV_VARIABLE,
     C,
@@ -157,7 +156,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     p = message["content"]
     exporter_obj = export_selected(p, always_export_args_objs=False)
     selected = exporter_obj.output
-    folder_path = create_timestamped_folder(CODE_FOLDER)
+    folder_path = create_timestamped_folder(".setta_code")
 
     code_sections = {
         id: copy.deepcopy(s)
@@ -201,14 +200,8 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     id_to_filepath = {}
     for sid in to_write:
         curr_section = code_sections[sid]
-        codeLanguage = curr_section["codeLanguage"]
-        extension = languageToExtension(codeLanguage)
-        code = prepend_with_setup_code(
-            get_section_code(p, sid),
-            codeLanguage,
-            folder_path,
-            p["projectConfig"]["name"],
-        )
+        code = get_section_code(p, sid)
+        extension = languageToExtension(curr_section["codeLanguage"])
         filepath = write_string_to_file(
             folder_path, f"{curr_section['name']}{extension}", code
         )
@@ -232,6 +225,9 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         filepath = id_to_filepath[sid]
         callingProgram = languageToCall(code_sections[sid]["codeLanguage"])
         command = f"{callingProgram} {filepath}"
+
+    env_variable_str = create_env_variable_str(folder_path, p["projectConfig"]["name"])
+    command = f"{env_variable_str}{command}"
 
     if terminal_write_fn:
         terminal_write_fn(f"\x15{command}\n")
@@ -307,16 +303,6 @@ def write_string_to_file(folder, filename, content):
     return file_path
 
 
-def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name):
-    if codeLanguage == "python":
-        location = f"/{project_config_name}"
-        setup_code = (
-            "import sys\n"
-            "import os\n"
-            "from pathlib import Path\n"
-            "sys.path.append(str(Path(__file__).parent.parent.parent))\n"
-            f"os.environ['{SEND_ARTIFACT_TO_ENV_VARIABLE}'] = '{location}'\n"
-            f"os.environ['{CODE_FOLDER_ENV_VARIABLE}'] = '{folder_path}'\n"
-        )
-        code = setup_code + code
-    return code
+def create_env_variable_str(folder_path, project_config_name):
+    location = f"/{project_config_name}"
+    return f"{CODE_FOLDER_ENV_VARIABLE}={folder_path} {SEND_ARTIFACT_TO_ENV_VARIABLE}={location} "
