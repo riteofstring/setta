@@ -8,6 +8,7 @@ import { HiPlus } from "react-icons/hi";
 import { Link } from "react-router-dom";
 import { dbRequestTypeCheck } from "requests/sections";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
+import { autoLayout } from "state/actions/sections/sectionPositions";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";
@@ -49,6 +50,7 @@ function Items() {
       >
         Type Check
       </MenuItem>
+      <MenuItem onClick={autoLayout}>Auto Layout</MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
       <MenuItem onClick={redoProjectState} shortcut={shortcuts.redoShortcut}>
         Redo

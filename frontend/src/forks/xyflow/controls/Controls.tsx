@@ -14,10 +14,8 @@ import {
   type PropsWithChildren,
 } from "react";
 import { IoMapOutline } from "react-icons/io5";
-import { RiLayoutFill } from "react-icons/ri";
 import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
 import { toggleMiniMap, toggleSnapToGrid } from "state/actions/localStorage";
-import { autoLayout } from "state/actions/sections/sectionPositions";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { shallow } from "zustand/shallow";
@@ -133,9 +131,9 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
           {isInteractive ? <UnlockIcon /> : <LockIcon />}
         </ControlButton>
       )} */}
-      <ControlButton onClick={autoLayout}>
+      {/* <ControlButton onClick={autoLayout}>
         <RiLayoutFill />
-      </ControlButton>
+      </ControlButton> */}
       <ControlButton
         onClick={toggleSnapToGrid}
         className={snapToGrid ? styleForActive : ""}
