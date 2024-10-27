@@ -152,6 +152,7 @@ const ZoomPane = ({
             // we can't use the start, zoom and end events from d3-zoom
             // because start and move gets called on every scroll event and not once at the beginning
             if (!isPanScrolling.current) {
+              useReactFlow.setState({ fitViewOnInit: false });
               isPanScrolling.current = true;
             }
 
