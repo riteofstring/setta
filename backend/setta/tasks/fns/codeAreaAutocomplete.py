@@ -87,7 +87,7 @@ async def _codeAreaAutocomplete(message, lsp_writer):
 
 
 def special_keywords_for_autocomplete():
-    return [C.SETTA_GENERATED_PYTHON]
+    return [double_braces(C.SETTA_GENERATED_PYTHON)]
 
 
 def read_cache(cache, message):

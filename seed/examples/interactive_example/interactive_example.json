@@ -70,7 +70,7 @@
     "56218716-8dc7-4a8b-a253-1eb2bb9cfc56": {
       "name": "ratty_red",
       "selectedItem": null,
-      "code": "{{ SETTA_GENERATED_PYTHON }}\n\nfrom setta.cli.logger import Setta, SettaNumpyImg\nimport numpy as np\n\n\ns = Setta()\n\nimg = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)\ns.log({\"test_folder/another_folder/img\": SettaNumpyImg(img)}, save=True)\n\n# c = 3\n# losses = [((i - 10) / 5) ** float(c) for i in range(n)]\n# s.log({\"test_folder/losses\": losses}, save=True)\n\nprint(\"ran code!\")",
+      "code": "$SETTA_GENERATED_PYTHON\n\nfrom setta.cli.logger import Setta, SettaNumpyImg\nimport numpy as np\n\n\ns = Setta()\n\nimg = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)\ns.log({\"test_folder/another_folder/img\": SettaNumpyImg(img)}, save=True)\n\n# c = 3\n# losses = [((i - 10) / 5) ** float(c) for i in range(n)]\n# s.log({\"test_folder/losses\": losses}, save=True)\n\nprint(\"ran code!\")",
       "keywordPositions": [],
       "values": {},
       "children": []
