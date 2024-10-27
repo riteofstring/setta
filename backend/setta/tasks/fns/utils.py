@@ -9,7 +9,7 @@ from typing import Any, Callable, List, Optional
 from pydantic import BaseModel
 
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import C, CODE_FOLDER
+from setta.utils.constants import CODE_FOLDER, C
 
 
 def import_from_path(file_path):

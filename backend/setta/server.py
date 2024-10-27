@@ -27,7 +27,7 @@ from setta.routers import (
 )
 from setta.tasks.tasks import Tasks
 from setta.terminals.terminals import TerminalWebsockets
-from setta.utils.constants import C, CODE_FOLDER
+from setta.utils.constants import CODE_FOLDER, C
 from setta.utils.utils import get_absolute_path, is_dev_mode
 from setta.utils.websocket_manager import WebsocketManager
 
