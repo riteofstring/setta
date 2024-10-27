@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import time
+import traceback
 from asyncio import CancelledError
 from collections import defaultdict, deque
 from datetime import datetime
@@ -98,8 +99,8 @@ class TerminalWebsockets:
         pty_info = self.PTY_PIDS[id]
         pty_process = pty_info["process"]
         history = pty_info["history"]
-        try:
-            while True:
+        while True:
+            try:
                 output = await self.loop.run_in_executor(None, pty_process.read, 1024)
                 if not output:
                     break
@@ -108,36 +109,51 @@ class TerminalWebsockets:
                         history.append(output)
                     pty_info["wasJustResized"] = False
                     await ws.send_text(output)
-        except (WebSocketDisconnect, CancelledError):
-            pass
+            except (WebSocketDisconnect, CancelledError):
+                self.delete_terminals([id])
+                print("read_from_terminal WebSocketDisconnect exception!")
+                break
+            except Exception as e:
+                if isinstance(e, RuntimeError) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(e):
+                    # this happens when write_to_terminal catches the websocket disconnect
+                    break
+                print(f"Exception details:\n{traceback.format_exc()}")
+                print(e, flush=True)
+                print("read_from_terminal caught the exception!", flush=True)
 
     # Function to write to the terminal
     async def write_to_terminal(self, websocket, id):
         pty_info = self.PTY_PIDS[id]
         pty_process = pty_info["process"]
-        try:
-            while True:
+        while True:
+            try:
                 input_data = await websocket.receive_text()
                 try:
                     json_val = json.loads(input_data)
-                    if isinstance(json_val, dict):
-                        doResize = json_val["messageType"] == "resize"
-                        if doResize:
-                            pty_process.setwinsize(json_val["rows"], json_val["cols"])
-                        elif json_val["messageType"] == C.WS_RUN_CODE:
-                            runCode(json_val, terminal_write_fn=pty_process.write)
-                            self.set_terminal_start_time(id)
-                        pty_info["wasJustResized"] = doResize
-                        continue
                 except json.decoder.JSONDecodeError:
-                    pass
-                if input_data is None:
+                    json_val = None
+                if isinstance(json_val, dict):
+                    doResize = json_val["messageType"] == "resize"
+                    if doResize:
+                        pty_process.setwinsize(json_val["rows"], json_val["cols"])
+                    elif json_val["messageType"] == C.WS_RUN_CODE:
+                        runCode(json_val, terminal_write_fn=pty_process.write)
+                        self.set_terminal_start_time(id)
+                    pty_info["wasJustResized"] = doResize
+                    continue
+                elif input_data:
+                    pty_process.write(input_data)
+                    self.set_terminal_start_time(id)
+            except (WebSocketDisconnect, CancelledError):
+                self.delete_terminals([id])
+                break
+            except Exception as e:
+                if isinstance(e, RuntimeError) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(e):
+                    # this happens when read_from_terminal catches the websocket disconnect
                     break
-                # Write received data to the terminal
-                pty_process.write(input_data)
-                self.set_terminal_start_time(id)
-        except (WebSocketDisconnect, CancelledError):
-            pass
+                print(f"Exception details:\n{traceback.format_exc()}")
+                print(e, flush=True)
+                print("write_to_terminal caught the exception!", flush=True)
 
     def set_terminal_start_time(self, id):
         self.PTY_PIDS[id]["start"] = time.time()
