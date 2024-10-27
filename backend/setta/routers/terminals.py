@@ -46,7 +46,7 @@ async def terminal_websocket_endpoint(
             await task  # Ensure task is properly cancelled
     finally:
         # Cleanup
-        print("terminal_websocket_endpoint disconnect", flush=True)
+        print("terminal_websocket_endpoint disconnect", id, flush=True)
         terminal_websockets.disconnect(websocket, id)
 
 
