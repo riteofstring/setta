@@ -3,7 +3,7 @@ import itertools
 import json
 from collections import defaultdict
 
-from setta.utils.constants import C, is_from_json_source
+from setta.utils.constants import C
 
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants

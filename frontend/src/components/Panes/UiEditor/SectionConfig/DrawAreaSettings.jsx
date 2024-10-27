@@ -1,8 +1,8 @@
-import { useGetSectionInfo } from "state/hooks/sections";
+import _ from "lodash";
+import { setCanvasColorChoices } from "state/actions/sections/setters";
+import { useSectionInfos } from "state/definitions";
 
 export function DrawAreaSettings({ sectionId }) {
-  const artifactPaths = useGetSectionInfo(sectionId, "artifacts");
-  console.log("artifactPaths", artifactPaths);
   // const [value, setValue] = useState(url ?? "");
   // function onBlur(e) {
   //   const blurValue = e.target.value;
@@ -25,5 +25,89 @@ export function DrawAreaSettings({ sectionId }) {
   //     </div>
   //   </div>
   // );
-  return null;
+  return <AvailableColors sectionId={sectionId} />;
 }
+
+const AvailableColors = ({ sectionId }) => {
+  const colors = useSectionInfos(
+    (x) => x.x[sectionId].canvasSettings?.colorChoices ?? [],
+    _.isEqual,
+  );
+
+  const addColor = () => {
+    setCanvasColorChoices(sectionId, [
+      ...colors,
+      { color: "#000000", description: "" },
+    ]);
+  };
+
+  const removeColor = (removeIdx) => {
+    setCanvasColorChoices(
+      sectionId,
+      colors.filter((color, idx) => idx !== removeIdx),
+    );
+  };
+
+  const updateColor = (updateIdx, newColor) => {
+    setCanvasColorChoices(
+      sectionId,
+      colors.map((color, idx) =>
+        idx === updateIdx ? { ...color, color: newColor } : color,
+      ),
+    );
+  };
+
+  const updateDescription = (updateIdx, description) => {
+    setCanvasColorChoices(
+      sectionId,
+      colors.map((color, idx) =>
+        idx === updateIdx ? { ...color, description } : color,
+      ),
+    );
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-4 p-2">
+        <h2 className="text-lg font-semibold">Available Colors</h2>
+        <button
+          onClick={addColor}
+          className="cursor-pointer rounded-full p-1 hover:bg-gray-100"
+          aria-label="Add color"
+        >
+          <i className="gg-add" />
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-2 overflow-y-auto p-2">
+        {colors.map(({ color, description }, idx) => (
+          <div key={idx} className="flex items-center gap-3">
+            <button
+              onClick={() => removeColor(idx)}
+              className="cursor-pointer rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              aria-label="Remove color"
+            >
+              <i className="gg-close !scale-50" />
+            </button>
+
+            <div className="flex flex-1 items-center gap-2">
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => updateColor(idx, e.target.value)}
+                className="h-8 w-8 cursor-pointer rounded border p-0"
+              />
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => updateDescription(idx, e.target.value)}
+                placeholder="Add description..."
+                className="flex-1 rounded border px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+};

@@ -14,7 +14,7 @@ def save_run_groups(db, project_config, run_groups):
         query_params.append({"id": id, "jsonRepr": json.dumps(r)})
     db.executemany(query, query_params)
 
-    query = f"""
+    query = """
         DELETE FROM ProjectConfigRunGroup
         WHERE projectConfigId = :projectConfigId
     """
@@ -38,7 +38,7 @@ def save_run_groups(db, project_config, run_groups):
     db.executemany(query, query_params)
 
     query = """
-        UPDATE ProjectConfig 
+        UPDATE ProjectConfig
         SET shownRunGroup = :shownRunGroup
         WHERE id = :id
     """
