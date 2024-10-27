@@ -50,6 +50,7 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   className,
   children,
   position = "bottom-left",
+  styleForActive,
 }) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const { minZoomReached, maxZoomReached } = useZoomReached();
@@ -57,6 +58,8 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
     (s) => s.nodesDraggable || s.elementsSelectable,
     shallow,
   );
+  const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
+
   useEffect(() => {
     setIsVisible(true);
   }, []);
@@ -120,7 +123,7 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
       )}
       {showFitView && (
         <ControlButton
-          className="react-flow__controls-fitview"
+          className={`react-flow__controls-fitview ${fitViewOnInit ? styleForActive : ""}`}
           onClick={onFitViewHandler}
           title="fit view"
           aria-label="fit view"
