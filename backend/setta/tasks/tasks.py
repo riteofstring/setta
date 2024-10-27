@@ -4,7 +4,6 @@ from typing import Dict
 
 from setta.database.utils import create_new_id
 from setta.utils.utils import nested_access
-from setta.cli.logger import default_section_type
 
 from . import fns
 from .fns.utils import (
@@ -37,8 +36,6 @@ class Tasks:
             result = await self.task_runner.run(message.id, fn.fn, fn_args, fn.run_as)
             fn.write_cache(self.cache, message, result)
             result["messageType"] = fn.return_message_type
-            if fn_name in self.custom_fn_name_to_exporter_obj:
-                self.process_output_content_for_custom_fn(result["content"])
             return result
         except asyncio.CancelledError:
             print(f"Task for {message.id} was cancelled.", flush=True)
@@ -108,7 +105,3 @@ class Tasks:
             p_dict, key = nested_access(exporter_obj.output, nice_str)
             p_dict[key] = v
         message.content = exporter_obj.output
-
-    def process_output_content_for_custom_fn(self, content):
-        for v in content:
-            v.setdefault("sectionType", default_section_type(v["type"]))
