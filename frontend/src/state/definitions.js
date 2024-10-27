@@ -109,12 +109,15 @@ export const useParamSweep = createProjectState(
 
 export const useProjectConfig = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        id: "",
-        name: "",
-        isDefault: false,
-      }),
+    subscribeWithSelector(
+      immer(() =>
+        withVersion({
+          id: "",
+          name: "",
+          isDefault: false,
+          viewport: null,
+        }),
+      ),
     ),
   ),
 );

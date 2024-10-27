@@ -10,6 +10,7 @@ from setta.code_gen.export_selected import (
     get_section_code,
     get_section_name,
     get_section_type,
+    get_section_variants,
     get_selected_item_name,
 )
 from setta.utils.constants import C

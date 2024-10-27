@@ -76,7 +76,7 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
         {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
           <ShowYaml sectionId={sectionId} />
         )}
-        {/* <FreezeButton sectionId={sectionId} /> */}
+        <FreezeButton sectionId={sectionId} />
       </CardHeaderMenuButton>
     </Menubar.Root>
   );

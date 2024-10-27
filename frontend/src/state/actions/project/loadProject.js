@@ -54,16 +54,11 @@ export function loadProjectState({
   jsonSourceMissing,
 }) {
   setAllCodeInfo(codeInfo);
-  setProjectConfig(_.omit(projectConfig, ["children", "viewport"]));
+  setProjectConfig(_.omit(projectConfig, ["children"]));
   if (!projectConfig.viewport) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
-    const { x, y, zoom } = projectConfig.viewport;
-    useReactFlow.setState({
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-      transform: [x, y, zoom],
-    });
+    useReactFlow.setState({ fitViewOnInit: false, fitViewOnInitDone: true });
   }
   setNodes(
     _.map(projectConfig.children, (v, k) => ({

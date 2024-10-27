@@ -164,10 +164,3 @@ export function setCanvasSettings(sectionId, attr, value) {
     s.canvasSettings[attr] = value;
   });
 }
-
-export function setCanvasColorChoices(sectionId, value) {
-  useSectionInfos.setState((x) => {
-    const s = x.x[sectionId];
-    s.canvasSettings.colorChoices = value;
-  });
-}

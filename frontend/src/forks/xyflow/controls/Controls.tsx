@@ -1,9 +1,5 @@
-import "forks/xyflow/controls/style.css";
-import {
-  resetZoom,
-  zoomIn,
-  zoomOut,
-} from "forks/xyflow/core/hooks/useViewportHelper";
+import cc from "classcat";
+import { zoomIn, zoomOut } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
 import {
@@ -13,17 +9,15 @@ import {
   type FC,
   type PropsWithChildren,
 } from "react";
-import { IoMapOutline } from "react-icons/io5";
-import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
-import { toggleMiniMap, toggleSnapToGrid } from "state/actions/localStorage";
 import { useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
 import { shallow } from "zustand/shallow";
 import Panel from "../core/components/Panel";
 import ControlButton from "./ControlButton";
 import FitviewIcon from "./Icons/FitView";
+import LockIcon from "./Icons/Lock";
 import MinusIcon from "./Icons/Minus";
 import PlusIcon from "./Icons/Plus";
+import UnlockIcon from "./Icons/Unlock";
 import type { ControlProps } from "./types";
 
 function useZoomReached() {
@@ -44,7 +38,17 @@ function useZoomReached() {
 }
 
 const Controls: FC<PropsWithChildren<ControlProps>> = ({
+  style,
+  showZoom = true,
+  showFitView = true,
+  showInteractive = true,
   fitViewOptions,
+  onZoomIn,
+  onZoomOut,
+  onFitView,
+  onInteractiveChange,
+  className,
+  children,
   position = "bottom-left",
 }) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
@@ -53,11 +57,6 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
     (s) => s.nodesDraggable || s.elementsSelectable,
     shallow,
   );
-  const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
-  const [snapToGrid] = localStorageFns.snapToGrid.hook();
-  const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
-  const styleForActive = "!bg-red-900";
-
   useEffect(() => {
     setIsVisible(true);
   }, []);
@@ -68,60 +67,68 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
 
   const onZoomInHandler = () => {
     zoomIn();
+    onZoomIn?.();
   };
 
   const onZoomOutHandler = () => {
     zoomOut();
+    onZoomOut?.();
   };
 
   const onFitViewHandler = () => {
     fitView(useReactFlow.getState, fitViewOptions);
-    useReactFlow.setState({ fitViewOnInit: true });
+    onFitView?.();
   };
 
-  // const onToggleInteractivity = () => {
-  //   useReactFlow.setState({
-  //     nodesDraggable: !isInteractive,
-  //     elementsSelectable: !isInteractive,
-  //   });
+  const onToggleInteractivity = () => {
+    useReactFlow.setState({
+      nodesDraggable: !isInteractive,
+      elementsSelectable: !isInteractive,
+    });
 
-  //   onInteractiveChange?.(!isInteractive);
-  // };
+    onInteractiveChange?.(!isInteractive);
+  };
 
   return (
     <Panel
-      className="react-flow__controls transition-transform [&>button]:bg-setta-50 dark:[&>button]:border-setta-800 dark:[&>button]:bg-setta-700 dark:[&>button]:text-setta-300 dark:[&_svg]:fill-setta-300"
+      className={cc(["react-flow__controls", className])}
       position={position}
-      style={{ transform: `translateX(${overviewWidth}px)` }}
+      style={style}
       data-testid="rf__controls"
     >
-      <ControlButton
-        onClick={onZoomInHandler}
-        className="react-flow__controls-zoomin"
-        title="zoom in"
-        aria-label="zoom in"
-        disabled={maxZoomReached}
-      >
-        <PlusIcon />
-      </ControlButton>
-      <ControlButton
-        onClick={onZoomOutHandler}
-        className="react-flow__controls-zoomout"
-        title="zoom out"
-        aria-label="zoom out"
-        disabled={minZoomReached}
-      >
-        <MinusIcon />
-      </ControlButton>
-      <ControlButton
-        className={`react-flow__controls-fitview ${fitViewOnInit ? styleForActive : ""}`}
-        onClick={onFitViewHandler}
-        title="fit view"
-        aria-label="fit view"
-      >
-        <FitviewIcon />
-      </ControlButton>
-      {/* {showInteractive && (
+      {showZoom && (
+        <>
+          <ControlButton
+            onClick={onZoomInHandler}
+            className="react-flow__controls-zoomin"
+            title="zoom in"
+            aria-label="zoom in"
+            disabled={maxZoomReached}
+          >
+            <PlusIcon />
+          </ControlButton>
+          <ControlButton
+            onClick={onZoomOutHandler}
+            className="react-flow__controls-zoomout"
+            title="zoom out"
+            aria-label="zoom out"
+            disabled={minZoomReached}
+          >
+            <MinusIcon />
+          </ControlButton>
+        </>
+      )}
+      {showFitView && (
+        <ControlButton
+          className="react-flow__controls-fitview"
+          onClick={onFitViewHandler}
+          title="fit view"
+          aria-label="fit view"
+        >
+          <FitviewIcon />
+        </ControlButton>
+      )}
+      {showInteractive && (
         <ControlButton
           className="react-flow__controls-interactive"
           onClick={onToggleInteractivity}
@@ -130,22 +137,8 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
         >
           {isInteractive ? <UnlockIcon /> : <LockIcon />}
         </ControlButton>
-      )} */}
-      {/* <ControlButton onClick={autoLayout}>
-        <RiLayoutFill />
-      </ControlButton> */}
-      <ControlButton
-        onClick={toggleSnapToGrid}
-        className={snapToGrid ? styleForActive : ""}
-      >
-        <TbGrid4X4 />
-      </ControlButton>
-      <ControlButton onClick={resetZoom}>
-        <TbZoomReset />
-      </ControlButton>
-      <ControlButton onClick={toggleMiniMap}>
-        <IoMapOutline />
-      </ControlButton>
+      )}
+      {children}
     </Panel>
   );
 };

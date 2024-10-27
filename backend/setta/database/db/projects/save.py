@@ -6,9 +6,8 @@ from setta.code_gen.export_selected import (
     get_section_variants,
     get_selected_item_name,
 )
-from setta.database.utils import create_new_id
+from setta.database.utils import create_new_id, generate_memorable_string
 from setta.utils.constants import C
-from setta.utils.generate_memorable_string import generate_memorable_string
 
 from ..codeInfo.save import save_code_info
 from ..paramSweeps.save import save_param_sweeps

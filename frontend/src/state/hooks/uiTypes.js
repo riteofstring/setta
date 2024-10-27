@@ -160,7 +160,6 @@ function getRequiredUIEditorTabs(uiTypeName) {
     case C.GLOBAL_PARAM_SWEEP:
     case C.PARAM_SWEEP:
     case C.DRAW:
-      return [SECTION_CONFIG_TAB];
     case C.IMAGE:
     case C.LINE_PLOT:
       return [];
