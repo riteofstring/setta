@@ -76,7 +76,7 @@ class TerminalWebsockets:
             }
         else:
             print("sending pty history********", flush=True)
-            await self.send_history(websocket, id)
+            await websocket.send_text("".join(self.PTY_PIDS[id]["history"]))
 
     def disconnect(self, websocket, id):
         self.sockets[id].remove(websocket)
@@ -109,7 +109,6 @@ class TerminalWebsockets:
                     break
                 for ws in self.sockets[id]:
                     if not pty_info["wasJustResized"]:
-                        print("was not just resized, so appending to history:", output, flush=True)
                         history.append(output)
                     pty_info["wasJustResized"] = False
                     await ws.send_text(output)
@@ -130,7 +129,6 @@ class TerminalWebsockets:
         while True:
             try:
                 input_data = await websocket.receive_text()
-                print("write_to_terminal", input_data, flush=True)
                 try:
                     json_val = json.loads(input_data)
                 except json.decoder.JSONDecodeError:
@@ -142,11 +140,6 @@ class TerminalWebsockets:
                     elif json_val["messageType"] == C.WS_RUN_CODE:
                         runCode(json_val, terminal_write_fn=pty_process.write)
                         self.set_terminal_start_time(id)
-                    elif json_val["messageType"] == "getHistory":
-                        print("messageType is getHistory", flush=True)
-                        await websocket.send_text("test")
-                        # await self.send_history(websocket, id)
-                        print("done sending history", flush=True)
                     pty_info["wasJustResized"] = doResize
                     continue
                 elif input_data:
@@ -174,10 +167,6 @@ class TerminalWebsockets:
             ):
                 return k
         return None
-
-    async def send_history(self, websocket, id):
-        print("sending history:", "".join(self.PTY_PIDS[id]["history"]), flush=True)
-        await websocket.send_text("".join(self.PTY_PIDS[id]["history"]))
 
 
 def runCode(message, terminal_write_fn=None, command_callback=None):

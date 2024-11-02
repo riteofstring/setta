@@ -10,7 +10,6 @@ import "xterm/css/xterm.css";
 
 export const TERMINAL_WEBSOCKETS = {};
 export const INITIAL_MESSAGES = {};
-const HISTORY_REQUESTED = new Set();
 
 export function useTerminal({ sectionId, width, height }) {
   const terminalRef = useRef(null); // Ref for the terminal container
@@ -32,7 +31,6 @@ export function useTerminal({ sectionId, width, height }) {
     terminal.loadAddon(attachAddon);
 
     terminal.onResize((size) => {
-      console.log("onResize")
       // Send the new size to the backend
       const message = JSON.stringify({
         messageType: "resize",
@@ -51,8 +49,6 @@ export function useTerminal({ sectionId, width, height }) {
       // https://github.com/xtermjs/xterm.js/issues/4775
       disposeWs();
       terminal.dispose();
-      console.log("disposing")
-      HISTORY_REQUESTED.delete(sectionId);
     };
   }, []);
 
@@ -75,17 +71,8 @@ function useFitAddon() {
 
 function newTerminalWebsocket(sectionId) {
   let ws;
-  console.log("newTerminalWebsocket", sectionId);
   if (TERMINAL_WEBSOCKETS[sectionId]) {
     ws = TERMINAL_WEBSOCKETS[sectionId];
-    if (ws.readyState === 1 && !HISTORY_REQUESTED.has(sectionId)) {
-      ws.send(
-        JSON.stringify({
-          messageType: "getHistory",
-        }),
-      );
-      HISTORY_REQUESTED.add(sectionId);
-    }
   } else {
     const projectConfigId = useProjectConfig.getState().id;
     const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, id: sectionId })}`;
@@ -101,7 +88,6 @@ function newTerminalWebsocket(sectionId) {
         INITIAL_MESSAGES[sectionId] = [];
       }
     });
-    ws.addEventListener("message", (message)=>{console.log("received", message)})
     ws.addEventListener("close", () => {
       delete TERMINAL_WEBSOCKETS[sectionId];
     });
