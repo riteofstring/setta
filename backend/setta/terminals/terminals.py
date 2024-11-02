@@ -11,6 +11,7 @@ from datetime import datetime
 
 import psutil
 from fastapi import WebSocketDisconnect
+from websockets.exceptions import ConnectionClosedOK
 
 from setta.code_gen.export_selected import (
     export_selected,
@@ -115,7 +116,7 @@ class TerminalWebsockets:
                         history.append(output)
                     pty_info["wasJustResized"] = False
                     await ws.send_text(output)
-            except (WebSocketDisconnect, CancelledError):
+            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
                 break
             except Exception as e:
                 if isinstance(
@@ -152,7 +153,7 @@ class TerminalWebsockets:
                 elif input_data:
                     pty_process.write(input_data)
                     self.set_terminal_start_time(sectionId)
-            except (WebSocketDisconnect, CancelledError):
+            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
                 break
             except Exception as e:
                 if isinstance(
