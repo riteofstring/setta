@@ -79,7 +79,6 @@ class TerminalWebsockets:
             }
         else:
             print("sending pty history********", flush=True)
-            print("".join(self.PTY_PIDS[sectionId]["history"]), flush=True)
             await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
 
     def disconnect(self, sectionId, id):
@@ -145,7 +144,6 @@ class TerminalWebsockets:
                 if isinstance(json_val, dict):
                     doResize = json_val["messageType"] == "resize"
                     if doResize:
-                        print('resizing', flush=True)
                         pty_process.setwinsize(json_val["rows"], json_val["cols"])
                     elif json_val["messageType"] == C.WS_RUN_CODE:
                         runCode(json_val, terminal_write_fn=pty_process.write)
