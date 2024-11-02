@@ -24,13 +24,11 @@ export function useTerminal({ sectionId, width, height }) {
       // letterSpacing: "0",
       // fontSize: "14",
     }); // Instantiate the terminal
-    console.log("new Terminal!");
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
 
-    const { ws, wsId } = newTerminalWebsocket(sectionId);
+    const { ws, cleanup } = newTerminalWebsocket(sectionId, terminal);
     const attachAddon = new AttachAddon(ws);
-    console.log("new attach add on");
     terminal.loadAddon(attachAddon);
 
     terminal.onResize((size) => {
@@ -43,22 +41,30 @@ export function useTerminal({ sectionId, width, height }) {
       if (ws.readyState === 1) {
         ws.send(message);
       } else {
-        addTerminalInitialMessage(wsId, message);
+        addTerminalInitialMessage(sectionId, message);
       }
     });
 
+    // terminal.onRender(() => {
+    //   if (INITIAL_MESSAGES[wsId]?.length > 0) {
+    //     for (const initialMessage of INITIAL_MESSAGES[wsId]) {
+    //       // hack to get backend to receive distinct messages rather than 1 grouped message
+    //       setTimeout(() => {
+    //         ws.send(initialMessage);
+    //       }, 0);
+    //     }
+    //     INITIAL_MESSAGES[wsId] = [];
+    //   }
+    // });
+
     return () => {
+      // Causes Uncaught TypeError: Cannot read properties of undefined (reading 'dimensions')
+      // https://github.com/xtermjs/xterm.js/issues/4775
       if (ws.readyState === 1) {
-        console.log("closing websocket");
-        ws.close();
-        terminal.dispose();
+        cleanup();
       } else {
         ws.addEventListener("open", () => {
-          console.log("websocket opened, now closing");
-          ws.close();
-          // Causes Uncaught TypeError: Cannot read properties of undefined (reading 'dimensions')
-          // https://github.com/xtermjs/xterm.js/issues/4775
-          terminal.dispose();
+          cleanup();
         });
       }
     };
@@ -81,41 +87,54 @@ function useFitAddon() {
   return fitAddon.current;
 }
 
-function newTerminalWebsocket(sectionId) {
-  console.log("NEW WEBSOCKET");
+function newTerminalWebsocket(sectionId, terminal) {
   const projectConfigId = useProjectConfig.getState().id;
   const id = createNewId();
   const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, sectionId, id })}`;
   const ws = new WebSocket(wsTerminalAddress);
+  TERMINAL_WEBSOCKETS[id] = ws;
+
+  function cleanup() {
+    ws.close();
+    terminal.dispose();
+    delete TERMINAL_WEBSOCKETS[id];
+  }
+
   ws.addEventListener("open", () => {
-    if (INITIAL_MESSAGES[id]?.length > 0) {
-      for (const initialMessage of INITIAL_MESSAGES[id]) {
-        // hack to get backend to receive distinct messages rather than 1 grouped message
-        console.log("sending", initialMessage);
-        setTimeout(() => {
+    if (INITIAL_MESSAGES[sectionId]?.length > 0) {
+      let didSend = true;
+      for (const initialMessage of INITIAL_MESSAGES[sectionId]) {
+        if (ws.readyState === 1) {
           ws.send(initialMessage);
-        }, 0);
+        } else {
+          // this means the websocket closed already
+          didSend = false;
+        }
+        // hack to get backend to receive distinct messages rather than 1 grouped message
+
+        // setTimeout(() => {
+        //   if (ws.readyState === 1) {
+        //     ws.send(initialMessage);
+        //   } else {
+        //     // this means the websocket closed already
+        //     didSend = false;
+        //   }
+        // }, 0);
       }
-      INITIAL_MESSAGES[id] = [];
+      console.log("didSend", didSend);
+      if (didSend) {
+        INITIAL_MESSAGES[sectionId] = [];
+      }
     }
   });
   ws.addEventListener("close", () => {
-    console.log("websocket closed");
-    delete TERMINAL_WEBSOCKETS[id];
-    delete INITIAL_MESSAGES[id];
+    cleanup();
   });
   ws.addEventListener("error", () => {
-    delete TERMINAL_WEBSOCKETS[id];
-    delete INITIAL_MESSAGES[id];
+    cleanup();
   });
 
-  TERMINAL_WEBSOCKETS[id] = ws;
-  // if ((!sectionId) in SECTION_WEBSOCKET_IDS) {
-  //   SECTION_WEBSOCKET_IDS[sectionId] = [];
-  // }
-  // SECTION_WEBSOCKET_IDS[sectionId].push(id);
-
-  return { ws, wsId: id };
+  return { ws, cleanup };
 }
 
 const theme = {
