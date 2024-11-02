@@ -80,8 +80,9 @@ class TerminalWebsockets:
             print("sending pty history********", flush=True)
             await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
 
-    def disconnect(self, id):
+    def disconnect(self, sectionId, id):
         del self.sockets[id]
+        self.section_to_socket_ids[sectionId].remove(id)
 
     def delete_terminals(self, sectionIds):
         print("delete terminals", sectionIds, flush=True)

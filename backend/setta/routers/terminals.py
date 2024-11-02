@@ -48,7 +48,7 @@ async def terminal_websocket_endpoint(
     finally:
         # Cleanup
         print("terminal_websocket_endpoint disconnect", id, flush=True)
-        terminal_websockets.disconnect(id)
+        terminal_websockets.disconnect(sectionId, id)
 
 
 @router.post(C.ROUTE_GET_FREE_TERMINAL)
