@@ -15,24 +15,25 @@ router = APIRouter()
 
 
 class DeleteTerminalsRequest(BaseModel):
-    ids: List[str]
+    sectionIds: List[str]
 
 
 @router.websocket(C.ROUTE_TERMINAL)
 async def terminal_websocket_endpoint(
     websocket: WebSocket,
     projectConfigId: str,
+    sectionId: str,
     id: str,
     terminal_websockets=Depends(get_terminal_websockets_from_websocket),
 ):
-    await terminal_websockets.connect(websocket, projectConfigId, id)
+    await terminal_websockets.connect(websocket, projectConfigId, sectionId, id)
     try:
         # Start reading from and writing to the terminal
         read_task = terminal_websockets.loop.create_task(
-            terminal_websockets.read_from_terminal(id)
+            terminal_websockets.read_from_terminal(sectionId)
         )
         write_task = terminal_websockets.loop.create_task(
-            terminal_websockets.write_to_terminal(websocket, id)
+            terminal_websockets.write_to_terminal(websocket, sectionId)
         )
 
         # Wait for either task to complete
@@ -47,7 +48,7 @@ async def terminal_websocket_endpoint(
     finally:
         # Cleanup
         print("terminal_websocket_endpoint disconnect", id, flush=True)
-        terminal_websockets.disconnect(websocket, id)
+        terminal_websockets.disconnect(id)
 
 
 @router.post(C.ROUTE_GET_FREE_TERMINAL)
@@ -56,3 +57,9 @@ def route_terminal_get_free_terminal(
 ):
     return terminal_websockets.get_free_terminal(projectConfigId)
 
+
+@router.post(C.ROUTE_DELETE_TERMINALS)
+def route_terminal_delete_terminals(
+    x: DeleteTerminalsRequest, terminal_websockets=Depends(get_terminal_websockets)
+):
+    terminal_websockets.delete_terminals(x.sectionIds)

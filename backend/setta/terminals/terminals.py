@@ -57,16 +57,18 @@ def is_command_running_in_pty(pid):
 
 class TerminalWebsockets:
     def __init__(self):
-        self.sockets = defaultdict(list)
+        self.section_to_socket_ids = defaultdict(set)
+        self.sockets = {}
         self.PTY_PIDS = {}
         self.loop = asyncio.get_event_loop()
 
-    async def connect(self, websocket, projectConfigId, id):
+    async def connect(self, websocket, projectConfigId, sectionId, id):
         await websocket.accept()
-        self.sockets[id].append(websocket)
-        if id not in self.PTY_PIDS:
+        self.sockets[id] = websocket
+        self.section_to_socket_ids[sectionId].add(id)
+        if sectionId not in self.PTY_PIDS:
             pty_process = PtyProcess.spawn(TERMINAL_NAME)
-            self.PTY_PIDS[id] = {
+            self.PTY_PIDS[sectionId] = {
                 "pid": pty_process.pid,
                 "start": time.time(),
                 "projectConfigId": projectConfigId,
@@ -76,20 +78,19 @@ class TerminalWebsockets:
             }
         else:
             print("sending pty history********", flush=True)
-            await websocket.send_text("".join(self.PTY_PIDS[id]["history"]))
+            await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
 
-    def disconnect(self, websocket, id):
-        self.sockets[id].remove(websocket)
-        if not self.sockets[id]:
-            del self.sockets[id]
-            self.delete_terminals([id])
+    def disconnect(self, id):
+        del self.sockets[id]
 
-    def delete_terminals(self, ids):
-        print('delete terminals', ids, flush=True)
-        for id in ids:
-            if id in self.PTY_PIDS:
-                self.PTY_PIDS[id]["process"].terminate()
-                del self.PTY_PIDS[id]
+    def delete_terminals(self, sectionIds):
+        print("delete terminals", sectionIds, flush=True)
+        for sid in sectionIds:
+            if sid in self.PTY_PIDS:
+                self.PTY_PIDS[sid]["process"].terminate()
+                del self.PTY_PIDS[sid]
+            for id in self.section_to_socket_ids[sectionIds]:
+                self.disconnect(id)
 
     def delete_all_terminals(self):
         for t in self.PTY_PIDS.values():
@@ -98,8 +99,8 @@ class TerminalWebsockets:
         print("DELETED ALL TERMINALS", flush=True)
 
     # Function to read from the terminal
-    async def read_from_terminal(self, id):
-        pty_info = self.PTY_PIDS[id]
+    async def read_from_terminal(self, sectionId):
+        pty_info = self.PTY_PIDS[sectionId]
         pty_process = pty_info["process"]
         history = pty_info["history"]
         while True:
@@ -107,7 +108,8 @@ class TerminalWebsockets:
                 output = await self.loop.run_in_executor(None, pty_process.read, 1024)
                 if not output:
                     break
-                for ws in self.sockets[id]:
+                for wsId in self.section_to_socket_ids[sectionId]:
+                    ws = self.sockets[wsId]
                     if not pty_info["wasJustResized"]:
                         history.append(output)
                     pty_info["wasJustResized"] = False
@@ -115,7 +117,11 @@ class TerminalWebsockets:
             except (WebSocketDisconnect, CancelledError):
                 break
             except Exception as e:
-                if isinstance(e, RuntimeError) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(e):
+                if isinstance(
+                    e, RuntimeError
+                ) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(
+                    e
+                ):
                     # this happens when write_to_terminal catches the websocket disconnect
                     break
                 print(f"Exception details:\n{traceback.format_exc()}")
@@ -123,8 +129,8 @@ class TerminalWebsockets:
                 print("read_from_terminal caught the exception!", flush=True)
 
     # Function to write to the terminal
-    async def write_to_terminal(self, websocket, id):
-        pty_info = self.PTY_PIDS[id]
+    async def write_to_terminal(self, websocket, sectionId):
+        pty_info = self.PTY_PIDS[sectionId]
         pty_process = pty_info["process"]
         while True:
             try:
@@ -139,16 +145,20 @@ class TerminalWebsockets:
                         pty_process.setwinsize(json_val["rows"], json_val["cols"])
                     elif json_val["messageType"] == C.WS_RUN_CODE:
                         runCode(json_val, terminal_write_fn=pty_process.write)
-                        self.set_terminal_start_time(id)
+                        self.set_terminal_start_time(sectionId)
                     pty_info["wasJustResized"] = doResize
                     continue
                 elif input_data:
                     pty_process.write(input_data)
-                    self.set_terminal_start_time(id)
+                    self.set_terminal_start_time(sectionId)
             except (WebSocketDisconnect, CancelledError):
                 break
             except Exception as e:
-                if isinstance(e, RuntimeError) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(e):
+                if isinstance(
+                    e, RuntimeError
+                ) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(
+                    e
+                ):
                     # this happens when read_from_terminal catches the websocket disconnect
                     break
                 print(f"Exception details:\n{traceback.format_exc()}")
