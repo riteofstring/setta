@@ -3,6 +3,7 @@ import copy
 import json
 import os
 import platform
+import select
 import time
 import traceback
 from asyncio import CancelledError
@@ -63,10 +64,7 @@ class TerminalWebsockets:
         self.PTY_PIDS = {}
         self.loop = asyncio.get_event_loop()
 
-    async def connect(self, websocket, projectConfigId, sectionId, id):
-        await websocket.accept()
-        self.sockets[id] = websocket
-        self.section_to_socket_ids[sectionId].add(id)
+    def new_terminal(self, projectConfigId, sectionId):
         if sectionId not in self.PTY_PIDS:
             pty_process = PtyProcess.spawn(TERMINAL_NAME)
             self.PTY_PIDS[sectionId] = {
@@ -77,9 +75,17 @@ class TerminalWebsockets:
                 "history": deque(maxlen=1000),
                 "wasJustResized": False,
             }
-        else:
-            print("sending pty history********", flush=True)
-            await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
+            print("created new pty_process", sectionId, flush=True)
+            return True
+        return False
+
+    async def connect(self, websocket, sectionId, id):
+        await websocket.accept()
+        self.sockets[id] = websocket
+        self.section_to_socket_ids[sectionId].add(id)
+        print("sending pty history********", flush=True)
+        print("".join(self.PTY_PIDS[sectionId]["history"]), flush=True)
+        await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
 
     def disconnect(self, sectionId, id):
         del self.sockets[id]
@@ -106,17 +112,28 @@ class TerminalWebsockets:
         pty_process = pty_info["process"]
         history = pty_info["history"]
         while True:
+            # print("read_from_terminal while loop", flush=True)
             try:
-                output = await self.loop.run_in_executor(None, pty_process.read, 1024)
+                output, _, _ = await self.loop.run_in_executor(
+                    None,
+                    select.select,
+                    [pty_process.fd],
+                    [],
+                    [],
+                    None,  # timeout of 0 makes this non-blocking
+                )
                 if not output:
-                    break
+                    continue
+                output = pty_process.read(1024)
+                if not pty_info["wasJustResized"]:
+                    history.append(output)
+                pty_info["wasJustResized"] = False
+
                 for wsId in self.section_to_socket_ids[sectionId]:
                     ws = self.sockets[wsId]
-                    if not pty_info["wasJustResized"]:
-                        history.append(output)
-                    pty_info["wasJustResized"] = False
                     await ws.send_text(output)
-            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
+            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK) as e:
+                print(e, flush=True)
                 break
             except Exception as e:
                 if isinstance(
@@ -135,8 +152,10 @@ class TerminalWebsockets:
         pty_info = self.PTY_PIDS[sectionId]
         pty_process = pty_info["process"]
         while True:
+            # print("write_to_terminal while loop", flush=True)
             try:
                 input_data = await websocket.receive_text()
+                print("input_data", input_data, flush=True)
                 try:
                     json_val = json.loads(input_data)
                 except json.decoder.JSONDecodeError:

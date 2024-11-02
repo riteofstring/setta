@@ -26,25 +26,50 @@ async def terminal_websocket_endpoint(
     id: str,
     terminal_websockets=Depends(get_terminal_websockets_from_websocket),
 ):
-    await terminal_websockets.connect(websocket, projectConfigId, sectionId, id)
-    try:
-        # Start reading from and writing to the terminal
+    # First check if terminal exists
+    isNew = terminal_websockets.new_terminal(projectConfigId, sectionId)
+
+    # Start the background task for terminal handling
+    async def handle_terminal():
         read_task = terminal_websockets.loop.create_task(
             terminal_websockets.read_from_terminal(sectionId)
         )
+        try:
+            # Simply await the task
+            await read_task
+        except Exception as e:
+            print("handle_terminal exception", e)
+            # Cancel the task if something goes wrong
+            if not read_task.done():
+                read_task.cancel()
+                try:
+                    await read_task
+                except asyncio.CancelledError:
+                    pass
+
+    # Create the background task
+    if isNew:
+        terminal_websockets.loop.create_task(handle_terminal())
+
+    await terminal_websockets.connect(websocket, sectionId, id)
+    try:
         write_task = terminal_websockets.loop.create_task(
             terminal_websockets.write_to_terminal(websocket, sectionId)
         )
 
-        # Wait for either task to complete
-        _, pending = await asyncio.wait(
-            [read_task, write_task], return_when=asyncio.FIRST_COMPLETED
-        )
-
-        # Cancel the remaining tasks
-        for task in pending:
-            task.cancel()
-            await task  # Ensure task is properly cancelled
+        await write_task
+        try:
+            # Simply await the task
+            await write_task
+        except Exception as e:
+            print("write_task exception", e)
+            # Cancel the task if something goes wrong
+            if not write_task.done():
+                write_task.cancel()
+                try:
+                    await write_task
+                except asyncio.CancelledError:
+                    pass
     finally:
         # Cleanup
         print("terminal_websocket_endpoint disconnect", id, flush=True)
