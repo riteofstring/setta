@@ -34,18 +34,7 @@ async def terminal_websocket_endpoint(
         read_task = terminal_websockets.loop.create_task(
             terminal_websockets.read_from_terminal(sectionId)
         )
-        try:
-            # Simply await the task
-            await read_task
-        except Exception as e:
-            print("handle_terminal exception", e)
-            # Cancel the task if something goes wrong
-            if not read_task.done():
-                read_task.cancel()
-                try:
-                    await read_task
-                except asyncio.CancelledError:
-                    pass
+        await read_task
 
     # Create the background task
     if isNew:
@@ -58,18 +47,6 @@ async def terminal_websocket_endpoint(
         )
 
         await write_task
-        try:
-            # Simply await the task
-            await write_task
-        except Exception as e:
-            print("write_task exception", e)
-            # Cancel the task if something goes wrong
-            if not write_task.done():
-                write_task.cancel()
-                try:
-                    await write_task
-                except asyncio.CancelledError:
-                    pass
     finally:
         # Cleanup
         print("terminal_websocket_endpoint disconnect", id, flush=True)

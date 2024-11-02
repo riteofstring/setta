@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import errno
 import json
 import os
 import platform
@@ -97,7 +98,7 @@ class TerminalWebsockets:
             if sid in self.PTY_PIDS:
                 self.PTY_PIDS[sid]["process"].terminate()
                 del self.PTY_PIDS[sid]
-            for id in self.section_to_socket_ids[sectionIds]:
+            for id in self.section_to_socket_ids[sid]:
                 self.disconnect(id)
 
     def delete_all_terminals(self):
@@ -132,17 +133,18 @@ class TerminalWebsockets:
                 for wsId in self.section_to_socket_ids[sectionId]:
                     ws = self.sockets[wsId]
                     await ws.send_text(output)
-            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK) as e:
-                print(e, flush=True)
+            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
                 break
-            except Exception as e:
-                if isinstance(
-                    e, RuntimeError
-                ) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(
-                    e
-                ):
-                    # this happens when write_to_terminal catches the websocket disconnect
+            except EOFError:
+                print(f"Terminal EOF for section {sectionId}")
+                break
+            except OSError as e:
+                if e.errno == errno.EIO:  # Input/output error
+                    print(
+                        f"Terminal I/O error for section {sectionId}: {e}", flush=True
+                    )
                     break
+            except Exception as e:
                 print(f"Exception details:\n{traceback.format_exc()}")
                 print(e, flush=True)
                 print("read_from_terminal caught the exception!", flush=True)
@@ -175,13 +177,6 @@ class TerminalWebsockets:
             except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
                 break
             except Exception as e:
-                if isinstance(
-                    e, RuntimeError
-                ) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(
-                    e
-                ):
-                    # this happens when read_from_terminal catches the websocket disconnect
-                    break
                 print(f"Exception details:\n{traceback.format_exc()}")
                 print(e, flush=True)
                 print("write_to_terminal caught the exception!", flush=True)
