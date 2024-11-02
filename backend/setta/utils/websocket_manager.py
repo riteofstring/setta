@@ -5,6 +5,7 @@ from fastapi import WebSocket
 from setta.tasks.fns.utils import TaskMessage
 from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
+from websockets.exceptions import ConnectionClosedError
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -29,8 +30,11 @@ class WebsocketManager:
         return id
 
     async def disconnect(self, id):
-        del self.sockets[id]
-        await self.broadcast_connections()
+        try:
+            del self.sockets[id]
+            await self.broadcast_connections()
+        except ConnectionClosedError:
+            pass
 
     async def send_message(self, message, fromWebsocketId):
         if "toWebsocketId" in message:

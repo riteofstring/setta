@@ -89,17 +89,28 @@ class TerminalWebsockets:
         await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
 
     def disconnect(self, sectionId, id):
-        del self.sockets[id]
-        self.section_to_socket_ids[sectionId].remove(id)
+        print("disconnecting", id, flush=True)
+        try:
+            del self.sockets[id]
+        except KeyError:
+            pass
+        self.section_to_socket_ids[sectionId].discard(id)
 
     def delete_terminals(self, sectionIds):
         print("delete terminals", sectionIds, flush=True)
         for sid in sectionIds:
             if sid in self.PTY_PIDS:
-                self.PTY_PIDS[sid]["process"].terminate()
-                del self.PTY_PIDS[sid]
-            for id in self.section_to_socket_ids[sid]:
-                self.disconnect(id)
+                try:
+                    self.PTY_PIDS[sid]["process"].terminate()
+                    del self.PTY_PIDS[sid]
+                except KeyError:
+                    # this can happen because delete_terminals is called when the task ends and also when a section is deleted
+                    pass
+            
+            # make copy to avoid set size changing while iterating
+            to_disconnect = set(self.section_to_socket_ids[sid])
+            for id in to_disconnect:
+                self.disconnect(sid, id)
 
     def delete_all_terminals(self):
         for t in self.PTY_PIDS.values():
@@ -176,6 +187,12 @@ class TerminalWebsockets:
                     self.set_terminal_start_time(sectionId)
             except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
                 break
+            except OSError as e:
+                if e.errno == errno.EIO:  # Input/output error
+                    print(
+                        f"Terminal I/O error for section {sectionId}: {e}", flush=True
+                    )
+                    break
             except Exception as e:
                 print(f"Exception details:\n{traceback.format_exc()}")
                 print(e, flush=True)
