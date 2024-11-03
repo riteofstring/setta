@@ -24,10 +24,11 @@ async def terminal_websocket_endpoint(
     projectConfigId: str,
     sectionId: str,
     id: str,
+    isTemporary: bool,
     terminal_websockets=Depends(get_terminal_websockets_from_websocket),
 ):
     # First check if terminal exists
-    isNew = terminal_websockets.new_terminal(projectConfigId, sectionId)
+    isNew = terminal_websockets.new_terminal(projectConfigId, sectionId, isTemporary)
 
     # Start the background task for terminal handling
     async def handle_terminal():

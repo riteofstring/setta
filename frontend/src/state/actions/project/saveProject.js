@@ -25,22 +25,9 @@ import { loadSettings } from "../settings";
 import { getProjectConfigMetadata } from "./projectConfig";
 
 export function getProjectData({ withArtifactMetadata = false }) {
-  const projectConfig = getProjectConfigMetadata();
-  projectConfig.previewImgNodes = getPreviewImgNodes();
-  const children = {};
-  for (const c of useNodeInternals.getState().x.values()) {
-    children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
-  }
-  projectConfig.children = children;
-
-  const sectionVariants = useSectionVariants.getState().x;
-  const uiTypes = useUITypes.getState().x;
-  const uiTypeCols = useUITypeCols.getState().y;
-  const paramSweeps = useParamSweep.getState().x;
-  const runGroups = useRunGroups.getState().x;
-
-  const sectionInfosState = useSectionInfos.getState();
-  const sections = _.mapValues(sectionInfosState.x, (x) => {
+  // remove temporary sections
+  let sections = _.pickBy(useSectionInfos.getState().x, (x) => !x.isTemporary);
+  sections = _.mapValues(sections, (x) => {
     const artifactState = useArtifacts.getState().x;
     if (!withArtifactMetadata) {
       return _.omit(x, ["artifacts"]);
@@ -58,9 +45,31 @@ export function getProjectData({ withArtifactMetadata = false }) {
     return currSection;
   });
 
+  console.log("sections", sections);
+
+  const sectionVariants = _.mapValues(useSectionVariants.getState().x, (x) => ({
+    ...x,
+    // need this filter because some sections might be temporary
+    children: x.children.filter((c) => c in sections),
+  }));
+  const uiTypes = useUITypes.getState().x;
+  const uiTypeCols = useUITypeCols.getState().y;
+  const paramSweeps = useParamSweep.getState().x;
+  const runGroups = useRunGroups.getState().x;
+
   const codeInfo = useCodeInfo.getState().x;
   const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
-  // console.log("fullNameToInfo", fullNameToInfo);
+
+  const projectConfig = getProjectConfigMetadata();
+  projectConfig.previewImgNodes = getPreviewImgNodes();
+  const children = {};
+  for (const c of useNodeInternals.getState().x.values()) {
+    if (c.id in sections) {
+      // need this filter because some sections might be temporary
+      children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
+    }
+  }
+  projectConfig.children = children;
 
   const output = {
     projectConfig,

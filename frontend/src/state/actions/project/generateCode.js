@@ -52,7 +52,7 @@ export async function runCode() {
         addTerminalInitialMessage(id, message);
         addSectionInEmptySpace({
           type: C.TERMINAL,
-          inputSectionProps: { id },
+          inputSectionProps: { id, isTemporary: true },
           positionOffset: { x: count * 100, y: 0 },
         });
       }

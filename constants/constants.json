@@ -45,7 +45,7 @@
   "ROUTE_SECTIONS": "/sections",
   "ROUTE_SAVE_SETTINGS": "/saveSettings",
   "ROUTE_LOAD_SETTINGS": "/loadSettings",
-  "ROUTE_TERMINAL": "/terminal/{projectConfigId}/{sectionId}/{id}",
+  "ROUTE_TERMINAL": "/terminal/{projectConfigId}/{sectionId}/{id}/{isTemporary}",
   "ROUTE_DELETE_TERMINALS": "/terminal/deleteTerminals",
   "ROUTE_WEBSOCKET_MANAGER": "/manager",
   "ROUTE_PARAMETERS_REQUEST": "/parametersRequest",

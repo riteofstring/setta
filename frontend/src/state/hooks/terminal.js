@@ -102,7 +102,8 @@ function useFitAddon() {
 function newTerminalWebsocket(sectionId) {
   const projectConfigId = useProjectConfig.getState().id;
   const id = createNewId();
-  const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, sectionId, id })}`;
+  const isTemporary = !!useSectionInfos.getState().x[sectionId].isTemporary;
+  const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, sectionId, id, isTemporary })}`;
   const ws = new WebSocket(wsTerminalAddress);
   ws.addEventListener("open", async () => {
     if (INITIAL_MESSAGES[sectionId]?.length > 0) {
@@ -197,24 +198,28 @@ function removeWsFromArray(x, ws) {
 export async function restoreTerminals() {
   const res = await dbGetExistingTerminals(useProjectConfig.getState().id);
   if (res.status === 200) {
-    const existingTerminalIds = res.data;
-    const terminalsWithoutSections = existingTerminalIds.filter(
-      (x) => !(x in useSectionInfos.getState().x),
+    const existingTerminalInfo = res.data;
+    const terminalsWithoutSections = existingTerminalInfo.filter(
+      (x) => !(x.id in useSectionInfos.getState().x),
     );
     if (terminalsWithoutSections.length === 0) {
       return;
     }
     const groupId = addSectionInEmptySpace({
       type: C.DECK,
-      inputSectionProps: { name: "Restored Terminals" },
+      inputSectionProps: {
+        name: "Restored Terminals",
+        isTemporary: terminalsWithoutSections.every((x) => x.isTemporary),
+      },
     });
-    for (const tid of terminalsWithoutSections) {
+    for (const terminalInfo of terminalsWithoutSections) {
       addChild({
-        id: tid,
+        id: terminalInfo.id,
         parentId: groupId,
         type: C.TERMINAL,
         sectionProps: {
           size: useSettings.getState().defaultTerminalSectionSize,
+          isTemporary: terminalInfo.isTemporary,
         },
       });
     }

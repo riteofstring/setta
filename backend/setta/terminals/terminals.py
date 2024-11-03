@@ -69,7 +69,7 @@ class TerminalWebsockets:
         self.PTY_PIDS = {}
         self.loop = asyncio.get_event_loop()
 
-    def new_terminal(self, projectConfigId, sectionId):
+    def new_terminal(self, projectConfigId, sectionId, isTemporary):
         if sectionId not in self.PTY_PIDS:
             pty_process = PtyProcess.spawn(TERMINAL_NAME)
             self.PTY_PIDS[sectionId] = {
@@ -81,6 +81,7 @@ class TerminalWebsockets:
                 "wasJustResized": False,
                 "terminalPromptIsReady": IS_WINDOWS
                 or not USER_SETTINGS["clearTerminalBeforeMarkingAsReady"],
+                "isTemporary": isTemporary,
             }
             pty_info = self.PTY_PIDS[sectionId]
             print("created new pty_process", sectionId, flush=True)
@@ -235,7 +236,7 @@ class TerminalWebsockets:
         output = []
         for k, v in self.PTY_PIDS.items():
             if v["projectConfigId"] == projectConfigId:
-                output.append(k)
+                output.append({"id": k, "isTemporary": v["isTemporary"]})
         return output
 
     async def send_output_to_sectionId(self, sectionId, output):
