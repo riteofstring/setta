@@ -55,8 +55,8 @@ export const FloatingBox = () => {
     <div
       ref={boxRef}
       className="pointer-events-none fixed left-0 top-0 z-50 max-h-96 w-64 overflow-y-auto 
-                 rounded-lg border border-gray-200 bg-white shadow-lg 
-                 dark:border-gray-700 dark:bg-gray-800"
+                 rounded-lg border border-setta-200 bg-white shadow-lg 
+                 dark:border-setta-700 dark:bg-setta-800"
       style={{
         transform: `translate(${position.x}px, ${position.y}px)`,
       }}
