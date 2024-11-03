@@ -68,7 +68,7 @@ export const FloatingBox = () => {
       <p className="mt-4 border-t border-solid border-setta-100 pt-1 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-600">
         press <span className="font-black">&quot;S&quot;</span> to open tooltip
         as new section &#40;while holding down{" "}
-        <span className="font-black">&quot;W&quot;</span>&#41;
+        <span className="font-black">&quot;Q&quot;</span>&#41;
       </p>
     </div>
   );
