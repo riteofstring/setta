@@ -58,6 +58,9 @@ def is_command_running_in_pty(pid):
         return False
 
 
+SETTA_TERMINAL_READY_STR = "__SETTA_TERMINAL_READY__"
+
+
 class TerminalWebsockets:
     def __init__(self):
         self.section_to_socket_ids = defaultdict(set)
@@ -75,8 +78,10 @@ class TerminalWebsockets:
                 "process": pty_process,
                 "history": deque(maxlen=1000),
                 "wasJustResized": False,
+                "terminalPromptIsReady": False,
             }
             print("created new pty_process", sectionId, flush=True)
+            pty_process.write(f"echo '{SETTA_TERMINAL_READY_STR}'\n")
             return True
         return False
 
@@ -84,8 +89,6 @@ class TerminalWebsockets:
         await websocket.accept()
         self.sockets[id] = websocket
         self.section_to_socket_ids[sectionId].add(id)
-        print("sending pty history********", flush=True)
-        print("".join(self.PTY_PIDS[sectionId]["history"]), flush=True)
         await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
 
     def disconnect(self, sectionId, id):
@@ -106,7 +109,7 @@ class TerminalWebsockets:
                 except KeyError:
                     # this can happen because delete_terminals is called when the task ends and also when a section is deleted
                     pass
-            
+
             # make copy to avoid set size changing while iterating
             to_disconnect = set(self.section_to_socket_ids[sid])
             for id in to_disconnect:
@@ -123,6 +126,7 @@ class TerminalWebsockets:
         pty_info = self.PTY_PIDS[sectionId]
         pty_process = pty_info["process"]
         history = pty_info["history"]
+        initial_buffer = ""
         while True:
             # print("read_from_terminal while loop", flush=True)
             try:
@@ -137,6 +141,16 @@ class TerminalWebsockets:
                 if not output:
                     continue
                 output = pty_process.read(1024)
+                if not pty_info["terminalPromptIsReady"]:
+                    # We wait for the SETTA_TERMINAL_READY_STR string to appear twice
+                    # before we consider the terminal ready.
+                    # This is just to make the terminal look less cluttered and annoying on the frontend.
+                    if initial_buffer.count(SETTA_TERMINAL_READY_STR) >= 2:
+                        pty_info["terminalPromptIsReady"] = True
+                        initial_buffer = ""
+                    else:
+                        initial_buffer += output
+                    continue
                 if not pty_info["wasJustResized"]:
                     history.append(output)
                 pty_info["wasJustResized"] = False
