@@ -9,8 +9,13 @@ import { AttachAddon } from "xterm-addon-attach";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 
-export const TERMINAL_WEBSOCKETS = {};
-export const INITIAL_MESSAGES = {}; // keys are sectionId
+// Maps from sectionId to a list of websocket connections.
+// There should only be 1 websocket for a given section.
+// But in case of double renders (basically just StrictMode),
+// this keeps a list of websockets, so we can add the new websocket
+// while the old one gets deleted.
+export const TERMINAL_WEBSOCKETS = {}; 
+export const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
 
 export function useTerminal({ sectionId, width, height }) {
   const terminalRef = useRef(null); // Ref for the terminal container
@@ -108,18 +113,23 @@ function newTerminalWebsocket(sectionId) {
       );
     }
   });
-  ws.addEventListener("close", () => {
-    delete TERMINAL_WEBSOCKETS[id];
-  });
-  ws.addEventListener("error", () => {
-    delete TERMINAL_WEBSOCKETS[id];
-  });
 
-  TERMINAL_WEBSOCKETS[id] = ws;
-  // if ((!sectionId) in SECTION_WEBSOCKET_IDS) {
-  //   SECTION_WEBSOCKET_IDS[sectionId] = [];
-  // }
-  // SECTION_WEBSOCKET_IDS[sectionId].push(id);
+  function cleanupTerminalWebsockets() {
+    if (sectionId in TERMINAL_WEBSOCKETS) {
+      TERMINAL_WEBSOCKETS[sectionId] = removeWsFromArray(
+        TERMINAL_WEBSOCKETS[sectionId],
+        ws,
+      );
+    }
+  }
+
+  ws.addEventListener("close", cleanupTerminalWebsockets);
+  ws.addEventListener("error", cleanupTerminalWebsockets);
+
+  if (!(sectionId in TERMINAL_WEBSOCKETS)) {
+    TERMINAL_WEBSOCKETS[sectionId] = [];
+  }
+  TERMINAL_WEBSOCKETS[sectionId].push(ws);
 
   return { ws, wsId: id };
 }
@@ -160,4 +170,17 @@ export function addTerminalInitialMessage(sectionId, msg) {
   if (!INITIAL_MESSAGES[sectionId].includes(msg)) {
     INITIAL_MESSAGES[sectionId].push(msg);
   }
+}
+
+export function sendTerminalMessage(sectionId, msg) {
+  for (const ws of TERMINAL_WEBSOCKETS[sectionId]) {
+    if (ws.readyState === 1) {
+      ws.send(msg);
+      break;
+    }
+  }
+}
+
+function removeWsFromArray(x, ws) {
+  return x.filter((w) => w !== ws);
 }
