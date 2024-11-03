@@ -37,7 +37,10 @@ from setta.utils.constants import (
     C,
 )
 
-if platform.system() == "Windows":
+SETTA_CLEAR_CMD = "SETTA_CLEAR_CMD"
+IS_WINDOWS = platform.system() == "Windows"
+
+if IS_WINDOWS:
     from winpty import PtyProcess
 
     from .utils import windows_has_child_processes as has_child_processes
@@ -58,9 +61,6 @@ def is_command_running_in_pty(pid):
         return False
 
 
-SETTA_CLEAR_CMD = "SETTA_CLEAR_CMD"
-
-
 class TerminalWebsockets:
     def __init__(self):
         self.section_to_socket_ids = defaultdict(set)
@@ -78,10 +78,13 @@ class TerminalWebsockets:
                 "process": pty_process,
                 "history": deque(maxlen=1000),
                 "wasJustResized": False,
-                "terminalPromptIsReady": False,
+                "terminalPromptIsReady": IS_WINDOWS,
             }
             print("created new pty_process", sectionId, flush=True)
-            pty_process.write(f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n")
+            if not IS_WINDOWS:
+                pty_process.write(
+                    f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
+                )
             return True
         return False
 
