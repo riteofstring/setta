@@ -18,18 +18,17 @@ function _ParamGroupContainer({ sectionId }) {
   const outerRef = useRef();
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
-  // const waitingForResult = true;
   const hideUnpinnedParams = useGetSectionInfo(sectionId, "hideUnpinnedParams");
 
   return (
-    <div
-      className="section-w-full section-row-pin-main -mt-3 flex flex-col overflow-y-hidden pt-2"
-      ref={outerRef}
-    >
+    <>
       {waitingForResult ? (
-        <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
+        <i className="section-args gg-spinner !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
       ) : (
-        <>
+        <div
+          className="section-w-full section-row-pin-main -mt-3 flex flex-col overflow-y-hidden pt-2"
+          ref={outerRef}
+        >
           <GetPinnedParams
             sectionId={sectionId}
             setDidUpdate={setDidUpdate}
@@ -43,9 +42,9 @@ function _ParamGroupContainer({ sectionId }) {
               <GetParams sectionId={sectionId} setDidUpdate={setDidUpdate} />
             )}
           </div>
-        </>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 

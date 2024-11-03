@@ -144,7 +144,7 @@ export function useOverflow(sectionId) {
   useEffect(() => {
     if (resizeEvent === "start") {
       setOverflow(true);
-    } else if (resizeEvent === "end" && ref.current) {
+    } else if (resizeEvent === "end") {
       setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
     }
   }, [resizeEvent]);
@@ -157,7 +157,7 @@ export function useOverflow(sectionId) {
     if (didUpdate) {
       setOverflow(true);
       setDidUpdate(false);
-    } else if (ref.current) {
+    } else {
       setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
     }
   }, [didUpdate]);
