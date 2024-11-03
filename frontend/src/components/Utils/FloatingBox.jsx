@@ -63,11 +63,10 @@ export const FloatingBox = () => {
 };
 
 export function getFloatingBoxHandlers(value) {
-  function onMouseOver(event) {
+  function onMouseOver() {
     if (value) {
       const s = useFloatingBox.getState();
       s.setContent(value);
-      s.setPosition(event.clientX + s.offset.x, event.clientY + s.offset.y);
     }
   }
 
