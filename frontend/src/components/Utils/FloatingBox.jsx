@@ -8,38 +8,49 @@ export const useFloatingBox = create((set) => ({
   offset: { x: 10, y: 10 }, // Default offset from cursor
   setEnabled: (enabled) => set({ isEnabled: enabled }),
   setContent: (content) => set({ content }),
-  setPosition: (x, y) => set({ position: { x, y } }),
   setOffset: (x, y) => set({ offset: { x, y } }),
 }));
 
 export const FloatingBox = () => {
-  const { isEnabled, content, position } = useFloatingBox();
+  const { isEnabled, content } = useFloatingBox();
   const boxRef = useRef(null);
 
   // Ensure the box stays within viewport bounds
   useEffect(() => {
-    if (!boxRef.current || !isEnabled) return;
-
     const box = boxRef.current;
-    const rect = box.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
+    if (!box || !isEnabled) return;
 
-    let { x, y } = position;
+    const handleMouseMove = (event) => {
+      console.log("clientXY", event.clientX, event.clientY);
+      box.style.transform = `translate(${event.clientX}px, ${event.clientY}px)`;
+      box.style.x = event.clientX;
+      box.style.y = event.clientY;
+    };
 
-    // Adjust horizontal position if necessary
-    if (x + rect.width > viewportWidth) {
-      x = viewportWidth - rect.width - 8;
-    }
+    // const rect = box.getBoundingClientRect();
+    // const viewportWidth = window.innerWidth;
+    // const viewportHeight = window.innerHeight;
 
-    // Adjust vertical position if necessary
-    if (y + rect.height > viewportHeight) {
-      y = viewportHeight - rect.height - 8;
-    }
+    // let { x, y } = position;
 
-    // Apply the adjusted position
-    box.style.transform = `translate(${x}px, ${y}px)`;
-  }, [isEnabled, position]);
+    // // Adjust horizontal position if necessary
+    // if (x + rect.width > viewportWidth) {
+    //   x = viewportWidth - rect.width - 8;
+    // }
+
+    // // Adjust vertical position if necessary
+    // if (y + rect.height > viewportHeight) {
+    //   y = viewportHeight - rect.height - 8;
+    // }
+
+    // Add event listener
+    window.addEventListener("mousemove", handleMouseMove);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, [isEnabled]);
 
   if (!isEnabled || !content) return null;
 
@@ -49,9 +60,6 @@ export const FloatingBox = () => {
       className="pointer-events-none fixed left-0 top-0 z-50 max-h-96 w-64 overflow-y-auto 
                  rounded-lg border border-gray-200 bg-white shadow-lg 
                  dark:border-gray-700 dark:bg-gray-800"
-      style={{
-        transform: `translate(${position.x}px, ${position.y}px)`,
-      }}
     >
       <div className="p-4">
         <div className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
