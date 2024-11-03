@@ -81,7 +81,6 @@ class TerminalWebsockets:
                 "wasJustResized": False,
                 "terminalPromptIsReady": IS_WINDOWS
                 or not USER_SETTINGS["clearTerminalBeforeMarkingAsReady"],
-                "mostRecentFrontendPosition": None
             }
             pty_info = self.PTY_PIDS[sectionId]
             print("created new pty_process", sectionId, flush=True)
@@ -231,11 +230,11 @@ class TerminalWebsockets:
             ):
                 return k
         return None
-    
+
     def get_existing_terminals(self, projectConfigId):
         output = []
         for k, v in self.PTY_PIDS.items():
-            if (v["projectConfigId"] == projectConfigId):
+            if v["projectConfigId"] == projectConfigId:
                 output.append(k)
         return output
 

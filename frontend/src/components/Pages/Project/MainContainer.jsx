@@ -1,19 +1,9 @@
 import { useCodeMirrorStyleLoader } from "components/utils/CodeMirror/useCodeMirrorStyleLoader";
 import { GridWrapper } from "components/Utils/GridWrapper";
-import C from "constants/constants.json";
 import { useEffect } from "react";
 import { dbRequestTypeCheck } from "requests/sections";
-import { dbGetExistingTerminals } from "requests/terminals";
-import {
-  addChild,
-  addSectionInEmptySpace,
-} from "state/actions/sections/createSections";
-import {
-  useProjectConfig,
-  useSectionInfos,
-  useSettings,
-} from "state/definitions";
 import { useLoadProjectConfig } from "state/hooks/project";
+import { restoreTerminals } from "state/hooks/terminal";
 import { Overview } from "../../../components/Panes/Overview/Overview";
 import { UiEditor } from "../../../components/Panes/UiEditor/UiEditor";
 import { UIPage } from "./UiPage";
@@ -23,38 +13,10 @@ export function MainContainer() {
   useCodeMirrorStyleLoader(doneLoading);
 
   useEffect(() => {
-    async function fn() {
-      if (doneLoading) {
-        dbRequestTypeCheck();
-        const res = await dbGetExistingTerminals(
-          useProjectConfig.getState().id,
-        );
-        if (res.status === 200) {
-          const existingTerminalIds = res.data;
-          const terminalsWithoutSections = existingTerminalIds.filter(
-            (x) => !(x in useSectionInfos.getState().x),
-          );
-          if (terminalsWithoutSections.length === 0) {
-            return;
-          }
-          const groupId = addSectionInEmptySpace({
-            type: C.DECK,
-            inputSectionProps: { name: "Restored Temporary Terminals" },
-          });
-          for (const tid of terminalsWithoutSections) {
-            addChild({
-              id: tid,
-              parentId: groupId,
-              type: C.TERMINAL,
-              sectionProps: {
-                size: useSettings.getState().defaultTerminalSectionSize,
-              },
-            });
-          }
-        }
-      }
+    if (doneLoading) {
+      dbRequestTypeCheck();
+      restoreTerminals();
     }
-    fn();
   }, [doneLoading]);
 
   return (
