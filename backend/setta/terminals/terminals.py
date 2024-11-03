@@ -223,7 +223,7 @@ class TerminalWebsockets:
         self.PTY_PIDS[id]["start"] = time.time()
 
     def get_free_terminal(self, projectConfigId):
-        for k, v in self.PTY_PIDS.copy().items():
+        for k, v in self.PTY_PIDS.items():
             if (
                 v["projectConfigId"] == projectConfigId
                 and not is_command_running_in_pty(v["pid"])
@@ -231,6 +231,13 @@ class TerminalWebsockets:
             ):
                 return k
         return None
+    
+    def get_existing_terminals(self, projectConfigId):
+        output = []
+        for k, v in self.PTY_PIDS.items():
+            if (v["projectConfigId"] == projectConfigId):
+                output.append(k)
+        return output
 
     async def send_output_to_sectionId(self, sectionId, output):
         for wsId in self.section_to_socket_ids[sectionId]:

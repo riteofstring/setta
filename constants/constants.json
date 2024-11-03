@@ -55,6 +55,7 @@
   "ROUTE_TYPE_CHECK_REQUEST": "/typeCheckRequest",
   "ROUTE_TEXT_FIELD_COMPLETION": "/textFieldCompletion",
   "ROUTE_GET_FREE_TERMINAL": "/terminal/getFreeTerminal/{projectConfigId}",
+  "ROUTE_GET_EXISTING_TERMINALS": "/terminal/getExistingTerminals/{projectConfigId}",
   "ROUTE_SAVE_CODE_INFO": "/codeInfo/save",
   "ROUTE_COPY_SECTIONS": "/copySections",
   "ROUTE_UPDATE_INTERACTIVE_CODE": "/updateInteractiveCode",

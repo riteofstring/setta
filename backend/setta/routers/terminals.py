@@ -66,3 +66,10 @@ def route_terminal_delete_terminals(
     x: DeleteTerminalsRequest, terminal_websockets=Depends(get_terminal_websockets)
 ):
     terminal_websockets.delete_terminals(x.sectionIds)
+
+
+@router.post(C.ROUTE_GET_EXISTING_TERMINALS)
+def route_terminal_get_existing_terminals(
+    projectConfigId, terminal_websockets=Depends(get_terminal_websockets)
+):
+    return terminal_websockets.get_existing_terminals(projectConfigId)
