@@ -1,3 +1,4 @@
+import { useFloatingBoxNextToMouseCursor } from "components/Utils/FloatingBox";
 import { useEffect } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { useSettings } from "state/definitions";
@@ -9,6 +10,7 @@ import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
   useSetHTMLTitle();
+  useFloatingBoxNextToMouseCursor();
   const settingsLoaded = useLoadSettings();
   return settingsLoaded && children;
 }

@@ -1,17 +1,18 @@
 import { useEffect, useRef } from "react";
 import { create } from "zustand";
 
-// Create the store
 export const useFloatingBox = create((set) => ({
   isVisible: false,
   content: "",
   position: { x: 0, y: 0 },
+  offset: { x: 10, y: 10 }, // Default offset from cursor
   setVisible: (visible) => set({ isVisible: visible }),
   setContent: (content) => set({ content }),
   setPosition: (x, y) => set({ position: { x, y } }),
+  setOffset: (x, y) => set({ offset: { x, y } }),
 }));
 
-export function FloatingBox() {
+export const FloatingBox = () => {
   const { isVisible, content, position } = useFloatingBox();
   const boxRef = useRef(null);
 
@@ -28,7 +29,7 @@ export function FloatingBox() {
 
     // Adjust horizontal position if necessary
     if (x + rect.width > viewportWidth) {
-      x = viewportWidth - rect.width - 8; // 8px padding from viewport edge
+      x = viewportWidth - rect.width - 8;
     }
 
     // Adjust vertical position if necessary
@@ -45,9 +46,9 @@ export function FloatingBox() {
   return (
     <div
       ref={boxRef}
-      className="fixed left-0 top-0 z-50 max-h-96 w-64 overflow-y-auto rounded-lg 
-                 border border-gray-200 bg-white shadow-lg dark:border-gray-700 
-                 dark:bg-gray-800"
+      className="pointer-events-none fixed left-0 top-0 z-50 max-h-96 w-64 overflow-y-auto 
+                 rounded-lg border border-gray-200 bg-white shadow-lg 
+                 dark:border-gray-700 dark:bg-gray-800"
       style={{
         transform: `translate(${position.x}px, ${position.y}px)`,
       }}
@@ -59,15 +60,14 @@ export function FloatingBox() {
       </div>
     </div>
   );
-}
+};
 
 export function getFloatingBoxHandlers(value) {
   function onMouseOver(event) {
-    useFloatingBox.getState().setContent(value);
-    useFloatingBox
-      .getState()
-      .setPosition(event.clientX + 10, event.clientY + 10);
-    useFloatingBox.getState().setVisible(true);
+    const s = useFloatingBox.getState();
+    s.setContent(value);
+    s.setPosition(event.clientX + s.offset.x, event.clientY + s.offset.y);
+    s.setVisible(true);
   }
 
   function onMouseLeave() {
@@ -75,4 +75,16 @@ export function getFloatingBoxHandlers(value) {
   }
 
   return { onMouseOver, onMouseLeave };
+}
+
+export function useFloatingBoxNextToMouseCursor() {
+  useEffect(() => {
+    const handleMouseMove = (event) => {
+      const s = useFloatingBox.getState();
+      s.setPosition(event.clientX + s.offset.x, event.clientY + s.offset.y);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
 }
