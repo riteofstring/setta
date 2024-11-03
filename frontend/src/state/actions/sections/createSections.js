@@ -123,6 +123,22 @@ export function addChildrenToSeries({
   return newIds;
 }
 
+export function addChild({ id, parentId, type, sectionProps }) {
+  createSectionInfo({
+    sectionProps: {
+      id,
+      parentId,
+      uiTypeId: BASE_UI_TYPE_IDS[type],
+      ...sectionProps,
+    },
+  });
+  setSectionVariantChildren({
+    sectionId: parentId,
+    newStateFn: (x) => [...x, id],
+  });
+  updateKeywordRegex();
+}
+
 export function createSectionInfo({
   sectionProps = {},
   variantProps = {},
