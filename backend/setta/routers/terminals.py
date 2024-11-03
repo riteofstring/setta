@@ -36,7 +36,7 @@ async def terminal_websocket_endpoint(
             terminal_websockets.read_from_terminal(sectionId)
         )
         await read_task
-        terminal_websockets.delete_terminals([sectionId])
+        await terminal_websockets.delete_terminal(sectionId)
 
     # Create the background task
     if isNew:
@@ -63,10 +63,12 @@ def route_terminal_get_free_terminal(
 
 
 @router.post(C.ROUTE_DELETE_TERMINALS)
-def route_terminal_delete_terminals(
+async def route_terminal_delete_terminals(
     x: DeleteTerminalsRequest, terminal_websockets=Depends(get_terminal_websockets)
 ):
-    terminal_websockets.delete_terminals(x.sectionIds)
+    await asyncio.gather(
+        *(terminal_websockets.delete_terminal(s) for s in x.sectionIds)
+    )
 
 
 @router.post(C.ROUTE_GET_EXISTING_TERMINALS)

@@ -108,27 +108,21 @@ class TerminalWebsockets:
             pass
         self.section_to_socket_ids[sectionId].discard(id)
 
-    def delete_terminals(self, sectionIds):
-        print("delete terminals", sectionIds, flush=True)
-        for sid in sectionIds:
-            if sid in self.PTY_PIDS:
-                try:
-                    self.PTY_PIDS[sid]["process"].terminate()
-                    del self.PTY_PIDS[sid]
-                except KeyError:
-                    # this can happen because delete_terminals is called when the task ends and also when a section is deleted
-                    pass
+    async def delete_terminal(self, sectionId):
+        print("delete terminal", sectionId, flush=True)
+        if sectionId in self.PTY_PIDS:
+            try:
+                await asyncio.to_thread(
+                    self.PTY_PIDS[sectionId]["process"].terminate, force=True
+                )
+                del self.PTY_PIDS[sectionId]
+            except KeyError:
+                pass
 
-            # make copy to avoid set size changing while iterating
-            to_disconnect = set(self.section_to_socket_ids[sid])
-            for id in to_disconnect:
-                self.disconnect(sid, id)
-
-    def delete_all_terminals(self):
-        for t in self.PTY_PIDS.values():
-            t["process"].terminate()
-        self.PTY_PIDS = {}
-        print("DELETED ALL TERMINALS", flush=True)
+        # make copy to avoid set size changing while iterating
+        to_disconnect = set(self.section_to_socket_ids[sectionId])
+        for id in to_disconnect:
+            self.disconnect(sectionId, id)
 
     # Function to read from the terminal
     async def read_from_terminal(self, sectionId):
