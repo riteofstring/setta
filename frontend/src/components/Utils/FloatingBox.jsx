@@ -83,7 +83,15 @@ export function getFloatingBoxHandlers(value) {
   return { onMouseOver, onMouseLeave };
 }
 
-export function enableFloatingBox() {
+export function enableFloatingBox(event) {
+  if (
+    event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLTextAreaElement ||
+    event.target instanceof HTMLSelectElement ||
+    event.target.isContentEditable
+  ) {
+    return;
+  }
   useFloatingBox.setState({ isEnabled: true });
 }
 

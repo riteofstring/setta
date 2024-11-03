@@ -105,6 +105,15 @@ function isShortcutPressed(event, shortcut, _isMacOs) {
 }
 
 function getShouldPreventDefault(lowercaseKeyCombo) {
+  // Check if it's a single character
+  if (lowercaseKeyCombo.length === 1) {
+    const char = lowercaseKeyCombo.charAt(0);
+    // Check if it's a letter or number
+    if ((char >= "a" && char <= "z") || (char >= "0" && char <= "9")) {
+      return false;
+    }
+  }
+
   return ![
     "mod",
     "ctrl",
