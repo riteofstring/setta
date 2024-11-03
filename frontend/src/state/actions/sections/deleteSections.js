@@ -1,3 +1,4 @@
+import { dbDeleteTerminals } from "requests/terminals";
 import { deleteNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
@@ -15,6 +16,7 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
   removeActiveSectionIds(idsToDelete);
   removeSectionInfos(idsToDelete);
   deleteNodes(idsToDelete);
+  dbDeleteTerminals(idsToDelete); // delete any terminals associated with the sections
 
   maybeIncrementProjectStateVersion(incrementVersion);
 }

@@ -23,7 +23,10 @@ class LanguageServer:
         )
 
     def kill_server(self):
-        self.server.terminate()
+        try:
+            self.server.terminate()
+        except ProcessLookupError:
+            pass
 
     @property
     def stdin(self):
