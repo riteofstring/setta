@@ -250,7 +250,7 @@
     "69220358-73c1-49c3-9b78-d7cf733b2aa8": {
       "name": "green_grass",
       "selectedItem": null,
-      "code": "import numpy as np\n\n$SETTA_GENERATED_PYTHON\n\nprint(\"here\")\n",
+      "code": "import numpy as np\n\n{{SETTA_GENERATED_PYTHON}}\n\nprint(\"here\")\n",
       "keywordPositions": [],
       "values": {},
       "children": []
@@ -282,7 +282,7 @@
     "fca181fc-c326-4d50-b028-37b368372f49": {
       "name": "apple_pear",
       "selectedItem": null,
-      "code": "source activate abcde_env\ncat $Code\npython $Code\necho \"Done\"",
+      "code": "source activate abcde_env\ncat {{ Code }}\npython {{ Code }}\necho \"Done\"",
       "keywordPositions": [],
       "values": {},
       "children": []

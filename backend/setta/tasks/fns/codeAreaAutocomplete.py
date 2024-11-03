@@ -40,13 +40,9 @@ async def _codeAreaAutocomplete(message, lsp_writer):
         return {"content": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
 
     position = message.position
-    cursor_is_after_gen_code = False
-    if has_gen_code:
-        if position >= (gen_code_index + len(template_str)):
-            cursor_is_after_gen_code = True
-        elif gen_code_index <= position < gen_code_index + len(template_str):
-            # if cursor is inside template str, then don't fetch autocomplete results
-            return {"content": None}
+    cursor_is_after_gen_code = has_gen_code and position > (
+        gen_code_index + len(template_str)
+    )
 
     if cursor_is_after_gen_code:
         fullText, _, position = process_refs(
@@ -76,18 +72,11 @@ async def _codeAreaAutocomplete(message, lsp_writer):
         column,
         code_id=message.projectConfigId,
         request_id=request_id,
-        referencable_var_names=[
-            *special_keywords_for_autocomplete(),
-            *referencable_var_names,
-        ],
+        referencable_var_names=referencable_var_names,
         generated_var_names=generated_var_names,
     )
 
     return {"content": None}
-
-
-def special_keywords_for_autocomplete():
-    return [double_braces(C.SETTA_GENERATED_PYTHON)]
 
 
 def read_cache(cache, message):

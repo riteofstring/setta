@@ -130,7 +130,6 @@ def get_wrapper_for_loading(data_type):
     if data_type == "img":
         return SettaNumpyImg()
 
-
 def default_section_type(data_type):
     if data_type == "list":
         return C.LINE_PLOT

@@ -53,6 +53,7 @@
   "ROUTE_CODE_AREA_COMPLETION": "/codeAreaAutocomplete",
   "ROUTE_TYPE_CHECK_REQUEST": "/typeCheckRequest",
   "ROUTE_TEXT_FIELD_COMPLETION": "/textFieldCompletion",
+  "ROUTE_DELETE_TERMINALS": "/terminal/deleteTerminals",
   "ROUTE_GET_FREE_TERMINAL": "/terminal/getFreeTerminal/{projectConfigId}",
   "ROUTE_SAVE_CODE_INFO": "/codeInfo/save",
   "ROUTE_COPY_SECTIONS": "/copySections",

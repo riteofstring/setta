@@ -46,7 +46,6 @@ async def terminal_websocket_endpoint(
             await task  # Ensure task is properly cancelled
     finally:
         # Cleanup
-        print("terminal_websocket_endpoint disconnect", id, flush=True)
         terminal_websockets.disconnect(websocket, id)
 
 
@@ -56,3 +55,9 @@ def route_terminal_get_free_terminal(
 ):
     return terminal_websockets.get_free_terminal(projectConfigId)
 
+
+@router.post(C.ROUTE_DELETE_TERMINALS)
+def route_terminal_delete_terminals(
+    x: DeleteTerminalsRequest, terminal_websockets=Depends(get_terminal_websockets)
+):
+    terminal_websockets.delete_terminals(x.ids)

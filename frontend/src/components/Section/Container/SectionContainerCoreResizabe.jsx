@@ -17,7 +17,7 @@ import { LinePlotArea } from "../Layouts/LinePlotArea";
 import { ParamSweepArea } from "../Layouts/ParamSweepArea";
 import { ReferenceArea } from "../Layouts/ReferenceArea";
 import { SocialArea } from "../Layouts/SocialArea";
-import { TerminalArea } from "../Layouts/TerminalArea";
+import { MaybeTerminalArea } from "../Layouts/TerminalArea";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { getOutlineColor } from "./utils";
@@ -131,7 +131,7 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
     case C.PARAM_SWEEP:
       return <ParamSweepArea sectionId={sectionId} />;
     case C.TERMINAL:
-      return <TerminalArea sectionId={sectionId} />;
+      return <MaybeTerminalArea sectionId={sectionId} />;
     case C.GLOBAL_PARAM_SWEEP:
       return <GlobalParamSweepArea sectionId={sectionId} />;
     default:

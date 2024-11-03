@@ -7,10 +7,7 @@ import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";
 import { sendMessage } from "requests/websocket";
 import { useWebsocketConnectionList } from "state/definitions";
-import {
-  addTerminalInitialMessage,
-  TERMINAL_WEBSOCKETS,
-} from "state/hooks/terminal";
+import { INITIAL_MESSAGE, TERMINAL_WEBSOCKETS } from "state/hooks/terminal";
 import { createNewId } from "utils/idNameCreation";
 import { addSectionInEmptySpace } from "../sections/createSections";
 import { getProjectData } from "./saveProject";
@@ -49,7 +46,7 @@ export async function runCode() {
         TERMINAL_WEBSOCKETS[freeTerminalId].send(message);
       } else {
         const id = createNewId();
-        addTerminalInitialMessage(id, message);
+        INITIAL_MESSAGE[id] = message;
         addSectionInEmptySpace({
           type: C.TERMINAL,
           inputSectionProps: { id },

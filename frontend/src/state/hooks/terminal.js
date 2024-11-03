@@ -9,7 +9,8 @@ import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 
 export const TERMINAL_WEBSOCKETS = {};
-export const INITIAL_MESSAGES = {};
+export const INITIAL_MESSAGE = {};
+const PENDING_MSG = {};
 
 export function useTerminal({ sectionId, width, height }) {
   const terminalRef = useRef(null); // Ref for the terminal container
@@ -40,7 +41,7 @@ export function useTerminal({ sectionId, width, height }) {
       if (ws.readyState === 1) {
         ws.send(message);
       } else {
-        addTerminalInitialMessage(sectionId, message);
+        PENDING_MSG[sectionId] = message;
       }
     });
 
@@ -78,14 +79,13 @@ function newTerminalWebsocket(sectionId) {
     const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, id: sectionId })}`;
     ws = new WebSocket(wsTerminalAddress);
     ws.addEventListener("open", () => {
-      if (INITIAL_MESSAGES[sectionId]?.length > 0) {
-        for (const initialMessage of INITIAL_MESSAGES[sectionId]) {
-          // hack to get backend to receive distinct messages rather than 1 grouped message
-          setTimeout(() => {
-            ws.send(initialMessage);
-          }, 0);
-        }
-        INITIAL_MESSAGES[sectionId] = [];
+      if (PENDING_MSG[sectionId]) {
+        ws.send(PENDING_MSG[sectionId]);
+        PENDING_MSG[sectionId] = null;
+      }
+      if (INITIAL_MESSAGE[sectionId]) {
+        ws.send(INITIAL_MESSAGE[sectionId]);
+        delete INITIAL_MESSAGE[sectionId];
       }
     });
     ws.addEventListener("close", () => {
@@ -102,7 +102,6 @@ function newTerminalWebsocket(sectionId) {
     disposeWs: () => {
       if (!(sectionId in useSectionInfos.getState().x)) {
         ws.close();
-        INITIAL_MESSAGES[sectionId] = [];
       }
     },
     ws,
@@ -137,12 +136,3 @@ const theme = {
 //   fontFamily:
 //     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;',
 // };
-
-export function addTerminalInitialMessage(sectionId, msg) {
-  if (!(sectionId in INITIAL_MESSAGES)) {
-    INITIAL_MESSAGES[sectionId] = [];
-  }
-  if (!INITIAL_MESSAGES[sectionId].includes(msg)) {
-    INITIAL_MESSAGES[sectionId].push(msg);
-  }
-}

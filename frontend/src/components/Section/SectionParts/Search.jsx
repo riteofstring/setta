@@ -186,10 +186,11 @@ function mergeCompletionsAndHistory(completions, history) {
 }
 
 function LoadingSpinner({ sectionId }) {
-  const waitingForResult = useTextFieldWaitingForLSPResult({
-    sectionId,
-    paramInfoId: null,
-  });
+  // const waitingForResult = useTextFieldWaitingForLSPResult({
+  //   sectionId,
+  //   paramInfoId: null,
+  // });
+  const waitingForResult = true
   return (
     waitingForResult && (
       <i className="single-cell-child gg-spinner mr-2 self-center justify-self-end text-blue-500/70" />
