@@ -58,7 +58,9 @@ export function addSectionAtPosition({
   };
 
   const settings = useSettings.getState();
-  sectionProps.size = settings.defaultSectionSize;
+  if (!sectionProps.size) {
+    sectionProps.size = settings.defaultSectionSize;
+  }
   if (type === C.DECK) {
   } else if (type === C.GLOBAL_VARIABLES) {
     sectionProps.name = "Global Variables";

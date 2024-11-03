@@ -1,4 +1,5 @@
 import {
+  convertFloatingBoxToSection,
   disableFloatingBox,
   enableFloatingBox,
 } from "components/Utils/FloatingBox";
@@ -146,6 +147,7 @@ export function attachKeyEventListeners() {
     ["tab", tabFromDocumentBody],
     ["shift + tab", tabFromDocumentBody],
     [settings.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
+    ["s", convertFloatingBoxToSection],
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
     [settings.groupShortcut, groupSections],

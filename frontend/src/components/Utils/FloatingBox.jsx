@@ -1,4 +1,6 @@
+import C from "constants/constants.json";
 import { useEffect, useRef, useState } from "react";
+import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { create } from "zustand";
 
 export const useFloatingBox = create((set) => ({
@@ -97,4 +99,14 @@ export function enableFloatingBox(event) {
 
 export function disableFloatingBox() {
   useFloatingBox.setState({ isEnabled: false });
+}
+
+export function convertFloatingBoxToSection() {
+  addSectionInEmptySpace({
+    type: C.INFO,
+    inputSectionProps: {
+      description: useFloatingBox.getState().content,
+      size: { width: 500, height: 500 },
+    },
+  });
 }
