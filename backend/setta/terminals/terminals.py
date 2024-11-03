@@ -81,6 +81,7 @@ class TerminalWebsockets:
                 "wasJustResized": False,
                 "terminalPromptIsReady": IS_WINDOWS
                 or not USER_SETTINGS["clearTerminalBeforeMarkingAsReady"],
+                "mostRecentFrontendPosition": None
             }
             pty_info = self.PTY_PIDS[sectionId]
             print("created new pty_process", sectionId, flush=True)
@@ -194,7 +195,7 @@ class TerminalWebsockets:
                 except json.decoder.JSONDecodeError:
                     json_val = None
                 if isinstance(json_val, dict):
-                    doResize = json_val["messageType"] == "resize"
+                    doResize = json_val["messageType"] == C.WS_TERMINAL_RESIZE
                     if doResize:
                         pty_process.setwinsize(json_val["rows"], json_val["cols"])
                     elif json_val["messageType"] == C.WS_RUN_CODE:
