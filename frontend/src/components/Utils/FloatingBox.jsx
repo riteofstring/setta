@@ -10,6 +10,8 @@ export const useFloatingBox = create((set) => ({
   setContent: (content) => set({ content }),
 }));
 
+let mouseMoved = false;
+
 export const FloatingBox = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const { isEnabled, content } = useFloatingBox();
@@ -17,6 +19,7 @@ export const FloatingBox = () => {
 
   useEffect(() => {
     const handleMouseMove = (event) => {
+      mouseMoved = true;
       setPosition({ x: event.clientX + 10, y: event.clientY + 10 });
     };
 
@@ -49,7 +52,7 @@ export const FloatingBox = () => {
     box.style.transform = `translate(${x}px, ${y}px)`;
   }, [isEnabled, position]);
 
-  if (!isEnabled || !content) return null;
+  if (!isEnabled || !content || !mouseMoved) return null;
 
   return (
     <div
