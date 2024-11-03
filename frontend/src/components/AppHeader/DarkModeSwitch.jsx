@@ -9,7 +9,7 @@ export function DarkModeSwitch() {
   const darkMode = useDarkMode();
 
   return (
-    <div className="flex flex-1 content-center justify-end">
+    <div className="flex flex-1 items-center justify-end">
       <HelpText />
       <Toggle
         checked={darkMode}
