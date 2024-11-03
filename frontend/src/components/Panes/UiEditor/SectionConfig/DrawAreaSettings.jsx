@@ -92,7 +92,7 @@ const AvailableColors = ({ sectionId }) => {
                 value={description}
                 onChange={(e) => updateDescription(idx, e.target.value)}
                 placeholder="Add description..."
-                className="m-[2px] w-full truncate rounded border px-2 py-1 text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400"
+                className="m-[2px] w-full truncate rounded border px-2 py-1 text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
               />
             </div>
             <button

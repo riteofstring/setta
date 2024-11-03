@@ -504,14 +504,16 @@ function ColorPickerFromColorChoices({ color, setColor, colorChoices }) {
 
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger className="inline-flex cursor-pointer items-center rounded-lg bg-setta-100 px-4 py-2 dark:bg-setta-850 dark:hover:bg-setta-900">
+      <DropdownMenu.Trigger className="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-4 py-2 dark:bg-setta-850 dark:hover:bg-setta-900">
         <div className="flex items-center text-setta-500 dark:text-setta-400">
           <div
             className="mr-2 h-4 w-4 rounded-full"
             style={{ backgroundColor: selectedItem.color }}
           />
-          <p className="text-xs font-black ">{selectedItem.description}</p>
-          <i className="gg-chevron-down -mr-3 " />
+          <p className="max-w-24 truncate text-xs font-black">
+            {selectedItem.description}
+          </p>
+          <i className="gg-chevron-down -mr-3 self-end" />
         </div>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content className="flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800">
@@ -525,7 +527,7 @@ function ColorPickerFromColorChoices({ color, setColor, colorChoices }) {
               className="mr-2 h-4 w-4 rounded-full"
               style={{ backgroundColor: item.color }}
             />
-            <p className="text-xs text-setta-500 dark:text-setta-300">
+            <p className="max-w-48 truncate text-xs text-setta-500 dark:text-setta-300">
               {item.description}
             </p>
           </DropdownMenu.Item>
