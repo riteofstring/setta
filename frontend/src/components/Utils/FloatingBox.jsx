@@ -2,23 +2,23 @@ import { useEffect, useRef } from "react";
 import { create } from "zustand";
 
 export const useFloatingBox = create((set) => ({
-  isVisible: false,
+  isEnabled: false,
   content: null,
   position: { x: 0, y: 0 },
   offset: { x: 10, y: 10 }, // Default offset from cursor
-  setVisible: (visible) => set({ isVisible: visible }),
+  setEnabled: (enabled) => set({ isEnabled: enabled }),
   setContent: (content) => set({ content }),
   setPosition: (x, y) => set({ position: { x, y } }),
   setOffset: (x, y) => set({ offset: { x, y } }),
 }));
 
 export const FloatingBox = () => {
-  const { isVisible, content, position } = useFloatingBox();
+  const { isEnabled, content, position } = useFloatingBox();
   const boxRef = useRef(null);
 
   // Ensure the box stays within viewport bounds
   useEffect(() => {
-    if (!boxRef.current || !isVisible) return;
+    if (!boxRef.current || !isEnabled) return;
 
     const box = boxRef.current;
     const rect = box.getBoundingClientRect();
@@ -39,9 +39,9 @@ export const FloatingBox = () => {
 
     // Apply the adjusted position
     box.style.transform = `translate(${x}px, ${y}px)`;
-  }, [isVisible, position]);
+  }, [isEnabled, position]);
 
-  if (!isVisible || !content) return null;
+  if (!isEnabled || !content) return null;
 
   return (
     <div
@@ -91,9 +91,9 @@ export function useFloatingBoxNextToMouseCursor() {
 }
 
 export function enableFloatingBox() {
-  useFloatingBox.setState({ isVisible: true });
+  useFloatingBox.setState({ isEnabled: true });
 }
 
 export function disableFloatingBox() {
-  useFloatingBox.setState({ isVisible: false });
+  useFloatingBox.setState({ isEnabled: false });
 }
