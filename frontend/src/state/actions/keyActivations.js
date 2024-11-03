@@ -146,8 +146,8 @@ export function attachKeyEventListeners() {
   const conditionAndAction = [
     ["tab", tabFromDocumentBody],
     ["shift + tab", tabFromDocumentBody],
+    [settings.tooltipToSectionShortcut, convertFloatingBoxToSection],
     [settings.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
-    ["s", convertFloatingBoxToSection],
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
     [settings.groupShortcut, groupSections],
