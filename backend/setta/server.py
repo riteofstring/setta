@@ -82,13 +82,12 @@ async def lifespan(app: FastAPI):
                 content = f.read()
             return content
 
-    try:
-        yield
-    finally:
-        app.state.terminal_websockets.delete_all_terminals()
-        app.state.lsp_reader.stop_event.set()
-        app.state.lsp.kill_server()
-        print("******FINISHED CLEANUP*******")
+    yield
+
+    # shutdown
+    app.state.terminal_websockets.delete_all_terminals()
+    app.state.lsp_reader.stop_event.set()
+    app.state.lsp.kill_server()
 
 
 app = FastAPI(

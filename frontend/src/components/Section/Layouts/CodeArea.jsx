@@ -105,7 +105,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     keywordStylizer,
     onModEnterDoNothing: true,
     tabToAutocomplete: true,
-    indentWithTab: true,
+    indentWithTab: true
   });
 
   return (
@@ -164,7 +164,7 @@ const debouncedSetKeywordPositions = asyncDebounce(async (sectionId, value) => {
     paramInfoId: null,
     fullText: value,
     messageIdSuffix: "-codeArea",
-    regexPatternKey: "codeAreaPattern",
+    regexPatternKey: "codeAreaPattern"
   });
   setSectionVariantAttr(sectionId, "keywordPositions", keywordPositions);
 }, 500);
