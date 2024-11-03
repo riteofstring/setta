@@ -15,6 +15,7 @@
   "pasteShortcut": "Mod + V",
   "sortingShortcut": "Shift",
   "movingFreeShortcut": "Alt",
+  "showTooltipShortcut": "Q",
   "updateInteractiveCode": "Mod + Enter",
   "paramSelect": "Mod + Shift",
   "formatCode": "Shift + Alt + F",

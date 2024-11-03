@@ -3,7 +3,7 @@ import { create } from "zustand";
 
 export const useFloatingBox = create((set) => ({
   isVisible: false,
-  content: "",
+  content: null,
   position: { x: 0, y: 0 },
   offset: { x: 10, y: 10 }, // Default offset from cursor
   setVisible: (visible) => set({ isVisible: visible }),
@@ -41,7 +41,7 @@ export const FloatingBox = () => {
     box.style.transform = `translate(${x}px, ${y}px)`;
   }, [isVisible, position]);
 
-  if (!isVisible) return null;
+  if (!isVisible || !content) return null;
 
   return (
     <div
@@ -68,12 +68,11 @@ export function getFloatingBoxHandlers(value) {
       const s = useFloatingBox.getState();
       s.setContent(value);
       s.setPosition(event.clientX + s.offset.x, event.clientY + s.offset.y);
-      s.setVisible(true);
     }
   }
 
   function onMouseLeave() {
-    useFloatingBox.getState().setVisible(false);
+    useFloatingBox.getState().setContent(null);
   }
 
   return { onMouseOver, onMouseLeave };
@@ -89,4 +88,12 @@ export function useFloatingBoxNextToMouseCursor() {
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
+}
+
+export function enableFloatingBox() {
+  useFloatingBox.setState({ isVisible: true });
+}
+
+export function disableFloatingBox() {
+  useFloatingBox.setState({ isVisible: false });
 }
