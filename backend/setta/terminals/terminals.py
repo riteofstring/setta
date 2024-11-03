@@ -142,14 +142,14 @@ class TerminalWebsockets:
                     continue
                 output = pty_process.read(1024)
                 if not pty_info["terminalPromptIsReady"]:
+                    initial_buffer += output
                     # We wait for the SETTA_TERMINAL_READY_STR string to appear twice
                     # before we consider the terminal ready.
                     # This is just to make the terminal look less cluttered and annoying on the frontend.
                     if initial_buffer.count(SETTA_TERMINAL_READY_STR) >= 2:
+                        pty_process.write("clear\n")
                         pty_info["terminalPromptIsReady"] = True
                         initial_buffer = ""
-                    else:
-                        initial_buffer += output
                     continue
                 if not pty_info["wasJustResized"]:
                     history.append(output)
