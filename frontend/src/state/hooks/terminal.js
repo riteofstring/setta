@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { useEffect, useRef } from "react";
 import { pseudoTemplatedStr } from "requests/utils";
-import { useProjectConfig, useSectionInfos } from "state/definitions";
+import { useProjectConfig } from "state/definitions";
 import { URLS } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
@@ -14,8 +14,8 @@ import "xterm/css/xterm.css";
 // But in case of double renders (basically just StrictMode),
 // this keeps a list of websockets, so we can add the new websocket
 // while the old one gets deleted.
-const TERMINAL_WEBSOCKETS = {};
-const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
+export const TERMINAL_WEBSOCKETS = {}; 
+export const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
 
 export function useTerminal({ sectionId, width, height }) {
   const terminalRef = useRef(null); // Ref for the terminal container
@@ -183,13 +183,4 @@ export function sendTerminalMessage(sectionId, msg) {
 
 function removeWsFromArray(x, ws) {
   return x.filter((w) => w !== ws);
-}
-
-export function sendFrontendState(sectionId) {
-  const state = useSectionInfos.getState().x[sectionId];
-  const message = JSON.stringify({
-    messageType: C.WS_TERMINAL_FRONTEND_STATE,
-    frontendState: { ...state },
-  });
-  sendTerminalMessage(sectionId, message);
 }

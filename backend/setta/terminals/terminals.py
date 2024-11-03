@@ -201,8 +201,6 @@ class TerminalWebsockets:
                     elif json_val["messageType"] == C.WS_RUN_CODE:
                         runCode(json_val, terminal_write_fn=pty_process.write)
                         self.set_terminal_start_time(sectionId)
-                    elif json_val["messageType"] == C.WS_TERMINAL_FRONTEND_STATE:
-                        pty_info["frontendState"] = json_val["frontendState"]
                     pty_info["wasJustResized"] = doResize
                     continue
                 elif input_data:
