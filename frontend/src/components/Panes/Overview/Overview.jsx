@@ -47,9 +47,12 @@ export function Overview() {
         <TabButton tabName="tab3" {...commonProps}>
           <i className="gg-git-branch !scale-100" />
         </TabButton>
-        <button className="focus-visible:ring-light-blue-500 absolute bottom-12 left-1 flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-500">
+        <a
+          href="https://setta.dev"
+          className="focus-visible:ring-light-blue-500 absolute bottom-12 left-1 flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-500"
+        >
           <BiHelpCircle />
-        </button>
+        </a>
       </div>
       <PaneContainer
         right={false}
