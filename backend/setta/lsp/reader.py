@@ -49,10 +49,8 @@ def extract_variable_name(code_string):
 
 
 def process_docstring(signature):
-    print('process_docstring')
     if "documentation" in signature:
         parsed = docstring_parser.parse(signature["documentation"]["value"])
-        print("parsed", parsed.params)
         return {
             extract_variable_name(v.arg_name): {
                 "default": v.default,
@@ -119,9 +117,7 @@ def get_pyright_param_proposals(signature, _):
 
 
 def parse_signature(signature):
-    print('parse_signature', signature["documentation"]["value"])
     docstring = process_docstring(signature)
-    print("docstring", docstring)
     param_info_list = wrapper_parse_signature(
         signature, docstring, get_pyright_param_proposals
     )
@@ -229,8 +225,6 @@ class LanguageServerReader(LanguageServerInteractor):
                 break
 
     async def process_response(self, response):
-
-        # pprint(response)
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
@@ -297,11 +291,11 @@ class LanguageServerReader(LanguageServerInteractor):
             code = version_info["code"]
             codeJson = version_info["codeJson"]
             code_split = code.split("\n")
-            # content = process_diagnostics(diagnostics, code_split, codeJson)
-            # # print("content", content, flush=True)
-            # await self.websocket_manager.broadcast(
-            #     {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
-            # )
+            content = process_diagnostics(diagnostics, code_split, codeJson)
+            # print("content", content, flush=True)
+            await self.websocket_manager.broadcast(
+                {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
+            )
 
         # print(self.received_messages.keys())
         # process_response(response)

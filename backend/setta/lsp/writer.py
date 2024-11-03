@@ -78,18 +78,6 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
-    async def send_hover_request(self, line, character, code_id, request_id):
-        uri = self.get_virtual_uri(code_id)
-        params = {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": character},
-        }
-        await self.send_request(
-            "textDocument/hover",
-            params=params,
-            id=request_id,
-        )
-
     async def send_didChangeConfiguration(self):
         await self.send_request("workspace/didChangeConfiguration", params={})
 
