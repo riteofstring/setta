@@ -17,8 +17,8 @@ function _ParamGroupContainer({ sectionId }) {
   const { overflow, ref, setDidUpdate } = useOverflow(sectionId);
   const outerRef = useRef();
 
-  // const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
-  const waitingForResult = true
+  const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
+  // const waitingForResult = true;
   const hideUnpinnedParams = useGetSectionInfo(sectionId, "hideUnpinnedParams");
 
   return (
@@ -27,7 +27,7 @@ function _ParamGroupContainer({ sectionId }) {
       ref={outerRef}
     >
       {waitingForResult ? (
-        <i className="section-args gg-spinner !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
+        <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
       ) : (
         <>
           <GetPinnedParams
