@@ -90,19 +90,18 @@ function newTerminalWebsocket(sectionId) {
   const id = createNewId();
   const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, sectionId, id })}`;
   const ws = new WebSocket(wsTerminalAddress);
-  ws.addEventListener("open", () => {
+  ws.addEventListener("open", async () => {
     if (INITIAL_MESSAGES[sectionId]?.length > 0) {
       const sentMessageIdx = [];
       for (const [idx, initialMessage] of INITIAL_MESSAGES[
         sectionId
       ].entries()) {
         // hack to get backend to receive distinct messages rather than 1 grouped message
-        setTimeout(() => {
-          if (ws.readyState === 1) {
-            ws.send(initialMessage);
-            sentMessageIdx.push(idx);
-          }
-        }, 0);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        if (ws.readyState === 1) {
+          ws.send(initialMessage);
+          sentMessageIdx.push(idx);
+        }
       }
       INITIAL_MESSAGES[sectionId] = INITIAL_MESSAGES[sectionId].filter(
         (x, idx) => !sentMessageIdx.includes(idx),
