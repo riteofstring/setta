@@ -221,7 +221,7 @@ class LanguageServerReader(LanguageServerInteractor):
                 response = json.loads(response.decode("utf-8"))
                 await self.process_response(response)
             except json.JSONDecodeError as e:
-                # print(f"JSONDecodeError: {e} - Response: {response}")
+                print(f"JSONDecodeError: {e} - Response: {response}")
                 break
 
     async def process_response(self, response):

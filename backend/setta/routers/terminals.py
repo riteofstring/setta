@@ -24,11 +24,10 @@ async def terminal_websocket_endpoint(
     projectConfigId: str,
     sectionId: str,
     id: str,
-    isTemporary: bool,
     terminal_websockets=Depends(get_terminal_websockets_from_websocket),
 ):
     # First check if terminal exists
-    isNew = terminal_websockets.new_terminal(projectConfigId, sectionId, isTemporary)
+    isNew = terminal_websockets.new_terminal(projectConfigId, sectionId)
 
     # Start the background task for terminal handling
     async def handle_terminal():
@@ -36,7 +35,7 @@ async def terminal_websocket_endpoint(
             terminal_websockets.read_from_terminal(sectionId)
         )
         await read_task
-        await terminal_websockets.delete_terminal(sectionId)
+        terminal_websockets.delete_terminals([sectionId])
 
     # Create the background task
     if isNew:
@@ -63,16 +62,7 @@ def route_terminal_get_free_terminal(
 
 
 @router.post(C.ROUTE_DELETE_TERMINALS)
-async def route_terminal_delete_terminals(
+def route_terminal_delete_terminals(
     x: DeleteTerminalsRequest, terminal_websockets=Depends(get_terminal_websockets)
 ):
-    await asyncio.gather(
-        *(terminal_websockets.delete_terminal(s) for s in x.sectionIds)
-    )
-
-
-@router.post(C.ROUTE_GET_EXISTING_TERMINALS)
-def route_terminal_get_existing_terminals(
-    projectConfigId, terminal_websockets=Depends(get_terminal_websockets)
-):
-    return terminal_websockets.get_existing_terminals(projectConfigId)
+    terminal_websockets.delete_terminals(x.sectionIds)

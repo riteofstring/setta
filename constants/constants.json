@@ -45,7 +45,7 @@
   "ROUTE_SECTIONS": "/sections",
   "ROUTE_SAVE_SETTINGS": "/saveSettings",
   "ROUTE_LOAD_SETTINGS": "/loadSettings",
-  "ROUTE_TERMINAL": "/terminal/{projectConfigId}/{sectionId}/{id}/{isTemporary}",
+  "ROUTE_TERMINAL": "/terminal/{projectConfigId}/{sectionId}/{id}",
   "ROUTE_DELETE_TERMINALS": "/terminal/deleteTerminals",
   "ROUTE_WEBSOCKET_MANAGER": "/manager",
   "ROUTE_PARAMETERS_REQUEST": "/parametersRequest",
@@ -55,7 +55,6 @@
   "ROUTE_TYPE_CHECK_REQUEST": "/typeCheckRequest",
   "ROUTE_TEXT_FIELD_COMPLETION": "/textFieldCompletion",
   "ROUTE_GET_FREE_TERMINAL": "/terminal/getFreeTerminal/{projectConfigId}",
-  "ROUTE_GET_EXISTING_TERMINALS": "/terminal/getExistingTerminals/{projectConfigId}",
   "ROUTE_SAVE_CODE_INFO": "/codeInfo/save",
   "ROUTE_COPY_SECTIONS": "/copySections",
   "ROUTE_UPDATE_INTERACTIVE_CODE": "/updateInteractiveCode",
@@ -74,8 +73,6 @@
   "WS_RUN_CODE": "runCode",
   "WS_ARTIFACT": "artifact",
   "WS_INTERACTIVE_RETURN": "interactiveReturn",
-  "WS_TERMINAL_RESIZE": "terminalResize",
   "SETTA_GENERATED_PYTHON": "SETTA_GENERATED_PYTHON",
-  "CODE_AREA_GEN_CODE_NOT_INITIALIZED": "CODE_AREA_GEN_CODE_NOT_INITIALIZED",
-  "SETTA_TERMINAL_READY": "SETTA_TERMINAL_READY"
+  "CODE_AREA_GEN_CODE_NOT_INITIALIZED": "CODE_AREA_GEN_CODE_NOT_INITIALIZED"
 }
