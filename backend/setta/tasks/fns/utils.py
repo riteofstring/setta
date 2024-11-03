@@ -9,7 +9,7 @@ from typing import Any, Callable, List, Optional
 from pydantic import BaseModel
 
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import C
+from setta.utils.constants import CODE_FOLDER, C
 
 
 def import_from_path(file_path):
@@ -65,7 +65,7 @@ def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
 
     temp_files = []
     try:
-        dir_name = ".setta_code"
+        dir_name = CODE_FOLDER
         os.makedirs(dir_name, exist_ok=True)
         # Create temporary files
         for w, suffix in zip(write, in_file_with_suffix):

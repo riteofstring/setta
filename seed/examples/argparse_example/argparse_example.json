@@ -119,7 +119,7 @@
     "40fd1a3c-6fca-4b87-b427-5bee353cef09": {
       "name": "config1",
       "selectedItem": null,
-      "code": "printf \"***START***\\n\\n\"\n\npython {{ Code }} {{ SETTA_PYTHON_ARGPARSE }}\n\nprintf \"\\n***END***\"",
+      "code": "printf \"***START***\\n\\n\"\n\npython $Code $SETTA_PYTHON_ARGPARSE\n\nprintf \"\\n***END***\"",
       "keywordPositions": [],
       "values": {},
       "children": []

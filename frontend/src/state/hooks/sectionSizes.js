@@ -79,7 +79,7 @@ export function getMinSectionWidth({ sectionType, isTwitter }) {
     return 370;
   }
   if (sectionType === C.DRAW) {
-    return 272;
+    return 402;
   } else if (sectionType === C.LINE_PLOT) {
     return 300;
   }
@@ -144,7 +144,7 @@ export function useOverflow(sectionId) {
   useEffect(() => {
     if (resizeEvent === "start") {
       setOverflow(true);
-    } else if (resizeEvent === "end" && ref.current) {
+    } else if (resizeEvent === "end") {
       setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
     }
   }, [resizeEvent]);
@@ -157,7 +157,7 @@ export function useOverflow(sectionId) {
     if (didUpdate) {
       setOverflow(true);
       setDidUpdate(false);
-    } else if (ref.current) {
+    } else {
       setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
     }
   }, [didUpdate]);

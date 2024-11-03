@@ -60,7 +60,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
   const patternStr = `(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`;
   const pattern = new RegExp(patternStr, "g");
   const codeAreaPattern = new RegExp(
-    `(?<=.*?{{ ${C.SETTA_GENERATED_PYTHON} }}.*?)${patternStr}`,
+    `(?<=.*?\\$${C.SETTA_GENERATED_PYTHON}.*?)${patternStr}`,
     "gs",
   );
 
