@@ -21,7 +21,7 @@ export function MainContainer() {
 
   return (
     <>
-      {!doneLoading && <LoadingSpinner doneLoading={doneLoading} />}
+      {!doneLoading && <LoadingSpinner />}
       <Overview />
       <UiEditor />
       <GridWrapper>{doneLoading && <UIPage />}</GridWrapper>
