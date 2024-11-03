@@ -24,8 +24,8 @@ export function SectionSearch({ sectionId, selectedItem }) {
       visualSectionId={sectionId}
       selectedItem={selectedItem}
       onEnter={onEnter}
-      dummyCodeClassName="section-search rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]"
-      realCodeClassName="nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-search rounded-2xl border border-solid border-setta-100 bg-white mx-[.125rem] py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
+      dummyCodeClassName="single-cell-child rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]"
+      realCodeClassName="single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-setta-100 bg-white mx-[.125rem] py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
     />
   );
 }
@@ -69,7 +69,7 @@ export function ParamSweepSectionSearch({
 
   return (
     <div className="section-search flex items-center justify-between gap-0.5">
-      <div className="single-cell-container w-full">
+      <search className="single-cell-container w-full">
         <SectionSearchCore
           dataSectionId={forSectionId}
           visualSectionId={sectionId}
@@ -78,7 +78,7 @@ export function ParamSweepSectionSearch({
           dummyCodeClassName="single-cell-child rounded-2xl w-full border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono text-xs [tab-size:4] [word-break:break-word]"
           realCodeClassName="single-cell-child nodrag w-full [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
         />
-      </div>
+      </search>
       <div className="flex">
         <button
           className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
@@ -155,7 +155,7 @@ function SectionSearchCore({
   }
 
   return (
-    <>
+    <search className="section-search single-cell-container w-full">
       <TextInputCodeMirror
         dataSectionId={dataSectionId}
         visualSectionId={visualSectionId}
@@ -173,7 +173,7 @@ function SectionSearchCore({
         setKeywordPositions={setLocalKeywordPositions}
       />
       <LoadingSpinner sectionId={dataSectionId} />
-    </>
+    </search>
   );
 }
 
@@ -190,6 +190,7 @@ function LoadingSpinner({ sectionId }) {
     sectionId,
     paramInfoId: null,
   });
+  // const waitingForResult = true;
   return (
     waitingForResult && (
       <i className="single-cell-child gg-spinner mr-2 self-center justify-self-end text-blue-500/70" />

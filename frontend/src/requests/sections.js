@@ -107,7 +107,6 @@ export async function dbCodeAreaCompletion({
     sectionId,
     paramInfoId: null,
     fullText,
-    messageIdSuffix: "-codeAreaAutocomplete",
     regexPatternKey: "codeAreaPattern",
   });
 
