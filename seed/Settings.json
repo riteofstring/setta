@@ -44,5 +44,6 @@
   "panOnScrollMode": "free",
   "zoomOnScroll": true,
   "zoomOnPinch": true,
-  "zoomOnDoubleClick": true
+  "zoomOnDoubleClick": true,
+  "clearTerminalBeforeMarkingAsReady": true
 }

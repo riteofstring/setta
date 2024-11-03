@@ -34,6 +34,7 @@ from setta.utils.constants import (
     CODE_FOLDER,
     CODE_FOLDER_ENV_VARIABLE,
     SEND_ARTIFACT_TO_ENV_VARIABLE,
+    USER_SETTINGS,
     C,
 )
 
@@ -78,10 +79,12 @@ class TerminalWebsockets:
                 "process": pty_process,
                 "history": deque(maxlen=1000),
                 "wasJustResized": False,
-                "terminalPromptIsReady": IS_WINDOWS,
+                "terminalPromptIsReady": IS_WINDOWS
+                or not USER_SETTINGS["clearTerminalBeforeMarkingAsReady"],
             }
+            pty_info = self.PTY_PIDS[sectionId]
             print("created new pty_process", sectionId, flush=True)
-            if not IS_WINDOWS:
+            if not pty_info["terminalPromptIsReady"]:
                 pty_process.write(
                     f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
                 )
