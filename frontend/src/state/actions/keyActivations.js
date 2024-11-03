@@ -2,6 +2,7 @@ import {
   convertFloatingBoxToSection,
   disableFloatingBox,
   enableFloatingBox,
+  freezeFloatingBox,
 } from "components/Utils/FloatingBox";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
@@ -147,6 +148,7 @@ export function attachKeyEventListeners() {
     ["tab", tabFromDocumentBody],
     ["shift + tab", tabFromDocumentBody],
     [settings.tooltipToSectionShortcut, convertFloatingBoxToSection],
+    [settings.freezeTooltipShortcut, freezeFloatingBox],
     [settings.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],

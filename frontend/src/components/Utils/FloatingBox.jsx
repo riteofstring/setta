@@ -5,6 +5,7 @@ import { create } from "zustand";
 
 export const useFloatingBox = create((set) => ({
   isEnabled: false,
+  isFrozen: false,
   content: null,
   title: null,
   setEnabled: (enabled) => set({ isEnabled: enabled }),
@@ -15,13 +16,15 @@ let mouseMoved = false;
 
 export const FloatingBox = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const { isEnabled, content, title } = useFloatingBox();
+  const { isEnabled, content, isFrozen, title } = useFloatingBox();
   const boxRef = useRef(null);
 
   useEffect(() => {
     const handleMouseMove = (event) => {
       mouseMoved = true;
-      setPosition({ x: event.clientX + 10, y: event.clientY + 10 });
+      if (!isFrozen) {
+        setPosition({ x: event.clientX + 10, y: event.clientY + 10 });
+      }
     };
 
     window.addEventListener("mousemove", handleMouseMove);
@@ -124,4 +127,8 @@ export function convertFloatingBoxToSection() {
       },
     });
   }
+}
+
+export function freezeFloatingBox() {
+  useFloatingBox.setState({ isEnabled:true, isFrozen: true });
 }
