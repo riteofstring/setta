@@ -10,7 +10,7 @@ import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 
 export const TERMINAL_WEBSOCKETS = {};
-export const INITIAL_MESSAGES = {};
+export const INITIAL_MESSAGES = {}; // keys are sectionId
 
 export function useTerminal({ sectionId, width, height }) {
   const terminalRef = useRef(null); // Ref for the terminal container
@@ -24,13 +24,11 @@ export function useTerminal({ sectionId, width, height }) {
       // letterSpacing: "0",
       // fontSize: "14",
     }); // Instantiate the terminal
-    console.log("new Terminal!");
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
 
     const { ws, wsId } = newTerminalWebsocket(sectionId);
     const attachAddon = new AttachAddon(ws);
-    console.log("new attach add on");
     terminal.loadAddon(attachAddon);
 
     terminal.onResize((size) => {
@@ -43,18 +41,16 @@ export function useTerminal({ sectionId, width, height }) {
       if (ws.readyState === 1) {
         ws.send(message);
       } else {
-        addTerminalInitialMessage(wsId, message);
+        addTerminalInitialMessage(sectionId, message);
       }
     });
 
     return () => {
       if (ws.readyState === 1) {
-        console.log("closing websocket");
         ws.close();
         terminal.dispose();
       } else {
         ws.addEventListener("open", () => {
-          console.log("websocket opened, now closing");
           ws.close();
           // Causes Uncaught TypeError: Cannot read properties of undefined (reading 'dimensions')
           // https://github.com/xtermjs/xterm.js/issues/4775
@@ -82,31 +78,34 @@ function useFitAddon() {
 }
 
 function newTerminalWebsocket(sectionId) {
-  console.log("NEW WEBSOCKET");
   const projectConfigId = useProjectConfig.getState().id;
   const id = createNewId();
   const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, sectionId, id })}`;
   const ws = new WebSocket(wsTerminalAddress);
   ws.addEventListener("open", () => {
-    if (INITIAL_MESSAGES[id]?.length > 0) {
-      for (const initialMessage of INITIAL_MESSAGES[id]) {
+    if (INITIAL_MESSAGES[sectionId]?.length > 0) {
+      const sentMessageIdx = [];
+      for (const [idx, initialMessage] of INITIAL_MESSAGES[
+        sectionId
+      ].entries()) {
         // hack to get backend to receive distinct messages rather than 1 grouped message
-        console.log("sending", initialMessage);
         setTimeout(() => {
-          ws.send(initialMessage);
+          if (ws.readyState === 1) {
+            ws.send(initialMessage);
+            sentMessageIdx.push(idx);
+          }
         }, 0);
       }
-      INITIAL_MESSAGES[id] = [];
+      INITIAL_MESSAGES[sectionId] = INITIAL_MESSAGES[sectionId].filter(
+        (x, idx) => !sentMessageIdx.includes(idx),
+      );
     }
   });
   ws.addEventListener("close", () => {
-    console.log("websocket closed");
     delete TERMINAL_WEBSOCKETS[id];
-    delete INITIAL_MESSAGES[id];
   });
   ws.addEventListener("error", () => {
     delete TERMINAL_WEBSOCKETS[id];
-    delete INITIAL_MESSAGES[id];
   });
 
   TERMINAL_WEBSOCKETS[id] = ws;
@@ -147,11 +146,11 @@ const theme = {
 //     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;',
 // };
 
-export function addTerminalInitialMessage(id, msg) {
-  if (!(id in INITIAL_MESSAGES)) {
-    INITIAL_MESSAGES[id] = [];
+export function addTerminalInitialMessage(sectionId, msg) {
+  if (!(sectionId in INITIAL_MESSAGES)) {
+    INITIAL_MESSAGES[sectionId] = [];
   }
-  if (!INITIAL_MESSAGES[id].includes(msg)) {
-    INITIAL_MESSAGES[id].push(msg);
+  if (!INITIAL_MESSAGES[sectionId].includes(msg)) {
+    INITIAL_MESSAGES[sectionId].push(msg);
   }
 }
