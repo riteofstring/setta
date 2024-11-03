@@ -25,22 +25,29 @@ export function useShowYaml(sectionId) {
   const [toYamlWasCalled, setToYamlWasCalled] = useState(false);
   const [yamlValue, setYamlValue] = useState("");
   const [originalObj, setOriginalObj] = useState({});
+  const [yamlIsReady, setYamlIsReady] = useState(false);
 
   useEffect(() => {
     if (showYaml) {
-      toYaml(sectionId, setYamlValue, setOriginalObj);
+      toYaml(sectionId, setYamlValue, setYamlIsReady, setOriginalObj);
       setToYamlWasCalled(true);
     } else {
       if (toYamlWasCalled) {
         toGUI(sectionId, yamlValue, originalObj);
+        setYamlIsReady(false);
       }
     }
   }, [showYaml]);
 
-  return { showYaml, yamlValue, setYamlValue };
+  return { showYaml: showYaml && yamlIsReady, yamlValue, setYamlValue };
 }
 
-export async function toYaml(sectionId, setYamlValue, setOriginalObj) {
+export async function toYaml(
+  sectionId,
+  setYamlValue,
+  setYamlIsReady,
+  setOriginalObj,
+) {
   const selectedItem = getSectionSelectedItem(sectionId);
   const selectedItemName = selectedItem
     ? useCodeInfo.getState().x[selectedItem].name
@@ -69,6 +76,7 @@ export async function toYaml(sectionId, setYamlValue, setOriginalObj) {
       newYamlValue += unpinnedStr;
     }
     setYamlValue(newYamlValue);
+    setYamlIsReady(true);
   }
 }
 
