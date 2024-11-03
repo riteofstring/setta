@@ -7,8 +7,6 @@ import { useShowYaml } from "./toYaml";
 function _GlobalVariablesArea({ sectionId, bgColor }) {
   const { showYaml, yamlValue, setYamlValue } = useShowYaml(sectionId);
 
-  console.log("showYaml", showYaml, yamlValue)
-
   return !showYaml ? (
     <>
       <KwargsControls
