@@ -12,7 +12,7 @@ const notEditing =
 export function ProjectName() {
   return (
     <header
-      className="mb-2 flex w-full flex-col flex-wrap font-heading  tracking-tight "
+      className="mb-2 flex w-full flex-col flex-wrap   tracking-tight "
       {...getFloatingBoxHandlers(CONST_INFO_VIEWS.OVERVIEW_PROJNAME)}
     >
       <ProjectNameOnly />

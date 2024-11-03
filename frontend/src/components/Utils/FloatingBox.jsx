@@ -54,18 +54,22 @@ export const FloatingBox = () => {
   return (
     <div
       ref={boxRef}
-      className="pointer-events-none fixed left-0 top-0 z-50 max-h-96 w-64 overflow-y-auto 
-                 rounded-lg border border-setta-200 bg-white shadow-lg 
-                 dark:border-setta-700 dark:bg-setta-800"
+      className="pointer-events-none fixed left-0 top-0 z-50 flex max-h-96 w-64 flex-col rounded-2xl border border-setta-200 bg-white p-4 shadow-lg dark:border-setta-700 dark:bg-setta-950"
       style={{
         transform: `translate(${position.x}px, ${position.y}px)`,
       }}
     >
-      <div className="p-4">
-        <div className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
-          {content}
-        </div>
-      </div>
+      <h3 className="break-words pb-1 text-xs font-black uppercase text-setta-500 dark:text-setta-600">
+        Title of Card
+      </h3>
+      <article className="flex-1 overflow-y-auto break-words text-sm text-setta-700 dark:text-setta-300">
+        {content}
+      </article>
+      <p className="mt-4 border-t border-solid border-setta-100 pt-1 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-600">
+        press <span className="font-black">&quot;S&quot;</span> to open tooltip
+        as new section &#40;while holding down{" "}
+        <span className="font-black">&quot;W&quot;</span>&#41;
+      </p>
     </div>
   );
 };

@@ -113,10 +113,10 @@ function DeckSectionTitle({ sectionId }) {
   const className = "max-w-";
   const titleProps = {
     editing:
-      "nodrag w-full cursor-auto bg-[#64748b83] dark:bg-setta-900 font-heading text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-500",
+      "nodrag w-full cursor-auto bg-[#64748b83] dark:bg-setta-900  text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-500",
 
     notEditing:
-      "cursor-pointer truncate font-heading text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-600 cursor-pointer",
+      "cursor-pointer truncate  text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-600 cursor-pointer",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;

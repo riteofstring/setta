@@ -61,14 +61,14 @@ function RightColumn({ projects, setDoRefresh }) {
       <div className="flex justify-between gap-4">
         <div className="flex gap-4">
           <StandardButton
-            twClasses="py-2 px-4 rounded-full font-bold font-heading text-white bg-setta-600  hover:bg-blue-500 gap-2"
+            twClasses="py-2 px-4 rounded-full font-bold  text-white bg-setta-600  hover:bg-blue-500 gap-2"
             onClick={createAndGoToProjectConfig}
           >
             <BiPlus />
             New Config
           </StandardButton>
           <StandardButton
-            twClasses="py-2 px-4 rounded-full font-medium font-heading text-white/75 bg-setta-500/25 hover:bg-red-500 hover:text-white gap-2"
+            twClasses="py-2 px-4 rounded-full font-medium  text-white/75 bg-setta-500/25 hover:bg-red-500 hover:text-white gap-2"
             onClick={onClickDelete}
           >
             <IoClose />
@@ -77,7 +77,7 @@ function RightColumn({ projects, setDoRefresh }) {
         </div>
         <Link
           to={SETTINGS_ROUTER_PATH}
-          className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-heading font-bold text-white  hover:bg-blue-500 focus-visible:ring-2 "
+          className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2  font-bold text-white  hover:bg-blue-500 focus-visible:ring-2 "
         >
           <IoSettingsOutline />
           Settings
@@ -134,7 +134,7 @@ const ProjectItem = forwardRef(
             onSelectProject={onSelectProject}
           />
           <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-setta-800 ">
-            <p className="font-heading text-sm text-setta-600 dark:text-setta-100">
+            <p className=" text-sm text-setta-600 dark:text-setta-100">
               {project.name}
             </p>
           </div>
