@@ -1,20 +1,26 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { create } from "zustand";
 
 export const useFloatingBox = create((set) => ({
   isEnabled: false,
   content: null,
-  position: { x: 0, y: 0 },
-  offset: { x: 10, y: 10 }, // Default offset from cursor
   setEnabled: (enabled) => set({ isEnabled: enabled }),
   setContent: (content) => set({ content }),
-  setPosition: (x, y) => set({ position: { x, y } }),
-  setOffset: (x, y) => set({ offset: { x, y } }),
 }));
 
 export const FloatingBox = () => {
-  const { isEnabled, content, position } = useFloatingBox();
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const { isEnabled, content } = useFloatingBox();
   const boxRef = useRef(null);
+
+  useEffect(() => {
+    const handleMouseMove = (event) => {
+      setPosition({ x: event.clientX + 10, y: event.clientY + 10 });
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
 
   // Ensure the box stays within viewport bounds
   useEffect(() => {
@@ -75,18 +81,6 @@ export function getFloatingBoxHandlers(value) {
   }
 
   return { onMouseOver, onMouseLeave };
-}
-
-export function useFloatingBoxNextToMouseCursor() {
-  useEffect(() => {
-    const handleMouseMove = (event) => {
-      const s = useFloatingBox.getState();
-      s.setPosition(event.clientX + s.offset.x, event.clientY + s.offset.y);
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
 }
 
 export function enableFloatingBox() {
