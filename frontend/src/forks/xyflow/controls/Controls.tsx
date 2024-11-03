@@ -56,7 +56,7 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
   const [snapToGrid] = localStorageFns.snapToGrid.hook();
   const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
-  const styleForActive = "!bg-red-900";
+  const styleForActive = "!bg-blue-500 dark:!bg-blue-700";
 
   useEffect(() => {
     setIsVisible(true);
