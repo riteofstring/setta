@@ -125,7 +125,8 @@ def parse_signature(signature):
         param_info_list = wrapper_parse_signature(
             signature, docstring, get_docstring_parser_param_proposals
         )
-    return param_info_list
+    documentation = signature.get("documentation", {"value": ""})["value"]
+    return [documentation, param_info_list]
 
 
 def process_diagnostics(diagnostics, code_split, codeJson):
@@ -245,7 +246,7 @@ class LanguageServerReader(LanguageServerInteractor):
             elif method == "textDocument/signatureHelp":
                 if response["result"]:
                     content = parse_signature(response["result"]["signatures"][0])
-                    # pprint(content)
+                    pprint(content)
                 else:
                     content = None
                 await self.websocket_manager.send_message_to_requester(id, content)

@@ -13,6 +13,7 @@ import {
   addCodeInfo,
   itemHasBeenSelectedBefore,
   itemIsAlreadySelected,
+  setCodeInfoDescription,
 } from "../codeInfo";
 import { updateKeywordRegex } from "../keywordRegex";
 import { setParametersRequestWaitingForLSP } from "../lsp";
@@ -128,19 +129,21 @@ export async function createCodeInfoChildren({
 }) {
   const setToNotWaiting = setParametersRequestWaitingForLSP(visualSectionId);
 
-  const res = await dbParametersRequest({
+  const [documentation, params] = await dbParametersRequest({
     sectionId: dataSectionId,
     fullText: selectedItemName,
     beforeText: "",
     position: selectedItemName.length,
     evRefs,
   });
-  if (res) {
-    createChildrenCodeInfo(codeInfoId, res);
+  if (params) {
+    createChildrenCodeInfo(codeInfoId, params);
     setSelectedItemChildren(dataSectionId, codeInfoId, changedByUser);
   } else {
     setNotificationMessage("No parameters found");
   }
+  console.log("[documentation, params]", [documentation, params]);
+  setCodeInfoDescription({ id: codeInfoId, description: documentation });
   setToNotWaiting();
 }
 

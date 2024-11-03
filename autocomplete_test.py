@@ -37,7 +37,7 @@ async def main():
     await lsp_writer.send_initialize_request()
 
     code_id = "test"
-    code = "import backend.setta.utils.generate_memorable_string\nbackend.setta.utils.generate_memorable_string.generate_memorable_string()"
+    code = "import transformers\ntransformers.TrainingArguments()"
     codeJson = {}
 
     # code_id = "test"
@@ -117,7 +117,7 @@ async def main():
     #     "test", "import torch\ntorch.nn.CrossEntropyLoss("
     # )
     # print(len(code.split("\n")[1])-2)
-    await lsp_writer.send_signature_help_request(1, 72, "test", "1234")
+    await lsp_writer.send_signature_help_request(1, 31, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # pprint(lsp.sent_msg_info.keys())
