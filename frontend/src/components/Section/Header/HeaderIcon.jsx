@@ -1,16 +1,12 @@
 import C from "constants/constants.json";
 import { BiPaint } from "react-icons/bi";
-import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
-import { FaSquareXTwitter } from "react-icons/fa6";
-import { GoDotFill } from "react-icons/go";
-
+import { FaMarkdown, FaTerminal } from "react-icons/fa";
 import { IoLogoJavascript } from "react-icons/io";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbArrowIteration } from "react-icons/tb";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useListElementIdx } from "state/hooks/sectionVariants";
-import { useIsTwitter, useIsYouTube } from "state/hooks/social";
 import { useIsListElement } from "state/hooks/uiTypes";
 
 export function HeaderIcon({
@@ -20,8 +16,6 @@ export function HeaderIcon({
   isInOtherProjectConfigs,
 }) {
   const isListElement = useIsListElement(sectionId);
-  const isYouTube = useIsYouTube(sectionId);
-  const isTwitter = useIsTwitter(sectionId);
 
   if (isListElement) {
     return <ListElementIcon sectionId={sectionId} />;
@@ -69,20 +63,6 @@ export function HeaderIcon({
       return (
         <BiPaint className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
-    case C.SOCIAL:
-      if (isYouTube) {
-        return (
-          <FaYoutube className="fill-setta-300 transition-colors group-hover/card-section:fill-blue-500 dark:fill-setta-500 dark:group-hover/card-section:fill-[#0084ff] " />
-        );
-      } else if (isTwitter) {
-        return (
-          <FaSquareXTwitter className="fill-setta-300 transition-colors group-hover/card-section:fill-blue-500 dark:fill-setta-500 dark:group-hover/card-section:fill-[#0084ff] " />
-        );
-      } else {
-        return (
-          <GoDotFill className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
-        );
-      }
     default:
       return (
         <i className="gg-menu group/card-section:hover:bg text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />

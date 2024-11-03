@@ -79,7 +79,7 @@ export function getMinSectionWidth({ sectionType, isTwitter }) {
     return 370;
   }
   if (sectionType === C.DRAW) {
-    return 402;
+    return 272;
   } else if (sectionType === C.LINE_PLOT) {
     return 300;
   }
