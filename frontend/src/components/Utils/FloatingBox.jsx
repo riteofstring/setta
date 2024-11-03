@@ -114,11 +114,13 @@ export function disableFloatingBox() {
 export function convertFloatingBoxToSection() {
   const s = useFloatingBox.getState();
   if (s.isEnabled && s.content) {
+    const content = s.title ? `## ${s.title}\n\n${s.content}` : s.content;
     addSectionInEmptySpace({
       type: C.INFO,
       inputSectionProps: {
-        description: s.content,
-        size: { width: 500, height: 500 },
+        name: s.title,
+        description: content,
+        size: { width: 300, height: 300 },
       },
     });
   }
