@@ -6,15 +6,16 @@ import { create } from "zustand";
 export const useFloatingBox = create((set) => ({
   isEnabled: false,
   content: null,
+  title: null,
   setEnabled: (enabled) => set({ isEnabled: enabled }),
-  setContent: (content) => set({ content }),
+  setContent: (content, title) => set({ content, title }),
 }));
 
 let mouseMoved = false;
 
 export const FloatingBox = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const { isEnabled, content } = useFloatingBox();
+  const { isEnabled, content, title } = useFloatingBox();
   const boxRef = useRef(null);
 
   useEffect(() => {
@@ -62,9 +63,11 @@ export const FloatingBox = () => {
         transform: `translate(${position.x}px, ${position.y}px)`,
       }}
     >
-      <h3 className="break-words pb-1 text-xs font-black uppercase text-setta-500 dark:text-setta-600">
-        Title of Card
-      </h3>
+      {title && (
+        <h3 className="break-words pb-1 text-xs font-black uppercase text-setta-500 dark:text-setta-600">
+          {title}
+        </h3>
+      )}
       <article className="flex-1 overflow-y-auto break-words text-sm text-setta-700 dark:text-setta-300">
         {content}
       </article>
@@ -77,16 +80,16 @@ export const FloatingBox = () => {
   );
 };
 
-export function getFloatingBoxHandlers(value) {
+export function getFloatingBoxHandlers(content, title) {
   function onMouseOver() {
-    if (value) {
+    if (content) {
       const s = useFloatingBox.getState();
-      s.setContent(value);
+      s.setContent(content, title);
     }
   }
 
   function onMouseLeave() {
-    useFloatingBox.getState().setContent(null);
+    useFloatingBox.getState().setContent(null, null);
   }
 
   return { onMouseOver, onMouseLeave };

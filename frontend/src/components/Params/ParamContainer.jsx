@@ -45,18 +45,27 @@ function _ParamContainer({
   const canBeOverriden = useCodeInfo(
     (x) => sectionIsFrozen && x.x[paramInfoId].isFrozen,
   );
-  const paramIsSelected = useCodeInfo((x) => x.x[paramInfoId].isSelected);
-  const paramDescription = useCodeInfo((x) => x.x[paramInfoId].description);
+  const {
+    isSelected: paramIsSelected,
+    description: paramDescription,
+    name: paramName,
+    children: paramChildren,
+  } = useCodeInfo(
+    (x) =>
+      _.pick(x.x[paramInfoId], [
+        "isSelected",
+        "description",
+        "name",
+        "children",
+      ]),
+    _.isEqual,
+  );
 
   // hover:bg-setta-200/20 dark:hover:bg-setta-700/25
   // maybe use this for in bg hover state: div:hover:not(:has(div:hover))
 
   const bg = paramIsSelected ? "bg-setta-500/20" : "";
 
-  const paramChildren = useCodeInfo(
-    (x) => x.x[paramInfoId].children,
-    _.isEqual,
-  );
   function onClickSelect(e) {
     if (!ancestorIsSelected && useParamShortcuts.getState().isSelectingParams) {
       e.stopPropagation();
@@ -68,7 +77,7 @@ function _ParamContainer({
     <>
       <article
         className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between overflow-clip rounded-md ${bg} ${border}`}
-        {...getFloatingBoxHandlers(paramDescription)}
+        {...getFloatingBoxHandlers(paramDescription, paramName)}
         onClick={onClickSelect}
       >
         {children}
@@ -86,7 +95,7 @@ function _ParamContainer({
   ) : (
     <article
       className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between gap-y-1 overflow-clip rounded-md ${bg} ${border}`}
-      {...getFloatingBoxHandlers(paramDescription)}
+      {...getFloatingBoxHandlers(paramDescription, paramName)}
       onClick={onClickSelect}
     >
       {children}
