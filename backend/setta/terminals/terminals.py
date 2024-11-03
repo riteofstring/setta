@@ -59,6 +59,7 @@ def is_command_running_in_pty(pid):
 
 
 SETTA_TERMINAL_READY_STR = "__SETTA_TERMINAL_READY__"
+SETTA_CLEAR_CMD = "SETTA_CLEAR_CMD"
 
 
 class TerminalWebsockets:
@@ -81,7 +82,7 @@ class TerminalWebsockets:
                 "terminalPromptIsReady": False,
             }
             print("created new pty_process", sectionId, flush=True)
-            pty_process.write(f"echo '{SETTA_TERMINAL_READY_STR}'\n")
+            pty_process.write(f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n")
             return True
         return False
 
@@ -89,7 +90,9 @@ class TerminalWebsockets:
         await websocket.accept()
         self.sockets[id] = websocket
         self.section_to_socket_ids[sectionId].add(id)
-        await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
+        if self.PTY_PIDS[sectionId]["terminalPromptIsReady"]:
+            await websocket.send_text(SETTA_TERMINAL_READY_STR)
+            await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
 
     def disconnect(self, sectionId, id):
         print("disconnecting", id, flush=True)
@@ -143,21 +146,19 @@ class TerminalWebsockets:
                 output = pty_process.read(1024)
                 if not pty_info["terminalPromptIsReady"]:
                     initial_buffer += output
-                    # We wait for the SETTA_TERMINAL_READY_STR string to appear twice
+                    # We wait for the SETTA_TERMINAL_READY_STR string to appear four times
                     # before we consider the terminal ready.
                     # This is just to make the terminal look less cluttered and annoying on the frontend.
-                    if initial_buffer.count(SETTA_TERMINAL_READY_STR) >= 2:
-                        pty_process.write("clear\n")
+                    if initial_buffer.count(SETTA_CLEAR_CMD) >= 4:
                         pty_info["terminalPromptIsReady"] = True
-                        initial_buffer = ""
+                        await self.send_output_to_sectionId(
+                            sectionId, SETTA_TERMINAL_READY_STR
+                        )
                     continue
                 if not pty_info["wasJustResized"]:
                     history.append(output)
                 pty_info["wasJustResized"] = False
-
-                for wsId in self.section_to_socket_ids[sectionId]:
-                    ws = self.sockets[wsId]
-                    await ws.send_text(output)
+                await self.send_output_to_sectionId(sectionId, output)
             except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
                 break
             except EOFError:
@@ -224,6 +225,11 @@ class TerminalWebsockets:
             ):
                 return k
         return None
+
+    async def send_output_to_sectionId(self, sectionId, output):
+        for wsId in self.section_to_socket_ids[sectionId]:
+            ws = self.sockets[wsId]
+            await ws.send_text(output)
 
 
 def runCode(message, terminal_write_fn=None, command_callback=None):

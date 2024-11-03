@@ -28,8 +28,6 @@ export function useTerminal({ sectionId, width, height }) {
     terminal.open(terminalRef.current); // Attach the terminal to the div
 
     const { ws, wsId } = newTerminalWebsocket(sectionId);
-    const attachAddon = new AttachAddon(ws);
-    terminal.loadAddon(attachAddon);
 
     terminal.onResize((size) => {
       // Send the new size to the backend
@@ -44,6 +42,16 @@ export function useTerminal({ sectionId, width, height }) {
         addTerminalInitialMessage(sectionId, message);
       }
     });
+
+    function onInitialMessage(message) {
+      if (message.data === "__SETTA_TERMINAL_READY__") {
+        const attachAddon = new AttachAddon(ws);
+        terminal.loadAddon(attachAddon);
+        ws.removeEventListener("message", onInitialMessage);
+      }
+    }
+
+    ws.addEventListener("message", onInitialMessage);
 
     return () => {
       if (ws.readyState === 1) {
