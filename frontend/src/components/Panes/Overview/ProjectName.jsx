@@ -1,5 +1,5 @@
 import { Editable } from "components/Utils/Editable";
-import { getInfoViewHandlers } from "state/actions/infoView";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useEditableProjectName } from "state/hooks/project";
 import { CONST_INFO_VIEWS } from "utils/constants";
 
@@ -13,7 +13,7 @@ export function ProjectName() {
   return (
     <header
       className="mb-2 flex w-full flex-col flex-wrap font-heading  tracking-tight "
-      {...getInfoViewHandlers(CONST_INFO_VIEWS.OVERVIEW_PROJNAME)}
+      {...getFloatingBoxHandlers(CONST_INFO_VIEWS.OVERVIEW_PROJNAME)}
     >
       <ProjectNameOnly />
     </header>

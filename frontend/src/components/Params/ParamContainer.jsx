@@ -1,11 +1,11 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { getInfoViewHandlers } from "state/actions/infoView";
 import { toggleParamSelected } from "state/actions/kwargs/kwargs";
 import {
   useCodeInfo,
@@ -68,7 +68,7 @@ function _ParamContainer({
     <>
       <article
         className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between overflow-clip rounded-md ${bg} ${border}`}
-        {...getInfoViewHandlers(paramDescription)}
+        {...getFloatingBoxHandlers(paramDescription)}
         onClick={onClickSelect}
       >
         {children}
@@ -86,7 +86,7 @@ function _ParamContainer({
   ) : (
     <article
       className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between gap-y-1 overflow-clip rounded-md ${bg} ${border}`}
-      {...getInfoViewHandlers(paramDescription)}
+      {...getFloatingBoxHandlers(paramDescription)}
       onClick={onClickSelect}
     >
       {children}

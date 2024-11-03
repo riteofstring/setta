@@ -1,16 +1,12 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import { getInfoViewHandlers } from "state/actions/infoView";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { setHomePageSearch } from "state/actions/search/homePageSearch";
 import { useHomePageSearch } from "state/definitions";
 import {
   useOnEnterGoToSearchResult,
   useUpdateProjectSearch,
 } from "state/hooks/search";
-import {
-  CONST_INFO_VIEWS,
-  HOME_ROUTER_PATH,
-  PROJECT_CONFIG_ROUTER_PATH,
-} from "utils/constants";
+import { CONST_INFO_VIEWS, HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
 import { Notification } from "./Notification";
 import { ProjectNav } from "./ProjectNav";
@@ -53,7 +49,7 @@ function ProjectPageSearch() {
       onKeyDown={onKeyDown}
       onBlur={onBlur}
       onFocus={onFocus}
-      {...getInfoViewHandlers(CONST_INFO_VIEWS.NAVBAR_SEARCH)}
+      {...getFloatingBoxHandlers(CONST_INFO_VIEWS.NAVBAR_SEARCH)}
     />
   );
 }

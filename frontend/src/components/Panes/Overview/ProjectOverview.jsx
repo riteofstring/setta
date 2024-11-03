@@ -1,6 +1,6 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import React from "react";
-import { getInfoViewHandlers } from "state/actions/infoView";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { CONST_INFO_VIEWS } from "utils/constants";
 import { InfoView } from "./InfoView";
@@ -22,13 +22,13 @@ export const ProjectOverview = React.forwardRef(() => {
           <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
         }
         onChange={(e) => setFilter(e.target.value)}
-        {...getInfoViewHandlers(CONST_INFO_VIEWS.OVERVIEW_SEARCH)}
+        {...getFloatingBoxHandlers(CONST_INFO_VIEWS.OVERVIEW_SEARCH)}
       />
 
       <div className="min-h-0 flex-grow overflow-y-scroll">
         <ul
           className="min-h-0 flex-grow"
-          {...getInfoViewHandlers(CONST_INFO_VIEWS.OVERVIEW)}
+          {...getFloatingBoxHandlers(CONST_INFO_VIEWS.OVERVIEW)}
         >
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
