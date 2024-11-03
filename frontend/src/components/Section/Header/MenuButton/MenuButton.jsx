@@ -14,6 +14,8 @@ import { ShowMarkdown } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
 
 function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
+  const menuItems = getMenuItems(sectionTypeName);
+
   return (
     <Menubar.Root>
       <CardHeaderMenuButton
@@ -26,47 +28,9 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
         }
         sectionId={sectionId}
       >
-        {sectionTypeName === C.INFO && <ShowMarkdown sectionId={sectionId} />}
-
-        {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
-          <SaveCustomArgumentsButton sectionId={sectionId} />
-        )}
-
-        {sectionTypeName === C.PARAM_SWEEP && (
-          <CreateNewParamSweepButton sectionId={sectionId} />
-        )}
-
-        {[
-          C.SECTION,
-          C.GLOBAL_VARIABLES,
-          C.LIST_ROOT,
-          C.DICT_ROOT,
-          C.CODE,
-          C.INTERACTIVE_CODE,
-        ].includes(sectionTypeName) && (
-          <CreateNewVersionButton sectionId={sectionId} />
-        )}
-
-        {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
-          <MultirunButton sectionId={sectionId} />
-        )}
-
-        {[C.SECTION].includes(sectionTypeName) && (
-          <HideShowSearchButton sectionId={sectionId} />
-        )}
-
-        {[C.SECTION].includes(sectionTypeName) && (
-          <HideShowParamsButton sectionId={sectionId} />
-        )}
-
-        {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
-          <HideShowUnpinnedParamsButton sectionId={sectionId} />
-        )}
-
-        {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
-          <ShowYaml sectionId={sectionId} />
-        )}
-        {/* <FreezeButton sectionId={sectionId} /> */}
+        {menuItems.map((Component, idx) => (
+          <Component sectionId={sectionId} key={idx} />
+        ))}
       </CardHeaderMenuButton>
     </Menubar.Root>
   );
@@ -89,4 +53,38 @@ function CardHeaderMenuButton({ children, trigger, sectionId }) {
       {children}
     </MenuDropdown>
   );
+}
+
+export function getMenuItems(uiTypeName) {
+  switch (uiTypeName) {
+    case C.INFO:
+      return [ShowMarkdown];
+    case C.SECTION:
+      return [
+        SaveCustomArgumentsButton,
+        CreateNewVersionButton,
+        MultirunButton,
+        HideShowSearchButton,
+        HideShowParamsButton,
+        HideShowUnpinnedParamsButton,
+        ShowYaml,
+      ];
+    case C.GLOBAL_VARIABLES:
+      return [
+        SaveCustomArgumentsButton,
+        CreateNewVersionButton,
+        MultirunButton,
+        HideShowUnpinnedParamsButton,
+        ShowYaml,
+      ];
+    case C.PARAM_SWEEP:
+      return [CreateNewParamSweepButton];
+    case C.LIST_ROOT:
+    case C.DICT_ROOT:
+    case C.CODE:
+    case C.INTERACTIVE_CODE:
+      return [CreateNewVersionButton];
+    default:
+      return [];
+  }
 }
