@@ -44,7 +44,7 @@ export function useTerminal({ sectionId, width, height }) {
     });
 
     function onInitialMessage(message) {
-      if (message.data === "__SETTA_TERMINAL_READY__") {
+      if (message.data === C.SETTA_TERMINAL_READY) {
         const attachAddon = new AttachAddon(ws);
         terminal.loadAddon(attachAddon);
         ws.removeEventListener("message", onInitialMessage);
