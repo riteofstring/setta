@@ -124,15 +124,9 @@ class TerminalWebsockets:
             for id in to_disconnect:
                 self.disconnect(sid, id)
 
-    async def delete_all_terminals(self):
-        print("delete_all_terminals", flush=True)
-        # Create tasks for all PTY terminations
-        termination_tasks = [
-            terminate_pty_async(pty["process"])
-            for pty in self.PTY_PIDS.values()
-        ]
-        # Run all terminations concurrently
-        await asyncio.gather(*termination_tasks)
+    def delete_all_terminals(self):
+        for t in self.PTY_PIDS.values():
+            t["process"].terminate()
         self.PTY_PIDS = {}
         print("DELETED ALL TERMINALS", flush=True)
 
@@ -418,20 +412,3 @@ def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name
         )
         code = setup_code + code
     return code
-
-
-async def terminate_pty_async(pty):
-    """
-    Asynchronously terminate a PTY process.
-    Uses a thread pool to avoid blocking the event loop.
-    """
-    def _terminate():
-        try:
-            print("terminating", pty, flush=True)
-            pty.terminate(force=True)
-        except Exception as e:
-            print(f"Error terminating PTY: {e}")
-
-    # Run the termination in a thread pool to avoid blocking
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _terminate)

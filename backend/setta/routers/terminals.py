@@ -36,7 +36,7 @@ async def terminal_websocket_endpoint(
             terminal_websockets.read_from_terminal(sectionId)
         )
         await read_task
-        # terminal_websockets.delete_terminals([sectionId])
+        terminal_websockets.delete_terminals([sectionId])
 
     # Create the background task
     if isNew:
