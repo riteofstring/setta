@@ -1,31 +1,15 @@
 import C from "constants/constants.json";
-import _ from "lodash";
 import { useEffect, useRef } from "react";
-import { dbGetExistingTerminals } from "requests/terminals";
 import { pseudoTemplatedStr } from "requests/utils";
-import {
-  addChild,
-  addSectionInEmptySpace,
-} from "state/actions/sections/createSections";
-import {
-  useProjectConfig,
-  useSectionInfos,
-  useSettings,
-} from "state/definitions";
+import { useProjectConfig, useSectionInfos } from "state/definitions";
 import { URLS } from "utils/constants";
-import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 
-// Maps from sectionId to a list of websocket connections.
-// There should only be 1 websocket for a given section.
-// But in case of double renders (basically just StrictMode),
-// this keeps a list of websockets, so we can add the new websocket
-// while the old one gets deleted.
 export const TERMINAL_WEBSOCKETS = {};
-export const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
+export const INITIAL_MESSAGES = {};
 
 export function useTerminal({ sectionId, width, height }) {
   const terminalRef = useRef(null); // Ref for the terminal container
@@ -42,12 +26,14 @@ export function useTerminal({ sectionId, width, height }) {
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
 
-    const { ws, wsId } = newTerminalWebsocket(sectionId);
+    const { disposeWs, ws } = newTerminalWebsocket(sectionId);
+    const attachAddon = new AttachAddon(ws);
+    terminal.loadAddon(attachAddon);
 
     terminal.onResize((size) => {
       // Send the new size to the backend
       const message = JSON.stringify({
-        messageType: C.WS_TERMINAL_RESIZE,
+        messageType: "resize",
         cols: size.cols,
         rows: size.rows,
       });
@@ -58,28 +44,11 @@ export function useTerminal({ sectionId, width, height }) {
       }
     });
 
-    function onInitialMessage(message) {
-      if (message.data === C.SETTA_TERMINAL_READY) {
-        const attachAddon = new AttachAddon(ws);
-        terminal.loadAddon(attachAddon);
-        ws.removeEventListener("message", onInitialMessage);
-      }
-    }
-
-    ws.addEventListener("message", onInitialMessage);
-
     return () => {
-      if (ws.readyState === 1) {
-        ws.close();
-        terminal.dispose();
-      } else {
-        ws.addEventListener("open", () => {
-          ws.close();
-          // Causes Uncaught TypeError: Cannot read properties of undefined (reading 'dimensions')
-          // https://github.com/xtermjs/xterm.js/issues/4775
-          terminal.dispose();
-        });
-      }
+      // Causes Uncaught TypeError: Cannot read properties of undefined (reading 'dimensions')
+      // https://github.com/xtermjs/xterm.js/issues/4775
+      disposeWs();
+      terminal.dispose();
     };
   }, []);
 
@@ -101,48 +70,43 @@ function useFitAddon() {
 }
 
 function newTerminalWebsocket(sectionId) {
-  const projectConfigId = useProjectConfig.getState().id;
-  const id = createNewId();
-  const isTemporary = !!useSectionInfos.getState().x[sectionId].isTemporary;
-  const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, sectionId, id, isTemporary })}`;
-  const ws = new WebSocket(wsTerminalAddress);
-  ws.addEventListener("open", async () => {
-    if (INITIAL_MESSAGES[sectionId]?.length > 0) {
-      const sentMessageIdx = [];
-      for (const [idx, initialMessage] of INITIAL_MESSAGES[
-        sectionId
-      ].entries()) {
-        // hack to get backend to receive distinct messages rather than 1 grouped message
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        if (ws.readyState === 1) {
-          ws.send(initialMessage);
-          sentMessageIdx.push(idx);
+  let ws;
+  if (TERMINAL_WEBSOCKETS[sectionId]) {
+    ws = TERMINAL_WEBSOCKETS[sectionId];
+  } else {
+    const projectConfigId = useProjectConfig.getState().id;
+    const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, id: sectionId })}`;
+    ws = new WebSocket(wsTerminalAddress);
+    ws.addEventListener("open", () => {
+      if (INITIAL_MESSAGES[sectionId]?.length > 0) {
+        for (const initialMessage of INITIAL_MESSAGES[sectionId]) {
+          // hack to get backend to receive distinct messages rather than 1 grouped message
+          setTimeout(() => {
+            ws.send(initialMessage);
+          }, 0);
         }
+        INITIAL_MESSAGES[sectionId] = [];
       }
-      INITIAL_MESSAGES[sectionId] = INITIAL_MESSAGES[sectionId].filter(
-        (x, idx) => !sentMessageIdx.includes(idx),
-      );
-    }
-  });
+    });
+    ws.addEventListener("close", () => {
+      delete TERMINAL_WEBSOCKETS[sectionId];
+    });
+    ws.addEventListener("error", () => {
+      delete TERMINAL_WEBSOCKETS[sectionId];
+    });
 
-  function cleanupTerminalWebsockets() {
-    if (sectionId in TERMINAL_WEBSOCKETS) {
-      TERMINAL_WEBSOCKETS[sectionId] = removeWsFromArray(
-        TERMINAL_WEBSOCKETS[sectionId],
-        ws,
-      );
-    }
+    TERMINAL_WEBSOCKETS[sectionId] = ws;
   }
 
-  ws.addEventListener("close", cleanupTerminalWebsockets);
-  ws.addEventListener("error", cleanupTerminalWebsockets);
-
-  if (!(sectionId in TERMINAL_WEBSOCKETS)) {
-    TERMINAL_WEBSOCKETS[sectionId] = [];
-  }
-  TERMINAL_WEBSOCKETS[sectionId].push(ws);
-
-  return { ws, wsId: id };
+  return {
+    disposeWs: () => {
+      if (!(sectionId in useSectionInfos.getState().x)) {
+        ws.close();
+        INITIAL_MESSAGES[sectionId] = [];
+      }
+    },
+    ws,
+  };
 }
 
 const theme = {
@@ -181,59 +145,4 @@ export function addTerminalInitialMessage(sectionId, msg) {
   if (!INITIAL_MESSAGES[sectionId].includes(msg)) {
     INITIAL_MESSAGES[sectionId].push(msg);
   }
-}
-
-export function sendTerminalMessage(sectionId, msg) {
-  for (const ws of TERMINAL_WEBSOCKETS[sectionId]) {
-    if (ws.readyState === 1) {
-      ws.send(msg);
-      break;
-    }
-  }
-}
-
-function removeWsFromArray(x, ws) {
-  return x.filter((w) => w !== ws);
-}
-
-export async function restoreTerminals() {
-  const res = await dbGetExistingTerminals(useProjectConfig.getState().id);
-  if (res.status === 200) {
-    const existingTerminalInfo = res.data;
-    const terminalsWithoutSections = existingTerminalInfo.filter(
-      (x) => !(x.id in useSectionInfos.getState().x),
-    );
-    if (terminalsWithoutSections.length === 0) {
-      return;
-    }
-    const groupId = addSectionInEmptySpace({
-      type: C.DECK,
-      inputSectionProps: {
-        name: getRestoredTerminalsGroupName(),
-        isTemporary: terminalsWithoutSections.every((x) => x.isTemporary),
-      },
-    });
-    for (const terminalInfo of terminalsWithoutSections) {
-      addChild({
-        id: terminalInfo.id,
-        parentId: groupId,
-        type: C.TERMINAL,
-        sectionProps: {
-          size: useSettings.getState().defaultTerminalSectionSize,
-          isTemporary: terminalInfo.isTemporary,
-        },
-      });
-    }
-  }
-}
-
-function getRestoredTerminalsGroupName() {
-  const baseName = "Restored Terminals";
-  const numExisting = _.size(
-    _.pickBy(useSectionInfos.getState().x, (s) => s.name.startsWith(baseName)),
-  );
-  if (numExisting === 0) {
-    return baseName;
-  }
-  return `${baseName} ${numExisting + 1}`;
 }

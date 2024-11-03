@@ -3,7 +3,6 @@ import { GridWrapper } from "components/Utils/GridWrapper";
 import { useEffect } from "react";
 import { dbRequestTypeCheck } from "requests/sections";
 import { useLoadProjectConfig } from "state/hooks/project";
-import { restoreTerminals } from "state/hooks/terminal";
 import { Overview } from "../../../components/Panes/Overview/Overview";
 import { UiEditor } from "../../../components/Panes/UiEditor/UiEditor";
 import { UIPage } from "./UiPage";
@@ -15,13 +14,12 @@ export function MainContainer() {
   useEffect(() => {
     if (doneLoading) {
       dbRequestTypeCheck();
-      restoreTerminals();
     }
   }, [doneLoading]);
 
   return (
     <>
-      {!doneLoading && <LoadingSpinner />}
+      {!doneLoading && <LoadingSpinner doneLoading={doneLoading} />}
       <Overview />
       <UiEditor />
       <GridWrapper>{doneLoading && <UIPage />}</GridWrapper>
