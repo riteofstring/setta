@@ -3,12 +3,14 @@ import { HiMoon } from "react-icons/hi";
 import { RiSunFill } from "react-icons/ri";
 import { toggleDarkMode } from "state/actions/localStorage";
 import { useDarkMode } from "state/hooks/localStorage";
+import { HelpArea } from "./HelpArea";
 
 export function DarkModeSwitch() {
   const darkMode = useDarkMode();
 
   return (
     <div className="flex flex-1 content-center justify-end">
+      <HelpArea />
       <Toggle
         checked={darkMode}
         onCheckedChange={toggleDarkMode}

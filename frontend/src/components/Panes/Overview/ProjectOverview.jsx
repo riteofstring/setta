@@ -3,7 +3,6 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import React from "react";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { CONST_INFO_VIEWS } from "utils/constants";
-import { InfoView } from "./InfoView";
 import { ProjectName } from "./ProjectName";
 import { SectionListItems } from "./SectionListItems";
 
@@ -33,7 +32,7 @@ export const ProjectOverview = React.forwardRef(() => {
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
       </div>
-      <InfoView />
+      {/* <InfoView /> */}
     </>
   );
 });

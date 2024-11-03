@@ -5,7 +5,6 @@ import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
 import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
 import { TabButton, usePaneFns } from "../paneFns";
-import { InfoViewBig } from "./InfoViewBig";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
 
@@ -41,9 +40,9 @@ export function Overview() {
         <TabButton tabName="tab1" {...commonProps}>
           <i className="gg-list  !scale-100" />
         </TabButton>
-        <TabButton tabName="tab2" {...commonProps}>
+        {/* <TabButton tabName="tab2" {...commonProps}>
           <i className="gg-info !scale-100" />
-        </TabButton>
+        </TabButton> */}
         <TabButton tabName="tab3" {...commonProps}>
           <i className="gg-git-branch !scale-100" />
         </TabButton>
@@ -85,8 +84,8 @@ function TabContent({ tab }) {
   switch (tab) {
     case "tab1":
       return <ProjectOverview />;
-    case "tab2":
-      return <InfoViewBig />;
+    // case "tab2":
+    //   return <InfoViewBig />;
     case "tab3":
       return <ProjectConfigs />;
   }

@@ -6,7 +6,11 @@ import {
   useOnEnterGoToSearchResult,
   useUpdateProjectSearch,
 } from "state/hooks/search";
-import { CONST_INFO_VIEWS, HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
+import {
+  CONST_INFO_VIEWS,
+  HOME_ROUTER_PATH,
+  PROJECT_CONFIG_ROUTER_PATH,
+} from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
 import { Notification } from "./Notification";
 import { ProjectNav } from "./ProjectNav";
