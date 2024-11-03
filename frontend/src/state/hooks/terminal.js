@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import _ from "lodash";
 import { useEffect, useRef } from "react";
 import { dbGetExistingTerminals } from "requests/terminals";
 import { pseudoTemplatedStr } from "requests/utils";
@@ -208,7 +209,7 @@ export async function restoreTerminals() {
     const groupId = addSectionInEmptySpace({
       type: C.DECK,
       inputSectionProps: {
-        name: "Restored Terminals",
+        name: getRestoredTerminalsGroupName(),
         isTemporary: terminalsWithoutSections.every((x) => x.isTemporary),
       },
     });
@@ -224,4 +225,15 @@ export async function restoreTerminals() {
       });
     }
   }
+}
+
+function getRestoredTerminalsGroupName() {
+  const baseName = "Restored Terminals";
+  const numExisting = _.size(
+    _.pickBy(useSectionInfos.getState().x, (s) => s.name.startsWith(baseName)),
+  );
+  if (numExisting === 0) {
+    return baseName;
+  }
+  return `${baseName} ${numExisting + 1}`;
 }
