@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import time
+import traceback
 from asyncio import CancelledError
 from collections import defaultdict, deque
 from datetime import datetime
@@ -27,6 +28,7 @@ from setta.code_gen.python.generate_argparse import generate_argparse
 from setta.code_gen.python.generate_code import generate_code, replace_keywords
 from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
+    CODE_FOLDER,
     CODE_FOLDER_ENV_VARIABLE,
     SEND_ARTIFACT_TO_ENV_VARIABLE,
     C,
@@ -73,14 +75,17 @@ class TerminalWebsockets:
                 "wasJustResized": False,
             }
         else:
+            print("sending pty history********", flush=True)
             await websocket.send_text("".join(self.PTY_PIDS[id]["history"]))
 
     def disconnect(self, websocket, id):
         self.sockets[id].remove(websocket)
         if not self.sockets[id]:
             del self.sockets[id]
+            self.delete_terminals([id])
 
     def delete_terminals(self, ids):
+        print('delete terminals', ids, flush=True)
         for id in ids:
             if id in self.PTY_PIDS:
                 self.PTY_PIDS[id]["process"].terminate()
@@ -97,8 +102,8 @@ class TerminalWebsockets:
         pty_info = self.PTY_PIDS[id]
         pty_process = pty_info["process"]
         history = pty_info["history"]
-        try:
-            while True:
+        while True:
+            try:
                 output = await self.loop.run_in_executor(None, pty_process.read, 1024)
                 if not output:
                     break
@@ -107,36 +112,48 @@ class TerminalWebsockets:
                         history.append(output)
                     pty_info["wasJustResized"] = False
                     await ws.send_text(output)
-        except (WebSocketDisconnect, CancelledError):
-            pass
+            except (WebSocketDisconnect, CancelledError):
+                break
+            except Exception as e:
+                if isinstance(e, RuntimeError) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(e):
+                    # this happens when write_to_terminal catches the websocket disconnect
+                    break
+                print(f"Exception details:\n{traceback.format_exc()}")
+                print(e, flush=True)
+                print("read_from_terminal caught the exception!", flush=True)
 
     # Function to write to the terminal
     async def write_to_terminal(self, websocket, id):
         pty_info = self.PTY_PIDS[id]
         pty_process = pty_info["process"]
-        try:
-            while True:
+        while True:
+            try:
                 input_data = await websocket.receive_text()
                 try:
                     json_val = json.loads(input_data)
-                    if isinstance(json_val, dict):
-                        doResize = json_val["messageType"] == "resize"
-                        if doResize:
-                            pty_process.setwinsize(json_val["rows"], json_val["cols"])
-                        elif json_val["messageType"] == C.WS_RUN_CODE:
-                            runCode(json_val, terminal_write_fn=pty_process.write)
-                            self.set_terminal_start_time(id)
-                        pty_info["wasJustResized"] = doResize
-                        continue
                 except json.decoder.JSONDecodeError:
-                    pass
-                if input_data is None:
+                    json_val = None
+                if isinstance(json_val, dict):
+                    doResize = json_val["messageType"] == "resize"
+                    if doResize:
+                        pty_process.setwinsize(json_val["rows"], json_val["cols"])
+                    elif json_val["messageType"] == C.WS_RUN_CODE:
+                        runCode(json_val, terminal_write_fn=pty_process.write)
+                        self.set_terminal_start_time(id)
+                    pty_info["wasJustResized"] = doResize
+                    continue
+                elif input_data:
+                    pty_process.write(input_data)
+                    self.set_terminal_start_time(id)
+            except (WebSocketDisconnect, CancelledError):
+                break
+            except Exception as e:
+                if isinstance(e, RuntimeError) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(e):
+                    # this happens when read_from_terminal catches the websocket disconnect
                     break
-                # Write received data to the terminal
-                pty_process.write(input_data)
-                self.set_terminal_start_time(id)
-        except (WebSocketDisconnect, CancelledError):
-            pass
+                print(f"Exception details:\n{traceback.format_exc()}")
+                print(e, flush=True)
+                print("write_to_terminal caught the exception!", flush=True)
 
     def set_terminal_start_time(self, id):
         self.PTY_PIDS[id]["start"] = time.time()
@@ -156,7 +173,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     p = message["content"]
     exporter_obj = export_selected(p, always_export_args_objs=False)
     selected = exporter_obj.output
-    folder_path = create_timestamped_folder(".setta_code")
+    folder_path = create_timestamped_folder(CODE_FOLDER)
 
     code_sections = {
         id: copy.deepcopy(s)
@@ -200,8 +217,14 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     id_to_filepath = {}
     for sid in to_write:
         curr_section = code_sections[sid]
-        code = get_section_code(p, sid)
-        extension = languageToExtension(curr_section["codeLanguage"])
+        codeLanguage = curr_section["codeLanguage"]
+        extension = languageToExtension(codeLanguage)
+        code = prepend_with_setup_code(
+            get_section_code(p, sid),
+            codeLanguage,
+            folder_path,
+            p["projectConfig"]["name"],
+        )
         filepath = write_string_to_file(
             folder_path, f"{curr_section['name']}{extension}", code
         )
@@ -225,9 +248,6 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         filepath = id_to_filepath[sid]
         callingProgram = languageToCall(code_sections[sid]["codeLanguage"])
         command = f"{callingProgram} {filepath}"
-
-    env_variable_str = create_env_variable_str(folder_path, p["projectConfig"]["name"])
-    command = f"{env_variable_str}{command}"
 
     if terminal_write_fn:
         terminal_write_fn(f"\x15{command}\n")
@@ -303,6 +323,16 @@ def write_string_to_file(folder, filename, content):
     return file_path
 
 
-def create_env_variable_str(folder_path, project_config_name):
-    location = f"/{project_config_name}"
-    return f"{CODE_FOLDER_ENV_VARIABLE}={folder_path} {SEND_ARTIFACT_TO_ENV_VARIABLE}={location} "
+def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name):
+    if codeLanguage == "python":
+        location = f"/{project_config_name}"
+        setup_code = (
+            "import sys\n"
+            "import os\n"
+            "from pathlib import Path\n"
+            "sys.path.append(str(Path(__file__).parent.parent.parent))\n"
+            f"os.environ['{SEND_ARTIFACT_TO_ENV_VARIABLE}'] = '{location}'\n"
+            f"os.environ['{CODE_FOLDER_ENV_VARIABLE}'] = '{folder_path}'\n"
+        )
+        code = setup_code + code
+    return code
