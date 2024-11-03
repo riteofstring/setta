@@ -35,10 +35,8 @@ function useSetHTMLTitle() {
       document.title = "Home";
     } else if (pathname === SETTINGS_ROUTER_PATH) {
       document.title = "Settings";
-    } else if (projectConfigName) {
-      document.title = projectConfigName;
     } else {
-      document.title = "setta.dev";
+      document.title = projectConfigName;
     }
   }, [pathname, projectConfigName]);
 }

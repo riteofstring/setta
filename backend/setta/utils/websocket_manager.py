@@ -1,7 +1,6 @@
 import json
 
 from fastapi import WebSocket
-from websockets.exceptions import ConnectionClosedError
 
 from setta.tasks.fns.utils import TaskMessage
 from setta.utils.constants import C
@@ -30,11 +29,8 @@ class WebsocketManager:
         return id
 
     async def disconnect(self, id):
-        try:
-            del self.sockets[id]
-            await self.broadcast_connections()
-        except ConnectionClosedError:
-            pass
+        del self.sockets[id]
+        await self.broadcast_connections()
 
     async def send_message(self, message, fromWebsocketId):
         if "toWebsocketId" in message:

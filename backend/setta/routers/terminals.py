@@ -15,44 +15,39 @@ router = APIRouter()
 
 
 class DeleteTerminalsRequest(BaseModel):
-    sectionIds: List[str]
+    ids: List[str]
 
 
 @router.websocket(C.ROUTE_TERMINAL)
 async def terminal_websocket_endpoint(
     websocket: WebSocket,
     projectConfigId: str,
-    sectionId: str,
     id: str,
-    isTemporary: bool,
     terminal_websockets=Depends(get_terminal_websockets_from_websocket),
 ):
-    # First check if terminal exists
-    isNew = terminal_websockets.new_terminal(projectConfigId, sectionId, isTemporary)
-
-    # Start the background task for terminal handling
-    async def handle_terminal():
-        read_task = terminal_websockets.loop.create_task(
-            terminal_websockets.read_from_terminal(sectionId)
-        )
-        await read_task
-        # terminal_websockets.delete_terminals([sectionId])
-
-    # Create the background task
-    if isNew:
-        terminal_websockets.loop.create_task(handle_terminal())
-
-    await terminal_websockets.connect(websocket, sectionId, id)
+    await terminal_websockets.connect(websocket, projectConfigId, id)
     try:
+        # Start reading from and writing to the terminal
+        read_task = terminal_websockets.loop.create_task(
+            terminal_websockets.read_from_terminal(id)
+        )
         write_task = terminal_websockets.loop.create_task(
-            terminal_websockets.write_to_terminal(websocket, sectionId)
+            terminal_websockets.write_to_terminal(websocket, id)
         )
 
-        await write_task
+        # Wait for either task to complete
+        _, pending = await asyncio.wait(
+            [read_task, write_task], return_when=asyncio.FIRST_COMPLETED
+        )
+
+        # Cancel the remaining tasks
+        for task in pending:
+            task.cancel()
+            await task  # Ensure task is properly cancelled
     finally:
         # Cleanup
         print("terminal_websocket_endpoint disconnect", id, flush=True)
-        terminal_websockets.disconnect(sectionId, id)
+        terminal_websockets.disconnect(websocket, id)
 
 
 @router.post(C.ROUTE_GET_FREE_TERMINAL)
@@ -61,16 +56,3 @@ def route_terminal_get_free_terminal(
 ):
     return terminal_websockets.get_free_terminal(projectConfigId)
 
-
-@router.post(C.ROUTE_DELETE_TERMINALS)
-def route_terminal_delete_terminals(
-    x: DeleteTerminalsRequest, terminal_websockets=Depends(get_terminal_websockets)
-):
-    terminal_websockets.delete_terminals(x.sectionIds)
-
-
-@router.post(C.ROUTE_GET_EXISTING_TERMINALS)
-def route_terminal_get_existing_terminals(
-    projectConfigId, terminal_websockets=Depends(get_terminal_websockets)
-):
-    return terminal_websockets.get_existing_terminals(projectConfigId)

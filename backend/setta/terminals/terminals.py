@@ -1,10 +1,8 @@
 import asyncio
 import copy
-import errno
 import json
 import os
 import platform
-import select
 import time
 import traceback
 from asyncio import CancelledError
@@ -13,7 +11,6 @@ from datetime import datetime
 
 import psutil
 from fastapi import WebSocketDisconnect
-from websockets.exceptions import ConnectionClosedOK
 
 from setta.code_gen.export_selected import (
     export_selected,
@@ -34,14 +31,10 @@ from setta.utils.constants import (
     CODE_FOLDER,
     CODE_FOLDER_ENV_VARIABLE,
     SEND_ARTIFACT_TO_ENV_VARIABLE,
-    USER_SETTINGS,
     C,
 )
 
-SETTA_CLEAR_CMD = "SETTA_CLEAR_CMD"
-IS_WINDOWS = platform.system() == "Windows"
-
-if IS_WINDOWS:
+if platform.system() == "Windows":
     from winpty import PtyProcess
 
     from .utils import windows_has_child_processes as has_child_processes
@@ -64,163 +57,100 @@ def is_command_running_in_pty(pid):
 
 class TerminalWebsockets:
     def __init__(self):
-        self.section_to_socket_ids = defaultdict(set)
-        self.sockets = {}
+        self.sockets = defaultdict(list)
         self.PTY_PIDS = {}
         self.loop = asyncio.get_event_loop()
 
-    def new_terminal(self, projectConfigId, sectionId, isTemporary):
-        if sectionId not in self.PTY_PIDS:
+    async def connect(self, websocket, projectConfigId, id):
+        await websocket.accept()
+        self.sockets[id].append(websocket)
+        if id not in self.PTY_PIDS:
             pty_process = PtyProcess.spawn(TERMINAL_NAME)
-            self.PTY_PIDS[sectionId] = {
+            self.PTY_PIDS[id] = {
                 "pid": pty_process.pid,
                 "start": time.time(),
                 "projectConfigId": projectConfigId,
                 "process": pty_process,
                 "history": deque(maxlen=1000),
                 "wasJustResized": False,
-                "terminalPromptIsReady": IS_WINDOWS
-                or not USER_SETTINGS["clearTerminalBeforeMarkingAsReady"],
-                "isTemporary": isTemporary,
             }
-            pty_info = self.PTY_PIDS[sectionId]
-            print("created new pty_process", sectionId, flush=True)
-            if not pty_info["terminalPromptIsReady"]:
-                pty_process.write(
-                    f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
-                )
-            return True
-        return False
+        else:
+            print("sending pty history********", flush=True)
+            await websocket.send_text("".join(self.PTY_PIDS[id]["history"]))
 
-    async def connect(self, websocket, sectionId, id):
-        await websocket.accept()
-        self.sockets[id] = websocket
-        self.section_to_socket_ids[sectionId].add(id)
-        if self.PTY_PIDS[sectionId]["terminalPromptIsReady"]:
-            await websocket.send_text(C.SETTA_TERMINAL_READY)
-            await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
-
-    def disconnect(self, sectionId, id):
-        print("disconnecting", id, flush=True)
-        try:
+    def disconnect(self, websocket, id):
+        self.sockets[id].remove(websocket)
+        if not self.sockets[id]:
             del self.sockets[id]
-        except KeyError:
-            pass
-        self.section_to_socket_ids[sectionId].discard(id)
+            self.delete_terminals([id])
 
-    def delete_terminals(self, sectionIds):
-        print("delete terminals", sectionIds, flush=True)
-        for sid in sectionIds:
-            if sid in self.PTY_PIDS:
-                try:
-                    self.PTY_PIDS[sid]["process"].terminate()
-                    del self.PTY_PIDS[sid]
-                except KeyError:
-                    # this can happen because delete_terminals is called when the task ends and also when a section is deleted
-                    pass
+    def delete_terminals(self, ids):
+        print('delete terminals', ids, flush=True)
+        for id in ids:
+            if id in self.PTY_PIDS:
+                self.PTY_PIDS[id]["process"].terminate()
+                del self.PTY_PIDS[id]
 
-            # make copy to avoid set size changing while iterating
-            to_disconnect = set(self.section_to_socket_ids[sid])
-            for id in to_disconnect:
-                self.disconnect(sid, id)
-
-    async def delete_all_terminals(self):
-        print("delete_all_terminals", flush=True)
-        # Create tasks for all PTY terminations
-        termination_tasks = [
-            terminate_pty_async(pty)
-            for pty in self.PTY_PIDS.values()
-        ]
-        # Run all terminations concurrently
-        await asyncio.gather(*termination_tasks)
+    def delete_all_terminals(self):
+        for t in self.PTY_PIDS.values():
+            t["process"].terminate()
         self.PTY_PIDS = {}
         print("DELETED ALL TERMINALS", flush=True)
 
     # Function to read from the terminal
-    async def read_from_terminal(self, sectionId):
-        pty_info = self.PTY_PIDS[sectionId]
+    async def read_from_terminal(self, id):
+        pty_info = self.PTY_PIDS[id]
         pty_process = pty_info["process"]
         history = pty_info["history"]
-        initial_buffer = ""
         while True:
-            # print("read_from_terminal while loop", flush=True)
             try:
-                output, _, _ = await self.loop.run_in_executor(
-                    None,
-                    select.select,
-                    [pty_process.fd],
-                    [],
-                    [],
-                    None,  # timeout of 0 makes this non-blocking
-                )
+                output = await self.loop.run_in_executor(None, pty_process.read, 1024)
                 if not output:
-                    continue
-                output = pty_process.read(1024)
-                if not pty_info["terminalPromptIsReady"]:
-                    initial_buffer += output
-                    # We wait for the SETTA_CLEAR_CMD string to appear four times
-                    # before we consider the terminal ready.
-                    # This is just to make the terminal look less cluttered and annoying on the frontend.
-                    if initial_buffer.count(SETTA_CLEAR_CMD) >= 4:
-                        pty_info["terminalPromptIsReady"] = True
-                        await self.send_output_to_sectionId(
-                            sectionId, C.SETTA_TERMINAL_READY
-                        )
-                    continue
-                if not pty_info["wasJustResized"]:
-                    history.append(output)
-                pty_info["wasJustResized"] = False
-                await self.send_output_to_sectionId(sectionId, output)
-            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
-                break
-            except EOFError:
-                print(f"Terminal EOF for section {sectionId}")
-                break
-            except OSError as e:
-                if e.errno == errno.EIO:  # Input/output error
-                    print(
-                        f"Terminal I/O error for section {sectionId}: {e}", flush=True
-                    )
                     break
+                for ws in self.sockets[id]:
+                    if not pty_info["wasJustResized"]:
+                        history.append(output)
+                    pty_info["wasJustResized"] = False
+                    await ws.send_text(output)
+            except (WebSocketDisconnect, CancelledError):
+                break
             except Exception as e:
+                if isinstance(e, RuntimeError) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(e):
+                    # this happens when write_to_terminal catches the websocket disconnect
+                    break
                 print(f"Exception details:\n{traceback.format_exc()}")
                 print(e, flush=True)
                 print("read_from_terminal caught the exception!", flush=True)
 
     # Function to write to the terminal
-    async def write_to_terminal(self, websocket, sectionId):
-        pty_info = self.PTY_PIDS[sectionId]
+    async def write_to_terminal(self, websocket, id):
+        pty_info = self.PTY_PIDS[id]
         pty_process = pty_info["process"]
         while True:
-            # print("write_to_terminal while loop", flush=True)
             try:
                 input_data = await websocket.receive_text()
-                print("input_data", input_data, flush=True)
                 try:
                     json_val = json.loads(input_data)
                 except json.decoder.JSONDecodeError:
                     json_val = None
                 if isinstance(json_val, dict):
-                    doResize = json_val["messageType"] == C.WS_TERMINAL_RESIZE
+                    doResize = json_val["messageType"] == "resize"
                     if doResize:
                         pty_process.setwinsize(json_val["rows"], json_val["cols"])
                     elif json_val["messageType"] == C.WS_RUN_CODE:
                         runCode(json_val, terminal_write_fn=pty_process.write)
-                        self.set_terminal_start_time(sectionId)
+                        self.set_terminal_start_time(id)
                     pty_info["wasJustResized"] = doResize
                     continue
                 elif input_data:
                     pty_process.write(input_data)
-                    self.set_terminal_start_time(sectionId)
-            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
+                    self.set_terminal_start_time(id)
+            except (WebSocketDisconnect, CancelledError):
                 break
-            except OSError as e:
-                if e.errno == errno.EIO:  # Input/output error
-                    print(
-                        f"Terminal I/O error for section {sectionId}: {e}", flush=True
-                    )
-                    break
             except Exception as e:
+                if isinstance(e, RuntimeError) and "Unexpected ASGI message 'websocket.send', after sending 'websocket.close'" in str(e):
+                    # this happens when read_from_terminal catches the websocket disconnect
+                    break
                 print(f"Exception details:\n{traceback.format_exc()}")
                 print(e, flush=True)
                 print("write_to_terminal caught the exception!", flush=True)
@@ -229,7 +159,7 @@ class TerminalWebsockets:
         self.PTY_PIDS[id]["start"] = time.time()
 
     def get_free_terminal(self, projectConfigId):
-        for k, v in self.PTY_PIDS.items():
+        for k, v in self.PTY_PIDS.copy().items():
             if (
                 v["projectConfigId"] == projectConfigId
                 and not is_command_running_in_pty(v["pid"])
@@ -237,18 +167,6 @@ class TerminalWebsockets:
             ):
                 return k
         return None
-
-    def get_existing_terminals(self, projectConfigId):
-        output = []
-        for k, v in self.PTY_PIDS.items():
-            if v["projectConfigId"] == projectConfigId:
-                output.append({"id": k, "isTemporary": v["isTemporary"]})
-        return output
-
-    async def send_output_to_sectionId(self, sectionId, output):
-        for wsId in self.section_to_socket_ids[sectionId]:
-            ws = self.sockets[wsId]
-            await ws.send_text(output)
 
 
 def runCode(message, terminal_write_fn=None, command_callback=None):
@@ -418,20 +336,3 @@ def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name
         )
         code = setup_code + code
     return code
-
-
-
-async def terminate_pty_async(pty: PtyProcess) -> None:
-    """
-    Asynchronously terminate a PTY process.
-    Uses a thread pool to avoid blocking the event loop.
-    """
-    def _terminate():
-        try:
-            pty.terminate(force=True)
-        except Exception as e:
-            print(f"Error terminating PTY: {e}")
-
-    # Run the termination in a thread pool to avoid blocking
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _terminate)

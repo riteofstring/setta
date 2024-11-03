@@ -9,7 +9,7 @@ import { sendMessage } from "requests/websocket";
 import { useWebsocketConnectionList } from "state/definitions";
 import {
   addTerminalInitialMessage,
-  sendTerminalMessage,
+  TERMINAL_WEBSOCKETS,
 } from "state/hooks/terminal";
 import { createNewId } from "utils/idNameCreation";
 import { addSectionInEmptySpace } from "../sections/createSections";
@@ -43,16 +43,16 @@ export async function runCode() {
     }
     const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
     if (res.status === 200) {
-      const freeTerminalSectionId = res.data;
+      const freeTerminalId = res.data;
       message = JSON.stringify(message);
-      if (freeTerminalSectionId) {
-        sendTerminalMessage(freeTerminalSectionId, message);
+      if (freeTerminalId) {
+        TERMINAL_WEBSOCKETS[freeTerminalId].send(message);
       } else {
         const id = createNewId();
         addTerminalInitialMessage(id, message);
         addSectionInEmptySpace({
           type: C.TERMINAL,
-          inputSectionProps: { id, isTemporary: true },
+          inputSectionProps: { id },
           positionOffset: { x: count * 100, y: 0 },
         });
       }

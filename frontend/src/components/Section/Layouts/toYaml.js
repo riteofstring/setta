@@ -98,8 +98,10 @@ function processValue(value) {
 
 function processObject(obj) {
   const result = {};
-  for (const key of Object.keys(obj)) {
-    result[key] = processValue(obj[key]);
+  for (const key in obj) {
+    if (Object.hasOwn(obj, key)) {
+      result[key] = processValue(obj[key]);
+    }
   }
   return result;
 }
@@ -349,8 +351,10 @@ function unprocessValue(value) {
 
 function unprocessObject(obj) {
   const result = {};
-  for (const key of Object.keys(obj)) {
-    result[key] = unprocessValue(obj[key]);
+  for (const key in obj) {
+    if (Object.hasOwn(obj, key)) {
+      result[key] = unprocessValue(obj[key]);
+    }
   }
   return result;
 }
