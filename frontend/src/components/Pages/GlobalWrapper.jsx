@@ -10,7 +10,7 @@ import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
   useSetHTMLTitle();
-  // useFloatingBoxNextToMouseCursor();
+  useFloatingBoxNextToMouseCursor();
   const settingsLoaded = useLoadSettings();
   return settingsLoaded && children;
 }
