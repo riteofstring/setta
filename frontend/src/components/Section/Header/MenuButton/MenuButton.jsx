@@ -5,7 +5,6 @@ import { useIsListElement } from "state/hooks/uiTypes";
 import { HeaderIcon } from "../HeaderIcon";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
-import { FreezeButton } from "./FreezeButton";
 import { HideShowParamsButton } from "./HideShowParamsButton";
 import { HideShowSearchButton } from "./HideShowSearchButton";
 import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
@@ -15,18 +14,9 @@ import { ShowMarkdown } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
 
 function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
-  const isSpecial = [
-    C.CODE,
-    C.TERMINAL,
-    C.GLOBAL_PARAM_SWEEP,
-    C.GLOBAL_VARIABLES,
-    C.PARAM_SWEEP,
-  ].includes(sectionTypeName);
-
   return (
     <Menubar.Root>
       <CardHeaderMenuButton
-        triggerStyle={`${isSpecial ? "" : "h-3 w-3 text-setta-600 hover:text-white"} `}
         trigger={
           <HeaderIcon
             sectionId={sectionId}
@@ -84,12 +74,7 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
 
 export default MenuButton;
 
-function CardHeaderMenuButton({
-  children,
-  trigger,
-  triggerClassName,
-  sectionId,
-}) {
+function CardHeaderMenuButton({ children, trigger, sectionId }) {
   const isListElement = useIsListElement(sectionId);
 
   return (
