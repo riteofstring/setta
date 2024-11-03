@@ -360,7 +360,7 @@ export function DrawOnImage({ sectionId }) {
     <>
       <div className="section-search section-w-full z-10  flex flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
         <ColorPicker sectionId={sectionId} color={color} setColor={setColor} />
-        <div className="flex">
+        <div className="flex self-stretch">
           <button
             className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${!isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
             onClick={() => {
@@ -391,7 +391,7 @@ export function DrawOnImage({ sectionId }) {
             header={"Brush Settings"}
           />
         </div>
-        <div className="flex">
+        <div className="flex self-stretch">
           <button
             className={`flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
             onClick={() => {
@@ -504,27 +504,32 @@ function ColorPickerFromColorChoices({ color, setColor, colorChoices }) {
 
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger className="inline-flex items-center rounded bg-gray-200 px-4 py-2">
-        <div className="flex items-center">
+      <DropdownMenu.Trigger className="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 py-1 dark:bg-setta-850 dark:hover:bg-setta-900">
+        <div className="flex items-center text-setta-500 dark:text-setta-400">
           <div
-            className="mr-2 h-4 w-4"
+            className="mr-2 h-4 w-4 rounded-full"
             style={{ backgroundColor: selectedItem.color }}
-          ></div>
-          <span>{selectedItem.description}</span>
+          />
+          <p className="max-w-24 truncate text-xs font-black">
+            {selectedItem.description}
+          </p>
+          <i className="gg-chevron-down -mr-1 self-end" />
         </div>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content className="rounded bg-white p-2 shadow-md">
+      <DropdownMenu.Content className="flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800">
         {colorChoices.map((item, index) => (
           <DropdownMenu.Item
             key={index}
-            className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100"
+            className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700"
             onSelect={() => setColor(item.color)}
           >
             <div
-              className="mr-2 h-4 w-4"
+              className="mr-2 h-4 w-4 rounded-full"
               style={{ backgroundColor: item.color }}
-            ></div>
-            <span>{item.description}</span>
+            />
+            <p className="max-w-48 truncate text-xs text-setta-500 dark:text-setta-300">
+              {item.description}
+            </p>
           </DropdownMenu.Item>
         ))}
       </DropdownMenu.Content>
