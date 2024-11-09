@@ -23,9 +23,6 @@ function useUITypeCol(sectionId, paramInfoId, key) {
   return useUITypeCols((x) => {
     if (paramInfoId.startsWith(C.JSON_SOURCE_PREFIX)) {
       if (key === "uiTypeId") {
-        if (paramInfoId in x.y[uiTypeColId]) {
-          return x.y[uiTypeColId][paramInfoId][key];
-        }
         return BASE_UI_TYPE_IDS[C.TEXT];
       } else if (key === "nonPresetUITypeIds") {
         return [];

@@ -15,7 +15,11 @@ import {
   toggleRunGroupSectionVersion,
 } from "state/actions/runGroups/runGroups";
 import { setSectionVariantAttr } from "state/actions/sectionVariants";
-import { useProjectConfig, useRunGroups } from "state/definitions";
+import {
+  useProjectConfig,
+  useRunGroups,
+  useSectionInfos,
+} from "state/definitions";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useGetSectionInfo } from "state/hooks/sections";
@@ -25,7 +29,7 @@ import { createNewId, createRandomName } from "utils/idNameCreation";
 export function GlobalParamSweepArea({ sectionId }) {
   const showYaml = useGetSectionInfo(sectionId, "showYaml");
   return !showYaml ? (
-    <GlobalParamSweepGUI />
+    <GlobalParamSweepGUI sectionId={sectionId} />
   ) : (
     <GlobalParamSweepCode sectionId={sectionId} />
   );
@@ -54,12 +58,16 @@ function GlobalParamSweepCode({ sectionId }) {
   );
 }
 
-function GlobalParamSweepGUI() {
+function GlobalParamSweepGUI({ sectionId }) {
   const runGroups = useRunGroups((x) => x.x);
   const shownRunGroup = useProjectConfig((x) => x.shownRunGroup);
   const [previewRunGroup, setPreviewRunGroup] = useState(null);
   const toShow = previewRunGroup ?? shownRunGroup;
   const firstRunGroupId = Object.keys(runGroups)[0];
+  const width = useSectionInfos((x) => {
+    const w = x.x[sectionId].size.width;
+    return w === "auto" ? getSectionRect(sectionId).width : w;
+  });
 
   useEffect(() => {
     if (!shownRunGroup && firstRunGroupId) {
@@ -69,7 +77,9 @@ function GlobalParamSweepGUI() {
 
   return (
     <>
-      <section className="section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll @sm/multipane:flex-row  @sm/multipane:overflow-visible">
+      <section
+        className={`${width < 386 ? "nowheel" : ""} section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll  @sm/multipane:flex-row  @sm/multipane:overflow-visible`}
+      >
         <article className="mt-2 flex flex-col gap-2 ">
           <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
             Run Groups

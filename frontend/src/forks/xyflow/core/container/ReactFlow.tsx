@@ -15,7 +15,7 @@ const wrapperStyle: CSSProperties = {
 
 const ReactFlow = () => {
   const [snapToGrid] = localStorageFns.snapToGrid.hook();
-
+  
   return (
     <div
       style={wrapperStyle}
