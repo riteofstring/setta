@@ -56,7 +56,7 @@ export const FloatingBox = () => {
     box.style.transform = `translate(${x}px, ${y}px)`;
   }, [isEnabled, position]);
 
-  if (!isEnabled || !content || !mouseMoved) return null;
+  if (!isEnabled || !(content || title) || !mouseMoved) return null;
 
   return (
     <div
@@ -74,7 +74,7 @@ export const FloatingBox = () => {
       <article className="flex-1 overflow-y-auto break-words text-sm text-setta-700 dark:text-setta-300">
         {content}
       </article>
-      <Footer isFrozen={isFrozen} />
+      {!!content && <Footer isFrozen={isFrozen} />}
     </div>
   );
 };
@@ -119,7 +119,7 @@ function Footer({ isFrozen }) {
 
 export function getFloatingBoxHandlers(content, title) {
   function onMouseOver() {
-    if (content && !useFloatingBox.getState().isFrozen) {
+    if ((content || title) && !useFloatingBox.getState().isFrozen) {
       useFloatingBox.setState({ content, title });
     }
   }
