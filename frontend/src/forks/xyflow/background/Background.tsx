@@ -1,6 +1,7 @@
 import cc from "classcat";
 import _ from "lodash";
 import { memo, useRef } from "react";
+import { useSettings } from "state/definitions";
 import { useReactFlow } from "../core/store";
 import { DotPattern, LinePattern } from "./Patterns";
 import { BackgroundProps, BackgroundVariant } from "./types";
@@ -17,30 +18,24 @@ const defaultSize = {
   [BackgroundVariant.Cross]: 6,
 };
 
-const selector = (s: ReactFlowState) => ({
-  transform: s.transform,
-});
-
 function Background({
   id,
-  variant = BackgroundVariant.Dots,
-  // only used for dots and cross
-  gap = 20,
   // only used for lines and cross
   size,
   lineWidth = 1,
   offset = 2,
-  color,
   style,
   className,
 }: BackgroundProps) {
+  const color = "#ccc";
+  const variant = BackgroundVariant.Lines;
   const ref = useRef<SVGSVGElement>(null);
   const transform = useReactFlow((x) => x.transform, _.isEqual);
   const patternColor = color || defaultColor[variant];
   const patternSize = size || defaultSize[variant];
   const isDots = variant === BackgroundVariant.Dots;
   const isCross = variant === BackgroundVariant.Cross;
-  const gapXY: [number, number] = Array.isArray(gap) ? gap : [gap, gap];
+  const gapXY: [number, number] = useSettings((x) => x.snapGrid);
   const scaledGap: [number, number] = [
     gapXY[0] * transform[2] || 1,
     gapXY[1] * transform[2] || 1,
