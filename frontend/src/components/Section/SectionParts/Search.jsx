@@ -138,10 +138,13 @@ function SectionSearchCore({
 
   function onEscape(view) {
     view.contentDOM.blur();
+    setValue(codeInfoName);
   }
 
-  function onBlur() {
-    setValue(codeInfoName);
+  function onTab(completionResult) {
+    if (!completionResult && value) {
+      onEnter(value);
+    }
   }
 
   function onChange(value) {
@@ -172,8 +175,8 @@ function SectionSearchCore({
         realCodeClassName={realCodeClassName}
         singleLine={true}
         onEnter={_onEnter}
+        onTab={onTab}
         onEscape={onEscape}
-        onBlur={onBlur}
         language={configLanguage}
         keywordPositions={localKeywordPositions}
         setKeywordPositions={setLocalKeywordPositions}
