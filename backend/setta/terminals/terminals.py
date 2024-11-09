@@ -94,10 +94,10 @@ class TerminalWebsockets:
                 "terminalPromptIsReady": asyncio.Event(),
                 "isTemporary": isTemporary,
             }
+            pty_info = self.PTY_PIDS[sectionId]
             if IS_WINDOWS or not USER_SETTINGS["clearTerminalBeforeMarkingAsReady"]:
                 pty_info["terminalPromptIsReady"].set()
 
-            pty_info = self.PTY_PIDS[sectionId]
             print("created new pty_process", sectionId, flush=True)
             if not pty_info["terminalPromptIsReady"].is_set():
                 pty_process.write(
