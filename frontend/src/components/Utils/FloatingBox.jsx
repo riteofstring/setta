@@ -95,13 +95,17 @@ export function getFloatingBoxHandlers(content, title) {
   return { onMouseOver, onMouseLeave };
 }
 
-export function enableFloatingBox(event) {
-  if (
+function isInput(event) {
+  return (
     event.target instanceof HTMLInputElement ||
     event.target instanceof HTMLTextAreaElement ||
     event.target instanceof HTMLSelectElement ||
     event.target.isContentEditable
-  ) {
+  );
+}
+
+export function enableFloatingBox(event) {
+  if (isInput(event)) {
     return;
   }
   useFloatingBox.setState({ isEnabled: true });
@@ -111,9 +115,12 @@ export function disableFloatingBox() {
   useFloatingBox.setState({ isEnabled: false });
 }
 
-export function convertFloatingBoxToSection() {
+export function convertFloatingBoxToSection(event) {
+  if (isInput(event)) {
+    return;
+  }
   const s = useFloatingBox.getState();
-  if (s.isEnabled && s.content) {
+  if (s.content) {
     const content = s.title ? `## ${s.title}\n\n${s.content}` : s.content;
     addSectionInEmptySpace({
       type: C.INFO,

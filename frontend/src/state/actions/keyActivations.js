@@ -24,6 +24,8 @@ import { groupSections } from "./sections/groupSections";
 import { focusOnArgsFilter } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
 
+let keysPressed = new Set();
+
 function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {
   attachTo.addEventListener(eventName, action);
 
@@ -41,66 +43,76 @@ function attachKeyUpListener(action) {
   return attachEventListenerAndReturnCleanup(document, "keyup", action);
 }
 
-function shouldAddKeyPrefix(key) {
-  return ![
-    undefined,
-    "escape",
-    "enter",
-    "space",
-    "comma",
-    "period",
-    "tab",
-  ].includes(key);
-}
+const specialEventKeyToEventCode = {
+  ".": "Period",
+  ",": "Comma",
+  "/": "Slash",
+  "\\": "Backslash",
+  "'": "Quote",
+  ";": "Semicolon",
+  "[": "BracketLeft",
+  "]": "BracketRight",
+  "-": "Minus",
+  "=": "Equal",
+  "`": "Backquote",
+};
+
+const modifierKeyCodes = new Set([
+  "MetaLeft",
+  "MetaRight",
+  "ControlLeft",
+  "ControlRight",
+  "AltLeft",
+  "AltRight",
+  "ShiftLeft",
+  "ShiftRight",
+]);
 
 // shortcutString is a lowercase string.
 function parseShortcut(shortcutString) {
-  const parts = shortcutString.split("+").map((part) => part.trim());
-  let key = parts.find(
-    (part) => !["ctrl", "shift", "alt", "mod"].includes(part),
+  const parts = shortcutString.split("+").map((x) => x.trim());
+
+  let keys = parts.filter((x) => !["ctrl", "shift", "alt", "mod"].includes(x));
+
+  keys = new Set(
+    keys.map((part) => {
+      const x = part.trim();
+      if (/^[a-zA-Z]$/.test(x)) {
+        return `Key${x.toUpperCase()}`;
+      }
+      if (/^[0-9]$/.test(x)) {
+        return `Digit${x}`;
+      }
+      const special = specialEventKeyToEventCode[x];
+      return special ?? x;
+    }),
   );
-  if (shouldAddKeyPrefix(key)) {
-    key = `key${key}`;
-  }
 
   return {
     mod: parts.includes("mod"),
     ctrl: parts.includes("ctrl"),
     shift: parts.includes("shift"),
     alt: parts.includes("alt"),
-    key,
+    keys,
   };
 }
 
-const considerAsUndefined = new Set([
-  "ControlLeft",
-  "ControlRight",
-  "AltLeft",
-  "AltRight",
-  "MetaLeft",
-  "MetaRight",
-  "ShiftLeft",
-  "ShiftRight",
-]);
-
-function isShortcutPressed(event, shortcut, _isMacOs) {
-  const { mod, ctrl, shift, alt, key } = shortcut;
+function isShortcutPressed(e, shortcut, _isMacOs) {
+  const { mod, ctrl, shift, alt, keys } = shortcut;
   if (_isMacOs) {
     return (
-      event.metaKey === mod &&
-      event.ctrlKey === ctrl &&
-      event.shiftKey === shift &&
-      event.altKey === alt &&
-      ((key === undefined && considerAsUndefined.has(event.code)) ||
-        key === event.code.toLowerCase())
+      e.metaKey === mod &&
+      e.ctrlKey === ctrl &&
+      e.shiftKey === shift &&
+      e.altKey === alt &&
+      _.isEqual(keysPressed, keys)
     );
   } else {
     return (
-      event.ctrlKey === (ctrl || mod) &&
-      event.shiftKey === shift &&
-      event.altKey === alt &&
-      ((key === undefined && considerAsUndefined.has(event.code)) ||
-        key === event.code.toLowerCase())
+      e.ctrlKey === (ctrl || mod) &&
+      e.shiftKey === shift &&
+      e.altKey === alt &&
+      _.isEqual(keysPressed, keys)
     );
   }
 }
@@ -146,8 +158,8 @@ export function attachKeyEventListeners() {
   const conditionAndAction = [
     ["tab", tabFromDocumentBody],
     ["shift + tab", tabFromDocumentBody],
-    [settings.tooltipToSectionShortcut, convertFloatingBoxToSection],
     [settings.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
+    [settings.tooltipToSectionShortcut, convertFloatingBoxToSection],
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
     [settings.groupShortcut, groupSections],
@@ -213,11 +225,12 @@ export function attachKeyEventListeners() {
       allowRepeat,
     });
   }
-
   let cleanup = attachKeyDownListener((e) => {
+    if (!modifierKeyCodes.has(e.code)) {
+      keysPressed.add(e.code);
+    }
     for (const x of shortcutInfo) {
-      const isPressed = isShortcutPressed(e, x.parsedShortcut, _isMacOs);
-      if (isPressed) {
+      if (isShortcutPressed(e, x.parsedShortcut, _isMacOs)) {
         if (x.shouldPreventDefault) {
           e.preventDefault();
         }
@@ -235,11 +248,18 @@ export function attachKeyEventListeners() {
   cleanup_functions.push(cleanup);
 
   cleanup = attachKeyUpListener((e) => {
+    if (_isMacOs && e.key === "Meta") {
+      // special case because on mac, meta key causes the other pressed keys to not trigger keyup
+      keysPressed = new Set();
+    } else {
+      keysPressed.delete(e.code);
+    }
     keyUpLoop(e, shortcutInfo);
   });
   cleanup_functions.push(cleanup);
 
   cleanup = attachEventListenerAndReturnCleanup(window, "blur", (e) => {
+    keysPressed = new Set();
     keyUpLoop(e, shortcutInfo);
   });
   cleanup_functions.push(cleanup);
