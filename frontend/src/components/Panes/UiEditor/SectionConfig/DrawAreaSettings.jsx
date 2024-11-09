@@ -85,7 +85,7 @@ const AvailableColors = ({ sectionId }) => {
                 type="color"
                 value={color}
                 onChange={(e) => updateColor(idx, e.target.value)}
-                className="min-h-8 min-w-8 cursor-pointer rounded-full p-0"
+                className="min-h-8 min-w-8 cursor-pointer rounded-full !border !border-solid !border-setta-500/30 p-0"
               />
               <input
                 type="text"

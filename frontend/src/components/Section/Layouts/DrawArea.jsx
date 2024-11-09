@@ -491,7 +491,7 @@ function ColorPicker({ sectionId, color, setColor }) {
       type="color"
       value={color}
       onChange={(e) => setColor(e.target.value)}
-      className="min-h-4 min-w-4 cursor-pointer"
+      className="min-h-4 min-w-4 cursor-pointer !border !border-solid !border-setta-500/30"
     />
   );
 }
@@ -507,7 +507,7 @@ function ColorPickerFromColorChoices({ color, setColor, colorChoices }) {
       <DropdownMenu.Trigger className="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 py-1 dark:bg-setta-850 dark:hover:bg-setta-900">
         <div className="flex items-center text-setta-500 dark:text-setta-400">
           <div
-            className="mr-2 h-4 w-4 rounded-full"
+            className="mr-2 h-4 w-4 rounded-full border border-solid border-setta-500/30"
             style={{ backgroundColor: selectedItem.color }}
           />
           <p className="max-w-24 truncate text-xs font-black">
@@ -520,7 +520,7 @@ function ColorPickerFromColorChoices({ color, setColor, colorChoices }) {
         {colorChoices.map((item, index) => (
           <DropdownMenu.Item
             key={index}
-            className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700"
+            className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 focus-visible:!border-0 focus-visible:outline-0 focus-visible:ring-1 dark:hover:bg-setta-700"
             onSelect={() => setColor(item.color)}
           >
             <div
@@ -606,7 +606,7 @@ function BrushSettings({
       </p>
       <div className="flex gap-1">
         <button
-          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"}  p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50  focus-visible:ring-1 dark:hover:bg-setta-900/50`}
           onClick={() => setBrushShape("round")}
         >
           <i className="gg-shape-circle" />
