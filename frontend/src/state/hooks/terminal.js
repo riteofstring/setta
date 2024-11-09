@@ -27,7 +27,7 @@ import "xterm/css/xterm.css";
 export const TERMINAL_WEBSOCKETS = {};
 export const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
 
-export function useTerminal({ sectionId, width, height }) {
+export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
   const terminalRef = useRef(null); // Ref for the terminal container
   const fitAddon = useFitAddon();
 
@@ -56,6 +56,10 @@ export function useTerminal({ sectionId, width, height }) {
       } else {
         addTerminalInitialMessage(sectionId, message);
       }
+    });
+
+    terminal.onRender(() => {
+      setHasScrollbar(terminal.buffer.active.baseY > 0);
     });
 
     function onInitialMessage(message) {
