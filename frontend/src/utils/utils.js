@@ -66,3 +66,11 @@ export async function getImageDimensionsFromBase64(base64String) {
 export function isFromJSONSource(id) {
   return id.startsWith(C.JSON_SOURCE_PREFIX);
 }
+
+export function tryParseJSON(x) {
+  try {
+    return JSON.parse(x);
+  } catch {
+    return x;
+  }
+}

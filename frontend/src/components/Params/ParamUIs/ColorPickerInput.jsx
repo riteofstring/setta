@@ -1,4 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { tryParseJSON } from "utils/utils";
 
 export function ColorPickerInputConfig({ onChange, config }) {
   const colors = config.colorChoices ?? [];
@@ -94,18 +95,19 @@ export function ColorPickerInput({
   onChange,
   wrapperClassName,
 }) {
+  const _value = tryParseJSON(value);
   return wrapperClassName ? (
     <div className={wrapperClassName}>
       <ColorPicker
         colorChoices={colorChoices}
-        value={value}
+        value={_value}
         onChange={onChange}
       />
     </div>
   ) : (
     <ColorPicker
       colorChoices={colorChoices}
-      value={value}
+      value={_value}
       onChange={onChange}
     />
   );
