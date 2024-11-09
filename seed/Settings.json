@@ -17,7 +17,6 @@
   "movingFreeShortcut": "Alt",
   "showTooltipShortcut": "Q",
   "tooltipToSectionShortcut": "S",
-  "freezeTooltipShortcut": "F",
   "updateInteractiveCode": "Mod + Enter",
   "paramSelect": "Mod + Shift",
   "formatCode": "Shift + Alt + F",
