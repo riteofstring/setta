@@ -140,11 +140,16 @@ export function getSectionIdToChildren(sectionVariantState) {
   const output = {};
   const s = useSectionInfos.getState().x;
   for (const [variantId, variantInfo] of Object.entries(sectionVariantState)) {
-    const sInfo = _.find(s, (obj) => obj.variantId === variantId);
+    const sInfo = _.find(s, (obj) =>
+      obj.previewVariantId
+        ? obj.previewVariantId === variantId
+        : obj.variantId === variantId,
+    );
     if (sInfo) {
       output[sInfo.id] = variantInfo.children;
     }
   }
+  console.log("output", output)
   return output;
 }
 
