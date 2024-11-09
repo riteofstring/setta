@@ -65,14 +65,20 @@ export const AvailableColors = ({
                 type="color"
                 value={color}
                 onChange={(e) => updateColor(idx, e.target.value)}
-                className="min-h-8 min-w-8 cursor-pointer rounded-full p-0"
+                className="min-h-6 min-w-6 cursor-pointer rounded-full !border !border-solid !border-setta-500/20 p-0 [&::-moz-color-swatch]:rounded 
+                [&::-moz-color-swatch]:border-0 
+                dark:[&::-moz-color-swatch]:border-white/10 
+                [&::-webkit-color-swatch-wrapper]:p-0
+                [&::-webkit-color-swatch]:rounded 
+                [&::-webkit-color-swatch]:border-0
+                dark:[&::-webkit-color-swatch]:border-white/10"
               />
               <input
                 type="text"
                 value={description}
                 onChange={(e) => updateDescription(idx, e.target.value)}
                 placeholder="Add description..."
-                className="m-[2px] w-full truncate rounded border px-2 py-1 text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
+                className="m-[2px] w-full truncate rounded border px-2 py-1 text-xs text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
               />
             </div>
             <button
@@ -126,7 +132,7 @@ function ColorPicker({ colorChoices, value, onChange }) {
       type="color"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="min-h-4 min-w-4 cursor-pointer"
+      className="max-h-4 max-w-4 cursor-pointer !border !border-solid !border-setta-500/20"
     />
   );
 }
