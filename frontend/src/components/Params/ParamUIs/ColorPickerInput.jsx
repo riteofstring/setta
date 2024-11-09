@@ -1,4 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { useState } from "react";
 import { tryParseJSON } from "utils/utils";
 
 export function ColorPickerInputConfig({ onChange, config }) {
@@ -121,13 +122,7 @@ function ColorPicker({ colorChoices, value, onChange }) {
       colorChoices={colorChoices}
     />
   ) : (
-    <input
-      id="colorPicker"
-      type="color"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="min-h-4 min-w-4 cursor-pointer"
-    />
+    <CustomColorPicker />
   );
 }
 
@@ -170,4 +165,125 @@ function ColorPickerFromColorChoices({ color, setColor, colorChoices }) {
       </DropdownMenu.Content>
     </DropdownMenu.Root>
   );
+}
+
+
+export function CustomColorPicker() {
+    const [color, setColor] = useState({ r: 75, g: 94, b: 129 });
+    const [mode, setMode] = useState("RGB"); // Modes: RGB, HSL, HEX
+    const [isPickerVisible, setPickerVisible] = useState(false); // Toggle visibility
+
+    const toHSL = ({ r, g, b }) => {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+        if(max === min) h = s = 0;
+        else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch(max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+    };
+
+    const toHex = ({ r, g, b }) => 
+        `#${[r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+
+    const handleInputChange = (e, key) => {
+        const value = parseInt(e.target.value, 10);
+        setColor((prev) => ({ ...prev, [key]: value }));
+    };
+
+    const renderInputs = () => {
+        if (mode === "RGB") {
+            return ["r", "g", "b"].map((key) => (
+                <div key={key} className="flex flex-col items-center">
+                    <label className="uppercase">{key}</label>
+                    <input 
+                        type="number" 
+                        min="0" 
+                        max="255" 
+                        value={color[key]} 
+                        onChange={(e) => handleInputChange(e, key)}
+                        className="border w-12 text-center"
+                    />
+                </div>
+            ));
+        }
+        if (mode === "HSL") {
+            const hsl = toHSL(color);
+            return ["h", "s", "l"].map((key) => (
+                <div key={key} className="flex flex-col items-center">
+                    <label className="uppercase">{key}</label>
+                    <input 
+                        type="number" 
+                        min={key === "h" ? 0 : 0} 
+                        max={key === "h" ? 360 : 100} 
+                        value={hsl[key]} 
+                        readOnly
+                        className="border w-12 text-center bg-gray-100 cursor-not-allowed"
+                    />
+                </div>
+            ));
+        }
+        if (mode === "HEX") {
+            return (
+                <div className="flex flex-col items-center">
+                    <label>HEX</label>
+                    <input 
+                        type="text" 
+                        value={toHex(color)} 
+                        readOnly 
+                        className="border w-24 text-center bg-gray-100 cursor-not-allowed"
+                    />
+                </div>
+            );
+        }
+    };
+
+    return (
+        <div className="relative inline-block">
+            <button 
+                onClick={() => setPickerVisible(!isPickerVisible)}
+                className="px-4 py-2 bg-blue-500 text-white rounded"
+            >
+                Pick Color
+            </button>
+            {isPickerVisible && (
+                <div 
+                    className="absolute mt-2 p-4 bg-white border shadow-lg z-50" 
+                    style={{ width: '250px', top: '100%', left: 0 }}
+                >
+                    <div 
+                        className="w-24 h-24 rounded-full border mb-4"
+                        style={{ backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})` }}
+                    ></div>
+                    
+                    <div className="flex mt-4 gap-2">
+                        {renderInputs()}
+                    </div>
+
+                    <div className="mt-4">
+                        <button 
+                            onClick={() => setMode("RGB")} 
+                            className={`mr-2 px-2 py-1 ${mode === "RGB" ? "bg-blue-500 text-white" : "bg-gray-200"}`}
+                        >RGB</button>
+                        <button 
+                            onClick={() => setMode("HSL")} 
+                            className={`mr-2 px-2 py-1 ${mode === "HSL" ? "bg-blue-500 text-white" : "bg-gray-200"}`}
+                        >HSL</button>
+                        <button 
+                            onClick={() => setMode("HEX")} 
+                            className={`px-2 py-1 ${mode === "HEX" ? "bg-blue-500 text-white" : "bg-gray-200"}`}
+                        >HEX</button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
