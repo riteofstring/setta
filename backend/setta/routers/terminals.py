@@ -42,13 +42,14 @@ async def terminal_websocket_endpoint(
     if isNew:
         terminal_websockets.loop.create_task(handle_terminal())
 
-    await terminal_websockets.connect(websocket, sectionId, id)
     try:
+        await terminal_websockets.connect(websocket, sectionId, id)
         write_task = terminal_websockets.loop.create_task(
             terminal_websockets.write_to_terminal(websocket, sectionId)
         )
-
         await write_task
+    except:
+        pass
     finally:
         # Cleanup
         print("terminal_websocket_endpoint disconnect", id, flush=True)
@@ -66,9 +67,7 @@ def route_terminal_get_free_terminal(
 async def route_terminal_delete_terminals(
     x: DeleteTerminalsRequest, terminal_websockets=Depends(get_terminal_websockets)
 ):
-    await asyncio.gather(
-        *(terminal_websockets.delete_terminal(s) for s in x.sectionIds)
-    )
+    await terminal_websockets.delete_terminals(x.sectionIds)
 
 
 @router.post(C.ROUTE_GET_EXISTING_TERMINALS)

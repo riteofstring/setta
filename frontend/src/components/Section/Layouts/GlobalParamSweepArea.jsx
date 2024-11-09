@@ -42,7 +42,7 @@ function GlobalParamSweepCode({ sectionId }) {
 
   return (
     <article
-      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0`}
+      className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0`}
     >
       <CodeMirror
         value={code}
@@ -85,7 +85,7 @@ function GlobalParamSweepGUI() {
           <CreateNewRunGroupButton setShownRunGroup={setShownRunGroup} />
         </article>
         {runGroups[toShow] && (
-          <article className="mt-2 flex flex-1 flex-col gap-2 overflow-x-hidden">
+          <article className="mt-2 flex flex-1 flex-col gap-2 @sm/multipane:overflow-x-hidden">
             <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
               Sections
             </h3>
@@ -110,7 +110,7 @@ function RunGroupList({
   );
 
   return (
-    <ul className="noscroll nowheel flex flex-grow flex-col overflow-y-scroll">
+    <ul className="noscroll nowheel flex flex-grow flex-col overflow-visible @sm/multipane:overflow-y-scroll">
       {Object.entries(runGroups).map(([id, x]) => (
         <CheckboxNextToLabel
           key={id}
@@ -144,7 +144,7 @@ function SectionList({ runGroupId, runGroup }) {
   )[0];
 
   return (
-    <ul className="noscroll nowheel -mt-2 flex flex-grow flex-col overflow-y-scroll rounded-lg bg-setta-50/40 pl-3 pr-2 pt-2 dark:bg-setta-875">
+    <ul className="noscroll nowheel -mt-2 flex flex-grow flex-col overflow-visible rounded-lg bg-setta-50/40 pl-3 pr-2 pt-2 @sm/multipane:overflow-y-scroll dark:bg-setta-875">
       {allSections.map((x, idx) => (
         <SectionItem
           key={idx}

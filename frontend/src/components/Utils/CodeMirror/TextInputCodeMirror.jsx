@@ -25,6 +25,7 @@ export function TextInputCodeMirror({
   singleLine,
   onEnter,
   onEscape,
+  onTab,
   color,
   language,
   keywordPositions,
@@ -99,6 +100,7 @@ export function TextInputCodeMirror({
           singleLine={singleLine}
           onEnter={onEnter}
           onEscape={onEscape}
+          onTab={onTab}
           onBlur={localOnBlur}
           initialEvent={activationEvent}
           realIsInitialized={realIsInitialized}
@@ -127,6 +129,7 @@ function CoreCodeMirror({
   onEnter,
   onEscape,
   onBlur,
+  onTab,
   initialEvent,
   realIsInitialized,
   setRealIsInitialized,
@@ -165,6 +168,7 @@ function CoreCodeMirror({
     singleLine,
     tabToAutocomplete: true,
     onEnter,
+    onTab,
     onEscape,
   });
 

@@ -13,6 +13,7 @@ import {
   addCodeInfo,
   itemHasBeenSelectedBefore,
   itemIsAlreadySelected,
+  setCodeInfoDescription,
 } from "../codeInfo";
 import { updateKeywordRegex } from "../keywordRegex";
 import { setParametersRequestWaitingForLSP } from "../lsp";
@@ -136,8 +137,14 @@ export async function createCodeInfoChildren({
     evRefs,
   });
   if (res) {
-    createChildrenCodeInfo(codeInfoId, res);
-    setSelectedItemChildren(dataSectionId, codeInfoId, changedByUser);
+    const [documentation, params] = res;
+    if (params) {
+      createChildrenCodeInfo(codeInfoId, params);
+      setSelectedItemChildren(dataSectionId, codeInfoId, changedByUser);
+    } else {
+      setNotificationMessage("No parameters found");
+    }
+    setCodeInfoDescription({ id: codeInfoId, description: documentation });
   } else {
     setNotificationMessage("No parameters found");
   }

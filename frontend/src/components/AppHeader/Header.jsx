@@ -1,5 +1,5 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import { getInfoViewHandlers } from "state/actions/infoView";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { setHomePageSearch } from "state/actions/search/homePageSearch";
 import { useHomePageSearch } from "state/definitions";
 import {
@@ -19,7 +19,7 @@ import { SiteLogo } from "./SiteLogo";
 export function HeaderContainer({ path }) {
   return (
     <header
-      className={`z-20 flex h-12 min-h-12 w-[100vw] flex-row items-center bg-white px-4 shadow-md dark:bg-setta-850`}
+      className={`z-20 flex h-12 min-h-12 w-[100vw] flex-row items-center border-b border-transparent bg-white px-4 shadow-md dark:border-setta-700/30 dark:bg-setta-850 `}
     >
       <SiteLogo />
       <ProjectNav />
@@ -53,7 +53,7 @@ function ProjectPageSearch() {
       onKeyDown={onKeyDown}
       onBlur={onBlur}
       onFocus={onFocus}
-      {...getInfoViewHandlers(CONST_INFO_VIEWS.NAVBAR_SEARCH)}
+      {...getFloatingBoxHandlers(CONST_INFO_VIEWS.NAVBAR_SEARCH)}
     />
   );
 }

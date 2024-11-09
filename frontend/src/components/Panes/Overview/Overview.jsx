@@ -1,11 +1,11 @@
 import { PaneContainer } from "components/Utils/PaneContainer";
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
+import { BiHelpCircle } from "react-icons/bi";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
 import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
 import { TabButton, usePaneFns } from "../paneFns";
-import { InfoViewBig } from "./InfoViewBig";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
 
@@ -41,12 +41,18 @@ export function Overview() {
         <TabButton tabName="tab1" {...commonProps}>
           <i className="gg-list  !scale-100" />
         </TabButton>
-        <TabButton tabName="tab2" {...commonProps}>
+        {/* <TabButton tabName="tab2" {...commonProps}>
           <i className="gg-info !scale-100" />
-        </TabButton>
+        </TabButton> */}
         <TabButton tabName="tab3" {...commonProps}>
           <i className="gg-git-branch !scale-100" />
         </TabButton>
+        <a
+          href="https://setta.dev"
+          className="focus-visible:ring-light-blue-500 absolute bottom-12 left-1 flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-500"
+        >
+          <BiHelpCircle />
+        </a>
       </div>
       <PaneContainer
         right={false}
@@ -85,8 +91,8 @@ function TabContent({ tab }) {
   switch (tab) {
     case "tab1":
       return <ProjectOverview />;
-    case "tab2":
-      return <InfoViewBig />;
+    // case "tab2":
+    //   return <InfoViewBig />;
     case "tab3":
       return <ProjectConfigs />;
   }
