@@ -27,6 +27,7 @@ import { focusOnArgsFilter } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
 
 let keysPressed = new Set();
+let aJustModShortcutWasPressed = false;
 
 function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {
   attachTo.addEventListener(eventName, action);
@@ -134,16 +135,26 @@ function getShouldPreventDefault(parsedShortcut) {
 
   // special shortcuts
   if (
-    (ctrl && _.isEqual(keys, new Set(["KeyC"]))) ||
-    (ctrl && _.isEqual(keys, new Set(["KeyV"]))) ||
-    (mod && _.isEqual(keys, new Set(["KeyC"]))) ||
-    (mod && _.isEqual(keys, new Set(["KeyV"]))) ||
-    (shift && _.isEqual(keys, new Set(["Tab"])))
+    (ctrl && !mod && !shift && !alt && _.isEqual(keys, new Set(["KeyC"]))) ||
+    (ctrl && !mod && !shift && !alt && _.isEqual(keys, new Set(["KeyV"]))) ||
+    (mod && !ctrl && !shift && !alt && _.isEqual(keys, new Set(["KeyC"]))) ||
+    (mod && !ctrl && !shift && !alt && _.isEqual(keys, new Set(["KeyV"]))) ||
+    (shift && !ctrl && !mod && !alt && _.isEqual(keys, new Set(["Tab"])))
   ) {
     return false;
   }
 
   return true;
+}
+
+function getIsJustMod(parsedShortcut) {
+  return _.isEqual(parsedShortcut, {
+    mod: true,
+    shift: false,
+    alt: false,
+    ctrl: false,
+    keys: new Set(),
+  });
 }
 
 function keyUpLoop(e, shortcutInfo) {
@@ -229,9 +240,11 @@ export function attachKeyEventListeners() {
       keyDownAction,
       keyUpAction,
       allowRepeat,
+      isJustMod: getIsJustMod(parsedShortcut),
     });
   }
   let cleanup = attachKeyDownListener((e) => {
+    aJustModShortcutWasPressed = false;
     if (!modifierKeyCodes.has(e.code)) {
       keysPressed.add(e.code);
     }
@@ -245,6 +258,9 @@ export function attachKeyEventListeners() {
         }
         x.keyDownAction(e);
         x.wasPressed = true;
+        if (x.isJustMod) {
+          aJustModShortcutWasPressed = true;
+        }
       } else if (x.wasPressed) {
         x.keyUpAction?.(e);
         x.wasPressed = false;
@@ -270,6 +286,13 @@ export function attachKeyEventListeners() {
   });
   cleanup_functions.push(cleanup);
 
+  if (_isMacOs) {
+    cleanup = specialModTabCase(shortcutInfo);
+    if (cleanup) {
+      cleanup_functions.push(cleanup);
+    }
+  }
+
   return () => {
     cleanup_functions.forEach((x) => x());
   };
@@ -277,6 +300,36 @@ export function attachKeyEventListeners() {
 
 export function variableClick(e) {
   return e.ctrlKey && !e.shiftKey;
+}
+
+// When you do mod + tab in macos, but change your mind and don't change programs
+// neither blur nor keyup get triggered. So shortcuts that consist of just "mod"
+// never call their keyup action.
+// The workaround here is to detect mouse movement
+// (something the user will almost certainly do if they don't press any keys),
+// and if metaKey is false, then call the keyup actions if necessary.
+// If the user doesn't move the mouse, then they'll probably press a key, in which case
+// the keyup action will be called in the keydown listener (since wasPressed is true).
+function specialModTabCase(shortcutInfo) {
+  const justModShortcuts = shortcutInfo.filter((x) => x.isJustMod);
+  if (justModShortcuts.length > 0) {
+    const cleanup = attachEventListenerAndReturnCleanup(
+      window,
+      "mousemove",
+      (e) => {
+        if (aJustModShortcutWasPressed && !e.metaKey) {
+          justModShortcuts.forEach((x) => {
+            if (x.wasPressed) {
+              x.keyUpAction?.(e);
+              x.wasPressed = false;
+            }
+          });
+          aJustModShortcutWasPressed = false;
+        }
+      },
+    );
+    return cleanup;
+  }
 }
 
 function onEscapeKey() {
