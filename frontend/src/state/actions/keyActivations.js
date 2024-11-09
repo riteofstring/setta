@@ -2,6 +2,8 @@ import {
   convertFloatingBoxToSection,
   disableFloatingBox,
   enableFloatingBox,
+  freezeFloatingBox,
+  removeFrozenFloatingBox,
 } from "components/Utils/FloatingBox";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
@@ -84,7 +86,7 @@ function parseShortcut(shortcutString) {
         return `Digit${x}`;
       }
       const special = specialEventKeyToEventCode[x];
-      return special ?? x;
+      return special ?? x[0].toUpperCase() + x.slice(1);
     }),
   );
 
@@ -161,6 +163,7 @@ export function attachKeyEventListeners() {
     ["shift + tab", tabFromDocumentBody],
     [settings.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
     [settings.tooltipToSectionShortcut, convertFloatingBoxToSection],
+    [settings.freezeTooltipShortcut, freezeFloatingBox],
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
     [settings.groupShortcut, groupSections],
@@ -277,6 +280,7 @@ export function variableClick(e) {
 
 function onEscapeKey() {
   unselectAllParams();
+  removeFrozenFloatingBox();
 }
 
 function activateSelectionKeyPressed() {
