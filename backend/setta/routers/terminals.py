@@ -30,8 +30,6 @@ async def terminal_websocket_endpoint(
     # First check if terminal exists
     isNew = terminal_websockets.new_terminal(projectConfigId, sectionId, isTemporary)
 
-    print("terminal isNew", isNew)
-
     # Start the background task for terminal handling
     async def handle_terminal():
         read_task = terminal_websockets.loop.create_task(
@@ -42,7 +40,6 @@ async def terminal_websocket_endpoint(
 
     # Create the background task
     if isNew:
-        print("starting read_task")
         terminal_websockets.loop.create_task(handle_terminal())
 
     await terminal_websockets.connect(websocket, sectionId, id)
@@ -50,7 +47,6 @@ async def terminal_websocket_endpoint(
         write_task = terminal_websockets.loop.create_task(
             terminal_websockets.write_to_terminal(websocket, sectionId)
         )
-        print('started write_task', id)
 
         await write_task
     finally:

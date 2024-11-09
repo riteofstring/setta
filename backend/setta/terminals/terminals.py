@@ -91,16 +91,13 @@ class TerminalWebsockets:
                 "process": pty_process,
                 "history": deque(maxlen=1000),
                 "wasJustResized": False,
-                "terminalPromptIsReady": asyncio.Event(),
+                "terminalPromptIsReady": IS_WINDOWS
+                or not USER_SETTINGS["clearTerminalBeforeMarkingAsReady"],
                 "isTemporary": isTemporary,
-                "initialized": asyncio.Event(),
             }
             pty_info = self.PTY_PIDS[sectionId]
-
-            if IS_WINDOWS or not USER_SETTINGS["clearTerminalBeforeMarkingAsReady"]:
-                pty_info["terminalPromptIsReady"].set()
-
-            if not pty_info["terminalPromptIsReady"].is_set():
+            print("created new pty_process", sectionId, flush=True)
+            if not pty_info["terminalPromptIsReady"]:
                 pty_process.write(
                     f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
                 )
@@ -111,12 +108,9 @@ class TerminalWebsockets:
         await websocket.accept()
         self.sockets[id] = websocket
         self.section_to_socket_ids[sectionId].add(id)
-        pty_info = self.PTY_PIDS[sectionId]
-        await pty_info["terminalPromptIsReady"].wait()
-        await self.send_output_to_websocket(websocket, C.SETTA_TERMINAL_READY)
-        await self.send_output_to_websocket(
-            websocket, "".join(self.PTY_PIDS[sectionId]["history"])
-        )
+        if self.PTY_PIDS[sectionId]["terminalPromptIsReady"]:
+            await websocket.send_text(C.SETTA_TERMINAL_READY)
+            await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
 
     def disconnect(self, sectionId, id):
         print("disconnecting", id, flush=True)
@@ -130,8 +124,9 @@ class TerminalWebsockets:
         print("delete terminal", sectionId, flush=True)
         if sectionId in self.PTY_PIDS:
             try:
-                pty_info = self.PTY_PIDS[sectionId]
-                await asyncio.to_thread(pty_info["process"].terminate, force=True)
+                await asyncio.to_thread(
+                    self.PTY_PIDS[sectionId]["process"].terminate, force=True
+                )
                 del self.PTY_PIDS[sectionId]
             except KeyError:
                 pass
@@ -147,9 +142,8 @@ class TerminalWebsockets:
         pty_process = pty_info["process"]
         history = pty_info["history"]
         initial_buffer = ""
-
         while True:
-            print("read_from_terminal while loop", sectionId)
+            # print("read_from_terminal while loop", flush=True)
             try:
                 output, _, _ = await self.loop.run_in_executor(
                     None,
@@ -157,34 +151,33 @@ class TerminalWebsockets:
                     [pty_process.fd],
                     [],
                     [],
-                    None,
+                    None,  # timeout of 0 makes this non-blocking
                 )
                 if not output:
                     continue
-
                 output = pty_process.read(1024)
-                if not pty_info["terminalPromptIsReady"].is_set():
+                if not pty_info["terminalPromptIsReady"]:
                     initial_buffer += output
+                    # We wait for the SETTA_CLEAR_CMD string to appear four times
+                    # before we consider the terminal ready.
+                    # This is just to make the terminal look less cluttered and annoying on the frontend.
                     if initial_buffer.count(SETTA_CLEAR_CMD) >= 4:
-                        pty_info["terminalPromptIsReady"].set()
+                        pty_info["terminalPromptIsReady"] = True
                         await self.send_output_to_sectionId(
                             sectionId, C.SETTA_TERMINAL_READY
                         )
                     continue
-
                 if not pty_info["wasJustResized"]:
                     history.append(output)
                 pty_info["wasJustResized"] = False
-
                 await self.send_output_to_sectionId(sectionId, output)
-
             except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
                 break
             except EOFError:
                 print(f"Terminal EOF for section {sectionId}")
                 break
             except OSError as e:
-                if e.errno == errno.EIO:
+                if e.errno == errno.EIO:  # Input/output error
                     print(
                         f"Terminal I/O error for section {sectionId}: {e}", flush=True
                     )
@@ -253,17 +246,9 @@ class TerminalWebsockets:
         return output
 
     async def send_output_to_sectionId(self, sectionId, output):
-        socket_ids = set(self.section_to_socket_ids[sectionId])
-        for socket_id in socket_ids:
-            if socket_id in self.sockets:
-                websocket = self.sockets[socket_id]
-                await self.send_output_to_websocket(websocket, output)
-
-    async def send_output_to_websocket(self, websocket, output):
-        try:
-            await websocket.send_text(output)
-        except Exception as e:
-            print(f"Error sending to websocket: {e}", flush=True)
+        for wsId in self.section_to_socket_ids[sectionId]:
+            ws = self.sockets[wsId]
+            await ws.send_text(output)
 
 
 def runCode(message, terminal_write_fn=None, command_callback=None):
