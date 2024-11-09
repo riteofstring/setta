@@ -86,12 +86,12 @@ function Footer({ isFrozen }) {
   const className =
     "mt-4 border-t border-solid border-setta-100 pt-1 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-600";
 
-  console.log("isFrozen", isFrozen)
-
   if (isFrozen) {
-    return <p className={className}>
-      press <span className="font-black">&quot;Esc&quot;</span> to close
-    </p>;
+    return (
+      <p className={className}>
+        press <span className="font-black">&quot;Esc&quot;</span> to close
+      </p>
+    );
   }
 
   return (
@@ -107,7 +107,7 @@ function Footer({ isFrozen }) {
 
 export function getFloatingBoxHandlers(content, title) {
   function onMouseOver() {
-    if (content) {
+    if (content && !useFloatingBox.getState().isFrozen) {
       useFloatingBox.setState({ content, title });
     }
   }
