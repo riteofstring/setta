@@ -1,5 +1,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { ChromePicker } from "react-color";
 import { tryParseJSON } from "utils/utils";
+import {useState} from "react"
 
 export function ColorPickerInputConfig({ onChange, config }) {
   const colors = config.colorChoices ?? [];
@@ -121,13 +123,7 @@ function ColorPicker({ colorChoices, value, onChange }) {
       colorChoices={colorChoices}
     />
   ) : (
-    <input
-      id="colorPicker"
-      type="color"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="min-h-4 min-w-4 cursor-pointer"
-    />
+    <CustomColorPicker className="nodrag z-[10]" />
   );
 }
 
@@ -171,3 +167,27 @@ function ColorPickerFromColorChoices({ color, setColor, colorChoices }) {
     </DropdownMenu.Root>
   );
 }
+
+const CustomColorPicker = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [color, setColor] = useState("#1e90ff");
+
+  return (
+    <div className="p-4">
+      <div className="flex flex-col items-start gap-4">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex items-center gap-2"
+        >
+          Pick a Color
+          <div
+            className="ml-2 h-4 w-4 rounded-full border border-gray-300"
+            style={{ backgroundColor: color }}
+          />
+        </button>
+
+        {isOpen && <ChromePicker className="nodrag"/>}
+      </div>
+    </div>
+  );
+};
