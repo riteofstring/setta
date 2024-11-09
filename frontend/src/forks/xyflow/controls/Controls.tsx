@@ -56,6 +56,7 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
   const [snapToGrid] = localStorageFns.snapToGrid.hook();
   const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
+  const [showMinimap] = localStorageFns.showMinimap.hook();
   const styleForActive = "!bg-blue-500 dark:!bg-blue-700";
 
   useEffect(() => {
@@ -143,7 +144,10 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
       <ControlButton onClick={resetZoom}>
         <TbZoomReset />
       </ControlButton>
-      <ControlButton onClick={toggleMiniMap}>
+      <ControlButton
+        onClick={toggleMiniMap}
+        className={showMinimap ? styleForActive : ""}
+      >
         <IoMapOutline />
       </ControlButton>
     </Panel>
