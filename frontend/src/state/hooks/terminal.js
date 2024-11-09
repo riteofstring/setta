@@ -8,6 +8,7 @@ import {
   addSectionInEmptySpace,
 } from "state/actions/sections/createSections";
 import {
+  useMisc,
   useProjectConfig,
   useSectionInfos,
   useSettings,
@@ -72,6 +73,20 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
 
     ws.addEventListener("message", onInitialMessage);
 
+    // Even though react flow calls preventDefault and stopPropagation when in pan scrolling mode,
+    // xterm still picks up the scrolling. So this sets scrollSensitivity to a small number to disable scrolling when already moving via trackpad.
+    const unsub = useMisc.subscribe(
+      (x) => x.isPanScrolling,
+      (isPanScrolling) => {
+        if (isPanScrolling) {
+          // can't make it 0
+          terminal.options.scrollSensitivity = Number.MIN_VALUE;
+        } else {
+          terminal.options.scrollSensitivity = 1;
+        }
+      },
+    );
+
     return () => {
       if (ws.readyState === 1) {
         ws.close();
@@ -84,6 +99,8 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
           terminal.dispose();
         });
       }
+
+      unsub();
     };
   }, []);
 

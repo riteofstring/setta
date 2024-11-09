@@ -11,7 +11,7 @@ import {
 import { useReactFlow } from "forks/xyflow/core/store";
 import { useEffect, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { useSettings } from "state/definitions";
+import { useMisc, useSettings } from "state/definitions";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { clamp } from "utils/utils";
 import { shallow } from "zustand/shallow";
@@ -152,6 +152,7 @@ const ZoomPane = ({
             // we can't use the start, zoom and end events from d3-zoom
             // because start and move gets called on every scroll event and not once at the beginning
             if (!isPanScrolling.current) {
+              useMisc.setState({ isPanScrolling: true });
               useReactFlow.setState({ fitViewOnInit: false });
               isPanScrolling.current = true;
             }
@@ -159,6 +160,7 @@ const ZoomPane = ({
             if (isPanScrolling.current) {
               panScrollTimeout.current = setTimeout(() => {
                 isPanScrolling.current = false;
+                useMisc.setState({ isPanScrolling: false });
               }, 150);
             }
           },

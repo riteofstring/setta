@@ -214,11 +214,13 @@ export const useParamShortcuts = create(() => ({
 }));
 
 export const useMisc = create(
-  immer(() => ({
-    projectIsLoading: false,
-    mouseDownDrawArea: false,
-    mouseDownDraggingSection: false,
-    lastPaneClickLocation: { x: 0, y: 0 },
-    singletonSections: { globalVariables: null, globalParamSweep: null },
-  })),
+  subscribeWithSelector(
+    immer(() => ({
+      projectIsLoading: false,
+      mouseDownDrawArea: false,
+      mouseDownDraggingSection: false,
+      lastPaneClickLocation: { x: 0, y: 0 },
+      singletonSections: { globalVariables: null, globalParamSweep: null },
+    })),
+  ),
 );
