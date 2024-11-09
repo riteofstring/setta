@@ -9,12 +9,12 @@ import { useGetSectionInfo } from "state/hooks/sections";
 import {
   INFINITE_MAX_HEIGHT,
   PINNED_PARAMS_AREA_MIN_HEIGHT,
-  useOverflow,
+  useScrollable,
 } from "state/hooks/sectionSizes";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {
-  const { overflow, ref, setDidUpdate } = useOverflow(sectionId);
+  const { ref, isScrollable } = useScrollable();
   const outerRef = useRef();
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
@@ -30,18 +30,12 @@ function _ParamGroupContainer({ sectionId }) {
         <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
       ) : (
         <>
-          <GetPinnedParams
-            sectionId={sectionId}
-            setDidUpdate={setDidUpdate}
-            outerRef={outerRef}
-          />
+          <GetPinnedParams sectionId={sectionId} outerRef={outerRef} />
           <div
-            className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${overflow ? "nowheel" : ""} min-w-0 !max-w-full`}
+            className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${isScrollable ? "nowheel" : ""} min-w-0 !max-w-full`}
             ref={ref}
           >
-            {!hideUnpinnedParams && (
-              <GetParams sectionId={sectionId} setDidUpdate={setDidUpdate} />
-            )}
+            {!hideUnpinnedParams && <GetParams sectionId={sectionId} />}
           </div>
         </>
       )}
@@ -49,7 +43,7 @@ function _ParamGroupContainer({ sectionId }) {
   );
 }
 
-function GetPinnedParams({ sectionId, setDidUpdate, outerRef }) {
+function GetPinnedParams({ sectionId, outerRef }) {
   const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     true,
@@ -57,7 +51,6 @@ function GetPinnedParams({ sectionId, setDidUpdate, outerRef }) {
 
   // const paramIds = useParamsDidUpdate({
   //   sectionId,
-  //   setDidUpdate,
   //   isPinned: true,
   // });
 
@@ -67,7 +60,6 @@ function GetPinnedParams({ sectionId, setDidUpdate, outerRef }) {
         sectionId={sectionId}
         topLevelParamIds={topLevelParamIds}
         requiredParamIdsToPaths={requiredParamIdsToPaths}
-        setDidUpdate={setDidUpdate}
         outerRef={outerRef}
       />
     )
@@ -78,7 +70,6 @@ function ResizablePinnedArea({
   sectionId,
   topLevelParamIds,
   requiredParamIdsToPaths,
-  setDidUpdate,
   outerRef,
 }) {
   const sectionHeight = useSectionInfos((x) => x.x[sectionId].size.height);
@@ -135,17 +126,15 @@ function ResizablePinnedArea({
           sectionId={sectionId}
           paramIds={topLevelParamIds}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
-          setDidUpdate={setDidUpdate}
         />
       </div>
     </ResizableWithScale>
   );
 }
 
-function GetParams({ sectionId, setDidUpdate }) {
+function GetParams({ sectionId }) {
   // const paramIds = useParamsDidUpdate({
   //   sectionId,
-  //   setDidUpdate,
   //   isPinned: false,
   // });
 
@@ -159,7 +148,6 @@ function GetParams({ sectionId, setDidUpdate }) {
       sectionId={sectionId}
       paramIds={topLevelParamIds}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
-      setDidUpdate={setDidUpdate}
     />
   );
 }

@@ -6,12 +6,7 @@ import {
   useSectionInfos,
 } from "state/definitions";
 
-export function ParamNameInput({
-  sectionId,
-  paramInfoId,
-  onBlur,
-  setDidUpdate,
-}) {
+export function ParamNameInput({ sectionId, paramInfoId, onBlur }) {
   const configLanguage = useSectionInfos((x) => x.x[sectionId].configLanguage);
   const value = useCodeInfo((x) => x.x[paramInfoId].name);
   const hasChildren = useCodeInfo((x) => x.x[paramInfoId].children.length > 0);
@@ -19,7 +14,6 @@ export function ParamNameInput({
 
   function onChange(v) {
     setLiveValue(v);
-    setDidUpdate(true);
   }
 
   useEffect(() => {

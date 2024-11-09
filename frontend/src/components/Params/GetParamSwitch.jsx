@@ -7,7 +7,6 @@ export function GetParamSwitch({
   sectionId,
   paramIds,
   requiredParamIdsToPaths,
-  setDidUpdate,
   ancestorIsSelected = false,
 }) {
   const requiredParamIdsWithNames = useCodeInfo(
@@ -43,7 +42,6 @@ export function GetParamSwitch({
       sectionId={sectionId}
       paramInfoId={e}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
-      setDidUpdate={setDidUpdate}
       ancestorIsSelected={ancestorIsSelected}
     />
   ));
