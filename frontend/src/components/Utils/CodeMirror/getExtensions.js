@@ -103,8 +103,8 @@ export function getExtensions({
             } else if (indentWithTab) {
               indentMore(e);
             }
-            if (onTab){
-              onTab(completionResult)
+            if (onTab) {
+              onTab(completionResult);
             }
             // if tab controls indent, then we never want to propagate the keystroke, so return true
             // otherwise it depends on the completion result

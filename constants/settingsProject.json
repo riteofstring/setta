@@ -26,7 +26,16 @@
   },
   "uiTypes": {},
   "uiTypeCols": {
-    "04f95495-52ba-4277-a79e-228bb1c6a5bc": {}
+    "04f95495-52ba-4277-a79e-228bb1c6a5bc": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"gridColor\"}": {
+        "uiTypeId": "74de30af-accf-44db-9b6b-da4260f0bd60",
+        "nonPresetUITypeIds": []
+      },
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"gridColorDarkMode\"}": {
+        "uiTypeId": "74de30af-accf-44db-9b6b-da4260f0bd60",
+        "nonPresetUITypeIds": []
+      }
+    }
   },
   "paramSweeps": {},
   "runGroups": {},

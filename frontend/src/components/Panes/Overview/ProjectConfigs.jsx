@@ -18,7 +18,7 @@ export const ProjectConfigs = React.forwardRef(() => {
   return (
     <>
       <aside className="mb-2 flex items-center justify-between">
-        <p className="text-xs text-setta-500">Toggle config previews.</p>
+        <p className="text-setta-500">Toggle config previews.</p>
         <Toggle
           checked={previewEnabled}
           onCheckedChange={toggleProjectConfigPreviewEnabled}
@@ -54,7 +54,7 @@ export const ProjectConfigs = React.forwardRef(() => {
                 state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
               >
                 <p
-                  className={`${(previewEnabled && mousedOverName === name) || (!previewEnabled && currProjectConfigName === name) ? "font-black !text-setta-900 dark:!text-setta-100" : ""} flex-shrink truncate text-xs text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:!text-setta-900 dark:text-setta-400 dark:group-hover:!text-setta-100`}
+                  className={`${(previewEnabled && mousedOverName === name) || (!previewEnabled && currProjectConfigName === name) ? "font-bold" : ""} flex-shrink truncate  text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:text-setta-900 dark:text-setta-400 dark:group-hover:text-setta-100`}
                 >
                   {name}
                 </p>
