@@ -4,29 +4,30 @@ import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { create } from "zustand";
 
 export const useFloatingBox = create((set) => ({
+  isFrozen: false,
   isEnabled: false,
   content: null,
   title: null,
-  setEnabled: (enabled) => set({ isEnabled: enabled }),
-  setContent: (content, title) => set({ content, title }),
 }));
 
 let mouseMoved = false;
 
 export const FloatingBox = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const { isEnabled, content, title } = useFloatingBox();
+  const { isEnabled, content, title, isFrozen } = useFloatingBox();
   const boxRef = useRef(null);
 
   useEffect(() => {
     const handleMouseMove = (event) => {
       mouseMoved = true;
-      setPosition({ x: event.clientX + 10, y: event.clientY + 10 });
+      if (!isFrozen) {
+        setPosition({ x: event.clientX + 10, y: event.clientY + 10 });
+      }
     };
 
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
+  }, [isFrozen]);
 
   // Ensure the box stays within viewport bounds
   useEffect(() => {
@@ -58,7 +59,7 @@ export const FloatingBox = () => {
   return (
     <div
       ref={boxRef}
-      className="pointer-events-none fixed left-0 top-0 z-50 flex max-h-96 w-64 flex-col rounded-2xl border border-setta-200 bg-white p-4 shadow-lg dark:border-setta-700 dark:bg-setta-950"
+      className="fixed left-0 top-0 z-50 flex max-h-96 w-64 flex-col rounded-2xl border border-setta-200 bg-white p-4 shadow-lg dark:border-setta-700 dark:bg-setta-950"
       style={{
         transform: `translate(${position.x}px, ${position.y}px)`,
       }}
@@ -83,25 +84,30 @@ export const FloatingBox = () => {
 export function getFloatingBoxHandlers(content, title) {
   function onMouseOver() {
     if (content) {
-      const s = useFloatingBox.getState();
-      s.setContent(content, title);
+      useFloatingBox.setState({ content, title });
     }
   }
 
   function onMouseLeave() {
-    useFloatingBox.getState().setContent(null, null);
+    if (!useFloatingBox.getState().isFrozen) {
+      useFloatingBox.setState({ content: null, title: null });
+    }
   }
 
   return { onMouseOver, onMouseLeave };
 }
 
-export function enableFloatingBox(event) {
-  if (
+function isInput(event) {
+  return (
     event.target instanceof HTMLInputElement ||
     event.target instanceof HTMLTextAreaElement ||
     event.target instanceof HTMLSelectElement ||
     event.target.isContentEditable
-  ) {
+  );
+}
+
+export function enableFloatingBox(event) {
+  if (isInput(event)) {
     return;
   }
   useFloatingBox.setState({ isEnabled: true });
@@ -111,9 +117,12 @@ export function disableFloatingBox() {
   useFloatingBox.setState({ isEnabled: false });
 }
 
-export function convertFloatingBoxToSection() {
+export function convertFloatingBoxToSection(event) {
+  if (isInput(event)) {
+    return;
+  }
   const s = useFloatingBox.getState();
-  if (s.isEnabled && s.content) {
+  if (s.content) {
     const content = s.title ? `## ${s.title}\n\n${s.content}` : s.content;
     addSectionInEmptySpace({
       type: C.INFO,
@@ -124,4 +133,12 @@ export function convertFloatingBoxToSection() {
       },
     });
   }
+}
+
+export function freezeFloatingBox() {
+  useFloatingBox.setState({ isEnabled: true, isFrozen: true });
+}
+
+export function removeFrozenFloatingBox() {
+  useFloatingBox.setState({ isEnabled: false, isFrozen: false });
 }
