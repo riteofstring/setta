@@ -42,12 +42,13 @@ async def terminal_websocket_endpoint(
     if isNew:
         terminal_websockets.loop.create_task(handle_terminal())
 
-    await terminal_websockets.connect(websocket, sectionId, id)
+    success = await terminal_websockets.connect(websocket, sectionId, id)
+    if not success:
+        return
     try:
         write_task = terminal_websockets.loop.create_task(
             terminal_websockets.write_to_terminal(websocket, sectionId)
         )
-
         await write_task
     finally:
         # Cleanup
