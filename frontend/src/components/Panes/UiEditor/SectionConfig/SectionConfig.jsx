@@ -1,6 +1,6 @@
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import C from "constants/constants.json";
 import React from "react";
+import { getInfoViewHandlers } from "state/actions/infoView";
 import { useGetSectionType } from "state/hooks/uiTypes";
 import { CONST_INFO_VIEWS } from "utils/constants";
 import { DrawAreaSettings } from "./DrawAreaSettings";
@@ -20,7 +20,7 @@ function SectionConfigCore({ sectionId }) {
       {/* <div className="flex justify-between">
         <p
           className="mt-2 text-xs font-semibold uppercase text-setta-400"
-          {...getFloatingBoxHandlers(
+          {...getInfoViewHandlers(
             CONST_INFO_VIEWS.SECTIONCONFIG_CARDTYPES_SEARCH,
           )}
         >
@@ -33,9 +33,7 @@ function SectionConfigCore({ sectionId }) {
 
       <p
         className="mt-4 text-xs font-semibold uppercase text-setta-400"
-        {...getFloatingBoxHandlers(
-          CONST_INFO_VIEWS.SECTIONCONFIG_CONTENTS_SEARCH,
-        )}
+        {...getInfoViewHandlers(CONST_INFO_VIEWS.SECTIONCONFIG_CONTENTS_SEARCH)}
       >
         Contents
       </p>

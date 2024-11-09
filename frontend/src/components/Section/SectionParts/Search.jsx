@@ -1,5 +1,4 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useEffect, useState } from "react";
 import { getKeywordPositionsAndEVRefs } from "requests/sections";
 import { itemHasBeenSelectedBefore } from "state/actions/codeInfo";
@@ -111,16 +110,12 @@ function SectionSearchCore({
     (x) => x.x[dataSectionId].configLanguage,
   );
 
-  const {
-    name: codeInfoName,
-    keywordPositions,
-    description,
-  } = useCodeInfo((x) => {
+  const { name: codeInfoName, keywordPositions } = useCodeInfo((x) => {
     if (selectedItem) {
-      const { name, keywordPositions, description } = x.x[selectedItem];
-      return { name, keywordPositions, description };
+      const { name, keywordPositions } = x.x[selectedItem];
+      return { name, keywordPositions };
     }
-    return { name: "", keywordPositions: [], description: "" };
+    return { name: "", keywordPositions: [] };
   });
 
   const [value, setValue] = useState(codeInfoName);
@@ -138,13 +133,10 @@ function SectionSearchCore({
 
   function onEscape(view) {
     view.contentDOM.blur();
-    setValue(codeInfoName);
   }
 
-  function onTab(completionResult) {
-    if (!completionResult && value) {
-      onEnter(value);
-    }
+  function onBlur() {
+    setValue(codeInfoName);
   }
 
   function onChange(value) {
@@ -161,10 +153,7 @@ function SectionSearchCore({
   }
 
   return (
-    <search
-      className="section-search single-cell-container w-full"
-      {...getFloatingBoxHandlers(description, codeInfoName)}
-    >
+    <search className="section-search single-cell-container w-full">
       <TextInputCodeMirror
         dataSectionId={dataSectionId}
         visualSectionId={visualSectionId}
@@ -175,8 +164,8 @@ function SectionSearchCore({
         realCodeClassName={realCodeClassName}
         singleLine={true}
         onEnter={_onEnter}
-        onTab={onTab}
         onEscape={onEscape}
+        onBlur={onBlur}
         language={configLanguage}
         keywordPositions={localKeywordPositions}
         setKeywordPositions={setLocalKeywordPositions}

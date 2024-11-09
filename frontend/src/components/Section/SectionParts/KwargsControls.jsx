@@ -40,7 +40,7 @@ export function KwargsControls({
       >
         <article className="flex flex-wrap items-center">
           <section className="ml-1 flex">
-            {/* <h3 className=" my-auto ml-2 mr-[.1rem]  text-xs font-bold uppercase tracking-tighter text-setta-600/70  dark:text-setta-400/30 ">
+            {/* <h3 className=" my-auto ml-2 mr-[.1rem] font-heading text-xs font-bold uppercase tracking-tighter text-setta-600/70  dark:text-setta-400/30 ">
               Args
             </h3> */}
 
@@ -68,7 +68,7 @@ export function KwargsControls({
           </section>
           {/* {anyParamsSelected && (
             <section className="flex">
-              <h3 className="my-auto ml-2 pr-1  text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
+              <h3 className="my-auto ml-2 pr-1 font-heading text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
                 Position
               </h3>
 

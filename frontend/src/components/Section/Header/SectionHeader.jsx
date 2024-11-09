@@ -121,9 +121,9 @@ function getTitleStyles({
 }) {
   const sectionTypeName = useSectionTypeName(sectionId);
   const editing =
-    "cursor-text nodrag px-2 py-0 leading-5 -ml-2 bg-setta-100 dark:bg-setta-800 rounded-full w-3/5 dark:text-white font-semibold text-[.7rem] tracking-tight";
+    "cursor-text font-heading nodrag px-2 py-0 leading-5 -ml-2 bg-setta-200 dark:bg-setta-900 rounded-full w-3/5 dark:text-white font-semibold text-[.7rem] tracking-tight";
 
-  const notEditing = `transition-colors  leading-5 tracking-tight cursor-pointer max-w-full text-[.7rem] truncate ${
+  const notEditing = `transition-colors font-heading leading-5 tracking-tight cursor-pointer max-w-full text-[.7rem] truncate ${
     isActiveSection
       ? isInOtherProjectConfigs
         ? "text-purple-800 dark:text-purple-200"
@@ -142,7 +142,7 @@ function getTitleStyles({
   }
 
   const fixed =
-    "select-none italic  tracking-tighter text-xs text-setta-400 max-w-full truncate pr-0.5";
+    "select-none italic font-heading tracking-tighter text-xs text-setta-400 max-w-full truncate pr-0.5";
 
   return { editing, notEditing, fixed };
 }

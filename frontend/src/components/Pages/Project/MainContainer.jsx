@@ -1,5 +1,4 @@
 import { useCodeMirrorStyleLoader } from "components/utils/CodeMirror/useCodeMirrorStyleLoader";
-import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useEffect } from "react";
 import { dbRequestTypeCheck } from "requests/sections";
@@ -26,7 +25,6 @@ export function MainContainer() {
       <Overview />
       <UiEditor />
       <GridWrapper>{doneLoading && <UIPage />}</GridWrapper>
-      <FloatingBox />
     </>
   );
 }

@@ -1,10 +1,3 @@
-import {
-  convertFloatingBoxToSection,
-  disableFloatingBox,
-  enableFloatingBox,
-  freezeFloatingBox,
-  removeFrozenFloatingBox,
-} from "components/Utils/FloatingBox";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
@@ -26,9 +19,6 @@ import { groupSections } from "./sections/groupSections";
 import { focusOnArgsFilter } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
 
-let keysPressed = new Set();
-let aJustModShortcutWasPressed = false;
-
 function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {
   attachTo.addEventListener(eventName, action);
 
@@ -46,115 +36,85 @@ function attachKeyUpListener(action) {
   return attachEventListenerAndReturnCleanup(document, "keyup", action);
 }
 
-const specialEventKeyToEventCode = {
-  ".": "Period",
-  ",": "Comma",
-  "/": "Slash",
-  "\\": "Backslash",
-  "'": "Quote",
-  ";": "Semicolon",
-  "[": "BracketLeft",
-  "]": "BracketRight",
-  "-": "Minus",
-  "=": "Equal",
-  "`": "Backquote",
-};
-
-const modifierKeyCodes = new Set([
-  "MetaLeft",
-  "MetaRight",
-  "ControlLeft",
-  "ControlRight",
-  "AltLeft",
-  "AltRight",
-  "ShiftLeft",
-  "ShiftRight",
-]);
+function shouldAddKeyPrefix(key) {
+  return ![
+    undefined,
+    "escape",
+    "enter",
+    "space",
+    "comma",
+    "period",
+    "tab",
+  ].includes(key);
+}
 
 // shortcutString is a lowercase string.
 function parseShortcut(shortcutString) {
-  const parts = shortcutString.split("+").map((x) => x.trim());
-
-  let keys = parts.filter((x) => !["ctrl", "shift", "alt", "mod"].includes(x));
-
-  keys = new Set(
-    keys.map((part) => {
-      const x = part.trim();
-      if (/^[a-zA-Z]$/.test(x)) {
-        return `Key${x.toUpperCase()}`;
-      }
-      if (/^[0-9]$/.test(x)) {
-        return `Digit${x}`;
-      }
-      const special = specialEventKeyToEventCode[x];
-      return special ?? x[0].toUpperCase() + x.slice(1);
-    }),
+  const parts = shortcutString.split("+").map((part) => part.trim());
+  let key = parts.find(
+    (part) => !["ctrl", "shift", "alt", "mod"].includes(part),
   );
+  if (shouldAddKeyPrefix(key)) {
+    key = `key${key}`;
+  }
 
   return {
     mod: parts.includes("mod"),
     ctrl: parts.includes("ctrl"),
     shift: parts.includes("shift"),
     alt: parts.includes("alt"),
-    keys,
+    key,
   };
 }
 
-function isShortcutPressed(e, parsedShortcut, _isMacOs) {
-  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
+const considerAsUndefined = new Set([
+  "ControlLeft",
+  "ControlRight",
+  "AltLeft",
+  "AltRight",
+  "MetaLeft",
+  "MetaRight",
+  "ShiftLeft",
+  "ShiftRight",
+]);
+
+function isShortcutPressed(event, shortcut, _isMacOs) {
+  const { mod, ctrl, shift, alt, key } = shortcut;
   if (_isMacOs) {
     return (
-      e.metaKey === mod &&
-      e.ctrlKey === ctrl &&
-      e.shiftKey === shift &&
-      e.altKey === alt &&
-      _.isEqual(keysPressed, keys)
+      event.metaKey === mod &&
+      event.ctrlKey === ctrl &&
+      event.shiftKey === shift &&
+      event.altKey === alt &&
+      ((key === undefined && considerAsUndefined.has(event.code)) ||
+        key === event.code.toLowerCase())
     );
   } else {
     return (
-      e.ctrlKey === (ctrl || mod) &&
-      e.shiftKey === shift &&
-      e.altKey === alt &&
-      _.isEqual(keysPressed, keys)
+      event.ctrlKey === (ctrl || mod) &&
+      event.shiftKey === shift &&
+      event.altKey === alt &&
+      ((key === undefined && considerAsUndefined.has(event.code)) ||
+        key === event.code.toLowerCase())
     );
   }
 }
 
-function getShouldPreventDefault(parsedShortcut) {
-  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
-
-  // case for shortcuts that don't contain modifiers
-  if (!mod && !ctrl && !shift && !alt) {
-    return false;
-  }
-
-  // case for "mod", "ctrl", "alt", "shift"
-  if (keys.size === 0) {
-    return false;
-  }
-
-  // special shortcuts
-  if (
-    (ctrl && !mod && !shift && !alt && _.isEqual(keys, new Set(["KeyC"]))) ||
-    (ctrl && !mod && !shift && !alt && _.isEqual(keys, new Set(["KeyV"]))) ||
-    (mod && !ctrl && !shift && !alt && _.isEqual(keys, new Set(["KeyC"]))) ||
-    (mod && !ctrl && !shift && !alt && _.isEqual(keys, new Set(["KeyV"]))) ||
-    (shift && !ctrl && !mod && !alt && _.isEqual(keys, new Set(["Tab"])))
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-function getIsJustMod(parsedShortcut) {
-  return _.isEqual(parsedShortcut, {
-    mod: true,
-    shift: false,
-    alt: false,
-    ctrl: false,
-    keys: new Set(),
-  });
+function getShouldPreventDefault(lowercaseKeyCombo) {
+  return ![
+    "mod",
+    "ctrl",
+    "alt",
+    "shift",
+    "ctrl + c",
+    "ctrl + v",
+    "mod + c",
+    "mod + v",
+    "space",
+    "escape",
+    "tab",
+    "shift + tab",
+  ].includes(lowercaseKeyCombo);
 }
 
 function keyUpLoop(e, shortcutInfo) {
@@ -172,10 +132,6 @@ export function attachKeyEventListeners() {
   const conditionAndAction = [
     ["tab", tabFromDocumentBody],
     ["shift + tab", tabFromDocumentBody],
-    [settings.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
-    [settings.tooltipToSectionShortcut, convertFloatingBoxToSection],
-    [settings.freezeTooltipShortcut, freezeFloatingBox],
-    [settings.frozenTooltipToSectionShortcut, convertFloatingBoxToSection],
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
     [settings.groupShortcut, groupSections],
@@ -232,24 +188,20 @@ export function attachKeyEventListeners() {
       continue;
     }
     const lowercaseKeyCombo = keyCombo.toLowerCase();
-    const parsedShortcut = parseShortcut(lowercaseKeyCombo);
     shortcutInfo.push({
-      parsedShortcut,
+      parsedShortcut: parseShortcut(lowercaseKeyCombo),
       wasPressed: false,
-      shouldPreventDefault: getShouldPreventDefault(parsedShortcut),
+      shouldPreventDefault: getShouldPreventDefault(lowercaseKeyCombo),
       keyDownAction,
       keyUpAction,
       allowRepeat,
-      isJustMod: getIsJustMod(parsedShortcut),
     });
   }
+
   let cleanup = attachKeyDownListener((e) => {
-    aJustModShortcutWasPressed = false;
-    if (!modifierKeyCodes.has(e.code)) {
-      keysPressed.add(e.code);
-    }
     for (const x of shortcutInfo) {
-      if (isShortcutPressed(e, x.parsedShortcut, _isMacOs)) {
+      const isPressed = isShortcutPressed(e, x.parsedShortcut, _isMacOs);
+      if (isPressed) {
         if (x.shouldPreventDefault) {
           e.preventDefault();
         }
@@ -258,9 +210,6 @@ export function attachKeyEventListeners() {
         }
         x.keyDownAction(e);
         x.wasPressed = true;
-        if (x.isJustMod) {
-          aJustModShortcutWasPressed = true;
-        }
       } else if (x.wasPressed) {
         x.keyUpAction?.(e);
         x.wasPressed = false;
@@ -270,28 +219,14 @@ export function attachKeyEventListeners() {
   cleanup_functions.push(cleanup);
 
   cleanup = attachKeyUpListener((e) => {
-    if (_isMacOs && e.key === "Meta") {
-      // special case because on mac, meta key causes the other pressed keys to not trigger keyup
-      keysPressed = new Set();
-    } else {
-      keysPressed.delete(e.code);
-    }
     keyUpLoop(e, shortcutInfo);
   });
   cleanup_functions.push(cleanup);
 
   cleanup = attachEventListenerAndReturnCleanup(window, "blur", (e) => {
-    keysPressed = new Set();
     keyUpLoop(e, shortcutInfo);
   });
   cleanup_functions.push(cleanup);
-
-  if (_isMacOs) {
-    cleanup = specialModTabCase(shortcutInfo);
-    if (cleanup) {
-      cleanup_functions.push(cleanup);
-    }
-  }
 
   return () => {
     cleanup_functions.forEach((x) => x());
@@ -302,39 +237,8 @@ export function variableClick(e) {
   return e.ctrlKey && !e.shiftKey;
 }
 
-// When you do mod + tab in macos, but change your mind and don't change programs
-// neither blur nor keyup get triggered. So shortcuts that consist of just "mod"
-// never call their keyup action.
-// The workaround here is to detect mouse movement
-// (something the user will almost certainly do if they don't press any keys),
-// and if metaKey is false, then call the keyup actions if necessary.
-// If the user doesn't move the mouse, then they'll probably press a key, in which case
-// the keyup action will be called in the keydown listener (since wasPressed is true).
-function specialModTabCase(shortcutInfo) {
-  const justModShortcuts = shortcutInfo.filter((x) => x.isJustMod);
-  if (justModShortcuts.length > 0) {
-    const cleanup = attachEventListenerAndReturnCleanup(
-      window,
-      "mousemove",
-      (e) => {
-        if (aJustModShortcutWasPressed && !e.metaKey) {
-          justModShortcuts.forEach((x) => {
-            if (x.wasPressed) {
-              x.keyUpAction?.(e);
-              x.wasPressed = false;
-            }
-          });
-          aJustModShortcutWasPressed = false;
-        }
-      },
-    );
-    return cleanup;
-  }
-}
-
 function onEscapeKey() {
   unselectAllParams();
-  removeFrozenFloatingBox();
 }
 
 function activateSelectionKeyPressed() {

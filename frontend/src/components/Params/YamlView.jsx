@@ -10,13 +10,13 @@ export function YamlView({ sectionId, yamlValue, setYamlValue }) {
     language: "yaml",
     indentWithTab: true,
   });
-  const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
+  const { wrapperRef, handleCreateEditor, maxHeight, overflow } =
     useCodeAreaHeight({ sectionId });
 
   return (
     <article
       ref={wrapperRef}
-      className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
+      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow}`}
     >
       <CodeMirror
         maxHeight={maxHeight}

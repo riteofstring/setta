@@ -1,78 +1,18 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useEffect, useRef, useState } from "react";
-import { NAVBAR_HEIGHT } from "utils/constants";
+import { useEffect, useRef } from "react";
 
 export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
   const ref = useOutsideAlerter(isOpen, closeContextMenu);
-  const [position, setPosition] = useState({
-    top: -9999,
-    left: -9999,
-    opacity: 0,
-  });
-  const contentRef = useRef(null);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setPosition({ top: -9999, left: -9999, opacity: 0 });
-      return;
-    }
-
-    // Use requestAnimationFrame to wait for the next render cycle
-    requestAnimationFrame(() => {
-      if (contentRef.current) {
-        const menuRect = contentRef.current.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const viewportWidth = window.innerWidth;
-
-        let newTop = y;
-        let newLeft = x;
-
-        // Check if menu would overflow bottom of viewport
-        if (y + menuRect.height > viewportHeight) {
-          newTop = y - menuRect.height;
-        }
-
-        // Check if menu would overflow right of viewport
-        if (x + menuRect.width > viewportWidth) {
-          newLeft = x - menuRect.width;
-        }
-
-        // Ensure menu doesn't go above navbar
-        if (newTop < NAVBAR_HEIGHT) {
-          // If opening downward would fit, open downward
-          if (y + menuRect.height <= viewportHeight) {
-            newTop = y;
-          } else {
-            // Otherwise, position just below navbar
-            newTop = NAVBAR_HEIGHT;
-          }
-        }
-
-        // Ensure menu doesn't go beyond left of viewport
-        if (newLeft < 0) {
-          newLeft = 0;
-        }
-
-        // Set final position with opacity
-        setPosition({ top: newTop, left: newLeft, opacity: 1 });
-      }
-    });
-  }, [x, y, isOpen]);
 
   return (
     <DropdownMenu.Root open={isOpen} modal={false}>
       <DropdownMenu.Content
-        className="absolute z-10 flex w-[clamp(5rem,_20vw,_10rem)] cursor-pointer flex-col gap-1 rounded-md border border-solid border-setta-500/50 bg-white px-2 py-2 shadow-xl dark:bg-setta-900"
+        className="absolute z-10 flex w-[clamp(5rem,_20vw,_10rem)] cursor-pointer flex-col gap-1 rounded-md border border-solid border-setta-500/50 bg-white px-2 py-2 shadow-xl  dark:bg-setta-900"
         style={{
-          left: position.left,
-          top: position.top,
-          opacity: position.opacity,
+          left: x,
+          top: y,
         }}
-        ref={(element) => {
-          // Combine refs
-          ref.current = element;
-          contentRef.current = element;
-        }}
+        ref={ref}
       >
         {children}
       </DropdownMenu.Content>

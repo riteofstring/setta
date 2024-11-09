@@ -57,15 +57,20 @@ export function addSectionAtPosition({
     ...inputSectionProps,
   };
 
-  if (!sectionProps.size) {
-    sectionProps.size = getDefaultSectionSize(type);
-  }
-
-  if (!sectionProps.name) {
-    sectionProps.name = getDefaultSectionName(type);
-  }
-
-  if (type === C.DRAW) {
+  const settings = useSettings.getState();
+  sectionProps.size = settings.defaultSectionSize;
+  if (type === C.DECK) {
+  } else if (type === C.GLOBAL_VARIABLES) {
+    sectionProps.name = "Global Variables";
+  } else if (type === C.CODE) {
+    sectionProps.size = settings.defaultCodeSectionSize;
+  } else if (type === C.TERMINAL) {
+    sectionProps.size = settings.defaultTerminalSectionSize;
+  } else if (type === C.GLOBAL_PARAM_SWEEP) {
+    sectionProps.name = "Global Param Sweep";
+  } else if (type === C.INFO) {
+    sectionProps.name = getDefaultInfoTitle();
+  } else if (type === C.DRAW) {
     sectionProps.canvasSettings = {
       color: "#ff0000",
       opacity: 1,
@@ -81,31 +86,6 @@ export function addSectionAtPosition({
   const [newId] = createSectionInfo({ sectionProps, position });
   maybeIncrementProjectStateVersion(incrementVersion);
   return newId;
-}
-
-function getDefaultSectionSize(type) {
-  const settings = useSettings.getState();
-  switch (type) {
-    case C.CODE:
-      return settings.defaultCodeSectionSize;
-    case C.TERMINAL:
-      return settings.defaultTerminalSectionSize;
-    default:
-      return settings.defaultSectionSize;
-  }
-}
-
-function getDefaultSectionName(type) {
-  switch (type) {
-    case C.INFO:
-      return getDefaultInfoTitle();
-    case C.GLOBAL_VARIABLES:
-      return "Global Variables";
-    case C.GLOBAL_PARAM_SWEEP:
-      return "Global Param Sweep";
-    default:
-      return null;
-  }
 }
 
 export function addChildrenToSeries({

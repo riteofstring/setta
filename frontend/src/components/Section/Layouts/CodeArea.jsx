@@ -84,7 +84,7 @@ function JavascriptCodeArea({ sectionId, language }) {
 function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   const value = useSectionCode(sectionId);
 
-  const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
+  const { wrapperRef, handleCreateEditor, maxHeight, overflow } =
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
@@ -111,7 +111,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   return (
     <article
       ref={wrapperRef}
-      className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
+      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow}`}
     >
       <CodeMirror
         maxHeight={maxHeight}
@@ -133,18 +133,9 @@ export function useCodeAreaHeight({ sectionId }) {
 
   const wrapperRef = useRef(null);
   const editorRef = useRef(null);
-  const [nowheel, setNoWheel] = useState("");
-
-  function computeNoWheel() {
-    return editorRef.current.scrollDOM.scrollHeight >
-      editorRef.current.scrollDOM.clientHeight
-      ? "nowheel"
-      : "";
-  }
 
   const handleCreateEditor = useCallback((view) => {
     editorRef.current = view;
-    setNoWheel(computeNoWheel());
   }, []);
 
   const maxHeight =
@@ -161,17 +152,10 @@ export function useCodeAreaHeight({ sectionId }) {
       wrapperRef.current.scrollTop = editorScrollTop;
     } else if (editorRef.current && resizeEvent === "end") {
       editorRef.current.scrollDOM.scrollTop = wrapperScrollTop;
-      setNoWheel(computeNoWheel());
     }
   }, [resizeEvent]);
 
-  return {
-    wrapperRef,
-    handleCreateEditor,
-    maxHeight,
-    overflow,
-    nowheel,
-  };
+  return { wrapperRef, handleCreateEditor, maxHeight, overflow };
 }
 
 const debouncedSetKeywordPositions = asyncDebounce(async (sectionId, value) => {
