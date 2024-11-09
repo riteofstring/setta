@@ -1,5 +1,8 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import Pickr from "@simonwep/pickr";
+import { useEffect, useRef } from "react";
 import { tryParseJSON } from "utils/utils";
+import '@simonwep/pickr/dist/themes/monolith.min.css'; 
 
 export function ColorPickerInputConfig({ onChange, config }) {
   const colors = config.colorChoices ?? [];
@@ -114,6 +117,93 @@ export function ColorPickerInput({
 }
 
 function ColorPicker({ colorChoices, value, onChange }) {
+  const ref = useRef();
+
+  useEffect(() => {
+    if (!ref.current) {
+      return;
+    }
+
+    // const child = document.createElement("div");
+    // ref.current.appendChild(child);
+    // Simple example, see optional options for more configuration.
+    const pickr = Pickr.create({
+      el: ref.current,
+      theme: "classic", // or 'monolith', or 'nano'
+
+      swatches: [
+        "rgba(244, 67, 54, 1)",
+        "rgba(233, 30, 99, 0.95)",
+        "rgba(156, 39, 176, 0.9)",
+        "rgba(103, 58, 183, 0.85)",
+        "rgba(63, 81, 181, 0.8)",
+        "rgba(33, 150, 243, 0.75)",
+        "rgba(3, 169, 244, 0.7)",
+        "rgba(0, 188, 212, 0.7)",
+        "rgba(0, 150, 136, 0.75)",
+        "rgba(76, 175, 80, 0.8)",
+        "rgba(139, 195, 74, 0.85)",
+        "rgba(205, 220, 57, 0.9)",
+        "rgba(255, 235, 59, 0.95)",
+        "rgba(255, 193, 7, 1)",
+      ],
+
+      components: {
+        // Main components
+        preview: true,
+        opacity: true,
+        hue: true,
+
+        // Input / output Options
+        interaction: {
+          hex: true,
+          rgba: true,
+          hsla: true,
+          hsva: true,
+          cmyk: true,
+          input: true,
+          clear: true,
+          save: true,
+        },
+      },
+      useAsButton: true,
+    });
+    pickr
+      .on("init", (instance) => {
+        console.log('Event: "init"', instance);
+      })
+      .on("hide", (instance) => {
+        console.log('Event: "hide"', instance);
+      })
+      .on("show", (color, instance) => {
+        console.log('Event: "show"', color, instance);
+      })
+      .on("save", (color, instance) => {
+        console.log('Event: "save"', color, instance);
+      })
+      .on("clear", (instance) => {
+        console.log('Event: "clear"', instance);
+      })
+      .on("change", (color, source, instance) => {
+        console.log('Event: "change"', color, source, instance);
+        console.log(color.toHEXA().toString())
+        onChange(color.toHEXA().toString())
+      })
+      .on("changestop", (source, instance) => {
+        console.log('Event: "changestop"', source, instance);
+      })
+      .on("cancel", (instance) => {
+        console.log('Event: "cancel"', instance);
+      })
+      .on("swatchselect", (color, instance) => {
+        console.log('Event: "swatchselect"', color, instance);
+      });
+
+    return () => {
+      pickr.destroyAndRemove();
+    };
+  }, []);
+
   return colorChoices?.length > 0 ? (
     <ColorPickerFromColorChoices
       color={value}
@@ -121,13 +211,16 @@ function ColorPicker({ colorChoices, value, onChange }) {
       colorChoices={colorChoices}
     />
   ) : (
-    <input
-      id="colorPicker"
-      type="color"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="min-h-4 min-w-4 cursor-pointer"
-    />
+    <div
+      ref={ref}
+      className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-2 transition-shadow duration-200 hover:shadow-md"
+    >
+      <div
+        className="h-6 w-6 rounded-full border border-gray-200"
+        style={{ backgroundColor: value }}
+      />
+      <span className="font-mono text-sm">{value.toUpperCase()}</span>
+    </div>
   );
 }
 
