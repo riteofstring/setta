@@ -2,7 +2,6 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import C from "constants/constants.json";
 import React from "react";
 import { useGetSectionType } from "state/hooks/uiTypes";
-import { CONST_INFO_VIEWS } from "utils/constants";
 import { DrawAreaSettings } from "./DrawAreaSettings";
 import { InputAreaSettings } from "./InputAreaSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
@@ -21,7 +20,7 @@ function SectionConfigCore({ sectionId }) {
         <p
           className="mt-2 text-xs font-semibold uppercase text-setta-400"
           {...getFloatingBoxHandlers(
-            CONST_INFO_VIEWS.SECTIONCONFIG_CARDTYPES_SEARCH,
+             "Select your card's type. Options include: Object, List of Objects, Dictionary of Objects, and Info. The Info Card only takes in Markdown text.",
           )}
         >
           Card Types
@@ -34,7 +33,7 @@ function SectionConfigCore({ sectionId }) {
       <p
         className="mt-4 text-xs font-semibold uppercase text-setta-400"
         {...getFloatingBoxHandlers(
-          CONST_INFO_VIEWS.SECTIONCONFIG_CONTENTS_SEARCH,
+          "Choose which arguments appear in your selected card.",
         )}
       >
         Contents
