@@ -94,7 +94,6 @@ class TerminalWebsockets:
                 "terminalPromptIsReady": asyncio.Event(),
                 "isTemporary": isTemporary,
                 "initialized": asyncio.Event(),
-                "closing": False,
             }
             pty_info = self.PTY_PIDS[sectionId]
 
@@ -112,9 +111,12 @@ class TerminalWebsockets:
         await websocket.accept()
         self.sockets[id] = websocket
         self.section_to_socket_ids[sectionId].add(id)
-        await self.PTY_PIDS[sectionId]["terminalPromptIsReady"].wait()
-        await websocket.send_text(C.SETTA_TERMINAL_READY)
-        await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
+        pty_info = self.PTY_PIDS[sectionId]
+        await pty_info["terminalPromptIsReady"].wait()
+        await self.send_output_to_websocket(websocket, C.SETTA_TERMINAL_READY)
+        await self.send_output_to_websocket(
+            websocket, "".join(self.PTY_PIDS[sectionId]["history"])
+        )
 
     def disconnect(self, sectionId, id):
         print("disconnecting", id, flush=True)
@@ -129,8 +131,6 @@ class TerminalWebsockets:
         if sectionId in self.PTY_PIDS:
             try:
                 pty_info = self.PTY_PIDS[sectionId]
-                # Mark terminal as closing to prevent new operations
-                pty_info["closing"] = True
                 await asyncio.to_thread(pty_info["process"].terminate, force=True)
                 del self.PTY_PIDS[sectionId]
             except KeyError:
@@ -148,7 +148,8 @@ class TerminalWebsockets:
         history = pty_info["history"]
         initial_buffer = ""
 
-        while True and not pty_info["closing"]:
+        while True:
+            print("read_from_terminal while loop", sectionId)
             try:
                 output, _, _ = await self.loop.run_in_executor(
                     None,
@@ -158,7 +159,7 @@ class TerminalWebsockets:
                     [],
                     None,
                 )
-                if not output or pty_info["closing"]:
+                if not output:
                     continue
 
                 output = pty_process.read(1024)
@@ -166,18 +167,16 @@ class TerminalWebsockets:
                     initial_buffer += output
                     if initial_buffer.count(SETTA_CLEAR_CMD) >= 4:
                         pty_info["terminalPromptIsReady"].set()
-                        if not pty_info["closing"]:
-                            await self.send_output_to_sectionId(
-                                sectionId, C.SETTA_TERMINAL_READY
-                            )
+                        await self.send_output_to_sectionId(
+                            sectionId, C.SETTA_TERMINAL_READY
+                        )
                     continue
 
                 if not pty_info["wasJustResized"]:
                     history.append(output)
                 pty_info["wasJustResized"] = False
 
-                if not pty_info["closing"]:
-                    await self.send_output_to_sectionId(sectionId, output)
+                await self.send_output_to_sectionId(sectionId, output)
 
             except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
                 break
@@ -257,16 +256,14 @@ class TerminalWebsockets:
         socket_ids = set(self.section_to_socket_ids[sectionId])
         for socket_id in socket_ids:
             if socket_id in self.sockets:
-                try:
-                    websocket = self.sockets[socket_id]
-                    if not websocket.client_state.DISCONNECTED:
-                        await websocket.send_text(output)
-                except (WebSocketDisconnect, RuntimeError):
-                    # Handle disconnection gracefully
-                    self.disconnect(sectionId, socket_id)
-                except Exception as e:
-                    print(f"Error sending to websocket: {e}", flush=True)
-                    self.disconnect(sectionId, socket_id)
+                websocket = self.sockets[socket_id]
+                await self.send_output_to_websocket(websocket, output)
+
+    async def send_output_to_websocket(self, websocket, output):
+        try:
+            await websocket.send_text(output)
+        except Exception as e:
+            print(f"Error sending to websocket: {e}", flush=True)
 
 
 def runCode(message, terminal_write_fn=None, command_callback=None):

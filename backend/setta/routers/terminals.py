@@ -1,7 +1,7 @@
 import asyncio
 from typing import List
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket
 from pydantic import BaseModel
 
 from setta.utils.constants import C
@@ -27,60 +27,36 @@ async def terminal_websocket_endpoint(
     isTemporary: bool,
     terminal_websockets=Depends(get_terminal_websockets_from_websocket),
 ):
-    try:
-        isNew = terminal_websockets.new_terminal(
-            projectConfigId, sectionId, isTemporary
+    # First check if terminal exists
+    isNew = terminal_websockets.new_terminal(projectConfigId, sectionId, isTemporary)
+
+    print("terminal isNew", isNew)
+
+    # Start the background task for terminal handling
+    async def handle_terminal():
+        read_task = terminal_websockets.loop.create_task(
+            terminal_websockets.read_from_terminal(sectionId)
         )
-        pty_info = terminal_websockets.PTY_PIDS[sectionId]
+        await read_task
+        await terminal_websockets.delete_terminal(sectionId)
 
-        async def handle_terminal():
-            try:
-                read_task = terminal_websockets.loop.create_task(
-                    terminal_websockets.read_from_terminal(sectionId)
-                )
-                pty_info["initialized"].set()
-                await read_task
-            except Exception as e:
-                print(f"Terminal handling error: {e}", flush=True)
-            finally:
-                if not pty_info.get(
-                    "closing", False
-                ):  # Only delete if not already closing
-                    print("read_task finished*", flush=True)
-                    await terminal_websockets.delete_terminal(sectionId)
+    # Create the background task
+    if isNew:
+        print("starting read_task")
+        terminal_websockets.loop.create_task(handle_terminal())
 
-        if isNew:
-            terminal_websockets.loop.create_task(handle_terminal())
-            try:
-                await asyncio.wait_for(pty_info["initialized"].wait(), timeout=5.0)
-            except asyncio.TimeoutError:
-                print(f"Terminal initialization timeout for {sectionId}", flush=True)
-                await websocket.close(1000)
-                return
+    await terminal_websockets.connect(websocket, sectionId, id)
+    try:
+        write_task = terminal_websockets.loop.create_task(
+            terminal_websockets.write_to_terminal(websocket, sectionId)
+        )
+        print('started write_task', id)
 
-        try:
-            await terminal_websockets.connect(websocket, sectionId, id)
-        except (WebSocketDisconnect, RuntimeError):
-            print(f"WebSocket disconnected during connect for {sectionId}", flush=True)
-            return
-
-        try:
-            write_task = terminal_websockets.loop.create_task(
-                terminal_websockets.write_to_terminal(websocket, sectionId)
-            )
-            await write_task
-        except (WebSocketDisconnect, RuntimeError):
-            print(f"WebSocket disconnected during write for {sectionId}", flush=True)
-    except Exception as e:
-        print(f"Terminal endpoint error: {e}", flush=True)
-        try:
-            await websocket.close(1000)
-        except:
-            pass
+        await write_task
     finally:
+        # Cleanup
         print("terminal_websocket_endpoint disconnect", id, flush=True)
-        if sectionId in terminal_websockets.section_to_socket_ids:
-            terminal_websockets.disconnect(sectionId, id)
+        terminal_websockets.disconnect(sectionId, id)
 
 
 @router.post(C.ROUTE_GET_FREE_TERMINAL)
