@@ -40,19 +40,18 @@ from setta.utils.constants import (
 
 SETTA_CLEAR_CMD = "SETTA_CLEAR_CMD"
 IS_WINDOWS = platform.system() == "Windows"
+IS_MACOS = platform.system() == "Darwin"
+
 
 if IS_WINDOWS:
     from winpty import PtyProcess
 
     from .utils import windows_has_child_processes as has_child_processes
 
-    TERMINAL_NAME = "bash.exe"
 else:
     from ptyprocess import PtyProcessUnicode as PtyProcess
 
     from .utils import linux_has_child_processes as has_child_processes
-
-    TERMINAL_NAME = ["zsh"]
 
 
 def is_command_running_in_pty(pid):
@@ -60,6 +59,16 @@ def is_command_running_in_pty(pid):
         return has_child_processes(pid)
     except psutil.NoSuchProcess:
         return False
+
+
+def get_terminal_shell():
+    if USER_SETTINGS["defaultTerminalShell"]:
+        return USER_SETTINGS["defaultTerminalShell"]
+    if IS_WINDOWS:
+        return "bash.exe"
+    if IS_MACOS:
+        return "zsh"
+    return "bash"
 
 
 class TerminalWebsockets:
@@ -71,7 +80,10 @@ class TerminalWebsockets:
 
     def new_terminal(self, projectConfigId, sectionId, isTemporary):
         if sectionId not in self.PTY_PIDS:
-            pty_process = PtyProcess.spawn(TERMINAL_NAME)
+            terminal_shell = get_terminal_shell()
+            if not IS_WINDOWS:
+                terminal_shell = [terminal_shell]
+            pty_process = PtyProcess.spawn(terminal_shell)
             self.PTY_PIDS[sectionId] = {
                 "pid": pty_process.pid,
                 "start": time.time(),

@@ -49,5 +49,6 @@
   "zoomOnScroll": true,
   "zoomOnPinch": true,
   "zoomOnDoubleClick": true,
-  "clearTerminalBeforeMarkingAsReady": true
+  "clearTerminalBeforeMarkingAsReady": true,
+  "defaultTerminalShell": null
 }
