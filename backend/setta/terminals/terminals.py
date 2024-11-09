@@ -108,10 +108,12 @@ class TerminalWebsockets:
 
     async def connect(self, websocket, sectionId, id):
         await websocket.accept()
-        self.sockets[id] = websocket
+        self.sockets[id] = {"ws": websocket, "sentReadyMsg": False}
         self.section_to_socket_ids[sectionId].add(id)
         await self.PTY_PIDS[sectionId]["terminalPromptIsReady"].wait()
-        await websocket.send_text(C.SETTA_TERMINAL_READY)
+        if not self.sockets[id]["sentReadyMsg"]:
+            await websocket.send_text(C.SETTA_TERMINAL_READY)
+            self.sockets[id]["sentReadyMsg"] = True
         await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
 
     def disconnect(self, sectionId, id):
@@ -172,7 +174,7 @@ class TerminalWebsockets:
                     if initial_buffer.count(SETTA_CLEAR_CMD) >= 4:
                         pty_info["terminalPromptIsReady"].set()
                         await self.send_output_to_sectionId(
-                            sectionId, C.SETTA_TERMINAL_READY
+                            sectionId, C.SETTA_TERMINAL_READY, setSentReadyMsg=True
                         )
                     continue
                 if not pty_info["wasJustResized"]:
@@ -258,11 +260,13 @@ class TerminalWebsockets:
                 output.append({"id": k, "isTemporary": v["isTemporary"]})
         return output
 
-    async def send_output_to_sectionId(self, sectionId, output):
+    async def send_output_to_sectionId(self, sectionId, output, setSentReadyMsg=False):
         for wsId in self.section_to_socket_ids[sectionId]:
-            ws = self.sockets[wsId]
+            ws = self.sockets[wsId]["ws"]
             try:
                 await ws.send_text(output)
+                if setSentReadyMsg:
+                    self.sockets[wsId]["sentReadyMsg"] = True
             except:
                 continue
 
