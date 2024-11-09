@@ -1,6 +1,8 @@
 import C from "constants/constants.json";
+import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
+import { useSettings } from "state/definitions";
 import { create } from "zustand";
 
 export const useFloatingBox = create((set) => ({
@@ -72,14 +74,36 @@ export const FloatingBox = () => {
       <article className="flex-1 overflow-y-auto break-words text-sm text-setta-700 dark:text-setta-300">
         {content}
       </article>
-      <p className="mt-4 border-t border-solid border-setta-100 pt-1 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-600">
-        press <span className="font-black">&quot;S&quot;</span> to open tooltip
-        as new section &#40;while holding down{" "}
-        <span className="font-black">&quot;Q&quot;</span>&#41;
-      </p>
+      <Footer isFrozen={isFrozen} />
     </div>
   );
 };
+
+function Footer({ isFrozen }) {
+  const { tooltipToSectionShortcut, freezeTooltipShortcut } = useSettings((x) =>
+    _.pick(x, ["tooltipToSectionShortcut", "freezeTooltipShortcut"]),
+  );
+  const className =
+    "mt-4 border-t border-solid border-setta-100 pt-1 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-600";
+
+  console.log("isFrozen", isFrozen)
+
+  if (isFrozen) {
+    return <p className={className}>
+      press <span className="font-black">&quot;Esc&quot;</span> to close
+    </p>;
+  }
+
+  return (
+    <p className={className}>
+      press{" "}
+      <span className="font-black">&quot;{tooltipToSectionShortcut}&quot;</span>{" "}
+      to open tooltip as new section, or{" "}
+      <span className="font-black">&quot;{freezeTooltipShortcut}&quot;</span> to
+      freeze tooltip
+    </p>
+  );
+}
 
 export function getFloatingBoxHandlers(content, title) {
   function onMouseOver() {
