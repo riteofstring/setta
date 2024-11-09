@@ -10,9 +10,10 @@ import {
   setAspectRatioInfo,
   setSectionSize,
 } from "state/actions/sections/setters";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos, useSettings } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
-import { getImageDimensionsFromBase64 } from "utils/utils";
+import { getImageDimensionsFromBase64, roundUpMultiple } from "utils/utils";
+import { localStorageFns } from "./localStorage";
 import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
 import { useGetSectionType } from "./uiTypes";
@@ -23,7 +24,7 @@ export const PINNED_PARAMS_AREA_MIN_HEIGHT = 64;
 const ROOT_SECTION_HEIGHT = 50;
 const MINIMIZE_SECTION_HEIGHT = 32;
 
-export function getMinSectionHeight({
+function _getMinSectionHeight({
   sectionType,
   hideSearch,
   hideParams,
@@ -64,7 +65,38 @@ export function getMinSectionHeight({
   }
 }
 
-export function getMaxSectionHeight({ sectionType, isMinimized }) {
+function getMinSectionHeight({
+  sectionType,
+  hideSearch,
+  hideParams,
+  isMinimized,
+  snapToGrid: _snapToGrid,
+  snapGridY: _snapGridY,
+}) {
+  const minSize = _getMinSectionHeight({
+    sectionType,
+    hideSearch,
+    hideParams,
+    isMinimized,
+  });
+
+  const snapToGrid =
+    _snapToGrid === undefined
+      ? localStorageFns.snapToGrid.state()[0]
+      : _snapToGrid;
+
+  if (snapToGrid) {
+    const snapGridY =
+      _snapGridY === undefined
+        ? useSettings.getState().snapGrid[1]
+        : _snapGridY;
+
+    return roundUpMultiple(minSize, snapGridY);
+  }
+  return minSize;
+}
+
+function _getMaxSectionHeight({ sectionType, isMinimized }) {
   if (isMinimized) {
     return MINIMIZE_SECTION_HEIGHT;
   }
@@ -72,6 +104,33 @@ export function getMaxSectionHeight({ sectionType, isMinimized }) {
     return ROOT_SECTION_HEIGHT;
   }
   return INFINITE_MAX_HEIGHT;
+}
+
+function getMaxSectionHeight({
+  sectionType,
+  isMinimized,
+  snapToGrid: _snapToGrid,
+  snapGridY: _snapGridY,
+}) {
+  const minSize = _getMaxSectionHeight({
+    sectionType,
+    isMinimized,
+  });
+
+  const snapToGrid =
+    _snapToGrid === undefined
+      ? localStorageFns.snapToGrid.state()[0]
+      : _snapToGrid;
+
+  if (snapToGrid) {
+    const snapGridY =
+      _snapGridY === undefined
+        ? useSettings.getState().snapGrid[1]
+        : _snapGridY;
+
+    return roundUpMultiple(minSize, snapGridY);
+  }
+  return minSize;
 }
 
 export function getMinSectionWidth({ sectionType, isTwitter }) {
@@ -114,17 +173,23 @@ export function useSectionMinMaxDims(sectionId) {
   const hideParams = useGetSectionInfo(sectionId, "hideParams");
   const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
   const isTwitter = useIsTwitter(sectionId);
+  const [snapToGrid] = localStorageFns.snapToGrid.hook();
+  const snapGrid = useSettings((x) => x.snapGrid);
 
   const minHeight = getMinSectionHeight({
     sectionType,
     hideSearch,
     hideParams,
     isMinimized,
+    snapToGrid,
+    snapGridY: snapGrid[1],
   });
 
   const maxHeight = getMaxSectionHeight({
     sectionType,
     isMinimized,
+    snapToGrid,
+    snapGridY: snapGrid[1],
   });
 
   const minWidth = getMinSectionWidth({ sectionType, isTwitter });
