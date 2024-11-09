@@ -19,11 +19,7 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
-export function ParamInput({
-  sectionId,
-  paramInfoId,
-  maybeErrorMessage,
-}) {
+export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
   const keywordPositions = useGetParamKeywordPositions(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
