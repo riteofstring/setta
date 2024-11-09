@@ -80,8 +80,16 @@ export const FloatingBox = () => {
 };
 
 function Footer({ isFrozen }) {
-  const { tooltipToSectionShortcut, freezeTooltipShortcut } = useSettings((x) =>
-    _.pick(x, ["tooltipToSectionShortcut", "freezeTooltipShortcut"]),
+  const {
+    tooltipToSectionShortcut,
+    freezeTooltipShortcut,
+    frozenTooltipToSectionShortcut,
+  } = useSettings((x) =>
+    _.pick(x, [
+      "tooltipToSectionShortcut",
+      "freezeTooltipShortcut",
+      "frozenTooltipToSectionShortcut",
+    ]),
   );
   const className =
     "mt-4 border-t border-solid border-setta-100 pt-1 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-600";
@@ -89,7 +97,11 @@ function Footer({ isFrozen }) {
   if (isFrozen) {
     return (
       <p className={className}>
-        press <span className="font-black">&quot;Esc&quot;</span> to close
+        press <span className="font-black">&quot;Esc&quot;</span> to close, or{" "}
+        <span className="font-black">
+          &quot;{frozenTooltipToSectionShortcut}&quot;
+        </span>{" "}
+        to open tooltip as new section
       </p>
     );
   }
@@ -157,6 +169,8 @@ export function convertFloatingBoxToSection(event) {
       },
     });
   }
+  // if converting a frozen floating box, then we need to remove it
+  removeFrozenFloatingBox();
 }
 
 export function freezeFloatingBox() {

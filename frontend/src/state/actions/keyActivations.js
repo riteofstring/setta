@@ -164,6 +164,7 @@ export function attachKeyEventListeners() {
     [settings.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
     [settings.tooltipToSectionShortcut, convertFloatingBoxToSection],
     [settings.freezeTooltipShortcut, freezeFloatingBox],
+    [settings.frozenTooltipToSectionShortcut, convertFloatingBoxToSection],
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
     [settings.groupShortcut, groupSections],

@@ -39,7 +39,7 @@ export function newSectionInfo({
   const _variantId = maybeNewId(variantId);
   const _variantIds = [...variantIds, _variantId];
 
-  console.log("size", size)
+  console.log("size", size);
 
   return {
     id: maybeNewId(id),
