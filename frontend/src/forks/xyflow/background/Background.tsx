@@ -1,43 +1,25 @@
-import cc from "classcat";
 import _ from "lodash";
 import { memo, useRef } from "react";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useReactFlow } from "../core/store";
 import { DotPattern, LinePattern } from "./Patterns";
-import { BackgroundProps, BackgroundVariant } from "./types";
+import { BackgroundVariant } from "./types";
 
-const defaultColor = {
-  [BackgroundVariant.Dots]: "",
-  [BackgroundVariant.Lines]: "#eee",
-  [BackgroundVariant.Cross]: "#e2e2e2",
-};
-
-const defaultSize = {
-  [BackgroundVariant.Dots]: 1,
-  [BackgroundVariant.Lines]: 1,
-  [BackgroundVariant.Cross]: 6,
-};
-
-function Background({
-  id,
-  // only used for lines and cross
-  lineWidth = 1,
-  offset = 2,
-  style,
-  className,
-}: BackgroundProps) {
-  const size = 2;
+function Background() {
+  const offset = 2;
   const [darkMode] = localStorageFns.darkMode.hook();
-  const color = darkMode ? "hsl(219, 26%, 18%)" : "hsl(219, 25%, 75%)";
-  const variant = BackgroundVariant.Dots;
+  const patternColor = useSettings((x) =>
+    darkMode ? x.gridColorDarkMode : x.gridColor,
+  );
+  const patternSize = useSettings((x) => x.gridPatternSize);
+  const gapXY: [number, number] = useSettings((x) => x.snapGrid);
+  const variant = useSettings((x) => BackgroundVariant[x.gridPattern]);
   const ref = useRef<SVGSVGElement>(null);
   const transform = useReactFlow((x) => x.transform, _.isEqual);
-  const patternColor = color || defaultColor[variant];
-  const patternSize = size || defaultSize[variant];
   const isDots = variant === BackgroundVariant.Dots;
   const isCross = variant === BackgroundVariant.Cross;
-  const gapXY: [number, number] = useSettings((x) => x.snapGrid);
+
   const scaledGap: [number, number] = [
     gapXY[0] * transform[2] || 1,
     gapXY[1] * transform[2] || 1,
@@ -54,9 +36,8 @@ function Background({
 
   return (
     <svg
-      className={cc(["react-flow__background", className])}
+      className="react-flow__background"
       style={{
-        ...style,
         position: "absolute",
         width: "100%",
         height: "100%",
@@ -67,7 +48,7 @@ function Background({
       data-testid="rf__background"
     >
       <pattern
-        id={`ReactFlowBackground${id}`}
+        id="ReactFlowBackground"
         x={transform[0] % scaledGap[0]}
         y={transform[1] % scaledGap[1]}
         width={scaledGap[0]}
@@ -81,7 +62,7 @@ function Background({
           <LinePattern
             dimensions={patternDimensions}
             color={patternColor}
-            lineWidth={lineWidth}
+            lineWidth={patternSize * transform[2]}
           />
         )}
       </pattern>
@@ -90,7 +71,7 @@ function Background({
         y="0"
         width="100%"
         height="100%"
-        fill={`url(#ReactFlowBackground${id})`}
+        fill={`url(#ReactFlowBackground`}
       />
     </svg>
   );

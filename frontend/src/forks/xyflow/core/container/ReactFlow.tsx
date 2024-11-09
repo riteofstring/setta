@@ -1,5 +1,6 @@
 import Background from "forks/xyflow/background/Background";
 import { type CSSProperties } from "react";
+import { localStorageFns } from "state/hooks/localStorage";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
 import ViewportWrapper from "./Viewport";
@@ -13,6 +14,8 @@ const wrapperStyle: CSSProperties = {
 };
 
 const ReactFlow = () => {
+  const [snapToGrid] = localStorageFns.snapToGrid.hook();
+  
   return (
     <div
       style={wrapperStyle}
@@ -24,7 +27,7 @@ const ReactFlow = () => {
           <NodeRenderer />
         </ViewportWrapper>
       </FlowRenderer>
-      <Background />
+      {snapToGrid && <Background />}
     </div>
   );
 };
