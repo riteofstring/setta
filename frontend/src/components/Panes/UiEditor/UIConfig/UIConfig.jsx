@@ -26,16 +26,16 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   );
 
   const inputStyles =
-    "flex-grow outline-0 min-w-0 w-full cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800 focus-visible:!border-blue-300 pl-5 py-1 truncate placeholder-setta-400 dark:placeholder-setta-700 text-sm";
+    "flex-grow outline-0 min-w-0 w-full cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800 focus-visible:!border-blue-300 pl-7 py-1 truncate";
 
   return (
     <div className="flex flex-1 flex-col gap-1 overflow-y-hidden">
       <StandardSearch
         inputStyles={inputStyles}
-        // leftElementStyles="pl-1"
+        leftElementStyles="pl-1"
         placeholder="Filter"
         leftElement={
-          <i className="gg-sort-az !scale-75  text-setta-600 dark:text-setta-400" />
+          <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
         }
         onChange={(e) => setFilter(e.target.value)}
       />
