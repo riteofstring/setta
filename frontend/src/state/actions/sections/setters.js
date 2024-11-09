@@ -129,21 +129,25 @@ export async function createCodeInfoChildren({
 }) {
   const setToNotWaiting = setParametersRequestWaitingForLSP(visualSectionId);
 
-  const [documentation, params] = await dbParametersRequest({
+  const res = await dbParametersRequest({
     sectionId: dataSectionId,
     fullText: selectedItemName,
     beforeText: "",
     position: selectedItemName.length,
     evRefs,
   });
-  if (params) {
-    createChildrenCodeInfo(codeInfoId, params);
-    setSelectedItemChildren(dataSectionId, codeInfoId, changedByUser);
+  if (res) {
+    const [documentation, params] = res;
+    if (params) {
+      createChildrenCodeInfo(codeInfoId, params);
+      setSelectedItemChildren(dataSectionId, codeInfoId, changedByUser);
+    } else {
+      setNotificationMessage("No parameters found");
+    }
+    setCodeInfoDescription({ id: codeInfoId, description: documentation });
   } else {
     setNotificationMessage("No parameters found");
   }
-  console.log("[documentation, params]", [documentation, params]);
-  setCodeInfoDescription({ id: codeInfoId, description: documentation });
   setToNotWaiting();
 }
 
