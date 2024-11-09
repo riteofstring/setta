@@ -1,3 +1,5 @@
+import Background from "forks/xyflow/background/Background";
+import { BackgroundVariant } from "forks/xyflow/background/types";
 import { type CSSProperties } from "react";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
@@ -23,7 +25,7 @@ const ReactFlow = ({ children }) => {
           <NodeRenderer />
         </ViewportWrapper>
       </FlowRenderer>
-      {children}
+      <Background color="#ccc" variant={BackgroundVariant.Dots} />
     </div>
   );
 };
