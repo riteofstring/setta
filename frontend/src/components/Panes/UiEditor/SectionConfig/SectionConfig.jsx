@@ -32,7 +32,7 @@ function SectionConfigCore({ sectionId }) {
       {/* <SectionConfigTypeSelection sectionId={sectionId} /> */}
 
       <p
-        className="text-sm text-setta-400"
+        className="mt-4 text-xs font-semibold uppercase text-setta-400"
         {...getFloatingBoxHandlers(
           CONST_INFO_VIEWS.SECTIONCONFIG_CONTENTS_SEARCH,
         )}

@@ -1,3 +1,4 @@
+import { AvailableColors } from "components/Params/ParamUIs/ColorPickerInput";
 import _ from "lodash";
 import { setCanvasColorChoices } from "state/actions/sections/setters";
 import { useSectionInfos } from "state/definitions";
@@ -25,10 +26,10 @@ export function DrawAreaSettings({ sectionId }) {
   //     </div>
   //   </div>
   // );
-  return <AvailableColors sectionId={sectionId} />;
+  return <DrawAreaAvailableColors sectionId={sectionId} />;
 }
 
-const AvailableColors = ({ sectionId }) => {
+function DrawAreaAvailableColors({ sectionId }) {
   const colors = useSectionInfos(
     (x) => x.x[sectionId].canvasSettings?.colorChoices ?? [],
     _.isEqual,
@@ -67,44 +68,12 @@ const AvailableColors = ({ sectionId }) => {
   };
 
   return (
-    <>
-      <button
-        onClick={addColor}
-        className="my-1 flex cursor-pointer items-center justify-between rounded-xl border border-solid border-setta-200/70 px-3 py-2 uppercase text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850"
-        aria-label="Add color"
-      >
-        <p className="text-sm font-black ">Add Colors</p>
-        <i className="gg-add !scale-90" />
-      </button>
-
-      <div className="flex flex-col gap-2 overflow-y-auto">
-        {colors.map(({ color, description }, idx) => (
-          <div key={idx} className="flex items-center gap-2">
-            <div className="flex flex-auto items-center gap-1 overflow-hidden">
-              <input
-                type="color"
-                value={color}
-                onChange={(e) => updateColor(idx, e.target.value)}
-                className="min-h-6 min-w-6 cursor-pointer rounded-full !border !border-solid !border-setta-500/30 p-0"
-              />
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => updateDescription(idx, e.target.value)}
-                placeholder="Add description..."
-                className="m-[2px] w-full truncate rounded border px-2 py-1 text-xs text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
-              />
-            </div>
-            <button
-              onClick={() => removeColor(idx)}
-              className="flex cursor-pointer items-center rounded-full p-1 text-setta-400 hover:text-setta-700 dark:text-setta-600 hover:dark:text-setta-300"
-              aria-label="Remove color"
-            >
-              <i className="gg-close !scale-75" />
-            </button>
-          </div>
-        ))}
-      </div>
-    </>
+    <AvailableColors
+      colors={colors}
+      addColor={addColor}
+      removeColor={removeColor}
+      updateColor={updateColor}
+      updateDescription={updateDescription}
+    />
   );
-};
+}

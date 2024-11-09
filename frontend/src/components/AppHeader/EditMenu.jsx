@@ -44,7 +44,6 @@ function Items() {
         <AiOutlineGroup className="h-4 w-4" />
         Group
       </MenuItem>
-      <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
       <MenuItem
         onClick={dbRequestTypeCheck}
         shortcut={shortcuts.typeCheckShortcut}
@@ -59,7 +58,6 @@ function Items() {
       <MenuItem onClick={undoProjectState} shortcut={shortcuts.undoShortcut}>
         Undo
       </MenuItem>
-      <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
       <Link to={SETTINGS_ROUTER_PATH}>
         <MenuItem>Settings</MenuItem>
       </Link>
