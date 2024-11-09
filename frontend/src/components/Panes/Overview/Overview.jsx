@@ -1,3 +1,4 @@
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { BiHelpCircle } from "react-icons/bi";
@@ -38,13 +39,21 @@ export function Overview() {
       onKeyDown={overviewPaneOnKeyDown}
     >
       <div className="absolute left-0 z-[19] flex h-full w-[50px] flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
-        <TabButton tabName="tab1" {...commonProps}>
+        <TabButton
+          tabName="tab1"
+          {...commonProps}
+          {...getFloatingBoxHandlers("Project Overview")}
+        >
           <i className="gg-list  !scale-100" />
         </TabButton>
         {/* <TabButton tabName="tab2" {...commonProps}>
           <i className="gg-info !scale-100" />
         </TabButton> */}
-        <TabButton tabName="tab3" {...commonProps}>
+        <TabButton
+          tabName="tab3"
+          {...commonProps}
+          {...getFloatingBoxHandlers("Config Preview")}
+        >
           <i className="gg-git-branch !scale-100" />
         </TabButton>
         <a
