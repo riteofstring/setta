@@ -42,7 +42,7 @@ function GlobalParamSweepCode({ sectionId }) {
 
   return (
     <article
-      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0`}
+      className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0`}
     >
       <CodeMirror
         value={code}
