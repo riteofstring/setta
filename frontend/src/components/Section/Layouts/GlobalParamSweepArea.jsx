@@ -67,9 +67,17 @@ function GlobalParamSweepGUI() {
     }
   }, [shownRunGroup, firstRunGroupId]);
 
+  console.log("GlobalParamSweepGUI");
+
   return (
     <>
-      <section className="section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll @sm/multipane:flex-row  @sm/multipane:overflow-visible">
+      <section
+        className="section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll @sm/multipane:flex-row @sm/multipane:overflow-visible"
+        style={{
+          contain: "none",
+          contentVisibility: "visible",
+        }}
+      >
         <article className="mt-2 flex flex-col gap-2 ">
           <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
             Run Groups
@@ -109,6 +117,8 @@ function RunGroupList({
     _.isEqual,
   );
 
+  console.log("RunGroupList");
+
   return (
     <ul className="noscroll nowheel flex flex-grow flex-col overflow-y-scroll">
       {Object.entries(runGroups).map(([id, x]) => (
@@ -143,6 +153,8 @@ function SectionList({ runGroupId, runGroup }) {
     shownSectionTypes.includes(sectionTypeName),
   )[0];
 
+  console.log("SectionList");
+
   return (
     <ul className="noscroll nowheel -mt-2 flex flex-grow flex-col overflow-y-scroll rounded-lg bg-setta-50/40 pl-3 pr-2 pt-2 dark:bg-setta-875">
       {allSections.map((x, idx) => (
@@ -161,6 +173,8 @@ function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
   function onSectionCheckboxChange() {
     toggleRunGroupSection({ id: runGroupId, sectionId: sectionInfo.id });
   }
+
+  console.log("SectionItem");
 
   return (
     <div style={{ paddingLeft: `${0.75 * sectionInfo.depth}rem` }}>
@@ -189,6 +203,7 @@ function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
 function _VersionsList({ sectionInfo, runGroupId, runGroupSection }) {
   const allVersions = useGetSectionVariantNames(sectionInfo.id);
 
+  console.log("_VersionsList");
   function getOnVersionCheckboxChange(versionId) {
     return () =>
       toggleRunGroupSectionVersion({
@@ -214,6 +229,8 @@ const VersionsList = React.memo(_VersionsList, _.isEqual);
 
 function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
   const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
+
+  console.log("_ParamSweepVersionsList");
 
   function getOnParamSweepCheckboxChange(paramSweepId) {
     return () =>
@@ -246,6 +263,8 @@ function _GenericList({
   listSelection,
   onChange,
 }) {
+  console.log("_GenericList");
+
   return (
     inputList.length > minLength && (
       <>
@@ -285,6 +304,8 @@ function _GenericList({
 const GenericList = React.memo(_GenericList, _.isEqual);
 
 function CheckboxGroup({ children, checked, onChange }) {
+  console.log("CheckboxGroup");
+
   return (
     <label className="flex min-h-6 cursor-pointer items-center gap-2 text-xs text-setta-700 dark:text-setta-300">
       <input
@@ -307,6 +328,7 @@ function CheckboxNextToLabel({
   onMouseOver,
   onMouseLeave,
 }) {
+  console.log("CheckboxNextToLabel");
   return (
     <li
       className="group/runitem flex justify-between"
@@ -338,6 +360,7 @@ function CheckboxNextToLabel({
 function FilterSection() {
   const inputStyles =
     "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-7 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
+  console.log("FilterSection");
 
   return (
     <search className="flex min-w-0 items-center pb-1">
@@ -357,6 +380,7 @@ function CreateNewRunGroupButton({ setShownRunGroup }) {
     initRunGroup({ id, name: createRandomName() });
     setShownRunGroup(id);
   }
+  console.log("CreateNewRunGroupButton");
 
   return (
     <button
