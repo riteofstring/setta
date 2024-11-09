@@ -142,6 +142,12 @@ class TerminalWebsockets:
         for id in to_disconnect:
             self.disconnect(sectionId, id)
 
+    async def delete_terminals(self, sectionIds):
+        await asyncio.gather(*(self.delete_terminal(s) for s in sectionIds))
+
+    async def delete_all_terminals(self):
+        await self.delete_terminals(self.PTY_PIDS.keys())
+
     # Function to read from the terminal
     async def read_from_terminal(self, sectionId):
         pty_info = self.PTY_PIDS[sectionId]
