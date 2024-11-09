@@ -44,7 +44,7 @@ export function ParamNameInput({ sectionId, paramInfoId, onBlur }) {
         isDisabled={isDisabled}
       />
       <span
-        className={`${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} border-box self-end border-b border-setta-100 peer-focus-within/nameinput:border-blue-400 dark:border-setta-800`}
+        className={`${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} border-box self-end border-b border-setta-200/50 peer-focus-within/nameinput:border-blue-400 dark:border-setta-600/30`}
       />
     </>
   );

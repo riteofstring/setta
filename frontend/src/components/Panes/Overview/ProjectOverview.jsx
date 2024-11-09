@@ -13,7 +13,7 @@ export const ProjectOverview = React.forwardRef(() => {
     <>
       <ProjectName />
       <StandardSearch
-        inputStyles="flex-grow outline-0 min-w-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800  focus-visible:!border-blue-300 pl-5 py-1 truncate"
+        inputStyles="flex-grow outline-0 min-w-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800  focus-visible:!border-blue-300 pl-5 py-1 truncate placeholder-setta-400 dark:placeholder-setta-700 text-sm"
         outerClasses="pb-4"
         leftElementStyles="pl-1"
         placeholder="Filter"
