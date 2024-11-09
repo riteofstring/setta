@@ -97,8 +97,8 @@ function parseShortcut(shortcutString) {
   };
 }
 
-function isShortcutPressed(e, shortcut, _isMacOs) {
-  const { mod, ctrl, shift, alt, keys } = shortcut;
+function isShortcutPressed(e, parsedShortcut, _isMacOs) {
+  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
   if (_isMacOs) {
     return (
       e.metaKey === mod &&
@@ -117,30 +117,31 @@ function isShortcutPressed(e, shortcut, _isMacOs) {
   }
 }
 
-function getShouldPreventDefault(lowercaseKeyCombo) {
-  // Check if it's a single character
-  if (lowercaseKeyCombo.length === 1) {
-    const char = lowercaseKeyCombo.charAt(0);
-    // Check if it's a letter or number
-    if ((char >= "a" && char <= "z") || (char >= "0" && char <= "9")) {
-      return false;
-    }
+function getShouldPreventDefault(parsedShortcut) {
+  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
+
+  // case for shortcuts that don't contain modifiers
+  if (!mod && !ctrl && !shift && !alt) {
+    return false;
   }
 
-  return ![
-    "mod",
-    "ctrl",
-    "alt",
-    "shift",
-    "ctrl + c",
-    "ctrl + v",
-    "mod + c",
-    "mod + v",
-    "space",
-    "escape",
-    "tab",
-    "shift + tab",
-  ].includes(lowercaseKeyCombo);
+  // case for "mod", "ctrl", "alt", "shift"
+  if (keys.size === 0) {
+    return false;
+  }
+
+  // special shortcuts
+  if (
+    (ctrl && _.isEqual(keys, new Set(["KeyC"]))) ||
+    (ctrl && _.isEqual(keys, new Set(["KeyV"]))) ||
+    (mod && _.isEqual(keys, new Set(["KeyC"]))) ||
+    (mod && _.isEqual(keys, new Set(["KeyV"]))) ||
+    (shift && _.isEqual(keys, new Set(["Tab"])))
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function keyUpLoop(e, shortcutInfo) {
@@ -216,10 +217,11 @@ export function attachKeyEventListeners() {
       continue;
     }
     const lowercaseKeyCombo = keyCombo.toLowerCase();
+    const parsedShortcut = parseShortcut(lowercaseKeyCombo);
     shortcutInfo.push({
-      parsedShortcut: parseShortcut(lowercaseKeyCombo),
+      parsedShortcut,
       wasPressed: false,
-      shouldPreventDefault: getShouldPreventDefault(lowercaseKeyCombo),
+      shouldPreventDefault: getShouldPreventDefault(parsedShortcut),
       keyDownAction,
       keyUpAction,
       allowRepeat,
