@@ -10,6 +10,8 @@ export function getValueForUIType({ uiType, currValue }) {
       return convertValueForSlider({ uiType, currValue });
     case C.SWITCH:
       return convertValueForSwitch({ currValue });
+    case C.COLOR_PICKER:
+      return convertValueForColorPicker({ currValue });
     default:
       return "";
   }
@@ -40,4 +42,13 @@ function convertValueForSwitch({ currValue }) {
     return currValue === "0" ? "false" : "true";
   }
   return "false";
+}
+
+function convertValueForColorPicker({ currValue }) {
+  // Regular expression to match #fff or #ffffff format (case insensitive)
+  const hexColorRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+  if (hexColorRegex.test(currValue)) {
+    return currValue;
+  }
+  return "#000000";
 }

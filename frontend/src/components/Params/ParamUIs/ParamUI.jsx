@@ -7,6 +7,7 @@ import {
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamUIType } from "state/hooks/uiTypes";
+import { ColorPickerInput, ColorPickerInputConfig } from "./ColorPickerInput";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
 import { SwitchInput, SwitchInputConfig } from "./SwitchInput";
 import { TextInputConfig } from "./TextInput";
@@ -19,6 +20,8 @@ export function ParamUIConfig({ name, ...props }) {
       return <SliderInputConfig {...props} />;
     case C.SWITCH:
       return <SwitchInputConfig {...props} />;
+    case C.COLOR_PICKER:
+      return <ColorPickerInputConfig {...props} />;
   }
 }
 
@@ -100,6 +103,14 @@ export function ParamUI({
           twRootClasses="nodrag"
         />
       );
+    case C.COLOR_PICKER:
+      return (
+        <ColorPickerInput
+          value={value}
+          onChange={onChange}
+          wrapperClassName="section-value flex justify-self-start self-center"
+        />
+      );
   }
 }
 
@@ -178,5 +189,7 @@ export function ParamSweepUI({
           twRootClasses="nodrag"
         />
       );
+    case C.COLOR_PICKER:
+      return <ColorPickerInput />;
   }
 }
