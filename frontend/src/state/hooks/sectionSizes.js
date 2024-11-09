@@ -135,7 +135,7 @@ export function useSectionMinMaxDims(sectionId) {
   return { minHeight, maxHeight, minWidth, maxWidth, sizeMode };
 }
 
-export function useScrollable() {
+export function useIsScrollable() {
   const [isScrollable, setIsScrollable] = useState(false);
   const elementRef = useRef(null);
 

@@ -9,12 +9,12 @@ import { useGetSectionInfo } from "state/hooks/sections";
 import {
   INFINITE_MAX_HEIGHT,
   PINNED_PARAMS_AREA_MIN_HEIGHT,
-  useScrollable,
+  useIsScrollable,
 } from "state/hooks/sectionSizes";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {
-  const { ref, isScrollable } = useScrollable();
+  const { ref, isScrollable } = useIsScrollable();
   const outerRef = useRef();
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
