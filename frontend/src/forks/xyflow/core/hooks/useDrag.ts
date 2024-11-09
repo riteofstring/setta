@@ -67,13 +67,10 @@ function useDrag({
           const nextPosition = { x: x - n.distance.x, y: y - n.distance.y };
 
           if (dragEnd && snapToGrid) {
-            console.log("snapGrid", snapGrid)
-            console.log("nextPosition", nextPosition)
             nextPosition.x =
               snapGrid[0] * Math.round(nextPosition.x / snapGrid[0]);
             nextPosition.y =
               snapGrid[1] * Math.round(nextPosition.y / snapGrid[1]);
-            console.log("grid position" ,nextPosition)
           }
 
           // we want to make sure that we only fire a change event when there is a change
