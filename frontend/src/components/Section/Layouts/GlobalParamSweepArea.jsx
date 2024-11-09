@@ -23,11 +23,13 @@ import {
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useGetSectionInfo } from "state/hooks/sections";
+import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 
 export function GlobalParamSweepArea({ sectionId }) {
   const showYaml = useGetSectionInfo(sectionId, "showYaml");
+
   return !showYaml ? (
     <GlobalParamSweepGUI sectionId={sectionId} />
   ) : (
@@ -68,7 +70,7 @@ function GlobalParamSweepGUI({ sectionId }) {
     const w = x.x[sectionId].size.width;
     return w === "auto" ? getSectionRect(sectionId).width : w;
   });
-
+  const { ref, isScrollable } = useIsScrollable();
   useEffect(() => {
     if (!shownRunGroup && firstRunGroupId) {
       setShownRunGroup(firstRunGroupId);
@@ -78,7 +80,8 @@ function GlobalParamSweepGUI({ sectionId }) {
   return (
     <>
       <section
-        className={`${width < 386 ? "nowheel" : ""} section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll  @sm/multipane:flex-row  @sm/multipane:overflow-visible`}
+        className={`${width < 386 && isScrollable ? "nowheel" : ""} section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll  @sm/multipane:flex-row  @sm/multipane:overflow-visible`}
+        ref={ref}
       >
         <article className="mt-2 flex flex-col gap-2 ">
           <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
@@ -118,9 +121,13 @@ function RunGroupList({
     (x) => x.runGroupSelection,
     _.isEqual,
   );
+  const { ref, isScrollable } = useIsScrollable();
 
   return (
-    <ul className="noscroll nowheel flex flex-grow flex-col overflow-visible @sm/multipane:overflow-y-scroll">
+    <ul
+      className={`${isScrollable ? "nowheel" : ""} flex flex-grow flex-col overflow-visible @sm/multipane:overflow-y-scroll`}
+      ref={ref}
+    >
       {Object.entries(runGroups).map(([id, x]) => (
         <CheckboxNextToLabel
           key={id}
@@ -152,9 +159,13 @@ function SectionList({ runGroupId, runGroup }) {
   const allSections = useGetOverviewListing((sectionTypeName) =>
     shownSectionTypes.includes(sectionTypeName),
   )[0];
+  const { ref, isScrollable } = useIsScrollable();
 
   return (
-    <ul className="noscroll nowheel -mt-2 flex flex-grow flex-col overflow-visible rounded-lg bg-setta-50/40 pl-3 pr-2 pt-2 @sm/multipane:overflow-y-scroll dark:bg-setta-875">
+    <ul
+      className={`${isScrollable ? "nowheel" : ""} -mt-2 flex flex-grow flex-col overflow-visible rounded-lg bg-setta-50/40 pl-3 pr-2 pt-2 @sm/multipane:overflow-y-scroll dark:bg-setta-875`}
+      ref={ref}
+    >
       {allSections.map((x, idx) => (
         <SectionItem
           key={idx}
