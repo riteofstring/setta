@@ -224,6 +224,9 @@ class TerminalWebsockets:
             except (WebSocketDisconnect, CancelledError, ConnectionClosedOK) as e:
                 # print(e, flush=True)
                 break
+            except EOFError:
+                # print(f"Terminal EOF for section {sectionId}", flush=True)
+                break
             except OSError as e:
                 if e.errno == errno.EIO:  # Input/output error
                     # print(
