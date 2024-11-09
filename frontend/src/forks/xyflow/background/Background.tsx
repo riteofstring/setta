@@ -2,13 +2,12 @@ import cc from "classcat";
 import _ from "lodash";
 import { memo, useRef } from "react";
 import { useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
 import { useReactFlow } from "../core/store";
 import { DotPattern, LinePattern } from "./Patterns";
 import { BackgroundProps, BackgroundVariant } from "./types";
 
 const defaultColor = {
-  [BackgroundVariant.Dots]: "",
+  [BackgroundVariant.Dots]: "#91919a",
   [BackgroundVariant.Lines]: "#eee",
   [BackgroundVariant.Cross]: "#e2e2e2",
 };
@@ -22,15 +21,14 @@ const defaultSize = {
 function Background({
   id,
   // only used for lines and cross
+  size,
   lineWidth = 1,
   offset = 2,
   style,
   className,
 }: BackgroundProps) {
-  const size = 2;
-  const [darkMode] = localStorageFns.darkMode.hook();
-  const color = darkMode ? "hsl(219, 26%, 18%)" : "hsl(219, 25%, 75%)";
-  const variant = BackgroundVariant.Dots;
+  const color = "#ccc";
+  const variant = BackgroundVariant.Lines;
   const ref = useRef<SVGSVGElement>(null);
   const transform = useReactFlow((x) => x.transform, _.isEqual);
   const patternColor = color || defaultColor[variant];
