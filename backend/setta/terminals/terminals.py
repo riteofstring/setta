@@ -111,12 +111,8 @@ class TerminalWebsockets:
         self.sockets[id] = websocket
         self.section_to_socket_ids[sectionId].add(id)
         await self.PTY_PIDS[sectionId]["terminalPromptIsReady"].wait()
-        try:
-            await websocket.send_text(C.SETTA_TERMINAL_READY)
-            await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
-            return True
-        except:
-            return False
+        await websocket.send_text(C.SETTA_TERMINAL_READY)
+        await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
 
     def disconnect(self, sectionId, id):
         print("disconnecting", id, flush=True)
