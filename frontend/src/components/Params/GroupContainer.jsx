@@ -106,7 +106,7 @@ function ResizablePinnedArea({
   return (
     <ResizableWithScale
       handleWrapperClass="nodrag"
-      className="nowheel items-startjustify-between relative -mt-1 flex max-h-[50%] flex-col overflow-hidden border-b border-white bg-blue-200/30 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30"
+      className="nowheel items-startjustify-between relative -mt-1 flex max-h-[50%] flex-col overflow-hidden border-b border-white bg-blue-200/50 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30"
       as="section"
       size={{ height }}
       onResizeStop={onResizeStop}
