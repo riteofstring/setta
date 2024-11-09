@@ -104,8 +104,10 @@ export function ParamUI({
         />
       );
     case C.COLOR_PICKER:
+      const { colorChoices } = uiType.config;
       return (
         <ColorPickerInput
+          colorChoices={colorChoices}
           value={value}
           onChange={onChange}
           wrapperClassName="section-value flex justify-self-start self-center"

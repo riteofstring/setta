@@ -1,3 +1,5 @@
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+
 export function ColorPickerInputConfig({ onChange, config }) {
   const colors = config.colorChoices ?? [];
 
@@ -86,15 +88,84 @@ export const AvailableColors = ({
   );
 };
 
-export function ColorPickerInput({ value, onChange, wrapperClassName }) {
-  return (
+export function ColorPickerInput({
+  colorChoices,
+  value,
+  onChange,
+  wrapperClassName,
+}) {
+  return wrapperClassName ? (
     <div className={wrapperClassName}>
-      <input
-        type="color"
+      <ColorPicker
+        colorChoices={colorChoices}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="min-h-8 min-w-8 cursor-pointer rounded-full p-0"
+        onChange={onChange}
       />
     </div>
+  ) : (
+    <ColorPicker
+      colorChoices={colorChoices}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
+function ColorPicker({ colorChoices, value, onChange }) {
+  return colorChoices?.length > 0 ? (
+    <ColorPickerFromColorChoices
+      color={value}
+      setColor={onChange}
+      colorChoices={colorChoices}
+    />
+  ) : (
+    <input
+      id="colorPicker"
+      type="color"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="min-h-4 min-w-4 cursor-pointer"
+    />
+  );
+}
+
+function ColorPickerFromColorChoices({ color, setColor, colorChoices }) {
+  let selectedItem = colorChoices.find((c) => c.color === color);
+  if (!selectedItem) {
+    selectedItem = colorChoices[0];
+  }
+
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger className="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 py-1 dark:bg-setta-850 dark:hover:bg-setta-900">
+        <div className="flex items-center text-setta-500 dark:text-setta-400">
+          <div
+            className="mr-2 h-4 w-4 rounded-full"
+            style={{ backgroundColor: selectedItem.color }}
+          />
+          <p className="max-w-24 truncate text-xs font-black">
+            {selectedItem.description}
+          </p>
+          <i className="gg-chevron-down -mr-1 self-end" />
+        </div>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content className="flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800">
+        {colorChoices.map((item, index) => (
+          <DropdownMenu.Item
+            key={index}
+            className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700"
+            onSelect={() => setColor(item.color)}
+          >
+            <div
+              className="mr-2 h-4 w-4 rounded-full"
+              style={{ backgroundColor: item.color }}
+            />
+            <p className="max-w-48 truncate text-xs text-setta-500 dark:text-setta-300">
+              {item.description}
+            </p>
+          </DropdownMenu.Item>
+        ))}
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   );
 }
