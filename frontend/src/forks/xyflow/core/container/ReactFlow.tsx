@@ -1,3 +1,4 @@
+import Background from "forks/xyflow/background/Background";
 import { type CSSProperties } from "react";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
@@ -11,7 +12,7 @@ const wrapperStyle: CSSProperties = {
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
-const ReactFlow = ({ children }) => {
+const ReactFlow = () => {
   return (
     <div
       style={wrapperStyle}
@@ -23,7 +24,7 @@ const ReactFlow = ({ children }) => {
           <NodeRenderer />
         </ViewportWrapper>
       </FlowRenderer>
-      {children}
+      <Background />
     </div>
   );
 };

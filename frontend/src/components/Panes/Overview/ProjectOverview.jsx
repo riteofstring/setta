@@ -2,6 +2,7 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import React from "react";
 import { useGetOverviewListing } from "state/hooks/overview";
+import { CONST_INFO_VIEWS } from "utils/constants";
 import { ProjectName } from "./ProjectName";
 import { SectionListItems } from "./SectionListItems";
 
@@ -20,13 +21,13 @@ export const ProjectOverview = React.forwardRef(() => {
           <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
         }
         onChange={(e) => setFilter(e.target.value)}
-        {...getFloatingBoxHandlers("Search through your project's cards.")}
+        {...getFloatingBoxHandlers(CONST_INFO_VIEWS.OVERVIEW_SEARCH)}
       />
 
       <div className="min-h-0 flex-grow overflow-y-scroll">
         <ul
           className="min-h-0 flex-grow"
-          {...getFloatingBoxHandlers("Click on a section name to pan to it.")}
+          {...getFloatingBoxHandlers(CONST_INFO_VIEWS.OVERVIEW)}
         >
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>

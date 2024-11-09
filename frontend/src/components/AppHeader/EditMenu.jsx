@@ -45,7 +45,7 @@ function Items() {
         Group
       </MenuItem>
       <MenuItem
-        onClick={() => dbRequestTypeCheck(true)}
+        onClick={dbRequestTypeCheck}
         shortcut={shortcuts.typeCheckShortcut}
       >
         Type Check

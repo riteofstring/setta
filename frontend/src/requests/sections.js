@@ -4,14 +4,9 @@ import {
 } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import _ from "lodash";
-import { setNotificationMessage } from "state/actions/notification";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
-import {
-  useKeywordRegex,
-  useProjectConfig,
-  useTypeErrors,
-} from "state/definitions";
+import { useKeywordRegex, useProjectConfig } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
@@ -25,11 +20,7 @@ export async function dbLoadSectionJSONSource(jsonSource) {
   });
 }
 
-export function dbRequestTypeCheck(userRequested = false) {
-  if (userRequested) {
-    setNotificationMessage("Checking types...");
-    useTypeErrors.setState({ userRequested });
-  }
+export function dbRequestTypeCheck() {
   const project = getProjectDataToGenerateCode({});
   sendMessage({
     content: project,
