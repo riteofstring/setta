@@ -90,7 +90,6 @@ export const AvailableColors = ({
 };
 
 export function ColorPickerInput({
-  id,
   colorChoices,
   value,
   onChange,
@@ -100,7 +99,6 @@ export function ColorPickerInput({
   return wrapperClassName ? (
     <div className={wrapperClassName}>
       <ColorPicker
-        id={id}
         colorChoices={colorChoices}
         value={_value}
         onChange={onChange}
@@ -108,7 +106,6 @@ export function ColorPickerInput({
     </div>
   ) : (
     <ColorPicker
-      id={id}
       colorChoices={colorChoices}
       value={_value}
       onChange={onChange}
@@ -116,7 +113,7 @@ export function ColorPickerInput({
   );
 }
 
-function ColorPicker({ id, colorChoices, value, onChange }) {
+function ColorPicker({ colorChoices, value, onChange }) {
   return colorChoices?.length > 0 ? (
     <ColorPickerFromColorChoices
       color={value}
@@ -125,7 +122,7 @@ function ColorPicker({ id, colorChoices, value, onChange }) {
     />
   ) : (
     <input
-      id={id}
+      id="colorPicker"
       type="color"
       value={value}
       onChange={(e) => onChange(e.target.value)}

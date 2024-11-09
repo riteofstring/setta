@@ -485,7 +485,6 @@ function DrawAreaColorPicker({ sectionId, color, setColor }) {
 
   return (
     <ColorPickerInput
-      id={`${sectionId}-color-picker-draw-area`}
       colorChoices={colorChoices}
       value={color}
       onChange={setColor}

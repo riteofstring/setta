@@ -107,7 +107,6 @@ export function ParamUI({
       const { colorChoices } = uiType.config;
       return (
         <ColorPickerInput
-          id={`${sectionId}-${paramInfoId}-color-picker`}
           colorChoices={colorChoices}
           value={value}
           onChange={onChange}
@@ -193,14 +192,6 @@ export function ParamSweepUI({
         />
       );
     case C.COLOR_PICKER:
-      return (
-        <ColorPickerInput
-          id={`${sectionId}-${paramInfoId}-color-picker-param-sweep`}
-          colorChoices={colorChoices}
-          value={value}
-          onChange={onChange}
-          wrapperClassName="section-value flex justify-self-start self-center"
-        />
-      );
+      return <ColorPickerInput />;
   }
 }
