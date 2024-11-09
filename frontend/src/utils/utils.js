@@ -66,11 +66,3 @@ export async function getImageDimensionsFromBase64(base64String) {
 export function isFromJSONSource(id) {
   return id.startsWith(C.JSON_SOURCE_PREFIX);
 }
-
-export function roundUpMultiple(value, multiple) {
-  return Math.ceil(value / multiple) * multiple;
-}
-
-export function roundDownMultiple(value, multiple) {
-  return Math.floor(value / multiple) * multiple;
-}
