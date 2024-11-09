@@ -1,7 +1,7 @@
 import asyncio
 from typing import List
 
-from fastapi import APIRouter, Depends, WebSocket,WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from setta.utils.constants import C
@@ -28,12 +28,9 @@ async def terminal_websocket_endpoint(
     terminal_websockets=Depends(get_terminal_websockets_from_websocket),
 ):
     try:
-        isNew = terminal_websockets.new_terminal(projectConfigId, sectionId, isTemporary)
-        
-        if sectionId not in terminal_websockets.PTY_PIDS:
-            await websocket.close(1000)
-            return
-            
+        isNew = terminal_websockets.new_terminal(
+            projectConfigId, sectionId, isTemporary
+        )
         pty_info = terminal_websockets.PTY_PIDS[sectionId]
 
         async def handle_terminal():
@@ -46,7 +43,9 @@ async def terminal_websocket_endpoint(
             except Exception as e:
                 print(f"Terminal handling error: {e}", flush=True)
             finally:
-                if not pty_info.get("closing", False):  # Only delete if not already closing
+                if not pty_info.get(
+                    "closing", False
+                ):  # Only delete if not already closing
                     print("read_task finished*", flush=True)
                     await terminal_websockets.delete_terminal(sectionId)
 
