@@ -85,19 +85,19 @@ const AvailableColors = ({ sectionId }) => {
                 type="color"
                 value={color}
                 onChange={(e) => updateColor(idx, e.target.value)}
-                className="min-h-8 min-w-8 cursor-pointer rounded-full !border !border-solid !border-setta-500/30 p-0"
+                className="min-h-6 min-w-6 cursor-pointer rounded-full !border !border-solid !border-setta-500/30 p-0"
               />
               <input
                 type="text"
                 value={description}
                 onChange={(e) => updateDescription(idx, e.target.value)}
                 placeholder="Add description..."
-                className="m-[2px] w-full truncate rounded border px-2 py-1 text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
+                className="m-[2px] w-full truncate rounded border px-2 py-1 text-xs text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
               />
             </div>
             <button
               onClick={() => removeColor(idx)}
-              className="flex cursor-pointer items-center rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              className="flex cursor-pointer items-center rounded-full p-1 text-setta-400 hover:text-setta-700 dark:text-setta-600 hover:dark:text-setta-300"
               aria-label="Remove color"
             >
               <i className="gg-close !scale-75" />
