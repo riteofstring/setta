@@ -183,23 +183,22 @@ class TerminalWebsockets:
                     history.append(output)
                 pty_info["wasJustResized"] = False
                 await self.send_output_to_sectionId(sectionId, output)
-            # except (WebSocketDisconnect, CancelledError, ConnectionClosedOK) as e:
-            #     print(e, flush=True)
-            #     break
-            # except EOFError:
-            #     print(f"Terminal EOF for section {sectionId}", flush=True)
-            #     break
-            # except OSError as e:
-            #     if e.errno == errno.EIO:  # Input/output error
-            #         print(
-            #             f"Terminal I/O error for section {sectionId}: {e}", flush=True
-            #         )
-            #         break
+            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK) as e:
+                # print(e, flush=True)
+                break
+            except EOFError:
+                # print(f"Terminal EOF for section {sectionId}", flush=True)
+                break
+            except OSError as e:
+                if e.errno == errno.EIO:  # Input/output error
+                    # print(
+                    #     f"Terminal I/O error for section {sectionId}: {e}", flush=True
+                    # )
+                    break
             except Exception as e:
                 print(f"Exception details:\n{traceback.format_exc()}")
                 print(e, flush=True)
                 print("read_from_terminal caught the exception!", flush=True)
-                break
 
     # Function to write to the terminal
     async def write_to_terminal(self, websocket, sectionId):
@@ -226,24 +225,19 @@ class TerminalWebsockets:
                 elif input_data:
                     pty_process.write(input_data)
                     self.set_terminal_start_time(sectionId)
-            # except (WebSocketDisconnect, CancelledError, ConnectionClosedOK) as e:
-            #     print(e, flush=True)
-            #     break
-            # except OSError as e:
-            #     if e.errno == errno.EIO:  # Input/output error
-            #         print(
-            #             f"Terminal I/O error for section {sectionId}: {e}", flush=True
-            #         )
-            #         break
-            # except RuntimeError as e:
-            #     if "websocket" in str(e).lower():
-            #         break
-            #     print(e, flush=True)
+            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK) as e:
+                # print(e, flush=True)
+                break
+            except OSError as e:
+                if e.errno == errno.EIO:  # Input/output error
+                    # print(
+                    #     f"Terminal I/O error for section {sectionId}: {e}", flush=True
+                    # )
+                    break
             except Exception as e:
                 print(f"Exception details:\n{traceback.format_exc()}")
                 print(e, flush=True)
                 print("write_to_terminal caught the exception!", flush=True)
-                break
 
     def set_terminal_start_time(self, id):
         self.PTY_PIDS[id]["start"] = time.time()
