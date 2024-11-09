@@ -65,13 +65,7 @@ export const AvailableColors = ({
                 type="color"
                 value={color}
                 onChange={(e) => updateColor(idx, e.target.value)}
-                className="min-h-6 min-w-6 cursor-pointer rounded-full !border !border-solid !border-setta-500/20 p-0 [&::-moz-color-swatch]:rounded 
-                [&::-moz-color-swatch]:border-0 
-                dark:[&::-moz-color-swatch]:border-white/10 
-                [&::-webkit-color-swatch-wrapper]:p-0
-                [&::-webkit-color-swatch]:rounded 
-                [&::-webkit-color-swatch]:border-0
-                dark:[&::-webkit-color-swatch]:border-white/10"
+                className="min-h-6 min-w-6 cursor-pointer rounded-full !border !border-solid !border-setta-500/20 p-0 dark:!border-setta-500/40 [&::-moz-color-swatch]:rounded"
               />
               <input
                 type="text"
@@ -132,7 +126,7 @@ function ColorPicker({ colorChoices, value, onChange }) {
       type="color"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="max-h-4 max-w-4 cursor-pointer !border !border-solid !border-setta-500/20"
+      className="max-h-4 max-w-4 cursor-pointer !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
     />
   );
 }
@@ -148,7 +142,7 @@ function ColorPickerFromColorChoices({ color, setColor, colorChoices }) {
       <DropdownMenu.Trigger className="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 py-1 dark:bg-setta-850 dark:hover:bg-setta-900">
         <div className="flex items-center text-setta-500 dark:text-setta-400">
           <div
-            className="mr-2 h-4 w-4 rounded-full"
+            className="mr-2 h-4 w-4 rounded-full !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
             style={{ backgroundColor: selectedItem.color }}
           />
           <p className="max-w-24 truncate text-xs font-black">
