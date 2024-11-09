@@ -35,7 +35,7 @@ function Background({
   const transform = useReactFlow((x) => x.transform, _.isEqual);
   const patternColor = color || defaultColor[variant];
   const patternSize = size || defaultSize[variant];
-  const isDots = variant === BackgroundVariant.Lines;
+  const isDots = variant === BackgroundVariant.Dots;
   const isCross = variant === BackgroundVariant.Cross;
   const gapXY: [number, number] = useSettings((x) => x.snapGrid);
   const scaledGap: [number, number] = [
@@ -81,7 +81,7 @@ function Background({
           <LinePattern
             dimensions={patternDimensions}
             color={patternColor}
-            lineWidth={lineWidth * transform[2]}
+            lineWidth={lineWidth}
           />
         )}
       </pattern>
