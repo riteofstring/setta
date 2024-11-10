@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { updateArtifacts } from "state/actions/artifacts";
 import { updateInteractiveData } from "state/actions/interactive";
-import { setTemporaryMiscMessage } from "state/actions/temporaryMiscState";
+import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeErrors";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";
 import { useWebsocketConnectionList } from "state/definitions";
@@ -48,7 +48,7 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_INTERACTIVE_RETURN) {
     updateInteractiveData(m.content);
   } else if (m.id) {
-    setTemporaryMiscMessage(m.id, m.content);
+    setTemporaryMiscState(m.id, m.content);
   }
 }
 

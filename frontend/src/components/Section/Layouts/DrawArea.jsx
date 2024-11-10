@@ -13,7 +13,7 @@ import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { setCanvasSettings } from "state/actions/sections/setters";
 import {
   base64RequestId,
-  setTemporaryMiscMessage,
+  setTemporaryMiscState,
 } from "state/actions/temporaryMiscState";
 import {
   useArtifacts,
@@ -192,7 +192,7 @@ export function DrawOnImage({ sectionId }) {
       (x) => x[id],
       (x) => {
         if (x === true) {
-          setTemporaryMiscMessage(id, toBase64());
+          setTemporaryMiscState(id, toBase64());
         }
       },
     );

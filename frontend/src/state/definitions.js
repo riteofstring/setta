@@ -211,7 +211,7 @@ export const useWebsocketConnectionList = create(() => ({
 }));
 
 export const useTemporaryMiscState = createProjectState(
-  subscribeWithSelector(immer(() => ({}))),
+  subscribeWithSelector(() => ({})),
 );
 
 export const useParamShortcuts = create(() => ({

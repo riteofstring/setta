@@ -116,7 +116,7 @@ export async function dbCodeAreaCompletion({
     sectionId,
     paramInfoId: null,
     fullText,
-    messageIdSuffix: "-codeArea",
+    messageIdSuffix: "-codeAreaAutocomplete",
     regexPatternKey: "codeAreaPattern",
   });
 
@@ -215,10 +215,7 @@ export async function getKeywordPositionsAndEVRefs({
       messageType: "textFieldFindReferences",
       content: { sectionId, paramInfoId, candidateKeywords, fullText },
       condition: (x) => {
-        console.log("x", x);
-        if (!("error" in x)) {
-          keywordPositions.push(...x);
-        }
+        keywordPositions.push(...x);
         count += 1;
         return count === candidateKeywords.length;
       },
