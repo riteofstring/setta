@@ -38,18 +38,14 @@ export const INFO_CONFIG_TAB = "InfoConfig";
 export const RUNTIME_CONFIG_TAB = "RuntimeConfig";
 export const SECTION_VARIANTS_TAB = "SectionVariantsConfig";
 
-export const tabNameToPretty = Object.freeze(
-  new Map(
-    Object.entries({
-      [UI_CONFIG_TAB]: "Params",
-      [SECTION_CONFIG_TAB]: "Card",
-      [QUICKINFO_CONFIG_TAB]: "Quick Info",
-      [INFO_CONFIG_TAB]: "Text Editor",
-      // [RUNTIME_CONFIG_TAB]: "Runtime",
-      [SECTION_VARIANTS_TAB]: "Ver.",
-    }),
-  ),
-);
+export const tabNameToPretty = {
+  [UI_CONFIG_TAB]: "Params",
+  [SECTION_CONFIG_TAB]: "Card",
+  [QUICKINFO_CONFIG_TAB]: "Quick Info",
+  [INFO_CONFIG_TAB]: "Text Editor",
+  // [RUNTIME_CONFIG_TAB]: "Runtime",
+  [SECTION_VARIANTS_TAB]: "Ver.",
+};
 
 export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
   "bg-red-500/60 dark:bg-red-600/30",
