@@ -1,7 +1,5 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms/closestCorners.ts
 
-import { getSectionInfo } from "state/getters/sectionInfo";
-
 function compareCollisions(a, b) {
   if (!a) {
     return b;
@@ -10,14 +8,32 @@ function compareCollisions(a, b) {
     return a;
   }
 
-  return a.data.distance < b.data.distance ? a : b;
+  return a.data.effectiveDistance < b.data.effectiveDistance ? a : b;
 }
 
-function edgesOfRectangle(rect, isHorizontalOrientation) {
-  if (isHorizontalOrientation) {
-    return [rect.left, rect.left + rect.width];
-  }
-  return [rect.top, rect.top + rect.height];
+function distanceBetween(p1, p2) {
+  return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+}
+
+function cornersOfRectangle({ left, top, height, width }) {
+  return [
+    {
+      x: left,
+      y: top,
+    },
+    {
+      x: left + width,
+      y: top,
+    },
+    {
+      x: left,
+      y: top + height,
+    },
+    {
+      x: left + width,
+      y: top + height,
+    },
+  ];
 }
 
 export const customCollisionDetectionSorting = ({
@@ -30,10 +46,7 @@ export const customCollisionDetectionSorting = ({
     return [];
   }
   let bestCollision = null;
-  const isHorizontalOrientation = getSectionInfo(
-    active.data.current.sortable.containerId,
-  ).isHorizontalOrientation;
-  const corners = edgesOfRectangle(collisionRect, isHorizontalOrientation);
+  const corners = cornersOfRectangle(collisionRect);
 
   for (const droppableContainer of droppableContainers) {
     const { id } = droppableContainer;
@@ -45,15 +58,16 @@ export const customCollisionDetectionSorting = ({
       active.data.current.sortable.containerId ===
         droppableContainer.data.current.sortable?.containerId
     ) {
-      const rectCorners = edgesOfRectangle(rect, isHorizontalOrientation);
-      const distance =
-        Math.abs(corners[0] - rectCorners[0]) +
-        Math.abs(corners[1] - rectCorners[1]);
+      const rectCorners = cornersOfRectangle(rect);
+      const distances = corners.reduce((accumulator, corner, index) => {
+        return accumulator + distanceBetween(rectCorners[index], corner);
+      }, 0);
+      const effectiveDistance = Number((distances / 4).toFixed(4));
       bestCollision = compareCollisions(bestCollision, {
         id,
         data: {
           droppableContainer,
-          distance,
+          effectiveDistance,
         },
       });
     }

@@ -1,12 +1,17 @@
 from setta.database.utils import dump_keyword_positions_as_string
 
 
-def save_section_variants(db, section_variants):
+def save_section_variants(dbs, section_variants):
+    for dbSource, variants_for_one_db in section_variants.items():
+        save_section_variants_to_one_db(dbs[dbSource], variants_for_one_db)
+
+
+def save_section_variants_to_one_db(db, section_variants):
     query = """
         INSERT INTO SectionVariantId (id, name, selectedItem, code, keywordPositions)
         VALUES (:id, :name, :selectedItem, :code, :keywordPositions)
         ON CONFLICT (id)
-        DO UPDATE SET
+        DO UPDATE SET 
         name = :name,
         selectedItem = :selectedItem,
         code = :code,
@@ -52,4 +57,28 @@ def save_section_variants(db, section_variants):
                     ),
                 }
             )
+    db.executemany(query, query_params)
+
+    # delete children
+    placeholders = ", ".join(["?"] * len(section_variants))
+    query = f"""
+        DELETE FROM SectionVariantChildren
+        WHERE idid IN ({placeholders});
+    """
+    query_params = list(section_variants.keys())
+    db.execute(query, query_params)
+
+    # add children
+    query = """
+        INSERT INTO SectionVariantChildren (idid, childId, "order")
+        VALUES (:idid, :childId, :order)
+    """
+    query_params = []
+    for idid, variant in section_variants.items():
+        query_params.extend(
+            [
+                {"idid": idid, "childId": x, "order": i}
+                for i, x in enumerate(variant["children"])
+            ]
+        )
     db.executemany(query, query_params)

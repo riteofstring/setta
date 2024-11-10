@@ -1,6 +1,10 @@
 import jedi
 
-from setta.code_gen.python.generate_code import append_to_line
+from setta.code_gen.python.generate_code import (
+    append_to_line,
+    position_to_line_col,
+    var_declaration,
+)
 from setta.tasks.task_runner import RunType
 
 from .textFieldAutocomplete import completionHelper, read_cache
@@ -43,7 +47,7 @@ parametersRequest = TaskDefinition(
     fn=_parametersRequest,
     read_cache=read_cache,
     run_as=RunType.THREAD,
-    server_dependencies=["lsp_writer"],
+    dependencies=["lsp_writer"],
 )
 
 

@@ -1,7 +1,8 @@
-import json
+from setta.database.utils import dump_keyword_positions_as_string
 
 
-def save_sections(db, sections, section_variants):
+def save_sections(dbs, sections):
+    db = dbs.default
     query = """
         INSERT INTO Section (
             id,
@@ -11,13 +12,9 @@ def save_sections(db, sections, section_variants):
             social,
             description,
             codeLanguage,
-            configLanguage,
             isFrozen,
-            jsonSource,
-            codeInfoId,
-            hideUnpinnedParams,
-            showYaml,
-            canvasSettings
+            dbSource,
+            codeInfoId
         )
         VALUES (
             :id,
@@ -27,13 +24,9 @@ def save_sections(db, sections, section_variants):
             :social,
             :description,
             :codeLanguage,
-            :configLanguage,
             :isFrozen,
-            :jsonSource,
-            :codeInfoId,
-            :hideUnpinnedParams,
-            :showYaml,
-            :canvasSettings
+            :dbSource,
+            :codeInfoId
         )
         ON CONFLICT (id)
         DO UPDATE SET
@@ -43,13 +36,9 @@ def save_sections(db, sections, section_variants):
             social = :social,
             description = :description,
             codeLanguage = :codeLanguage,
-            configLanguage = :configLanguage,
             isFrozen = :isFrozen,
-            jsonSource = :jsonSource,
-            codeInfoId = :codeInfoId,
-            hideUnpinnedParams = :hideUnpinnedParams,
-            showYaml = :showYaml,
-            canvasSettings = :canvasSettings
+            dbSource = :dbSource,
+            codeInfoId = :codeInfoId
     """
 
     query_params = [
@@ -61,15 +50,9 @@ def save_sections(db, sections, section_variants):
             "social": s["social"],
             "description": s["description"],
             "codeLanguage": s["codeLanguage"],
-            "configLanguage": s["configLanguage"],
             "isFrozen": s["isFrozen"],
-            "jsonSource": s.get("jsonSource"),
+            "dbSource": s.get("dbSource"),
             "codeInfoId": s["codeInfoId"],
-            "hideUnpinnedParams": s["hideUnpinnedParams"],
-            "showYaml": s["showYaml"],
-            "canvasSettings": json.dumps(s["canvasSettings"])
-            if len(s["canvasSettings"]) > 0
-            else None,
         }
         for s in sections.values()
     ]
@@ -153,45 +136,20 @@ def save_sections(db, sections, section_variants):
 
     # add children
     query = """
-        INSERT INTO SectionArtifacts (sectionId, artifactPath, value, type, displayName)
-        VALUES (:sectionId, :artifactPath, :value, :type, :displayName)
+        INSERT INTO SectionArtifacts (sectionId, artifactPath, type, displayName)
+        VALUES (:sectionId, :artifactPath, :type, :displayName)
     """
     query_params = []
     for s in sections.values():
-        for a in s["artifacts"]:
-            value = a.get("value")
-            value = json.dumps(value) if value is not None else None
-            query_params.append(
+        query_params.extend(
+            [
                 {
                     "sectionId": s["id"],
                     "artifactPath": a["path"],
-                    "value": value,
                     "type": a["type"],
                     "displayName": a["displayName"],
                 }
-            )
-    db.executemany(query, query_params)
-
-    # delete children
-    placeholders = ", ".join(["?"] * len(section_variants))
-    query = f"""
-        DELETE FROM SectionVariantChildren
-        WHERE idid IN ({placeholders});
-    """
-    query_params = list(section_variants.keys())
-    db.execute(query, query_params)
-
-    # add children
-    query = """
-        INSERT INTO SectionVariantChildren (idid, childId, "order")
-        VALUES (:idid, :childId, :order)
-    """
-    query_params = []
-    for idid, variant in section_variants.items():
-        query_params.extend(
-            [
-                {"idid": idid, "childId": x, "order": i}
-                for i, x in enumerate(variant["children"])
+                for a in s["artifacts"]
             ]
         )
     db.executemany(query, query_params)

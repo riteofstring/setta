@@ -26,8 +26,7 @@ export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
 
 export function useTitleIsEditable(sectionId) {
   const isUneditableType = useIsOneOfType(sectionId, [
-    C.IMAGE,
-    C.LINE_PLOT,
+    C.ARTIFACT,
     C.GLOBAL_VARIABLES,
     C.PARAM_SWEEP,
     C.GLOBAL_PARAM_SWEEP,

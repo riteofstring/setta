@@ -36,10 +36,7 @@ class TaskRunner:
                 await task
             except asyncio.CancelledError:
                 pass
-            except Exception as e:
-                print(f"Task {id} raised an unexpected exception: {e}")
-            finally:
-                self.remove_task(id)
+            self.remove_task(id)
 
     def remove_task(self, id):
         self.tasks_dict.pop(id, None)

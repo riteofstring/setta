@@ -1,11 +1,32 @@
+import _ from "lodash";
 import React from "react";
-import { useCodeInfo } from "state/definitions";
+import { toggleCodeInfoSelected } from "state/actions/codeInfo";
+import { paramSelect } from "state/actions/keyActivations";
+import { updateParams } from "state/actions/sections/sectionContents";
 import { KwargParam } from "./KwargParam";
 import { RegularParam } from "./RegularParam";
 
 function _ParamSwitch(props) {
-  const isKwarg = useCodeInfo((x) => x.x[props.paramInfoId].editable);
-  return isKwarg ? <KwargParam {...props} /> : <RegularParam {...props} />;
+  function onNameClick(e) {
+    if (paramSelect(e)) {
+      toggleCodeInfoSelected(props.paramInfo.id);
+      updateParams(props.sectionId);
+    }
+  }
+
+  return props.isKwarg ? (
+    <KwargParam {...props} onNameClick={onNameClick} />
+  ) : (
+    <RegularParam {...props} onNameClick={onNameClick} />
+  );
 }
 
-export const ParamSwitch = React.memo(_ParamSwitch);
+export const ParamSwitch = React.memo(
+  _ParamSwitch,
+  (p, n) =>
+    p.paramInfo.id === n.paramInfo.id &&
+    p.paramInfo.isFrozen === n.paramInfo.isFrozen &&
+    p.paramInfo.isSelected === n.paramInfo.isSelected &&
+    p.paramInfo.name === n.paramInfo.name &&
+    _.isEqual(p.paramInfo.children, n.paramInfo.children),
+);

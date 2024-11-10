@@ -1,5 +1,4 @@
 import json
-import traceback
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
@@ -17,16 +16,10 @@ async def websocket_endpoint(
 ):
     print("regular websocket", websocket)
     id = await websocket_manager.connect(websocket)
-    while True:
-        try:
+    try:
+        while True:
             data = await websocket.receive_text()
             print("received message", flush=True)
             await websocket_manager.send_message(json.loads(data), fromWebsocketId=id)
-        except WebSocketDisconnect:
-            print("WebSocketDisconnect!", flush=True)
-            await websocket_manager.disconnect(id)
-            break
-        except Exception as e:
-            print(f"Exception details:\n{traceback.format_exc()}")
-            print(e, flush=True)
-            print("caught the exception!", flush=True)
+    except WebSocketDisconnect:
+        await websocket_manager.disconnect(id)

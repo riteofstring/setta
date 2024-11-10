@@ -1,8 +1,8 @@
 import { createSectionsFromArgparse } from "state/actions/sections/createSections";
-import { sendMessageAndWait } from "state/actions/temporaryMiscState";
+import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
 
 export async function extractArgparseArgs({ pathToScript, ...props }) {
-  const args = await sendMessageAndWait({
+  const args = await sendMessageInRoom({
     messageType: "extractArgparseArgs",
     content: pathToScript,
   });

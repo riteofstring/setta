@@ -1,75 +1,63 @@
+import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import {
   dbSaveAsExistingProjectConfig,
   dbSaveAsNewProjectConfig,
   dbSaveProject,
 } from "requests/projects";
-import { dbSaveSettings } from "requests/settings";
 import {
   useArtifacts,
   useCodeInfo,
   useKeywordRegex,
   useNodeInternals,
   useParamSweep,
-  useProjectConfig,
   useRunGroups,
   useSectionInfos,
   useSectionVariants,
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
-import { SETTINGS_PROJECT_NAME } from "utils/constants";
+import { DB_SOURCE_MAPPING } from "utils/constants";
 import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
-import { loadSettings } from "../settings";
 import { getProjectConfigMetadata } from "./projectConfig";
 
-export function getProjectData({ withArtifactMetadata = false }) {
-  // remove temporary sections
-  let sections = _.pickBy(useSectionInfos.getState().x, (x) => !x.isTemporary);
-  sections = _.mapValues(sections, (x) => {
+export function getProjectData() {
+  const projectConfig = getProjectConfigMetadata();
+  projectConfig.viewport = getViewport();
+  projectConfig.previewImgNodes = getPreviewImgNodes();
+  const children = {};
+  for (const c of useNodeInternals.getState().x.values()) {
+    children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
+  }
+  projectConfig.children = children;
+
+  const sectionVariants = useSectionVariants.getState().x;
+  const uiTypes = useUITypes.getState().x;
+  const uiTypeCols = useUITypeCols.getState().y;
+  const paramSweeps = useParamSweep.getState().x;
+  const runGroups = _.mapValues(useRunGroups.getState().x, (x) => ({
+    ...x,
+    projectConfigId: projectConfig.id,
+  }));
+
+  const sectionInfosState = useSectionInfos.getState();
+  const sections = _.mapValues(sectionInfosState.x, (x) => {
     const artifactState = useArtifacts.getState().x;
-    if (!withArtifactMetadata) {
-      return _.omit(x, ["artifacts"]);
-    }
-    const currSection = _.cloneDeep(x);
+    const currSection = _.omit(x, ["parentId"]);
     // keep only artifact paths that are actually saved to disk
     currSection.artifacts = currSection.artifacts.filter(
       (a) => artifactState[a].isSaved,
     );
     currSection.artifacts = currSection.artifacts.map((a) => ({
       path: a,
-      value: a.startsWith("data:") ? artifactState[a].value : undefined,
       ..._.pick(artifactState[a], ["type", "displayName"]),
     }));
     return currSection;
   });
 
-  console.log("sections", sections);
-
-  const sectionVariants = _.mapValues(useSectionVariants.getState().x, (x) => ({
-    ...x,
-    // need this filter because some sections might be temporary
-    children: x.children.filter((c) => c in sections),
-  }));
-  const uiTypes = useUITypes.getState().x;
-  const uiTypeCols = useUITypeCols.getState().y;
-  const paramSweeps = useParamSweep.getState().x;
-  const runGroups = useRunGroups.getState().x;
-
   const codeInfo = useCodeInfo.getState().x;
   const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
-
-  const projectConfig = getProjectConfigMetadata();
-  projectConfig.previewImgNodes = getPreviewImgNodes();
-  const children = {};
-  for (const c of useNodeInternals.getState().x.values()) {
-    if (c.id in sections) {
-      // need this filter because some sections might be temporary
-      children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
-    }
-  }
-  projectConfig.children = children;
 
   const output = {
     projectConfig,
@@ -80,26 +68,16 @@ export function getProjectData({ withArtifactMetadata = false }) {
     runGroups,
     sections,
     codeInfo,
+    dbSourceMapping: _.cloneDeep(DB_SOURCE_MAPPING),
     fullNameToInfo,
   };
-
-  // console.log(output);
 
   return output;
 }
 
 export async function saveProject() {
-  let res;
   setNotificationMessage("Saving...");
-  if (useProjectConfig.getState().name === SETTINGS_PROJECT_NAME) {
-    res = await dbSaveSettings(getProjectData({}));
-    await loadSettings();
-  } else {
-    res = await dbSaveProject({
-      project: getProjectData({ withArtifactMetadata: true }),
-    });
-  }
-
+  const res = await dbSaveProject({ project: getProjectData() });
   if (res.status === 200) {
     setNotificationMessage("Saved!");
   }
@@ -120,10 +98,7 @@ export async function saveAsExistingProjectConfig({ configName }) {
 }
 
 async function saveProjectAs({ fn, otherArgs }) {
-  await fn({
-    project: getProjectData({ withArtifactMetadata: true }),
-    ...otherArgs,
-  });
+  await fn({ project: getProjectData(), ...otherArgs });
 }
 
 function getPreviewImgNodes() {

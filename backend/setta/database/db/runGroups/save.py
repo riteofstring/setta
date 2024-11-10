@@ -1,50 +1,53 @@
-import json
-
-
-def save_run_groups(db, project_config, run_groups):
+def save_run_groups(dbs, run_groups):
+    db = dbs.default
     query = """
-        INSERT INTO RunGroup (id, jsonRepr)
-        VALUES (:id, :jsonRepr)
+        INSERT INTO RunGroupId (id, name, projectConfigId, "order", selected)
+        VALUES (:id, :name, :projectConfigId, :order, :selected)
         ON CONFLICT (id)
-        DO UPDATE SET jsonRepr = :jsonRepr
+        DO UPDATE SET
+            name = :name,
+            "order" = :order,
+            selected = :selected
     """
 
     query_params = []
-    for id, r in run_groups.items():
-        query_params.append({"id": id, "jsonRepr": json.dumps(r)})
-    db.executemany(query, query_params)
-
-    query = """
-        DELETE FROM ProjectConfigRunGroup
-        WHERE projectConfigId = :projectConfigId
-    """
-    db.execute(query, {"projectConfigId": project_config["id"]})
-
-    query = """
-        INSERT INTO ProjectConfigRunGroup (projectConfigId, runGroupId, selected, "order")
-        VALUES (:projectConfigId, :runGroupId, :selected, :order)
-    """
-
-    query_params = []
-    for order, (id, selected) in enumerate(project_config["runGroupSelection"].items()):
+    for order, (id, r) in enumerate(run_groups.items()):
         query_params.append(
             {
-                "projectConfigId": project_config["id"],
-                "runGroupId": id,
-                "selected": selected,
+                "id": id,
+                "name": r["name"],
+                "projectConfigId": r["projectConfigId"],
                 "order": order,
+                "selected": r["selected"],
             }
         )
     db.executemany(query, query_params)
 
-    query = """
-        UPDATE ProjectConfig
-        SET shownRunGroup = :shownRunGroup
-        WHERE id = :id
+    placeholders = ", ".join(["?"] * len(run_groups))
+    query = f"""
+        DELETE FROM RunGroup
+        WHERE idid IN ({placeholders})
     """
-
-    query_params = {
-        "id": project_config["id"],
-        "shownRunGroup": project_config["shownRunGroup"],
-    }
+    query_params = list(run_groups.keys())
     db.execute(query, query_params)
+
+    query = """
+        INSERT INTO RunGroup (idid, sectionId, paramSweepId)
+        VALUES (:idid, :sectionId, :paramSweepId)
+    """
+    query_params = []
+    for id, r in run_groups.items():
+        curr = []
+        for sid, paramSweepDict in r["sections"].items():
+            if len(paramSweepDict) == 0:
+                curr.extend([{"idid": id, "sectionId": sid, "paramSweepId": None}])
+            else:
+                curr.extend(
+                    [
+                        {"idid": id, "sectionId": sid, "paramSweepId": pid}
+                        for pid in paramSweepDict.keys()
+                    ]
+                )
+        query_params.extend(curr)
+
+    db.executemany(query, query_params)

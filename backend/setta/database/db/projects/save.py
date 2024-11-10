@@ -1,14 +1,13 @@
-import json
 from collections import defaultdict
 
 from setta.code_gen.export_selected import (
     get_section_type,
     get_section_variants,
     get_selected_item_name,
+    get_selected_section_variant,
 )
-from setta.database.utils import create_new_id
+from setta.database.utils import create_new_id, generate_memorable_string
 from setta.utils.constants import C
-from setta.utils.generate_memorable_string import generate_memorable_string
 
 from ..codeInfo.save import save_code_info
 from ..paramSweeps.save import save_param_sweeps
@@ -16,34 +15,34 @@ from ..runGroups.save import save_run_groups
 from ..sections.save import save_sections
 from ..sectionVariants.save import save_section_variants
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
-from .utils import remove_json_source_data, save_json_source_data
 
 
-def save_project_details(db, p):
-    save_json_source_data(p)
-    remove_json_source_data(p)
-    save_code_info(db, p["codeInfo"])
-    save_ui_types(db, p["uiTypes"])
-    save_ui_type_cols(db, p["uiTypeCols"])
-    save_section_variants(db, p["sectionVariants"])
-    save_param_sweeps(db, p["paramSweeps"])
-    save_sections(db, p["sections"], p["sectionVariants"])
-    save_project(db, p["projectConfig"])
-    save_section_configs(db, p["projectConfig"]["id"], p["sections"])
-    update_linked_project_configs(db, p)
-    save_run_groups(db, p["projectConfig"], p["runGroups"])
+def save_project_details(dbs, p):
+    save_section_variants(dbs, p["sectionVariants"])
+    save_code_info(dbs, p["codeInfo"])
+    save_ui_types(dbs, p["uiTypes"])
+    save_ui_type_cols(dbs, p["uiTypeCols"])
+    save_param_sweeps(dbs, p["paramSweeps"])
+    save_sections(dbs, p["sections"])
+    save_project(dbs, p["projectConfig"])
+    save_section_configs(dbs, p["projectConfig"]["id"], p["sections"])
+    update_linked_project_configs(dbs, p)
+    save_run_groups(dbs, p["runGroups"])
 
 
-def save_project(db, project):
+def save_project(dbs, project):
+    db = dbs.default
     query = """
-        INSERT INTO ProjectConfig (id, name, previewImgNodes, isDefault, viewport)
-        VALUES (:id, :name, :previewImgNodes, :isDefault, :viewport)
+        INSERT INTO ProjectConfig (id, name, previewImgNodes, isDefault, x, y, zoom)
+        VALUES (:id, :name, :previewImgNodes, :isDefault, :x, :y, :zoom)
         ON CONFLICT (id)
         DO UPDATE SET
         name = :name,
         previewImgNodes = :previewImgNodes,
         isDefault = :isDefault,
-        viewport = :viewport
+        x = :x,
+        y = :y,
+        zoom = :zoom
     """
 
     query_params = {
@@ -51,7 +50,7 @@ def save_project(db, project):
         "name": project["name"],
         "previewImgNodes": project["previewImgNodes"],
         "isDefault": project["isDefault"],
-        "viewport": json.dumps(project["viewport"]) if project["viewport"] else None,
+        **project["viewport"],
     }
     db.execute(query, query_params)
 
@@ -91,7 +90,8 @@ def save_project(db, project):
     db.executemany(query, query_params)
 
 
-def create_project_config(db, name, previewImgColor):
+def create_project_config(dbs, name, previewImgColor):
+    db = dbs.default
     query = """
         SELECT name
         FROM ProjectConfig
@@ -103,16 +103,11 @@ def create_project_config(db, name, previewImgColor):
         name = generate_memorable_string()
 
     query = """
-        INSERT INTO ProjectConfig (id, name, previewImgColor, viewport)
-        VALUES (:id, :name, :previewImgColor, :viewport)
+        INSERT INTO ProjectConfig (id, name, previewImgColor)
+        VALUES (:id, :name, :previewImgColor)
     """
     projectId = create_new_id()
-    query_params = {
-        "id": projectId,
-        "name": name,
-        "previewImgColor": previewImgColor,
-        "viewport": json.dumps({"x": 0, "y": 0, "zoom": 1}),
-    }
+    query_params = {"id": projectId, "name": name, "previewImgColor": previewImgColor}
     db.execute(query, query_params)
 
     query = """
@@ -129,7 +124,8 @@ def create_project_config(db, name, previewImgColor):
     return out["name"]
 
 
-def save_project_config_name(db, curr_name, new_name):
+def save_project_config_name(dbs, curr_name, new_name):
+    db = dbs.default
     query = """
         UPDATE ProjectConfig
         SET name = :new_name
@@ -139,7 +135,9 @@ def save_project_config_name(db, curr_name, new_name):
     db.execute(query, query_params)
 
 
-def save_section_configs(db, project_config_id, sections):
+def save_section_configs(dbs, project_config_id, sections):
+    db = dbs.default
+
     query_params = []
     for section_id in sections.keys():
         query_params.extend([project_config_id, section_id])
@@ -151,13 +149,14 @@ def save_section_configs(db, project_config_id, sections):
     db.execute(query, query_params)
 
     id_pairs = [(project_config_id, s) for s in sections.keys()]
-    insert_section_configs(db, sections, id_pairs)
+    insert_section_configs(dbs, sections, id_pairs)
 
 
-def insert_section_configs(db, sections, id_pairs):
+def insert_section_configs(dbs, sections, id_pairs):
+    db = dbs.default
     query = """
-        INSERT INTO SectionConfig (projectConfigId, sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation, pinnedAreaHeight, isMinimized)
-        VALUES (:projectConfigId, :sectionId, :width, :height, :variantId, :paramSweepId, :isHorizontalOrientation, :pinnedAreaHeight, :isMinimized)
+        INSERT INTO SectionConfig (projectConfigId, sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation)
+        VALUES (:projectConfigId, :sectionId, :width, :height, :variantId, :paramSweepId, :isHorizontalOrientation)
     """
 
     query_params = [
@@ -169,8 +168,6 @@ def insert_section_configs(db, sections, id_pairs):
             "variantId": sections[c]["variantId"],
             "paramSweepId": sections[c]["paramSweepId"],
             "isHorizontalOrientation": sections[c]["isHorizontalOrientation"],
-            "pinnedAreaHeight": convert_size(sections[c]["pinnedAreaHeight"]),
-            "isMinimized": sections[c]["isMinimized"],
         }
         for projectConfigId, c in id_pairs
     ]
@@ -184,7 +181,8 @@ def insert_section_configs(db, sections, id_pairs):
 # an entry in SectionConfig needs to be added for ALL project configs.
 # Otherwise when loading those other project configs,
 # the data for the new child will be missing.
-def update_linked_project_configs(db, project):
+def update_linked_project_configs(dbs, project):
+    db = dbs.default
     query = """
         SELECT projectConfigId, sectionId
         FROM SectionConfig
@@ -249,7 +247,7 @@ def update_linked_project_configs(db, project):
                     ids.add(c)
 
     print("section_configs_to_add", section_configs_to_add, flush=True)
-    insert_section_configs(db, project["sections"], section_configs_to_add)
+    insert_section_configs(dbs, project["sections"], section_configs_to_add)
 
 
 def convert_size(x):

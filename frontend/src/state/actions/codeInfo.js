@@ -38,6 +38,18 @@ export function setCodeInfoDescription({ id, description }) {
   });
 }
 
+export function toggleCodeInfoPinned(id) {
+  useCodeInfo.setState((state) => {
+    state.x[id].isPinned = !state.x[id].isPinned;
+  });
+}
+
+export function toggleCodeInfoSelected(id) {
+  useCodeInfo.setState((state) => {
+    state.x[id].isSelected = !state.x[id].isSelected;
+  });
+}
+
 export function setCodeInfoFrozen({ ids, isFrozen }) {
   useCodeInfo.setState((state) => {
     for (const id of ids) {
@@ -46,11 +58,13 @@ export function setCodeInfoFrozen({ ids, isFrozen }) {
   });
 }
 
-export function deleteCodeInfo({ ids }) {
+export function deleteCodeInfo({ ids, parent }) {
   useCodeInfo.setState((state) => {
     state.x = _.omit(state.x, ids);
-    for (const c of Object.values(state.x)) {
-      c.children = c.children.filter((y) => !ids.includes(y));
+    if (parent) {
+      state.x[parent].children = state.x[parent].children.filter(
+        (y) => !ids.includes(y),
+      );
     }
   });
 }
@@ -58,16 +72,6 @@ export function deleteCodeInfo({ ids }) {
 export function addCodeInfoBatch(x) {
   useCodeInfo.setState((state) => {
     state.x = { ...state.x, ...x };
-  });
-}
-
-export function batchUpdateCodeInfoAttrs(idToNewAttrs) {
-  useCodeInfo.setState((state) => {
-    for (const [id, newAttrs] of Object.entries(idToNewAttrs)) {
-      for (const [k, v] of Object.entries(newAttrs)) {
-        state.x[id][k] = v;
-      }
-    }
   });
 }
 

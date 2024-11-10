@@ -7,3 +7,7 @@ export async function loadSettings() {
     useSettings.setState(res.data);
   }
 }
+
+export function toggleSetting(settingName) {
+  useSettings.setState((state) => ({ [settingName]: !state[settingName] }));
+}

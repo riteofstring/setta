@@ -2,15 +2,13 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos, useUITypeCols, useUITypes } from "state/definitions";
 import {
-  BASE_UI_TYPE_IDS,
+  DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
-  QUICKINFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
 import { isRoot } from "utils/sectionTypeHelpers";
-import { localStorageFns } from "./localStorage";
 import { useGetSectionInfo } from "./sections";
 
 export function useGetParamUIType(sectionId, paramInfoId) {
@@ -20,21 +18,7 @@ export function useGetParamUIType(sectionId, paramInfoId) {
 
 function useUITypeCol(sectionId, paramInfoId, key) {
   const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
-  return useUITypeCols((x) => {
-    if (paramInfoId.startsWith(C.JSON_SOURCE_PREFIX)) {
-      if (key === "uiTypeId") {
-        if (paramInfoId in x.y[uiTypeColId]) {
-          return x.y[uiTypeColId][paramInfoId][key];
-        }
-        return BASE_UI_TYPE_IDS[C.TEXT];
-      } else if (key === "nonPresetUITypeIds") {
-        return [];
-      } else {
-        console.error("unexpected key in useUITypeCol", key);
-      }
-    }
-    return x.y[uiTypeColId][paramInfoId][key];
-  });
+  return useUITypeCols((x) => x.y[uiTypeColId][paramInfoId][key]);
 }
 
 function useParamUITypeId(sectionId, paramInfoId) {
@@ -104,6 +88,10 @@ export function useIsDeck(sectionId) {
   return useIsType(sectionId, C.DECK);
 }
 
+export function useIsArtifact(sectionId) {
+  return useIsType(sectionId, C.ARTIFACT);
+}
+
 export function useIsSocial(sectionId) {
   return useIsType(sectionId, C.SOCIAL);
 }
@@ -120,60 +108,21 @@ export function useIsInteractiveCode(sectionId) {
   return useIsType(sectionId, C.INTERACTIVE_CODE);
 }
 
-export function useIsDrawArea(sectionId) {
-  return useIsType(sectionId, C.DRAW);
-}
-
-export function useUIEditorTab(sectionId) {
-  const uiTypeId = useSectionInfos((x) =>
-    sectionId ? x.x[sectionId].uiTypeId : null,
-  );
-  const uiTypeName = useUITypes((x) => (uiTypeId ? x.x[uiTypeId].type : null));
-  const [_storedTab, _setStoredTab] = localStorageFns["uiEditorTab"].hook();
-  const requiredTabs = getRequiredUIEditorTabs(uiTypeName);
-  const storedTab = _storedTab[uiTypeName] ?? SECTION_CONFIG_TAB;
-  // when sectionId changes, the requiredTabs might not include the previously active tab
-  const tab = requiredTabs.includes(storedTab) ? storedTab : requiredTabs[0];
-  const setTab = (newTabState) =>
-    _setStoredTab((state) => ({ ...state, [uiTypeName]: newTabState }));
-  return [tab, setTab, new Set(requiredTabs)];
-}
-
-function getRequiredUIEditorTabs(uiTypeName) {
-  switch (uiTypeName) {
-    case C.SECTION:
-    case C.GLOBAL_VARIABLES:
-      return [
-        SECTION_CONFIG_TAB,
-        UI_CONFIG_TAB,
-        QUICKINFO_CONFIG_TAB,
-        SECTION_VARIANTS_TAB,
-      ];
-    case C.LIST_ROOT:
-    case C.DICT_ROOT:
-    case C.CODE:
-    case C.INTERACTIVE_CODE:
-      return [SECTION_CONFIG_TAB, SECTION_VARIANTS_TAB];
+export function useRequiredUIEditorTabs(sectionId) {
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
+  const uiTypeType = useUITypes((x) => x.x[uiTypeId].type);
+  switch (uiTypeType) {
     case C.INFO:
       return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
+    case C.ARTIFACT:
     case C.SOCIAL:
       return [SECTION_CONFIG_TAB];
-    case C.DECK:
-    case C.TERMINAL:
-    case C.GLOBAL_PARAM_SWEEP:
-    case C.PARAM_SWEEP:
-    case C.DRAW:
-      return [SECTION_CONFIG_TAB];
-    case C.IMAGE:
-    case C.LINE_PLOT:
-      return [];
     default:
       return [
-        SECTION_CONFIG_TAB,
         UI_CONFIG_TAB,
-        QUICKINFO_CONFIG_TAB,
-        INFO_CONFIG_TAB,
+        SECTION_CONFIG_TAB,
         SECTION_VARIANTS_TAB,
+        DB_SOURCES_TAB,
       ];
   }
 }

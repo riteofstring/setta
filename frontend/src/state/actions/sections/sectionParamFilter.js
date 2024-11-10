@@ -6,18 +6,13 @@ export function setSectionParamFilter({ sectionId, filter }) {
   });
 }
 
-export function focusOnSearch() {
+export function focusOnArgsFilter() {
   const sectionIds = useActiveSection.getState().ids;
-  let elementId;
-  if (sectionIds.length === 1) {
-    elementId = `${sectionIds[0]}-args-filter`;
-  } else {
-    elementId = "HeaderProjectSearch";
+  if (sectionIds.length !== 1) {
+    return;
   }
-  if (elementId) {
-    const element = document.getElementById(elementId);
-    if (element) {
-      element.focus({ preventScroll: true });
-    }
+  const element = document.getElementById(`${sectionIds[0]}-args-filter`);
+  if (element) {
+    element.focus();
   }
 }

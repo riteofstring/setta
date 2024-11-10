@@ -1,17 +1,11 @@
-import json
-
 from setta.database.utils import aggregate_results
 
 from ..codeInfo.load import load_code_info_for_sections
 from ..runGroups.load import load_run_groups
-from ..sections.load import (
-    load_json_sources_into_data_structures,
-    load_section_configs,
-    load_sections,
-)
+from ..sections.load import load_section_configs, load_sections
 
 
-def load_all_project_config_metadata(db):
+def load_all_project_config_metadata(dbs):
     query = """
         SELECT
             id,
@@ -23,19 +17,21 @@ def load_all_project_config_metadata(db):
         ORDER BY
             ProjectConfig.id;
     """
+    db = dbs.default
     db.execute(query)
     return [dict(row) for row in db.fetchall()]
 
 
-def load_project_config_metadata(db, config_name):
+def load_project_config_metadata(dbs, config_name):
+    db = dbs.default
     query = """
         SELECT
             ProjectConfig.id,
             ProjectConfig.name,
-            ProjectConfig.viewport,
+            ProjectConfig.x,
+            ProjectConfig.y,
+            ProjectConfig.zoom,
             ProjectConfig.isDefault,
-            ProjectConfig.shownRunGroup,
-            ProjectConfig.previewImgColor,
             ProjectConfigChildren.childId as childId,
             ProjectConfigChildren.x as childX,
             ProjectConfigChildren.y as childY,
@@ -67,38 +63,26 @@ def load_project_config_metadata(db, config_name):
                 "zIndex": out["childZIndex"][i],
             }
 
-    if out["viewport"]:
-        viewport = json.loads(out["viewport"])
-    else:
-        viewport = None
-
     return {
         "id": out["id"],
         "name": out["name"],
         "isDefault": out["isDefault"],
+        "viewport": {"x": out["x"], "y": out["y"], "zoom": out["zoom"]},
         "children": children,
-        "viewport": viewport,
-        "shownRunGroup": out["shownRunGroup"],
-        "previewImgColor": out["previewImgColor"],
     }
 
 
-def load_project_config(db, project_config_name):
-    projectConfig = load_project_config_metadata(db, project_config_name)
-    runGroups, projectConfig["runGroupSelection"] = load_run_groups(
-        db, projectConfig["id"]
-    )
-    sections_data = load_sections(db, list(projectConfig["children"].keys()))
-    sectionConfigs = load_section_configs(db, projectConfig["id"])
+def load_project_config(dbs, project_config_name):
+    projectConfig = load_project_config_metadata(dbs, project_config_name)
+    runGroups = load_run_groups(dbs, projectConfig["id"])
+    sections_data = load_sections(dbs, list(projectConfig["children"].keys()))
+    sectionConfigs = load_section_configs(dbs, projectConfig["id"])
     sections = sections_data["sections"]
     sectionVariants = sections_data["sectionVariants"]
     uiTypeCols = sections_data["uiTypeCols"]
     paramSweeps = sections_data["paramSweeps"]
     uiTypes = sections_data["nonPresetUITypes"]
-    codeInfo = load_code_info_for_sections(db, sections)
-    jsonSourceMissing = load_json_sources_into_data_structures(
-        sections, codeInfo, sectionVariants
-    )
+    codeInfo = load_code_info_for_sections(dbs, sections)
 
     return {
         "projectConfig": projectConfig,
@@ -110,11 +94,11 @@ def load_project_config(db, project_config_name):
         "paramSweeps": paramSweeps,
         "runGroups": runGroups,
         "codeInfo": codeInfo,
-        "jsonSourceMissing": jsonSourceMissing,
+        "dbSourceMapping": dbs.db_source_mapping,
     }
 
 
-def load_project_config_names(db, excludeProjectConfigName=None):
+def load_project_config_names(dbs, excludeProjectConfigName=None):
     query = """
         SELECT
             name
@@ -125,30 +109,17 @@ def load_project_config_names(db, excludeProjectConfigName=None):
     if excludeProjectConfigName:
         query += "WHERE name != :excludeProjectConfigName"
 
+    db = dbs.default
     db.execute(query, {"excludeProjectConfigName": excludeProjectConfigName})
 
     return [r[0] for r in db.fetchall()]
 
 
-def load_full_project(db, excludeProjectConfigName=None):
-    config_names = load_project_config_names(db, excludeProjectConfigName)
+def load_full_project(dbs, excludeProjectConfigName=None):
+    config_names = load_project_config_names(dbs, excludeProjectConfigName)
     configs = []
     for c in config_names:
-        p = load_project_config(db, c)
+        p = load_project_config(dbs, c)
         configs.append(p)
 
     return configs
-
-
-def load_default_config_name(db):
-    query = """
-        SELECT
-            name
-        FROM
-            ProjectConfig
-        WHERE
-            isDefault = 1
-    """
-
-    db.execute(query)
-    return db.fetchall()[0][0]

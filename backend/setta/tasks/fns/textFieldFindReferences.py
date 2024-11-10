@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from setta.code_gen.python.generate_code import double_braces
+from setta.code_gen.python.generate_code import count_lines, double_braces
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 from setta.utils.utils import multireplace
@@ -97,5 +97,5 @@ textFieldFindReferences = TaskDefinition(
     return_message_type="textFieldFindReferencesReturn",
     fn=_textFieldFindReferences,
     run_as=RunType.THREAD,
-    server_dependencies=["lsp_writer"],
+    dependencies=["lsp_writer"],
 )

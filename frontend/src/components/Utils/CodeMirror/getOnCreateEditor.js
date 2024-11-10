@@ -84,40 +84,35 @@ export function getCompletionsFn(
   paramInfoId,
   dbCompletionFn,
   setKeywordPositions,
-  language,
 ) {
-  if (language === "python") {
-    return async (context) => {
-      const fullText = context.state.doc.toString();
-      if (!fullText.trim()) return null;
-      const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
-      const setToNotWaiting = setTextFieldWaitingForLSP({
-        sectionId,
-        paramInfoId,
-      });
-      const res = await dbCompletionFn({
-        sectionId,
-        paramInfoId,
-        fullText,
-        beforeText: before.text,
-        position: context.pos,
-        setKeywordPositions,
-      });
-      setToNotWaiting();
-      console.log("res", res);
-      if (res) {
-        return {
-          filter: true,
-          from: before ? before.from : context.pos,
-          options: res,
-          // validFor: /([^.=\\(]*)$/,
-        };
-      }
-      return null;
-    };
-  }
-
-  return () => null;
+  return async (context) => {
+    const fullText = context.state.doc.toString();
+    if (!fullText.trim()) return null;
+    const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
+    const setToNotWaiting = setTextFieldWaitingForLSP({
+      sectionId,
+      paramInfoId,
+    });
+    const res = await dbCompletionFn({
+      sectionId,
+      paramInfoId,
+      fullText,
+      beforeText: before.text,
+      position: context.pos,
+      setKeywordPositions,
+    });
+    setToNotWaiting();
+    console.log("res", res);
+    if (res) {
+      return {
+        filter: true,
+        from: before ? before.from : context.pos,
+        options: res,
+        // validFor: /([^.=\\(]*)$/,
+      };
+    }
+    return null;
+  };
 }
 
 export function goToSectionOnNameClick({ editor, event, variable }) {

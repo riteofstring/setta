@@ -3,9 +3,8 @@ from collections import defaultdict
 
 
 class LanguageServer:
-    def __init__(self, workspace_folder, code_folder):
-        self.workspace_folder = workspace_folder
-        self.code_folder = code_folder
+    def __init__(self, root_path):
+        self.root_path = root_path
         self.msg_id_to_metadata = defaultdict(dict)
         self.versions = {}
         self.server = None
@@ -23,10 +22,7 @@ class LanguageServer:
         )
 
     def kill_server(self):
-        try:
-            self.server.terminate()
-        except ProcessLookupError:
-            pass
+        self.server.terminate()
 
     @property
     def stdin(self):
@@ -43,12 +39,8 @@ class LanguageServerInteractor:
         return self.server.msg_id_to_metadata
 
     @property
-    def workspace_folder(self):
-        return self.server.workspace_folder
-
-    @property
-    def code_folder(self):
-        return self.server.code_folder
+    def root_path(self):
+        return self.server.root_path
 
     @property
     def versions(self):
@@ -65,7 +57,6 @@ class LanguageServerInteractor:
         return new_version
 
     def get_version(self, uri, version_num=None):
-        uri = uri.lower()
         version_num = (
             max(self.versions[uri].keys()) if version_num is None else version_num
         )

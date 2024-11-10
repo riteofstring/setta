@@ -1,20 +1,30 @@
-import json
+def load_run_groups(dbs, projectConfigId):
+    db = dbs.default
 
-
-def load_run_groups(db, projectConfigId):
     query = """
-        SELECT ProjectConfigRunGroup.selected, RunGroup.id, RunGroup.jsonRepr
-        FROM ProjectConfigRunGroup
+        SELECT RunGroupId.id, RunGroupId.name, RunGroupId.selected, RunGroup.sectionId, RunGroup.paramSweepId
+        FROM RunGroupId
         LEFT JOIN RunGroup
-        ON ProjectConfigRunGroup.runGroupId = RunGroup.id
-        WHERE ProjectConfigRunGroup.projectConfigId = :projectConfigId
-        ORDER BY ProjectConfigRunGroup."order"
+        ON RunGroupId.id = RunGroup.idid
+        WHERE RunGroupId.projectConfigId = :projectConfigId
+        ORDER BY RunGroupId."order"
     """
     db.execute(query, {"projectConfigId": projectConfigId})
-    runGroups = {}
-    selected = {}
+    output = {}
     for row in db.fetchall():
-        runGroups[row["id"]] = json.loads(row["jsonRepr"])
-        selected[row["id"]] = row["selected"]
-
-    return runGroups, selected
+        id = row["id"]
+        if id not in output:
+            output[id] = {
+                "name": row["name"],
+                "selected": row["selected"],
+                "sections": {},
+            }
+        curr = output[id]["sections"]
+        sectionId = row["sectionId"]
+        paramSweepId = row["paramSweepId"]
+        if sectionId is not None:
+            if sectionId not in curr:
+                curr[sectionId] = {}
+            if paramSweepId:
+                curr[sectionId][paramSweepId] = True
+    return output

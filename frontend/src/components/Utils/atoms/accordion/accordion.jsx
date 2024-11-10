@@ -15,8 +15,6 @@ export function StandardAccordion({
   defaultValue = value,
   type = "single",
   open = "",
-  asChild = false,
-  internalWrapper = true,
 }) {
   return (
     <Accordion.Root
@@ -25,7 +23,6 @@ export function StandardAccordion({
       defaultValue={defaultValue}
       collapsible
       data-state={open}
-      asChild={asChild}
     >
       <AccordionItem itemStyles={itemStyles} value={value}>
         <AccordionTrigger
@@ -35,10 +32,7 @@ export function StandardAccordion({
         >
           {heading}
         </AccordionTrigger>
-        <AccordionContent
-          contentStyles={contentStyles}
-          internalWrapper={internalWrapper}
-        >
+        <AccordionContent contentStyles={contentStyles}>
           {children}
         </AccordionContent>
       </AccordionItem>
@@ -74,22 +68,9 @@ const AccordionTrigger = React.forwardRef(
 );
 
 const AccordionContent = React.forwardRef(
-  ({ children, contentStyles, internalWrapper, ...props }, forwardedRef) =>
-    internalWrapper ? (
-      <Accordion.Content
-        className={contentStyles}
-        {...props}
-        ref={forwardedRef}
-      >
-        <div className="overflow-y-auto px-5 py-4 ">{children}</div>
-      </Accordion.Content>
-    ) : (
-      <Accordion.Content
-        className={contentStyles}
-        {...props}
-        ref={forwardedRef}
-      >
-        {children}
-      </Accordion.Content>
-    ),
+  ({ children, contentStyles, ...props }, forwardedRef) => (
+    <Accordion.Content className={contentStyles} {...props} ref={forwardedRef}>
+      <div className="overflow-y-auto px-5 py-4 ">{children}</div>
+    </Accordion.Content>
+  ),
 );

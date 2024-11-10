@@ -1,20 +1,20 @@
 import copy
 import itertools
-import json
 from collections import defaultdict
 
-from setta.utils.constants import C
+from setta.database.utils import parse_keyword_positions_string
 
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
-def load_sections(db, ids):
-    all_ids, child_to_parent_id = get_section_ids(db, ids)
+def load_sections(dbs, ids):
+    all_ids, child_to_parent_id = get_section_ids(dbs, ids)
 
-    section_id_to_config_count = num_projects_each_section_exists_in(db, all_ids)
+    section_id_to_config_count = num_projects_each_section_exists_in(dbs, all_ids)
 
+    db = dbs.default
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""
         SELECT
@@ -87,16 +87,14 @@ def load_sections(db, ids):
             "paramSweepIds": v["paramSweepIds"].split(",")
             if v["paramSweepIds"]
             else [],
-            "canvasSettings": json.loads(v["canvasSettings"])
-            if v["canvasSettings"]
-            else {},
         }
 
     variantIds = list(
         itertools.chain.from_iterable([s["variantIds"] for s in sections.values()])
     )
     sectionVariants = {}
-    sectionVariants = load_section_variants(db, variantIds)
+    for k, dbq in dbs.items():
+        sectionVariants[k] = load_section_variants(dbq, variantIds)
 
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
     paramSweeps = load_param_sweeps(
@@ -127,19 +125,20 @@ def load_sections(db, ids):
 
 
 # TODO: try using a recursive sql query for this
-def get_section_ids(db, top_level_ids):
+def get_section_ids(dbs, top_level_ids):
     section_id_to_variants = defaultdict(list)
     variant_id_to_children = defaultdict(list)
 
-    db.execute("SELECT id, originSectionId FROM SectionVariantId")
-    for row in db.fetchall():
-        row = dict(row)
-        section_id_to_variants[row["originSectionId"]].append(row["id"])
+    for dbq in dbs.values():
+        dbq.execute("SELECT id, originSectionId FROM SectionVariantId")
+        for row in dbq.fetchall():
+            row = dict(row)
+            section_id_to_variants[row["originSectionId"]].append(row["id"])
 
-    db.execute("SELECT idid, childId FROM SectionVariantChildren")
-    for row in db.fetchall():
-        row = dict(row)
-        variant_id_to_children[row["idid"]].append(row["childId"])
+        dbq.execute("SELECT idid, childId FROM SectionVariantChildren")
+        for row in dbq.fetchall():
+            row = dict(row)
+            variant_id_to_children[row["idid"]].append(row["childId"])
 
     ids = copy.deepcopy(top_level_ids)
     output = copy.deepcopy(top_level_ids)
@@ -162,8 +161,9 @@ def get_section_ids(db, top_level_ids):
     return output, child_to_parent_id
 
 
-def load_section_configs(db, project_config_id):
-    query = """SELECT sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation, pinnedAreaHeight, isMinimized
+def load_section_configs(dbs, project_config_id):
+    db = dbs.default
+    query = f"""SELECT sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation
         FROM SectionConfig
         WHERE projectConfigId = :projectConfigId
     """
@@ -181,8 +181,6 @@ def load_section_configs(db, project_config_id):
             "variantId": row["variantId"],
             "paramSweepId": row["paramSweepId"],
             "isHorizontalOrientation": row["isHorizontalOrientation"],
-            "pinnedAreaHeight": convert_size(row["pinnedAreaHeight"]),
-            "isMinimized": row["isMinimized"],
         }
 
     return output
@@ -192,7 +190,8 @@ def convert_size(x):
     return "auto" if x == -1 else x
 
 
-def num_projects_each_section_exists_in(db, section_ids):
+def num_projects_each_section_exists_in(dbs, section_ids):
+    db = dbs.default
     placeholders = ", ".join(["?"] * len(section_ids))
     query = f"""
         SELECT sectionId, COUNT(DISTINCT projectConfigId) as projectConfigCount
@@ -209,13 +208,14 @@ def num_projects_each_section_exists_in(db, section_ids):
     return output
 
 
-def load_artifact_metadata(db, section_id, artifact_paths):
+def load_artifact_metadata(dbs, section_id, artifact_paths):
+    db = dbs.default
     query_params = []
     for a in artifact_paths:
         query_params.extend([section_id, a])
     placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
     query = f"""
-        SELECT artifactPath as path, value, type, displayName
+        SELECT artifactPath as path, type, displayName
         FROM SectionArtifacts
         WHERE (sectionId, artifactPath) IN ({placeholders})
     """
@@ -223,84 +223,5 @@ def load_artifact_metadata(db, section_id, artifact_paths):
 
     output = []
     for row in db.fetchall():
-        curr_output = dict(row)
-        if curr_output["value"]:
-            curr_output["value"] = json.loads(curr_output["value"])
-        output.append(curr_output)
+        output.append(dict(row))
     return output
-
-
-def load_json_sources_into_data_structures(sections, codeInfo, sectionVariants):
-    jsonSourceMissing = {}
-    for id, s in sections.items():
-        if not s["jsonSource"]:
-            continue
-        new_code_infos, new_variant_values = load_json_source(s["jsonSource"])
-        if new_code_infos is None:
-            jsonSourceMissing[id] = True
-            continue
-        for k, v in new_code_infos.items():
-            codeInfo[s["codeInfoId"]]["children"].append(k)
-            codeInfo[k] = v
-        for k, v in new_variant_values.items():
-            for variantId in s["variantIds"]:
-                sectionVariants[variantId]["values"][k] = v
-
-    return jsonSourceMissing
-
-
-def load_json_source(filename):
-    try:
-        with open(filename, "r") as f:
-            jsonSourceData = json.load(f)
-    except:
-        return None, None
-
-    new_code_infos = {}
-    new_variant_values = {}
-
-    def process_object(obj, current_path=[]):
-        if not isinstance(obj, dict):
-            return
-
-        children_keys = []
-        for k, v in obj.items():
-            path = current_path + [k]
-            key = json.dumps({"filename": filename, "key": path})
-            full_key = f"{C.JSON_SOURCE_PREFIX}{key}"
-            children_keys.append(full_key)
-
-            # Create code info entry
-            new_code_infos[full_key] = {
-                "id": full_key,
-                "name": k,
-                "rcType": C.PARAMETER,
-                "children": [],  # Will be populated with direct children only
-            }
-
-            # Create variant value entry
-            if isinstance(v, dict):
-                # For objects, store empty value and process children
-                new_variant_values[full_key] = {
-                    "value": "",
-                    "keywordPositions": [],
-                }
-                # Recursively process nested object
-                process_object(v, path)
-            else:
-                # For non-objects, store the value directly
-                new_variant_values[full_key] = {
-                    "value": json.dumps(v),
-                    "keywordPositions": [],
-                }
-
-        # If this is a nested object, add children to parent's children list
-        if current_path:  # If we're not at root level
-            parent_path = json.dumps({"filename": filename, "key": current_path})
-            parent_key = f"{C.JSON_SOURCE_PREFIX}{parent_path}"
-            new_code_infos[parent_key]["children"] = children_keys
-
-    # Start processing from root level
-    process_object(jsonSourceData, [])
-
-    return new_code_infos, new_variant_values

@@ -3,8 +3,8 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from setta.code_gen.python.generate_code import (
-    maybe_prepend_with_imports_and_replace_templated_code,
     position_to_line_col,
+    prepend_with_imports,
     set_line,
     var_declaration,
 )
@@ -82,12 +82,8 @@ async def completionHelper(message, fn):
         message.position,
     )
     set_line(lines, var_name_to_line_num, var_name, fullText)
-
-    code, var_name_to_line_num = maybe_prepend_with_imports_and_replace_templated_code(
-        lines,
-        templatedCode,
-        var_name,
-        var_name_to_line_num,
+    code, var_name_to_line_num = prepend_with_imports(
+        lines, templatedCode, var_name, var_name_to_line_num
     )
 
     line_within_fullText, column = position_to_line_col(fullText, position)
@@ -125,5 +121,5 @@ textFieldCompletion = TaskDefinition(
     fn=_textFieldCompletion,
     read_cache=read_cache,
     run_as=RunType.THREAD,
-    server_dependencies=["lsp_writer"],
+    dependencies=["lsp_writer"],
 )

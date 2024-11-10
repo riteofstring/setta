@@ -1,12 +1,13 @@
+import { router } from "components/Pages/router";
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
+import { updateAllParams } from "state/actions/sections/sectionContents";
 import { setAllPreviewVariantIdsToNull } from "state/actions/sections/sectionInfos";
 import { useAllProjectConfigs, useSectionInfos } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useLoadFullProject } from "state/hooks/project";
-import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
+import { PAGE_LOAD_TYPES } from "utils/constants";
 
 export const ProjectConfigs = React.forwardRef(() => {
   const allConfigNames = useAllProjectConfigs((x) => x.names);
@@ -18,7 +19,7 @@ export const ProjectConfigs = React.forwardRef(() => {
   return (
     <>
       <aside className="mb-2 flex items-center justify-between">
-        <p className="text-xs text-setta-500">Toggle config previews.</p>
+        <p className="text-setta-500">Toggle config previews.</p>
         <Toggle
           checked={previewEnabled}
           onCheckedChange={toggleProjectConfigPreviewEnabled}
@@ -39,8 +40,7 @@ export const ProjectConfigs = React.forwardRef(() => {
         >
           {doneLoading ? (
             allConfigNames.map((name, idx) => (
-              <Link
-                to={pathRelativeToProject(name)}
+              <div
                 key={idx}
                 className="grouop flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-xl px-2 py-1 hover:bg-blue-300/40 dark:hover:bg-blue-900/50"
                 onMouseOver={() => {
@@ -51,14 +51,16 @@ export const ProjectConfigs = React.forwardRef(() => {
                     currProjectConfigName,
                   });
                 }}
-                state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
+                onClick={() =>
+                  onClick({ currProjectConfigName, clickedOnName: name })
+                }
               >
                 <p
-                  className={`${(previewEnabled && mousedOverName === name) || (!previewEnabled && currProjectConfigName === name) ? "font-black !text-setta-900 dark:!text-setta-100" : ""} flex-shrink truncate text-xs text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:!text-setta-900 dark:text-setta-400 dark:group-hover:!text-setta-100`}
+                  className={`${(previewEnabled && mousedOverName === name) || (!previewEnabled && currProjectConfigName === name) ? "font-bold" : ""} flex-shrink truncate  text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:text-setta-900 dark:text-setta-400 dark:group-hover:text-setta-100`}
                 >
                   {name}
                 </p>
-              </Link>
+              </div>
             ))
           ) : (
             <i className="gg-spinner self-center justify-self-end text-blue-500/70" />
@@ -92,11 +94,22 @@ function onMouseOver({
         }
       }
     });
+    updateAllParams();
   } else {
     setAllPreviewVariantIdsToNull();
+    updateAllParams();
+  }
+}
+
+function onClick({ currProjectConfigName, clickedOnName }) {
+  if (clickedOnName !== currProjectConfigName) {
+    router.navigate(clickedOnName, {
+      state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+    });
   }
 }
 
 function onMouseLeave() {
   setAllPreviewVariantIdsToNull();
+  updateAllParams();
 }

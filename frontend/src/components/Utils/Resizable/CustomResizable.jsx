@@ -1,32 +1,33 @@
-import _ from "lodash";
-import { useEffect } from "react";
+import C from "constants/constants.json";
+import { useDndMode } from "forks/dnd-kit/dndState";
 import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
-import { useSectionInfos, useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
-import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
+import { useSectionInfos } from "state/definitions";
+import {
+  useMaxSectionWidth,
+  useMinSectionHeight,
+  useMinSectionWidth,
+} from "state/hooks/sectionSizes";
+import {
+  useIsTwitter,
+  useIsYouTube,
+  youtubeSectionAspectRatio,
+} from "state/hooks/social";
+import { useGetSectionType } from "state/hooks/uiTypes";
 import { ResizableWithScale } from "./ResizableWithScale";
-import { getChangedSize, SIZE_MODE } from "./utils";
+import { getNewSize, SIZE_MODE } from "./utils";
 
-export function CustomResizable({
-  sectionId,
-  disablePointerEvents,
-  children,
-  inputClasses,
-  as,
-}) {
-  const { minHeight, maxHeight, minWidth, maxWidth, sizeMode } =
-    useSectionMinMaxDims(sectionId);
+export function CustomResizable({ sectionId, children, inputClasses, as }) {
+  const minHeight = useMinSectionHeight(sectionId);
+  const minWidth = useMinSectionWidth(sectionId);
+  const maxWidth = useMaxSectionWidth(sectionId);
   return (
     <CustomResizableCore
       sectionId={sectionId}
       minHeight={minHeight}
-      maxHeight={maxHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
-      sizeMode={sizeMode}
       inputClasses={inputClasses}
-      disablePointerEvents={disablePointerEvents}
       as={as}
     >
       {children}
@@ -37,74 +38,45 @@ export function CustomResizable({
 function CustomResizableCore({
   sectionId,
   minHeight,
-  maxHeight,
   minWidth,
   maxWidth,
-  sizeMode,
   inputClasses = "",
-  disablePointerEvents,
   children,
   as,
 }) {
-  useEffect(() => {
-    const changedSize = {};
-    if (sizeMode.height === SIZE_MODE.auto_only) {
-      changedSize.height = "auto";
-    }
-    if (sizeMode.width === SIZE_MODE.auto_only) {
-      changedSize.width = "auto";
-    }
-    if (_.size(changedSize) > 0) {
-      setSectionResizeEvent({ sectionId, resizeEvent: "start" });
-      setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
-      setSectionResizeEvent({ sectionId, resizeEvent: "end" });
-    }
-  }, [sizeMode.height, sizeMode.width]);
-
-  const { size, positionAndSizeLocked } = useSectionInfos(
-    (x) => _.pick(x.x[sectionId], ["size", "positionAndSizeLocked"]),
-    _.isEqual,
-  );
-  const { aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
-    useAspectRatio(sectionId);
+  const { isSorting, isMovingFree } = useDndMode();
+  const sizeMode = useSizeMode(sectionId);
+  const size = useSectionInfos((x) => x.x[sectionId].size);
+  const aspectRatio = useAspectRatio(sectionId);
 
   function onResizeStart() {
     setSectionResizeEvent({ sectionId, resizeEvent: "start" });
   }
 
   function onResizeStop(...props) {
-    const changedSize = getChangedSize({
+    const { width, height } = getNewSize({
       props,
+      minWidth,
+      minHeight: "auto",
       sizeMode,
-      aspectRatio,
     });
-    setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
+    setSelfParentSiblingChildrenWidths({ sectionId, size: { width, height } });
     setSectionResizeEvent({ sectionId, resizeEvent: "end" });
   }
 
-  const heightResizable =
-    minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only;
+  const heightResizable = sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
   const enable =
-    disablePointerEvents || positionAndSizeLocked
+    isSorting || isMovingFree
       ? false
       : {
           top: false,
           left: false,
           bottom: heightResizable,
           right: widthResizable,
-          topRight: false,
           bottomRight: heightResizable && widthResizable,
-          topLeft: false,
-          bottomLeft: false,
         };
-
-  // console.log("size", size);
-  // console.log("aspectRatio", aspectRatio)
-
-  const snapGrid = useSettings((x) => x.snapGrid);
-  const snapToGrid = localStorageFns.snapToGrid.hook()[0];
 
   return (
     <ResizableWithScale
@@ -112,19 +84,14 @@ function CustomResizableCore({
       as={as}
       size={size}
       minHeight={minHeight}
-      maxHeight={maxHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
       onResizeStart={onResizeStart}
       onResizeStop={onResizeStop}
       lockAspectRatio={aspectRatio}
-      lockAspectRatioExtraHeight={aspectRatioExtraHeight}
-      lockAspectRatioExtraWidth={aspectRatioExtraWidth}
       handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
       enable={enable}
       className={inputClasses}
-      handleStyles={{ right: { right: "-8px" }, bottom: { bottom: "-8px" } }}
-      grid={snapToGrid ? snapGrid : null}
       // handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
       {children}
@@ -132,20 +99,19 @@ function CustomResizableCore({
   );
 }
 
+function useSizeMode(sectionId) {
+  const sectionType = useGetSectionType(sectionId, "type");
+  const isTwitter = useIsTwitter(sectionId);
+  if (sectionType === C.ARTIFACT) {
+    return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
+  } else if (isTwitter) {
+    return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
+  } else {
+    return { height: SIZE_MODE.any, width: SIZE_MODE.any };
+  }
+}
+
 function useAspectRatio(sectionId) {
-  return useSectionInfos((x) => {
-    const s = x.x[sectionId];
-    if (s.isMinimized) {
-      return {
-        aspectRatio: false,
-        aspectRatioExtraHeight: 0,
-        aspectRatioExtraWidth: 0,
-      };
-    }
-    return {
-      aspectRatio: s.aspectRatio ?? false,
-      aspectRatioExtraHeight: s.aspectRatioExtraHeight ?? 0,
-      aspectRatioExtraWidth: s.aspectRatioExtraWidth ?? 0,
-    };
-  }, _.isEqual);
+  const isYouTube = useIsYouTube(sectionId);
+  return isYouTube ? youtubeSectionAspectRatio : false;
 }

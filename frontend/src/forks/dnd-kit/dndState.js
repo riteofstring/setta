@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { manualDndChildrenReset } from "state/actions/sections/sectionInfos";
 import { createProjectState } from "state/utils";
 import { immer } from "zustand/middleware/immer";
 
@@ -7,7 +6,7 @@ const initialState = {
   activeId: null,
   activeIsTopLevel: false,
   overId: null,
-  triggerDistCondition: false,
+  leftDistCondition: false,
   isSorting: false,
   isMovingFree: false,
   disabled: {},
@@ -22,13 +21,9 @@ export const useDndState = createProjectState(
     setActive: ({ id, isTopLevel, width, height }) =>
       set({ activeId: id, activeIsTopLevel: isTopLevel, width, height }),
     activateSortingMode: () => set({ isSorting: true, isMovingFree: false }),
-    activateMovingFreeMode: () => {
-      set({ isMovingFree: true, isSorting: false });
-    },
-    deactivate: () => {
-      set(initialState);
-      manualDndChildrenReset();
-    },
+    deactivateSortingMode: () => set({ isSorting: false }),
+    activateMovingFreeMode: () => set({ isMovingFree: true, isSorting: false }),
+    deactivateMovingFreeMode: () => set({ isMovingFree: false }),
     setDisabled: (sectionId, disabled) =>
       set((state) => {
         state.disabled[sectionId] = disabled;

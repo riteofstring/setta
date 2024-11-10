@@ -1,5 +1,7 @@
 import _ from "lodash";
 import { useParamSweep, useSectionInfos } from "state/definitions";
+import { useGetSectionInfo } from "./sections";
+import { useSectionSelectedItem } from "./sectionVariants";
 
 export function useParamSweepInfo(sectionId) {
   const forSectionId = useForSectionId(sectionId);
@@ -9,14 +11,16 @@ export function useParamSweepInfo(sectionId) {
   const previewParamSweepId = useSectionInfos((x) =>
     forSectionId ? x.x[forSectionId].previewParamSweepId : null,
   );
-
-  const shownParamSweepId = previewParamSweepId ?? paramSweepId;
-  const paramSweep = useParamSweep((x) => x.x[shownParamSweepId], _.isEqual);
-
+  const paramSweep = useParamSweep(
+    (x) => x.x[previewParamSweepId ?? paramSweepId].sweep,
+  );
+  const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
+  const selectedItem = useSectionSelectedItem(forSectionId);
   return {
-    paramSweepId: shownParamSweepId,
-    paramSweep: paramSweep.sweep,
+    paramSweepId,
+    paramSweep,
     forSectionId,
+    codeInfoId: selectedItem ?? codeInfoId,
   };
 }
 

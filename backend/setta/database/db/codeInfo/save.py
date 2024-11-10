@@ -1,10 +1,11 @@
 from setta.database.utils import dump_keyword_positions_as_string
 
 
-def save_code_info(db, codeInfo):
+def save_code_info(dbs, codeInfo):
+    db = dbs.default
     query = """
-        INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description, positionalOnly, isPinned, isFrozen, keywordPositions)
-        VALUES (:id, :name, :editable, :rcType, :defaultVal, :description, :positionalOnly, :isPinned, :isFrozen, :keywordPositions)
+        INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description, positionalOnly, isPinned, isFrozen, isSelected, keywordPositions)
+        VALUES (:id, :name, :editable, :rcType, :defaultVal, :description, :positionalOnly, :isPinned, :isFrozen, :isSelected, :keywordPositions)
         ON CONFLICT (id)
         DO UPDATE SET
             name = :name,
@@ -15,6 +16,7 @@ def save_code_info(db, codeInfo):
             positionalOnly = :positionalOnly,
             isPinned = :isPinned,
             isFrozen = :isFrozen,
+            isSelected = :isSelected,
             keywordPositions = :keywordPositions
     """
 
@@ -48,8 +50,10 @@ def save_code_info(db, codeInfo):
     """
     query_params = []
     for c in codeInfo.values():
-        order = 0
-        for x in c["children"]:
-            query_params.append({"parentId": c["id"], "childId": x, "order": order})
-            order += 1
+        query_params.extend(
+            [
+                {"parentId": c["id"], "childId": x, "order": i}
+                for i, x in enumerate(c["children"])
+            ]
+        )
     db.executemany(query, query_params)

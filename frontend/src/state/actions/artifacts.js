@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import { dbLoadArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { addSectionInEmptySpace } from "./sections/createSections";
@@ -11,13 +12,13 @@ export function updateArtifacts({ artifacts, addSection = false }) {
   });
 
   if (addSection) {
-    for (const [fullPath, data] of Object.entries(artifacts)) {
-      maybeAddArtifactSection(fullPath, data.sectionType);
+    for (const fullPath of Object.keys(artifacts)) {
+      maybeAddArtifactSection(fullPath);
     }
   }
 }
 
-function maybeAddArtifactSection(artifactPath, sectionType) {
+function maybeAddArtifactSection(artifactPath) {
   for (const s of Object.values(useSectionInfos.getState().x)) {
     if (s.artifacts.includes(artifactPath)) {
       return;
@@ -25,14 +26,14 @@ function maybeAddArtifactSection(artifactPath, sectionType) {
   }
 
   addSectionInEmptySpace({
-    type: sectionType,
+    type: C.ARTIFACT,
     inputSectionProps: { artifacts: [artifactPath] },
   });
 }
 
 export async function loadArtifacts(sectionId, artifactPaths) {
   const res = await dbLoadArtifacts(sectionId, artifactPaths);
-  if (res.status === 200) {
+  if (res.status == 200) {
     updateArtifacts({ artifacts: res.data });
   }
 }

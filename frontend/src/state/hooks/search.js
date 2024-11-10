@@ -1,9 +1,13 @@
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { updateSearch } from "state/actions/search/projectSearch";
-import { getParamIds } from "state/actions/sections/sectionContents";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { useCodeInfo, useProjectSearch } from "state/definitions";
+import {
+  useCodeInfo,
+  useProjectSearch,
+  useSectionToParamIds,
+} from "state/definitions";
+import { findAllParameters } from "utils/getDescendants";
 import { useSectionIdToChildren } from "./sectionVariants";
 
 export function useUpdateProjectSearch() {
@@ -40,8 +44,6 @@ export function useOnEnterGoToSearchResult() {
       useProjectSearch.setState({ focused: focusedSearchResult });
       goToSection(focusedSearchResult.sectionId);
       setCurrIdx(newIdx);
-    } else if (e.key === "Escape") {
-      e.target.blur();
     } else {
       useProjectSearch.setState({ focused: {} });
       setCurrIdx(-1);
@@ -76,16 +78,24 @@ function useAllVisibleParams() {
     });
   });
 
-  return useCodeInfo((x) => {
+  return useSectionToParamIds((x) => {
     const output = [];
+    const cState = useCodeInfo.getState().x;
     for (const id of allIds) {
-      const { ids: paramIds } = getParamIds(id, x.x);
-      for (const p of paramIds) {
-        output.push({
-          sectionId: id,
-          paramInfoId: p,
-          name: x.x[p].name,
-        });
+      const topLevelParamIds = x.params[id];
+      if (!topLevelParamIds) {
+        continue;
+      }
+      for (const topLevelParamId of topLevelParamIds) {
+        for (const paramInfoId of findAllParameters(cState, [
+          topLevelParamId,
+        ])) {
+          output.push({
+            sectionId: id,
+            paramInfoId,
+            name: cState[paramInfoId].name,
+          });
+        }
       }
     }
     return output;

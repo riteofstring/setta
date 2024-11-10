@@ -5,6 +5,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
+import { updateParams } from "state/actions/sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -15,26 +16,14 @@ import { newSectionPosition } from "utils/objs/sectionPosition";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
-import { updateKeywordRegex } from "../keywordRegex";
 import {
   getSectionChildren,
   initManySectionVariantIds,
   setSectionVariantChildren,
 } from "../sectionVariants";
 import { initManyUITypeColIds } from "../uiTypes/uiTypeCols";
+import { updateManyParamsAndCallables } from "./sectionContents";
 import { addSectionInfo, setSectionInfoAttr } from "./sectionInfos";
-
-export function addRegularSectionInEmptySpace() {
-  return addSectionInEmptySpace({ type: C.SECTION });
-}
-
-export function addGroupInEmptySpace() {
-  return addSectionInEmptySpace({ type: C.DECK });
-}
-
-export function addTerminalInEmptySpace() {
-  return addSectionInEmptySpace({ type: C.TERMINAL });
-}
 
 export function addSectionInEmptySpace({
   type,
@@ -69,23 +58,20 @@ export function addSectionAtPosition({
     ...inputSectionProps,
   };
 
-  if (!sectionProps.size) {
-    sectionProps.size = getDefaultSectionSize(type);
-  }
-
-  if (!sectionProps.name) {
-    sectionProps.name = getDefaultSectionName(type);
-  }
-
-  if (type === C.DRAW) {
-    sectionProps.canvasSettings = {
-      color: "#ff0000",
-      opacity: 1,
-      brushSize: 16,
-      brushShape: "round",
-      canvasOpacity: 0.5,
-      eraserBrushSize: 16,
-    };
+  const settings = useSettings.getState();
+  sectionProps.size = settings.defaultSectionSize;
+  if (type === C.DECK) {
+  } else if (type === C.GLOBAL_VARIABLES) {
+    sectionProps.name = "Global Variables";
+  } else if (type === C.CODE) {
+    sectionProps.name = "Code";
+    sectionProps.size = settings.defaultCodeSectionSize;
+  } else if (type === C.TERMINAL) {
+    sectionProps.size = settings.defaultTerminalSectionSize;
+  } else if (type === C.GLOBAL_PARAM_SWEEP) {
+    sectionProps.name = "Global Param Sweep";
+  } else if (type === C.INFO) {
+    sectionProps.name = getDefaultInfoTitle();
   }
 
   sectionProps.uiTypeId = BASE_UI_TYPE_IDS[type];
@@ -93,31 +79,6 @@ export function addSectionAtPosition({
   const [newId] = createSectionInfo({ sectionProps, position });
   maybeIncrementProjectStateVersion(incrementVersion);
   return newId;
-}
-
-function getDefaultSectionSize(type) {
-  const settings = useSettings.getState();
-  switch (type) {
-    case C.CODE:
-      return settings.defaultCodeSectionSize;
-    case C.TERMINAL:
-      return settings.defaultTerminalSectionSize;
-    default:
-      return settings.defaultSectionSize;
-  }
-}
-
-function getDefaultSectionName(type) {
-  switch (type) {
-    case C.INFO:
-      return getDefaultInfoTitle();
-    case C.GLOBAL_VARIABLES:
-      return "Global Variables";
-    case C.GLOBAL_PARAM_SWEEP:
-      return "Global Param Sweep";
-    default:
-      return null;
-  }
 }
 
 export function addChildrenToSeries({
@@ -138,7 +99,6 @@ export function addChildrenToSeries({
   const newIds = createSectionInfo({
     sectionProps: {
       parentId,
-      size: { height: "auto", width: getSectionInfo(parentId).size.width },
     },
     numSections: numChildren,
   });
@@ -148,27 +108,10 @@ export function addChildrenToSeries({
     newStateFn: (x) => insertIntoArray(x, startIdx, ...newIds),
   });
 
-  // TODO: either use a better subscription (current one looks at section names which gets updated before children are updated) so that we don't have to call updateKeywordRegex a second time here, or get rid of the subscription
-  updateKeywordRegex();
+  updateManyParamsAndCallables(newIds);
   maybeIncrementProjectStateVersion(incrementVersion);
 
   return newIds;
-}
-
-export function addChild({ id, parentId, type, sectionProps }) {
-  createSectionInfo({
-    sectionProps: {
-      id,
-      parentId,
-      uiTypeId: BASE_UI_TYPE_IDS[type],
-      ...sectionProps,
-    },
-  });
-  setSectionVariantChildren({
-    sectionId: parentId,
-    newStateFn: (x) => [...x, id],
-  });
-  updateKeywordRegex();
 }
 
 export function createSectionInfo({
@@ -190,6 +133,7 @@ function addSectionsToState(sectionInfos, variantProps, position) {
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
   initManySectionVariantIds({
+    dbSource: C.DEFAULT_DB_ALIAS,
     collectionIds: _.map(sectionInfos, (x) => x.variantId),
     variantProps,
   });
@@ -296,6 +240,7 @@ export function createSectionsFromArgparse({ pathToScript, args, ...props }) {
     codeInfoIds: [sectionCodeInfoId],
     inputParamIdToUITypeId: paramIdToUITypeId,
   });
+  updateParams(varSectionId);
 
   onClickAddSection({
     type: C.CODE,
@@ -303,7 +248,7 @@ export function createSectionsFromArgparse({ pathToScript, args, ...props }) {
     x: props.x + 600,
     incrementVersion: false,
     inputSectionProps: {
-      script: `python ${pathToScript} $SETTA_PYTHON_ARGPARSE`,
+      script: `python ${pathToScript} {{ SETTA_PYTHON_ARGPARSE }}`,
     },
   });
 }

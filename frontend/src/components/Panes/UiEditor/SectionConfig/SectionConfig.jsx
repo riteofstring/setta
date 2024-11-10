@@ -1,10 +1,12 @@
 import C from "constants/constants.json";
 import React from "react";
+import { getInfoViewHandlers } from "state/actions/infoView";
 import { useGetSectionType } from "state/hooks/uiTypes";
-import { DrawAreaSettings } from "./DrawAreaSettings";
-import { InfoAreaSettings } from "./InfoAreaSettings";
-import { InputAreaSettings } from "./InputAreaSettings";
-import { SocialAreaSettings } from "./SocialAreaSettings";
+import { CONST_INFO_VIEWS } from "utils/constants";
+import { SaveUITypeConfig } from "../SaveUITypeConfig";
+import { CollectionsSearch } from "./CollectionsSearch";
+import { SectionConfigTypeSelection } from "./SectionConfigTypeSelection";
+import { SocialTypeSearch } from "./SocialTypeSearch";
 
 const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
   return <SectionConfigCore sectionId={sectionId} />;
@@ -15,46 +17,40 @@ export const SectionConfig = React.memo(_SectionConfig);
 function SectionConfigCore({ sectionId }) {
   // pass infoViewHandlersContents down?
   return (
-    <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
-      {/* <div className="flex justify-between">
+    <div className="flex flex-1 flex-col gap-1 overflow-y-hidden">
+      <div className="flex justify-between">
         <p
           className="mt-2 text-xs font-semibold uppercase text-setta-400"
-          {...getFloatingBoxHandlers(
-             "Select your card's type. Options include: Object, List of Objects, Dictionary of Objects, and Info. The Info Card only takes in Markdown text.",
+          {...getInfoViewHandlers(
+            CONST_INFO_VIEWS.SECTIONCONFIG_CARDTYPES_SEARCH,
           )}
         >
           Card Types
         </p>
         <SaveUITypeConfig />
-      </div> */}
+      </div>
 
-      {/* <SectionConfigTypeSelection sectionId={sectionId} /> */}
+      <SectionConfigTypeSelection sectionId={sectionId} />
 
-      {/* <p
-        className="text-sm text-setta-400"
-        {...getFloatingBoxHandlers(
-          "Choose which arguments appear in your selected card.",
-        )}
+      <p
+        className="mt-4 text-xs font-semibold uppercase text-setta-400"
+        {...getInfoViewHandlers(CONST_INFO_VIEWS.SECTIONCONFIG_CONTENTS_SEARCH)}
       >
         Contents
-      </p> */}
-      <SpecializedConfiguration sectionId={sectionId} />
+      </p>
+      <SearchSwitch sectionId={sectionId} />
     </div>
   );
 }
 
-function SpecializedConfiguration({ sectionId }) {
+function SearchSwitch({ sectionId }) {
   const sectionType = useGetSectionType(sectionId, "type");
   // if (sectionType === C.OUTPUT) {
   //   return <OutputsSearch sectionId={sectionId} />;
   // } else
   if (sectionType === C.SOCIAL) {
-    return <SocialAreaSettings sectionId={sectionId} />;
-  } else if (sectionType === C.DRAW) {
-    return <DrawAreaSettings sectionId={sectionId} />;
-  } else if (sectionType === C.SECTION || sectionType === C.GLOBAL_VARIABLES) {
-    return <InputAreaSettings sectionId={sectionId} />;
-  } else if (sectionType === C.INFO) {
-    return <InfoAreaSettings sectionId={sectionId} />;
+    return <SocialTypeSearch sectionId={sectionId} />;
+  } else {
+    return <CollectionsSearch sectionId={sectionId} />;
   }
 }

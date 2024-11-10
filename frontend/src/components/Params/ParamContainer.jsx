@@ -1,38 +1,41 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import React from "react";
+import React, { useState } from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { toggleParamSelected } from "state/actions/kwargs/kwargs";
+import { getInfoViewHandlers } from "state/actions/infoView";
 import {
   useCodeInfo,
-  useParamShortcuts,
   useProjectSearch,
   useTypeErrors,
 } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { ParamInput } from "./ParamItems/ParamInput";
+import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton";
+import { PinButton } from "./ParamUIs/PinButton";
 
 function _ParamContainer({
   sectionId,
-  paramInfoId,
-  requiredParamIdsToPaths,
-  ancestorIsSelected,
+  paramInfo,
+  setDidUpdate,
+  isKwarg,
   children,
+  onClick,
+  kwargInfo,
+  notifyParentOfMouseOver,
 }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
-  const maybeErrorMessage = useTypeErrors(
-    (x) => x.errors[sectionId]?.[paramInfoId],
-  );
+  const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const isFocusedSearchResult = useProjectSearch((x) =>
-    _.isEqual(x.focused, { sectionId, paramInfoId }),
+    _.isEqual(x.focused, { sectionId, paramInfoId: paramInfo.id }),
   );
 
   const isSearchResult = useProjectSearch((x) =>
-    x.codeInfo.some((c) => _.isEqual(c, { sectionId, paramInfoId })),
+    x.codeInfo.some((c) =>
+      _.isEqual(c, { sectionId, paramInfoId: paramInfo.id }),
+    ),
   );
 
   // warnings should be AMBER
@@ -43,50 +46,69 @@ function _ParamContainer({
       : isSearchResult
         ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
         : "";
-  const canBeOverriden = useCodeInfo(
-    (x) => sectionIsFrozen && x.x[paramInfoId].isFrozen,
-  );
-  const {
-    isSelected: paramIsSelected,
-    description: paramDescription,
-    name: paramName,
-    children: paramChildren,
-  } = useCodeInfo(
-    (x) =>
-      _.pick(x.x[paramInfoId], [
-        "isSelected",
-        "description",
-        "name",
-        "children",
-      ]),
-    _.isEqual,
-  );
+  const canBeOverriden = sectionIsFrozen && !paramInfo.isFrozen;
+  const paramIsSelected = paramInfo.isSelected;
 
   // hover:bg-setta-200/20 dark:hover:bg-setta-700/25
   // maybe use this for in bg hover state: div:hover:not(:has(div:hover))
 
-  const bg = paramIsSelected ? "bg-setta-500/20" : "";
+  const bg = paramIsSelected ? "bg-lime-400/50" : "";
 
-  function onClickSelect(e) {
-    if (!ancestorIsSelected && useParamShortcuts.getState().isSelectingParams) {
-      e.stopPropagation();
-      toggleParamSelected(paramInfoId);
-    }
-  }
+  const paramChildren = useCodeInfo(
+    (x) => paramInfo.children.map((c) => x.x[c]),
+    _.isEqual,
+  );
+
+  const [isMousedOver, setIsMousedOver] = useState(false);
+  const [childIsMousedOver, setChildIsMousedOver] = useState(0);
+  const showButtons = isMousedOver && childIsMousedOver === 0;
+  console.log("childIsMousedOver", childIsMousedOver);
 
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between overflow-clip rounded-md ${bg} ${border}`}
-        {...getFloatingBoxHandlers(paramDescription, paramName)}
-        onClick={onClickSelect}
+        className={`section-w-full group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2   ${bg} ${border}`}
+        {...getInfoViewHandlers(paramInfo.description)}
+        onMouseOver={() => {
+          if (!isMousedOver) notifyParentOfMouseOver?.((x) => x + 1);
+          setIsMousedOver(true);
+        }}
+        onMouseLeave={() => {
+          if (isMousedOver) notifyParentOfMouseOver?.((x) => x - 1);
+          setIsMousedOver(false);
+        }}
       >
+        {showButtons && (
+          <IconButton
+            onClick={onClick}
+            icon={<i className="gg-close" />}
+            bg="bg-transparent"
+            color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
+            twClasses={`arg-close-btn section-left-gutter cursor-pointer ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[0.3rem]" : "place-self-center"} z-20`}
+            padding=""
+            size="h-[.5rem] w-[.5rem]"
+            tabIndex="-1"
+          />
+        )}
         {children}
         <ParamInput
           sectionId={sectionId}
-          paramInfoId={paramInfoId}
+          paramInfoId={paramInfo.id}
+          defaultVal={paramInfo.defaultVal}
+          isDisabled={!paramInfo.name}
           maybeErrorMessage={maybeErrorMessage}
+          setDidUpdate={setDidUpdate}
         />
+        {showButtons && (
+          <PinButton
+            sectionId={sectionId}
+            paramInfoId={paramInfo.id}
+            variants="justify-self-end self-center section-key bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:text-setta-400"
+          />
+        )}
+        {showButtons && (
+          <ParamOptionsButton variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400" />
+        )}
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
         )}
@@ -94,25 +116,61 @@ function _ParamContainer({
     </>
   ) : (
     <article
-      className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between gap-y-1 overflow-clip rounded-md ${bg} ${border}`}
-      {...getFloatingBoxHandlers(paramDescription, paramName)}
-      onClick={onClickSelect}
+      className={`section-w-full group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
+      {...getInfoViewHandlers(paramInfo.description)}
+      onMouseOver={() => {
+        if (!isMousedOver) notifyParentOfMouseOver?.((x) => x + 1);
+        setIsMousedOver(true);
+      }}
+      onMouseLeave={() => {
+        if (isMousedOver) notifyParentOfMouseOver?.((x) => x - 1);
+        setIsMousedOver(false);
+        setChildIsMousedOver(0);
+      }}
     >
+      {showButtons && (
+        <IconButton
+          onClick={onClick}
+          icon={<i className="gg-close" />}
+          bg="bg-transparent"
+          color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
+          twClasses={`arg-close-btn section-left-gutter cursor-pointer ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[0.3rem]" : "place-self-center"} z-20`}
+          padding=""
+          size="h-[.5rem] w-[.5rem]"
+          tabIndex="-1"
+        />
+      )}
       {children}
-      <div className="section-args-nested section-key-value relative grid gap-y-1">
-        <div className="absolute bottom-0 h-[calc(100%_-_0.25rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
+      <div className="section-args-nested section-key-value grid gap-y-1">
         <GetParamSwitch
           sectionId={sectionId}
-          paramIds={paramChildren}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          ancestorIsSelected={ancestorIsSelected || paramIsSelected}
+          parentId={paramInfo.id}
+          infos={paramChildren}
+          setDidUpdate={setDidUpdate}
+          notifyParentOfMouseOver={setChildIsMousedOver}
         />
       </div>
+      {showButtons && (
+        <PinButton
+          sectionId={sectionId}
+          paramInfoId={paramInfo.id}
+          variants="justify-self-end self-center section-value mr-6 bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:text-setta-400"
+        />
+      )}
+      {showButtons && (
+        <ParamOptionsButton variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400" />
+      )}
     </article>
   );
 }
 
-export const ParamContainer = React.memo(_ParamContainer);
+export const ParamContainer = React.memo(
+  _ParamContainer,
+  (p, n) =>
+    p.sectionId === n.sectionId &&
+    _.isEqual(p.paramInfo, n.paramInfo) &&
+    _.isEqual(p.uiType, n.uiType),
+);
 
 function ErrorSection({ maybeErrorMessage }) {
   return (
@@ -148,7 +206,7 @@ const AccordionTrigger = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Header className="flex">
       <Accordion.Trigger
-        className="group -ml-3 mt-1 flex h-6 flex-1 cursor-default items-center justify-between overflow-hidden bg-red-500 pl-3 pr-2 font-mono text-xs font-bold text-red-50 outline-none transition-all hover:cursor-pointer dark:bg-red-800"
+        className="group -mx-2 mt-1 flex h-6 flex-1 cursor-default items-center justify-between overflow-hidden rounded-lg bg-red-500 px-2 font-mono text-xs font-bold text-red-50 outline-none transition-all hover:cursor-pointer dark:bg-red-800"
         {...props}
         ref={forwardedRef}
       >
@@ -163,16 +221,16 @@ const AccordionTrigger = React.forwardRef(
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
-      className="nowheel nodrag relative -mx-3  -mb-1 overflow-hidden bg-white px-1 text-xs dark:bg-setta-950"
+      className="nowheel nodrag relative -mx-2 -mb-1 overflow-hidden rounded-md bg-white text-xs dark:bg-setta-950"
       {...props}
       ref={forwardedRef}
     >
-      <aside className=" mt-1 h-full cursor-text select-text overflow-y-scroll px-2 pb-2 pt-[.15rem] font-mono dark:text-setta-100">
+      <aside className=" mt-1 h-full cursor-text select-text overflow-y-scroll px-2 py-2 font-mono dark:text-setta-100">
         {children}
       </aside>
       <IconButton
-        twClasses="absolute right-4 bottom-2 h-3 w-3 cursor-pointer text-setta-400 dark:text-setta-200 hover:text-setta-600 dark:hover:text-white"
-        bg="bg-transparent hover:bg-setta-100 dark:hover:bg-setta-600"
+        twClasses="absolute right-2 bottom-2 h-3 w-3 cursor-pointer text-setta-400 dark:text-setta-200 hover:text-setta-600 dark:hover:text-white"
+        bg="bg-setta-100/50 dark:bg-setta-700/50 hover:bg-setta-100 dark:hover:bg-setta-600"
         icon={<HiOutlineDuplicate />}
         onClick={() => navigator.clipboard.writeText(children)}
       />

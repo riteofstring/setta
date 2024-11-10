@@ -1,7 +1,5 @@
-import _ from "lodash";
-import { useSettings, useStateVersion } from "state/definitions";
+import { useStateVersion } from "state/definitions";
 import { stateDict, STATE_TYPES } from "state/utils";
-import { saveProject } from "./project/saveProject";
 
 export function undoProjectState() {
   const pastStates = useStateVersion.temporal.getState().pastStates;
@@ -83,8 +81,5 @@ export function maybeIncrementProjectStateVersion(
   }
 }
 
-const autoSave = _.debounce(() => {
-  if (useSettings.getState().autosave) {
-    saveProject();
-  }
-}, 1000);
+// const autoSave = _.debounce(saveProject, 1000);
+const autoSave = () => {};

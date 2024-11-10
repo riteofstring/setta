@@ -23,25 +23,15 @@ export function newSectionInfo({
   paramSweepSectionId = null,
   nonPresetUITypeIds = [],
   codeLanguage = "",
-  configLanguage = "python",
   isFrozen = false,
+  dbSource = "",
   isHorizontalOrientation = false,
   hideParams = false,
   hideSearch = false,
-  hideUnpinnedParams = false,
-  showYaml = false,
-  pinnedAreaHeight = "auto",
-  isMinimized = false,
-  canvasSettings = {},
-  isTemporary = false,
-  renderMarkdown = false,
-  positionAndSizeLocked = false,
 }) {
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _variantId = maybeNewId(variantId);
   const _variantIds = [...variantIds, _variantId];
-
-  console.log("size", size);
 
   return {
     id: maybeNewId(id),
@@ -59,22 +49,14 @@ export function newSectionInfo({
     artifacts,
     description,
     codeLanguage,
-    configLanguage,
     variantIds: _variantIds,
     paramSweepIds,
     paramSweepSectionId,
     nonPresetUITypeIds,
     isFrozen,
+    dbSource,
     isHorizontalOrientation,
     hideParams,
     hideSearch,
-    hideUnpinnedParams,
-    showYaml,
-    pinnedAreaHeight,
-    isMinimized,
-    canvasSettings,
-    isTemporary,
-    renderMarkdown,
-    positionAndSizeLocked,
   };
 }

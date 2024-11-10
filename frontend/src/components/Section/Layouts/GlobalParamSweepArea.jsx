@@ -1,95 +1,30 @@
-import CodeMirror from "@uiw/react-codemirror";
-import { StandardAccordion } from "components/Utils/atoms/accordion/accordion";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
-import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import C from "constants/constants.json";
-import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import React, { useEffect, useState } from "react";
-import { setShownRunGroup } from "state/actions/project/projectConfig";
+import React, { useState } from "react";
+import { BiFilter } from "react-icons/bi";
 import {
-  initRunGroup,
+  createNewRunGroup,
   toggleRunGroup,
+  toggleRunGroupParamSweep,
   toggleRunGroupSection,
-  toggleRunGroupSectionParamSweep,
-  toggleRunGroupSectionVersion,
 } from "state/actions/runGroups/runGroups";
-import { setSectionVariantAttr } from "state/actions/sectionVariants";
-import {
-  useProjectConfig,
-  useRunGroups,
-  useSectionInfos,
-} from "state/definitions";
+import { useRunGroups } from "state/definitions";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
-import { useGetSectionInfo } from "state/hooks/sections";
-import { useIsScrollable } from "state/hooks/sectionSizes";
-import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 
-export function GlobalParamSweepArea({ sectionId }) {
-  const showYaml = useGetSectionInfo(sectionId, "showYaml");
-  const width = useSectionInfos((x) => {
-    const w = x.x[sectionId].size.width;
-    return w === "auto" ? getSectionRect(sectionId).width : w;
-  });
-
-  return !showYaml ? (
-    <GlobalParamSweepGUI width={width} />
-  ) : (
-    <GlobalParamSweepCode sectionId={sectionId} />
-  );
-}
-
-function GlobalParamSweepCode({ sectionId }) {
-  const code = useGetSectionInfo(sectionId, "code");
-  const theme = useCodeMirrorStyle();
-  const extensions = getExtensions({ sectionId, language: "python" });
-
-  function onChange(v) {
-    setSectionVariantAttr(sectionId, "code", v);
-  }
-
-  return (
-    <article
-      className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0`}
-    >
-      <CodeMirror
-        value={code}
-        onChange={onChange}
-        theme={theme}
-        extensions={extensions}
-      />
-    </article>
-  );
-}
-
-function GlobalParamSweepGUI({ width }) {
+export function GlobalParamSweepArea() {
   const runGroups = useRunGroups((x) => x.x);
-  const shownRunGroup = useProjectConfig((x) => x.shownRunGroup);
+  const [shownRunGroup, setShownRunGroup] = useState(Object.keys(runGroups)[0]);
   const [previewRunGroup, setPreviewRunGroup] = useState(null);
   const toShow = previewRunGroup ?? shownRunGroup;
-  const firstRunGroupId = Object.keys(runGroups)[0];
-
-  const { ref, isScrollable } = useIsScrollable();
-  useEffect(() => {
-    if (!shownRunGroup && firstRunGroupId) {
-      setShownRunGroup(firstRunGroupId);
-    }
-  }, [shownRunGroup, firstRunGroupId]);
 
   return (
     <>
-      <section
-        className={`${width < 386 && isScrollable ? "nowheel" : ""} section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll  @sm/multipane:flex-row  @sm/multipane:overflow-visible`}
-        ref={ref}
-      >
-        <article className="mt-2 flex flex-col gap-2 ">
-          <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-            Run Groups
-          </h3>
-          {/* <FilterSection /> */}
+      <section className="section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll @sm/multipane:flex-row  @sm/multipane:overflow-visible">
+        <article className="flex flex-col gap-2 ">
+          <FilterSection />
 
           <RunGroupList
             runGroups={runGroups}
@@ -100,10 +35,7 @@ function GlobalParamSweepGUI({ width }) {
           <CreateNewRunGroupButton setShownRunGroup={setShownRunGroup} />
         </article>
         {runGroups[toShow] && (
-          <article className="mt-2 flex flex-1 flex-col gap-2 @sm/multipane:overflow-x-hidden">
-            <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-              Sections
-            </h3>
+          <article className="flex flex-1 flex-col gap-2 overflow-x-hidden ">
             <FilterSection />
             <SectionList runGroupId={toShow} runGroup={runGroups[toShow]} />
           </article>
@@ -119,28 +51,19 @@ function RunGroupList({
   setShownRunGroup,
   setPreviewRunGroup,
 }) {
-  const runGroupSelection = useProjectConfig(
-    (x) => x.runGroupSelection,
-    _.isEqual,
-  );
-  const { ref, isScrollable } = useIsScrollable();
-
   return (
-    <ul
-      className={`${isScrollable ? "nowheel" : ""} flex flex-grow flex-col overflow-visible @sm/multipane:overflow-y-scroll`}
-      ref={ref}
-    >
-      {Object.entries(runGroups).map(([id, x]) => (
+    <ul className="noscroll nowheel flex flex-grow flex-col overflow-y-scroll">
+      {Object.entries(runGroups).map(([id, x], idx) => (
         <CheckboxNextToLabel
-          key={id}
+          key={idx}
           shown={shownRunGroup === id}
-          checked={runGroupSelection[id]}
+          checked={x.selected}
           onChange={() => {
             toggleRunGroup(id);
           }}
+          onClick={() => setShownRunGroup(id)}
           onMouseOver={() => setPreviewRunGroup(id)}
           onMouseLeave={() => setPreviewRunGroup(null)}
-          onClick={() => setShownRunGroup(id)}
         >
           {x.name}
         </CheckboxNextToLabel>
@@ -161,13 +84,9 @@ function SectionList({ runGroupId, runGroup }) {
   const allSections = useGetOverviewListing((sectionTypeName) =>
     shownSectionTypes.includes(sectionTypeName),
   )[0];
-  const { ref, isScrollable } = useIsScrollable();
 
   return (
-    <ul
-      className={`${isScrollable ? "nowheel" : ""} -mt-2 flex flex-grow flex-col overflow-visible rounded-lg bg-setta-50/40 pl-3 pr-2 pt-2 @sm/multipane:overflow-y-scroll dark:bg-setta-875`}
-      ref={ref}
-    >
+    <ul className="noscroll nowheel -mt-2 flex flex-grow flex-col overflow-y-scroll rounded-lg bg-setta-50/40 px-3 pt-2 dark:bg-setta-875">
       {allSections.map((x, idx) => (
         <SectionItem
           key={idx}
@@ -181,66 +100,26 @@ function SectionList({ runGroupId, runGroup }) {
 }
 
 function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
-  function onSectionCheckboxChange() {
-    toggleRunGroupSection({ id: runGroupId, sectionId: sectionInfo.id });
-  }
-
+  // const variants = "flex flex-col gap-2";
   return (
-    <div style={{ paddingLeft: `${0.75 * sectionInfo.depth}rem` }}>
-      <li className="flex flex-col">
-        <CheckboxGroup
-          checked={runGroupSection?.selected ?? false}
-          onChange={onSectionCheckboxChange}
-        >
-          {sectionInfo.name}
-        </CheckboxGroup>
-        <VersionsList
-          sectionInfo={sectionInfo}
-          runGroupId={runGroupId}
-          runGroupSection={runGroupSection}
-        />
-        <ParamSweepVersionsList
-          sectionInfo={sectionInfo}
-          runGroupId={runGroupId}
-          runGroupSection={runGroupSection}
-        />
-      </li>
-    </div>
-  );
-}
-
-function _VersionsList({ sectionInfo, runGroupId, runGroupSection }) {
-  const allVersions = useGetSectionVariantNames(sectionInfo.id);
-
-  function getOnVersionCheckboxChange(versionId) {
-    return () =>
-      toggleRunGroupSectionVersion({
-        id: runGroupId,
-        sectionId: sectionInfo.id,
-        versionId,
-      });
-  }
-
-  return (
-    <GenericList
-      minLength={1}
-      inputList={allVersions}
-      listName="Versions"
-      sectionIsSelected={!!runGroupSection?.selected}
-      listSelection={runGroupSection?.versions}
-      onChange={getOnVersionCheckboxChange}
+    <ParamSweepVersionsList
+      sectionInfo={sectionInfo}
+      runGroupId={runGroupId}
+      runGroupSection={runGroupSection}
     />
   );
 }
 
-const VersionsList = React.memo(_VersionsList, _.isEqual);
-
 function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
   const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
 
+  function onSectionCheckboxChange() {
+    toggleRunGroupSection({ id: runGroupId, sectionId: sectionInfo.id });
+  }
+
   function getOnParamSweepCheckboxChange(paramSweepId) {
     return () =>
-      toggleRunGroupSectionParamSweep({
+      toggleRunGroupParamSweep({
         id: runGroupId,
         sectionId: sectionInfo.id,
         paramSweepId,
@@ -248,68 +127,39 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
   }
 
   return (
-    <GenericList
-      minLength={0}
-      inputList={allParamSweeps}
-      listName="Param Sweeps"
-      onChange={getOnParamSweepCheckboxChange}
-      sectionIsSelected={!!runGroupSection?.selected}
-      listSelection={runGroupSection?.paramSweeps}
-    />
+    <li className="flex flex-col">
+      <CheckboxGroup
+        checked={!_.isNil(runGroupSection)}
+        onChange={onSectionCheckboxChange}
+      >
+        {sectionInfo.name}
+      </CheckboxGroup>
+      {allParamSweeps.length > 0 && (
+        <ul className="pl-4">
+          {allParamSweeps.map((e, idx) => (
+            <li
+              key={idx}
+              className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded"
+            >
+              <CheckboxGroup
+                checked={!!runGroupSection?.[e.id]}
+                onChange={getOnParamSweepCheckboxChange(e.id)}
+              >
+                {e.name}
+              </CheckboxGroup>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }
 
 const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
 
-function _GenericList({
-  minLength,
-  inputList,
-  listName,
-  sectionIsSelected,
-  listSelection,
-  onChange,
-}) {
-  return (
-    inputList.length > minLength && (
-      <>
-        <StandardAccordion
-          rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700  rounded-lg px-2 ml-8 -mr-2 -mt-0.5"
-          itemStyles="focus-within:relative focus-within:z-10"
-          headerStyles="flex flex-1 cursor-default items-center justify-between my-0.5"
-          triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md italic text-xs font-semibold opacity-60 group-hover:opacity-100 text-setta-500 dark:text-setta-300"
-          contentStyles="text-xs overflow-hidden mb-1"
-          heading={listName}
-          value={listName}
-          internalWrapper={false}
-          // defaultValue={defaultValue}
-          data-state={open}
-        >
-          <ul className="">
-            {inputList.map((e, idx) => (
-              <li
-                key={idx}
-                className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded"
-              >
-                <CheckboxGroup
-                  checked={sectionIsSelected && !!listSelection?.[e.id]}
-                  onChange={onChange(e.id)}
-                >
-                  {e.name}
-                </CheckboxGroup>
-              </li>
-            ))}
-          </ul>
-        </StandardAccordion>
-      </>
-    )
-  );
-}
-
-const GenericList = React.memo(_GenericList, _.isEqual);
-
 function CheckboxGroup({ children, checked, onChange }) {
   return (
-    <label className="flex min-h-6 cursor-pointer items-center gap-2 text-xs text-setta-700 dark:text-setta-300">
+    <label className="flex min-h-6 cursor-pointer items-center gap-2 text-xs text-setta-500 dark:text-setta-300">
       <input
         type="checkbox"
         className="h-4 w-4 min-w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
@@ -330,30 +180,24 @@ function CheckboxNextToLabel({
   onMouseOver,
   onMouseLeave,
 }) {
+  const font = shown ? "font-bold" : "";
+
   return (
-    <li
-      className="group/runitem flex justify-between"
-      onMouseOver={onMouseOver}
-      onMouseLeave={onMouseLeave}
-    >
+    <li onMouseLeave={onMouseLeave}>
       <label
-        className={`flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs text-setta-700 group-hover/runitem:!text-blue-500 dark:text-setta-200 ${shown ? "font-bold !text-blue-500" : ""}`}
+        className={`${font} flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs text-setta-700 dark:text-setta-200 `}
+        onMouseOver={onMouseOver}
+        onClick={onClick}
       >
         <input
           type="checkbox"
-          className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/15 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+          className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
           checked={checked}
           onChange={onChange}
         />
 
         <p className="truncate">{children}</p>
       </label>
-      <button
-        className={`mr-0.5 cursor-pointer text-transparent hover:!text-setta-500 group-hover/runitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/runitem:text-setta-600 ${shown ? "!text-blue-500" : ""}`}
-        onClick={onClick}
-      >
-        <i className="gg-pen  " />
-      </button>
     </li>
   );
 }
@@ -365,7 +209,7 @@ function FilterSection() {
   return (
     <search className="flex min-w-0 items-center pb-1">
       <StandardSearch
-        leftElement={<i className="gg-sort-az !scale-75 text-setta-400" />}
+        leftElement={<BiFilter className="text-setta-400" />}
         placeholder="Filter"
         inputStyles={inputStyles}
         outerClasses="flex-1"
@@ -377,7 +221,7 @@ function FilterSection() {
 function CreateNewRunGroupButton({ setShownRunGroup }) {
   function onClick() {
     const id = createNewId();
-    initRunGroup({ id, name: createRandomName() });
+    createNewRunGroup({ id, name: createRandomName() });
     setShownRunGroup(id);
   }
 

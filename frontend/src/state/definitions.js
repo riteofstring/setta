@@ -1,3 +1,4 @@
+import { SECTION_CONFIG_TAB } from "utils/constants";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -48,7 +49,7 @@ export const useInfoView = createProjectState(() => ({
 }));
 
 export const useInteractive = create(() => ({
-  taskMetadata: [],
+  taskNames: [],
 }));
 
 export const useKeywordRegex = create(() => ({
@@ -114,6 +115,7 @@ export const useProjectConfig = createProjectState(
         id: "",
         name: "",
         isDefault: false,
+        viewport: { x: 0, y: 0, zoom: 1 },
       }),
     ),
   ),
@@ -160,6 +162,17 @@ export const useSectionRefs = createProjectState(
   })),
 );
 
+export const useSectionToParamIds = createProjectState(
+  temporal(
+    immer(() =>
+      withVersion({
+        callables: {},
+        params: {},
+      }),
+    ),
+  ),
+);
+
 export const useSettings = create(() => ({}));
 
 export const useStateVersion = createProjectState(
@@ -167,23 +180,16 @@ export const useStateVersion = createProjectState(
 );
 
 // TODO: remove this hardcoded example error
-export const useTypeErrors = createProjectState(
-  immer(() => ({
-    userRequested: false,
-    errors: {
-      "d96cb110-6f72-435a-b745-2d55e277f983": {
-        "0aa0f46a-e923-4528-a411-500cbda6e77b":
-          "error: Argument 1 to 'process_data' of 'DataProcessor' has incompatible type 'List[Union[int, str, List[Any]]]'; expected 'List[Union[int, float, Dict[str, Union[int, float]]]]'",
-      },
-      "c27f4f05-7a54-44e6-b222-c77581c4ea37": {
-        "80b6429e-fbb9-4070-a574-b32e0e061ab4":
-          "error: Argument 1 to 'process_data' of 'DataProcessor' has incompatible type 'List[Union[int, str, List[Any]]]'; expected 'List[Union[int, float, Dict[str, Union[int, float]]]]'",
-      },
-    },
-  })),
-);
+export const useTypeErrors = createProjectState(() => ({
+  "d96cb110-6f72-435a-b745-2d55e277f983": {
+    "0aa0f46a-e923-4528-a411-500cbda6e77b":
+      "error: Argument 1 to 'process_data' of 'DataProcessor' has incompatible type 'List[Union[int, str, List[Any]]]'; expected 'List[Union[int, float, Dict[str, Union[int, float]]]]'",
+  },
+}));
 
-export const useJSONSourceMissing = createProjectState(() => ({}));
+export const useUIEditor = createProjectState(() => ({
+  tab: SECTION_CONFIG_TAB,
+}));
 
 export const useUITypeCols = createProjectState(
   temporal(
@@ -210,22 +216,6 @@ export const useWebsocketConnectionList = create(() => ({
   connections: [],
 }));
 
-export const useTemporaryMiscState = createProjectState(
+export const useWebsocketRooms = createProjectState(
   subscribeWithSelector(() => ({})),
-);
-
-export const useParamShortcuts = create(() => ({
-  isSelectingParams: false,
-}));
-
-export const useMisc = create(
-  subscribeWithSelector(
-    immer(() => ({
-      projectIsLoading: false,
-      mouseDownDrawArea: false,
-      mouseDownDraggingSection: false,
-      lastPaneClickLocation: { x: 0, y: 0 },
-      singletonSections: { globalVariables: null, globalParamSweep: null },
-    })),
-  ),
 );

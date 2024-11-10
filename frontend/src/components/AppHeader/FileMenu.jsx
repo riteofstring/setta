@@ -3,6 +3,7 @@ import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown"
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
+import { Link } from "react-router-dom";
 import {
   openExportFullJSONModal,
   openExportJSONModal,
@@ -11,30 +12,25 @@ import {
   openSaveAsModal,
   openSaveAsWithRefsModal,
 } from "state/actions/modal";
-import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
+import { createAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
 import { useSettings } from "state/definitions";
-import { shortcutPrettified } from "utils/utils";
+import { SETTINGS_ROUTER_PATH } from "utils/constants";
 
 export function FileMenu() {
   const shortcuts = useSettings((x) =>
-    _.mapValues(
-      _.pick(x, [
-        "newProjectConfigShortcut",
-        "saveShortcut",
-        "saveAsShortcut",
-        "loadShortcut",
-      ]),
-      shortcutPrettified,
-    ),
+    _.pick(x, [
+      "newProjectConfigShortcut",
+      "saveShortcut",
+      "saveAsShortcut",
+      "loadShortcut",
+    ]),
   );
-
-  const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
 
   return (
     <NavbarMenuDropdown trigger="File">
       <MenuItem
-        onClick={createAndGoToProjectConfig}
+        onClick={() => createAndGoToProjectConfig({})}
         shortcut={shortcuts.newProjectConfigShortcut}
       >
         New Config
@@ -68,6 +64,9 @@ export function FileMenu() {
         {/* <BiExport /> */}
         Export Full JSON
       </MenuItem>
+      <Link to={SETTINGS_ROUTER_PATH}>
+        <MenuItem>Settings</MenuItem>
+      </Link>
     </NavbarMenuDropdown>
   );
 }

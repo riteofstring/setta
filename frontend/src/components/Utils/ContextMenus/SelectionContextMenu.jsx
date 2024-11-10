@@ -5,8 +5,7 @@ import { closeAllContextMenus } from "state/actions/contextMenus";
 import { clearActiveSectionIds } from "state/actions/sections/activeSections";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { createDeck } from "state/actions/sections/groupSections";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useContextMenus, useSectionInfos } from "state/definitions";
+import { useContextMenus } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function SelectionContextMenu() {
@@ -14,11 +13,6 @@ export function SelectionContextMenu() {
     (x) => x.selection,
     _.isEqual,
   );
-
-  const allLocked = useSectionInfos((x) =>
-    nodeIds.map((n) => x.x[n].positionAndSizeLocked).every((p) => p),
-  );
-
   const closeContextMenu = () => {
     closeAllContextMenus();
     clearActiveSectionIds();
@@ -40,19 +34,6 @@ export function SelectionContextMenu() {
     closeContextMenu();
   }
 
-  function onClickLock() {
-    setSectionInfoAttr({
-      sectionIds: nodeIds,
-      attr: "positionAndSizeLocked",
-      value: !allLocked,
-    });
-    closeContextMenu();
-  }
-
-  const lockItem = allLocked
-    ? "Unlock Position & Size"
-    : "Lock Position & Size";
-
   return (
     <ContextMenuCore
       x={x}
@@ -62,7 +43,6 @@ export function SelectionContextMenu() {
     >
       <Item onClick={onClickCreate}>Create Group</Item>
       <Item onClick={onClickDelete}>Delete</Item>
-      <Item onClick={onClickLock}>{lockItem}</Item>
     </ContextMenuCore>
   );
 }

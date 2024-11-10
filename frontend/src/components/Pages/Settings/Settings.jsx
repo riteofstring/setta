@@ -14,7 +14,7 @@ export function Settings() {
     <div className="h-dvh w-dvw overflow-y-scroll bg-setta-100 dark:bg-setta-850">
       <section className="mx-auto flex w-[clamp(200px,_50vw,_800px)] flex-col pb-24">
         <header className="flex justify-between pb-4 pt-4">
-          <h1 className="  text-3xl font-bold text-setta-300 dark:text-setta-700">
+          <h1 className=" font-heading text-3xl font-bold text-setta-300 dark:text-setta-700">
             Settings
           </h1>
 
@@ -27,11 +27,11 @@ export function Settings() {
           </button>
         </header>
 
-        <h2 className="mb-4 border-b border-setta-200 pt-4  text-xl font-bold text-setta-600 dark:border-setta-700 dark:text-setta-500">
+        <h2 className="mb-4 border-b border-setta-200 pt-4 font-heading text-xl font-bold text-setta-600 dark:border-setta-700 dark:text-setta-500">
           General
         </h2>
         <SimpleSettings />
-        <h2 className="mb-4 border-b border-setta-200 pt-8  text-xl font-bold text-setta-600 dark:border-setta-700 dark:text-setta-500">
+        <h2 className="mb-4 border-b border-setta-200 pt-8 font-heading text-xl font-bold text-setta-600 dark:border-setta-700 dark:text-setta-500">
           Keyboard Shortcuts
         </h2>
         <ShortcutSettings />

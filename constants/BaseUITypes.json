@@ -24,20 +24,6 @@
     "presetType": "BASE",
     "config": {}
   },
-  "74de30af-accf-44db-9b6b-da4260f0bd60": {
-    "id": "74de30af-accf-44db-9b6b-da4260f0bd60",
-    "type": "COLOR_PICKER",
-    "name": "",
-    "presetType": "BASE",
-    "config": {}
-  },
-  "5b7755f7-8628-4b32-92e4-89eab596e4a3": {
-    "id": "5b7755f7-8628-4b32-92e4-89eab596e4a3",
-    "type": "DROPDOWN",
-    "name": "",
-    "presetType": "BASE",
-    "config": {}
-  },
   "0191cde4-3d98-4ba0-972a-fead19b8ac73": {
     "id": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
     "type": "SECTION",
@@ -75,21 +61,7 @@
   },
   "06b511f3-dced-43be-97d7-1ceaddc763d5": {
     "id": "06b511f3-dced-43be-97d7-1ceaddc763d5",
-    "type": "IMAGE",
-    "name": "",
-    "presetType": "BASE",
-    "config": {}
-  },
-  "126547a6-d41e-4891-80f0-a0354f089c7c": {
-    "id": "126547a6-d41e-4891-80f0-a0354f089c7c",
-    "type": "LINE_PLOT",
-    "name": "",
-    "presetType": "BASE",
-    "config": {}
-  },
-  "4ec2f5eb-3f66-4bce-a9e2-1eb4fdd96d6f": {
-    "id": "4ec2f5eb-3f66-4bce-a9e2-1eb4fdd96d6f",
-    "type": "DRAW",
+    "type": "ARTIFACT",
     "name": "",
     "presetType": "BASE",
     "config": {}

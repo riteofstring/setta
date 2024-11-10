@@ -1,17 +1,11 @@
 import C from "constants/constants.json";
-import { BiPaint } from "react-icons/bi";
-import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
-import { FaSquareXTwitter } from "react-icons/fa6";
-import { GoDotFill } from "react-icons/go";
-import { PiTextTFill } from "react-icons/pi";
-
+import { FaTerminal } from "react-icons/fa";
 import { IoLogoJavascript } from "react-icons/io";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbArrowIteration } from "react-icons/tb";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useListElementIdx } from "state/hooks/sectionVariants";
-import { useIsTwitter, useIsYouTube } from "state/hooks/social";
 import { useIsListElement } from "state/hooks/uiTypes";
 
 export function HeaderIcon({
@@ -21,9 +15,6 @@ export function HeaderIcon({
   isInOtherProjectConfigs,
 }) {
   const isListElement = useIsListElement(sectionId);
-  const isYouTube = useIsYouTube(sectionId);
-  const isTwitter = useIsTwitter(sectionId);
-  const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
 
   if (isListElement) {
     return <ListElementIcon sectionId={sectionId} />;
@@ -41,55 +32,25 @@ export function HeaderIcon({
       return (
         <CodeLanguageIcon
           sectionId={sectionId}
-          classes="text-setta-300  group-hover/card-section:text-blue-500 dark:group-hover/card-section:text-[#0084ff] dark:text-setta-500  transition-colors"
+          classes="text-setta-300 dark:text-setta-400/50 group-hover/card-section:text-blue-500 dark:group-hover/card-section:text-[#0084ff] dark:text-setta-500  transition-colors"
         />
       );
     case C.TERMINAL:
       return (
-        <FaTerminal className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+        <FaTerminal className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-400/50 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
     case C.GLOBAL_PARAM_SWEEP:
     case C.GLOBAL_VARIABLES:
       return (
-        <RiGlobalFill className="text-setta-300 transition-colors group-hover/card-section:text-green-500  dark:text-setta-500 " />
+        <RiGlobalFill className="text-setta-300 transition-colors group-hover/card-section:text-green-500 dark:text-setta-400/50 dark:text-setta-500 " />
       );
     case C.PARAM_SWEEP:
       return (
-        <TbArrowIteration className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+        <TbArrowIteration className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-400/50 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
-    case C.INFO:
-      return renderMarkdown ? (
-        <FaMarkdown className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
-      ) : (
-        <PiTextTFill className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
-      );
-    // <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
-    case C.IMAGE:
-    case C.LINE_PLOT:
-      return (
-        <i className="gg-image !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
-      );
-    case C.DRAW:
-      return (
-        <BiPaint className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
-      );
-    case C.SOCIAL:
-      if (isYouTube) {
-        return (
-          <FaYoutube className="fill-setta-300 transition-colors group-hover/card-section:fill-blue-500 dark:fill-setta-500 dark:group-hover/card-section:fill-[#0084ff] " />
-        );
-      } else if (isTwitter) {
-        return (
-          <FaSquareXTwitter className="fill-setta-300 transition-colors group-hover/card-section:fill-blue-500 dark:fill-setta-500 dark:group-hover/card-section:fill-[#0084ff] " />
-        );
-      } else {
-        return (
-          <GoDotFill className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
-        );
-      }
     default:
       return (
-        <i className="gg-menu group/card-section:hover:bg !scale-110 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+        <i className="gg-menu group/card-section:hover:bg text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
   }
 }
@@ -110,9 +71,5 @@ function CodeLanguageIcon({ sectionId, classes }) {
 
 function ListElementIcon({ sectionId }) {
   const idx = useListElementIdx(sectionId);
-  return (
-    <p className="group/card-section:hover:bg font-mono text-[9px] tracking-tighter text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] ">
-      [{idx}]
-    </p>
-  );
+  return `[${idx}]`;
 }

@@ -8,9 +8,32 @@ export const UI_EDITOR = "uiEditor";
 
 export const INITIAL_OVERVIEW_WIDTH = 335;
 export const INITIAL_UI_EDITOR_WIDTH = 500;
-export const CLOSED_PANE_WIDTH = 50;
+export const CLOSED_PANE_WIDTH = 40;
 export const INITIAL_CHART_SIZE = { width: 200, height: 200 };
-export const NAVBAR_HEIGHT = 48;
+
+export const REACT_FLOW_STORE = {
+  lastPaneClickLocation: {},
+};
+
+export const SINGLETON_SECTIONS = {
+  globalVariables: null,
+  globalParamSweep: null,
+};
+
+// If multiple db sources map to the same db, then this holds that mapping.
+// For example, if "settings" points to the same db as "default"
+// the mapping would be {settings: "default", default: "default"}
+export const DB_SOURCE_MAPPING = {};
+
+export function setDbSourceMapping(newMapping) {
+  const keys = Object.keys(DB_SOURCE_MAPPING);
+  for (const k of keys) {
+    delete DB_SOURCE_MAPPING[k];
+  }
+  for (const [k, v] of Object.entries(newMapping)) {
+    DB_SOURCE_MAPPING[k] = v;
+  }
+}
 
 // constants object
 export const URLS = {};
@@ -31,22 +54,35 @@ export function globalConstInit() {
   }
 }
 
+export const CONST_INFO_VIEWS = {
+  OVERVIEW: "Click on a section name to pan to it.",
+  NAVBAR_SEARCH: "Search your entire project from one location.",
+  BUTTON_GENERATE: "Generate command to run your project.",
+  OVERVIEW_PROJNAME:
+    "Your Project's Name and Config Name, editable all in one spot!",
+  OVERVIEW_SEARCH: "Search through your project's cards.",
+  SECTIONCONFIG_CARDTYPES_SEARCH:
+    "Select your card's type. Options include: Object, List of Objects, Dictionary of Objects, and Info. The Info Card only takes in Markdown text.",
+  SECTIONCONFIG_CONTENTS_SEARCH:
+    "Choose which arguments appear in your selected card.",
+};
+
 export const SECTION_CONFIG_TAB = "SectionConfig";
-export const QUICKINFO_CONFIG_TAB = "QuickInfoConfig";
 export const UI_CONFIG_TAB = "UIConfig";
 export const INFO_CONFIG_TAB = "InfoConfig";
 export const RUNTIME_CONFIG_TAB = "RuntimeConfig";
+export const DB_SOURCES_TAB = "DBSourcesConfig";
 export const SECTION_VARIANTS_TAB = "SectionVariantsConfig";
 
 export const tabNameToPretty = Object.freeze(
   new Map(
     Object.entries({
-      [UI_CONFIG_TAB]: "Params",
+      [UI_CONFIG_TAB]: "Parameters",
       [SECTION_CONFIG_TAB]: "Card",
-      [QUICKINFO_CONFIG_TAB]: "Quick Info",
-      [INFO_CONFIG_TAB]: "Markdown",
+      [INFO_CONFIG_TAB]: "Info",
       // [RUNTIME_CONFIG_TAB]: "Runtime",
-      [SECTION_VARIANTS_TAB]: "Ver.",
+      [DB_SOURCES_TAB]: "DB",
+      [SECTION_VARIANTS_TAB]: "Variants",
     }),
   ),
 );
@@ -62,15 +98,9 @@ export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
   "bg-orange-500/60 dark:bg-orange-600/30",
 ];
 
-export const INDEX_ROUTER_PATH = "/";
-export const HOME_ROUTER_PATH = "/home";
+export const HOME_ROUTER_PATH = "/";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
-export const SETTINGS_PROJECT_NAME = "settings";
-export const SETTINGS_ROUTER_PATH = `/${SETTINGS_PROJECT_NAME}`;
-
-export function pathRelativeToProject(projectConfigName) {
-  return `../${projectConfigName}`;
-}
+export const SETTINGS_ROUTER_PATH = "/settings";
 
 export const MODAL_PURPOSE = { LOAD: "LOAD", SAVE: "SAVE" };
 
@@ -110,6 +140,11 @@ export const MODAL_TYPE = {
     title: "Create From Argparse",
     buttonText: "Create",
   },
+  LOAD_SECTION: {
+    purpose: MODAL_PURPOSE.LOAD,
+    title: "Load Section",
+    buttonText: "Load",
+  },
   SAVE_UI_TYPE_CONFIG: {
     purpose: MODAL_PURPOSE.SAVE,
     title: "Save UI Type Config",
@@ -126,7 +161,3 @@ export const PAGE_LOAD_TYPES = {
   LOAD_PROJECT_CONFIG: "LOAD_PROJECT_CONFIG",
   CHANGE_PROJECT_CONFIG_NAME: "CHANGE_PROJECT_CONFIG_NAME",
 };
-
-export const NO_DRAG_CLASS_NAME = "nodrag";
-export const NO_WHEEL_CLASS_NAME = "nowheel";
-export const NO_PAN_CLASS_NAME = "nopan";

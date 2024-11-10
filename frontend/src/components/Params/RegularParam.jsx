@@ -3,8 +3,8 @@ import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 
 export function RegularParam(props) {
   return (
-    <ParamContainer {...props}>
-      <ParamTextLabel paramInfoId={props.paramInfoId} />
+    <ParamContainer {...props} isKwarg={false}>
+      <ParamTextLabel {...props} />
     </ParamContainer>
   );
 }

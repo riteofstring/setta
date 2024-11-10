@@ -54,7 +54,6 @@ function PythonCodeArea({ sectionId, language }) {
       null,
       dbCodeAreaCompletion,
       setLocalKeywordPositions,
-      language,
     ),
     [sectionId],
   );
@@ -84,7 +83,7 @@ function JavascriptCodeArea({ sectionId, language }) {
 function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   const value = useSectionCode(sectionId);
 
-  const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
+  const { wrapperRef, handleCreateEditor, maxHeight, overflow } =
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
@@ -104,15 +103,12 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     completionsFn,
     keywordStylizer,
     onModEnterDoNothing: true,
-    escapeToBlur: true,
-    tabToAutocomplete: true,
-    indentWithTab: true,
   });
 
   return (
     <article
       ref={wrapperRef}
-      className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
+      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow}`}
     >
       <CodeMirror
         maxHeight={maxHeight}
@@ -122,57 +118,40 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
         onMouseDown={onMouseDown}
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
-        indentWithTab={false} // I take care of this in getExtensions
       />
     </article>
   );
 }
 
-export function useCodeAreaHeight({ sectionId }) {
+function useCodeAreaHeight({ sectionId }) {
   const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
   const height = useSectionInfos((x) => x.x[sectionId].size.height);
 
   const wrapperRef = useRef(null);
   const editorRef = useRef(null);
-  const [nowheel, setNoWheel] = useState("");
-
-  function computeNoWheel() {
-    return editorRef.current.scrollDOM.scrollHeight >
-      editorRef.current.scrollDOM.clientHeight
-      ? "nowheel"
-      : "";
-  }
 
   const handleCreateEditor = useCallback((view) => {
     editorRef.current = view;
-    setNoWheel(computeNoWheel());
   }, []);
 
   const maxHeight =
     height === "auto" || resizeEvent === "start"
       ? undefined
-      : `${height - 32}px`;
+      : `${height - 40}px`;
   const overflow = resizeEvent === "start" ? "overflow-y-auto" : "";
 
   const editorScrollTop = editorRef.current?.scrollDOM.scrollTop;
   const wrapperScrollTop = wrapperRef.current?.scrollTop;
 
   useEffect(() => {
-    if (wrapperRef.current && resizeEvent === "start") {
+    if (resizeEvent === "start") {
       wrapperRef.current.scrollTop = editorScrollTop;
-    } else if (editorRef.current && resizeEvent === "end") {
+    } else if (resizeEvent === "end") {
       editorRef.current.scrollDOM.scrollTop = wrapperScrollTop;
-      setNoWheel(computeNoWheel());
     }
   }, [resizeEvent]);
 
-  return {
-    wrapperRef,
-    handleCreateEditor,
-    maxHeight,
-    overflow,
-    nowheel,
-  };
+  return { wrapperRef, handleCreateEditor, maxHeight, overflow };
 }
 
 const debouncedSetKeywordPositions = asyncDebounce(async (sectionId, value) => {
@@ -181,7 +160,6 @@ const debouncedSetKeywordPositions = asyncDebounce(async (sectionId, value) => {
     paramInfoId: null,
     fullText: value,
     messageIdSuffix: "-codeArea",
-    regexPatternKey: "codeAreaPattern",
   });
   setSectionVariantAttr(sectionId, "keywordPositions", keywordPositions);
 }, 500);

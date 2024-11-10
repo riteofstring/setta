@@ -24,16 +24,8 @@
   .section-key-value {
     grid-column: key / value;
   }
-
-  .section-key-right-gutter {
-    grid-column: key / right-gutter;
-  }
   .section-w-full {
     grid-column: left-gutter / right-gutter;
-  }
-
-  .section-lg-value {
-    grid-column: left-gutter / value;
   }
 
   .section-row-search-gutter {
@@ -57,32 +49,12 @@
     grid-row: search / left-gutter;
     grid-column: key / value;
   }
-  .section-main-full-w {
-    grid-row: search / left-gutter;
-    grid-column: left-gutter / right-gutter;
-  }
   .section-row-main {
     grid-row: left-gutter;
   }
 
-  .section-row-left-bottom {
-    grid-row: left-gutter / bottom-gutter;
-  }
-
-  .section-row-pin {
-    grid-row: pin-lg;
-  }
-
-  .section-row-pin-main {
-    grid-row: pin-lg / left-gutter;
-  }
-
   .section-left-gutter {
     grid-column: left-gutter / span 1;
-  }
-
-  .section-right-gutter {
-    grid-column: right-gutter / span 1;
   }
 
   .section-bottom-gutter {
@@ -113,6 +85,11 @@
   .single-cell-child {
     grid-column: 1 / 2;
     grid-row: 1 / 2;
+  }
+
+  .section-figure {
+    grid-row: 3 / 6;
+    grid-column: 2 / 6;
   }
 }
 
@@ -208,10 +185,9 @@ body {
   background-size: cover;
 }
 
-.section-grid-cols {
+.section-grid {
+  display: grid;
   grid-template-columns: [c1] 0.75rem [c2] 1fr [c3] 0.75rem [c4] 1fr [c5] 0.75rem [c6];
-}
-.section-grid-rows {
   grid-template-rows:
     [r1]
     0.25rem
@@ -222,35 +198,17 @@ body {
     [r4]
     minmax(0, min-content)
     [r5]
-    minmax(0, min-content)
-    [r6]
     minmax(0, 1fr)
-    [r7]
-    0.25rem
-    [r8];
-}
-.section-grid-areas {
+    [r6]
+    0.5rem
+    [r7];
   grid-template-areas:
     "top-gutter top-gutter top-gutter top-gutter top-gutter"
     "title title title title title"
     "search search search search search"
     "args args args args args"
-    "pin-lg pin-key pin-cg pin-value pin-rg"
     "left-gutter key center-gutter value right-gutter"
     "bottom-gutter bottom-gutter bottom-gutter bottom-gutter bottom-gutter";
-}
-
-.section-grid-sweep-areas {
-  grid-template-areas:
-    "search search search search search"
-    "left-gutter key center-gutter value right-gutter";
-}
-
-.section-main-areas {
-  grid-template-areas:
-    "args args args args args"
-    "pin-lg pin-key pin-cg pin-value pin-rg"
-    "left-gutter key center-gutter value right-gutter";
 }
 
 /* utility classes */
@@ -297,34 +255,6 @@ body {
 
 .blink-cursor {
   animation: blink 1s step-start 0s infinite;
-}
-
-input[type="color" i] {
-  border-radius: 50%;
-  inline-size: 24px;
-  block-size: 24px;
-  border-width: 0px;
-  border-style: solid;
-  border-color: rgba(153, 153, 153, 0);
-  overflow: clip;
-}
-
-::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-
-::-webkit-color-swatch {
-  border: 0;
-  border-radius: 0;
-}
-
-::-moz-color-swatch,
-::-moz-focus-inner {
-  border: 0;
-}
-
-::-moz-focus-inner {
-  padding: 0;
 }
 
 * {

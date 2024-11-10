@@ -1,20 +1,19 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { StandardButton } from "components/Utils/atoms/buttons/StandardButton";
 import { GridWrapper } from "components/Utils/GridWrapper";
-import { getNodesBounds } from "forks/xyflow/core/utils/graph";
+import { getNodesBounds } from "forks/xyflow/core";
 import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
 import { matchSorter } from "match-sorter";
 import { forwardRef, useEffect, useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { dbDeleteProjectConfigs } from "requests/projects";
-import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
+import { createAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
 import { useGetAllProjectConfigMetadata } from "state/hooks/project";
 import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
-import { homePageProjectItemOnKeyDown } from "utils/tabbingLogic";
 import "./homepage.css";
 
 export function HomePage() {
@@ -38,7 +37,10 @@ export function HomePage() {
 
 function RightColumn({ projects, setDoRefresh }) {
   const [selectedProjects, setSelectedProjects] = useState([]);
-  const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
+
+  async function onClick() {
+    await createAndGoToProjectConfig({});
+  }
 
   function onSelectProject(e, projectId) {
     e.preventDefault();
@@ -61,14 +63,14 @@ function RightColumn({ projects, setDoRefresh }) {
       <div className="flex justify-between gap-4">
         <div className="flex gap-4">
           <StandardButton
-            twClasses="py-2 px-4 rounded-full font-bold  text-white bg-setta-600  hover:bg-blue-500 gap-2"
-            onClick={createAndGoToProjectConfig}
+            twClasses="py-2 px-4 rounded-full font-bold font-heading text-white bg-setta-600  hover:bg-blue-500 gap-2"
+            onClick={onClick}
           >
             <BiPlus />
             New Config
           </StandardButton>
           <StandardButton
-            twClasses="py-2 px-4 rounded-full font-medium  text-white/75 bg-setta-500/25 hover:bg-red-500 hover:text-white gap-2"
+            twClasses="py-2 px-4 rounded-full font-medium font-heading text-white/75 bg-setta-500/25 hover:bg-red-500 hover:text-white gap-2"
             onClick={onClickDelete}
           >
             <IoClose />
@@ -77,7 +79,7 @@ function RightColumn({ projects, setDoRefresh }) {
         </div>
         <Link
           to={SETTINGS_ROUTER_PATH}
-          className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2  font-bold text-white  hover:bg-blue-500 focus-visible:ring-2 "
+          className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-heading font-bold text-white  hover:bg-blue-500 focus-visible:ring-2 "
         >
           <IoSettingsOutline />
           Settings
@@ -123,10 +125,9 @@ const ProjectItem = forwardRef(
     return (
       <div ref={forwardedRef} className={itemStyles}>
         <Link
-          to={`/${project.name}`}
+          to={project.name}
           state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
           className="contents"
-          relative="path"
         >
           <ThumbnailArea
             project={project}
@@ -134,7 +135,7 @@ const ProjectItem = forwardRef(
             onSelectProject={onSelectProject}
           />
           <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-setta-800 ">
-            <p className=" text-sm text-setta-600 dark:text-setta-100">
+            <p className="font-heading text-sm text-setta-600 dark:text-setta-100">
               {project.name}
             </p>
           </div>
@@ -146,7 +147,6 @@ const ProjectItem = forwardRef(
 
 function ThumbnailArea({ project, isSelected, onSelectProject }) {
   const previewImgNodes = JSON.parse(project.previewImgNodes);
-  const navigate = useNavigate();
 
   return (
     <div
@@ -162,13 +162,7 @@ function ThumbnailArea({ project, isSelected, onSelectProject }) {
         />
       </aside>
 
-      <div
-        className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150"
-        tabIndex="0"
-        onKeyDown={(e) =>
-          homePageProjectItemOnKeyDown(e, navigate, project.name)
-        }
-      >
+      <div className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150">
         <PreviewImg previewImgNodes={previewImgNodes} />
       </div>
     </div>

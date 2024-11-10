@@ -89,6 +89,7 @@ export type ReactFlowStore = {
   transform: Transform;
   domNode: HTMLDivElement | null;
   paneDragging: boolean;
+  noPanClassName: string;
 
   d3Zoom: ZoomBehavior<Element, unknown> | null;
   d3Selection: D3Selection<Element, unknown, null, undefined> | null;
