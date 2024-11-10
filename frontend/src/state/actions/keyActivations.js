@@ -8,7 +8,6 @@ import {
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { isMacOs } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import {
   activateParamSelect,
@@ -16,6 +15,7 @@ import {
 } from "state/actions/paramSelect";
 import { useSettings } from "state/definitions";
 import { tabFromDocumentBody } from "utils/tabbingLogic";
+import { isMacOs } from "utils/utils";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
 import { formatCode, updateInteractiveCode } from "./interactive";

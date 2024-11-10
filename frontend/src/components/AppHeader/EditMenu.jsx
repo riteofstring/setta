@@ -12,6 +12,7 @@ import { autoLayout } from "state/actions/sections/sectionPositions";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";
+import { shortcutPrettified } from "utils/utils";
 
 export function EditMenu() {
   return (
@@ -25,14 +26,17 @@ function Items() {
   const addSection = () => addSectionInEmptySpace({ type: C.SECTION });
   const addGroup = () => addSectionInEmptySpace({ type: C.DECK });
   const shortcuts = useSettings((x) =>
-    _.pick(x, [
-      "newCardShortcut",
-      "newGroupShortcut",
-      "typeCheckShortcut",
-      "redoShortcut",
-      "undoShortcut",
-      "groupShortcut",
-    ]),
+    _.mapValues(
+      _.pick(x, [
+        "newCardShortcut",
+        "newGroupShortcut",
+        "typeCheckShortcut",
+        "redoShortcut",
+        "undoShortcut",
+        "groupShortcut",
+      ]),
+      shortcutPrettified,
+    ),
   );
 
   return (

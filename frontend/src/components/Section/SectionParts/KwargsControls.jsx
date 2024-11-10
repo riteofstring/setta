@@ -8,6 +8,7 @@ import {
 import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useActiveSection, useCodeInfo, useSettings } from "state/definitions";
+import { shortcutPrettified } from "utils/utils";
 import { getAllSelectedParams } from "../../../state/actions/kwargs/utils";
 
 export function KwargsControls({
@@ -18,7 +19,9 @@ export function KwargsControls({
   const sectionIsActive = useActiveSection((x) =>
     _.isEqual(x.ids, [sectionId]),
   );
-  const searchShortcut = useSettings((x) => x.searchShortcut);
+  const searchShortcut = useSettings((x) =>
+    shortcutPrettified(x.searchShortcut),
+  );
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
   function onSearchChange(e) {

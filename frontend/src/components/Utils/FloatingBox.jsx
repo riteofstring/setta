@@ -3,6 +3,7 @@ import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { useSettings } from "state/definitions";
+import { shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
 
 export const useFloatingBox = create((set) => ({
@@ -85,11 +86,14 @@ function Footer({ isFrozen }) {
     freezeTooltipShortcut,
     frozenTooltipToSectionShortcut,
   } = useSettings((x) =>
-    _.pick(x, [
-      "tooltipToSectionShortcut",
-      "freezeTooltipShortcut",
-      "frozenTooltipToSectionShortcut",
-    ]),
+    _.mapValues(
+      _.pick(x, [
+        "tooltipToSectionShortcut",
+        "freezeTooltipShortcut",
+        "frozenTooltipToSectionShortcut",
+      ]),
+      shortcutPrettified,
+    ),
   );
   const className =
     "mt-4 border-t border-solid border-setta-100 pt-1 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-600";
