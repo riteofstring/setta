@@ -2,6 +2,7 @@ import cc from "classcat";
 import { SectionContainerNode } from "components/Section/Container/SectionContainerNode";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import useDrag from "../hooks/useDrag";
 import useUpdateNodePositions from "../hooks/useUpdateNodePositions";
@@ -21,7 +22,7 @@ const _NodeWrapper = ({
   yPos,
   selected,
   style,
-  isDraggable,
+  isDraggable: _isDraggable,
   isSelectable,
   isFocusable,
   resizeObserver,
@@ -29,6 +30,8 @@ const _NodeWrapper = ({
   zIndex,
 }: WrapNodeProps) => {
   const nodeRef = useRef<HTMLDivElement>(null);
+  const positionAndSizeLocked = useGetSectionInfo(id, "positionAndSizeLocked");
+  const isDraggable = _isDraggable && !positionAndSizeLocked;
   const hasPointerEvents = isSelectable || isDraggable;
   const updatePositions = useUpdateNodePositions();
 

@@ -61,7 +61,10 @@ function CustomResizableCore({
     }
   }, [sizeMode.height, sizeMode.width]);
 
-  const size = useSectionInfos((x) => x.x[sectionId].size);
+  const { size, positionAndSizeLocked } = useSectionInfos(
+    (x) => _.pick(x.x[sectionId], ["size", "positionAndSizeLocked"]),
+    _.isEqual,
+  );
   const { aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
     useAspectRatio(sectionId);
 
@@ -83,18 +86,19 @@ function CustomResizableCore({
     minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
-  const enable = disablePointerEvents
-    ? false
-    : {
-        top: false,
-        left: false,
-        bottom: heightResizable,
-        right: widthResizable,
-        topRight: false,
-        bottomRight: heightResizable && widthResizable,
-        topLeft: false,
-        bottomLeft: false,
-      };
+  const enable =
+    disablePointerEvents || positionAndSizeLocked
+      ? false
+      : {
+          top: false,
+          left: false,
+          bottom: heightResizable,
+          right: widthResizable,
+          topRight: false,
+          bottomRight: heightResizable && widthResizable,
+          topLeft: false,
+          bottomLeft: false,
+        };
 
   // console.log("size", size);
   // console.log("aspectRatio", aspectRatio)
