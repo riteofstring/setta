@@ -51,13 +51,7 @@ function _SectionHeader({
         </>
       )}
 
-      <div
-        className={
-          isInfo
-            ? "absolute right-2 top-[.3rem] z-10"
-            : "z-10 ml-auto flex items-center"
-        }
-      >
+      <div className="z-10 ml-auto flex items-center">
         {isSeriesElement && (
           <StandardPopover
             popoverContent={
