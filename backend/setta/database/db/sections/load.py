@@ -3,6 +3,7 @@ import itertools
 import json
 from collections import defaultdict
 
+from setta.database.utils import create_new_id
 from setta.utils.constants import C
 
 from ..paramSweeps.load import load_param_sweeps
@@ -259,49 +260,44 @@ def load_json_source(filename):
     new_code_infos = {}
     new_variant_values = {}
 
-    def process_object(obj, current_path=[]):
+    def process_object(obj, parent_id=None):
         if not isinstance(obj, dict):
-            return
-
-        children_keys = []
+            return []
+        
         for k, v in obj.items():
-            path = current_path + [k]
-            key = json.dumps({"filename": filename, "key": path})
-            full_key = f"{C.JSON_SOURCE_PREFIX}{key}"
-            children_keys.append(full_key)
-
+            id = create_new_id()
+            
             # Create code info entry
-            new_code_infos[full_key] = {
-                "id": full_key,
+            new_code_infos[id] = {
+                "id": id,
                 "name": k,
                 "rcType": C.PARAMETER,
-                "children": [],  # Will be populated with direct children only
+                "children": [],  # Will be populated with direct children
                 "editable": False,
+                "jsonSource": filename,
             }
+
+            # If this has a parent, add this id to parent's children
+            if parent_id is not None:
+                new_code_infos[parent_id]["children"].append(id)
 
             # Create variant value entry
             if isinstance(v, dict):
                 # For objects, store empty value and process children
-                new_variant_values[full_key] = {
+                new_variant_values[id] = {
                     "value": "",
                     "keywordPositions": [],
                 }
-                # Recursively process nested object
-                process_object(v, path)
+                # Recursively process nested object, passing current id as parent
+                process_object(v, id)
             else:
                 # For non-objects, store the value directly
-                new_variant_values[full_key] = {
+                new_variant_values[id] = {
                     "value": json.dumps(v),
                     "keywordPositions": [],
                 }
 
-        # If this is a nested object, add children to parent's children list
-        if current_path:  # If we're not at root level
-            parent_path = json.dumps({"filename": filename, "key": current_path})
-            parent_key = f"{C.JSON_SOURCE_PREFIX}{parent_path}"
-            new_code_infos[parent_key]["children"] = children_keys
-
     # Start processing from root level
-    process_object(jsonSourceData, [])
-
+    process_object(jsonSourceData)
+    
     return new_code_infos, new_variant_values
