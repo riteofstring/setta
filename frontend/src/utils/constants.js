@@ -44,7 +44,7 @@ export const tabNameToPretty = Object.freeze(
       [UI_CONFIG_TAB]: "Params",
       [SECTION_CONFIG_TAB]: "Card",
       [QUICKINFO_CONFIG_TAB]: "Quick Info",
-      [INFO_CONFIG_TAB]: "Markdown",
+      [INFO_CONFIG_TAB]: "Text Editor",
       // [RUNTIME_CONFIG_TAB]: "Runtime",
       [SECTION_VARIANTS_TAB]: "Ver.",
     }),

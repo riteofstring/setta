@@ -72,7 +72,7 @@ export function UiEditor() {
         <TabButton
           tabName={INFO_CONFIG_TAB}
           {...commonProps}
-          {...getFloatingBoxHandlers("Markdown Editor")}
+          {...getFloatingBoxHandlers("Text Editor")}
         >
           {/* <FaMarkdown /> */}
           <PiCursorTextFill />
