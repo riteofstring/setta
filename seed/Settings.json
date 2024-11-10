@@ -9,7 +9,7 @@
   "saveShortcut": "Mod + S",
   "saveAsShortcut": "Mod + Shift + S",
   "loadShortcut": "Mod + L",
-  "focusOnArgsFilterShortcut": "Mod + K",
+  "searchShortcut": "Mod + K",
   "resetZoomShortcut": "Mod + Comma",
   "copyShortcut": "Mod + C",
   "pasteShortcut": "Mod + V",

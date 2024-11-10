@@ -23,7 +23,7 @@ import { unselectAllParams } from "./kwargs/kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { groupSections } from "./sections/groupSections";
-import { focusOnArgsFilter } from "./sections/sectionParamFilter";
+import { focusOnSearch } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
 
 let keysPressed = new Set();
@@ -182,7 +182,7 @@ export function attachKeyEventListeners() {
     [settings.saveShortcut, saveProject],
     [settings.loadShortcut, openLoadModal],
     [settings.saveAsShortcut, openSaveAsModal],
-    [settings.focusOnArgsFilterShortcut, focusOnArgsFilter],
+    [settings.searchShortcut, focusOnSearch],
     [settings.resetZoomShortcut, resetZoom],
     [settings.copyShortcut, copy],
     [settings.pasteShortcut, paste],
