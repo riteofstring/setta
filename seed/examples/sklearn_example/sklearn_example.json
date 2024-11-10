@@ -170,11 +170,11 @@
       "code": "",
       "keywordPositions": [],
       "values": {
-        "JSON-{\"filename\": \"auth.json\", \"key\": \"username\"}": {
+        "JSON-{\"filename\": \"auth.json\", \"key\": [\"username\"]}": {
           "value": "\"jeff\"",
           "keywordPositions": []
         },
-        "JSON-{\"filename\": \"auth.json\", \"key\": \"password\"}": {
+        "JSON-{\"filename\": \"auth.json\", \"key\": [\"password\"]}": {
           "value": "12345",
           "keywordPositions": []
         }
@@ -1185,8 +1185,8 @@
       "isFrozen": 0,
       "keywordPositions": [],
       "children": [
-        "JSON-{\"filename\": \"auth.json\", \"key\": \"username\"}",
-        "JSON-{\"filename\": \"auth.json\", \"key\": \"password\"}"
+        "JSON-{\"filename\": \"auth.json\", \"key\": [\"username\"]}",
+        "JSON-{\"filename\": \"auth.json\", \"key\": [\"password\"]}"
       ]
     },
     "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
@@ -1407,14 +1407,14 @@
       "keywordPositions": [],
       "children": []
     },
-    "JSON-{\"filename\": \"auth.json\", \"key\": \"username\"}": {
-      "id": "JSON-{\"filename\": \"auth.json\", \"key\": \"username\"}",
+    "JSON-{\"filename\": \"auth.json\", \"key\": [\"username\"]}": {
+      "id": "JSON-{\"filename\": \"auth.json\", \"key\": [\"username\"]}",
       "name": "username",
       "rcType": "parameter",
       "children": []
     },
-    "JSON-{\"filename\": \"auth.json\", \"key\": \"password\"}": {
-      "id": "JSON-{\"filename\": \"auth.json\", \"key\": \"password\"}",
+    "JSON-{\"filename\": \"auth.json\", \"key\": [\"password\"]}": {
+      "id": "JSON-{\"filename\": \"auth.json\", \"key\": [\"password\"]}",
       "name": "password",
       "rcType": "parameter",
       "children": []
@@ -1449,13 +1449,13 @@
     },
     "__abstract_ivory[\"username\"]": {
       "sectionId": "53e4bdad-ff4e-499c-a659-07e7184d4111",
-      "paramInfoId": "JSON-{\"filename\": \"auth.json\", \"key\": \"username\"}",
+      "paramInfoId": "JSON-{\"filename\": \"auth.json\", \"key\": [\"username\"]}",
       "componentIndices": [16, 28],
       "isArgsObj": false
     },
     "__abstract_ivory[\"password\"]": {
       "sectionId": "53e4bdad-ff4e-499c-a659-07e7184d4111",
-      "paramInfoId": "JSON-{\"filename\": \"auth.json\", \"key\": \"password\"}",
+      "paramInfoId": "JSON-{\"filename\": \"auth.json\", \"key\": [\"password\"]}",
       "componentIndices": [16, 28],
       "isArgsObj": false
     },
