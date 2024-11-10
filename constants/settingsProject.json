@@ -66,71 +66,71 @@
   },
   "uiTypeCols": {
     "04f95495-52ba-4277-a79e-228bb1c6a5bc": {
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"panOnScrollMode\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"panOnScrollMode\"]}": {
         "uiTypeId": "86b19dfb-742b-4d82-aa5f-5d4cca9f3d0a",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"selectionMode\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"selectionMode\"]}": {
         "uiTypeId": "1ec5d8de-f984-451d-b43a-78917f698d52",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"showGridLines\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"showGridLines\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"gridColor\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"gridColor\"]}": {
         "uiTypeId": "74de30af-accf-44db-9b6b-da4260f0bd60",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"gridColorDarkMode\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"gridColorDarkMode\"]}": {
         "uiTypeId": "74de30af-accf-44db-9b6b-da4260f0bd60",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"gridPattern\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"gridPattern\"]}": {
         "uiTypeId": "90f2233a-2864-498f-a4df-4c027fa0c4a4",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"showDefaultConfigOnLoad\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"showDefaultConfigOnLoad\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"inferImports\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"inferImports\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"autosave\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"autosave\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"autobackup\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"autobackup\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"leftSidePaneShiftsMap\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"leftSidePaneShiftsMap\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"panOnDrag\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"panOnDrag\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"panOnScroll\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"panOnScroll\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"zoomOnScroll\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"zoomOnScroll\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"zoomOnPinch\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"zoomOnPinch\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"zoomOnDoubleClick\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"zoomOnDoubleClick\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"clearTerminalBeforeMarkingAsReady\"}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"clearTerminalBeforeMarkingAsReady\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       }
