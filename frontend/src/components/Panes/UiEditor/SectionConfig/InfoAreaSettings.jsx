@@ -30,8 +30,10 @@ export function InfoAreaSettings({ sectionId }) {
   }
 
   return (
-    <div className="flex items-center gap-4">
-      <p className="text-sm font-medium leading-none">Render Markdown</p>
+    <div className="flex w-full items-center justify-between gap-4 ">
+      <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+        Render Markdown
+      </p>
       <SwitchInput
         value={renderMarkdown}
         onChange={onChange}

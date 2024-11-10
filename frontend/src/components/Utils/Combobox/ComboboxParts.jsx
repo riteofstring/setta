@@ -36,7 +36,7 @@ export function ComboboxInput({
             isOpen ? (
               <i className="gg-chevron-up mr-[5px] mt-[4px] !h-3 !w-3" />
             ) : (
-              <i className="gg-chevron-down mb-[3px] mr-[4px] !h-3 !w-3" />
+              <i className="gg-chevron-down mb-[4px] mr-[5px] !h-3 !w-3" />
             )
           }
           size={small ? "w-4 h-4 !mr-[1px]" : "w-8 h-8"}

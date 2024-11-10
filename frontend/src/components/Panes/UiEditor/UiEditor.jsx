@@ -1,9 +1,9 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import { BsCardChecklist } from "react-icons/bs";
-import { FaMarkdown } from "react-icons/fa";
 import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
+import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
 import { useActiveSection } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
@@ -74,7 +74,8 @@ export function UiEditor() {
           {...commonProps}
           {...getFloatingBoxHandlers("Markdown Editor")}
         >
-          <FaMarkdown />
+          {/* <FaMarkdown /> */}
+          <PiCursorTextFill />
         </TabButton>
         <TabButton
           tabName={SECTION_VARIANTS_TAB}
