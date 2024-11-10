@@ -1,4 +1,3 @@
-import asyncio
 import random
 import string
 from typing import List, Optional
@@ -20,7 +19,7 @@ class TextFieldFindReferencesContent(BaseModel):
     fullText: str
 
 
-async def _textFieldFindReferences(message, lsp_writers):
+async def _textFieldFindReferences(message, lsp_writer):
     message_id = message.id
     message = TextFieldFindReferencesContent.parse_obj(message.content)
     candidateKeywords = message.candidateKeywords
@@ -29,18 +28,16 @@ async def _textFieldFindReferences(message, lsp_writers):
     )
     code_id = f"{message.sectionId}-{message.paramInfoId}-find-references"
 
-    await lsp_writers["basic"].send_document_open_request(code_id, code)
+    await lsp_writer.send_document_open_request(code_id, code)
     for idx in range(len(candidateKeywords)):
         request_id = f"{message_id}-{idx}"
-        asyncio.create_task(
-            lsp_writers["basic"].send_reference_request(
-                position_offset=position_offset,
-                line=idx,
-                character=0,
-                code_id=code_id,
-                request_id=request_id,
-                return_id=message_id,
-            )
+        await lsp_writer.send_reference_request(
+            position_offset=position_offset,
+            line=idx,
+            character=0,
+            code_id=code_id,
+            request_id=request_id,
+            return_id=message_id,
         )
 
     return {
@@ -99,6 +96,6 @@ textFieldFindReferences = TaskDefinition(
     name="textFieldFindReferences",
     return_message_type="textFieldFindReferencesReturn",
     fn=_textFieldFindReferences,
-    run_as=RunType.NONE,
-    server_dependencies=["lsp_writers"],
+    run_as=RunType.THREAD,
+    server_dependencies=["lsp_writer"],
 )

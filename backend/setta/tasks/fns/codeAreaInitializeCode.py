@@ -82,5 +82,5 @@ codeAreaInitializeCode = TaskDefinition(
     return_message_type="codeAreaInitializeCodeReturn",
     fn=_codeAreaInitializeCode,
     write_cache=write_cache,
-    run_as=RunType.NONE,
+    run_as=RunType.THREAD,
 )

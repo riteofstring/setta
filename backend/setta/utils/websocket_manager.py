@@ -68,7 +68,6 @@ class WebsocketManager:
     async def send_message_to_requester(self, id, content):
         # just send data to target websocket
         websocket = self.sockets[self.message_id_to_sender_id[id]]["websocket"]
-        print("send_message_to_requester", id, content, flush=True)
         await websocket.send_text(json.dumps({"id": id, "content": content}))
 
     async def send_message_to_location(self, content, messageType, location):
