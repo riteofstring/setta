@@ -6,6 +6,7 @@ import {
 import { indentLess, indentMore } from "@codemirror/commands";
 import { javascript } from "@codemirror/lang-javascript";
 import { json } from "@codemirror/lang-json";
+import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
 import { yaml } from "@codemirror/lang-yaml";
 import { EditorState, Prec } from "@codemirror/state";
@@ -40,6 +41,8 @@ export function getExtensions({
     extensions.push(yaml());
   } else if (language === "json") {
     extensions.push(json());
+  } else if (language === "markdown") {
+    extensions.push(markdown());
   }
 
   // autocomplete

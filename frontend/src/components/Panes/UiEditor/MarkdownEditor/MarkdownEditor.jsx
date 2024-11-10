@@ -1,3 +1,7 @@
+import CodeMirror from "@uiw/react-codemirror";
+import { useCodeAreaHeight } from "components/Section/Layouts/CodeArea";
+import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
+import { useCodeMirrorStyle } from "components/utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
@@ -23,7 +27,10 @@ export function MarkdownEditorInSection({ sectionId }) {
 
 const _MarkdownEditorCore = React.forwardRef(
   ({ sectionId, containerClasses, textAreaClasses }, ref) => {
-    const description = useSectionInfos((x) => x.x[sectionId].description);
+    const { description, renderMarkdown } = useSectionInfos(
+      (x) => _.pick(x.x[sectionId], ["description", "renderMarkdown"]),
+      _.isEqual,
+    );
     const [localDescription, setLocalDescription] = useState(description);
 
     const _TextAreaClasses = !textAreaClasses
@@ -45,16 +52,33 @@ const _MarkdownEditorCore = React.forwardRef(
       debouncedSetDescription(sectionId, v, description);
     }
 
+    const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
+      useCodeAreaHeight({ sectionId });
+
+    const theme = useCodeMirrorStyle();
+
+    const extensions = getExtensions({
+      sectionId,
+      language: renderMarkdown ? "markdown" : null,
+      tabToAutocomplete: true,
+      indentWithTab: true,
+    });
+
     return (
-      <div data-color-mode="light" className={_ContainerClasses}>
-        <textarea
-          value={localDescription}
-          onChange={(v) => onChange(v.target.value)}
-          className={_TextAreaClasses}
-          placeholder="Write Using Markdown..."
-          ref={ref}
+      <article
+        ref={wrapperRef}
+        className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
+      >
+        <CodeMirror
+          maxHeight={maxHeight}
+          value={description}
+          theme={theme}
+          extensions={extensions}
+          onChange={onChange}
+          onCreateEditor={handleCreateEditor}
+          indentWithTab={false} // I take care of this in getExtensions
         />
-      </div>
+      </article>
     );
   },
 );
