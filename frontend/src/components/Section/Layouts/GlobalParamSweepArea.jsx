@@ -4,6 +4,7 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import C from "constants/constants.json";
+import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { setShownRunGroup } from "state/actions/project/projectConfig";
@@ -29,9 +30,13 @@ import { createNewId, createRandomName } from "utils/idNameCreation";
 
 export function GlobalParamSweepArea({ sectionId }) {
   const showYaml = useGetSectionInfo(sectionId, "showYaml");
+  const width = useSectionInfos((x) => {
+    const w = x.x[sectionId].size.width;
+    return w === "auto" ? getSectionRect(sectionId).width : w;
+  });
 
   return !showYaml ? (
-    <GlobalParamSweepGUI sectionId={sectionId} />
+    <GlobalParamSweepGUI width={width} />
   ) : (
     <GlobalParamSweepCode sectionId={sectionId} />
   );
@@ -60,16 +65,13 @@ function GlobalParamSweepCode({ sectionId }) {
   );
 }
 
-function GlobalParamSweepGUI({ sectionId }) {
+function GlobalParamSweepGUI({ width }) {
   const runGroups = useRunGroups((x) => x.x);
   const shownRunGroup = useProjectConfig((x) => x.shownRunGroup);
   const [previewRunGroup, setPreviewRunGroup] = useState(null);
   const toShow = previewRunGroup ?? shownRunGroup;
   const firstRunGroupId = Object.keys(runGroups)[0];
-  const width = useSectionInfos((x) => {
-    const w = x.x[sectionId].size.width;
-    return w === "auto" ? getSectionRect(sectionId).width : w;
-  });
+
   const { ref, isScrollable } = useIsScrollable();
   useEffect(() => {
     if (!shownRunGroup && firstRunGroupId) {
