@@ -30,11 +30,11 @@ let keysPressed = new Set();
 let aModShortcutWasPressed = false;
 
 function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {
-  attachTo.addEventListener(eventName, action);
+  attachTo.addEventListener(eventName, action, true);
 
   // Return a cleanup function
   return () => {
-    attachTo.removeEventListener(eventName, action);
+    attachTo.removeEventListener(eventName, action, true);
   };
 }
 

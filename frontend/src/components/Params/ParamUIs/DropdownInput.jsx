@@ -1,3 +1,4 @@
+import _ from "lodash";
 import {
   Button,
   ComboBox,
@@ -65,7 +66,13 @@ export function DropdownInputConfig({ onChange, config }) {
 }
 
 export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
-  const items = choices.map((x) => ({ id: x, name: x }));
+  let items = [];
+
+  for (const c of _.uniq(choices)) {
+    if (c) {
+      items.push({ id: c, name: c });
+    }
+  }
 
   function onSelectionChange(newValue) {
     if (choices.includes(newValue)) {
