@@ -358,7 +358,7 @@ export function DrawOnImage({ sectionId }) {
 
   return (
     <>
-      <div className="section-search section-w-full z-10 flex  flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 [&_.colorpicker]:!max-h-6 [&_.colorpicker]:max-w-24 ">
+      <div className="section-search section-w-full z-10  flex flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
         <DrawAreaColorPicker
           sectionId={sectionId}
           color={color}
@@ -488,7 +488,6 @@ function DrawAreaColorPicker({ sectionId, color, setColor }) {
       colorChoices={colorChoices}
       value={color}
       onChange={setColor}
-      colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 py-1 dark:bg-setta-850 dark:hover:bg-setta-900"
     />
   );
 }

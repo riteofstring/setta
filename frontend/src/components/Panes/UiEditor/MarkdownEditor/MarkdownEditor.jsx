@@ -7,38 +7,39 @@ import React, { useEffect, useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
+import { useIsScrollable } from "state/hooks/sectionSizes";
 
 export function MarkdownEditorInPane({ sectionId }) {
-  return (
-    <MarkdownEditorCore
-      sectionId={sectionId}
-      wrapperClassName="cursor-auto overflow-y-scroll [&_*]:!outline-0"
-    />
-  );
+  return <MarkdownEditorCore sectionId={sectionId} />;
 }
 
 export function MarkdownEditorInSection({ sectionId }) {
-  const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
-    useCodeAreaHeight({ sectionId });
+  const { ref, isScrollable } = useIsScrollable();
 
   return (
     <MarkdownEditorCore
+      containerClasses={`section-main ${isScrollable ? "nowheel" : ""} [&_.w-md-editor-text_*]:font-code flex flex-1 flex-col items-stretch overflow-y-auto rounded-lg mb-1.5  [&_.w-md-editor-bar]:hidden`}
       sectionId={sectionId}
-      onCreateEditor={handleCreateEditor}
-      maxHeight={maxHeight}
-      ref={wrapperRef}
-      wrapperClassName={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
+      ref={ref}
     />
   );
 }
 
 const _MarkdownEditorCore = React.forwardRef(
-  ({ sectionId, maxHeight, onCreateEditor, wrapperClassName }, ref) => {
+  ({ sectionId, containerClasses, textAreaClasses }, ref) => {
     const { description, renderMarkdown } = useSectionInfos(
       (x) => _.pick(x.x[sectionId], ["description", "renderMarkdown"]),
       _.isEqual,
     );
     const [localDescription, setLocalDescription] = useState(description);
+
+    const _TextAreaClasses = !textAreaClasses
+      ? "block w-full flex-1 self-stretch rounded-lg bg-white p-2.5 font-mono text-xs text-setta-900 focus:outline-blue-500 focus:ring-blue-500 !outline-transparent !border-transparent dark:bg-setta-800 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:ring-blue-500 resize-none"
+      : textAreaClasses;
+
+    const _ContainerClasses = !containerClasses
+      ? "[&_.w-md-editor-text_*]:font-code flex flex-1 flex-col items-stretch overflow-y-auto rounded-2xl  [&_.w-md-editor-bar]:hidden"
+      : containerClasses;
 
     useEffect(() => {
       if (description !== localDescription) {
@@ -51,6 +52,9 @@ const _MarkdownEditorCore = React.forwardRef(
       debouncedSetDescription(sectionId, v, description);
     }
 
+    const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
+      useCodeAreaHeight({ sectionId });
+
     const theme = useCodeMirrorStyle();
 
     const extensions = getExtensions({
@@ -62,14 +66,17 @@ const _MarkdownEditorCore = React.forwardRef(
     });
 
     return (
-      <article ref={ref} className={wrapperClassName}>
+      <article
+        ref={wrapperRef}
+        className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
+      >
         <CodeMirror
           maxHeight={maxHeight}
           value={description}
           theme={theme}
           extensions={extensions}
           onChange={onChange}
-          onCreateEditor={onCreateEditor}
+          onCreateEditor={handleCreateEditor}
           indentWithTab={false} // I take care of this in getExtensions
         />
       </article>

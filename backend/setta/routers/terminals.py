@@ -32,7 +32,7 @@ async def terminal_websocket_endpoint(
 
     # Start the background task for terminal handling
     async def handle_terminal():
-        read_task = terminal_websockets.loop.create_task(
+        read_task = asyncio.get_running_loop().create_task(
             terminal_websockets.read_from_terminal(sectionId)
         )
         await read_task
@@ -40,11 +40,11 @@ async def terminal_websocket_endpoint(
 
     # Create the background task
     if isNew:
-        terminal_websockets.loop.create_task(handle_terminal())
+        asyncio.get_running_loop().create_task(handle_terminal())
 
     try:
         await terminal_websockets.connect(websocket, sectionId, id)
-        write_task = terminal_websockets.loop.create_task(
+        write_task = asyncio.get_running_loop().create_task(
             terminal_websockets.write_to_terminal(websocket, sectionId)
         )
         await write_task

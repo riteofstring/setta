@@ -183,8 +183,7 @@ class LanguageServerReader(LanguageServerInteractor):
         self.stop_event = asyncio.Event()
 
     async def start_listener(self):
-        loop = asyncio.get_running_loop()
-        loop.create_task(self.read_response())
+        asyncio.get_running_loop().create_task(self.read_response())
 
     async def read_response(self):
         while not self.stop_event.is_set():
@@ -226,6 +225,7 @@ class LanguageServerReader(LanguageServerInteractor):
                 break
 
     async def process_response(self, response):
+        # print(response, flush=True)
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
@@ -246,12 +246,12 @@ class LanguageServerReader(LanguageServerInteractor):
             elif method == "textDocument/signatureHelp":
                 if response["result"]:
                     content = parse_signature(response["result"]["signatures"][0])
-                    pprint(content)
+                    # pprint(content)
                 else:
                     content = None
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/references":
-                print("response", response, flush=True)
+                print("textDocument/references response", response, flush=True)
                 content = []
                 if len(response["result"]) > 0:
                     code = self.get_version(response["result"][0]["uri"])["code"]
@@ -278,8 +278,9 @@ class LanguageServerReader(LanguageServerInteractor):
                             }
                         )
 
-                print(content, flush=True)
+                # print(content, flush=True)
                 return_id = self.msg_id_to_metadata[id]["return_id"]
+                # print('returning reference request', content, flush=True)
                 await self.websocket_manager.send_message_to_requester(
                     return_id, content
                 )
@@ -300,3 +301,4 @@ class LanguageServerReader(LanguageServerInteractor):
 
         # print(self.received_messages.keys())
         # process_response(response)
+        pprint(response)
