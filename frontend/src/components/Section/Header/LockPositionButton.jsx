@@ -9,7 +9,7 @@ export function LockPositionButton({ sectionId }) {
   );
 
   const iconClassName = positionAndSizeLocked
-    ? "gg-lock !scale-[.4]"
+    ? "gg-lock !scale-[.4] mt-4"
     : "gg-lock-unlock !scale-[.4]";
 
   function onClick() {

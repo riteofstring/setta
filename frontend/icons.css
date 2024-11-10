@@ -1078,7 +1078,7 @@ main {
   border-top-right-radius: 50%;
   border-top-left-radius: 50%;
   border-bottom: transparent;
-  margin-top: -12px;
+  margin-top: -5px;
 }
 .gg-lock::after {
   content: "";
