@@ -2,10 +2,8 @@ import { useState } from "react";
 import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
 import { idNameHelper, useIdNameCombobox } from "./useIdNameCombobox";
 
-// TODO: make allItems be a list of {group: string, items: list}
-// TODO: add "display groups" argument
 export function IdNameCombobox({
-  allItems,
+  items,
   initialSelection,
   onSelectedItemChange,
   small,
@@ -23,7 +21,7 @@ export function IdNameCombobox({
     matchSorterProps,
     onArrowUpOrDown,
   } = idNameHelper({
-    allItems,
+    items,
     onSelectedItemChange,
     initialSelection,
   });
@@ -37,7 +35,7 @@ export function IdNameCombobox({
     highlightedIndex,
     getItemProps,
   } = useIdNameCombobox({
-    allItems,
+    items,
     matchSorterProps,
     onSelectedItemChange: localOnSelectedItemChange,
     initialSelection: init,

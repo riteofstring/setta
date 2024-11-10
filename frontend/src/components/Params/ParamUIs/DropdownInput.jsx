@@ -58,7 +58,7 @@ export function DropdownInputConfig({ onChange, config }) {
 }
 
 export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
-  const allItems = [
+  const items = [
     {
       group: "Choices",
       items: choices ? choices.filter((c) => c.id) : [],
@@ -68,7 +68,7 @@ export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
   return (
     <IdNameCombobox
       outerDivClasses={outerDivClasses}
-      allItems={allItems}
+      items={items}
       initialSelection={value ? value : null}
       onSelectedItemChange={onChange}
     />
