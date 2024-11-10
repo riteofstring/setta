@@ -17,8 +17,8 @@ from .task_runner import TaskRunner
 
 
 class Tasks:
-    def __init__(self, lsp_writer):
-        self.lsp_writer = lsp_writer
+    def __init__(self, lsp_writers):
+        self.lsp_writers = lsp_writers
         self.task_runner = TaskRunner()
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
@@ -27,22 +27,18 @@ class Tasks:
         self.add_fns_from_module(fns)
 
     async def __call__(self, fn_name, message: TaskMessage):
-        try:
-            print(f"Start processing message ID: {message.id}", flush=True)
-            if fn_name in self.custom_fn_name_to_exporter_obj:
-                self.process_message_for_custom_fn(fn_name, message)
-            fn = self.fns[fn_name]
-            fn.read_cache(self.cache, message)
-            fn_args = [message, *(getattr(self, k) for k in fn.server_dependencies)]
-            result = await self.task_runner.run(message.id, fn.fn, fn_args, fn.run_as)
-            fn.write_cache(self.cache, message, result)
-            result["messageType"] = fn.return_message_type
-            if fn_name in self.custom_fn_name_to_exporter_obj:
-                self.process_output_content_for_custom_fn(result["content"])
-            return result
-        except asyncio.CancelledError:
-            print(f"Task for {message.id} was cancelled.", flush=True)
-            return {"content": None, "messageType": None}
+        print(f"Start processing message ID: {message.id}", flush=True)
+        if fn_name in self.custom_fn_name_to_exporter_obj:
+            self.process_message_for_custom_fn(fn_name, message)
+        fn = self.fns[fn_name]
+        fn.read_cache(self.cache, message)
+        fn_args = [message, *(getattr(self, k) for k in fn.server_dependencies)]
+        result = await self.task_runner.run(fn.fn, fn_args, fn.run_as)
+        fn.write_cache(self.cache, message, result)
+        result["messageType"] = fn.return_message_type
+        if fn_name in self.custom_fn_name_to_exporter_obj:
+            self.process_output_content_for_custom_fn(result["content"])
+        return result
 
     def add_fn(self, task_def: TaskDefinition):
         self.fns[task_def.name] = task_def
