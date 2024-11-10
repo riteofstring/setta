@@ -31,7 +31,7 @@
       "name": "Grid Pattern Choices",
       "presetType": "USER",
       "config": {
-        "choices": ["Dots", "Lines", "Cross"]
+        "choices": ["\"Dots\"", "\"Lines\"", "\"Cross\""]
       }
     }
   },

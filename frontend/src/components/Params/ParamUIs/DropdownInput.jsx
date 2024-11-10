@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   Button,
   ComboBox,
@@ -66,12 +65,6 @@ export function DropdownInputConfig({ onChange, config }) {
 }
 
 export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
-  const [searchValue, setSearchValue] = useState(value);
-
-  useEffect(() => {
-    setSearchValue(value);
-  }, [value]);
-
   const items = choices.map((x) => ({ id: x, name: x }));
 
   return (
@@ -79,8 +72,6 @@ export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
       defaultItems={items}
       className={outerDivClasses}
       selectedKey={value}
-      inputValue={searchValue}
-      onInputChange={setSearchValue}
       onSelectionChange={onChange}
       aria-label="DropdownInput"
     >
