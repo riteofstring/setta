@@ -69,14 +69,19 @@ export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
   let items = [];
 
   for (const c of _.uniq(choices)) {
-    if (c) {
+    if (typeof c === "string" && c) {
       items.push({ id: c, name: c });
+    } else if (typeof c === "object" && c.id && c.name) {
+      items.push(c);
     }
   }
 
   function onSelectionChange(newValue) {
-    if (choices.includes(newValue)) {
-      onChange(newValue);
+    for (const x of items) {
+      if (x.id === newValue) {
+        onChange(newValue);
+        break;
+      }
     }
   }
 
