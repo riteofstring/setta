@@ -28,9 +28,6 @@ async def _textFieldFindReferences(message, lsp_writer):
     )
     code_id = f"{message.sectionId}-{message.paramInfoId}-find-references"
 
-    print(f"code\n{code}", flush=True)
-    print("position_offset", position_offset, flush=True)
-
     await lsp_writer.send_document_open_request(code_id, code)
     for idx in range(len(candidateKeywords)):
         request_id = f"{message_id}-{idx}"

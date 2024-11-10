@@ -3,13 +3,12 @@ from collections import defaultdict
 
 
 class LanguageServer:
-    def __init__(self, workspace_folder, code_folder, settings):
+    def __init__(self, workspace_folder, code_folder):
         self.workspace_folder = workspace_folder
         self.code_folder = code_folder
         self.msg_id_to_metadata = defaultdict(dict)
         self.versions = {}
         self.server = None
-        self.settings = settings
 
     async def start_server(self):
         print("starting server")
@@ -39,10 +38,6 @@ class LanguageServer:
 
 
 class LanguageServerInteractor:
-    @property
-    def settings(self):
-        return self.server.settings
-
     @property
     def msg_id_to_metadata(self):
         return self.server.msg_id_to_metadata

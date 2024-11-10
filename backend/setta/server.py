@@ -27,7 +27,7 @@ from setta.routers import (
 )
 from setta.tasks.tasks import Tasks
 from setta.terminals.terminals import TerminalWebsockets
-from setta.utils.constants import CODE_FOLDER, USER_SETTINGS, C
+from setta.utils.constants import CODE_FOLDER, C
 from setta.utils.utils import get_absolute_path, is_dev_mode
 from setta.utils.websocket_manager import WebsocketManager
 
@@ -39,7 +39,6 @@ async def lifespan(app: FastAPI):
     app.state.lsp = LanguageServer(
         workspace_folder=Path(os.getcwd()),
         code_folder=Path(os.getcwd()) / CODE_FOLDER / "timestamped_folder",
-        settings=USER_SETTINGS["languageServerSettings"],
     )
     app.state.lsp_writer = LanguageServerWriter(app.state.lsp)
     app.state.tasks = Tasks(app.state.lsp_writer)

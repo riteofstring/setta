@@ -114,6 +114,7 @@ export function ParamUI({
           value={value}
           onChange={onChange}
           wrapperClassName="section-value flex justify-self-start self-center"
+          colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 dark:bg-setta-850 dark:hover:bg-setta-900"
         />
       );
     case C.DROPDOWN:
@@ -212,6 +213,7 @@ export function ParamSweepUI({
           value={value}
           onChange={onChange}
           wrapperClassName="section-value flex justify-self-start self-center"
+          colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 dark:bg-setta-850 dark:hover:bg-setta-900"
         />
       );
     case C.DROPDOWN:
