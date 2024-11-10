@@ -14,41 +14,16 @@ class TaskRunner:
     def __init__(self):
         self.thread_executor = ThreadPoolExecutor(max_workers=2)
         self.process_executor = ProcessPoolExecutor(max_workers=2)
-        self.tasks_dict = {}
 
-    def remove_task(self, id):
-        self.tasks_dict.pop(id, None)
-
-    async def run(self, id, fn, fn_args, run_as):
-        # For async functions, always run in main event loop
+    async def run(self, fn, fn_args, run_as):
         if inspect.iscoroutinefunction(fn):
-            task = asyncio.get_running_loop().create_task(fn(*fn_args))
-            self.tasks_dict[id] = task
-            try:
-                result = await task
-                self.remove_task(id)
-                return result
-            except asyncio.CancelledError:
-                self.remove_task(id)
-                raise
+            return await fn(*fn_args)
 
-        # For sync functions
-        else:
-            if run_as == RunType.NONE:
-                return fn(*fn_args)
-            elif run_as == RunType.THREAD:
-                executor = self.thread_executor
-            elif run_as == RunType.SUBPROCESS:
-                executor = self.process_executor
-            else:
-                raise ValueError(f"Unsupported RunType: {run_as}")
+        if run_as == RunType.NONE:
+            return fn(*fn_args)
+        elif run_as == RunType.THREAD:
+            executor = self.thread_executor
+        elif run_as == RunType.SUBPROCESS:
+            executor = self.process_executor
 
-            future = asyncio.get_running_loop().run_in_executor(executor, fn, *fn_args)
-            self.tasks_dict[id] = future
-            try:
-                result = await future
-                self.remove_task(id)
-                return result
-            except asyncio.CancelledError:
-                self.remove_task(id)
-                raise
+        return await asyncio.get_running_loop().run_in_executor(executor, fn, *fn_args)
