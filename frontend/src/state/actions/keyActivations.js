@@ -27,7 +27,7 @@ import { focusOnSearch } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
 
 let keysPressed = new Set();
-let aJustModShortcutWasPressed = false;
+let aModShortcutWasPressed = false;
 
 function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {
   attachTo.addEventListener(eventName, action);
@@ -240,11 +240,10 @@ export function attachKeyEventListeners() {
       keyDownAction,
       keyUpAction,
       allowRepeat,
-      isJustMod: getIsJustMod(parsedShortcut),
     });
   }
   let cleanup = attachKeyDownListener((e) => {
-    aJustModShortcutWasPressed = false;
+    aModShortcutWasPressed = false;
     if (!modifierKeyCodes.has(e.code)) {
       keysPressed.add(e.code);
     }
@@ -258,8 +257,8 @@ export function attachKeyEventListeners() {
         }
         x.keyDownAction(e);
         x.wasPressed = true;
-        if (x.isJustMod) {
-          aJustModShortcutWasPressed = true;
+        if (x.parsedShortcut.mod) {
+          aModShortcutWasPressed = true;
         }
       } else if (x.wasPressed) {
         x.keyUpAction?.(e);
@@ -311,20 +310,20 @@ export function variableClick(e) {
 // If the user doesn't move the mouse, then they'll probably press a key, in which case
 // the keyup action will be called in the keydown listener (since wasPressed is true).
 function specialModTabCase(shortcutInfo) {
-  const justModShortcuts = shortcutInfo.filter((x) => x.isJustMod);
-  if (justModShortcuts.length > 0) {
+  const modShortcuts = shortcutInfo.filter((x) => x.parsedShortcut.mod);
+  if (modShortcuts.length > 0) {
     const cleanup = attachEventListenerAndReturnCleanup(
       window,
       "mousemove",
       (e) => {
-        if (aJustModShortcutWasPressed && !e.metaKey) {
-          justModShortcuts.forEach((x) => {
+        if (aModShortcutWasPressed && !e.metaKey) {
+          modShortcuts.forEach((x) => {
             if (x.wasPressed) {
               x.keyUpAction?.(e);
               x.wasPressed = false;
             }
           });
-          aJustModShortcutWasPressed = false;
+          aModShortcutWasPressed = false;
         }
       },
     );
