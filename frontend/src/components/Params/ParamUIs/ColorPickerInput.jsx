@@ -94,7 +94,6 @@ export function ColorPickerInput({
   value,
   onChange,
   wrapperClassName,
-  colorPickerChoicesClasses,
 }) {
   const _value = tryParseJSON(value);
   return wrapperClassName ? (
@@ -103,7 +102,6 @@ export function ColorPickerInput({
         colorChoices={colorChoices}
         value={_value}
         onChange={onChange}
-        colorPickerChoicesClasses={colorPickerChoicesClasses}
       />
     </div>
   ) : (
@@ -115,18 +113,12 @@ export function ColorPickerInput({
   );
 }
 
-function ColorPicker({
-  colorChoices,
-  value,
-  onChange,
-  colorPickerChoicesClasses,
-}) {
+function ColorPicker({ colorChoices, value, onChange }) {
   return colorChoices?.length > 0 ? (
     <ColorPickerFromColorChoices
       color={value}
       setColor={onChange}
       colorChoices={colorChoices}
-      colorPickerChoicesClasses={colorPickerChoicesClasses}
     />
   ) : (
     <input
@@ -139,12 +131,7 @@ function ColorPicker({
   );
 }
 
-function ColorPickerFromColorChoices({
-  color,
-  setColor,
-  colorChoices,
-  colorPickerChoicesClasses,
-}) {
+function ColorPickerFromColorChoices({ color, setColor, colorChoices }) {
   let selectedItem = colorChoices.find((c) => c.color === color);
   if (!selectedItem) {
     selectedItem = colorChoices[0];
@@ -152,7 +139,7 @@ function ColorPickerFromColorChoices({
 
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger className={colorPickerChoicesClasses}>
+      <DropdownMenu.Trigger className="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 py-1 dark:bg-setta-850 dark:hover:bg-setta-900">
         <div className="flex items-center text-setta-500 dark:text-setta-400">
           <div
             className="mr-2 h-4 w-4 rounded-full !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"

@@ -5,7 +5,7 @@ import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
 import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
-import { useActiveSection, useSectionInfos } from "state/definitions";
+import { useActiveSection } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import {
   INFO_CONFIG_TAB,
@@ -32,12 +32,6 @@ export function UiEditor() {
     tab,
     setTab,
   });
-  const renderMarkdown = useSectionInfos((x) =>
-    sectionIds.length > 0 ? x.x[sectionIds[0]].renderMarkdown : false,
-  );
-  const infoTabTooltip = renderMarkdown ? "Markdown Editor" : "Text Editor";
-  const inputTitle = tab === INFO_CONFIG_TAB ? infoTabTooltip : null;
-
   const commonProps = {
     vis,
     tab,
@@ -78,7 +72,7 @@ export function UiEditor() {
         <TabButton
           tabName={INFO_CONFIG_TAB}
           {...commonProps}
-          {...getFloatingBoxHandlers(infoTabTooltip)}
+          {...getFloatingBoxHandlers("Markdown Editor")}
         >
           {/* <FaMarkdown /> */}
           <PiCursorTextFill />
@@ -100,11 +94,7 @@ export function UiEditor() {
         setTrueWidth={setTrueWidth}
       >
         {sectionIds.length === 1 && vis ? (
-          <TabsVisible
-            sectionId={sectionIds[0]}
-            tab={tab}
-            inputTitle={inputTitle}
-          />
+          <TabsVisible sectionId={sectionIds[0]} tab={tab} />
         ) : (
           <Placeholder />
         )}
@@ -113,8 +103,9 @@ export function UiEditor() {
   );
 }
 
-function TabsVisible({ sectionId, tab, inputTitle }) {
-  const title = inputTitle ?? tabNameToPretty[tab];
+function TabsVisible({ sectionId, tab }) {
+  const title = tabNameToPretty.get(tab);
+  console.log("title", tab);
   return (
     <div className="flex h-full min-h-0 w-[calc(100%_-_3rem)] min-w-0 flex-1 flex-col overflow-hidden pr-1.5">
       <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">

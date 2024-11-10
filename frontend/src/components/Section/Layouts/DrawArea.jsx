@@ -488,7 +488,6 @@ function DrawAreaColorPicker({ sectionId, color, setColor }) {
       colorChoices={colorChoices}
       value={color}
       onChange={setColor}
-      colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 py-1 dark:bg-setta-850 dark:hover:bg-setta-900"
     />
   );
 }
