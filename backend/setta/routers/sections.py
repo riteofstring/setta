@@ -10,6 +10,7 @@ from setta.database.db.sections.copy import (
 )
 from setta.database.db.sections.load import load_json_source
 from setta.utils.constants import C
+from pprint import pprint
 
 router = APIRouter()
 
@@ -58,6 +59,8 @@ def route_section_to_yaml(x: SectionToDictRequest):
         x.unpinnedIds["topLevelParamIds"],
         x.unpinnedIds["requiredParamIds"],
     )
+    pprint(unpinned.prettyOutput)
+
     return {
         "pinned": pinned.output,
         "prettyPinned": pinned.prettyOutput,
