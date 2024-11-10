@@ -1,4 +1,4 @@
-import { MarkdownEditor } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
+import { MarkdownEditorInSection } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import "katex/dist/katex.min.css"; // `rehype-katex` does not import the CSS for you
 import React from "react";
 import ReactMarkdown from "react-markdown";
@@ -16,10 +16,7 @@ function _InfoArea({ sectionId }) {
   return !showYaml ? (
     <Markdown sectionId={sectionId} />
   ) : (
-    <MarkdownEditor
-      containerClasses="section-main nowheel [&_.w-md-editor-text_*]:font-code flex flex-1 flex-col items-stretch overflow-y-auto rounded-lg mb-1.5  [&_.w-md-editor-bar]:hidden"
-      sectionId={sectionId}
-    />
+    <MarkdownEditorInSection sectionId={sectionId} />
   );
 }
 

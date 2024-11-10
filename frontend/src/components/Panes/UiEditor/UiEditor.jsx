@@ -18,7 +18,7 @@ import {
 } from "utils/constants";
 import { uiEditorPaneOnKeyDown } from "utils/tabbingLogic";
 import { TabButton, usePaneFns } from "../paneFns";
-import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
+import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { SectionVariants } from "./SectionVariants/SectionVariants";
@@ -124,7 +124,7 @@ function TabContent({ sectionId, tab }) {
     case QUICKINFO_CONFIG_TAB:
       return <QuickInfoConfig sectionId={sectionId} />;
     case INFO_CONFIG_TAB:
-      return <MarkdownEditor sectionId={sectionId} />;
+      return <MarkdownEditorInPane sectionId={sectionId} />;
     case SECTION_VARIANTS_TAB:
       return <SectionVariants sectionId={sectionId} />;
   }
