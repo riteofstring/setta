@@ -12,15 +12,9 @@ import { useIsScrollable } from "state/hooks/sectionSizes";
 function _InfoArea({ sectionId }) {
   //TODO change this variable name
   const showYaml = useGetSectionInfo(sectionId, "showYaml");
-  const { ref, isScrollable } = useIsScrollable();
 
   return !showYaml ? (
-    <div
-      ref={ref}
-      className={`section-main nodrag ${isScrollable ? "nowheel" : ""} [&_.prose]flex-1 mb-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`}
-    >
-      <Markdown sectionId={sectionId} />
-    </div>
+    <Markdown sectionId={sectionId} />
   ) : (
     <MarkdownEditor
       containerClasses="section-main nowheel [&_.w-md-editor-text_*]:font-code flex flex-1 flex-col items-stretch overflow-y-auto rounded-lg mb-1.5  [&_.w-md-editor-bar]:hidden"
@@ -31,15 +25,21 @@ function _InfoArea({ sectionId }) {
 
 function _Markdown({ sectionId }) {
   const markdownSource = useSectionInfos((x) => x.x[sectionId].description);
+  const { ref, isScrollable } = useIsScrollable();
 
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={[rehypeKatex]}
-      className="prose-headings: prose prose-sm min-w-[100%] [flex:1_1_auto] dark:prose-invert   prose-headings:tracking-tighter prose-headings:text-setta-400  prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm [&_*]:[word-wrap:break-word]"
+    <div
+      ref={ref}
+      className={`section-main nodrag ${isScrollable ? "nowheel" : ""} [&_.prose]flex-1 mb-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`}
     >
-      {markdownSource}
-    </ReactMarkdown>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        className="prose-headings: prose prose-sm min-w-[100%] [flex:1_1_auto] dark:prose-invert   prose-headings:tracking-tighter prose-headings:text-setta-400  prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm [&_*]:[word-wrap:break-word]"
+      >
+        {markdownSource}
+      </ReactMarkdown>
+    </div>
   );
 }
 
