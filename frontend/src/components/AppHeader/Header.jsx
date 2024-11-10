@@ -6,7 +6,11 @@ import {
   useOnEnterGoToSearchResult,
   useUpdateProjectSearch,
 } from "state/hooks/search";
-import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
+import {
+  CONST_INFO_VIEWS,
+  HOME_ROUTER_PATH,
+  PROJECT_CONFIG_ROUTER_PATH,
+} from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
 import { Notification } from "./Notification";
 import { ProjectNav } from "./ProjectNav";
@@ -49,9 +53,7 @@ function ProjectPageSearch() {
       onKeyDown={onKeyDown}
       onBlur={onBlur}
       onFocus={onFocus}
-      {...getFloatingBoxHandlers(
-        "Search your entire project from one location.",
-      )}
+      {...getFloatingBoxHandlers(CONST_INFO_VIEWS.NAVBAR_SEARCH)}
     />
   );
 }

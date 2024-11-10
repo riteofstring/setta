@@ -271,7 +271,7 @@ function ParamCombobox({
 
   return (
     <IdNameCombobox
-      items={[{ group: "Args", items: objParams }]}
+      allItems={[{ group: "Args", items: objParams }]}
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
       placeholder="Filter & Add Sweep"
