@@ -1,23 +1,23 @@
+import { DropdownWithSectionsInput } from "components/Params/ParamUIs/DropdownInput";
 import _ from "lodash";
 import {
   useAvailableUITypesForParam,
   useAvailableUITypesForSection,
 } from "state/hooks/presetUITypes";
-import { IdNameCombobox } from "./IdNameCombobox";
 
 function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
   const grouped = _.groupBy(availableUITypes, "displayType");
   const groupedAsList = Object.keys(grouped).map((k) => ({
-    group: k,
-    items: grouped[k],
+    name: k,
+    children: grouped[k],
   }));
 
   return (
-    <IdNameCombobox
-      allItems={groupedAsList}
-      initialSelection={selectedId}
-      onSelectedItemChange={onDropdownSelect}
-      position="absolute"
+    <DropdownWithSectionsInput
+      choices={groupedAsList}
+      value={selectedId}
+      onChange={onDropdownSelect}
+      // position="absolute"
     />
   );
 }

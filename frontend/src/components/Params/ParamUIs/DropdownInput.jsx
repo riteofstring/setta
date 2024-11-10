@@ -1,11 +1,14 @@
 import _ from "lodash";
 import {
   Button,
+  Collection,
   ComboBox,
+  Header,
   Input,
   ListBox,
   ListBoxItem,
   Popover,
+  Section,
 } from "react-aria-components";
 
 export function DropdownInputConfig({ onChange, config }) {
@@ -68,7 +71,7 @@ export function DropdownInputConfig({ onChange, config }) {
 export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
   let items = [];
 
-  for (const c of _.uniq(choices)) {
+  for (const c of _.uniqWith(choices, _.isEqual)) {
     if (typeof c === "string" && c) {
       items.push({ id: c, name: c });
     } else if (typeof c === "object" && c.id && c.name) {
@@ -107,6 +110,42 @@ export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
             >
               {item.name}
             </ListBoxItem>
+          )}
+        </ListBox>
+      </Popover>
+    </ComboBox>
+  );
+}
+
+// this function has less error checking and data conversion
+// because it's just used by param ui type selector, which we control
+export function DropdownWithSectionsInput({
+  choices,
+  value,
+  onChange,
+  outerDivClasses,
+}) {
+  return (
+    <ComboBox
+      defaultItems={choices}
+      className={outerDivClasses}
+      selectedKey={value}
+      onSelectionChange={onChange}
+      aria-label="DropdownInput"
+      menuTrigger="focus"
+      shouldFocusWrap={true}
+    >
+      <Input className="cursor-text" />
+      <Button className="cursor-pointer">▼</Button>
+      <Popover>
+        <ListBox>
+          {(section) => (
+            <Section id={section.name}>
+              <Header>{section.name}</Header>
+              <Collection items={section.children}>
+                {(item) => <ListBoxItem>{item.name}</ListBoxItem>}
+              </Collection>
+            </Section>
           )}
         </ListBox>
       </Popover>
