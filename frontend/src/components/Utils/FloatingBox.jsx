@@ -100,7 +100,7 @@ function Footer({ isFrozen }) {
     ),
   );
   const className =
-    "mt-4 border-t border-solid border-setta-100 pt-1 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-600";
+    "mt-4 border-t border-solid border-setta-100 pt-1 text-[10px] text-setta-500 dark:border-setta-700 dark:text-setta-600";
 
   if (isFrozen) {
     return (
@@ -119,19 +119,26 @@ function Footer({ isFrozen }) {
   }
 
   return (
-    <p className={className}>
-      press{" "}
-      <span className="font-black">
-        &quot;{tooltipToPlaintextShortcut}&quot;
-      </span>{" "}
-      (plaintext) or{" "}
-      <span className="font-black">
-        &quot;{tooltipToMarkdownShortcut}&quot;
-      </span>{" "}
-      (markdown) to open tooltip as new section, or{" "}
-      <span className="font-black">&quot;{freezeTooltipShortcut}&quot;</span> to
-      freeze tooltip
-    </p>
+    <ul className={className}>
+      <li>
+        <strong className="font-black tracking-tighter">
+          &quot;{tooltipToPlaintextShortcut}&quot;
+        </strong>{" "}
+        convert to plaintext section
+      </li>
+      <li>
+        <strong className="font-black tracking-tighter">
+          &quot;{tooltipToMarkdownShortcut}&quot;
+        </strong>{" "}
+        convert to markdown section
+      </li>
+      <li>
+        <strong className="font-black tracking-tighter">
+          &quot;{freezeTooltipShortcut}&quot;
+        </strong>{" "}
+        freeze tooltip
+      </li>
+    </ul>
   );
 }
 
