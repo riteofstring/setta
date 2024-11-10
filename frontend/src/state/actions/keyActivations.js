@@ -22,6 +22,11 @@ import { formatCode, updateInteractiveCode } from "./interactive";
 import { unselectAllParams } from "./kwargs/kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
+import {
+  addGroupInEmptySpace,
+  addRegularSectionInEmptySpace,
+  addTerminalInEmptySpace,
+} from "./sections/createSections";
 import { groupSections } from "./sections/groupSections";
 import { focusOnSearch } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
@@ -172,6 +177,9 @@ export function attachKeyEventListeners() {
   const conditionAndAction = [
     ["tab", tabFromDocumentBody],
     ["shift + tab", tabFromDocumentBody],
+    [settings.newCardShortcut, addRegularSectionInEmptySpace],
+    [settings.newGroupShortcut, addGroupInEmptySpace],
+    [settings.newTerminalShortcut, addTerminalInEmptySpace],
     [settings.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
     [
       settings.tooltipToPlaintextShortcut,

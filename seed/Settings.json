@@ -1,6 +1,6 @@
 {
-  "newCardShortcut": "",
-  "newGroupShortcut": "",
+  "newCardShortcut": "N",
+  "newGroupShortcut": "G",
   "typeCheckShortcut": "",
   "newProjectConfigShortcut": "",
   "undoShortcut": "Mod + Z",
@@ -21,6 +21,7 @@
   "freezeTooltipShortcut": "Q + F",
   "frozenTooltipToPlaintextShortcut": "S",
   "frozenTooltipToMarkdownShortcut": "W",
+  "newTerminalShortcut": "Ctrl + `",
   "updateInteractiveCode": "Mod + Enter",
   "paramSelect": "Mod + Shift",
   "formatCode": "Shift + Alt + F",

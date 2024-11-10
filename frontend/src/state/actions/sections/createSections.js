@@ -24,6 +24,18 @@ import {
 import { initManyUITypeColIds } from "../uiTypes/uiTypeCols";
 import { addSectionInfo, setSectionInfoAttr } from "./sectionInfos";
 
+export function addRegularSectionInEmptySpace() {
+  return addSectionInEmptySpace({ type: C.SECTION });
+}
+
+export function addGroupInEmptySpace() {
+  return addSectionInEmptySpace({ type: C.DECK });
+}
+
+export function addTerminalInEmptySpace() {
+  return addSectionInEmptySpace({ type: C.TERMINAL });
+}
+
 export function addSectionInEmptySpace({
   type,
   inputSectionProps = {},

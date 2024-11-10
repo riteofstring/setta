@@ -1,13 +1,15 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import C from "constants/constants.json";
 import _ from "lodash";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
 import { Link } from "react-router-dom";
 import { dbRequestTypeCheck } from "requests/sections";
-import { addSectionInEmptySpace } from "state/actions/sections/createSections";
+import {
+  addGroupInEmptySpace,
+  addRegularSectionInEmptySpace,
+} from "state/actions/sections/createSections";
 import { autoLayout } from "state/actions/sections/sectionPositions";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
@@ -23,8 +25,6 @@ export function EditMenu() {
 }
 
 function Items() {
-  const addSection = () => addSectionInEmptySpace({ type: C.SECTION });
-  const addGroup = () => addSectionInEmptySpace({ type: C.DECK });
   const shortcuts = useSettings((x) =>
     _.mapValues(
       _.pick(x, [
@@ -41,10 +41,16 @@ function Items() {
 
   return (
     <>
-      <MenuItem onClick={addSection} shortcut={shortcuts.newCardShortcut}>
+      <MenuItem
+        onClick={addRegularSectionInEmptySpace}
+        shortcut={shortcuts.newCardShortcut}
+      >
         <HiPlus className="h-4 w-4" /> Card
       </MenuItem>
-      <MenuItem onClick={addGroup} shortcut={shortcuts.newGroupShortcut}>
+      <MenuItem
+        onClick={addGroupInEmptySpace}
+        shortcut={shortcuts.newGroupShortcut}
+      >
         <AiOutlineGroup className="h-4 w-4" />
         Group
       </MenuItem>
