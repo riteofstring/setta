@@ -107,6 +107,13 @@ export function toggleSectionOrientation({ sectionId }) {
   });
 }
 
+export function toggleSectionLock({ sectionId }) {
+  useSectionInfos.setState((state) => {
+    state.x[sectionId].positionAndSizeLocked =
+      !state.x[sectionId].positionAndSizeLocked;
+  });
+}
+
 function valueOrNewValueFn({ obj, attr, value, newValueFn }) {
   if (newValueFn) {
     obj[attr] = newValueFn(obj[attr]);

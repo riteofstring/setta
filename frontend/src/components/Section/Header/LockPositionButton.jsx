@@ -1,5 +1,5 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { toggleSectionLock } from "state/actions/sections/sectionInfos";
 import { useGetSectionInfo } from "state/hooks/sections";
 
 export function LockPositionButton({ sectionId }) {
@@ -13,11 +13,7 @@ export function LockPositionButton({ sectionId }) {
     : "gg-lock-unlock !scale-[.4]";
 
   function onClick() {
-    setSectionInfoAttr({
-      sectionId,
-      attr: "positionAndSizeLocked",
-      value: !positionAndSizeLocked,
-    });
+    toggleSectionLock({ sectionId });
   }
 
   return (
