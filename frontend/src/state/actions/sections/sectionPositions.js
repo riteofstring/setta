@@ -54,8 +54,6 @@ export function goToSection(sectionId, duration = 100) {
     rfStore.height,
     0,
     1,
-    0.1,
-    true,
   );
 
   const nextTransform = zoomIdentity.translate(x, y).scale(zoom);

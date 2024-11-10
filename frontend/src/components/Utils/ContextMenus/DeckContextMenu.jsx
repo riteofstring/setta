@@ -25,7 +25,7 @@ export function DeckContextMenu() {
       closeContextMenu={closeAllContextMenus}
       isOpen={isOpen}
     >
-      <Item onClick={onClickUndeck}>Undeck</Item>
+      <Item onClick={onClickUndeck}>Ungroup</Item>
       <Item onClick={onClickToggleOrientation}>Toggle Orientation</Item>
     </ContextMenuCore>
   );

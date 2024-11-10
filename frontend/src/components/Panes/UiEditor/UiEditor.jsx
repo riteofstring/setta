@@ -1,4 +1,3 @@
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import { BsCardChecklist } from "react-icons/bs";
 import { FaMarkdown } from "react-icons/fa";
@@ -18,7 +17,7 @@ import {
 } from "utils/constants";
 import { uiEditorPaneOnKeyDown } from "utils/tabbingLogic";
 import { TabButton, usePaneFns } from "../paneFns";
-import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
+import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { SectionVariants } from "./SectionVariants/SectionVariants";
@@ -48,39 +47,19 @@ export function UiEditor() {
       onKeyDown={uiEditorPaneOnKeyDown}
     >
       <div className="absolute right-0 z-[19] flex h-full w-[50px] flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
-        <TabButton
-          tabName={SECTION_CONFIG_TAB}
-          {...commonProps}
-          {...getFloatingBoxHandlers("Section Config")}
-        >
+        <TabButton tabName={SECTION_CONFIG_TAB} {...commonProps}>
           <MdOutlineSettingsApplications />
         </TabButton>
-        <TabButton
-          tabName={UI_CONFIG_TAB}
-          {...commonProps}
-          {...getFloatingBoxHandlers("Parameter UI Config")}
-        >
+        <TabButton tabName={UI_CONFIG_TAB} {...commonProps}>
           <BsCardChecklist />
         </TabButton>
-        <TabButton
-          tabName={QUICKINFO_CONFIG_TAB}
-          {...commonProps}
-          {...getFloatingBoxHandlers("Parameter Info Editing")}
-        >
+        <TabButton tabName={QUICKINFO_CONFIG_TAB} {...commonProps}>
           <TbEdit />
         </TabButton>
-        <TabButton
-          tabName={INFO_CONFIG_TAB}
-          {...commonProps}
-          {...getFloatingBoxHandlers("Markdown Editor")}
-        >
+        <TabButton tabName={INFO_CONFIG_TAB} {...commonProps}>
           <FaMarkdown />
         </TabButton>
-        <TabButton
-          tabName={SECTION_VARIANTS_TAB}
-          {...commonProps}
-          {...getFloatingBoxHandlers("Section Variants")}
-        >
+        <TabButton tabName={SECTION_VARIANTS_TAB} {...commonProps}>
           <TbVersions />
         </TabButton>
       </div>
@@ -124,7 +103,7 @@ function TabContent({ sectionId, tab }) {
     case QUICKINFO_CONFIG_TAB:
       return <QuickInfoConfig sectionId={sectionId} />;
     case INFO_CONFIG_TAB:
-      return <MarkdownEditorInPane sectionId={sectionId} />;
+      return <MarkdownEditor sectionId={sectionId} />;
     case SECTION_VARIANTS_TAB:
       return <SectionVariants sectionId={sectionId} />;
   }

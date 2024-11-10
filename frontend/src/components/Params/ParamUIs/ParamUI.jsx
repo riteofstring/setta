@@ -8,7 +8,6 @@ import {
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { ColorPickerInput, ColorPickerInputConfig } from "./ColorPickerInput";
-import { DropdownInput, DropdownInputConfig } from "./DropdownInput";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
 import { SwitchInput, SwitchInputConfig } from "./SwitchInput";
 import { TextInputConfig } from "./TextInput";
@@ -23,8 +22,6 @@ export function ParamUIConfig({ name, ...props }) {
       return <SwitchInputConfig {...props} />;
     case C.COLOR_PICKER:
       return <ColorPickerInputConfig {...props} />;
-    case C.DROPDOWN:
-      return <DropdownInputConfig {...props} />;
   }
 }
 
@@ -116,16 +113,6 @@ export function ParamUI({
           wrapperClassName="section-value flex justify-self-start self-center"
         />
       );
-    case C.DROPDOWN:
-      const { choices } = uiType.config;
-      return (
-        <DropdownInput
-          choices={choices}
-          value={value}
-          onChange={onChange}
-          outerDivClasses="section-value flex justify-self-start self-center"
-        />
-      );
   }
 }
 
@@ -205,24 +192,6 @@ export function ParamSweepUI({
         />
       );
     case C.COLOR_PICKER:
-      const { colorChoices } = uiType.config;
-      return (
-        <ColorPickerInput
-          colorChoices={colorChoices}
-          value={value}
-          onChange={onChange}
-          wrapperClassName="section-value flex justify-self-start self-center"
-        />
-      );
-    case C.DROPDOWN:
-      const { choices } = uiType.config;
-      return (
-        <DropdownInput
-          choices={choices}
-          value={value}
-          onChange={onChange}
-          outerDivClasses="section-value flex justify-self-start self-center"
-        />
-      );
+      return <ColorPickerInput />;
   }
 }

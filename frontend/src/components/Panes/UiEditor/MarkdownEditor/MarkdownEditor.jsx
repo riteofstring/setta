@@ -3,25 +3,8 @@ import React, { useEffect, useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
-import { useIsScrollable } from "state/hooks/sectionSizes";
 
-export function MarkdownEditorInPane({ sectionId }) {
-  return <MarkdownEditorCore sectionId={sectionId} />;
-}
-
-export function MarkdownEditorInSection({ sectionId }) {
-  const { ref, isScrollable } = useIsScrollable();
-
-  return (
-    <MarkdownEditorCore
-      containerClasses={`section-main ${isScrollable ? "nowheel" : ""} [&_.w-md-editor-text_*]:font-code flex flex-1 flex-col items-stretch overflow-y-auto rounded-lg mb-1.5  [&_.w-md-editor-bar]:hidden`}
-      sectionId={sectionId}
-      ref={ref}
-    />
-  );
-}
-
-const _MarkdownEditorCore = React.forwardRef(
+const _MarkdownEditor = React.forwardRef(
   ({ sectionId, containerClasses, textAreaClasses }, ref) => {
     const description = useSectionInfos((x) => x.x[sectionId].description);
     const [localDescription, setLocalDescription] = useState(description);
@@ -52,14 +35,13 @@ const _MarkdownEditorCore = React.forwardRef(
           onChange={(v) => onChange(v.target.value)}
           className={_TextAreaClasses}
           placeholder="Write Using Markdown..."
-          ref={ref}
         />
       </div>
     );
   },
 );
 
-const MarkdownEditorCore = React.memo(_MarkdownEditorCore);
+export const MarkdownEditor = React.memo(_MarkdownEditor);
 
 function getFirstHeadingOrText(markdown) {
   // Adjusting the approach to capture the first 10 characters if no heading is found

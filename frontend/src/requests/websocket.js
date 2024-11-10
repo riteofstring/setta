@@ -2,9 +2,8 @@ import C from "constants/constants.json";
 import { updateArtifacts } from "state/actions/artifacts";
 import { updateInteractiveData } from "state/actions/interactive";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
-import { processTypeErrors } from "state/actions/typeErrors";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";
-import { useWebsocketConnectionList } from "state/definitions";
+import { useTypeErrors, useWebsocketConnectionList } from "state/definitions";
 import { URLS } from "utils/constants";
 
 let wss;
@@ -42,7 +41,9 @@ function receiveMessage(message) {
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
     updateConnectedTo(m);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
-    processTypeErrors(m.content);
+    console.log(m.content);
+    useTypeErrors.getState().reset();
+    useTypeErrors.setState(m.content);
   } else if (m.messageType === C.WS_ARTIFACT) {
     updateArtifacts({ artifacts: m.content, addSection: true });
   } else if (m.messageType === C.WS_INTERACTIVE_RETURN) {

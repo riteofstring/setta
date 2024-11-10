@@ -157,7 +157,7 @@ export function disableFloatingBox() {
   useFloatingBox.setState({ isEnabled: false });
 }
 
-export async function convertFloatingBoxToSection(event) {
+export function convertFloatingBoxToSection(event) {
   if (isInput(event)) {
     return;
   }
