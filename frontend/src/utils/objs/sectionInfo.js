@@ -34,6 +34,7 @@ export function newSectionInfo({
   isMinimized = false,
   canvasSettings = {},
   isTemporary = false,
+  renderMarkdown = false,
 }) {
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _variantId = maybeNewId(variantId);
@@ -72,5 +73,6 @@ export function newSectionInfo({
     isMinimized,
     canvasSettings,
     isTemporary,
+    renderMarkdown,
   };
 }

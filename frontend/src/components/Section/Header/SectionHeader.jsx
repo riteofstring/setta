@@ -8,7 +8,6 @@ import { useIsSeriesElement, useSectionTypeName } from "state/hooks/uiTypes";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton";
-import { LockPositionButton } from "./LockPositionButton";
 import MenuButton from "./MenuButton/MenuButton";
 import { MinimizeButton } from "./MinimizeButton";
 import { SectionTitle } from "./SectionTitle";
@@ -80,7 +79,6 @@ function _SectionHeader({
             header={"Description for Infoview"}
           />
         )}
-        <LockPositionButton />
         {!_isRoot && <MinimizeButton sectionId={sectionId} />}
         <CustomCloseButton onClick={onCustomCloseButtonClick} isInfo={isInfo} />
       </div>

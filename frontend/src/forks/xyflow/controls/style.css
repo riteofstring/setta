@@ -1,11 +1,11 @@
-/* .react-flow__controls {
+.react-flow__controls {
   box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.08);
-} */
+}
 
 .react-flow__controls-button {
   border: none;
-  /* background: #fefefe; */
-  /* border-bottom: 1px solid #eee; */
+  background: #fefefe;
+  border-bottom: 1px solid #eee;
   box-sizing: content-box;
   display: flex;
   justify-content: center;
@@ -18,7 +18,7 @@
 }
 
 .react-flow__controls-button:hover {
-  /* background: #f4f4f4; */
+  background: #f4f4f4;
 }
 
 .react-flow__controls-button svg {

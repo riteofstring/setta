@@ -51,7 +51,7 @@ function _UIElement({ paramInfo }) {
 
   return (
     <div className="flex flex-col gap-2 self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-setta-200">
-      <p className="uicfg-title truncate text-xs font-semibold text-setta-500">
+      <p className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-setta-500">
         {name}
       </p>
       <textarea

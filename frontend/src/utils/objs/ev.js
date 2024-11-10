@@ -12,6 +12,8 @@ export function getValueForUIType({ uiType, currValue }) {
       return convertValueForSwitch({ currValue });
     case C.COLOR_PICKER:
       return convertValueForColorPicker({ currValue });
+    case C.DROPDOWN:
+      return convertValueForDropdown({ currValue });
     default:
       return "";
   }
@@ -51,4 +53,8 @@ function convertValueForColorPicker({ currValue }) {
     return currValue;
   }
   return "#000000";
+}
+
+function convertValueForDropdown({ currValue }) {
+  return currValue;
 }

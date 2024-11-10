@@ -10,7 +10,7 @@ import { HideShowSearchButton } from "./HideShowSearchButton";
 import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
 import { MultirunButton } from "./MultiRunButton";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
-import { ShowMarkdown } from "./ShowMarkdown";
+import { ConvertFormat, RenderInfo } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
 
 function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
@@ -73,7 +73,7 @@ function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
 export function getMenuItems(uiTypeName) {
   switch (uiTypeName) {
     case C.INFO:
-      return [ShowMarkdown];
+      return [RenderInfo, ConvertFormat];
     case C.SECTION:
       return [
         SaveCustomArgumentsButton,

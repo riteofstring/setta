@@ -155,7 +155,7 @@ function getRequiredUIEditorTabs(uiTypeName) {
     case C.INTERACTIVE_CODE:
       return [SECTION_CONFIG_TAB, SECTION_VARIANTS_TAB];
     case C.INFO:
-      return [INFO_CONFIG_TAB];
+      return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
     case C.SOCIAL:
       return [SECTION_CONFIG_TAB];
     case C.DECK:
