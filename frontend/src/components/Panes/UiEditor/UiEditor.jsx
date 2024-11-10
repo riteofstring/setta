@@ -105,7 +105,6 @@ export function UiEditor() {
 
 function TabsVisible({ sectionId, tab }) {
   const title = tabNameToPretty.get(tab);
-  console.log("title", tab);
   return (
     <div className="flex h-full min-h-0 w-[calc(100%_-_3rem)] min-w-0 flex-1 flex-col overflow-hidden pr-1.5">
       <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">

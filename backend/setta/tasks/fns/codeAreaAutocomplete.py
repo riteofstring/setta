@@ -103,6 +103,6 @@ codeAreaAutocomplete = TaskDefinition(
     return_message_type="codeAreaAutocompleteReturn",
     fn=_codeAreaAutocomplete,
     read_cache=read_cache,
-    run_as=RunType.THREAD,
+    run_as=RunType.NONE,
     server_dependencies=["lsp_writer"],
 )

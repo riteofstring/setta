@@ -7,6 +7,7 @@ class LanguageServer:
         self.workspace_folder = workspace_folder
         self.code_folder = code_folder
         self.msg_id_to_metadata = defaultdict(dict)
+        self.pending_requests = {}
         self.versions = {}
         self.server = None
         self.settings = settings
@@ -42,6 +43,10 @@ class LanguageServerInteractor:
     @property
     def settings(self):
         return self.server.settings
+
+    @property
+    def pending_requests(self):
+        return self.server.pending_requests
 
     @property
     def msg_id_to_metadata(self):

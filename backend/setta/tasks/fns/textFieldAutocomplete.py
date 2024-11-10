@@ -124,6 +124,6 @@ textFieldCompletion = TaskDefinition(
     return_message_type="textFieldCompletionReturn",
     fn=_textFieldCompletion,
     read_cache=read_cache,
-    run_as=RunType.THREAD,
+    run_as=RunType.NONE,
     server_dependencies=["lsp_writer"],
 )

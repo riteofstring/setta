@@ -226,9 +226,15 @@ class LanguageServerReader(LanguageServerInteractor):
                 break
 
     async def process_response(self, response):
+        # print(response, flush=True)
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
+            if "error" in response:
+                print("ERROR", response["error"], flush=True)
+                await self.websocket_manager.send_message_to_requester(id, response["error"])
+                self.pending_requests[id].set()
+                return
             method = method if method else self.msg_id_to_metadata[id]["method"]
             if method == "textDocument/completion":
                 content = [
@@ -246,12 +252,12 @@ class LanguageServerReader(LanguageServerInteractor):
             elif method == "textDocument/signatureHelp":
                 if response["result"]:
                     content = parse_signature(response["result"]["signatures"][0])
-                    pprint(content)
+                    # pprint(content)
                 else:
                     content = None
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/references":
-                print("response", response, flush=True)
+                print("textDocument/references response", response, flush=True)
                 content = []
                 if len(response["result"]) > 0:
                     code = self.get_version(response["result"][0]["uri"])["code"]
@@ -278,11 +284,13 @@ class LanguageServerReader(LanguageServerInteractor):
                             }
                         )
 
-                print(content, flush=True)
+                # print(content, flush=True)
                 return_id = self.msg_id_to_metadata[id]["return_id"]
+                # print('returning reference request', content, flush=True)
                 await self.websocket_manager.send_message_to_requester(
                     return_id, content
                 )
+            self.pending_requests[id].set()
         elif method == "textDocument/publishDiagnostics":
             # print(response, flush=True)
             params = response["params"]
@@ -300,3 +308,4 @@ class LanguageServerReader(LanguageServerInteractor):
 
         # print(self.received_messages.keys())
         # process_response(response)
+        print("END of process_response", method, flush=True)

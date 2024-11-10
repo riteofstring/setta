@@ -11,10 +11,6 @@ def copyConstsThenRunFn(inputC, fn, fn_args):
     return fn(fn_args)
 
 
-def sync_wrapper(fn, *args, **kwargs):
-    return asyncio.run(fn(*args, **kwargs))
-
-
 class RunType(Enum):
     SUBPROCESS = "SUBPROCESS"
     THREAD = "THREAD"
@@ -23,8 +19,8 @@ class RunType(Enum):
 
 class TaskRunner:
     def __init__(self):
-        self.pool_executor = ProcessPoolExecutor(max_workers=2)
         self.thread_executor = ThreadPoolExecutor(max_workers=2)
+        self.process_executor = ProcessPoolExecutor(max_workers=2)
         self.tasks_dict = {}
         self.loop = asyncio.get_event_loop()
 
@@ -46,21 +42,31 @@ class TaskRunner:
 
     async def run(self, id, fn, fn_args, run_as):
         await self.cancel_existing(id)
-        if run_as == RunType.NONE:
-            return fn(*fn_args)
-        elif run_as in [RunType.THREAD, RunType.SUBPROCESS]:
-            if run_as == RunType.SUBPROCESS:
-                executor = self.pool_executor
-                fn_args = [C, fn, *fn_args]
-                fn = copyConstsThenRunFn
-            else:
+        
+        # For async functions, always run in main event loop
+        if inspect.iscoroutinefunction(fn):
+            task = self.loop.create_task(fn(*fn_args))
+            self.tasks_dict[id] = task
+            try:
+                result = await task
+                self.remove_task(id)
+                return result
+            except asyncio.CancelledError:
+                self.remove_task(id)
+                raise
+                
+        # For sync functions
+        else:
+            if run_as == RunType.NONE:
+                return fn(*fn_args)
+            elif run_as == RunType.THREAD:
                 executor = self.thread_executor
-
-            if inspect.iscoroutinefunction(fn):
-                future = self.loop.run_in_executor(executor, sync_wrapper, fn, *fn_args)
+            elif run_as == RunType.SUBPROCESS:
+                executor = self.process_executor
             else:
-                future = self.loop.run_in_executor(executor, fn, *fn_args)
+                raise ValueError(f"Unsupported RunType: {run_as}")
 
+            future = self.loop.run_in_executor(executor, fn, *fn_args)
             self.tasks_dict[id] = future
             try:
                 result = await future
@@ -69,5 +75,3 @@ class TaskRunner:
             except asyncio.CancelledError:
                 self.remove_task(id)
                 raise
-        else:
-            raise ValueError
