@@ -27,7 +27,7 @@ const _MarkdownEditorCore = React.forwardRef(
     const [localDescription, setLocalDescription] = useState(description);
 
     const _TextAreaClasses = !textAreaClasses
-      ? "block w-full flex-1 self-stretch rounded-lg bg-white p-2.5 font-mono text-xs text-setta-900 focus:outline-blue-500 focus:ring-blue-500 !outline-transparent !border-transparent dark:bg-setta-800 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:ring-blue-500 resize-none"
+      ? "block w-full flex-1 self-stretch rounded-lg bg-white p-2.5 font-mono text-sm text-setta-900 focus:outline-blue-500 focus:ring-blue-500 !outline-transparent !border-transparent dark:bg-setta-800 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:ring-blue-500 resize-none"
       : textAreaClasses;
 
     const _ContainerClasses = !containerClasses

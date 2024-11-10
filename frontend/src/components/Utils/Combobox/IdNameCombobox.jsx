@@ -57,8 +57,8 @@ export function IdNameCombobox({
   return (
     <search
       className={`flex ${
-        small ? "h-[20px]" : "h-8"
-      } relative w-full min-w-0 flex-col items-stretch overflow-visible ${outerDivClasses}`}
+        small ? "h-7" : "h-8"
+      } w-full min-w-0 flex-col items-stretch overflow-visible ${outerDivClasses}`}
     >
       <ComboboxInput
         getInputProps={getInputProps}

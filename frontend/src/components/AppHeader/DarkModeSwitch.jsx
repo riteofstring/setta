@@ -16,8 +16,6 @@ export function DarkModeSwitch() {
         onCheckedChange={toggleDarkMode}
         twThumbClasses="flex"
         disableBg={true}
-        height="h-3"
-        width="w-3"
         icon={
           darkMode ? (
             <HiMoon className="h-3 text-blue-200" />
