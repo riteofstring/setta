@@ -10,7 +10,9 @@ class LanguageServer:
         self.versions = {}
         self.server = None
         if not isinstance(settings, dict):
-            print("warning: your language server settings is not an object, so it will have no effect")
+            print(
+                "warning: your language server settings is not an object, so it will have no effect"
+            )
             self.settings = {}
         else:
             self.settings = settings
