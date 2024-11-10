@@ -1,6 +1,7 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
 import { useCodeInfo, useSectionInfos } from "state/definitions";
+import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getKwargIds } from "../../getters/codeInfo";
 import { getSectionInfo } from "../../getters/sectionInfo";
@@ -21,8 +22,18 @@ export function addKwarg({
   insertIdx = null,
   incrementVersion = false,
 }) {
+  const { jsonSource } = getSectionInfo(sectionId);
+  let actualName = name;
+  let paramPath = null;
+  if (jsonSource) {
+    if (!actualName) {
+      actualName = createRandomName();
+    }
+    paramPath = getParamPath(actualName, parentId);
+  }
   const kwargInfo = newCodeInfo({
-    name,
+    id: createNewParamId(paramPath, jsonSource),
+    name: actualName,
     rcType: C.PARAMETER,
     editable: true,
   });
@@ -142,4 +153,21 @@ function setAttrOfSelfAndDescendants(state, id, attr, value, setSelf = true) {
     state[paramId][attr] = value;
     setAttrOfSelfAndDescendants(state, paramId, attr, value, true);
   }
+}
+
+function getParamPath(name, parentId) {
+  const path = [name];
+  let id = parentId;
+  while (id) {
+    const info = getSectionInfo(id);
+    if (info.rcType === C.PARAMETER) {
+      path.push(info.name);
+      id = info.parentId;
+    } else {
+      break;
+    }
+  }
+
+  path.reverse();
+  return path;
 }

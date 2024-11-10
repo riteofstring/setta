@@ -719,7 +719,7 @@
       "social": null,
       "description": "",
       "codeLanguage": "",
-      "configLanguage": "python",
+      "configLanguage": "json",
       "isFrozen": 0,
       "jsonSource": "auth.json",
       "codeInfoId": "73b234bb-0170-4d02-864f-c4039c623e34",
