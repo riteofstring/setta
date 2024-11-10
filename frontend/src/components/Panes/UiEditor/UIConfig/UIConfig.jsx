@@ -39,7 +39,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll">
+      <div className="mt-4 flex flex-col gap-2 overflow-x-hidden overflow-y-scroll">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -79,8 +79,8 @@ function _UIElement({ sectionId, paramInfo }) {
 
   return (
     <div className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-setta-200">
-      <div className="grid grid-cols-1 grid-rows-1 items-center">
-        <p className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-setta-500">
+      <div className="flex items-center">
+        <p className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 truncate text-xs font-semibold text-setta-500">
           {paramName}
         </p>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
