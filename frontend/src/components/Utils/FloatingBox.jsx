@@ -82,15 +82,19 @@ export const FloatingBox = () => {
 
 function Footer({ isFrozen }) {
   const {
-    tooltipToSectionShortcut,
+    tooltipToPlaintextShortcut,
+    tooltipToMarkdownShortcut,
     freezeTooltipShortcut,
-    frozenTooltipToSectionShortcut,
+    frozenTooltipToPlaintextShortcut,
+    frozenTooltipToMarkdownShortcut,
   } = useSettings((x) =>
     _.mapValues(
       _.pick(x, [
-        "tooltipToSectionShortcut",
+        "tooltipToPlaintextShortcut",
+        "tooltipToMarkdownShortcut",
         "freezeTooltipShortcut",
-        "frozenTooltipToSectionShortcut",
+        "frozenTooltipToPlaintextShortcut",
+        "frozenTooltipToMarkdownShortcut",
       ]),
       shortcutPrettified,
     ),
@@ -103,9 +107,13 @@ function Footer({ isFrozen }) {
       <p className={className}>
         press <span className="font-black">&quot;Esc&quot;</span> to close, or{" "}
         <span className="font-black">
-          &quot;{frozenTooltipToSectionShortcut}&quot;
+          &quot;{frozenTooltipToPlaintextShortcut}&quot;
         </span>{" "}
-        to open tooltip as new section
+        (plaintext) or{" "}
+        <span className="font-black">
+          &quot;{frozenTooltipToMarkdownShortcut}&quot;
+        </span>{" "}
+        (markdown) to open tooltip as new section
       </p>
     );
   }
@@ -113,8 +121,14 @@ function Footer({ isFrozen }) {
   return (
     <p className={className}>
       press{" "}
-      <span className="font-black">&quot;{tooltipToSectionShortcut}&quot;</span>{" "}
-      to open tooltip as new section, or{" "}
+      <span className="font-black">
+        &quot;{tooltipToPlaintextShortcut}&quot;
+      </span>{" "}
+      (plaintext) or{" "}
+      <span className="font-black">
+        &quot;{tooltipToMarkdownShortcut}&quot;
+      </span>{" "}
+      (markdown) to open tooltip as new section, or{" "}
       <span className="font-black">&quot;{freezeTooltipShortcut}&quot;</span> to
       freeze tooltip
     </p>
@@ -157,24 +171,27 @@ export function disableFloatingBox() {
   useFloatingBox.setState({ isEnabled: false });
 }
 
-export async function convertFloatingBoxToSection(event) {
-  if (isInput(event)) {
-    return;
-  }
-  const s = useFloatingBox.getState();
-  if (s.content) {
-    const content = s.title ? `## ${s.title}\n\n${s.content}` : s.content;
-    addSectionInEmptySpace({
-      type: C.INFO,
-      inputSectionProps: {
-        name: s.title,
-        description: content,
-        size: { width: 300, height: 300 },
-      },
-    });
-  }
-  // if converting a frozen floating box, then we need to remove it
-  removeFrozenFloatingBox();
+export function getConvertFloatingBoxToSectionFn(renderMarkdown) {
+  return async (event) => {
+    if (isInput(event)) {
+      return;
+    }
+    const s = useFloatingBox.getState();
+    if (s.content) {
+      const content = s.title ? `## ${s.title}\n\n${s.content}` : s.content;
+      addSectionInEmptySpace({
+        type: C.INFO,
+        inputSectionProps: {
+          name: s.title,
+          description: content,
+          size: { width: 300, height: 300 },
+          renderMarkdown,
+        },
+      });
+    }
+    // if converting a frozen floating box, then we need to remove it
+    removeFrozenFloatingBox();
+  };
 }
 
 export function freezeFloatingBox() {

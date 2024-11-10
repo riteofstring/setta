@@ -1,8 +1,8 @@
 import {
-  convertFloatingBoxToSection,
   disableFloatingBox,
   enableFloatingBox,
   freezeFloatingBox,
+  getConvertFloatingBoxToSectionFn,
   removeFrozenFloatingBox,
 } from "components/Utils/FloatingBox";
 import { useDndState } from "forks/dnd-kit/dndState";
@@ -173,9 +173,23 @@ export function attachKeyEventListeners() {
     ["tab", tabFromDocumentBody],
     ["shift + tab", tabFromDocumentBody],
     [settings.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
-    [settings.tooltipToSectionShortcut, convertFloatingBoxToSection],
+    [
+      settings.tooltipToPlaintextShortcut,
+      getConvertFloatingBoxToSectionFn(false),
+    ],
+    [
+      settings.tooltipToMarkdownShortcut,
+      getConvertFloatingBoxToSectionFn(true),
+    ],
     [settings.freezeTooltipShortcut, freezeFloatingBox],
-    [settings.frozenTooltipToSectionShortcut, convertFloatingBoxToSection],
+    [
+      settings.frozenTooltipToPlaintextShortcut,
+      getConvertFloatingBoxToSectionFn(false),
+    ],
+    [
+      settings.frozenTooltipToMarkdownShortcut,
+      getConvertFloatingBoxToSectionFn(true),
+    ],
     [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
     [settings.groupShortcut, groupSections],
