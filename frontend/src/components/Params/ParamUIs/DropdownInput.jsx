@@ -67,12 +67,18 @@ export function DropdownInputConfig({ onChange, config }) {
 export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
   const items = choices.map((x) => ({ id: x, name: x }));
 
+  function onSelectionChange(newValue) {
+    if (choices.includes(newValue)) {
+      onChange(newValue);
+    }
+  }
+
   return (
     <ComboBox
       defaultItems={items}
       className={outerDivClasses}
       selectedKey={value}
-      onSelectionChange={onChange}
+      onSelectionChange={onSelectionChange}
       aria-label="DropdownInput"
       menuTrigger="focus"
     >
