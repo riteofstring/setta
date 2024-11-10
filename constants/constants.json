@@ -68,6 +68,7 @@
   "ROUTE_SECTION_TO_DICT": "/sectionToDict",
   "ROUTE_LOAD_SECTION_JSON_SOURCE": "/loadSectionJSONSource",
   "ROUTE_LOAD_SETTINGS_PROJECT": "/loadSettingsProject",
+  "ROUTE_DOCSTRING_TO_MARKDOWN": "/docstringToMarkdown",
   "JSON_SOURCE_PREFIX": "JSON-",
   "NESTED_PARAM": "NESTED_PARAM",
   "ARGS_PREFIX": "__",

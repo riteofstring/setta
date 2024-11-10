@@ -1,6 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
+import { dbDocstringToMarkdown } from "requests/codeInfo";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { useSettings } from "state/definitions";
 import { shortcutPrettified } from "utils/utils";
@@ -157,13 +158,20 @@ export function disableFloatingBox() {
   useFloatingBox.setState({ isEnabled: false });
 }
 
-export function convertFloatingBoxToSection(event) {
+export async function convertFloatingBoxToSection(event) {
   if (isInput(event)) {
     return;
   }
   const s = useFloatingBox.getState();
   if (s.content) {
-    const content = s.title ? `## ${s.title}\n\n${s.content}` : s.content;
+    const res = await dbDocstringToMarkdown(s.content);
+    let content;
+    if (res.status === 200) {
+      content = res.data;
+    } else {
+      content = s.content;
+    }
+    content = s.title ? `## ${s.title}\n\n${content}` : content;
     addSectionInEmptySpace({
       type: C.INFO,
       inputSectionProps: {
