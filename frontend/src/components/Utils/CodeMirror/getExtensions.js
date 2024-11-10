@@ -107,7 +107,10 @@ export function getExtensions({
           stopPropagation: true,
           run: (view) => {
             let completionResult = false;
-            if (tabToAutocomplete && completionStatus(view.state)) {
+            if (
+              tabToAutocomplete &&
+              completionStatus(view.state) === "active"
+            ) {
               // trigger preventDefault & stopPropagation based on completion
               completionResult = acceptCompletion(view);
             } else if (indentWithTab) {
