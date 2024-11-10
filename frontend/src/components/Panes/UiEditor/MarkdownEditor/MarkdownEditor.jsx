@@ -71,7 +71,7 @@ const _MarkdownEditorCore = React.forwardRef(
         className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
       >
         <CodeMirror
-          maxHeight={maxHeight}
+          maxHeight={"100%"}
           value={description}
           theme={theme}
           extensions={extensions}
