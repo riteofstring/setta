@@ -1,21 +1,10 @@
-import _ from "lodash";
-import {
-  Button,
-  Collection,
-  ComboBox,
-  Header,
-  Input,
-  ListBox,
-  ListBoxItem,
-  Popover,
-  Section,
-} from "react-aria-components";
+import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 
 export function DropdownInputConfig({ onChange, config }) {
   const choices = config.choices ?? [];
 
   const addChoice = () => {
-    const newChoices = [...choices, ""];
+    const newChoices = [...choices, { id: "", name: "" }];
     onChange("choices", () => newChoices);
   };
 
@@ -26,7 +15,7 @@ export function DropdownInputConfig({ onChange, config }) {
 
   const updateChoice = (updateIdx, newChoice) => {
     const newChoices = choices.map((c, idx) =>
-      idx === updateIdx ? newChoice : c,
+      idx === updateIdx ? { id: newChoice, name: newChoice } : c,
     );
     onChange("choices", () => newChoices);
   };
@@ -48,7 +37,7 @@ export function DropdownInputConfig({ onChange, config }) {
             <div className="flex flex-auto items-center gap-1 overflow-hidden">
               <input
                 type="text"
-                value={c}
+                value={c.id}
                 onChange={(e) => updateChoice(idx, e.target.value)}
                 placeholder="Add description..."
                 className="m-[2px] w-full truncate rounded border px-2 py-1 text-xs text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
@@ -69,86 +58,19 @@ export function DropdownInputConfig({ onChange, config }) {
 }
 
 export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
-  let items = [];
-
-  for (const c of _.uniqWith(choices, _.isEqual)) {
-    if (typeof c === "string" && c) {
-      items.push({ id: c, name: c });
-    } else if (typeof c === "object" && c.id && c.name) {
-      items.push(c);
-    }
-  }
-
-  function onSelectionChange(newValue) {
-    for (const x of items) {
-      if (x.id === newValue) {
-        onChange(newValue);
-        break;
-      }
-    }
-  }
+  const allItems = [
+    {
+      group: "Choices",
+      items: choices ? choices.filter((c) => c.id) : [],
+    },
+  ];
 
   return (
-    <ComboBox
-      defaultItems={items}
-      className={outerDivClasses}
-      selectedKey={value}
-      onSelectionChange={onSelectionChange}
-      aria-label="DropdownInput"
-      menuTrigger="focus"
-      shouldFocusWrap={true}
-    >
-      <Input className="cursor-text" />
-      <Button className="cursor-pointer">▼</Button>
-      <Popover>
-        <ListBox>
-          {(item) => (
-            <ListBoxItem
-              className={({ isFocused, isSelected }) =>
-                `${isSelected ? "bg-red-900" : isFocused ? "bg-green-900" : ""}`
-              }
-            >
-              {item.name}
-            </ListBoxItem>
-          )}
-        </ListBox>
-      </Popover>
-    </ComboBox>
-  );
-}
-
-// this function has less error checking and data conversion
-// because it's just used by param ui type selector, which we control
-export function DropdownWithSectionsInput({
-  choices,
-  value,
-  onChange,
-  outerDivClasses,
-}) {
-  return (
-    <ComboBox
-      defaultItems={choices}
-      className={outerDivClasses}
-      selectedKey={value}
-      onSelectionChange={onChange}
-      aria-label="DropdownInput"
-      menuTrigger="focus"
-      shouldFocusWrap={true}
-    >
-      <Input className="cursor-text" />
-      <Button className="cursor-pointer">▼</Button>
-      <Popover>
-        <ListBox>
-          {(section) => (
-            <Section id={section.name}>
-              <Header>{section.name}</Header>
-              <Collection items={section.children}>
-                {(item) => <ListBoxItem>{item.name}</ListBoxItem>}
-              </Collection>
-            </Section>
-          )}
-        </ListBox>
-      </Popover>
-    </ComboBox>
+    <IdNameCombobox
+      outerDivClasses={outerDivClasses}
+      allItems={allItems}
+      initialSelection={value ? value : null}
+      onSelectedItemChange={onChange}
+    />
   );
 }

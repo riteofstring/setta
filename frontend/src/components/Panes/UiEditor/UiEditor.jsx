@@ -1,3 +1,4 @@
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import { BsCardChecklist } from "react-icons/bs";
 import { FaMarkdown } from "react-icons/fa";
@@ -47,19 +48,39 @@ export function UiEditor() {
       onKeyDown={uiEditorPaneOnKeyDown}
     >
       <div className="absolute right-0 z-[19] flex h-full w-[50px] flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
-        <TabButton tabName={SECTION_CONFIG_TAB} {...commonProps}>
+        <TabButton
+          tabName={SECTION_CONFIG_TAB}
+          {...commonProps}
+          {...getFloatingBoxHandlers("Section Config")}
+        >
           <MdOutlineSettingsApplications />
         </TabButton>
-        <TabButton tabName={UI_CONFIG_TAB} {...commonProps}>
+        <TabButton
+          tabName={UI_CONFIG_TAB}
+          {...commonProps}
+          {...getFloatingBoxHandlers("Parameter UI Config")}
+        >
           <BsCardChecklist />
         </TabButton>
-        <TabButton tabName={QUICKINFO_CONFIG_TAB} {...commonProps}>
+        <TabButton
+          tabName={QUICKINFO_CONFIG_TAB}
+          {...commonProps}
+          {...getFloatingBoxHandlers("Parameter Info Editing")}
+        >
           <TbEdit />
         </TabButton>
-        <TabButton tabName={INFO_CONFIG_TAB} {...commonProps}>
+        <TabButton
+          tabName={INFO_CONFIG_TAB}
+          {...commonProps}
+          {...getFloatingBoxHandlers("Markdown Editor")}
+        >
           <FaMarkdown />
         </TabButton>
-        <TabButton tabName={SECTION_VARIANTS_TAB} {...commonProps}>
+        <TabButton
+          tabName={SECTION_VARIANTS_TAB}
+          {...commonProps}
+          {...getFloatingBoxHandlers("Section Variants")}
+        >
           <TbVersions />
         </TabButton>
       </div>
