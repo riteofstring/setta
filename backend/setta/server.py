@@ -12,9 +12,13 @@ from fastapi.staticfiles import StaticFiles
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
 from setta.database.settings_file import SettingsFile
-from setta.lsp.reader import LanguageServerReader
-from setta.lsp.server import LanguageServer
-from setta.lsp.writer import LanguageServerWriter
+from setta.lsp.utils import (
+    create_lsp_readers,
+    create_lsp_writers,
+    create_lsps,
+    kill_lsps,
+    start_lsps,
+)
 from setta.routers import (
     artifact_router,
     code_info_router,
@@ -36,26 +40,17 @@ from setta.utils.websocket_manager import WebsocketManager
 async def lifespan(app: FastAPI):
     # startup
     app.state.settings_file = SettingsFile(C.SETTINGS_PATH, C.CREATE_IF_NOT_EXISTS)
-    app.state.lsp = LanguageServer(
+    app.state.lsps = create_lsps(
         workspace_folder=Path(os.getcwd()),
         code_folder=Path(os.getcwd()) / CODE_FOLDER / "timestamped_folder",
         settings=USER_SETTINGS["languageServerSettings"],
     )
-    app.state.basic_lsp = LanguageServer(
-        workspace_folder=Path(os.getcwd()) / CODE_FOLDER / "timestamped_folder",
-        code_folder=Path(os.getcwd()) / CODE_FOLDER / "timestamped_folder",
-        settings={}
-    )
-    app.state.lsp_writer = LanguageServerWriter(app.state.lsp)
-    app.state.basic_lsp_writer = LanguageServerWriter(app.state.basic_lsp)
-    app.state.tasks = Tasks(app.state.lsp_writer, app.state.basic_lsp_writer)
+    app.state.lsp_writers = create_lsp_writers(app.state.lsps)
+    app.state.tasks = Tasks(app.state.lsp_writers)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager(app.state.tasks)
-    app.state.lsp_reader = LanguageServerReader(
-        app.state.lsp, app.state.websocket_manager
-    )
-    app.state.basic_lsp_reader = LanguageServerReader(
-        app.state.basic_lsp, app.state.websocket_manager
+    app.state.lsp_readers = create_lsp_readers(
+        app.state.lsps, app.state.websocket_manager
     )
     app.state.dbq = DBQueue(
         C.DB_PATH,
@@ -69,12 +64,7 @@ async def lifespan(app: FastAPI):
     )
 
     app.state.dbq.connect()
-    await app.state.lsp.start_server()
-    await app.state.lsp_reader.start_listener()
-    await app.state.lsp_writer.send_initialize_request()
-    await app.state.basic_lsp.start_server()
-    await app.state.basic_lsp_reader.start_listener()
-    await app.state.basic_lsp_writer.send_initialize_request()
+    await start_lsps(app.state.lsps, app.state.lsp_readers, app.state.lsp_writers)
 
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
@@ -98,10 +88,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        app.state.lsp_reader.stop_event.set()
-        app.state.lsp.kill_server()
-        app.state.basic_lsp_reader.stop_event.set()
-        app.state.basic_lsp.kill_server()
+        kill_lsps(app.state.lsps, app.state.lsp_readers)
         print("******FINISHED CLEANUP*******")
 
 

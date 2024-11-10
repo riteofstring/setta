@@ -1,7 +1,7 @@
+import asyncio
 import json
 import platform
 import uuid
-import asyncio
 
 from setta.utils.utils import recursive_dict_merge
 
@@ -34,7 +34,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
         self.server.stdin.write(header + request)
         await self.server.stdin.drain()
-        
+
     async def send_initialize_request(self):
         params = {
             "capabilities": {},

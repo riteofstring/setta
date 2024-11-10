@@ -41,7 +41,7 @@ class TaskRunner:
 
     async def run(self, id, fn, fn_args, run_as):
         await self.cancel_existing(id)
-        
+
         # For async functions, always run in main event loop
         if inspect.iscoroutinefunction(fn):
             task = asyncio.get_running_loop().create_task(fn(*fn_args))
@@ -53,7 +53,7 @@ class TaskRunner:
             except asyncio.CancelledError:
                 self.remove_task(id)
                 raise
-                
+
         # For sync functions
         else:
             if run_as == RunType.NONE:

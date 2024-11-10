@@ -232,7 +232,9 @@ class LanguageServerReader(LanguageServerInteractor):
         if id:
             if "error" in response:
                 print("ERROR", response["error"], flush=True)
-                await self.websocket_manager.send_message_to_requester(id, response["error"])
+                await self.websocket_manager.send_message_to_requester(
+                    id, response["error"]
+                )
                 # self.pending_requests[id].set()
                 return
             method = method if method else self.msg_id_to_metadata[id]["method"]

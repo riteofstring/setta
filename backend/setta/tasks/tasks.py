@@ -17,9 +17,8 @@ from .task_runner import TaskRunner
 
 
 class Tasks:
-    def __init__(self, lsp_writer, basic_lsp_writer):
-        self.lsp_writer = lsp_writer
-        self.basic_lsp_writer = basic_lsp_writer
+    def __init__(self, lsp_writers):
+        self.lsp_writers = lsp_writers
         self.task_runner = TaskRunner()
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
