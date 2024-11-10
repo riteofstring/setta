@@ -214,7 +214,6 @@ const debouncedSetKeywordPositions = asyncDebounce(
       sectionId,
       paramInfoId: null,
       fullText: value,
-      messageIdSuffix: "-sectionSearch",
     });
     setLocalKeywordPositions(keywordPositions);
   },
