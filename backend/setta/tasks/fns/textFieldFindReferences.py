@@ -21,7 +21,7 @@ class TextFieldFindReferencesContent(BaseModel):
     fullText: str
 
 
-async def _textFieldFindReferences(message, lsp_writer):
+async def _textFieldFindReferences(message, basic_lsp_writer):
     message_id = message.id
     message = TextFieldFindReferencesContent.parse_obj(message.content)
     candidateKeywords = message.candidateKeywords
@@ -30,10 +30,10 @@ async def _textFieldFindReferences(message, lsp_writer):
     )
     code_id = f"{message.sectionId}-{message.paramInfoId}-find-references"
 
-    await lsp_writer.send_document_open_request(code_id, code)
+    await basic_lsp_writer.send_document_open_request(code_id, code)
     for idx in range(len(candidateKeywords)):
         request_id = f"{message_id}-{idx}"
-        asyncio.create_task(lsp_writer.send_reference_request(
+        asyncio.create_task(basic_lsp_writer.send_reference_request(
             position_offset=position_offset,
             line=idx,
             character=0,
@@ -99,5 +99,5 @@ textFieldFindReferences = TaskDefinition(
     return_message_type="textFieldFindReferencesReturn",
     fn=_textFieldFindReferences,
     run_as=RunType.NONE,
-    server_dependencies=["lsp_writer"],
+    server_dependencies=["basic_lsp_writer"],
 )

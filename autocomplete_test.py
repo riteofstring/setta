@@ -26,15 +26,9 @@ async def main():
     #     root_path=Path("D:/Documents/App Development/setta/.setta_code")
     # )
     lsp = LanguageServer(
-        workspace_folder=Path("/Users/kevin/Documents/AppDevelopment/setta"),
+        workspace_folder=Path("/Users/kevin/Documents/AppDevelopment/setta/.setta_code/timestamped_folder"),
         code_folder=Path("/Users/kevin/Documents/AppDevelopment/setta/.setta_code/timestamped_folder"),
-        settings={"basedpyright": {
-                "analysis": {
-                    "include": [
-                    ".setta_code"
-                    ]
-                }
-                }}
+        settings={}
     )
     lsp_writer = LanguageServerWriter(lsp)
     lsp_listener = LanguageServerReader(lsp, FakeWebsocketManager())
@@ -122,13 +116,9 @@ n=None
     #     },
     # }
     await lsp_writer.send_document_open_request(code_id, code, codeJson)
-    await lsp_writer.send_document_open_request(code_id2, code2, codeJson)
+    # await lsp_writer.send_document_open_request(code_id2, code2, codeJson)
     id = str(uuid4())
-    asyncio.create_task(lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id))
-    asyncio.create_task(lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id))
-    asyncio.create_task(lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id))
-    asyncio.create_task(lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id))
-    asyncio.create_task(lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id))
+    await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)
     # await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)
     # await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)
     # await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)

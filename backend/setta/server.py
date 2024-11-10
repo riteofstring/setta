@@ -41,12 +41,21 @@ async def lifespan(app: FastAPI):
         code_folder=Path(os.getcwd()) / CODE_FOLDER / "timestamped_folder",
         settings=USER_SETTINGS["languageServerSettings"],
     )
+    app.state.basic_lsp = LanguageServer(
+        workspace_folder=Path(os.getcwd()) / CODE_FOLDER / "timestamped_folder",
+        code_folder=Path(os.getcwd()) / CODE_FOLDER / "timestamped_folder",
+        settings={}
+    )
     app.state.lsp_writer = LanguageServerWriter(app.state.lsp)
-    app.state.tasks = Tasks(app.state.lsp_writer)
+    app.state.basic_lsp_writer = LanguageServerWriter(app.state.basic_lsp)
+    app.state.tasks = Tasks(app.state.lsp_writer, app.state.basic_lsp_writer)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager(app.state.tasks)
     app.state.lsp_reader = LanguageServerReader(
         app.state.lsp, app.state.websocket_manager
+    )
+    app.state.basic_lsp_reader = LanguageServerReader(
+        app.state.basic_lsp, app.state.websocket_manager
     )
     app.state.dbq = DBQueue(
         C.DB_PATH,
@@ -63,6 +72,9 @@ async def lifespan(app: FastAPI):
     await app.state.lsp.start_server()
     await app.state.lsp_reader.start_listener()
     await app.state.lsp_writer.send_initialize_request()
+    await app.state.basic_lsp.start_server()
+    await app.state.basic_lsp_reader.start_listener()
+    await app.state.basic_lsp_writer.send_initialize_request()
 
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
@@ -88,6 +100,8 @@ async def lifespan(app: FastAPI):
     finally:
         app.state.lsp_reader.stop_event.set()
         app.state.lsp.kill_server()
+        app.state.basic_lsp_reader.stop_event.set()
+        app.state.basic_lsp.kill_server()
         print("******FINISHED CLEANUP*******")
 
 

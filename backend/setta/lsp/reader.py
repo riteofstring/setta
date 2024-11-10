@@ -233,7 +233,7 @@ class LanguageServerReader(LanguageServerInteractor):
             if "error" in response:
                 print("ERROR", response["error"], flush=True)
                 await self.websocket_manager.send_message_to_requester(id, response["error"])
-                self.pending_requests[id].set()
+                # self.pending_requests[id].set()
                 return
             method = method if method else self.msg_id_to_metadata[id]["method"]
             if method == "textDocument/completion":
@@ -290,7 +290,7 @@ class LanguageServerReader(LanguageServerInteractor):
                 await self.websocket_manager.send_message_to_requester(
                     return_id, content
                 )
-            self.pending_requests[id].set()
+            # self.pending_requests[id].set()
         elif method == "textDocument/publishDiagnostics":
             # print(response, flush=True)
             params = response["params"]
@@ -308,4 +308,4 @@ class LanguageServerReader(LanguageServerInteractor):
 
         # print(self.received_messages.keys())
         # process_response(response)
-        print("END of process_response", method, flush=True)
+        pprint(response)

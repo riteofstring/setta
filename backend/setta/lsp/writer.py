@@ -16,17 +16,17 @@ class LanguageServerWriter(LanguageServerInteractor):
         request_dict = {"jsonrpc": "2.0", "method": method, "params": params}
         if id:
             request_dict["id"] = id
-            if id in self.pending_requests:
-                if not self.pending_requests[id].is_set():
-                    print("canceling requests", id, flush=True)
-                    await self.send_request("$/cancelRequest", {"id": id})
-                    await self.pending_requests[id].wait()
-                    print("CANCELED_SUCCESFULLY!!!!!!!!!!!!!!!!!!!!", id, flush=True)
-            else:
-                # Create Event in the main event loop
-                self.pending_requests[id] = asyncio.Event()
-            print("clearing request", id, flush=True)
-            self.pending_requests[id].clear()
+            # if id in self.pending_requests:
+            #     if not self.pending_requests[id].is_set():
+            #         print("canceling requests", id, flush=True)
+            #         await self.send_request("$/cancelRequest", {"id": id})
+            #         await self.pending_requests[id].wait()
+            #         print("CANCELED_SUCCESFULLY!!!!!!!!!!!!!!!!!!!!", id, flush=True)
+            # else:
+            #     # Create Event in the main event loop
+            #     self.pending_requests[id] = asyncio.Event()
+            # print("clearing request", id, flush=True)
+            # self.pending_requests[id].clear()
             self.msg_id_to_metadata[id]["method"] = method
 
         request = json.dumps(request_dict).encode("utf-8")
@@ -147,7 +147,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     def get_workspace_uri(self):
-        return f"file://{self.workspace_folder}".lower()
+        if self.workspace_folder:
+            return f"file://{self.workspace_folder}".lower()
+        return None
 
     def get_virtual_uri(self, code_id):
         uri = f"file://{self.code_folder / code_id}.py".lower()
