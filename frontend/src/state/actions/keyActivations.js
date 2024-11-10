@@ -152,14 +152,18 @@ function getShouldPreventDefault(parsedShortcut) {
   return true;
 }
 
-function getIsJustMod(parsedShortcut) {
-  return _.isEqual(parsedShortcut, {
-    mod: true,
-    shift: false,
-    alt: false,
-    ctrl: false,
-    keys: new Set(),
-  });
+function isInput(event) {
+  return (
+    event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLTextAreaElement ||
+    event.target instanceof HTMLSelectElement ||
+    event.target.isContentEditable
+  );
+}
+
+function getHasNoModifiers(parsedShortcut) {
+  const { mod, shift, ctrl, alt } = parsedShortcut;
+  return !mod && !shift && !ctrl && !alt;
 }
 
 function keyUpLoop(e, shortcutInfo) {
@@ -262,6 +266,7 @@ export function attachKeyEventListeners() {
       keyDownAction,
       keyUpAction,
       allowRepeat,
+      hasNoModifiers: getHasNoModifiers(parsedShortcut),
     });
   }
   let cleanup = attachKeyDownListener((e) => {
@@ -271,6 +276,9 @@ export function attachKeyEventListeners() {
     }
     for (const x of shortcutInfo) {
       if (isShortcutPressed(e, x.parsedShortcut, _isMacOs)) {
+        if (x.hasNoModifiers && isInput(e)) {
+          continue;
+        }
         if (x.shouldPreventDefault) {
           e.preventDefault();
         }
