@@ -24,6 +24,20 @@
     "presetType": "BASE",
     "config": {}
   },
+  "74de30af-accf-44db-9b6b-da4260f0bd60": {
+    "id": "74de30af-accf-44db-9b6b-da4260f0bd60",
+    "type": "COLOR_PICKER",
+    "name": "",
+    "presetType": "BASE",
+    "config": {}
+  },
+  "5b7755f7-8628-4b32-92e4-89eab596e4a3": {
+    "id": "5b7755f7-8628-4b32-92e4-89eab596e4a3",
+    "type": "DROPDOWN",
+    "name": "",
+    "presetType": "BASE",
+    "config": {}
+  },
   "0191cde4-3d98-4ba0-972a-fead19b8ac73": {
     "id": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
     "type": "SECTION",

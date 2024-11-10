@@ -18,6 +18,8 @@ export const uiTypesToPretty = Object.freeze(
       [C.TEXT]: "Text",
       [C.SLIDER]: "Slider",
       [C.SWITCH]: "Switch",
+      [C.COLOR_PICKER]: "Color Picker",
+      [C.DROPDOWN]: "Dropdown",
       [C.SECTION]: "Object",
       [C.LIST_ROOT]: "List of Objects",
       [C.DICT_ROOT]: "Dict of Objects",

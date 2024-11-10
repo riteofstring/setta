@@ -135,36 +135,51 @@ export function useSectionMinMaxDims(sectionId) {
   return { minHeight, maxHeight, minWidth, maxWidth, sizeMode };
 }
 
-export function useOverflow(sectionId) {
-  const ref = useRef();
-  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
-  const [didUpdate, setDidUpdate] = useState(false);
-  const [overflow, setOverflow] = useState(false);
+export function useIsScrollable() {
+  const [isScrollable, setIsScrollable] = useState(false);
+  const elementRef = useRef(null);
 
-  // Add overflow whenever resizing.
-  // Add the end of resizing, compare scrollHeight to clientHeight and remove overflow if scrollHeight <= clientHeight
   useEffect(() => {
-    if (resizeEvent === "start") {
-      setOverflow(true);
-    } else if (resizeEvent === "end" && ref.current) {
-      setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
-    }
-  }, [resizeEvent]);
+    if (!elementRef.current) return;
 
-  // If params update (didUpdate goes from false->true), overflow may be needed. So set overflow to true
-  // Then set didUpdate to false.
-  // Then detect didUpdate going from true->false and check if overflow is actually needed
-  // TODO: find better way to do this?
-  useEffect(() => {
-    if (didUpdate) {
-      setOverflow(true);
-      setDidUpdate(false);
-    } else if (ref.current) {
-      setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
+    function checkScrollable() {
+      if (elementRef.current) {
+        setIsScrollable(
+          elementRef.current.scrollHeight > elementRef.current.clientHeight,
+        );
+      }
     }
-  }, [didUpdate]);
 
-  return { overflow, ref, setDidUpdate };
+    // Set up ResizeObserver to monitor size changes
+    const resizeObserver = new ResizeObserver(() => {
+      checkScrollable();
+    });
+
+    // Set up MutationObserver to monitor content changes
+    const mutationObserver = new MutationObserver(() => {
+      checkScrollable();
+    });
+
+    // Start observing
+    resizeObserver.observe(elementRef.current);
+    mutationObserver.observe(elementRef.current, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+    });
+
+    // Initial check
+    checkScrollable();
+
+    // Cleanup
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, []);
+
+  return { ref: elementRef, isScrollable };
 }
 
 export async function setSectionToHaveAspectRatioAndMinSize(

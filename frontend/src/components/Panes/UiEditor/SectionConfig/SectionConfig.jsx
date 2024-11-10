@@ -31,7 +31,7 @@ function SectionConfigCore({ sectionId }) {
       {/* <SectionConfigTypeSelection sectionId={sectionId} /> */}
 
       <p
-        className="mt-4 text-xs font-semibold uppercase text-setta-400"
+        className="text-sm text-setta-400"
         {...getFloatingBoxHandlers(
           "Choose which arguments appear in your selected card.",
         )}

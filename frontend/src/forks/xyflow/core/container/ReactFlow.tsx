@@ -1,4 +1,7 @@
+import Background from "forks/xyflow/background/Background";
 import { type CSSProperties } from "react";
+import { useSettings } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
 import ViewportWrapper from "./Viewport";
@@ -11,7 +14,10 @@ const wrapperStyle: CSSProperties = {
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
-const ReactFlow = ({ children }) => {
+const ReactFlow = () => {
+  const [snapToGrid] = localStorageFns.snapToGrid.hook();
+  const showGridLines = useSettings((x) => !!x.showGridLines);
+
   return (
     <div
       style={wrapperStyle}
@@ -23,7 +29,7 @@ const ReactFlow = ({ children }) => {
           <NodeRenderer />
         </ViewportWrapper>
       </FlowRenderer>
-      {children}
+      {snapToGrid && showGridLines && <Background />}
     </div>
   );
 };

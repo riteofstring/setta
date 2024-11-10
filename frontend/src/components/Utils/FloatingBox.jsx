@@ -3,6 +3,7 @@ import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { useSettings } from "state/definitions";
+import { shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
 
 export const useFloatingBox = create((set) => ({
@@ -56,7 +57,7 @@ export const FloatingBox = () => {
     box.style.transform = `translate(${x}px, ${y}px)`;
   }, [isEnabled, position]);
 
-  if (!isEnabled || !content || !mouseMoved) return null;
+  if (!isEnabled || !(content || title) || !mouseMoved) return null;
 
   return (
     <div
@@ -74,7 +75,7 @@ export const FloatingBox = () => {
       <article className="flex-1 overflow-y-auto break-words text-sm text-setta-700 dark:text-setta-300">
         {content}
       </article>
-      <Footer isFrozen={isFrozen} />
+      {!!content && <Footer isFrozen={isFrozen} />}
     </div>
   );
 };
@@ -85,11 +86,14 @@ function Footer({ isFrozen }) {
     freezeTooltipShortcut,
     frozenTooltipToSectionShortcut,
   } = useSettings((x) =>
-    _.pick(x, [
-      "tooltipToSectionShortcut",
-      "freezeTooltipShortcut",
-      "frozenTooltipToSectionShortcut",
-    ]),
+    _.mapValues(
+      _.pick(x, [
+        "tooltipToSectionShortcut",
+        "freezeTooltipShortcut",
+        "frozenTooltipToSectionShortcut",
+      ]),
+      shortcutPrettified,
+    ),
   );
   const className =
     "mt-4 border-t border-solid border-setta-100 pt-1 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-600";
@@ -119,7 +123,7 @@ function Footer({ isFrozen }) {
 
 export function getFloatingBoxHandlers(content, title) {
   function onMouseOver() {
-    if (content && !useFloatingBox.getState().isFrozen) {
+    if ((content || title) && !useFloatingBox.getState().isFrozen) {
       useFloatingBox.setState({ content, title });
     }
   }

@@ -4,13 +4,18 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
+import { useIsScrollable } from "state/hooks/sectionSizes";
 
 function _InfoArea({ sectionId }) {
   //TODO change this variable name
   const showYaml = useGetSectionInfo(sectionId, "showYaml");
+  const { ref, isScrollable } = useIsScrollable();
 
   return !showYaml ? (
-    <div className="section-main nodrag nowheel [&_.prose]flex-1 mb-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0">
+    <div
+      ref={ref}
+      className={`section-main nodrag ${isScrollable ? "nowheel" : ""} [&_.prose]flex-1 mb-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`}
+    >
       <Markdown sectionId={sectionId} />
     </div>
   ) : (

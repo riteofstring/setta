@@ -6,12 +6,7 @@ import {
   useSectionInfos,
 } from "state/definitions";
 
-export function ParamNameInput({
-  sectionId,
-  paramInfoId,
-  onBlur,
-  setDidUpdate,
-}) {
+export function ParamNameInput({ sectionId, paramInfoId, onBlur }) {
   const configLanguage = useSectionInfos((x) => x.x[sectionId].configLanguage);
   const value = useCodeInfo((x) => x.x[paramInfoId].name);
   const hasChildren = useCodeInfo((x) => x.x[paramInfoId].children.length > 0);
@@ -19,7 +14,6 @@ export function ParamNameInput({
 
   function onChange(v) {
     setLiveValue(v);
-    setDidUpdate(true);
   }
 
   useEffect(() => {
@@ -50,7 +44,7 @@ export function ParamNameInput({
         isDisabled={isDisabled}
       />
       <span
-        className={`${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} border-box self-end border-b border-setta-100 peer-focus-within/nameinput:border-blue-400 dark:border-setta-800`}
+        className={`${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} border-box self-end border-b border-setta-200/50 peer-focus-within/nameinput:border-blue-400 dark:border-setta-600/30`}
       />
     </>
   );

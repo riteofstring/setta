@@ -1,4 +1,4 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
 import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
@@ -359,7 +359,11 @@ export function DrawOnImage({ sectionId }) {
   return (
     <>
       <div className="section-search section-w-full z-10  flex flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
-        <ColorPicker sectionId={sectionId} color={color} setColor={setColor} />
+        <DrawAreaColorPicker
+          sectionId={sectionId}
+          color={color}
+          setColor={setColor}
+        />
         <div className="flex self-stretch">
           <button
             className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${!isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
@@ -473,67 +477,18 @@ export function DrawOnImage({ sectionId }) {
   );
 }
 
-function ColorPicker({ sectionId, color, setColor }) {
+function DrawAreaColorPicker({ sectionId, color, setColor }) {
   const colorChoices = useSectionInfos(
     (x) => x.x[sectionId].canvasSettings?.colorChoices,
     _.isEqual,
   );
 
-  return colorChoices?.length > 0 ? (
-    <ColorPickerFromColorChoices
-      color={color}
-      setColor={setColor}
-      colorChoices={colorChoices}
-    />
-  ) : (
-    <input
-      id="colorPicker"
-      type="color"
-      value={color}
-      onChange={(e) => setColor(e.target.value)}
-      className="min-h-4 min-w-4 cursor-pointer"
-    />
-  );
-}
-
-function ColorPickerFromColorChoices({ color, setColor, colorChoices }) {
-  let selectedItem = colorChoices.find((c) => c.color === color);
-  if (!selectedItem) {
-    selectedItem = colorChoices[0];
-  }
-
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger className="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 py-1 dark:bg-setta-850 dark:hover:bg-setta-900">
-        <div className="flex items-center text-setta-500 dark:text-setta-400">
-          <div
-            className="mr-2 h-4 w-4 rounded-full"
-            style={{ backgroundColor: selectedItem.color }}
-          />
-          <p className="max-w-24 truncate text-xs font-black">
-            {selectedItem.description}
-          </p>
-          <i className="gg-chevron-down -mr-1 self-end" />
-        </div>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content className="flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800">
-        {colorChoices.map((item, index) => (
-          <DropdownMenu.Item
-            key={index}
-            className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700"
-            onSelect={() => setColor(item.color)}
-          >
-            <div
-              className="mr-2 h-4 w-4 rounded-full"
-              style={{ backgroundColor: item.color }}
-            />
-            <p className="max-w-48 truncate text-xs text-setta-500 dark:text-setta-300">
-              {item.description}
-            </p>
-          </DropdownMenu.Item>
-        ))}
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
+    <ColorPickerInput
+      colorChoices={colorChoices}
+      value={color}
+      onChange={setColor}
+    />
   );
 }
 
@@ -606,7 +561,7 @@ function BrushSettings({
       </p>
       <div className="flex gap-1">
         <button
-          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"}  p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50  focus-visible:ring-1 dark:hover:bg-setta-900/50`}
           onClick={() => setBrushShape("round")}
         >
           <i className="gg-shape-circle" />

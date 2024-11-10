@@ -70,6 +70,7 @@ function HomePageSearch() {
 function Search({ placeholder, value, onChange, ...props }) {
   return (
     <StandardSearch
+      id="HeaderProjectSearch"
       outerClasses="self-center w-[clamp(10rem,_30vw,_15rem)]  ml-4"
       inputStyles="flex-grow outline-0 cursor-auto overflow-hidden bg-setta-100 dark:bg-setta-900 hover:bg-white  hover:ring-setta-200 dark:hover:ring-setta-600 focus:bg-white rounded-full text-xs text-setta-900 dark:text-setta-200 ring-2 ring-transparent focus-visible:ring-blue-300 pl-7 py-1 placeholder-setta-300 dark:placeholder-setta-700"
       leftElementStyles="pl-1"

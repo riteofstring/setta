@@ -20,7 +20,6 @@ function _ParamContainer({
   sectionId,
   paramInfoId,
   requiredParamIdsToPaths,
-  setDidUpdate,
   ancestorIsSelected,
   children,
 }) {
@@ -87,7 +86,6 @@ function _ParamContainer({
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           maybeErrorMessage={maybeErrorMessage}
-          setDidUpdate={setDidUpdate}
         />
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
@@ -107,7 +105,6 @@ function _ParamContainer({
           sectionId={sectionId}
           paramIds={paramChildren}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
-          setDidUpdate={setDidUpdate}
           ancestorIsSelected={ancestorIsSelected || paramIsSelected}
         />
       </div>

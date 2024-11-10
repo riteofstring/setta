@@ -8,7 +8,6 @@ import {
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { isMacOs } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import {
   activateParamSelect,
@@ -16,6 +15,7 @@ import {
 } from "state/actions/paramSelect";
 import { useSettings } from "state/definitions";
 import { tabFromDocumentBody } from "utils/tabbingLogic";
+import { isMacOs } from "utils/utils";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
 import { formatCode, updateInteractiveCode } from "./interactive";
@@ -23,11 +23,11 @@ import { unselectAllParams } from "./kwargs/kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { groupSections } from "./sections/groupSections";
-import { focusOnArgsFilter } from "./sections/sectionParamFilter";
+import { focusOnSearch } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
 
 let keysPressed = new Set();
-let aJustModShortcutWasPressed = false;
+let aModShortcutWasPressed = false;
 
 function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {
   attachTo.addEventListener(eventName, action);
@@ -182,7 +182,7 @@ export function attachKeyEventListeners() {
     [settings.saveShortcut, saveProject],
     [settings.loadShortcut, openLoadModal],
     [settings.saveAsShortcut, openSaveAsModal],
-    [settings.focusOnArgsFilterShortcut, focusOnArgsFilter],
+    [settings.searchShortcut, focusOnSearch],
     [settings.resetZoomShortcut, resetZoom],
     [settings.copyShortcut, copy],
     [settings.pasteShortcut, paste],
@@ -240,11 +240,10 @@ export function attachKeyEventListeners() {
       keyDownAction,
       keyUpAction,
       allowRepeat,
-      isJustMod: getIsJustMod(parsedShortcut),
     });
   }
   let cleanup = attachKeyDownListener((e) => {
-    aJustModShortcutWasPressed = false;
+    aModShortcutWasPressed = false;
     if (!modifierKeyCodes.has(e.code)) {
       keysPressed.add(e.code);
     }
@@ -258,8 +257,8 @@ export function attachKeyEventListeners() {
         }
         x.keyDownAction(e);
         x.wasPressed = true;
-        if (x.isJustMod) {
-          aJustModShortcutWasPressed = true;
+        if (x.parsedShortcut.mod) {
+          aModShortcutWasPressed = true;
         }
       } else if (x.wasPressed) {
         x.keyUpAction?.(e);
@@ -311,20 +310,20 @@ export function variableClick(e) {
 // If the user doesn't move the mouse, then they'll probably press a key, in which case
 // the keyup action will be called in the keydown listener (since wasPressed is true).
 function specialModTabCase(shortcutInfo) {
-  const justModShortcuts = shortcutInfo.filter((x) => x.isJustMod);
-  if (justModShortcuts.length > 0) {
+  const modShortcuts = shortcutInfo.filter((x) => x.parsedShortcut.mod);
+  if (modShortcuts.length > 0) {
     const cleanup = attachEventListenerAndReturnCleanup(
       window,
       "mousemove",
       (e) => {
-        if (aJustModShortcutWasPressed && !e.metaKey) {
-          justModShortcuts.forEach((x) => {
+        if (aModShortcutWasPressed && !e.metaKey) {
+          modShortcuts.forEach((x) => {
             if (x.wasPressed) {
               x.keyUpAction?.(e);
               x.wasPressed = false;
             }
           });
-          aJustModShortcutWasPressed = false;
+          aModShortcutWasPressed = false;
         }
       },
     );
