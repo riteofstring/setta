@@ -22,7 +22,6 @@ class TaskRunner:
         self.thread_executor = ThreadPoolExecutor(max_workers=2)
         self.process_executor = ProcessPoolExecutor(max_workers=2)
         self.tasks_dict = {}
-        self.loop = asyncio.get_event_loop()
 
     async def cancel_existing(self, id):
         if id in self.tasks_dict:
@@ -45,7 +44,7 @@ class TaskRunner:
         
         # For async functions, always run in main event loop
         if inspect.iscoroutinefunction(fn):
-            task = self.loop.create_task(fn(*fn_args))
+            task = asyncio.get_running_loop().create_task(fn(*fn_args))
             self.tasks_dict[id] = task
             try:
                 result = await task
@@ -66,7 +65,7 @@ class TaskRunner:
             else:
                 raise ValueError(f"Unsupported RunType: {run_as}")
 
-            future = self.loop.run_in_executor(executor, fn, *fn_args)
+            future = asyncio.get_running_loop().run_in_executor(executor, fn, *fn_args)
             self.tasks_dict[id] = future
             try:
                 result = await future

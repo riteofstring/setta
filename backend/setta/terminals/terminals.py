@@ -76,7 +76,6 @@ class TerminalWebsockets:
         self.section_to_socket_ids = defaultdict(set)
         self.sockets = {}
         self.PTY_PIDS = {}
-        self.loop = asyncio.get_event_loop()
 
     def new_terminal(self, projectConfigId, sectionId, isTemporary):
         if sectionId not in self.PTY_PIDS:
@@ -155,7 +154,7 @@ class TerminalWebsockets:
         while True:
             # print("read_from_terminal while loop", flush=True)
             try:
-                output, _, _ = await self.loop.run_in_executor(
+                output, _, _ = await asyncio.get_running_loop().run_in_executor(
                     None,
                     select.select,
                     [pty_process.fd],
