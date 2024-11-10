@@ -258,18 +258,49 @@ def load_json_source(filename):
 
     new_code_infos = {}
     new_variant_values = {}
-    for k, v in jsonSourceData.items():
-        key = json.dumps({"filename": filename, "key": k})
-        key = f"{C.JSON_SOURCE_PREFIX}{key}"
-        new_code_infos[key] = {
-            "id": key,
-            "name": k,
-            "rcType": C.PARAMETER,
-            "children": [],
-        }
-        new_variant_values[key] = {
-            "value": json.dumps(v),
-            "keywordPositions": [],
-        }
+
+    def process_object(obj, current_path=[]):
+        if not isinstance(obj, dict):
+            return
+
+        children_keys = []
+        for k, v in obj.items():
+            path = current_path + [k]
+            key = json.dumps({"filename": filename, "key": path})
+            full_key = f"{C.JSON_SOURCE_PREFIX}{key}"
+            children_keys.append(full_key)
+
+            # Create code info entry
+            new_code_infos[full_key] = {
+                "id": full_key,
+                "name": k,
+                "rcType": C.PARAMETER,
+                "children": [],  # Will be populated with direct children only
+            }
+
+            # Create variant value entry
+            if isinstance(v, dict):
+                # For objects, store empty value and process children
+                new_variant_values[full_key] = {
+                    "value": None,
+                    "keywordPositions": [],
+                }
+                # Recursively process nested object
+                process_object(v, path)
+            else:
+                # For non-objects, store the value directly
+                new_variant_values[full_key] = {
+                    "value": json.dumps(v),
+                    "keywordPositions": [],
+                }
+
+        # If this is a nested object, add children to parent's children list
+        if current_path:  # If we're not at root level
+            parent_path = json.dumps({"filename": filename, "key": current_path})
+            parent_key = f"{C.JSON_SOURCE_PREFIX}{parent_path}"
+            new_code_infos[parent_key]["children"] = children_keys
+
+    # Start processing from root level
+    process_object(jsonSourceData, [])
 
     return new_code_infos, new_variant_values
