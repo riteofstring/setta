@@ -1,8 +1,8 @@
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import C from "constants/constants.json";
 import React from "react";
 import { useGetSectionType } from "state/hooks/uiTypes";
 import { DrawAreaSettings } from "./DrawAreaSettings";
+import { InfoAreaSettings } from "./InfoAreaSettings";
 import { InputAreaSettings } from "./InputAreaSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 
@@ -30,14 +30,14 @@ function SectionConfigCore({ sectionId }) {
 
       {/* <SectionConfigTypeSelection sectionId={sectionId} /> */}
 
-      <p
+      {/* <p
         className="text-sm text-setta-400"
         {...getFloatingBoxHandlers(
           "Choose which arguments appear in your selected card.",
         )}
       >
         Contents
-      </p>
+      </p> */}
       <SpecializedConfiguration sectionId={sectionId} />
     </div>
   );
@@ -54,5 +54,7 @@ function SpecializedConfiguration({ sectionId }) {
     return <DrawAreaSettings sectionId={sectionId} />;
   } else if (sectionType === C.SECTION || sectionType === C.GLOBAL_VARIABLES) {
     return <InputAreaSettings sectionId={sectionId} />;
+  } else if (sectionType === C.INFO) {
+    return <InfoAreaSettings sectionId={sectionId} />;
   }
 }

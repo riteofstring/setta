@@ -22,13 +22,13 @@ function _InfoArea({ sectionId }) {
 
 function _Markdown({ sectionId }) {
   const markdownSource = useSectionInfos((x) => x.x[sectionId].description);
+  const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
   const { ref, isScrollable } = useIsScrollable();
 
-  return (
-    <div
-      ref={ref}
-      className={`section-main nodrag ${isScrollable ? "nowheel" : ""} [&_.prose]flex-1 mb-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`}
-    >
+  const wrapperClassName = `section-main nodrag ${isScrollable ? "nowheel" : ""} [&_.prose]flex-1 mb-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
+
+  return renderMarkdown ? (
+    <div ref={ref} className={wrapperClassName}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
@@ -37,6 +37,10 @@ function _Markdown({ sectionId }) {
         {markdownSource}
       </ReactMarkdown>
     </div>
+  ) : (
+    <pre ref={ref} className={wrapperClassName}>
+      {markdownSource}
+    </pre>
   );
 }
 

@@ -13,7 +13,7 @@ export function SwitchInput({
   twRootClasses,
   twThumbClasses,
 }) {
-  const valueBool = value === "true";
+  const valueBool = typeof value === "string" ? value === "true" : value;
 
   return (
     <div className={outerDivClassName}>
