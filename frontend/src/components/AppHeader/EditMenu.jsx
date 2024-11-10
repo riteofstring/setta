@@ -50,7 +50,7 @@ function Items() {
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
       <MenuItem
-        onClick={dbRequestTypeCheck}
+        onClick={() => dbRequestTypeCheck(true)}
         shortcut={shortcuts.typeCheckShortcut}
       >
         Type Check
