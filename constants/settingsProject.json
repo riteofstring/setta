@@ -31,11 +31,7 @@
       "name": "Grid Pattern Choices",
       "presetType": "USER",
       "config": {
-        "choices": [
-          { "id": "\"Dots\"", "name": "\"Dots\"" },
-          { "id": "\"Lines\"", "name": "\"Lines\"" },
-          { "id": "\"Cross\"", "name": "\"Cross\"" }
-        ]
+        "choices": ["Dots", "Lines", "Cross"]
       }
     }
   },
