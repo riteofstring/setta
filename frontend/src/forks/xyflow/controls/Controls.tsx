@@ -57,7 +57,7 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   const [snapToGrid] = localStorageFns.snapToGrid.hook();
   const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
   const [showMinimap] = localStorageFns.showMinimap.hook();
-  const styleForActive = "!bg-blue-500 dark:!bg-blue-700";
+  const styleForActive = "!bg-blue-500 dark:!bg-blue-700 !text-white";
 
   useEffect(() => {
     setIsVisible(true);
@@ -91,16 +91,18 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   //   onInteractiveChange?.(!isInteractive);
   // };
 
+  // bg-setta-50 hover:bg-setta-200 dark:border-setta-800 dark:bg-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:[&_svg]:fill-setta-300
+
   return (
     <Panel
-      className="react-flow__controls transition-transform [&>button]:bg-setta-50 dark:[&>button]:border-setta-800 dark:[&>button]:bg-setta-700 dark:[&>button]:text-setta-300 dark:[&_svg]:fill-setta-300"
+      className="react-flow__controls overflow-hidden rounded-md border border-solid border-setta-800/10 shadow-lg transition-transform dark:border-setta-300/30"
       position={position}
       style={{ transform: `translateX(${overviewWidth}px)` }}
       data-testid="rf__controls"
     >
       <ControlButton
         onClick={onZoomInHandler}
-        className="react-flow__controls-zoomin"
+        className="react-flow__controls-zoomin bg-setta-50 hover:bg-setta-200 dark:border-setta-800 dark:bg-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:[&_svg]:fill-setta-300"
         title="zoom in"
         aria-label="zoom in"
         disabled={maxZoomReached}
@@ -109,7 +111,7 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
       </ControlButton>
       <ControlButton
         onClick={onZoomOutHandler}
-        className="react-flow__controls-zoomout"
+        className="react-flow__controls-zoomout bg-setta-50 hover:bg-setta-200 dark:border-setta-800 dark:bg-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:[&_svg]:fill-setta-300"
         title="zoom out"
         aria-label="zoom out"
         disabled={minZoomReached}
@@ -117,7 +119,7 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
         <MinusIcon />
       </ControlButton>
       <ControlButton
-        className={`react-flow__controls-fitview ${fitViewOnInit ? styleForActive : ""}`}
+        className={`react-flow__controls-fitview hover:bg-setta-200 dark:border-setta-800  dark:text-setta-300 dark:hover:bg-setta-800 dark:[&_svg]:fill-setta-300 ${fitViewOnInit ? styleForActive : "bg-setta-50 dark:bg-setta-700"}`}
         onClick={onFitViewHandler}
         title="fit view"
         aria-label="fit view"
@@ -139,16 +141,19 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
       </ControlButton> */}
       <ControlButton
         onClick={toggleSnapToGrid}
-        className={snapToGrid ? styleForActive : ""}
+        className={`hover:bg-setta-200 dark:border-setta-800  dark:text-setta-300 dark:hover:bg-setta-800 dark:[&_svg]:fill-setta-300 ${snapToGrid ? styleForActive : "bg-setta-50 dark:bg-setta-700"}`}
       >
         <TbGrid4X4 />
       </ControlButton>
-      <ControlButton onClick={resetZoom}>
+      <ControlButton
+        className="react-flow__controls-button dark: bg-setta-50  hover:bg-setta-200 dark:border-setta-800 dark:bg-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+        onClick={resetZoom}
+      >
         <TbZoomReset />
       </ControlButton>
       <ControlButton
         onClick={toggleMiniMap}
-        className={showMinimap ? styleForActive : ""}
+        className={`hover:bg-setta-200 dark:border-setta-800  dark:text-setta-300 dark:hover:bg-setta-800 dark:[&_svg]:fill-setta-300 ${showMinimap ? styleForActive : "bg-setta-50 dark:bg-setta-700"}`}
       >
         <IoMapOutline />
       </ControlButton>
