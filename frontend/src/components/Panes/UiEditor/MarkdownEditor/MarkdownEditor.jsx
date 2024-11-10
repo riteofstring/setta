@@ -61,6 +61,7 @@ const _MarkdownEditorCore = React.forwardRef(
       sectionId,
       language: renderMarkdown ? "markdown" : null,
       tabToAutocomplete: true,
+      escapeToBlur: true,
       indentWithTab: true,
     });
 

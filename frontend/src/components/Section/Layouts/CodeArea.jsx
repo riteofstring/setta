@@ -104,6 +104,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     completionsFn,
     keywordStylizer,
     onModEnterDoNothing: true,
+    escapeToBlur: true,
     tabToAutocomplete: true,
     indentWithTab: true,
   });

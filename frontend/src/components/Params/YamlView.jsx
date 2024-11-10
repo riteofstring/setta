@@ -9,6 +9,7 @@ export function YamlView({ sectionId, yamlValue, setYamlValue }) {
     sectionId,
     language: "yaml",
     indentWithTab: true,
+    escapeToBlur: true,
   });
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });

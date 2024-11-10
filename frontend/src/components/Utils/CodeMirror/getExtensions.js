@@ -21,6 +21,7 @@ export function getExtensions({
   singleLine,
   tabToAutocomplete,
   indentWithTab,
+  escapeToBlur,
   onEnter,
   onTab,
   onEscape,
@@ -78,18 +79,24 @@ export function getExtensions({
     );
   }
 
-  if (onEscape) {
-    extensions.push(
-      Prec.highest(
-        keymap.of([
-          {
-            key: "Escape",
-            run: onEscape,
+  extensions.push(
+    Prec.highest(
+      keymap.of([
+        {
+          key: "Escape",
+          run: (view) => {
+            const expectingCompletions = completionStatus(view.state);
+            if (escapeToBlur && !expectingCompletions) {
+              view.contentDOM.blur();
+            }
+            if (onEscape) {
+              onEscape(expectingCompletions);
+            }
           },
-        ]),
-      ),
-    );
-  }
+        },
+      ]),
+    ),
+  );
 
   if (tabToAutocomplete || indentWithTab) {
     extensions.push(
@@ -98,13 +105,13 @@ export function getExtensions({
           key: "Tab",
           preventDefault: false, // we want to control when preventDefault (and therefore also stopPropagation) is called
           stopPropagation: true,
-          run: (e) => {
+          run: (view) => {
             let completionResult = false;
-            if (tabToAutocomplete && completionStatus(e.state)) {
+            if (tabToAutocomplete && completionStatus(view.state)) {
               // trigger preventDefault & stopPropagation based on completion
-              completionResult = acceptCompletion(e);
+              completionResult = acceptCompletion(view);
             } else if (indentWithTab) {
-              indentMore(e);
+              indentMore(view);
             }
             if (onTab) {
               onTab(completionResult);

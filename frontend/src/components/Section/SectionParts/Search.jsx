@@ -136,9 +136,10 @@ function SectionSearchCore({
   const [localKeywordPositions, setLocalKeywordPositions] =
     useState(keywordPositions);
 
-  function onEscape(view) {
-    view.contentDOM.blur();
-    setValue(codeInfoName);
+  function onEscape(expectingCompletions) {
+    if (!expectingCompletions) {
+      setValue(codeInfoName);
+    }
   }
 
   function onTab(completionResult) {
