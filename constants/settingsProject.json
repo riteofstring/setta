@@ -24,7 +24,17 @@
       "keywordPositions": []
     }
   },
-  "uiTypes": {},
+  "uiTypes": {
+    "90f2233a-2864-498f-a4df-4c027fa0c4a4": {
+      "id": "90f2233a-2864-498f-a4df-4c027fa0c4a4",
+      "type": "DROPDOWN",
+      "name": "Grid Pattern Choices",
+      "presetType": "USER",
+      "config": {
+        "choices": ["\"Dots\"", "\"Lines\"", "\"Cross\""]
+      }
+    }
+  },
   "uiTypeCols": {
     "04f95495-52ba-4277-a79e-228bb1c6a5bc": {
       "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"gridColor\"}": {
@@ -33,6 +43,10 @@
       },
       "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"gridColorDarkMode\"}": {
         "uiTypeId": "74de30af-accf-44db-9b6b-da4260f0bd60",
+        "nonPresetUITypeIds": []
+      },
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"gridPattern\"}": {
+        "uiTypeId": "90f2233a-2864-498f-a4df-4c027fa0c4a4",
         "nonPresetUITypeIds": []
       }
     }

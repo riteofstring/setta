@@ -123,20 +123,33 @@ export const getViewportForBounds = (
   minZoom: number,
   maxZoom: number,
   padding = 0.1,
+  keepCurrZoomIfPossible = false,
 ): Viewport => {
   const xZoom = width / (bounds.width * (1 + padding));
   const yZoom = height / (bounds.height * (1 + padding));
-  const zoom = Math.min(xZoom, yZoom);
-  const clampedZoom = clamp(zoom, minZoom, maxZoom);
+  const unclampedZoom = Math.min(xZoom, yZoom);
+  const clampedZoom = clamp(unclampedZoom, minZoom, maxZoom);
   const boundsCenterX = bounds.x + bounds.width / 2;
   const boundsCenterY = bounds.y + bounds.height / 2;
+
+  let zoom = clampedZoom;
+  if (keepCurrZoomIfPossible) {
+    const currZoom = useReactFlow.getState().transform[2];
+    // if we have to zoom out to view the whole bounds
+    // or if we have to zoom in to reach a "reasonable" zoom level
+    zoom =
+      unclampedZoom < currZoom || clampedZoom > currZoom
+        ? clampedZoom
+        : currZoom;
+  }
+
   const x =
     width / 2 -
-    boundsCenterX * clampedZoom +
+    boundsCenterX * zoom +
     localStorageFns.overviewTrueWidth.state()[0];
-  const y = height / 2 - boundsCenterY * clampedZoom;
+  const y = height / 2 - boundsCenterY * zoom;
 
-  return { x, y, zoom: clampedZoom };
+  return { x, y, zoom };
 };
 
 export const getD3Transition = (
