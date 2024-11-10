@@ -2,8 +2,6 @@ import json
 import platform
 import uuid
 
-from setta.utils.utils import recursive_dict_merge
-
 from .server import LanguageServerInteractor
 
 
@@ -81,15 +79,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_didChangeConfiguration(self):
-        hardcoded_settings = {
-            "basedpyright": {"analysis": {"include": [".setta_code"]}}
-        }
-        settings = recursive_dict_merge(hardcoded_settings, self.settings)
-
-        await self.send_request(
-            "workspace/didChangeConfiguration",
-            params={"settings": settings},
-        )
+        await self.send_request("workspace/didChangeConfiguration", params={})
 
     async def send_document_update(self, code_id, code, codeJson):
         uri = self.get_virtual_uri(code_id)
