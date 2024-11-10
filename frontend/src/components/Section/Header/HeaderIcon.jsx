@@ -89,7 +89,7 @@ export function HeaderIcon({
       }
     default:
       return (
-        <i className="gg-menu group/card-section:hover:bg text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+        <i className="gg-menu group/card-section:hover:bg !scale-110 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
   }
 }
