@@ -56,7 +56,7 @@ function _Container({
         {...commonProps}
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
         onClick={getOnSectionClick({ sectionId, isActiveSection })}
-        onKeyDownCapture={(e) =>
+        onKeyDown={(e) =>
           sectionContainerCoreOnKeyDown(e, refForPosition, sectionId)
         }
         tabIndex="-1" // needed so that onKeyDown works
@@ -88,7 +88,7 @@ function _Container({
       className={`${className} focus-visible:outline-none`}
       style={style}
       {...commonProps}
-      onKeyDownCapture={(e) =>
+      onKeyDown={(e) =>
         sectionContainerCoreOnKeyDown(e, refForPosition, sectionId)
       }
       tabIndex="-1" // needed so that onKeyDown works

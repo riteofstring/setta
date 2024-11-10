@@ -1,5 +1,5 @@
-import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
 import { ParamSweepUI } from "components/Params/ParamUIs/ParamUI";
+import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
@@ -260,6 +260,8 @@ function ParamCombobox({
   forSectionId,
   showParamSweepSectionSearch,
 }) {
+  const initialSelection = paramInfoId;
+
   const objParams = useChildlessObjParams({
     objInfoId,
     paramInfoId,
@@ -268,10 +270,9 @@ function ParamCombobox({
   });
 
   return (
-    <DropdownInput
-      choices={objParams}
-      value={paramInfoId}
-      onChange={onSelectedItemChange}
+    <IdNameCombobox
+      allItems={[{ group: "Args", items: objParams }]}
+      initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
       placeholder="Filter & Add Sweep"
       outerDivClasses={`section-w-full justify-center not:last-child:mt-3 ${showParamSweepSectionSearch ? "ml-3" : ""} `}

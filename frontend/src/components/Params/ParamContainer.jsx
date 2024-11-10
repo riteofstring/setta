@@ -24,7 +24,9 @@ function _ParamContainer({
   children,
 }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
-  const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfoId]);
+  const maybeErrorMessage = useTypeErrors(
+    (x) => x.errors[sectionId]?.[paramInfoId],
+  );
   const isFocusedSearchResult = useProjectSearch((x) =>
     _.isEqual(x.focused, { sectionId, paramInfoId }),
   );
