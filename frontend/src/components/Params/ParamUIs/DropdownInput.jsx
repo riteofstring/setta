@@ -81,6 +81,7 @@ export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
       onSelectionChange={onSelectionChange}
       aria-label="DropdownInput"
       menuTrigger="focus"
+      shouldFocusWrap={true}
     >
       <Input />
       <Button>▼</Button>
