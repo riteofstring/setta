@@ -13,7 +13,7 @@ import { useEffect, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { useMisc, useSettings } from "state/definitions";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import { clamp, isMacOs } from "utils/utils";
+import { clamp } from "utils/utils";
 import { shallow } from "zustand/shallow";
 import useResizeHandler from "../hooks/useResizeHandler";
 import { getViewport } from "../hooks/useViewportHelper";
@@ -25,6 +25,7 @@ import {
   type ReactFlowState,
   type Viewport,
 } from "../types";
+import { isMacOs } from "../utils";
 
 const eventToFlowTransform = (eventTransform: ZoomTransform): Viewport => ({
   x: eventTransform.x,

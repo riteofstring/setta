@@ -4,7 +4,6 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import C from "constants/constants.json";
-import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { setShownRunGroup } from "state/actions/project/projectConfig";
@@ -16,27 +15,17 @@ import {
   toggleRunGroupSectionVersion,
 } from "state/actions/runGroups/runGroups";
 import { setSectionVariantAttr } from "state/actions/sectionVariants";
-import {
-  useProjectConfig,
-  useRunGroups,
-  useSectionInfos,
-} from "state/definitions";
+import { useProjectConfig, useRunGroups } from "state/definitions";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 
 export function GlobalParamSweepArea({ sectionId }) {
   const showYaml = useGetSectionInfo(sectionId, "showYaml");
-  const width = useSectionInfos((x) => {
-    const w = x.x[sectionId].size.width;
-    return w === "auto" ? getSectionRect(sectionId).width : w;
-  });
-
   return !showYaml ? (
-    <GlobalParamSweepGUI width={width} />
+    <GlobalParamSweepGUI />
   ) : (
     <GlobalParamSweepCode sectionId={sectionId} />
   );
@@ -65,14 +54,13 @@ function GlobalParamSweepCode({ sectionId }) {
   );
 }
 
-function GlobalParamSweepGUI({ width }) {
+function GlobalParamSweepGUI() {
   const runGroups = useRunGroups((x) => x.x);
   const shownRunGroup = useProjectConfig((x) => x.shownRunGroup);
   const [previewRunGroup, setPreviewRunGroup] = useState(null);
   const toShow = previewRunGroup ?? shownRunGroup;
   const firstRunGroupId = Object.keys(runGroups)[0];
 
-  const { ref, isScrollable } = useIsScrollable();
   useEffect(() => {
     if (!shownRunGroup && firstRunGroupId) {
       setShownRunGroup(firstRunGroupId);
@@ -81,10 +69,7 @@ function GlobalParamSweepGUI({ width }) {
 
   return (
     <>
-      <section
-        className={`${width < 386 && isScrollable ? "nowheel" : ""} section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll  @sm/multipane:flex-row  @sm/multipane:overflow-visible`}
-        ref={ref}
-      >
+      <section className="section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll @sm/multipane:flex-row  @sm/multipane:overflow-visible">
         <article className="mt-2 flex flex-col gap-2 ">
           <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
             Run Groups
@@ -123,13 +108,9 @@ function RunGroupList({
     (x) => x.runGroupSelection,
     _.isEqual,
   );
-  const { ref, isScrollable } = useIsScrollable();
 
   return (
-    <ul
-      className={`${isScrollable ? "nowheel" : ""} flex flex-grow flex-col overflow-visible @sm/multipane:overflow-y-scroll`}
-      ref={ref}
-    >
+    <ul className="noscroll nowheel flex flex-grow flex-col overflow-visible @sm/multipane:overflow-y-scroll">
       {Object.entries(runGroups).map(([id, x]) => (
         <CheckboxNextToLabel
           key={id}
@@ -161,13 +142,9 @@ function SectionList({ runGroupId, runGroup }) {
   const allSections = useGetOverviewListing((sectionTypeName) =>
     shownSectionTypes.includes(sectionTypeName),
   )[0];
-  const { ref, isScrollable } = useIsScrollable();
 
   return (
-    <ul
-      className={`${isScrollable ? "nowheel" : ""} -mt-2 flex flex-grow flex-col overflow-visible rounded-lg bg-setta-50/40 pl-3 pr-2 pt-2 @sm/multipane:overflow-y-scroll dark:bg-setta-875`}
-      ref={ref}
-    >
+    <ul className="noscroll nowheel -mt-2 flex flex-grow flex-col overflow-visible rounded-lg bg-setta-50/40 pl-3 pr-2 pt-2 @sm/multipane:overflow-y-scroll dark:bg-setta-875">
       {allSections.map((x, idx) => (
         <SectionItem
           key={idx}

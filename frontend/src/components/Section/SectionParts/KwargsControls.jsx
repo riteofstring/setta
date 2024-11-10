@@ -1,4 +1,3 @@
-import _ from "lodash";
 import {
   addKwarg,
   deleteKwarg,
@@ -7,8 +6,7 @@ import {
 } from "state/actions/kwargs/kwargs";
 import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useActiveSection, useCodeInfo, useSettings } from "state/definitions";
-import { shortcutPrettified } from "utils/utils";
+import { useCodeInfo } from "state/definitions";
 import { getAllSelectedParams } from "../../../state/actions/kwargs/utils";
 
 export function KwargsControls({
@@ -16,12 +14,6 @@ export function KwargsControls({
   objInfoId,
   bgColor = "bg-transparent",
 }) {
-  const sectionIsActive = useActiveSection((x) =>
-    _.isEqual(x.ids, [sectionId]),
-  );
-  const searchShortcut = useSettings((x) =>
-    shortcutPrettified(x.searchShortcut),
-  );
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
   function onSearchChange(e) {
@@ -101,14 +93,9 @@ export function KwargsControls({
           <input
             id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
             className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-300 placeholder-setta-600 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300"
-            placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
+            placeholder="Filter"
             tabIndex="0"
             onChange={onSearchChange}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                e.target.blur();
-              }
-            }}
           />
         </search>
       </section>

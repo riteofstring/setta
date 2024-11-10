@@ -14,19 +14,15 @@ import {
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
 import { useSettings } from "state/definitions";
-import { shortcutPrettified } from "utils/utils";
 
 export function FileMenu() {
   const shortcuts = useSettings((x) =>
-    _.mapValues(
-      _.pick(x, [
-        "newProjectConfigShortcut",
-        "saveShortcut",
-        "saveAsShortcut",
-        "loadShortcut",
-      ]),
-      shortcutPrettified,
-    ),
+    _.pick(x, [
+      "newProjectConfigShortcut",
+      "saveShortcut",
+      "saveAsShortcut",
+      "loadShortcut",
+    ]),
   );
 
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();

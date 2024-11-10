@@ -12,7 +12,6 @@ import { autoLayout } from "state/actions/sections/sectionPositions";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";
-import { shortcutPrettified } from "utils/utils";
 
 export function EditMenu() {
   return (
@@ -26,17 +25,14 @@ function Items() {
   const addSection = () => addSectionInEmptySpace({ type: C.SECTION });
   const addGroup = () => addSectionInEmptySpace({ type: C.DECK });
   const shortcuts = useSettings((x) =>
-    _.mapValues(
-      _.pick(x, [
-        "newCardShortcut",
-        "newGroupShortcut",
-        "typeCheckShortcut",
-        "redoShortcut",
-        "undoShortcut",
-        "groupShortcut",
-      ]),
-      shortcutPrettified,
-    ),
+    _.pick(x, [
+      "newCardShortcut",
+      "newGroupShortcut",
+      "typeCheckShortcut",
+      "redoShortcut",
+      "undoShortcut",
+      "groupShortcut",
+    ]),
   );
 
   return (
@@ -48,9 +44,8 @@ function Items() {
         <AiOutlineGroup className="h-4 w-4" />
         Group
       </MenuItem>
-      <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
       <MenuItem
-        onClick={dbRequestTypeCheck}
+        onClick={() => dbRequestTypeCheck(true)}
         shortcut={shortcuts.typeCheckShortcut}
       >
         Type Check
@@ -63,7 +58,6 @@ function Items() {
       <MenuItem onClick={undoProjectState} shortcut={shortcuts.undoShortcut}>
         Undo
       </MenuItem>
-      <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
       <Link to={SETTINGS_ROUTER_PATH}>
         <MenuItem>Settings</MenuItem>
       </Link>

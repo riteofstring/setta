@@ -7,8 +7,6 @@ import {
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamUIType } from "state/hooks/uiTypes";
-import { ColorPickerInput, ColorPickerInputConfig } from "./ColorPickerInput";
-import { DropdownInput, DropdownInputConfig } from "./DropdownInput";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
 import { SwitchInput, SwitchInputConfig } from "./SwitchInput";
 import { TextInputConfig } from "./TextInput";
@@ -21,10 +19,6 @@ export function ParamUIConfig({ name, ...props }) {
       return <SliderInputConfig {...props} />;
     case C.SWITCH:
       return <SwitchInputConfig {...props} />;
-    case C.COLOR_PICKER:
-      return <ColorPickerInputConfig {...props} />;
-    case C.DROPDOWN:
-      return <DropdownInputConfig {...props} />;
   }
 }
 
@@ -71,7 +65,7 @@ export function ParamUI({
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />
+          <span className="section-value grid-row-start-1 border-box self-end border-b border-setta-100 peer-focus-within/textinput:border-blue-400 dark:border-setta-800" />
         </>
       );
     case C.SLIDER: {
@@ -104,26 +98,6 @@ export function ParamUI({
           isDisabled={_isDisabled}
           outerDivClassName="section-value flex justify-self-start self-center"
           twRootClasses="nodrag"
-        />
-      );
-    case C.COLOR_PICKER:
-      const { colorChoices } = uiType.config;
-      return (
-        <ColorPickerInput
-          colorChoices={colorChoices}
-          value={value}
-          onChange={onChange}
-          wrapperClassName="section-value flex justify-self-start self-center"
-        />
-      );
-    case C.DROPDOWN:
-      const { choices } = uiType.config;
-      return (
-        <DropdownInput
-          choices={choices}
-          value={value}
-          onChange={onChange}
-          outerDivClasses="section-value flex justify-self-start self-center"
         />
       );
   }
@@ -169,7 +143,7 @@ export function ParamSweepUI({
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="section-key-value grid-row-start-1 border-box mx-3 self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />
+          <span className="section-key-value grid-row-start-1 border-box mx-3 self-end border-b border-setta-100 peer-focus-within/textinput:border-blue-400 dark:border-setta-800" />
         </>
       );
     case C.SLIDER: {
@@ -202,26 +176,6 @@ export function ParamSweepUI({
           isDisabled={isDisabled}
           outerDivClassName="section-key-value flex justify-self-center self-center"
           twRootClasses="nodrag"
-        />
-      );
-    case C.COLOR_PICKER:
-      const { colorChoices } = uiType.config;
-      return (
-        <ColorPickerInput
-          colorChoices={colorChoices}
-          value={value}
-          onChange={onChange}
-          wrapperClassName="section-value flex justify-self-start self-center"
-        />
-      );
-    case C.DROPDOWN:
-      const { choices } = uiType.config;
-      return (
-        <DropdownInput
-          choices={choices}
-          value={value}
-          onChange={onChange}
-          outerDivClasses="section-value flex justify-self-start self-center"
         />
       );
   }

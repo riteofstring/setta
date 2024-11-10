@@ -40,8 +40,6 @@ export function useOnEnterGoToSearchResult() {
       useProjectSearch.setState({ focused: focusedSearchResult });
       goToSection(focusedSearchResult.sectionId);
       setCurrIdx(newIdx);
-    } else if (e.key === "Escape") {
-      e.target.blur();
     } else {
       useProjectSearch.setState({ focused: {} });
       setCurrIdx(-1);

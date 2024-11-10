@@ -20,11 +20,14 @@ function _ParamContainer({
   sectionId,
   paramInfoId,
   requiredParamIdsToPaths,
+  setDidUpdate,
   ancestorIsSelected,
   children,
 }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
-  const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfoId]);
+  const maybeErrorMessage = useTypeErrors(
+    (x) => x.errors[sectionId]?.[paramInfoId],
+  );
   const isFocusedSearchResult = useProjectSearch((x) =>
     _.isEqual(x.focused, { sectionId, paramInfoId }),
   );
@@ -84,6 +87,7 @@ function _ParamContainer({
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           maybeErrorMessage={maybeErrorMessage}
+          setDidUpdate={setDidUpdate}
         />
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
@@ -103,6 +107,7 @@ function _ParamContainer({
           sectionId={sectionId}
           paramIds={paramChildren}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
+          setDidUpdate={setDidUpdate}
           ancestorIsSelected={ancestorIsSelected || paramIsSelected}
         />
       </div>

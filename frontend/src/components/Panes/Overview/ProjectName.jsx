@@ -1,7 +1,6 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useEditableProjectName } from "state/hooks/project";
-import { CONST_INFO_VIEWS } from "utils/constants";
 
 const editing =
   "flex-1 box-border border-solid border-transparent bg-transparent [border-width:0_0_2px_0] focus:outline-none focus-visible:border-blue-500";
@@ -13,7 +12,9 @@ export function ProjectName() {
   return (
     <header
       className="mb-2 flex w-full flex-col flex-wrap   tracking-tight "
-      {...getFloatingBoxHandlers(CONST_INFO_VIEWS.OVERVIEW_PROJNAME)}
+      {...getFloatingBoxHandlers(
+        "Your Project's Name and Config Name, editable all in one spot!",
+      )}
     >
       <ProjectNameOnly />
     </header>
