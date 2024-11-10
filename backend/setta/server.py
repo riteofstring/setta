@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from setta.database.db_init import maybe_create_tables_and_seed
-from setta.database.db_objs import DBs
+from setta.database.db_objs import DBQueue
 from setta.database.settings_file import SettingsFile
 from setta.lsp.reader import LanguageServerReader
 from setta.lsp.server import LanguageServer
@@ -19,15 +19,15 @@ from setta.routers import (
     artifact_router,
     code_info_router,
     interactive_code_router,
-    misc_router,
     projects_router,
     sections_router,
+    settings_router,
     terminals_router,
     websocket_router,
 )
 from setta.tasks.tasks import Tasks
 from setta.terminals.terminals import TerminalWebsockets
-from setta.utils.constants import C
+from setta.utils.constants import CODE_FOLDER, C
 from setta.utils.utils import get_absolute_path, is_dev_mode
 from setta.utils.websocket_manager import WebsocketManager
 
@@ -35,8 +35,10 @@ from setta.utils.websocket_manager import WebsocketManager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
+    app.state.settings_file = SettingsFile(C.SETTINGS_PATH, C.CREATE_IF_NOT_EXISTS)
     app.state.lsp = LanguageServer(
-        root_path=Path(os.getcwd()) / ".setta_code",
+        workspace_folder=Path(os.getcwd()),
+        code_folder=Path(os.getcwd()) / CODE_FOLDER / "timestamped_folder",
     )
     app.state.lsp_writer = LanguageServerWriter(app.state.lsp)
     app.state.tasks = Tasks(app.state.lsp_writer)
@@ -45,19 +47,18 @@ async def lifespan(app: FastAPI):
     app.state.lsp_reader = LanguageServerReader(
         app.state.lsp, app.state.websocket_manager
     )
-    app.state.dbs = DBs(
-        C.DB_SPECS,
+    app.state.dbq = DBQueue(
+        C.DB_PATH,
         C.CREATE_IF_NOT_EXISTS,
     )
-    app.state.settings_file = SettingsFile(C.SETTINGS_PATH, C.CREATE_IF_NOT_EXISTS)
 
     maybe_create_tables_and_seed(
-        app.state.dbs,
+        app.state.dbq,
         with_examples=C.WITH_EXAMPLES,
         with_base_ui_types=True,
     )
 
-    app.state.dbs.connect()
+    app.state.dbq.connect()
     await app.state.lsp.start_server()
     await app.state.lsp_reader.start_listener()
     await app.state.lsp_writer.send_initialize_request()
@@ -81,12 +82,12 @@ async def lifespan(app: FastAPI):
                 content = f.read()
             return content
 
-    yield
-
-    # shutdown
-    app.state.terminal_websockets.delete_all_terminals()
-    app.state.lsp_reader.stop_event.set()
-    app.state.lsp.kill_server()
+    try:
+        yield
+    finally:
+        app.state.lsp_reader.stop_event.set()
+        app.state.lsp.kill_server()
+        print("******FINISHED CLEANUP*******")
 
 
 app = FastAPI(
@@ -109,7 +110,7 @@ app.include_router(sections_router, **kwargs)
 app.include_router(terminals_router, **kwargs)
 app.include_router(websocket_router, **kwargs)
 app.include_router(code_info_router, **kwargs)
-app.include_router(misc_router, **kwargs)
+app.include_router(settings_router, **kwargs)
 app.include_router(interactive_code_router, **kwargs)
 app.include_router(artifact_router, **kwargs)
 

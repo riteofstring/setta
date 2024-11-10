@@ -11,14 +11,14 @@ import { copySections } from "../copyPaste/copy";
 import { updateKeywordRegex } from "../keywordRegex";
 import {
   getSectionChildren,
-  getSectionVariantIdAndMappedDBSource,
+  getSectionVariantId,
   setSectionVariantChildren,
 } from "../sectionVariants";
 import { updateStateWithSectionCopy } from "./loadSections";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
 
-export function moveSections({
+export async function moveSections({
   sectionIds,
   oldParentIds,
   newParentIds,
@@ -27,7 +27,7 @@ export function moveSections({
   newParentId,
 }) {
   for (const [idx, sectionId] of sectionIds.entries()) {
-    moveSection({
+    await moveSection({
       oldParentId: oldParentIds ? oldParentIds[sectionId] : oldParentId,
       newParentId: newParentIds ? newParentIds[sectionId] : newParentId,
       sectionId,
@@ -115,12 +115,15 @@ function setSectionSize({ newParentId, sectionId }) {
   const s = useSectionInfos.getState();
   const isDeck = getSectionType(newParentId).type === C.DECK;
 
-  // if new parent is a deck and the deck has children
+  // if new parent is a deck and the deck has children and is not horizontal
   if (isDeck) {
-    const deckChildren = getSectionChildren(newParentId);
-    if (deckChildren.length > 0) {
-      const width = s.x[deckChildren[0]].size.width;
-      setAllChildrenWidths({ sectionId, width });
+    const { isHorizontalOrientation } = getSectionInfo(newParentId);
+    if (!isHorizontalOrientation) {
+      const deckChildren = getSectionChildren(newParentId);
+      if (deckChildren.length > 0) {
+        const width = s.x[deckChildren[0]].size.width;
+        setAllChildrenWidths({ sectionId, width });
+      }
     }
   } else {
     const width = s.x[newParentId].size.width;
@@ -129,7 +132,7 @@ function setSectionSize({ newParentId, sectionId }) {
 }
 
 async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
-  if (oldParentId === PANEID || oldParentId == newParentId) {
+  if (oldParentId === PANEID || oldParentId === newParentId) {
     return sectionId;
   }
 
@@ -143,15 +146,14 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
   // have children that include sectionId.
   // If they do include sectionId, then make a copy of sectionId
   // to prevent the possibility of sectionId appearing in 2 places at once.
-  const { variantId: activeVariantId, dbSource } =
-    getSectionVariantIdAndMappedDBSource(oldParentId);
+  const { variantId: activeVariantId } = getSectionVariantId(oldParentId);
   const variantState = useSectionVariants.getState().x;
   let isInOtherVariants = false;
   for (const variantId of variantIds) {
     if (variantId === activeVariantId) {
       continue;
     }
-    const children = variantState[dbSource][variantId].children;
+    const children = variantState[variantId].children;
     const sectionIdx = children.findIndex((x) => x === sectionId);
     if (sectionIdx !== -1) {
       isInOtherVariants = true;
@@ -161,7 +163,7 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
 
   if (isInOtherVariants) {
     const res = await dbCreateCopyOfSections(copySections([sectionId]));
-    if (res.status == 200) {
+    if (res.status === 200) {
       console.log("data", res.data);
       updateStateWithSectionCopy({ ...res.data });
       return Object.keys(res.data.sections)[0];
@@ -188,7 +190,7 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
 //   // need to be replaced with a reference, to prevent
 //   // the possibility of sectionId appearing in 2 places at once.
 //   const { variantId: activeVariantId, dbSource } =
-//     getSectionVariantIdAndMappedDBSource(oldParentId);
+//     getSectionVariantId(oldParentId);
 //   const variantState = useSectionVariants.getState().x;
 //   const infoToFullName = computeInfoToFullName();
 //   for (const variantId of variantIds) {

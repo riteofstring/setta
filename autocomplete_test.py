@@ -6,8 +6,8 @@ from setta.lsp.server import LanguageServer
 from setta.lsp.writer import LanguageServerWriter
 from pathlib import Path
 from setta.utils.constants import load_constants
-from setta.utils.utils import multireplace
-from setta.tasks.fns.textFieldFindReferences import generateCodeForReferenceFinding
+# from setta.utils.utils import multireplace
+# from setta.tasks.fns.textFieldFindReferences import generateCodeForReferenceFinding
 from uuid import uuid4
 load_constants()
 
@@ -26,7 +26,8 @@ async def main():
     #     root_path=Path("D:/Documents/App Development/setta/.setta_code")
     # )
     lsp = LanguageServer(
-        root_path=Path("/Users/kevin/Documents/AppDevelopment/setta/.setta_code")
+        workspace_folder=Path("/Users/kevin/Documents/AppDevelopment/setta"),
+        code_folder=Path("/Users/kevin/Documents/AppDevelopment/setta/.setta_code/timestamped_folder")
     )
     lsp_writer = LanguageServerWriter(lsp)
     lsp_listener = LanguageServerReader(lsp, FakeWebsocketManager())
@@ -36,9 +37,7 @@ async def main():
     await lsp_writer.send_initialize_request()
 
     code_id = "test"
-    code = """c=None
-n=None
-"""
+    code = "import transformers\ntransformers.TrainingArguments()"
     codeJson = {}
 
     # code_id = "test"
@@ -110,15 +109,15 @@ n=None
     #     },
     # }
     await lsp_writer.send_document_open_request(code_id, code, codeJson)
-    await lsp_writer.send_reference_request(-9, 0, 0, code_id, str(uuid4()), str(uuid4()))
+    # await lsp_writer.send_reference_request(position_offset, 0, 0, code_id, str(uuid4()), str(uuid4()))
     # await lsp_writer.send_document_update("test", "import math\nmath.sqrt(5)")
     # await lsp_writer.send_document_open_request("test", "import torch\ntorch.nn.C")
-    # await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
+    # await lsp_writer.send_autocomplete_request(1, 72, "test", "1234", [], [])
     # await lsp_writer.send_document_update(
     #     "test", "import torch\ntorch.nn.CrossEntropyLoss("
     # )
     # print(len(code.split("\n")[1])-2)
-    # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
+    await lsp_writer.send_signature_help_request(1, 31, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # pprint(lsp.sent_msg_info.keys())

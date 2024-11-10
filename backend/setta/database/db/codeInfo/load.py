@@ -4,8 +4,7 @@ from setta.database.utils import (
 )
 
 
-def load_code_info_for_sections(dbs, sections):
-    db = dbs.default
+def load_code_info_for_sections(db, sections):
     collection_ids = [v["codeInfoId"] for v in sections.values()]
     return load_code_info(db, collection_ids)
 

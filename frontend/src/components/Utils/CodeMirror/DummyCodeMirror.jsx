@@ -1,4 +1,5 @@
 import { javascriptLanguage } from "@codemirror/lang-javascript";
+import { jsonLanguage } from "@codemirror/lang-json";
 import { pythonLanguage } from "@codemirror/lang-python";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
@@ -24,8 +25,6 @@ export function DummyCodeMirror({
   className,
   keywordPositions,
   placeholder,
-  sectionId,
-  paramInfoId,
   language,
 }) {
   return code ? (
@@ -36,8 +35,6 @@ export function DummyCodeMirror({
       onFocus={onFocus}
       className={className}
       keywordPositions={keywordPositions}
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
       language={language}
     />
   ) : (
@@ -71,8 +68,6 @@ function HighlightedCode({
   onMouseDown,
   className,
   keywordPositions,
-  sectionId,
-  paramInfoId,
   language,
   onFocus,
 }) {
@@ -206,6 +201,8 @@ function getLanguageParser(language) {
       return pythonLanguage;
     case "javascript":
       return javascriptLanguage;
+    case "json":
+      return jsonLanguage;
     default:
       return null;
   }

@@ -10,11 +10,12 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import { PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
+import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropType } from "./dropTypes";
 
 function onSortEnd({ active, over }) {
-  if (active.id !== over.id) {
+  if (over && active.id !== over.id) {
     setSectionVariantChildren({
       sectionId: active.data.current.sortable?.containerId,
       newStateFn: updateWithArrayMove(active, over),
@@ -24,18 +25,24 @@ function onSortEnd({ active, over }) {
   }
 }
 
-async function onFreeMoveEnd({ dummyRef }) {
-  const dndState = useDndState.getState();
+async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   const dndChildrenState = useDndChildren.getState();
-  const { activeId: sectionId, overId } = dndState;
+  const sectionId = active.id;
+  const dndSectionId = getDndSectionId(sectionId);
+  const overId = over?.id;
   const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
-  let newParentId = dndChildrenState.y[getDndSectionId(sectionId)] ?? null;
+  let newParentId = dndChildrenState.y[dndSectionId] ?? null;
   let newIndex = null;
   let position = null;
-  const behaviorDropType = dndState.behaviorDropType;
+  const behaviorDropType = useDndState.getState().behaviorDropType;
 
   if (newParentId) {
-    newIndex = dndChildrenState.x[newParentId].indexOf(overId);
+    const children = dndChildrenState.x[newParentId];
+    const activeIdx = children.indexOf(dndSectionId);
+    const overIdx = children.indexOf(overId);
+    const pastHalfway = collisions[0].pastHalfway;
+    const maxIdx = children.length;
+    newIndex = computeNewIndex(activeIdx, overIdx, pastHalfway, maxIdx);
   }
   // dropping nested section onto pane
   else if (!overId) {
@@ -81,7 +88,12 @@ export function useOnDragEnd() {
     } else {
       manualDndChildrenReset();
     }
-    useDndState.getState().reset();
+    // don't reset isMovingFree or isSorting
+    const additionalResetState = (state) => ({
+      isMovingFree: state.getState().isMovingFree,
+      isSorting: state.getState().isSorting,
+    });
+    useDndState.getState().reset(additionalResetState);
   }
 
   return { dummyRef, onDragEnd };

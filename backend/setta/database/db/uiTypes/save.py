@@ -1,8 +1,7 @@
 from setta.utils.constants import C
 
 
-def save_ui_types(dbs, uiTypes):
-    db = dbs.default
+def save_ui_types(db, uiTypes):
     uiTypes = list(uiTypes.values())
 
     query = """
@@ -43,8 +42,7 @@ def parse_slider_config(uiType):
     }
 
 
-def save_ui_type_cols(dbs, uitype_cols):
-    db = dbs.default
+def save_ui_type_cols(db, uitype_cols):
     query = """
         INSERT INTO UITypeColId (id)
         VALUES (:id)

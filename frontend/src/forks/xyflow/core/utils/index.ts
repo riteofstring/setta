@@ -5,6 +5,7 @@ import type {
 } from "react";
 
 import { localStorageFns } from "state/hooks/localStorage";
+import { clamp } from "utils/utils";
 import type {
   Box,
   CoordinateExtent,
@@ -18,9 +19,6 @@ export const getDimensions = (node: HTMLDivElement): Dimensions => ({
   width: node.offsetWidth,
   height: node.offsetHeight,
 });
-
-export const clamp = (val: number, min = 0, max = 1): number =>
-  Math.min(Math.max(val, min), max);
 
 export const clampPosition = (
   position: XYPosition = { x: 0, y: 0 },
@@ -162,6 +160,3 @@ export const getEventPosition = (
     y: evtY - (bounds?.top ?? 0),
   };
 };
-
-export const isMacOs = () =>
-  typeof navigator !== "undefined" && navigator?.userAgent?.indexOf("Mac") >= 0;

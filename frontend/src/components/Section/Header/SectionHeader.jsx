@@ -8,7 +8,9 @@ import { useIsSeriesElement, useSectionTypeName } from "state/hooks/uiTypes";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton";
+import { LockPositionButton } from "./LockPositionButton";
 import MenuButton from "./MenuButton/MenuButton";
+import { MinimizeButton } from "./MinimizeButton";
 import { SectionTitle } from "./SectionTitle";
 
 function _SectionHeader({
@@ -33,14 +35,13 @@ function _SectionHeader({
 
   return (
     <header className="section-title mx-2 flex flex-row items-center">
+      <MenuButton
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+      />
       {!isInfo && (
         <>
-          <MenuButton
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-            isInOtherProjectConfigs={isInOtherProjectConfigs}
-          />
-
           <CardTitle
             sectionId={sectionId}
             isActiveSection={isActiveSection}
@@ -79,7 +80,8 @@ function _SectionHeader({
             header={"Description for Infoview"}
           />
         )}
-        {/* <MinimizeButton /> */}
+        <LockPositionButton sectionId={sectionId} />
+        {!_isRoot && <MinimizeButton sectionId={sectionId} />}
         <CustomCloseButton onClick={onCustomCloseButtonClick} isInfo={isInfo} />
       </div>
     </header>
@@ -121,9 +123,9 @@ function getTitleStyles({
 }) {
   const sectionTypeName = useSectionTypeName(sectionId);
   const editing =
-    "cursor-text font-heading nodrag px-2 py-0 leading-5 -ml-2 bg-setta-200 dark:bg-setta-900 rounded-full w-3/5 dark:text-white font-semibold text-[.7rem] tracking-tight";
+    "cursor-text nodrag px-2 py-0 leading-5 -ml-2 bg-setta-100 dark:bg-setta-800 rounded-full w-3/5 dark:text-white font-semibold text-[.7rem] tracking-tight";
 
-  const notEditing = `transition-colors font-heading leading-5 tracking-tight cursor-pointer max-w-full text-[.7rem] truncate ${
+  const notEditing = `transition-colors  leading-5 tracking-tight cursor-pointer max-w-full text-[.7rem] truncate ${
     isActiveSection
       ? isInOtherProjectConfigs
         ? "text-purple-800 dark:text-purple-200"
@@ -142,7 +144,7 @@ function getTitleStyles({
   }
 
   const fixed =
-    "select-none italic font-heading tracking-tighter text-xs text-setta-400";
+    "select-none italic  tracking-tighter text-xs text-setta-400 max-w-full truncate pr-0.5";
 
   return { editing, notEditing, fixed };
 }

@@ -1,10 +1,6 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
-import {
-  getMappedSectionDBSource,
-  getSectionDBSource,
-} from "state/getters/sectionInfo";
 
 export function useGetSectionInfo(sectionId, key) {
   const equalityFn = [
@@ -25,19 +21,13 @@ export function useSectionHasMultipleVariants(sectionId) {
   return useSectionInfos((x) => x.x[sectionId].variantIds.length > 1);
 }
 
-export function useSectionDBSource(sectionId) {
-  return useSectionInfos((x) => getSectionDBSource(sectionId, x.x));
-}
-
-export function useMappedSectionDBSource(sectionId) {
-  return useSectionInfos((x) => getMappedSectionDBSource(sectionId, x.x));
-}
-
-export function useSectionDBSourceIsAvailable(sectionId) {
-  const dbSource = useMappedSectionDBSource(sectionId);
-  return useSectionVariants((x) => dbSource in x.x);
-}
-
 export function useTempHasNested(sectionId) {
   return useDndChildren((x) => x.x[sectionId]?.length > 0);
+}
+
+export function useHasPermanentNested(sectionId) {
+  const variantId = useSectionInfos((x) => x.x[sectionId]?.variantId);
+  return useSectionVariants((x) =>
+    variantId ? x.x[variantId].children.length > 0 : false,
+  );
 }

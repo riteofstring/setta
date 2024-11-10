@@ -1,9 +1,10 @@
 import C from "constants/constants.json";
 import { updateArtifacts } from "state/actions/artifacts";
 import { updateInteractiveData } from "state/actions/interactive";
-import { updateConnectedTo } from "state/actions/websocket/websocketConnectionList";
-import { setWebsocketRoomMessage } from "state/actions/websocket/websocketRooms";
-import { useTypeErrors, useWebsocketConnectionList } from "state/definitions";
+import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
+import { processTypeErrors } from "state/actions/typeErrors";
+import { updateConnectedTo } from "state/actions/websocketConnectionList";
+import { useWebsocketConnectionList } from "state/definitions";
 import { URLS } from "utils/constants";
 
 let wss;
@@ -41,14 +42,13 @@ function receiveMessage(message) {
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
     updateConnectedTo(m);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
-    useTypeErrors.setState(m.content, true);
+    processTypeErrors(m.content);
   } else if (m.messageType === C.WS_ARTIFACT) {
     updateArtifacts({ artifacts: m.content, addSection: true });
   } else if (m.messageType === C.WS_INTERACTIVE_RETURN) {
     updateInteractiveData(m.content);
   } else if (m.id) {
-    console.log(m);
-    setWebsocketRoomMessage(m.id, m.content);
+    setTemporaryMiscState(m.id, m.content);
   }
 }
 

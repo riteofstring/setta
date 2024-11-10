@@ -1,106 +1,73 @@
 import os
-from collections import defaultdict
 from pathlib import Path
 
 import yaml
-from yaml.representer import Representer
 
-from setta.database.db.projects.load import load_full_project
+from setta.code_gen.export_selected import (
+    export_section_to_dict,
+    get_param_ids,
+    get_section_children,
+    get_section_code,
+    get_section_name,
+    get_section_type,
+    get_selected_item_name,
+)
 from setta.utils.constants import C
 
-
-def export_readable(dbs, filename, data):
-    # export defaultdict the same way as dict
-    yaml.add_representer(defaultdict, Representer.represent_dict)
-
-    all_used_data = defaultdict(dict)
-    full_projects = []
-    for p in data["Project"]:
-        full_project = load_full_project(dbs, p["name"])
-        full_projects.append(full_project)
-        for c in full_project["configs"]:
-            for k, v in c.items():
-                all_used_data[k].update(v)
-
-    root_folder = f"{filename}_export"
-    os.makedirs(root_folder, exist_ok=True)
-
-    for project in full_projects:
-        export_project(root_folder, project)
+from .utils import get_configs_and_root_folder
 
 
-def export_settings_table(folder, settings_table):
-    sub_folder = Path(folder) / "settings"
-    os.makedirs(sub_folder, exist_ok=True)
-    for s in settings_table:
-        profileName = s.pop("profileName")
-        filepath = sub_folder / f"{profileName}.yaml"
-        with open(filepath, "w") as file:
-            yaml.dump(s, file, allow_unicode=True)
-
-
-def export_project(folder, project):
-    project_folder = Path(folder) / project["name"]
-    os.makedirs(project_folder, exist_ok=True)
-    for config in project["configs"]:
-        export_config(project_folder, config)
+def export_readable(db, filename):
+    configs, root_folder = get_configs_and_root_folder(db, filename)
+    for c in configs:
+        export_config(root_folder / "clean", c)
 
 
 def export_config(folder, config):
-    config_folder = folder / config["projectConfig"]["name"]
-    os.makedirs(config_folder, exist_ok=True)
-    for k, v in config.items():
-        if k == "sections":
-            export_sections(config_folder, config, v)
+    config_folder = Path(folder) / config["projectConfig"]["name"]
+    for k in config["projectConfig"]["children"].keys():
+        export_section(config_folder, config, k)
 
 
-def export_sections(folder, config, sections):
-    for k, v in sections.items():
-        if k in config["projectConfig"]["children"].keys():
-            export_section(folder, config, v)
-
-
-def export_section(folder, config, section):
-    section_folder = folder / section["name"]
-    os.makedirs(section_folder, exist_ok=True)
-    for evColId in section["evColIds"]:
-        export_evCol(
-            section_folder,
-            config,
-            section["selectedItem"],
-            config["evCols"][C.DEFAULT_DB_ALIAS][evColId],
+def export_section(folder, config, section_id):
+    section_name = get_section_name(config, section_id)
+    stype = get_section_type(config, section_id)
+    if stype in [C.INTERACTIVE_CODE, C.CODE]:
+        code = get_section_code(config, section_id)
+        export_code(
+            folder, section_name, code, config["sections"][section_id]["codeLanguage"]
         )
-
-    if section["code"]:
-        export_code(section_folder, section["code"], section["codeLanguage"])
-
-    for c in section["children"]:
-        export_section(section_folder, config, config["sections"][c])
-
-
-def export_evCol(folder, config, selectedItem, evCol):
-    filename = folder / evCol["name"]
-    codeInfo = config["codeInfo"]
-    output = defaultdict(dict)
-    for codeInfoId, value in evCol["values"].items():
-        parent = get_parameter_parent(codeInfoId, codeInfo)
-        parentName = parent["name"] if parent else None
-        output[parentName][codeInfo[codeInfoId]["name"]] = value
-
-    if output:
-        with open(f"{filename}.yaml", "w") as file:
+    elif stype in [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
+        output = get_section_as_dict(config, section_id)
+        os.makedirs(folder, exist_ok=True)
+        with open(folder / f"{section_name}.yaml", "w") as file:
             yaml.dump(output, file, allow_unicode=True)
 
 
-def get_parameter_parent(id, codeInfo):
-    for c in codeInfo.values():
-        if id in c["children"] and c["rcType"] == C.CALLABLE:
-            return c
-    return None
-
-
-def export_code(folder, code, codeLanguage):
-    filename = folder / "code"
+def export_code(folder, name, code, codeLanguage):
+    os.makedirs(folder, exist_ok=True)
+    filename = folder / name
     extension = {"javascript": "js", "python": "py", "bash": "sh"}[codeLanguage]
     with open(f"{filename}.{extension}", "w") as file:
         file.write(code)
+
+
+def get_section_as_dict(config, section_id):
+    children = get_section_children(config, section_id)
+    stype = get_section_type(config, section_id)
+    if len(children) > 0:
+        if stype == C.LIST_ROOT:
+            return [get_section_as_dict(config, c) for c in children]
+        elif stype in [C.DICT_ROOT, C.DECK]:
+            return {
+                get_section_name(config, c): get_section_as_dict(config, c)
+                for c in children
+            }
+    else:
+        selected_item_name = get_selected_item_name(config, section_id)
+        param_ids = get_param_ids(config, section_id)
+        param_dict = export_section_to_dict(config, section_id, param_ids).prettyOutput
+        param_dict = {k: v for k, v in param_dict.items() if v}
+        if selected_item_name:
+            param_dict["_target_"] = selected_item_name
+        return param_dict

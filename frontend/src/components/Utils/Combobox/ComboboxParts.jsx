@@ -1,7 +1,7 @@
-import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import React from "react";
 import { createPortal } from "react-dom";
+import { StandardSearchRightBtn } from "../atoms/search/StandardSearchRightBtn";
 
 export function ComboboxInput({
   getInputProps,
@@ -11,14 +11,15 @@ export function ComboboxInput({
   onInputMouseDown,
   onInputClick,
   placeholder,
+  bg = "bg-white dark:bg-setta-900",
 }) {
   const className =
     "nodrag section-value mb-1 font-code z-[1] row-span-1 h-[calc(2rem-2px)] min-w-0 cursor-auto border border-solid rounded-full bg-setta-900/50 border-setta-300 px-4 font-mono text-xs text-white font-normal leading-normal outline-none placeholder:text-setta-300/25 dark:placeholder:text-setta-400/25 focus:text-clip focus-visible:border-blue-400 dark:border-setta-800 dark:caret-white dark:focus-visible:border-blue-400";
 
   return (
     <StandardSearch
-      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-setta-900 rounded-full shadow-sm text-xs font-mono text-setta-600 font-medium px-3 focus-visible:border-white dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-800 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${
-        small ? "h-6" : "h-7"
+      inputStyles={`flex-grow outline-0 cursor-auto ${bg} rounded-full text-xs font-mono text-setta-600 font-medium px-3 focus-visible:border-white dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-800 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${
+        small ? "h-4 my-auto" : "h-7"
       }`}
       noLeftElement={true}
       placeholder={placeholder}
@@ -28,19 +29,19 @@ export function ComboboxInput({
         onClick: onInputClick,
       })}
       // rightElement={<i className="gg-spinner mr-1 text-blue-500/70" />}
-      // rightElement={
-      //   <StandardSearchRightBtn
-      //     {...getToggleButtonProps()}
-      //     icon={
-      //       isOpen ? (
-      //         <i className="gg-chevron-up" />
-      //       ) : (
-      //         <i className="gg-chevron-down" />
-      //       )
-      //     }
-      //     size={small ? "w-7 h-7" : "w-8 h-8"}
-      //   />
-      // }
+      rightElement={
+        <StandardSearchRightBtn
+          {...getToggleButtonProps()}
+          icon={
+            isOpen ? (
+              <i className="gg-chevron-up mr-[5px] mt-[4px] !h-3 !w-3" />
+            ) : (
+              <i className="gg-chevron-down mb-[3px] mr-[4px] !h-3 !w-3" />
+            )
+          }
+          size={small ? "w-4 h-4 !mr-[1px]" : "w-8 h-8"}
+        />
+      }
     />
   );
 }
@@ -57,7 +58,7 @@ export function ComboboxList({ isOpen, children, getMenuProps, listDims }) {
       {...getMenuProps()}
       style={{ width, left: `${x}px`, top: `${y}px` }}
     >
-      <ScrollingArea styles="w-full">{children}</ScrollingArea>
+      <div className="w-full overflow-y-scroll">{children}</div>
     </div>,
     document.body,
   );

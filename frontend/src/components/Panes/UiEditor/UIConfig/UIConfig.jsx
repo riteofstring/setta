@@ -1,12 +1,10 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "components/Utils/atoms/popover/textareapopover";
-import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import React, { useState } from "react";
-import { BiFilter, BiPencil } from "react-icons/bi";
+import { BiPencil } from "react-icons/bi";
 import { setCodeInfoDescription } from "state/actions/codeInfo";
-import { updateParams } from "state/actions/sections/sectionContents";
 import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { useCodeInfo } from "state/definitions";
@@ -28,20 +26,20 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   );
 
   const inputStyles =
-    "flex-grow outline-0 min-w-0 w-full cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800 focus-visible:!border-blue-300 pl-7 py-1 truncate";
+    "flex-grow outline-0 min-w-0 w-full cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800 focus-visible:!border-blue-300 pl-5 py-1 truncate placeholder-setta-400 dark:placeholder-setta-700 text-sm";
 
   return (
     <div className="flex flex-1 flex-col gap-1 overflow-y-hidden">
       <StandardSearch
         inputStyles={inputStyles}
-        leftElementStyles="pl-1"
+        // leftElementStyles="pl-1"
         placeholder="Filter"
         leftElement={
-          <BiFilter className="text-setta-600 dark:text-setta-400" />
+          <i className="gg-sort-az !scale-75  text-setta-600 dark:text-setta-400" />
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <ScrollingArea styles="mt-4 flex flex-col gap-2">
+      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -50,7 +48,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
               key={`${e.name}-${idx}`}
             />
           ))}
-      </ScrollingArea>
+      </div>
     </div>
   );
 });
@@ -81,15 +79,15 @@ function _UIElement({ sectionId, paramInfo }) {
 
   return (
     <div className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-setta-200">
-      <div className="grid grid-cols-1 grid-rows-1 items-center">
-        <p className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-setta-500">
+      <div className="flex items-center justify-between">
+        <p className="uicfg-title  truncate text-xs font-semibold text-setta-500">
           {paramName}
         </p>
-        <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
-          <InfoViewDescription
+        <div className="flex gap-[0.1rem] place-self-end">
+          {/* <InfoViewDescription
             sectionId={sectionId}
             paramInfoId={paramInfoId}
-          />
+          /> */}
           <SaveUITypeConfig />
         </div>
       </div>
@@ -121,7 +119,6 @@ function InfoViewDescription({ sectionId, paramInfoId }) {
       header={"Description for Infoview"}
       onClick={() => {
         setCodeInfoDescription({ id: paramInfoId, description: value });
-        updateParams(sectionId);
       }}
       value={value}
       onChange={(e) => setValue(e.target.value)}

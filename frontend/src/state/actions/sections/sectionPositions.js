@@ -40,7 +40,7 @@ export function setZIndices(sectionIds, incrementVersion) {
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
-export function goToSection(sectionId) {
+export function goToSection(sectionId, duration = 100) {
   const rfStore = useReactFlow.getState();
   const {
     x: sectionX,
@@ -54,11 +54,13 @@ export function goToSection(sectionId) {
     rfStore.height,
     0,
     1,
+    0.1,
+    true,
   );
 
   const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
   rfStore.d3Zoom.transform(
-    getD3Transition(rfStore.d3Selection, 100),
+    getD3Transition(rfStore.d3Selection, duration),
     nextTransform,
   );
 

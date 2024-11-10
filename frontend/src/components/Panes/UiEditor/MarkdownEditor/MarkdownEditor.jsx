@@ -1,40 +1,90 @@
+import CodeMirror from "@uiw/react-codemirror";
+import { useCodeAreaHeight } from "components/Section/Layouts/CodeArea";
+import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
+import { useCodeMirrorStyle } from "components/utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
+import { useIsScrollable } from "state/hooks/sectionSizes";
 
-const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
-  const description = useSectionInfos((x) => x.x[sectionId].description);
-  const [localDescription, setLocalDescription] = useState(description);
+export function MarkdownEditorInPane({ sectionId }) {
+  return <MarkdownEditorCore sectionId={sectionId} />;
+}
 
-  useEffect(() => {
-    if (description !== localDescription) {
-      setLocalDescription(description);
-    }
-  }, [description]);
-
-  function onChange(v) {
-    setLocalDescription(v);
-    debouncedSetDescription(sectionId, v, description);
-  }
+export function MarkdownEditorInSection({ sectionId }) {
+  const { ref, isScrollable } = useIsScrollable();
 
   return (
-    <div
-      data-color-mode="light"
-      className="[&_.w-md-editor-text_*]:font-code flex flex-1 flex-col items-stretch overflow-y-auto rounded-2xl border border-solid border-setta-300 dark:border-setta-600 [&_.w-md-editor-bar]:hidden"
-    >
-      <textarea
-        value={localDescription}
-        onChange={(v) => onChange(v.target.value)}
-        className="block w-full flex-1 self-stretch rounded-lg bg-white p-2.5 font-mono text-sm text-setta-900 focus:border-blue-500 focus:ring-blue-500 dark:border-setta-700 dark:bg-setta-800 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:ring-blue-500"
-        placeholder="Write your description in Markdown..."
-      />
-    </div>
+    <MarkdownEditorCore
+      containerClasses={`section-main ${isScrollable ? "nowheel" : ""} [&_.w-md-editor-text_*]:font-code flex flex-1 flex-col items-stretch overflow-y-auto rounded-lg mb-1.5  [&_.w-md-editor-bar]:hidden`}
+      sectionId={sectionId}
+      ref={ref}
+    />
   );
-});
+}
 
-export const MarkdownEditor = React.memo(_MarkdownEditor);
+const _MarkdownEditorCore = React.forwardRef(
+  ({ sectionId, containerClasses, textAreaClasses }, ref) => {
+    const { description, renderMarkdown } = useSectionInfos(
+      (x) => _.pick(x.x[sectionId], ["description", "renderMarkdown"]),
+      _.isEqual,
+    );
+    const [localDescription, setLocalDescription] = useState(description);
+
+    const _TextAreaClasses = !textAreaClasses
+      ? "block w-full flex-1 self-stretch rounded-lg bg-white p-2.5 font-mono text-xs text-setta-900 focus:outline-blue-500 focus:ring-blue-500 !outline-transparent !border-transparent dark:bg-setta-800 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:ring-blue-500 resize-none"
+      : textAreaClasses;
+
+    const _ContainerClasses = !containerClasses
+      ? "[&_.w-md-editor-text_*]:font-code flex flex-1 flex-col items-stretch overflow-y-auto rounded-2xl  [&_.w-md-editor-bar]:hidden"
+      : containerClasses;
+
+    useEffect(() => {
+      if (description !== localDescription) {
+        setLocalDescription(description);
+      }
+    }, [description]);
+
+    function onChange(v) {
+      setLocalDescription(v);
+      debouncedSetDescription(sectionId, v, description);
+    }
+
+    const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
+      useCodeAreaHeight({ sectionId });
+
+    const theme = useCodeMirrorStyle();
+
+    const extensions = getExtensions({
+      sectionId,
+      language: renderMarkdown ? "markdown" : null,
+      tabToAutocomplete: true,
+      escapeToBlur: true,
+      indentWithTab: true,
+    });
+
+    return (
+      <article
+        ref={wrapperRef}
+        className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
+      >
+        <CodeMirror
+          maxHeight={maxHeight}
+          value={description}
+          theme={theme}
+          extensions={extensions}
+          onChange={onChange}
+          onCreateEditor={handleCreateEditor}
+          indentWithTab={false} // I take care of this in getExtensions
+        />
+      </article>
+    );
+  },
+);
+
+const MarkdownEditorCore = React.memo(_MarkdownEditorCore);
 
 function getFirstHeadingOrText(markdown) {
   // Adjusting the approach to capture the first 10 characters if no heading is found

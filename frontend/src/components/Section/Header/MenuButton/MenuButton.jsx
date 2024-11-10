@@ -1,30 +1,42 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import C from "constants/constants.json";
+import { useIsListElement } from "state/hooks/uiTypes";
 import { HeaderIcon } from "../HeaderIcon";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
-import { FreezeButton } from "./FreezeButton";
 import { HideShowParamsButton } from "./HideShowParamsButton";
 import { HideShowSearchButton } from "./HideShowSearchButton";
+import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
 import { MultirunButton } from "./MultiRunButton";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
+import { ConvertFormat, RenderInfo } from "./ShowMarkdown";
+import { ShowYaml } from "./ShowYaml";
 
 function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
-  // hover:bg-setta-100 dark:hover:bg-setta-900
+  const menuItems = getMenuItems(sectionTypeName);
+  const isListElement = useIsListElement(sectionId);
 
-  const isSpecial = [
-    C.CODE,
-    C.TERMINAL,
-    C.GLOBAL_PARAM_SWEEP,
-    C.GLOBAL_VARIABLES,
-    C.PARAM_SWEEP,
-  ].includes(sectionTypeName);
+  const iconWrapperClassName = `nodrag min-w-5 min-h-5 flex cursor-pointer select-none items-center justify-center rounded-full ${!isListElement ? "p-1" : "ml-1 p-0.5"} mr-1 -ml-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-setta-300 dark:[&_*]:data-[state=open]:!text-setta-500`;
+
+  const unClickableIconWrapperClassName = `nodrag flex select-none items-center justify-center rounded-full ${!isListElement ? "p-1" : "ml-1 p-0.5"} mr-1 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 dark:text-setta-200`;
+
+  if (menuItems.length === 0) {
+    return (
+      <div className={unClickableIconWrapperClassName}>
+        <HeaderIcon
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          isInOtherProjectConfigs={isInOtherProjectConfigs}
+        />
+      </div>
+    );
+  }
 
   return (
     <Menubar.Root>
       <CardHeaderMenuButton
-        triggerStyle={`${isSpecial ? "" : "h-3 w-3 text-setta-600 hover:text-white"} `}
+        triggerClassName={iconWrapperClassName}
         trigger={
           <HeaderIcon
             sectionId={sectionId}
@@ -33,29 +45,9 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
           />
         }
       >
-        {![C.PARAM_SWEEP, C.CODE].includes(sectionTypeName) && (
-          <SaveCustomArgumentsButton sectionId={sectionId} />
-        )}
-
-        {sectionTypeName === C.PARAM_SWEEP ? (
-          <CreateNewParamSweepButton sectionId={sectionId} />
-        ) : (
-          <CreateNewVersionButton sectionId={sectionId} />
-        )}
-
-        {![C.PARAM_SWEEP, C.CODE].includes(sectionTypeName) && (
-          <MultirunButton sectionId={sectionId} />
-        )}
-
-        {[C.SECTION].includes(sectionTypeName) && (
-          <HideShowSearchButton sectionId={sectionId} />
-        )}
-
-        {[C.SECTION].includes(sectionTypeName) && (
-          <HideShowParamsButton sectionId={sectionId} />
-        )}
-
-        <FreezeButton sectionId={sectionId} />
+        {menuItems.map((Component, idx) => (
+          <Component sectionId={sectionId} key={idx} />
+        ))}
       </CardHeaderMenuButton>
     </Menubar.Root>
   );
@@ -63,10 +55,10 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
 
 export default MenuButton;
 
-function CardHeaderMenuButton({ children, trigger }) {
+function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
   return (
     <MenuDropdown
-      triggerClassName="nodrag flex cursor-pointer select-none items-center justify-center rounded-full p-1 mr-1 aspect-square text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800"
+      triggerClassName={triggerClassName}
       contentClassName="z-20 min-w-[200px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50  dark:bg-setta-850"
       contentAlign="start"
       contentSideOffset={5}
@@ -76,4 +68,38 @@ function CardHeaderMenuButton({ children, trigger }) {
       {children}
     </MenuDropdown>
   );
+}
+
+export function getMenuItems(uiTypeName) {
+  switch (uiTypeName) {
+    case C.INFO:
+      return [RenderInfo, ConvertFormat];
+    case C.SECTION:
+      return [
+        SaveCustomArgumentsButton,
+        CreateNewVersionButton,
+        MultirunButton,
+        HideShowSearchButton,
+        HideShowParamsButton,
+        HideShowUnpinnedParamsButton,
+        ShowYaml,
+      ];
+    case C.GLOBAL_VARIABLES:
+      return [
+        SaveCustomArgumentsButton,
+        CreateNewVersionButton,
+        MultirunButton,
+        HideShowUnpinnedParamsButton,
+        ShowYaml,
+      ];
+    case C.PARAM_SWEEP:
+      return [CreateNewParamSweepButton];
+    case C.LIST_ROOT:
+    case C.DICT_ROOT:
+    case C.CODE:
+    case C.INTERACTIVE_CODE:
+      return [CreateNewVersionButton];
+    default:
+      return [];
+  }
 }

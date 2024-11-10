@@ -1,5 +1,9 @@
+import C from "constants/constants.json";
 import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import _ from "lodash";
+
+export const isMacOs = () =>
+  typeof navigator !== "undefined" && navigator?.userAgent?.indexOf("Mac") >= 0;
 
 export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
@@ -39,8 +43,8 @@ export function radioChangeFn(checked, id) {
   return () => (checked ? id : null);
 }
 
-export function xnor(a, b) {
-  return a == b;
+export function bothTruthyOrFalsey(a, b) {
+  return !a === !b || a === b;
 }
 
 export function asyncDebounce(func, wait) {
@@ -53,4 +57,35 @@ export function asyncDebounce(func, wait) {
     new Promise((resolve, reject) => {
       debounced(resolve, reject, args);
     });
+}
+
+export async function getImageDimensionsFromBase64(base64String) {
+  const img = new Image();
+  img.src = base64String;
+  await img.decode();
+  return { width: img.width, height: img.height };
+}
+
+export function isFromJSONSource(id) {
+  return id.startsWith(C.JSON_SOURCE_PREFIX);
+}
+
+export function tryParseJSON(x) {
+  try {
+    return JSON.parse(x);
+  } catch {
+    return x;
+  }
+}
+
+export function shortcutPrettified(shortcut) {
+  // macOS command symbol (⌘)
+  const macSymbol = "⌘";
+  const windowsText = "Ctrl";
+
+  // Create a case-insensitive regular expression to match "mod"
+  const modRegex = /mod/gi;
+
+  // Replace all occurrences of "mod" (case-insensitive) with the appropriate symbol
+  return shortcut.replace(modRegex, isMacOs() ? macSymbol : windowsText);
 }

@@ -2,12 +2,25 @@ import { Item } from "components/Utils/atoms/dropdown/item";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { undeck } from "state/actions/sections/groupSections";
-import { toggleSectionOrientation } from "state/actions/sections/sectionInfos";
-import { useContextMenus } from "state/definitions";
+import {
+  toggleSectionLock,
+  toggleSectionOrientation,
+} from "state/actions/sections/sectionInfos";
+import { useContextMenus, useSectionInfos } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function DeckContextMenu() {
   const { isOpen, x, y, sectionId } = useContextMenus((x) => x.deck, _.isEqual);
+
+  const { positionAndSizeLocked, isHorizontalOrientation } = useSectionInfos(
+    (x) =>
+      _.pick(x.x[sectionId], [
+        "positionAndSizeLocked",
+        "isHorizontalOrientation",
+      ]),
+    _.isEqual,
+  );
+
   function onClickUndeck() {
     undeck(sectionId);
     closeAllContextMenus();
@@ -18,6 +31,19 @@ export function DeckContextMenu() {
     closeAllContextMenus();
   }
 
+  function onClickLock() {
+    toggleSectionLock({ sectionId });
+    closeAllContextMenus();
+  }
+
+  const orientationItem = isHorizontalOrientation
+    ? "Make Vertical"
+    : "Make Horizontal";
+
+  const lockItem = positionAndSizeLocked
+    ? "Unlock Position & Size"
+    : "Lock Position & Size";
+
   return (
     <ContextMenuCore
       x={x}
@@ -25,8 +51,9 @@ export function DeckContextMenu() {
       closeContextMenu={closeAllContextMenus}
       isOpen={isOpen}
     >
-      <Item onClick={onClickUndeck}>Undeck</Item>
-      <Item onClick={onClickToggleOrientation}>Toggle Orientation</Item>
+      <Item onClick={onClickUndeck}>Ungroup</Item>
+      <Item onClick={onClickToggleOrientation}>{orientationItem}</Item>
+      <Item onClick={onClickLock}>{lockItem}</Item>
     </ContextMenuCore>
   );
 }

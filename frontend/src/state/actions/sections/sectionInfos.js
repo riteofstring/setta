@@ -7,7 +7,12 @@ import {
 } from "../sectionVariants";
 
 export function setAllSectionInfos({ sections, sectionConfigs }) {
-  const x = _.mapValues(sections, (v, k) => ({ ...v, ...sectionConfigs[k] }));
+  let x;
+  if (sectionConfigs) {
+    x = _.mapValues(sections, (v, k) => ({ ...v, ...sectionConfigs[k] }));
+  } else {
+    x = sections;
+  }
   useSectionInfos.setState({ x });
 }
 
@@ -45,9 +50,10 @@ export function setSectionInfoAttr({
 
 export function removeSectionInfos(payload) {
   useSectionInfos.setState((state) => {
-    for (const id of payload) {
+    const payloadSet = new Set(payload);
+    for (const id of payloadSet) {
       const parentId = state.x[id]?.parentId;
-      if (parentId) {
+      if (parentId && state.x[parentId]?.variantId) {
         setSectionVariantChildren({
           sectionId: parentId,
           newStateFn: (children) => children.filter((x) => x !== id),
@@ -55,26 +61,27 @@ export function removeSectionInfos(payload) {
       }
 
       let isStillUsedInAVariant = false;
-      for (const variantsInOneDbSource of Object.values(
+      for (const variantInfo of Object.values(
         useSectionVariants.getState().x,
       )) {
-        for (const variantInfo of Object.values(variantsInOneDbSource)) {
-          if (variantInfo.children.includes(id)) {
-            isStillUsedInAVariant = true;
-            break;
-          }
-        }
-        if (isStillUsedInAVariant) {
+        if (variantInfo.children.includes(id)) {
+          isStillUsedInAVariant = true;
           break;
         }
       }
+
       if (!isStillUsedInAVariant) {
+        useSectionVariants.setState((v) => {
+          for (const variantId of state.x[id].variantIds) {
+            delete v.x[variantId];
+          }
+        });
         delete state.x[id];
       }
     }
 
     for (const [k, v] of Object.entries(state.x)) {
-      if (payload.includes(v.paramSweepSectionId)) {
+      if (payloadSet.has(v.paramSweepSectionId)) {
         state.x[k].paramSweepSectionId = null;
       }
     }
@@ -97,6 +104,13 @@ export function toggleSectionOrientation({ sectionId }) {
   useSectionInfos.setState((state) => {
     state.x[sectionId].isHorizontalOrientation =
       !state.x[sectionId].isHorizontalOrientation;
+  });
+}
+
+export function toggleSectionLock({ sectionId }) {
+  useSectionInfos.setState((state) => {
+    state.x[sectionId].positionAndSizeLocked =
+      !state.x[sectionId].positionAndSizeLocked;
   });
 }
 

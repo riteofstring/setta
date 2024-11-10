@@ -14,10 +14,8 @@ export function SaveLoadModal({
   placeholder,
 }) {
   const [selected, setSelected] = useState(null);
-  const [folder, setFolder] = useState(null);
   const [filename, setFilename] = useState("");
   const [currFiles, setCurrFiles] = useState(files);
-  const [breadCrumb, setBreadCrumb] = useState([]);
 
   useEffect(() => {
     setCurrFiles(files);
@@ -25,17 +23,6 @@ export function SaveLoadModal({
 
   function getFilenameFromId(id) {
     return files.find((f) => f.id === id)?.name ?? "";
-  }
-
-  function onFolderDoubleClick(id) {
-    if (id === null) {
-      setCurrFiles(files);
-      setBreadCrumb([]);
-    } else {
-      setCurrFiles(getFolderContents({ files, folder: id }));
-      setBreadCrumb(getBreadCrumb({ files, folder: id }));
-    }
-    setFolder(id);
   }
 
   function onFilenameChange(v) {
@@ -50,12 +37,11 @@ export function SaveLoadModal({
 
   function onClose() {
     setSelected(null);
-    setFolder(null);
     setFilename("");
   }
 
   function onButtonClick() {
-    onClickActionButton({ selected, folder, filename });
+    onClickActionButton({ selected, filename });
     onClose();
   }
 
@@ -65,10 +51,6 @@ export function SaveLoadModal({
     onClose();
   }
 
-  function onBreadCrumbClick(idx) {
-    onFolderDoubleClick(breadCrumb[idx].id);
-  }
-
   return (
     <div className="grid flex-grow grid-rows-[min-content_min-content_1fr_min-content] overflow-hidden">
       <Body
@@ -76,14 +58,11 @@ export function SaveLoadModal({
         files={currFiles}
         selected={selected}
         onSelectedChange={onSelectedChange}
-        onFolderDoubleClick={onFolderDoubleClick}
         onFileDoubleClick={onFileDoubleClick}
         onFilenameChange={onFilenameChange}
         filename={filename}
         title={title}
         placeholder={placeholder}
-        breadCrumb={breadCrumb}
-        onBreadCrumbClick={onBreadCrumbClick}
       />
       <Footer
         buttonText={buttonText}
@@ -99,14 +78,11 @@ function Body({
   files,
   selected,
   onSelectedChange,
-  onFolderDoubleClick,
   onFileDoubleClick,
   onFilenameChange,
   filename,
   title,
   placeholder,
-  breadCrumb,
-  onBreadCrumbClick,
 }) {
   return (
     <>
@@ -114,11 +90,8 @@ function Body({
         files={files}
         selected={selected}
         onSelectedChange={onSelectedChange}
-        onFolderDoubleClick={onFolderDoubleClick}
         onFileDoubleClick={onFileDoubleClick}
         title={title}
-        breadCrumb={breadCrumb}
-        onBreadCrumbClick={onBreadCrumbClick}
       />
       {modalPurpose === MODAL_PURPOSE.SAVE && (
         // <div className="px-3">
@@ -153,34 +126,4 @@ export function Footer({ onClose, onClick, buttonText }) {
       </DialogCloseButton>
     </div>
   );
-}
-
-function getFolderContents({ files, folder }) {
-  const idx = files.findIndex((f) => f.id === folder);
-  const depthAtIdx = files[idx].depth;
-  const contents = [];
-  for (const f of files.slice(idx + 1)) {
-    if (f.depth > depthAtIdx) {
-      contents.push({ ...f, depth: f.depth - 1 });
-    } else {
-      break;
-    }
-  }
-  return contents;
-}
-
-function getBreadCrumb({ files, folder }) {
-  let parents = [];
-  for (const f of files) {
-    const depth = f.depth;
-    if (parents[depth]) {
-      parents = parents.slice(0, depth);
-    }
-    parents[depth] = { id: f.id, name: f.name };
-    if (f.id === folder) {
-      break;
-    }
-  }
-  parents.unshift({ id: null, name: "All Files" });
-  return parents;
 }

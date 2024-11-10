@@ -9,7 +9,7 @@ from typing import Any, Callable, List, Optional
 from pydantic import BaseModel
 
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import C
+from setta.utils.constants import CODE_FOLDER, C
 
 
 def import_from_path(file_path):
@@ -65,7 +65,7 @@ def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
 
     temp_files = []
     try:
-        dir_name = ".setta_code"
+        dir_name = CODE_FOLDER
         os.makedirs(dir_name, exist_ok=True)
         # Create temporary files
         for w, suffix in zip(write, in_file_with_suffix):
@@ -114,6 +114,7 @@ class TaskDefinition(BaseModel):
     write_cache: Optional[Callable] = do_nothing
     run_as: Optional[RunType] = RunType.NONE
     dependencies: Optional[List[str]] = []
+    server_dependencies: Optional[List[str]] = []
 
 
 class TaskMessage(BaseModel):
@@ -123,3 +124,19 @@ class TaskMessage(BaseModel):
 
 class InteractiveTaskDefinition(TaskDefinition):
     return_message_type: str = C.WS_INTERACTIVE_RETURN
+    run_on_import: bool = True
+    run_on_project_change: bool = True
+
+
+def get_task_metadata_for_frontend(task, exporter_obj=None):
+    if isinstance(task, InteractiveTaskDefinition):
+        dependencies = [
+            exporter_obj.var_name_reverse_mapping[d] for d in task.dependencies
+        ]
+        return {
+            "name": task.name,
+            "runOnImport": task.run_on_import,
+            "runOnProjectChange": task.run_on_project_change,
+            "dependencies": dependencies,
+        }
+    return {"name": task.name}

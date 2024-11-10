@@ -1,3 +1,5 @@
+import { useDndState } from "forks/dnd-kit/dndState";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "state/actions/keyActivations";
 
@@ -6,4 +8,18 @@ export function useInitGlobalKeyEventListeners() {
     const cleanup = attachKeyEventListeners();
     return cleanup;
   }, []);
+}
+
+export function useShouldDisablePointerEvents() {
+  const isSortingOrMovingFree = useDndState(
+    (x) => x.isSorting || x.isMovingFree,
+  );
+  const otherSpecialKeysPressed = useReactFlow(
+    (x) =>
+      x.moveSectionActivationKeyPressed ||
+      x.selectionKeyPressed ||
+      x.multiSelectionActive ||
+      x.zoomActivationKeyPressed,
+  );
+  return isSortingOrMovingFree || otherSpecialKeysPressed;
 }

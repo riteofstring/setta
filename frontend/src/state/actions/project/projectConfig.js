@@ -1,3 +1,5 @@
+import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useProjectConfig } from "state/definitions";
 
@@ -9,5 +11,23 @@ export function setProjectConfigName(name) {
 }
 
 export function getProjectConfigMetadata() {
-  return _.pick(useProjectConfig.getState(), ["id", "name", "isDefault"]);
+  const state = useProjectConfig.getState();
+  const output = _.pick(state, [
+    "id",
+    "name",
+    "isDefault",
+    "runGroupSelection",
+    "shownRunGroup",
+    "previewImgColor",
+  ]);
+
+  output.viewport = useReactFlow.getState().fitViewOnInit
+    ? null
+    : getViewport();
+
+  return output;
+}
+
+export function setShownRunGroup(runGroupId) {
+  useProjectConfig.setState({ shownRunGroup: runGroupId });
 }

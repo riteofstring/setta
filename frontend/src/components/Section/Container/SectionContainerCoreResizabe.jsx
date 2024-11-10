@@ -1,27 +1,32 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import C from "constants/constants.json";
+import { useParamShortcuts, useSectionInfos } from "state/definitions";
+import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useGetSectionInfo } from "state/hooks/sections";
+import { useIsYouTube } from "state/hooks/social";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
-import { ArtifactArea } from "../Layouts/ArtifactArea";
 import { CodeArea } from "../Layouts/CodeArea";
+import { DrawOnImage } from "../Layouts/DrawArea";
 import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
+import { ImageArea } from "../Layouts/ImageArea";
 import { InfoArea } from "../Layouts/InfoArea";
 import { InputArea } from "../Layouts/InputArea";
+import { LinePlotArea } from "../Layouts/LinePlotArea";
 import { ParamSweepArea } from "../Layouts/ParamSweepArea";
 import { ReferenceArea } from "../Layouts/ReferenceArea";
 import { SocialArea } from "../Layouts/SocialArea";
-import { MaybeTerminalArea } from "../Layouts/TerminalArea";
+import { TerminalArea } from "../Layouts/TerminalArea";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
+import { getOutlineColor } from "./utils";
 
 export function SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
   isActiveSection,
-  isWrongType,
-  dbSourceIsAvailable,
+  jsonSourceMissing,
 }) {
   const isGlobalVariables = sectionTypeName === C.GLOBAL_VARIABLES;
   const isInfo = sectionTypeName === C.INFO;
@@ -29,30 +34,13 @@ export function SectionContainerCoreResizable({
     sectionId,
     "isInOtherProjectConfigs",
   );
+  const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
+  const disablePointerEvents = useShouldDisablePointerEvents();
+  const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
 
-  const getOutlineColor = () => {
-    if (!dbSourceIsAvailable) {
-      return "outline-orange-600 dark:outline-orange-400";
-    }
-    if (isWrongType) {
-      return "outline-red-600 dark:outline-red-400";
-    }
-    if (isActiveSection && isGlobalVariables) {
-      return "outline-green-600 dark:outline-turquoise-400";
-    }
-    if (isInOtherProjectConfigs) {
-      if (isActiveSection) {
-        return "outline-purple-600 dark:outline-purple-700";
-      }
-      return "outline-transparent active:outline-fuchsia-400";
-    }
-
-    if (isActiveSection) {
-      return "outline-blue-600 dark:outline-blue-700";
-    }
-
-    return "outline-transparent active:outline-cyan-300";
-  };
+  const pointerSelectCSS = disablePointerEvents
+    ? "pointer-events-none select-none"
+    : "";
 
   const getBgColor = () => {
     if (isGlobalVariables) {
@@ -73,21 +61,29 @@ export function SectionContainerCoreResizable({
   };
   const _isRoot = isRoot(sectionTypeName);
 
-  const outlineColor = getOutlineColor();
+  const outlineColor = getOutlineColor({
+    isActiveSection,
+    isGlobalVariables,
+    isInOtherProjectConfigs,
+    isSelectingParams,
+    jsonSourceMissing,
+  });
   const bgColor = getBgColor();
+  const youtube = useIsYouTube(sectionId);
 
   const borderClasses =
     "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700";
 
-  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${bgColor} section-grid h-full rounded-xl shadow-md  ${
+  const inputClasses = `${pointerSelectCSS} outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
-  } ${borderClasses}`;
+  } ${borderClasses} ${youtube ? "overflow-clip" : ""}`;
 
   return (
     <CustomResizable
       sectionId={sectionId}
+      disablePointerEvents={disablePointerEvents}
       inputClasses={inputClasses}
-      as="section"
+      // as="section"
     >
       <>
         <SectionHeader
@@ -99,35 +95,45 @@ export function SectionContainerCoreResizable({
           isInOtherProjectConfigs={isInOtherProjectConfigs}
         />
         {_isRoot && <Incrementer sectionId={sectionId} isRoot={_isRoot} />}
-        <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
+        {!isMinimized && (
+          <AreaSwitch
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+            bgColor={bgColor}
+          />
+        )}
       </>
     </CustomResizable>
   );
 }
 
-function AreaSwitch({ sectionId, sectionTypeName }) {
+function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
   switch (sectionTypeName) {
     case C.SECTION:
-      return <InputArea sectionId={sectionId} />;
+      return <InputArea sectionId={sectionId} bgColor={bgColor} />;
     case C.REFERENCE_SECTION:
       return <ReferenceArea sectionId={sectionId} />;
-    case C.ARTIFACT:
-      return <ArtifactArea sectionId={sectionId} />;
+    case C.IMAGE:
+      return <ImageArea sectionId={sectionId} />;
+    case C.LINE_PLOT:
+      return <LinePlotArea sectionId={sectionId} />;
+    case C.DRAW:
+      return <DrawOnImage sectionId={sectionId} />;
     case C.SOCIAL:
       return <SocialArea sectionId={sectionId} />;
     case C.INFO:
       return <InfoArea sectionId={sectionId} />;
     case C.GLOBAL_VARIABLES:
-      return <GlobalVariablesArea sectionId={sectionId} />;
+      return <GlobalVariablesArea sectionId={sectionId} bgColor={bgColor} />;
     case C.CODE:
     case C.INTERACTIVE_CODE:
       return <CodeArea sectionId={sectionId} />;
     case C.PARAM_SWEEP:
       return <ParamSweepArea sectionId={sectionId} />;
     case C.TERMINAL:
-      return <MaybeTerminalArea sectionId={sectionId} />;
+      return <TerminalArea sectionId={sectionId} />;
     case C.GLOBAL_PARAM_SWEEP:
-      return <GlobalParamSweepArea />;
+      return <GlobalParamSweepArea sectionId={sectionId} />;
     default:
       return null;
   }

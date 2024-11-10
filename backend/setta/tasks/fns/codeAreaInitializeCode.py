@@ -2,15 +2,9 @@ import json
 
 from pydantic import BaseModel
 
-from setta.code_gen.export_selected import export_selected, get_selected_section_variant
+from setta.code_gen.export_selected import export_selected, get_section_code
 from setta.code_gen.find_placeholders import needs_generated_python
-from setta.code_gen.python.generate_code import (
-    count_lines,
-    generate_code,
-    generate_lines_of_code_without_imports,
-    prepend_with_imports,
-    replace_keywords,
-)
+from setta.code_gen.python.generate_code import generate_code, replace_keywords
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
@@ -22,10 +16,10 @@ class CodeAreaInitializeCodeContent(BaseModel):
     sectionId: str
 
 
-async def _codeAreaInitializeCode(message, lsp_writer):
+async def _codeAreaInitializeCode(message):
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     project = message.project
-    code = get_selected_section_variant(project, message.sectionId)["code"]
+    code = get_section_code(project, message.sectionId)
     codeJson = None
     gen_code = None
     referencable_var_names = None
@@ -33,10 +27,12 @@ async def _codeAreaInitializeCode(message, lsp_writer):
     generated_var_names = set()
     if needs_generated_python(code):
         print("NEEDS GENERATED CODE", flush=True)
-        exporter_obj = export_selected(project)
+        exporter_obj = export_selected(project, always_export_args_objs=True)
         codeJson = exporter_obj.output
         gen_code, var_name_to_line_num = generate_code(
-            codeJson, code, replace_templated_code=False
+            codeJson,
+            code,
+            replace_templated_code=False,
         )
         generated_var_names = var_name_to_line_num.keys()
         infoToFullName = {
@@ -54,10 +50,6 @@ async def _codeAreaInitializeCode(message, lsp_writer):
     code = replace_keywords(code, {C.SETTA_GENERATED_PYTHON: gen_code})
 
     print("code", code, flush=True)
-
-    await lsp_writer.send_document_open_request(
-        project["projectConfig"]["id"], code, codeJson=codeJson
-    )
 
     return {
         "content": True,
@@ -91,5 +83,4 @@ codeAreaInitializeCode = TaskDefinition(
     fn=_codeAreaInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,
-    dependencies=["lsp_writer"],
 )

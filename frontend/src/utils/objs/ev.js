@@ -1,5 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
+import { clamp } from "utils/utils";
 
 export function getValueForUIType({ uiType, currValue }) {
   switch (uiType.type) {
@@ -9,6 +10,10 @@ export function getValueForUIType({ uiType, currValue }) {
       return convertValueForSlider({ uiType, currValue });
     case C.SWITCH:
       return convertValueForSwitch({ currValue });
+    case C.COLOR_PICKER:
+      return convertValueForColorPicker({ currValue });
+    case C.DROPDOWN:
+      return convertValueForDropdown({ currValue });
     default:
       return "";
   }
@@ -29,11 +34,9 @@ function convertValueForText({ currValue }) {
 function convertValueForSlider({ uiType, currValue }) {
   const x = _.toNumber(currValue);
   if (_.isFinite(x)) {
-    return _.toString(
-      Math.min(Math.max(x, uiType.config.min), uiType.config.max),
-    );
+    return _.toString(clamp(x, uiType.config.min, uiType.config.max));
   }
-  return uiType.config.min;
+  return _.toString(uiType.config.min);
 }
 
 function convertValueForSwitch({ currValue }) {
@@ -41,4 +44,17 @@ function convertValueForSwitch({ currValue }) {
     return currValue === "0" ? "false" : "true";
   }
   return "false";
+}
+
+function convertValueForColorPicker({ currValue }) {
+  // Regular expression to match #fff or #ffffff format (case insensitive)
+  const hexColorRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+  if (hexColorRegex.test(currValue)) {
+    return currValue;
+  }
+  return "#000000";
+}
+
+function convertValueForDropdown({ currValue }) {
+  return currValue;
 }

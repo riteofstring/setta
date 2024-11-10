@@ -8,9 +8,18 @@ export async function dbGetFreeTerminal(projectConfigId) {
   });
 }
 
-export async function dbDeleteTerminals(ids) {
+export async function dbGetExistingTerminals(projectConfigId) {
   return await post({
-    body: { ids },
+    body: {},
+    address: pseudoTemplatedStr(C.ROUTE_GET_EXISTING_TERMINALS, {
+      projectConfigId,
+    }),
+  });
+}
+
+export async function dbDeleteTerminals(sectionIds) {
+  return await post({
+    body: { sectionIds },
     address: C.ROUTE_DELETE_TERMINALS,
   });
 }

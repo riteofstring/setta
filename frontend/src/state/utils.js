@@ -32,11 +32,16 @@ export const stateDict = {
 function addResetter(state) {
   const initialState = state.getState();
   // reset function definition
-  const resetFn = () => {
+  const resetFn = (callback) => {
     // we have to explicitly include resetFn in initialState
     // since the initialState defined above does not have "reset" as part of it.
-    const initialStateWithReset = { ...initialState, reset: resetFn };
-    state.setState(initialStateWithReset);
+    const additionalResetState = callback ? callback(state) : {};
+    const initialStateWithReset = {
+      ...initialState,
+      ...additionalResetState,
+      reset: resetFn,
+    };
+    state.setState(initialStateWithReset, true);
     if (state.temporal) {
       state.temporal.getState().clear();
     }

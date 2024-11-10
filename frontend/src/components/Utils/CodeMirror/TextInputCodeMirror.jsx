@@ -13,7 +13,8 @@ import { getKeywordStylizer } from "./getKeywordStylizer";
 import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
 
 export function TextInputCodeMirror({
-  sectionId,
+  dataSectionId,
+  visualSectionId,
   paramInfoId,
   value,
   defaultVal,
@@ -24,14 +25,15 @@ export function TextInputCodeMirror({
   singleLine,
   onEnter,
   onEscape,
+  onTab,
   color,
   language,
-  sectionIdToBeActive,
   keywordPositions,
   setKeywordPositions,
   autocomplete = true,
   initializeGenCode = true,
   isKeyName = false,
+  isDisabled = false,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
@@ -49,19 +51,23 @@ export function TextInputCodeMirror({
   }
 
   function localOnMouseDown(event) {
+    if (isDisabled) {
+      return;
+    }
     // if (!variableClick(event)) {
     if (!variableClick(event) && event.button === 0) {
       setActivationEvent(event);
-      if (sectionIdToBeActive) {
-        setActiveSectionIdAndUpdateZIndex(sectionIdToBeActive);
-      }
+      setActiveSectionIdAndUpdateZIndex(visualSectionId);
     }
   }
 
   // focused via tab key
   function onFocus() {
-    if (initializeGenCode) {
-      dbTextFieldInitializeCode({ sectionId, paramInfoId });
+    if (isDisabled) {
+      return;
+    }
+    if (language === "python" && initializeGenCode) {
+      dbTextFieldInitializeCode({ sectionId: dataSectionId, paramInfoId });
     }
     if (!activationEvent) {
       setActivationEvent("tab");
@@ -79,14 +85,13 @@ export function TextInputCodeMirror({
           theme={theme}
           keywordPositions={keywordPositions}
           placeholder={defaultVal}
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
           language={language}
         />
       )}
       {activationEvent && (
         <CoreCodeMirror
-          sectionId={sectionId}
+          dataSectionId={dataSectionId}
+          visualSectionId={visualSectionId}
           paramInfoId={paramInfoId}
           value={value}
           defaultVal={defaultVal}
@@ -95,6 +100,7 @@ export function TextInputCodeMirror({
           singleLine={singleLine}
           onEnter={onEnter}
           onEscape={onEscape}
+          onTab={onTab}
           onBlur={localOnBlur}
           initialEvent={activationEvent}
           realIsInitialized={realIsInitialized}
@@ -112,7 +118,8 @@ export function TextInputCodeMirror({
 }
 
 function CoreCodeMirror({
-  sectionId,
+  dataSectionId,
+  visualSectionId,
   paramInfoId,
   value,
   defaultVal,
@@ -122,6 +129,7 @@ function CoreCodeMirror({
   onEnter,
   onEscape,
   onBlur,
+  onTab,
   initialEvent,
   realIsInitialized,
   setRealIsInitialized,
@@ -132,7 +140,7 @@ function CoreCodeMirror({
   autocomplete,
   isKeyName,
 }) {
-  const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
+  const divId = `CodeMirror-${visualSectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
 
   const keywordStylizer = useMemo(
     () => getKeywordStylizer(keywordPositions),
@@ -142,23 +150,26 @@ function CoreCodeMirror({
   const completionsFn = useCallback(
     autocomplete
       ? getCompletionsFn(
-          sectionId,
+          dataSectionId,
           paramInfoId,
           dbTextFieldCompletion,
           setKeywordPositions,
+          language,
         )
       : () => null,
-    [sectionId, paramInfoId, autocomplete],
+    [dataSectionId, paramInfoId, autocomplete, language],
   );
 
   const extensions = getExtensions({
-    sectionId,
+    sectionId: visualSectionId,
     language,
     completionsFn,
     keywordStylizer,
     singleLine,
     tabToAutocomplete: true,
+    escapeToBlur: true,
     onEnter,
+    onTab,
     onEscape,
   });
 
@@ -187,7 +198,8 @@ function CoreCodeMirror({
       extensions={extensions}
       onChange={onChange}
       onBlur={onBlur}
-      indentWithTab={false}
+      indentWithTab={false} // I take care of this in getExtensions
+      tabIndex="0" // need this for tabbingLogic to work
     />
   );
 }

@@ -4,11 +4,11 @@ from pydantic import BaseModel
 
 from setta.code_gen.export_selected import (
     export_selected,
-    get_code_containing_generated_python,
+    get_first_section_code_that_needs_generated_python,
 )
 from setta.code_gen.python.generate_code import (
     generate_lines_of_code_without_imports,
-    prepend_with_imports,
+    maybe_prepend_with_imports_and_replace_templated_code,
 )
 from setta.tasks.task_runner import RunType
 
@@ -21,12 +21,12 @@ class TextFieldInitializeCodeContent(BaseModel):
     paramInfoId: str | None
 
 
-async def _textFieldInitializeCode(message, lsp_writer):
+async def _textFieldInitializeCode(message):
     message = TextFieldInitializeCodeContent.parse_obj(message.content)
     project = message.project
-    exporter_obj = export_selected(project)
+    exporter_obj = export_selected(project, always_export_args_objs=True)
     codeJson = exporter_obj.output
-    templatedCode = get_code_containing_generated_python(project)
+    templatedCode = get_first_section_code_that_needs_generated_python(project)
     sectionId = message.sectionId
     paramInfoId = message.paramInfoId
     push_var_name = exporter_obj.var_name_mapping[(sectionId, paramInfoId, False)]
@@ -47,15 +47,14 @@ async def _textFieldInitializeCode(message, lsp_writer):
     print("textFieldInitializeCode", flush=True)
     print(referencable_var_names, flush=True)
 
-    code, _ = prepend_with_imports(
-        lines, templatedCode, push_var_name, var_name_to_line_num
+    code, _ = maybe_prepend_with_imports_and_replace_templated_code(
+        lines,
+        templatedCode,
+        push_var_name,
+        var_name_to_line_num,
     )
 
     print("code\n", code, flush=True)
-
-    await lsp_writer.send_document_open_request(
-        project["projectConfig"]["id"], code, codeJson
-    )
 
     return {
         "content": None,
@@ -89,5 +88,4 @@ textFieldInitializeCode = TaskDefinition(
     fn=_textFieldInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,
-    dependencies=["lsp_writer"],
 )

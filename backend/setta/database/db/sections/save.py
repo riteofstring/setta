@@ -1,8 +1,7 @@
-from setta.database.utils import dump_keyword_positions_as_string
+import json
 
 
-def save_sections(dbs, sections):
-    db = dbs.default
+def save_sections(db, sections, section_variants):
     query = """
         INSERT INTO Section (
             id,
@@ -12,9 +11,13 @@ def save_sections(dbs, sections):
             social,
             description,
             codeLanguage,
+            configLanguage,
             isFrozen,
-            dbSource,
-            codeInfoId
+            jsonSource,
+            codeInfoId,
+            hideUnpinnedParams,
+            showYaml,
+            canvasSettings
         )
         VALUES (
             :id,
@@ -24,9 +27,13 @@ def save_sections(dbs, sections):
             :social,
             :description,
             :codeLanguage,
+            :configLanguage,
             :isFrozen,
-            :dbSource,
-            :codeInfoId
+            :jsonSource,
+            :codeInfoId,
+            :hideUnpinnedParams,
+            :showYaml,
+            :canvasSettings
         )
         ON CONFLICT (id)
         DO UPDATE SET
@@ -36,9 +43,13 @@ def save_sections(dbs, sections):
             social = :social,
             description = :description,
             codeLanguage = :codeLanguage,
+            configLanguage = :configLanguage,
             isFrozen = :isFrozen,
-            dbSource = :dbSource,
-            codeInfoId = :codeInfoId
+            jsonSource = :jsonSource,
+            codeInfoId = :codeInfoId,
+            hideUnpinnedParams = :hideUnpinnedParams,
+            showYaml = :showYaml,
+            canvasSettings = :canvasSettings
     """
 
     query_params = [
@@ -50,9 +61,15 @@ def save_sections(dbs, sections):
             "social": s["social"],
             "description": s["description"],
             "codeLanguage": s["codeLanguage"],
+            "configLanguage": s["configLanguage"],
             "isFrozen": s["isFrozen"],
-            "dbSource": s.get("dbSource"),
+            "jsonSource": s.get("jsonSource"),
             "codeInfoId": s["codeInfoId"],
+            "hideUnpinnedParams": s["hideUnpinnedParams"],
+            "showYaml": s["showYaml"],
+            "canvasSettings": json.dumps(s["canvasSettings"])
+            if len(s["canvasSettings"]) > 0
+            else None,
         }
         for s in sections.values()
     ]
@@ -136,20 +153,45 @@ def save_sections(dbs, sections):
 
     # add children
     query = """
-        INSERT INTO SectionArtifacts (sectionId, artifactPath, type, displayName)
-        VALUES (:sectionId, :artifactPath, :type, :displayName)
+        INSERT INTO SectionArtifacts (sectionId, artifactPath, value, type, displayName)
+        VALUES (:sectionId, :artifactPath, :value, :type, :displayName)
     """
     query_params = []
     for s in sections.values():
-        query_params.extend(
-            [
+        for a in s["artifacts"]:
+            value = a.get("value")
+            value = json.dumps(value) if value is not None else None
+            query_params.append(
                 {
                     "sectionId": s["id"],
                     "artifactPath": a["path"],
+                    "value": value,
                     "type": a["type"],
                     "displayName": a["displayName"],
                 }
-                for a in s["artifacts"]
+            )
+    db.executemany(query, query_params)
+
+    # delete children
+    placeholders = ", ".join(["?"] * len(section_variants))
+    query = f"""
+        DELETE FROM SectionVariantChildren
+        WHERE idid IN ({placeholders});
+    """
+    query_params = list(section_variants.keys())
+    db.execute(query, query_params)
+
+    # add children
+    query = """
+        INSERT INTO SectionVariantChildren (idid, childId, "order")
+        VALUES (:idid, :childId, :order)
+    """
+    query_params = []
+    for idid, variant in section_variants.items():
+        query_params.extend(
+            [
+                {"idid": idid, "childId": x, "order": i}
+                for i, x in enumerate(variant["children"])
             ]
         )
     db.executemany(query, query_params)

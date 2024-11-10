@@ -1,9 +1,9 @@
 import C from "constants/constants.json";
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import { updateParams } from "state/actions/sections/sectionContents";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { getSectionIdToChildren } from "state/actions/sectionVariants";
-import { useSectionInfos, useSectionVariants } from "state/definitions";
+import {
+  manualDndChildrenReset,
+  setSectionInfoAttr,
+} from "state/actions/sections/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import {
   getForSectionId,
   useCurrParamSweepId,
@@ -27,7 +27,7 @@ export function VersionList({ sectionId }) {
 
   return (
     <section
-      className="section-grid -mx-3 -my-4 flex-1 self-stretch"
+      className="section-grid-cols section-grid-rows section-grid-areas -mx-3 -my-4 grid flex-1 self-stretch"
       onMouseLeave={onMouseLeave}
     >
       <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-2">
@@ -53,15 +53,11 @@ function EVItems({ sectionId }) {
 
   function onMouseOver(id) {
     setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: id });
-    updateParams(sectionId);
   }
 
   function onClick(id) {
     setSectionInfoAttr({ sectionId, attr: "variantId", value: id });
-    updateParams(sectionId);
-    useDndChildren
-      .getState()
-      .update(getSectionIdToChildren(useSectionVariants.getState().x));
+    manualDndChildrenReset();
   }
 
   return sectionVariantNames.map((e) => (

@@ -1,8 +1,8 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
-import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
+import { getSectionChildren } from "state/actions/sectionVariants";
 import {
   getSectionCanOnlyBeChildOfDeck,
   getSectionIsDeck,
@@ -31,18 +31,20 @@ export function useOnDragMove() {
   return () => {};
 }
 
-function onDragMove({ active, over, collisions }) {
-  const leftDistCondition = getLeftDistCondition(collisions);
+function onDragMove({ active, collisions }) {
+  const triggerDistCondition = collisions[0]?.triggerDistCondition;
   const dndState = useDndState.getState();
 
-  if (leftDistCondition !== dndState.leftDistCondition) {
-    useDndState.setState({ leftDistCondition });
+  if (triggerDistCondition !== dndState.triggerDistCondition) {
+    useDndState.setState({ triggerDistCondition });
+    const over = collisions[0];
     if (over && over.id === dndState.overId) {
-      if (leftDistCondition) {
-        onDragOver({ active, over, triggeredByLeftDist: true });
-      } else {
-        onDragOver({ active, over, triggeredByLeftDist: false });
-      }
+      onDragOver({
+        active,
+        over,
+        collisions,
+        calledFromOnDragMove: true,
+      });
     }
   }
 }
@@ -55,30 +57,35 @@ export function useOnDragOver() {
   return () => {};
 }
 
-function onDragOver({ active, over, triggeredByLeftDist }) {
-  const overId = over ? over.id : null;
+function onDragOver({ active, over, collisions, calledFromOnDragMove }) {
+  const overId = getOverId(over);
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
-  const oldParentId = getParentId(dndSectionId);
+  const oldParentId = getDndParentId(dndSectionId);
 
-  if (triggeredByLeftDist === true) {
+  // There can be discrepancy between over and collisions due to the way state updates in DndContext.
+  // Collisions will be more up-to-date. If it's empty, reset relevant state and return early.
+  if (collisions.length === 0) {
+    dndChildrenState.removeChild(dndSectionId);
+    setNullBehavior(null);
+    return;
+  }
+
+  if (calledFromOnDragMove && dndState.triggerDistCondition) {
     leftDistBehavior({
       active,
+      over,
       dndChildrenState,
       oldParentId,
       dndSectionId,
-      overId,
+      collisions,
     });
     return;
   }
 
   // Don't allow very recent overId to be revisited (hack to avoid infinite loops)
-  if (
-    triggeredByLeftDist === undefined &&
-    overId &&
-    getTimeDiff(dndState, overId) < 100
-  ) {
+  if (!calledFromOnDragMove && overId && getTimeDiff(dndState, overId) < 100) {
     setNullBehavior(overId);
     return;
   }
@@ -92,13 +99,14 @@ function onDragOver({ active, over, triggeredByLeftDist }) {
     return;
   }
 
-  if (dndState.leftDistCondition) {
+  if (dndState.triggerDistCondition) {
     leftDistBehavior({
       active,
+      over,
       dndChildrenState,
       oldParentId,
       dndSectionId,
-      overId,
+      collisions,
     });
     return;
   }
@@ -110,26 +118,29 @@ function onDragOver({ active, over, triggeredByLeftDist }) {
   }
 
   // If overId doesn't have a parent, then set newParent to be overId
-  const newParentId = getParentId(overId) ?? overId;
+  const newParentId = getDndParentId(overId) ?? overId;
 
   maybeMoveToNewParent({
     active,
-    overId,
+    over,
     dndSectionId,
     oldParentId,
     newParentId,
     dndChildrenState,
+    collisions,
   });
 }
 
 function maybeMoveToNewParent({
   active,
-  overId,
+  over,
   dndSectionId,
   oldParentId,
   newParentId,
   dndChildrenState,
+  collisions,
 }) {
+  const overId = getOverId(over);
   // Check if section can actually be dropped onto newParentId
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
@@ -138,13 +149,24 @@ function maybeMoveToNewParent({
     return;
   }
 
+  if (overId === newParentId && getSectionChildren(newParentId).length > 0) {
+    dndChildrenState.removeChild(dndSectionId);
+    return;
+  }
+
   // Check if the temporary section has a new parent
   if (newParentId !== oldParentId) {
     // If the active was from a sortable, and we're not in that sortable anymore.
     const newParentChildren = dndChildrenState.x[newParentId];
     const _index = newParentChildren.indexOf(overId);
-    const index = _index >= 0 ? _index : 0;
-
+    let index = _index;
+    if (_index >= 0) {
+      if (collisions[0].pastHalfway) {
+        index = _index + 1;
+      }
+    } else {
+      index = 0;
+    }
     dndChildrenState.addChild({
       oldParentId,
       newParentId,
@@ -158,24 +180,23 @@ function maybeMoveToNewParent({
 
 function leftDistBehavior({
   active,
+  over,
   dndChildrenState,
   oldParentId,
   dndSectionId,
-  overId,
+  collisions,
 }) {
-  // Remove temporary section if it's not the only child.
-  if (dndChildrenState.x[oldParentId]?.length > 1) {
-    dndChildrenState.removeChild(dndSectionId);
-  }
+  const overId = getOverId(over);
   // Consider overId to be the new parent, if it's not the temp section.
   if (overId !== dndSectionId) {
     maybeMoveToNewParent({
       active,
-      overId,
+      over,
       dndSectionId,
       oldParentId,
       newParentId: overId,
       dndChildrenState,
+      collisions,
     });
   }
 }
@@ -191,18 +212,8 @@ function getTimeDiff(state, sectionId) {
   return Date.now() - (state.times[sectionId] ?? 0);
 }
 
-function getParentId(dndSectionId) {
+export function getDndParentId(dndSectionId) {
   return useDndChildren.getState().y[dndSectionId];
-}
-
-function getLeftDistCondition(collisions) {
-  // true if section is not top level and doesn't have children
-  // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
-  return (
-    !collisions[0]?.data.droppableContainer.data.current.isTopLevel &&
-    !collisions[0]?.data.droppableContainer.data.current.hasNested &&
-    collisions[0]?.data.leftDist > 200 * useReactFlow.getState().transform[2]
-  );
 }
 
 function getBehaviorDropType(activeId, newParentId) {
@@ -216,4 +227,8 @@ function getBehaviorDropType(activeId, newParentId) {
   }
 
   return null;
+}
+
+function getOverId(over) {
+  return over ? over.id : null;
 }

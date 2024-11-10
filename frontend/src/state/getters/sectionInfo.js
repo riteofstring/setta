@@ -5,7 +5,6 @@ import {
   useSectionInfos,
   useUITypes,
 } from "state/definitions";
-import { DB_SOURCE_MAPPING } from "utils/constants";
 import { isRoot } from "utils/sectionTypeHelpers";
 
 export function getSectionInfo(sectionId) {
@@ -30,7 +29,7 @@ export function getSectionIsRoot(sectionId) {
 }
 
 export function getSectionCanOnlyBeChildOfDeck(sectionId) {
-  return [C.ARTIFACT, C.INFO, C.SOCIAL].includes(
+  return ![C.SECTION, C.LIST_ROOT, C.DICT_ROOT].includes(
     getSectionType(sectionId).type,
   );
 }
@@ -55,15 +54,6 @@ export function getSectionSiblingNames(sectionId) {
 
 export function getSectionByName(name) {
   return _.find(useSectionInfos.getState().x, (x) => x.name === name);
-}
-
-export function getSectionDBSource(sectionId, state = null) {
-  const s = state ?? useSectionInfos.getState().x;
-  return s[sectionId].dbSource || C.DEFAULT_DB_ALIAS;
-}
-
-export function getMappedSectionDBSource(sectionId, state = null) {
-  return DB_SOURCE_MAPPING[getSectionDBSource(sectionId, state)];
 }
 
 export function hasParentInFlattenedStructure(sectionId) {

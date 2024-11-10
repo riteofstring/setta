@@ -1,16 +1,16 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { getParamInfos } from "state/actions/sections/sectionContents";
+import { getParamIds } from "state/actions/sections/sectionContents";
 import {
   useCodeInfo,
   useKeywordRegex,
+  useMisc,
   useSectionInfos,
 } from "state/definitions";
 import {
   getSectionType,
   hasParentInFlattenedStructure,
 } from "state/getters/sectionInfo";
-import { SINGLETON_SECTIONS } from "utils/constants";
 import { getSectionChildren } from "./sectionVariants";
 
 export function updateKeywordRegex(idsToNames = null) {
@@ -19,12 +19,6 @@ export function updateKeywordRegex(idsToNames = null) {
     x = _.mapValues(useSectionInfos.getState().x, (v) => v.name);
   }
   useKeywordRegex.setState(getRegexAndColorMap(x));
-}
-
-export function updateGlobalVariablesRegex(globalVariableId) {
-  if (globalVariableId) {
-    useKeywordRegex.setState(getRegexAndColorMap({ [globalVariableId]: null }));
-  }
 }
 
 function getRegexAndColorMap(sectionIdsToNames) {
@@ -39,7 +33,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
   const fullNameToInfo = {};
   const sectionState = useSectionInfos.getState().x;
   for (const sid of topLevelIds) {
-    if (SINGLETON_SECTIONS.globalVariables === sid) {
+    if (useMisc.getState().singletonSections.globalVariables === sid) {
       setFullParamRegex(sid, null, names, fullNameToInfo, "", [], true);
     } else {
       const currName = sectionIdsToNames[sid];
@@ -66,7 +60,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
   const patternStr = `(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`;
   const pattern = new RegExp(patternStr, "g");
   const codeAreaPattern = new RegExp(
-    `(?<=.*?{{ ${C.SETTA_GENERATED_PYTHON} }}.*?)${patternStr}`,
+    `(?<=.*?\\$${C.SETTA_GENERATED_PYTHON}.*?)${patternStr}`,
     "gs",
   );
 
@@ -94,13 +88,11 @@ function setFullChildrenNamesForRegex(
   parentName,
   parentLengths,
 ) {
-  const parentSectionIsListRoot =
-    getSectionType(sectionId).type === C.LIST_ROOT;
+  const sectionTypeName = getSectionType(sectionId).type;
   for (const [idx, c] of getSectionChildren(sectionId).entries()) {
     const name = sectionIdsToNames[c];
-    const currComponentName = parentSectionIsListRoot
-      ? `[${idx.toString()}]`
-      : `["${name}"]`;
+    const currComponentName =
+      sectionTypeName === C.LIST_ROOT ? `[${idx.toString()}]` : `["${name}"]`;
     const currFullName = `${parentName}${currComponentName}`;
     setFullChildrenNamesForRegex(
       sectionState,
@@ -123,19 +115,22 @@ function setFullChildrenNamesForRegex(
     argsFullName,
     argsParentLengths,
   );
-  allNames.push(escapeRegExp(fullName), escapeRegExp(argsFullName));
+  allNames.push(escapeRegExp(fullName));
   fullNameToInfo[fullName] = {
     sectionId,
     paramInfoId: null,
     componentIndices: parentLengths,
     isArgsObj: false,
   };
-  fullNameToInfo[argsFullName] = {
-    sectionId,
-    paramInfoId: null,
-    componentIndices: argsParentLengths,
-    isArgsObj: true,
-  };
+  if (sectionTypeName === C.SECTION) {
+    allNames.push(escapeRegExp(argsFullName));
+    fullNameToInfo[argsFullName] = {
+      sectionId,
+      paramInfoId: null,
+      componentIndices: argsParentLengths,
+      isArgsObj: true,
+    };
+  }
 }
 
 function setFullParamRegex(
@@ -150,7 +145,7 @@ function setFullParamRegex(
   const codeInfoState = useCodeInfo.getState().x;
   const childParamInfos = paramInfoId
     ? codeInfoState[paramInfoId].children.map((x) => codeInfoState[x])
-    : getParamInfos(sectionId);
+    : getParamIds(sectionId)["ids"].map((x) => codeInfoState[x]);
 
   for (const p of childParamInfos) {
     if (!p.name) {

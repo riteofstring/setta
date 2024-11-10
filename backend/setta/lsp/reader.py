@@ -102,12 +102,12 @@ def get_docstring_parser_param_proposals(_, docstring):
 def get_pyright_param_proposals(signature, _):
     parameters = signature["parameters"]
     params = [(p["label"], p["documentation"]["value"]) for p in parameters]
-    if len(params) == 0:
-        params = signature["label"].split(",")
-
     proposals = []
     for param, description in params:
         # Extract parameter name and default value
+        if param.startswith("/"):
+            proposals.append((param, None, None))
+            continue
         parts = param.split("=")
         name = extract_variable_name(parts[0].strip())
         default = parts[1].strip() if len(parts) > 1 else None
@@ -125,7 +125,8 @@ def parse_signature(signature):
         param_info_list = wrapper_parse_signature(
             signature, docstring, get_docstring_parser_param_proposals
         )
-    return param_info_list
+    documentation = signature.get("documentation", {"value": ""})["value"]
+    return [documentation, param_info_list]
 
 
 def process_diagnostics(diagnostics, code_split, codeJson):
@@ -141,6 +142,16 @@ def process_diagnostics(diagnostics, code_split, codeJson):
             ]
             if codeJson:
                 set_message(codeJson, problem_var, output, d["message"])
+        elif d["code"] == "reportCallIssue":
+            if "missing" not in d["message"]:
+                continue
+            missing_params = extract_parameters(d["message"])
+            # get variable to the left of the equal sign
+            assigned_to = code_split[start["line"]].split("=")[0]
+            unusedParams = codeJson[assigned_to]["value"]["unusedParams"]
+            for potential_problem_var in unusedParams:
+                if codeJson[potential_problem_var]["name"] in missing_params:
+                    set_message(codeJson, potential_problem_var, output, d["message"])
     return output
 
 
@@ -157,6 +168,12 @@ def set_message(code_json, problem_var, output, message):
         output[section_id][param_info_id] = []
 
     output[section_id][param_info_id].append(message)
+
+
+def extract_parameters(error_string):
+    pattern = r'"([^"]+)"'
+    parameters = re.findall(pattern, error_string)
+    return parameters
 
 
 class LanguageServerReader(LanguageServerInteractor):
@@ -205,7 +222,7 @@ class LanguageServerReader(LanguageServerInteractor):
                 response = json.loads(response.decode("utf-8"))
                 await self.process_response(response)
             except json.JSONDecodeError as e:
-                print(f"JSONDecodeError: {e} - Response: {response}")
+                # print(f"JSONDecodeError: {e} - Response: {response}")
                 break
 
     async def process_response(self, response):
@@ -229,7 +246,7 @@ class LanguageServerReader(LanguageServerInteractor):
             elif method == "textDocument/signatureHelp":
                 if response["result"]:
                     content = parse_signature(response["result"]["signatures"][0])
-                    # pprint(content)
+                    pprint(content)
                 else:
                     content = None
                 await self.websocket_manager.send_message_to_requester(id, content)
@@ -267,7 +284,7 @@ class LanguageServerReader(LanguageServerInteractor):
                     return_id, content
                 )
         elif method == "textDocument/publishDiagnostics":
-            # print(response)
+            # print(response, flush=True)
             params = response["params"]
             diagnostics = params["diagnostics"]
             uri = params["uri"]
@@ -276,11 +293,10 @@ class LanguageServerReader(LanguageServerInteractor):
             codeJson = version_info["codeJson"]
             code_split = code.split("\n")
             content = process_diagnostics(diagnostics, code_split, codeJson)
-            if content:
-                # print("content", content, flush=True)
-                await self.websocket_manager.broadcast(
-                    {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
-                )
+            # print("content", content, flush=True)
+            await self.websocket_manager.broadcast(
+                {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
+            )
 
         # print(self.received_messages.keys())
         # process_response(response)

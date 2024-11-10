@@ -49,7 +49,7 @@ export const StandardSearch = React.forwardRef(
 );
 
 function MaybeForm({ onFormSubmit, children, outerClasses }) {
-  const styles = `flex min-w-0 items-center relative nodrag dark:text-setta-200  ${outerClasses}`;
+  const styles = `flex min-w-0 items-center relative nodrag dark:text-setta-200 ${outerClasses}`;
   return onFormSubmit ? (
     <form className={styles} onSubmit={onFormSubmit}>
       {children}

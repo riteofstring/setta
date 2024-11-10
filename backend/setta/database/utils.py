@@ -1,6 +1,5 @@
 import copy
 import json
-import random
 from collections import defaultdict
 from uuid import uuid4
 
@@ -11,17 +10,6 @@ def create_new_id():
 
 def maybe_new_id(x):
     return x if x else create_new_id()
-
-
-def generate_memorable_string():
-    adjectives = ["furry", "happy", "sad", "large", "tiny"]
-    nouns = ["dog", "cat", "bird", "fish", "mouse"]
-    states = ["utah", "texas", "california", "nevada", "florida"]
-
-    random_string = (
-        f"{random.choice(adjectives)}_{random.choice(nouns)}_{random.choice(states)}"
-    )
-    return random_string
 
 
 def aggregate_results(results, top_level_key, aggregate):
@@ -55,7 +43,7 @@ def rename_keys(x, to_rename):
     output = copy.deepcopy(x)
     for old_key in to_rename.keys():
         new_key = to_rename[old_key]
-        if old_key in output:
+        if old_key in output and new_key != old_key:
             output[new_key] = output[old_key]
             del output[old_key]
     return output
@@ -65,8 +53,9 @@ def create_id_map(old_ids):
     return dict((x, create_new_id()) for x in old_ids)
 
 
-def remap_ids(x):
-    old_ids = list(x.keys())
+def remap_ids(x, old_ids=None):
+    if old_ids is None:
+        old_ids = list(x.keys())
     id_map = create_id_map(old_ids)
     new_obj = rename_keys(x, id_map)
     return new_obj, id_map

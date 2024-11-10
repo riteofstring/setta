@@ -1,68 +1,129 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useEffect, useState } from "react";
 import { getKeywordPositionsAndEVRefs } from "requests/sections";
-import { setSelectedItem } from "state/actions/sections/setters";
-import { useCodeInfo } from "state/definitions";
+import { itemHasBeenSelectedBefore } from "state/actions/codeInfo";
+import { setParamSweepSelectedItem } from "state/actions/runGroups/paramSweep";
+import {
+  createCodeInfoChildren,
+  createNewCodeInfoAndKeywordPositions,
+  setSelectedItem,
+} from "state/actions/sections/setters";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 
 export function SectionSearch({ sectionId, selectedItem }) {
-  // const [completions, sendCompletionRequest] =
-  //   useCodeCompletionWebsocketRoom(sectionId);
-  // const _searchableItems = useGetAllCallables(sectionId);
-  // const searchableItems = mergeCompletionsAndHistory(
-  //   completions,
-  //   _searchableItems,
-  // );
-  // const groupedItems = groupedObjInfo(searchableItems);
-  // const groupedItemsAsList = Object.keys(groupedItems).map((k) => ({
-  //   group: k,
-  //   items: groupedItems[k],
-  // }));
-  // const hasSearchableItems = groupedItemsAsList.length > 0;
+  function onEnter(value) {
+    setSelectedItem(sectionId, value, true);
+  }
 
-  // function onSelectedItemChange(value, changedByUser) {
-  //   setSelectedItem(sectionId, value, changedByUser);
-  // }
+  return (
+    <SectionSearchCore
+      dataSectionId={sectionId}
+      visualSectionId={sectionId}
+      selectedItem={selectedItem}
+      onEnter={onEnter}
+      dummyCodeClassName="single-cell-child rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]"
+      realCodeClassName="single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-setta-100 bg-white mx-[.125rem] py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
+    />
+  );
+}
 
-  // function onInputMouseDown() {
-  //   dbTextFieldInitializeCode({ sectionId, paramInfoId: null });
-  // }
-
-  // // searchableItems becomes empty, then set the selected item to null
-  // useEffect(() => {
-  //   if (!hasSearchableItems && initialSelection) {
-  //     onSelectedItemChange(null);
-  //   }
-  // }, [hasSearchableItems]);
-
-  // const isSearchResult = useProjectSearch((x) =>
-  //   x.codeInfo.includes(initialSelection),
-  // );
-
-  // return (
-  //   <IdNameCombobox
-  //     allItems={groupedItemsAsList}
-  //     onSelectedItemChange={onSelectedItemChange}
-  //     initialSelection={initialSelection}
-  //     outerDivClasses={`${isSearchResult ? "outline outline-green-400" : ""}`}
-  //     inputCallback={sendCompletionRequest}
-  //     onInputMouseDown={onInputMouseDown}
-  //   />
-  // );
-
-  const { name: codeInfoName, keywordPositions } = useCodeInfo((x) => {
-    if (selectedItem) {
-      const { name, keywordPositions } = x.x[selectedItem];
-      return { name, keywordPositions };
+export function ParamSweepSectionSearch({
+  sectionId,
+  forSectionId,
+  selectedItem,
+  paramSweepId,
+  selectedItemIdx,
+  onPlusClick,
+  onMinusClick,
+  disablePlusButton,
+}) {
+  async function onEnter(value) {
+    let newSelectedItem;
+    const prevSelected = itemHasBeenSelectedBefore(sectionId, value);
+    if (!prevSelected) {
+      const { id, evRefs } = await createNewCodeInfoAndKeywordPositions({
+        sectionId: forSectionId,
+        selectedItemName: value,
+      });
+      await createCodeInfoChildren({
+        dataSectionId: forSectionId,
+        visualSectionId: sectionId,
+        selectedItemName: value,
+        evRefs,
+        codeInfoId: id,
+      });
+      newSelectedItem = id;
+    } else {
+      newSelectedItem = prevSelected;
     }
-    return { name: "", keywordPositions: [] };
+
+    setParamSweepSelectedItem({
+      paramSweepId,
+      selectedItemIdx,
+      selectedItem: newSelectedItem,
+    });
+  }
+
+  return (
+    <div className="section-search flex items-center justify-between gap-0.5">
+      <SectionSearchCore
+        dataSectionId={forSectionId}
+        visualSectionId={sectionId}
+        selectedItem={selectedItem}
+        onEnter={onEnter}
+        dummyCodeClassName="single-cell-child rounded-2xl w-full border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono text-xs [tab-size:4] [word-break:break-word]"
+        realCodeClassName="single-cell-child nodrag w-full [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
+      />
+      <div className="flex">
+        <button
+          className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
+          onClick={onMinusClick}
+        >
+          <i className="gg-remove" />
+        </button>
+        <button
+          className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
+          onClick={onPlusClick}
+          disabled={disablePlusButton}
+        >
+          <i className="gg-add" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SectionSearchCore({
+  dataSectionId,
+  visualSectionId,
+  selectedItem,
+  onEnter,
+  dummyCodeClassName,
+  realCodeClassName,
+}) {
+  const configLanguage = useSectionInfos(
+    (x) => x.x[dataSectionId].configLanguage,
+  );
+
+  const {
+    name: codeInfoName,
+    keywordPositions,
+    description,
+  } = useCodeInfo((x) => {
+    if (selectedItem) {
+      const { name, keywordPositions, description } = x.x[selectedItem];
+      return { name, keywordPositions, description };
+    }
+    return { name: "", keywordPositions: [], description: "" };
   });
 
   const [value, setValue] = useState(codeInfoName);
-  const [localKeywordPositions, setLocalKeywordPositions] =
-    useState(keywordPositions);
 
   useEffect(() => {
     setValue(codeInfoName);
@@ -72,43 +133,57 @@ export function SectionSearch({ sectionId, selectedItem }) {
     setLocalKeywordPositions(keywordPositions);
   }, [keywordPositions]);
 
-  function onEnter() {
-    setSelectedItem(sectionId, value, true);
+  const [localKeywordPositions, setLocalKeywordPositions] =
+    useState(keywordPositions);
+
+  function onEscape(expectingCompletions) {
+    if (!expectingCompletions) {
+      setValue(codeInfoName);
+    }
   }
 
-  function onEscape(view) {
-    view.contentDOM.blur();
-  }
-
-  function onBlur() {
-    setValue(codeInfoName);
+  function onTab(completionResult) {
+    if (!completionResult && value) {
+      onEnter(value);
+    }
   }
 
   function onChange(value) {
     setValue(value);
-    debouncedSetKeywordPositions(sectionId, value, setLocalKeywordPositions);
+    debouncedSetKeywordPositions(
+      dataSectionId,
+      value,
+      setLocalKeywordPositions,
+    );
+  }
+
+  function _onEnter() {
+    onEnter(value);
   }
 
   return (
-    <>
+    <search
+      className="section-search single-cell-container w-full"
+      {...getFloatingBoxHandlers(description, codeInfoName)}
+    >
       <TextInputCodeMirror
-        sectionId={sectionId}
+        dataSectionId={dataSectionId}
+        visualSectionId={visualSectionId}
         paramInfoId={null}
         value={value}
         onChange={onChange}
-        dummyCodeClassName="section-search rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]"
-        realCodeClassName="nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-search rounded-2xl border border-solid border-setta-100 bg-white mx-[.125rem] py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
+        dummyCodeClassName={dummyCodeClassName}
+        realCodeClassName={realCodeClassName}
         singleLine={true}
-        onEnter={onEnter}
+        onEnter={_onEnter}
+        onTab={onTab}
         onEscape={onEscape}
-        onBlur={onBlur}
-        language="python"
-        sectionIdToBeActive={sectionId}
+        language={configLanguage}
         keywordPositions={localKeywordPositions}
         setKeywordPositions={setLocalKeywordPositions}
       />
-      <LoadingSpinner sectionId={sectionId} />
-    </>
+      <LoadingSpinner sectionId={dataSectionId} />
+    </search>
   );
 }
 
@@ -125,9 +200,10 @@ function LoadingSpinner({ sectionId }) {
     sectionId,
     paramInfoId: null,
   });
+  // const waitingForResult = true;
   return (
     waitingForResult && (
-      <i className="section-search gg-spinner mr-2 self-center justify-self-end text-blue-500/70" />
+      <i className="single-cell-child gg-spinner mr-2 self-center justify-self-end text-blue-500/70" />
     )
   );
 }

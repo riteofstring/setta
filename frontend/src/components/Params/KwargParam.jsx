@@ -1,40 +1,21 @@
-import { changeKwargName, deleteKwarg } from "state/actions/kwargs/kwargs";
+import { changeKwargName } from "state/actions/kwargs/kwargs";
 import { ParamContainer } from "./ParamContainer";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 
 export function KwargParam(props) {
-  const { sectionId, parentId, paramInfo: kwargInfo, setDidUpdate } = props;
+  const { sectionId, paramInfoId } = props;
   const onBlur = (v) => {
-    changeKwargName({ sectionId, paramInfoId: kwargInfo.id, name: v });
+    changeKwargName({ sectionId, paramInfoId, name: v });
   };
 
-  const onClick = () => {
-    deleteKwarg({
-      sectionId,
-      parentId,
-      kwargId: kwargInfo.id,
-      incrementVersion: true,
-    });
-  };
-
-  const hasChildren = kwargInfo.children.length > 0;
   // className="section-w-full grid grid-cols-subgrid [&_>_.arg-close-btn]:hover:opacity-75 [&_>_.arg-pin-btn]:hover:bg-setta-200/50"
   return (
     <>
-      <ParamContainer
-        {...props}
-        isKwarg={true}
-        onClick={onClick}
-        kwargInfo={kwargInfo}
-      >
+      <ParamContainer {...props}>
         <ParamNameInput
           sectionId={sectionId}
-          paramInfoId={kwargInfo.id}
-          value={kwargInfo.name}
-          hasChildren={hasChildren}
+          paramInfoId={paramInfoId}
           onBlur={onBlur}
-          onClick={props.onNameClick}
-          setDidUpdate={setDidUpdate}
         />
       </ParamContainer>
     </>

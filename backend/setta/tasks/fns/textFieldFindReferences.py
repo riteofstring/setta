@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from setta.code_gen.python.generate_code import count_lines, double_braces
+from setta.code_gen.python.generate_code import double_braces
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 from setta.utils.utils import multireplace
@@ -27,9 +27,6 @@ async def _textFieldFindReferences(message, lsp_writer):
         candidateKeywords, message.fullText
     )
     code_id = f"{message.sectionId}-{message.paramInfoId}-find-references"
-
-    print(f"code\n{code}", flush=True)
-    print("position_offset", position_offset, flush=True)
 
     await lsp_writer.send_document_open_request(code_id, code)
     for idx in range(len(candidateKeywords)):
@@ -100,5 +97,5 @@ textFieldFindReferences = TaskDefinition(
     return_message_type="textFieldFindReferencesReturn",
     fn=_textFieldFindReferences,
     run_as=RunType.THREAD,
-    dependencies=["lsp_writer"],
+    server_dependencies=["lsp_writer"],
 )
