@@ -69,12 +69,10 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
 
   const onZoomInHandler = () => {
     zoomIn();
-    useReactFlow.setState({ fitViewOnInit: false });
   };
 
   const onZoomOutHandler = () => {
     zoomOut();
-    useReactFlow.setState({ fitViewOnInit: false });
   };
 
   const onFitViewHandler = () => {

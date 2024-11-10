@@ -1,10 +1,18 @@
-import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import { useEffect, useState } from "react";
+import {
+  Button,
+  ComboBox,
+  Input,
+  ListBox,
+  ListBoxItem,
+  Popover,
+} from "react-aria-components";
 
 export function DropdownInputConfig({ onChange, config }) {
   const choices = config.choices ?? [];
 
   const addChoice = () => {
-    const newChoices = [...choices, { id: "", name: "" }];
+    const newChoices = [...choices, ""];
     onChange("choices", () => newChoices);
   };
 
@@ -15,7 +23,7 @@ export function DropdownInputConfig({ onChange, config }) {
 
   const updateChoice = (updateIdx, newChoice) => {
     const newChoices = choices.map((c, idx) =>
-      idx === updateIdx ? { id: newChoice, name: newChoice } : c,
+      idx === updateIdx ? newChoice : c,
     );
     onChange("choices", () => newChoices);
   };
@@ -37,7 +45,7 @@ export function DropdownInputConfig({ onChange, config }) {
             <div className="flex flex-auto items-center gap-1 overflow-hidden">
               <input
                 type="text"
-                value={c.id}
+                value={c}
                 onChange={(e) => updateChoice(idx, e.target.value)}
                 placeholder="Add description..."
                 className="m-[2px] w-full truncate rounded border px-2 py-1 text-xs text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
@@ -58,19 +66,39 @@ export function DropdownInputConfig({ onChange, config }) {
 }
 
 export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
-  const allItems = [
-    {
-      group: "Choices",
-      items: choices ? choices.filter((c) => c.id) : [],
-    },
-  ];
+  const [searchValue, setSearchValue] = useState(value);
+
+  useEffect(() => {
+    setSearchValue(value);
+  }, [value]);
+
+  const items = choices.map((x) => ({ id: x, name: x }));
 
   return (
-    <IdNameCombobox
-      outerDivClasses={outerDivClasses}
-      allItems={allItems}
-      initialSelection={value ? value : null}
-      onSelectedItemChange={onChange}
-    />
+    <ComboBox
+      defaultItems={items}
+      className={outerDivClasses}
+      selectedKey={value}
+      inputValue={searchValue}
+      onInputChange={setSearchValue}
+      onSelectionChange={onChange}
+      aria-label="DropdownInput"
+    >
+      <Input />
+      <Button>▼</Button>
+      <Popover>
+        <ListBox>
+          {(item) => (
+            <ListBoxItem
+              className={({ isFocused, isSelected }) =>
+                `${isSelected ? "bg-red-900" : isFocused ? "bg-green-900" : ""}`
+              }
+            >
+              {item.name}
+            </ListBoxItem>
+          )}
+        </ListBox>
+      </Popover>
+    </ComboBox>
   );
 }

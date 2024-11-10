@@ -41,7 +41,6 @@ export function TabButton({
   children,
   className,
   requiredTabs,
-  ...props
 }) {
   const disabled = requiredTabs && !requiredTabs.has(tabName);
   const color = getColor({ vis, isCurrSelected: tab === tabName, disabled });
@@ -51,7 +50,6 @@ export function TabButton({
       className={`${className} ${color}`}
       onClick={getOnTabClick(tabName)}
       disabled={disabled}
-      {...props}
     >
       {children}
     </button>
