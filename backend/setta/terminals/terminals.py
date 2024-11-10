@@ -300,16 +300,16 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 folder_path, "SETTA_YAML", "yaml"
             )
         if needs_generated_python(curr_code):
-            replacements[C.SETTA_GENERATED_PYTHON] = generate_code(
-                selected,
-                curr_code,
-                replace_templated_code=False,
-            )[0]
             curr_code, _ = process_refs(
                 curr_code,
                 p["codeEVRefs"][s["id"]],
                 exporter_obj.get_ref_var_name,
             )
+            replacements[C.SETTA_GENERATED_PYTHON] = generate_code(
+                selected,
+                curr_code,
+                replace_templated_code=False,
+            )[0]
 
         section_variant["code"] = replace_keywords(curr_code, replacements)
         dependencies[s["id"]] = curr_dependencies
