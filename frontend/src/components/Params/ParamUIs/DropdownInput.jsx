@@ -74,6 +74,7 @@ export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
       selectedKey={value}
       onSelectionChange={onChange}
       aria-label="DropdownInput"
+      menuTrigger="focus"
     >
       <Input />
       <Button>▼</Button>
