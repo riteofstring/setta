@@ -57,7 +57,7 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   const [snapToGrid] = localStorageFns.snapToGrid.hook();
   const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
   const [showMinimap] = localStorageFns.showMinimap.hook();
-  const styleForActive = "!bg-blue-500 dark:!bg-blue-700";
+  const styleForActive = "!bg-blue-500 dark:!bg-blue-700 !text-white";
 
   useEffect(() => {
     setIsVisible(true);
@@ -93,7 +93,7 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
 
   return (
     <Panel
-      className="react-flow__controls overflow-hidden rounded-md shadow-lg transition-transform "
+      className="react-flow__controls overflow-hidden rounded-md border border-solid border-setta-800/10 shadow-lg transition-transform dark:border-setta-300/30"
       position={position}
       style={{ transform: `translateX(${overviewWidth}px)` }}
       data-testid="rf__controls"
@@ -143,7 +143,10 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
       >
         <TbGrid4X4 />
       </ControlButton>
-      <ControlButton onClick={resetZoom}>
+      <ControlButton
+        className="react-flow__controls-button dark: bg-setta-50  hover:bg-setta-200 dark:border-setta-800 dark:bg-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+        onClick={resetZoom}
+      >
         <TbZoomReset />
       </ControlButton>
       <ControlButton
