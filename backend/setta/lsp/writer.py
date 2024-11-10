@@ -79,7 +79,12 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_didChangeConfiguration(self):
-        await self.send_request("workspace/didChangeConfiguration", params={})
+        await self.send_request(
+            "workspace/didChangeConfiguration",
+            params={
+                "settings": {"basedpyright": {"analysis": {"include": [".setta_code"]}}}
+            },
+        )
 
     async def send_document_update(self, code_id, code, codeJson):
         uri = self.get_virtual_uri(code_id)

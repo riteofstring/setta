@@ -37,7 +37,9 @@ async def main():
     await lsp_writer.send_initialize_request()
 
     code_id = "test"
-    code = "import transformers\ntransformers.TrainingArguments()"
+    code = """c=None
+n=None
+"""
     codeJson = {}
 
     # code_id = "test"
@@ -109,7 +111,7 @@ async def main():
     #     },
     # }
     await lsp_writer.send_document_open_request(code_id, code, codeJson)
-    # await lsp_writer.send_reference_request(position_offset, 0, 0, code_id, str(uuid4()), str(uuid4()))
+    await lsp_writer.send_reference_request(-9, 0, 0, code_id, str(uuid4()), str(uuid4()))
     # await lsp_writer.send_document_update("test", "import math\nmath.sqrt(5)")
     # await lsp_writer.send_document_open_request("test", "import torch\ntorch.nn.C")
     # await lsp_writer.send_autocomplete_request(1, 72, "test", "1234", [], [])
@@ -117,7 +119,7 @@ async def main():
     #     "test", "import torch\ntorch.nn.CrossEntropyLoss("
     # )
     # print(len(code.split("\n")[1])-2)
-    await lsp_writer.send_signature_help_request(1, 31, "test", "1234")
+    # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # pprint(lsp.sent_msg_info.keys())
