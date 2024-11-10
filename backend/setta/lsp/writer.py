@@ -136,9 +136,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     def get_workspace_uri(self):
-        if self.workspace_folder:
-            return f"file://{self.workspace_folder}".lower()
-        return None
+        return f"file://{self.workspace_folder}".lower()
 
     def get_virtual_uri(self, code_id):
         uri = f"file://{self.code_folder / code_id}.py".lower()
