@@ -33,15 +33,20 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_document_open_request(self, code_id, code, codeJson=None):
         uri = self.get_virtual_uri(code_id)
-        params = {
-            "textDocument": {
-                "uri": uri,
-                "languageId": "python",
-                "version": self.get_new_version_number(uri, code, codeJson),
-                "text": code,
+        if uri not in self.versions:
+            print("send_document_open_request", code_id, flush=True)
+            params = {
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "python",
+                    "version": self.get_new_version_number(uri, code, codeJson),
+                    "text": code,
+                }
             }
-        }
-        await self.send_request("textDocument/didOpen", params=params)
+            await self.send_request("textDocument/didOpen", params=params)
+        else:
+            print("document already open, updating it", code_id, flush=True)
+            await self.send_document_update(code_id, code, codeJson)
 
     async def send_autocomplete_request(
         self,
@@ -81,9 +86,11 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_didChangeConfiguration(self):
-        hardcoded_settings = {
-            "basedpyright": {"analysis": {"include": [".setta_code"]}}
-        }
+        # THIS FORMAT WORKS
+        # hardcoded_settings = {
+        #     "basedpyright": {"analysis": {"exclude": [".setta_code"]}}
+        # }
+        hardcoded_settings = {}
         settings = recursive_dict_merge(hardcoded_settings, self.settings)
 
         await self.send_request(
