@@ -90,8 +90,8 @@ export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
       menuTrigger="focus"
       shouldFocusWrap={true}
     >
-      <Input />
-      <Button>▼</Button>
+      <Input className="cursor-text" />
+      <Button className="cursor-pointer">▼</Button>
       <Popover>
         <ListBox>
           {(item) => (
