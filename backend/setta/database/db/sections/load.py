@@ -282,7 +282,7 @@ def load_json_source(filename):
             if isinstance(v, dict):
                 # For objects, store empty value and process children
                 new_variant_values[full_key] = {
-                    "value": None,
+                    "value": "",
                     "keywordPositions": [],
                 }
                 # Recursively process nested object
