@@ -3,6 +3,7 @@ import { BiPaint } from "react-icons/bi";
 import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
 import { FaSquareXTwitter } from "react-icons/fa6";
 import { GoDotFill } from "react-icons/go";
+import { PiTextTFill } from "react-icons/pi";
 
 import { IoLogoJavascript } from "react-icons/io";
 import { RiGlobalFill } from "react-icons/ri";
@@ -22,6 +23,7 @@ export function HeaderIcon({
   const isListElement = useIsListElement(sectionId);
   const isYouTube = useIsYouTube(sectionId);
   const isTwitter = useIsTwitter(sectionId);
+  const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
 
   if (isListElement) {
     return <ListElementIcon sectionId={sectionId} />;
@@ -56,10 +58,12 @@ export function HeaderIcon({
         <TbArrowIteration className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
     case C.INFO:
-      return (
+      return renderMarkdown ? (
         <FaMarkdown className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
-        // <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
+      ) : (
+        <PiTextTFill className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
       );
+    // <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
     case C.IMAGE:
     case C.LINE_PLOT:
       return (
