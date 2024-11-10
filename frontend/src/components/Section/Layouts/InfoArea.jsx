@@ -25,7 +25,7 @@ function _Markdown({ sectionId }) {
   const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
   const { ref, isScrollable } = useIsScrollable();
 
-  const wrapperClassName = `section-main nodrag ${isScrollable ? "nowheel" : ""} [&_.prose]flex-1 mb-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
+  const wrapperClassName = `section-main nodrag ${isScrollable ? "nowheel" : ""} [&_.prose]flex-1 mb-4 ml-2 cursor-auto  select-text overflow-y-scroll [&_.prose]:p-0`;
 
   return renderMarkdown ? (
     <div ref={ref} className={wrapperClassName}>
@@ -38,7 +38,10 @@ function _Markdown({ sectionId }) {
       </ReactMarkdown>
     </div>
   ) : (
-    <pre ref={ref} className={wrapperClassName}>
+    <pre
+      ref={ref}
+      className={`${wrapperClassName} w-full overflow-x-clip text-wrap break-words text-xs text-setta-700 dark:text-setta-300`}
+    >
       {markdownSource}
     </pre>
   );
