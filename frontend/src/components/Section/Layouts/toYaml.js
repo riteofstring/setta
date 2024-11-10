@@ -50,19 +50,11 @@ export async function toYaml(sectionId, setYamlValue, setOriginalObj) {
 
   const res = await dbSectionToDict(sectionId, pinnedIds, unpinnedIds);
   if (res.status === 200) {
-    const { configLanguage } = useSectionInfos.getState().x[sectionId];
-    console.log("before processObject", res.data);
     const fullOriginalObj = processObject(res.data);
     setOriginalObj(_.pick(fullOriginalObj, ["pinned", "unpinned"]));
-    let pinnedStr = fullOriginalObj.prettyPinned;
-    let unpinnedStr = fullOriginalObj.prettyUnpinned;
-    console.log("unpinnedStr before", unpinnedStr);
-    // if (configLanguage === "python") {
-    const strConfig = { nullStr: null };
-    pinnedStr = stringify(pinnedStr, strConfig);
-    unpinnedStr = stringify(unpinnedStr, strConfig);
-    // }
-    console.log("unpinnedStr after", unpinnedStr);
+    const strConfig = { nullStr: "" };
+    const pinnedStr = stringify(fullOriginalObj.prettyPinned, strConfig);
+    const unpinnedStr = stringify(fullOriginalObj.prettyUnpinned, strConfig);
 
     let newYamlValue = "";
     if (!_.isNil(selectedItemName)) {
@@ -82,44 +74,25 @@ export async function toYaml(sectionId, setYamlValue, setOriginalObj) {
 
 function processValue(value) {
   if (typeof value === "string") {
-    // Remove surrounding quotes if they exist
-    let processedString = value.trim();
-    if (processedString.startsWith('"') && processedString.endsWith('"')) {
-      processedString = processedString.slice(1, -1);
-    }
-
-    // Try parsing as JSON if it looks like an array
-    if (processedString.startsWith("[") && processedString.endsWith("]")) {
-      try {
-        const parsed = JSON.parse(processedString);
-        if (Array.isArray(parsed)) {
-          return parsed.map(processValue);
-        }
-      } catch (e) {
-        // If parsing fails, continue with other conversions
-      }
-    }
-
-    // Handle other string conversions
-    if (processedString === "") {
-      return processedString;
-    } else if (processedString === "null") {
+    if (value === "") {
       return null;
-    } else if (processedString === "true") {
-      return true;
-    } else if (processedString === "false") {
-      return false;
-    } else if (!isNaN(processedString)) {
-      return Number(processedString);
+    } else if (value === "true") {
+      return true; // Convert string "true" to boolean true
+    } else if (value === "false") {
+      return false; // Convert string "false" to boolean false
+    } else if (!isNaN(value)) {
+      return Number(value); // Convert numeric strings to numbers
     } else {
-      return processedString;
+      return value; // Keep the string as is
     }
   } else if (Array.isArray(value)) {
+    // Recursively process each element in the array
     return value.map(processValue);
   } else if (typeof value === "object" && value !== null) {
+    // Recursively process nested objects
     return processObject(value);
   } else {
-    return value;
+    return value; // Return the value as is for other data types
   }
 }
 

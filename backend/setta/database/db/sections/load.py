@@ -276,7 +276,6 @@ def load_json_source(filename):
                 "name": k,
                 "rcType": C.PARAMETER,
                 "children": [],  # Will be populated with direct children only
-                "editable": False
             }
 
             # Create variant value entry
