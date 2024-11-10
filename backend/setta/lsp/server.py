@@ -9,7 +9,11 @@ class LanguageServer:
         self.msg_id_to_metadata = defaultdict(dict)
         self.versions = {}
         self.server = None
-        self.settings = settings
+        if not isinstance(settings, dict):
+            print("warning: your language server settings is not an object, so it will have no effect")
+            self.settings = {}
+        else:
+            self.settings = settings
 
     async def start_server(self):
         print("starting server")
