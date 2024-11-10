@@ -6,7 +6,7 @@ import {
 } from "state/actions/kwargs/kwargs";
 import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useCodeInfo } from "state/definitions";
+import { useActiveSection, useCodeInfo, useSettings } from "state/definitions";
 import { getAllSelectedParams } from "../../../state/actions/kwargs/utils";
 
 export function KwargsControls({
@@ -14,6 +14,8 @@ export function KwargsControls({
   objInfoId,
   bgColor = "bg-transparent",
 }) {
+  const sectionIsActive = useActiveSection((x) => x.ids.includes(sectionId));
+  const focusOnFilterShortcut = useSettings((x) => x.focusOnArgsFilterShortcut);
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
   function onSearchChange(e) {
@@ -93,7 +95,7 @@ export function KwargsControls({
           <input
             id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
             className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-300 placeholder-setta-600 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300"
-            placeholder="Filter"
+            placeholder={`${sectionIsActive ? focusOnFilterShortcut : "Filter"}`}
             tabIndex="0"
             onChange={onSearchChange}
           />
