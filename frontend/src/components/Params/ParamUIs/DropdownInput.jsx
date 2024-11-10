@@ -78,6 +78,7 @@ export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
     <ComboBox
       defaultItems={items}
       className={outerDivClasses}
+      selectedKey={value}
       inputValue={searchValue}
       onInputChange={setSearchValue}
       onSelectionChange={onChange}
@@ -86,7 +87,17 @@ export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
       <Input />
       <Button>▼</Button>
       <Popover>
-        <ListBox>{(item) => <ListBoxItem>{item.name}</ListBoxItem>}</ListBox>
+        <ListBox>
+          {(item) => (
+            <ListBoxItem
+              className={({ isFocused, isSelected }) =>
+                `${isSelected ? "bg-red-900" : isFocused ? "bg-green-900" : ""}`
+              }
+            >
+              {item.name}
+            </ListBoxItem>
+          )}
+        </ListBox>
       </Popover>
     </ComboBox>
   );
