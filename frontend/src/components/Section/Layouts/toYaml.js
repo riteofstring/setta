@@ -16,7 +16,7 @@ import {
 import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { createNewId } from "utils/idNameCreation";
+import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { parseAllDocuments, stringify } from "yaml";
 
@@ -164,13 +164,14 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
     }
   }
 
+  const { jsonSource } = useSectionInfos.getState().x[sectionId];
   // add remaining new entries
   for (const v of fNewObj) {
     if (usedPaths.has(JSON.stringify(v.keyPath))) {
       continue;
     }
     const curr = _.pick(v, ["key", "keyPath", "value", "isPinned"]);
-    curr.id = createNewId();
+    curr.id = createNewParamId(curr.keyPath, jsonSource);
     curr.isNewParam = true;
     output.push(curr);
   }
