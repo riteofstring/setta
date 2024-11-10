@@ -1,3 +1,4 @@
+import _ from "lodash";
 import {
   addKwarg,
   deleteKwarg,
@@ -14,7 +15,9 @@ export function KwargsControls({
   objInfoId,
   bgColor = "bg-transparent",
 }) {
-  const sectionIsActive = useActiveSection((x) => x.ids.includes(sectionId));
+  const sectionIsActive = useActiveSection((x) =>
+    _.isEqual(x.ids, [sectionId]),
+  );
   const focusOnFilterShortcut = useSettings((x) => x.focusOnArgsFilterShortcut);
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
