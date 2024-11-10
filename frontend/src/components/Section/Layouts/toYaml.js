@@ -13,7 +13,7 @@ import {
   getSectionSelectedItem,
   setParamEnteredValueBatch,
 } from "state/actions/sectionVariants";
-import { useCodeInfo } from "state/definitions";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { createNewId } from "utils/idNameCreation";
@@ -52,9 +52,8 @@ export async function toYaml(sectionId, setYamlValue, setOriginalObj) {
   if (res.status === 200) {
     const fullOriginalObj = processObject(res.data);
     setOriginalObj(_.pick(fullOriginalObj, ["pinned", "unpinned"]));
-    const strConfig = { nullStr: "" };
-    const pinnedStr = stringify(fullOriginalObj.prettyPinned, strConfig);
-    const unpinnedStr = stringify(fullOriginalObj.prettyUnpinned, strConfig);
+    const pinnedStr = stringify(fullOriginalObj.prettyPinned);
+    const unpinnedStr = stringify(fullOriginalObj.prettyUnpinned);
 
     let newYamlValue = "";
     if (!_.isNil(selectedItemName)) {
@@ -75,7 +74,7 @@ export async function toYaml(sectionId, setYamlValue, setOriginalObj) {
 function processValue(value) {
   if (typeof value === "string") {
     if (value === "") {
-      return null;
+      return value;
     } else if (value === "true") {
       return true; // Convert string "true" to boolean true
     } else if (value === "false") {
@@ -218,6 +217,7 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
   const newInfos = {};
   const updatedInfos = {};
   const paramInfoIdToValue = {};
+  const { configLanguage } = useSectionInfos.getState().x[sectionId];
   for (const v of output) {
     if (!(v.id in cState)) {
       newInfos[v.id] = newCodeInfo({
@@ -230,7 +230,10 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
     } else {
       updatedInfos[v.id] = { name: v.key, isPinned: v.isPinned };
     }
-    paramInfoIdToValue[v.id] = unprocessValue(v.value);
+    paramInfoIdToValue[v.id] =
+      configLanguage === "json"
+        ? JSON.stringify(v.value)
+        : unprocessValue(v.value);
   }
 
   addCodeInfoBatch(newInfos);
@@ -253,7 +256,7 @@ function flattenObject(obj, isPrettyObj = false) {
   let result = [];
 
   function flatten(id, item, editable, keyPath) {
-    if (typeof item === "object" && item !== null) {
+    if (typeof item === "object" && !Array.isArray(item) && item !== null) {
       if (keyPath.length > 0) {
         result.push({
           id,

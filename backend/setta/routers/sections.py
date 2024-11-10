@@ -1,3 +1,4 @@
+from pprint import pprint
 from typing import Dict, List
 
 from fastapi import APIRouter
@@ -23,6 +24,7 @@ class SectionToDictRequest(BaseModel):
     sectionId: str
     pinnedIds: Dict[str, List[str]]
     unpinnedIds: Dict[str, List[str]]
+    configLanguage: str
 
 
 class LoadSectionJSONSourceRequest(BaseModel):
@@ -50,12 +52,14 @@ def route_section_to_yaml(x: SectionToDictRequest):
         x.project,
         x.sectionId,
         x.pinnedIds["topLevelParamIds"],
+        x.configLanguage,
         x.pinnedIds["requiredParamIds"],
     )
     unpinned = export_section_to_dict(
         x.project,
         x.sectionId,
         x.unpinnedIds["topLevelParamIds"],
+        x.configLanguage,
         x.unpinnedIds["requiredParamIds"],
     )
     return {

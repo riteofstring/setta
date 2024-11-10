@@ -10,6 +10,7 @@ import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import {
   useKeywordRegex,
   useProjectConfig,
+  useSectionInfos,
   useTypeErrors,
 } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
@@ -48,8 +49,9 @@ export async function dbSectionToDict(sectionId, pinnedIds, unpinnedIds) {
   );
   delete pinnedIds.requiredParamIdsToPaths;
   delete unpinnedIds.requiredParamIdsToPaths;
+  const { configLanguage } = useSectionInfos.getState().x[sectionId];
   return await post({
-    body: { project, sectionId, pinnedIds, unpinnedIds },
+    body: { project, sectionId, pinnedIds, unpinnedIds, configLanguage },
     address: C.ROUTE_SECTION_TO_DICT,
   });
 }

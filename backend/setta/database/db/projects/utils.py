@@ -1,8 +1,8 @@
 import json
 from collections import defaultdict
-from json import JSONDecodeError
 
 from setta.utils.constants import is_from_json_source
+from setta.utils.utils import try_json
 
 
 def remove_json_source_data(p):
@@ -51,10 +51,3 @@ def save_json_source_data(p):
     for filename, data in to_be_saved.items():
         with open(filename, "w") as f:
             json.dump(data, f, indent=2)
-
-
-def try_json(x):
-    try:
-        return json.loads(x)
-    except JSONDecodeError:
-        return x
