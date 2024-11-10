@@ -1,7 +1,10 @@
 import { MarkdownEditor } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
+import "katex/dist/katex.min.css"; // `rehype-katex` does not import the CSS for you
 import React from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useIsScrollable } from "state/hooks/sectionSizes";
@@ -31,7 +34,8 @@ function _Markdown({ sectionId }) {
 
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
       className="prose-headings: prose prose-sm min-w-[100%] [flex:1_1_auto] dark:prose-invert   prose-headings:tracking-tighter prose-headings:text-setta-400  prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm [&_*]:[word-wrap:break-word]"
     >
       {markdownSource}
