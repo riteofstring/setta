@@ -28,7 +28,7 @@
     "90f2233a-2864-498f-a4df-4c027fa0c4a4": {
       "id": "90f2233a-2864-498f-a4df-4c027fa0c4a4",
       "type": "DROPDOWN",
-      "name": "Grid Pattern Choices",
+      "name": "Grid Patterns",
       "presetType": "USER",
       "config": {
         "choices": [
@@ -37,10 +37,43 @@
           { "id": "\"Cross\"", "name": "\"Cross\"" }
         ]
       }
+    },
+    "1ec5d8de-f984-451d-b43a-78917f698d52": {
+      "id": "1ec5d8de-f984-451d-b43a-78917f698d52",
+      "type": "DROPDOWN",
+      "name": "Selection Modes",
+      "presetType": "USER",
+      "config": {
+        "choices": [
+          { "id": "\"partial\"", "name": "\"partial\"" },
+          { "id": "\"full\"", "name": "\"full\"" }
+        ]
+      }
+    },
+    "86b19dfb-742b-4d82-aa5f-5d4cca9f3d0a": {
+      "id": "86b19dfb-742b-4d82-aa5f-5d4cca9f3d0a",
+      "type": "DROPDOWN",
+      "name": "Pan-On-Scroll Modes",
+      "presetType": "USER",
+      "config": {
+        "choices": [
+          { "id": "\"free\"", "name": "\"free\"" },
+          { "id": "\"vertical\"", "name": "\"vertical\"" },
+          { "id": "\"horizontal\"", "name": "\"horizontal\"" }
+        ]
+      }
     }
   },
   "uiTypeCols": {
     "04f95495-52ba-4277-a79e-228bb1c6a5bc": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"panOnScrollMode\"}": {
+        "uiTypeId": "86b19dfb-742b-4d82-aa5f-5d4cca9f3d0a",
+        "nonPresetUITypeIds": []
+      },
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"selectionMode\"}": {
+        "uiTypeId": "1ec5d8de-f984-451d-b43a-78917f698d52",
+        "nonPresetUITypeIds": []
+      },
       "JSON-{\"filename\": \"setta-settings.json\", \"key\": \"showGridLines\"}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
