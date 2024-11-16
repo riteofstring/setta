@@ -101,9 +101,21 @@ def simple_export_selected(p):
 
 
 def export_section_to_dict(
-    codeInfo, sectionVariant, section_id, topLevelParamIds, configLanguage, requiredParamIds=None
+    codeInfo,
+    sectionVariant,
+    section_id,
+    topLevelParamIds,
+    configLanguage,
+    requiredParamIds=None,
 ):
-    e = SectionToDict(codeInfo, sectionVariant, section_id, topLevelParamIds, configLanguage, requiredParamIds)
+    e = SectionToDict(
+        codeInfo,
+        sectionVariant,
+        section_id,
+        topLevelParamIds,
+        configLanguage,
+        requiredParamIds,
+    )
     e.export()
     return e
 
@@ -473,7 +485,13 @@ class SimpleExporter:
 
 class SectionToDict:
     def __init__(
-        self, codeInfo, sectionVariant, section_id, topLevelParamIds, configLanguage, requiredParamIds=None
+        self,
+        codeInfo,
+        sectionVariant,
+        section_id,
+        topLevelParamIds,
+        configLanguage,
+        requiredParamIds=None,
     ):
         self.output = {}
         self.prettyOutput = {}

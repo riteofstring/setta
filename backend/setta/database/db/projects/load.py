@@ -10,6 +10,7 @@ from ..sections.load import (
     load_sections,
 )
 
+
 class ProjectNotFound(Exception):
     pass
 
