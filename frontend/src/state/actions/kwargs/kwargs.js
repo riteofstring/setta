@@ -4,10 +4,9 @@ import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getSectionInfo } from "../../getters/sectionInfo";
-import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
+import { addCodeInfo, deleteCodeInfo } from "../codeInfo";
 import { getKwargIds, getSectionCodeInfoChildren } from "../codeInfoCols";
 import { initializeParam } from "../initializeParam";
-import { updateKeywordRegex } from "../keywordRegex";
 import { deleteParamsFromParamSweep } from "../runGroups/paramSweep";
 import { getParamIds } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
@@ -96,13 +95,6 @@ export function saveKwargsAsCollection({ sectionId, name }) {
   dbSaveCodeInfo({
     codeInfo: { [collection.id]: collection },
   });
-}
-
-export function changeKwargName({ sectionId, paramInfoId, name }) {
-  console.log("changeKwargName", name);
-  setCodeInfoName({ id: paramInfoId, name });
-  updateKeywordRegex();
-  // maybeIncrementProjectStateVersion(true);
 }
 
 export function pinSelectedKwargs(sectionId) {
