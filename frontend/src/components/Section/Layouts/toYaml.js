@@ -28,11 +28,11 @@ export function useShowYaml(sectionId) {
 
   useEffect(() => {
     if (showYaml) {
-      toYaml(sectionId, setYamlValue, setOriginalObj);
+      guiToYaml(sectionId, setYamlValue, setOriginalObj);
       setToYamlWasCalled(true);
     } else {
       if (toYamlWasCalled) {
-        toGUI(sectionId, yamlValue, originalObj);
+        yamlToGUI(sectionId, yamlValue, originalObj);
       }
     }
   }, [showYaml]);
@@ -40,7 +40,7 @@ export function useShowYaml(sectionId) {
   return { showYaml, yamlValue, setYamlValue };
 }
 
-export async function toYaml(sectionId, setYamlValue, setOriginalObj) {
+export async function guiToYaml(sectionId, setYamlValue, setOriginalObj) {
   const selectedItem = getSectionSelectedItem(sectionId);
   const selectedItemName = selectedItem
     ? useCodeInfo.getState().x[selectedItem].name
@@ -103,7 +103,7 @@ function processObject(obj) {
   return result;
 }
 
-export async function toGUI(sectionId, yamlValue, originalObj) {
+export async function yamlToGUI(sectionId, yamlValue, originalObj) {
   const docs = parseAllDocuments(yamlValue);
   console.log("docs", docs);
   let selectedItemName = null;
@@ -236,6 +236,7 @@ export async function toGUI(sectionId, yamlValue, originalObj) {
         ? JSON.stringify(v.value)
         : unprocessValue(v.value);
   }
+  console.log("newInfos", newInfos);
 
   addCodeInfoBatch(newInfos);
   batchUpdateCodeInfoAttrs(updatedInfos);
