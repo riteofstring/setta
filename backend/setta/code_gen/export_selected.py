@@ -1,6 +1,6 @@
 import copy
 
-from setta.utils.utils import QuoteInsensitiveDict, try_json
+from setta.utils.utils import QuoteInsensitiveDict
 
 from ..utils.constants import BASE_UI_TYPE_IDS, C
 from .find_placeholders import double_braces, needs_generated_python
@@ -100,10 +100,8 @@ def simple_export_selected(p):
     return e
 
 
-def export_section_to_dict(
-    codeInfo, sectionVariant, section_id, topLevelParamIds, configLanguage, requiredParamIds=None
-):
-    e = SectionToDict(codeInfo, sectionVariant, section_id, topLevelParamIds, configLanguage, requiredParamIds)
+def export_section_to_dict(p, section_id, topLevelParamIds, requiredParamIds=None):
+    e = SectionToDict(p, section_id, topLevelParamIds, requiredParamIds)
     e.export()
     return e
 
@@ -472,16 +470,12 @@ class SimpleExporter:
 
 
 class SectionToDict:
-    def __init__(
-        self, codeInfo, sectionVariant, section_id, topLevelParamIds, configLanguage, requiredParamIds=None
-    ):
+    def __init__(self, p, section_id, topLevelParamIds, requiredParamIds=None):
         self.output = {}
         self.prettyOutput = {}
-        self.codeInfo = codeInfo
-        self.sectionVariant = sectionVariant
+        self.p = copy.deepcopy(p)
         self.section_id = section_id
         self.topLevelParamIds = topLevelParamIds
-        self.configLanguage = configLanguage
         self.requiredParamIds = set(requiredParamIds) if requiredParamIds else None
 
     def export(self):
@@ -496,7 +490,7 @@ class SectionToDict:
                 and param_id not in self.requiredParamIds
             ):
                 continue
-            codeInfo = self.codeInfo[param_id]
+            codeInfo = self.p["codeInfo"][param_id]
             param_name = codeInfo["name"]
             if not param_name:
                 continue
@@ -514,7 +508,6 @@ class SectionToDict:
         return params, prettyParams
 
     def export_param_value(self, id):
-        value = self.sectionVariant["values"][id]["value"]
-        if self.configLanguage == "json":
-            value = try_json(value)
+        variant = get_selected_section_variant(self.p, self.section_id)
+        value = variant["values"][id]["value"]
         return value, value

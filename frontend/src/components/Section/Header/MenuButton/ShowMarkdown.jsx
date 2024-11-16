@@ -1,22 +1,14 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function RenderInfo({ sectionId }) {
   //TODO change this variable name
-  const displayMode = useGetSectionInfo(sectionId, "displayMode");
+  const showYaml = useGetSectionInfo(sectionId, "showYaml");
   const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
 
   function onClick() {
-    setSectionInfoAttr({
-      sectionId,
-      attr: "displayMode",
-      value:
-        displayMode === SECTION_DISPLAY_MODES.RENDER
-          ? SECTION_DISPLAY_MODES.EDIT
-          : SECTION_DISPLAY_MODES.RENDER,
-    });
+    setSectionInfoAttr({ sectionId, attr: "showYaml", value: !showYaml });
   }
 
   const format = renderMarkdown ? "Markdown" : "Plaintext";
@@ -25,9 +17,7 @@ export function RenderInfo({ sectionId }) {
   // and the search bar isn't hidden (we don't want to hide both params and search)
   return (
     <MenuItem onClick={onClick}>
-      {displayMode === SECTION_DISPLAY_MODES.EDIT
-        ? `Render ${format}`
-        : `Edit ${format}`}
+      {showYaml ? `Render ${format}` : `Edit ${format}`}
     </MenuItem>
   );
 }

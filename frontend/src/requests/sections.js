@@ -40,6 +40,20 @@ export function dbRequestTypeCheck(userRequested = false) {
 
 export const debouncedTypeCheckRequest = _.debounce(dbRequestTypeCheck, 500);
 
+export async function dbSectionToDict(sectionId, pinnedIds, unpinnedIds) {
+  const project = getProjectDataToGenerateCode({});
+  pinnedIds.requiredParamIds = Object.keys(pinnedIds.requiredParamIdsToPaths);
+  unpinnedIds.requiredParamIds = Object.keys(
+    unpinnedIds.requiredParamIdsToPaths,
+  );
+  delete pinnedIds.requiredParamIdsToPaths;
+  delete unpinnedIds.requiredParamIdsToPaths;
+  return await post({
+    body: { project, sectionId, pinnedIds, unpinnedIds },
+    address: C.ROUTE_SECTION_TO_DICT,
+  });
+}
+
 export async function dbGetSections() {
   return await post({
     body: {},
@@ -56,7 +70,7 @@ export async function dbParametersRequest({
 }) {
   const projectConfigId = useProjectConfig.getState().id;
   return await sendMessageAndWait({
-    id: createNewId(),
+    id: `${C.ROUTE_PARAMETERS_REQUEST}-${sectionId}-${null}`,
     messageType: "parametersRequest",
     content: {
       projectConfigId,
@@ -72,8 +86,9 @@ export async function dbParametersRequest({
 
 export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
   const project = getProjectDataToGenerateCode({});
+  const id = `${C.ROUTE_TEXT_FIELD_INITIALIZE_CODE}-${sectionId}-${paramInfoId}`;
   await sendMessage({
-    id: createNewId(),
+    id,
     messageType: "textFieldInitializeCode",
     content: { project, sectionId, paramInfoId },
   });
@@ -81,8 +96,9 @@ export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
 
 export async function dbCodeAreaInitializeCode({ sectionId }) {
   const project = getProjectDataToGenerateCode({});
+  const id = `${C.ROUTE_CODE_AREA_INITIALIZE_CODE}-${sectionId}`;
   return await sendMessageAndWait({
-    id: createNewId(),
+    id,
     messageType: "codeAreaInitializeCode",
     content: { project, sectionId },
   });
@@ -100,13 +116,14 @@ export async function dbCodeAreaCompletion({
     sectionId,
     paramInfoId: null,
     fullText,
+    messageIdSuffix: "-codeAreaAutocomplete",
     regexPatternKey: "codeAreaPattern",
   });
 
   setKeywordPositions(keywordPositions);
 
   const autoCompleteProps = {
-    id: createNewId(),
+    id: `${C.ROUTE_CODE_AREA_COMPLETION}-${sectionId}`,
     messageType: "codeAreaAutocomplete",
     content: {
       projectConfigId,
@@ -158,7 +175,7 @@ export async function dbTextFieldCompletion({
   setKeywordPositions(keywordPositions);
 
   return await sendMessageAndWait({
-    id: createNewId(),
+    id: `${C.ROUTE_TEXT_FIELD_COMPLETION}-${sectionId}-${paramInfoId}`,
     messageType: "textFieldCompletion",
     content: {
       projectConfigId,
@@ -176,6 +193,7 @@ export async function getKeywordPositionsAndEVRefs({
   sectionId,
   paramInfoId,
   fullText,
+  messageIdSuffix = "",
   regexPatternKey = "pattern",
 }) {
   const { fullNameToInfo } = useKeywordRegex.getState();
@@ -193,7 +211,7 @@ export async function getKeywordPositionsAndEVRefs({
     let count = 0;
     keywordPositions = [];
     await sendMessageAndWait({
-      id: createNewId(),
+      id: `${sectionId}-${paramInfoId}-find-references${messageIdSuffix}`,
       messageType: "textFieldFindReferences",
       content: { sectionId, paramInfoId, candidateKeywords, fullText },
       condition: (x) => {

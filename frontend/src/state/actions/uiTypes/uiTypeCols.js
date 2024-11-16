@@ -51,10 +51,7 @@ export function updateUITypeCols({ uiTypeCols }) {
 function getParamUITypeId(sectionId, paramInfoId) {
   const { uiTypeColId } = getSectionInfo(sectionId);
   const uiTypeCol = useUITypeCols.getState().y[uiTypeColId];
-  if (
-    paramInfoId.startsWith(C.JSON_SOURCE_PREFIX) &&
-    !(paramInfoId in uiTypeCol)
-  ) {
+  if (paramInfoId.startsWith(C.JSON_SOURCE_PREFIX)) {
     return BASE_UI_TYPE_IDS[C.TEXT];
   }
   return uiTypeCol[paramInfoId].uiTypeId;

@@ -58,6 +58,5 @@
   "zoomOnPinch": true,
   "zoomOnDoubleClick": true,
   "clearTerminalBeforeMarkingAsReady": true,
-  "defaultTerminalShell": null,
-  "languageServerSettings": {}
+  "defaultTerminalShell": null
 }

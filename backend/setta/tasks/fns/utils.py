@@ -1,13 +1,15 @@
 import importlib.util
 import os
+import subprocess
 import sys
+import tempfile
 import uuid
 from typing import Any, Callable, List, Optional
 
 from pydantic import BaseModel
 
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import C
+from setta.utils.constants import CODE_FOLDER, C
 
 
 def import_from_path(file_path):
@@ -55,6 +57,49 @@ def import_code_from_string(code_string, module_name=None, add_to_sys_modules=Fa
     exec(code_object, module.__dict__)
 
     return module
+
+
+def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
+    if len(write) != len(in_file_with_suffix):
+        raise ValueError("Writes and suffixes lists must have the same length.")
+
+    temp_files = []
+    try:
+        dir_name = CODE_FOLDER
+        os.makedirs(dir_name, exist_ok=True)
+        # Create temporary files
+        for w, suffix in zip(write, in_file_with_suffix):
+            temp_file = tempfile.NamedTemporaryFile(
+                dir=dir_name,
+                mode="w+",
+                prefix="setta_temp_",
+                suffix=suffix,
+                delete=False,
+            )
+            temp_file.write(w)
+            temp_file.flush()
+            temp_files.append(temp_file)
+
+        # Get the relative paths of all temporary files
+        temp_file_paths = [
+            os.path.relpath(temp_file.name).replace(os.sep, "/")
+            for temp_file in temp_files
+        ]
+
+        return then_do(temp_file_paths)
+
+    except subprocess.CalledProcessError as e:
+        print(e, flush=True)
+        print(e.stdout, flush=True)
+        print(e.stderr, flush=True)
+        return e
+
+    finally:
+        if auto_delete:
+            # Clean up the temporary files
+            for temp_file in temp_files:
+                temp_file.close()
+                os.remove(temp_file.name)
 
 
 def do_nothing(*args, **kwargs):

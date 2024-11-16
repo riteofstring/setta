@@ -18,5 +18,5 @@ extractArgparseArgs = TaskDefinition(
     name="extractArgparseArgs",
     return_message_type="extractArgparseArgsReturn",
     fn=_extractArgparseArgs,
-    run_as=RunType.NONE,
+    run_as=RunType.THREAD,
 )

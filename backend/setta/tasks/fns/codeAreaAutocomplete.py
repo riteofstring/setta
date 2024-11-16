@@ -22,7 +22,7 @@ class CodeAreaAutocompleteContent(BaseModel):
     cached: Optional[Any] = None
 
 
-async def _codeAreaAutocomplete(message, lsp_writers):
+async def _codeAreaAutocomplete(message, lsp_writer):
     request_id = message.id
     message = CodeAreaAutocompleteContent.parse_obj(message.content)
 
@@ -66,12 +66,12 @@ async def _codeAreaAutocomplete(message, lsp_writers):
 
     line, column = position_to_line_col(code, position)
 
-    await lsp_writers["full"].send_document_update(
+    await lsp_writer.send_document_update(
         message.projectConfigId,
         code,
         codeJson=exporter_obj.output if exporter_obj else None,
     )
-    await lsp_writers["full"].send_autocomplete_request(
+    await lsp_writer.send_autocomplete_request(
         line,
         column,
         code_id=message.projectConfigId,
@@ -103,6 +103,6 @@ codeAreaAutocomplete = TaskDefinition(
     return_message_type="codeAreaAutocompleteReturn",
     fn=_codeAreaAutocomplete,
     read_cache=read_cache,
-    run_as=RunType.NONE,
-    server_dependencies=["lsp_writers"],
+    run_as=RunType.THREAD,
+    server_dependencies=["lsp_writer"],
 )
