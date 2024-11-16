@@ -39,6 +39,7 @@ export async function setSelectedItem(
       sectionId,
       selectedItemName,
     });
+    setSectionVariantAttr(sectionId, "selectedItem", id);
     await createCodeInfoChildren({
       dataSectionId: sectionId,
       visualSectionId: sectionId,
@@ -47,7 +48,6 @@ export async function setSelectedItem(
       codeInfoId: id,
       changedByUser,
     });
-    setSectionVariantAttr(sectionId, "selectedItem", id);
   }
   updateKeywordRegex();
 }
