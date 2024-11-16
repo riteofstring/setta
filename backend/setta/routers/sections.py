@@ -1,4 +1,3 @@
-from pprint import pprint
 from typing import Dict, List
 
 from fastapi import APIRouter
@@ -20,12 +19,10 @@ class SectionsMakeCopyRequest(BaseModel):
 
 
 class SectionToDictRequest(BaseModel):
-    codeInfo: dict
-    sectionVariant: dict
+    project: dict
     sectionId: str
     pinnedIds: Dict[str, List[str]]
     unpinnedIds: Dict[str, List[str]]
-    configLanguage: str
 
 
 class LoadSectionJSONSourceRequest(BaseModel):
@@ -50,19 +47,15 @@ def route_sections_make_copy(x: SectionsMakeCopyRequest):
 @router.post(C.ROUTE_SECTION_TO_DICT)
 def route_section_to_yaml(x: SectionToDictRequest):
     pinned = export_section_to_dict(
-        x.codeInfo,
-        x.sectionVariant,
+        x.project,
         x.sectionId,
         x.pinnedIds["topLevelParamIds"],
-        x.configLanguage,
         x.pinnedIds["requiredParamIds"],
     )
     unpinned = export_section_to_dict(
-        x.codeInfo,
-        x.sectionVariant,
+        x.project,
         x.sectionId,
         x.unpinnedIds["topLevelParamIds"],
-        x.configLanguage,
         x.unpinnedIds["requiredParamIds"],
     )
     return {

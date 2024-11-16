@@ -153,15 +153,17 @@ function ColorPickerFromColorChoices({
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger className={colorPickerChoicesClasses}>
-        <div className="flex items-center text-setta-500 dark:text-setta-400">
+        <div className="single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white ">
           <div
-            className="mr-2 h-4 w-4 rounded-full !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
+            className="single-cell-child m-auto h-full min-h-0 w-full min-w-0 rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
             style={{ backgroundColor: selectedItem.color }}
           />
-          <p className="max-w-24 truncate text-xs font-black">
-            {selectedItem.description}
-          </p>
-          <i className="gg-chevron-down -mr-1 self-end" />
+          <div className="single-cell-child flex items-center">
+            <p className=" p-2 text-xs font-semibold mix-blend-difference @[90px]:inline-block">
+              {selectedItem.description}
+            </p>
+            <i className="gg-chevron-down ml-auto" />
+          </div>
         </div>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content className="flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800">

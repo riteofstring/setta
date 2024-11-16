@@ -87,5 +87,5 @@ textFieldInitializeCode = TaskDefinition(
     return_message_type="textFieldInitializeCodeReturn",
     fn=_textFieldInitializeCode,
     write_cache=write_cache,
-    run_as=RunType.NONE,
+    run_as=RunType.THREAD,
 )

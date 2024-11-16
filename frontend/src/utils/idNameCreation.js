@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import {
   adjectives,
   colors,
@@ -12,14 +11,6 @@ export function createNewId() {
 
 export function maybeNewId(x) {
   return x ? x : createNewId();
-}
-
-export function createNewParamId(paramPath, jsonSource) {
-  if (jsonSource) {
-    const metadata = JSON.stringify({ filename: jsonSource, key: paramPath });
-    return `${C.JSON_SOURCE_PREFIX}${metadata}`;
-  }
-  return createNewId();
 }
 
 export function isUUID(x) {

@@ -6,7 +6,6 @@ import {
   INFO_CONFIG_TAB,
   QUICKINFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
-  SECTION_DISPLAY_MODES,
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
@@ -23,12 +22,15 @@ function useUITypeCol(sectionId, paramInfoId, key) {
   const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
   return useUITypeCols((x) => {
     if (paramInfoId.startsWith(C.JSON_SOURCE_PREFIX)) {
-      if (paramInfoId in x.y[uiTypeColId]) {
-        return x.y[uiTypeColId][paramInfoId][key];
-      } else if (key === "uiTypeId") {
+      if (key === "uiTypeId") {
+        if (paramInfoId in x.y[uiTypeColId]) {
+          return x.y[uiTypeColId][paramInfoId][key];
+        }
         return BASE_UI_TYPE_IDS[C.TEXT];
       } else if (key === "nonPresetUITypeIds") {
         return [];
+      } else {
+        console.error("unexpected key in useUITypeCol", key);
       }
     }
     return x.y[uiTypeColId][paramInfoId][key];
@@ -173,15 +175,5 @@ function getRequiredUIEditorTabs(uiTypeName) {
         INFO_CONFIG_TAB,
         SECTION_VARIANTS_TAB,
       ];
-  }
-}
-
-export function getDefaultDisplayMode(uiTypeId) {
-  const uiType = useUITypes.getState().x[uiTypeId].type;
-  switch (uiType) {
-    case C.INFO:
-      return SECTION_DISPLAY_MODES.RENDER;
-    default:
-      return SECTION_DISPLAY_MODES.GUI;
   }
 }

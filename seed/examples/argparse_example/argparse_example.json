@@ -539,6 +539,7 @@
       "jsonSource": null,
       "codeInfoId": "13fab360-ee28-480c-baf7-6604e94116f6",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "d7c2a6b6-5fa1-49fd-9360-1c49331a4e60"
@@ -555,8 +556,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "1252064e-3eee-4fd8-9192-a2d3555e3ed6": {
       "id": "1252064e-3eee-4fd8-9192-a2d3555e3ed6",
@@ -572,6 +572,7 @@
       "jsonSource": null,
       "codeInfoId": "346b6140-4b33-4c43-a102-44f634401829",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "f28956a9-e609-4946-ada3-01e09cef9901"
@@ -588,8 +589,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "2a7156ce-56f0-4f44-a415-190464979f61": {
       "id": "2a7156ce-56f0-4f44-a415-190464979f61",
@@ -605,6 +605,7 @@
       "jsonSource": "",
       "codeInfoId": "ee41213d-8390-4c70-a922-49887874461b",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "3dbb4893-bd44-4e67-a6c3-1148d7205d42"
@@ -621,8 +622,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "350241fe-50f9-44a9-8553-fb57eb72f881": {
       "id": "350241fe-50f9-44a9-8553-fb57eb72f881",
@@ -638,6 +638,7 @@
       "jsonSource": "",
       "codeInfoId": "6b0467c1-584c-436c-8d18-5a86fa6eddfa",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "3ec298ce-5d49-42f8-8700-3e2efb26855b"
@@ -654,8 +655,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "4b71ccae-dc5f-4151-be02-9cbbf661d822": {
       "id": "4b71ccae-dc5f-4151-be02-9cbbf661d822",
@@ -671,6 +671,7 @@
       "jsonSource": null,
       "codeInfoId": "7b0d99e4-8634-4ceb-a09f-110a68957feb",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "5380aa69-09b9-4621-a302-79da25d5e544"
@@ -687,8 +688,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "55ab0625-b101-48b6-abb2-ad8bb9331396": {
       "id": "55ab0625-b101-48b6-abb2-ad8bb9331396",
@@ -704,6 +704,7 @@
       "jsonSource": null,
       "codeInfoId": "97df6874-9b51-4af5-916f-f1e273cba92f",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "43a579a2-adf1-4378-a8a3-013710251c69"
@@ -720,8 +721,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "65ce7866-37da-4360-a0e5-50298c2f69e6": {
       "id": "65ce7866-37da-4360-a0e5-50298c2f69e6",
@@ -737,6 +737,7 @@
       "jsonSource": null,
       "codeInfoId": "bf728b4c-b44c-45ec-983b-86010e4f3a60",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "14173e89-51f1-48b5-aefb-804fff1f2164"
@@ -753,8 +754,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 1,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "6e694ec2-8a81-4c0a-b669-9b4074a914b4": {
       "id": "6e694ec2-8a81-4c0a-b669-9b4074a914b4",
@@ -770,6 +770,7 @@
       "jsonSource": null,
       "codeInfoId": "805f02be-85a7-49e7-bb08-e3fa42fe95a4",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "fe621fb8-0584-422b-a221-4b4d7fbe8ff7"
@@ -786,8 +787,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "72b9394e-48f8-488f-ae90-914a895335cf": {
       "id": "72b9394e-48f8-488f-ae90-914a895335cf",
@@ -803,6 +803,7 @@
       "jsonSource": null,
       "codeInfoId": "8b64176a-f0df-46c5-a461-02c81b152953",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "54bf9ed0-5d78-460b-9a52-4227c5f490b6"
@@ -819,8 +820,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "81826fec-6648-4250-9b2d-448a75a361e9": {
       "id": "81826fec-6648-4250-9b2d-448a75a361e9",
@@ -836,6 +836,7 @@
       "jsonSource": null,
       "codeInfoId": "ffaa0e5e-8883-4509-a992-793127b3aeee",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "a8361b95-8fcc-42ee-b99f-72113229162e"
@@ -852,8 +853,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "8d73c344-5501-4790-98ed-c00cb9d87393": {
       "id": "8d73c344-5501-4790-98ed-c00cb9d87393",
@@ -869,6 +869,7 @@
       "jsonSource": "",
       "codeInfoId": "cbf1bb45-39f1-433f-9107-a790449a47bc",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "40fd1a3c-6fca-4b87-b427-5bee353cef09"
@@ -885,8 +886,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "978a7722-c14a-460b-bfa7-f9253b978d41": {
       "id": "978a7722-c14a-460b-bfa7-f9253b978d41",
@@ -902,6 +902,7 @@
       "jsonSource": null,
       "codeInfoId": "db24466b-2951-4a7e-bbff-5802a9190bb1",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "0d59b94d-4ca1-4759-b5f1-db4c0107d80d"
@@ -918,8 +919,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "9af48137-00f6-4b9e-beb0-2467cbd877ff": {
       "id": "9af48137-00f6-4b9e-beb0-2467cbd877ff",
@@ -935,6 +935,7 @@
       "jsonSource": null,
       "codeInfoId": "d01a64f7-295b-40af-a121-84fe4480633f",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "bb16a231-3ff5-434f-a1af-ea6b3139dd5e"
@@ -951,8 +952,7 @@
       "isHorizontalOrientation": 1,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "9ec72858-6c5d-43b2-be73-e1017ab30f10": {
       "id": "9ec72858-6c5d-43b2-be73-e1017ab30f10",
@@ -968,6 +968,7 @@
       "jsonSource": null,
       "codeInfoId": "9d4d07ec-37d0-46f3-94ed-a448a8692036",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "1da8ad57-c195-4d6c-baaa-b51f1ef1cc15"
@@ -984,8 +985,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a6d874df-7f5c-4970-b85e-b86a9af4e2cf": {
       "id": "a6d874df-7f5c-4970-b85e-b86a9af4e2cf",
@@ -1001,6 +1001,7 @@
       "jsonSource": null,
       "codeInfoId": "c4db6e8e-05cf-46fb-855e-db2ad59d32b6",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "7a4d7553-e651-42a5-8e7c-a325ce9b3b37"
@@ -1017,8 +1018,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b9763d11-7dd2-4a98-a390-e1ae9799def0": {
       "id": "b9763d11-7dd2-4a98-a390-e1ae9799def0",
@@ -1034,6 +1034,7 @@
       "jsonSource": null,
       "codeInfoId": "2d7fcb8a-0470-4cc3-a1f8-52c54c75c688",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "71cb48cb-b3f1-4a31-8dd1-01ff7341facd"
@@ -1050,8 +1051,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c27f4f05-7a54-44e6-b222-c77581c4ea37": {
       "id": "c27f4f05-7a54-44e6-b222-c77581c4ea37",
@@ -1067,6 +1067,7 @@
       "jsonSource": "",
       "codeInfoId": "ceb322b7-b346-4a16-aedc-484c4ecf7b4e",
       "hideUnpinnedParams": 0,
+      "showYaml": 1,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "dc1879dd-4591-46c0-8fc6-f733c6b177ca"
@@ -1085,8 +1086,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "YAML"
+      "canvasSettings": {}
     },
     "c36c883d-babc-435b-8cbf-efe28fb5b3e5": {
       "id": "c36c883d-babc-435b-8cbf-efe28fb5b3e5",
@@ -1102,6 +1102,7 @@
       "jsonSource": null,
       "codeInfoId": "4b454a11-5846-45d6-9356-e29ec0d21a69",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "b6f4bca9-0c4d-4f73-9660-c1f79030691e"
@@ -1118,8 +1119,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d10030ff-a3e6-4152-b4ed-df3e818ff398": {
       "id": "d10030ff-a3e6-4152-b4ed-df3e818ff398",
@@ -1135,6 +1135,7 @@
       "jsonSource": null,
       "codeInfoId": "6c0df750-6261-4bba-9755-106b0eac179a",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "058253cf-28cd-48a3-90ed-6b94971d2656"
@@ -1151,8 +1152,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d82c1e46-126f-4fa9-b08b-15341a1433a7": {
       "id": "d82c1e46-126f-4fa9-b08b-15341a1433a7",
@@ -1168,6 +1168,7 @@
       "jsonSource": null,
       "codeInfoId": "3c69b2a9-9688-48d4-9142-e31e48528bf0",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "956bd407-95e4-457a-bbca-2ee6fecde7d5"
@@ -1184,8 +1185,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "de4841d2-f44b-4015-9654-a05cb26a0608": {
       "id": "de4841d2-f44b-4015-9654-a05cb26a0608",
@@ -1201,6 +1201,7 @@
       "jsonSource": null,
       "codeInfoId": "2692e90e-4be9-4513-b247-f5678be23cd4",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "8226a890-8524-430c-8d8f-861b5db786f1"
@@ -1217,8 +1218,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "fab5ccf9-c2a1-4352-99aa-7b9b557ac466": {
       "id": "fab5ccf9-c2a1-4352-99aa-7b9b557ac466",
@@ -1234,6 +1234,7 @@
       "jsonSource": null,
       "codeInfoId": "9b985a61-f03f-44e2-b8f3-e0f25245daae",
       "hideUnpinnedParams": 0,
+      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "fe28bfc8-f735-4272-ab16-ce7fcbb18767"
@@ -1250,8 +1251,7 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     }
   },
   "codeInfo": {

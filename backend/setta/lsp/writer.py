@@ -2,8 +2,6 @@ import json
 import platform
 import uuid
 
-from setta.utils.utils import recursive_dict_merge
-
 from .server import LanguageServerInteractor
 
 
@@ -16,10 +14,10 @@ class LanguageServerWriter(LanguageServerInteractor):
         if id:
             request_dict["id"] = id
             self.msg_id_to_metadata[id]["method"] = method
-
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
+        # print(header + request, flush=True)
         self.server.stdin.write(header + request)
         await self.server.stdin.drain()
 
@@ -33,20 +31,15 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_document_open_request(self, code_id, code, codeJson=None):
         uri = self.get_virtual_uri(code_id)
-        if uri not in self.versions:
-            print("send_document_open_request", code_id, flush=True)
-            params = {
-                "textDocument": {
-                    "uri": uri,
-                    "languageId": "python",
-                    "version": self.get_new_version_number(uri, code, codeJson),
-                    "text": code,
-                }
+        params = {
+            "textDocument": {
+                "uri": uri,
+                "languageId": "python",
+                "version": self.get_new_version_number(uri, code, codeJson),
+                "text": code,
             }
-            await self.send_request("textDocument/didOpen", params=params)
-        else:
-            print("document already open, updating it", code_id, flush=True)
-            await self.send_document_update(code_id, code, codeJson)
+        }
+        await self.send_request("textDocument/didOpen", params=params)
 
     async def send_autocomplete_request(
         self,
@@ -86,17 +79,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_didChangeConfiguration(self):
-        # THIS FORMAT WORKS
-        # hardcoded_settings = {
-        #     "basedpyright": {"analysis": {"exclude": [".setta_code"]}}
-        # }
-        hardcoded_settings = {}
-        settings = recursive_dict_merge(hardcoded_settings, self.settings)
-
-        await self.send_request(
-            "workspace/didChangeConfiguration",
-            params={"settings": settings},
-        )
+        await self.send_request("workspace/didChangeConfiguration", params={})
 
     async def send_document_update(self, code_id, code, codeJson):
         uri = self.get_virtual_uri(code_id)
