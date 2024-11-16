@@ -127,7 +127,7 @@ function ColorPicker({
   ) : (
     <>
       <i
-        className="gg-color-picker single-cell-child mr-0.5 mt-0.5 place-self-center"
+        className="gg-color-picker single-cell-child pointer-events-none mr-0.5 mt-0.5 place-self-center"
         style={{ color: iconColor }}
       />
       <input
