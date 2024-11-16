@@ -18,13 +18,21 @@ CREATE_TABLES_COMMANDS = [
         keywordPositions TEXT
     );
     """,
+    # CodeInfoColId model
+    """
+    CREATE TABLE IF NOT EXISTS CodeInfoColId (
+        id TEXT,
+    );
+    """,
     # CodeInfoCol model
     """
     CREATE TABLE IF NOT EXISTS CodeInfoCol (
+        idid TEXT,
         parentId TEXT,
         childId TEXT,
         "order" INTEGER,
-        PRIMARY KEY (parentId, childId),
+        PRIMARY KEY (idid, parentId, childId),
+        FOREIGN KEY (idid) REFERENCES CodeInfoColId(id) ON DELETE CASCADE,
         FOREIGN KEY (parentId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
         FOREIGN KEY (childId) REFERENCES CodeInfo(id) ON DELETE CASCADE
     );
@@ -43,14 +51,12 @@ CREATE_TABLES_COMMANDS = [
         configLanguage TEXT,
         isFrozen BOOLEAN,
         jsonSource TEXT,
-        codeInfoId TEXT,
         hideUnpinnedParams BOOLEAN,
         displayMode TEXT,
         canvasSettings TEXT,
         FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE,
-        FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
     );
     """,
     # SectionConfig model
@@ -80,9 +86,11 @@ CREATE_TABLES_COMMANDS = [
         selectedItem TEXT,
         code TEXT,
         keywordPositions TEXT,
+        codeInfoColId TEXT,
         originSectionId TEXT,
         FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
         FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
+        FOREIGN KEY (codeInfoColId) REFERENCES CodeInfoColId(id) ON DELETE CASCADE
     );
     """,
     # SectionVariantEV model
