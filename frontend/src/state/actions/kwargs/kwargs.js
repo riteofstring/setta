@@ -3,9 +3,9 @@ import { dbSaveCodeInfo } from "requests/sectionConfig";
 import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { getKwargIds } from "../../getters/codeInfo";
 import { getSectionInfo } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
+import { getKwargIds } from "../codeInfoCols";
 import { initializeParam } from "../initializeParam";
 import { updateKeywordRegex } from "../keywordRegex";
 import { deleteParamsFromParamSweep } from "../runGroups/paramSweep";
@@ -17,7 +17,7 @@ import { getAllSelectedParams } from "./utils";
 
 export function addKwarg({
   sectionId,
-  parentId,
+  parentId = null,
   name = "",
   insertIdx = null,
   incrementVersion = false,
@@ -37,8 +37,7 @@ export function addKwarg({
     rcType: C.PARAMETER,
     editable: true,
   });
-  const parent = parentId ?? getSectionInfo(sectionId).codeInfoId;
-  addCodeInfo({ info: kwargInfo, parent, insertIdx });
+  addCodeInfo({ sectionId, info: kwargInfo, parent: parentId, insertIdx });
   initializeParam(sectionId, [kwargInfo.id]);
   maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
@@ -47,14 +46,13 @@ export function addKwarg({
 export function deleteKwarg(payload) {
   let {
     sectionId,
-    parentId,
+    parentId = null,
     deleteLast = false,
     incrementVersion = false,
   } = payload;
   let { kwargId = "" } = payload;
-  parentId = parentId ?? getSectionInfo(sectionId).codeInfoId;
   if (deleteLast) {
-    const kwargIds = getKwargIds(parentId);
+    const kwargIds = getKwargIds(sectionId, parentId);
     const numKwargs = kwargIds.length;
     if (numKwargs === 0) {
       return;

@@ -11,7 +11,7 @@ import {
   getSectionType,
   hasParentInFlattenedStructure,
 } from "state/getters/sectionInfo";
-import { getCodeInfoChildren } from "./codeInfoCols";
+import { getSectionCodeInfoChildren } from "./codeInfoCols";
 import { getSectionChildren } from "./sectionVariants";
 
 export function updateKeywordRegex(idsToNames = null) {
@@ -144,7 +144,7 @@ function setFullParamRegex(
   isGlobalVar = false,
 ) {
   const codeInfoState = useCodeInfo.getState().x;
-  const codeInfoChildren = getCodeInfoChildren(sectionId);
+  const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   const childParamInfos = paramInfoId
     ? codeInfoChildren[paramInfoId].map((x) => codeInfoState[x])
     : getParamIds(sectionId, codeInfoState, codeInfoChildren)["ids"].map(

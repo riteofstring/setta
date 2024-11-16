@@ -1,4 +1,4 @@
-import { useCodeInfoCols } from "state/definitions";
+import { useCodeInfo, useCodeInfoCols } from "state/definitions";
 import { createNewId, maybeNewId } from "utils/idNameCreation";
 import { getSectionCodeInfoColId } from "./sectionVariants";
 
@@ -6,10 +6,21 @@ export function setAllCodeInfoCols(x) {
   useCodeInfoCols.setState({ x });
 }
 
-export function getCodeInfoChildren(sectionId) {
+export function getSectionCodeInfoChildren(sectionId) {
   return useCodeInfoCols.getState().x[getSectionCodeInfoColId(sectionId)][
     "children"
   ];
+}
+
+export function getCodeInfoChildren(sectionId, codeInfoId) {
+  return getSectionCodeInfoChildren(sectionId)[codeInfoId];
+}
+
+export function getKwargIds(sectionId, codeInfoId, _cState) {
+  const cState = _cState ?? useCodeInfo.getState().x;
+  return getCodeInfoChildren(sectionId, codeInfoId).filter(
+    (x) => cState[x].editable,
+  );
 }
 
 export function initManyCodeInfoCols(sectionIds) {

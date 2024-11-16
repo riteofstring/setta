@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useCodeInfo, useCodeInfoCols } from "state/definitions";
-import { getCodeInfoChildren } from "./codeInfoCols";
+import { getSectionCodeInfoChildren } from "./codeInfoCols";
 import {
   getSectionCodeInfoColId,
   getSectionSelectedItem,
@@ -55,8 +55,15 @@ export function setCodeInfoFrozen({ ids, isFrozen }) {
 export function deleteCodeInfo({ ids }) {
   useCodeInfo.setState((state) => {
     state.x = _.omit(state.x, ids);
-    for (const c of Object.values(state.x)) {
-      c.children = c.children.filter((y) => !ids.includes(y));
+  });
+  useCodeInfoCols.setState((state) => {
+    state.x = _.omit(state.x, ids);
+    for (const codeCol of Object.values(state.x)) {
+      for (const parentId of Object.keys(codeCol.children)) {
+        codeCol.children[parentId] = codeCol.children[parentId].filter(
+          (y) => !ids.includes(y),
+        );
+      }
     }
   });
 }
@@ -86,7 +93,7 @@ export function batchUpdateCodeInfoChildren(idToNewChildren) {
 }
 
 export function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
-  const codeInfoChildren = getCodeInfoChildren(sectionId);
+  const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   const cState = useCodeInfo.getState().x;
   for (const c of codeInfoChildren[null]) {
     if (cState[c].name === selectedItemName) {

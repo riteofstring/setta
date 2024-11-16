@@ -5,7 +5,7 @@ import {
   findAllParametersOfNotCallables,
 } from "utils/getDescendants";
 import { bothTruthyOrFalsey } from "utils/utils";
-import { getCodeInfoChildren } from "../codeInfoCols";
+import { getSectionCodeInfoChildren } from "../codeInfoCols";
 import { getSectionSelectedItem } from "../sectionVariants";
 
 export function getParamIds(
@@ -16,7 +16,8 @@ export function getParamIds(
   paramPathCondition = false,
 ) {
   const cState = _cState ?? useCodeInfo.getState().x;
-  const codeInfoChildren = _codeInfoChildren ?? getCodeInfoChildren(sectionId);
+  const codeInfoChildren =
+    _codeInfoChildren ?? getSectionCodeInfoChildren(sectionId);
   const selectedItem =
     _selectedItem === undefined
       ? getSectionSelectedItem(sectionId)
@@ -47,7 +48,8 @@ export function getParamIdsToShowInArea(
   _selectedItem = undefined,
 ) {
   const cState = _cState ?? useCodeInfo.getState().x;
-  const codeInfoChildren = _codeInfoChildren ?? getCodeInfoChildren(sectionId);
+  const codeInfoChildren =
+    _codeInfoChildren ?? getSectionCodeInfoChildren(sectionId);
 
   const { ids, pathMap } = getParamIds(
     sectionId,
