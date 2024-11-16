@@ -74,7 +74,7 @@ export function useLoadProjectConfig() {
   const { state } = useLocation();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
-  const [is404, setIs404] = useState(false);
+  const is404 = useMisc((x) => x.projectIs404);
   const isHotReload = useHotReload();
 
   async function loadFn() {
@@ -82,7 +82,6 @@ export function useLoadProjectConfig() {
     resetProjectStores();
     setDoneLoading(false);
     const res = await loadProjectConfig({ projectConfigName });
-    setIs404(!res);
     setDoneLoading(true);
     useMisc.setState({ projectIsLoading: false, projectIs404: !res });
   }
@@ -92,7 +91,6 @@ export function useLoadProjectConfig() {
     resetProjectStores();
     setDoneLoading(false);
     const res = await loadSettingsProjectConfig();
-    setIs404(!res);
     setDoneLoading(true);
     useMisc.setState({ projectIsLoading: false, projectIs404: !res });
   }
