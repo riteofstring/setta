@@ -21,18 +21,19 @@ export function duplicateSectionVariant({ id, newId, newName }) {
   });
 }
 
-export function initManySectionVariantIds({ collectionIds, variantProps }) {
+export function initManySectionVariantIds({ variantProps }) {
   useSectionVariants.setState((state) => {
-    _.forEach(collectionIds, (id) => {
-      initValue(state.x, id, {
+    for (const props of variantProps) {
+      initValue(state.x, props.id, {
         name: createRandomName(),
-        values: variantProps.values ?? {},
-        children: variantProps.children ?? [],
-        selectedItem: variantProps.selectedItem ?? null,
-        code: variantProps.code ?? "",
-        keywordPositions: variantProps.keywordPositions ?? [],
+        values: props.values ?? {},
+        children: props.children ?? [],
+        selectedItem: props.selectedItem ?? null,
+        code: props.code ?? "",
+        codeInfoColId: props.codeInfoColId,
+        keywordPositions: props.keywordPositions ?? [],
       });
-    });
+    }
   });
 }
 export function initManyEnteredValues({ collectionId, paramIdsToUITypes }) {
@@ -194,6 +195,7 @@ export function getSectionChildrenAcrossVariants(sectionId) {
 
 export function setSectionVariantAttr(sectionId, attr, value) {
   const { variantId } = getSectionVariantId(sectionId);
+  console.log("setSectionVariantAttr", variantId, attr, value);
   useSectionVariants.setState((x) => {
     x.x[variantId][attr] = value;
   });

@@ -15,6 +15,7 @@ import { newSectionPosition } from "utils/objs/sectionPosition";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
+import { initManyCodeInfoCols } from "../codeInfoCols";
 import { updateKeywordRegex } from "../keywordRegex";
 import {
   getSectionChildren,
@@ -22,7 +23,7 @@ import {
   setSectionVariantChildren,
 } from "../sectionVariants";
 import { initManyUITypeColIds } from "../uiTypes/uiTypeCols";
-import { addSectionInfo, setSectionInfoAttr } from "./sectionInfos";
+import { addSectionInfo } from "./sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
   return addSectionInEmptySpace({ type: C.SECTION });
@@ -173,7 +174,6 @@ export function addChild({ id, parentId, type, sectionProps }) {
 
 export function createSectionInfo({
   sectionProps = {},
-  variantProps = {},
   numSections = 1,
   position,
 }) {
@@ -182,16 +182,20 @@ export function createSectionInfo({
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
   }
-  addSectionsToState(newInfos, variantProps, position);
+  addSectionsToState(newInfos, position);
   return Object.keys(newInfos);
 }
 
-function addSectionsToState(sectionInfos, variantProps, position) {
+function addSectionsToState(sectionInfos, position) {
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
+  const sectionIdToCodeInfoColId = initManyCodeInfoCols(sectionIds);
+
   initManySectionVariantIds({
-    collectionIds: _.map(sectionInfos, (x) => x.variantId),
-    variantProps,
+    variantProps: _.map(sectionInfos, (x) => ({
+      id: x.variantId,
+      codeInfoColId: sectionIdToCodeInfoColId[x.id],
+    })),
   });
 
   initManyUITypeColIds({
@@ -203,9 +207,6 @@ function addSectionsToState(sectionInfos, variantProps, position) {
   const topLevelSectionIds = [];
 
   for (const s of sectionIds) {
-    initializeNewSectionConfig(s);
-    const { codeInfoId } = getSectionInfo(s);
-    initializeChildParams({ sectionIds: [s], codeInfoIds: [codeInfoId] });
     if (!sectionInfos[s].parentId) {
       topLevelSectionIds.push(s);
     }
@@ -221,19 +222,6 @@ function addSectionsToState(sectionInfos, variantProps, position) {
       })),
     );
   }
-}
-
-function initializeNewSectionConfig(sectionId) {
-  const collection = newCodeInfo({
-    name: "Contents",
-    rcType: C.COLLECTION,
-  });
-  addCodeInfo({ info: collection });
-  setSectionInfoAttr({
-    sectionId,
-    attr: "codeInfoId",
-    value: collection.id,
-  });
 }
 
 export function createAdjacentSection(sectionId, sectionProps) {
