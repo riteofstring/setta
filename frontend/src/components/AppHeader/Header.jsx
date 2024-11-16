@@ -13,14 +13,19 @@ import { ProjectNav } from "./ProjectNav";
 import { SiteLogo } from "./SiteLogo";
 
 export function HeaderContainer({ path }) {
+  const pageIs404 = useMisc((x) => x.pageIs404);
   return (
     <header
       className={`z-20 flex h-12 min-h-12 w-[100vw] flex-row items-center border-b border-transparent bg-white px-4 shadow-md dark:border-setta-700/30 dark:bg-setta-875 `}
     >
       <SiteLogo />
-      <ProjectNav />
-      <SearchSwitch path={path} />
-      <Notification />
+      {!pageIs404 && (
+        <>
+          <ProjectNav />
+          <SearchSwitch path={path} />
+          <Notification />
+        </>
+      )}
       <DarkModeSwitch />
     </header>
   );

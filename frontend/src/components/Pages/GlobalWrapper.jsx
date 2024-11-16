@@ -30,15 +30,16 @@ export function IndexRouteComponent() {
 function useSetHTMLTitle() {
   const { pathname } = useLocation();
   const { projectConfigName } = useParams();
+  const pageIs404 = useMisc((x) => x.pageIs404);
   useEffect(() => {
     if (pathname === HOME_ROUTER_PATH) {
       document.title = "Home";
     } else if (pathname === SETTINGS_ROUTER_PATH) {
       document.title = "Settings";
     } else if (projectConfigName) {
-      document.title = projectConfigName;
+      document.title = pageIs404 ? "Not Found" : projectConfigName;
     } else {
       document.title = "setta.dev";
     }
-  }, [pathname, projectConfigName]);
+  }, [pathname, projectConfigName, pageIs404]);
 }

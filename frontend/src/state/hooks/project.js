@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { dbSetProjectConfigName } from "requests/projectName";
@@ -72,49 +73,59 @@ export function useExportProjectJson() {
 export function useLoadProjectConfig() {
   const { projectConfigName } = useParams();
   const { state } = useLocation();
-  const navigate = useNavigate();
   const pageLoadType = state?.pageLoadType;
-  const [doneLoading, setDoneLoading] = useState(false);
-  const [is404, setIs404] = useState(false);
+  const { pageDoneLoading, pageIs404 } = useMisc(
+    (x) => _.pick(x, ["pageDoneLoading", "pageIs404"]),
+    _.isEqual,
+  );
   const isHotReload = useHotReload();
+  console.log("pageDoneLoading, pageIs404", pageDoneLoading, pageIs404);
 
   async function loadFn() {
     console.log("LOADING ************");
     resetProjectStores();
-    setDoneLoading(false);
+    useMisc.setState({ pageDoneLoading: false });
     const res = await loadProjectConfig({ projectConfigName });
-    setIs404(!res);
-    setDoneLoading(true);
-    useMisc.setState({ projectIsLoading: false });
+    useMisc.setState({
+      pageDoneLoading: true,
+      pageIsLoading: false,
+      pageIs404: !res,
+    });
   }
 
   async function loadSettingsProject() {
     console.log("LOADING ************");
     resetProjectStores();
-    setDoneLoading(false);
+    useMisc.setState({ pageDoneLoading: false });
     const res = await loadSettingsProjectConfig();
-    setIs404(!res);
-    setDoneLoading(true);
-    useMisc.setState({ projectIsLoading: false });
+    useMisc.setState({
+      pageDoneLoading: true,
+      pageIsLoading: false,
+      pageIs404: !res,
+    });
   }
 
   function changeFn() {
     console.log("CHANGING CONFIG NAME********");
     setProjectConfigName(projectConfigName);
-    useMisc.setState({ projectIsLoading: false });
+    useMisc.setState({ pageIsLoading: false });
   }
 
   useEffect(() => {
-    if (isHotReload || useMisc.getState().projectIsLoading) {
+    useMisc.setState({ pageDoneLoading: false });
+  }, []);
+
+  useEffect(() => {
+    if (isHotReload || useMisc.getState().pageIsLoading) {
       return;
     }
 
-    useMisc.setState({ projectIsLoading: true });
+    useMisc.setState({ pageIsLoading: true });
 
     if (projectConfigName === SETTINGS_PROJECT_NAME) {
       loadSettingsProject();
     } else if (
-      !doneLoading ||
+      !pageDoneLoading ||
       pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG
     ) {
       loadFn();
@@ -123,7 +134,7 @@ export function useLoadProjectConfig() {
     }
   }, [pageLoadType, projectConfigName]);
 
-  return [doneLoading, is404];
+  return [pageDoneLoading, pageIs404];
 }
 
 export function useEditableProjectName() {

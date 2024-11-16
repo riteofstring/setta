@@ -221,7 +221,9 @@ export const useParamShortcuts = create(() => ({
 export const useMisc = create(
   subscribeWithSelector(
     immer(() => ({
-      projectIsLoading: false,
+      pageDoneLoading: false,
+      pageIsLoading: false,
+      pageIs404: false,
       mouseDownDrawArea: false,
       mouseDownDraggingSection: false,
       lastPaneClickLocation: { x: 0, y: 0 },
