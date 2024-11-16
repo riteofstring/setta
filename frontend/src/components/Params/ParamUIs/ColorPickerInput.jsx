@@ -73,7 +73,7 @@ export const AvailableColors = ({
                 value={description}
                 onChange={(e) => updateDescription(idx, e.target.value)}
                 placeholder="Add description..."
-                className="m-[2px] w-full truncate rounded border px-2 py-1 text-xs text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
+                className="h-[calc(100%_-_2px)] w-[calc(100%_-_2px)] truncate rounded border px-2 py-1 text-xs text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
               />
             </div>
             <button
@@ -127,7 +127,7 @@ function ColorPicker({
   ) : (
     <>
       <i
-        className="gg-color-picker single-cell-child mt-1 place-self-center"
+        className="gg-color-picker single-cell-child mr-0.5 mt-0.5 place-self-center"
         style={{ color: iconColor }}
       />
       <input
@@ -135,7 +135,7 @@ function ColorPicker({
         type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="single-cell-child flex !h-full min-h-0 !w-full min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
+        className="single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)]  min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
       />
     </>
   );
