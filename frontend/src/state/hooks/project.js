@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { dbSetProjectConfigName } from "requests/projectName";
@@ -73,59 +72,49 @@ export function useExportProjectJson() {
 export function useLoadProjectConfig() {
   const { projectConfigName } = useParams();
   const { state } = useLocation();
+  const navigate = useNavigate();
   const pageLoadType = state?.pageLoadType;
-  const { pageDoneLoading, pageIs404 } = useMisc(
-    (x) => _.pick(x, ["pageDoneLoading", "pageIs404"]),
-    _.isEqual,
-  );
+  const [doneLoading, setDoneLoading] = useState(false);
+  const [is404, setIs404] = useState(false);
   const isHotReload = useHotReload();
-  console.log("pageDoneLoading, pageIs404", pageDoneLoading, pageIs404);
 
   async function loadFn() {
     console.log("LOADING ************");
     resetProjectStores();
-    useMisc.setState({ pageDoneLoading: false });
+    setDoneLoading(false);
     const res = await loadProjectConfig({ projectConfigName });
-    useMisc.setState({
-      pageDoneLoading: true,
-      pageIsLoading: false,
-      pageIs404: !res,
-    });
+    setIs404(!res);
+    setDoneLoading(true);
+    useMisc.setState({ projectIsLoading: false });
   }
 
   async function loadSettingsProject() {
     console.log("LOADING ************");
     resetProjectStores();
-    useMisc.setState({ pageDoneLoading: false });
+    setDoneLoading(false);
     const res = await loadSettingsProjectConfig();
-    useMisc.setState({
-      pageDoneLoading: true,
-      pageIsLoading: false,
-      pageIs404: !res,
-    });
+    setIs404(!res);
+    setDoneLoading(true);
+    useMisc.setState({ projectIsLoading: false });
   }
 
   function changeFn() {
     console.log("CHANGING CONFIG NAME********");
     setProjectConfigName(projectConfigName);
-    useMisc.setState({ pageIsLoading: false });
+    useMisc.setState({ projectIsLoading: false });
   }
 
   useEffect(() => {
-    useMisc.setState({ pageDoneLoading: false });
-  }, []);
-
-  useEffect(() => {
-    if (isHotReload || useMisc.getState().pageIsLoading) {
+    if (isHotReload || useMisc.getState().projectIsLoading) {
       return;
     }
 
-    useMisc.setState({ pageIsLoading: true });
+    useMisc.setState({ projectIsLoading: true });
 
     if (projectConfigName === SETTINGS_PROJECT_NAME) {
       loadSettingsProject();
     } else if (
-      !pageDoneLoading ||
+      !doneLoading ||
       pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG
     ) {
       loadFn();
@@ -134,7 +123,7 @@ export function useLoadProjectConfig() {
     }
   }, [pageLoadType, projectConfigName]);
 
-  return [pageDoneLoading, pageIs404];
+  return [doneLoading, is404];
 }
 
 export function useEditableProjectName() {
