@@ -302,7 +302,7 @@ def load_json_source(filename_glob):
                     "keywordPositions": [],
                 }
                 # Recursively process nested object
-                process_object(v, path)
+                process_object(v, filename, path)
             else:
                 # For non-objects, store the value directly
                 new_variant_values[full_key] = {

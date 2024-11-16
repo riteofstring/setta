@@ -21,6 +21,7 @@
       "children": [],
       "selectedItem": null,
       "code": "",
+      "codeInfoColId": "e188748d-886f-4412-aa23-49b5863f7c81",
       "keywordPositions": []
     }
   },
@@ -169,24 +170,14 @@
       "hideUnpinnedParams": false,
       "displayMode": "GUI",
       "pinnedAreaHeight": "auto",
-      "isMinimized": false,
-      "codeInfoId": "e188748d-886f-4412-aa23-49b5863f7c81"
+      "isMinimized": false
     }
   },
-  "codeInfo": {
+  "codeInfo": {},
+  "codeInfoCols": {
     "e188748d-886f-4412-aa23-49b5863f7c81": {
       "id": "e188748d-886f-4412-aa23-49b5863f7c81",
-      "name": "Contents",
-      "editable": false,
-      "rcType": "collection",
-      "defaultVal": null,
-      "children": [],
-      "description": "",
-      "positionalOnly": false,
-      "isPinned": false,
-      "isFrozen": false,
-      "isSelected": false,
-      "keywordPositions": []
+      "children": { "null": [] }
     }
   },
   "jsonSourceMissing": {}
