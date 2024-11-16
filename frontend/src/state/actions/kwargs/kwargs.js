@@ -5,7 +5,7 @@ import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getSectionInfo } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
-import { getKwargIds } from "../codeInfoCols";
+import { getKwargIds, getSectionCodeInfoChildren } from "../codeInfoCols";
 import { initializeParam } from "../initializeParam";
 import { updateKeywordRegex } from "../keywordRegex";
 import { deleteParamsFromParamSweep } from "../runGroups/paramSweep";
@@ -107,15 +107,23 @@ export function changeKwargName({ sectionId, paramInfoId, name }) {
 
 export function pinSelectedKwargs(sectionId) {
   const selectedParams = getAllSelectedParams(sectionId);
+  const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   console.log("selectedParams", selectedParams);
   useCodeInfo.setState((x) => {
     for (const p of selectedParams) {
-      setAttrOfSelfAndDescendants(x.x, p.id, "isPinned", !x.x[p.id].isPinned);
+      setAttrOfSelfAndDescendants(
+        x.x,
+        codeInfoChildren,
+        p.id,
+        "isPinned",
+        !x.x[p.id].isPinned,
+      );
     }
   });
 }
 
-export function toggleParamSelected(paramInfoId) {
+export function toggleParamSelected(sectionId, paramInfoId) {
+  const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   useCodeInfo.setState((x) => {
     const newVal = !x.x[paramInfoId].isSelected;
     console.log("toggleParamSelected", newVal);
@@ -125,6 +133,7 @@ export function toggleParamSelected(paramInfoId) {
     const childrenNewVal = false;
     setAttrOfSelfAndDescendants(
       x.x,
+      codeInfoChildren,
       paramInfoId,
       "isSelected",
       childrenNewVal,
@@ -143,11 +152,18 @@ export function unselectAllParams() {
   });
 }
 
-function setAttrOfSelfAndDescendants(state, id, attr, value, setSelf = true) {
+function setAttrOfSelfAndDescendants(
+  state,
+  codeInfoChildren,
+  id,
+  attr,
+  value,
+  setSelf = true,
+) {
   if (setSelf) {
     state[id][attr] = value;
   }
-  for (const paramId of state[id].children) {
+  for (const paramId of codeInfoChildren[id]) {
     state[paramId][attr] = value;
     setAttrOfSelfAndDescendants(state, paramId, attr, value, true);
   }

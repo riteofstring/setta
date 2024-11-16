@@ -66,7 +66,7 @@ function _ParamContainer({
   function onClickSelect(e) {
     if (!ancestorIsSelected && useParamShortcuts.getState().isSelectingParams) {
       e.stopPropagation();
-      toggleParamSelected(paramInfoId);
+      toggleParamSelected(sectionId, paramInfoId);
     }
   }
 
