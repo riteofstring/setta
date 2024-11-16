@@ -4,7 +4,11 @@ import { useSettings } from "state/definitions";
 import { useDefaultConfigName } from "state/hooks/project";
 import { useLoadSettings } from "state/hooks/settings";
 import { useOpenCloseWebsocket } from "state/hooks/websocket";
-import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
+import {
+  HOME_ROUTER_PATH,
+  NOT_FOUND_ROUTER_PATH,
+  SETTINGS_ROUTER_PATH,
+} from "utils/constants";
 
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
@@ -37,6 +41,8 @@ function useSetHTMLTitle() {
       document.title = "Settings";
     } else if (projectConfigName) {
       document.title = projectConfigName;
+    } else if (pathname === NOT_FOUND_ROUTER_PATH) {
+      document.title = "Not Found";
     } else {
       document.title = "setta.dev";
     }

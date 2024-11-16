@@ -63,6 +63,7 @@ export const HOME_ROUTER_PATH = "/home";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
 export const SETTINGS_PROJECT_NAME = "settings";
 export const SETTINGS_ROUTER_PATH = `/${SETTINGS_PROJECT_NAME}`;
+export const NOT_FOUND_ROUTER_PATH = "/404";
 
 export function pathRelativeToProject(projectConfigName) {
   return `../${projectConfigName}`;
