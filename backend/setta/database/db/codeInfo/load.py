@@ -35,7 +35,10 @@ def load_code_info(db, ids):
                 "id": codeInfoColId,
                 "children": defaultdict(list),
             }
-        code_info_cols[codeInfoColId]["children"][parentId].append(childId)
+        children_dict = code_info_cols[codeInfoColId]["children"]
+        children_dict[parentId].append(childId)
+        if childId not in children_dict:
+            children_dict[childId] = []
 
     all_ids = list(all_ids)
 
