@@ -22,15 +22,12 @@ function useUITypeCol(sectionId, paramInfoId, key) {
   const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
   return useUITypeCols((x) => {
     if (paramInfoId.startsWith(C.JSON_SOURCE_PREFIX)) {
-      if (key === "uiTypeId") {
-        if (paramInfoId in x.y[uiTypeColId]) {
-          return x.y[uiTypeColId][paramInfoId][key];
-        }
+      if (paramInfoId in x.y[uiTypeColId]) {
+        return x.y[uiTypeColId][paramInfoId][key];
+      } else if (key === "uiTypeId") {
         return BASE_UI_TYPE_IDS[C.TEXT];
       } else if (key === "nonPresetUITypeIds") {
         return [];
-      } else {
-        console.error("unexpected key in useUITypeCol", key);
       }
     }
     return x.y[uiTypeColId][paramInfoId][key];
