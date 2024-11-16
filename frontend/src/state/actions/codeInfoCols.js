@@ -6,11 +6,6 @@ export function setAllCodeInfoCols(x) {
 }
 
 export function getCodeInfoChildren(sectionId) {
-  console.log(
-    "getSectionCodeInfoColId(sectionId)",
-    getSectionCodeInfoColId(sectionId),
-  );
-  console.log("useCodeInfoCols.getState().x", useCodeInfoCols.getState().x);
   return useCodeInfoCols.getState().x[getSectionCodeInfoColId(sectionId)][
     "children"
   ];

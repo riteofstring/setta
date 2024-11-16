@@ -9,7 +9,6 @@ function _findAllDescendants(
   paramPathCondition = false, // false or a function
 ) {
   const output = [];
-  console.log("codeInfoIds", codeInfoIds);
   const idStack = codeInfoIds
     .filter((x) => stackCondition(allCodeInfo[x]))
     .reverse();

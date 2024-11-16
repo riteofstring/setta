@@ -5,11 +5,12 @@ import {
   useParamShortcuts,
   useSectionInfos,
 } from "state/definitions";
+import { useCodeInfoHasChildren } from "state/hooks/codeInfoCols";
 
 export function ParamNameInput({ sectionId, paramInfoId, onBlur }) {
   const configLanguage = useSectionInfos((x) => x.x[sectionId].configLanguage);
   const value = useCodeInfo((x) => x.x[paramInfoId].name);
-  const hasChildren = useCodeInfo((x) => x.x[paramInfoId].children.length > 0);
+  const hasChildren = useCodeInfoHasChildren(sectionId, paramInfoId);
   const [liveValue, setLiveValue] = useState(value);
 
   function onChange(v) {

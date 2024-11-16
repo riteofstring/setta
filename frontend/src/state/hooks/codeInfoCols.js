@@ -14,3 +14,11 @@ export function useCodeInfoChildren(sectionId, codeInfoId) {
     _.isEqual,
   );
 }
+
+export function useCodeInfoHasChildren(sectionId, codeInfoId) {
+  const codeInfoColId = useSectionCodeInfoColId(sectionId);
+  return useCodeInfoCols(
+    (x) => (x.x[codeInfoColId]["children"][codeInfoId] ?? []).length > 0,
+    _.isEqual,
+  );
+}
