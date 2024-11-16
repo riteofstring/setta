@@ -1,5 +1,7 @@
+import json
 import os
 import re
+from json import JSONDecodeError
 from pathlib import Path
 
 
@@ -115,3 +117,10 @@ def recursive_dict_merge(dict1, dict2):
             merged[key] = value
 
     return merged
+
+
+def try_json(x):
+    try:
+        return json.loads(x)
+    except JSONDecodeError:
+        return x
