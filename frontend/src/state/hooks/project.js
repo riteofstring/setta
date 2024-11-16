@@ -72,7 +72,6 @@ export function useExportProjectJson() {
 export function useLoadProjectConfig() {
   const { projectConfigName } = useParams();
   const { state } = useLocation();
-  const navigate = useNavigate();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
   const [is404, setIs404] = useState(false);
@@ -85,7 +84,7 @@ export function useLoadProjectConfig() {
     const res = await loadProjectConfig({ projectConfigName });
     setIs404(!res);
     setDoneLoading(true);
-    useMisc.setState({ projectIsLoading: false });
+    useMisc.setState({ projectIsLoading: false, projectIs404: !res });
   }
 
   async function loadSettingsProject() {
@@ -95,13 +94,13 @@ export function useLoadProjectConfig() {
     const res = await loadSettingsProjectConfig();
     setIs404(!res);
     setDoneLoading(true);
-    useMisc.setState({ projectIsLoading: false });
+    useMisc.setState({ projectIsLoading: false, projectIs404: !res });
   }
 
   function changeFn() {
     console.log("CHANGING CONFIG NAME********");
     setProjectConfigName(projectConfigName);
-    useMisc.setState({ projectIsLoading: false });
+    useMisc.setState({ projectIsLoading: false, projectIs404: false });
   }
 
   useEffect(() => {

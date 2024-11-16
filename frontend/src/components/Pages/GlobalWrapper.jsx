@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
-import { useSettings } from "state/definitions";
+import { useMisc, useSettings } from "state/definitions";
 import { useDefaultConfigName } from "state/hooks/project";
 import { useLoadSettings } from "state/hooks/settings";
 import { useOpenCloseWebsocket } from "state/hooks/websocket";
@@ -30,15 +30,16 @@ export function IndexRouteComponent() {
 function useSetHTMLTitle() {
   const { pathname } = useLocation();
   const { projectConfigName } = useParams();
+  const projectIs404 = useMisc((x) => x.projectIs404);
   useEffect(() => {
     if (pathname === HOME_ROUTER_PATH) {
       document.title = "Home";
     } else if (pathname === SETTINGS_ROUTER_PATH) {
       document.title = "Settings";
     } else if (projectConfigName) {
-      document.title = projectConfigName;
+      document.title = projectIs404 ? "Not Found" : projectConfigName;
     } else {
       document.title = "setta.dev";
     }
-  }, [pathname, projectConfigName]);
+  }, [pathname, projectConfigName, projectIs404]);
 }
