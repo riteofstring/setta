@@ -292,6 +292,8 @@ def load_json_source(filename_glob):
                 "keywordPositions": [],
             }
 
+            new_code_info_col_children[full_key] = []
+
             # Create variant value entry
             if isinstance(v, dict):
                 # For objects, store empty value and process children
