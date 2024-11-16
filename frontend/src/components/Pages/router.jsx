@@ -10,27 +10,24 @@ import {
   PROJECT_CONFIG_ROUTER_PATH,
 } from "utils/constants";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
+import { NotFound } from "./NotFound/NotFound";
 import { MainContainer } from "./Project/MainContainer";
 
-function HomeRouteElement() {
-  return (
+const homeRoute = {
+  path: HOME_ROUTER_PATH,
+  element: (
     <GlobalWrapper>
       <HeaderContainer path={HOME_ROUTER_PATH} />
       <GridContainer>
         <HomePage />
       </GridContainer>
     </GlobalWrapper>
-  );
-}
-
-const homeRoute = {
-  path: HOME_ROUTER_PATH,
-  element: <HomeRouteElement />,
+  ),
 };
 
 const notFoundRoute = {
   path: NOT_FOUND_ROUTER_PATH,
-  element: <HomeRouteElement />,
+  element: <NotFound />,
 };
 
 const indexRoute = {
