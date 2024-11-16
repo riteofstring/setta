@@ -75,14 +75,9 @@ def route_section_to_yaml(x: SectionToDictRequest):
 
 @router.post(C.ROUTE_LOAD_SECTION_JSON_SOURCE)
 def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
-    new_code_infos, new_variant_values, jsonSourceMissing = load_json_source(
-        x.jsonSource
-    )
-
-    pprint(new_code_infos)
-
+    new_code_infos, new_variant_values = load_json_source(x.jsonSource)
     return {
         "newCodeInfos": new_code_infos,
         "newVariantValues": new_variant_values,
-        "jsonSourceMissing": jsonSourceMissing,
+        "jsonSourceMissing": new_code_infos is None,
     }
