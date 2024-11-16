@@ -28,6 +28,6 @@ def route_save_settings(x: SettingsSaveRequest):
 def route_load_settings_project():
     p = load_settings_project()
     load_json_sources_into_data_structures(
-        p["sections"], p["codeInfo"], p["sectionVariants"]
+        p["sections"], p["codeInfo"], p["codeInfoCols"], p["sectionVariants"]
     )
     return p

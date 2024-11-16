@@ -58,10 +58,6 @@ def save_param_sweeps(db, param_sweeps):
                         )
                         order += 1
 
-    from pprint import pprint
-
-    pprint(query_params)
-
     db.executemany(query, query_params)
 
 

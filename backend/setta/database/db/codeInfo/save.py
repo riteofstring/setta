@@ -1,5 +1,3 @@
-from pprint import pprint
-
 from setta.database.utils import dump_keyword_positions_as_string
 from setta.utils.utils import null_str_to_none
 
@@ -33,7 +31,6 @@ def save_code_info(db, codeInfo):
             }
         )
 
-    pprint(query_params)
     db.executemany(query, query_params)
 
 
@@ -76,5 +73,4 @@ def save_code_info_col(db, codeInfoCols):
                     }
                 )
                 order += 1
-    pprint(query_params)
     db.executemany(query, query_params)

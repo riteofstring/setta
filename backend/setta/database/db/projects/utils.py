@@ -1,8 +1,5 @@
 import json
 from collections import defaultdict
-from pprint import pprint
-
-from sympy import false, true
 
 from setta.utils.constants import BASE_UI_TYPE_IDS, C, is_from_json_source
 from setta.utils.utils import try_json

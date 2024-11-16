@@ -2,7 +2,7 @@ import json
 
 from setta.database.utils import aggregate_results
 
-from ..codeInfo.load import load_code_info_for_sections
+from ..codeInfo.load import load_code_info_cols
 from ..runGroups.load import load_run_groups
 from ..sections.load import (
     load_json_sources_into_data_structures,
@@ -101,9 +101,9 @@ def load_project_config(db, project_config_name):
     uiTypeCols = sections_data["uiTypeCols"]
     paramSweeps = sections_data["paramSweeps"]
     uiTypes = sections_data["nonPresetUITypes"]
-    codeInfo = load_code_info_for_sections(db, sections)
+    codeInfo, codeInfoCols = load_code_info_cols(db, sectionVariants)
     jsonSourceMissing = load_json_sources_into_data_structures(
-        sections, codeInfo, sectionVariants
+        sections, codeInfo, codeInfoCols, sectionVariants
     )
 
     return {
@@ -116,6 +116,7 @@ def load_project_config(db, project_config_name):
         "paramSweeps": paramSweeps,
         "runGroups": runGroups,
         "codeInfo": codeInfo,
+        "codeInfoCols": codeInfoCols,
         "jsonSourceMissing": jsonSourceMissing,
     }
 

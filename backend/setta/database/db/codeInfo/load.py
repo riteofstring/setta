@@ -1,30 +1,43 @@
-from setta.database.utils import (
-    get_children_recursively,
-    parse_keyword_positions_string,
-)
+from collections import defaultdict
+from pprint import pprint
 
-
-def load_code_info_for_sections(db, sections):
-    collection_ids = [v["codeInfoId"] for v in sections.values()]
-    return load_code_info(db, collection_ids)
+from setta.database.utils import parse_keyword_positions_string
 
 
 def load_code_info(db, ids):
-    query = """
+    placeholders = ", ".join(["?"] * len(ids))
+    query = f"""
         WITH RECURSIVE DESCENDANTS AS (
-            SELECT parentId, childId, "order"
-            FROM CodeInfoCol
-            WHERE parentId = :parentId
-        UNION
-            SELECT X.parentId, X.childId, X."order"
+            SELECT c.idid, c.parentId, c.childId, c."order"
+            FROM CodeInfoCol c
+            WHERE c.idid IN ({placeholders})
+
+            UNION
+
+            SELECT X.idid, X.parentId, X.childId, X."order"
             FROM CodeInfoCol X
-            JOIN DESCENDANTS ON X.parentId = DESCENDANTS.childId
+            JOIN DESCENDANTS d ON X.parentId = d.childId AND X.idid = d.idid
         )
         SELECT * FROM DESCENDANTS
-        ORDER BY "order";
+        ORDER BY idid, "order";
     """
+    db.execute(query, tuple(ids))
+    results = db.fetchall()
+    all_ids = set()
+    code_info_cols = {}
+    for row in results:
+        (codeInfoColId, parentId, childId, _) = row
+        if parentId:
+            all_ids.add(parentId)
+        all_ids.add(childId)
+        if codeInfoColId not in code_info_cols:
+            code_info_cols[codeInfoColId] = {
+                "id": codeInfoColId,
+                "children": defaultdict(list),
+            }
+        code_info_cols[codeInfoColId]["children"][parentId].append(childId)
 
-    all_ids, parent_to_children = get_children_recursively(db, ids, query)
+    all_ids = list(all_ids)
 
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""
@@ -32,10 +45,17 @@ def load_code_info(db, ids):
         WHERE id IN ({placeholders})
     """
     db.execute(query, all_ids)
-    output = {}
+    code_info = {}
     for row in db.fetchall():
         x = dict(row)
-        x["children"] = parent_to_children[x["id"]]
         x["keywordPositions"] = parse_keyword_positions_string(x["keywordPositions"])
-        output[x["id"]] = x
-    return output
+        code_info[x["id"]] = x
+
+    pprint(code_info)
+    pprint(code_info_cols)
+    return code_info, code_info_cols
+
+
+def load_code_info_cols(db, sectionVariants):
+    collection_ids = [v["codeInfoColId"] for v in sectionVariants.values()]
+    return load_code_info(db, collection_ids)

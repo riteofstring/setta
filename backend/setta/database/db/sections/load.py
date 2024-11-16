@@ -5,6 +5,7 @@ import json
 from collections import defaultdict
 
 from setta.utils.constants import C
+from setta.utils.utils import recursive_dict_merge
 
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
@@ -96,7 +97,6 @@ def load_sections(db, ids):
     variantIds = list(
         itertools.chain.from_iterable([s["variantIds"] for s in sections.values()])
     )
-    sectionVariants = {}
     sectionVariants = load_section_variants(db, variantIds)
 
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
@@ -231,29 +231,40 @@ def load_artifact_metadata(db, section_id, artifact_paths):
     return output
 
 
-def load_json_sources_into_data_structures(sections, codeInfo, sectionVariants):
+def load_json_sources_into_data_structures(
+    sections, codeInfo, codeInfoCols, sectionVariants
+):
     jsonSourceMissing = {}
     for id, s in sections.items():
         if not s["jsonSource"]:
             continue
-        new_code_infos, new_variant_values, _jsonSourceMissing = load_json_source(
-            s["jsonSource"]
-        )
+        (
+            new_code_infos,
+            new_code_info_col_children,
+            new_variant_values,
+            _jsonSourceMissing,
+        ) = load_json_source(s["jsonSource"])
         if _jsonSourceMissing:
             jsonSourceMissing[id] = True
             continue
         codeInfo.update(new_code_infos)
-        codeInfo[s["codeInfoId"]]["children"] = list(new_code_infos.keys())
         # json section should only have 1 variantId since versions exist as files
         # but just to be safe for now, iterate through variantIds
         for variantId in s["variantIds"]:
-            sectionVariants[variantId]["values"].update(new_variant_values)
+            sectionVariant = sectionVariants[variantId]
+            sectionVariant["values"].update(new_variant_values)
+            codeInfoColId = sectionVariant["codeInfoColId"]
+            codeInfoCol = codeInfoCols[codeInfoColId]
+            codeInfoCol["children"] = recursive_dict_merge(
+                codeInfoCol["children"], new_code_info_col_children
+            )
 
     return jsonSourceMissing
 
 
 def load_json_source(filename_glob):
     new_code_infos = {}
+    new_code_info_col_children = {}
     new_variant_values = {}
 
     def process_object(obj, filename, current_path=[]):
@@ -272,7 +283,6 @@ def load_json_source(filename_glob):
                 "id": full_key,
                 "name": k,
                 "rcType": C.PARAMETER,
-                "children": [],  # Will be populated with direct children only
                 "editable": False,
                 "defaultVal": None,
                 "description": "",
@@ -298,11 +308,12 @@ def load_json_source(filename_glob):
                     "keywordPositions": [],
                 }
 
-        # If this is a nested object, add children to parent's children list
-        if current_path:  # If we're not at root level
+        parent_id = None
+        if len(current_path) > 0:
             parent_path = json.dumps({"filename": filename, "key": current_path})
-            parent_key = f"{C.JSON_SOURCE_PREFIX}{parent_path}"
-            new_code_infos[parent_key]["children"] = children_keys
+            parent_id = f"{C.JSON_SOURCE_PREFIX}{parent_path}"
+
+        new_code_info_col_children[parent_id] = children_keys
 
     filenames = glob.glob(filename_glob)
     num_opened = 0
@@ -318,4 +329,9 @@ def load_json_source(filename_glob):
         process_object(jsonSourceData, filename, [])
 
     jsonSourceMissing = num_opened == 0
-    return new_code_infos, new_variant_values, jsonSourceMissing
+    return (
+        new_code_infos,
+        new_code_info_col_children,
+        new_variant_values,
+        jsonSourceMissing,
+    )
