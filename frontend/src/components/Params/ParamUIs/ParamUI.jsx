@@ -114,7 +114,7 @@ export function ParamUI({
           value={value}
           onChange={onChange}
           wrapperClassName="section-value flex min-w-0 w-full justify-self-start self-center"
-          colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 dark:bg-setta-850 dark:hover:bg-setta-900"
+          colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
         />
       );
     case C.DROPDOWN:

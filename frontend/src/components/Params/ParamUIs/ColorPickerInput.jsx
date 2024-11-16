@@ -1,4 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { useContrastColor } from "utils/useColorContrast";
 import { tryParseJSON } from "utils/utils";
 
 export function ColorPickerInputConfig({ onChange, config }) {
@@ -111,6 +112,7 @@ export function ColorPickerInput({
       colorChoices={colorChoices}
       value={_value}
       onChange={onChange}
+      colorPickerChoicesClasses={colorPickerChoicesClasses}
     />
   );
 }
@@ -150,20 +152,23 @@ function ColorPickerFromColorChoices({
     selectedItem = colorChoices[0];
   }
 
+  const textColor = useContrastColor(selectedItem.color);
+
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger className={colorPickerChoicesClasses}>
-        <div className="single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white ">
-          <div
-            className="single-cell-child m-auto h-full min-h-0 w-full min-w-0 rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
-            style={{ backgroundColor: selectedItem.color }}
-          />
-          <div className="single-cell-child flex items-center">
-            <p className=" p-2 text-xs font-semibold mix-blend-difference @[90px]:inline-block">
-              {selectedItem.description}
-            </p>
-            <i className="gg-chevron-down ml-auto" />
-          </div>
+        <div
+          className="single-cell-child min-w-0s m-auto h-full min-h-0 w-full rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
+          style={{ backgroundColor: selectedItem.color }}
+        />
+        <div className="single-cell-child flex items-center justify-between overflow-hidden">
+          <p
+            className="truncate pl-2 text-xs font-semibold @[90px]:inline-block"
+            style={{ color: textColor }}
+          >
+            {selectedItem.description}
+          </p>
+          <i className="gg-chevron-down px-2" style={{ color: textColor }} />
         </div>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content className="flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800">
