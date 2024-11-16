@@ -124,3 +124,7 @@ def try_json(x):
         return json.loads(x)
     except JSONDecodeError:
         return x
+
+
+def null_str_to_none(x):
+    return None if x == "null" else x

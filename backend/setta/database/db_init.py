@@ -22,6 +22,7 @@ CREATE_TABLES_COMMANDS = [
     """
     CREATE TABLE IF NOT EXISTS CodeInfoColId (
         id TEXT,
+        PRIMARY KEY (id)
     );
     """,
     # CodeInfoCol model
@@ -56,7 +57,7 @@ CREATE_TABLES_COMMANDS = [
         canvasSettings TEXT,
         FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
-        FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE,
+        FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE
     );
     """,
     # SectionConfig model
@@ -89,7 +90,7 @@ CREATE_TABLES_COMMANDS = [
         codeInfoColId TEXT,
         originSectionId TEXT,
         FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
-        FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
+        FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (codeInfoColId) REFERENCES CodeInfoColId(id) ON DELETE CASCADE
     );
     """,

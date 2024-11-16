@@ -14,7 +14,6 @@ def save_sections(db, sections, section_variants):
             configLanguage,
             isFrozen,
             jsonSource,
-            codeInfoId,
             hideUnpinnedParams,
             displayMode,
             canvasSettings
@@ -30,7 +29,6 @@ def save_sections(db, sections, section_variants):
             :configLanguage,
             :isFrozen,
             :jsonSource,
-            :codeInfoId,
             :hideUnpinnedParams,
             :displayMode,
             :canvasSettings
@@ -46,7 +44,6 @@ def save_sections(db, sections, section_variants):
             configLanguage = :configLanguage,
             isFrozen = :isFrozen,
             jsonSource = :jsonSource,
-            codeInfoId = :codeInfoId,
             hideUnpinnedParams = :hideUnpinnedParams,
             displayMode = :displayMode,
             canvasSettings = :canvasSettings
@@ -64,7 +61,6 @@ def save_sections(db, sections, section_variants):
             "configLanguage": s["configLanguage"],
             "isFrozen": s["isFrozen"],
             "jsonSource": s.get("jsonSource"),
-            "codeInfoId": s["codeInfoId"],
             "hideUnpinnedParams": s["hideUnpinnedParams"],
             "displayMode": s["displayMode"],
             "canvasSettings": json.dumps(s["canvasSettings"])

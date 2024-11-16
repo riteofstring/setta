@@ -31,26 +31,34 @@ def remove_json_source_data(p):
         if k in jsonCodeInfoWithUIType or not is_from_json_source(k)
     }
 
-    for codeInfo in p["codeInfo"].values():
-        codeInfo["children"] = [
-            c
-            for c in codeInfo["children"]
-            if c in jsonCodeInfoWithUIType or not is_from_json_source(c)
-        ]
+    p["codeInfoCols"] = {
+        k: v
+        for k, v in p["codeInfoCols"].items()
+        if k in jsonCodeInfoWithUIType or not is_from_json_source(k)
+    }
+
+    for codeInfoCol in p["codeInfoCols"].values():
+        for id, children in codeInfoCol["children"].items():
+            codeInfoCol["children"][id] = [
+                c
+                for c in children
+                if c in jsonCodeInfoWithUIType or not is_from_json_source(c)
+            ]
 
 
 def save_json_source_data(p):
     to_be_saved = defaultdict(dict)
 
     for variant in p["sectionVariants"].values():
-        for k, v in variant["values"].items():
+        codeInfoCol = p["codeInfoCols"][variant["codeInfoColId"]]
+        for k, children in codeInfoCol["children"].items():
             if is_from_json_source(k):
-                metadata = json.loads(k.removeprefix("JSON-"))
+                metadata = json.loads(k.removeprefix(C.JSON_SOURCE_PREFIX))
                 filename = metadata["filename"]
                 key_path = metadata["key"]
                 value = (
-                    try_json(v["value"])
-                    if len(p["codeInfo"][k]["children"]) == 0
+                    try_json(variant["values"][k]["value"])
+                    if len(children) == 0
                     else {}
                 )
 
