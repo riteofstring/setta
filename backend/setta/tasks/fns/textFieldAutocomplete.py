@@ -26,11 +26,11 @@ class CodeCompletionContent(BaseModel):
     cached: Optional[Any] = None
 
 
-async def _textFieldCompletion(message, lsp_writer):
-    return await completionHelper(message, textFieldCompletionFn(lsp_writer))
+async def _textFieldCompletion(message, lsp_writers):
+    return await completionHelper(message, textFieldCompletionFn(lsp_writers))
 
 
-def textFieldCompletionFn(lsp_writer):
+def textFieldCompletionFn(lsp_writers):
     async def fn(
         code_id,
         request_id,
@@ -45,8 +45,8 @@ def textFieldCompletionFn(lsp_writer):
         # print("code", code, flush=True)
         # print("line, column", line, column, flush=True)
 
-        await lsp_writer.send_document_update(code_id, code, codeJson)
-        await lsp_writer.send_autocomplete_request(
+        await lsp_writers["full"].send_document_update(code_id, code, codeJson)
+        await lsp_writers["full"].send_autocomplete_request(
             line,
             column,
             code_id,
@@ -124,6 +124,6 @@ textFieldCompletion = TaskDefinition(
     return_message_type="textFieldCompletionReturn",
     fn=_textFieldCompletion,
     read_cache=read_cache,
-    run_as=RunType.THREAD,
-    server_dependencies=["lsp_writer"],
+    run_as=RunType.NONE,
+    server_dependencies=["lsp_writers"],
 )
