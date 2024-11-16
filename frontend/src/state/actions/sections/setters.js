@@ -39,7 +39,6 @@ export async function setSelectedItem(
       sectionId,
       selectedItemName,
     });
-    setSectionVariantAttr(sectionId, "selectedItem", id);
     await createCodeInfoChildren({
       dataSectionId: sectionId,
       visualSectionId: sectionId,
@@ -48,11 +47,12 @@ export async function setSelectedItem(
       codeInfoId: id,
       changedByUser,
     });
+    setSectionVariantAttr(sectionId, "selectedItem", id);
   }
   updateKeywordRegex();
 }
 
-function createChildrenCodeInfo(parent, params) {
+function createChildrenCodeInfo(sectionId, parent, params) {
   for (const p of params) {
     const info = newCodeInfo({
       name: p.name,
@@ -62,7 +62,7 @@ function createChildrenCodeInfo(parent, params) {
       description: p.description,
       positionalOnly: p.positionalOnly,
     });
-    addCodeInfo({ info, parent });
+    addCodeInfo({ sectionId, info, parent });
   }
 }
 
@@ -114,8 +114,7 @@ export async function createNewCodeInfoAndKeywordPositions({
     rcType: C.CALLABLE,
     keywordPositions,
   });
-  const { codeInfoId } = getSectionInfo(sectionId);
-  addCodeInfo({ info, parent: codeInfoId });
+  addCodeInfo({ sectionId, info, parent: null });
   return { id: info.id, evRefs };
 }
 
@@ -139,7 +138,7 @@ export async function createCodeInfoChildren({
   if (res) {
     const [documentation, params] = res;
     if (params) {
-      createChildrenCodeInfo(codeInfoId, params);
+      createChildrenCodeInfo(dataSectionId, codeInfoId, params);
       setSelectedItemChildren(dataSectionId, codeInfoId, changedByUser);
     } else {
       setNotificationMessage("No parameters found");

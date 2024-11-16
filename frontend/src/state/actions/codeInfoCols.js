@@ -1,5 +1,5 @@
 import { useCodeInfoCols } from "state/definitions";
-import { createNewId } from "utils/idNameCreation";
+import { createNewId, maybeNewId } from "utils/idNameCreation";
 import { getSectionCodeInfoColId } from "./sectionVariants";
 
 export function setAllCodeInfoCols(x) {
@@ -17,9 +17,13 @@ export function initManyCodeInfoCols(sectionIds) {
   useCodeInfoCols.setState((x) => {
     sectionIds.forEach((s) => {
       const id = createNewId();
-      x.x[id] = { id, children: { null: [] } };
+      x.x[id] = newCodeInfoCol(id);
       sectionIdToCodeInfoColId[s] = id;
     });
   });
   return sectionIdToCodeInfoColId;
+}
+
+function newCodeInfoCol(id) {
+  return { id: maybeNewId(id), children: { null: [] } };
 }

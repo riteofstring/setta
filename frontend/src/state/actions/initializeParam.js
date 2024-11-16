@@ -9,6 +9,7 @@ import {
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { findAllParameters } from "utils/getDescendants";
 import { getSectionInfo } from "../getters/sectionInfo";
+import { getCodeInfoChildren } from "./codeInfoCols";
 import { initManyEnteredValues } from "./sectionVariants";
 import { setManyParamUITypeIds } from "./uiTypes/uiTypeCols";
 
@@ -18,9 +19,12 @@ export function initializeChildParams({
   childFinder = findAllParameters,
   inputParamIdToUITypeId = {},
 }) {
-  console.log("initializeChildParams");
-  const { ids: paramIds } = childFinder(useCodeInfo.getState().x, codeInfoIds);
   for (const s of sectionIds) {
+    const { ids: paramIds } = childFinder(
+      useCodeInfo.getState().x,
+      getCodeInfoChildren(s),
+      codeInfoIds,
+    );
     initializeParam(s, paramIds, inputParamIdToUITypeId);
   }
 }

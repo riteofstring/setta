@@ -98,11 +98,13 @@ export function findAllParametersOfNotCallables(
 
 export function findAllParameters(
   allCodeInfo,
+  codeInfoChildren,
   codeInfoIds,
   paramPathCondition = false,
 ) {
   return _findAllDescendants(
     allCodeInfo,
+    codeInfoChildren,
     codeInfoIds,
     (c) => c?.rcType === C.PARAMETER,
     () => true,

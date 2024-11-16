@@ -1,22 +1,28 @@
 import _ from "lodash";
-import { useCodeInfo } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
-import { getSectionSelectedItem } from "./sectionVariants";
+import { useCodeInfo, useCodeInfoCols } from "state/definitions";
+import { getCodeInfoChildren } from "./codeInfoCols";
+import {
+  getSectionCodeInfoColId,
+  getSectionSelectedItem,
+} from "./sectionVariants";
 
 export function setAllCodeInfo(x) {
   useCodeInfo.setState({ x });
 }
 
-export function addCodeInfo({ info, parent, insertIdx }) {
+export function addCodeInfo({ sectionId, info, parent, insertIdx }) {
   useCodeInfo.setState((state) => {
     state.x[info.id] = info;
-    if (parent) {
-      if (_.isNil(insertIdx)) {
-        state.x[parent].children.push(info.id);
-      } else {
-        state.x[parent].children.splice(insertIdx, 0, info.id);
-      }
+  });
+
+  useCodeInfoCols.setState((state) => {
+    const codeInfoColId = getSectionCodeInfoColId(sectionId);
+    if (_.isNil(insertIdx)) {
+      state.x[codeInfoColId]["children"][parent].push(info.id);
+    } else {
+      state.x[codeInfoColId]["children"][parent].splice(insertIdx, 0, info.id);
     }
+    state.x[codeInfoColId]["children"][info.id] = [];
   });
 }
 
@@ -80,9 +86,9 @@ export function batchUpdateCodeInfoChildren(idToNewChildren) {
 }
 
 export function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
-  const { codeInfoId } = getSectionInfo(sectionId);
+  const codeInfoChildren = getCodeInfoChildren(sectionId);
   const cState = useCodeInfo.getState().x;
-  for (const c of cState[codeInfoId].children) {
+  for (const c of codeInfoChildren[null]) {
     if (cState[c].name === selectedItemName) {
       return c;
     }
