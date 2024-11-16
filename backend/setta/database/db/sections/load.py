@@ -242,17 +242,12 @@ def load_json_sources_into_data_structures(
             new_code_infos,
             new_code_info_col_children,
             new_variant_values,
-            filenames,
             _jsonSourceMissing,
         ) = load_json_source(s["jsonSource"])
         if _jsonSourceMissing:
             jsonSourceMissing[id] = True
             continue
         codeInfo.update(new_code_infos)
-        for f in filenames:
-            s["variantIds"]
-
-
         # json section should only have 1 variantId since versions exist as files
         # but just to be safe for now, iterate through variantIds
         for variantId in s["variantIds"]:
@@ -340,6 +335,5 @@ def load_json_source(filename_glob):
         new_code_infos,
         new_code_info_col_children,
         new_variant_values,
-        filenames,
         jsonSourceMissing,
     )
