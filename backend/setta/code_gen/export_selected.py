@@ -46,6 +46,13 @@ def get_selected_item_name(p, id):
     return None
 
 
+def get_selected_item_id(p, id):
+    selected_item = get_selected_item(p, id)
+    if selected_item:
+        return selected_item["id"]
+    return None
+
+
 def get_code_info_children(p, section_id, id):
     codeInfoColId = get_selected_section_variant(p, section_id)["codeInfoColId"]
     codeInfoChildren = p["codeInfoCols"][codeInfoColId]["children"]
@@ -53,8 +60,8 @@ def get_code_info_children(p, section_id, id):
 
 
 def get_param_ids(p, id):
-    selected_item = get_selected_item(p, id)
-    return get_code_info_children(p, id, selected_item)
+    selected_item_id = get_selected_item_id(p, id)
+    return get_code_info_children(p, id, selected_item_id)
 
 
 def get_param_ui_type(p, section_id, id):

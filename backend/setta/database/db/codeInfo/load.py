@@ -1,5 +1,4 @@
 from collections import defaultdict
-from pprint import pprint
 
 from setta.database.utils import parse_keyword_positions_string
 
@@ -55,8 +54,6 @@ def load_code_info(db, ids):
         x["keywordPositions"] = parse_keyword_positions_string(x["keywordPositions"])
         code_info[x["id"]] = x
 
-    pprint(code_info)
-    pprint(code_info_cols)
     return code_info, code_info_cols
 
 
