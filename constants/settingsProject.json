@@ -167,7 +167,7 @@
       "hideParams": false,
       "hideSearch": true,
       "hideUnpinnedParams": false,
-      "showYaml": false,
+      "displayMode": "GUI",
       "pinnedAreaHeight": "auto",
       "isMinimized": false,
       "codeInfoId": "e188748d-886f-4412-aa23-49b5863f7c81"

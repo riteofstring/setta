@@ -76,7 +76,6 @@ class TerminalWebsockets:
         self.section_to_socket_ids = defaultdict(set)
         self.sockets = {}
         self.PTY_PIDS = {}
-        self.loop = asyncio.get_event_loop()
 
     def new_terminal(self, projectConfigId, sectionId, isTemporary):
         if sectionId not in self.PTY_PIDS:
@@ -155,7 +154,7 @@ class TerminalWebsockets:
         while True:
             # print("read_from_terminal while loop", flush=True)
             try:
-                output, _, _ = await self.loop.run_in_executor(
+                output, _, _ = await asyncio.get_running_loop().run_in_executor(
                     None,
                     select.select,
                     [pty_process.fd],
@@ -301,16 +300,16 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 folder_path, "SETTA_YAML", "yaml"
             )
         if needs_generated_python(curr_code):
-            replacements[C.SETTA_GENERATED_PYTHON] = generate_code(
-                selected,
-                curr_code,
-                replace_templated_code=False,
-            )[0]
             curr_code, _ = process_refs(
                 curr_code,
                 p["codeEVRefs"][s["id"]],
                 exporter_obj.get_ref_var_name,
             )
+            replacements[C.SETTA_GENERATED_PYTHON] = generate_code(
+                selected,
+                curr_code,
+                replace_templated_code=False,
+            )[0]
 
         section_variant["code"] = replace_keywords(curr_code, replacements)
         dependencies[s["id"]] = curr_dependencies

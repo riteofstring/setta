@@ -302,7 +302,6 @@
       "isFrozen": 0,
       "codeInfoId": "15dc4270-4e4e-4799-93eb-c309801d6349",
       "hideUnpinnedParams": 0,
-      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "56218716-8dc7-4a8b-a253-1eb2bb9cfc56"
@@ -321,7 +320,8 @@
       "isMinimized": 0,
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {}
+      "canvasSettings": {},
+      "displayMode": "GUI"
     },
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
@@ -335,7 +335,6 @@
       "isFrozen": 0,
       "codeInfoId": "0e96e8a3-3d98-4fdc-ad46-56c5c85e5ea1",
       "hideUnpinnedParams": 0,
-      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "91b7814e-8f93-4ad1-a966-00851b4e41d9"
@@ -354,7 +353,8 @@
       "isMinimized": 0,
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {}
+      "canvasSettings": {},
+      "displayMode": "GUI"
     },
     "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
@@ -368,7 +368,6 @@
       "isFrozen": 0,
       "codeInfoId": "14d87eca-54fe-4b0b-9c8b-07477168c7e1",
       "hideUnpinnedParams": 0,
-      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "61ce0033-a59e-4c8e-8a52-d658feb18017"
@@ -393,7 +392,8 @@
       "isMinimized": 0,
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {}
+      "canvasSettings": {},
+      "displayMode": "GUI"
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -407,7 +407,6 @@
       "isFrozen": 0,
       "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
       "hideUnpinnedParams": 0,
-      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "00d5ac58-7a66-4ff1-a62f-af873c0a094b"
@@ -426,7 +425,8 @@
       "isMinimized": 0,
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {}
+      "canvasSettings": {},
+      "displayMode": "GUI"
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
@@ -440,7 +440,6 @@
       "isFrozen": 0,
       "codeInfoId": "75191a70-d625-4122-868e-1081e37fbe4c",
       "hideUnpinnedParams": 0,
-      "showYaml": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
         "efbf1e64-8932-4fa6-928a-e930314db45c"
@@ -465,7 +464,8 @@
       "isMinimized": 0,
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {}
+      "canvasSettings": {},
+      "displayMode": "GUI"
     },
     "25d0e656-bec2-44a0-9728-f41d657b8508": {
       "id": "25d0e656-bec2-44a0-9728-f41d657b8508",
@@ -495,14 +495,14 @@
       "hideParams": false,
       "hideSearch": false,
       "hideUnpinnedParams": false,
-      "showYaml": false,
       "pinnedAreaHeight": "auto",
       "isMinimized": false,
       "codeInfoId": "c8807916-43ef-421f-a404-96bb75d6a79e",
       "resizeEvent": "end",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {}
+      "canvasSettings": {},
+      "displayMode": "GUI"
     }
   },
   "codeInfo": {
