@@ -63,7 +63,6 @@ export const HOME_ROUTER_PATH = "/home";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
 export const SETTINGS_PROJECT_NAME = "settings";
 export const SETTINGS_ROUTER_PATH = `/${SETTINGS_PROJECT_NAME}`;
-export const NOT_FOUND_ROUTER_PATH = "/404";
 
 export function pathRelativeToProject(projectConfigName) {
   return `../${projectConfigName}`;
@@ -127,10 +126,3 @@ export const PAGE_LOAD_TYPES = {
 export const NO_DRAG_CLASS_NAME = "nodrag";
 export const NO_WHEEL_CLASS_NAME = "nowheel";
 export const NO_PAN_CLASS_NAME = "nopan";
-
-export const SECTION_DISPLAY_MODES = {
-  RENDER: "RENDER",
-  EDIT: "EDIT",
-  YAML: "YAML",
-  GUI: "GUI",
-};

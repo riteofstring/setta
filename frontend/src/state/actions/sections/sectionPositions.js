@@ -70,7 +70,7 @@ export function goToSection(sectionId, duration = 100) {
 
 export function autoLayout() {
   const margin = 50;
-  const nodeInternals = _.cloneDeep(getNodes());
+  const nodeInternals = getNodes();
 
   let sizes = nodeInternals.map((x) => ({
     id: x.id,

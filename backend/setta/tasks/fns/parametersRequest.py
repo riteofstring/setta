@@ -7,7 +7,7 @@ from .textFieldAutocomplete import completionHelper, read_cache
 from .utils import TaskDefinition
 
 
-def parametersRequestFn(lsp_writers, use_jedi=False):
+def parametersRequestFn(lsp_writer, use_jedi=False):
     async def fn(
         code_id,
         request_id,
@@ -22,19 +22,19 @@ def parametersRequestFn(lsp_writers, use_jedi=False):
         column += 1
         print("parametersRequest", flush=True)
         print(code, flush=True)
-        await lsp_writers["full"].send_document_update(code_id, code, codeJson)
+        await lsp_writer.send_document_update(code_id, code, codeJson)
         if use_jedi:
             return jedi_get_signature(code, line, column)
         else:
-            await lsp_writers["full"].send_signature_help_request(
+            await lsp_writer.send_signature_help_request(
                 line, column, code_id, request_id
             )
 
     return fn
 
 
-async def _parametersRequest(message, lsp_writers):
-    return await completionHelper(message, parametersRequestFn(lsp_writers))
+async def _parametersRequest(message, lsp_writer):
+    return await completionHelper(message, parametersRequestFn(lsp_writer))
 
 
 parametersRequest = TaskDefinition(
@@ -42,8 +42,8 @@ parametersRequest = TaskDefinition(
     return_message_type="parametersRequestReturn",
     fn=_parametersRequest,
     read_cache=read_cache,
-    run_as=RunType.NONE,
-    server_dependencies=["lsp_writers"],
+    run_as=RunType.THREAD,
+    server_dependencies=["lsp_writer"],
 )
 
 

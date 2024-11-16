@@ -351,13 +351,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "01982661-ade6-41de-a509-7e16a4e1fd5a": {
       "id": "01982661-ade6-41de-a509-7e16a4e1fd5a",
@@ -384,13 +384,13 @@
       "codeInfoId": "b083ad17-9328-41e9-bb26-0486c9b8ae4c",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "019a0d99-67f4-4dd6-962d-94c4302a795d": {
       "id": "019a0d99-67f4-4dd6-962d-94c4302a795d",
@@ -417,13 +417,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "020de69d-4fdb-45be-8c46-29492e4d5604": {
       "id": "020de69d-4fdb-45be-8c46-29492e4d5604",
@@ -450,13 +450,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "032b5bd5-4441-4d9e-9e14-991d01644be7": {
       "id": "032b5bd5-4441-4d9e-9e14-991d01644be7",
@@ -483,13 +483,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "03887b8d-9d66-4463-b6e6-7dbb8fa6ab26": {
       "id": "03887b8d-9d66-4463-b6e6-7dbb8fa6ab26",
@@ -516,13 +516,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "03f87fb1-ad53-4bf2-a10a-4de143ad7298": {
       "id": "03f87fb1-ad53-4bf2-a10a-4de143ad7298",
@@ -549,13 +549,13 @@
       "codeInfoId": "a0a7a785-4363-4b15-ab87-aea806d88c70",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "04237024-d233-4659-9ae4-a6565942e211": {
       "id": "04237024-d233-4659-9ae4-a6565942e211",
@@ -582,13 +582,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "04bbc4f6-53db-4886-8ba4-1bfe6a2079d9": {
       "id": "04bbc4f6-53db-4886-8ba4-1bfe6a2079d9",
@@ -615,13 +615,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "064d26e0-c94b-45e1-b57f-7e5aad68477b": {
       "id": "064d26e0-c94b-45e1-b57f-7e5aad68477b",
@@ -648,13 +648,13 @@
       "codeInfoId": "6f5c4ef7-5630-43fa-8e41-cd66e1c9516e",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "066b7e6f-813f-4ab5-9f17-84382b75eaaa": {
       "id": "066b7e6f-813f-4ab5-9f17-84382b75eaaa",
@@ -681,13 +681,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "07745a42-552a-4820-a167-2d99ea802a6e": {
       "id": "07745a42-552a-4820-a167-2d99ea802a6e",
@@ -714,13 +714,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "077cc4ba-bbe7-444c-8099-a2d6279ed508": {
       "id": "077cc4ba-bbe7-444c-8099-a2d6279ed508",
@@ -747,13 +747,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "098327ba-5890-4410-840b-d23eaa080522": {
       "id": "098327ba-5890-4410-840b-d23eaa080522",
@@ -780,13 +780,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "0b1f380c-f3f9-419d-aa41-f4bcdd64760d": {
       "id": "0b1f380c-f3f9-419d-aa41-f4bcdd64760d",
@@ -813,13 +813,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "0e62e340-483b-4e5f-adc1-b4100571e69b": {
       "id": "0e62e340-483b-4e5f-adc1-b4100571e69b",
@@ -846,13 +846,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "0f021eea-b4b8-4c9f-b84d-6e5fcfdad82c": {
       "id": "0f021eea-b4b8-4c9f-b84d-6e5fcfdad82c",
@@ -879,13 +879,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "11ab7754-4b5c-485b-8911-bcc6f13336b6": {
       "id": "11ab7754-4b5c-485b-8911-bcc6f13336b6",
@@ -912,13 +912,13 @@
       "codeInfoId": "ba81bc62-d5b3-493c-b3ad-31bb87ed5425",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "13bd30d2-3e39-41f7-873b-1569df6414b7": {
       "id": "13bd30d2-3e39-41f7-873b-1569df6414b7",
@@ -945,13 +945,13 @@
       "codeInfoId": "05a47e0b-7d5f-4c85-b0f5-9cb9074e0a2a",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "14f262de-739f-4de1-bf0b-7b1a53847b02": {
       "id": "14f262de-739f-4de1-bf0b-7b1a53847b02",
@@ -978,13 +978,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "15f16fe2-6a6e-48fa-9454-8dae0425f2db": {
       "id": "15f16fe2-6a6e-48fa-9454-8dae0425f2db",
@@ -1011,13 +1011,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "1799c718-a31e-4c77-beb0-b412d29ef9ec": {
       "id": "1799c718-a31e-4c77-beb0-b412d29ef9ec",
@@ -1044,13 +1044,13 @@
       "codeInfoId": "d77d0726-66ab-48cc-821b-5295ec5c77dc",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "18ad20d0-125a-431c-bb68-cc735828d7f2": {
       "id": "18ad20d0-125a-431c-bb68-cc735828d7f2",
@@ -1077,13 +1077,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "19464d3e-b816-49fa-ac92-5f0aff3f323f": {
       "id": "19464d3e-b816-49fa-ac92-5f0aff3f323f",
@@ -1110,13 +1110,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "197230e0-4b59-4a73-a316-3ec1e8dde453": {
       "id": "197230e0-4b59-4a73-a316-3ec1e8dde453",
@@ -1143,13 +1143,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "197a33c1-8c4b-4c3e-9b3d-c7909e5c0418": {
       "id": "197a33c1-8c4b-4c3e-9b3d-c7909e5c0418",
@@ -1176,13 +1176,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "1983a2c5-8821-44d5-ab19-a038a4224b3d": {
       "id": "1983a2c5-8821-44d5-ab19-a038a4224b3d",
@@ -1209,13 +1209,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "1a4a1cdb-a9fc-4ca9-b893-75b0258c6ca9": {
       "id": "1a4a1cdb-a9fc-4ca9-b893-75b0258c6ca9",
@@ -1242,13 +1242,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "1c78a43d-df55-4a41-88b6-e77dfb26a065": {
       "id": "1c78a43d-df55-4a41-88b6-e77dfb26a065",
@@ -1275,13 +1275,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "1d7508b4-438f-4fd0-adde-9b93f7512ee8": {
       "id": "1d7508b4-438f-4fd0-adde-9b93f7512ee8",
@@ -1308,13 +1308,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "1ea1757f-1886-40d4-9bbe-b78e12b4c802": {
       "id": "1ea1757f-1886-40d4-9bbe-b78e12b4c802",
@@ -1341,13 +1341,13 @@
       "codeInfoId": "2a368c95-45a7-4399-a723-b81d2b8f700d",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "1f42f402-fc06-43c9-bc36-604044f26020": {
       "id": "1f42f402-fc06-43c9-bc36-604044f26020",
@@ -1374,13 +1374,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "2068ff26-b217-4c7e-920f-a8a6583e157d": {
       "id": "2068ff26-b217-4c7e-920f-a8a6583e157d",
@@ -1407,13 +1407,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "23357038-b694-4da2-a666-48ac71d6e8c1": {
       "id": "23357038-b694-4da2-a666-48ac71d6e8c1",
@@ -1440,13 +1440,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "234bf7c5-8adf-4406-9ad4-814844a28bda": {
       "id": "234bf7c5-8adf-4406-9ad4-814844a28bda",
@@ -1473,13 +1473,13 @@
       "codeInfoId": "0b315df0-4bcc-4865-9b6c-634e47b1dbc8",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "25818a9b-34e9-4430-83bd-9785e4dee107": {
       "id": "25818a9b-34e9-4430-83bd-9785e4dee107",
@@ -1506,13 +1506,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "2a3560f7-0297-4bc0-a88d-bbd26c53cd9d": {
       "id": "2a3560f7-0297-4bc0-a88d-bbd26c53cd9d",
@@ -1539,13 +1539,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "2af867f0-e863-4334-8bd2-a0bed835a010": {
       "id": "2af867f0-e863-4334-8bd2-a0bed835a010",
@@ -1572,13 +1572,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "2b3320ed-cb4e-4511-8758-baf903ba7234": {
       "id": "2b3320ed-cb4e-4511-8758-baf903ba7234",
@@ -1605,13 +1605,13 @@
       "codeInfoId": "47f693da-b035-4e3d-8c04-f170fdaa7b6b",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "2b476ecd-299b-4a36-b9f7-2f30802b996a": {
       "id": "2b476ecd-299b-4a36-b9f7-2f30802b996a",
@@ -1638,13 +1638,13 @@
       "codeInfoId": "81d4eb1e-672e-43b5-b3d0-643351c117c3",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "2c85d25a-c4c2-4e96-bef6-5fd903f78051": {
       "id": "2c85d25a-c4c2-4e96-bef6-5fd903f78051",
@@ -1671,13 +1671,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "2e287df0-b16e-48c8-95b5-b1d64e623d2c": {
       "id": "2e287df0-b16e-48c8-95b5-b1d64e623d2c",
@@ -1704,13 +1704,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "2ebe8342-754e-4f45-8953-da7e8739adf5": {
       "id": "2ebe8342-754e-4f45-8953-da7e8739adf5",
@@ -1737,13 +1737,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "2f735045-9d77-42a9-9ec4-62b6e65ac7ed": {
       "id": "2f735045-9d77-42a9-9ec4-62b6e65ac7ed",
@@ -1770,13 +1770,13 @@
       "codeInfoId": "c48e9a9d-bcc3-438c-8377-cbdbb112fa4d",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "2f783904-f150-48d0-b88e-187d8385acdb": {
       "id": "2f783904-f150-48d0-b88e-187d8385acdb",
@@ -1803,13 +1803,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "304b676b-d5bb-4478-b91f-7c9eec3e15fb": {
       "id": "304b676b-d5bb-4478-b91f-7c9eec3e15fb",
@@ -1836,13 +1836,13 @@
       "codeInfoId": "8732bdb1-b774-4446-850f-262eb16b4fb0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "31ed0236-e893-4865-8367-1b62602f61b2": {
       "id": "31ed0236-e893-4865-8367-1b62602f61b2",
@@ -1869,13 +1869,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "32e3fea7-883f-4aff-bd58-ceb629c75427": {
       "id": "32e3fea7-883f-4aff-bd58-ceb629c75427",
@@ -1902,13 +1902,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "32e92d1c-1e29-486a-923f-e95158a2828a": {
       "id": "32e92d1c-1e29-486a-923f-e95158a2828a",
@@ -1935,13 +1935,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "343b5cab-0506-4052-9cac-7d159d3ddcb0": {
       "id": "343b5cab-0506-4052-9cac-7d159d3ddcb0",
@@ -1968,13 +1968,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "354c1178-caf8-4697-81bc-966c8f1a3612": {
       "id": "354c1178-caf8-4697-81bc-966c8f1a3612",
@@ -2001,13 +2001,13 @@
       "codeInfoId": "a8c2eeb4-856a-4cde-96b0-ff0aa97d810d",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "358d756b-0b1b-4df9-ac40-497e97ca2348": {
       "id": "358d756b-0b1b-4df9-ac40-497e97ca2348",
@@ -2034,13 +2034,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "36feec84-03d4-4f9a-8990-4730701f6010": {
       "id": "36feec84-03d4-4f9a-8990-4730701f6010",
@@ -2067,13 +2067,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "38e95602-a02b-4b44-8573-6aaf6b05cd33": {
       "id": "38e95602-a02b-4b44-8573-6aaf6b05cd33",
@@ -2100,13 +2100,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "39845fd4-2acf-45f6-bbd9-c8fb176c44a4": {
       "id": "39845fd4-2acf-45f6-bbd9-c8fb176c44a4",
@@ -2133,13 +2133,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "3b8b7704-cec4-40d7-90c2-121d32948581": {
       "id": "3b8b7704-cec4-40d7-90c2-121d32948581",
@@ -2166,13 +2166,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "3beb4d3b-dd8d-414a-8523-c53c369341c7": {
       "id": "3beb4d3b-dd8d-414a-8523-c53c369341c7",
@@ -2199,13 +2199,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "3d140bbb-4171-4ae2-a486-39b0f16d1e0b": {
       "id": "3d140bbb-4171-4ae2-a486-39b0f16d1e0b",
@@ -2232,13 +2232,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "3d381b1e-dfab-4048-bb5d-88ff408b7c35": {
       "id": "3d381b1e-dfab-4048-bb5d-88ff408b7c35",
@@ -2265,13 +2265,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "402d8ea2-18a7-4d02-b738-3e8d686921e0": {
       "id": "402d8ea2-18a7-4d02-b738-3e8d686921e0",
@@ -2298,13 +2298,13 @@
       "codeInfoId": "559e6b29-aa2c-48fe-841f-57a77cb34670",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "416fed1f-a4be-4e5f-a488-2bd50162b2b7": {
       "id": "416fed1f-a4be-4e5f-a488-2bd50162b2b7",
@@ -2331,13 +2331,13 @@
       "codeInfoId": "0aff6157-74a9-49c6-aff1-a3d170547933",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "4190dce2-15e0-41ff-9cab-7ac15054d818": {
       "id": "4190dce2-15e0-41ff-9cab-7ac15054d818",
@@ -2364,13 +2364,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "41b1d87d-6aa7-4fca-924f-ea38c71671c3": {
       "id": "41b1d87d-6aa7-4fca-924f-ea38c71671c3",
@@ -2397,13 +2397,13 @@
       "codeInfoId": "ac824f77-ab88-4317-9ec8-57acf6597020",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "421ba264-3070-4e66-b56e-088aaf11e87e": {
       "id": "421ba264-3070-4e66-b56e-088aaf11e87e",
@@ -2430,13 +2430,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "44762f05-5005-44ad-affb-e5006da5f888": {
       "id": "44762f05-5005-44ad-affb-e5006da5f888",
@@ -2463,13 +2463,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "46103a05-0cb1-400b-b8a2-181ada6ff712": {
       "id": "46103a05-0cb1-400b-b8a2-181ada6ff712",
@@ -2496,13 +2496,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "482f99d2-0d57-4a98-ad93-767df1386369": {
       "id": "482f99d2-0d57-4a98-ad93-767df1386369",
@@ -2529,13 +2529,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "4b2ed0b3-86c7-469d-b258-23eadc716072": {
       "id": "4b2ed0b3-86c7-469d-b258-23eadc716072",
@@ -2562,13 +2562,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "4cff8291-6aa2-424a-afb9-8b8d3f940dcb": {
       "id": "4cff8291-6aa2-424a-afb9-8b8d3f940dcb",
@@ -2595,13 +2595,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "4d03c516-f266-46c3-b855-ecdcc47e7dbb": {
       "id": "4d03c516-f266-46c3-b855-ecdcc47e7dbb",
@@ -2628,13 +2628,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "50abd836-18d1-48ab-8c21-dd7d9a46f6b1": {
       "id": "50abd836-18d1-48ab-8c21-dd7d9a46f6b1",
@@ -2661,13 +2661,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "50d18b0a-cb7c-46a6-b7c2-1b95dd9b07d6": {
       "id": "50d18b0a-cb7c-46a6-b7c2-1b95dd9b07d6",
@@ -2694,13 +2694,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "51f81cf7-ed8c-47fd-9ae5-b38481510cc2": {
       "id": "51f81cf7-ed8c-47fd-9ae5-b38481510cc2",
@@ -2727,13 +2727,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "53e7a51d-3387-42ac-b38d-4f2eaad29509": {
       "id": "53e7a51d-3387-42ac-b38d-4f2eaad29509",
@@ -2760,13 +2760,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "56693f09-f1f0-45ac-8acf-1b2c02c2641e": {
       "id": "56693f09-f1f0-45ac-8acf-1b2c02c2641e",
@@ -2793,13 +2793,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "5797d5cc-52ad-4e98-a93d-5f16f672b86f": {
       "id": "5797d5cc-52ad-4e98-a93d-5f16f672b86f",
@@ -2826,13 +2826,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "5803cc8c-f6be-4fc9-85ac-2f1dd27aaf92": {
       "id": "5803cc8c-f6be-4fc9-85ac-2f1dd27aaf92",
@@ -2859,13 +2859,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "5813d18e-73f7-4d94-8b2c-385c3cff2931": {
       "id": "5813d18e-73f7-4d94-8b2c-385c3cff2931",
@@ -2892,13 +2892,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "58bd2b92-f4d1-4e47-82ee-e4ec24b5b506": {
       "id": "58bd2b92-f4d1-4e47-82ee-e4ec24b5b506",
@@ -2925,13 +2925,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "5a45a9e8-c3a0-46d1-927f-aef15f783bdc": {
       "id": "5a45a9e8-c3a0-46d1-927f-aef15f783bdc",
@@ -2958,13 +2958,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "5aa86eeb-f689-4359-a000-ecfd10e07443": {
       "id": "5aa86eeb-f689-4359-a000-ecfd10e07443",
@@ -2991,13 +2991,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "5cdd296f-24b7-4c71-96e4-46b84c50f183": {
       "id": "5cdd296f-24b7-4c71-96e4-46b84c50f183",
@@ -3024,13 +3024,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "5ced057c-7c3e-4e0e-978b-8116497d2d9f": {
       "id": "5ced057c-7c3e-4e0e-978b-8116497d2d9f",
@@ -3057,13 +3057,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "5d52f821-a170-4d90-b7a5-de3f8df5862a": {
       "id": "5d52f821-a170-4d90-b7a5-de3f8df5862a",
@@ -3090,13 +3090,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "5e50e155-5a7d-494e-a974-75765357f008": {
       "id": "5e50e155-5a7d-494e-a974-75765357f008",
@@ -3123,13 +3123,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "5e5f99ff-89f7-4263-9cea-4f1a0f4cb3c9": {
       "id": "5e5f99ff-89f7-4263-9cea-4f1a0f4cb3c9",
@@ -3156,13 +3156,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "5ecaaf3d-dbb8-4327-b4e4-bdbee84ca746": {
       "id": "5ecaaf3d-dbb8-4327-b4e4-bdbee84ca746",
@@ -3189,13 +3189,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "5ed45a33-0026-4b33-a200-9fbe90d3117d": {
       "id": "5ed45a33-0026-4b33-a200-9fbe90d3117d",
@@ -3222,13 +3222,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "61259ca8-afb6-4802-a413-3bd505385794": {
       "id": "61259ca8-afb6-4802-a413-3bd505385794",
@@ -3255,13 +3255,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "61a8c0af-ef3f-41c3-a0ee-a1312965cd91": {
       "id": "61a8c0af-ef3f-41c3-a0ee-a1312965cd91",
@@ -3288,13 +3288,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "640a3ad9-f2f1-4f7f-907a-b539475580f3": {
       "id": "640a3ad9-f2f1-4f7f-907a-b539475580f3",
@@ -3321,13 +3321,13 @@
       "codeInfoId": "42319a10-7761-4a2a-a6a8-a9760ae31f0c",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "649f7d31-01db-4fe9-a8f5-00ee5af75e7d": {
       "id": "649f7d31-01db-4fe9-a8f5-00ee5af75e7d",
@@ -3354,13 +3354,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "67563715-a744-45c8-9485-98a3e75c63e7": {
       "id": "67563715-a744-45c8-9485-98a3e75c63e7",
@@ -3387,13 +3387,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "67d334dc-987f-49d8-ae01-5fcb8af0a68c": {
       "id": "67d334dc-987f-49d8-ae01-5fcb8af0a68c",
@@ -3420,13 +3420,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "68377d80-80ad-42fe-9edc-328e108fa35a": {
       "id": "68377d80-80ad-42fe-9edc-328e108fa35a",
@@ -3453,13 +3453,13 @@
       "codeInfoId": "f90bbc86-3276-4b01-96cd-271a041c6982",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "6900fd62-8e8a-49c4-94ba-8694a0f5b2f8": {
       "id": "6900fd62-8e8a-49c4-94ba-8694a0f5b2f8",
@@ -3486,13 +3486,13 @@
       "codeInfoId": "cc3ba26b-1edf-47c0-9c97-7cee2d6ce94a",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "69e9a7d4-4fad-4e32-859a-9acbe815051b": {
       "id": "69e9a7d4-4fad-4e32-859a-9acbe815051b",
@@ -3519,13 +3519,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "6b969221-0c5f-4eef-aba8-0248742e52b6": {
       "id": "6b969221-0c5f-4eef-aba8-0248742e52b6",
@@ -3552,13 +3552,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "6c45acb2-364e-4b66-858d-e0e30d2fc3da": {
       "id": "6c45acb2-364e-4b66-858d-e0e30d2fc3da",
@@ -3585,13 +3585,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "6e6ecd9e-29a6-4c29-aed4-25a67fe44a07": {
       "id": "6e6ecd9e-29a6-4c29-aed4-25a67fe44a07",
@@ -3618,13 +3618,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "6edcd39f-b09d-4da2-8b3e-73c2064c3fa9": {
       "id": "6edcd39f-b09d-4da2-8b3e-73c2064c3fa9",
@@ -3651,13 +3651,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "6f87ba78-f8e1-4710-a1e6-e5e327e6d37b": {
       "id": "6f87ba78-f8e1-4710-a1e6-e5e327e6d37b",
@@ -3684,13 +3684,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "71baa5da-3b21-4467-aa95-beca8cd5866b": {
       "id": "71baa5da-3b21-4467-aa95-beca8cd5866b",
@@ -3717,13 +3717,13 @@
       "codeInfoId": "f618b097-8457-4c2c-add8-f0acbe6f3204",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "73a666af-fbb8-45c1-923a-d5620668839c": {
       "id": "73a666af-fbb8-45c1-923a-d5620668839c",
@@ -3750,13 +3750,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "7428da77-2e85-4fbe-9a43-c2ee40d61dee": {
       "id": "7428da77-2e85-4fbe-9a43-c2ee40d61dee",
@@ -3783,13 +3783,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "74793eea-62fb-46ae-a3b0-e399f9365f95": {
       "id": "74793eea-62fb-46ae-a3b0-e399f9365f95",
@@ -3816,13 +3816,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "751e0506-9002-4645-8ce8-e4d34900d4b3": {
       "id": "751e0506-9002-4645-8ce8-e4d34900d4b3",
@@ -3849,13 +3849,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "78802578-ba73-4cea-b2f8-1027b3a085ae": {
       "id": "78802578-ba73-4cea-b2f8-1027b3a085ae",
@@ -3882,13 +3882,13 @@
       "codeInfoId": "2d89eb61-2d0e-4e6a-b52f-91044e0d5ea5",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "79aaef09-0a3c-45ba-b484-0a1e448f061b": {
       "id": "79aaef09-0a3c-45ba-b484-0a1e448f061b",
@@ -3915,13 +3915,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "7a4c8c67-3752-4708-97bc-ec956757aacc": {
       "id": "7a4c8c67-3752-4708-97bc-ec956757aacc",
@@ -3948,13 +3948,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "7ce37d85-b6cd-4a56-9cb1-e9e5d197593e": {
       "id": "7ce37d85-b6cd-4a56-9cb1-e9e5d197593e",
@@ -3981,13 +3981,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "7d7726e2-25e3-45c4-9ec1-f22bf13d011b": {
       "id": "7d7726e2-25e3-45c4-9ec1-f22bf13d011b",
@@ -4014,13 +4014,13 @@
       "codeInfoId": "e303c1d6-0d1c-4a7a-aa6b-42fa410f6454",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "7ecf7962-e2ee-4a38-9a99-e64d8c20e9ea": {
       "id": "7ecf7962-e2ee-4a38-9a99-e64d8c20e9ea",
@@ -4047,13 +4047,13 @@
       "codeInfoId": "cf5c4fc0-ace4-4bf1-980b-1117313bd07f",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "7fcef3e6-8591-4e91-b4a7-ab4151b9979a": {
       "id": "7fcef3e6-8591-4e91-b4a7-ab4151b9979a",
@@ -4080,13 +4080,13 @@
       "codeInfoId": "f4a9fa37-ba3e-4dcf-a25c-f66efe5bad5a",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "7fd35806-bfd3-465e-9e40-48049cc4ce53": {
       "id": "7fd35806-bfd3-465e-9e40-48049cc4ce53",
@@ -4113,13 +4113,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "807347bc-ccbc-4aa1-81ea-995ddb1f7a73": {
       "id": "807347bc-ccbc-4aa1-81ea-995ddb1f7a73",
@@ -4146,13 +4146,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "80ade79d-cb4c-4e0a-b155-2c76b06be31b": {
       "id": "80ade79d-cb4c-4e0a-b155-2c76b06be31b",
@@ -4179,13 +4179,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "8144c422-4550-40b8-aeee-f66a3906f69f": {
       "id": "8144c422-4550-40b8-aeee-f66a3906f69f",
@@ -4212,13 +4212,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "8232d928-0d41-489c-ae07-281a2c570287": {
       "id": "8232d928-0d41-489c-ae07-281a2c570287",
@@ -4245,13 +4245,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "83fbb1a7-a288-45e7-8a63-86214da592a3": {
       "id": "83fbb1a7-a288-45e7-8a63-86214da592a3",
@@ -4278,13 +4278,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "861f5b2d-0f70-43cf-9bd0-a6705cd01cee": {
       "id": "861f5b2d-0f70-43cf-9bd0-a6705cd01cee",
@@ -4311,13 +4311,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "869c9329-e9f1-43e0-aca7-f7696f68ca50": {
       "id": "869c9329-e9f1-43e0-aca7-f7696f68ca50",
@@ -4344,13 +4344,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "86e0be70-aa92-446d-a1a3-c90810d8b938": {
       "id": "86e0be70-aa92-446d-a1a3-c90810d8b938",
@@ -4377,13 +4377,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "87b6225d-ea15-4aaa-a149-537af2270e41": {
       "id": "87b6225d-ea15-4aaa-a149-537af2270e41",
@@ -4410,13 +4410,13 @@
       "codeInfoId": "6c28a4bd-802f-4619-8c3b-afbe0a42def6",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "88600a29-7111-4de5-bf71-bbbe59cf21cf": {
       "id": "88600a29-7111-4de5-bf71-bbbe59cf21cf",
@@ -4443,13 +4443,13 @@
       "codeInfoId": "aeb6f45a-7c1f-4565-8439-4fbc610593d1",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "88f0d921-9691-4009-9723-448f6228b534": {
       "id": "88f0d921-9691-4009-9723-448f6228b534",
@@ -4476,13 +4476,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "891358ea-c506-4228-94aa-b73ee0a93984": {
       "id": "891358ea-c506-4228-94aa-b73ee0a93984",
@@ -4509,13 +4509,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "898fbae5-685c-4795-92c3-2b9ec9349da0": {
       "id": "898fbae5-685c-4795-92c3-2b9ec9349da0",
@@ -4542,13 +4542,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "8b910229-9578-4b2a-b2fc-beeadca46bf6": {
       "id": "8b910229-9578-4b2a-b2fc-beeadca46bf6",
@@ -4575,13 +4575,13 @@
       "codeInfoId": "0693bf09-b59f-4161-ae28-c770fd257116",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "8be026d0-0e65-41e0-97dd-c8d2aae21171": {
       "id": "8be026d0-0e65-41e0-97dd-c8d2aae21171",
@@ -4608,13 +4608,13 @@
       "codeInfoId": "7fe68c97-c646-4076-8935-7a002497bd28",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "8d276ed1-b05c-47c1-819b-7afee636544b": {
       "id": "8d276ed1-b05c-47c1-819b-7afee636544b",
@@ -4641,13 +4641,13 @@
       "codeInfoId": "75b647db-2c76-462e-a9e3-168b5919f41c",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "8f5d1c33-e556-4f52-a154-8ad5fa7bb388": {
       "id": "8f5d1c33-e556-4f52-a154-8ad5fa7bb388",
@@ -4674,13 +4674,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "8f6a4657-5933-475d-a5dc-bea4b85ef5fd": {
       "id": "8f6a4657-5933-475d-a5dc-bea4b85ef5fd",
@@ -4707,13 +4707,13 @@
       "codeInfoId": "d67e5e7d-b628-4fde-8ee9-0d9f548e24fb",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "901de543-e51f-4c55-a9cc-3c7672128fb7": {
       "id": "901de543-e51f-4c55-a9cc-3c7672128fb7",
@@ -4740,13 +4740,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "925ce3d0-c219-44cc-aa5d-1b4802757443": {
       "id": "925ce3d0-c219-44cc-aa5d-1b4802757443",
@@ -4773,13 +4773,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "9380c3b5-9626-491b-adfd-853eb5928c02": {
       "id": "9380c3b5-9626-491b-adfd-853eb5928c02",
@@ -4806,13 +4806,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "957c399c-6b97-4459-88db-cd89d5b17b53": {
       "id": "957c399c-6b97-4459-88db-cd89d5b17b53",
@@ -4839,13 +4839,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "967176a2-6bc3-4f05-a6bc-b4424a937a77": {
       "id": "967176a2-6bc3-4f05-a6bc-b4424a937a77",
@@ -4872,13 +4872,13 @@
       "codeInfoId": "0b3365df-4688-45c4-9d08-369f77e5c3d9",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "97e4e21e-d1b0-4a50-a4fd-70380e9bfbdd": {
       "id": "97e4e21e-d1b0-4a50-a4fd-70380e9bfbdd",
@@ -4905,13 +4905,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "982e3bc8-6978-44bc-a450-05aac991bda1": {
       "id": "982e3bc8-6978-44bc-a450-05aac991bda1",
@@ -4938,13 +4938,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "98707bd8-dea4-44d7-9ac8-98aaa2252d03": {
       "id": "98707bd8-dea4-44d7-9ac8-98aaa2252d03",
@@ -4971,13 +4971,13 @@
       "codeInfoId": "b3162766-d0d1-48fc-9dad-e191b124eadf",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "98b46038-2a89-4d08-9129-364aa439e418": {
       "id": "98b46038-2a89-4d08-9129-364aa439e418",
@@ -5004,13 +5004,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "9d99885f-2169-4bb3-a00c-43e83e1b2f61": {
       "id": "9d99885f-2169-4bb3-a00c-43e83e1b2f61",
@@ -5037,13 +5037,13 @@
       "codeInfoId": "069ed12f-8fcc-447e-822e-caf50b911437",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "9d9ae886-21db-498d-8b4c-960130f389c4": {
       "id": "9d9ae886-21db-498d-8b4c-960130f389c4",
@@ -5070,13 +5070,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "9ee1b74f-a7ab-4cd5-abac-5b6353ea409b": {
       "id": "9ee1b74f-a7ab-4cd5-abac-5b6353ea409b",
@@ -5103,13 +5103,13 @@
       "codeInfoId": "06e8edb7-f3ed-4f69-ac05-863c3c6ec57c",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "9f44bba8-bad2-48dc-9562-9d3bcbd67167": {
       "id": "9f44bba8-bad2-48dc-9562-9d3bcbd67167",
@@ -5136,13 +5136,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "9f71da29-c849-44a8-9c88-5b54648823b9": {
       "id": "9f71da29-c849-44a8-9c88-5b54648823b9",
@@ -5169,13 +5169,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a02012ee-01fe-4243-ac76-1a4b5cb41b0c": {
       "id": "a02012ee-01fe-4243-ac76-1a4b5cb41b0c",
@@ -5202,13 +5202,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a0bb3727-5649-4068-b729-1a0c70d432e8": {
       "id": "a0bb3727-5649-4068-b729-1a0c70d432e8",
@@ -5235,13 +5235,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a1d1226d-9d19-44fb-a754-f58484b1161e": {
       "id": "a1d1226d-9d19-44fb-a754-f58484b1161e",
@@ -5268,13 +5268,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a316bf9b-4af7-416b-9192-2387e63cfdcc": {
       "id": "a316bf9b-4af7-416b-9192-2387e63cfdcc",
@@ -5301,13 +5301,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a471eacb-8c54-4eee-89fa-68796ba705c8": {
       "id": "a471eacb-8c54-4eee-89fa-68796ba705c8",
@@ -5334,13 +5334,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a59fe7ff-ac5a-4cc3-a698-1df9e75ddbfb": {
       "id": "a59fe7ff-ac5a-4cc3-a698-1df9e75ddbfb",
@@ -5367,13 +5367,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a5b16ab8-7b87-4636-a668-702ee56402af": {
       "id": "a5b16ab8-7b87-4636-a668-702ee56402af",
@@ -5400,13 +5400,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a5ec550d-7fb3-41cf-ad60-62bcf2003ffd": {
       "id": "a5ec550d-7fb3-41cf-ad60-62bcf2003ffd",
@@ -5433,13 +5433,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a649e191-b13c-4f61-9ae0-ab7cb1c072ca": {
       "id": "a649e191-b13c-4f61-9ae0-ab7cb1c072ca",
@@ -5466,13 +5466,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a73abd05-2479-498b-8487-9879b6a73146": {
       "id": "a73abd05-2479-498b-8487-9879b6a73146",
@@ -5499,13 +5499,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a8508ee3-7fc4-4e11-b079-f949f0f3234f": {
       "id": "a8508ee3-7fc4-4e11-b079-f949f0f3234f",
@@ -5532,13 +5532,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "a9877cb9-1769-4558-89e8-0402bc6bd931": {
       "id": "a9877cb9-1769-4558-89e8-0402bc6bd931",
@@ -5565,13 +5565,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ab02217b-b2df-4e99-ae64-9b8408080ff7": {
       "id": "ab02217b-b2df-4e99-ae64-9b8408080ff7",
@@ -5598,13 +5598,13 @@
       "codeInfoId": "69303659-de89-4e7c-9e3b-685f08cd392a",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ab4a601c-acf8-42a0-907a-2e1e807aad07": {
       "id": "ab4a601c-acf8-42a0-907a-2e1e807aad07",
@@ -5631,13 +5631,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "acb365ab-5ea5-454d-9dfe-3ccb940879b6": {
       "id": "acb365ab-5ea5-454d-9dfe-3ccb940879b6",
@@ -5664,13 +5664,13 @@
       "codeInfoId": "2310617d-1635-4e63-a56f-f8da95be5e39",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ad6868af-85bf-4e6e-8000-a938c4538209": {
       "id": "ad6868af-85bf-4e6e-8000-a938c4538209",
@@ -5697,13 +5697,13 @@
       "codeInfoId": "a25273bb-1bc1-4ae3-a13e-39115ff931f5",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "adaf10e3-828b-4254-8dbf-b25c3e8d950f": {
       "id": "adaf10e3-828b-4254-8dbf-b25c3e8d950f",
@@ -5730,13 +5730,13 @@
       "codeInfoId": "b20e6d0b-b550-44b1-a6db-9316a7d0bf38",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b018347a-7462-4013-86a6-95ca03c6127c": {
       "id": "b018347a-7462-4013-86a6-95ca03c6127c",
@@ -5763,13 +5763,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b06e8cea-0c0a-4608-b8dc-7d75f68f1de4": {
       "id": "b06e8cea-0c0a-4608-b8dc-7d75f68f1de4",
@@ -5796,13 +5796,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b0de929a-30b8-4395-a18d-fa92ddd9dc68": {
       "id": "b0de929a-30b8-4395-a18d-fa92ddd9dc68",
@@ -5829,13 +5829,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b1b9eb08-3dd4-408c-bd9f-3d659e742506": {
       "id": "b1b9eb08-3dd4-408c-bd9f-3d659e742506",
@@ -5862,13 +5862,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b2179be7-df81-48c9-a075-2e2b9e5fa576": {
       "id": "b2179be7-df81-48c9-a075-2e2b9e5fa576",
@@ -5895,13 +5895,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b26da8b0-7c9e-44e2-af89-8cea15588178": {
       "id": "b26da8b0-7c9e-44e2-af89-8cea15588178",
@@ -5928,13 +5928,13 @@
       "codeInfoId": "feeb3a83-7478-4af9-814a-a478499b88e6",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b3a50e2a-4aed-4f48-be4e-681eb9f05a21": {
       "id": "b3a50e2a-4aed-4f48-be4e-681eb9f05a21",
@@ -5961,13 +5961,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b490c14f-29d2-40c3-9814-2e859acbfa88": {
       "id": "b490c14f-29d2-40c3-9814-2e859acbfa88",
@@ -5994,13 +5994,13 @@
       "codeInfoId": "342f1739-2a66-4e8d-b8ec-f741ae010fa1",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b590bc1c-00bc-420b-9ea0-0f4fcf85adca": {
       "id": "b590bc1c-00bc-420b-9ea0-0f4fcf85adca",
@@ -6027,13 +6027,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b5c8a789-40b9-40a6-a4ee-d426926d0834": {
       "id": "b5c8a789-40b9-40a6-a4ee-d426926d0834",
@@ -6060,13 +6060,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b6fb78ca-352e-42e3-a184-c5fa4b2b06fa": {
       "id": "b6fb78ca-352e-42e3-a184-c5fa4b2b06fa",
@@ -6093,13 +6093,13 @@
       "codeInfoId": "842b8453-edd1-4a02-8515-9e09b63b9b37",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b6feef70-5fdc-4559-9f82-910d9430937b": {
       "id": "b6feef70-5fdc-4559-9f82-910d9430937b",
@@ -6126,13 +6126,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b80525d3-e66d-4204-ad0b-39e3386f44c4": {
       "id": "b80525d3-e66d-4204-ad0b-39e3386f44c4",
@@ -6159,13 +6159,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "b85f4915-6f05-4a7e-ad27-b6855921f1ae": {
       "id": "b85f4915-6f05-4a7e-ad27-b6855921f1ae",
@@ -6192,13 +6192,13 @@
       "codeInfoId": "aff55f3f-5a2c-4026-9fa0-130da03273ba",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ba5941dc-2d82-4f79-bfb6-e2cdc9d2f430": {
       "id": "ba5941dc-2d82-4f79-bfb6-e2cdc9d2f430",
@@ -6225,13 +6225,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "bbcc4e1d-5d7f-4325-b7eb-06943023ab87": {
       "id": "bbcc4e1d-5d7f-4325-b7eb-06943023ab87",
@@ -6258,13 +6258,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "bc03c096-8b6a-473a-a7c9-19926b3fe711": {
       "id": "bc03c096-8b6a-473a-a7c9-19926b3fe711",
@@ -6291,13 +6291,13 @@
       "codeInfoId": "19cb4afa-3e0b-41e3-8ae3-3bbcec7b9395",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "bd171912-df3b-4df3-a984-5f20477709c6": {
       "id": "bd171912-df3b-4df3-a984-5f20477709c6",
@@ -6324,13 +6324,13 @@
       "codeInfoId": "e2e96e2b-90a1-4d45-bf6d-efa1ff1ece2a",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "bd49d580-20b2-4a1f-9495-854199ecc297": {
       "id": "bd49d580-20b2-4a1f-9495-854199ecc297",
@@ -6357,13 +6357,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "be03c045-ac0e-484a-a4f6-fc80965e240f": {
       "id": "be03c045-ac0e-484a-a4f6-fc80965e240f",
@@ -6390,13 +6390,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c04e622f-1c9b-47a5-b780-5dcfe01340d0": {
       "id": "c04e622f-1c9b-47a5-b780-5dcfe01340d0",
@@ -6423,13 +6423,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c057a412-87c8-4a34-8ad3-f5f6e0c66cf5": {
       "id": "c057a412-87c8-4a34-8ad3-f5f6e0c66cf5",
@@ -6456,13 +6456,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c06a7aff-7e66-4b8a-aa03-97d23015b560": {
       "id": "c06a7aff-7e66-4b8a-aa03-97d23015b560",
@@ -6489,13 +6489,13 @@
       "codeInfoId": "80754e04-816b-4258-bef4-3e256e38f5f1",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c1a665c9-7ea3-4dea-ae0f-d181ab8822ae": {
       "id": "c1a665c9-7ea3-4dea-ae0f-d181ab8822ae",
@@ -6522,13 +6522,13 @@
       "codeInfoId": "3bbf65dc-8d7d-4190-a4b6-94a707c20d9d",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c2bf9cfa-ffe6-4792-9139-278fa24ee898": {
       "id": "c2bf9cfa-ffe6-4792-9139-278fa24ee898",
@@ -6555,13 +6555,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c34ec476-0e79-4ee8-bf3c-b393a0368b2c": {
       "id": "c34ec476-0e79-4ee8-bf3c-b393a0368b2c",
@@ -6588,13 +6588,13 @@
       "codeInfoId": "6728494d-444d-4c8b-b4ae-7afc38edb23a",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c3bba839-ad41-41ad-8e5a-d5e6fff261f9": {
       "id": "c3bba839-ad41-41ad-8e5a-d5e6fff261f9",
@@ -6621,13 +6621,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c4aa1ac6-82e8-4dd1-ab97-4133fccda678": {
       "id": "c4aa1ac6-82e8-4dd1-ab97-4133fccda678",
@@ -6654,13 +6654,13 @@
       "codeInfoId": "d173b6b7-441f-4531-bd12-ab1a9dc322b8",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c54f3354-a17f-4b20-a4b9-d1dfa410eef7": {
       "id": "c54f3354-a17f-4b20-a4b9-d1dfa410eef7",
@@ -6687,13 +6687,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c855a4dc-e05d-4ca8-b877-e6a35d4492c9": {
       "id": "c855a4dc-e05d-4ca8-b877-e6a35d4492c9",
@@ -6720,13 +6720,13 @@
       "codeInfoId": "c30d99bb-29b6-4ff2-b06f-7e541c2a5cba",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c92bc20f-a087-4d18-9259-32fc818756a2": {
       "id": "c92bc20f-a087-4d18-9259-32fc818756a2",
@@ -6753,13 +6753,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c9653f74-160e-4950-b72c-51f8c6322abc": {
       "id": "c9653f74-160e-4950-b72c-51f8c6322abc",
@@ -6786,13 +6786,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "c9d73913-db26-4fcd-8b63-f4c7134a765a": {
       "id": "c9d73913-db26-4fcd-8b63-f4c7134a765a",
@@ -6819,13 +6819,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ca94cffb-1f9e-4e6b-904a-0dc577abd46a": {
       "id": "ca94cffb-1f9e-4e6b-904a-0dc577abd46a",
@@ -6852,13 +6852,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "cabbdb80-40d2-4d8b-acfe-949aee51f9f1": {
       "id": "cabbdb80-40d2-4d8b-acfe-949aee51f9f1",
@@ -6885,13 +6885,13 @@
       "codeInfoId": "03d77c38-811b-4fd4-ae9e-62506c31c0a5",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "cbdba0b2-9b44-41f4-9838-7fc5248abe8f": {
       "id": "cbdba0b2-9b44-41f4-9838-7fc5248abe8f",
@@ -6918,13 +6918,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "cc1c4b41-eccc-4bfb-9a53-ea1e48a944b4": {
       "id": "cc1c4b41-eccc-4bfb-9a53-ea1e48a944b4",
@@ -6951,13 +6951,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "cd15e81e-ee34-450e-bca8-718ff7e26529": {
       "id": "cd15e81e-ee34-450e-bca8-718ff7e26529",
@@ -6984,13 +6984,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ced55ae7-37d7-4824-b833-008990ceed81": {
       "id": "ced55ae7-37d7-4824-b833-008990ceed81",
@@ -7017,13 +7017,13 @@
       "codeInfoId": "b3c239c8-dbca-4c14-a6e4-b23020bfe87d",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d18e5017-b4e3-44eb-960a-33e242615207": {
       "id": "d18e5017-b4e3-44eb-960a-33e242615207",
@@ -7050,13 +7050,13 @@
       "codeInfoId": "e27d544c-15c1-4e91-af55-3752f78d4131",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d2388e31-02a9-45d4-a733-f06963816672": {
       "id": "d2388e31-02a9-45d4-a733-f06963816672",
@@ -7083,13 +7083,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d38102f1-23ef-418f-a871-84d49e46ed79": {
       "id": "d38102f1-23ef-418f-a871-84d49e46ed79",
@@ -7116,13 +7116,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d384e513-6241-4445-971b-7e46e110c2f4": {
       "id": "d384e513-6241-4445-971b-7e46e110c2f4",
@@ -7149,13 +7149,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d3d689b8-362e-4f86-8cb9-91f2611c18c9": {
       "id": "d3d689b8-362e-4f86-8cb9-91f2611c18c9",
@@ -7182,13 +7182,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d3d8b010-f6a0-4bb1-b56c-49937d8cab10": {
       "id": "d3d8b010-f6a0-4bb1-b56c-49937d8cab10",
@@ -7215,13 +7215,13 @@
       "codeInfoId": "f5274913-3db1-4810-a236-73a8c9f2c07f",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d4b5a26e-631d-4d05-9244-98ec71ca3911": {
       "id": "d4b5a26e-631d-4d05-9244-98ec71ca3911",
@@ -7248,13 +7248,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d4be2d0d-05f9-43a4-942b-bd493c373a45": {
       "id": "d4be2d0d-05f9-43a4-942b-bd493c373a45",
@@ -7281,13 +7281,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d584050c-9ac4-4af6-bcaa-c6c3e24683ed": {
       "id": "d584050c-9ac4-4af6-bcaa-c6c3e24683ed",
@@ -7314,13 +7314,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d6030489-9fd8-467d-a2a9-f9fad9389456": {
       "id": "d6030489-9fd8-467d-a2a9-f9fad9389456",
@@ -7347,13 +7347,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d73e7f49-05e1-4b1d-b795-2b80bb32676a": {
       "id": "d73e7f49-05e1-4b1d-b795-2b80bb32676a",
@@ -7380,13 +7380,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d784dd31-9be2-490e-a985-894ec96a5043": {
       "id": "d784dd31-9be2-490e-a985-894ec96a5043",
@@ -7413,13 +7413,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d90eae7f-b8ad-46d0-bdb7-c7ab668f1740": {
       "id": "d90eae7f-b8ad-46d0-bdb7-c7ab668f1740",
@@ -7446,13 +7446,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d9460284-624f-4d60-af3b-2dd87a318473": {
       "id": "d9460284-624f-4d60-af3b-2dd87a318473",
@@ -7479,13 +7479,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "d9b12a0a-8496-4a3b-a3b7-1ac15f1e1491": {
       "id": "d9b12a0a-8496-4a3b-a3b7-1ac15f1e1491",
@@ -7512,13 +7512,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "daa04ce9-c421-4ae3-a826-bac3de3642f7": {
       "id": "daa04ce9-c421-4ae3-a826-bac3de3642f7",
@@ -7545,13 +7545,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "dab53025-2e58-480c-862b-9b0f6e831e0a": {
       "id": "dab53025-2e58-480c-862b-9b0f6e831e0a",
@@ -7578,13 +7578,13 @@
       "codeInfoId": "29d284d6-8420-4220-960f-cb6aff998d07",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "dc2c325d-100f-47d0-a4fe-64e814ff45e9": {
       "id": "dc2c325d-100f-47d0-a4fe-64e814ff45e9",
@@ -7611,13 +7611,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "dd0b01e7-543a-4340-9b76-0ac851632b75": {
       "id": "dd0b01e7-543a-4340-9b76-0ac851632b75",
@@ -7644,13 +7644,13 @@
       "codeInfoId": "9093e6ac-3459-46fe-83fe-09e77ca8d9c9",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "de544a2c-2d7b-41b8-a5dc-8be18f9fdf84": {
       "id": "de544a2c-2d7b-41b8-a5dc-8be18f9fdf84",
@@ -7677,13 +7677,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "de8bd6f0-88f8-4756-a521-e799c4fd9b55": {
       "id": "de8bd6f0-88f8-4756-a521-e799c4fd9b55",
@@ -7710,13 +7710,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "dfca1ef6-dddb-4a94-9ebb-a28a7e763b00": {
       "id": "dfca1ef6-dddb-4a94-9ebb-a28a7e763b00",
@@ -7743,13 +7743,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "e0496d7b-9104-46e8-bc43-8ac2cb9ef7cb": {
       "id": "e0496d7b-9104-46e8-bc43-8ac2cb9ef7cb",
@@ -7776,13 +7776,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "e08b668b-9f4b-424c-83d8-cc45f713bd60": {
       "id": "e08b668b-9f4b-424c-83d8-cc45f713bd60",
@@ -7809,13 +7809,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "e18051fb-e97d-4707-b863-aa2abe22f2d7": {
       "id": "e18051fb-e97d-4707-b863-aa2abe22f2d7",
@@ -7842,13 +7842,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "e1b53221-f28a-4e95-a633-70c513c59955": {
       "id": "e1b53221-f28a-4e95-a633-70c513c59955",
@@ -7875,13 +7875,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "e2055906-2826-4432-9bca-0a5b2454d87a": {
       "id": "e2055906-2826-4432-9bca-0a5b2454d87a",
@@ -7908,13 +7908,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "e20c6416-1125-430a-914f-7808d064dd16": {
       "id": "e20c6416-1125-430a-914f-7808d064dd16",
@@ -7941,13 +7941,13 @@
       "codeInfoId": "7a66581f-d2c4-4c1e-ac4f-ebbe4f6d4de3",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "e33dcfef-5e57-4efb-b06a-146fc6add187": {
       "id": "e33dcfef-5e57-4efb-b06a-146fc6add187",
@@ -7974,13 +7974,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "e41f05be-72e4-4142-9360-246ded62a17d": {
       "id": "e41f05be-72e4-4142-9360-246ded62a17d",
@@ -8007,13 +8007,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "e4619d2f-9f47-49b5-896b-0ec3edb29f7a": {
       "id": "e4619d2f-9f47-49b5-896b-0ec3edb29f7a",
@@ -8040,13 +8040,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "e49f7c06-f778-40de-8f3b-19a9bb364991": {
       "id": "e49f7c06-f778-40de-8f3b-19a9bb364991",
@@ -8073,13 +8073,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "e56e1adc-60fa-413c-8334-5b1008f696cc": {
       "id": "e56e1adc-60fa-413c-8334-5b1008f696cc",
@@ -8106,13 +8106,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "e96a79b0-fee7-489f-9f58-1d72a23e4bfd": {
       "id": "e96a79b0-fee7-489f-9f58-1d72a23e4bfd",
@@ -8139,13 +8139,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "eab1527e-20a4-423f-87db-78c159c17335": {
       "id": "eab1527e-20a4-423f-87db-78c159c17335",
@@ -8172,13 +8172,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "eb7c6133-09fa-427f-b432-5527efe4895e": {
       "id": "eb7c6133-09fa-427f-b432-5527efe4895e",
@@ -8205,13 +8205,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "eb7cfaf9-e653-4e0f-8d73-46e71689a879": {
       "id": "eb7cfaf9-e653-4e0f-8d73-46e71689a879",
@@ -8238,13 +8238,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ec7ab43f-2986-4a20-8932-aa96e8b61bfe": {
       "id": "ec7ab43f-2986-4a20-8932-aa96e8b61bfe",
@@ -8271,13 +8271,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ec94cb9c-9a67-4e8e-b155-f5d2feb94bab": {
       "id": "ec94cb9c-9a67-4e8e-b155-f5d2feb94bab",
@@ -8304,13 +8304,13 @@
       "codeInfoId": "25d437f9-afb7-41ae-b7f3-fc32bea095ee",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ed27a24a-8c51-48d0-a6a0-44621513a0f0": {
       "id": "ed27a24a-8c51-48d0-a6a0-44621513a0f0",
@@ -8337,13 +8337,13 @@
       "codeInfoId": "0de90c83-011b-4294-9fb5-eb5fe047cfd2",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ee35c5e2-dd18-4846-b01c-a5e97dc69a0c": {
       "id": "ee35c5e2-dd18-4846-b01c-a5e97dc69a0c",
@@ -8370,13 +8370,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ee60c0e9-22e0-45ea-a43b-787931d6a530": {
       "id": "ee60c0e9-22e0-45ea-a43b-787931d6a530",
@@ -8403,13 +8403,13 @@
       "codeInfoId": "8f18aa93-16fd-44f4-bd4f-fe0f54b50fcd",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ef2a600f-ef0a-41e3-bb0e-553ab2d786c6": {
       "id": "ef2a600f-ef0a-41e3-bb0e-553ab2d786c6",
@@ -8436,13 +8436,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ef912aae-d9eb-4b56-b272-34154e1f6a35": {
       "id": "ef912aae-d9eb-4b56-b272-34154e1f6a35",
@@ -8469,13 +8469,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "f0a0302a-d89e-47c5-8c79-f29abe123999": {
       "id": "f0a0302a-d89e-47c5-8c79-f29abe123999",
@@ -8502,13 +8502,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "f14a44bf-362e-4e98-94db-70f7c1f820dc": {
       "id": "f14a44bf-362e-4e98-94db-70f7c1f820dc",
@@ -8535,13 +8535,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "f1f1c7bd-98cb-45f7-8ec1-2c4c0a171b29": {
       "id": "f1f1c7bd-98cb-45f7-8ec1-2c4c0a171b29",
@@ -8568,13 +8568,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "f22507ec-5a0d-4185-8985-92ede9442ed5": {
       "id": "f22507ec-5a0d-4185-8985-92ede9442ed5",
@@ -8601,13 +8601,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "f25fbb76-d535-4e74-a3a1-17bd01e3bf27": {
       "id": "f25fbb76-d535-4e74-a3a1-17bd01e3bf27",
@@ -8634,13 +8634,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "f6a67e14-046e-4fa3-9509-76b729cdde49": {
       "id": "f6a67e14-046e-4fa3-9509-76b729cdde49",
@@ -8667,13 +8667,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "f6ef9e2e-0c76-4995-907a-49d79cfc55db": {
       "id": "f6ef9e2e-0c76-4995-907a-49d79cfc55db",
@@ -8700,13 +8700,13 @@
       "codeInfoId": "24cb11c1-d429-451a-8faa-822047990cdb",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "f795103d-2b08-4526-b3a7-0074a56f997c": {
       "id": "f795103d-2b08-4526-b3a7-0074a56f997c",
@@ -8733,13 +8733,13 @@
       "codeInfoId": "b48faf9b-5a1e-45ec-81a5-b85181a331c0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "f820a5f8-05be-43f1-9ef6-a8b08d75c7cd": {
       "id": "f820a5f8-05be-43f1-9ef6-a8b08d75c7cd",
@@ -8766,13 +8766,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "f8b1eb5a-3d08-4d2d-bf68-568fafcad3aa": {
       "id": "f8b1eb5a-3d08-4d2d-bf68-568fafcad3aa",
@@ -8799,13 +8799,13 @@
       "codeInfoId": "445d9862-5f1b-44af-a771-ab5f076ecc49",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "f9faadca-13cd-4b66-a1a4-71a35b07e746": {
       "id": "f9faadca-13cd-4b66-a1a4-71a35b07e746",
@@ -8832,13 +8832,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "fc146525-42dd-45ba-b60b-fa6be7c60126": {
       "id": "fc146525-42dd-45ba-b60b-fa6be7c60126",
@@ -8865,13 +8865,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "fdd0e07f-f24c-4b2e-984a-11c201044fb5": {
       "id": "fdd0e07f-f24c-4b2e-984a-11c201044fb5",
@@ -8898,13 +8898,13 @@
       "codeInfoId": "4fb42f1f-bb85-4e5b-8441-b27b93a26b10",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "feb8977f-bd49-483a-8741-4da0f03612cc": {
       "id": "feb8977f-bd49-483a-8741-4da0f03612cc",
@@ -8931,13 +8931,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     },
     "ff2eb8c3-a136-47ab-97e5-eaf91e5f7bf9": {
       "id": "ff2eb8c3-a136-47ab-97e5-eaf91e5f7bf9",
@@ -8964,13 +8964,13 @@
       "codeInfoId": "5779cbd2-9ba8-4603-a760-21b4ccd16fc0",
       "isHorizontalOrientation": false,
       "artifacts": [],
+      "showYaml": false,
       "hideUnpinnedParams": false,
       "isMinimized": false,
       "pinnedAreaHeight": "auto",
       "jsonSource": "",
       "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI"
+      "canvasSettings": {}
     }
   },
   "uiTypes": {},
