@@ -10,6 +10,9 @@ from ..sections.load import (
     load_sections,
 )
 
+class ProjectNotFound(Exception):
+    pass
+
 
 def load_all_project_config_metadata(db):
     query = """
@@ -57,6 +60,8 @@ def load_project_config_metadata(db, config_name):
     )
     if len(out) > 1:
         raise ValueError(f"output should be of length 1 but has length {len(out)}")
+    if len(out) == 0:
+        raise ProjectNotFound(f"{config_name} not found")
     out = list(out.values())[0]
     children = {}
     for i, c in enumerate(out["childId"]):

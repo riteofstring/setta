@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from setta.database.backup import maybe_create_backup
 from setta.database.db.projects.delete import delete_project_configs
 from setta.database.db.projects.load import (
+    ProjectNotFound,
     load_all_project_config_metadata,
     load_default_config_name,
     load_full_project,
@@ -83,8 +84,11 @@ def route_load_project_config(
     x: ProjectLoadRequest,
     dbq=Depends(get_dbq),
 ):
-    with dbq as db:
-        return load_project_config(db, x.projectConfigName)
+    try:
+        with dbq as db:
+            return load_project_config(db, x.projectConfigName)
+    except ProjectNotFound as e:
+        raise HTTPException(status_code=404, detail=repr(e))
 
 
 @router.post(C.ROUTE_LOAD_FULL_PROJECT)

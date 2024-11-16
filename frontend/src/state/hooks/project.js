@@ -20,7 +20,6 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  NOT_FOUND_ROUTER_PATH,
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
   SETTINGS_PROJECT_NAME,
@@ -76,6 +75,7 @@ export function useLoadProjectConfig() {
   const navigate = useNavigate();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
+  const [is404, setIs404] = useState(false);
   const isHotReload = useHotReload();
 
   async function loadFn() {
@@ -83,10 +83,8 @@ export function useLoadProjectConfig() {
     resetProjectStores();
     setDoneLoading(false);
     const res = await loadProjectConfig({ projectConfigName });
-    if (!res) {
-      navigate(NOT_FOUND_ROUTER_PATH);
-    }
-    setDoneLoading(res);
+    setIs404(!res);
+    setDoneLoading(true);
     useMisc.setState({ projectIsLoading: false });
   }
 
@@ -95,7 +93,8 @@ export function useLoadProjectConfig() {
     resetProjectStores();
     setDoneLoading(false);
     const res = await loadSettingsProjectConfig();
-    setDoneLoading(res);
+    setIs404(!res);
+    setDoneLoading(true);
     useMisc.setState({ projectIsLoading: false });
   }
 
@@ -124,7 +123,7 @@ export function useLoadProjectConfig() {
     }
   }, [pageLoadType, projectConfigName]);
 
-  return doneLoading;
+  return [doneLoading, is404];
 }
 
 export function useEditableProjectName() {

@@ -8,12 +8,12 @@ import { getCodeMirrorStyle } from "./useCodeMirrorStyle";
 // But some css styles don't seem to load until an actual codemirror component renders.
 // So this is a hack to get those css styles to load when a project is opened.
 // It adds a codemirror div and then immediately removes it.
-export function useCodeMirrorStyleLoader(doneLoading) {
+export function useCodeMirrorStyleLoader(doneLoading, is404) {
   const [containerState, setContainerState] = useState(null);
   const [view, setView] = useState(null);
 
   useEffect(() => {
-    if (!doneLoading) {
+    if (!doneLoading || is404) {
       return;
     }
     const darkMode = localStorageFns.darkMode.state();
@@ -41,7 +41,7 @@ export function useCodeMirrorStyleLoader(doneLoading) {
         document.body.removeChild(container);
       } catch {}
     };
-  }, [doneLoading]);
+  }, [doneLoading, is404]);
 
   // Immediately unmount the component after mounting
   useEffect(() => {
