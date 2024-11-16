@@ -2,6 +2,7 @@ import _ from "lodash";
 import {
   useCodeInfo,
   useJSONSourceMissing,
+  useSectionInfos,
   useSectionVariants,
 } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
@@ -24,6 +25,10 @@ export function addJSONSource({ sectionId, newCodeInfos, newVariantValues }) {
       Object.assign(variant["values"], newVariantValues);
     }
   });
+
+  useSectionInfos.setState((state) => {
+    state.x[sectionId].configLanguage = "json";
+  });
 }
 
 export function removeJSONSource(sectionId) {
@@ -33,6 +38,10 @@ export function removeJSONSource(sectionId) {
     codeInfo["children"] = codeInfo["children"].filter(
       (c) => !isFromJSONSource(c),
     );
+  });
+
+  useSectionInfos.setState((state) => {
+    state.x[sectionId].configLanguage = "python";
   });
 }
 

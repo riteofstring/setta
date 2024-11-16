@@ -1,5 +1,4 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useContrastColor } from "utils/useColorContrast";
 import { tryParseJSON } from "utils/utils";
 
 export function ColorPickerInputConfig({ onChange, config }) {
@@ -112,7 +111,6 @@ export function ColorPickerInput({
       colorChoices={colorChoices}
       value={_value}
       onChange={onChange}
-      colorPickerChoicesClasses={colorPickerChoicesClasses}
     />
   );
 }
@@ -152,23 +150,18 @@ function ColorPickerFromColorChoices({
     selectedItem = colorChoices[0];
   }
 
-  const textColor = useContrastColor(selectedItem.color);
-
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger className={colorPickerChoicesClasses}>
-        <div
-          className="single-cell-child min-w-0s m-auto h-full min-h-0 w-full rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
-          style={{ backgroundColor: selectedItem.color }}
-        />
-        <div className="single-cell-child flex items-center justify-between overflow-hidden">
-          <p
-            className="truncate pl-2 text-xs font-semibold @[90px]:inline-block"
-            style={{ color: textColor }}
-          >
+        <div className="flex items-center text-setta-500 dark:text-setta-400">
+          <div
+            className="mr-2 h-4 w-4 rounded-full !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
+            style={{ backgroundColor: selectedItem.color }}
+          />
+          <p className="max-w-24 truncate text-xs font-black">
             {selectedItem.description}
           </p>
-          <i className="gg-chevron-down px-2" style={{ color: textColor }} />
+          <i className="gg-chevron-down -mr-1 self-end" />
         </div>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content className="flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800">

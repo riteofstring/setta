@@ -8,12 +8,13 @@ import remarkMath from "remark-math";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useIsScrollable } from "state/hooks/sectionSizes";
+import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 function _InfoArea({ sectionId }) {
   //TODO change this variable name
-  const showYaml = useGetSectionInfo(sectionId, "showYaml");
+  const displayMode = useGetSectionInfo(sectionId, "displayMode");
 
-  return !showYaml ? (
+  return displayMode === SECTION_DISPLAY_MODES.RENDER ? (
     <Markdown sectionId={sectionId} />
   ) : (
     <MarkdownEditorInSection sectionId={sectionId} />
