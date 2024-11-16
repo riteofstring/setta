@@ -1,4 +1,5 @@
 import copy
+import glob
 import itertools
 import json
 from collections import defaultdict
@@ -235,29 +236,27 @@ def load_json_sources_into_data_structures(sections, codeInfo, sectionVariants):
     for id, s in sections.items():
         if not s["jsonSource"]:
             continue
-        new_code_infos, new_variant_values = load_json_source(s["jsonSource"])
-        if new_code_infos is None:
+        new_code_infos, new_variant_values, _jsonSourceMissing = load_json_source(
+            s["jsonSource"]
+        )
+        if _jsonSourceMissing:
             jsonSourceMissing[id] = True
             continue
         codeInfo.update(new_code_infos)
         codeInfo[s["codeInfoId"]]["children"] = list(new_code_infos.keys())
+        # json section should only have 1 variantId since versions exist as files
+        # but just to be safe for now, iterate through variantIds
         for variantId in s["variantIds"]:
             sectionVariants[variantId]["values"].update(new_variant_values)
 
     return jsonSourceMissing
 
 
-def load_json_source(filename):
-    try:
-        with open(filename, "r") as f:
-            jsonSourceData = json.load(f)
-    except:
-        return None, None
-
+def load_json_source(filename_glob):
     new_code_infos = {}
     new_variant_values = {}
 
-    def process_object(obj, current_path=[]):
+    def process_object(obj, filename, current_path=[]):
         if not isinstance(obj, dict):
             return
 
@@ -305,7 +304,18 @@ def load_json_source(filename):
             parent_key = f"{C.JSON_SOURCE_PREFIX}{parent_path}"
             new_code_infos[parent_key]["children"] = children_keys
 
-    # Start processing from root level
-    process_object(jsonSourceData, [])
+    filenames = glob.glob(filename_glob)
+    num_opened = 0
+    for filename in filenames:
+        try:
+            with open(filename, "r") as f:
+                jsonSourceData = json.load(f)
+            num_opened += 1
+        except:
+            pass
 
-    return new_code_infos, new_variant_values
+        # Start processing from root level
+        process_object(jsonSourceData, filename, [])
+
+    jsonSourceMissing = num_opened == 0
+    return new_code_infos, new_variant_values, jsonSourceMissing

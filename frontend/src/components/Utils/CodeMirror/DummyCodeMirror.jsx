@@ -20,7 +20,7 @@ const lineWrapStyle = {
 export function DummyCodeMirror({
   code,
   theme,
-  onMouseDownCapture,
+  onMouseDown,
   onFocus,
   className,
   keywordPositions,
@@ -31,7 +31,7 @@ export function DummyCodeMirror({
     <HighlightedCode
       code={code}
       theme={theme}
-      onMouseDownCapture={onMouseDownCapture}
+      onMouseDown={onMouseDown}
       onFocus={onFocus}
       className={className}
       keywordPositions={keywordPositions}
@@ -41,24 +41,19 @@ export function DummyCodeMirror({
     <PlaceholderCode
       className={className}
       placeholder={placeholder}
-      onMouseDownCapture={onMouseDownCapture}
+      onMouseDown={onMouseDown}
       onFocus={onFocus}
     />
   );
 }
 
-function PlaceholderCode({
-  className,
-  placeholder,
-  onMouseDownCapture,
-  onFocus,
-}) {
+function PlaceholderCode({ className, placeholder, onMouseDown, onFocus }) {
   // returns <br/> if no placeholder, so that the div takes up space
   return (
     <span
       className={`${className} text-gray-600 outline-none`}
       style={lineWrapStyle}
-      onMouseDownCapture={onMouseDownCapture}
+      onMouseDown={onMouseDown}
       onFocus={onFocus}
       tabIndex="0"
     >
@@ -70,7 +65,7 @@ function PlaceholderCode({
 function HighlightedCode({
   code,
   theme,
-  onMouseDownCapture,
+  onMouseDown,
   className,
   keywordPositions,
   language,
@@ -191,7 +186,7 @@ function HighlightedCode({
     <div
       className={`${className} ${scopeClassName} outline-none`}
       style={lineWrapStyle}
-      onMouseDownCapture={onMouseDownCapture}
+      onMouseDown={onMouseDown}
       onFocus={onFocus}
       tabIndex="0"
     >

@@ -1,5 +1,4 @@
 import C from "constants/constants.json";
-import { FaRegSnowflake } from "react-icons/fa";
 import {
   manualDndChildrenReset,
   setSectionInfoAttr,
@@ -34,6 +33,9 @@ export function VersionList({ sectionId }) {
       <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-2">
         <p className="section-key text-xs text-setta-400 dark:text-setta-600">
           Name
+        </p>
+        <p className="section-value ml-auto text-xs text-setta-400 dark:text-setta-600">
+          Date
         </p>
         {sectionTypeName === C.PARAM_SWEEP ? (
           <ParamSweepItems sectionId={sectionId} />
@@ -107,22 +109,20 @@ function OneItem({ id, name, isCurr, onMouseOver, onClick }) {
     <li
       onMouseOver={() => onMouseOver(id)}
       onClick={() => onClick(id)}
-      className="section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between rounded-lg px-2 py-[0.125rem] text-xs hover:bg-setta-200/30 dark:hover:bg-setta-800/50"
+      className="section-key-value -mx-2 -my-[0.125rem] grid h-min cursor-pointer auto-rows-min grid-cols-subgrid items-center justify-between rounded-xl px-2 py-[0.125rem] text-xs hover:bg-setta-50/50 dark:hover:bg-setta-800/50"
     >
       <p
         className={`section-key truncate ${
           isCurr
-            ? "font-medium text-setta-600 group-hover/versionitem:text-setta-800 dark:text-setta-300 group-hover/versionitem:dark:text-setta-100"
+            ? "font-medium text-setta-800 dark:text-setta-100"
             : "text-setta-400 dark:text-setta-400"
         } `}
       >
         {name}
       </p>
-      <button className="cursor-pointer bg-transparent text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50">
-        <FaRegSnowflake />
-      </button>
+      <p className="section-value ml-auto italic text-setta-400 dark:text-setta-500">
+        01/04/2024
+      </p>
     </li>
   );
 }
-
-// when the freeze button is active we could use text-blue-500

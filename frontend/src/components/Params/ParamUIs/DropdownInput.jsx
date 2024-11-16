@@ -71,7 +71,6 @@ export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
       allItems={allItems}
       initialSelection={value ? value : null}
       onSelectedItemChange={onChange}
-      small={true}
     />
   );
 }
