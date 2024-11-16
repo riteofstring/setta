@@ -101,9 +101,9 @@ def simple_export_selected(p):
 
 
 def export_section_to_dict(
-    p, section_id, topLevelParamIds, configLanguage, requiredParamIds=None
+    codeInfo, sectionVariant, section_id, topLevelParamIds, configLanguage, requiredParamIds=None
 ):
-    e = SectionToDict(p, section_id, topLevelParamIds, configLanguage, requiredParamIds)
+    e = SectionToDict(codeInfo, sectionVariant, section_id, topLevelParamIds, configLanguage, requiredParamIds)
     e.export()
     return e
 
@@ -473,11 +473,12 @@ class SimpleExporter:
 
 class SectionToDict:
     def __init__(
-        self, p, section_id, topLevelParamIds, configLanguage, requiredParamIds=None
+        self, codeInfo, sectionVariant, section_id, topLevelParamIds, configLanguage, requiredParamIds=None
     ):
         self.output = {}
         self.prettyOutput = {}
-        self.p = copy.deepcopy(p)
+        self.codeInfo = codeInfo
+        self.sectionVariant = sectionVariant
         self.section_id = section_id
         self.topLevelParamIds = topLevelParamIds
         self.configLanguage = configLanguage
@@ -495,7 +496,7 @@ class SectionToDict:
                 and param_id not in self.requiredParamIds
             ):
                 continue
-            codeInfo = self.p["codeInfo"][param_id]
+            codeInfo = self.codeInfo[param_id]
             param_name = codeInfo["name"]
             if not param_name:
                 continue
@@ -513,8 +514,7 @@ class SectionToDict:
         return params, prettyParams
 
     def export_param_value(self, id):
-        variant = get_selected_section_variant(self.p, self.section_id)
-        value = variant["values"][id]["value"]
+        value = self.sectionVariant["values"][id]["value"]
         if self.configLanguage == "json":
             value = try_json(value)
         return value, value

@@ -10,7 +10,6 @@ import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import {
   useKeywordRegex,
   useProjectConfig,
-  useSectionInfos,
   useTypeErrors,
 } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
@@ -40,21 +39,6 @@ export function dbRequestTypeCheck(userRequested = false) {
 }
 
 export const debouncedTypeCheckRequest = _.debounce(dbRequestTypeCheck, 500);
-
-export async function dbSectionToDict(sectionId, pinnedIds, unpinnedIds) {
-  const project = getProjectDataToGenerateCode({});
-  pinnedIds.requiredParamIds = Object.keys(pinnedIds.requiredParamIdsToPaths);
-  unpinnedIds.requiredParamIds = Object.keys(
-    unpinnedIds.requiredParamIdsToPaths,
-  );
-  delete pinnedIds.requiredParamIdsToPaths;
-  delete unpinnedIds.requiredParamIdsToPaths;
-  const { configLanguage } = useSectionInfos.getState().x[sectionId];
-  return await post({
-    body: { project, sectionId, pinnedIds, unpinnedIds, configLanguage },
-    address: C.ROUTE_SECTION_TO_DICT,
-  });
-}
 
 export async function dbGetSections() {
   return await post({

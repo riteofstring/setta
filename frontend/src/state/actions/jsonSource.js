@@ -39,7 +39,7 @@ export function removeJSONSource(sectionId) {
       (c) => !isFromJSONSource(c),
     );
   });
-  
+
   useSectionInfos.setState((state) => {
     state.x[sectionId].configLanguage = "python";
   });

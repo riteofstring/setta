@@ -10,6 +10,7 @@ import {
   useCodeInfo,
   useKeywordRegex,
   useNodeInternals,
+  useOriginalYamlObj,
   useParamSweep,
   useProjectConfig,
   useRunGroups,
@@ -17,16 +18,33 @@ import {
   useSectionVariants,
   useUITypeCols,
   useUITypes,
+  useYamlValue,
 } from "state/definitions";
-import { SETTINGS_PROJECT_NAME } from "utils/constants";
+import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
+import { yamlToGUI } from "../guiToYaml";
 import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
 import { loadSettings } from "../settings";
 import { getProjectConfigMetadata } from "./projectConfig";
 
-export function getProjectData({ withArtifactMetadata = false }) {
+export function getProjectData({
+  withArtifactMetadata = false,
+  convertYamlToGUI = false,
+}) {
   // remove temporary sections
   let sections = _.pickBy(useSectionInfos.getState().x, (x) => !x.isTemporary);
+  if (convertYamlToGUI) {
+    for (const s of Object.values(sections)) {
+      if (s.displayMode === SECTION_DISPLAY_MODES.YAML) {
+        yamlToGUI(
+          s.id,
+          useYamlValue.getState()[s.id],
+          useOriginalYamlObj.getState()[s.id],
+        );
+      }
+    }
+  }
+
   sections = _.mapValues(sections, (x) => {
     const artifactState = useArtifacts.getState().x;
     if (!withArtifactMetadata) {
@@ -92,11 +110,14 @@ export async function saveProject() {
   let res;
   setNotificationMessage("Saving...");
   if (useProjectConfig.getState().name === SETTINGS_PROJECT_NAME) {
-    res = await dbSaveSettings(getProjectData({}));
+    res = await dbSaveSettings(getProjectData({ convertYamlToGUI: true }));
     await loadSettings();
   } else {
     res = await dbSaveProject({
-      project: getProjectData({ withArtifactMetadata: true }),
+      project: getProjectData({
+        withArtifactMetadata: true,
+        convertYamlToGUI: true,
+      }),
     });
   }
 
@@ -121,7 +142,10 @@ export async function saveAsExistingProjectConfig({ configName }) {
 
 async function saveProjectAs({ fn, otherArgs }) {
   await fn({
-    project: getProjectData({ withArtifactMetadata: true }),
+    project: getProjectData({
+      withArtifactMetadata: true,
+      convertYamlToGUI: true,
+    }),
     ...otherArgs,
   });
 }
