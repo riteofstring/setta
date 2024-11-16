@@ -27,7 +27,12 @@ const homeRoute = {
 
 const notFoundRoute = {
   path: NOT_FOUND_ROUTER_PATH,
-  element: <NotFound />,
+  element: (
+    <GlobalWrapper>
+      <HeaderContainer path={NOT_FOUND_ROUTER_PATH} />
+      <NotFound />{" "}
+    </GlobalWrapper>
+  ),
 };
 
 const indexRoute = {
