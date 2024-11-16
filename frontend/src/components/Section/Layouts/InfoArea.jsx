@@ -1,7 +1,7 @@
 import { MarkdownEditorInSection } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import "katex/dist/katex.min.css"; // `rehype-katex` does not import the CSS for you
 import React from "react";
-import { HiCheck, HiOutlineClipboardCopy } from "react-icons/hi"; // Heroicons
+import { HiCheck, HiOutlineDuplicate } from "react-icons/hi"; // Heroicons
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -85,22 +85,18 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
     <div className="group relative">
       <button
         onClick={handleCopy}
-        className="absolute right-2 top-2 rounded bg-gray-800 p-2 text-gray-300 
-                   opacity-0 transition-opacity duration-200 hover:bg-gray-700
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 group-hover:opacity-100"
+        className="absolute bottom-0 right-0 top-0 cursor-pointer rounded bg-transparent text-setta-300 opacity-0 transition-opacity 
+                   duration-200 hover:text-setta-600 focus:outline-none
+                   focus:ring-2 focus-visible:ring-blue-500 group-hover:opacity-100 dark:hover:text-white"
         aria-label="Copy code"
       >
         {copied ? (
           <HiCheck className="h-4 w-4 text-green-500" />
         ) : (
-          <HiOutlineClipboardCopy className="h-4 w-4" />
+          <HiOutlineDuplicate className="h-4 w-4" />
         )}
       </button>
-      <code
-        ref={codeRef}
-        className={`${className} block rounded-lg bg-gray-900 p-4`}
-        {...props}
-      >
+      <code ref={codeRef} className={`${className}`} {...props}>
         {children}
       </code>
     </div>
