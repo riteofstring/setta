@@ -26,9 +26,8 @@ async def main():
     #     root_path=Path("D:/Documents/App Development/setta/.setta_code")
     # )
     lsp = LanguageServer(
-        workspace_folder=Path("/Users/kevin/Documents/AppDevelopment/setta/.setta_code/timestamped_folder"),
-        code_folder=Path("/Users/kevin/Documents/AppDevelopment/setta/.setta_code/timestamped_folder"),
-        settings={}
+        workspace_folder=Path("/Users/kevin/Documents/AppDevelopment/setta"),
+        code_folder=Path("/Users/kevin/Documents/AppDevelopment/setta/.setta_code/timestamped_folder")
     )
     lsp_writer = LanguageServerWriter(lsp)
     lsp_listener = LanguageServerReader(lsp, FakeWebsocketManager())
@@ -37,15 +36,9 @@ async def main():
     await lsp_listener.start_listener()
     await lsp_writer.send_initialize_request()
 
-    code_id = "referencetest"
-    code = """c=None
-n=None
-"""
+    code_id = "test"
+    code = "import transformers\ntransformers.TrainingArguments()"
     codeJson = {}
-
-
-    code_id2 = "test"
-    code2 = "import torch\ntorch.nn.C"
 
     # code_id = "test"
     # code = "import torch\n__x1=5\n__x0=torch.nn.CrossEntropyLoss(weight=__x1)"
@@ -116,16 +109,7 @@ n=None
     #     },
     # }
     await lsp_writer.send_document_open_request(code_id, code, codeJson)
-    # await lsp_writer.send_document_open_request(code_id2, code2, codeJson)
-    id = str(uuid4())
-    await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)
-    # await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)
-    # await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)
-    # await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)
-    # await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)
-    # await lsp_writer.send_autocomplete_request(1, 10, "test", "1234", [], [])
-
-    
+    # await lsp_writer.send_reference_request(position_offset, 0, 0, code_id, str(uuid4()), str(uuid4()))
     # await lsp_writer.send_document_update("test", "import math\nmath.sqrt(5)")
     # await lsp_writer.send_document_open_request("test", "import torch\ntorch.nn.C")
     # await lsp_writer.send_autocomplete_request(1, 72, "test", "1234", [], [])
@@ -133,7 +117,7 @@ n=None
     #     "test", "import torch\ntorch.nn.CrossEntropyLoss("
     # )
     # print(len(code.split("\n")[1])-2)
-    # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
+    await lsp_writer.send_signature_help_request(1, 31, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # pprint(lsp.sent_msg_info.keys())

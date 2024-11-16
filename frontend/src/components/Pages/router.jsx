@@ -6,11 +6,9 @@ import { createBrowserRouter } from "react-router-dom";
 import {
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
-  NOT_FOUND_ROUTER_PATH,
   PROJECT_CONFIG_ROUTER_PATH,
 } from "utils/constants";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
-import { NotFound } from "./NotFound/NotFound";
 import { MainContainer } from "./Project/MainContainer";
 
 const homeRoute = {
@@ -23,11 +21,6 @@ const homeRoute = {
       </GridContainer>
     </GlobalWrapper>
   ),
-};
-
-const notFoundRoute = {
-  path: NOT_FOUND_ROUTER_PATH,
-  element: <NotFound />,
 };
 
 const indexRoute = {
@@ -56,6 +49,5 @@ const projectRoute = {
 export const router = createBrowserRouter([
   indexRoute,
   homeRoute,
-  notFoundRoute,
   projectRoute,
 ]);

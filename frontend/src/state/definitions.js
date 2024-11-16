@@ -229,7 +229,3 @@ export const useMisc = create(
     })),
   ),
 );
-
-export const useYamlValue = createProjectState(() => {});
-
-export const useOriginalYamlObj = createProjectState(() => {});

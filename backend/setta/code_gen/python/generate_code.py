@@ -4,7 +4,7 @@ import copy
 from ...utils.constants import USER_SETTINGS, C
 from ..find_placeholders import double_braces
 from ..utils import push_var_deep
-from .infer_imports import find_missing_imports
+from .infer_imports import infer_imports
 
 
 def get_location_str(node):
@@ -16,7 +16,7 @@ def import_str(x):
 
 
 def get_import_text(code):
-    imports = [import_str(x) for x in find_missing_imports(code)]
+    imports = [import_str(x) for x in infer_imports(code)]
     return "\n".join(imports)
 
 

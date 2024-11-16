@@ -239,10 +239,12 @@ def load_json_sources_into_data_structures(sections, codeInfo, sectionVariants):
         if new_code_infos is None:
             jsonSourceMissing[id] = True
             continue
-        codeInfo.update(new_code_infos)
-        codeInfo[s["codeInfoId"]]["children"] = list(new_code_infos.keys())
-        for variantId in s["variantIds"]:
-            sectionVariants[variantId]["values"].update(new_variant_values)
+        for k, v in new_code_infos.items():
+            codeInfo[s["codeInfoId"]]["children"].append(k)
+            codeInfo[k] = v
+        for k, v in new_variant_values.items():
+            for variantId in s["variantIds"]:
+                sectionVariants[variantId]["values"][k] = v
 
     return jsonSourceMissing
 
@@ -274,13 +276,6 @@ def load_json_source(filename):
                 "name": k,
                 "rcType": C.PARAMETER,
                 "children": [],  # Will be populated with direct children only
-                "editable": False,
-                "defaultVal": None,
-                "description": "",
-                "positionalOnly": False,
-                "isPinned": False,
-                "isFrozen": False,
-                "keywordPositions": [],
             }
 
             # Create variant value entry

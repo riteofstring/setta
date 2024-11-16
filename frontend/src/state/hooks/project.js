@@ -20,7 +20,6 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  NOT_FOUND_ROUTER_PATH,
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
   SETTINGS_PROJECT_NAME,
@@ -73,7 +72,6 @@ export function useExportProjectJson() {
 export function useLoadProjectConfig() {
   const { projectConfigName } = useParams();
   const { state } = useLocation();
-  const navigate = useNavigate();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
   const isHotReload = useHotReload();
@@ -83,9 +81,6 @@ export function useLoadProjectConfig() {
     resetProjectStores();
     setDoneLoading(false);
     const res = await loadProjectConfig({ projectConfigName });
-    if (!res) {
-      navigate(NOT_FOUND_ROUTER_PATH);
-    }
     setDoneLoading(res);
     useMisc.setState({ projectIsLoading: false });
   }

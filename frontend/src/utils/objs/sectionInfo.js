@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
-import { getDefaultDisplayMode } from "state/hooks/uiTypes";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { createVarName, maybeNewId } from "../idNameCreation";
 
@@ -30,7 +29,7 @@ export function newSectionInfo({
   hideParams = false,
   hideSearch = false,
   hideUnpinnedParams = false,
-  displayMode = null,
+  showYaml = false,
   pinnedAreaHeight = "auto",
   isMinimized = false,
   canvasSettings = {},
@@ -41,7 +40,8 @@ export function newSectionInfo({
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _variantId = maybeNewId(variantId);
   const _variantIds = [...variantIds, _variantId];
-  const _displayMode = displayMode ?? getDefaultDisplayMode(uiTypeId);
+
+  console.log("size", size);
 
   return {
     id: maybeNewId(id),
@@ -69,7 +69,7 @@ export function newSectionInfo({
     hideParams,
     hideSearch,
     hideUnpinnedParams,
-    displayMode: _displayMode,
+    showYaml,
     pinnedAreaHeight,
     isMinimized,
     canvasSettings,
