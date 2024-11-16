@@ -21,8 +21,8 @@ class SectionsMakeCopyRequest(BaseModel):
 
 class SectionToDictRequest(BaseModel):
     codeInfo: dict
+    codeInfoChildren: dict
     sectionVariant: dict
-    sectionId: str
     pinnedIds: Dict[str, List[str]]
     unpinnedIds: Dict[str, List[str]]
     configLanguage: str
@@ -51,16 +51,16 @@ def route_sections_make_copy(x: SectionsMakeCopyRequest):
 def route_section_to_yaml(x: SectionToDictRequest):
     pinned = export_section_to_dict(
         x.codeInfo,
+        x.codeInfoChildren,
         x.sectionVariant,
-        x.sectionId,
         x.pinnedIds["topLevelParamIds"],
         x.configLanguage,
         x.pinnedIds["requiredParamIds"],
     )
     unpinned = export_section_to_dict(
         x.codeInfo,
+        x.codeInfoChildren,
         x.sectionVariant,
-        x.sectionId,
         x.unpinnedIds["topLevelParamIds"],
         x.configLanguage,
         x.unpinnedIds["requiredParamIds"],

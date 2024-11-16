@@ -24,13 +24,13 @@ def load_code_info(db, ids):
     db.execute(query, tuple(ids))
     results = db.fetchall()
     all_ids = set()
-    code_info_cols = {
-        k: {
+    code_info_cols = {}
+    for k in ids:
+        code_info_cols[k] = {
             "id": k,
             "children": defaultdict(list),
         }
-        for k in ids
-    }
+        code_info_cols[k]["children"][None] = []
     for row in results:
         (codeInfoColId, parentId, childId, _) = row
         if parentId:

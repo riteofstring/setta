@@ -8,6 +8,7 @@ import { dbSaveSettings } from "requests/settings";
 import {
   useArtifacts,
   useCodeInfo,
+  useCodeInfoCols,
   useKeywordRegex,
   useNodeInternals,
   useOriginalYamlObj,
@@ -76,6 +77,7 @@ export function getProjectData({
   const runGroups = useRunGroups.getState().x;
 
   const codeInfo = useCodeInfo.getState().x;
+  const codeInfoCols = useCodeInfoCols.getState().x;
   const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
 
   const projectConfig = getProjectConfigMetadata();
@@ -98,6 +100,7 @@ export function getProjectData({
     runGroups,
     sections,
     codeInfo,
+    codeInfoCols,
     fullNameToInfo,
   };
 

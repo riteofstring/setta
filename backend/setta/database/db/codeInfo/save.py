@@ -1,5 +1,5 @@
 from setta.database.utils import dump_keyword_positions_as_string
-from setta.utils.utils import null_str_to_none
+from setta.utils.utils import replace_null_keys_with_none
 
 
 def save_code_info(db, codeInfo):
@@ -35,6 +35,8 @@ def save_code_info(db, codeInfo):
 
 
 def save_code_info_col(db, codeInfoCols):
+    codeInfoCols = replace_null_keys_with_none(codeInfoCols)
+
     query = """
         INSERT INTO CodeInfoColId (id)
         VALUES (:id)
@@ -42,7 +44,7 @@ def save_code_info_col(db, codeInfoCols):
         DO NOTHING
     """
 
-    query_params = [{"id": null_str_to_none(k)} for k in codeInfoCols.keys()]
+    query_params = [{"id": k} for k in codeInfoCols.keys()]
     db.executemany(query, query_params)
 
     placeholders = ", ".join(["?"] * len(codeInfoCols))
@@ -67,7 +69,7 @@ def save_code_info_col(db, codeInfoCols):
                 query_params.append(
                     {
                         "idid": idid,
-                        "parentId": null_str_to_none(parentId),
+                        "parentId": parentId,
                         "childId": childId,
                         "order": order,
                     }
