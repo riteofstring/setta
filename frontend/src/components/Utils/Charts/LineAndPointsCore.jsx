@@ -4,6 +4,7 @@ import { Group } from "@visx/group";
 import { Bar, LinePath } from "@visx/shape";
 import _ from "lodash";
 import React from "react";
+import { AxisWithZoom } from "./AxisWithZoom";
 import { useAnimatedScale } from "./useAnimatedScale";
 import { useTooltipMouseOverHandler } from "./useTooltipMouseOverHandler";
 
@@ -53,21 +54,25 @@ function _LineAndPointsCore({
             fill={colorScale(lineData.name)}
           />
         ))}
-      <AxisLeft
-        scale={yScale}
-        hideAxisLine
-        hideTicks
-        // labelClassName="fill-setta-500 dark:fill-setta-300 font-sans"
-        left={-8}
-        tickClassName="[&_*]:fill-setta-500  dark:text-setta-300 font-sans"
-      />
-      <AxisBottom
-        scale={xScale}
-        top={yMax + 8}
-        hideAxisLine
-        hideTicks
-        tickClassName="[&_*]:fill-setta-500  dark:text-setta-300 font-sans"
-      />
+      <AxisWithZoom childKey="AxisLeft">
+        <AxisLeft
+          scale={yScale}
+          hideAxisLine
+          hideTicks
+          // labelClassName="fill-setta-500 dark:fill-setta-300 font-sans"
+          left={-8}
+          tickClassName="[&_*]:fill-setta-500  dark:text-setta-300 font-sans"
+        />
+      </AxisWithZoom>
+      <AxisWithZoom childKey="AxisBottom">
+        <AxisBottom
+          scale={xScale}
+          top={yMax + 8}
+          hideAxisLine
+          hideTicks
+          tickClassName="[&_*]:fill-setta-500  dark:text-setta-300 font-sans"
+        />
+      </AxisWithZoom>
       <LinePath
         curve={allCurves[curveType]}
         data={lineData.values}
