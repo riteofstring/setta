@@ -1,109 +1,99 @@
 import ast
+import builtins
+from typing import Set
 
-from ...utils.constants import BUILT_INS
 
+def find_missing_imports(code: str) -> Set[str]:
+    """
+    Analyzes Python code and returns a set of missing imports.
 
-class ImportInferrer(ast.NodeVisitor):
-    def __init__(self):
-        self.modules = set()
-        self.current_scope = set()
-        self.global_scope = set()
+    Args:
+        code (str): String containing Python code to analyze
 
-    def visit_Module(self, node):
-        # Collect names of all functions, classes, and assignments at the module level
-        for stmt in node.body:
-            if isinstance(stmt, (ast.FunctionDef, ast.ClassDef)):
-                self.global_scope.add(stmt.name)
-            elif isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
-                    if isinstance(target, ast.Name):
-                        self.global_scope.add(target.id)
-        self.generic_visit(node)
+    Returns:
+        Set[str]: Set of import statements that are missing
 
-    def visit_FunctionDef(self, node):
-        self.enter_scope(node.args.args)
-        self.generic_visit(node)
-        self.exit_scope(node.args.args)
+    Example:
+        >>> code = "x = torch.nn.CrossEntropyLoss()"
+        >>> find_missing_imports(code)
+        {'torch', 'torch.nn'}
+    """
+    # Get set of built-in names
+    builtin_names = set(dir(builtins))
 
-    def visit_AsyncFunctionDef(self, node):
-        self.visit_FunctionDef(node)
+    # Track existing imports, defined names, and missing imports
+    existing_imports = set()
+    defined_names = set()
+    missing_imports = set()
 
-    def visit_For(self, node):
-        self.enter_scope([node.target])
-        self.generic_visit(node)
-        self.exit_scope([node.target])
+    # Parse the code into an AST
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as e:
+        raise ValueError(f"Invalid Python code: {str(e)}")
 
-    def visit_comprehension(self, node):
-        self.enter_scope([node.target])
-        self.generic_visit(node)
-        self.exit_scope([node.target])
+    # First pass: collect existing imports and defined names
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for name in node.names:
+                existing_imports.add(name.name)  # Original name
+                if name.asname:  # Alias
+                    existing_imports.add(name.asname)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                existing_imports.add(node.module)
+                for name in node.names:
+                    # Add both the fully qualified name and the direct import name
+                    existing_imports.add(f"{node.module}.{name.name}")
+                    if name.asname:  # Alias
+                        existing_imports.add(name.asname)
+                    else:
+                        existing_imports.add(name.name)
+        elif isinstance(node, ast.FunctionDef):
+            defined_names.add(node.name)
+        elif isinstance(node, ast.ClassDef):
+            defined_names.add(node.name)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            defined_names.add(node.id)
+        elif isinstance(node, ast.arg):
+            defined_names.add(node.arg)
 
-    def visit_Assign(self, node):
-        for target in node.targets:
-            if isinstance(target, ast.Name):
-                self.current_scope.add(target.id)
-            elif isinstance(target, (ast.Tuple, ast.List)):
-                for elem in target.elts:
-                    if isinstance(elem, ast.Name):
-                        self.current_scope.add(elem.id)
-        self.generic_visit(node)
-
-    def visit_Call(self, node):
-        self.check_and_add_module(node.func)
-        self.generic_visit(node)
-
-    def visit_Attribute(self, node):
-        self.check_and_add_module(node)
-        self.generic_visit(node)
-
-    def visit_Import(self, node):
-        for alias in node.names:
-            name = alias.asname if alias.asname else alias.name
-            self.global_scope.add(name)
-        self.generic_visit(node)
-
-    def visit_ImportFrom(self, node):
-        for alias in node.names:
-            name = alias.asname if alias.asname else alias.name
-            self.global_scope.add(name)
-        self.generic_visit(node)
-
-    def check_and_add_module(self, node):
-        module = self.resolve_module(node)
-        if module:
-            self.modules.add(module)
-
-    def resolve_module(self, node):
+    # Second pass: find potential missing imports
+    for node in ast.walk(tree):
         if isinstance(node, ast.Name):
+            # Skip if it's a built-in, already imported, or locally defined
             if (
-                node.id not in self.current_scope
-                and node.id not in self.global_scope
-                and node.id not in BUILT_INS
+                node.id not in builtin_names
+                and node.id not in existing_imports
+                and node.id not in defined_names
+                and isinstance(node.ctx, ast.Load)
             ):
-                return node.id
+                missing_imports.add(node.id)
         elif isinstance(node, ast.Attribute):
-            base = self.resolve_module(node.value)
-            if base and "." not in base:
-                return base
-        return None
+            # Build the full attribute chain
+            attr_chain = []
+            current = node
+            while isinstance(current, ast.Attribute):
+                attr_chain.append(current.attr)
+                current = current.value
+            if isinstance(current, ast.Name):
+                attr_chain.append(current.id)
 
-    def enter_scope(self, nodes):
-        for node in nodes:
-            if isinstance(node, ast.arg):
-                self.current_scope.add(node.arg)
-            elif isinstance(node, ast.Name):
-                self.current_scope.add(node.id)
+                # Skip if the root is a local name
+                if attr_chain[0] in defined_names:
+                    continue
 
-    def exit_scope(self, nodes):
-        for node in nodes:
-            if isinstance(node, ast.arg):
-                self.current_scope.remove(node.arg)
-            elif isinstance(node, ast.Name):
-                self.current_scope.remove(node.id)
+            # Reverse to get correct order (e.g., ['torch', 'nn', 'CrossEntropyLoss'])
+            attr_chain.reverse()
 
+            # Generate all possible import paths
+            for i in range(1, len(attr_chain)):
+                import_path = ".".join(attr_chain[:i])
+                if (
+                    import_path not in existing_imports
+                    and import_path not in builtin_names
+                    and import_path not in defined_names
+                ):
+                    missing_imports.add(import_path)
 
-def infer_imports(code):
-    tree = ast.parse(code)
-    inferrer = ImportInferrer()
-    inferrer.visit(tree)
-    return set(list(inferrer.modules))
+    return missing_imports

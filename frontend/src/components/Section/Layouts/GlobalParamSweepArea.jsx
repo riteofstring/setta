@@ -1,8 +1,5 @@
-import CodeMirror from "@uiw/react-codemirror";
 import { StandardAccordion } from "components/Utils/atoms/accordion/accordion";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
-import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import C from "constants/constants.json";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
@@ -15,7 +12,6 @@ import {
   toggleRunGroupSectionParamSweep,
   toggleRunGroupSectionVersion,
 } from "state/actions/runGroups/runGroups";
-import { setSectionVariantAttr } from "state/actions/sectionVariants";
 import {
   useProjectConfig,
   useRunGroups,
@@ -23,46 +19,17 @@ import {
 } from "state/definitions";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
-import { useGetSectionInfo } from "state/hooks/sections";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 
 export function GlobalParamSweepArea({ sectionId }) {
-  const showYaml = useGetSectionInfo(sectionId, "showYaml");
   const width = useSectionInfos((x) => {
     const w = x.x[sectionId].size.width;
     return w === "auto" ? getSectionRect(sectionId).width : w;
   });
 
-  return !showYaml ? (
-    <GlobalParamSweepGUI width={width} />
-  ) : (
-    <GlobalParamSweepCode sectionId={sectionId} />
-  );
-}
-
-function GlobalParamSweepCode({ sectionId }) {
-  const code = useGetSectionInfo(sectionId, "code");
-  const theme = useCodeMirrorStyle();
-  const extensions = getExtensions({ sectionId, language: "python" });
-
-  function onChange(v) {
-    setSectionVariantAttr(sectionId, "code", v);
-  }
-
-  return (
-    <article
-      className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0`}
-    >
-      <CodeMirror
-        value={code}
-        onChange={onChange}
-        theme={theme}
-        extensions={extensions}
-      />
-    </article>
-  );
+  return <GlobalParamSweepGUI width={width} />;
 }
 
 function GlobalParamSweepGUI({ width }) {

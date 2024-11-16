@@ -180,7 +180,6 @@ const debouncedSetKeywordPositions = asyncDebounce(async (sectionId, value) => {
     sectionId,
     paramInfoId: null,
     fullText: value,
-    messageIdSuffix: "-codeArea",
     regexPatternKey: "codeAreaPattern",
   });
   setSectionVariantAttr(sectionId, "keywordPositions", keywordPositions);

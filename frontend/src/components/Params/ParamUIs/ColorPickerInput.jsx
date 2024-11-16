@@ -1,5 +1,4 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useContrastColor } from "utils/useColorContrast";
 import { tryParseJSON } from "utils/utils";
 
 export function ColorPickerInputConfig({ onChange, config }) {
@@ -51,7 +50,7 @@ export const AvailableColors = ({
     <>
       <button
         onClick={addColor}
-        className="my-1 flex cursor-pointer items-center justify-between rounded-xl bg-setta-100 px-3  py-0.5 uppercase text-setta-500 hover:bg-setta-200 dark:bg-setta-850 dark:text-setta-500 dark:hover:bg-setta-850"
+        className="my-1 flex cursor-pointer items-center justify-between rounded-xl border border-solid border-setta-200/70 px-3 py-2 uppercase text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850"
         aria-label="Add color"
       >
         <p className="text-sm font-black ">Add Colors</p>
@@ -98,7 +97,7 @@ export function ColorPickerInput({
   colorPickerChoicesClasses,
 }) {
   const _value = tryParseJSON(value);
-  return (
+  return wrapperClassName ? (
     <div className={wrapperClassName}>
       <ColorPicker
         colorChoices={colorChoices}
@@ -107,6 +106,12 @@ export function ColorPickerInput({
         colorPickerChoicesClasses={colorPickerChoicesClasses}
       />
     </div>
+  ) : (
+    <ColorPicker
+      colorChoices={colorChoices}
+      value={_value}
+      onChange={onChange}
+    />
   );
 }
 
@@ -116,7 +121,6 @@ function ColorPicker({
   onChange,
   colorPickerChoicesClasses,
 }) {
-  const iconColor = useContrastColor(value);
   return colorChoices?.length > 0 ? (
     <ColorPickerFromColorChoices
       color={value}
@@ -125,19 +129,13 @@ function ColorPicker({
       colorPickerChoicesClasses={colorPickerChoicesClasses}
     />
   ) : (
-    <>
-      <i
-        className="gg-color-picker single-cell-child mt-1 place-self-center"
-        style={{ color: iconColor }}
-      />
-      <input
-        id="colorPicker"
-        type="color"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="single-cell-child flex !h-full min-h-0 !w-full min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
-      />
-    </>
+    <input
+      id="colorPicker"
+      type="color"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="max-h-4 max-w-4 cursor-pointer !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
+    />
   );
 }
 
@@ -152,23 +150,18 @@ function ColorPickerFromColorChoices({
     selectedItem = colorChoices[0];
   }
 
-  const textColor = useContrastColor(selectedItem.color);
-
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger className={colorPickerChoicesClasses}>
-        <div
-          className="single-cell-child min-w-0s m-auto h-full min-h-0 w-full rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
-          style={{ backgroundColor: selectedItem.color }}
-        />
-        <div className="single-cell-child flex items-center justify-between overflow-hidden">
-          <p
-            className="truncate pl-2 text-xs font-semibold @[90px]:inline-block"
-            style={{ color: textColor }}
-          >
+        <div className="flex items-center text-setta-500 dark:text-setta-400">
+          <div
+            className="mr-2 h-4 w-4 rounded-full !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
+            style={{ backgroundColor: selectedItem.color }}
+          />
+          <p className="max-w-24 truncate text-xs font-black">
             {selectedItem.description}
           </p>
-          <i className="gg-chevron-down px-2" style={{ color: textColor }} />
+          <i className="gg-chevron-down -mr-1 self-end" />
         </div>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content className="flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800">
