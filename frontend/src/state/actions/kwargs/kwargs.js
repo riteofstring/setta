@@ -89,11 +89,11 @@ function deleteKwargIds({ sectionId, ids, incrementVersion }) {
 }
 
 export function saveKwargsAsCollection({ sectionId, name }) {
+  // TODO: update this because children are no longer stored in codeInfo
   const { ids: children } = getParamIds(sectionId);
   const collection = newCodeInfo({
     name,
     rcType: C.COLLECTION,
-    children,
   });
   dbSaveCodeInfo({
     codeInfo: { [collection.id]: collection },

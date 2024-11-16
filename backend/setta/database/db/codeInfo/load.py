@@ -24,17 +24,18 @@ def load_code_info(db, ids):
     db.execute(query, tuple(ids))
     results = db.fetchall()
     all_ids = set()
-    code_info_cols = {}
+    code_info_cols = {
+        k: {
+            "id": k,
+            "children": defaultdict(list),
+        }
+        for k in ids
+    }
     for row in results:
         (codeInfoColId, parentId, childId, _) = row
         if parentId:
             all_ids.add(parentId)
         all_ids.add(childId)
-        if codeInfoColId not in code_info_cols:
-            code_info_cols[codeInfoColId] = {
-                "id": codeInfoColId,
-                "children": defaultdict(list),
-            }
         children_dict = code_info_cols[codeInfoColId]["children"]
         children_dict[parentId].append(childId)
         if childId not in children_dict:
