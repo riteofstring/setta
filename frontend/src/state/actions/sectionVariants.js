@@ -4,7 +4,7 @@ import {
   useSectionVariants,
   useUITypes,
 } from "state/definitions";
-import { createRandomName } from "utils/idNameCreation";
+import { createNewId, createRandomName } from "utils/idNameCreation";
 import { getValueForUIType, newEV } from "utils/objs/ev";
 import { initValue } from "../utils";
 import { maybeIncrementProjectStateVersion } from "./undo";
@@ -13,12 +13,15 @@ export function setAllSectionVariants(x) {
   useSectionVariants.setState({ x });
 }
 
-export function duplicateSectionVariant({ id, newId, newName }) {
+export function duplicateSectionVariant({ id, newName, newCodeInfoColId }) {
+  const newId = createNewId();
   useSectionVariants.setState((state) => {
     const s = state.x;
     s[newId] = _.cloneDeep(s[id]);
     s[newId].name = newName;
+    s[newId].codeInfoColId = newCodeInfoColId;
   });
+  return newId;
 }
 
 export function initManySectionVariantIds({ variantProps }) {

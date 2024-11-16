@@ -1,21 +1,29 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { duplicateCodeInfoCol } from "state/actions/codeInfoCols";
 import { setNotificationMessage } from "state/actions/notification";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { duplicateSectionVariant } from "state/actions/sectionVariants";
+import {
+  duplicateSectionVariant,
+  getSectionCodeInfoColId,
+} from "state/actions/sectionVariants";
 import { getSectionInfo } from "state/getters/sectionInfo";
-import { createNewId, createRandomName } from "utils/idNameCreation";
+import { createRandomName } from "utils/idNameCreation";
 
 export function CreateNewVersionButton({ sectionId }) {
   function onClick() {
-    const currId = getSectionInfo(sectionId).variantId;
-    const newName = createRandomName();
-    const newId = createNewId();
-    duplicateSectionVariant({ id: currId, newId, newName });
-    setSectionInfoAttr({ sectionId, attr: "variantId", value: newId });
+    const currVariantId = getSectionInfo(sectionId).variantId;
+    const currCodeInfoColId = getSectionCodeInfoColId(sectionId);
+    const newCodeInfoColId = duplicateCodeInfoCol(currCodeInfoColId);
+    const newVariantId = duplicateSectionVariant({
+      id: currVariantId,
+      newName: createRandomName(),
+      newCodeInfoColId,
+    });
+    setSectionInfoAttr({ sectionId, attr: "variantId", value: newVariantId });
     setSectionInfoAttr({
       sectionId,
       attr: "variantIds",
-      newValueFn: (x) => [...x, newId],
+      newValueFn: (x) => [...x, newVariantId],
     });
     setNotificationMessage("New Version Created");
   }

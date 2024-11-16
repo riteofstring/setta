@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { useCodeInfo, useCodeInfoCols } from "state/definitions";
 import { createNewId, maybeNewId } from "utils/idNameCreation";
 import { getSectionCodeInfoColId } from "./sectionVariants";
@@ -37,4 +38,13 @@ export function initManyCodeInfoCols(sectionIds) {
 
 function newCodeInfoCol(id) {
   return { id: maybeNewId(id), children: { null: [] } };
+}
+
+export function duplicateCodeInfoCol(id) {
+  const newId = createNewId();
+  useCodeInfoCols.setState((state) => {
+    const s = state.x;
+    s[newId] = _.cloneDeep(s[id]);
+  });
+  return newId;
 }
