@@ -51,7 +51,7 @@ export const AvailableColors = ({
     <>
       <button
         onClick={addColor}
-        className="my-1 flex cursor-pointer items-center justify-between rounded-xl border border-solid border-setta-200/70 px-3 py-2 uppercase text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850"
+        className="my-1 flex cursor-pointer items-center justify-between rounded-xl bg-setta-100 px-3  py-0.5 uppercase text-setta-500 hover:bg-setta-200 dark:bg-setta-850 dark:text-setta-500 dark:hover:bg-setta-850"
         aria-label="Add color"
       >
         <p className="text-sm font-black ">Add Colors</p>
@@ -98,7 +98,7 @@ export function ColorPickerInput({
   colorPickerChoicesClasses,
 }) {
   const _value = tryParseJSON(value);
-  return wrapperClassName ? (
+  return (
     <div className={wrapperClassName}>
       <ColorPicker
         colorChoices={colorChoices}
@@ -107,13 +107,6 @@ export function ColorPickerInput({
         colorPickerChoicesClasses={colorPickerChoicesClasses}
       />
     </div>
-  ) : (
-    <ColorPicker
-      colorChoices={colorChoices}
-      value={_value}
-      onChange={onChange}
-      colorPickerChoicesClasses={colorPickerChoicesClasses}
-    />
   );
 }
 
@@ -123,6 +116,7 @@ function ColorPicker({
   onChange,
   colorPickerChoicesClasses,
 }) {
+  const iconColor = useContrastColor(value);
   return colorChoices?.length > 0 ? (
     <ColorPickerFromColorChoices
       color={value}
@@ -131,13 +125,19 @@ function ColorPicker({
       colorPickerChoicesClasses={colorPickerChoicesClasses}
     />
   ) : (
-    <input
-      id="colorPicker"
-      type="color"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="max-h-4 max-w-4 cursor-pointer !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
-    />
+    <>
+      <i
+        className="gg-color-picker single-cell-child mt-1 place-self-center"
+        style={{ color: iconColor }}
+      />
+      <input
+        id="colorPicker"
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="single-cell-child flex !h-full min-h-0 !w-full min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
+      />
+    </>
   );
 }
 
