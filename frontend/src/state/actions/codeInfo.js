@@ -85,6 +85,11 @@ export function batchUpdateCodeInfoAttrs(idToNewAttrs) {
 }
 
 export function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
+  // empty value is equivalent to the "null" callable id
+  if (selectedItemName === "") {
+    return null;
+  }
+
   const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   const cState = useCodeInfo.getState().x;
   for (const c of codeInfoChildren[null]) {
@@ -92,7 +97,7 @@ export function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
       return c;
     }
   }
-  return null;
+  return undefined;
 }
 
 export function itemIsAlreadySelected(sectionId, selectedItemName) {

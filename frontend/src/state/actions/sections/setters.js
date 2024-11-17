@@ -31,7 +31,7 @@ export async function setSelectedItem(
   }
 
   const prevSelected = itemHasBeenSelectedBefore(sectionId, selectedItemName);
-  if (prevSelected) {
+  if (prevSelected !== undefined) {
     setSectionVariantAttr(sectionId, "selectedItem", prevSelected);
     maybeIncrementProjectStateVersion(changedByUser);
   } else {
