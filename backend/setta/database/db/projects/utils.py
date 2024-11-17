@@ -42,7 +42,8 @@ def remove_json_source_data(p, keepCodeInfoThatHaveUITypes=True):
         codeInfoCol["children"] = {
             k: v
             for k, v in codeInfoCol["children"].items()
-            if condition_keep_code_info(
+            if k is None
+            or condition_keep_code_info(
                 k, jsonCodeInfoWithUIType, keepCodeInfoThatHaveUITypes
             )
         }

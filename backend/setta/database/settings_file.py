@@ -111,6 +111,7 @@ class MetaSettingsFile:
             section["variantIds"].append(variantId)
 
         section["variantId"] = variantId
+        remove_json_source_data(p)
         self.save_raw(p)
 
     def save(self, p):
