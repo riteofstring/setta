@@ -115,6 +115,7 @@ export function ParamUI({
           onChange={onChange}
           wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
           colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
+          isDisabled={_isDisabled}
         />
       );
     case C.DROPDOWN:
@@ -125,6 +126,7 @@ export function ParamUI({
           value={value}
           onChange={onChange}
           outerDivClasses="section-value flex justify-self-start self-center"
+          isDisabled={_isDisabled}
         />
       );
   }
