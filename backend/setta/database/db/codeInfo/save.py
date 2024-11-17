@@ -61,8 +61,7 @@ def save_code_info_col(db, codeInfoCols):
         VALUES (:idid, :parentId, :childId, :order)
     """
     query_params = []
-    for c in codeInfoCols.values():
-        idid = c["id"]
+    for idid, c in codeInfoCols.items():
         for parentId, children in c["children"].items():
             order = 0
             for childId in children:
