@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from setta.code_gen.export_selected import export_section_to_dict
+from setta.code_gen.yaml.section_dict import section_dict_to_yaml
 from setta.database.db.projects.utils import save_json_source_data
 from setta.database.db.sections.copy import (
     copy_relative_positions,
@@ -80,20 +81,9 @@ def route_section_to_yaml(x: SectionToDictRequest):
         x.unpinnedIds["requiredParamIds"],
     )
 
-    pinnedStr = yaml.dump(pinned.prettyOutput)
-    unpinnedStr = yaml.dump(unpinned.prettyOutput)
-
-    yamlValue = ""
-    if x.sectionVariant["selectedItem"]:
-        selectedItemName = x.codeInfo[x.sectionVariant["selectedItem"]]["name"]
-        yamlValue += f"{selectedItemName}\n---\n"
-
-    if len(pinned.prettyOutput) > 0:
-        yamlValue += f"{pinnedStr}\n---\n"
-    elif yamlValue != "":
-        yamlValue += "\n---\n"
-    if len(unpinned.prettyOutput) > 0:
-        yamlValue += unpinnedStr
+    yamlValue = section_dict_to_yaml(
+        pinned.prettyOutput, unpinned.prettyOutput, x.codeInfo, x.sectionVariant
+    )
 
     return {
         "yamlValue": yamlValue,

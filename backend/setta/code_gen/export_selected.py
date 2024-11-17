@@ -129,11 +129,6 @@ def export_section_to_dict(
     requiredParamIds=None,
 ):
     codeInfoChildren = replace_null_keys_with_none(codeInfoChildren)
-    print("codeInfo", codeInfo)
-    print("codeInfoChildren", codeInfoChildren)
-    print("sectionVariant", sectionVariant)
-    print("topLevelParamIds", topLevelParamIds)
-    print("configLanguage", configLanguage)
 
     e = SectionToDict(
         codeInfo,
