@@ -11,7 +11,6 @@ export function IdNameCombobox({
   small,
   position,
   outerDivClasses = "",
-  onInputMouseDown,
   placeholder,
   bg,
 }) {
@@ -58,7 +57,6 @@ export function IdNameCombobox({
         getToggleButtonProps={getToggleButtonProps}
         isOpen={isReallyOpen}
         small={small}
-        onInputMouseDown={onInputMouseDown}
         onInputClick={onInputClick}
         placeholder={placeholder}
         bg={bg}
