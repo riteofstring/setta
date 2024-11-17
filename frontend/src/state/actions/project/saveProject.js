@@ -17,6 +17,7 @@ import {
   useRunGroups,
   useSectionInfos,
   useSectionVariants,
+  useSettings,
   useUITypeCols,
   useUITypes,
   useYamlValue,
@@ -25,7 +26,6 @@ import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { yamlToGUI } from "../guiToYaml";
 import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
-import { loadSettings } from "../settings";
 import { getProjectConfigMetadata } from "./projectConfig";
 
 export function getProjectData({
@@ -115,7 +115,9 @@ export async function saveProject() {
   setNotificationMessage("Saving...");
   if (useProjectConfig.getState().name === SETTINGS_PROJECT_NAME) {
     res = await dbSaveSettings(getProjectData({ convertYamlToGUI: true }));
-    await loadSettings();
+    if (res.status == 200) {
+      useSettings.setState(res.data);
+    }
   } else {
     res = await dbSaveProject({
       project: getProjectData({

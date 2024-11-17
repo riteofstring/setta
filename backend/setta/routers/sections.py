@@ -40,6 +40,7 @@ class SaveSectionJSONSourceRequest(BaseModel):
     project: dict
     sectionId: str
 
+
 class NewJSONVersionNameRequest(BaseModel):
     filenameGlob: str
 

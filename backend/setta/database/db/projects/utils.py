@@ -95,3 +95,5 @@ def save_json_source_data(p, section_ids=None):
     for filename, data in to_be_saved.items():
         with open(filename, "w") as f:
             json.dump(data, f, indent=2)
+
+    return to_be_saved
