@@ -63,6 +63,10 @@ function getReducerModifications({ type, state, changes, items }) {
     case changeTypes.InputKeyDownArrowDown:
       return getValueFromHighlightedIndex(items, changes.highlightedIndex);
     case changeTypes.InputKeyDownEnter:
+      if (state.highlightedIndex !== -1) {
+        return {};
+      }
+      // only do the following if no item is highlighted
       if (state.inputValue) {
         const objContainingValue = getFirstMatch(items);
         if (objContainingValue) {
