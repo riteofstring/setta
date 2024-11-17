@@ -6,6 +6,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from setta.code_gen.export_selected import export_section_to_dict
+from setta.database.db.projects.utils import save_json_source_data
 from setta.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
@@ -34,6 +35,10 @@ class LoadSectionJSONSourceRequest(BaseModel):
     project: dict
     sectionId: str
 
+
+class SaveSectionJSONSourceRequest(BaseModel):
+    project: dict
+    sectionId: str
 
 class NewJSONVersionNameRequest(BaseModel):
     filenameGlob: str
@@ -94,9 +99,14 @@ def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
     return {"project": p, "jsonSourceMissing": jsonSourceMissing}
 
 
-@router.post(C.ROUTER_NEW_JSON_VERSION_NAME)
+@router.post(C.ROUTE_NEW_JSON_VERSION_NAME)
 def route_new_json_version_name(x: NewJSONVersionNameRequest):
     new_filename = generate_new_filename(x.filenameGlob)
     Path(new_filename).parent.mkdir(parents=True, exist_ok=True)
     Path(new_filename).touch()
     return new_filename
+
+
+@router.post(C.ROUTE_SAVE_SECTION_JSON_SOURCE)
+def route_save_section_json_source(x: SaveSectionJSONSourceRequest):
+    save_json_source_data(x.project, [x.sectionId])

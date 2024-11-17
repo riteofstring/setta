@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { dbLoadSectionJSONSource } from "requests/sections";
+import { dbLoadSectionJSONSource } from "requests/jsonSource";
 import { addCodeInfoBatch } from "state/actions/codeInfo";
 import { addCodeInfoColsBatch } from "state/actions/codeInfoCols";
 import {

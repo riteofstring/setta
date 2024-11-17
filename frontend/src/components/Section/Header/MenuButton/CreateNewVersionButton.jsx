@@ -1,4 +1,5 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { dbSaveSectionJSONSource } from "requests/jsonSource";
 import { dbNewVersionFilename } from "requests/sectionVariants";
 import { duplicateCodeInfoCol } from "state/actions/codeInfoCols";
 import { setNotificationMessage } from "state/actions/notification";
@@ -26,6 +27,10 @@ export function CreateNewVersionButton({ sectionId }) {
       attr: "variantIds",
       newValueFn: (x) => [...x, newVariantId],
     });
+    if (jsonSource) {
+      await dbSaveSectionJSONSource(sectionId);
+    }
+
     setNotificationMessage("New Version Created");
   }
 

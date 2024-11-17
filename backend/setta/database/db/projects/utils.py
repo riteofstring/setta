@@ -56,33 +56,40 @@ def remove_json_source_data(p, keepCodeInfoThatHaveUITypes=True):
             ]
 
 
-def save_json_source_data(p):
+def save_json_source_data(p, section_ids=None):
+    sections = {
+        k: v
+        for k, v in p["sections"].items()
+        if v.get("jsonSource", None) and ((not section_ids) or k in section_ids)
+    }
+
     to_be_saved = defaultdict(dict)
+    for s in sections.values():
+        for variantId in s["variantIds"]:
+            variant = p["sectionVariants"][variantId]
+            codeInfoCol = p["codeInfoCols"][variant["codeInfoColId"]]
+            filename = variant["name"]
+            for k, children in codeInfoCol["children"].items():
+                if is_from_json_source(k):
+                    metadata = json.loads(k.removeprefix(C.JSON_SOURCE_PREFIX))
+                    key_path = metadata["key"]
+                    value = (
+                        try_json(variant["values"][k]["value"])
+                        if len(children) == 0
+                        else {}
+                    )
 
-    for variant in p["sectionVariants"].values():
-        codeInfoCol = p["codeInfoCols"][variant["codeInfoColId"]]
-        filename = variant["name"]
-        for k, children in codeInfoCol["children"].items():
-            if is_from_json_source(k):
-                metadata = json.loads(k.removeprefix(C.JSON_SOURCE_PREFIX))
-                key_path = metadata["key"]
-                value = (
-                    try_json(variant["values"][k]["value"])
-                    if len(children) == 0
-                    else {}
-                )
+                    # Navigate to the correct nested position
+                    current_dict = to_be_saved[filename]
+                    for path_part in key_path[:-1]:
+                        # Create nested dictionaries if they don't exist
+                        if path_part not in current_dict:
+                            current_dict[path_part] = {}
+                        current_dict = current_dict[path_part]
 
-                # Navigate to the correct nested position
-                current_dict = to_be_saved[filename]
-                for path_part in key_path[:-1]:
-                    # Create nested dictionaries if they don't exist
-                    if path_part not in current_dict:
-                        current_dict[path_part] = {}
-                    current_dict = current_dict[path_part]
-
-                # Set the value at the final position
-                if key_path:  # Only set if we have a path
-                    current_dict[key_path[-1]] = value
+                    # Set the value at the final position
+                    if key_path:  # Only set if we have a path
+                        current_dict[key_path[-1]] = value
 
     # Save each file
     for filename, data in to_be_saved.items():

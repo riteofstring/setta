@@ -8,31 +8,13 @@ import { setNotificationMessage } from "state/actions/notification";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import {
-  useCodeInfo,
-  useCodeInfoCols,
   useKeywordRegex,
   useProjectConfig,
-  useSectionInfos,
-  useSectionVariants,
   useTypeErrors,
 } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
-
-export async function dbLoadSectionJSONSource(sectionId) {
-  const sections = useSectionInfos.getState().x;
-  const codeInfo = useCodeInfo.getState().x;
-  const codeInfoCols = useCodeInfoCols.getState().x;
-  const sectionVariants = useSectionVariants.getState().x;
-  return await post({
-    body: {
-      project: { sections, codeInfo, codeInfoCols, sectionVariants },
-      sectionId,
-    },
-    address: C.ROUTE_LOAD_SECTION_JSON_SOURCE,
-  });
-}
 
 export function dbRequestTypeCheck(userRequested = false) {
   if (userRequested) {
