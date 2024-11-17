@@ -15,7 +15,7 @@ export function IdNameCombobox({
 }) {
   const itemToString = (x) => (x ? x.name : "");
 
-  const { localOnSelectedItemChange, init, matchSorterProps } = idNameHelper({
+  const { localOnSelectedItemChange, init } = idNameHelper({
     allItems,
     onSelectedItemChange,
     initialSelection,
@@ -31,7 +31,6 @@ export function IdNameCombobox({
     getItemProps,
   } = useIdNameCombobox({
     allItems,
-    matchSorterProps,
     onSelectedItemChange: localOnSelectedItemChange,
     initialSelection: init,
     itemToString,
