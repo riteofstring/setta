@@ -1,12 +1,19 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
+import _ from "lodash";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
 import {
   getSectionIdToChildren,
   setSectionVariantChildren,
 } from "../sectionVariants";
 
-export function setAllSectionInfos(sections) {
-  useSectionInfos.setState({ x: sections });
+export function setAllSectionInfos({ sections, sectionConfigs }) {
+  let x;
+  if (sectionConfigs) {
+    x = _.mapValues(sections, (v, k) => ({ ...v, ...sectionConfigs[k] }));
+  } else {
+    x = sections;
+  }
+  useSectionInfos.setState({ x });
 }
 
 export function addSectionInfo(payload) {

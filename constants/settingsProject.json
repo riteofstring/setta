@@ -3,28 +3,25 @@
     "id": "a5dfa397-089a-4f5e-bbec-978a314b4266",
     "name": "settings",
     "isDefault": 0,
-    "runGroupSelection": {},
-    "shownRunGroup": null,
     "viewport": null,
-    "previewImgNodes": "[{\"x\":640,\"y\":119,\"w\":552,\"h\":1718}]",
     "children": {
       "69084c06-aa67-4e6b-8098-3334044eebc9": {
         "x": 640,
         "y": 119,
         "zIndex": 0
       }
-    }
+    },
+    "runGroupSelection": {},
+    "shownRunGroup": null
   },
   "sectionVariants": {
-    "19f203aa-cae6-4ccc-928c-dab0194ade77": {
-      "id": "19f203aa-cae6-4ccc-928c-dab0194ade77",
-      "name": "setta-settings.json",
+    "efe36d90-cd07-4588-af5f-0492d01d8da0": {
+      "name": "financial_chocolate",
+      "values": {},
+      "children": [],
       "selectedItem": null,
       "code": "",
-      "codeInfoColId": "a386b032-1e99-42b1-b99c-d71b89fed5fd",
-      "keywordPositions": [],
-      "children": [],
-      "values": {}
+      "keywordPositions": []
     }
   },
   "uiTypes": {
@@ -35,18 +32,9 @@
       "presetType": "USER",
       "config": {
         "choices": [
-          {
-            "id": "\"Dots\"",
-            "name": "\"Dots\""
-          },
-          {
-            "id": "\"Lines\"",
-            "name": "\"Lines\""
-          },
-          {
-            "id": "\"Cross\"",
-            "name": "\"Cross\""
-          }
+          { "id": "\"Dots\"", "name": "\"Dots\"" },
+          { "id": "\"Lines\"", "name": "\"Lines\"" },
+          { "id": "\"Cross\"", "name": "\"Cross\"" }
         ]
       }
     },
@@ -57,14 +45,8 @@
       "presetType": "USER",
       "config": {
         "choices": [
-          {
-            "id": "\"partial\"",
-            "name": "\"partial\""
-          },
-          {
-            "id": "\"full\"",
-            "name": "\"full\""
-          }
+          { "id": "\"partial\"", "name": "\"partial\"" },
+          { "id": "\"full\"", "name": "\"full\"" }
         ]
       }
     },
@@ -75,89 +57,80 @@
       "presetType": "USER",
       "config": {
         "choices": [
-          {
-            "id": "\"free\"",
-            "name": "\"free\""
-          },
-          {
-            "id": "\"vertical\"",
-            "name": "\"vertical\""
-          },
-          {
-            "id": "\"horizontal\"",
-            "name": "\"horizontal\""
-          }
+          { "id": "\"free\"", "name": "\"free\"" },
+          { "id": "\"vertical\"", "name": "\"vertical\"" },
+          { "id": "\"horizontal\"", "name": "\"horizontal\"" }
         ]
       }
     }
   },
   "uiTypeCols": {
     "04f95495-52ba-4277-a79e-228bb1c6a5bc": {
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"panOnScrollMode\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"panOnScrollMode\"]}": {
         "uiTypeId": "86b19dfb-742b-4d82-aa5f-5d4cca9f3d0a",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"selectionMode\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"selectionMode\"]}": {
         "uiTypeId": "1ec5d8de-f984-451d-b43a-78917f698d52",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"showGridLines\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"showGridLines\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"gridColor\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"gridColor\"]}": {
         "uiTypeId": "74de30af-accf-44db-9b6b-da4260f0bd60",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"gridColorDarkMode\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"gridColorDarkMode\"]}": {
         "uiTypeId": "74de30af-accf-44db-9b6b-da4260f0bd60",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"gridPattern\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"gridPattern\"]}": {
         "uiTypeId": "90f2233a-2864-498f-a4df-4c027fa0c4a4",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"showDefaultConfigOnLoad\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"showDefaultConfigOnLoad\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"inferImports\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"inferImports\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"autosave\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"autosave\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"autobackup\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"autobackup\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"leftSidePaneShiftsMap\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"leftSidePaneShiftsMap\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"panOnDrag\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"panOnDrag\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"panOnScroll\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"panOnScroll\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"zoomOnScroll\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"zoomOnScroll\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"zoomOnPinch\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"zoomOnPinch\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"zoomOnDoubleClick\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"zoomOnDoubleClick\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       },
-      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"clearTerminalBeforeMarkingAsReady\"]}": {
+      "JSON-{\"filename\": \"setta-settings.json\", \"key\": [\"clearTerminalBeforeMarkingAsReady\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
       }
@@ -175,38 +148,46 @@
         "height": "auto"
       },
       "zIndex": 0,
-      "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
+      "variantId": "efe36d90-cd07-4588-af5f-0492d01d8da0",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
       "paramSweepId": null,
       "social": null,
+      "artifacts": [],
       "description": "",
       "codeLanguage": "",
       "configLanguage": "json",
-      "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
+      "variantIds": ["efe36d90-cd07-4588-af5f-0492d01d8da0"],
       "paramSweepIds": [],
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
       "isFrozen": false,
-      "jsonSource": "setta-settings*.json",
+      "jsonSource": "setta-settings.json",
       "isHorizontalOrientation": false,
       "hideParams": false,
       "hideSearch": true,
       "hideUnpinnedParams": false,
       "displayMode": "GUI",
       "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "isMinimized": false,
+      "codeInfoId": "e188748d-886f-4412-aa23-49b5863f7c81"
     }
   },
-  "codeInfo": {},
-  "codeInfoCols": {
-    "a386b032-1e99-42b1-b99c-d71b89fed5fd": {
-      "id": "a386b032-1e99-42b1-b99c-d71b89fed5fd",
-      "children": {
-        "null": []
-      }
+  "codeInfo": {
+    "e188748d-886f-4412-aa23-49b5863f7c81": {
+      "id": "e188748d-886f-4412-aa23-49b5863f7c81",
+      "name": "Contents",
+      "editable": false,
+      "rcType": "collection",
+      "defaultVal": null,
+      "children": [],
+      "description": "",
+      "positionalOnly": false,
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "keywordPositions": []
     }
   },
-  "fullNameToInfo": {},
   "jsonSourceMissing": {}
 }

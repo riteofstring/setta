@@ -10,7 +10,7 @@ from . import __version__
 from .cli.connect import connect as _connect
 from .database.db_init import maybe_create_tables_and_seed
 from .database.db_objs import DBQueue
-from .database.db_path import get_default_db_path
+from .database.db_path import get_default_db_path, get_default_settings_path
 from .database.export_db.export_db import export_database
 from .database.import_db import import_database
 from .utils.constants import C, load_constants, set_constants
@@ -66,16 +66,18 @@ def import_db(yaml_path, output_path):
 @click.option("--reload", is_flag=True)
 @click.option("--with_examples", is_flag=True)
 @click.option("--db", "-d", type=str, default=get_default_db_path())
-@click.option("--settings", "-s", type=str, default=None)
+@click.option("--settings", "-s", type=str, default=get_default_settings_path())
+@click.option("--w", is_flag=True, help="create db if it doesn't exist")
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
 @click.pass_context
-def cli(ctx, reload, with_examples, db, settings, host, port):
+def cli(ctx, reload, with_examples, db, settings, w, host, port):
     if ctx.invoked_subcommand is None:
         set_constants(
             with_examples=with_examples,
             db_path=db,
             settings_path=settings,
+            create_if_not_exists=w,
             host=host,
             port=port,
         )

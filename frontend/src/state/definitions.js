@@ -21,16 +21,6 @@ export const useCodeInfo = createProjectState(
   ),
 );
 
-export const useCodeInfoCols = createProjectState(
-  temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
-  ),
-);
-
 export const useContextMenus = createProjectState(() => ({
   pane: { isOpen: false, x: 0, y: 0 },
   deck: { isOpen: false, x: 0, y: 0, sectionId: null },
@@ -232,7 +222,6 @@ export const useMisc = create(
   subscribeWithSelector(
     immer(() => ({
       projectIsLoading: false,
-      projectIs404: false,
       mouseDownDrawArea: false,
       mouseDownDraggingSection: false,
       lastPaneClickLocation: { x: 0, y: 0 },

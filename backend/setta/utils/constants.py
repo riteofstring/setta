@@ -62,3 +62,10 @@ def load_constants():
 
 def is_from_json_source(id):
     return id.startswith(C.JSON_SOURCE_PREFIX)
+
+
+def load_settings_project():
+    with open(
+        get_absolute_path(__file__, CONSTANTS_FOLDER / "settingsProject.json"), "r"
+    ) as f:
+        return json.load(f)

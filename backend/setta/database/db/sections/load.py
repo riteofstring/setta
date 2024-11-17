@@ -1,11 +1,8 @@
 import copy
-import glob
 import itertools
 import json
 from collections import defaultdict
 
-from setta.database.db.sectionVariants.utils import new_section_variant
-from setta.database.utils import create_new_id
 from setta.utils.constants import C
 
 from ..paramSweeps.load import load_param_sweeps
@@ -98,6 +95,7 @@ def load_sections(db, ids):
     variantIds = list(
         itertools.chain.from_iterable([s["variantIds"] for s in sections.values()])
     )
+    sectionVariants = {}
     sectionVariants = load_section_variants(db, variantIds)
 
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
@@ -232,95 +230,50 @@ def load_artifact_metadata(db, section_id, artifact_paths):
     return output
 
 
-def load_json_sources_into_data_structures(
-    sections, codeInfo, codeInfoCols, sectionVariants, section_ids=None
-):
+def load_json_sources_into_data_structures(sections, codeInfo, sectionVariants):
     jsonSourceMissing = {}
-    filenames_loaded = set()
-    sections = {
-        k: v
-        for k, v in sections.items()
-        if v["jsonSource"] and ((not section_ids) or k in section_ids)
-    }
-    for s in sections.values():
-        new_data = load_json_source(s["jsonSource"])
-        for filename, data in new_data.items():
-            codeInfo.update(data["codeInfo"])
-            variantId = None
-            for vid in s["variantIds"]:
-                if sectionVariants[vid]["name"] == filename:
-                    variantId = vid
-                    break
-            if variantId:
-                sectionVariants[variantId]["values"] = data["sectionVariantValues"]
-                codeInfoColId = sectionVariants[variantId]["codeInfoColId"]
-                codeInfoCols[codeInfoColId]["children"] = data["codeInfoColChildren"]
-            else:
-                variantId = create_new_id()
-                codeInfoColId = create_new_id()
-                s["variantIds"].append(variantId)
-                sectionVariants[variantId] = new_section_variant(
-                    id=variantId,
-                    name=filename,
-                    codeInfoColId=codeInfoColId,
-                    values=data["sectionVariantValues"],
-                )
-                codeInfoCols[codeInfoColId] = {
-                    "id": codeInfoColId,
-                    "children": data["codeInfoColChildren"],
-                }
-
-            s["configLanguage"] = "json"
-            filenames_loaded.add(filename)
-
-    # delete variants that aren't associated with a loaded file
-    to_delete = []
-    for s in sections.values():
-        for vid in s["variantIds"]:
-            if sectionVariants[vid]["name"] not in filenames_loaded:
-                to_delete.append(vid)
-
-    for vid in to_delete:
-        del codeInfoCols[sectionVariants[vid]["codeInfoColId"]]
-        del sectionVariants[vid]
-
-    for s in sections.values():
-        s["variantIds"] = [v for v in s["variantIds"] if v in sectionVariants]
-        if len(s["variantIds"]) == 0:
-            variant = new_section_variant()
-            s["configLanguage"] = "python"
-            s["variantIds"].append(variant["id"])
-            sectionVariants[variant["id"]] = variant
-            codeInfoCols[variant["codeInfoColId"]] = {
-                "id": variant["codeInfoColId"],
-                "children": {None: []},
-            }
-            jsonSourceMissing[s["id"]] = True
-        elif s["variantId"] not in s["variantIds"]:
-            s["variantId"] = s["variantIds"][0]
+    for id, s in sections.items():
+        if not s["jsonSource"]:
+            continue
+        new_code_infos, new_variant_values = load_json_source(s["jsonSource"])
+        if new_code_infos is None:
+            jsonSourceMissing[id] = True
+            continue
+        codeInfo.update(new_code_infos)
+        codeInfo[s["codeInfoId"]]["children"] = list(new_code_infos.keys())
+        for variantId in s["variantIds"]:
+            sectionVariants[variantId]["values"].update(new_variant_values)
 
     return jsonSourceMissing
 
 
-def load_json_source(filename_glob):
-    new_data = {}
+def load_json_source(filename):
+    try:
+        with open(filename, "r") as f:
+            jsonSourceData = json.load(f)
+    except:
+        return None, None
 
-    def process_object(obj, filename, current_path=[]):
+    new_code_infos = {}
+    new_variant_values = {}
+
+    def process_object(obj, current_path=[]):
         if not isinstance(obj, dict):
             return
 
         children_keys = []
         for k, v in obj.items():
             path = current_path + [k]
-            key = json.dumps({"filenameGlob": filename_glob, "key": path})
+            key = json.dumps({"filename": filename, "key": path})
             full_key = f"{C.JSON_SOURCE_PREFIX}{key}"
             children_keys.append(full_key)
 
             # Create code info entry
-            new_data[filename]["codeInfo"][full_key] = {
+            new_code_infos[full_key] = {
                 "id": full_key,
                 "name": k,
                 "rcType": C.PARAMETER,
+                "children": [],  # Will be populated with direct children only
                 "editable": False,
                 "defaultVal": None,
                 "description": "",
@@ -330,46 +283,29 @@ def load_json_source(filename_glob):
                 "keywordPositions": [],
             }
 
-            new_data[filename]["codeInfoColChildren"][full_key] = []
-
             # Create variant value entry
             if isinstance(v, dict):
                 # For objects, store empty value and process children
-                new_data[filename]["sectionVariantValues"][full_key] = {
+                new_variant_values[full_key] = {
                     "value": "",
                     "keywordPositions": [],
                 }
                 # Recursively process nested object
-                process_object(v, filename, path)
+                process_object(v, path)
             else:
                 # For non-objects, store the value directly
-                new_data[filename]["sectionVariantValues"][full_key] = {
+                new_variant_values[full_key] = {
                     "value": json.dumps(v),
                     "keywordPositions": [],
                 }
 
-        parent_id = None
-        if len(current_path) > 0:
-            parent_path = json.dumps(
-                {"filenameGlob": filename_glob, "key": current_path}
-            )
-            parent_id = f"{C.JSON_SOURCE_PREFIX}{parent_path}"
+        # If this is a nested object, add children to parent's children list
+        if current_path:  # If we're not at root level
+            parent_path = json.dumps({"filename": filename, "key": current_path})
+            parent_key = f"{C.JSON_SOURCE_PREFIX}{parent_path}"
+            new_code_infos[parent_key]["children"] = children_keys
 
-        new_data[filename]["codeInfoColChildren"][parent_id] = children_keys
+    # Start processing from root level
+    process_object(jsonSourceData, [])
 
-    filenames = glob.glob(filename_glob)
-    for filename in filenames:
-        try:
-            with open(filename, "r") as f:
-                jsonSourceData = json.load(f)
-        except:
-            continue
-
-        new_data[filename] = {
-            "codeInfo": {},
-            "codeInfoColChildren": {},
-            "sectionVariantValues": {},
-        }
-        process_object(jsonSourceData, filename, [])
-
-    return new_data
+    return new_code_infos, new_variant_values

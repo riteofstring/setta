@@ -20,6 +20,7 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  NOT_FOUND_ROUTER_PATH,
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
   SETTINGS_PROJECT_NAME,
@@ -72,9 +73,9 @@ export function useExportProjectJson() {
 export function useLoadProjectConfig() {
   const { projectConfigName } = useParams();
   const { state } = useLocation();
+  const navigate = useNavigate();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
-  const is404 = useMisc((x) => x.projectIs404);
   const isHotReload = useHotReload();
 
   async function loadFn() {
@@ -82,8 +83,11 @@ export function useLoadProjectConfig() {
     resetProjectStores();
     setDoneLoading(false);
     const res = await loadProjectConfig({ projectConfigName });
-    setDoneLoading(true);
-    useMisc.setState({ projectIsLoading: false, projectIs404: !res });
+    if (!res) {
+      navigate(NOT_FOUND_ROUTER_PATH);
+    }
+    setDoneLoading(res);
+    useMisc.setState({ projectIsLoading: false });
   }
 
   async function loadSettingsProject() {
@@ -91,14 +95,14 @@ export function useLoadProjectConfig() {
     resetProjectStores();
     setDoneLoading(false);
     const res = await loadSettingsProjectConfig();
-    setDoneLoading(true);
-    useMisc.setState({ projectIsLoading: false, projectIs404: !res });
+    setDoneLoading(res);
+    useMisc.setState({ projectIsLoading: false });
   }
 
   function changeFn() {
     console.log("CHANGING CONFIG NAME********");
     setProjectConfigName(projectConfigName);
-    useMisc.setState({ projectIsLoading: false, projectIs404: false });
+    useMisc.setState({ projectIsLoading: false });
   }
 
   useEffect(() => {
@@ -120,7 +124,7 @@ export function useLoadProjectConfig() {
     }
   }, [pageLoadType, projectConfigName]);
 
-  return [doneLoading, is404];
+  return doneLoading;
 }
 
 export function useEditableProjectName() {

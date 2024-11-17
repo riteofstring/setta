@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
-from setta.database.settings_file import MetaSettingsFile, SettingsFile
+from setta.database.settings_file import SettingsFile
 from setta.lsp.utils import (
     create_lsp_readers,
     create_lsp_writers,
@@ -39,7 +39,7 @@ from setta.utils.websocket_manager import WebsocketManager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
-    app.state.settings_file = SettingsFile(C.SETTINGS_PATH)
+    app.state.settings_file = SettingsFile(C.SETTINGS_PATH, C.CREATE_IF_NOT_EXISTS)
     app.state.lsps = create_lsps(
         workspace_folder=Path(os.getcwd()),
         code_folder=Path(os.getcwd()) / CODE_FOLDER / "timestamped_folder",
@@ -54,6 +54,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.dbq = DBQueue(
         C.DB_PATH,
+        C.CREATE_IF_NOT_EXISTS,
     )
 
     maybe_create_tables_and_seed(

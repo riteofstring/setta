@@ -1,28 +1,22 @@
 import _ from "lodash";
-import { useCodeInfo, useCodeInfoCols } from "state/definitions";
-import { getSectionCodeInfoChildren } from "./codeInfoCols";
-import {
-  getSectionCodeInfoColId,
-  getSectionSelectedItem,
-} from "./sectionVariants";
+import { useCodeInfo } from "state/definitions";
+import { getSectionInfo } from "state/getters/sectionInfo";
+import { getSectionSelectedItem } from "./sectionVariants";
 
 export function setAllCodeInfo(x) {
   useCodeInfo.setState({ x });
 }
 
-export function addCodeInfo({ sectionId, info, parent, insertIdx }) {
+export function addCodeInfo({ info, parent, insertIdx }) {
   useCodeInfo.setState((state) => {
     state.x[info.id] = info;
-  });
-
-  useCodeInfoCols.setState((state) => {
-    const codeInfoColId = getSectionCodeInfoColId(sectionId);
-    if (_.isNil(insertIdx)) {
-      state.x[codeInfoColId]["children"][parent].push(info.id);
-    } else {
-      state.x[codeInfoColId]["children"][parent].splice(insertIdx, 0, info.id);
+    if (parent) {
+      if (_.isNil(insertIdx)) {
+        state.x[parent].children.push(info.id);
+      } else {
+        state.x[parent].children.splice(insertIdx, 0, info.id);
+      }
     }
-    state.x[codeInfoColId]["children"][info.id] = [];
   });
 }
 
@@ -55,15 +49,8 @@ export function setCodeInfoFrozen({ ids, isFrozen }) {
 export function deleteCodeInfo({ ids }) {
   useCodeInfo.setState((state) => {
     state.x = _.omit(state.x, ids);
-  });
-  useCodeInfoCols.setState((state) => {
-    state.x = _.omit(state.x, ids);
-    for (const codeCol of Object.values(state.x)) {
-      for (const parentId of Object.keys(codeCol.children)) {
-        codeCol.children[parentId] = codeCol.children[parentId].filter(
-          (y) => !ids.includes(y),
-        );
-      }
+    for (const c of Object.values(state.x)) {
+      c.children = c.children.filter((y) => !ids.includes(y));
     }
   });
 }
@@ -84,10 +71,18 @@ export function batchUpdateCodeInfoAttrs(idToNewAttrs) {
   });
 }
 
+export function batchUpdateCodeInfoChildren(idToNewChildren) {
+  useCodeInfo.setState((state) => {
+    for (const [id, newChildren] of Object.entries(idToNewChildren)) {
+      state.x[id].children = newChildren;
+    }
+  });
+}
+
 export function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
-  const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
+  const { codeInfoId } = getSectionInfo(sectionId);
   const cState = useCodeInfo.getState().x;
-  for (const c of codeInfoChildren[null]) {
+  for (const c of cState[codeInfoId].children) {
     if (cState[c].name === selectedItemName) {
       return c;
     }

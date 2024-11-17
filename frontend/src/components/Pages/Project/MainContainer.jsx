@@ -7,33 +7,26 @@ import { useLoadProjectConfig } from "state/hooks/project";
 import { restoreTerminals } from "state/hooks/terminal";
 import { Overview } from "../../../components/Panes/Overview/Overview";
 import { UiEditor } from "../../../components/Panes/UiEditor/UiEditor";
-import { NotFound } from "../NotFound/NotFound";
 import { UIPage } from "./UiPage";
 
 export function MainContainer() {
-  const [doneLoading, is404] = useLoadProjectConfig();
-  useCodeMirrorStyleLoader(doneLoading, is404);
+  const doneLoading = useLoadProjectConfig();
+  useCodeMirrorStyleLoader(doneLoading);
 
   useEffect(() => {
-    if (doneLoading && !is404) {
+    if (doneLoading) {
       dbRequestTypeCheck();
       restoreTerminals();
     }
-  }, [doneLoading, is404]);
+  }, [doneLoading]);
 
   return (
     <>
       {!doneLoading && <LoadingSpinner />}
-      {doneLoading && is404 ? (
-        <NotFound />
-      ) : (
-        <>
-          <Overview />
-          <UiEditor />
-          <GridWrapper>{doneLoading && <UIPage />}</GridWrapper>
-          <FloatingBox />
-        </>
-      )}
+      <Overview />
+      <UiEditor />
+      <GridWrapper>{doneLoading && <UIPage />}</GridWrapper>
+      <FloatingBox />
     </>
   );
 }

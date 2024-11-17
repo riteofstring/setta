@@ -11,7 +11,6 @@ import {
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
 import { setAllCodeInfo } from "../codeInfo";
-import { setAllCodeInfoCols } from "../codeInfoCols";
 import { setNodes } from "../nodeInternals";
 import { setAllParamSweeps } from "../runGroups/paramSweep";
 import { setAllRunGroups } from "../runGroups/runGroups";
@@ -45,8 +44,8 @@ export async function loadSettingsProjectConfig() {
 export function loadProjectState({
   projectConfig,
   codeInfo,
-  codeInfoCols,
   sections,
+  sectionConfigs,
   sectionVariants,
   uiTypes,
   uiTypeCols,
@@ -55,7 +54,6 @@ export function loadProjectState({
   jsonSourceMissing,
 }) {
   setAllCodeInfo(codeInfo);
-  setAllCodeInfoCols(codeInfoCols);
   setProjectConfig(_.omit(projectConfig, ["children", "viewport"]));
   if (!projectConfig.viewport) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
@@ -80,7 +78,7 @@ export function loadProjectState({
   setAllUITypeCols({ uiTypeCols });
   setAllParamSweeps(paramSweeps);
   setAllRunGroups(runGroups);
-  setAllSectionInfos(sections);
+  setAllSectionInfos({ sections, sectionConfigs });
   useJSONSourceMissing.getState().reset();
   useJSONSourceMissing.setState(jsonSourceMissing);
   maybeIncrementProjectStateVersion(true, false);

@@ -16,6 +16,15 @@ import { createNewId } from "utils/idNameCreation";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
 
+export async function dbLoadSectionJSONSource(jsonSource) {
+  return await post({
+    body: {
+      jsonSource,
+    },
+    address: C.ROUTE_LOAD_SECTION_JSON_SOURCE,
+  });
+}
+
 export function dbRequestTypeCheck(userRequested = false) {
   if (userRequested) {
     setNotificationMessage("Checking types...");

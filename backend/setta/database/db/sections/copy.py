@@ -11,6 +11,7 @@ from ..uiTypes.copy import copy_ui_type_cols, copy_ui_types
 
 def copy_sections(
     sections,
+    code_info_id_map,
     section_variant_id_map,
     ui_type_id_map,
     ui_type_col_id_map,
@@ -19,6 +20,7 @@ def copy_sections(
     new_sections, section_id_map = remap_ids(sections)
     for section in new_sections.values():
         section["id"] = section_id_map[section["id"]]
+        section["codeInfoId"] = code_info_id_map[section["codeInfoId"]]
         section["variantId"] = section_variant_id_map[section["variantId"]]
         section["uiTypeId"] = ui_type_id_map[section["uiTypeId"]]
         section["uiTypeColId"] = ui_type_col_id_map[section["uiTypeColId"]]
@@ -56,6 +58,7 @@ def copy_sections_and_other_info(x):
     )
     new_sections, section_id_map = copy_sections(
         x["sections"],
+        code_info_id_map,
         section_variant_id_map,
         ui_type_id_map,
         ui_type_col_id_map,

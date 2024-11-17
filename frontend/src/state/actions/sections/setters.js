@@ -52,7 +52,7 @@ export async function setSelectedItem(
   updateKeywordRegex();
 }
 
-function createChildrenCodeInfo(sectionId, parent, params) {
+function createChildrenCodeInfo(parent, params) {
   for (const p of params) {
     const info = newCodeInfo({
       name: p.name,
@@ -62,7 +62,7 @@ function createChildrenCodeInfo(sectionId, parent, params) {
       description: p.description,
       positionalOnly: p.positionalOnly,
     });
-    addCodeInfo({ sectionId, info, parent });
+    addCodeInfo({ info, parent });
   }
 }
 
@@ -114,7 +114,8 @@ export async function createNewCodeInfoAndKeywordPositions({
     rcType: C.CALLABLE,
     keywordPositions,
   });
-  addCodeInfo({ sectionId, info, parent: null });
+  const { codeInfoId } = getSectionInfo(sectionId);
+  addCodeInfo({ info, parent: codeInfoId });
   return { id: info.id, evRefs };
 }
 
@@ -138,7 +139,7 @@ export async function createCodeInfoChildren({
   if (res) {
     const [documentation, params] = res;
     if (params) {
-      createChildrenCodeInfo(dataSectionId, codeInfoId, params);
+      createChildrenCodeInfo(codeInfoId, params);
       setSelectedItemChildren(dataSectionId, codeInfoId, changedByUser);
     } else {
       setNotificationMessage("No parameters found");

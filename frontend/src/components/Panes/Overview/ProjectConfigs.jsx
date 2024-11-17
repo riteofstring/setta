@@ -81,7 +81,7 @@ function onMouseOver({
 
   if (mousedOverName !== currProjectConfigName) {
     const previewSectionConfigs =
-      useAllProjectConfigs.getState().x[mousedOverName].sections;
+      useAllProjectConfigs.getState().x[mousedOverName].sectionConfigs;
 
     useSectionInfos.setState((x) => {
       for (const [k, v] of Object.entries(x.x)) {

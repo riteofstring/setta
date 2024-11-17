@@ -7,10 +7,10 @@ from setta.code_gen.export_selected import (
     get_selected_item_name,
 )
 from setta.database.utils import create_new_id
-from setta.utils.constants import USER_SETTINGS, C
+from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
 
-from ..codeInfo.save import save_code_info, save_code_info_col
+from ..codeInfo.save import save_code_info
 from ..paramSweeps.save import save_param_sweeps
 from ..runGroups.save import save_run_groups
 from ..sections.save import save_sections
@@ -23,7 +23,6 @@ def save_project_details(db, p):
     save_json_source_data(p)
     remove_json_source_data(p)
     save_code_info(db, p["codeInfo"])
-    save_code_info_col(db, p["codeInfoCols"])
     save_ui_types(db, p["uiTypes"])
     save_ui_type_cols(db, p["uiTypeCols"])
     save_section_variants(db, p["sectionVariants"])
@@ -112,9 +111,7 @@ def create_project_config(db, name, previewImgColor):
         "id": projectId,
         "name": name,
         "previewImgColor": previewImgColor,
-        "viewport": json.dumps(
-            {"x": 0, "y": 0, "zoom": USER_SETTINGS["defaultZoomLevel"]}
-        ),
+        "viewport": json.dumps({"x": 0, "y": 0, "zoom": 1}),
     }
     db.execute(query, query_params)
 

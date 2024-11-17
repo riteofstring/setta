@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
-import { dbLoadSectionJSONSource } from "requests/jsonSource";
-import { addCodeInfoBatch } from "state/actions/codeInfo";
-import { addCodeInfoColsBatch } from "state/actions/codeInfoCols";
+import { dbLoadSectionJSONSource } from "requests/sections";
 import {
-  setSectionInfoAttr,
-  updateSections,
-} from "state/actions/sections/sectionInfos";
-import { updateSectionVariants } from "state/actions/sectionVariants";
-import { useJSONSourceMissing } from "state/definitions";
+  addJSONSource,
+  addJSONSourceMissing,
+  removeJSONSource,
+  removeJSONSourceMissing,
+} from "state/actions/jsonSource";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useGetSectionInfo } from "state/hooks/sections";
 
 export function InputAreaSettings({ sectionId }) {
@@ -17,24 +16,22 @@ export function InputAreaSettings({ sectionId }) {
   async function onBlur(e) {
     const jsonSource = e.target.value;
     setSectionInfoAttr({ sectionId, attr: "jsonSource", value: jsonSource });
-    let jsonSourceMissing = false,
-      codeInfo = null,
-      codeInfoCols = null,
-      sectionVariants = null,
-      sections = null;
     if (jsonSource) {
-      const res = await dbLoadSectionJSONSource(sectionId);
+      const res = await dbLoadSectionJSONSource(jsonSource);
       if (res.status === 200) {
-        ({ codeInfo, codeInfoCols, sectionVariants, sections } =
-          res.data.project);
-        ({ jsonSourceMissing } = res.data);
+        const { newCodeInfos, newVariantValues, jsonSourceMissing } = res.data;
+        if (jsonSourceMissing) {
+          removeJSONSource(sectionId);
+          addJSONSourceMissing(sectionId);
+        } else {
+          addJSONSource({ sectionId, newCodeInfos, newVariantValues });
+          removeJSONSourceMissing(sectionId);
+        }
       }
+    } else {
+      removeJSONSource(sectionId);
+      removeJSONSourceMissing(sectionId);
     }
-    useJSONSourceMissing.setState({ [sectionId]: jsonSourceMissing });
-    if (codeInfo) addCodeInfoBatch(codeInfo);
-    if (codeInfoCols) addCodeInfoColsBatch(codeInfoCols);
-    if (sectionVariants) updateSectionVariants({ sectionVariants });
-    if (sections) updateSections(sections);
   }
 
   useEffect(() => {

@@ -1,10 +1,6 @@
 import copy
 
-from setta.utils.utils import (
-    QuoteInsensitiveDict,
-    replace_null_keys_with_none,
-    try_json,
-)
+from setta.utils.utils import QuoteInsensitiveDict, try_json
 
 from ..utils.constants import BASE_UI_TYPE_IDS, C
 from .find_placeholders import double_braces, needs_generated_python
@@ -46,22 +42,12 @@ def get_selected_item_name(p, id):
     return None
 
 
-def get_selected_item_id(p, id):
+def get_param_ids(p, id):
     selected_item = get_selected_item(p, id)
     if selected_item:
-        return selected_item["id"]
-    return None
-
-
-def get_code_info_children(p, section_id, id):
-    codeInfoColId = get_selected_section_variant(p, section_id)["codeInfoColId"]
-    codeInfoChildren = p["codeInfoCols"][codeInfoColId]["children"]
-    return codeInfoChildren[id]
-
-
-def get_param_ids(p, id):
-    selected_item_id = get_selected_item_id(p, id)
-    return get_code_info_children(p, id, selected_item_id)
+        return selected_item["children"]
+    collection_id = p["sections"][id]["codeInfoId"]
+    return p["codeInfo"][collection_id]["children"]
 
 
 def get_param_ui_type(p, section_id, id):
@@ -103,36 +89,21 @@ def get_var_name(var_name_mapping):
 
 
 def export_selected(p, always_export_args_objs):
-    p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
     e = Exporter(p, always_export_args_objs=always_export_args_objs)
     e.export()
     return e
 
 
 def simple_export_selected(p):
-    p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
     e = SimpleExporter(p)
     e.export()
     return e
 
 
 def export_section_to_dict(
-    codeInfo,
-    codeInfoChildren,
-    sectionVariant,
-    topLevelParamIds,
-    configLanguage,
-    requiredParamIds=None,
+    codeInfo, sectionVariant, section_id, topLevelParamIds, configLanguage, requiredParamIds=None
 ):
-    codeInfoChildren = replace_null_keys_with_none(codeInfoChildren)
-    e = SectionToDict(
-        codeInfo,
-        codeInfoChildren,
-        sectionVariant,
-        topLevelParamIds,
-        configLanguage,
-        requiredParamIds,
-    )
+    e = SectionToDict(codeInfo, sectionVariant, section_id, topLevelParamIds, configLanguage, requiredParamIds)
     e.export()
     return e
 
@@ -335,7 +306,7 @@ class Exporter:
         )
 
         if var_name not in self.output:
-            param_children = get_code_info_children(self.p, section_id, id)
+            param_children = codeInfo["children"]
             if len(param_children) > 0:
                 params, _, _ = self.export_params(section_id, param_children)
                 info = {
@@ -475,7 +446,7 @@ class SimpleExporter:
             param_name = codeInfo["name"]
             if not param_name:
                 continue
-            param_children = get_code_info_children(self.p, section_id, param_id)
+            param_children = codeInfo["children"]
             if len(param_children) > 0:
                 value = self.export_params(section_id, param_children, name, is_global)
             else:
@@ -502,19 +473,13 @@ class SimpleExporter:
 
 class SectionToDict:
     def __init__(
-        self,
-        codeInfo,
-        codeInfoChildren,
-        sectionVariant,
-        topLevelParamIds,
-        configLanguage,
-        requiredParamIds=None,
+        self, codeInfo, sectionVariant, section_id, topLevelParamIds, configLanguage, requiredParamIds=None
     ):
         self.output = {}
         self.prettyOutput = {}
         self.codeInfo = codeInfo
-        self.codeInfoChildren = codeInfoChildren
         self.sectionVariant = sectionVariant
+        self.section_id = section_id
         self.topLevelParamIds = topLevelParamIds
         self.configLanguage = configLanguage
         self.requiredParamIds = set(requiredParamIds) if requiredParamIds else None
@@ -535,7 +500,7 @@ class SectionToDict:
             param_name = codeInfo["name"]
             if not param_name:
                 continue
-            param_children = self.codeInfoChildren[param_id]
+            param_children = codeInfo["children"]
             if len(param_children) > 0:
                 value, prettyValue = self.export_params(param_children)
             else:
