@@ -105,5 +105,6 @@ export function useSectionKeywordPositions(sectionId) {
 }
 
 export function useSectionVariantIsFrozen(sectionId) {
-  return useSectionVariantAttr(sectionId, "isFrozen", _.isEqual);
+  const variantId = useSectionInfos((x) => x.x[sectionId].variantId);
+  return useSectionVariants((x) => x.x[variantId].isFrozen);
 }

@@ -21,6 +21,7 @@ import { useGetSectionInfo } from "state/hooks/sections";
 import {
   useSectionCode,
   useSectionKeywordPositions,
+  useSectionVariantIsFrozen,
 } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
@@ -88,6 +89,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
+  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
 
   function onChange(v) {
     setSectionVariantAttr(sectionId, "code", v);
@@ -107,6 +109,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     escapeToBlur: true,
     tabToAutocomplete: true,
     indentWithTab: true,
+    isDisabled: variantIsDisabled,
   });
 
   return (

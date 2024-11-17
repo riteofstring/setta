@@ -7,6 +7,7 @@ import React, { useEffect, useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
+import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 
 export function MarkdownEditorInPane({ sectionId }) {
   return (
@@ -52,6 +53,7 @@ const _MarkdownEditorCore = React.forwardRef(
     }
 
     const theme = useCodeMirrorStyle();
+    const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
 
     const extensions = getExtensions({
       sectionId,
@@ -59,6 +61,7 @@ const _MarkdownEditorCore = React.forwardRef(
       tabToAutocomplete: true,
       escapeToBlur: true,
       indentWithTab: true,
+      isDisabled: variantIsDisabled,
     });
 
     return (

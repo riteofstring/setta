@@ -2,14 +2,17 @@ import CodeMirror from "@uiw/react-codemirror";
 import { useCodeAreaHeight } from "components/Section/Layouts/CodeArea";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 
 export function YamlView({ sectionId, yamlValue, setYamlValue }) {
   const theme = useCodeMirrorStyle();
+  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
   const extensions = getExtensions({
     sectionId,
     language: "yaml",
     indentWithTab: true,
     escapeToBlur: true,
+    isDisabled: variantIsDisabled,
   });
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
