@@ -5,7 +5,10 @@ import {
   manualDndChildrenReset,
   setSectionInfoAttr,
 } from "state/actions/sections/sectionInfos";
-import { getSectionVariantId } from "state/actions/sectionVariants";
+import {
+  getSectionVariantId,
+  toggleVariantFrozenState,
+} from "state/actions/sectionVariants";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
 import {
   getForSectionId,
@@ -66,6 +69,14 @@ function EVItems({ sectionId }) {
     manualDndChildrenReset();
   }
 
+  function onFreezeClick(id) {
+    toggleVariantFrozenState(id);
+  }
+
+  function isFrozenHook(id) {
+    return { hook: useSectionVariants, selector: (x) => x.x[id].isFrozen };
+  }
+
   return sectionVariantNames.map((e) => (
     <OneItem
       key={e.id}
@@ -74,6 +85,8 @@ function EVItems({ sectionId }) {
       isCurr={currVariantId === e.id}
       onMouseOver={onMouseOver}
       onClick={onClick}
+      onFreezeClick={onFreezeClick}
+      isFrozenHook={isFrozenHook}
     />
   ));
 }
@@ -110,7 +123,18 @@ function ParamSweepItems({ sectionId }) {
   ));
 }
 
-function OneItem({ id, name, isCurr, onMouseOver, onClick }) {
+function OneItem({
+  id,
+  name,
+  isCurr,
+  onMouseOver,
+  onClick,
+  onFreezeClick,
+  isFrozenHook,
+}) {
+  const { hook: useIsFrozen, selector: frozenSelector } = isFrozenHook(id);
+  const isFrozen = useIsFrozen(frozenSelector);
+
   return (
     <li
       onMouseOver={() => onMouseOver(id)}
@@ -126,7 +150,17 @@ function OneItem({ id, name, isCurr, onMouseOver, onClick }) {
       >
         {name}
       </p>
-      <button className="cursor-pointer bg-transparent text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50">
+      <button
+        className={`cursor-pointer bg-transparent ${
+          isFrozen
+            ? "text-blue-500"
+            : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
+        }`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onFreezeClick(id);
+        }}
+      >
         <FaRegSnowflake />
       </button>
     </li>

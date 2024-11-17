@@ -21,6 +21,7 @@ export function duplicateSectionVariant({ id, newName, newCodeInfoColId }) {
     s[newId] = _.cloneDeep(s[id]);
     s[newId].name = newName;
     s[newId].codeInfoColId = newCodeInfoColId;
+    s[newId].isFrozen = false;
   });
   return newId;
 }
@@ -36,6 +37,7 @@ export function initManySectionVariantIds({ variantProps }) {
         code: props.code ?? "",
         codeInfoColId: props.codeInfoColId,
         keywordPositions: props.keywordPositions ?? [],
+        isFrozen: props.isFrozen ?? false,
       });
     }
   });
@@ -213,5 +215,11 @@ export function setSectionVariantAttr(sectionId, attr, value) {
   console.log("setSectionVariantAttr", variantId, attr, value);
   useSectionVariants.setState((x) => {
     x.x[variantId][attr] = value;
+  });
+}
+
+export function toggleVariantFrozenState(variantId) {
+  useSectionVariants.setState((x) => {
+    x.x[variantId].isFrozen = !x.x[variantId].isFrozen;
   });
 }
