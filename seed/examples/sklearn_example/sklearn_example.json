@@ -168,16 +168,16 @@
       "codeInfoColId": "c3f955e1-31cd-4aa6-b3dc-96c334dcd2cd"
     },
     "3fd1ddfd-e80f-41a2-bcad-c0702c39f04c": {
-      "name": "present_cyan",
+      "name": "auth.json",
       "selectedItem": null,
       "code": "",
       "keywordPositions": [],
       "values": {
-        "JSON-{\"filename\": \"auth.json\", \"key\": [\"username\"]}": {
+        "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"username\"]}": {
           "value": "\"jeff\"",
           "keywordPositions": []
         },
-        "JSON-{\"filename\": \"auth.json\", \"key\": [\"password\"]}": {
+        "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"password\"]}": {
           "value": "12345",
           "keywordPositions": []
         }
@@ -1381,13 +1381,13 @@
       "isFrozen": 0,
       "keywordPositions": []
     },
-    "JSON-{\"filename\": \"auth.json\", \"key\": [\"username\"]}": {
-      "id": "JSON-{\"filename\": \"auth.json\", \"key\": [\"username\"]}",
+    "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"username\"]}": {
+      "id": "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"username\"]}",
       "name": "username",
       "rcType": "parameter"
     },
-    "JSON-{\"filename\": \"auth.json\", \"key\": [\"password\"]}": {
-      "id": "JSON-{\"filename\": \"auth.json\", \"key\": [\"password\"]}",
+    "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"password\"]}": {
+      "id": "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"password\"]}",
       "name": "password",
       "rcType": "parameter"
     },
@@ -1424,7 +1424,7 @@
     },
     "__abstract_ivory[\"username\"]": {
       "sectionId": "53e4bdad-ff4e-499c-a659-07e7184d4111",
-      "paramInfoId": "JSON-{\"filename\": \"auth.json\", \"key\": [\"username\"]}",
+      "paramInfoId": "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"username\"]}",
       "componentIndices": [
         16,
         28
@@ -1433,7 +1433,7 @@
     },
     "__abstract_ivory[\"password\"]": {
       "sectionId": "53e4bdad-ff4e-499c-a659-07e7184d4111",
-      "paramInfoId": "JSON-{\"filename\": \"auth.json\", \"key\": [\"password\"]}",
+      "paramInfoId": "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"password\"]}",
       "componentIndices": [
         16,
         28
@@ -1679,11 +1679,11 @@
       "id": "eb89f3ee-79cb-4df5-8243-af97c23897a6",
       "children": {
         "null": [
-          "JSON-{\"filename\": \"auth.json\", \"key\": [\"username\"]}",
-          "JSON-{\"filename\": \"auth.json\", \"key\": [\"password\"]}"
+          "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"username\"]}",
+          "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"password\"]}"
         ],
-        "JSON-{\"filename\": \"auth.json\", \"key\": [\"password\"]}": [],
-        "JSON-{\"filename\": \"auth.json\", \"key\": [\"username\"]}": []
+        "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"password\"]}": [],
+        "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"username\"]}": []
       }
     },
     "5f54678c-8532-437d-9b5a-28000edd2bbf": {

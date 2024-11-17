@@ -47,7 +47,6 @@ export function loadProjectState({
   codeInfo,
   codeInfoCols,
   sections,
-  sectionConfigs,
   sectionVariants,
   uiTypes,
   uiTypeCols,
@@ -81,7 +80,7 @@ export function loadProjectState({
   setAllUITypeCols({ uiTypeCols });
   setAllParamSweeps(paramSweeps);
   setAllRunGroups(runGroups);
-  setAllSectionInfos({ sections, sectionConfigs });
+  setAllSectionInfos(sections);
   useJSONSourceMissing.getState().reset();
   useJSONSourceMissing.setState(jsonSourceMissing);
   maybeIncrementProjectStateVersion(true, false);

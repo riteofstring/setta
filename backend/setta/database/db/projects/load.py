@@ -1,6 +1,7 @@
 import json
 
 from setta.database.utils import aggregate_results
+from setta.utils.utils import recursive_dict_merge
 
 from ..codeInfo.load import load_code_info_cols
 from ..runGroups.load import load_run_groups
@@ -96,7 +97,7 @@ def load_project_config(db, project_config_name):
     )
     sections_data = load_sections(db, list(projectConfig["children"].keys()))
     sectionConfigs = load_section_configs(db, projectConfig["id"])
-    sections = sections_data["sections"]
+    sections = recursive_dict_merge(sections_data["sections"], sectionConfigs)
     sectionVariants = sections_data["sectionVariants"]
     uiTypeCols = sections_data["uiTypeCols"]
     paramSweeps = sections_data["paramSweeps"]
@@ -109,7 +110,6 @@ def load_project_config(db, project_config_name):
     return {
         "projectConfig": projectConfig,
         "sections": sections,
-        "sectionConfigs": sectionConfigs,
         "sectionVariants": sectionVariants,
         "uiTypes": uiTypes,
         "uiTypeCols": uiTypeCols,
