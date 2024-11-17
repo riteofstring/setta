@@ -23,6 +23,7 @@ from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
+from setta.database.export_db.export_db import maybe_export_database
 from setta.utils.constants import C
 
 from .dependencies import get_dbq
@@ -104,6 +105,7 @@ def route_save_project(x: ProjectSaveRequest, dbq=Depends(get_dbq)):
     with dbq as db:
         maybe_create_backup(db.path)
         save_project_details(db, x.project)
+        maybe_export_database(db, db.path)
 
 
 @router.post(C.ROUTE_CREATE_PROJECT_CONFIG)

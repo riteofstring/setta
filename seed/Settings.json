@@ -59,5 +59,8 @@
   "zoomOnDoubleClick": true,
   "clearTerminalBeforeMarkingAsReady": true,
   "defaultTerminalShell": null,
+  "exportDbRawOnSave": false,
+  "exportDbReadableOnSave": false,
+  "exportDbAllVariantsReadableOnSave": false,
   "languageServerSettings": {}
 }
