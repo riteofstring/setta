@@ -2,13 +2,12 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useEffect, useState } from "react";
 import { getKeywordPositionsAndEVRefs } from "requests/sections";
-import { itemHasBeenSelectedBefore } from "state/actions/codeInfo";
 import { setParamSweepSelectedItem } from "state/actions/runGroups/paramSweep";
+import { setSelectedItem } from "state/actions/sections/setters";
 import {
-  createCodeInfoChildren,
-  createNewCodeInfoAndKeywordPositions,
-  setSelectedItem,
-} from "state/actions/sections/setters";
+  getSectionSelectedItem,
+  setSectionVariantAttr,
+} from "state/actions/sectionVariants";
 import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import useDeepCompareEffect from "use-deep-compare-effect";
@@ -16,7 +15,14 @@ import { asyncDebounce } from "utils/utils";
 
 export function SectionSearch({ sectionId, selectedItem }) {
   function onEnter(value) {
-    setSelectedItem(sectionId, value, true);
+    function callbackSetAttr(id) {
+      // for this callback, an undefined id means that the selectedItem is already selected.
+      if (id !== undefined) {
+        setSectionVariantAttr(sectionId, "selectedItem", id);
+      }
+    }
+
+    setSelectedItem(sectionId, sectionId, value, true, callbackSetAttr);
   }
 
   return (
@@ -42,30 +48,20 @@ export function ParamSweepSectionSearch({
   disablePlusButton,
 }) {
   async function onEnter(value) {
-    let newSelectedItem;
-    const prevSelected = itemHasBeenSelectedBefore(sectionId, value);
-    if (!prevSelected) {
-      const { id, evRefs } = await createNewCodeInfoAndKeywordPositions({
-        sectionId: forSectionId,
-        selectedItemName: value,
+    function callbackSetAttr(id) {
+      let selectedItem = id;
+      // for this callback, an undefined id means that the selectedItem is already selected in the forSectionId section
+      if (id === undefined) {
+        selectedItem = getSectionSelectedItem(forSectionId);
+      }
+      setParamSweepSelectedItem({
+        paramSweepId,
+        selectedItemIdx,
+        selectedItem,
       });
-      await createCodeInfoChildren({
-        dataSectionId: forSectionId,
-        visualSectionId: sectionId,
-        selectedItemName: value,
-        evRefs,
-        codeInfoId: id,
-      });
-      newSelectedItem = id;
-    } else {
-      newSelectedItem = prevSelected;
     }
 
-    setParamSweepSelectedItem({
-      paramSweepId,
-      selectedItemIdx,
-      selectedItem: newSelectedItem,
-    });
+    setSelectedItem(forSectionId, sectionId, value, true, callbackSetAttr);
   }
 
   return (

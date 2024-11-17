@@ -18,31 +18,36 @@ import {
 import { updateKeywordRegex } from "../keywordRegex";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { setNotificationMessage } from "../notification";
-import { setSectionVariantAttr } from "../sectionVariants";
 import { setSectionInfoAttr } from "./sectionInfos";
 
 export async function setSelectedItem(
-  sectionId,
+  dataSectionId,
+  visualSectionId,
   selectedItemName,
   changedByUser,
+  callbackSetAttr,
 ) {
-  if (itemIsAlreadySelected(sectionId, selectedItemName)) {
+  if (itemIsAlreadySelected(dataSectionId, selectedItemName)) {
+    callbackSetAttr(undefined);
     return;
   }
 
-  const prevSelected = itemHasBeenSelectedBefore(sectionId, selectedItemName);
+  const prevSelected = itemHasBeenSelectedBefore(
+    dataSectionId,
+    selectedItemName,
+  );
   if (prevSelected !== undefined) {
-    setSectionVariantAttr(sectionId, "selectedItem", prevSelected);
+    callbackSetAttr(prevSelected);
     maybeIncrementProjectStateVersion(changedByUser);
   } else {
     const { id, evRefs } = await createNewCodeInfoAndKeywordPositions({
-      sectionId,
+      sectionId: dataSectionId,
       selectedItemName,
     });
-    setSectionVariantAttr(sectionId, "selectedItem", id);
+    callbackSetAttr(id);
     await createCodeInfoChildren({
-      dataSectionId: sectionId,
-      visualSectionId: sectionId,
+      dataSectionId,
+      visualSectionId,
       selectedItemName,
       evRefs,
       codeInfoId: id,
