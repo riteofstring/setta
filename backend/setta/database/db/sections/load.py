@@ -266,7 +266,6 @@ def load_json_sources_into_data_structures(
                     values=data["sectionVariantValues"],
                 )
                 codeInfoCols[codeInfoColId] = {
-                    "id": codeInfoColId,
                     "children": data["codeInfoColChildren"],
                 }
 
@@ -292,7 +291,6 @@ def load_json_sources_into_data_structures(
             s["variantIds"].append(variant["id"])
             sectionVariants[variant["id"]] = variant
             codeInfoCols[variant["codeInfoColId"]] = {
-                "id": variant["codeInfoColId"],
                 "children": {None: []},
             }
             jsonSourceMissing[s["id"]] = True

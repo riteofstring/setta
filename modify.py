@@ -14,7 +14,6 @@ def load_and_modify_json(file_path):
         for s in json_data["sections"].values():
             codeInfoColId = str(uuid.uuid4())
             json_data["codeInfoCols"][codeInfoColId] = {
-                "id": codeInfoColId,
                 "children": {None: []},
             }
             curr_children = json_data["codeInfoCols"][codeInfoColId]["children"]

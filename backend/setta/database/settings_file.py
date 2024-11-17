@@ -105,7 +105,6 @@ class MetaSettingsFile:
             codeInfoColId = variant["codeInfoColId"]
             p["sectionVariants"][variantId] = variant
             p["codeInfoCols"][codeInfoColId] = {
-                "id": codeInfoColId,
                 "children": {None: []},
             }
             section["variantIds"].append(variantId)
