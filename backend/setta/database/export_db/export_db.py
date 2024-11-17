@@ -8,13 +8,13 @@ from .export_readable import export_readable
 
 def _export_database(db, filename):
     export_raw(db, filename)
-    export_readable(db, filename)
-    export_all_variants_readable(db, filename)
+    # export_readable(db, filename)
+    # export_all_variants_readable(db, filename)
 
 
 def export_database(path):
     # Connect to the SQLite database
-    dbq = DBQueue(path, False)
+    dbq = DBQueue(path)
     dbq.connect()
     with dbq as db:
         # Export the database, including schema and data, to JSON and YAML
