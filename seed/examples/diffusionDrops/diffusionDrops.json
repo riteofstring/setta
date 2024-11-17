@@ -108,7 +108,8 @@
         }
       },
       "children": [],
-      "codeInfoColId": "228df757-f5f3-4647-b7c5-22ea4a6ac32f"
+      "codeInfoColId": "228df757-f5f3-4647-b7c5-22ea4a6ac32f",
+      "isFrozen": false
     },
     "09179586-8ddd-4f0b-91a0-0398d928d408": {
       "name": "soup_coin",
@@ -122,7 +123,8 @@
         "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
         "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
       ],
-      "codeInfoColId": "d7e9790b-8704-450a-be5a-113f47b45d9a"
+      "codeInfoColId": "d7e9790b-8704-450a-be5a-113f47b45d9a",
+      "isFrozen": false
     },
     "10ea5acf-9c24-4351-bc81-252625623507": {
       "name": "roasted_maroon",
@@ -131,7 +133,8 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "a489d8f5-92bc-4f1a-8fdc-0ba18418ec4a"
+      "codeInfoColId": "a489d8f5-92bc-4f1a-8fdc-0ba18418ec4a",
+      "isFrozen": false
     },
     "380a6d0c-a96e-48f1-b431-074c7e98eed9": {
       "name": "classical_olive",
@@ -140,7 +143,8 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "e528d509-9473-410a-96d2-0ce6bbe22293"
+      "codeInfoColId": "e528d509-9473-410a-96d2-0ce6bbe22293",
+      "isFrozen": false
     },
     "4253da34-9a1a-43eb-b80f-c6708e339024": {
       "name": "substantial_brown",
@@ -182,7 +186,8 @@
         }
       },
       "children": [],
-      "codeInfoColId": "4fb30d97-f30f-4cdf-a700-8c2fcaec11d0"
+      "codeInfoColId": "4fb30d97-f30f-4cdf-a700-8c2fcaec11d0",
+      "isFrozen": false
     },
     "4c9bee35-38ab-471e-873d-62e1233eeaaf": {
       "name": "uncomfortable_tan",
@@ -191,7 +196,8 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "11acb57f-6bfb-430e-893c-5aecdec7d128"
+      "codeInfoColId": "11acb57f-6bfb-430e-893c-5aecdec7d128",
+      "isFrozen": false
     },
     "56758b16-1bb1-4167-852c-321b23cfce38": {
       "name": "ultimate_tomato",
@@ -200,7 +206,8 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "a6bc57c7-5d07-4f19-af50-6f05e0ce06d4"
+      "codeInfoColId": "a6bc57c7-5d07-4f19-af50-6f05e0ce06d4",
+      "isFrozen": false
     },
     "645069e7-0657-4c2e-9128-88c701bbd069": {
       "name": "sparkling_brown",
@@ -209,7 +216,8 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "8bf126a2-b983-438b-8c40-2419ca65cdf9"
+      "codeInfoColId": "8bf126a2-b983-438b-8c40-2419ca65cdf9",
+      "isFrozen": false
     },
     "756e7bb0-ac13-4790-a05c-f10425d508e9": {
       "name": "secure_jade",
@@ -236,7 +244,8 @@
         }
       },
       "children": [],
-      "codeInfoColId": "be2a4db9-79a4-4ab8-a81e-ec972a19864f"
+      "codeInfoColId": "be2a4db9-79a4-4ab8-a81e-ec972a19864f",
+      "isFrozen": false
     },
     "7d6b798f-f0eb-44b7-b9a9-1bb9bb01185b": {
       "name": "alien_star",
@@ -278,7 +287,8 @@
         }
       },
       "children": [],
-      "codeInfoColId": "4fb30d97-f30f-4cdf-a700-8c2fcaec11d0"
+      "codeInfoColId": "4fb30d97-f30f-4cdf-a700-8c2fcaec11d0",
+      "isFrozen": false
     },
     "8481e81d-f417-4914-b5d8-2797202392ab": {
       "name": "fast_gray",
@@ -290,7 +300,8 @@
         "04a2d718-6476-446f-bda7-4b7fc22f8972",
         "93b410c0-33e9-4d66-95be-37d223d99c0a"
       ],
-      "codeInfoColId": "feb1cec3-2d0a-414b-bff5-a79bb5e2f4e5"
+      "codeInfoColId": "feb1cec3-2d0a-414b-bff5-a79bb5e2f4e5",
+      "isFrozen": false
     },
     "9083beca-25c9-4a31-885a-fb19064efd3d": {
       "name": "yeasty_magenta",
@@ -309,7 +320,8 @@
         }
       },
       "children": [],
-      "codeInfoColId": "af6c0eb0-80d3-4679-88a5-9997d7081568"
+      "codeInfoColId": "af6c0eb0-80d3-4679-88a5-9997d7081568",
+      "isFrozen": false
     },
     "9b39ad4c-8887-43ea-b759-a1fc067ac3ef": {
       "name": "central_amethyst",
@@ -321,7 +333,8 @@
         "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
         "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3"
       ],
-      "codeInfoColId": "1e63c49a-3ae0-46a7-a0db-153eac624e6e"
+      "codeInfoColId": "1e63c49a-3ae0-46a7-a0db-153eac624e6e",
+      "isFrozen": false
     },
     "a853185e-5b0d-400a-a94c-6c14a9c9809e": {
       "name": "vivid_moccasin",
@@ -363,7 +376,8 @@
         }
       },
       "children": [],
-      "codeInfoColId": "680ae9ba-1392-4b5e-8b2a-dce8092e0b8f"
+      "codeInfoColId": "680ae9ba-1392-4b5e-8b2a-dce8092e0b8f",
+      "isFrozen": false
     },
     "c1873fea-a24d-4367-97b1-88614045a575": {
       "name": "wet_teal",
@@ -417,7 +431,8 @@
         }
       },
       "children": [],
-      "codeInfoColId": "228df757-f5f3-4647-b7c5-22ea4a6ac32f"
+      "codeInfoColId": "228df757-f5f3-4647-b7c5-22ea4a6ac32f",
+      "isFrozen": false
     },
     "c58d323d-382a-47b2-919f-a7f06bcac760": {
       "name": "secure_tan",
@@ -431,7 +446,8 @@
         }
       },
       "children": [],
-      "codeInfoColId": "1c736041-afc2-4d75-b079-85dc1e4c316d"
+      "codeInfoColId": "1c736041-afc2-4d75-b079-85dc1e4c316d",
+      "isFrozen": false
     },
     "dbb76902-0b6c-46fa-a765-46bdfcf92d92": {
       "name": "horizontal_green",
@@ -490,7 +506,8 @@
         }
       },
       "children": [],
-      "codeInfoColId": "1667b405-654b-4b07-bb0d-2b3f296ff352"
+      "codeInfoColId": "1667b405-654b-4b07-bb0d-2b3f296ff352",
+      "isFrozen": false
     },
     "e3280349-7dda-43f6-9cea-0b98971435a5": {
       "name": "geographical_chocolate",
@@ -499,7 +516,8 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "4aa15414-f4c3-460f-b3a7-722d81710271"
+      "codeInfoColId": "4aa15414-f4c3-460f-b3a7-722d81710271",
+      "isFrozen": false
     },
     "fb08c4e1-9809-46ef-bfa5-52a4a944ef74": {
       "name": "marginal_coral",
@@ -511,7 +529,8 @@
         "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
         "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
       ],
-      "codeInfoColId": "d7e9790b-8704-450a-be5a-113f47b45d9a"
+      "codeInfoColId": "d7e9790b-8704-450a-be5a-113f47b45d9a",
+      "isFrozen": false
     }
   },
   "uiTypes": {

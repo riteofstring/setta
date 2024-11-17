@@ -89,6 +89,7 @@ CREATE_TABLES_COMMANDS = [
         keywordPositions TEXT,
         codeInfoColId TEXT,
         originSectionId TEXT,
+        isFrozen BOOLEAN,
         FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
         FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (codeInfoColId) REFERENCES CodeInfoColId(id) ON DELETE CASCADE
