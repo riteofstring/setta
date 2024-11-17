@@ -71,8 +71,11 @@ export function useSectionIdToChildren() {
 
 export function useListElementIdx(sectionId) {
   const parentId = useGetSectionInfo(sectionId, "parentId");
-  const { variantId } = useSectionVariantMetadataIds(parentId);
-  return useSectionVariants((x) => x.x[variantId].children.indexOf(sectionId));
+  const { variantId, previewVariantId } =
+    useSectionVariantMetadataIds(parentId);
+  return useSectionVariants((x) =>
+    x.x[previewVariantId ?? variantId].children.indexOf(sectionId),
+  );
 }
 
 function useSectionVariantAttr(sectionId, attr, equalityFn) {

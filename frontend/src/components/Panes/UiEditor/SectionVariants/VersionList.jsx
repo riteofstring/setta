@@ -26,6 +26,7 @@ export function VersionList({ sectionId }) {
       attr: "previewParamSweepId",
       value: null,
     });
+    manualDndChildrenReset();
   }
 
   return (
