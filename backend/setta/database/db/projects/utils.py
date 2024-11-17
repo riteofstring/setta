@@ -48,10 +48,10 @@ def save_json_source_data(p):
 
     for variant in p["sectionVariants"].values():
         codeInfoCol = p["codeInfoCols"][variant["codeInfoColId"]]
+        filename = variant["name"]
         for k, children in codeInfoCol["children"].items():
             if is_from_json_source(k):
                 metadata = json.loads(k.removeprefix(C.JSON_SOURCE_PREFIX))
-                filename = metadata["filename"]
                 key_path = metadata["key"]
                 value = (
                     try_json(variant["values"][k]["value"])

@@ -263,7 +263,8 @@ def load_json_sources_into_data_structures(
                 "children": data["codeInfoColChildren"],
             }
             s["variantIds"].append(variantId)
-        s["variantId"] = s["variantIds"][0]
+        if s["variantId"] not in s["variantIds"]:
+            s["variantId"] = s["variantIds"][0]
 
     return jsonSourceMissing
 
