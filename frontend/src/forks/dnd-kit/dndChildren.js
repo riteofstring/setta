@@ -66,5 +66,13 @@ export const useDndChildren = createProjectState(
           state.y[c] = sectionId;
         }
       }),
+    updateKeys: (newKeys) =>
+      set((state) => {
+        for (const k of newKeys) {
+          if (!(k in state.x)) {
+            state.x[k] = [];
+          }
+        }
+      }),
   })),
 );
