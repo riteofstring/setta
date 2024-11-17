@@ -6,11 +6,9 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 import { flattenedItems } from "./utils";
 
 function resetToPreviousVal(state) {
-  const sname = state.selectedItem?.name;
-  const newInputValue = sname ? sname : state.inputValue;
   return {
     selectedItem: state.selectedItem,
-    inputValue: newInputValue,
+    inputValue: state.selectedItem === null ? "" : state.selectedItem.name,
   };
 }
 
@@ -43,6 +41,14 @@ function getValueFromHighlightedIndex(latestItems, highlightedIndex) {
   return {};
 }
 
+function getExactMatch(latestItems, value, key) {
+  return _.find(flattenedItems(latestItems), { [key]: value }) ?? null;
+}
+
+function getFirstMatch(latestItems) {
+  return flattenedItems(latestItems)[0];
+}
+
 function getReducerModifications({ type, state, changes, items }) {
   const changeTypes = useCombobox.stateChangeTypes;
 
@@ -51,15 +57,22 @@ function getReducerModifications({ type, state, changes, items }) {
     case changeTypes.ToggleButtonClick:
       return getHighlightedIndex(items, changes.selectedItem);
     case changeTypes.InputKeyDownEscape:
-      return resetToPreviousVal(state);
     case changeTypes.InputBlur:
-      if (state.highlightedIndex === -1) {
-        return resetToPreviousVal(state);
-      }
-      return {};
+      return resetToPreviousVal(state);
     case changeTypes.InputKeyDownArrowUp:
     case changeTypes.InputKeyDownArrowDown:
       return getValueFromHighlightedIndex(items, changes.highlightedIndex);
+    case changeTypes.InputKeyDownEnter:
+      if (state.inputValue) {
+        const objContainingValue = getFirstMatch(items);
+        if (objContainingValue) {
+          return {
+            selectedItem: objContainingValue,
+            inputValue: objContainingValue.name,
+          };
+        }
+      }
+      return resetToPreviousVal(state);
     default:
       return {};
   }
@@ -71,12 +84,8 @@ export function useComboboxStateReducerWithFilteredItems(allItems, value) {
 
   useDeepCompareEffect(() => {
     setFilteredItems(allItems);
-
-    const objContainingValue =
-      _.find(flattenedItems(allItems), { id: value }) ?? null;
-
+    const objContainingValue = getExactMatch(allItems, value, "id");
     if (!_.isEqual(selection, objContainingValue)) {
-      console.log("setting selection", objContainingValue)
       setSelection(objContainingValue);
     }
   }, [allItems, value]);
