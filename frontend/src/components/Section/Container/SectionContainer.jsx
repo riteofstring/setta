@@ -1,3 +1,4 @@
+import _ from "lodash";
 import React from "react";
 import { useTempHasNested } from "state/hooks/sections";
 import { useIsDeck } from "state/hooks/uiTypes";
@@ -25,4 +26,6 @@ function _SectionContainer({ sectionId, dragListeners }) {
     </ContainerSwitch>
   );
 }
-export const SectionContainer = React.memo(_SectionContainer, () => true);
+export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
+  _.isEqual(p.dragListeners, n.dragListeners),
+);

@@ -4,6 +4,7 @@ import { isTempSection, useDndState } from "forks/dnd-kit/dndState";
 import { TempDNDSection } from "forks/dnd-kit/DummySection";
 import { useDndProps, useOverIsSelf } from "forks/dnd-kit/useDndUtils";
 import { useReactFlow } from "forks/xyflow/core/store";
+import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { SectionContainer } from "./SectionContainer";
 
@@ -127,7 +128,8 @@ const SortableCore = React.memo(
   (p, n) =>
     p.sectionId === n.sectionId &&
     p.transform === n.transform &&
-    p.transition === n.transition,
+    p.transition === n.transition &&
+    _.isEqual(p.listeners, n.listeners),
 );
 
 function transformWithZoom(transform) {

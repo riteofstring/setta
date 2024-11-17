@@ -1,7 +1,9 @@
 import { useDndMonitor } from "forks/dnd-kit/CustomCore";
 import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
+import { useEffect } from "react";
 import { getSectionParentId } from "state/getters/sectionInfo";
+import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import colors from "tailwindcss/colors";
 import { useHasPermanentNested } from "../../state/hooks/sections";
 
@@ -32,6 +34,14 @@ export function useDisableSortable(sectionId) {
   const { isSorting, isMovingFree } = useDndMode();
   const disabled = useDndState((x) => x.disabled[sectionId]);
   const setDisabled = useDndState((x) => x.setDisabled);
+  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
+
+  useEffect(() => {
+    setDisabled(sectionId, {
+      draggable: variantIsDisabled,
+      droppable: true,
+    });
+  }, [variantIsDisabled]);
 
   function activeIdInAncestorSet(activeId) {
     let parentId = getSectionParentId(sectionId);
@@ -44,7 +54,11 @@ export function useDisableSortable(sectionId) {
     return false;
   }
 
-  function disableSort({ active }) {
+  function enableSort({ active }) {
+    if (variantIsDisabled) {
+      return;
+    }
+
     // Freely moving a section outside of the current section and its children
     if (
       isMovingFree &&
@@ -63,16 +77,16 @@ export function useDisableSortable(sectionId) {
   }
 
   function onDragDone() {
-    setDisabled(sectionId, { draggable: false, droppable: true });
+    setDisabled(sectionId, { draggable: variantIsDisabled, droppable: true });
   }
 
   useDndMonitor({
-    onDragStart: disableSort,
+    onDragStart: enableSort,
     onDragEnd: onDragDone,
     onDragCancel: onDragDone,
   });
 
-  return disabled ?? { draggable: false, droppable: true };
+  return disabled ?? { draggable: variantIsDisabled, droppable: true };
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
