@@ -14,11 +14,8 @@ def get_configs_and_root_folder(db, filename):
 
     configs = load_full_project(db)
     base_ui_types = load_base_ui_types()
-    # merge sectionConfigs into sections
     for c in configs:
-        for k in c["sections"].keys():
-            c["sections"][k].update(c["sectionConfigs"][k])
-            c["uiTypes"].update(base_ui_types)
+        c["uiTypes"].update(base_ui_types)
 
     root_folder = Path(f"{filename}_export")
     return configs, root_folder

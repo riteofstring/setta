@@ -54,9 +54,13 @@ def get_selected_item_id(p, id):
 
 
 def get_code_info_children(p, section_id, id):
-    codeInfoColId = get_selected_section_variant(p, section_id)["codeInfoColId"]
-    codeInfoChildren = p["codeInfoCols"][codeInfoColId]["children"]
+    codeInfoChildren = get_section_code_info_children(p, section_id)
     return codeInfoChildren[id]
+
+
+def get_section_code_info_children(p, section_id):
+    codeInfoColId = get_selected_section_variant(p, section_id)["codeInfoColId"]
+    return p["codeInfoCols"][codeInfoColId]["children"]
 
 
 def get_param_ids(p, id):
@@ -125,6 +129,12 @@ def export_section_to_dict(
     requiredParamIds=None,
 ):
     codeInfoChildren = replace_null_keys_with_none(codeInfoChildren)
+    print("codeInfo", codeInfo)
+    print("codeInfoChildren", codeInfoChildren)
+    print("sectionVariant", sectionVariant)
+    print("topLevelParamIds", topLevelParamIds)
+    print("configLanguage", configLanguage)
+
     e = SectionToDict(
         codeInfo,
         codeInfoChildren,

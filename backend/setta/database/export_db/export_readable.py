@@ -8,9 +8,11 @@ from setta.code_gen.export_selected import (
     get_param_ids,
     get_section_children,
     get_section_code,
+    get_section_code_info_children,
     get_section_name,
     get_section_type,
     get_selected_item_name,
+    get_selected_section_variant,
 )
 from setta.utils.constants import C
 
@@ -37,7 +39,7 @@ def export_section(folder, config, section_id):
         export_code(
             folder, section_name, code, config["sections"][section_id]["codeLanguage"]
         )
-    elif stype in [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
+    elif stype in [C.SECTION, C.GLOBAL_VARIABLES, C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
         output = get_section_as_dict(config, section_id)
         os.makedirs(folder, exist_ok=True)
         with open(folder / f"{section_name}.yaml", "w") as file:
@@ -66,7 +68,9 @@ def get_section_as_dict(config, section_id):
     else:
         selected_item_name = get_selected_item_name(config, section_id)
         param_ids = get_param_ids(config, section_id)
-        param_dict = export_section_to_dict(config, section_id, param_ids).prettyOutput
+        codeInfoChildren = get_section_code_info_children(config, section_id)
+        sectionVariant = get_selected_section_variant(config, section_id)
+        param_dict = export_section_to_dict(config["codeInfo"], codeInfoChildren, sectionVariant, param_ids,config["sections"][section_id]["configLanguage"]).prettyOutput
         param_dict = {k: v for k, v in param_dict.items() if v}
         if selected_item_name:
             param_dict["_target_"] = selected_item_name

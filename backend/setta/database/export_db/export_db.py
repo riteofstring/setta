@@ -26,7 +26,7 @@ def export_database(path):
     dbq.connect()
     with dbq as db:
         # Export the database, including schema and data, to JSON and YAML
-        _export_database(db, path)
+        _export_database(db, path, False, True, False)
     dbq.disconnect()
 
 
