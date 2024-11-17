@@ -10,7 +10,7 @@ from setta.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
 )
-from setta.database.db.sections.load import load_json_source
+from setta.database.db.sections.load import load_json_sources_into_data_structures
 from setta.utils.constants import C
 from setta.utils.generate_new_filename import generate_new_filename
 
@@ -31,7 +31,8 @@ class SectionToDictRequest(BaseModel):
 
 
 class LoadSectionJSONSourceRequest(BaseModel):
-    jsonSource: str
+    project: dict
+    sectionId: str
 
 
 class NewJSONVersionNameRequest(BaseModel):
@@ -81,17 +82,15 @@ def route_section_to_yaml(x: SectionToDictRequest):
 
 @router.post(C.ROUTE_LOAD_SECTION_JSON_SOURCE)
 def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
-    new_code_infos, new_variant_values, jsonSourceMissing = load_json_source(
-        x.jsonSource
+    p = x.project
+    jsonSourceMissing = load_json_sources_into_data_structures(
+        p["sections"],
+        p["codeInfo"],
+        p["codeInfoCols"],
+        p["sectionVariants"],
+        section_ids=[x.sectionId],
     )
-
-    pprint(new_code_infos)
-
-    return {
-        "newCodeInfos": new_code_infos,
-        "newVariantValues": new_variant_values,
-        "jsonSourceMissing": jsonSourceMissing,
-    }
+    return {"project": p, "jsonSourceMissing": x.sectionId in jsonSourceMissing}
 
 
 @router.post(C.ROUTER_NEW_JSON_VERSION_NAME)

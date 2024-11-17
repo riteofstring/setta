@@ -48,3 +48,9 @@ export function duplicateCodeInfoCol(id) {
   });
   return newId;
 }
+
+export function addCodeInfoColsBatch(x) {
+  useCodeInfoCols.setState((state) => {
+    state.x = { ...state.x, ...x };
+  });
+}

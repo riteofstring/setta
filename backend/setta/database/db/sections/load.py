@@ -233,11 +233,15 @@ def load_artifact_metadata(db, section_id, artifact_paths):
 
 
 def load_json_sources_into_data_structures(
-    sections, codeInfo, codeInfoCols, sectionVariants
+    sections, codeInfo, codeInfoCols, sectionVariants, section_ids=None
 ):
     jsonSourceMissing = {}
     filenames_loaded = set()
-    sections = {k: v for k, v in sections.items() if v["jsonSource"]}
+    sections = {
+        k: v
+        for k, v in sections.items()
+        if v["jsonSource"] and ((not section_ids) or k in section_ids)
+    }
     for s in sections.values():
         new_data = load_json_source(s["jsonSource"])
         for filename, data in new_data.items():
@@ -285,7 +289,7 @@ def load_json_sources_into_data_structures(
             variant = new_section_variant()
             s["variantIds"].append(variant["id"])
             sectionVariants[variant["id"]] = variant
-            codeInfoCols[codeInfoColId] = {
+            codeInfoCols[variant["codeInfoColId"]] = {
                 "id": variant["codeInfoColId"],
                 "children": {None: []},
             }
