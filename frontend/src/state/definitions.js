@@ -21,6 +21,16 @@ export const useCodeInfo = createProjectState(
   ),
 );
 
+export const useCodeInfoCols = createProjectState(
+  temporal(
+    immer(() =>
+      withVersion({
+        x: {},
+      }),
+    ),
+  ),
+);
+
 export const useContextMenus = createProjectState(() => ({
   pane: { isOpen: false, x: 0, y: 0 },
   deck: { isOpen: false, x: 0, y: 0, sectionId: null },

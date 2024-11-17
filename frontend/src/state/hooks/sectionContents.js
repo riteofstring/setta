@@ -5,6 +5,7 @@ import {
 } from "state/actions/sections/sectionContents";
 import { useCodeInfo } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
+import { useSectionCodeInfoChildren } from "./codeInfoCols";
 import { useGetSectionInfo } from "./sections";
 import { useSectionSelectedItem } from "./sectionVariants";
 
@@ -18,10 +19,10 @@ import { useSectionSelectedItem } from "./sectionVariants";
 
 export function useGetParamInfosThatHaveNames(sectionId) {
   const selectedItem = useSectionSelectedItem(sectionId);
-  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
+  const codeInfoChildren = useSectionCodeInfoChildren(sectionId);
 
   return useCodeInfo((x) => {
-    const { ids } = getParamIds(sectionId, x.x, selectedItem, codeInfoId);
+    const { ids } = getParamIds(sectionId, x.x, codeInfoChildren, selectedItem);
     const haveName = [];
     for (const id of ids) {
       if (x.x[id].name) {
@@ -51,15 +52,15 @@ export function useHasParams(sectionId) {
 
 export function useParamIdsToShowInArea(sectionId, isPinned) {
   const selectedItem = useSectionSelectedItem(sectionId);
-  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
+  const codeInfoChildren = useSectionCodeInfoChildren(sectionId);
 
   return useCodeInfo((x) => {
     return getParamIdsToShowInArea(
       sectionId,
       isPinned,
       x.x,
+      codeInfoChildren,
       selectedItem,
-      codeInfoId,
     );
   }, _.isEqual);
 }

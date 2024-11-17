@@ -93,6 +93,10 @@ export function useSectionCode(sectionId) {
   return useSectionVariantAttr(sectionId, "code");
 }
 
+export function useSectionCodeInfoColId(sectionId) {
+  return useSectionVariantAttr(sectionId, "codeInfoColId");
+}
+
 export function useSectionKeywordPositions(sectionId) {
   return useSectionVariantAttr(sectionId, "keywordPositions", _.isEqual);
 }

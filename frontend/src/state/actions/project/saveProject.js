@@ -8,6 +8,7 @@ import { dbSaveSettings } from "requests/settings";
 import {
   useArtifacts,
   useCodeInfo,
+  useCodeInfoCols,
   useKeywordRegex,
   useNodeInternals,
   useOriginalYamlObj,
@@ -16,6 +17,7 @@ import {
   useRunGroups,
   useSectionInfos,
   useSectionVariants,
+  useSettings,
   useUITypeCols,
   useUITypes,
   useYamlValue,
@@ -24,7 +26,6 @@ import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { yamlToGUI } from "../guiToYaml";
 import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
-import { loadSettings } from "../settings";
 import { getProjectConfigMetadata } from "./projectConfig";
 
 export function getProjectData({
@@ -76,6 +77,7 @@ export function getProjectData({
   const runGroups = useRunGroups.getState().x;
 
   const codeInfo = useCodeInfo.getState().x;
+  const codeInfoCols = useCodeInfoCols.getState().x;
   const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
 
   const projectConfig = getProjectConfigMetadata();
@@ -98,7 +100,9 @@ export function getProjectData({
     runGroups,
     sections,
     codeInfo,
+    codeInfoCols,
     fullNameToInfo,
+    jsonSourceMissing: {},
   };
 
   // console.log(output);
@@ -111,7 +115,9 @@ export async function saveProject() {
   setNotificationMessage("Saving...");
   if (useProjectConfig.getState().name === SETTINGS_PROJECT_NAME) {
     res = await dbSaveSettings(getProjectData({ convertYamlToGUI: true }));
-    await loadSettings();
+    if (res.status == 200) {
+      useSettings.setState(res.data);
+    }
   } else {
     res = await dbSaveProject({
       project: getProjectData({

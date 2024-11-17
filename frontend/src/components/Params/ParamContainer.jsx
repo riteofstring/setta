@@ -13,6 +13,7 @@ import {
   useProjectSearch,
   useTypeErrors,
 } from "state/definitions";
+import { useCodeInfoChildren } from "state/hooks/codeInfoCols";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { ParamInput } from "./ParamItems/ParamInput";
 
@@ -50,17 +51,12 @@ function _ParamContainer({
     isSelected: paramIsSelected,
     description: paramDescription,
     name: paramName,
-    children: paramChildren,
   } = useCodeInfo(
-    (x) =>
-      _.pick(x.x[paramInfoId], [
-        "isSelected",
-        "description",
-        "name",
-        "children",
-      ]),
+    (x) => _.pick(x.x[paramInfoId], ["isSelected", "description", "name"]),
     _.isEqual,
   );
+
+  const paramChildren = useCodeInfoChildren(sectionId, paramInfoId);
 
   // hover:bg-setta-200/20 dark:hover:bg-setta-700/25
   // maybe use this for in bg hover state: div:hover:not(:has(div:hover))
@@ -70,7 +66,7 @@ function _ParamContainer({
   function onClickSelect(e) {
     if (!ancestorIsSelected && useParamShortcuts.getState().isSelectingParams) {
       e.stopPropagation();
-      toggleParamSelected(paramInfoId);
+      toggleParamSelected(sectionId, paramInfoId);
     }
   }
 

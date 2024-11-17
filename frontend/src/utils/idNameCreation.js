@@ -16,7 +16,10 @@ export function maybeNewId(x) {
 
 export function createNewParamId(paramPath, jsonSource) {
   if (jsonSource) {
-    const metadata = JSON.stringify({ filename: jsonSource, key: paramPath });
+    const metadata = JSON.stringify({
+      filenameGlob: jsonSource,
+      key: paramPath,
+    });
     return `${C.JSON_SOURCE_PREFIX}${metadata}`;
   }
   return createNewId();

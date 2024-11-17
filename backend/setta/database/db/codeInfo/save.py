@@ -1,4 +1,5 @@
 from setta.database.utils import dump_keyword_positions_as_string
+from setta.utils.utils import replace_null_keys_with_none
 
 
 def save_code_info(db, codeInfo):
@@ -32,24 +33,46 @@ def save_code_info(db, codeInfo):
 
     db.executemany(query, query_params)
 
-    # delete children
-    placeholders = ", ".join(["?"] * len(codeInfo))
+
+def save_code_info_col(db, codeInfoCols):
+    codeInfoCols = replace_null_keys_with_none(codeInfoCols)
+
+    query = """
+        INSERT INTO CodeInfoColId (id)
+        VALUES (:id)
+        ON CONFLICT (id)
+        DO NOTHING
+    """
+
+    query_params = [{"id": k} for k in codeInfoCols.keys()]
+    db.executemany(query, query_params)
+
+    placeholders = ", ".join(["?"] * len(codeInfoCols))
     query = f"""
         DELETE FROM CodeInfoCol
-        WHERE parentId IN ({placeholders});
+        WHERE idid IN ({placeholders})
     """
-    query_params = list(codeInfo.keys())
+    query_params = list(codeInfoCols.keys())
     db.execute(query, query_params)
 
     # add children
     query = """
-        INSERT INTO CodeInfoCol (parentId, childId, "order")
-        VALUES (:parentId, :childId, :order)
+        INSERT INTO CodeInfoCol (idid, parentId, childId, "order")
+        VALUES (:idid, :parentId, :childId, :order)
     """
     query_params = []
-    for c in codeInfo.values():
-        order = 0
-        for x in c["children"]:
-            query_params.append({"parentId": c["id"], "childId": x, "order": order})
-            order += 1
+    for c in codeInfoCols.values():
+        idid = c["id"]
+        for parentId, children in c["children"].items():
+            order = 0
+            for childId in children:
+                query_params.append(
+                    {
+                        "idid": idid,
+                        "parentId": parentId,
+                        "childId": childId,
+                        "order": order,
+                    }
+                )
+                order += 1
     db.executemany(query, query_params)

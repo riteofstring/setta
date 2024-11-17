@@ -65,7 +65,8 @@
           "keywordPositions": []
         }
       },
-      "children": []
+      "children": [],
+      "codeInfoColId": "8cb39cdd-f8e2-4706-9e47-fc1733fce6f0"
     },
     "56218716-8dc7-4a8b-a253-1eb2bb9cfc56": {
       "name": "ratty_red",
@@ -73,7 +74,8 @@
       "code": "$SETTA_GENERATED_PYTHON\n\nfrom setta.cli.logger import Setta, SettaNumpyImg\nimport numpy as np\n\n\ns = Setta()\n\nimg = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)\ns.log({\"test_folder/another_folder/img\": SettaNumpyImg(img)}, save=True)\n\n# c = 3\n# losses = [((i - 10) / 5) ** float(c) for i in range(n)]\n# s.log({\"test_folder/losses\": losses}, save=True)\n\nprint(\"ran code!\")",
       "keywordPositions": [],
       "values": {},
-      "children": []
+      "children": [],
+      "codeInfoColId": "81494cf8-fbfa-492a-8db3-f5919a5422eb"
     },
     "61ce0033-a59e-4c8e-8a52-d658feb18017": {
       "name": "hidden_bronze",
@@ -81,7 +83,8 @@
       "code": "",
       "keywordPositions": [],
       "values": {},
-      "children": []
+      "children": [],
+      "codeInfoColId": "0074df5c-ea05-409e-8f8b-b60c453d3e0c"
     },
     "91b7814e-8f93-4ad1-a966-00851b4e41d9": {
       "name": "victorious_white",
@@ -89,7 +92,8 @@
       "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\ndef fn(message):\n    data = message.content\n    c = float(data[\"c\"])\n    n = int(data[\"n\"])\n    value = [((i - 10) / 5) ** c for i in range(n)]\n    return_content = {\"value\": value, \"type\": \"list\", \"displayName\": \"Fancy Graph\"}\n    return {\"content\": [return_content]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
       "keywordPositions": [],
       "values": {},
-      "children": []
+      "children": [],
+      "codeInfoColId": "2f3d4196-b243-4186-919f-163dc203ca5a"
     },
     "efbf1e64-8932-4fa6-928a-e930314db45c": {
       "name": "tropical_harlequin",
@@ -97,7 +101,8 @@
       "code": "",
       "keywordPositions": [],
       "values": {},
-      "children": []
+      "children": [],
+      "codeInfoColId": "4d31d08d-f976-4e29-85aa-d791837d7226"
     },
     "8055d10b-3623-4665-b85c-977327fa40c6": {
       "name": "involved_red",
@@ -105,7 +110,8 @@
       "children": [],
       "selectedItem": null,
       "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    blur_radius = float(data[\"blur_radius\"])\n    img = data[\"royal_orange\"][0][\"value\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"displayName\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
-      "keywordPositions": []
+      "keywordPositions": [],
+      "codeInfoColId": "75cdb9b3-a7c8-4fd8-8da6-9667a65fea48"
     }
   },
   "uiTypes": {
@@ -300,7 +306,6 @@
       "description": "",
       "codeLanguage": "python",
       "isFrozen": 0,
-      "codeInfoId": "15dc4270-4e4e-4799-93eb-c309801d6349",
       "hideUnpinnedParams": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -333,7 +338,6 @@
       "description": "",
       "codeLanguage": "python",
       "isFrozen": 0,
-      "codeInfoId": "0e96e8a3-3d98-4fdc-ad46-56c5c85e5ea1",
       "hideUnpinnedParams": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -366,7 +370,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "codeInfoId": "14d87eca-54fe-4b0b-9c8b-07477168c7e1",
       "hideUnpinnedParams": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -405,7 +408,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
       "hideUnpinnedParams": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -438,7 +440,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "codeInfoId": "75191a70-d625-4122-868e-1081e37fbe4c",
       "hideUnpinnedParams": 0,
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -497,7 +498,6 @@
       "hideUnpinnedParams": false,
       "pinnedAreaHeight": "auto",
       "isMinimized": false,
-      "codeInfoId": "c8807916-43ef-421f-a404-96bb75d6a79e",
       "resizeEvent": "end",
       "jsonSource": "",
       "configLanguage": "python",
@@ -516,8 +516,7 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "keywordPositions": [],
-      "children": []
+      "keywordPositions": []
     },
     "14d87eca-54fe-4b0b-9c8b-07477168c7e1": {
       "id": "14d87eca-54fe-4b0b-9c8b-07477168c7e1",
@@ -529,8 +528,7 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "keywordPositions": [],
-      "children": []
+      "keywordPositions": []
     },
     "15dc4270-4e4e-4799-93eb-c309801d6349": {
       "id": "15dc4270-4e4e-4799-93eb-c309801d6349",
@@ -542,8 +540,7 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "keywordPositions": [],
-      "children": []
+      "keywordPositions": []
     },
     "20512036-3e0f-41f3-9738-6573ee71bdaf": {
       "id": "20512036-3e0f-41f3-9738-6573ee71bdaf",
@@ -555,8 +552,7 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "keywordPositions": [],
-      "children": []
+      "keywordPositions": []
     },
     "40f91ca3-090a-40df-be40-7e0ea9c2efec": {
       "id": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
@@ -568,12 +564,7 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "keywordPositions": [],
-      "children": [
-        "20512036-3e0f-41f3-9738-6573ee71bdaf",
-        "f14239d6-f206-4655-8c34-ddd6873391a5",
-        "c24c860d-2519-4a20-8acd-90fc0ffe48a8"
-      ]
+      "keywordPositions": []
     },
     "75191a70-d625-4122-868e-1081e37fbe4c": {
       "id": "75191a70-d625-4122-868e-1081e37fbe4c",
@@ -585,8 +576,7 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "keywordPositions": [],
-      "children": []
+      "keywordPositions": []
     },
     "c24c860d-2519-4a20-8acd-90fc0ffe48a8": {
       "id": "c24c860d-2519-4a20-8acd-90fc0ffe48a8",
@@ -598,8 +588,7 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "keywordPositions": [],
-      "children": []
+      "keywordPositions": []
     },
     "f14239d6-f206-4655-8c34-ddd6873391a5": {
       "id": "f14239d6-f206-4655-8c34-ddd6873391a5",
@@ -611,8 +600,7 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "keywordPositions": [],
-      "children": []
+      "keywordPositions": []
     },
     "c8807916-43ef-421f-a404-96bb75d6a79e": {
       "id": "c8807916-43ef-421f-a404-96bb75d6a79e",
@@ -620,7 +608,6 @@
       "editable": false,
       "rcType": "collection",
       "defaultVal": null,
-      "children": [],
       "description": "",
       "positionalOnly": false,
       "isPinned": false,
@@ -653,6 +640,51 @@
         11
       ],
       "isArgsObj": false
+    }
+  },
+  "codeInfoCols": {
+    "81494cf8-fbfa-492a-8db3-f5919a5422eb": {
+      "id": "81494cf8-fbfa-492a-8db3-f5919a5422eb",
+      "children": {
+        "null": []
+      }
+    },
+    "2f3d4196-b243-4186-919f-163dc203ca5a": {
+      "id": "2f3d4196-b243-4186-919f-163dc203ca5a",
+      "children": {
+        "null": []
+      }
+    },
+    "0074df5c-ea05-409e-8f8b-b60c453d3e0c": {
+      "id": "0074df5c-ea05-409e-8f8b-b60c453d3e0c",
+      "children": {
+        "null": []
+      }
+    },
+    "8cb39cdd-f8e2-4706-9e47-fc1733fce6f0": {
+      "id": "8cb39cdd-f8e2-4706-9e47-fc1733fce6f0",
+      "children": {
+        "null": [
+          "20512036-3e0f-41f3-9738-6573ee71bdaf",
+          "f14239d6-f206-4655-8c34-ddd6873391a5",
+          "c24c860d-2519-4a20-8acd-90fc0ffe48a8"
+        ],
+        "c24c860d-2519-4a20-8acd-90fc0ffe48a8": [],
+        "f14239d6-f206-4655-8c34-ddd6873391a5": [],
+        "20512036-3e0f-41f3-9738-6573ee71bdaf": []
+      }
+    },
+    "4d31d08d-f976-4e29-85aa-d791837d7226": {
+      "id": "4d31d08d-f976-4e29-85aa-d791837d7226",
+      "children": {
+        "null": []
+      }
+    },
+    "75cdb9b3-a7c8-4fd8-8da6-9667a65fea48": {
+      "id": "75cdb9b3-a7c8-4fd8-8da6-9667a65fea48",
+      "children": {
+        "null": []
+      }
     }
   }
 }

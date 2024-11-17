@@ -2,6 +2,7 @@ import C from "constants/constants.json";
 
 function _findAllDescendants(
   allCodeInfo,
+  codeInfoChildren,
   codeInfoIds,
   outputCondition,
   stackCondition,
@@ -33,7 +34,7 @@ function _findAllDescendants(
     }
 
     if (stackCondition(currInfo)) {
-      const children = currInfo.children.slice().reverse();
+      const children = codeInfoChildren[currInfo.id].slice().reverse();
       if (paramPathCondition) {
         const currentPath = pathMap[id];
         children.forEach((childId) => {
@@ -65,11 +66,13 @@ export function findAllCallables(
 
 export function findAllParametersOfCallables(
   allCodeInfo,
+  codeInfoChildren,
   codeInfoIds,
   paramPathCondition = false,
 ) {
   return _findAllDescendants(
     allCodeInfo,
+    codeInfoChildren,
     codeInfoIds,
     (c) => c?.rcType === C.PARAMETER,
     (c) => c?.rcType === C.CALLABLE,
@@ -79,11 +82,13 @@ export function findAllParametersOfCallables(
 
 export function findAllParametersOfNotCallables(
   allCodeInfo,
+  codeInfoChildren,
   codeInfoIds,
   paramPathCondition = false,
 ) {
   return _findAllDescendants(
     allCodeInfo,
+    codeInfoChildren,
     codeInfoIds,
     (c) => c?.rcType === C.PARAMETER,
     (c) => c?.rcType !== C.CALLABLE,
@@ -93,11 +98,13 @@ export function findAllParametersOfNotCallables(
 
 export function findAllParameters(
   allCodeInfo,
+  codeInfoChildren,
   codeInfoIds,
   paramPathCondition = false,
 ) {
   return _findAllDescendants(
     allCodeInfo,
+    codeInfoChildren,
     codeInfoIds,
     (c) => c?.rcType === C.PARAMETER,
     () => true,

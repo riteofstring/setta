@@ -1,8 +1,9 @@
 import json
 
 from setta.database.utils import aggregate_results
+from setta.utils.utils import recursive_dict_merge
 
-from ..codeInfo.load import load_code_info_for_sections
+from ..codeInfo.load import load_code_info_cols
 from ..runGroups.load import load_run_groups
 from ..sections.load import (
     load_json_sources_into_data_structures,
@@ -96,26 +97,26 @@ def load_project_config(db, project_config_name):
     )
     sections_data = load_sections(db, list(projectConfig["children"].keys()))
     sectionConfigs = load_section_configs(db, projectConfig["id"])
-    sections = sections_data["sections"]
+    sections = recursive_dict_merge(sections_data["sections"], sectionConfigs)
     sectionVariants = sections_data["sectionVariants"]
     uiTypeCols = sections_data["uiTypeCols"]
     paramSweeps = sections_data["paramSweeps"]
     uiTypes = sections_data["nonPresetUITypes"]
-    codeInfo = load_code_info_for_sections(db, sections)
+    codeInfo, codeInfoCols = load_code_info_cols(db, sectionVariants)
     jsonSourceMissing = load_json_sources_into_data_structures(
-        sections, codeInfo, sectionVariants
+        sections, codeInfo, codeInfoCols, sectionVariants
     )
 
     return {
         "projectConfig": projectConfig,
         "sections": sections,
-        "sectionConfigs": sectionConfigs,
         "sectionVariants": sectionVariants,
         "uiTypes": uiTypes,
         "uiTypeCols": uiTypeCols,
         "paramSweeps": paramSweeps,
         "runGroups": runGroups,
         "codeInfo": codeInfo,
+        "codeInfoCols": codeInfoCols,
         "jsonSourceMissing": jsonSourceMissing,
     }
 

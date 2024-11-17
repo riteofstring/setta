@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
-import { loadSettings } from "state/actions/settings";
+import { dbLoadSettings } from "requests/settings";
 import { useSettings } from "state/definitions";
 
 export function useShortcutSettings() {
@@ -141,7 +141,10 @@ export function useLoadSettings() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   async function fn() {
-    await loadSettings();
+    const res = await dbLoadSettings();
+    if (res.status === 200) {
+      useSettings.setState(res.data);
+    }
     setSettingsLoaded(true);
   }
 

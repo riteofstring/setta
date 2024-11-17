@@ -69,6 +69,8 @@
   "ROUTE_LOAD_SECTION_JSON_SOURCE": "/loadSectionJSONSource",
   "ROUTE_LOAD_SETTINGS_PROJECT": "/loadSettingsProject",
   "ROUTE_DOCSTRING_TO_MARKDOWN": "/docstringToMarkdown",
+  "ROUTE_NEW_JSON_VERSION_NAME": "/newJsonVersionName",
+  "ROUTE_SAVE_SECTION_JSON_SOURCE": "/saveSectionJsonSource",
   "JSON_SOURCE_PREFIX": "JSON-",
   "NESTED_PARAM": "NESTED_PARAM",
   "ARGS_PREFIX": "__",

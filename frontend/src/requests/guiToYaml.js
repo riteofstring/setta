@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import { getSectionCodeInfoChildren } from "state/actions/codeInfoCols";
 import { getSectionVariantId } from "state/actions/sectionVariants";
 import {
   useCodeInfo,
@@ -18,11 +19,12 @@ export async function dbSectionToDict(sectionId, pinnedIds, unpinnedIds) {
   const codeInfo = useCodeInfo.getState().x;
   const sectionVariant =
     useSectionVariants.getState().x[getSectionVariantId(sectionId).variantId];
+  const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   return await post({
     body: {
       codeInfo,
+      codeInfoChildren,
       sectionVariant,
-      sectionId,
       pinnedIds,
       unpinnedIds,
       configLanguage,
