@@ -58,7 +58,6 @@ function getReducerModifications({
 export function useComboboxStateReducerWithFilteredItems({
   allItems,
   matchSorterProps,
-  inputCallback,
   onArrowUpOrDown,
 }) {
   const [filteredItems, setFilteredItems] = useState(allItems);
@@ -97,12 +96,12 @@ export function useComboboxStateReducerWithFilteredItems({
         .filter((group) => group.items.length > 0);
 
       setFilteredItems(latestItems);
-      inputCallback?.(changes.inputValue);
-    } else if (type === changeTypes.ControlledPropUpdatedSelectedItem) {
-      // Call the callback when the input value is updated by us
-      // (like when loading the project for the first time, the input field is populated with the saved selected item.)
-      inputCallback?.(changes.inputValue);
-    }
+    } 
+    // else if (type === changeTypes.ControlledPropUpdatedSelectedItem) {
+    //   // Call the callback when the input value is updated by us
+    //   // (like when loading the project for the first time, the input field is populated with the saved selected item.)
+    //   inputCallback?.(changes.inputValue);
+    // }
 
     const mods = getReducerModifications({
       type,
@@ -116,22 +115,4 @@ export function useComboboxStateReducerWithFilteredItems({
   }
 
   return { filteredItems, stateReducer };
-}
-
-export function useComboboxStateReducer({ allItems, onArrowUpOrDown }) {
-  function stateReducer(state, actionAndChanges) {
-    const { type, changes } = actionAndChanges;
-
-    const mods = getReducerModifications({
-      type,
-      state,
-      changes,
-      items: allItems,
-      onArrowUpOrDown,
-    });
-
-    return { ...changes, ...mods };
-  }
-
-  return stateReducer;
 }

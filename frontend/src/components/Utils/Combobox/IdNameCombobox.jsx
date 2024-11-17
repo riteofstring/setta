@@ -11,7 +11,6 @@ export function IdNameCombobox({
   small,
   position,
   outerDivClasses = "",
-  inputCallback,
   onInputMouseDown,
   placeholder,
   bg,
@@ -42,7 +41,6 @@ export function IdNameCombobox({
     onSelectedItemChange: localOnSelectedItemChange,
     initialSelection: init,
     itemToString,
-    inputCallback,
     onArrowUpOrDown,
   });
 

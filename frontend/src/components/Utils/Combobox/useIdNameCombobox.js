@@ -10,7 +10,6 @@ export function useIdNameCombobox({
   onSelectedItemChange,
   initialSelection,
   itemToString,
-  inputCallback,
   onArrowUpOrDown,
 }) {
   const [selection, setSelection] = useState(null);
@@ -18,7 +17,6 @@ export function useIdNameCombobox({
     useComboboxStateReducerWithFilteredItems({
       allItems,
       matchSorterProps,
-      inputCallback,
       onArrowUpOrDown,
     });
 
