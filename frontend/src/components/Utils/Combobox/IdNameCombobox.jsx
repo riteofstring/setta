@@ -9,7 +9,6 @@ export function IdNameCombobox({
   initialSelection,
   onSelectedItemChange,
   small,
-  position,
   outerDivClasses = "",
   placeholder,
   bg,
@@ -65,7 +64,6 @@ export function IdNameCombobox({
       <ComboboxList
         isOpen={isReallyOpen}
         getMenuProps={getMenuProps}
-        position={position}
         listDims={listDims}
       >
         <ComboboxItems
