@@ -69,7 +69,7 @@ export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
     <IdNameCombobox
       outerDivClasses={outerDivClasses}
       allItems={allItems}
-      initialSelection={value ? value : null}
+      value={value ? value : null}
       onSelectedItemChange={onChange}
       small={true}
     />

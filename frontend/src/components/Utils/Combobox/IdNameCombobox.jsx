@@ -1,35 +1,22 @@
 import { useState } from "react";
 import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
-import { idNameHelper, useIdNameCombobox } from "./useIdNameCombobox";
+import { useIdNameCombobox } from "./useIdNameCombobox";
 
 // TODO: make allItems be a list of {group: string, items: list}
 // TODO: add "display groups" argument
 export function IdNameCombobox({
   allItems,
-  initialSelection,
+  value,
   onSelectedItemChange,
   small,
-  position,
   outerDivClasses = "",
-  inputCallback,
-  onInputMouseDown,
   placeholder,
   bg,
 }) {
-  const {
-    localOnSelectedItemChange,
-    init,
-    itemToString,
-    matchSorterProps,
-    onArrowUpOrDown,
-  } = idNameHelper({
-    allItems,
-    onSelectedItemChange,
-    initialSelection,
-  });
+  const itemToString = (x) => (x ? x.name : "");
 
   const {
-    isOpen: isReallyOpen,
+    isOpen,
     filteredItems,
     getToggleButtonProps,
     getMenuProps,
@@ -38,12 +25,9 @@ export function IdNameCombobox({
     getItemProps,
   } = useIdNameCombobox({
     allItems,
-    matchSorterProps,
-    onSelectedItemChange: localOnSelectedItemChange,
-    initialSelection: init,
+    onSelectedItemChange,
+    value,
     itemToString,
-    inputCallback,
-    onArrowUpOrDown,
   });
 
   const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
@@ -63,18 +47,16 @@ export function IdNameCombobox({
       <ComboboxInput
         getInputProps={getInputProps}
         getToggleButtonProps={getToggleButtonProps}
-        isOpen={isReallyOpen}
+        isOpen={isOpen}
         small={small}
-        onInputMouseDown={onInputMouseDown}
         onInputClick={onInputClick}
         placeholder={placeholder}
         bg={bg}
       />
 
       <ComboboxList
-        isOpen={isReallyOpen}
+        isOpen={isOpen}
         getMenuProps={getMenuProps}
-        position={position}
         listDims={listDims}
       >
         <ComboboxItems
