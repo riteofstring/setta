@@ -3,16 +3,19 @@ import { deleteNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { getSectionParentId } from "../../getters/sectionInfo";
-import { getSectionChildren } from "../sectionVariants";
+import {
+  getSectionChildren,
+  getSectionChildrenFromAllVariants,
+} from "../sectionVariants";
 import { removeActiveSectionIds } from "./activeSections";
 import { removeSectionInfos } from "./sectionInfos";
 
 export function deleteSections({ sectionIds, incrementVersion = false }) {
-  const idsToDelete = [];
+  let idsToDelete = [];
   for (const sid of sectionIds) {
     idsToDelete.push(...getIdsToDelete(sid));
   }
-
+  idsToDelete = [...new Set(idsToDelete)];
   removeActiveSectionIds(idsToDelete);
   removeSectionInfos(idsToDelete);
   deleteNodes(idsToDelete);
@@ -26,7 +29,7 @@ function getIdsToDelete(sectionId) {
   const idsToDelete = [sectionId];
   let idx = 0;
   while (idx < idsToDelete.length) {
-    const idxChildren = getSectionChildren(idsToDelete[idx]);
+    const idxChildren = getSectionChildrenFromAllVariants(idsToDelete[idx]);
     const { paramSweepSectionId } = sectionInfosState.x[idsToDelete[idx]];
     if (idxChildren) {
       idsToDelete.push(...idxChildren);

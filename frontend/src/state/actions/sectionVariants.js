@@ -128,6 +128,14 @@ export function getSectionChildren(sectionId) {
   return useSectionVariants.getState().x[variantId].children;
 }
 
+export function getSectionChildrenFromAllVariants(sectionId) {
+  const output = [];
+  for (const v of useSectionInfos.getState().x[sectionId].variantIds) {
+    output.push(...useSectionVariants.getState().x[v].children);
+  }
+  return output;
+}
+
 export function getSectionCodeInfoColId(sectionId) {
   const { variantId } = getSectionVariantId(sectionId);
   return useSectionVariants.getState().x[variantId].codeInfoColId;
