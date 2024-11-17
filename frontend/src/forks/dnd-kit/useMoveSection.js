@@ -92,6 +92,7 @@ export function useOnDragEnd() {
     const additionalResetState = (state) => ({
       isMovingFree: state.getState().isMovingFree,
       isSorting: state.getState().isSorting,
+      disabled: state.getState().disabled,
     });
     useDndState.getState().reset(additionalResetState);
   }

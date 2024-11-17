@@ -17,7 +17,7 @@ const initialState = {
 };
 
 export const useDndState = createProjectState(
-  immer((set) => ({
+  immer((set, get) => ({
     ...initialState,
     setActive: ({ id, isTopLevel, width, height }) =>
       set({ activeId: id, activeIsTopLevel: isTopLevel, width, height }),
@@ -26,7 +26,7 @@ export const useDndState = createProjectState(
       set({ isMovingFree: true, isSorting: false });
     },
     deactivate: () => {
-      set(initialState);
+      set({ ...initialState, disabled: get().disabled });
       manualDndChildrenReset();
     },
     setDisabled: (sectionId, disabled) =>
