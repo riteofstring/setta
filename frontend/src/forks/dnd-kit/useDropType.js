@@ -2,7 +2,10 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
-import { getSectionChildren } from "state/actions/sectionVariants";
+import {
+  getSectionChildren,
+  getSelectedVariantIsFrozen,
+} from "state/actions/sectionVariants";
 import {
   getSectionCanOnlyBeChildOfDeck,
   getSectionIsDeck,
@@ -221,7 +224,9 @@ function getBehaviorDropType(activeId, newParentId) {
   // or if child can only be in deck and parent is not a deck
   if (
     !getSectionIsRoot(newParentId) ||
-    (getSectionCanOnlyBeChildOfDeck(activeId) && !getSectionIsDeck(newParentId))
+    (getSectionCanOnlyBeChildOfDeck(activeId) &&
+      !getSectionIsDeck(newParentId)) ||
+    getSelectedVariantIsFrozen(newParentId)
   ) {
     return BehaviorDropType.INVALID;
   }

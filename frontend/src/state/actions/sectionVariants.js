@@ -223,3 +223,8 @@ export function toggleVariantFrozenState(variantId) {
     x.x[variantId].isFrozen = !x.x[variantId].isFrozen;
   });
 }
+
+export function getSelectedVariantIsFrozen(sectionId) {
+  const variantId = useSectionInfos.getState().x[sectionId].variantId;
+  return useSectionVariants.getState().x[variantId].isFrozen;
+}
