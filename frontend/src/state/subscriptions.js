@@ -1,14 +1,7 @@
 import C from "constants/constants.json";
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { updateKeywordRegex } from "state/actions/keywordRegex";
-import {
-  useMisc,
-  useSectionInfos,
-  useSectionVariants,
-  useUITypes,
-} from "state/definitions";
-import { getSectionIdToChildren } from "./actions/sectionVariants";
+import { useMisc, useSectionInfos, useUITypes } from "state/definitions";
 
 function getSingletonSubscriptionFn(type) {
   return (state) => {
@@ -43,16 +36,6 @@ export function subscribe() {
   useSectionInfos.subscribe(
     (state) => _.mapValues(state.x, (v) => v.name),
     (x) => updateKeywordRegex(x),
-    { equalityFn: _.isEqual },
-  );
-
-  useSectionVariants.subscribe(
-    (state) => {
-      return getSectionIdToChildren(state.x);
-    },
-    (x) => {
-      useDndChildren.getState().update(x);
-    },
     { equalityFn: _.isEqual },
   );
 }

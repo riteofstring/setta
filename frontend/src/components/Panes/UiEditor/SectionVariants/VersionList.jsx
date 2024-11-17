@@ -1,10 +1,12 @@
 import C from "constants/constants.json";
+import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { FaRegSnowflake } from "react-icons/fa";
 import {
   manualDndChildrenReset,
   setSectionInfoAttr,
 } from "state/actions/sections/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { getSectionVariantId } from "state/actions/sectionVariants";
+import { useSectionInfos, useSectionVariants } from "state/definitions";
 import {
   getForSectionId,
   useCurrParamSweepId,
@@ -51,6 +53,11 @@ function EVItems({ sectionId }) {
 
   function onMouseOver(id) {
     setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: id });
+    const newChildren =
+      useSectionVariants.getState().x[
+        getSectionVariantId(sectionId)["previewVariantId"]
+      ].children;
+    useDndChildren.getState().updateOneParent(sectionId, newChildren);
   }
 
   function onClick(id) {

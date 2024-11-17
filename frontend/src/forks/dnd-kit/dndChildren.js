@@ -53,5 +53,18 @@ export const useDndChildren = createProjectState(
           }
         }
       }),
+    updateOneParent: (sectionId, children) =>
+      set((state) => {
+        const oldChildren = state.x[sectionId];
+        state.x[sectionId] = children;
+        if (oldChildren) {
+          for (const c of oldChildren) {
+            state.y[c] = undefined;
+          }
+        }
+        for (const c of children) {
+          state.y[c] = sectionId;
+        }
+      }),
   })),
 );

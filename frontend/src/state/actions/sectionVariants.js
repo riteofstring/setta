@@ -1,3 +1,4 @@
+import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import {
   useSectionInfos,
@@ -140,9 +141,12 @@ export function getSectionVariantId(sectionId) {
 
 export function setSectionVariantChildren({ sectionId, newStateFn }) {
   const { variantId } = getSectionVariantId(sectionId);
+  let newChildren;
   useSectionVariants.setState((state) => {
-    state.x[variantId].children = newStateFn(state.x[variantId].children);
+    newChildren = newStateFn(state.x[variantId].children);
+    state.x[variantId].children = newChildren;
   });
+  useDndChildren.getState().updateOneParent(sectionId, newChildren);
 }
 
 export function getSectionIdToChildren(sectionVariantState) {
