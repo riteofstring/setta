@@ -6,6 +6,7 @@ import {
   useSectionInfos,
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
+import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { ColorPickerInput, ColorPickerInputConfig } from "./ColorPickerInput";
 import { DropdownInput, DropdownInputConfig } from "./DropdownInput";
@@ -46,7 +47,8 @@ export function ParamUI({
   const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
   const defaultVal = useCodeInfo((x) => x.x[paramInfoId].defaultVal);
   const isDisabled = useCodeInfo((x) => x.x[paramInfoId].isDisabled);
-  const _isDisabled = isDisabled || isSelectingParams;
+  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
+  const _isDisabled = isDisabled || isSelectingParams || variantIsDisabled;
 
   // need to put the group/textinput in a higher div
 

@@ -7,6 +7,7 @@ import {
   useSectionInfos,
 } from "state/definitions";
 import { useCodeInfoHasChildren } from "state/hooks/codeInfoCols";
+import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 
 export function ParamNameInput({ sectionId, paramInfoId }) {
   const configLanguage = useSectionInfos((x) => x.x[sectionId].configLanguage);
@@ -21,7 +22,9 @@ export function ParamNameInput({ sectionId, paramInfoId }) {
     updateKeywordRegex();
   }
 
-  const isDisabled = useParamShortcuts((x) => x.isSelectingParams);
+  const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
+  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
+  const isDisabled = isSelectingParams || variantIsDisabled;
 
   return (
     <>

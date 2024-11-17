@@ -103,3 +103,7 @@ export function useSectionCodeInfoColId(sectionId) {
 export function useSectionKeywordPositions(sectionId) {
   return useSectionVariantAttr(sectionId, "keywordPositions", _.isEqual);
 }
+
+export function useSectionVariantIsFrozen(sectionId) {
+  return useSectionVariantAttr(sectionId, "isFrozen", _.isEqual);
+}
