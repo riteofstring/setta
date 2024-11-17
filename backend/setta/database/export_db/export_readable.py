@@ -13,16 +13,23 @@ from setta.code_gen.export_selected import (
     get_section_type,
     get_selected_item_name,
     get_selected_section_variant,
+    simple_export_selected,
 )
 from setta.utils.constants import C
 
 from .utils import get_configs_and_root_folder
-
+from pprint import pprint
 
 def export_readable(db, filename):
     configs, root_folder = get_configs_and_root_folder(db, filename)
     for c in configs:
-        export_config(root_folder / "clean", c)
+        # export_config(root_folder / "clean", c)
+        e = simple_export_selected(c)
+        pprint(e.output)
+        os.makedirs(root_folder, exist_ok=True)
+        print('writing to')
+        with open(root_folder / f"{c['projectConfig']['name']}.yaml", "w") as file:
+            yaml.dump(e.output, file, allow_unicode=True)
 
 
 def export_config(folder, config):

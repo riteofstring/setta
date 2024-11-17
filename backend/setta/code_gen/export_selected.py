@@ -25,7 +25,7 @@ def get_artifacts(p, id):
 
 
 def get_drawings(p, id):
-    return p["sections"][id]["drawings"]
+    return p["sections"][id].get("drawings", None)
 
 
 def get_section_name(p, id):
