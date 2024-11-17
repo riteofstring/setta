@@ -12,11 +12,13 @@ import {
   setParamEnteredValueBatch,
 } from "state/actions/sectionVariants";
 import { useCodeInfo, useSectionInfos } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { parseAllDocuments } from "yaml";
-import { batchUpdateCodeInfoChildren } from "./codeInfoCols";
+import {
+  batchUpdateCodeInfoChildren,
+  getSectionCodeInfoChildren,
+} from "./codeInfoCols";
 
 export async function guiToYaml(sectionId, setYamlValue, setOriginalObj) {
   const pinnedIds = getParamIdsToShowInArea(sectionId, true);
@@ -116,27 +118,28 @@ export function yamlToGUI(sectionId, yamlValue, originalObj) {
 
   //TODO: what should editing selectedName do? The following assumes it has no effect.
   const selectedItem = getSectionSelectedItem(sectionId);
-  const parentId = selectedItem ?? getSectionInfo(sectionId).codeInfoId;
-  const idsToChildren = {};
-  if (parentId) {
-    idsToChildren[parentId] = [];
-  }
+  const parentId = selectedItem ?? null;
+  const idsToChildren = { [parentId]: [] };
   for (const v of output) {
     idsToChildren[v.id] = [];
   }
 
   // process everything except pinned parameters that already exist
   updateIdsToChildren({
+    sectionId,
     idsToChildren,
-    output: output.filter((v) => !(v.isPinned && !v.isNewParam)),
+    output,
+    toProcess: output.filter((v) => !(v.isPinned && !v.isNewParam)),
     inputParentId: parentId,
     insertAtOriginalIdx: false,
   });
 
   // pinned parameters that already exist should be inserted at their original indices
   updateIdsToChildren({
+    sectionId,
     idsToChildren,
-    output: output.filter((v) => v.isPinned && !v.isNewParam),
+    output,
+    toProcess: output.filter((v) => v.isPinned && !v.isNewParam),
     inputParentId: parentId,
     insertAtOriginalIdx: true,
   });
@@ -288,12 +291,14 @@ function unprocessObject(obj) {
 }
 
 function updateIdsToChildren({
+  sectionId,
   idsToChildren,
   output,
+  toProcess,
   inputParentId,
   insertAtOriginalIdx,
 }) {
-  for (const v of output) {
+  for (const v of toProcess) {
     let parentId = inputParentId;
 
     if (v.keyPath.length > 1) {
@@ -308,14 +313,10 @@ function updateIdsToChildren({
       }
     }
 
-    if (!parentId) {
-      continue;
-    }
-
     if (insertAtOriginalIdx) {
-      const originalIdx = useCodeInfo
-        .getState()
-        .x[parentId].children.indexOf(v.id);
+      const originalIdx = getSectionCodeInfoChildren(sectionId)[
+        parentId
+      ].indexOf(v.id);
       idsToChildren[parentId].splice(originalIdx, 0, v.id);
     } else {
       idsToChildren[parentId].push(v.id);
