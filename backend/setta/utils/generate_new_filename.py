@@ -31,7 +31,7 @@ def generate_new_filename(input_pattern: str) -> str:
     # If there are matching files, use the first match as template without any cleaning
     matching_files = glob.glob(input_pattern)
     if matching_files:
-        template_name = matching_files[0]
+        template_name = sorted(matching_files, key=len)[0]
         directory = os.path.dirname(template_name)
         filename = os.path.basename(template_name)
         base_path, extension = os.path.splitext(filename)
