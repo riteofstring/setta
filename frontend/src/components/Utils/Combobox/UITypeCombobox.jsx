@@ -15,8 +15,9 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
   return (
     <IdNameCombobox
       allItems={groupedAsList}
-      value={selectedId}
+      initialSelection={selectedId}
       onSelectedItemChange={onDropdownSelect}
+      position="absolute"
     />
   );
 }

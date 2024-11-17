@@ -3,12 +3,13 @@ import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { flattenedItems } from "./utils";
 
 function resetToPreviousVal(state) {
+  const sname = state.selectedItem?.name;
+  const newInputValue = sname ? sname : state.inputValue;
   return {
     selectedItem: state.selectedItem,
-    inputValue: state.selectedItem === null ? "" : state.selectedItem.name,
+    inputValue: newInputValue,
   };
 }
 
@@ -26,30 +27,13 @@ function getHighlightedIndex(items, selectedItem) {
   return { highlightedIndex: -1 };
 }
 
-function getValueFromHighlightedIndex(latestItems, highlightedIndex) {
-  if (highlightedIndex >= 0) {
-    let idx = 0;
-    for (const group of latestItems) {
-      for (const item of group.items) {
-        if (idx === highlightedIndex) {
-          return { inputValue: item.name };
-        }
-        idx += 1;
-      }
-    }
-  }
-  return {};
-}
-
-function getExactMatch(latestItems, value, key) {
-  return _.find(flattenedItems(latestItems), { [key]: value }) ?? null;
-}
-
-function getFirstMatch(latestItems) {
-  return flattenedItems(latestItems)[0];
-}
-
-function getReducerModifications({ type, state, changes, items }) {
+function getReducerModifications({
+  type,
+  state,
+  changes,
+  items,
+  onArrowUpOrDown,
+}) {
   const changeTypes = useCombobox.stateChangeTypes;
 
   switch (type) {
@@ -57,50 +41,31 @@ function getReducerModifications({ type, state, changes, items }) {
     case changeTypes.ToggleButtonClick:
       return getHighlightedIndex(items, changes.selectedItem);
     case changeTypes.InputKeyDownEscape:
-    case changeTypes.InputBlur:
       return resetToPreviousVal(state);
+    case changeTypes.InputBlur:
+      if (state.highlightedIndex === -1) {
+        return resetToPreviousVal(state);
+      }
+      return {};
     case changeTypes.InputKeyDownArrowUp:
     case changeTypes.InputKeyDownArrowDown:
-      return getValueFromHighlightedIndex(items, changes.highlightedIndex);
-    case changeTypes.InputKeyDownEnter:
-      if (state.highlightedIndex !== -1) {
-        return {};
-      }
-      // only do the following if no item is highlighted
-      if (state.inputValue) {
-        const objContainingValue = getFirstMatch(items);
-        if (objContainingValue) {
-          return {
-            selectedItem: objContainingValue,
-            inputValue: objContainingValue.name,
-          };
-        }
-      }
-      return resetToPreviousVal(state);
+      return onArrowUpOrDown?.(items, changes.highlightedIndex);
     default:
       return {};
   }
 }
 
-export function useComboboxStateReducerWithFilteredItems(
+export function useComboboxStateReducerWithFilteredItems({
   allItems,
-  value,
-  setValue,
-) {
-  const [selection, setSelection] = useState(null);
+  matchSorterProps,
+  inputCallback,
+  onArrowUpOrDown,
+}) {
   const [filteredItems, setFilteredItems] = useState(allItems);
 
   useDeepCompareEffect(() => {
     setFilteredItems(allItems);
-    const objContainingValue = getExactMatch(allItems, value, "id");
-    if (!_.isEqual(selection, objContainingValue)) {
-      setSelection(objContainingValue);
-    }
-    // the following condition happens if the current selection is removed from the available options
-    if (value && !objContainingValue) {
-      setValue(null);
-    }
-  }, [allItems, value]);
+  }, [allItems]);
 
   function stateReducer(state, actionAndChanges) {
     const { type, changes } = actionAndChanges;
@@ -124,37 +89,49 @@ export function useComboboxStateReducerWithFilteredItems(
     } else if (type === changeTypes.InputChange) {
       // The user is typing, so filter the search results.
       // Or the combobox field is updated by external state, so also filter results in this case.
-      if (changes.inputValue) {
-        latestItems = allItems
-          .map((group) => ({
-            group: group.group,
-            items: matchSorter(group.items, changes.inputValue, {
-              keys: ["name"],
-            }),
-          }))
-          .filter((group) => group.items.length > 0);
-      } else {
-        // if the inputValue is "", then show all items
-        latestItems = allItems;
-      }
+      latestItems = allItems
+        .map((group) => ({
+          group: group.group,
+          items: matchSorter(group.items, changes.inputValue, matchSorterProps),
+        }))
+        .filter((group) => group.items.length > 0);
 
       setFilteredItems(latestItems);
+      inputCallback?.(changes.inputValue);
+    } else if (type === changeTypes.ControlledPropUpdatedSelectedItem) {
+      // Call the callback when the input value is updated by us
+      // (like when loading the project for the first time, the input field is populated with the saved selected item.)
+      inputCallback?.(changes.inputValue);
     }
-    // else if (type === changeTypes.ControlledPropUpdatedSelectedItem) {
-    //   // Call the callback when the input value is updated by us
-    //   // (like when loading the project for the first time, the input field is populated with the saved selected item.)
-    //   inputCallback?.(changes.inputValue);
-    // }
 
     const mods = getReducerModifications({
       type,
       state,
       changes,
       items: latestItems,
+      onArrowUpOrDown,
     });
 
     return { ...changes, ...mods };
   }
 
-  return { filteredItems, stateReducer, selection };
+  return { filteredItems, stateReducer };
+}
+
+export function useComboboxStateReducer({ allItems, onArrowUpOrDown }) {
+  function stateReducer(state, actionAndChanges) {
+    const { type, changes } = actionAndChanges;
+
+    const mods = getReducerModifications({
+      type,
+      state,
+      changes,
+      items: allItems,
+      onArrowUpOrDown,
+    });
+
+    return { ...changes, ...mods };
+  }
+
+  return stateReducer;
 }

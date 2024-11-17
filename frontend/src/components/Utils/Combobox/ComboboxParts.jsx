@@ -8,6 +8,7 @@ export function ComboboxInput({
   getToggleButtonProps,
   isOpen,
   small,
+  onInputMouseDown,
   onInputClick,
   placeholder,
   bg = "bg-white dark:bg-setta-900",
@@ -26,6 +27,7 @@ export function ComboboxInput({
       placeholder={placeholder}
       // leftElementStyles="pl-3"
       {...getInputProps({
+        onMouseDown: onInputMouseDown,
         onClick: () => onInputClick(inputRef.current),
         ref: inputRef,
       })}
