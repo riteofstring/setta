@@ -65,7 +65,7 @@
   "ROUTE_SEND_ARTIFACT": "/sendArtfiact",
   "ROUTE_LOAD_ARTIFACTS": "/loadArtifacts",
   "ROUTE_GET_DEFAULT_CONFIG_NAME": "/getDefaultConfigName",
-  "ROUTE_SECTION_TO_DICT": "/sectionToDict",
+  "ROUTE_SECTION_TO_YAML": "/sectionToYaml",
   "ROUTE_LOAD_SECTION_JSON_SOURCE": "/loadSectionJSONSource",
   "ROUTE_LOAD_SETTINGS_PROJECT": "/loadSettingsProject",
   "ROUTE_DOCSTRING_TO_MARKDOWN": "/docstringToMarkdown",

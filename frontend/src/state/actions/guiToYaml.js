@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { dbSectionToDict } from "requests/guiToYaml";
+import { dbSectionToYaml } from "requests/guiToYaml";
 import {
   addCodeInfoBatch,
   batchUpdateCodeInfoAttrs,
@@ -15,70 +15,19 @@ import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { parseAllDocuments, stringify } from "yaml";
+import { parseAllDocuments } from "yaml";
 import { batchUpdateCodeInfoChildren } from "./codeInfoCols";
 
 export async function guiToYaml(sectionId, setYamlValue, setOriginalObj) {
-  const selectedItem = getSectionSelectedItem(sectionId);
-  const selectedItemName = selectedItem
-    ? useCodeInfo.getState().x[selectedItem].name
-    : null;
   const pinnedIds = getParamIdsToShowInArea(sectionId, true);
   const unpinnedIds = getParamIdsToShowInArea(sectionId, false);
 
-  const res = await dbSectionToDict(sectionId, pinnedIds, unpinnedIds);
+  const res = await dbSectionToYaml(sectionId, pinnedIds, unpinnedIds);
   if (res.status === 200) {
-    const fullOriginalObj = processObject(res.data);
-    setOriginalObj(_.pick(fullOriginalObj, ["pinned", "unpinned"]));
-    const pinnedStr = stringify(fullOriginalObj.prettyPinned);
-    const unpinnedStr = stringify(fullOriginalObj.prettyUnpinned);
-
-    let newYamlValue = "";
-    if (!_.isNil(selectedItemName)) {
-      newYamlValue += `${selectedItemName}\n---\n`;
-    }
-    if (_.size(fullOriginalObj.prettyPinned) > 0) {
-      newYamlValue += `${pinnedStr}\n---\n`;
-    } else if (newYamlValue !== "") {
-      newYamlValue += "\n---\n";
-    }
-    if (_.size(fullOriginalObj.prettyUnpinned) > 0) {
-      newYamlValue += unpinnedStr;
-    }
-    setYamlValue(newYamlValue);
+    const { originalObj, yamlValue } = res.data;
+    setOriginalObj(originalObj);
+    setYamlValue(yamlValue);
   }
-}
-
-function processValue(value) {
-  if (typeof value === "string") {
-    if (value === "") {
-      return value;
-    } else if (value === "true") {
-      return true; // Convert string "true" to boolean true
-    } else if (value === "false") {
-      return false; // Convert string "false" to boolean false
-    } else if (!isNaN(value)) {
-      return Number(value); // Convert numeric strings to numbers
-    } else {
-      return value; // Keep the string as is
-    }
-  } else if (Array.isArray(value)) {
-    // Recursively process each element in the array
-    return value.map(processValue);
-  } else if (typeof value === "object" && value !== null) {
-    // Recursively process nested objects
-    return processObject(value);
-  } else {
-    return value; // Return the value as is for other data types
-  }
-}
-
-function processObject(obj) {
-  const result = {};
-  for (const key of Object.keys(obj)) {
-    result[key] = processValue(obj[key]);
-  }
-  return result;
 }
 
 export function yamlToGUI(sectionId, yamlValue, originalObj) {

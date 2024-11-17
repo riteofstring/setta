@@ -70,7 +70,13 @@ def get_section_as_dict(config, section_id):
         param_ids = get_param_ids(config, section_id)
         codeInfoChildren = get_section_code_info_children(config, section_id)
         sectionVariant = get_selected_section_variant(config, section_id)
-        param_dict = export_section_to_dict(config["codeInfo"], codeInfoChildren, sectionVariant, param_ids,config["sections"][section_id]["configLanguage"]).prettyOutput
+        param_dict = export_section_to_dict(
+            config["codeInfo"],
+            codeInfoChildren,
+            sectionVariant,
+            param_ids,
+            config["sections"][section_id]["configLanguage"],
+        ).prettyOutput
         param_dict = {k: v for k, v in param_dict.items() if v}
         if selected_item_name:
             param_dict["_target_"] = selected_item_name

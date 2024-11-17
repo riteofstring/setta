@@ -8,7 +8,7 @@ import {
 } from "state/definitions";
 import { post } from "./utils";
 
-export async function dbSectionToDict(sectionId, pinnedIds, unpinnedIds) {
+export async function dbSectionToYaml(sectionId, pinnedIds, unpinnedIds) {
   pinnedIds.requiredParamIds = Object.keys(pinnedIds.requiredParamIdsToPaths);
   unpinnedIds.requiredParamIds = Object.keys(
     unpinnedIds.requiredParamIdsToPaths,
@@ -29,6 +29,6 @@ export async function dbSectionToDict(sectionId, pinnedIds, unpinnedIds) {
       unpinnedIds,
       configLanguage,
     },
-    address: C.ROUTE_SECTION_TO_DICT,
+    address: C.ROUTE_SECTION_TO_YAML,
   });
 }

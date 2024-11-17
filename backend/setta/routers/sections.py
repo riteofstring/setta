@@ -2,6 +2,7 @@ from pathlib import Path
 from pprint import pprint
 from typing import Dict, List
 
+import yaml
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -60,7 +61,7 @@ def route_sections_make_copy(x: SectionsMakeCopyRequest):
     return {**output, "relativePositions": relativePositions}
 
 
-@router.post(C.ROUTE_SECTION_TO_DICT)
+@router.post(C.ROUTE_SECTION_TO_YAML)
 def route_section_to_yaml(x: SectionToDictRequest):
     pinned = export_section_to_dict(
         x.codeInfo,
@@ -78,11 +79,28 @@ def route_section_to_yaml(x: SectionToDictRequest):
         x.configLanguage,
         x.unpinnedIds["requiredParamIds"],
     )
+
+    pinnedStr = yaml.dump(pinned.prettyOutput)
+    unpinnedStr = yaml.dump(unpinned.prettyOutput)
+
+    yamlValue = ""
+    if x.sectionVariant["selectedItem"]:
+        selectedItemName = x.codeInfo[x.sectionVariant["selectedItem"]]["name"]
+        yamlValue += f"{selectedItemName}\n---\n"
+
+    if len(pinned.prettyOutput) > 0:
+        yamlValue += f"{pinnedStr}\n---\n"
+    elif yamlValue != "":
+        yamlValue += "\n---\n"
+    if len(unpinned.prettyOutput) > 0:
+        yamlValue += unpinnedStr
+
     return {
-        "pinned": pinned.output,
-        "prettyPinned": pinned.prettyOutput,
-        "unpinned": unpinned.output,
-        "prettyUnpinned": unpinned.prettyOutput,
+        "yamlValue": yamlValue,
+        "originalObj": {
+            "pinned": pinned.output,
+            "unpinned": unpinned.output,
+        },
     }
 
 
