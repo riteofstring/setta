@@ -7,7 +7,7 @@ from setta.code_gen.export_selected import (
     get_selected_item_name,
 )
 from setta.database.utils import create_new_id
-from setta.utils.constants import C
+from setta.utils.constants import USER_SETTINGS, C
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 from ..codeInfo.save import save_code_info
@@ -111,7 +111,9 @@ def create_project_config(db, name, previewImgColor):
         "id": projectId,
         "name": name,
         "previewImgColor": previewImgColor,
-        "viewport": json.dumps({"x": 0, "y": 0, "zoom": 1}),
+        "viewport": json.dumps(
+            {"x": 0, "y": 0, "zoom": USER_SETTINGS["defaultZoomLevel"]}
+        ),
     }
     db.execute(query, query_params)
 

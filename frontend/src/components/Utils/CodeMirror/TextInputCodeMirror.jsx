@@ -50,7 +50,9 @@ export function TextInputCodeMirror({
     onBlur?.();
   }
 
-  function localOnMouseDown(event) {
+  // Has to be onMouseDownCapture to avoid section outline flashing
+  // when section is locked.
+  function localOnMouseDownCapture(event) {
     if (isDisabled) {
       return;
     }
@@ -79,7 +81,7 @@ export function TextInputCodeMirror({
       {!realIsInitialized && (
         <DummyCodeMirror
           code={value}
-          onMouseDown={localOnMouseDown}
+          onMouseDownCapture={localOnMouseDownCapture}
           onFocus={onFocus}
           className={dummyCodeClassName}
           theme={theme}

@@ -222,6 +222,7 @@ export const useMisc = create(
   subscribeWithSelector(
     immer(() => ({
       projectIsLoading: false,
+      projectIs404: false,
       mouseDownDrawArea: false,
       mouseDownDraggingSection: false,
       lastPaneClickLocation: { x: 0, y: 0 },
