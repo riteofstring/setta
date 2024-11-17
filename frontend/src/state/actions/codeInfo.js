@@ -84,14 +84,6 @@ export function batchUpdateCodeInfoAttrs(idToNewAttrs) {
   });
 }
 
-export function batchUpdateCodeInfoChildren(idToNewChildren) {
-  useCodeInfo.setState((state) => {
-    for (const [id, newChildren] of Object.entries(idToNewChildren)) {
-      state.x[id].children = newChildren;
-    }
-  });
-}
-
 export function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
   const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   const cState = useCodeInfo.getState().x;

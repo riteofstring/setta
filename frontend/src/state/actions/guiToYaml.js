@@ -4,7 +4,6 @@ import { dbSectionToDict } from "requests/guiToYaml";
 import {
   addCodeInfoBatch,
   batchUpdateCodeInfoAttrs,
-  batchUpdateCodeInfoChildren,
 } from "state/actions/codeInfo";
 import { initializeParam } from "state/actions/initializeParam";
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
@@ -17,6 +16,7 @@ import { getSectionInfo } from "state/getters/sectionInfo";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { parseAllDocuments, stringify } from "yaml";
+import { batchUpdateCodeInfoChildren } from "./codeInfoCols";
 
 export async function guiToYaml(sectionId, setYamlValue, setOriginalObj) {
   const selectedItem = getSectionSelectedItem(sectionId);
@@ -218,7 +218,7 @@ export function yamlToGUI(sectionId, yamlValue, originalObj) {
 
   addCodeInfoBatch(newInfos);
   batchUpdateCodeInfoAttrs(updatedInfos);
-  batchUpdateCodeInfoChildren(idsToChildren);
+  batchUpdateCodeInfoChildren(sectionId, idsToChildren);
   initializeParam(sectionId, Object.keys(newInfos));
   setParamEnteredValueBatch({ sectionId, paramInfoIdToValue });
 }

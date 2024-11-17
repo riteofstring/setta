@@ -54,3 +54,12 @@ export function addCodeInfoColsBatch(x) {
     state.x = { ...state.x, ...x };
   });
 }
+
+export function batchUpdateCodeInfoChildren(sectionId, idToNewChildren) {
+  const codeInfoColId = getSectionCodeInfoColId(sectionId);
+  useCodeInfoCols.setState((state) => {
+    for (const [id, newChildren] of Object.entries(idToNewChildren)) {
+      state.x[codeInfoColId].children[id] = newChildren;
+    }
+  });
+}
