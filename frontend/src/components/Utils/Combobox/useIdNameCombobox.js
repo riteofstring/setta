@@ -9,7 +9,11 @@ export function useIdNameCombobox({
   itemToString,
 }) {
   const { filteredItems, stateReducer, selection } =
-    useComboboxStateReducerWithFilteredItems(allItems, value);
+    useComboboxStateReducerWithFilteredItems(
+      allItems,
+      value,
+      onSelectedItemChange,
+    );
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
     onSelectedItemChange(selectedItem ? selectedItem.id : null);

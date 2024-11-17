@@ -82,7 +82,11 @@ function getReducerModifications({ type, state, changes, items }) {
   }
 }
 
-export function useComboboxStateReducerWithFilteredItems(allItems, value) {
+export function useComboboxStateReducerWithFilteredItems(
+  allItems,
+  value,
+  setValue,
+) {
   const [selection, setSelection] = useState(null);
   const [filteredItems, setFilteredItems] = useState(allItems);
 
@@ -91,6 +95,10 @@ export function useComboboxStateReducerWithFilteredItems(allItems, value) {
     const objContainingValue = getExactMatch(allItems, value, "id");
     if (!_.isEqual(selection, objContainingValue)) {
       setSelection(objContainingValue);
+    }
+    // the following condition happens if the current selection is removed from the available options
+    if (value && !objContainingValue) {
+      setValue(null);
     }
   }, [allItems, value]);
 
