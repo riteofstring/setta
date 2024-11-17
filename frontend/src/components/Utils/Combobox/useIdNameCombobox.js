@@ -6,17 +6,13 @@ import { flattenedItems } from "./utils";
 
 export function useIdNameCombobox({
   allItems,
-  matchSorterProps,
   onSelectedItemChange,
   initialSelection,
   itemToString,
 }) {
   const [selection, setSelection] = useState(null);
   const { filteredItems, stateReducer } =
-    useComboboxStateReducerWithFilteredItems({
-      allItems,
-      matchSorterProps,
-    });
+    useComboboxStateReducerWithFilteredItems(allItems);
 
   useEffect(() => {
     if (!_.isEqual(selection, initialSelection)) {
@@ -66,8 +62,6 @@ export function idNameHelper({
   const init =
     _.find(flattenedItems(allItems), { id: initialSelection }) ?? null;
 
-  const matchSorterProps = { keys: ["name"] };
-
   const localOnSelectedItemChange = (
     currSelectedItem,
     newSelectedItem,
@@ -87,6 +81,5 @@ export function idNameHelper({
   return {
     localOnSelectedItemChange,
     init,
-    matchSorterProps,
   };
 }

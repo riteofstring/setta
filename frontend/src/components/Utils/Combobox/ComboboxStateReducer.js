@@ -64,10 +64,7 @@ function getReducerModifications({ type, state, changes, items }) {
   }
 }
 
-export function useComboboxStateReducerWithFilteredItems({
-  allItems,
-  matchSorterProps,
-}) {
+export function useComboboxStateReducerWithFilteredItems(allItems) {
   const [filteredItems, setFilteredItems] = useState(allItems);
 
   useDeepCompareEffect(() => {
@@ -99,7 +96,9 @@ export function useComboboxStateReducerWithFilteredItems({
       latestItems = allItems
         .map((group) => ({
           group: group.group,
-          items: matchSorter(group.items, changes.inputValue, matchSorterProps),
+          items: matchSorter(group.items, changes.inputValue, {
+            keys: ["name"],
+          }),
         }))
         .filter((group) => group.items.length > 0);
 
