@@ -75,7 +75,7 @@ function _ParamContainer({
       <article
         className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between overflow-clip rounded-md ${bg} ${border}`}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
-        onClick={onClickSelect}
+        onMouseDownCapture={onClickSelect}
       >
         {children}
         <ParamInput
@@ -92,7 +92,7 @@ function _ParamContainer({
     <article
       className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between gap-y-1 overflow-clip rounded-md ${bg} ${border}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
-      onClick={onClickSelect}
+      onMouseDownCapture={onClickSelect}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">

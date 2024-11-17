@@ -20,6 +20,7 @@ import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
 import { formatCode, updateInteractiveCode } from "./interactive";
 import { unselectAllParams } from "./kwargs/kwargs";
+import { indentSelectedParams } from "./kwargs/utils";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import {
@@ -179,7 +180,7 @@ export function attachKeyEventListeners() {
   const settings = useSettings.getState();
 
   const conditionAndAction = [
-    ["tab", tabFromDocumentBody],
+    ["tab", onTabKey],
     ["shift + tab", tabFromDocumentBody],
     [settings.newCardShortcut, addRegularSectionInEmptySpace],
     [settings.newGroupShortcut, addGroupInEmptySpace],
@@ -364,6 +365,11 @@ function specialModTabCase(shortcutInfo) {
 function onEscapeKey() {
   unselectAllParams();
   removeFrozenFloatingBox();
+}
+
+function onTabKey() {
+  tabFromDocumentBody();
+  indentSelectedParams();
 }
 
 function activateSelectionKeyPressed() {
