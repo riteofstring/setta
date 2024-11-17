@@ -7,21 +7,22 @@ import { flattenedItems } from "./utils";
 export function useIdNameCombobox({
   allItems,
   onSelectedItemChange,
-  initialSelection,
+  value,
   itemToString,
 }) {
+  const trueValue = _.find(flattenedItems(allItems), { id: value }) ?? null;
   const [selection, setSelection] = useState(null);
   const { filteredItems, stateReducer } =
     useComboboxStateReducerWithFilteredItems(allItems);
 
   useEffect(() => {
-    if (!_.isEqual(selection, initialSelection)) {
-      onSelectedItemChange?.(selection, initialSelection, setSelection, false);
+    if (!_.isEqual(selection, trueValue)) {
+      setSelection(trueValue);
     }
-  }, [initialSelection]);
+  }, [trueValue]);
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
-    onSelectedItemChange?.(selection, selectedItem, setSelection, true);
+    onSelectedItemChange(selectedItem ? selectedItem.id : null);
   };
 
   const singleListItems = flattenedItems(filteredItems);
@@ -41,45 +42,13 @@ export function useIdNameCombobox({
     onSelectedItemChange: localOnSelectedItemChange,
   });
 
-  const isReallyOpen = isOpen && singleListItems.length > 0;
-
   return {
-    isOpen: isReallyOpen,
+    isOpen: isOpen && singleListItems.length > 0,
     filteredItems,
     getToggleButtonProps,
     getMenuProps,
     getInputProps,
     highlightedIndex,
     getItemProps,
-  };
-}
-
-export function idNameHelper({
-  allItems,
-  onSelectedItemChange,
-  initialSelection,
-}) {
-  const init =
-    _.find(flattenedItems(allItems), { id: initialSelection }) ?? null;
-
-  const localOnSelectedItemChange = (
-    currSelectedItem,
-    newSelectedItem,
-    setSelection,
-    changedByUser,
-  ) => {
-    const sid = newSelectedItem ? newSelectedItem.id : null;
-    const currId = currSelectedItem ? currSelectedItem.id : null;
-    if (sid !== currId) {
-      setSelection(newSelectedItem);
-    }
-    if (sid !== initialSelection) {
-      onSelectedItemChange(sid, changedByUser, setSelection);
-    }
-  };
-
-  return {
-    localOnSelectedItemChange,
-    init,
   };
 }

@@ -15,7 +15,7 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
   return (
     <IdNameCombobox
       allItems={groupedAsList}
-      initialSelection={selectedId}
+      value={selectedId}
       onSelectedItemChange={onDropdownSelect}
     />
   );

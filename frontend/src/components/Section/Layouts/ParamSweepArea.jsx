@@ -260,8 +260,6 @@ function ParamCombobox({
   forSectionId,
   showParamSweepSectionSearch,
 }) {
-  const initialSelection = paramInfoId;
-
   const objParams = useChildlessObjParams({
     objInfoId,
     paramInfoId,
@@ -272,7 +270,7 @@ function ParamCombobox({
   return (
     <IdNameCombobox
       allItems={[{ group: "Args", items: objParams }]}
-      initialSelection={initialSelection}
+      value={paramInfoId}
       onSelectedItemChange={onSelectedItemChange}
       placeholder="Filter & Add Sweep"
       outerDivClasses={`section-w-full justify-center not:last-child:mt-3 ${showParamSweepSectionSearch ? "ml-3" : ""} `}
