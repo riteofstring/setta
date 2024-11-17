@@ -27,13 +27,22 @@ function getHighlightedIndex(items, selectedItem) {
   return { highlightedIndex: -1 };
 }
 
-function getReducerModifications({
-  type,
-  state,
-  changes,
-  items,
-  onArrowUpOrDown,
-}) {
+function getValueFromHighlightedIndex(latestItems, highlightedIndex) {
+  if (highlightedIndex >= 0) {
+    let idx = 0;
+    for (const group of latestItems) {
+      for (const item of group.items) {
+        if (idx === highlightedIndex) {
+          return { inputValue: item.name };
+        }
+        idx += 1;
+      }
+    }
+  }
+  return {};
+}
+
+function getReducerModifications({ type, state, changes, items }) {
   const changeTypes = useCombobox.stateChangeTypes;
 
   switch (type) {
@@ -49,7 +58,7 @@ function getReducerModifications({
       return {};
     case changeTypes.InputKeyDownArrowUp:
     case changeTypes.InputKeyDownArrowDown:
-      return onArrowUpOrDown?.(items, changes.highlightedIndex);
+      return getValueFromHighlightedIndex(items, changes.highlightedIndex);
     default:
       return {};
   }
@@ -58,7 +67,6 @@ function getReducerModifications({
 export function useComboboxStateReducerWithFilteredItems({
   allItems,
   matchSorterProps,
-  onArrowUpOrDown,
 }) {
   const [filteredItems, setFilteredItems] = useState(allItems);
 
@@ -96,7 +104,7 @@ export function useComboboxStateReducerWithFilteredItems({
         .filter((group) => group.items.length > 0);
 
       setFilteredItems(latestItems);
-    } 
+    }
     // else if (type === changeTypes.ControlledPropUpdatedSelectedItem) {
     //   // Call the callback when the input value is updated by us
     //   // (like when loading the project for the first time, the input field is populated with the saved selected item.)
@@ -108,7 +116,6 @@ export function useComboboxStateReducerWithFilteredItems({
       state,
       changes,
       items: latestItems,
-      onArrowUpOrDown,
     });
 
     return { ...changes, ...mods };

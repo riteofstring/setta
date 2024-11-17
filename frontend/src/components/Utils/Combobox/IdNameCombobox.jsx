@@ -15,13 +15,9 @@ export function IdNameCombobox({
   placeholder,
   bg,
 }) {
-  const {
-    localOnSelectedItemChange,
-    init,
-    itemToString,
-    matchSorterProps,
-    onArrowUpOrDown,
-  } = idNameHelper({
+  const itemToString = (x) => (x ? x.name : "");
+
+  const { localOnSelectedItemChange, init, matchSorterProps } = idNameHelper({
     allItems,
     onSelectedItemChange,
     initialSelection,
@@ -41,7 +37,6 @@ export function IdNameCombobox({
     onSelectedItemChange: localOnSelectedItemChange,
     initialSelection: init,
     itemToString,
-    onArrowUpOrDown,
   });
 
   const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });

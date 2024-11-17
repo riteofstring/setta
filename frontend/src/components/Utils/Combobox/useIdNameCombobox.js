@@ -10,14 +10,12 @@ export function useIdNameCombobox({
   onSelectedItemChange,
   initialSelection,
   itemToString,
-  onArrowUpOrDown,
 }) {
   const [selection, setSelection] = useState(null);
   const { filteredItems, stateReducer } =
     useComboboxStateReducerWithFilteredItems({
       allItems,
       matchSorterProps,
-      onArrowUpOrDown,
     });
 
   useEffect(() => {
@@ -67,7 +65,7 @@ export function idNameHelper({
 }) {
   const init =
     _.find(flattenedItems(allItems), { id: initialSelection }) ?? null;
-  const itemToString = (x) => (x ? x.name : "");
+
   const matchSorterProps = { keys: ["name"] };
 
   const localOnSelectedItemChange = (
@@ -89,23 +87,6 @@ export function idNameHelper({
   return {
     localOnSelectedItemChange,
     init,
-    itemToString,
     matchSorterProps,
-    onArrowUpOrDown: getValueFromHighlightedIndex,
   };
-}
-
-function getValueFromHighlightedIndex(latestItems, highlightedIndex) {
-  if (highlightedIndex >= 0) {
-    let idx = 0;
-    for (const group of latestItems) {
-      for (const item of group.items) {
-        if (idx === highlightedIndex) {
-          return { inputValue: item.name };
-        }
-        idx += 1;
-      }
-    }
-  }
-  return {};
 }
