@@ -6,9 +6,9 @@ from setta.utils.utils import get_absolute_path
 
 
 class SettingsFile:
-    def __init__(self, settings_path, create_if_not_exists):
+    def __init__(self, settings_path):
         self.settings_path = settings_path
-        if create_if_not_exists and not os.path.exists(self.settings_path):
+        if not os.path.exists(self.settings_path):
             self.seed()
         else:
             self.load()

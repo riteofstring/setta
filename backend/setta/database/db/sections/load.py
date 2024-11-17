@@ -316,7 +316,9 @@ def load_json_source(filename_glob):
 
         parent_id = None
         if len(current_path) > 0:
-            parent_path = json.dumps({"filenameGlob": filename_glob, "key": current_path})
+            parent_path = json.dumps(
+                {"filenameGlob": filename_glob, "key": current_path}
+            )
             parent_id = f"{C.JSON_SOURCE_PREFIX}{parent_path}"
 
         new_data[filename]["codeInfoColChildren"][parent_id] = children_keys
