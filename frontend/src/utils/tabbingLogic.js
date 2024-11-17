@@ -125,7 +125,7 @@ function focusOnLastElementOf(container) {
   return false;
 }
 
-export function focusOnProjectOverviewButton(e) {
+function focusOnProjectOverviewButton(e) {
   e.preventDefault();
   firstFocusableElement(document.getElementById("OverviewPane")).focus();
 }

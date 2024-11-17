@@ -53,7 +53,6 @@ export function TextInputCodeMirror({
   // Has to be onMouseDownCapture to avoid section outline flashing
   // when section is locked.
   function localOnMouseDownCapture(event) {
-    console.log("textinput code mirror localOnMouseDownCapture")
     if (isDisabled) {
       return;
     }
@@ -66,7 +65,6 @@ export function TextInputCodeMirror({
 
   // focused via tab key
   function onFocus() {
-    console.log("textinput code mirror onFocus")
     if (isDisabled) {
       return;
     }
