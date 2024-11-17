@@ -3,6 +3,7 @@ import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { flattenedItems } from "./utils";
 
 function resetToPreviousVal(state) {
   const sname = state.selectedItem?.name;
@@ -64,12 +65,21 @@ function getReducerModifications({ type, state, changes, items }) {
   }
 }
 
-export function useComboboxStateReducerWithFilteredItems(allItems) {
+export function useComboboxStateReducerWithFilteredItems(allItems, value) {
+  const [selection, setSelection] = useState(null);
   const [filteredItems, setFilteredItems] = useState(allItems);
 
   useDeepCompareEffect(() => {
     setFilteredItems(allItems);
-  }, [allItems]);
+
+    const objContainingValue =
+      _.find(flattenedItems(allItems), { id: value }) ?? null;
+
+    if (!_.isEqual(selection, objContainingValue)) {
+      console.log("setting selection", objContainingValue)
+      setSelection(objContainingValue);
+    }
+  }, [allItems, value]);
 
   function stateReducer(state, actionAndChanges) {
     const { type, changes } = actionAndChanges;
@@ -93,14 +103,19 @@ export function useComboboxStateReducerWithFilteredItems(allItems) {
     } else if (type === changeTypes.InputChange) {
       // The user is typing, so filter the search results.
       // Or the combobox field is updated by external state, so also filter results in this case.
-      latestItems = allItems
-        .map((group) => ({
-          group: group.group,
-          items: matchSorter(group.items, changes.inputValue, {
-            keys: ["name"],
-          }),
-        }))
-        .filter((group) => group.items.length > 0);
+      if (changes.inputValue) {
+        latestItems = allItems
+          .map((group) => ({
+            group: group.group,
+            items: matchSorter(group.items, changes.inputValue, {
+              keys: ["name"],
+            }),
+          }))
+          .filter((group) => group.items.length > 0);
+      } else {
+        // if the inputValue is "", then show all items
+        latestItems = allItems;
+      }
 
       setFilteredItems(latestItems);
     }
@@ -120,5 +135,5 @@ export function useComboboxStateReducerWithFilteredItems(allItems) {
     return { ...changes, ...mods };
   }
 
-  return { filteredItems, stateReducer };
+  return { filteredItems, stateReducer, selection };
 }
