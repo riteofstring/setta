@@ -15,7 +15,10 @@ import { setAllCodeInfoCols } from "../codeInfoCols";
 import { setNodes } from "../nodeInternals";
 import { setAllParamSweeps } from "../runGroups/paramSweep";
 import { setAllRunGroups } from "../runGroups/runGroups";
-import { setAllSectionInfos } from "../sections/sectionInfos";
+import {
+  manualDndChildrenReset,
+  setAllSectionInfos,
+} from "../sections/sectionInfos";
 import { setAllSectionVariants } from "../sectionVariants";
 import { setAllUITypeCols } from "../uiTypes/uiTypeCols";
 import { setAllUITypes } from "../uiTypes/uiTypes";
@@ -84,6 +87,7 @@ export function loadProjectState({
   useJSONSourceMissing.getState().reset();
   useJSONSourceMissing.setState(jsonSourceMissing);
   maybeIncrementProjectStateVersion(true, false);
+  manualDndChildrenReset();
   return true;
 }
 
