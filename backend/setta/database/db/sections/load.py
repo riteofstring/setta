@@ -4,9 +4,9 @@ import itertools
 import json
 from collections import defaultdict
 
+from setta.database.db.sectionVariants.utils import new_section_variant
 from setta.database.utils import create_new_id
 from setta.utils.constants import C
-from setta.utils.utils import recursive_dict_merge
 
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
@@ -236,34 +236,61 @@ def load_json_sources_into_data_structures(
     sections, codeInfo, codeInfoCols, sectionVariants
 ):
     jsonSourceMissing = {}
-    for id, s in sections.items():
-        if not s["jsonSource"]:
-            continue
+    filenames_loaded = set()
+    sections = {k: v for k, v in sections.items() if v["jsonSource"]}
+    for s in sections.values():
         new_data = load_json_source(s["jsonSource"])
-        if len(new_data) == 0:
-            jsonSourceMissing[id] = True
-            continue
-        s["variantIds"] = []
         for filename, data in new_data.items():
             codeInfo.update(data["codeInfo"])
-            variantId = create_new_id()
-            codeInfoColId = create_new_id()
-            sectionVariants[variantId] = {
-                "id": variantId,
-                "name": filename,
-                "selectedItem": None,
-                "code": "",
-                "codeInfoColId": codeInfoColId,
-                "keywordPositions": [],
-                "children": [],
-                "values": data["sectionVariantValues"],
-            }
+            variantId = None
+            for vid in s["variantIds"]:
+                if sectionVariants[vid]["name"] == filename:
+                    variantId = vid
+                    break
+            if variantId:
+                sectionVariants[variantId]["values"] = data["sectionVariantValues"]
+                codeInfoColId = sectionVariants[variantId]["codeInfoColId"]
+                codeInfoCols[codeInfoColId]["children"] = data["codeInfoColChildren"]
+            else:
+                variantId = create_new_id()
+                codeInfoColId = create_new_id()
+                s["variantIds"].append(variantId)
+                sectionVariants[variantId] = new_section_variant(
+                    id=variantId,
+                    name=filename,
+                    codeInfoColId=codeInfoColId,
+                    values=data["sectionVariantValues"],
+                )
+                codeInfoCols[codeInfoColId] = {
+                    "id": codeInfoColId,
+                    "children": data["codeInfoColChildren"],
+                }
+
+            filenames_loaded.add(filename)
+
+    # delete variants that aren't associated with a loaded file
+    to_delete = []
+    for s in sections.values():
+        for vid in s["variantIds"]:
+            if sectionVariants[vid]["name"] not in filenames_loaded:
+                to_delete.append(vid)
+
+    for vid in to_delete:
+        del codeInfoCols[sectionVariants[vid]["codeInfoColId"]]
+        del sectionVariants[vid]
+
+    for s in sections.values():
+        s["variantIds"] = [v for v in s["variantIds"] if v in sectionVariants]
+        if len(s["variantIds"]) == 0:
+            variant = new_section_variant()
+            s["variantIds"].append(variant["id"])
+            sectionVariants[variant["id"]] = variant
             codeInfoCols[codeInfoColId] = {
-                "id": codeInfoColId,
-                "children": data["codeInfoColChildren"],
+                "id": variant["codeInfoColId"],
+                "children": {None: []},
             }
-            s["variantIds"].append(variantId)
-        if s["variantId"] not in s["variantIds"]:
+            jsonSourceMissing[s["id"]] = True
+        elif s["variantId"] not in s["variantIds"]:
             s["variantId"] = s["variantIds"][0]
 
     return jsonSourceMissing
@@ -330,10 +357,13 @@ def load_json_source(filename_glob):
             with open(filename, "r") as f:
                 jsonSourceData = json.load(f)
         except:
-            pass
+            continue
 
-        # Start processing from root level
-        new_data[filename] = defaultdict(dict)
+        new_data[filename] = {
+            "codeInfo": {},
+            "codeInfoColChildren": {},
+            "sectionVariantValues": {},
+        }
         process_object(jsonSourceData, filename, [])
 
     return new_data

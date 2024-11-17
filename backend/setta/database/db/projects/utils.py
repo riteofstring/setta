@@ -5,41 +5,54 @@ from setta.utils.constants import BASE_UI_TYPE_IDS, C, is_from_json_source
 from setta.utils.utils import try_json
 
 
-def remove_json_source_data(p):
+def condition_keep_code_info(k, jsonCodeInfoWithUIType, keepCodeInfoThatHaveUITypes):
+    if keepCodeInfoThatHaveUITypes:
+        return k in jsonCodeInfoWithUIType or not is_from_json_source(k)
+    return not is_from_json_source(k)
+
+
+def remove_json_source_data(p, keepCodeInfoThatHaveUITypes=True):
     for variant in p["sectionVariants"].values():
         variant["values"] = {
             k: v for k, v in variant["values"].items() if not is_from_json_source(k)
         }
 
     jsonCodeInfoWithUIType = set()
-    for uiTypeCol in p["uiTypeCols"].values():
-        for paramInfoId, uiTypeInfo in uiTypeCol.items():
-            # we want to know which json source params have an associated uiTypeId
-            # only if it's not the base TEXT type, since that's the default
-            if (
-                is_from_json_source(paramInfoId)
-                and uiTypeInfo["uiTypeId"] != BASE_UI_TYPE_IDS[C.TEXT]
-            ):
-                jsonCodeInfoWithUIType.add(paramInfoId)
+    if keepCodeInfoThatHaveUITypes:
+        for uiTypeCol in p["uiTypeCols"].values():
+            for paramInfoId, uiTypeInfo in uiTypeCol.items():
+                # we want to know which json source params have an associated uiTypeId
+                # only if it's not the base TEXT type, since that's the default
+                if (
+                    is_from_json_source(paramInfoId)
+                    and uiTypeInfo["uiTypeId"] != BASE_UI_TYPE_IDS[C.TEXT]
+                ):
+                    jsonCodeInfoWithUIType.add(paramInfoId)
 
     p["codeInfo"] = {
         k: v
         for k, v in p["codeInfo"].items()
-        if k in jsonCodeInfoWithUIType or not is_from_json_source(k)
+        if condition_keep_code_info(
+            k, jsonCodeInfoWithUIType, keepCodeInfoThatHaveUITypes
+        )
     }
 
-    p["codeInfoCols"] = {
-        k: v
-        for k, v in p["codeInfoCols"].items()
-        if k in jsonCodeInfoWithUIType or not is_from_json_source(k)
-    }
-
-    for codeInfoCol in p["codeInfoCols"].values():
+    for codeInfoColId in p["codeInfoCols"].keys():
+        codeInfoCol = p["codeInfoCols"][codeInfoColId]
+        codeInfoCol["children"] = {
+            k: v
+            for k, v in codeInfoCol["children"].items()
+            if condition_keep_code_info(
+                k, jsonCodeInfoWithUIType, keepCodeInfoThatHaveUITypes
+            )
+        }
         for id, children in codeInfoCol["children"].items():
             codeInfoCol["children"][id] = [
                 c
                 for c in children
-                if c in jsonCodeInfoWithUIType or not is_from_json_source(c)
+                if condition_keep_code_info(
+                    c, jsonCodeInfoWithUIType, keepCodeInfoThatHaveUITypes
+                )
             ]
 
 

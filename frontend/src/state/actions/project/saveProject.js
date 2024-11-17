@@ -102,6 +102,7 @@ export function getProjectData({
     codeInfo,
     codeInfoCols,
     fullNameToInfo,
+    jsonSourceMissing: {},
   };
 
   // console.log(output);

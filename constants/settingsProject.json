@@ -3,18 +3,30 @@
     "id": "a5dfa397-089a-4f5e-bbec-978a314b4266",
     "name": "settings",
     "isDefault": 0,
+    "runGroupSelection": {},
+    "shownRunGroup": null,
     "viewport": null,
+    "previewImgNodes": "[{\"x\":640,\"y\":119,\"w\":552,\"h\":1718}]",
     "children": {
       "69084c06-aa67-4e6b-8098-3334044eebc9": {
         "x": 640,
         "y": 119,
         "zIndex": 0
       }
-    },
-    "runGroupSelection": {},
-    "shownRunGroup": null
+    }
   },
-  "sectionVariants": {},
+  "sectionVariants": {
+    "19f203aa-cae6-4ccc-928c-dab0194ade77": {
+      "id": "19f203aa-cae6-4ccc-928c-dab0194ade77",
+      "name": "setta-settings.json",
+      "selectedItem": null,
+      "code": "",
+      "codeInfoColId": "a386b032-1e99-42b1-b99c-d71b89fed5fd",
+      "keywordPositions": [],
+      "children": [],
+      "values": {}
+    }
+  },
   "uiTypes": {
     "90f2233a-2864-498f-a4df-4c027fa0c4a4": {
       "id": "90f2233a-2864-498f-a4df-4c027fa0c4a4",
@@ -23,9 +35,18 @@
       "presetType": "USER",
       "config": {
         "choices": [
-          { "id": "\"Dots\"", "name": "\"Dots\"" },
-          { "id": "\"Lines\"", "name": "\"Lines\"" },
-          { "id": "\"Cross\"", "name": "\"Cross\"" }
+          {
+            "id": "\"Dots\"",
+            "name": "\"Dots\""
+          },
+          {
+            "id": "\"Lines\"",
+            "name": "\"Lines\""
+          },
+          {
+            "id": "\"Cross\"",
+            "name": "\"Cross\""
+          }
         ]
       }
     },
@@ -36,8 +57,14 @@
       "presetType": "USER",
       "config": {
         "choices": [
-          { "id": "\"partial\"", "name": "\"partial\"" },
-          { "id": "\"full\"", "name": "\"full\"" }
+          {
+            "id": "\"partial\"",
+            "name": "\"partial\""
+          },
+          {
+            "id": "\"full\"",
+            "name": "\"full\""
+          }
         ]
       }
     },
@@ -48,9 +75,18 @@
       "presetType": "USER",
       "config": {
         "choices": [
-          { "id": "\"free\"", "name": "\"free\"" },
-          { "id": "\"vertical\"", "name": "\"vertical\"" },
-          { "id": "\"horizontal\"", "name": "\"horizontal\"" }
+          {
+            "id": "\"free\"",
+            "name": "\"free\""
+          },
+          {
+            "id": "\"vertical\"",
+            "name": "\"vertical\""
+          },
+          {
+            "id": "\"horizontal\"",
+            "name": "\"horizontal\""
+          }
         ]
       }
     }
@@ -139,16 +175,15 @@
         "height": "auto"
       },
       "zIndex": 0,
-      "variantId": null,
+      "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
       "paramSweepId": null,
       "social": null,
-      "artifacts": [],
       "description": "",
       "codeLanguage": "",
       "configLanguage": "json",
-      "variantIds": [],
+      "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
       "paramSweepIds": [],
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
@@ -164,6 +199,14 @@
     }
   },
   "codeInfo": {},
-  "codeInfoCols": {},
+  "codeInfoCols": {
+    "a386b032-1e99-42b1-b99c-d71b89fed5fd": {
+      "id": "a386b032-1e99-42b1-b99c-d71b89fed5fd",
+      "children": {
+        "null": []
+      }
+    }
+  },
+  "fullNameToInfo": {},
   "jsonSourceMissing": {}
 }
