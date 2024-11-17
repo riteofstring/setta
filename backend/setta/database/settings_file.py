@@ -123,7 +123,7 @@ class MetaSettingsFile:
         }
         # TODO: make this less horrible. This shouldn't have to be done here.
         for v in p["sections"].values():
-            v.pop("previewVariantId")
+            v.pop("previewVariantId", None)
         self.save_raw(p)
         return saved_data[self.settings_path]
 
