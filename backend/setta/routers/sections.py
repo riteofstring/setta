@@ -1,3 +1,4 @@
+from pathlib import Path
 from pprint import pprint
 from typing import Dict, List
 
@@ -11,6 +12,7 @@ from setta.database.db.sections.copy import (
 )
 from setta.database.db.sections.load import load_json_source
 from setta.utils.constants import C
+from setta.utils.generate_new_filename import generate_new_filename
 
 router = APIRouter()
 
@@ -30,6 +32,10 @@ class SectionToDictRequest(BaseModel):
 
 class LoadSectionJSONSourceRequest(BaseModel):
     jsonSource: str
+
+
+class NewJSONVersionNameRequest(BaseModel):
+    filenameGlob: str
 
 
 @router.post(C.ROUTE_SECTIONS)
@@ -86,3 +92,11 @@ def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
         "newVariantValues": new_variant_values,
         "jsonSourceMissing": jsonSourceMissing,
     }
+
+
+@router.post(C.ROUTER_NEW_JSON_VERSION_NAME)
+def route_new_json_version_name(x: NewJSONVersionNameRequest):
+    new_filename = generate_new_filename(x.filenameGlob)
+    Path(new_filename).parent.mkdir(parents=True, exist_ok=True)
+    Path(new_filename).touch()
+    return new_filename
