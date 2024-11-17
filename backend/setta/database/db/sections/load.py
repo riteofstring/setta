@@ -270,6 +270,7 @@ def load_json_sources_into_data_structures(
                     "children": data["codeInfoColChildren"],
                 }
 
+            s["configLanguage"] = "json"
             filenames_loaded.add(filename)
 
     # delete variants that aren't associated with a loaded file
@@ -287,6 +288,7 @@ def load_json_sources_into_data_structures(
         s["variantIds"] = [v for v in s["variantIds"] if v in sectionVariants]
         if len(s["variantIds"]) == 0:
             variant = new_section_variant()
+            s["configLanguage"] = "python"
             s["variantIds"].append(variant["id"])
             sectionVariants[variant["id"]] = variant
             codeInfoCols[variant["codeInfoColId"]] = {

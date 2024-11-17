@@ -90,7 +90,8 @@ def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
         p["sectionVariants"],
         section_ids=[x.sectionId],
     )
-    return {"project": p, "jsonSourceMissing": x.sectionId in jsonSourceMissing}
+    jsonSourceMissing = x.sectionId in jsonSourceMissing
+    return {"project": p, "jsonSourceMissing": jsonSourceMissing}
 
 
 @router.post(C.ROUTER_NEW_JSON_VERSION_NAME)

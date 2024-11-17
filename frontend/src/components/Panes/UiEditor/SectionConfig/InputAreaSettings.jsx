@@ -17,8 +17,7 @@ export function InputAreaSettings({ sectionId }) {
   async function onBlur(e) {
     const jsonSource = e.target.value;
     setSectionInfoAttr({ sectionId, attr: "jsonSource", value: jsonSource });
-    let configLanguage = "python",
-      jsonSourceMissing = false,
+    let jsonSourceMissing = false,
       codeInfo = null,
       codeInfoCols = null,
       sectionVariants = null,
@@ -29,15 +28,9 @@ export function InputAreaSettings({ sectionId }) {
         ({ codeInfo, codeInfoCols, sectionVariants, sections } =
           res.data.project);
         ({ jsonSourceMissing } = res.data);
-        configLanguage = "json";
       }
     }
     useJSONSourceMissing.setState({ [sectionId]: jsonSourceMissing });
-    setSectionInfoAttr({
-      sectionId,
-      attr: "configLanguage",
-      value: configLanguage,
-    });
     if (codeInfo) addCodeInfoBatch(codeInfo);
     if (codeInfoCols) addCodeInfoColsBatch(codeInfoCols);
     if (sectionVariants) updateSectionVariants({ sectionVariants });
