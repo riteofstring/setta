@@ -27,6 +27,7 @@ def export_readable(db, filename):
 def export_config(folder, config):
     config_folder = Path(folder) / config["projectConfig"]["name"]
     for k in config["projectConfig"]["children"].keys():
+        os.makedirs(config_folder, exist_ok=True)
         export_section(config_folder, config, k)
 
 
@@ -38,16 +39,18 @@ def export_section(folder, config, section_id):
         export_code(
             folder, section_name, code, config["sections"][section_id]["codeLanguage"]
         )
-    elif stype in [C.SECTION, C.GLOBAL_VARIABLES, C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
+    elif stype in [C.SECTION, C.GLOBAL_VARIABLES]:
         yamlValue = get_section_as_yaml(config, section_id)
-        # print("yamlValue", yamlValue)
-        os.makedirs(folder, exist_ok=True)
         with open(folder / f"{section_name}.yaml", "w") as file:
             file.write(yamlValue)
+    elif stype in [C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
+        children_folder = folder / section_name
+        os.makedirs(children_folder, exist_ok=True)
+        for c in get_section_children(config, section_id):
+            export_section(children_folder, config, c)
 
 
 def export_code(folder, name, code, codeLanguage):
-    os.makedirs(folder, exist_ok=True)
     filename = folder / name
     extension = {"javascript": "js", "python": "py", "bash": "sh"}[codeLanguage]
     with open(f"{filename}.{extension}", "w") as file:
@@ -55,44 +58,30 @@ def export_code(folder, name, code, codeLanguage):
 
 
 def get_section_as_yaml(config, section_id):
-    children = get_section_children(config, section_id)
-    stype = get_section_type(config, section_id)
-    if len(children) > 0:
-        # if stype == C.LIST_ROOT:
-        #     return [get_section_as_dict(config, c) for c in children]
-        # elif stype in [C.DICT_ROOT, C.DECK]:
-        #     return {
-        #         get_section_name(config, c): get_section_as_dict(config, c)
-        #         for c in children
-        #     }
-        return ""
-    else:
-        codeInfoChildren = get_section_code_info_children(config, section_id)
-        sectionVariant = get_selected_section_variant(config, section_id)
-        pinned = get_param_ids_to_show_in_area(
-            True,
-            config["codeInfo"],
-            codeInfoChildren,
-            get_selected_item_id(config, section_id),
-        )
-        unpinned = get_param_ids_to_show_in_area(
-            False,
-            config["codeInfo"],
-            codeInfoChildren,
-            get_selected_item_id(config, section_id),
-        )
-        pinned["requiredParamIds"] = pinned["requiredParamIdsToPaths"].keys()
-        unpinned["requiredParamIds"] = unpinned["requiredParamIdsToPaths"].keys()
-        del pinned["requiredParamIdsToPaths"]
-        del unpinned["requiredParamIdsToPaths"]
+    codeInfoChildren = get_section_code_info_children(config, section_id)
+    sectionVariant = get_selected_section_variant(config, section_id)
+    pinned = get_param_ids_to_show_in_area(
+        True,
+        config["codeInfo"],
+        codeInfoChildren,
+        get_selected_item_id(config, section_id),
+    )
+    unpinned = get_param_ids_to_show_in_area(
+        False,
+        config["codeInfo"],
+        codeInfoChildren,
+        get_selected_item_id(config, section_id),
+    )
+    pinned["requiredParamIds"] = pinned["requiredParamIdsToPaths"].keys()
+    unpinned["requiredParamIds"] = unpinned["requiredParamIdsToPaths"].keys()
+    del pinned["requiredParamIdsToPaths"]
+    del unpinned["requiredParamIdsToPaths"]
 
-        print(pinned)
-
-        output = export_section_to_dict(
-            config["codeInfo"],
-            codeInfoChildren,
-            sectionVariant,
-            {"pinned": pinned, "unpinned": unpinned},
-            config["sections"][section_id]["configLanguage"],
-        )
-        return section_dict_to_yaml(output, config["codeInfo"], sectionVariant)
+    output = export_section_to_dict(
+        config["codeInfo"],
+        codeInfoChildren,
+        sectionVariant,
+        {"pinned": pinned, "unpinned": unpinned},
+        config["sections"][section_id]["configLanguage"],
+    )
+    return section_dict_to_yaml(output, config["codeInfo"], sectionVariant)
