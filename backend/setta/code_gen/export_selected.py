@@ -80,14 +80,33 @@ def get_param_ui_type(p, section_id, id):
 
 
 def get_selected_section_variant(p, section_id):
-    variantId = p["sections"][section_id]["variantId"]
+    variantId = get_selected_section_variant_id(p, section_id)
     return p["sectionVariants"][variantId]
 
 
+def get_section_variant_ids(p, section_id):
+    return p["sections"][section_id]["variantIds"]
+
+
 def get_section_variants(p, section_id):
-    section = p["sections"][section_id]
-    variantIds = section["variantIds"]
+    variantIds = get_section_variant_ids(p, section_id)
     return [p["sectionVariants"][v] for v in variantIds]
+
+
+def get_selected_section_variant_id(p, section_id):
+    return p["sections"][section_id]["variantId"]
+
+
+def get_section_variant_attr(p, variantId, attr):
+    return p["sectionVariants"][variantId][attr]
+
+
+def get_variant_code(p, variantId):
+    return get_section_variant_attr(p, variantId, "code")
+
+
+def get_variant_name(p, variantId):
+    return get_section_variant_attr(p, variantId, "name")
 
 
 def get_section_code(p, id):

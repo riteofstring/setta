@@ -61,6 +61,6 @@
   "defaultTerminalShell": null,
   "exportDbRawOnSave": false,
   "exportDbReadableOnSave": false,
-  "exportDbAllVariantsReadableOnSave": false,
+  "exportDbReadableWithVariantsOnSave": false,
   "languageServerSettings": {}
 }
