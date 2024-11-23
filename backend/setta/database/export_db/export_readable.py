@@ -4,13 +4,10 @@ from pathlib import Path
 from setta.code_gen.export_selected import (
     export_section_to_dict,
     get_section_children,
-    get_section_code_info_children,
     get_section_name,
-    get_selected_section_variant_id,
     get_section_type,
     get_section_variant_ids,
-    get_selected_item_id,
-    get_selected_section_variant,
+    get_selected_section_variant_id,
     get_variant_code,
     get_variant_name,
 )
@@ -45,8 +42,10 @@ def export_section(folder, config, section_id, with_variants):
     for variant_id in variant_ids:
         if stype in [C.INTERACTIVE_CODE, C.CODE]:
             export_code(folder, config, section_id, variant_id, with_variants)
-        # elif stype in [C.SECTION, C.GLOBAL_VARIABLES]:
-        #     export_regular_section(folder, config, section_id, with_variants)
+        elif stype in [C.SECTION, C.GLOBAL_VARIABLES]:
+            export_regular_section(
+                folder, config, section_id, variant_id, with_variants
+            )
         # elif stype in [C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
         #     export_list_section(folder, config, section_id, with_variants)
 
@@ -54,28 +53,29 @@ def export_section(folder, config, section_id, with_variants):
 def export_code(folder, config, section_id, variant_id, with_variants):
     codeLanguage = config["sections"][section_id]["codeLanguage"]
     code = get_variant_code(config, variant_id)
-    section_name = get_section_name(config, section_id)
-    variant_name = get_variant_name(config, variant_id)
-    base = maybe_with_variant_in_filename(section_name, variant_name, with_variants)
+    base = maybe_with_variant_in_filename(config, section_id, variant_id, with_variants)
     extension = {"javascript": "js", "python": "py", "bash": "sh"}[codeLanguage]
     with open(f"{folder / base}.{extension}", "w") as file:
         file.write(code)
 
 
-def export_regular_section(folder, config, section_id, with_variants):
-    codeInfoChildren = get_section_code_info_children(config, section_id)
-    sectionVariant = get_selected_section_variant(config, section_id)
+def export_regular_section(folder, config, section_id, variant_id, with_variants):
+    sectionVariant = config["sectionVariants"][variant_id]
+    selectedItemId = sectionVariant["selectedItem"]
+    codeInfoChildren = config["codeInfoCols"][sectionVariant["codeInfoColId"]][
+        "children"
+    ]
     pinned = get_param_ids_to_show_in_area(
         True,
         config["codeInfo"],
         codeInfoChildren,
-        get_selected_item_id(config, section_id),
+        selectedItemId,
     )
     unpinned = get_param_ids_to_show_in_area(
         False,
         config["codeInfo"],
         codeInfoChildren,
-        get_selected_item_id(config, section_id),
+        selectedItemId,
     )
     pinned["requiredParamIds"] = pinned["requiredParamIdsToPaths"].keys()
     unpinned["requiredParamIds"] = unpinned["requiredParamIdsToPaths"].keys()
@@ -90,8 +90,9 @@ def export_regular_section(folder, config, section_id, with_variants):
         config["sections"][section_id]["configLanguage"],
     )
     yamlValue = section_dict_to_yaml(output, config["codeInfo"], sectionVariant)
-    section_name = get_section_name(config, section_id)
-    with open(folder / f"{section_name}.yaml", "w") as file:
+    base = maybe_with_variant_in_filename(config, section_id, variant_id, with_variants)
+
+    with open(folder / f"{base}.yaml", "w") as file:
         file.write(yamlValue)
 
 
@@ -103,7 +104,9 @@ def export_list_section(folder, config, section_id, with_variants):
         export_section(children_folder, config, c, with_variants)
 
 
-def maybe_with_variant_in_filename(section_name, variant_name, with_variants):
+def maybe_with_variant_in_filename(config, section_id, variant_id, with_variants):
+    section_name = get_section_name(config, section_id)
+    variant_name = get_variant_name(config, variant_id)
     if with_variants:
         return f"{section_name}@{variant_name}"
     return section_name
