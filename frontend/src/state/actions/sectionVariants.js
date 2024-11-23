@@ -254,3 +254,15 @@ export function resetAllSectionsToDefaultVersions() {
     }
   });
 }
+
+export function resetSectionToDefaultVersion(sectionId) {
+  useSectionInfos.setState((x) => {
+    const sectionVariants = useSectionVariants.getState().x;
+    const variantIds = x.x[sectionId].variantIds;
+    let defaultVariantId = variantIds.find((v) => sectionVariants[v].isDefault);
+    if (defaultVariantId) {
+      defaultVariantId = variantIds[0];
+    }
+    x.x[sectionId].variantId = defaultVariantId;
+  });
+}

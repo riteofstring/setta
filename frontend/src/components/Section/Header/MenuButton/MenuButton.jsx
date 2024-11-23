@@ -10,6 +10,7 @@ import { HideShowParamsButton } from "./HideShowParamsButton";
 import { HideShowSearchButton } from "./HideShowSearchButton";
 import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
 import { MultirunButton } from "./MultiRunButton";
+import { ResetToDefaultVersion } from "./ResetToDefaultVersion";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
 import { ConvertFormat, RenderInfo } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
@@ -74,7 +75,12 @@ function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
 export function getMenuItems(uiTypeName) {
   switch (uiTypeName) {
     case C.INFO:
-      return [RenderInfo, ConvertFormat, CreateNewVersionButton];
+      return [
+        RenderInfo,
+        ConvertFormat,
+        CreateNewVersionButton,
+        ResetToDefaultVersion,
+      ];
     case C.SECTION:
       return [
         SaveCustomArgumentsButton,
@@ -85,6 +91,7 @@ export function getMenuItems(uiTypeName) {
         HideShowUnpinnedParamsButton,
         ShowYaml,
         ClearValues,
+        ResetToDefaultVersion,
       ];
     case C.GLOBAL_VARIABLES:
       return [
@@ -94,14 +101,15 @@ export function getMenuItems(uiTypeName) {
         HideShowUnpinnedParamsButton,
         ShowYaml,
         ClearValues,
+        ResetToDefaultVersion,
       ];
     case C.PARAM_SWEEP:
-      return [CreateNewParamSweepButton, ShowYaml];
+      return [CreateNewParamSweepButton, ShowYaml, ResetToDefaultVersion];
     case C.LIST_ROOT:
     case C.DICT_ROOT:
     case C.CODE:
     case C.INTERACTIVE_CODE:
-      return [CreateNewVersionButton];
+      return [CreateNewVersionButton, ResetToDefaultVersion];
     default:
       return [];
   }
