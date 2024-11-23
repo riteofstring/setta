@@ -35,11 +35,10 @@ export function GlobalParamSweepArea({ sectionId }) {
 }
 
 function GlobalParamSweepGUI({ width }) {
-  const runGroups = useRunGroups((x) => x.x);
+  const firstRunGroupId = useRunGroups((x) => Object.keys(x.x)[0]);
   const shownRunGroup = useProjectConfig((x) => x.shownRunGroup);
   const [previewRunGroup, setPreviewRunGroup] = useState(null);
   const toShow = previewRunGroup ?? shownRunGroup;
-  const firstRunGroupId = Object.keys(runGroups)[0];
 
   const { ref, isScrollable } = useIsScrollable();
   useEffect(() => {
@@ -61,23 +60,19 @@ function GlobalParamSweepGUI({ width }) {
           {/* <FilterSection /> */}
 
           <RunGroupList
-            runGroups={runGroups}
             setShownRunGroup={setShownRunGroup}
             setPreviewRunGroup={setPreviewRunGroup}
             shownRunGroup={shownRunGroup}
           />
           <CreateNewRunGroupButton setShownRunGroup={setShownRunGroup} />
         </article>
-        {runGroups[toShow] && (
+        {!!toShow && (
           <article className="mt-2 flex flex-1 flex-col gap-2 @sm/multipane:overflow-x-hidden">
             <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
               Sections
             </h3>
             <FilterSection />
-            <TopLevelSectionList
-              runGroupId={toShow}
-              runGroup={runGroups[toShow]}
-            />
+            <TopLevelSectionList runGroupId={toShow} />
           </article>
         )}
       </section>
@@ -85,24 +80,28 @@ function GlobalParamSweepGUI({ width }) {
   );
 }
 
-function RunGroupList({
-  runGroups,
-  shownRunGroup,
-  setShownRunGroup,
-  setPreviewRunGroup,
-}) {
+function RunGroupList({ shownRunGroup, setShownRunGroup, setPreviewRunGroup }) {
   const runGroupSelection = useProjectConfig(
     (x) => x.runGroupSelection,
     _.isEqual,
   );
   const { ref, isScrollable } = useIsScrollable();
+  const runGroupsDetails = useRunGroups((x) => {
+    const output = [];
+    for (const [id, details] of Object.entries(x.x)) {
+      output.push({ id, name: details.name });
+    }
+    return output;
+  }, _.isEqual);
+
+  console.log("runGroupsDetails", runGroupsDetails);
 
   return (
     <ul
       className={`${isScrollable ? "nowheel" : ""} flex flex-grow flex-col overflow-visible @sm/multipane:overflow-y-scroll`}
       ref={ref}
     >
-      {Object.entries(runGroups).map(([id, x]) => (
+      {runGroupsDetails.map(({ id, name }) => (
         <CheckboxNextToLabel
           key={id}
           shown={shownRunGroup === id}
@@ -114,37 +113,28 @@ function RunGroupList({
           onMouseLeave={() => setPreviewRunGroup(null)}
           onClick={() => setShownRunGroup(id)}
         >
-          {x.name}
+          {name}
         </CheckboxNextToLabel>
       ))}
     </ul>
   );
 }
 
-function TopLevelSectionList({ runGroupId, runGroup }) {
+function TopLevelSectionList({ runGroupId }) {
   const topLevelSections = useTopLevelRunGroupListing();
   return (
-    <SectionListCore
-      sections={topLevelSections}
-      runGroupId={runGroupId}
-      runGroup={runGroup}
-    />
+    <SectionListCore sections={topLevelSections} runGroupId={runGroupId} />
   );
 }
 
-function SectionList({ variantId, runGroupId, runGroup }) {
-  console.log("SectionList variantId", variantId)
+function SectionList({ variantId, runGroupId }) {
+  console.log("SectionList variantId", variantId);
   const sections = useRunGroupListing(variantId);
-  return (
-    <SectionListCore
-      sections={sections}
-      runGroupId={runGroupId}
-      runGroup={runGroup}
-    />
-  );
+  console.log("sections", sections)
+  return <SectionListCore sections={sections} runGroupId={runGroupId} />;
 }
 
-function SectionListCore({ sections, runGroupId, runGroup }) {
+function SectionListCore({ sections, runGroupId }) {
   //const { ref, isScrollable } = useIsScrollable();
   //${isScrollable ? "nowheel" : ""}
   return (
@@ -153,98 +143,72 @@ function SectionListCore({ sections, runGroupId, runGroup }) {
       // ref={ref}
     >
       {sections.map((x, idx) => (
-        <SectionItem
-          key={idx}
-          sectionInfo={x}
-          runGroupId={runGroupId}
-          runGroupSection={runGroup.sections[x.id]}
-        />
+        <SectionItem key={idx} sectionInfo={x} runGroupId={runGroupId} />
       ))}
     </ul>
   );
 }
 
-function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
+function SectionItem({ sectionInfo, runGroupId }) {
   function onSectionCheckboxChange() {
     toggleRunGroupSection({ id: runGroupId, sectionId: sectionInfo.id });
   }
 
+  const isSelected = useRunGroups(
+    (x) => !!x.x[runGroupId].sections[sectionInfo.id]?.selected,
+  );
+
   return (
     // <div style={{ paddingLeft: `${0.75 * sectionInfo.depth}rem` }}>
     <li className="flex flex-col">
-      <CheckboxGroup
-        checked={runGroupSection?.selected ?? false}
-        onChange={onSectionCheckboxChange}
-      >
+      <CheckboxGroup checked={isSelected} onChange={onSectionCheckboxChange}>
         {sectionInfo.name}
       </CheckboxGroup>
       <VersionsList
         sectionInfo={sectionInfo}
         runGroupId={runGroupId}
-        runGroupSection={runGroupSection}
+        isSelected={isSelected}
       />
       <ParamSweepVersionsList
         sectionInfo={sectionInfo}
         runGroupId={runGroupId}
-        runGroupSection={runGroupSection}
+        isSelected={isSelected}
       />
     </li>
     // </div>
   );
 }
 
-function _VersionsList({ sectionInfo, runGroupId, runGroupSection }) {
+function _VersionsList({ sectionInfo, runGroupId, isSelected }) {
   const allVersions = useGetSectionVariantNames(sectionInfo.id);
-
-  function getOnVersionCheckboxChange(versionId) {
-    return () =>
-      toggleRunGroupSectionVersion({
-        id: runGroupId,
-        sectionId: sectionInfo.id,
-        versionId,
-      });
-  }
 
   return (
     <GenericList
       minLength={0}
       inputList={allVersions}
       listName="Versions"
-      sectionIsSelected={!!runGroupSection?.selected}
-      listSelection={runGroupSection?.versions}
-      onChange={getOnVersionCheckboxChange}
-      ChildDivComponent={SectionList}
-      childDivPropsGetter={(e) => ({
-        variantId: e.id,
-        runGroupId,
-        runGroupSection,
-      })}
+      isSelected={isSelected}
+      sectionId={sectionInfo.id}
+      runGroupId={runGroupId}
+      ChildComponent={VersionItemComponent}
     />
   );
 }
 
 const VersionsList = React.memo(_VersionsList, _.isEqual);
 
-function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
+function _ParamSweepVersionsList({ sectionInfo, runGroupId, isSelected }) {
   const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
-
-  function getOnParamSweepCheckboxChange(paramSweepId) {
-    return () =>
-      toggleRunGroupSectionParamSweep({
-        id: runGroupId,
-        sectionId: sectionInfo.id,
-        paramSweepId,
-      });
-  }
 
   return (
     <GenericList
       minLength={0}
       inputList={allParamSweeps}
       listName="Param Sweeps"
-      onChange={getOnParamSweepCheckboxChange}
-      sectionIsSelected={!!runGroupSection?.selected}
-      listSelection={runGroupSection?.paramSweeps}
+      isSelected={isSelected}
+      sectionId={sectionInfo.id}
+      runGroupId={runGroupId}
+      ChildComponent={ParamSweepItemComponent}
     />
   );
 }
@@ -255,11 +219,10 @@ function _GenericList({
   minLength,
   inputList,
   listName,
-  sectionIsSelected,
-  listSelection,
-  onChange,
-  ChildDivComponent,
-  childDivPropsGetter,
+  isSelected,
+  sectionId,
+  runGroupId,
+  ChildComponent,
 }) {
   return (
     inputList.length > minLength && (
@@ -282,15 +245,13 @@ function _GenericList({
                 key={idx}
                 className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded"
               >
-                <CheckboxGroup
-                  checked={sectionIsSelected && !!listSelection?.[e.id]}
-                  onChange={onChange(e.id)}
-                >
-                  {e.name}
-                </CheckboxGroup>
-                {!!ChildDivComponent && (
-                  <ChildDivComponent {...childDivPropsGetter(e)} />
-                )}
+                <ChildComponent
+                  id={e.id}
+                  name={e.name}
+                  parentIsSelected={isSelected}
+                  sectionId={sectionId}
+                  runGroupId={runGroupId}
+                />
               </li>
             ))}
           </ul>
@@ -301,6 +262,64 @@ function _GenericList({
 }
 
 const GenericList = React.memo(_GenericList, _.isEqual);
+
+function VersionItemComponent({
+  id,
+  name,
+  parentIsSelected,
+  sectionId,
+  runGroupId,
+}) {
+  function onChange() {
+    toggleRunGroupSectionVersion({
+      id: runGroupId,
+      sectionId,
+      versionId: id,
+    });
+  }
+
+  const isSelected = useRunGroups(
+    (x) => !!x.x[runGroupId].sections[sectionId]?.versions[id],
+  );
+
+  return (
+    <>
+      <CheckboxGroup
+        checked={parentIsSelected && isSelected}
+        onChange={onChange}
+      >
+        {name}
+      </CheckboxGroup>
+      <SectionList variantId={id} runGroupId={runGroupId} />
+    </>
+  );
+}
+
+function ParamSweepItemComponent({
+  id,
+  name,
+  parentIsSelected,
+  sectionId,
+  runGroupId,
+}) {
+  function onChange() {
+    toggleRunGroupSectionParamSweep({
+      id: runGroupId,
+      sectionId,
+      paramSweepId: id,
+    });
+  }
+
+  const isSelected = useRunGroups(
+    (x) => !!x.x[runGroupId].sections[sectionId]?.paramSweeps[id],
+  );
+
+  return (
+    <CheckboxGroup checked={parentIsSelected && isSelected} onChange={onChange}>
+      {name}
+    </CheckboxGroup>
+  );
+}
 
 function CheckboxGroup({ children, checked, onChange }) {
   return (

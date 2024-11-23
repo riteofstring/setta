@@ -5,6 +5,7 @@ import {
   useSectionInfos,
   useSectionVariants,
 } from "state/definitions";
+import { getSectionName } from "state/getters/sectionInfo";
 import { getDepthListing } from "utils/childrenToDepth";
 import { useSectionInfoNames } from "./sections";
 import { useSectionIdToChildren } from "./sectionVariants";
@@ -42,13 +43,15 @@ const shownSectionTypes = [
 
 export function useRunGroupListing(variantId) {
   const sectionTypeNames = useSectionTypeNames();
-  return useSectionVariants(
-    (x) =>
-      x.x[variantId].children.filter((c) =>
-        shownSectionTypes.includes(sectionTypeNames[c]),
-      ),
-    _.isEqual,
-  );
+  return useSectionVariants((x) => {
+    const output = [];
+    for (const childId of x.x[variantId].children) {
+      if (shownSectionTypes.includes(sectionTypeNames[childId])) {
+        output.push({ id: childId, name: getSectionName(childId) });
+      }
+    }
+    return output;
+  }, _.isEqual);
 }
 
 export function useTopLevelRunGroupListing() {
