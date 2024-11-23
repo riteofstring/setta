@@ -33,21 +33,18 @@ def export_config(folder, config, with_variants):
 
 
 def export_section(folder, config, section_id, with_variants):
-    stype = get_section_type(config, section_id)
+    exporter_fn = get_exporter_fn(config, section_id)
+    if not exporter_fn:
+        return
+
     variant_ids = (
         get_section_variant_ids(config, section_id)
         if with_variants
         else [get_selected_section_variant_id(config, section_id)]
     )
+
     for variant_id in variant_ids:
-        if stype in [C.INTERACTIVE_CODE, C.CODE]:
-            export_code(folder, config, section_id, variant_id, with_variants)
-        elif stype in [C.SECTION, C.GLOBAL_VARIABLES]:
-            export_regular_section(
-                folder, config, section_id, variant_id, with_variants
-            )
-        # elif stype in [C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
-        #     export_list_section(folder, config, section_id, with_variants)
+        exporter_fn(folder, config, section_id, variant_id, with_variants)
 
 
 def export_code(folder, config, section_id, variant_id, with_variants):
@@ -96,11 +93,13 @@ def export_regular_section(folder, config, section_id, variant_id, with_variants
         file.write(yamlValue)
 
 
-def export_list_section(folder, config, section_id, with_variants):
-    section_name = get_section_name(config, section_id)
-    children_folder = folder / section_name
+def export_list_section(folder, config, section_id, variant_id, with_variants):
+    subfolder_name = maybe_with_variant_in_filename(
+        config, section_id, variant_id, with_variants
+    )
+    children_folder = folder / subfolder_name
     os.makedirs(children_folder, exist_ok=True)
-    for c in get_section_children(config, section_id):
+    for c in config["sectionVariants"][variant_id]["children"]:
         export_section(children_folder, config, c, with_variants)
 
 
@@ -110,3 +109,13 @@ def maybe_with_variant_in_filename(config, section_id, variant_id, with_variants
     if with_variants:
         return f"{section_name}@{variant_name}"
     return section_name
+
+
+def get_exporter_fn(config, section_id):
+    stype = get_section_type(config, section_id)
+    if stype in [C.INTERACTIVE_CODE, C.CODE]:
+        return export_code
+    elif stype in [C.SECTION, C.GLOBAL_VARIABLES]:
+        return export_regular_section
+    elif stype in [C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
+        return export_list_section
