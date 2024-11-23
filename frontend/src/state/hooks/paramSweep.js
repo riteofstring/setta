@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useParamSweep, useSectionInfos } from "state/definitions";
+import { createNewId } from "utils/idNameCreation";
 
 export function useParamSweepInfo(sectionId) {
   const forSectionId = useForSectionId(sectionId);
@@ -55,4 +56,14 @@ export function getParamSweep(forSectionId) {
     return null;
   }
   return useParamSweep.getState().x[paramSweepId].sweep;
+}
+
+export function duplicateParamSweep({ id, newName }) {
+  const newId = createNewId();
+  useParamSweep.setState((state) => {
+    const s = state.x;
+    s[newId] = _.cloneDeep(s[id]);
+    s[newId].name = newName;
+  });
+  return newId;
 }

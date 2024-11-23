@@ -7,7 +7,11 @@ import {
   setSectionInfoAttr,
 } from "state/actions/sections/sectionInfos";
 import { toggleVariantFrozenState } from "state/actions/sectionVariants";
-import { useSectionInfos, useSectionVariants } from "state/definitions";
+import {
+  useParamSweep,
+  useSectionInfos,
+  useSectionVariants,
+} from "state/definitions";
 import {
   getForSectionId,
   useCurrParamSweepId,
@@ -109,6 +113,12 @@ function ParamSweepItems({ sectionId }) {
     });
   }
 
+  function onFreezeClick(id) {}
+
+  function isFrozenHook(id) {
+    return { hook: useParamSweep, selector: (x) => x.x[id].isFrozen };
+  }
+
   return paramSweepNames.map((e) => (
     <OneItem
       key={e.id}
@@ -117,6 +127,8 @@ function ParamSweepItems({ sectionId }) {
       isCurr={currParamSweepId === e.id}
       onMouseOver={onMouseOver}
       onClick={onClick}
+      onFreezeClick={onFreezeClick}
+      isFrozenHook={isFrozenHook}
     />
   ));
 }

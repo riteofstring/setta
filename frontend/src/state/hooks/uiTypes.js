@@ -156,10 +156,11 @@ function getRequiredUIEditorTabs(uiTypeName) {
       return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
     case C.SOCIAL:
       return [SECTION_CONFIG_TAB];
+    case C.PARAM_SWEEP:
+      return [SECTION_VARIANTS_TAB];
     case C.DECK:
     case C.TERMINAL:
     case C.GLOBAL_PARAM_SWEEP:
-    case C.PARAM_SWEEP:
     case C.DRAW:
       return [SECTION_CONFIG_TAB];
     case C.IMAGE:
