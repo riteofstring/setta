@@ -3,6 +3,7 @@ import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import C from "constants/constants.json";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { HeaderIcon } from "../HeaderIcon";
+import { ClearValues } from "./ClearValues";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
 import { HideShowParamsButton } from "./HideShowParamsButton";
@@ -83,6 +84,7 @@ export function getMenuItems(uiTypeName) {
         HideShowParamsButton,
         HideShowUnpinnedParamsButton,
         ShowYaml,
+        ClearValues,
       ];
     case C.GLOBAL_VARIABLES:
       return [
@@ -91,6 +93,7 @@ export function getMenuItems(uiTypeName) {
         MultirunButton,
         HideShowUnpinnedParamsButton,
         ShowYaml,
+        ClearValues,
       ];
     case C.PARAM_SWEEP:
       return [CreateNewParamSweepButton];

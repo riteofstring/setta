@@ -47,13 +47,18 @@ export function initManySectionVariantIds({ variantProps }) {
 export function initManyEnteredValues({ collectionId, paramIdsToUITypes }) {
   useSectionVariants.setState((state) => {
     _.forEach(paramIdsToUITypes, (uiType, id) => {
-      state.x[collectionId].values[id] = {
-        value: newEV(uiType),
-        keywordPositions: [],
-      };
+      state.x[collectionId].values[id] = initEnteredValue(uiType);
     });
   });
 }
+
+export function initEnteredValue(uiType) {
+  return {
+    value: newEV(uiType),
+    keywordPositions: [],
+  };
+}
+
 export function setEnteredValue({ collectionId, paramInfoId, value }) {
   useSectionVariants.setState((state) => {
     state.x[collectionId].values[paramInfoId].value = value;
