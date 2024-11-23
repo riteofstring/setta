@@ -52,8 +52,6 @@ def export_section(folder, config, section_id, with_variants):
     if not exporter_fn:
         return
     variant_ids = get_variant_ids(config, section_id, with_variants)
-    print("section_id", section_id)
-    print("variant_ids", variant_ids)
     for variant_id in variant_ids:
         if not variant_id:
             continue
