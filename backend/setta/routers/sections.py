@@ -99,7 +99,7 @@ def route_section_to_yaml(x: SectionToYamlRequest):
 def route_param_sweep_section_to_yaml(x: ParamSweepSectionToYamlRequest):
     output = export_param_sweep_section_to_dict(x.sweep, x.codeInfo, x.codeInfoChildren)
     yamlValue = param_sweep_dict_to_yaml(output)
-    return {"yamlValue": yamlValue, "originalObj": {}}
+    return {"yamlValue": yamlValue}
 
 
 @router.post(C.ROUTE_LOAD_SECTION_JSON_SOURCE)

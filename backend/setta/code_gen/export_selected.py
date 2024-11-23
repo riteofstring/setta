@@ -652,3 +652,26 @@ class ParamSweepSectionToDict:
                 paramFullPathName = None
             curr.append({paramFullPathName: p["values"]})
         self.prettyOutput.append(currObj)
+
+
+
+class GlobalParamSweepSectionToDict:
+    def __init__(
+        self,
+        runGroups,
+        sections,
+        paramSweeps,
+        sectionVariants,
+    ):
+        self.prettyOutput = []
+        self.runGroups = runGroups
+        self.sections = sections
+        self.paramSweeps = paramSweeps
+        self.sectionVariants = sectionVariants
+
+    def export(self):
+        for v in self.runGroups.values():
+            self.export_run_group(v)
+
+    def export_run_group(self, runGroup):
+        runGroupName = runGroup["name"]

@@ -144,6 +144,13 @@ def export_param_sweep_section(
     with open(folder / f"{base}.yaml", "w") as file:
         file.write(yamlValue)
 
+def export_global_param_sweep_section(folder, config, section_id, param_sweep_id, _):
+    base = maybe_with_param_sweep_in_filename(
+        config, section_id, param_sweep_id, False
+    )
+    with open(folder / f"{base}.yaml", "w") as file:
+        file.write(yamlValue)
+
 
 def maybe_with_variant_in_filename(config, section_id, variant_id, with_variants):
     section_name = get_section_name(config, section_id)
