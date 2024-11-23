@@ -24,8 +24,8 @@ export function useAddMouseLocationListener() {
 }
 
 export function zoomToMouseLocation() {
-  const rfStore = useReactFlow.getState();
   const { x, y } = screenToFlowPosition(mouseLocation);
   const zoom = useSettings.getState().defaultZoomLevel;
   setCenter(x, y, { zoom });
+  useReactFlow.setState({ fitViewOnInit: false });
 }

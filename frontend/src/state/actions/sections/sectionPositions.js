@@ -66,6 +66,7 @@ export function goToSection(sectionId, duration = 100) {
 
   setActiveSectionIds([sectionId]);
   setZIndices([sectionId]);
+  useReactFlow.setState({ fitViewOnInit: false });
 }
 
 export function autoLayout() {
