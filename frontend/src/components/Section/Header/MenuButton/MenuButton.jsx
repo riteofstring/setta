@@ -74,7 +74,7 @@ function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
 export function getMenuItems(uiTypeName) {
   switch (uiTypeName) {
     case C.INFO:
-      return [RenderInfo, ConvertFormat];
+      return [RenderInfo, ConvertFormat, CreateNewVersionButton];
     case C.SECTION:
       return [
         SaveCustomArgumentsButton,

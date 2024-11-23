@@ -23,6 +23,7 @@
       "code": "",
       "codeInfoColId": "a386b032-1e99-42b1-b99c-d71b89fed5fd",
       "keywordPositions": [],
+      "description": "",
       "children": [],
       "values": {}
     }
@@ -192,7 +193,6 @@
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
       "paramSweepId": null,
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "json",
       "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],

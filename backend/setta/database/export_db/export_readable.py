@@ -8,6 +8,7 @@ from setta.code_gen.export_selected import (
     get_for_section_id,
     get_section_name,
     get_section_type,
+    get_section_variant_attr,
     get_section_variant_ids,
     get_selected_section_variant,
     get_selected_section_variant_id,
@@ -117,11 +118,11 @@ def export_list_section(folder, config, section_id, variant_id, with_variants):
 def export_info_section(folder, config, section_id, variant_id, with_variants):
     base = maybe_with_variant_in_filename(config, section_id, variant_id, with_variants)
     section = config["sections"][section_id]
-    info = section["description"]
+    description = get_section_variant_attr(config, variant_id, "description")
     renderMarkdown = section["renderMarkdown"]
     extension = ".md" if renderMarkdown else ".txt"
     with open(folder / f"{base}{extension}", "w") as file:
-        file.write(info)
+        file.write(description)
 
 
 def export_param_sweep_section(

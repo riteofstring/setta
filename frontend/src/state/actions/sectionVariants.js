@@ -38,6 +38,7 @@ export function initManySectionVariantIds({ variantProps }) {
         selectedItem: props.selectedItem ?? null,
         code: props.code ?? "",
         codeInfoColId: props.codeInfoColId,
+        description: props.newDescription ?? "",
         keywordPositions: props.keywordPositions ?? [],
         isFrozen: props.isFrozen ?? false,
         isDefault: props.isDefault ?? true,

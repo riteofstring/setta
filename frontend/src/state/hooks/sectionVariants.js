@@ -83,6 +83,10 @@ export function useSectionCode(sectionId) {
   return useSectionVariantAttr(sectionId, "code");
 }
 
+export function useSectionDescription(sectionId) {
+  return useSectionVariantAttr(sectionId, "description");
+}
+
 export function useSectionCodeInfoColId(sectionId) {
   return useSectionVariantAttr(sectionId, "codeInfoColId");
 }

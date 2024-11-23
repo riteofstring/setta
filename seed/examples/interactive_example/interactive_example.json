@@ -68,7 +68,8 @@
       "children": [],
       "codeInfoColId": "8cb39cdd-f8e2-4706-9e47-fc1733fce6f0",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "56218716-8dc7-4a8b-a253-1eb2bb9cfc56": {
       "name": "ratty_red",
@@ -79,7 +80,8 @@
       "children": [],
       "codeInfoColId": "81494cf8-fbfa-492a-8db3-f5919a5422eb",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "61ce0033-a59e-4c8e-8a52-d658feb18017": {
       "name": "hidden_bronze",
@@ -90,7 +92,8 @@
       "children": [],
       "codeInfoColId": "0074df5c-ea05-409e-8f8b-b60c453d3e0c",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "91b7814e-8f93-4ad1-a966-00851b4e41d9": {
       "name": "victorious_white",
@@ -101,7 +104,8 @@
       "children": [],
       "codeInfoColId": "2f3d4196-b243-4186-919f-163dc203ca5a",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "efbf1e64-8932-4fa6-928a-e930314db45c": {
       "name": "tropical_harlequin",
@@ -112,7 +116,8 @@
       "children": [],
       "codeInfoColId": "4d31d08d-f976-4e29-85aa-d791837d7226",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "8055d10b-3623-4665-b85c-977327fa40c6": {
       "name": "involved_red",
@@ -123,7 +128,8 @@
       "keywordPositions": [],
       "codeInfoColId": "75cdb9b3-a7c8-4fd8-8da6-9667a65fea48",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     }
   },
   "uiTypes": {
@@ -315,7 +321,6 @@
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
       "uiTypeColId": "ce01027b-26ed-4ea2-971a-fefde787cbb2",
       "social": null,
-      "description": "",
       "codeLanguage": "python",
       "isFrozen": 0,
       "hideUnpinnedParams": 0,
@@ -348,7 +353,6 @@
       "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
       "uiTypeColId": "ecab60b1-3cd7-4947-a61b-ccbef507c9ae",
       "social": null,
-      "description": "",
       "codeLanguage": "python",
       "isFrozen": 0,
       "hideUnpinnedParams": 0,
@@ -381,7 +385,6 @@
       "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
       "uiTypeColId": "a3934747-efba-49aa-a500-100b033196d2",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "hideUnpinnedParams": 0,
@@ -420,7 +423,6 @@
       "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
       "uiTypeColId": "b3449dbb-8328-43bb-8e45-b76173bf679c",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "hideUnpinnedParams": 0,
@@ -453,7 +455,6 @@
       "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c",
       "uiTypeColId": "3072250c-fb83-4b58-9e3b-303f13b1e623",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "hideUnpinnedParams": 0,
@@ -500,7 +501,6 @@
       "paramSweepId": null,
       "social": null,
       "artifacts": [],
-      "description": "",
       "codeLanguage": "python",
       "variantIds": [
         "8055d10b-3623-4665-b85c-977327fa40c6"

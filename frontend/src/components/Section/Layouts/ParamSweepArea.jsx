@@ -53,7 +53,7 @@ function _ParamSweepAreaGUI({ sectionId }) {
 
   const isDisabled = useParamSweepIsFrozen(sectionId);
 
-  console.log("paramSweep", paramSweep)
+  console.log("paramSweep", paramSweep);
 
   return (
     <>

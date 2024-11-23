@@ -5,9 +5,13 @@ import { useCodeMirrorStyle } from "components/utils/CodeMirror/useCodeMirrorSty
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { setSectionVariantAttr } from "state/actions/sectionVariants";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
-import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
+import {
+  useSectionDescription,
+  useSectionVariantIsFrozen,
+} from "state/hooks/sectionVariants";
 
 export function MarkdownEditorInPane({ sectionId }) {
   return (
@@ -35,10 +39,10 @@ export function MarkdownEditorInSection({ sectionId }) {
 
 const _MarkdownEditorCore = React.forwardRef(
   ({ sectionId, maxHeight, onCreateEditor, wrapperClassName }, ref) => {
-    const { description, renderMarkdown } = useSectionInfos(
-      (x) => _.pick(x.x[sectionId], ["description", "renderMarkdown"]),
-      _.isEqual,
+    const renderMarkdown = useSectionInfos(
+      (x) => x.x[sectionId].renderMarkdown,
     );
+    const description = useSectionDescription(sectionId);
     const [localDescription, setLocalDescription] = useState(description);
 
     useEffect(() => {
@@ -127,7 +131,7 @@ export function getDefaultInfoTitle() {
 
 const debouncedSetDescription = _.debounce((sectionId, v, description) => {
   if (v !== description) {
-    setSectionInfoAttr({ sectionId, attr: "description", value: v });
+    setSectionVariantAttr(sectionId, "description", v);
     const sectionName = getFirstHeadingOrText(v) ?? getDefaultInfoTitle();
     setSectionInfoAttr({ sectionId, attr: "name", value: sectionName });
     maybeIncrementProjectStateVersion(true);

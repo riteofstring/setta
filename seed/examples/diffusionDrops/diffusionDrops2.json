@@ -95,7 +95,8 @@
       "keywordPositions": [],
       "codeInfoColId": "e161a6ff-77ef-43fd-b7ec-52185d4ca006",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "09179586-8ddd-4f0b-91a0-0398d928d408": {
       "name": "soup_coin",
@@ -111,7 +112,8 @@
       "keywordPositions": [],
       "codeInfoColId": "8dde8d06-7744-4601-a6da-b2d47046b634",
       "isFrozen": false,
-      "isDefault": false
+      "isDefault": false,
+      "description": ""
     },
     "10ea5acf-9c24-4351-bc81-252625623507": {
       "name": "roasted_maroon",
@@ -122,7 +124,8 @@
       "keywordPositions": [],
       "codeInfoColId": "4824c54e-fe92-4551-b9ca-549b651a3d4b",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "4253da34-9a1a-43eb-b80f-c6708e339024": {
       "name": "substantial_brown",
@@ -166,7 +169,8 @@
       "keywordPositions": [],
       "codeInfoColId": "641b63f2-e7e8-4e33-97f4-c99a50be894e",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "756e7bb0-ac13-4790-a05c-f10425d508e9": {
       "name": "secure_jade",
@@ -195,7 +199,8 @@
       "keywordPositions": [],
       "codeInfoColId": "684e732e-ab77-47a4-9d7d-ba895eceb3d7",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "7d6b798f-f0eb-44b7-b9a9-1bb9bb01185b": {
       "name": "alien_star",
@@ -239,7 +244,8 @@
       "keywordPositions": [],
       "codeInfoColId": "641b63f2-e7e8-4e33-97f4-c99a50be894e",
       "isFrozen": false,
-      "isDefault": false
+      "isDefault": false,
+      "description": ""
     },
     "8481e81d-f417-4914-b5d8-2797202392ab": {
       "name": "fast_gray",
@@ -253,7 +259,8 @@
       "keywordPositions": [],
       "codeInfoColId": "50fcd036-4f7b-4e4b-bd86-320875ffb857",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "9083beca-25c9-4a31-885a-fb19064efd3d": {
       "name": "yeasty_magenta",
@@ -274,7 +281,8 @@
       "keywordPositions": [],
       "codeInfoColId": "6a3681f2-dba7-46d8-abba-9db9f9e04c9b",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "9b39ad4c-8887-43ea-b759-a1fc067ac3ef": {
       "name": "central_amethyst",
@@ -288,7 +296,8 @@
       "keywordPositions": [],
       "codeInfoColId": "cc516188-e84d-43bd-887f-a3afc44452ce",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "a853185e-5b0d-400a-a94c-6c14a9c9809e": {
       "name": "vivid_moccasin",
@@ -332,7 +341,8 @@
       "keywordPositions": [],
       "codeInfoColId": "a599670a-881c-4dd3-a2a3-e32db5aa119d",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "c1873fea-a24d-4367-97b1-88614045a575": {
       "name": "wet_teal",
@@ -388,7 +398,8 @@
       "keywordPositions": [],
       "codeInfoColId": "e161a6ff-77ef-43fd-b7ec-52185d4ca006",
       "isFrozen": false,
-      "isDefault": false
+      "isDefault": false,
+      "description": ""
     },
     "c58d323d-382a-47b2-919f-a7f06bcac760": {
       "name": "secure_tan",
@@ -404,7 +415,8 @@
       "keywordPositions": [],
       "codeInfoColId": "ec57f93e-b669-45b9-87b6-89ff248afe88",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "dbb76902-0b6c-46fa-a765-46bdfcf92d92": {
       "name": "horizontal_green",
@@ -465,7 +477,8 @@
       "keywordPositions": [],
       "codeInfoColId": "ccfca657-89b3-48cb-987e-67fb2ce55d71",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "e3280349-7dda-43f6-9cea-0b98971435a5": {
       "name": "geographical_chocolate",
@@ -476,7 +489,8 @@
       "keywordPositions": [],
       "codeInfoColId": "8e5827c3-69ce-420d-b7ea-fcb6752f19dd",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "fb08c4e1-9809-46ef-bfa5-52a4a944ef74": {
       "name": "marginal_coral",
@@ -490,7 +504,8 @@
       "keywordPositions": [],
       "codeInfoColId": "8dde8d06-7744-4601-a6da-b2d47046b634",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     },
     "d35234fa-3d81-4e87-b6d2-c26b1e8b064f": {
       "name": "marvellous_olive",
@@ -501,7 +516,8 @@
       "keywordPositions": [],
       "codeInfoColId": "db64dd2b-fcdd-43d4-aec8-e3ca8d591575",
       "isFrozen": false,
-      "isDefault": true
+      "isDefault": true,
+      "description": ""
     }
   },
   "uiTypes": {},
@@ -709,7 +725,6 @@
       "uiTypeId": "623a9242-53e9-4b42-b695-431e9754a836",
       "uiTypeColId": "a5d299bd-58e7-45bc-8a61-d13ebe20124d",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -742,7 +757,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "b1abc839-5b74-4fc9-b1f7-65300a3d183f",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -776,7 +790,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "c40244ce-c012-4dfa-81f9-9cf89bcd76df",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -809,7 +822,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "a95060a5-3cf2-49cc-a912-db0dba0205ea",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -842,7 +854,6 @@
       "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
       "uiTypeColId": "527609ff-a61b-4e1f-ac5f-b50fde216719",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -876,7 +887,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "a1e0f6e5-7af2-438c-82e3-ed5ce5d9c432",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -909,7 +919,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "69ecb4f5-9c64-4f20-bb10-7662f18177e6",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -942,7 +951,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "3562b0be-4c55-4496-a179-4a75ec91a524",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -976,7 +984,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "3999a2dc-7210-4d3f-a6cb-28b7ec912d03",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -1009,7 +1016,6 @@
       "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
       "uiTypeColId": "45999936-ac07-4aee-8751-2592c08feeee",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -1042,7 +1048,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "e205db42-5447-43b4-a7e8-79e5177e741c",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -1075,7 +1080,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "9e4418e7-dacf-4ac4-85a4-6921ff0c2cd0",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -1115,7 +1119,6 @@
       "uiTypeColId": "e79094db-4304-4667-9c93-9e1e8a61567e",
       "paramSweepId": null,
       "social": null,
-      "description": "",
       "codeLanguage": "python",
       "variantIds": [
         "d35234fa-3d81-4e87-b6d2-c26b1e8b064f"
