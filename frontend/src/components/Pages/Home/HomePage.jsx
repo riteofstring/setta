@@ -6,9 +6,11 @@ import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
 import { matchSorter } from "match-sorter";
 import { forwardRef, useEffect, useState } from "react";
 import { BiPlus } from "react-icons/bi";
+import { HiHome } from "react-icons/hi";
 import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { Link, useNavigate } from "react-router-dom";
+import { dbSetAsDefaultProject } from "requests/projects";
 import { openDeleteProjectWarningModal } from "state/actions/modal";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
@@ -50,7 +52,6 @@ function RightColumn({ projects, setDoRefresh }) {
   }
 
   async function onClickDelete() {
-    console.log("selectedProjects", selectedProjects)
     openDeleteProjectWarningModal({
       setDoRefresh,
       setSelectedProjects,
@@ -65,6 +66,12 @@ function RightColumn({ projects, setDoRefresh }) {
     if (e.key === "Escape") {
       setSelectedProjects([]);
     }
+  }
+
+  async function onClickMakeDefault() {
+    const projectId = selectedProjects[0];
+    await dbSetAsDefaultProject(projectId);
+    setDoRefresh(true);
   }
 
   return (
@@ -88,6 +95,14 @@ function RightColumn({ projects, setDoRefresh }) {
           >
             <IoClose />
             Delete
+          </StandardButton>
+          <StandardButton
+            twClasses="py-2 px-4 rounded-full font-medium  text-white/75 bg-setta-500/25 hover:bg-green-500 hover:text-white gap-2"
+            onClick={onClickMakeDefault}
+            disabled={selectedProjects.length !== 1}
+          >
+            <HiHome />
+            Make Default
           </StandardButton>
         </div>
         <Link
@@ -157,10 +172,15 @@ const ProjectItem = forwardRef(
             isSelected={isSelected}
             onSelectProject={onSelectProject}
           />
-          <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-setta-800 ">
-            <p className=" text-sm text-setta-600 dark:text-setta-100">
-              {project.name}
-            </p>
+          <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-setta-800">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-setta-600 dark:text-setta-100">
+                {project.name}
+              </p>
+              {!!project.isDefault && (
+                <HiHome className="h-4 w-4 text-setta-600 dark:text-setta-100" />
+              )}
+            </div>
           </div>
         </WrapperDiv>
       </div>

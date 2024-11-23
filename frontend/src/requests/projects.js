@@ -74,3 +74,10 @@ export async function dbGetDefaultConfigName() {
     body: {},
   });
 }
+
+export async function dbSetAsDefaultProject(projectId) {
+  return await post({
+    address: C.ROUTE_SET_AS_DEFAULT_PROJECT,
+    body: { projectId },
+  });
+}

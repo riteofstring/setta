@@ -18,6 +18,7 @@ from setta.database.db.projects.save import (
     create_project_config,
     save_project_config_name,
     save_project_details,
+    set_as_default_project,
 )
 from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
@@ -66,6 +67,10 @@ class DeleteProjectConfigsRequest(BaseModel):
 class SetProjectConfigNameRequest(BaseModel):
     currProjectConfigName: str
     newProjectConfigName: str
+
+
+class SetAsDefaultProjectRequest(BaseModel):
+    projectId: str
 
 
 @router.post(C.ROUTE_ALL_PROJECT_CONFIG_METADATA)
@@ -151,3 +156,9 @@ def route_set_project_config_name(x: SetProjectConfigNameRequest, dbq=Depends(ge
 def router_get_default_config_name(dbq=Depends(get_dbq)):
     with dbq as db:
         return load_default_config_name(db)
+
+
+@router.post(C.ROUTE_SET_AS_DEFAULT_PROJECT)
+def router_set_as_default_project(x: SetAsDefaultProjectRequest, dbq=Depends(get_dbq)):
+    with dbq as db:
+        set_as_default_project(db, x.projectId)

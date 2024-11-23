@@ -72,6 +72,7 @@
   "ROUTE_DOCSTRING_TO_MARKDOWN": "/docstringToMarkdown",
   "ROUTE_NEW_JSON_VERSION_NAME": "/newJsonVersionName",
   "ROUTE_SAVE_SECTION_JSON_SOURCE": "/saveSectionJsonSource",
+  "ROUTE_SET_AS_DEFAULT_PROJECT": "/routeSetAsDefaultProject",
   "JSON_SOURCE_PREFIX": "JSON-",
   "NESTED_PARAM": "NESTED_PARAM",
   "ARGS_PREFIX": "__",
