@@ -128,9 +128,7 @@ function TopLevelSectionList({ runGroupId }) {
 }
 
 function SectionList({ variantId, runGroupId }) {
-  console.log("SectionList variantId", variantId);
   const sections = useRunGroupListing(variantId);
-  console.log("sections", sections)
   return <SectionListCore sections={sections} runGroupId={runGroupId} />;
 }
 
@@ -243,7 +241,7 @@ function _GenericList({
             {inputList.map((e, idx) => (
               <li
                 key={idx}
-                className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded"
+                className="flex min-h-6 cursor-pointer flex-col rounded"
               >
                 <ChildComponent
                   id={e.id}
@@ -284,13 +282,17 @@ function VersionItemComponent({
 
   return (
     <>
-      <CheckboxGroup
-        checked={parentIsSelected && isSelected}
-        onChange={onChange}
-      >
-        {name}
-      </CheckboxGroup>
-      <SectionList variantId={id} runGroupId={runGroupId} />
+      <div className="flex items-center gap-2 truncate">
+        <CheckboxGroup
+          checked={parentIsSelected && isSelected}
+          onChange={onChange}
+        >
+          {name}
+        </CheckboxGroup>
+      </div>
+      <div className="pl-4">
+        <SectionList variantId={id} runGroupId={runGroupId} />
+      </div>
     </>
   );
 }
