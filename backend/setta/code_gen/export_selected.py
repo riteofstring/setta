@@ -632,10 +632,10 @@ class ParamSweepSectionToDict:
         # self.output[selectedItem] = {}
         if selectedItem:
             selectedItemName = self.codeInfo[selectedItem]["name"]
-            currObj = {selectedItemName: {}}
+            currObj = {selectedItemName: []}
             curr = currObj[selectedItemName]
         else:
-            curr = currObj = {}
+            curr = currObj = []
         for p in params:
             result = get_param_ids(
                 self.codeInfo,
@@ -647,5 +647,5 @@ class ParamSweepSectionToDict:
             paramFullPathName = get_param_full_path_name(
                 p["paramInfoId"], pathMap, self.codeInfo
             )
-            curr[paramFullPathName] = p["values"]
+            curr.append({paramFullPathName: p["values"]})
         self.prettyOutput.append(currObj)
