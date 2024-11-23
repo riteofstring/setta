@@ -157,7 +157,14 @@ function setAttrOfSelfAndDescendants(
   }
   for (const paramId of codeInfoChildren[id]) {
     state[paramId][attr] = value;
-    setAttrOfSelfAndDescendants(state, paramId, attr, value, true);
+    setAttrOfSelfAndDescendants(
+      state,
+      codeInfoChildren,
+      paramId,
+      attr,
+      value,
+      true,
+    );
   }
 }
 
