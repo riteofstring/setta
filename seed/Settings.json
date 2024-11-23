@@ -27,6 +27,8 @@
   "formatCode": "Shift + Alt + F",
   "fitViewShortcut": "F",
   "zoomToMouseShortcut": "Z",
+  "deleteSectionShortcut": "Backspace",
+  "selectAllSectionsShortcut": "Mod + A",
   "defaultCodeSectionSize": { "width": 500, "height": "auto" },
   "defaultTerminalSectionSize": { "width": 700, "height": 300 },
   "defaultSectionSize": { "width": "auto", "height": "auto" },

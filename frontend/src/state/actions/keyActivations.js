@@ -24,11 +24,13 @@ import { formatCode, updateInteractiveCode } from "./interactive";
 import { unselectAllParams } from "./kwargs/kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
+import { setAllSectionsAsActive } from "./sections/activeSections";
 import {
   addGroupInEmptySpace,
   addRegularSectionInEmptySpace,
   addTerminalInEmptySpace,
 } from "./sections/createSections";
+import { deleteAllActiveSections } from "./sections/deleteSections";
 import { groupSections } from "./sections/groupSections";
 import { focusOnSearch } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
@@ -219,6 +221,8 @@ export function attachKeyEventListeners() {
     [settings.paramSelect, activateParamSelect, deactivateParamSelect],
     [settings.fitViewShortcut, onFitViewHandler],
     [settings.zoomToMouseShortcut, zoomToMouseLocation],
+    [settings.deleteSectionShortcut, deleteAllActiveSections],
+    [settings.selectAllSectionsShortcut, setAllSectionsAsActive],
     [
       settings.selectionKeyCode,
       activateSelectionKeyPressed,
