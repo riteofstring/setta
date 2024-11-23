@@ -13,10 +13,12 @@ import {
 import {
   useCodeInfo,
   useOriginalYamlObj,
+  useParamSweep,
   useSectionInfos,
   useYamlValue,
 } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
+import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
+import { getForSectionId } from "state/hooks/paramSweep";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
@@ -25,6 +27,10 @@ import {
   batchUpdateCodeInfoChildren,
   getSectionCodeInfoChildren,
 } from "./codeInfoCols";
+import {
+  getParamIds,
+  paramNameFromPathArray,
+} from "./sections/sectionContents";
 
 export async function guiToYaml(sectionId) {
   const res = await dbGuiToYaml(sectionId);
@@ -36,9 +42,85 @@ export async function guiToYaml(sectionId) {
 }
 
 export function yamlToGUI(sectionId) {
+  const sectionType = getSectionType(sectionId);
   const yamlValue = useYamlValue.getState()[sectionId] ?? "";
-  const originalObj = useOriginalYamlObj.getState()[sectionId] ?? {};
 
+  if (sectionType.type === C.PARAM_SWEEP) {
+    paramSweepSectionYamlToGUI(sectionId, yamlValue);
+  } else {
+    const originalObj = useOriginalYamlObj.getState()[sectionId] ?? {};
+    sectionYamlToGUI(sectionId, yamlValue, originalObj);
+  }
+}
+
+function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
+  const forSectionId = getForSectionId(useSectionInfos.getState().x, sectionId);
+  const docs = parseAllDocuments(yamlValue);
+  const codeInfoChildren = getSectionCodeInfoChildren(forSectionId);
+  const codeInfoChildrenKeys = Object.keys(codeInfoChildren);
+  const codeInfo = useCodeInfo.getState().x;
+  const newParamSweep = [];
+
+  for (const doc of docs) {
+    const d = doc.toJS();
+    const hasCallable = !Array.isArray(d);
+    let matchingCallableId = null,
+      callableName;
+    if (hasCallable) {
+      callableName = Object.keys(d)[0];
+      matchingCallableId = tryFindingMatchingId(
+        callableName,
+        codeInfoChildrenKeys,
+        codeInfo,
+      );
+      if (!matchingCallableId) {
+        continue;
+      }
+    }
+
+    const { pathMap } = getParamIds(
+      forSectionId,
+      codeInfo,
+      codeInfoChildren,
+      matchingCallableId,
+      (p) => p.rcType === C.PARAMETER,
+    );
+
+    const paramsInDoc = callableName ? d[callableName] : d;
+    const params = [];
+
+    for (const singleParam of paramsInDoc) {
+      const paramName = Object.keys(singleParam)[0];
+      let matchingParamId;
+      for (const id of Object.keys(pathMap)) {
+        if (paramNameFromPathArray(codeInfo, pathMap, id) === paramName) {
+          matchingParamId = id;
+          break;
+        }
+      }
+      if (!matchingParamId) {
+        continue;
+      }
+      params.push({
+        paramInfoId: matchingParamId,
+        values: singleParam[paramName],
+      });
+    }
+
+    newParamSweep.push({ selectedItem: matchingCallableId, params });
+  }
+
+  const { paramSweepId } = getSectionInfo(forSectionId);
+  useParamSweep.setState((x) => {
+    x.x[paramSweepId].sweep = newParamSweep;
+  });
+}
+
+function tryFindingMatchingId(name, codeInfoChildrenKeys, codeInfo) {
+  return codeInfoChildrenKeys.find((x) => codeInfo[x]?.name === name);
+}
+
+function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   const docs = parseAllDocuments(yamlValue);
   console.log("docs", docs);
   let selectedItemName = null;

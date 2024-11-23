@@ -15,7 +15,10 @@ import {
   deleteParamSweepValue,
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
-import { getParamIds } from "state/actions/sections/sectionContents";
+import {
+  getParamIds,
+  paramNameFromPathArray,
+} from "state/actions/sections/sectionContents";
 import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useSectionCodeInfoChildren } from "state/hooks/codeInfoCols";
 import {
@@ -49,6 +52,8 @@ function _ParamSweepAreaGUI({ sectionId }) {
   }
 
   const isDisabled = useParamSweepIsFrozen(sectionId);
+
+  console.log("paramSweep", paramSweep)
 
   return (
     <>
@@ -436,19 +441,8 @@ function useChildlessObjParams({
       ) {
         continue;
       }
-      if (pathMap[f].length === 1) {
-        output.push({ id: f, name: x.x[pathMap[f][0]].name });
-      } else {
-        let name = "";
-        for (const [pathIdx, currId] of pathMap[f].entries()) {
-          if (pathIdx === 0) {
-            name = x.x[currId].name;
-          } else {
-            name += `["${x.x[currId].name}"]`;
-          }
-        }
-        output.push({ id: f, name });
-      }
+      const paramFullPathName = paramNameFromPathArray(x.x, pathMap, f);
+      output.push({ id: f, name: paramFullPathName });
     }
     return output;
   }, _.isEqual);

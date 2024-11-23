@@ -8,7 +8,10 @@ def save_param_sweeps(db, param_sweeps):
             isFrozen = :isFrozen
     """
 
-    query_params = [{"id": id, "name": p["name"], "isFrozen": p["isFrozen"]} for id, p in param_sweeps.items()]
+    query_params = [
+        {"id": id, "name": p["name"], "isFrozen": p["isFrozen"]}
+        for id, p in param_sweeps.items()
+    ]
     db.executemany(query, query_params)
 
     placeholders = ", ".join(["?"] * len(param_sweeps))
