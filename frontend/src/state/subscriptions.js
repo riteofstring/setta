@@ -1,5 +1,6 @@
 import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { updateKeywordRegex } from "state/actions/keywordRegex";
 import { useMisc, useSectionInfos, useUITypes } from "state/definitions";
@@ -44,5 +45,13 @@ export function subscribe() {
     (state) => Object.keys(state.x),
     (x) => useDndChildren.getState().updateKeys(x),
     { equalityFn: _.isEqual },
+  );
+
+  useReactFlow.subscribe(
+    (state) => ({
+      transform: state.transform,
+      fitViewOnInit: state.fitViewOnInit,
+    }),
+    (state) => {if (state.fitViewOnInit){}},
   );
 }
