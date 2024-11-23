@@ -9,7 +9,7 @@ import { BiPlus } from "react-icons/bi";
 import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { Link, useNavigate } from "react-router-dom";
-import { dbDeleteProjectConfigs } from "requests/projects";
+import { openDeleteProjectWarningModal } from "state/actions/modal";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
 import { useGetAllProjectConfigMetadata } from "state/hooks/project";
@@ -50,10 +50,13 @@ function RightColumn({ projects, setDoRefresh }) {
   }
 
   async function onClickDelete() {
-    const res = await dbDeleteProjectConfigs(selectedProjects);
-    if (res.status === 200) {
-      setDoRefresh(true);
-    }
+    openDeleteProjectWarningModal({
+      setDoRefresh,
+      selectedProjects: selectedProjects.map((s) => ({
+        id: s,
+        name: projects.find((p) => p.id === s).name,
+      })),
+    });
   }
 
   return (
@@ -70,6 +73,7 @@ function RightColumn({ projects, setDoRefresh }) {
           <StandardButton
             twClasses="py-2 px-4 rounded-full font-medium  text-white/75 bg-setta-500/25 hover:bg-red-500 hover:text-white gap-2"
             onClick={onClickDelete}
+            disabled={selectedProjects.length === 0}
           >
             <IoClose />
             Delete
@@ -152,7 +156,7 @@ function ThumbnailArea({ project, isSelected, onSelectProject }) {
     <div
       className={`absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-center p-4 ${project.previewImgColor}`}
     >
-      <aside className="z-[1000] col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
+      <aside className="z-[10] col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
         <IconButton
           icon={<IoMdCheckmark />}
           color="text-white/50 hover:text-white"

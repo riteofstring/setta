@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { setModalData, setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
+import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
 import { FileMenuSaveAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
 import {
@@ -11,8 +12,6 @@ import {
 } from "./ImportExportModal/ImportExportModal";
 import { CreateFromArgparseModal } from "./PaneContextModal/CreateFromArgparseModal";
 import { SaveUITypeConfigModal } from "./SaveUITypeConfigModal/SaveUITypeConfigModal";
-import { CreateNewParamSweepModal } from "./SectionSaveButtonModal/CreateNewParamSweepModal";
-import { CreateNewVersionModal } from "./SectionSaveButtonModal/CreateNewVersionModal";
 import { SaveCustomArgumentsModal } from "./SectionSaveButtonModal/SaveCustomArgumentsModal";
 import "./styles.css";
 
@@ -62,10 +61,8 @@ function ModalContent({ open }) {
       return <SaveUITypeConfigModal open={open} modalType={modalType} />;
     case MODAL_TYPE.SAVE_CUSTOM_ARGUMENTS.title:
       return <SaveCustomArgumentsModal open={open} modalType={modalType} />;
-    case MODAL_TYPE.NEW_VERSION.title:
-      return <CreateNewVersionModal modalType={modalType} />;
-    case MODAL_TYPE.NEW_PARAM_SWEEP.title:
-      return <CreateNewParamSweepModal modalType={modalType} />;
+    case MODAL_TYPE.DELETE_PROJECT_WARNING.title:
+      return <DeleteProjectWarningModal open={open} />;
     default:
       return null;
   }
