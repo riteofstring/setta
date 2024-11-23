@@ -24,15 +24,11 @@ import { ParamSweepSectionSearch } from "../SectionParts/Search";
 import { useShowYaml } from "./toYaml";
 
 function _ParamSweepArea({ sectionId }) {
-  const { showYaml, yamlValue, setYamlValue } = useShowYaml(sectionId);
+  const showYaml = useShowYaml(sectionId);
   return !showYaml ? (
     <ParamSweepAreaGUI sectionId={sectionId} />
   ) : (
-    <YamlView
-      sectionId={sectionId}
-      yamlValue={yamlValue}
-      setYamlValue={setYamlValue}
-    />
+    <YamlView sectionId={sectionId} />
   );
 }
 

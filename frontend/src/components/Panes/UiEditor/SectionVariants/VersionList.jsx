@@ -1,6 +1,7 @@
 import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { FaRegSnowflake } from "react-icons/fa";
+import { guiToYaml } from "state/actions/guiToYaml";
 import {
   manualDndChildrenReset,
   setSectionInfoAttr,
@@ -10,6 +11,7 @@ import {
   toggleVariantFrozenState,
 } from "state/actions/sectionVariants";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import {
   getForSectionId,
   useCurrParamSweepId,
@@ -18,6 +20,7 @@ import {
 } from "state/hooks/paramSweep";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { useSectionTypeName } from "state/hooks/uiTypes";
+import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function VersionList({ sectionId }) {
   const sectionTypeName = useSectionTypeName(sectionId);
@@ -67,6 +70,9 @@ function EVItems({ sectionId }) {
   function onClick(id) {
     setSectionInfoAttr({ sectionId, attr: "variantId", value: id });
     manualDndChildrenReset();
+    if (getSectionInfo(sectionId).displayMode === SECTION_DISPLAY_MODES.YAML) {
+      guiToYaml(sectionId);
+    }
   }
 
   function onFreezeClick(id) {

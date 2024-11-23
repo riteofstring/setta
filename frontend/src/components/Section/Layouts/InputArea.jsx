@@ -11,7 +11,7 @@ function _InputArea({ sectionId, bgColor }) {
   const selectedItem = useSectionSelectedItem(sectionId);
   const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
   const hideParams = useGetSectionInfo(sectionId, "hideParams");
-  const { showYaml, yamlValue, setYamlValue } = useShowYaml(sectionId);
+  const showYaml = useShowYaml(sectionId);
 
   return (
     <>
@@ -28,13 +28,7 @@ function _InputArea({ sectionId, bgColor }) {
           <ParamGroupContainer sectionId={sectionId} />
         </>
       )}
-      {!!showYaml && (
-        <YamlView
-          sectionId={sectionId}
-          yamlValue={yamlValue}
-          setYamlValue={setYamlValue}
-        />
-      )}
+      {!!showYaml && <YamlView sectionId={sectionId} />}
     </>
   );
 }

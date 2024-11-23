@@ -10,7 +10,12 @@ import {
   getSectionSelectedItem,
   setParamEnteredValueBatch,
 } from "state/actions/sectionVariants";
-import { useCodeInfo, useSectionInfos } from "state/definitions";
+import {
+  useCodeInfo,
+  useOriginalYamlObj,
+  useSectionInfos,
+  useYamlValue,
+} from "state/definitions";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { parseAllDocuments } from "yaml";
@@ -19,16 +24,19 @@ import {
   getSectionCodeInfoChildren,
 } from "./codeInfoCols";
 
-export async function guiToYaml(sectionId, setYamlValue, setOriginalObj) {
+export async function guiToYaml(sectionId) {
   const res = await dbGuiToYaml(sectionId);
   if (res.status === 200) {
     const { originalObj, yamlValue } = res.data;
-    setOriginalObj(originalObj);
-    setYamlValue(yamlValue);
+    useOriginalYamlObj.setState(() => ({ [sectionId]: originalObj }));
+    useYamlValue.setState(() => ({ [sectionId]: yamlValue }));
   }
 }
 
-export function yamlToGUI(sectionId, yamlValue, originalObj) {
+export function yamlToGUI(sectionId) {
+  const yamlValue = useYamlValue.getState()[sectionId] ?? "";
+  const originalObj = useOriginalYamlObj.getState()[sectionId] ?? {};
+
   const docs = parseAllDocuments(yamlValue);
   console.log("docs", docs);
   let selectedItemName = null;

@@ -5,7 +5,7 @@ import { KwargsControls } from "../SectionParts/KwargsControls";
 import { useShowYaml } from "./toYaml";
 
 function _GlobalVariablesArea({ sectionId, bgColor }) {
-  const { showYaml, yamlValue, setYamlValue } = useShowYaml(sectionId);
+  const showYaml = useShowYaml(sectionId);
 
   return !showYaml ? (
     <>
@@ -17,11 +17,7 @@ function _GlobalVariablesArea({ sectionId, bgColor }) {
       <ParamGroupContainer sectionId={sectionId} />
     </>
   ) : (
-    <YamlView
-      sectionId={sectionId}
-      yamlValue={yamlValue}
-      setYamlValue={setYamlValue}
-    />
+    <YamlView sectionId={sectionId} />
   );
 }
 
