@@ -59,8 +59,17 @@ function RightColumn({ projects, setDoRefresh }) {
     });
   }
 
+  function onEscapeClearSelectedProjects(e) {
+    if (e.key === "Escape") {
+      setSelectedProjects([]);
+    }
+  }
+
   return (
-    <div className="overflow-y-auto px-10 py-8">
+    <div
+      className="overflow-y-auto px-10 py-8"
+      onKeyDown={onEscapeClearSelectedProjects}
+    >
       <div className="flex justify-between gap-4">
         <div className="flex gap-4">
           <StandardButton
@@ -113,6 +122,7 @@ function ProjectItems({ projects, selectedProjects, onSelectProject }) {
           key={`Project ${i} ${x.name}`}
           isSelected={selectedProjects.includes(x.id)}
           onSelectProject={onSelectProject}
+          inSelectionMode={selectedProjects.length > 0}
         />
       ))}
     </div>
@@ -120,18 +130,26 @@ function ProjectItems({ projects, selectedProjects, onSelectProject }) {
 }
 
 const ProjectItem = forwardRef(
-  ({ project, isSelected, onSelectProject }, forwardedRef) => {
+  ({ project, isSelected, onSelectProject, inSelectionMode }, forwardedRef) => {
     const itemStyles =
       "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-setta-600 gap-0";
 
+    const WrapperDiv = !inSelectionMode ? Link : "div";
+    const wrapperProps = !inSelectionMode
+      ? {
+          to: `/${project.name}`,
+          state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+          className: "contents",
+          relative: "path",
+        }
+      : {
+          className: "contents",
+          onClick: (e) => onSelectProject(e, project.id),
+        };
+
     return (
       <div ref={forwardedRef} className={itemStyles}>
-        <Link
-          to={`/${project.name}`}
-          state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
-          className="contents"
-          relative="path"
-        >
+        <WrapperDiv {...wrapperProps}>
           <ThumbnailArea
             project={project}
             isSelected={isSelected}
@@ -142,7 +160,7 @@ const ProjectItem = forwardRef(
               {project.name}
             </p>
           </div>
-        </Link>
+        </WrapperDiv>
       </div>
     );
   },
