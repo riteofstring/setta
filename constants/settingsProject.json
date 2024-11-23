@@ -160,6 +160,18 @@
       "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"clearTerminalBeforeMarkingAsReady\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
         "nonPresetUITypeIds": []
+      },
+      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"exportDbRawOnSave\"]}": {
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
+        "nonPresetUITypeIds": []
+      },
+      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"exportDbReadableOnSave\"]}": {
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
+        "nonPresetUITypeIds": []
+      },
+      "JSON-{\"filenameGlob\": \"setta-settings*.json\", \"key\": [\"exportDbReadableWithVariantsOnSave\"]}": {
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
+        "nonPresetUITypeIds": []
       }
     }
   },
