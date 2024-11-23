@@ -6,10 +6,10 @@ import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function useShowYaml(sectionId) {
   const displayMode = useGetSectionInfo(sectionId, "displayMode");
-  const [yamlFetchComplete, setYamlFetchComplete] = useState(false);
+  const [toYamlWasCalled, setToYamlWasCalled] = useState(false);
   const yamlValue = useYamlValue((x) => x[sectionId] ?? "");
   const originalObj = useOriginalYamlObj((x) => x[sectionId] ?? {});
-
+  const showYaml = displayMode === SECTION_DISPLAY_MODES.YAML;
   function setYamlValue(v) {
     useYamlValue.setState({ [sectionId]: v });
   }
@@ -17,24 +17,16 @@ export function useShowYaml(sectionId) {
     useOriginalYamlObj.setState({ [sectionId]: v });
   }
 
-  const yamlIsNeeded = displayMode === SECTION_DISPLAY_MODES.YAML;
-  const showYaml = yamlIsNeeded && yamlFetchComplete;
-
-  async function fn() {
-    if (yamlIsNeeded) {
-      await guiToYaml(sectionId, setYamlValue, setOriginalObj);
-      setYamlFetchComplete(true);
+  useEffect(() => {
+    if (showYaml) {
+      guiToYaml(sectionId, setYamlValue, setOriginalObj);
+      setToYamlWasCalled(true);
     } else {
-      if (yamlFetchComplete) {
-        setYamlFetchComplete(false);
+      if (toYamlWasCalled) {
         yamlToGUI(sectionId, yamlValue, originalObj);
       }
     }
-  }
-
-  useEffect(() => {
-    fn();
-  }, [yamlIsNeeded]);
+  }, [showYaml]);
 
   return {
     showYaml,
