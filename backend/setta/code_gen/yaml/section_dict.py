@@ -1,7 +1,9 @@
 import yaml
 
 
-def section_dict_to_yaml(pinned, unpinned, codeInfo, sectionVariant):
+def section_dict_to_yaml(exporter_obj, codeInfo, sectionVariant):
+    pinned = exporter_obj["pinned"].prettyOutput
+    unpinned = exporter_obj["unpinned"].prettyOutput
     pinnedStr = yaml.dump(pinned)
     unpinnedStr = yaml.dump(unpinned)
 

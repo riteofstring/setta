@@ -124,22 +124,24 @@ def export_section_to_dict(
     codeInfo,
     codeInfoChildren,
     sectionVariant,
-    topLevelParamIds,
+    pinnedUnpinnedDict,
     configLanguage,
-    requiredParamIds=None,
 ):
     codeInfoChildren = replace_null_keys_with_none(codeInfoChildren)
+    output = {}
+    for k, v in pinnedUnpinnedDict.items():
+        e = SectionToDict(
+            codeInfo,
+            codeInfoChildren,
+            sectionVariant,
+            v["topLevelParamIds"],
+            v.get("requiredParamIds", set()),
+            configLanguage,
+        )
+        e.export()
+        output[k] = e
 
-    e = SectionToDict(
-        codeInfo,
-        codeInfoChildren,
-        sectionVariant,
-        topLevelParamIds,
-        configLanguage,
-        requiredParamIds,
-    )
-    e.export()
-    return e
+    return output
 
 
 def get_first_section_code_that_needs_generated_python(p):
@@ -512,8 +514,8 @@ class SectionToDict:
         codeInfoChildren,
         sectionVariant,
         topLevelParamIds,
+        requiredParamIds,
         configLanguage,
-        requiredParamIds=None,
     ):
         self.output = {}
         self.prettyOutput = {}
@@ -521,8 +523,8 @@ class SectionToDict:
         self.codeInfoChildren = codeInfoChildren
         self.sectionVariant = sectionVariant
         self.topLevelParamIds = topLevelParamIds
+        self.requiredParamIds = requiredParamIds
         self.configLanguage = configLanguage
-        self.requiredParamIds = set(requiredParamIds) if requiredParamIds else None
 
     def export(self):
         self.output, self.prettyOutput = self.export_params(self.topLevelParamIds)

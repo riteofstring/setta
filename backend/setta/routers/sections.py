@@ -64,32 +64,21 @@ def route_sections_make_copy(x: SectionsMakeCopyRequest):
 
 @router.post(C.ROUTE_SECTION_TO_YAML)
 def route_section_to_yaml(x: SectionToDictRequest):
-    pinned = export_section_to_dict(
+    output = export_section_to_dict(
         x.codeInfo,
         x.codeInfoChildren,
         x.sectionVariant,
-        x.pinnedIds["topLevelParamIds"],
+        {"pinned": x.pinnedIds, "unpinned": x.unpinnedIds},
         x.configLanguage,
-        x.pinnedIds["requiredParamIds"],
-    )
-    unpinned = export_section_to_dict(
-        x.codeInfo,
-        x.codeInfoChildren,
-        x.sectionVariant,
-        x.unpinnedIds["topLevelParamIds"],
-        x.configLanguage,
-        x.unpinnedIds["requiredParamIds"],
     )
 
-    yamlValue = section_dict_to_yaml(
-        pinned.prettyOutput, unpinned.prettyOutput, x.codeInfo, x.sectionVariant
-    )
+    yamlValue = section_dict_to_yaml(output, x.codeInfo, x.sectionVariant)
 
     return {
         "yamlValue": yamlValue,
         "originalObj": {
-            "pinned": pinned.output,
-            "unpinned": unpinned.output,
+            "pinned": output["pinned"].output,
+            "unpinned": output["unpinned"].output,
         },
     }
 
