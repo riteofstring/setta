@@ -1,12 +1,11 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { dbSectionToYaml } from "requests/guiToYaml";
+import { dbGuiToYaml } from "requests/guiToYaml";
 import {
   addCodeInfoBatch,
   batchUpdateCodeInfoAttrs,
 } from "state/actions/codeInfo";
 import { initializeParam } from "state/actions/initializeParam";
-import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import {
   getSectionSelectedItem,
   setParamEnteredValueBatch,
@@ -21,10 +20,7 @@ import {
 } from "./codeInfoCols";
 
 export async function guiToYaml(sectionId, setYamlValue, setOriginalObj) {
-  const pinnedIds = getParamIdsToShowInArea(sectionId, true);
-  const unpinnedIds = getParamIdsToShowInArea(sectionId, false);
-
-  const res = await dbSectionToYaml(sectionId, pinnedIds, unpinnedIds);
+  const res = await dbGuiToYaml(sectionId);
   if (res.status === 200) {
     const { originalObj, yamlValue } = res.data;
     setOriginalObj(originalObj);

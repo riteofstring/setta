@@ -1,4 +1,5 @@
 import { ParamSweepUI } from "components/Params/ParamUIs/ParamUI";
+import { YamlView } from "components/Params/YamlView";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
 import _ from "lodash";
@@ -20,8 +21,24 @@ import { useSectionCodeInfoChildren } from "state/hooks/codeInfoCols";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useSectionTypeName } from "state/hooks/uiTypes";
 import { ParamSweepSectionSearch } from "../SectionParts/Search";
+import { useShowYaml } from "./toYaml";
 
 function _ParamSweepArea({ sectionId }) {
+  const { showYaml, yamlValue, setYamlValue } = useShowYaml(sectionId);
+  return !showYaml ? (
+    <ParamSweepAreaGUI sectionId={sectionId} />
+  ) : (
+    <YamlView
+      sectionId={sectionId}
+      yamlValue={yamlValue}
+      setYamlValue={setYamlValue}
+    />
+  );
+}
+
+export const ParamSweepArea = React.memo(_ParamSweepArea);
+
+function _ParamSweepAreaGUI({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId } =
     useParamSweepInfo(sectionId);
 
@@ -73,7 +90,7 @@ function _ParamSweepArea({ sectionId }) {
   );
 }
 
-export const ParamSweepArea = React.memo(_ParamSweepArea);
+export const ParamSweepAreaGUI = React.memo(_ParamSweepAreaGUI);
 
 function ParamSweepForOneSelectedItem({
   sectionId,

@@ -48,3 +48,11 @@ export function getForSectionId(state, sectionId) {
   return Object.values(state).find((s) => s.paramSweepSectionId === sectionId)
     ?.id;
 }
+
+export function getParamSweep(forSectionId) {
+  const { paramSweepId } = useSectionInfos.getState().x[forSectionId];
+  if (!paramSweepId) {
+    return null;
+  }
+  return useParamSweep.getState().x[paramSweepId].sweep;
+}

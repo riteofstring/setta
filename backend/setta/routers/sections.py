@@ -6,8 +6,14 @@ import yaml
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from setta.code_gen.export_selected import export_section_to_dict
-from setta.code_gen.yaml.section_dict import section_dict_to_yaml
+from setta.code_gen.export_selected import (
+    export_param_sweep_section_to_dict,
+    export_section_to_dict,
+)
+from setta.code_gen.yaml.section_dict import (
+    param_sweep_dict_to_yaml,
+    section_dict_to_yaml,
+)
 from setta.database.db.projects.utils import save_json_source_data
 from setta.database.db.sections.copy import (
     copy_relative_positions,
@@ -24,13 +30,19 @@ class SectionsMakeCopyRequest(BaseModel):
     sectionsAndOtherInfo: dict
 
 
-class SectionToDictRequest(BaseModel):
+class SectionToYamlRequest(BaseModel):
     codeInfo: dict
     codeInfoChildren: dict
     sectionVariant: dict
     pinnedIds: Dict[str, List[str]]
     unpinnedIds: Dict[str, List[str]]
     configLanguage: str
+
+
+class ParamSweepSectionToYamlRequest(BaseModel):
+    sweep: list
+    codeInfo: dict
+    codeInfoChildren: dict
 
 
 class LoadSectionJSONSourceRequest(BaseModel):
@@ -63,7 +75,7 @@ def route_sections_make_copy(x: SectionsMakeCopyRequest):
 
 
 @router.post(C.ROUTE_SECTION_TO_YAML)
-def route_section_to_yaml(x: SectionToDictRequest):
+def route_section_to_yaml(x: SectionToYamlRequest):
     output = export_section_to_dict(
         x.codeInfo,
         x.codeInfoChildren,
@@ -81,6 +93,13 @@ def route_section_to_yaml(x: SectionToDictRequest):
             "unpinned": output["unpinned"].output,
         },
     }
+
+
+@router.post(C.ROUTE_PARAM_SWEEP_SECTION_TO_YAML)
+def route_param_sweep_section_to_yaml(x: ParamSweepSectionToYamlRequest):
+    output = export_param_sweep_section_to_dict(x.sweep, x.codeInfo, x.codeInfoChildren)
+    yamlValue = param_sweep_dict_to_yaml(output)
+    return {"yamlValue": yamlValue, "originalObj": {}}
 
 
 @router.post(C.ROUTE_LOAD_SECTION_JSON_SOURCE)
