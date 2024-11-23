@@ -636,16 +636,19 @@ class ParamSweepSectionToDict:
             curr = currObj[selectedItemName]
         else:
             curr = currObj = []
+        result = get_param_ids(
+            self.codeInfo,
+            self.codeInfoChildren,
+            selectedItem,
+            lambda p: p["rcType"] == C.PARAMETER,
+        )
+        pathMap = result["pathMap"]
         for p in params:
-            result = get_param_ids(
-                self.codeInfo,
-                self.codeInfoChildren,
-                selectedItem,
-                lambda p: p["rcType"] == C.PARAMETER,
-            )
-            pathMap = result["pathMap"]
-            paramFullPathName = get_param_full_path_name(
-                p["paramInfoId"], pathMap, self.codeInfo
-            )
+            if p["paramInfoId"]:
+                paramFullPathName = get_param_full_path_name(
+                    p["paramInfoId"], pathMap, self.codeInfo
+                )
+            else:
+                paramFullPathName = None
             curr.append({paramFullPathName: p["values"]})
         self.prettyOutput.append(currObj)
