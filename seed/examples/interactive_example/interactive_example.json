@@ -332,7 +332,8 @@
       "jsonSource": "",
       "configLanguage": "python",
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
@@ -364,7 +365,8 @@
       "jsonSource": "",
       "configLanguage": "python",
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
@@ -402,7 +404,8 @@
       "jsonSource": "",
       "configLanguage": "python",
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -434,7 +437,8 @@
       "jsonSource": "",
       "configLanguage": "python",
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
@@ -472,7 +476,8 @@
       "jsonSource": "",
       "configLanguage": "python",
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "25d0e656-bec2-44a0-9728-f41d657b8508": {
       "id": "25d0e656-bec2-44a0-9728-f41d657b8508",
@@ -508,7 +513,8 @@
       "jsonSource": "",
       "configLanguage": "python",
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     }
   },
   "codeInfo": {

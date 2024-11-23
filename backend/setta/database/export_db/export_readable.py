@@ -113,6 +113,18 @@ def export_list_section(folder, config, section_id, variant_id, with_variants):
         export_section(children_folder, config, c, with_variants)
 
 
+def export_info_section(folder, config, section_id, variant_id, with_variants):
+    base = maybe_with_variant_in_filename(
+        config, section_id, variant_id, with_variants
+    )
+    section = config["sections"][section_id]
+    info = section["description"]
+    renderMarkdown = section["renderMarkdown"]
+    extension = ".md" if renderMarkdown else ".txt"
+    with open(folder / f"{base}{extension}", "w") as file:
+        file.write(info)
+
+
 def maybe_with_variant_in_filename(config, section_id, variant_id, with_variants):
     section_name = get_section_name(config, section_id)
     variant_name = get_variant_name(config, variant_id)
@@ -129,3 +141,5 @@ def get_exporter_fn(config, section_id):
         return export_regular_section
     elif stype in [C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
         return export_list_section
+    elif stype == C.INFO:
+        return export_info_section

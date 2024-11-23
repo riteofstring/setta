@@ -16,7 +16,8 @@ def save_sections(db, sections, section_variants):
             jsonSource,
             hideUnpinnedParams,
             displayMode,
-            canvasSettings
+            canvasSettings,
+            renderMarkdown
         )
         VALUES (
             :id,
@@ -31,7 +32,8 @@ def save_sections(db, sections, section_variants):
             :jsonSource,
             :hideUnpinnedParams,
             :displayMode,
-            :canvasSettings
+            :canvasSettings,
+            :renderMarkdown
         )
         ON CONFLICT (id)
         DO UPDATE SET
@@ -46,7 +48,8 @@ def save_sections(db, sections, section_variants):
             jsonSource = :jsonSource,
             hideUnpinnedParams = :hideUnpinnedParams,
             displayMode = :displayMode,
-            canvasSettings = :canvasSettings
+            canvasSettings = :canvasSettings,
+            renderMarkdown = :renderMarkdown
     """
 
     query_params = [
@@ -66,6 +69,7 @@ def save_sections(db, sections, section_variants):
             "canvasSettings": json.dumps(s["canvasSettings"])
             if len(s["canvasSettings"]) > 0
             else None,
+            "renderMarkdown": s["renderMarkdown"],
         }
         for s in sections.values()
     ]
