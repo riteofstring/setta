@@ -20,3 +20,7 @@ def section_dict_to_yaml(exporter_obj, codeInfo, sectionVariant):
         yamlValue += unpinnedStr
 
     return yamlValue
+
+
+def param_sweep_dict_to_yaml(exporter_obj):
+    return yaml.dump_all(exporter_obj.prettyOutput)

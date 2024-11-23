@@ -50,7 +50,7 @@ def _find_all_descendants(
                     )
             id_stack.extend(children)
 
-    return {"ids": output, "path_map": path_map}
+    return {"ids": output, "pathMap": path_map}
 
 
 def find_all_parameters_of_callables(
@@ -105,7 +105,7 @@ def get_param_ids_to_show_in_area(
         lambda p: p["rcType"] == C.PARAMETER,
     )
     ids = list(reversed(result["ids"]))
-    path_map = result["path_map"]
+    path_map = result["pathMap"]
 
     top_level_param_ids = []
     top_level_param_ids_set = set()

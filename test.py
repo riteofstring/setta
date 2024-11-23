@@ -1,100 +1,464 @@
-import glob
-import os
-import re
-import random
-import string
-from setta.utils.generate_memorable_string import generate_memorable_string
+sweep = [
+    {
+        "selectedItem": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
+        "params": [
+            {
+                "paramInfoId": "159e0416-3873-469b-915b-1f186579c380",
+                "values": ["100", "200", "300"],
+            },
+            {
+                "paramInfoId": "2fae73d3-5756-42a9-beb0-7465b92ac626",
+                "values": ["True", "False"],
+            },
+        ],
+    }
+]
 
-def generate_new_filename(input_pattern: str) -> str:
-    """
-    Generate a new filename based on the input pattern, adding a random memorable suffix.
-    Supports complex glob patterns including nested directories and multiple wildcards.
-    Replaces pattern characters with random valid values:
-    - [0-9] is replaced with a random digit
-    - [a-z] is replaced with a random lowercase letter
-    - ? is replaced with a random letter
-    
-    Args:
-        input_pattern: Input filename or glob pattern (e.g., "file.json", "*file*.json", 
-                      "dir/*/*.json", "report_??_*.json", "data[0-9].json")
-    
-    Returns:
-        New filepath (as string) with a unique memorable suffix. For glob patterns with no matches,
-        generates a sensible filename following the pattern's structure.
-    """
-    # Split into directory and filename parts
-    directory = os.path.dirname(input_pattern)
-    filename = os.path.basename(input_pattern)
-    
-    # If there are matching files, use the first match as template without any cleaning
-    matching_files = glob.glob(input_pattern)
-    if matching_files:
-        template_name = matching_files[0]
-        directory = os.path.dirname(template_name)
-        filename = os.path.basename(template_name)
-        base_path, extension = os.path.splitext(filename)
-    else:
-        # Only clean the pattern if no existing files match
-        base_path, extension = os.path.splitext(filename)
-        
-        # Clean the base path of glob patterns
-        cleaned_base = base_path
-        
-        # Helper function to replace each match with a random choice
-        def random_replacement(pattern, choices):
-            def replace_func(match):
-                return random.choice(choices)
-            return re.sub(pattern, replace_func, cleaned_base)
-        
-        # Replace [0-9] with random digit
-        cleaned_base = random_replacement(r'\[\d+\-\d+\]', string.digits)
-        
-        # Replace [a-z] with random lowercase letter
-        cleaned_base = random_replacement(r'\[a-z\]', string.ascii_lowercase)
-        
-        # Replace ? with random letter (upper or lowercase)
-        cleaned_base = random_replacement(r'\?', string.ascii_letters)
-        
-        # Remove * wildcards entirely since they represent variable length matches
-        cleaned_base = re.sub(r'\*+', '', cleaned_base)
-        
-        # If we've cleaned away everything, use a default name
-        if not cleaned_base or cleaned_base.isspace():
-            cleaned_base = "file"
-        
-        base_path = cleaned_base
-    
-    # Keep trying new suffixes until we find a filename that doesn't exist
-    while True:
-        suffix = generate_memorable_string()
-        new_filename = f"{base_path}_{suffix}{extension}"
-        
-        # Reconstruct full path if there was a directory
-        if directory:
-            new_filename = os.path.join(directory, new_filename)
-        
-        if not os.path.exists(new_filename):
-            return new_filename
 
-# Example usage showing pattern handling:
-if __name__ == "__main__":
-    test_patterns = [
-        # Pattern with existing file
-        "existing_doc_v1.json",           # Would use exact name + suffix
-        
-        # Patterns without matches
-        "data[0-9].csv",                 # Random digit
-        "report[a-z].txt",               # Random lowercase letter
-        "test?.json",                    # Random letter
-        "file[0-9][0-9].dat",           # Multiple random digits
-        "log_[a-z]_[0-9].txt",          # Mix of random digit and letter
-        "??????.txt",                    # Multiple random letters
-        "report-[a-z]-v[0-9].pdf",      # With hyphens
-        "data___[0-9]___test.csv",      # Preserves underscores
-        "*[0-9]_[a-z]_*.json",           # With asterisks
-        "setta-settings*.json"
-    ]
-    
-    for pattern in test_patterns:
-        result = generate_new_filename(pattern)
-        print(f"Pattern: {pattern:<30} Result: {result}")
+codeInfo = {
+    "03ee6530-d464-461c-a989-b310ee2d9b95": {
+        "id": "03ee6530-d464-461c-a989-b310ee2d9b95",
+        "name": "kwargs",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "0aa0f46a-e923-4528-a411-500cbda6e77b": {
+        "id": "0aa0f46a-e923-4528-a411-500cbda6e77b",
+        "name": "n_samples",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": "100",
+        "description": "If int, it is the total number of points equally divided among\nclusters.\nIf array-like, each element of the sequence indicates\nthe number of samples per cluster.\n\n.. versionchanged:: v0.20\n    one can now pass an array-like to the ``n_samples`` parameter",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "159e0416-3873-469b-915b-1f186579c380": {
+        "id": "159e0416-3873-469b-915b-1f186579c380",
+        "name": "n_features",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": "2",
+        "description": "The number of features for each sample.",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "18006f7b-20c5-4fd3-a5cf-19a39b702b0f": {
+        "id": "18006f7b-20c5-4fd3-a5cf-19a39b702b0f",
+        "name": "Contents",
+        "editable": 0,
+        "rcType": "collection",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af": {
+        "id": "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af",
+        "name": "args",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "20619c35-a36c-4833-b329-e090c95b5af9": {
+        "id": "20619c35-a36c-4833-b329-e090c95b5af9",
+        "name": "Contents",
+        "editable": 0,
+        "rcType": "collection",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "2fae73d3-5756-42a9-beb0-7465b92ac626": {
+        "id": "2fae73d3-5756-42a9-beb0-7465b92ac626",
+        "name": "shuffle",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": "True",
+        "description": "Shuffle the samples.",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "36e405f7-e3c9-45ac-bfa8-07a95239078e": {
+        "id": "36e405f7-e3c9-45ac-bfa8-07a95239078e",
+        "name": "Contents",
+        "editable": 0,
+        "rcType": "collection",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "39ed839d-f632-4373-9d72-6ce95b5bc265": {
+        "id": "39ed839d-f632-4373-9d72-6ce95b5bc265",
+        "name": "random_state",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": "None",
+        "description": "Determines random number generation for dataset creation. Pass an int\nfor reproducible output across multiple function calls.\nSee :term:`Glossary <random_state>`.",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "3e15081a-9ca5-48bf-9159-9a95331a7894": {
+        "id": "3e15081a-9ca5-48bf-9159-9a95331a7894",
+        "name": "center_box",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": "(-10.0, 10.0)",
+        "description": "The bounding box for each cluster center when centers are\ngenerated at random.",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "3e754333-caea-451a-abba-dd254c49502f": {
+        "id": "3e754333-caea-451a-abba-dd254c49502f",
+        "name": "n_local_trials",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": "None",
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": {
+        "id": "4e70c873-ead7-4c5a-b3a0-fe504e73ad27",
+        "name": "n_clusters",
+        "editable": 1,
+        "rcType": "parameter",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "669986a2-03d6-4de4-af41-f9395cf0ef57": {
+        "id": "669986a2-03d6-4de4-af41-f9395cf0ef57",
+        "name": "cluster_std",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": "1.0",
+        "description": "The standard deviation of the clusters.",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": {
+        "id": "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4",
+        "name": "n_samples",
+        "editable": 1,
+        "rcType": "parameter",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
+        "id": "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2",
+        "name": "kwargs",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "70f4e095-c286-4379-a5f5-4d02df40e1a5": {
+        "id": "70f4e095-c286-4379-a5f5-4d02df40e1a5",
+        "name": "return_centers",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": "False",
+        "description": "If True, then return the centers of each cluster.\n\n.. versionadded:: 0.23",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "73b234bb-0170-4d02-864f-c4039c623e34": {
+        "id": "73b234bb-0170-4d02-864f-c4039c623e34",
+        "name": "Contents",
+        "editable": 0,
+        "rcType": "collection",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
+        "id": "7ae757c9-9327-4931-95a3-bc200f7e10b7",
+        "name": "X",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "7b4b2118-7cbf-4275-8582-90c66a966441": {
+        "id": "7b4b2118-7cbf-4275-8582-90c66a966441",
+        "name": "x_squared_norms",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": "None",
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "7c9308a4-e6d4-47dc-84a3-3d524de3fff2": {
+        "id": "7c9308a4-e6d4-47dc-84a3-3d524de3fff2",
+        "name": "Contents",
+        "editable": 0,
+        "rcType": "collection",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": {
+        "id": "8a10b368-9a0e-4390-b2f7-bd4ff27570d3",
+        "name": "centers",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": "None",
+        "description": "The number of centers to generate, or the fixed center locations.\nIf n_samples is an int and centers is None, 3 centers are generated.\nIf n_samples is array-like, centers must be\neither None or an array of length equal to the length of n_samples.",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
+        "id": "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5",
+        "name": "args",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "97527bec-4c63-44c9-9994-3424a5dffb7e": {
+        "id": "97527bec-4c63-44c9-9994-3424a5dffb7e",
+        "name": "Section Contents",
+        "editable": 0,
+        "rcType": "collection",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
+        "id": "97e83315-adfc-4d50-a8ab-a8c34082eb93",
+        "name": "n_clusters",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "a382ec28-c244-4c90-9a58-a7c83a8512ea": {
+        "id": "a382ec28-c244-4c90-9a58-a7c83a8512ea",
+        "name": "Contents",
+        "editable": 0,
+        "rcType": "collection",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "b30e8ce3-35db-4b39-8ff4-9da3123ce71b": {
+        "id": "b30e8ce3-35db-4b39-8ff4-9da3123ce71b",
+        "name": "Contents",
+        "editable": 0,
+        "rcType": "collection",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "bb52a19f-d69c-4973-94ae-c1d85596cbb7": {
+        "id": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
+        "name": "sklearn.datasets.make_blobs",
+        "editable": 0,
+        "rcType": "callable",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "c066af9f-42b4-4359-8b44-cf774c400e81": {
+        "id": "c066af9f-42b4-4359-8b44-cf774c400e81",
+        "name": "sample_weight",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": "None",
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "c2c05abc-dd95-4071-8f37-cb2019919bce": {
+        "id": "c2c05abc-dd95-4071-8f37-cb2019919bce",
+        "name": "random_state",
+        "editable": 0,
+        "rcType": "parameter",
+        "defaultVal": "None",
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "c9a3e19c-6876-468a-a9a1-6f289c9367eb": {
+        "id": "c9a3e19c-6876-468a-a9a1-6f289c9367eb",
+        "name": "sklearn.cluster.kmeans_plusplus",
+        "editable": 0,
+        "rcType": "callable",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "f049a26a-cdfa-4424-9795-57bfa100a3b5": {
+        "id": "f049a26a-cdfa-4424-9795-57bfa100a3b5",
+        "name": "Section Contents",
+        "editable": 0,
+        "rcType": "collection",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    "f4d65a12-49f4-4da5-9362-70f0df53ee10": {
+        "id": "f4d65a12-49f4-4da5-9362-70f0df53ee10",
+        "name": "Contents",
+        "editable": 0,
+        "rcType": "collection",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": 0,
+        "isPinned": 0,
+        "isFrozen": 0,
+        "keywordPositions": [],
+    },
+    'JSON-{"filenameGlob": "auth.json", "key": ["username"]}': {
+        "id": 'JSON-{"filenameGlob": "auth.json", "key": ["username"]}',
+        "name": "username",
+        "rcType": "parameter",
+    },
+    'JSON-{"filenameGlob": "auth.json", "key": ["password"]}': {
+        "id": 'JSON-{"filenameGlob": "auth.json", "key": ["password"]}',
+        "name": "password",
+        "rcType": "parameter",
+    },
+    "2ba051fe-31da-4238-9c5e-02bf72812553": {
+        "id": "2ba051fe-31da-4238-9c5e-02bf72812553",
+        "name": "Contents",
+        "editable": False,
+        "rcType": "collection",
+        "defaultVal": None,
+        "description": "",
+        "positionalOnly": False,
+        "isPinned": False,
+        "isFrozen": False,
+        "isSelected": False,
+        "keywordPositions": [],
+    },
+}
+
+
+codeInfoChildren = {
+    None: ["bb52a19f-d69c-4973-94ae-c1d85596cbb7"],
+    "bb52a19f-d69c-4973-94ae-c1d85596cbb7": [
+        "0aa0f46a-e923-4528-a411-500cbda6e77b",
+        "159e0416-3873-469b-915b-1f186579c380",
+        "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af",
+        "8a10b368-9a0e-4390-b2f7-bd4ff27570d3",
+        "669986a2-03d6-4de4-af41-f9395cf0ef57",
+        "3e15081a-9ca5-48bf-9159-9a95331a7894",
+        "2fae73d3-5756-42a9-beb0-7465b92ac626",
+        "39ed839d-f632-4373-9d72-6ce95b5bc265",
+        "70f4e095-c286-4379-a5f5-4d02df40e1a5",
+        "03ee6530-d464-461c-a989-b310ee2d9b95",
+    ],
+    "03ee6530-d464-461c-a989-b310ee2d9b95": [],
+    "70f4e095-c286-4379-a5f5-4d02df40e1a5": [],
+    "39ed839d-f632-4373-9d72-6ce95b5bc265": [],
+    "2fae73d3-5756-42a9-beb0-7465b92ac626": [],
+    "3e15081a-9ca5-48bf-9159-9a95331a7894": [],
+    "669986a2-03d6-4de4-af41-f9395cf0ef57": [],
+    "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": [],
+    "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af": [],
+    "159e0416-3873-469b-915b-1f186579c380": [],
+    "0aa0f46a-e923-4528-a411-500cbda6e77b": [],
+}
+
+from pprint import pprint
+from setta.code_gen.yaml.section_dict import param_sweep_dict_to_yaml
+from setta.utils.constants import load_constants
+
+load_constants()
+
+from setta.code_gen.export_selected import export_param_sweep_section_to_dict
+
+e = export_param_sweep_section_to_dict(sweep, codeInfo, codeInfoChildren)
+print(param_sweep_dict_to_yaml(e))

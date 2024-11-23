@@ -1,5 +1,6 @@
 import copy
 
+from setta.utils.section_contents import get_param_ids, get_param_ids_to_show_in_area
 from setta.utils.utils import (
     QuoteInsensitiveDict,
     replace_null_keys_with_none,
@@ -63,7 +64,7 @@ def get_section_code_info_children(p, section_id):
     return p["codeInfoCols"][codeInfoColId]["children"]
 
 
-def get_param_ids(p, id):
+def get_top_level_param_ids(p, id):
     selected_item_id = get_selected_item_id(p, id)
     return get_code_info_children(p, id, selected_item_id)
 
@@ -125,6 +126,26 @@ def get_var_name(var_name_mapping):
     return f"__x{len(var_name_mapping)}"
 
 
+def get_for_section_id(p, section_id):
+    for sid, s in p["sections"].items():
+        if s["paramSweepSectionId"] == section_id:
+            return sid
+    return None
+
+
+def get_param_full_path_name(id, pathMap, codeInfo):
+    if len(pathMap[id]) == 1:
+        return codeInfo[pathMap[id][0]]["name"]
+    else:
+        name = ""
+        for pathIdx, currId in enumerate(pathMap[id]):
+            if pathIdx == 0:
+                name = codeInfo[currId]["name"]
+            else:
+                name += f'["{codeInfo[currId]["name"]}"]'
+        return name
+
+
 def export_selected(p, always_export_args_objs):
     p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
     e = Exporter(p, always_export_args_objs=always_export_args_objs)
@@ -161,6 +182,12 @@ def export_section_to_dict(
         output[k] = e
 
     return output
+
+
+def export_param_sweep_section_to_dict(sweep, codeInfo, codeInfoChildren):
+    e = ParamSweepSectionToDict(sweep, codeInfo, codeInfoChildren)
+    e.export()
+    return e
 
 
 def get_first_section_code_that_needs_generated_python(p):
@@ -325,7 +352,7 @@ class Exporter:
         return var_name
 
     def export_section_params(self, section_id, is_global=False):
-        ids = get_param_ids(self.p, section_id)
+        ids = get_top_level_param_ids(self.p, section_id)
         return self.export_params(section_id, ids, is_global=is_global)
 
     def export_params(self, section_id, ids, is_global=False):
@@ -491,7 +518,7 @@ class SimpleExporter:
 
     def export_section_params(self, section_id, name, is_global):
         return self.export_params(
-            section_id, get_param_ids(self.p, section_id), name, is_global
+            section_id, get_top_level_param_ids(self.p, section_id), name, is_global
         )
 
     def export_params(self, section_id, ids, name, is_global):
@@ -579,3 +606,45 @@ class SectionToDict:
         if self.configLanguage == "json":
             value = try_json(value)
         return value, value
+
+
+class ParamSweepSectionToDict:
+    def __init__(
+        self,
+        sweep,
+        codeInfo,
+        codeInfoChildren,
+    ):
+        self.output = {}
+        self.prettyOutput = []
+        self.sweep = sweep
+        self.codeInfo = codeInfo
+        self.codeInfoChildren = codeInfoChildren
+
+    def export(self):
+        for selectedItemSweep in self.sweep:
+            self.export_selected_item_sweep(selectedItemSweep)
+
+    def export_selected_item_sweep(self, selectedItemSweep):
+        selectedItem = selectedItemSweep["selectedItem"]
+        params = selectedItemSweep["params"]
+        # self.output[selectedItem] = {}
+        if selectedItem:
+            selectedItemName = self.codeInfo[selectedItem]["name"]
+            currObj = {selectedItemName: {}}
+            curr = currObj[selectedItemName]
+        else:
+            curr = currObj = {}
+        for p in params:
+            result = get_param_ids(
+                self.codeInfo,
+                self.codeInfoChildren,
+                selectedItem,
+                lambda p: p["rcType"] == C.PARAMETER,
+            )
+            pathMap = result["pathMap"]
+            paramFullPathName = get_param_full_path_name(
+                p["paramInfoId"], pathMap, self.codeInfo
+            )
+            curr[paramFullPathName] = p["values"]
+        self.prettyOutput.append(currObj)
