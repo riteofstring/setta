@@ -185,6 +185,7 @@ def export_section_to_dict(
 
 
 def export_param_sweep_section_to_dict(sweep, codeInfo, codeInfoChildren):
+    codeInfoChildren = replace_null_keys_with_none(codeInfoChildren)
     e = ParamSweepSectionToDict(sweep, codeInfo, codeInfoChildren)
     e.export()
     return e
