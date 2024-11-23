@@ -3,6 +3,7 @@ import type { StoreApi } from "zustand";
 
 import { getNodes } from "state/actions/nodeInternals";
 import { useSettings } from "state/definitions";
+import { useReactFlow } from ".";
 import type { FitViewOptions, ReactFlowState } from "../types";
 import {
   getD3Transition,
@@ -72,4 +73,9 @@ export function fitView(
   }
 
   return false;
+}
+
+export function onFitViewHandler() {
+  fitView(useReactFlow.getState);
+  useReactFlow.setState({ fitViewOnInit: true });
 }

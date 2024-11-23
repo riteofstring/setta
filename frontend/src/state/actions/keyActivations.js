@@ -8,6 +8,7 @@ import {
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { onFitViewHandler } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import {
   activateParamSelect,
@@ -215,6 +216,7 @@ export function attachKeyEventListeners() {
     [settings.updateInteractiveCode, updateInteractiveCode],
     [settings.formatCode, formatCode],
     [settings.paramSelect, activateParamSelect, deactivateParamSelect],
+    [settings.fitViewShortcut, onFitViewHandler],
     [
       settings.selectionKeyCode,
       activateSelectionKeyPressed,

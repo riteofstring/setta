@@ -5,7 +5,6 @@ import {
   zoomOut,
 } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { fitView } from "forks/xyflow/core/store/utils";
 import {
   memo,
   useEffect,
@@ -20,6 +19,7 @@ import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { shallow } from "zustand/shallow";
 import Panel from "../core/components/Panel";
+import { onFitViewHandler } from "../core/store/utils";
 import ControlButton from "./ControlButton";
 import FitviewIcon from "./Icons/FitView";
 import MinusIcon from "./Icons/Minus";
@@ -44,7 +44,6 @@ function useZoomReached() {
 }
 
 const Controls: FC<PropsWithChildren<ControlProps>> = ({
-  fitViewOptions,
   position = "bottom-left",
 }) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
@@ -75,11 +74,6 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   const onZoomOutHandler = () => {
     zoomOut();
     useReactFlow.setState({ fitViewOnInit: false });
-  };
-
-  const onFitViewHandler = () => {
-    fitView(useReactFlow.getState, fitViewOptions);
-    useReactFlow.setState({ fitViewOnInit: true });
   };
 
   // const onToggleInteractivity = () => {
