@@ -7,8 +7,23 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    for (const s of Object.values(json.sections)) {
-      s.renderMarkdown = false
+    for (const s of Object.values(json.sectionVariants)) {
+      s.isDefault = true
+    }
+    for (const s of Object.values(json.sections)){
+      if (s.variantIds.length > 1){
+        console.log("more than one variant")
+        let idx = -1
+        for (const v of s.variantIds){
+          idx += 1
+          if (idx === 0){
+            continue
+          }
+          console.log('setting isDefault to false', v)
+          json.sectionVariants[v].isDefault = false
+          
+        }
+      }
     }
     // Save the modified JSON back to the file or handle it as needed
     // Uncomment the following line to save changes back to the file

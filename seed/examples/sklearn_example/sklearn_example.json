@@ -115,7 +115,8 @@
       },
       "children": [],
       "codeInfoColId": "746ab224-7f51-47d1-a119-2855165c2367",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "22f7a029-5660-4f3d-ba54-e79637f2ba61": {
       "name": "tremendous_tree",
@@ -158,7 +159,8 @@
       },
       "children": [],
       "codeInfoColId": "746ab224-7f51-47d1-a119-2855165c2367",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": false
     },
     "3383d9b9-5cee-445f-a242-fde820c76c73": {
       "name": "superb_jade",
@@ -168,7 +170,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "c3f955e1-31cd-4aa6-b3dc-96c334dcd2cd",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "3fd1ddfd-e80f-41a2-bcad-c0702c39f04c": {
       "name": "auth.json",
@@ -187,7 +190,8 @@
       },
       "children": [],
       "codeInfoColId": "eb89f3ee-79cb-4df5-8243-af97c23897a6",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "54571c59-7a51-42d5-bb8e-b6c06b41b023": {
       "name": "purple_onion",
@@ -206,7 +210,8 @@
       },
       "children": [],
       "codeInfoColId": "327740c6-a69d-44cf-b4ec-5669bb1c5a01",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "66e4192c-c1fc-4935-b862-e722726c1217": {
       "name": "water_fall",
@@ -257,7 +262,8 @@
       },
       "children": [],
       "codeInfoColId": "743e4823-784b-48eb-94f1-9b126d47d603",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "69220358-73c1-49c3-9b78-d7cf733b2aa8": {
       "name": "green_grass",
@@ -267,7 +273,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "5f54678c-8532-437d-9b5a-28000edd2bbf",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "9a6859c2-a79d-4da2-b460-b57fc982d495": {
       "name": "inland_apricot",
@@ -277,7 +284,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "49c6faf8-5ce3-4011-b184-38527ae5671a",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c": {
       "name": "decent_blue",
@@ -287,7 +295,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "57f68422-a0f3-4382-a00f-bec78a4ee43b",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "fb460dcd-d460-44fc-aeae-b0b8aca93c5b": {
       "name": "worthwhile_crimson",
@@ -297,7 +306,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "e6464d6d-944c-4f1c-8ad4-f4f7c0d966d4",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "fca181fc-c326-4d50-b028-37b368372f49": {
       "name": "apple_pear",
@@ -307,7 +317,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "46affa17-2b21-4091-9f09-d1d30c1bf692",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "f8d91f36-109b-43df-9770-b720dc3e74bd": {
       "name": "colourful_green",
@@ -317,7 +328,8 @@
       "code": "",
       "keywordPositions": [],
       "codeInfoColId": "db67591a-6318-4db5-810f-6f8a67198e96",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     }
   },
   "uiTypes": {

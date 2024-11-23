@@ -74,7 +74,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "22875dc9-752a-4188-bcd2-c21352358da3",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "0d59b94d-4ca1-4759-b5f1-db4c0107d80d": {
       "name": "expected_ivory",
@@ -86,7 +87,8 @@
         "0c34488b-ea76-4a05-96c0-1433c440da1b"
       ],
       "codeInfoColId": "dfb3537d-97b7-4a33-89fa-2793304f6acd",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "14173e89-51f1-48b5-aefb-804fff1f2164": {
       "name": "friendly_plum",
@@ -96,7 +98,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "3260a637-dce5-4f7e-b0fa-f9b377a13576",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "1da8ad57-c195-4d6c-baaa-b51f1ef1cc15": {
       "name": "round_peach",
@@ -106,7 +109,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "688cba52-0295-4840-a249-c312228755e1",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "3dbb4893-bd44-4e67-a6c3-1148d7205d42": {
       "name": "mathematical_magenta",
@@ -116,7 +120,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "a662db1f-c2ab-42de-b650-7c462fc593e5",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "3ec298ce-5d49-42f8-8700-3e2efb26855b": {
       "name": "config1",
@@ -126,7 +131,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "a91ec9e9-441b-47de-bbbb-555a635e8394",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "40fd1a3c-6fca-4b87-b427-5bee353cef09": {
       "name": "config1",
@@ -136,7 +142,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "c2f756fe-7160-4b5f-893e-a9a41ced1084",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "43a579a2-adf1-4378-a8a3-013710251c69": {
       "name": "confident_amethyst",
@@ -146,7 +153,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "a184e19d-ffb4-4339-a075-d91a806a7237",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "5380aa69-09b9-4621-a302-79da25d5e544": {
       "name": "exceptional_maroon",
@@ -159,7 +167,8 @@
         "1252064e-3eee-4fd8-9192-a2d3555e3ed6"
       ],
       "codeInfoColId": "e2c2d700-bb27-4e4d-b8a9-2fff9e3f2ade",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "54bf9ed0-5d78-460b-9a52-4227c5f490b6": {
       "name": "wee_peach",
@@ -169,7 +178,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "6cfa5297-e64e-4a38-b72f-94fab5582f3c",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "71cb48cb-b3f1-4a31-8dd1-01ff7341facd": {
       "name": "rising_crimson",
@@ -179,7 +189,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "154ebcc9-953c-418d-902f-9939bcfef748",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "7a4d7553-e651-42a5-8e7c-a325ce9b3b37": {
       "name": "panicky_apricot",
@@ -189,7 +200,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "00952c9e-e308-40bc-aba3-cc04f9920809",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "8226a890-8524-430c-8d8f-861b5db786f1": {
       "name": "disturbing_harlequin",
@@ -199,7 +211,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "91f99ee4-c926-4e2e-a094-2ea22ba8a387",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "956bd407-95e4-457a-bbca-2ee6fecde7d5": {
       "name": "youthful_lavender",
@@ -209,7 +222,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "843370ab-6475-4e40-961e-75b0edd43983",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "a8361b95-8fcc-42ee-b99f-72113229162e": {
       "name": "dynamic_ivory",
@@ -219,7 +233,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "21076e93-4bdc-4214-98da-9300cfb75165",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "b6f4bca9-0c4d-4f73-9660-c1f79030691e": {
       "name": "capable_lavender",
@@ -234,7 +249,8 @@
         "72b9394e-48f8-488f-ae90-914a895335cf"
       ],
       "codeInfoColId": "490eeea1-e9e1-4659-8c67-3b16f36c669d",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "bb16a231-3ff5-434f-a1af-ea6b3139dd5e": {
       "name": "necessary_ivory",
@@ -250,7 +266,8 @@
         "c36c883d-babc-435b-8cbf-efe28fb5b3e5"
       ],
       "codeInfoColId": "2e7e21d8-171a-442b-b2fd-82ee146ffd31",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "d7c2a6b6-5fa1-49fd-9360-1c49331a4e60": {
       "name": "existing_olive",
@@ -260,7 +277,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "3fd80ddf-69d3-4d05-a729-1a752d65f2bf",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "dc1879dd-4591-46c0-8fc6-f733c6b177ca": {
       "name": "config1",
@@ -311,7 +329,8 @@
       },
       "children": [],
       "codeInfoColId": "6c82f532-d860-4860-87f0-6add6e84c165",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "f28956a9-e609-4946-ada3-01e09cef9901": {
       "name": "prior_tan",
@@ -321,7 +340,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "d80e8d8d-0ff5-459f-8a82-dc4aa5cf56c7",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "fe28bfc8-f735-4272-ab16-ce7fcbb18767": {
       "name": "legislative_blue",
@@ -331,7 +351,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "a37f88b3-2638-4d4b-a52c-9a07c2bcbf6d",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     },
     "fe621fb8-0584-422b-a221-4b4d7fbe8ff7": {
       "name": "liberal_gold",
@@ -341,7 +362,8 @@
       "values": {},
       "children": [],
       "codeInfoColId": "93ec225a-a19b-442e-8cc8-b8a411921de3",
-      "isFrozen": false
+      "isFrozen": false,
+      "isDefault": true
     }
   },
   "uiTypes": {

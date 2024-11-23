@@ -3,8 +3,8 @@ from setta.database.utils import dump_keyword_positions_as_string
 
 def save_section_variants(db, section_variants):
     query = """
-        INSERT INTO SectionVariantId (id, name, selectedItem, code, codeInfoColId, isFrozen, keywordPositions)
-        VALUES (:id, :name, :selectedItem, :code, :codeInfoColId, :isFrozen, :keywordPositions)
+        INSERT INTO SectionVariantId (id, name, selectedItem, code, codeInfoColId, isFrozen, keywordPositions, isDefault)
+        VALUES (:id, :name, :selectedItem, :code, :codeInfoColId, :isFrozen, :keywordPositions, :isDefault)
         ON CONFLICT (id)
         DO UPDATE SET
         name = :name,
@@ -12,7 +12,8 @@ def save_section_variants(db, section_variants):
         code = :code,
         codeInfoColId = :codeInfoColId,
         keywordPositions = :keywordPositions,
-        isFrozen = :isFrozen
+        isFrozen = :isFrozen,
+        isDefault = :isDefault
     """
 
     query_params = [
@@ -24,6 +25,7 @@ def save_section_variants(db, section_variants):
             "codeInfoColId": v["codeInfoColId"],
             "keywordPositions": dump_keyword_positions_as_string(v["keywordPositions"]),
             "isFrozen": v["isFrozen"],
+            "isDefault": v["isDefault"],
         }
         for k, v in section_variants.items()
     ]

@@ -114,9 +114,7 @@ def export_list_section(folder, config, section_id, variant_id, with_variants):
 
 
 def export_info_section(folder, config, section_id, variant_id, with_variants):
-    base = maybe_with_variant_in_filename(
-        config, section_id, variant_id, with_variants
-    )
+    base = maybe_with_variant_in_filename(config, section_id, variant_id, with_variants)
     section = config["sections"][section_id]
     info = section["description"]
     renderMarkdown = section["renderMarkdown"]
