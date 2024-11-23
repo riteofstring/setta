@@ -1,4 +1,4 @@
-import { YamlView } from "components/Params/YamlView";
+import { SectionYamlView } from "components/Params/YamlView";
 import React from "react";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useSectionSelectedItem } from "state/hooks/sectionVariants";
@@ -28,7 +28,7 @@ function _InputArea({ sectionId, bgColor }) {
           <ParamGroupContainer sectionId={sectionId} />
         </>
       )}
-      {!!showYaml && <YamlView sectionId={sectionId} />}
+      {!!showYaml && <SectionYamlView sectionId={sectionId} />}
     </>
   );
 }

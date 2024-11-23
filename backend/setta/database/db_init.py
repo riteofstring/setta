@@ -215,6 +215,7 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS ParamSweepId (
         id TEXT PRIMARY KEY,
         name TEXT,
+        isFrozen BOOLEAN,
         originSectionId TEXT,
         FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
     );

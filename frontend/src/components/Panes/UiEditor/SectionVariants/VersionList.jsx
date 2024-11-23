@@ -2,6 +2,7 @@ import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { FaRegSnowflake } from "react-icons/fa";
 import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
+import { toggleParamSweepIsFrozen } from "state/actions/runGroups/paramSweep";
 import {
   manualDndChildrenReset,
   setSectionInfoAttr,
@@ -71,10 +72,6 @@ function EVItems({ sectionId }) {
     maybeRunGuiToYaml(sectionId);
   }
 
-  function onFreezeClick(id) {
-    toggleVariantFrozenState(id);
-  }
-
   function isFrozenHook(id) {
     return { hook: useSectionVariants, selector: (x) => x.x[id].isFrozen };
   }
@@ -87,7 +84,7 @@ function EVItems({ sectionId }) {
       isCurr={currVariantId === e.id}
       onMouseOver={onMouseOver}
       onClick={onClick}
-      onFreezeClick={onFreezeClick}
+      onFreezeClick={toggleVariantFrozenState}
       isFrozenHook={isFrozenHook}
     />
   ));
@@ -113,8 +110,6 @@ function ParamSweepItems({ sectionId }) {
     });
   }
 
-  function onFreezeClick(id) {}
-
   function isFrozenHook(id) {
     return { hook: useParamSweep, selector: (x) => x.x[id].isFrozen };
   }
@@ -127,7 +122,7 @@ function ParamSweepItems({ sectionId }) {
       isCurr={currParamSweepId === e.id}
       onMouseOver={onMouseOver}
       onClick={onClick}
-      onFreezeClick={onFreezeClick}
+      onFreezeClick={toggleParamSweepIsFrozen}
       isFrozenHook={isFrozenHook}
     />
   ));

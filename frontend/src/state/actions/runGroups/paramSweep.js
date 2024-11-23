@@ -7,7 +7,13 @@ export function setAllParamSweeps(payload) {
 
 export function initParamSweep({ id, name }) {
   useParamSweep.setState((state) => {
-    state.x[id] = { name, sweep: [] };
+    state.x[id] = { name, sweep: [], isFrozen: false };
+  });
+}
+
+export function toggleParamSweepIsFrozen(id) {
+  useParamSweep.setState((state) => {
+    state.x[id].isFrozen = !state.x[id].isFrozen;
   });
 }
 

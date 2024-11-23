@@ -141,9 +141,9 @@ export function ParamSweepUI({
   value,
   defaultVal,
   onChange,
-  isDisabled,
   keywordPositions,
   setKeywordPositions,
+  isDisabled,
 }) {
   const configLanguage = useSectionInfos(
     (x) => x.x[dataSectionId].configLanguage,
@@ -153,6 +153,7 @@ export function ParamSweepUI({
     dataSectionId,
     paramInfoId,
   });
+
   switch (uiType.type) {
     default:
       return (
@@ -164,12 +165,12 @@ export function ParamSweepUI({
             value={value}
             defaultVal={defaultVal}
             onChange={onChange}
-            isDisabled={isDisabled}
             dummyCodeClassName="section-key-value self-end grid-row-start-1 mx-3 py-[.125rem] nodrag cursor-text select-text break-words px-0 font-mono text-xs [tab-size:4] [word-break:break-word]"
             realCodeClassName="section-key-value self-end grid-row-start-1 py-[.125rem] mx-3 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
             language={configLanguage}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
+            isDisabled={isDisabled}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
@@ -218,6 +219,7 @@ export function ParamSweepUI({
           onChange={onChange}
           wrapperClassName="section-value flex justify-self-start self-center"
           colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 dark:bg-setta-850 dark:hover:bg-setta-900"
+          isDisabled={isDisabled}
         />
       );
     case C.DROPDOWN:
@@ -228,6 +230,7 @@ export function ParamSweepUI({
           value={value}
           onChange={onChange}
           outerDivClasses="section-value flex justify-self-start self-center"
+          isDisabled={isDisabled}
         />
       );
   }

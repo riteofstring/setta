@@ -595,11 +595,13 @@
             }
           ]
         }
-      ]
+      ],
+      "isFrozen": false
     },
     "b776ce22-7e00-4df4-944e-52127d9f8322": {
       "name": "slim_bronze",
-      "sweep": []
+      "sweep": [],
+      "isFrozen": false
     }
   },
   "runGroups": {

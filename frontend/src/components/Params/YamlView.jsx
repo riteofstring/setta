@@ -3,17 +3,27 @@ import { useCodeAreaHeight } from "components/Section/Layouts/CodeArea";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useYamlValue } from "state/definitions";
+import { useParamSweepIsFrozen } from "state/hooks/paramSweep";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 
-export function YamlView({ sectionId }) {
+export function SectionYamlView({ sectionId }) {
+  const isDisabled = useSectionVariantIsFrozen(sectionId);
+  return <YamlView sectionId={sectionId} isDisabled={isDisabled} />;
+}
+
+export function ParamSweepSectionYamlView({ sectionId }) {
+  const isDisabled = useParamSweepIsFrozen(sectionId);
+  return <YamlView sectionId={sectionId} isDisabled={isDisabled} />;
+}
+
+function YamlView({ sectionId, isDisabled }) {
   const theme = useCodeMirrorStyle();
-  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
   const extensions = getExtensions({
     sectionId,
     language: "yaml",
     indentWithTab: true,
     escapeToBlur: true,
-    isDisabled: variantIsDisabled,
+    isDisabled,
   });
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });

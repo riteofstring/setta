@@ -1,4 +1,4 @@
-import { YamlView } from "components/Params/YamlView";
+import { SectionYamlView } from "components/Params/YamlView";
 import React from "react";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
@@ -17,7 +17,7 @@ function _GlobalVariablesArea({ sectionId, bgColor }) {
       <ParamGroupContainer sectionId={sectionId} />
     </>
   ) : (
-    <YamlView sectionId={sectionId} />
+    <SectionYamlView sectionId={sectionId} />
   );
 }
 

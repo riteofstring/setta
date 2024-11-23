@@ -64,6 +64,12 @@ export function duplicateParamSweep({ id, newName }) {
     const s = state.x;
     s[newId] = _.cloneDeep(s[id]);
     s[newId].name = newName;
+    s[newId].isFrozen = false;
   });
   return newId;
+}
+
+export function useParamSweepIsFrozen(sectionId) {
+  const paramSweepId = useCurrParamSweepId(sectionId);
+  return useParamSweep((x) => x.x[paramSweepId].isFrozen);
 }
