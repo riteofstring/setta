@@ -1,6 +1,5 @@
 import { StandardAccordion } from "components/Utils/atoms/accordion/accordion";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import C from "constants/constants.json";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
@@ -17,7 +16,10 @@ import {
   useRunGroups,
   useSectionInfos,
 } from "state/definitions";
-import { useGetOverviewListing } from "state/hooks/overview";
+import {
+  useRunGroupListing,
+  useTopLevelRunGroupListing,
+} from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
@@ -72,7 +74,10 @@ function GlobalParamSweepGUI({ width }) {
               Sections
             </h3>
             <FilterSection />
-            <SectionList runGroupId={toShow} runGroup={runGroups[toShow]} />
+            <TopLevelSectionList
+              runGroupId={toShow}
+              runGroup={runGroups[toShow]}
+            />
           </article>
         )}
       </section>
@@ -116,26 +121,38 @@ function RunGroupList({
   );
 }
 
-function SectionList({ runGroupId, runGroup }) {
-  const shownSectionTypes = [
-    C.SECTION,
-    C.LIST_ROOT,
-    C.DICT_ROOT,
-    C.DECK,
-    C.GLOBAL_VARIABLES,
-    C.CODE,
-  ];
-  const allSections = useGetOverviewListing((sectionTypeName) =>
-    shownSectionTypes.includes(sectionTypeName),
-  )[0];
-  const { ref, isScrollable } = useIsScrollable();
+function TopLevelSectionList({ runGroupId, runGroup }) {
+  const topLevelSections = useTopLevelRunGroupListing();
+  return (
+    <SectionListCore
+      sections={topLevelSections}
+      runGroupId={runGroupId}
+      runGroup={runGroup}
+    />
+  );
+}
 
+function SectionList({ variantId, runGroupId, runGroup }) {
+  console.log("SectionList variantId", variantId)
+  const sections = useRunGroupListing(variantId);
+  return (
+    <SectionListCore
+      sections={sections}
+      runGroupId={runGroupId}
+      runGroup={runGroup}
+    />
+  );
+}
+
+function SectionListCore({ sections, runGroupId, runGroup }) {
+  //const { ref, isScrollable } = useIsScrollable();
+  //${isScrollable ? "nowheel" : ""}
   return (
     <ul
-      className={`${isScrollable ? "nowheel" : ""} -mt-2 flex flex-grow flex-col overflow-visible rounded-lg bg-setta-50/40 pl-3 pr-2 pt-2 @sm/multipane:overflow-y-scroll dark:bg-setta-875`}
-      ref={ref}
+      className={`-mt-2 flex flex-grow flex-col overflow-visible rounded-lg bg-setta-50/40 pl-3 pr-2 pt-2 @sm/multipane:overflow-y-scroll dark:bg-setta-875`}
+      // ref={ref}
     >
-      {allSections.map((x, idx) => (
+      {sections.map((x, idx) => (
         <SectionItem
           key={idx}
           sectionInfo={x}
@@ -153,26 +170,26 @@ function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
   }
 
   return (
-    <div style={{ paddingLeft: `${0.75 * sectionInfo.depth}rem` }}>
-      <li className="flex flex-col">
-        <CheckboxGroup
-          checked={runGroupSection?.selected ?? false}
-          onChange={onSectionCheckboxChange}
-        >
-          {sectionInfo.name}
-        </CheckboxGroup>
-        <VersionsList
-          sectionInfo={sectionInfo}
-          runGroupId={runGroupId}
-          runGroupSection={runGroupSection}
-        />
-        <ParamSweepVersionsList
-          sectionInfo={sectionInfo}
-          runGroupId={runGroupId}
-          runGroupSection={runGroupSection}
-        />
-      </li>
-    </div>
+    // <div style={{ paddingLeft: `${0.75 * sectionInfo.depth}rem` }}>
+    <li className="flex flex-col">
+      <CheckboxGroup
+        checked={runGroupSection?.selected ?? false}
+        onChange={onSectionCheckboxChange}
+      >
+        {sectionInfo.name}
+      </CheckboxGroup>
+      <VersionsList
+        sectionInfo={sectionInfo}
+        runGroupId={runGroupId}
+        runGroupSection={runGroupSection}
+      />
+      <ParamSweepVersionsList
+        sectionInfo={sectionInfo}
+        runGroupId={runGroupId}
+        runGroupSection={runGroupSection}
+      />
+    </li>
+    // </div>
   );
 }
 
@@ -190,12 +207,18 @@ function _VersionsList({ sectionInfo, runGroupId, runGroupSection }) {
 
   return (
     <GenericList
-      minLength={1}
+      minLength={0}
       inputList={allVersions}
       listName="Versions"
       sectionIsSelected={!!runGroupSection?.selected}
       listSelection={runGroupSection?.versions}
       onChange={getOnVersionCheckboxChange}
+      ChildDivComponent={SectionList}
+      childDivPropsGetter={(e) => ({
+        variantId: e.id,
+        runGroupId,
+        runGroupSection,
+      })}
     />
   );
 }
@@ -235,6 +258,8 @@ function _GenericList({
   sectionIsSelected,
   listSelection,
   onChange,
+  ChildDivComponent,
+  childDivPropsGetter,
 }) {
   return (
     inputList.length > minLength && (
@@ -263,6 +288,9 @@ function _GenericList({
                 >
                   {e.name}
                 </CheckboxGroup>
+                {!!ChildDivComponent && (
+                  <ChildDivComponent {...childDivPropsGetter(e)} />
+                )}
               </li>
             ))}
           </ul>
