@@ -1,21 +1,19 @@
 import os
 from pathlib import Path
 
-from setta.code_gen.yaml.section_dict import section_dict_to_yaml
-import yaml
-
 from setta.code_gen.export_selected import (
     export_section_to_dict,
-    get_param_ids,
     get_section_children,
     get_section_code,
     get_section_code_info_children,
     get_section_name,
     get_section_type,
-    get_selected_item_name,
+    get_selected_item_id,
     get_selected_section_variant,
 )
+from setta.code_gen.yaml.section_dict import section_dict_to_yaml
 from setta.utils.constants import C
+from setta.utils.section_contents import get_param_ids_to_show_in_area
 
 from .utils import get_configs_and_root_folder
 
@@ -42,7 +40,7 @@ def export_section(folder, config, section_id):
         )
     elif stype in [C.SECTION, C.GLOBAL_VARIABLES, C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
         yamlValue = get_section_as_yaml(config, section_id)
-        print("yamlValue", yamlValue)
+        # print("yamlValue", yamlValue)
         os.makedirs(folder, exist_ok=True)
         with open(folder / f"{section_name}.yaml", "w") as file:
             file.write(yamlValue)
@@ -69,15 +67,32 @@ def get_section_as_yaml(config, section_id):
         #     }
         return ""
     else:
-        param_ids = get_param_ids(config, section_id)
         codeInfoChildren = get_section_code_info_children(config, section_id)
         sectionVariant = get_selected_section_variant(config, section_id)
+        pinned = get_param_ids_to_show_in_area(
+            True,
+            config["codeInfo"],
+            codeInfoChildren,
+            get_selected_item_id(config, section_id),
+        )
+        unpinned = get_param_ids_to_show_in_area(
+            False,
+            config["codeInfo"],
+            codeInfoChildren,
+            get_selected_item_id(config, section_id),
+        )
+        pinned["requiredParamIds"] = pinned["requiredParamIdsToPaths"].keys()
+        unpinned["requiredParamIds"] = unpinned["requiredParamIdsToPaths"].keys()
+        del pinned["requiredParamIdsToPaths"]
+        del unpinned["requiredParamIdsToPaths"]
+
+        print(pinned)
+
         output = export_section_to_dict(
             config["codeInfo"],
             codeInfoChildren,
             sectionVariant,
-            {"pinned": {"topLevelParamIds": []}, "unpinned": {"topLevelParamIds": param_ids}},
+            {"pinned": pinned, "unpinned": unpinned},
             config["sections"][section_id]["configLanguage"],
         )
         return section_dict_to_yaml(output, config["codeInfo"], sectionVariant)
-
