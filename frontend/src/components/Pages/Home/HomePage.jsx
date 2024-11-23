@@ -50,8 +50,10 @@ function RightColumn({ projects, setDoRefresh }) {
   }
 
   async function onClickDelete() {
+    console.log("selectedProjects", selectedProjects)
     openDeleteProjectWarningModal({
       setDoRefresh,
+      setSelectedProjects,
       selectedProjects: selectedProjects.map((s) => ({
         id: s,
         name: projects.find((p) => p.id === s).name,
