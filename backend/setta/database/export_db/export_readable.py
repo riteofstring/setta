@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from setta.code_gen.yaml.section_dict import section_dict_to_yaml
 import yaml
 
 from setta.code_gen.export_selected import (
@@ -40,10 +41,11 @@ def export_section(folder, config, section_id):
             folder, section_name, code, config["sections"][section_id]["codeLanguage"]
         )
     elif stype in [C.SECTION, C.GLOBAL_VARIABLES, C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
-        output = get_section_as_dict(config, section_id)
+        yamlValue = get_section_as_yaml(config, section_id)
+        print("yamlValue", yamlValue)
         os.makedirs(folder, exist_ok=True)
         with open(folder / f"{section_name}.yaml", "w") as file:
-            yaml.dump(output, file, allow_unicode=True)
+            file.write(yamlValue)
 
 
 def export_code(folder, name, code, codeLanguage):
@@ -54,30 +56,28 @@ def export_code(folder, name, code, codeLanguage):
         file.write(code)
 
 
-def get_section_as_dict(config, section_id):
+def get_section_as_yaml(config, section_id):
     children = get_section_children(config, section_id)
     stype = get_section_type(config, section_id)
     if len(children) > 0:
-        if stype == C.LIST_ROOT:
-            return [get_section_as_dict(config, c) for c in children]
-        elif stype in [C.DICT_ROOT, C.DECK]:
-            return {
-                get_section_name(config, c): get_section_as_dict(config, c)
-                for c in children
-            }
+        # if stype == C.LIST_ROOT:
+        #     return [get_section_as_dict(config, c) for c in children]
+        # elif stype in [C.DICT_ROOT, C.DECK]:
+        #     return {
+        #         get_section_name(config, c): get_section_as_dict(config, c)
+        #         for c in children
+        #     }
+        return ""
     else:
-        selected_item_name = get_selected_item_name(config, section_id)
         param_ids = get_param_ids(config, section_id)
         codeInfoChildren = get_section_code_info_children(config, section_id)
         sectionVariant = get_selected_section_variant(config, section_id)
-        param_dict = export_section_to_dict(
+        output = export_section_to_dict(
             config["codeInfo"],
             codeInfoChildren,
             sectionVariant,
-            param_ids,
+            {"pinned": {"topLevelParamIds": []}, "unpinned": {"topLevelParamIds": param_ids}},
             config["sections"][section_id]["configLanguage"],
-        ).prettyOutput
-        param_dict = {k: v for k, v in param_dict.items() if v}
-        if selected_item_name:
-            param_dict["_target_"] = selected_item_name
-        return param_dict
+        )
+        return section_dict_to_yaml(output, config["codeInfo"], sectionVariant)
+

@@ -135,7 +135,7 @@ def export_section_to_dict(
             codeInfoChildren,
             sectionVariant,
             v["topLevelParamIds"],
-            v.get("requiredParamIds", set()),
+            v.get("requiredParamIds", None),
             configLanguage,
         )
         e.export()
@@ -523,7 +523,7 @@ class SectionToDict:
         self.codeInfoChildren = codeInfoChildren
         self.sectionVariant = sectionVariant
         self.topLevelParamIds = topLevelParamIds
-        self.requiredParamIds = requiredParamIds
+        self.requiredParamIds = set(requiredParamIds) if requiredParamIds else None
         self.configLanguage = configLanguage
 
     def export(self):
