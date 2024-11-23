@@ -13,7 +13,7 @@ from .utils import get_configs_and_root_folder
 def export_all_variants_readable(db, filename):
     configs, root_folder = get_configs_and_root_folder(db, filename)
     for c in configs:
-        export_config(root_folder / "allVariants", c)
+        export_config(root_folder / "with_variants", c)
 
 
 def export_config(folder, config):

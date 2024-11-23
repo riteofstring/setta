@@ -15,7 +15,7 @@ def _export_database(db, filename, raw=True, readable=True, all_variants_readabl
     if raw:
         export_raw(db, filename)
     if readable:
-        export_readable(db, filename)
+        export_readable(db, filename, with_variants=False)
     if all_variants_readable:
         export_all_variants_readable(db, filename)
 

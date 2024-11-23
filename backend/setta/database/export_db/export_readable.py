@@ -18,46 +18,40 @@ from setta.utils.section_contents import get_param_ids_to_show_in_area
 from .utils import get_configs_and_root_folder
 
 
-def export_readable(db, filename):
+def export_readable(db, filename, with_variants):
     configs, root_folder = get_configs_and_root_folder(db, filename)
+    subfolder_name = "with_variants" if with_variants else "clean"
     for c in configs:
-        export_config(root_folder / "clean", c)
+        export_config(root_folder / subfolder_name, c, with_variants)
 
 
-def export_config(folder, config):
+def export_config(folder, config, with_variants):
     config_folder = Path(folder) / config["projectConfig"]["name"]
     for k in config["projectConfig"]["children"].keys():
         os.makedirs(config_folder, exist_ok=True)
-        export_section(config_folder, config, k)
+        export_section(config_folder, config, k, with_variants)
 
 
-def export_section(folder, config, section_id):
-    section_name = get_section_name(config, section_id)
+def export_section(folder, config, section_id, with_variants):
     stype = get_section_type(config, section_id)
     if stype in [C.INTERACTIVE_CODE, C.CODE]:
-        code = get_section_code(config, section_id)
-        export_code(
-            folder, section_name, code, config["sections"][section_id]["codeLanguage"]
-        )
+        export_code(folder, config, section_id, with_variants)
     elif stype in [C.SECTION, C.GLOBAL_VARIABLES]:
-        yamlValue = get_section_as_yaml(config, section_id)
-        with open(folder / f"{section_name}.yaml", "w") as file:
-            file.write(yamlValue)
+        export_regular_section(folder, config, section_id, with_variants)
     elif stype in [C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
-        children_folder = folder / section_name
-        os.makedirs(children_folder, exist_ok=True)
-        for c in get_section_children(config, section_id):
-            export_section(children_folder, config, c)
+        export_list_section(folder, config, section_id, with_variants)
 
 
-def export_code(folder, name, code, codeLanguage):
-    filename = folder / name
+def export_code(folder, config, section_id, with_variants):
+    codeLanguage = config["sections"][section_id]["codeLanguage"]
+    code = get_section_code(config, section_id)
+    section_name = get_section_name(config, section_id)
     extension = {"javascript": "js", "python": "py", "bash": "sh"}[codeLanguage]
-    with open(f"{filename}.{extension}", "w") as file:
+    with open(f"{folder / section_name}.{extension}", "w") as file:
         file.write(code)
 
 
-def get_section_as_yaml(config, section_id):
+def export_regular_section(folder, config, section_id, with_variants):
     codeInfoChildren = get_section_code_info_children(config, section_id)
     sectionVariant = get_selected_section_variant(config, section_id)
     pinned = get_param_ids_to_show_in_area(
@@ -84,4 +78,15 @@ def get_section_as_yaml(config, section_id):
         {"pinned": pinned, "unpinned": unpinned},
         config["sections"][section_id]["configLanguage"],
     )
-    return section_dict_to_yaml(output, config["codeInfo"], sectionVariant)
+    yamlValue = section_dict_to_yaml(output, config["codeInfo"], sectionVariant)
+    section_name = get_section_name(config, section_id)
+    with open(folder / f"{section_name}.yaml", "w") as file:
+        file.write(yamlValue)
+
+
+def export_list_section(folder, config, section_id, with_variants):
+    section_name = get_section_name(config, section_id)
+    children_folder = folder / section_name
+    os.makedirs(children_folder, exist_ok=True)
+    for c in get_section_children(config, section_id):
+        export_section(children_folder, config, c, with_variants)
