@@ -26,7 +26,7 @@ import { createNewId, createRandomName } from "utils/idNameCreation";
 export function GlobalParamSweepArea({ sectionId }) {
   const width = useSectionInfos((x) => {
     const w = x.x[sectionId].size.width;
-    return w === "auto" ? getSectionRect(sectionId).width : w;
+    return w === "auto" ? getSectionRect(sectionId)?.width : w;
   });
 
   return <GlobalParamSweepGUI width={width} />;
@@ -49,7 +49,7 @@ function GlobalParamSweepGUI({ width }) {
   return (
     <>
       <section
-        className={`${width < 386 && isScrollable ? "nowheel" : ""} section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll  @sm/multipane:flex-row  @sm/multipane:overflow-visible`}
+        className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll  @sm/multipane:flex-row  @sm/multipane:overflow-visible`}
         ref={ref}
       >
         <article className="mt-2 flex flex-col gap-2 ">
