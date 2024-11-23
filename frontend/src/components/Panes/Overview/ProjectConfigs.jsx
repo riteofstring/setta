@@ -1,6 +1,7 @@
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { maybeRunGuiToYamlOnAllSections } from "state/actions/guiToYaml";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
 import { setAllPreviewVariantIdsToNull } from "state/actions/sections/sectionInfos";
 import { useAllProjectConfigs, useSectionInfos } from "state/definitions";
@@ -92,11 +93,15 @@ function onMouseOver({
         }
       }
     });
+
+    maybeRunGuiToYamlOnAllSections();
   } else {
     setAllPreviewVariantIdsToNull();
+    maybeRunGuiToYamlOnAllSections();
   }
 }
 
 function onMouseLeave() {
   setAllPreviewVariantIdsToNull();
+  maybeRunGuiToYamlOnAllSections();
 }

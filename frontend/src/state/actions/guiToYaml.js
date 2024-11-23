@@ -335,3 +335,9 @@ export function maybeRunGuiToYaml(sectionId) {
     guiToYaml(sectionId);
   }
 }
+
+export function maybeRunGuiToYamlOnAllSections() {
+  for (const k of Object.keys(useSectionInfos.getState().x)) {
+    maybeRunGuiToYaml(k);
+  }
+}
