@@ -22,6 +22,7 @@ export function duplicateSectionVariant({ id, newName, newCodeInfoColId }) {
     s[newId].name = newName;
     s[newId].codeInfoColId = newCodeInfoColId;
     s[newId].isFrozen = false;
+    s[newId].isDefault = false;
   });
   return newId;
 }
@@ -38,6 +39,7 @@ export function initManySectionVariantIds({ variantProps }) {
         codeInfoColId: props.codeInfoColId,
         keywordPositions: props.keywordPositions ?? [],
         isFrozen: props.isFrozen ?? false,
+        isDefault: props.isDefault ?? true,
       });
     }
   });
@@ -227,4 +229,22 @@ export function toggleVariantFrozenState(variantId) {
 export function getSelectedVariantIsFrozen(sectionId) {
   const variantId = useSectionInfos.getState().x[sectionId].variantId;
   return useSectionVariants.getState().x[variantId].isFrozen;
+}
+
+export function resetAllSectionsToDefaultVersions() {
+  useSectionInfos.setState((x) => {
+    const sectionVariants = useSectionVariants.getState().x;
+    let defaultVariantId;
+    for (const s of Object.values(x.x)) {
+      if (s.variantIds.length > 1) {
+        defaultVariantId = s.variantIds.find(
+          (v) => sectionVariants[v].isDefault,
+        );
+        if (!defaultVariantId) {
+          defaultVariantId = s.variantIds[0];
+        }
+        s.variantId = defaultVariantId;
+      }
+    }
+  });
 }
