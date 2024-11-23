@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 from pathlib import Path
 
@@ -17,5 +18,5 @@ def get_configs_and_root_folder(db, filename):
     for c in configs:
         c["uiTypes"].update(base_ui_types)
 
-    root_folder = Path(f"{filename}_export")
+    root_folder = Path(os.getcwd()) / f"{filename}_export"
     return configs, root_folder

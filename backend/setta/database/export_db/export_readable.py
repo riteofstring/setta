@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 
 from setta.code_gen.export_selected import (
@@ -21,8 +22,17 @@ from .utils import get_configs_and_root_folder
 def export_readable(db, filename, with_variants):
     configs, root_folder = get_configs_and_root_folder(db, filename)
     subfolder_name = "with_variants" if with_variants else "clean"
+    root_folder = root_folder / subfolder_name
+    try:
+        print("try deleting:", root_folder)
+        shutil.rmtree(root_folder)
+    except:
+        pass
+
+    print("exporting readable to", root_folder)
+
     for c in configs:
-        export_config(root_folder / subfolder_name, c, with_variants)
+        export_config(root_folder, c, with_variants)
 
 
 def export_config(folder, config, with_variants):
