@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { getSectionCodeInfoChildren } from "state/actions/codeInfoCols";
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
-import { getSectionVariantId } from "state/actions/sectionVariants";
+import { getSectionVariantIdToShow } from "state/actions/sectionVariants";
 import {
   useCodeInfo,
   useSectionInfos,
@@ -34,7 +34,7 @@ export async function dbSectionToYaml(sectionId) {
   const { configLanguage } = useSectionInfos.getState().x[sectionId];
   const codeInfo = useCodeInfo.getState().x;
   const sectionVariant =
-    useSectionVariants.getState().x[getSectionVariantId(sectionId).variantId];
+    useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)];
   const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   return await post({
     body: {

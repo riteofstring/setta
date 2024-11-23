@@ -16,6 +16,8 @@ import {
   useSectionInfos,
   useYamlValue,
 } from "state/definitions";
+import { getSectionInfo } from "state/getters/sectionInfo";
+import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { parseAllDocuments } from "yaml";
@@ -325,5 +327,11 @@ function updateIdsToChildren({
     } else {
       idsToChildren[parentId].push(v.id);
     }
+  }
+}
+
+export function maybeRunGuiToYaml(sectionId) {
+  if (getSectionInfo(sectionId).displayMode === SECTION_DISPLAY_MODES.YAML) {
+    guiToYaml(sectionId);
   }
 }

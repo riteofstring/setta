@@ -5,6 +5,7 @@ import {
   useSectionVariants,
   useUITypes,
 } from "state/definitions";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 import { getValueForUIType, newEV } from "utils/objs/ev";
 import { initValue } from "../utils";
@@ -95,7 +96,7 @@ export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
 }
 
 function getParamEV(sectionId, paramInfoId) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   return useSectionVariants.getState().x[variantId].values[paramInfoId].value;
 }
 
@@ -105,13 +106,13 @@ export function setParamEnteredValue({
   value,
   incrementVersion = false,
 }) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   setEnteredValue({ collectionId: variantId, paramInfoId, value });
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function setParamEnteredValueBatch({ sectionId, paramInfoIdToValue }) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   useSectionVariants.setState((state) => {
     for (const [id, value] of Object.entries(paramInfoIdToValue)) {
       state.x[variantId].values[id].value = value;
@@ -124,7 +125,7 @@ export function setParamKeywordPositions({
   paramInfoId,
   keywordPositions,
 }) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   setKeywordPositions({
     collectionId: variantId,
     paramInfoId,
@@ -133,7 +134,7 @@ export function setParamKeywordPositions({
 }
 
 export function getSectionChildren(sectionId) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   return useSectionVariants.getState().x[variantId].children;
 }
 
@@ -146,18 +147,18 @@ export function getSectionChildrenFromAllVariants(sectionId) {
 }
 
 export function getSectionCodeInfoColId(sectionId) {
-  const { variantId } = getSectionVariantId(sectionId);
-  return useSectionVariants.getState().x[variantId].codeInfoColId;
+  return useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)]
+    .codeInfoColId;
 }
 
-export function getSectionVariantId(sectionId) {
+export function getSectionVariantIdToShow(sectionId) {
   const { variantId, previewVariantId } =
     useSectionInfos.getState().x[sectionId];
-  return { variantId, previewVariantId };
+  return previewVariantId ?? variantId;
 }
 
 export function setSectionVariantChildren({ sectionId, newStateFn }) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   let newChildren;
   useSectionVariants.setState((state) => {
     newChildren = newStateFn(state.x[variantId].children);
@@ -195,14 +196,13 @@ export function getSectionIdParamInfoIdToKeywordPositions(sectionVariantState) {
 }
 
 export function getSectionSelectedItem(sectionId) {
-  const { variantId, previewVariantId } = getSectionVariantId(sectionId);
-  return useSectionVariants.getState().x[previewVariantId ?? variantId]
+  return useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)]
     .selectedItem;
 }
 
 export function getSectionCode(sectionId) {
-  const { variantId, previewVariantId } = getSectionVariantId(sectionId);
-  return useSectionVariants.getState().x[previewVariantId ?? variantId].code;
+  return useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)]
+    .code;
 }
 
 export function getSectionChildrenAcrossVariants(sectionId) {
@@ -218,7 +218,7 @@ export function getSectionChildrenAcrossVariants(sectionId) {
 }
 
 export function setSectionVariantAttr(sectionId, attr, value) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   console.log("setSectionVariantAttr", variantId, attr, value);
   useSectionVariants.setState((x) => {
     x.x[variantId][attr] = value;

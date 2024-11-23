@@ -1,17 +1,13 @@
 import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { FaRegSnowflake } from "react-icons/fa";
-import { guiToYaml } from "state/actions/guiToYaml";
+import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
 import {
   manualDndChildrenReset,
   setSectionInfoAttr,
 } from "state/actions/sections/sectionInfos";
-import {
-  getSectionVariantId,
-  toggleVariantFrozenState,
-} from "state/actions/sectionVariants";
+import { toggleVariantFrozenState } from "state/actions/sectionVariants";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
 import {
   getForSectionId,
   useCurrParamSweepId,
@@ -20,7 +16,6 @@ import {
 } from "state/hooks/paramSweep";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { useSectionTypeName } from "state/hooks/uiTypes";
-import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function VersionList({ sectionId }) {
   const sectionTypeName = useSectionTypeName(sectionId);
@@ -33,6 +28,7 @@ export function VersionList({ sectionId }) {
       value: null,
     });
     manualDndChildrenReset();
+    maybeRunGuiToYaml(sectionId);
   }
 
   return (
@@ -60,19 +56,15 @@ function EVItems({ sectionId }) {
 
   function onMouseOver(id) {
     setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: id });
-    const newChildren =
-      useSectionVariants.getState().x[
-        getSectionVariantId(sectionId)["previewVariantId"]
-      ].children;
+    const newChildren = useSectionVariants.getState().x[id].children;
     useDndChildren.getState().updateOneParent(sectionId, newChildren);
+    maybeRunGuiToYaml(sectionId);
   }
 
   function onClick(id) {
     setSectionInfoAttr({ sectionId, attr: "variantId", value: id });
     manualDndChildrenReset();
-    if (getSectionInfo(sectionId).displayMode === SECTION_DISPLAY_MODES.YAML) {
-      guiToYaml(sectionId);
-    }
+    maybeRunGuiToYaml(sectionId);
   }
 
   function onFreezeClick(id) {
