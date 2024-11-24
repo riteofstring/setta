@@ -1,30 +1,27 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
-import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { BiHelpCircle } from "react-icons/bi";
-import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
 import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
-import { getOnOverviewTabClick, TabButton } from "../paneFns";
+import {
+  onOverviewResizeStop,
+  onOverviewTabClick,
+  TabButton,
+} from "../paneFns";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
 
 const paneName = OVERVIEW;
 
 export function Overview() {
-  function onResizeStop(widthDiff) {
-    if (useSettings.getState().leftSidePaneShiftsMap) {
-      updateMapPosition(widthDiff);
-    }
-  }
   const [tab] = localStorageFns.overviewTab.hook();
   const [vis] = localStorageFns.overviewVis.hook();
   const [width] = localStorageFns.overviewWidth.hook();
   const commonProps = {
     vis,
     tab,
-    onTabClick: getOnOverviewTabClick(onResizeStop),
+    onTabClick: onOverviewTabClick,
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
   };
@@ -64,7 +61,7 @@ export function Overview() {
       <PaneContainer
         paneName={paneName}
         right={false}
-        onResizeStop={onResizeStop}
+        onResizeStop={onOverviewResizeStop}
         vis={vis}
         width={width}
         minimumWidth={350}

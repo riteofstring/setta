@@ -1,3 +1,5 @@
+import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
+import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { CLOSED_PANE_WIDTH, OVERVIEW } from "utils/constants";
 
@@ -80,17 +82,21 @@ function visToggle(paneName, onResizeStop) {
   }
 }
 
-export function getOnOverviewTabClick(onResizeStop) {
-  return (tabValue) => {
-    const [vis] = localStorageFns.overviewVis.state();
-    const [tab, setTab] = localStorageFns.overviewTab.state();
-    if (tab !== tabValue) {
-      setTab(tabValue);
-      if (!vis) {
-        visToggle(OVERVIEW, onResizeStop);
-      }
-    } else {
-      visToggle(OVERVIEW, onResizeStop);
+export function onOverviewTabClick(tabValue) {
+  const [vis] = localStorageFns.overviewVis.state();
+  const [tab, setTab] = localStorageFns.overviewTab.state();
+  if (tab !== tabValue) {
+    setTab(tabValue);
+    if (!vis) {
+      visToggle(OVERVIEW, onOverviewResizeStop);
     }
-  };
+  } else {
+    visToggle(OVERVIEW, onOverviewResizeStop);
+  }
+}
+
+export function onOverviewResizeStop(widthDiff) {
+  if (useSettings.getState().leftSidePaneShiftsMap) {
+    updateMapPosition(widthDiff);
+  }
 }
