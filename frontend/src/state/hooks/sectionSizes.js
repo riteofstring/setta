@@ -189,7 +189,7 @@ export async function setSectionToHaveAspectRatioAndMinSize(
   const sectionType = getSectionType(sectionId).type;
   const minHeight = getMinSectionHeight({ sectionType });
   const minWidth = getMinSectionWidth({ sectionType });
-  const currSize = useSectionInfos.getState().x[sectionId].size;
+  const currSize = useSectionInfos.getState().sectionConfigs[sectionId].size;
 
   let adjustedSize = adjustAspectRatio(
     currSize.height,
@@ -218,7 +218,7 @@ export function useImgArtifactAreaSize(sectionId, base64String) {
   const [imgSize, setImgSize] = useState(null);
 
   const widthOrHeightIsAuto = useSectionInfos((x) => {
-    const { width, height } = x.x[sectionId].size;
+    const { width, height } = x.sectionConfigs[sectionId].size;
     return width === "auto" || height === "auto";
   });
 

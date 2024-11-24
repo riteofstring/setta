@@ -14,10 +14,8 @@ export function CreateNewParamSweepModal({ modalType }) {
       useSectionInfos.getState().x,
       sectionId,
     );
-    setSectionInfoAttr({
-      sectionId: forSectionId,
-      attr: "paramSweepId",
-      value: newId,
+    useSectionInfos.setState((x) => {
+      x.sectionConfigs[forSectionId].paramSweepId = newId;
     });
     setSectionInfoAttr({
       sectionId: forSectionId,

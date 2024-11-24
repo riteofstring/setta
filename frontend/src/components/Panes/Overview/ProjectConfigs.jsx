@@ -85,7 +85,7 @@ function onMouseOver({
       useAllProjectConfigs.getState().x[mousedOverName].sections;
 
     useSectionInfos.setState((x) => {
-      for (const [k, v] of Object.entries(x.x)) {
+      for (const [k, v] of Object.entries(x.sectionConfigs)) {
         if (previewSectionConfigs[k]) {
           v.previewVariantId = previewSectionConfigs[k].variantId;
         } else {

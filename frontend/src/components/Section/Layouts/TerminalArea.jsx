@@ -4,7 +4,9 @@ import { useSectionInfos } from "state/definitions";
 import { useTerminal } from "state/hooks/terminal";
 
 function _TerminalArea({ sectionId }) {
-  const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
+  const { width, height } = useSectionInfos(
+    (x) => x.sectionConfigs[sectionId].size,
+  );
   const [hasScrollbar, setHasScrollbar] = useState(false);
   const terminalRef = useTerminal({
     sectionId,

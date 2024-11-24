@@ -13,7 +13,7 @@ export function addCodeInfo({ sectionId, info, parent, insertIdx }) {
   });
 
   useSectionInfos.setState((x) => {
-    const { codeInfoColId } = x.variants[x.x[sectionId].variantId];
+    const { codeInfoColId } = x.variants[x.sectionConfigs[sectionId].variantId];
     if (_.isNil(insertIdx)) {
       x.codeInfoCols[codeInfoColId]["children"][parent].push(info.id);
     } else {

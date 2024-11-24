@@ -37,7 +37,7 @@ export function initializeParam(
 }
 
 function initializeParamEnteredValue(sectionId, paramIds, paramIdToUITypeId) {
-  const { variantId } = useSectionInfos.getState().x[sectionId];
+  const { variantId } = useSectionInfos.getState().sectionConfigs[sectionId];
   const sectionVariant = useSectionInfos.getState().variants[variantId];
   const uiTypeState = useSectionInfos.getState().uiTypes;
   const paramIdsToUITypes = {};

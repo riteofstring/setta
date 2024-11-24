@@ -14,6 +14,7 @@ import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionPosition } from "utils/objs/sectionPosition";
 import { insertIntoArray } from "utils/utils";
 import {
+  getSectionConfig,
   getSectionInfo,
   getSectionParentId,
   getSectionType,
@@ -144,7 +145,7 @@ export function addChildrenToSeries({
   const newIds = createSectionInfo({
     sectionProps: {
       parentId,
-      size: { height: "auto", width: getSectionInfo(parentId).size.width },
+      size: { height: "auto", width: getSectionConfig(parentId).size.width },
     },
     numSections: numChildren,
   });

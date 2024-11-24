@@ -62,7 +62,10 @@ function CustomResizableCore({
   }, [sizeMode.height, sizeMode.width]);
 
   const { size, positionAndSizeLocked } = useSectionInfos(
-    (x) => _.pick(x.x[sectionId], ["size", "positionAndSizeLocked"]),
+    (x) => ({
+      size: x.sectionConfigs[sectionId].size,
+      positionAndSizeLocked: x.x[sectionId].positionAndSizeLocked,
+    }),
     _.isEqual,
   );
   const { aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =

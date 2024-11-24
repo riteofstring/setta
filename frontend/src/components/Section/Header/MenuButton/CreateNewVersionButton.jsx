@@ -8,12 +8,14 @@ import {
   duplicateSectionVariant,
   getSectionCodeInfoColId,
 } from "state/actions/sectionVariants";
-import { getSectionInfo } from "state/getters/sectionInfo";
+import { useSectionInfos } from "state/definitions";
+import { getSectionConfig, getSectionInfo } from "state/getters/sectionInfo";
 import { createRandomName } from "utils/idNameCreation";
 
 export function CreateNewVersionButton({ sectionId }) {
   async function onClick() {
-    const { variantId: currVariantId, jsonSource } = getSectionInfo(sectionId);
+    const { jsonSource } = getSectionInfo(sectionId);
+    const { variantId: currVariantId } = getSectionConfig(sectionId);
     const currCodeInfoColId = getSectionCodeInfoColId(sectionId);
     const newCodeInfoColId = duplicateCodeInfoCol(currCodeInfoColId);
     const newVariantId = duplicateSectionVariant({
@@ -21,7 +23,9 @@ export function CreateNewVersionButton({ sectionId }) {
       newName: await newVersionName(jsonSource),
       newCodeInfoColId,
     });
-    setSectionInfoAttr({ sectionId, attr: "variantId", value: newVariantId });
+    useSectionInfos((x) => {
+      x.sectionConfigs[sectionId].variantId = newVariantId;
+    });
     setSectionInfoAttr({
       sectionId,
       attr: "variantIds",

@@ -47,7 +47,9 @@ export function VersionList({ sectionId }) {
 }
 
 function EVItems({ sectionId }) {
-  const currVariantId = useSectionInfos((x) => x.x[sectionId].variantId);
+  const currVariantId = useSectionInfos(
+    (x) => x.sectionConfigs[sectionId].variantId,
+  );
   const sectionVariantNames = useGetSectionVariantNames(sectionId);
 
   function onMouseOver(id) {
@@ -56,7 +58,9 @@ function EVItems({ sectionId }) {
   }
 
   function onClick(id) {
-    setSectionInfoAttr({ sectionId, attr: "variantId", value: id });
+    useSectionInfos.setState((x) => {
+      x.sectionConfigs[sectionId].variantId = id;
+    });
     maybeRunGuiToYaml(sectionId);
   }
 
@@ -91,10 +95,8 @@ function ParamSweepItems({ sectionId }) {
   }
 
   function onClick(id) {
-    setSectionInfoAttr({
-      sectionId: forSectionId,
-      attr: "paramSweepId",
-      value: id,
+    useSectionInfos.setState((x) => {
+      x.sectionConfigs[forSectionId].paramSweepId = id;
     });
   }
 

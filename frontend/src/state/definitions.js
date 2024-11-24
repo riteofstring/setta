@@ -33,6 +33,7 @@ export const useSectionInfos = createProjectState(
       immer(() =>
         withVersion({
           x: {},
+          sectionConfigs: {},
           variants: {},
           uiTypeCols: {},
           uiTypes: {},

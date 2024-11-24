@@ -73,5 +73,7 @@ export function useSectionKeywordPositions(sectionId) {
 }
 
 export function useSectionVariantIsFrozen(sectionId) {
-  return useSectionInfos((x) => x.variants[x.x[sectionId].variantId].isFrozen);
+  return useSectionInfos(
+    (x) => x.variants[x.sectionConfigs[sectionId].variantId].isFrozen,
+  );
 }

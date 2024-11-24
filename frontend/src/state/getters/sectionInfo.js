@@ -3,6 +3,10 @@ import _ from "lodash";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { isRoot } from "utils/sectionTypeHelpers";
 
+export function getSectionConfig(sectionId) {
+  return useSectionInfos.getState().sectionConfigs[sectionId];
+}
+
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];
 }

@@ -6,7 +6,11 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { PANEID } from "utils/constants";
 import { insertIntoArray } from "utils/utils";
-import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
+import {
+  getSectionConfig,
+  getSectionInfo,
+  getSectionType,
+} from "../../getters/sectionInfo";
 import { copySections } from "../copyPaste/copy";
 import { updateKeywordRegex } from "../keywordRegex";
 import {
@@ -120,12 +124,12 @@ function setSectionSize({ newParentId, sectionId }) {
     if (!isHorizontalOrientation) {
       const deckChildren = getSectionChildren(newParentId);
       if (deckChildren.length > 0) {
-        const width = s.x[deckChildren[0]].size.width;
+        const width = s.sectionConfigs[deckChildren[0]].size.width;
         setAllChildrenWidths({ sectionId, width });
       }
     }
   } else {
-    const width = s.x[newParentId].size.width;
+    const width = s.sectionConfigs[newParentId].size.width;
     setAllChildrenWidths({ sectionId, width });
   }
 }
@@ -145,7 +149,7 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
   // have children that include sectionId.
   // If they do include sectionId, then make a copy of sectionId
   // to prevent the possibility of sectionId appearing in 2 places at once.
-  const { variantId: activeVariantId } = getSectionInfo(sectionId);
+  const { variantId: activeVariantId } = getSectionConfig(sectionId);
   const variantState = useSectionInfos.getState().variants;
   let isInOtherVariants = false;
   for (const variantId of variantIds) {
