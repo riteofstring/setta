@@ -31,25 +31,13 @@ function newRunGroupSection(sectionId) {
 }
 
 // must use inside of setState
-function maybeInitRunGroupSection(
-  state,
-  id,
-  sectionId,
-  parentVariantId,
-  initChildrenIfNewInit = false,
-) {
-  let isNewInit = false;
+function maybeInitRunGroupSection(state, id, sectionId, parentVariantId) {
   if (!(sectionId in state.x[id].sections)) {
     state.x[id].sections[sectionId] = {};
-    isNewInit = true;
   }
   if (!(parentVariantId in state.x[id].sections[sectionId])) {
     state.x[id].sections[sectionId][parentVariantId] =
       newRunGroupSection(sectionId);
-    isNewInit = true;
-  }
-  if (isNewInit && initChildrenIfNewInit) {
-    const 
   }
 }
 
@@ -86,7 +74,7 @@ function toggleRunGroupSectionAttr({
   parentVariantId,
 }) {
   useRunGroups.setState((state) => {
-    maybeInitRunGroupSection(state, id, sectionId, parentVariantId, true);
+    maybeInitRunGroupSection(state, id, sectionId, parentVariantId);
     let newState;
     const thisSectionState = state.x[id].sections[sectionId][parentVariantId];
     if (allAncestorsAreSelected(state, id, ancestors)) {
