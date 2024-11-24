@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { moveSections } from "state/actions/sections/moveSections";
 import { useActiveSection, useNodeInternals } from "state/definitions";
@@ -37,6 +38,7 @@ export function groupSections() {
     const x = Math.min(...selectedNodes.map((x) => x[1].position.x));
     const y = Math.min(...selectedNodes.map((x) => x[1].position.y));
     createDeck({ nodeIds, x, y, projectXY: false });
+    useReactFlow.setState({ nodesSelectionDims: null });
   }
 }
 
