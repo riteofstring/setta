@@ -6,6 +6,7 @@ import { MdOutlineSettingsApplications } from "react-icons/md";
 import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
 import { useActiveSection, useSectionInfos } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import {
   INFO_CONFIG_TAB,
@@ -17,7 +18,7 @@ import {
   UI_EDITOR,
 } from "utils/constants";
 import { uiEditorPaneOnKeyDown } from "utils/tabbingLogic";
-import { TabButton, usePaneFns } from "../paneFns";
+import { TabButton } from "../paneFns";
 import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
@@ -29,11 +30,8 @@ const paneName = UI_EDITOR;
 export function UiEditor() {
   const sectionIds = useActiveSection((x) => x.ids);
   const [tab, setTab, requiredTabs] = useUIEditorTab(sectionIds[0]);
-  const { vis, width, getOnTabClick } = usePaneFns({
-    paneName,
-    tab,
-    setTab,
-  });
+  const [vis] = localStorageFns.uiEditorVis.hook();
+  const [width] = localStorageFns.uiEditorWidth.hook();
   const renderMarkdown = useSectionInfos((x) =>
     sectionIds.length > 0 ? x.x[sectionIds[0]].renderMarkdown : false,
   );

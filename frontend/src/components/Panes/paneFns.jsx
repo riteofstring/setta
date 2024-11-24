@@ -1,38 +1,7 @@
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
-import { CLOSED_PANE_WIDTH, OVERVIEW } from "utils/constants";
-
-export function usePaneFns({ paneName, onResizeStop, tab, setTab }) {
-  const [vis, setVis] = localStorageFns[`${paneName}Vis`].hook();
-  const [width] = localStorageFns[`${paneName}Width`].hook();
-  const setTrueWidth = localStorageFns[`${paneName}TrueWidth`].state()[1];
-
-  function visToggle() {
-    const newVis = !vis;
-    setVis(newVis);
-    setTrueWidth(newVis ? width : CLOSED_PANE_WIDTH);
-    if (onResizeStop) {
-      const widthDiff = width - CLOSED_PANE_WIDTH;
-      onResizeStop(newVis ? widthDiff : -widthDiff);
-    }
-  }
-
-  function getOnTabClick(tabValue) {
-    return () => {
-      if (tab !== tabValue) {
-        setTab(tabValue);
-        if (!vis) {
-          visToggle();
-        }
-      } else {
-        visToggle();
-      }
-    };
-  }
-
-  return { vis, width, getOnTabClick };
-}
+import { CLOSED_PANE_WIDTH, OVERVIEW, UI_EDITOR } from "utils/constants";
 
 export function TabButton({
   id,
@@ -98,5 +67,18 @@ export function onOverviewTabClick(tabValue) {
 export function onOverviewResizeStop(widthDiff) {
   if (useSettings.getState().leftSidePaneShiftsMap) {
     updateMapPosition(widthDiff);
+  }
+}
+
+export function onUIEditorTabClick(tabValue) {
+  const [vis] = localStorageFns.overviewVis.state();
+  const [tab, setTab] = localStorageFns.overviewTab.state();
+  if (tab !== tabValue) {
+    setTab(tabValue);
+    if (!vis) {
+      visToggle(UI_EDITOR);
+    }
+  } else {
+    visToggle(UI_EDITOR);
   }
 }
