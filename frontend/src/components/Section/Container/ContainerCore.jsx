@@ -19,7 +19,7 @@ function _Container({
   trueDragListeners,
   children,
 }) {
-  const isActiveSection = useActiveSection((x) => x.ids.has(sectionId));
+  const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
   const isInOtherProjectConfigs = useGetSectionInfo(
     sectionId,
     "isInOtherProjectConfigs",

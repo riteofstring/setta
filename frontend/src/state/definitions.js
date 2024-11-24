@@ -6,7 +6,7 @@ import { create, createProjectState, withVersion } from "./utils";
 export const useActiveSection = createProjectState(
   temporal(() =>
     withVersion({
-      ids: new Set(),
+      ids: [],
     }),
   ),
 );

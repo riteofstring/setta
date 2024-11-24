@@ -1,6 +1,5 @@
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import { getFirstActiveSectionId } from "state/actions/sections/activeSections";
-import { useSettings } from "state/definitions";
+import { useActiveSection, useSettings } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { localStorageFns } from "state/hooks/localStorage";
 import { getUIEditorTab } from "state/hooks/uiTypes";
@@ -103,7 +102,7 @@ export function getOnUIEditorTabClick(uiTypeName) {
 }
 
 function changeUIEditorTab(tabName) {
-  const activeId = getFirstActiveSectionId();
+  const activeId = useActiveSection.getState().ids[0];
   if (!activeId) {
     return;
   }

@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { useActiveSection, useSectionInfos } from "state/definitions";
-import { firstElementOfSet } from "utils/utils";
 import { getHighestAncestor } from "./sectionChildren";
 import { setZIndices } from "./sectionPositions";
 
@@ -30,8 +29,4 @@ export function setActiveSectionIdAndUpdateZIndex(id) {
 
 export function setAllSectionsAsActive() {
   setActiveSectionIds(Object.keys(useSectionInfos.getState().x));
-}
-
-export function getFirstActiveSectionId() {
-  return firstElementOfSet(useActiveSection.getState().ids);
 }

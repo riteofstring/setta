@@ -18,7 +18,6 @@ import {
   UI_EDITOR,
 } from "utils/constants";
 import { uiEditorPaneOnKeyDown } from "utils/tabbingLogic";
-import { firstElementOfSet } from "utils/utils";
 import { getOnUIEditorTabClick, TabButton } from "../paneFns";
 import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
@@ -29,19 +28,12 @@ import { UIConfig } from "./UIConfig/UIConfig";
 const paneName = UI_EDITOR;
 
 export function UiEditor() {
-  const { firstActiveSectionId, moreThanOneActiveSectionId } = useActiveSection(
-    (x) => {
-      const firstActiveSectionId = firstElementOfSet(x.ids);
-      const moreThanOneActiveSectionId = x.ids.size > 1;
-      return { firstActiveSectionId, moreThanOneActiveSectionId };
-    },
-  );
-  const { tab, requiredTabs, uiTypeName } =
-    useUIEditorTab(firstActiveSectionId);
+  const sectionIds = useActiveSection((x) => x.ids);
+  const { tab, requiredTabs, uiTypeName } = useUIEditorTab(sectionIds[0]);
   const [vis] = localStorageFns.uiEditorVis.hook();
   const [width] = localStorageFns.uiEditorWidth.hook();
   const renderMarkdown = useSectionInfos((x) =>
-    firstActiveSectionId ? x.x[firstActiveSectionId].renderMarkdown : false,
+    sectionIds.length > 0 ? x.x[sectionIds[0]].renderMarkdown : false,
   );
   const infoTabTooltip = renderMarkdown ? "Markdown Editor" : "Text Editor";
   const inputTitle = tab === INFO_CONFIG_TAB ? infoTabTooltip : null;
@@ -106,9 +98,9 @@ export function UiEditor() {
         vis={vis}
         width={width}
       >
-        {!moreThanOneActiveSectionId && vis ? (
+        {sectionIds.length === 1 && vis ? (
           <TabsVisible
-            sectionId={firstActiveSectionId}
+            sectionId={sectionIds[0]}
             tab={tab}
             inputTitle={inputTitle}
           />
