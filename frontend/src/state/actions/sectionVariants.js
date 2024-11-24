@@ -153,9 +153,9 @@ export function getSectionCodeInfoColId(sectionId) {
   ].codeInfoColId;
 }
 
-export function getSectionVariantIdToShow(sectionId) {
+export function getSectionVariantIdToShow(sectionId, state = {}) {
   const { variantId, previewVariantId } =
-    useSectionInfos.getState().x[sectionId];
+    state[sectionId] ?? useSectionInfos.getState().x[sectionId];
   return previewVariantId ?? variantId;
 }
 
