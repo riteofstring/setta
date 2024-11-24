@@ -44,6 +44,8 @@ export const useSectionInfos = createProjectState(
         withVersion({
           x: {},
           variants: {},
+          dndChildren: {},
+          dndParents: {},
         }),
       ),
     ),
