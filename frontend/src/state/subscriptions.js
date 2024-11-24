@@ -5,35 +5,31 @@ import { updateKeywordRegex } from "state/actions/keywordRegex";
 import { useMisc, useSectionInfos, useUITypes } from "state/definitions";
 import { getSectionIdToChildrenToShow } from "./actions/sectionVariants";
 
-function getSingletonSubscriptionFn(type) {
-  return (state) => {
-    for (const s of Object.values(state.x)) {
-      if (useUITypes.getState().x[s.uiTypeId]?.type === type) {
-        return s.id;
-      }
+function singletonSectionsSubscriptionFn(state) {
+  const uiTypeState = useUITypes.getState();
+  const output = { [C.GLOBAL_VARIABLES]: null, [C.GLOBAL_PARAM_SWEEP]: null };
+  for (const s of Object.values(state.x)) {
+    const uiType = uiTypeState.x[s.uiTypeId]?.type;
+    if (output[C.GLOBAL_VARIABLES] && output[C.GLOBAL_PARAM_SWEEP]) {
+      break;
     }
-    return null;
-  };
+    if (!output[C.GLOBAL_VARIABLES] && uiType === C.GLOBAL_VARIABLES) {
+      output[C.GLOBAL_VARIABLES] = s.id;
+    }
+    if (!output[C.GLOBAL_PARAM_SWEEP] && uiType === C.GLOBAL_PARAM_SWEEP) {
+      output[C.GLOBAL_PARAM_SWEEP] = s.id;
+    }
+  }
+  return output;
 }
 
 export function subscribe() {
-  useSectionInfos.subscribe(
-    getSingletonSubscriptionFn(C.GLOBAL_VARIABLES),
-    (x) => {
-      useMisc.setState((state) => {
-        state.singletonSections.globalVariables = x;
-      });
-    },
-  );
-
-  useSectionInfos.subscribe(
-    getSingletonSubscriptionFn(C.GLOBAL_PARAM_SWEEP),
-    (x) => {
-      useMisc.setState((state) => {
-        state.singletonSections.globalParamSweep = x;
-      });
-    },
-  );
+  useSectionInfos.subscribe(singletonSectionsSubscriptionFn, (x) => {
+    useMisc.setState((state) => {
+      state.singletonSections.globalVariables = x[C.GLOBAL_VARIABLES];
+      state.singletonSections.globalParamSweep = x[C.GLOBAL_PARAM_SWEEP];
+    });
+  });
 
   useSectionInfos.subscribe(
     (state) => _.mapValues(state.x, (v) => v.name),
