@@ -1,4 +1,3 @@
-import { showVersionsTab } from "components/Panes/paneFns";
 import {
   disableFloatingBox,
   enableFloatingBox,
@@ -224,7 +223,6 @@ export function attachKeyEventListeners() {
     [settings.zoomToMouseShortcut, zoomToMouseLocation],
     [settings.deleteSectionShortcut, deleteAllActiveSections],
     [settings.selectAllSectionsShortcut, setAllSectionsAsActive],
-    [settings.showVersionsTabShortcut, showVersionsTab],
     [
       settings.selectionKeyCode,
       activateSelectionKeyPressed,

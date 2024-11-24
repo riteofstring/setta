@@ -109,7 +109,7 @@ export async function saveProject() {
   setNotificationMessage("Saving...");
   if (useProjectConfig.getState().name === SETTINGS_PROJECT_NAME) {
     res = await dbSaveSettings(getProjectData({ convertYamlToGUI: true }));
-    if (res.status === 200) {
+    if (res.status == 200) {
       useSettings.setState(res.data);
     }
   } else {

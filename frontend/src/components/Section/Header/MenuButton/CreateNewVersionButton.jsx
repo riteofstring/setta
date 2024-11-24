@@ -40,7 +40,7 @@ export function CreateNewVersionButton({ sectionId }) {
 async function newVersionName(jsonSource) {
   if (jsonSource) {
     const res = await dbNewVersionFilename(jsonSource);
-    if (res.status === 200) {
+    if (res.status == 200) {
       return res.data;
     }
   }
