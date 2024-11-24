@@ -10,16 +10,14 @@ import {
   toggleRunGroupSection,
   toggleRunGroupSectionParamSweep,
   toggleRunGroupSectionVersion,
+  useRunGroupListing,
+  useTopLevelRunGroupListing,
 } from "state/actions/runGroups/runGroups";
 import {
   useProjectConfig,
   useRunGroups,
   useSectionInfos,
 } from "state/definitions";
-import {
-  useRunGroupListing,
-  useTopLevelRunGroupListing,
-} from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";

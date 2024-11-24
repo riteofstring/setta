@@ -1,12 +1,30 @@
+import C from "constants/constants.json";
+import _ from "lodash";
 import {
   useMisc,
   useNodeInternals,
   useProjectConfig,
   useRunGroups,
+  useSectionInfos,
   useSectionVariants,
 } from "state/definitions";
-import { getSectionByName, getSectionInfo } from "state/getters/sectionInfo";
+import {
+  getSectionByName,
+  getSectionInfo,
+  getSectionName,
+  getSectionType,
+} from "state/getters/sectionInfo";
+import { useSectionTypeNames } from "state/hooks/uiTypes";
 import { createNewId } from "utils/idNameCreation";
+
+const RUNNABLE_SECTION_TYPES = [
+  C.SECTION,
+  C.LIST_ROOT,
+  C.DICT_ROOT,
+  C.DECK,
+  C.GLOBAL_VARIABLES,
+  C.CODE,
+];
 
 export function setAllRunGroups(payload) {
   useRunGroups.setState({ x: payload });
@@ -16,7 +34,9 @@ export function initRunGroup({ id, name }) {
   useRunGroups.setState((state) => {
     state.x[id] = { name, sections: {} };
     for (const c of useNodeInternals.getState().x.keys()) {
-      maybeInitRunGroupSection(state, id, c, null);
+      if (RUNNABLE_SECTION_TYPES.includes(getSectionType(c).type)) {
+        maybeInitRunGroupSection(state, id, c, null);
+      }
     }
   });
 
@@ -244,4 +264,30 @@ function parsePrettyRunGroupSections(runGroup) {
     // }
   }
   return sections;
+}
+
+export function useRunGroupListing(variantId) {
+  const sectionTypeNames = useSectionTypeNames();
+  return useSectionVariants((x) => {
+    const output = [];
+    for (const childId of x.x[variantId].children) {
+      if (RUNNABLE_SECTION_TYPES.includes(sectionTypeNames[childId])) {
+        output.push({ id: childId, name: getSectionName(childId) });
+      }
+    }
+    return output;
+  }, _.isEqual);
+}
+
+export function useTopLevelRunGroupListing() {
+  const sectionTypeNames = useSectionTypeNames();
+  return useSectionInfos((x) => {
+    const output = [];
+    for (const [k, v] of Object.entries(x.x)) {
+      if (!v.parentId && RUNNABLE_SECTION_TYPES.includes(sectionTypeNames[k])) {
+        output.push({ id: k, name: v.name });
+      }
+    }
+    return output;
+  }, _.isEqual);
 }
