@@ -256,9 +256,12 @@ function VersionsList({
     return false;
   });
 
-  const accordionRootStyles = atLeastOneVersionSelected
-    ? undefined
-    : "bg-red dark:bg-red-700/10 hover:border-red-50 dark:hover:border-red-700";
+  // We don't need to show a warning if at least one version is selected
+  // or if this section is not selected
+  const accordionRootStyles =
+    atLeastOneVersionSelected || !isSelected
+      ? undefined
+      : "bg-red dark:bg-red-700/10 hover:border-red-50 dark:hover:border-red-700";
 
   return (
     <GenericList
