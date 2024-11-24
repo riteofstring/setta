@@ -13,6 +13,8 @@ import {
 } from "state/hooks/terminal";
 import { createNewId } from "utils/idNameCreation";
 import { addSectionInEmptySpace } from "../sections/createSections";
+import { generateParamSweepCombinations } from "./generateParamSweepCombinations";
+import { generateSectionParamSweepVersionCombinations } from "./generateSectionParamSweepVersionCombinations";
 import { getProjectData } from "./saveProject";
 
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
@@ -88,9 +90,10 @@ function* getProjectRuns(project) {
         null,
       );
 
-      for (const combo of generateValidCombinations(
+      for (const combo of generateSectionParamSweepVersionCombinations(
         sectionParamSweepsAndVersions,
       )) {
+        console.log("combo", combo);
         const variant = _.cloneDeep(project);
         // filter top-level sections
         variant.projectConfig.children = _.pick(
@@ -139,6 +142,7 @@ function getSectionsParamSweepsAndVersions(
       continue;
     }
 
+    let paramSweepWasAdded = false;
     for (const [paramSweepId, selected] of Object.entries(
       sectionDetails.paramSweeps,
     )) {
@@ -146,32 +150,35 @@ function getSectionsParamSweepsAndVersions(
         sectionParamSweepsAndVersions.push({
           sectionId,
           paramSweepId,
-          versionId: null,
+          versionId: project.sections[sectionId].variantId,
           parentVersionId: variantId,
         });
+        paramSweepWasAdded = true;
       }
     }
+
     for (const [versionId, selected] of Object.entries(
       sectionDetails.versions,
     )) {
       if (selected) {
-        sectionParamSweepsAndVersions.push({
-          sectionId,
-          paramSweepId: null,
-          versionId,
-          parentVersionId: variantId,
-        });
+        if (!paramSweepWasAdded) {
+          sectionParamSweepsAndVersions.push({
+            sectionId,
+            paramSweepId: null,
+            versionId,
+            parentVersionId: variantId,
+          });
+        }
+        const childSectionIds = project.sectionVariants[versionId].children;
+        sectionParamSweepsAndVersions.push(
+          ...getSectionsParamSweepsAndVersions(
+            project,
+            runGroupSections,
+            childSectionIds,
+            versionId,
+          ),
+        );
       }
-
-      const childSectionIds = project.sectionVariants[versionId].children;
-      sectionParamSweepsAndVersions.push(
-        ...getSectionsParamSweepsAndVersions(
-          project,
-          runGroupSections,
-          childSectionIds,
-          versionId,
-        ),
-      );
     }
   }
 
@@ -182,36 +189,12 @@ function* getProjectVariants(project) {
   const allSweeps = [];
   for (const [paramSweepId, details] of Object.entries(project.paramSweeps)) {
     for (const s of details.sweep) {
-      if (s.params.length === 0) {
-        allSweeps.push({
-          paramSweepId,
-          selectedItem: s.selectedItem,
-          paramInfoId: null,
-          value: null,
-        });
-      } else {
-        for (const paramDetails of s.params) {
-          if (!paramDetails.paramInfoId) {
-            continue;
-          }
-          for (const value of paramDetails.values) {
-            if (!value) {
-              continue;
-            }
-            allSweeps.push({
-              paramSweepId,
-              selectedItem: s.selectedItem,
-              paramInfoId: paramDetails.paramInfoId,
-              value,
-            });
-          }
-        }
-      }
+      allSweeps.push({ paramSweepId, ...s });
     }
   }
 
   if (allSweeps.length > 0) {
-    for (const combo of generateCombinations(allSweeps)) {
+    for (const combo of generateParamSweepCombinations(allSweeps)) {
       const variant = _.cloneDeep(project);
       for (const parts of combo) {
         const { paramSweepId, selectedItem, paramInfoId, value } = parts;
@@ -227,193 +210,7 @@ function* getProjectVariants(project) {
       }
       yield variant;
     }
-  }
-
-  if (allSweeps.length === 0) {
+  } else {
     yield project;
   }
-}
-
-function* generateCombinations(objects) {
-  // Group objects by paramSweepId
-  const groupedByParamSweepId = objects.reduce((acc, obj) => {
-    if (!acc[obj.paramSweepId]) {
-      acc[obj.paramSweepId] = [];
-    }
-    acc[obj.paramSweepId].push(obj);
-    return acc;
-  }, {});
-
-  // Generate all possible combinations
-  function* combineGroups(groups, currentCombination = []) {
-    if (groups.length === 0) {
-      yield currentCombination;
-      return;
-    }
-
-    const currentGroup = groups[0];
-    const remainingGroups = groups.slice(1);
-
-    // Group by selectedItem
-    const groupedBySelectedItem = currentGroup.reduce((acc, obj) => {
-      const key = obj.selectedItem || "null";
-      if (!acc[key]) {
-        acc[key] = [];
-      }
-      acc[key].push(obj);
-      return acc;
-    }, {});
-
-    for (const selectedItemGroup of Object.values(groupedBySelectedItem)) {
-      // Create a set of unique paramInfoIds
-      const uniqueParamInfoIds = new Set(
-        selectedItemGroup.map((obj) => obj.paramInfoId),
-      );
-
-      // Generate all combinations of paramInfoIds for this selectedItem
-      for (const combination of generateCombinations(
-        Array.from(uniqueParamInfoIds),
-        selectedItemGroup,
-      )) {
-        yield* combineGroups(remainingGroups, [
-          ...currentCombination,
-          ...combination,
-        ]);
-      }
-    }
-  }
-
-  // Helper function to generate combinations of paramInfoIds
-  function* generateCombinations(paramInfoIds, objects) {
-    if (paramInfoIds.length === 0) {
-      yield [];
-      return;
-    }
-
-    const currentParamInfoId = paramInfoIds[0];
-    const remainingParamInfoIds = paramInfoIds.slice(1);
-
-    const validObjects = objects.filter(
-      (obj) => obj.paramInfoId === currentParamInfoId,
-    );
-
-    for (const obj of validObjects) {
-      for (const subCombination of generateCombinations(
-        remainingParamInfoIds,
-        objects,
-      )) {
-        yield [obj, ...subCombination];
-      }
-    }
-  }
-
-  yield* combineGroups(Object.values(groupedByParamSweepId));
-}
-
-function generateValidCombinations(objects) {
-  // Input validation
-  if (!Array.isArray(objects) || objects.length === 0) {
-    return [];
-  }
-
-  // Helper function to check if an object can be included in a combination
-  function canIncludeObject(obj, currentCombination) {
-    if (!obj || typeof obj !== "object") return false;
-
-    // If parentVersionId is null, it can always be included
-    if (obj.parentVersionId === null) {
-      return true;
-    }
-
-    // Check if there's an object in the combination with matching versionId
-    return currentCombination.some(
-      (item) => item.versionId === obj.parentVersionId,
-    );
-  }
-
-  // Helper function to get all valid objects that can be added to current combination
-  function getValidNextObjects(currentCombination, remainingObjects) {
-    if (
-      !Array.isArray(currentCombination) ||
-      !Array.isArray(remainingObjects)
-    ) {
-      return [];
-    }
-
-    return remainingObjects.filter(
-      (obj) =>
-        obj &&
-        !currentCombination.some((item) => item.sectionId === obj.sectionId) &&
-        canIncludeObject(obj, currentCombination),
-    );
-  }
-
-  // Helper function to create a unique key for a combination
-  function getCombinationKey(combination) {
-    return combination
-      .map((obj) => obj.id)
-      .sort((a, b) => a - b)
-      .join(",");
-  }
-
-  // Helper function to recursively build combinations
-  function buildCombinations(
-    currentCombination,
-    remainingObjects,
-    uniqueCombinations,
-  ) {
-    // Validate inputs
-    if (
-      !Array.isArray(currentCombination) ||
-      !Array.isArray(remainingObjects)
-    ) {
-      return;
-    }
-
-    // Get all valid objects that can be added
-    const validNextObjects = getValidNextObjects(
-      currentCombination,
-      remainingObjects,
-    );
-
-    // If no more valid objects can be added, this combination is complete
-    if (validNextObjects.length === 0) {
-      if (currentCombination.length > 0) {
-        const key = getCombinationKey(currentCombination);
-        uniqueCombinations.set(key, [...currentCombination]);
-      }
-      return;
-    }
-
-    // Try adding each valid object
-    for (const obj of validNextObjects) {
-      currentCombination.push(obj);
-      const newRemaining = remainingObjects.filter((item) => item !== obj);
-      buildCombinations(currentCombination, newRemaining, uniqueCombinations);
-      currentCombination.pop();
-    }
-
-    // Store the current combination if it's not empty
-    if (currentCombination.length > 0) {
-      const key = getCombinationKey(currentCombination);
-      uniqueCombinations.set(key, [...currentCombination]);
-    }
-  }
-
-  const uniqueCombinations = new Map();
-  buildCombinations([], objects, uniqueCombinations);
-
-  // Handle case where no valid combinations were found
-  if (uniqueCombinations.size === 0) {
-    return [];
-  }
-
-  // Convert Map values to array and sort by length
-  const combinations = Array.from(uniqueCombinations.values()).sort(
-    (a, b) => b.length - a.length,
-  );
-
-  // Keep only the combinations with maximum length
-  const maxLength = combinations[0].length;
-  return combinations.filter((combo) => combo.length === maxLength);
 }
