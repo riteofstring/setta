@@ -154,7 +154,7 @@ export function useCodeAreaHeight({ sectionId }) {
   const maxHeight =
     height === "auto" || resizeEvent === "start"
       ? undefined
-      : `${height - 32}px`;
+      : `${height - 30}px`;
   const overflow = resizeEvent === "start" ? "overflow-y-auto" : "";
 
   const editorScrollTop = editorRef.current?.scrollDOM.scrollTop;
