@@ -1,12 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import {
-  useActiveSection,
-  useSectionInfos,
-  useUITypeCols,
-  useUITypes,
-} from "state/definitions";
-import { getSectionType } from "state/getters/sectionInfo";
+import { useSectionInfos, useUITypeCols, useUITypes } from "state/definitions";
 import {
   BASE_UI_TYPE_IDS,
   INFO_CONFIG_TAB,
@@ -15,7 +9,6 @@ import {
   SECTION_DISPLAY_MODES,
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
-  UI_EDITOR,
 } from "utils/constants";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { localStorageFns } from "./localStorage";
@@ -134,8 +127,14 @@ export function useUIEditorTab(sectionId) {
     sectionId ? x.x[sectionId].uiTypeId : null,
   );
   const uiTypeName = useUITypes((x) => (uiTypeId ? x.x[uiTypeId].type : null));
-  const [storedTab, setStoredTab] = localStorageFns["uiEditorTab"].hook();
-  return getUiEditorTabAndTabSetter(uiTypeName, storedTab, setStoredTab);
+  const [_storedTab, _setStoredTab] = localStorageFns["uiEditorTab"].hook();
+  const requiredTabs = getRequiredUIEditorTabs(uiTypeName);
+  const storedTab = _storedTab[uiTypeName] ?? SECTION_CONFIG_TAB;
+  // when sectionId changes, the requiredTabs might not include the previously active tab
+  const tab = requiredTabs.includes(storedTab) ? storedTab : requiredTabs[0];
+  const setTab = (newTabState) =>
+    _setStoredTab((state) => ({ ...state, [uiTypeName]: newTabState }));
+  return [tab, setTab, new Set(requiredTabs)];
 }
 
 function getRequiredUIEditorTabs(uiTypeName) {
@@ -186,52 +185,4 @@ export function getDefaultDisplayMode(uiTypeId) {
     default:
       return SECTION_DISPLAY_MODES.GUI;
   }
-}
-
-function getUiEditorTabAndTabSetter(
-  uiTypeName,
-  inputStoredTab,
-  inputSetStoredTab,
-) {
-  const requiredTabs = getRequiredUIEditorTabs(uiTypeName);
-  const _storedTab = inputStoredTab ?? localStorageFns.uiEditorTab.state()[0];
-  const storedTab = _storedTab[uiTypeName] ?? SECTION_CONFIG_TAB;
-  console.log("storedTab", storedTab);
-  // when sectionId changes, the requiredTabs might not include the previously active tab
-  const tab = requiredTabs.includes(storedTab) ? storedTab : requiredTabs[0];
-  const _setStoredTab =
-    inputSetStoredTab ?? localStorageFns.uiEditorTab.state()[1];
-  const setTab = (newTabState) => {
-    console.log("newTabState", newTabState);
-    _setStoredTab((state) => ({ ...state, [uiTypeName]: newTabState }));
-  };
-  return { tab, setTab, requiredTabs: new Set(requiredTabs) };
-}
-
-function getOverviewTabAndTabSetter() {
-  const [tab, setTab] = localStorageFns.overviewTab.state();
-  return { tab, setTab };
-}
-
-export function getTabAndTabSetter(paneName, uiTypeName) {
-  if (paneName === UI_EDITOR) {
-    return getUiEditorTabAndTabSetter(uiTypeName);
-  }
-  return getOverviewTabAndTabSetter();
-}
-
-function changeUIEditorTab(tabName) {
-  const activeId = useActiveSection.getState().ids[0];
-  if (!activeId) {
-    return;
-  }
-  const uiTypeName = getSectionType(activeId).type;
-  const setStoredTab = localStorageFns.uiEditorTab.state()[1];
-  setStoredTab((state) => {
-    return { ...state, [uiTypeName]: tabName };
-  });
-}
-
-export function showVersionsTab() {
-  changeUIEditorTab(SECTION_VARIANTS_TAB);
 }

@@ -6,11 +6,9 @@ import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
 import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
-import { getOnTabClick, TabButton, usePaneVisAndWidth } from "../paneFns";
+import { TabButton, usePaneFns } from "../paneFns";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
-
-const paneName = OVERVIEW;
 
 export function Overview() {
   function onResizeStop(widthDiff) {
@@ -18,13 +16,17 @@ export function Overview() {
       updateMapPosition(widthDiff);
     }
   }
-  const [tab] = localStorageFns.overviewTab.hook();
-  const { vis, width } = usePaneVisAndWidth(paneName);
-
+  const [tab, setTab] = localStorageFns.overviewTab.hook();
+  const { vis, width, setWidth, setTrueWidth, getOnTabClick } = usePaneFns({
+    paneName: OVERVIEW,
+    onResizeStop,
+    tab,
+    setTab,
+  });
   const commonProps = {
     vis,
     tab,
-    onTabClick: getOnTabClick({ paneName, onResizeStop }),
+    getOnTabClick,
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
   };
