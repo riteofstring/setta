@@ -19,10 +19,11 @@ export async function dbGuiToYaml(sectionId) {
   switch (sectionType.type) {
     case C.PARAM_SWEEP:
       return await dbParamSweepSectionToYaml(sectionId);
-    case C.SECTION:
-      return await dbSectionToYaml(sectionId);
     case C.GLOBAL_PARAM_SWEEP:
       return await dbGlobalParamSweepSectionToYaml();
+    case C.GLOBAL_VARIABLES:
+    case C.SECTION:
+      return await dbSectionToYaml(sectionId);
   }
 }
 
@@ -41,7 +42,7 @@ export async function dbSectionToYaml(sectionId) {
   const sectionVariant =
     useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)];
   const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
-  return await post({
+  const res = await post({
     body: {
       codeInfo,
       codeInfoChildren,
@@ -52,6 +53,7 @@ export async function dbSectionToYaml(sectionId) {
     },
     address: C.ROUTE_SECTION_TO_YAML,
   });
+  return { res };
 }
 
 export async function dbParamSweepSectionToYaml(sectionId) {
@@ -60,7 +62,7 @@ export async function dbParamSweepSectionToYaml(sectionId) {
   const codeInfo = useCodeInfo.getState().x;
   const codeInfoChildren = getSectionCodeInfoChildren(forSectionId);
 
-  return await post({
+  const res = await post({
     body: {
       sweep,
       codeInfo,
@@ -68,6 +70,7 @@ export async function dbParamSweepSectionToYaml(sectionId) {
     },
     address: C.ROUTE_PARAM_SWEEP_SECTION_TO_YAML,
   });
+  return { res };
 }
 
 export async function dbGlobalParamSweepSectionToYaml() {
@@ -77,7 +80,7 @@ export async function dbGlobalParamSweepSectionToYaml() {
   const sectionVariants = useSectionVariants.getState().x;
   const paramSweeps = useParamSweep.getState().x;
 
-  return await post({
+  const res = await post({
     body: {
       runGroup,
       sections,
@@ -86,4 +89,5 @@ export async function dbGlobalParamSweepSectionToYaml() {
     },
     address: C.ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML,
   });
+  return { res, metaData: { runGroupId: actuallyShownRunGroup } };
 }

@@ -14,7 +14,9 @@ import {
   useCodeInfo,
   useOriginalYamlObj,
   useParamSweep,
+  useRunGroups,
   useSectionInfos,
+  useSectionVariants,
   useYamlValue,
 } from "state/definitions";
 import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
@@ -33,10 +35,12 @@ import {
 } from "./sections/sectionContents";
 
 export async function guiToYaml(sectionId) {
-  const res = await dbGuiToYaml(sectionId);
+  const { res, metaData } = await dbGuiToYaml(sectionId);
   if (res.status === 200) {
     const { originalObj, yamlValue } = res.data;
-    useOriginalYamlObj.setState(() => ({ [sectionId]: originalObj }));
+    useOriginalYamlObj.setState(() => ({
+      [sectionId]: { originalObj, metaData },
+    }));
     useYamlValue.setState(() => ({ [sectionId]: yamlValue }));
   }
 }
@@ -44,12 +48,20 @@ export async function guiToYaml(sectionId) {
 export function yamlToGUI(sectionId) {
   const sectionType = getSectionType(sectionId);
   const yamlValue = useYamlValue.getState()[sectionId] ?? "";
-
-  if (sectionType.type === C.PARAM_SWEEP) {
-    paramSweepSectionYamlToGUI(sectionId, yamlValue);
-  } else {
-    const originalObj = useOriginalYamlObj.getState()[sectionId] ?? {};
-    sectionYamlToGUI(sectionId, yamlValue, originalObj);
+  switch (sectionType.type) {
+    case C.PARAM_SWEEP:
+      paramSweepSectionYamlToGUI(sectionId, yamlValue);
+      break;
+    case C.GLOBAL_PARAM_SWEEP:
+      const metaData = useOriginalYamlObj.getState()[sectionId]?.metaData ?? {};
+      globalParamSweepSectionYamlToGUI(yamlValue, metaData);
+      break;
+    case C.GLOBAL_VARIABLES:
+    case C.SECTION:
+      const originalObj =
+        useOriginalYamlObj.getState()[sectionId]?.originalObj ?? {};
+      sectionYamlToGUI(sectionId, yamlValue, originalObj);
+      break;
   }
 }
 
@@ -118,6 +130,140 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
 
 function tryFindingMatchingId(name, codeInfoChildrenKeys, codeInfo) {
   return codeInfoChildrenKeys.find((x) => codeInfo[x]?.name === name);
+}
+
+function globalParamSweepSectionYamlToGUI(yamlValue, metaData) {
+  const doc = parseAllDocuments(yamlValue)[0].toJS();
+  const runGroupId = metaData.runGroupId;
+  const sections = useSectionInfos.getState().x;
+  const sectionVariants = useSectionVariants.getState().x;
+  const paramSweeps = useParamSweep.getState().x;
+  const newRunGroupSections = {};
+
+  for (const [k, v] of Object.entries(doc)) {
+    recursiveHelper(
+      k,
+      v,
+      sections,
+      sectionVariants,
+      paramSweeps,
+      newRunGroupSections,
+      null,
+      null,
+    );
+  }
+
+  useRunGroups.setState((x) => {
+    x.x[runGroupId].sections = newRunGroupSections;
+  });
+}
+
+function recursiveHelper(
+  name,
+  value,
+  sections,
+  sectionVariants,
+  paramSweeps,
+  newRunGroupSections,
+  forSectionId,
+  parentVariantId,
+) {
+  let nextForSectionId = forSectionId;
+  let nextParentVariantId = parentVariantId;
+  const [match, type] = getMatch(
+    name,
+    forSectionId,
+    sections,
+    sectionVariants,
+    paramSweeps,
+  );
+  if (type === "section") {
+    newRunGroupSections[match] = {
+      [parentVariantId]: {
+        selected: true,
+        versions: {},
+        paramSweeps: {},
+      },
+    };
+    nextForSectionId = match;
+  } else if (type === "sectionVariant") {
+    newRunGroupSections[forSectionId][parentVariantId].versions[match] = true;
+    nextParentVariantId = match;
+  } else if (type === "paramSweep") {
+    newRunGroupSections[forSectionId][parentVariantId].paramSweeps[match] =
+      true;
+  }
+
+  if (type === "section") {
+    // if a section doesn't have any children
+    // or if none of the children start with @
+    // then we need to select the section's only version here because it won't be
+    // covered recursively
+    if (!value || !Object.keys(value).some((k) => k.startsWith("@"))) {
+      nextParentVariantId = sections[match].variantIds[0];
+      newRunGroupSections[match][parentVariantId].versions[
+        nextParentVariantId
+      ] = true;
+    }
+  }
+
+  if (!value) {
+    return;
+  }
+
+  for (const [k, v] of Object.entries(value)) {
+    recursiveHelper(
+      k,
+      v,
+      sections,
+      sectionVariants,
+      paramSweeps,
+      newRunGroupSections,
+      nextForSectionId,
+      nextParentVariantId,
+    );
+  }
+}
+
+function getMatch(name, forSectionId, sections, sectionVariants, paramSweeps) {
+  let match, type;
+  if (forSectionId && name.startsWith("@")) {
+    const searchName = name.slice(1);
+    for (const v of sections[forSectionId].variantIds) {
+      if (sectionVariants[v].name === searchName) {
+        match = v;
+        type = "sectionVariant";
+        break;
+      }
+    }
+  } else if (forSectionId && name.startsWith("~")) {
+    const searchName = name.slice(1);
+    for (const v of sections[forSectionId].paramSweepIds) {
+      if (paramSweeps[v].name === searchName) {
+        match = v;
+        type = "paramSweep";
+        break;
+      }
+    }
+  } else if (forSectionId) {
+    for (const v of sectionVariants[sections[forSectionId].variantId]
+      .children) {
+      if (sections[v].name === name) {
+        match = v;
+        type = "section";
+        break;
+      }
+    }
+  } else {
+    for (const v of Object.values(sections)) {
+      if (v.name === name) {
+        match = v.id;
+        type = "section";
+        break;
+      }
+    }
+  }
+  return [match, type];
 }
 
 function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
