@@ -17,6 +17,7 @@ export function updateSearch(value, allVisibleParams) {
 
   const codeInfo = matchSorter(allVisibleParams, value, {
     keys: ["name"],
+    sorter: (rankedItems) => rankedItems, //don't sort
   });
 
   useProjectSearch.setState({
