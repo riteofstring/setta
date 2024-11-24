@@ -22,31 +22,65 @@ export function toggleRunGroup(id) {
   });
 }
 
-function maybeInitRunGroupSection({ id, sectionId }) {
-  useRunGroups.setState((state) => {
-    if (!(sectionId in state.x[id].sections)) {
-      state.x[id].sections[sectionId] = {
-        selected: {}, // maps from parent version id to true/false
-        paramSweeps: {},
-        versions: {},
-      };
+function newRunGroupSection() {
+  return {
+    selected: {}, // maps from parent version id to true/false
+    paramSweeps: {},
+    versions: {},
+  };
+}
+
+// must use inside of setState
+function maybeInitRunGroupSection(state, id, sectionId) {
+  if (!(sectionId in state.x[id].sections)) {
+    state.x[id].sections[sectionId] = newRunGroupSection();
+  }
+}
+
+// must use inside of setState
+function forceAllAncestorsToBeSelected(state, id, ancestors) {
+  for (const [idx, a] of ancestors.entries()) {
+    maybeInitRunGroupSection(state, id, a.id);
+    state.x[id].sections[a.id].versions[a.variantId] = true;
+    state.x[id].sections[a.id].selected[
+      idx === 0 ? null : ancestors[idx - 1].variantId
+    ] = true;
+  }
+}
+
+function allAncestorsAreSelected(state, id, ancestors) {
+  for (const [idx, a] of ancestors.entries()) {
+    if (
+      !state.x[id].sections[a.id]?.versions[a.variantId] ||
+      !state.x[id].sections[a.id]?.selected[
+        idx === 0 ? null : ancestors[idx - 1].variantId
+      ]
+    ) {
+      return false;
     }
-  });
+  }
+  return true;
 }
 
-export function toggleRunGroupSection({ id, parentVersionId, sectionId }) {
-  maybeInitRunGroupSection({ id, sectionId });
+export function toggleRunGroupSection({
+  id,
+  parentVariantId,
+  ancestors,
+  sectionId,
+}) {
+  console.log("toggleRunGroupSection");
   useRunGroups.setState((state) => {
-    const s = state.x[id].sections[sectionId];
-    s.selected[parentVersionId] = !s.selected[parentVersionId];
-  });
-}
-
-function maybeInitRunGroupSectionAttr({ id, sectionId, attrName, attrId }) {
-  maybeInitRunGroupSection({ id, sectionId });
-  useRunGroups.setState((state) => {
-    if (!(attrId in state.x[id].sections[sectionId][attrName])) {
-      state.x[id].sections[sectionId][attrName][attrId] = false;
+    maybeInitRunGroupSection(state, id, sectionId);
+    let newState;
+    if (allAncestorsAreSelected(state, id, ancestors)) {
+      newState = !state.x[id].sections[sectionId].selected[parentVariantId];
+    } else {
+      newState = true;
+    }
+    state.x[id].sections[sectionId].selected[parentVariantId] = newState;
+    // if toggled to be selected, force all ancestors to be selected too
+    if (newState) {
+      forceAllAncestorsToBeSelected(state, id, ancestors);
     }
   });
 }

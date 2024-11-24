@@ -129,24 +129,28 @@ function TopLevelSectionList({ runGroupId }) {
       runGroupId={runGroupId}
       ref={ref}
       className={isScrollable ? "nowheel" : ""}
-      parentVersionId={null}
+      ancestors={[]}
+      parentIsSelected={true}
     />
   );
 }
 
-function SectionList({ variantId, runGroupId }) {
-  const sections = useRunGroupListing(variantId);
+function SectionList({ ancestors, parentIsSelected, runGroupId }) {
+  const sections = useRunGroupListing(
+    ancestors[ancestors.length - 1].variantId,
+  );
   return (
     <SectionListCore
       sections={sections}
-      parentVersionId={variantId}
       runGroupId={runGroupId}
+      ancestors={ancestors}
+      parentIsSelected={parentIsSelected}
     />
   );
 }
 
 const SectionListCore = React.forwardRef(
-  ({ sections, runGroupId, parentVersionId, className }, ref) => {
+  ({ sections, runGroupId, ancestors, parentIsSelected, className }, ref) => {
     return (
       sections.length > 0 && (
         <ul
@@ -157,7 +161,8 @@ const SectionListCore = React.forwardRef(
             <SectionItem
               key={idx}
               sectionInfo={x}
-              parentVersionId={parentVersionId}
+              ancestors={ancestors}
+              parentIsSelected={parentIsSelected}
               runGroupId={runGroupId}
             />
           ))}
@@ -167,64 +172,71 @@ const SectionListCore = React.forwardRef(
   },
 );
 
-function SectionItem({ sectionInfo, parentVersionId, runGroupId }) {
+function SectionItem({ sectionInfo, ancestors, parentIsSelected, runGroupId }) {
+  const sectionId = sectionInfo.id;
+
+  const parentVariantId =
+    ancestors.length === 0 ? null : ancestors[ancestors.length - 1].variantId;
+
   function onSectionCheckboxChange() {
     toggleRunGroupSection({
       id: runGroupId,
-      parentVersionId,
-      sectionId: sectionInfo.id,
+      parentVariantId,
+      ancestors,
+      sectionId,
     });
   }
 
   const isSelected = useRunGroups(
     (x) =>
-      !!x.x[runGroupId].sections[sectionInfo.id]?.selected[parentVersionId],
+      parentIsSelected &&
+      !!x.x[runGroupId].sections[sectionId]?.selected[parentVariantId],
   );
 
   return (
-    // <div style={{ paddingLeft: `${0.75 * sectionInfo.depth}rem` }}>
     <li className="flex flex-col">
       <CheckboxGroup checked={isSelected} onChange={onSectionCheckboxChange}>
         {sectionInfo.name}
       </CheckboxGroup>
       <VersionsList
-        sectionInfo={sectionInfo}
+        sectionId={sectionId}
         runGroupId={runGroupId}
         isSelected={isSelected}
-        parentVersionId={parentVersionId}
+        ancestors={ancestors}
       />
       <ParamSweepVersionsList
-        sectionInfo={sectionInfo}
+        sectionId={sectionId}
         runGroupId={runGroupId}
         isSelected={isSelected}
-        parentVersionId={parentVersionId}
+        ancestors={ancestors}
       />
     </li>
-    // </div>
   );
 }
 
-function _VersionsList({
-  sectionInfo,
-  parentVersionId,
-  runGroupId,
-  isSelected,
-}) {
-  const allVersions = useGetSectionVariantNames(sectionInfo.id);
+function _VersionsList({ sectionId, ancestors, runGroupId, isSelected }) {
+  const allVersions = useGetSectionVariantNames(sectionId);
 
   return allVersions.length > 1 ? (
     <GenericList
       inputList={allVersions}
       listName="Versions"
       isSelected={isSelected}
-      sectionId={sectionInfo.id}
+      sectionId={sectionId}
       runGroupId={runGroupId}
-      parentVersionId={parentVersionId}
+      ancestors={ancestors}
       ChildComponent={VersionItemComponent}
     />
   ) : (
     <div className="pl-4">
-      <SectionList variantId={allVersions[0].id} runGroupId={runGroupId} />
+      <SectionList
+        ancestors={[
+          ...ancestors,
+          { id: sectionId, variantId: allVersions[0].id },
+        ]}
+        parentIsSelected={isSelected}
+        runGroupId={runGroupId}
+      />
     </div>
   );
 }
@@ -232,12 +244,12 @@ function _VersionsList({
 const VersionsList = React.memo(_VersionsList, _.isEqual);
 
 function _ParamSweepVersionsList({
-  sectionInfo,
-  parentVersionId,
+  sectionId,
+  ancestors,
   runGroupId,
   isSelected,
 }) {
-  const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
+  const allParamSweeps = useGetParamSweepNames(sectionId);
 
   return (
     allParamSweeps.length > 0 && (
@@ -245,9 +257,9 @@ function _ParamSweepVersionsList({
         inputList={allParamSweeps}
         listName="Param Sweeps"
         isSelected={isSelected}
-        sectionId={sectionInfo.id}
+        sectionId={sectionId}
         runGroupId={runGroupId}
-        parentVersionId={parentVersionId}
+        ancestors={ancestors}
         ChildComponent={ParamSweepItemComponent}
       />
     )
@@ -262,7 +274,7 @@ function _GenericList({
   isSelected,
   sectionId,
   runGroupId,
-  parentVersionId,
+  ancestors,
   ChildComponent,
 }) {
   return (
@@ -290,7 +302,7 @@ function _GenericList({
               parentIsSelected={isSelected}
               sectionId={sectionId}
               runGroupId={runGroupId}
-              parentVersionId={parentVersionId}
+              ancestors={ancestors}
             />
           </li>
         ))}
@@ -307,33 +319,35 @@ function VersionItemComponent({
   parentIsSelected,
   sectionId,
   runGroupId,
-  parentVersionId,
+  ancestors,
 }) {
   function onChange() {
     toggleRunGroupSectionVersion({
       id: runGroupId,
       sectionId,
       versionId: id,
-      parentVersionId,
+      ancestors,
     });
   }
 
   const isSelected = useRunGroups(
-    (x) => !!x.x[runGroupId].sections[sectionId]?.versions[id],
+    (x) =>
+      parentIsSelected && !!x.x[runGroupId].sections[sectionId]?.versions[id],
   );
 
   return (
     <>
       <div className="flex items-center gap-2 truncate">
-        <CheckboxGroup
-          checked={parentIsSelected && isSelected}
-          onChange={onChange}
-        >
+        <CheckboxGroup checked={isSelected} onChange={onChange}>
           {name}
         </CheckboxGroup>
       </div>
       <div className="pl-4">
-        <SectionList variantId={id} runGroupId={runGroupId} />
+        <SectionList
+          parentIsSelected={isSelected}
+          ancestors={[...ancestors, { id: sectionId, variantId: id }]}
+          runGroupId={runGroupId}
+        />
       </div>
     </>
   );
@@ -343,14 +357,14 @@ function ParamSweepItemComponent({
   id,
   name,
   parentIsSelected,
-  parentVersionId,
+  ancestors,
   sectionId,
   runGroupId,
 }) {
   function onChange() {
     toggleRunGroupSectionParamSweep({
       id: runGroupId,
-      parentVersionId,
+      ancestors,
       sectionId,
       paramSweepId: id,
     });
