@@ -24,11 +24,13 @@ import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { SectionVariants } from "./SectionVariants/SectionVariants";
 import { UIConfig } from "./UIConfig/UIConfig";
 
+const paneName = UI_EDITOR;
+
 export function UiEditor() {
   const sectionIds = useActiveSection((x) => x.ids);
   const [tab, setTab, requiredTabs] = useUIEditorTab(sectionIds[0]);
-  const { vis, width, setWidth, setTrueWidth, getOnTabClick } = usePaneFns({
-    paneName: UI_EDITOR,
+  const { vis, width, getOnTabClick } = usePaneFns({
+    paneName,
     tab,
     setTab,
   });
@@ -92,12 +94,11 @@ export function UiEditor() {
         </TabButton>
       </div>
       <PaneContainer
+        paneName={paneName}
         right={true}
         minimumWidth={425}
         vis={vis}
         width={width}
-        setWidth={setWidth}
-        setTrueWidth={setTrueWidth}
       >
         {sectionIds.length === 1 && vis ? (
           <TabsVisible

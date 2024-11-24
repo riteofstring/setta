@@ -3,7 +3,7 @@ import { CLOSED_PANE_WIDTH } from "utils/constants";
 
 export function usePaneFns({ paneName, onResizeStop, tab, setTab }) {
   const [vis, setVis] = localStorageFns[`${paneName}Vis`].hook();
-  const [width, setWidth] = localStorageFns[`${paneName}Width`].hook();
+  const [width] = localStorageFns[`${paneName}Width`].hook();
   const setTrueWidth = localStorageFns[`${paneName}TrueWidth`].state()[1];
 
   function visToggle() {
@@ -29,7 +29,7 @@ export function usePaneFns({ paneName, onResizeStop, tab, setTab }) {
     };
   }
 
-  return { vis, width, setWidth, setTrueWidth, getOnTabClick };
+  return { vis, width, getOnTabClick };
 }
 
 export function TabButton({

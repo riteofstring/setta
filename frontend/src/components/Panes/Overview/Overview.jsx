@@ -10,6 +10,8 @@ import { TabButton, usePaneFns } from "../paneFns";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
 
+const paneName = OVERVIEW;
+
 export function Overview() {
   function onResizeStop(widthDiff) {
     if (useSettings.getState().leftSidePaneShiftsMap) {
@@ -17,8 +19,8 @@ export function Overview() {
     }
   }
   const [tab, setTab] = localStorageFns.overviewTab.hook();
-  const { vis, width, setWidth, setTrueWidth, getOnTabClick } = usePaneFns({
-    paneName: OVERVIEW,
+  const { vis, width, getOnTabClick } = usePaneFns({
+    paneName,
     onResizeStop,
     tab,
     setTab,
@@ -64,12 +66,11 @@ export function Overview() {
         </a>
       </div>
       <PaneContainer
+        paneName={paneName}
         right={false}
         onResizeStop={onResizeStop}
         vis={vis}
         width={width}
-        setWidth={setWidth}
-        setTrueWidth={setTrueWidth}
         minimumWidth={350}
       >
         {vis && <TabsVisible tab={tab} />}
