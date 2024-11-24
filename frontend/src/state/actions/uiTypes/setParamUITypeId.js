@@ -1,5 +1,4 @@
-import { useUITypeCols } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
+import { useSectionInfos } from "state/definitions";
 import { convertValue } from "../sectionVariants";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
@@ -9,13 +8,15 @@ export function setParamUITypeId({
   paramInfoId,
   incrementVersion = false,
 }) {
-  const { uiTypeColId } = getSectionInfo(sectionId);
-
-  useUITypeCols.setState((state) => {
-    if (!(paramInfoId in state.y[uiTypeColId])) {
-      state.y[uiTypeColId][paramInfoId] = { uiTypeId, nonPresetUITypeIds: [] };
+  useSectionInfos.setState((state) => {
+    const { uiTypeColId } = state.x[sectionId];
+    if (!(paramInfoId in state.uiTypeCols[uiTypeColId])) {
+      state.uiTypeCols[uiTypeColId][paramInfoId] = {
+        uiTypeId,
+        nonPresetUITypeIds: [],
+      };
     } else {
-      state.y[uiTypeColId][paramInfoId].uiTypeId = uiTypeId;
+      state.uiTypeCols[uiTypeColId][paramInfoId].uiTypeId = uiTypeId;
     }
   });
 

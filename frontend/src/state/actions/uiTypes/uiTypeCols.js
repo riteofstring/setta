@@ -1,23 +1,23 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useUITypeCols, useUITypes } from "state/definitions";
+import { useSectionInfos, useUITypes } from "state/definitions";
 import { initValue } from "state/utils";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { getSectionInfo } from "../../getters/sectionInfo";
 
 export function setAllUITypeCols({ uiTypeCols }) {
-  useUITypeCols.setState({ y: uiTypeCols });
+  useSectionInfos.setState({ uiTypeCols });
 }
 
 export function initManyUITypeColIds({ collectionIds }) {
-  useUITypeCols.setState((state) => {
-    _.forEach(collectionIds, (id) => initValue(state.y, id, {}));
+  useSectionInfos.setState((state) => {
+    _.forEach(collectionIds, (id) => initValue(state.uiTypeCols, id, {}));
   });
 }
 
 export function setManyParamUITypeIds({ collectionId, paramIdToUITypeId }) {
-  useUITypeCols.setState((state) => {
-    state.y[collectionId] = {
+  useSectionInfos.setState((state) => {
+    state.uiTypeCols[collectionId] = {
       ...state.y[collectionId],
       ...paramIdToUITypeId,
     };
@@ -29,28 +29,28 @@ export function setNonPresetUITypeIds({
   paramInfoId,
   newValueFn,
 }) {
-  useUITypeCols.setState((state) => {
-    state.y[collectionId][paramInfoId].nonPresetUITypeIds = newValueFn(
-      state.y[collectionId][paramInfoId].nonPresetUITypeIds,
+  useSectionInfos.setState((state) => {
+    state.uiTypeCols[collectionId][paramInfoId].nonPresetUITypeIds = newValueFn(
+      state.uiTypeCols[collectionId][paramInfoId].nonPresetUITypeIds,
     );
   });
 }
 
 export function deleteParamInfoFromUITypeCol({ uiTypeColId, ids }) {
-  useUITypeCols.setState((state) => {
-    state.y[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
+  useSectionInfos.setState((state) => {
+    state.uiTypeCols[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
   });
 }
 
 export function updateUITypeCols({ uiTypeCols }) {
-  useUITypeCols.setState((state) => {
-    state.y = { ...state.y, ...uiTypeCols };
+  useSectionInfos.setState((state) => {
+    state.uiTypeCols = { ...state.uiTypeCols, ...uiTypeCols };
   });
 }
 
 function getParamUITypeId(sectionId, paramInfoId) {
   const { uiTypeColId } = getSectionInfo(sectionId);
-  const uiTypeCol = useUITypeCols.getState().y[uiTypeColId];
+  const uiTypeCol = useSectionInfos.getState().uiTypeCols[uiTypeColId];
   if (
     paramInfoId.startsWith(C.JSON_SOURCE_PREFIX) &&
     !(paramInfoId in uiTypeCol)

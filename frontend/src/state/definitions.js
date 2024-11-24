@@ -44,6 +44,7 @@ export const useSectionInfos = createProjectState(
         withVersion({
           x: {},
           variants: {},
+          uiTypeCols: {},
         }),
       ),
     ),
@@ -179,16 +180,6 @@ export const useTypeErrors = createProjectState(
 );
 
 export const useJSONSourceMissing = createProjectState(() => ({}));
-
-export const useUITypeCols = createProjectState(
-  temporal(
-    immer(() =>
-      withVersion({
-        y: {},
-      }),
-    ),
-  ),
-);
 
 export const useUITypes = createProjectState(
   temporal(

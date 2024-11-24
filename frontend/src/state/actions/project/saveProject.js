@@ -16,7 +16,6 @@ import {
   useRunGroups,
   useSectionInfos,
   useSettings,
-  useUITypeCols,
   useUITypes,
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
@@ -68,7 +67,7 @@ export function getProjectData({
     }),
   );
   const uiTypes = useUITypes.getState().x;
-  const uiTypeCols = useUITypeCols.getState().y;
+  const uiTypeCols = useSectionInfos.getState().uiTypeCols;
   const paramSweeps = useParamSweep.getState().x;
   const runGroups = useRunGroups.getState().x;
 

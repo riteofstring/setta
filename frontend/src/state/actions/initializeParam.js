@@ -1,10 +1,5 @@
 import _ from "lodash";
-import {
-  useCodeInfo,
-  useSectionInfos,
-  useUITypeCols,
-  useUITypes,
-} from "state/definitions";
+import { useCodeInfo, useSectionInfos, useUITypes } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { findAllParameters } from "utils/getDescendants";
 import { getSectionInfo } from "../getters/sectionInfo";
@@ -65,7 +60,7 @@ function initializeParamUIType(
   inputParamIdToUITypeId = {},
 ) {
   const { uiTypeColId } = getSectionInfo(sectionId);
-  const uiTypeCol = useUITypeCols.getState().y[uiTypeColId];
+  const uiTypeCol = useSectionInfos.getState().uiTypeCols[uiTypeColId];
 
   const newIds = {};
   const paramIdToUITypeId = {};
