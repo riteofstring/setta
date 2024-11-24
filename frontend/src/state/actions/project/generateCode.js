@@ -2,8 +2,17 @@ import {
   computeEVReferences,
   computeInfoToFullName,
 } from "components/Utils/CodeMirror/utils";
+import C from "constants/constants.json";
 import _ from "lodash";
+import { dbGetFreeTerminal } from "requests/terminals";
+import { sendMessage } from "requests/websocket";
+import { useWebsocketConnectionList } from "state/definitions";
+import {
+  addTerminalInitialMessage,
+  sendTerminalMessage,
+} from "state/hooks/terminal";
 import { createNewId } from "utils/idNameCreation";
+import { addSectionInEmptySpace } from "../sections/createSections";
 import { getProjectData } from "./saveProject";
 
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
@@ -21,35 +30,34 @@ export async function runCode() {
   const project = getProjectDataToGenerateCode({ includeEVReferences: false });
   let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
-    // console.log("projectVariant", projectVariant)
-    // Object.assign(projectVariant, computeEVReferences(projectVariant));
-    // projectVariant["infoToFullName"] = computeInfoToFullName(projectVariant);
-    // let message = {
-    //   id: codeId,
-    //   messageType: C.WS_RUN_CODE,
-    //   content: projectVariant,
-    // };
-    // if (useWebsocketConnectionList.getState().connectedTo !== "main") {
-    //   sendMessage(message);
-    //   continue;
-    // }
-    // const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
-    // if (res.status === 200) {
-    //   const freeTerminalSectionId = res.data;
-    //   message = JSON.stringify(message);
-    //   if (freeTerminalSectionId) {
-    //     sendTerminalMessage(freeTerminalSectionId, message);
-    //   } else {
-    //     const id = createNewId();
-    //     addTerminalInitialMessage(id, message);
-    //     addSectionInEmptySpace({
-    //       type: C.TERMINAL,
-    //       inputSectionProps: { id, isTemporary: true },
-    //       positionOffset: { x: count * 100, y: 0 },
-    //     });
-    //   }
-    // }
-    // count += 1;
+    Object.assign(projectVariant, computeEVReferences(projectVariant));
+    projectVariant["infoToFullName"] = computeInfoToFullName(projectVariant);
+    let message = {
+      id: codeId,
+      messageType: C.WS_RUN_CODE,
+      content: projectVariant,
+    };
+    if (useWebsocketConnectionList.getState().connectedTo !== "main") {
+      sendMessage(message);
+      continue;
+    }
+    const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
+    if (res.status === 200) {
+      const freeTerminalSectionId = res.data;
+      message = JSON.stringify(message);
+      if (freeTerminalSectionId) {
+        sendTerminalMessage(freeTerminalSectionId, message);
+      } else {
+        const id = createNewId();
+        addTerminalInitialMessage(id, message);
+        addSectionInEmptySpace({
+          type: C.TERMINAL,
+          inputSectionProps: { id, isTemporary: true },
+          positionOffset: { x: count * 100, y: 0 },
+        });
+      }
+    }
+    count += 1;
   }
 }
 
@@ -73,119 +81,137 @@ function* getProjectRuns(project) {
       if (!project.projectConfig.runGroupSelection[runGroupId]) {
         continue;
       }
-      const sectionParamSweepVersionCombinations =
-        getSectionParamSweepVersionCombinations(
-          project,
-          runGroup.sections,
-          Object.keys(project.projectConfig.children),
-          null,
-        );
-
-      console.log(
-        "sectionParamSweepVersionCombinations",
-        sectionParamSweepVersionCombinations,
+      const sectionParamSweepsAndVersions = getSectionsParamSweepsAndVersions(
+        project,
+        runGroup.sections,
+        Object.keys(project.projectConfig.children),
+        null,
       );
-      // for (const combo of generateValidCombinations(
-      //   sectionParamSweepsAndVersions,
-      // )) {
-      //   console.log("combo", combo);
-      // const variant = _.cloneDeep(project);
-      // // filter top-level sections
-      // variant.projectConfig.children = _.pick(
-      //   variant.projectConfig.children,
-      //   combo.map((x) => x.sectionId),
-      // );
-      // // filter all sections
-      // variant.sections = _.pick(
-      //   variant.sections,
-      //   combo.map((x) => x.sectionId),
-      // );
-      // // filter children list in every variant
-      // for (const sv of Object.values(variant.sectionVariants)) {
-      //   sv.children = sv.children.filter((x) => x in variant.sections);
-      // }
-      // // filter paramSweeps
-      // variant.paramSweeps = _.pick(
-      //   variant.paramSweeps,
-      //   combo.filter((x) => x.paramSweepId).map((x) => x.paramSweepId),
-      // );
-      // // set every selected section's variantId
-      // for (const c of combo) {
-      //   if (c.versionId) {
-      //     variant.sections[c.sectionId].variantId = c.versionId;
-      //   }
-      // }
 
-      // yield* getProjectVariants(variant);
-      // yield null;
-      // }
+      for (const combo of generateValidCombinations(
+        sectionParamSweepsAndVersions,
+      )) {
+        const variant = _.cloneDeep(project);
+        // filter top-level sections
+        variant.projectConfig.children = _.pick(
+          variant.projectConfig.children,
+          combo.map((x) => x.sectionId),
+        );
+        // filter all sections
+        variant.sections = _.pick(
+          variant.sections,
+          combo.map((x) => x.sectionId),
+        );
+        // filter children list in every variant
+        for (const sv of Object.values(variant.sectionVariants)) {
+          sv.children = sv.children.filter((x) => x in variant.sections);
+        }
+        // filter paramSweeps
+        variant.paramSweeps = _.pick(
+          variant.paramSweeps,
+          combo.filter((x) => x.paramSweepId).map((x) => x.paramSweepId),
+        );
+        // set every selected section's variantId
+        for (const c of combo) {
+          if (c.versionId) {
+            variant.sections[c.sectionId].variantId = c.versionId;
+          }
+        }
+
+        yield* getProjectVariants(variant);
+      }
     }
   }
 }
 
-function getSectionParamSweepVersionCombinations(
+function getSectionsParamSweepsAndVersions(
   project,
   runGroupSections,
   sectionIds,
   variantId,
 ) {
-  // start by populating combos with the sectionIds
-  const combos = sectionIds.filter((s) => {
-    const sectionDetails = runGroupSections[s];
-    return sectionDetails && sectionDetails.selected[variantId];
-  });
-  const filteredSectionIds = [...combos];
-
-  for (const sectionId of filteredSectionIds) {
+  const sectionParamSweepsAndVersions = [];
+  for (const sectionId of sectionIds) {
     const sectionDetails = runGroupSections[sectionId];
-    const childCombos = [];
-    for (const [versionId, selected] of Object.entries(
-      sectionDetails.versions,
-    )) {
-      if (selected) {
-        const childSectionIds = project.sectionVariants[versionId].children;
-        childCombos.push(
-          ...getSectionParamSweepVersionCombinations(
-            project,
-            runGroupSections,
-            childSectionIds,
-            versionId,
-          ),
-        );
-      }
+    console.log("sectionDetails", sectionDetails);
+    // is it selected for the given variantId?
+    if (!sectionDetails || !sectionDetails.selected[variantId]) {
+      continue;
     }
 
     for (const [paramSweepId, selected] of Object.entries(
       sectionDetails.paramSweeps,
     )) {
       if (selected) {
-        combos.push({
+        sectionParamSweepsAndVersions.push({
           sectionId,
           paramSweepId,
-          versionId: project.sections[sectionId].variantId,
+          versionId: null,
           parentVersionId: variantId,
         });
       }
     }
-  }
+    for (const [versionId, selected] of Object.entries(
+      sectionDetails.versions,
+    )) {
+      if (selected) {
+        sectionParamSweepsAndVersions.push({
+          sectionId,
+          paramSweepId: null,
+          versionId,
+          parentVersionId: variantId,
+        });
+      }
 
-  return combos;
-}
-
-function* getProjectVariants(project) {
-  const paramSweeps = [];
-  for (const [paramSweepId, details] of Object.entries(project.paramSweeps)) {
-    for (const s of details.sweep) {
-      paramSweeps.push({ paramSweepId, ...s });
+      const childSectionIds = project.sectionVariants[versionId].children;
+      sectionParamSweepsAndVersions.push(
+        ...getSectionsParamSweepsAndVersions(
+          project,
+          runGroupSections,
+          childSectionIds,
+          versionId,
+        ),
+      );
     }
   }
 
-  console.log("paramSweeps", paramSweeps);
+  return sectionParamSweepsAndVersions;
+}
 
-  if (paramSweeps.length === 0) {
-    yield project;
-  } else {
-    for (const combo of generateParamSweepCombinations(paramSweeps)) {
+function* getProjectVariants(project) {
+  const allSweeps = [];
+  for (const [paramSweepId, details] of Object.entries(project.paramSweeps)) {
+    for (const s of details.sweep) {
+      if (s.params.length === 0) {
+        allSweeps.push({
+          paramSweepId,
+          selectedItem: s.selectedItem,
+          paramInfoId: null,
+          value: null,
+        });
+      } else {
+        for (const paramDetails of s.params) {
+          if (!paramDetails.paramInfoId) {
+            continue;
+          }
+          for (const value of paramDetails.values) {
+            if (!value) {
+              continue;
+            }
+            allSweeps.push({
+              paramSweepId,
+              selectedItem: s.selectedItem,
+              paramInfoId: paramDetails.paramInfoId,
+              value,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  if (allSweeps.length > 0) {
+    for (const combo of generateCombinations(allSweeps)) {
       const variant = _.cloneDeep(project);
       for (const parts of combo) {
         const { paramSweepId, selectedItem, paramInfoId, value } = parts;
@@ -202,58 +228,192 @@ function* getProjectVariants(project) {
       yield variant;
     }
   }
+
+  if (allSweeps.length === 0) {
+    yield project;
+  }
 }
 
-function* generateParamSweepCombinations(input) {
-  // Helper generator function to yield combinations
-  function* generateCombos(items, current = []) {
-    if (items.length === 0) {
-      yield current;
+function* generateCombinations(objects) {
+  // Group objects by paramSweepId
+  const groupedByParamSweepId = objects.reduce((acc, obj) => {
+    if (!acc[obj.paramSweepId]) {
+      acc[obj.paramSweepId] = [];
+    }
+    acc[obj.paramSweepId].push(obj);
+    return acc;
+  }, {});
+
+  // Generate all possible combinations
+  function* combineGroups(groups, currentCombination = []) {
+    if (groups.length === 0) {
+      yield currentCombination;
       return;
     }
 
-    const item = items[0];
-    const remainingItems = items.slice(1);
+    const currentGroup = groups[0];
+    const remainingGroups = groups.slice(1);
 
-    // For each parameter in the current item
-    for (const param of item.params) {
-      // For each value in the parameter
-      for (const value of param.values) {
-        const combination = {
-          paramSweepId: item.paramSweepId,
-          selectedItem: item.selectedItem,
-          paramInfoId: param.paramInfoId,
-          value: value,
-        };
+    // Group by selectedItem
+    const groupedBySelectedItem = currentGroup.reduce((acc, obj) => {
+      const key = obj.selectedItem || "null";
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(obj);
+      return acc;
+    }, {});
 
-        // Check if this combination is valid with the current set
-        const isValid = current.every((existing) => {
-          // Check rule: paramSweepId cannot appear with more than one selectedItem
-          if (
-            existing.paramSweepId === combination.paramSweepId &&
-            existing.selectedItem !== combination.selectedItem
-          ) {
-            return false;
-          }
+    for (const selectedItemGroup of Object.values(groupedBySelectedItem)) {
+      // Create a set of unique paramInfoIds
+      const uniqueParamInfoIds = new Set(
+        selectedItemGroup.map((obj) => obj.paramInfoId),
+      );
 
-          // Check rule: paramSweepId and selectedItem cannot appear with more than one paramInfoId
-          if (
-            existing.paramSweepId === combination.paramSweepId &&
-            existing.selectedItem === combination.selectedItem &&
-            existing.paramInfoId !== combination.paramInfoId
-          ) {
-            return false;
-          }
-
-          return true;
-        });
-
-        if (isValid) {
-          yield* generateCombos(remainingItems, [...current, combination]);
-        }
+      // Generate all combinations of paramInfoIds for this selectedItem
+      for (const combination of generateCombinations(
+        Array.from(uniqueParamInfoIds),
+        selectedItemGroup,
+      )) {
+        yield* combineGroups(remainingGroups, [
+          ...currentCombination,
+          ...combination,
+        ]);
       }
     }
   }
 
-  yield* generateCombos(input);
+  // Helper function to generate combinations of paramInfoIds
+  function* generateCombinations(paramInfoIds, objects) {
+    if (paramInfoIds.length === 0) {
+      yield [];
+      return;
+    }
+
+    const currentParamInfoId = paramInfoIds[0];
+    const remainingParamInfoIds = paramInfoIds.slice(1);
+
+    const validObjects = objects.filter(
+      (obj) => obj.paramInfoId === currentParamInfoId,
+    );
+
+    for (const obj of validObjects) {
+      for (const subCombination of generateCombinations(
+        remainingParamInfoIds,
+        objects,
+      )) {
+        yield [obj, ...subCombination];
+      }
+    }
+  }
+
+  yield* combineGroups(Object.values(groupedByParamSweepId));
+}
+
+function generateValidCombinations(objects) {
+  // Input validation
+  if (!Array.isArray(objects) || objects.length === 0) {
+    return [];
+  }
+
+  // Helper function to check if an object can be included in a combination
+  function canIncludeObject(obj, currentCombination) {
+    if (!obj || typeof obj !== "object") return false;
+
+    // If parentVersionId is null, it can always be included
+    if (obj.parentVersionId === null) {
+      return true;
+    }
+
+    // Check if there's an object in the combination with matching versionId
+    return currentCombination.some(
+      (item) => item.versionId === obj.parentVersionId,
+    );
+  }
+
+  // Helper function to get all valid objects that can be added to current combination
+  function getValidNextObjects(currentCombination, remainingObjects) {
+    if (
+      !Array.isArray(currentCombination) ||
+      !Array.isArray(remainingObjects)
+    ) {
+      return [];
+    }
+
+    return remainingObjects.filter(
+      (obj) =>
+        obj &&
+        !currentCombination.some((item) => item.sectionId === obj.sectionId) &&
+        canIncludeObject(obj, currentCombination),
+    );
+  }
+
+  // Helper function to create a unique key for a combination
+  function getCombinationKey(combination) {
+    return combination
+      .map((obj) => obj.id)
+      .sort((a, b) => a - b)
+      .join(",");
+  }
+
+  // Helper function to recursively build combinations
+  function buildCombinations(
+    currentCombination,
+    remainingObjects,
+    uniqueCombinations,
+  ) {
+    // Validate inputs
+    if (
+      !Array.isArray(currentCombination) ||
+      !Array.isArray(remainingObjects)
+    ) {
+      return;
+    }
+
+    // Get all valid objects that can be added
+    const validNextObjects = getValidNextObjects(
+      currentCombination,
+      remainingObjects,
+    );
+
+    // If no more valid objects can be added, this combination is complete
+    if (validNextObjects.length === 0) {
+      if (currentCombination.length > 0) {
+        const key = getCombinationKey(currentCombination);
+        uniqueCombinations.set(key, [...currentCombination]);
+      }
+      return;
+    }
+
+    // Try adding each valid object
+    for (const obj of validNextObjects) {
+      currentCombination.push(obj);
+      const newRemaining = remainingObjects.filter((item) => item !== obj);
+      buildCombinations(currentCombination, newRemaining, uniqueCombinations);
+      currentCombination.pop();
+    }
+
+    // Store the current combination if it's not empty
+    if (currentCombination.length > 0) {
+      const key = getCombinationKey(currentCombination);
+      uniqueCombinations.set(key, [...currentCombination]);
+    }
+  }
+
+  const uniqueCombinations = new Map();
+  buildCombinations([], objects, uniqueCombinations);
+
+  // Handle case where no valid combinations were found
+  if (uniqueCombinations.size === 0) {
+    return [];
+  }
+
+  // Convert Map values to array and sort by length
+  const combinations = Array.from(uniqueCombinations.values()).sort(
+    (a, b) => b.length - a.length,
+  );
+
+  // Keep only the combinations with maximum length
+  const maxLength = combinations[0].length;
+  return combinations.filter((combo) => combo.length === maxLength);
 }
