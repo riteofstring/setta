@@ -122,8 +122,14 @@ function RunGroupList({ shownRunGroup, setShownRunGroup, setPreviewRunGroup }) {
 
 function TopLevelSectionList({ runGroupId }) {
   const topLevelSections = useTopLevelRunGroupListing();
+  const { ref, isScrollable } = useIsScrollable();
   return (
-    <SectionListCore sections={topLevelSections} runGroupId={runGroupId} />
+    <SectionListCore
+      sections={topLevelSections}
+      runGroupId={runGroupId}
+      ref={ref}
+      className={isScrollable ? "nowheel" : ""}
+    />
   );
 }
 
@@ -132,21 +138,22 @@ function SectionList({ variantId, runGroupId }) {
   return <SectionListCore sections={sections} runGroupId={runGroupId} />;
 }
 
-function SectionListCore({ sections, runGroupId }) {
-  //const { ref, isScrollable } = useIsScrollable();
-  //${isScrollable ? "nowheel" : ""}
-  return (
-    sections.length > 0 && (
-      <ul
-        className={`flex flex-grow flex-col overflow-visible rounded-lg bg-setta-50/40 pl-3 pr-2 pt-1 @sm/multipane:overflow-y-scroll dark:bg-setta-875`}
-      >
-        {sections.map((x, idx) => (
-          <SectionItem key={idx} sectionInfo={x} runGroupId={runGroupId} />
-        ))}
-      </ul>
-    )
-  );
-}
+const SectionListCore = React.forwardRef(
+  ({ sections, runGroupId, className }, ref) => {
+    return (
+      sections.length > 0 && (
+        <ul
+          className={`${className} flex flex-grow flex-col overflow-visible rounded-lg bg-setta-50/40 pl-3 pr-2 pt-1 @sm/multipane:overflow-y-scroll dark:bg-setta-875`}
+          ref={ref}
+        >
+          {sections.map((x, idx) => (
+            <SectionItem key={idx} sectionInfo={x} runGroupId={runGroupId} />
+          ))}
+        </ul>
+      )
+    );
+  },
+);
 
 function SectionItem({ sectionInfo, runGroupId }) {
   function onSectionCheckboxChange() {
