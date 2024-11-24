@@ -181,15 +181,17 @@ function _VersionsList({ sectionInfo, runGroupId, isSelected }) {
   const allVersions = useGetSectionVariantNames(sectionInfo.id);
 
   return (
-    <GenericList
-      minLength={0}
-      inputList={allVersions}
-      listName="Versions"
-      isSelected={isSelected}
-      sectionId={sectionInfo.id}
-      runGroupId={runGroupId}
-      ChildComponent={VersionItemComponent}
-    />
+    allVersions.length > 0 && (
+      <GenericList
+        skipNestingLevel={allVersions.length === 1}
+        inputList={allVersions}
+        listName="Versions"
+        isSelected={isSelected}
+        sectionId={sectionInfo.id}
+        runGroupId={runGroupId}
+        ChildComponent={VersionItemComponent}
+      />
+    )
   );
 }
 
@@ -199,22 +201,24 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, isSelected }) {
   const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
 
   return (
-    <GenericList
-      minLength={0}
-      inputList={allParamSweeps}
-      listName="Param Sweeps"
-      isSelected={isSelected}
-      sectionId={sectionInfo.id}
-      runGroupId={runGroupId}
-      ChildComponent={ParamSweepItemComponent}
-    />
+    allParamSweeps.length > 0 && (
+      <GenericList
+        skipNestingLevel={false}
+        inputList={allParamSweeps}
+        listName="Param Sweeps"
+        isSelected={isSelected}
+        sectionId={sectionInfo.id}
+        runGroupId={runGroupId}
+        ChildComponent={ParamSweepItemComponent}
+      />
+    )
   );
 }
 
 const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
 
 function _GenericList({
-  minLength,
+  skipNestingLevel,
   inputList,
   listName,
   isSelected,
@@ -223,39 +227,47 @@ function _GenericList({
   ChildComponent,
 }) {
   return (
-    inputList.length > minLength && (
-      <>
-        <StandardAccordion
-          rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700  rounded-lg px-2 ml-8 -mr-2 -mt-0.5"
-          itemStyles="focus-within:relative focus-within:z-10"
-          headerStyles="flex flex-1 cursor-default items-center justify-between my-0.5"
-          triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md italic text-xs font-semibold opacity-60 group-hover:opacity-100 text-setta-500 dark:text-setta-300"
-          contentStyles="text-xs overflow-hidden mb-1"
-          heading={listName}
-          value={listName}
-          internalWrapper={false}
-          // defaultValue={defaultValue}
-          data-state={open}
-        >
-          <ul className="">
-            {inputList.map((e, idx) => (
-              <li
-                key={idx}
-                className="flex min-h-6 cursor-pointer flex-col rounded"
-              >
-                <ChildComponent
-                  id={e.id}
-                  name={e.name}
-                  parentIsSelected={isSelected}
-                  sectionId={sectionId}
-                  runGroupId={runGroupId}
-                />
-              </li>
-            ))}
-          </ul>
-        </StandardAccordion>
-      </>
-    )
+    <StandardAccordion
+      rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700  rounded-lg px-2 ml-8 -mr-2 -mt-0.5"
+      itemStyles="focus-within:relative focus-within:z-10"
+      headerStyles="flex flex-1 cursor-default items-center justify-between my-0.5"
+      triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md italic text-xs font-semibold opacity-60 group-hover:opacity-100 text-setta-500 dark:text-setta-300"
+      contentStyles="text-xs overflow-hidden mb-1"
+      heading={listName}
+      value={listName}
+      internalWrapper={false}
+      // defaultValue={defaultValue}
+      data-state={open}
+    >
+      {skipNestingLevel ? (
+        <ChildComponent
+          id={inputList[0].id}
+          name={inputList[0].name}
+          parentIsSelected={isSelected}
+          sectionId={sectionId}
+          runGroupId={runGroupId}
+          skipNestingLevel={skipNestingLevel}
+        />
+      ) : (
+        <ul className="">
+          {inputList.map((e, idx) => (
+            <li
+              key={idx}
+              className="flex min-h-6 cursor-pointer flex-col rounded"
+            >
+              <ChildComponent
+                id={e.id}
+                name={e.name}
+                parentIsSelected={isSelected}
+                sectionId={sectionId}
+                runGroupId={runGroupId}
+                skipNestingLevel={skipNestingLevel}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </StandardAccordion>
   );
 }
 
@@ -267,6 +279,7 @@ function VersionItemComponent({
   parentIsSelected,
   sectionId,
   runGroupId,
+  skipNestingLevel,
 }) {
   function onChange() {
     toggleRunGroupSectionVersion({
@@ -282,15 +295,17 @@ function VersionItemComponent({
 
   return (
     <>
-      <div className="flex items-center gap-2 truncate">
-        <CheckboxGroup
-          checked={parentIsSelected && isSelected}
-          onChange={onChange}
-        >
-          {name}
-        </CheckboxGroup>
-      </div>
-      <div className="pl-4">
+      {!skipNestingLevel && (
+        <div className="flex items-center gap-2 truncate">
+          <CheckboxGroup
+            checked={parentIsSelected && isSelected}
+            onChange={onChange}
+          >
+            {name}
+          </CheckboxGroup>
+        </div>
+      )}
+      <div className="pl-2">
         <SectionList variantId={id} runGroupId={runGroupId} />
       </div>
     </>
