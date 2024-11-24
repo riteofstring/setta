@@ -146,6 +146,18 @@ def export_param_sweep_section(
         file.write(yamlValue)
 
 
+def export_global_param_sweep_section(folder, config, section_id, *_, **__):
+    subfolder_name = get_section_name(config, section_id)
+    # children_folder = folder / subfolder_name
+    # os.makedirs(children_folder, exist_ok=True)
+    # run_groups = config["runGroups"]
+    # for k, run_group in run_groups.items():
+    #     yamlValue = export_global
+    #     base = run_group["name"]
+    #     with open(folder / f"{base}.yaml", "w") as file:
+    #         file.write(yamlValue)
+
+
 def maybe_with_variant_in_filename(config, section_id, variant_id, with_variants):
     section_name = get_section_name(config, section_id)
     variant_name = get_variant_name(config, variant_id)
@@ -176,6 +188,8 @@ def get_exporter_fn(config, section_id):
         return export_info_section
     elif stype == C.PARAM_SWEEP:
         return export_param_sweep_section
+    elif stype == C.GLOBAL_PARAM_SWEEP:
+        return export_global_param_sweep_section
 
 
 def get_variant_ids(config, section_id, with_variants):

@@ -24,3 +24,7 @@ def section_dict_to_yaml(exporter_obj, codeInfo, sectionVariant):
 
 def param_sweep_dict_to_yaml(exporter_obj):
     return yaml.dump_all(exporter_obj.prettyOutput)
+
+
+def run_group_dict_to_yaml(exporter_obj):
+    return yaml.dump(exporter_obj.prettyOutput)

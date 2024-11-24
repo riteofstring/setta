@@ -106,7 +106,7 @@ export function getMenuItems(uiTypeName) {
     case C.PARAM_SWEEP:
       return [CreateNewParamSweepButton, ShowYaml, ResetToDefaultVersion];
     case C.GLOBAL_PARAM_SWEEP:
-      return [ShowYaml]
+      return [ShowYaml];
     case C.LIST_ROOT:
     case C.DICT_ROOT:
     case C.CODE:

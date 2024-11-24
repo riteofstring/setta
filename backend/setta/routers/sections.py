@@ -9,9 +9,11 @@ from pydantic import BaseModel
 from setta.code_gen.export_selected import (
     export_param_sweep_section_to_dict,
     export_section_to_dict,
+    export_single_run_group_to_dict,
 )
 from setta.code_gen.yaml.section_dict import (
     param_sweep_dict_to_yaml,
+    run_group_dict_to_yaml,
     section_dict_to_yaml,
 )
 from setta.database.db.projects.utils import save_json_source_data
@@ -43,6 +45,13 @@ class ParamSweepSectionToYamlRequest(BaseModel):
     sweep: list
     codeInfo: dict
     codeInfoChildren: dict
+
+
+class GlobalParamSweepSectionToYamlRequest(BaseModel):
+    runGroup: dict | None
+    sections: dict
+    sectionVariants: dict
+    paramSweeps: dict
 
 
 class LoadSectionJSONSourceRequest(BaseModel):
@@ -99,6 +108,15 @@ def route_section_to_yaml(x: SectionToYamlRequest):
 def route_param_sweep_section_to_yaml(x: ParamSweepSectionToYamlRequest):
     output = export_param_sweep_section_to_dict(x.sweep, x.codeInfo, x.codeInfoChildren)
     yamlValue = param_sweep_dict_to_yaml(output)
+    return {"yamlValue": yamlValue, "originalObj": {}}
+
+
+@router.post(C.ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML)
+def route_global_param_sweep_section_to_yaml(x: GlobalParamSweepSectionToYamlRequest):
+    output = export_single_run_group_to_dict(
+        x.runGroup, x.sections, x.sectionVariants, x.paramSweeps
+    )
+    yamlValue = run_group_dict_to_yaml(output)
     return {"yamlValue": yamlValue, "originalObj": {}}
 
 

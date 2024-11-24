@@ -4,6 +4,9 @@ import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents"
 import { getSectionVariantIdToShow } from "state/actions/sectionVariants";
 import {
   useCodeInfo,
+  useParamSweep,
+  useProjectConfig,
+  useRunGroups,
   useSectionInfos,
   useSectionVariants,
 } from "state/definitions";
@@ -19,7 +22,7 @@ export async function dbGuiToYaml(sectionId) {
     case C.SECTION:
       return await dbSectionToYaml(sectionId);
     case C.GLOBAL_PARAM_SWEEP:
-      return { yamlValue: "" };
+      return await dbGlobalParamSweepSectionToYaml();
   }
 }
 
@@ -64,5 +67,23 @@ export async function dbParamSweepSectionToYaml(sectionId) {
       codeInfoChildren,
     },
     address: C.ROUTE_PARAM_SWEEP_SECTION_TO_YAML,
+  });
+}
+
+export async function dbGlobalParamSweepSectionToYaml() {
+  const shownRunGroup = useProjectConfig.getState().shownRunGroup;
+  const runGroup = useRunGroups.getState().x[shownRunGroup].sections;
+  const sections = useSectionInfos.getState().x;
+  const sectionVariants = useSectionVariants.getState().x;
+  const paramSweeps = useParamSweep.getState().x;
+
+  return await post({
+    body: {
+      runGroup,
+      sections,
+      sectionVariants,
+      paramSweeps,
+    },
+    address: C.ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML,
   });
 }

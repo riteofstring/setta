@@ -90,8 +90,6 @@ function* getProjectRuns(project) {
         null,
       );
 
-      console.log("sectionParamSweepsAndVersions", sectionParamSweepsAndVersions)
-
       for (const combo of generateSectionParamSweepVersionCombinations(
         sectionParamSweepsAndVersions,
       )) {

@@ -190,6 +190,7 @@ def export_param_sweep_section_to_dict(sweep, codeInfo, codeInfoChildren):
     e.export()
     return e
 
+
 def export_single_run_group_to_dict(runGroup, sections, sectionVariants, paramSweeps):
     runGroup = replace_null_keys_with_none(runGroup)
     print(runGroup)
@@ -674,12 +675,13 @@ class SingleRunGroupToDict:
         self.paramSweeps = paramSweeps
 
     def export(self):
+        if not self.runGroup:
+            return
         for s in self.sections.values():
             if not s["parentId"]:
                 result = self.export_section_details(s["id"], None)
                 if result:
                     self.prettyOutput.update(result)
-
 
     def export_section_details(self, sectionId, parentVariantId):
         details = self.runGroup.get(sectionId, {}).get(parentVariantId, None)
@@ -687,7 +689,7 @@ class SingleRunGroupToDict:
             return None
         section_name = self.sections[sectionId]["name"]
         output = {section_name: {}}
-        
+
         for variantId, selected in details["versions"].items():
             if not selected:
                 continue
@@ -709,7 +711,7 @@ class SingleRunGroupToDict:
                 continue
             param_sweep_name = f'~{self.paramSweeps[paramSweepId]["name"]}'
             output[section_name][param_sweep_name] = None
-            
+
         if len(output[section_name]) == 0:
             output[section_name] = None
         return output
