@@ -1,7 +1,6 @@
 import _ from "lodash";
 import { getSectionVariantIdToShow } from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";
-import { useGetSectionInfo } from "./sections";
 
 export function useGetParamEnteredValueAndKeywordPositions(
   sectionId,
@@ -21,25 +20,19 @@ export function useGetParamEnteredValueAndKeywordPositions(
 }
 
 export function useGetSectionVariantNames(sectionId) {
-  const variantIds = useGetSectionInfo(sectionId, "variantIds");
   return useSectionInfos(
-    (x) => variantIds.map((e) => ({ id: e, name: x.variants[e].name })),
+    (x) =>
+      x.x[sectionId].variantIds.map((e) => ({
+        id: e,
+        name: x.variants[e].name,
+      })),
     _.isEqual,
   );
 }
 
 export function useSectionIdToChildren() {
-  const sectionIdToVariantMetadata = useSectionInfos((x) =>
-    _.mapValues(x.x, (v) => ({
-      variantId: v.variantId,
-    })),
-  );
   return useSectionInfos(
-    (x) =>
-      _.mapValues(
-        sectionIdToVariantMetadata,
-        (v) => x.variants[v.variantId].children,
-      ),
+    (x) => _.mapValues(x.x, (v) => x.variants[v.variantId].children),
     _.isEqual,
   );
 }
@@ -80,6 +73,5 @@ export function useSectionKeywordPositions(sectionId) {
 }
 
 export function useSectionVariantIsFrozen(sectionId) {
-  const variantId = useSectionInfos((x) => x.x[sectionId].variantId);
-  return useSectionInfos((x) => x.variants[variantId].isFrozen);
+  return useSectionInfos((x) => x.variants[x.x[sectionId].variantId].isFrozen);
 }
