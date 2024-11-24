@@ -62,64 +62,61 @@ function allAncestorsAreSelected(state, id, ancestors) {
   return true;
 }
 
+function toggleRunGroupSectionAttr({
+  id,
+  ancestors,
+  sectionId,
+  attrName,
+  attrId,
+}) {
+  useRunGroups.setState((state) => {
+    maybeInitRunGroupSection(state, id, sectionId);
+    let newState;
+    if (allAncestorsAreSelected(state, id, ancestors)) {
+      newState = !state.x[id].sections[sectionId][attrName][attrId];
+    } else {
+      newState = true;
+    }
+    state.x[id].sections[sectionId][attrName][attrId] = newState;
+    // if toggled to be selected, force all ancestors to be selected too
+    if (newState) {
+      // if we set version or param sweep to true, we also need to set selected to true
+      // (this is redundant, but doesn't hurt, if we're already setting selected)
+      const parentVariantId =
+        ancestors.length === 0
+          ? null
+          : ancestors[ancestors.length - 1].variantId;
+      state.x[id].sections[sectionId].selected[parentVariantId] = true;
+
+      forceAllAncestorsToBeSelected(state, id, ancestors);
+    }
+  });
+}
+
 export function toggleRunGroupSection({
   id,
   parentVariantId,
   ancestors,
   sectionId,
 }) {
-  console.log("toggleRunGroupSection");
-  useRunGroups.setState((state) => {
-    maybeInitRunGroupSection(state, id, sectionId);
-    let newState;
-    if (allAncestorsAreSelected(state, id, ancestors)) {
-      newState = !state.x[id].sections[sectionId].selected[parentVariantId];
-    } else {
-      newState = true;
-    }
-    state.x[id].sections[sectionId].selected[parentVariantId] = newState;
-    // if toggled to be selected, force all ancestors to be selected too
-    if (newState) {
-      forceAllAncestorsToBeSelected(state, id, ancestors);
-    }
-  });
-}
-
-function toggleRunGroupSectionAttr({
-  id,
-  parentVersionId,
-  sectionId,
-  attrName,
-  attrId,
-}) {
-  maybeInitRunGroupSectionAttr({
+  toggleRunGroupSectionAttr({
     id,
+    ancestors,
     sectionId,
-    attrName,
-    attrId,
-  });
-  useRunGroups.setState((state) => {
-    const s = state.x[id].sections[sectionId];
-    if (s.selected[parentVersionId]) {
-      s[attrName][attrId] = !s[attrName][attrId];
-    } else {
-      for (const _attrId of Object.keys(s[attrName])) {
-        s[attrName][_attrId] = _attrId === attrId;
-      }
-      s.selected[parentVersionId] = true;
-    }
+    attrName: "selected",
+    attrId: parentVariantId,
   });
 }
 
 export function toggleRunGroupSectionParamSweep({
   id,
-  parentVersionId,
-  sectionId,
   paramSweepId,
+  ancestors,
+  sectionId,
 }) {
   toggleRunGroupSectionAttr({
     id,
-    parentVersionId,
+    ancestors,
     sectionId,
     attrName: "paramSweeps",
     attrId: paramSweepId,
@@ -128,13 +125,13 @@ export function toggleRunGroupSectionParamSweep({
 
 export function toggleRunGroupSectionVersion({
   id,
-  parentVersionId,
-  sectionId,
   versionId,
+  ancestors,
+  sectionId,
 }) {
   toggleRunGroupSectionAttr({
     id,
-    parentVersionId,
+    ancestors,
     sectionId,
     attrName: "versions",
     attrId: versionId,
