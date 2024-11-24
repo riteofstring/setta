@@ -1,5 +1,6 @@
 import {
   useMisc,
+  useNodeInternals,
   useProjectConfig,
   useRunGroups,
   useSectionVariants,
@@ -14,6 +15,10 @@ export function setAllRunGroups(payload) {
 export function initRunGroup({ id, name }) {
   useRunGroups.setState((state) => {
     state.x[id] = { name, sections: {} };
+    for (const c of useNodeInternals.getState().x.keys()) {
+      maybeInitRunGroupSection(state, id, c, null);
+      maybeInitAllDescendants(state, id, getSectionInfo(c).variantId);
+    }
   });
 
   useProjectConfig.setState((state) => {
