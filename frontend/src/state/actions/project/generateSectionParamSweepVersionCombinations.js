@@ -1,4 +1,4 @@
-export function generateSectionParamSweepVersionCombinations(objects) {
+export function* generateSectionParamSweepVersionCombinations(objects) {
   // Group objects by sectionId for quick lookup
   const sectionGroups = new Map();
   objects.forEach((obj) => {
@@ -85,11 +85,12 @@ export function generateSectionParamSweepVersionCombinations(objects) {
   }
 
   /**
-   * Helper function to generate combinations recursively
+   * Helper generator function to generate combinations recursively
    */
-  function generateCombinationsRecursive(
+  function* generateCombinationsRecursive(
     current = [],
     remainingSections = null,
+    seenCombinations = new Set(),
   ) {
     // Initialize remainingSections on first call
     if (remainingSections === null) {
@@ -98,10 +99,16 @@ export function generateSectionParamSweepVersionCombinations(objects) {
 
     // Base case: check if current combination is valid
     if (remainingSections.size === 0) {
-      return isValidCombination(current) ? [current] : [];
+      if (isValidCombination(current)) {
+        const combinationStr = JSON.stringify(current);
+        if (!seenCombinations.has(combinationStr)) {
+          seenCombinations.add(combinationStr);
+          yield current;
+        }
+      }
+      return;
     }
 
-    const results = [];
     const sectionId = Array.from(remainingSections)[0];
     const newRemaining = new Set(remainingSections);
     newRemaining.delete(sectionId);
@@ -138,28 +145,24 @@ export function generateSectionParamSweepVersionCombinations(objects) {
       newSections.forEach((s) => newRemaining.add(s));
 
       // Recursively generate combinations
-      const subCombinations = generateCombinationsRecursive(
+      yield* generateCombinationsRecursive(
         newCombination,
         newRemaining,
+        seenCombinations,
       );
-      results.push(...subCombinations);
     }
 
     // Also try skipping this section if it's not required
     if (!rootSections.has(sectionId)) {
-      results.push(...generateCombinationsRecursive(current, newRemaining));
+      yield* generateCombinationsRecursive(
+        current,
+        newRemaining,
+        seenCombinations,
+      );
     }
-
-    return results;
   }
 
-  // Generate combinations
-  const combinations = generateCombinationsRecursive();
-
-  // Remove duplicates
-  const uniqueCombinations = Array.from(
-    new Set(combinations.map(JSON.stringify)),
-  ).map(JSON.parse);
-
-  return uniqueCombinations;
+  // Use the generator to yield combinations
+  const seenCombinations = new Set();
+  yield* generateCombinationsRecursive([], null, seenCombinations);
 }
