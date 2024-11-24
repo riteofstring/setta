@@ -62,7 +62,11 @@ export async function runCode() {
 }
 
 function* getProjectRuns(project) {
-  if (_.size(project.runGroups) === 0) {
+  // if there are no run groups, or no run groups are selected
+  if (
+    _.size(project.runGroups) === 0 ||
+    !Object.values(project.projectConfig.runGroupSelection).some((x) => x)
+  ) {
     const variant = _.cloneDeep(project);
     const keepParamSweeps = [];
     for (const s of Object.values(project.sections)) {
@@ -74,76 +78,104 @@ function* getProjectRuns(project) {
     yield* getProjectVariants(variant);
   } else {
     for (const [runGroupId, runGroup] of Object.entries(project.runGroups)) {
-      if (
-        !project.projectConfig.runGroupSelection[runGroupId] ||
-        !Object.values(runGroup.sections).some((s) => s.selected)
-      ) {
+      if (!project.projectConfig.runGroupSelection[runGroupId]) {
         continue;
       }
-      const sectionParamSweepsAndVersions = [];
-      for (const [sectionId, sectionDetails] of Object.entries(
+      const sectionParamSweepsAndVersions = getSectionsParamSweepsAndVersions(
+        project,
         runGroup.sections,
+        Object.keys(project.projectConfig.children),
+        null,
+      );
+
+      for (const combo of generateValidCombinations(
+        sectionParamSweepsAndVersions,
       )) {
-        if (!sectionDetails.selected) {
-          continue;
-        }
-
-        const entries = [];
-        for (const [paramSweepId, selected] of Object.entries(
-          sectionDetails.paramSweeps,
-        )) {
-          if (selected) {
-            entries.push({
-              sectionId,
-              paramSweepId,
-              versionId: null,
-            });
-          }
-        }
-        for (const [versionId, selected] of Object.entries(
-          sectionDetails.versions,
-        )) {
-          if (selected) {
-            entries.push({
-              sectionId,
-              paramSweepId: null,
-              versionId,
-            });
-          }
-        }
-
-        if (entries.length === 0) {
-          sectionParamSweepsAndVersions.push([
-            { sectionId, paramSweepId: null, versionId: null },
-          ]);
-        } else {
-          sectionParamSweepsAndVersions.push(entries);
-        }
-      }
-
-      for (const combo of cartesian(...sectionParamSweepsAndVersions)) {
         const variant = _.cloneDeep(project);
+        // filter top-level sections
         variant.projectConfig.children = _.pick(
           variant.projectConfig.children,
           combo.map((x) => x.sectionId),
         );
+        // filter all sections
         variant.sections = _.pick(
           variant.sections,
           combo.map((x) => x.sectionId),
         );
+        // filter children list in every variant
+        for (const sv of Object.values(variant.sectionVariants)) {
+          sv.children = sv.children.filter((x) => x in variant.sections);
+        }
+        // filter paramSweeps
         variant.paramSweeps = _.pick(
           variant.paramSweeps,
           combo.filter((x) => x.paramSweepId).map((x) => x.paramSweepId),
         );
+        // set every selected section's variantId
         for (const c of combo) {
           if (c.versionId) {
             variant.sections[c.sectionId].variantId = c.versionId;
           }
         }
+
         yield* getProjectVariants(variant);
       }
     }
   }
+}
+
+function getSectionsParamSweepsAndVersions(
+  project,
+  runGroupSections,
+  sectionIds,
+  variantId,
+) {
+  const sectionParamSweepsAndVersions = [];
+  for (const sectionId of sectionIds) {
+    const sectionDetails = runGroupSections[sectionId];
+    console.log("sectionDetails", sectionDetails);
+    // is it selected for the given variantId?
+    if (!sectionDetails || !sectionDetails.selected[variantId]) {
+      continue;
+    }
+
+    for (const [paramSweepId, selected] of Object.entries(
+      sectionDetails.paramSweeps,
+    )) {
+      if (selected) {
+        sectionParamSweepsAndVersions.push({
+          sectionId,
+          paramSweepId,
+          versionId: null,
+          parentVersionId: variantId,
+        });
+      }
+    }
+    for (const [versionId, selected] of Object.entries(
+      sectionDetails.versions,
+    )) {
+      if (selected) {
+        sectionParamSweepsAndVersions.push({
+          sectionId,
+          paramSweepId: null,
+          versionId,
+          parentVersionId: variantId,
+        });
+      }
+
+      const childSectionIds = project.sectionVariants[versionId].children;
+      sectionParamSweepsAndVersions.push(
+        ...getSectionsParamSweepsAndVersions(
+          project,
+          runGroupSections,
+          childSectionIds,
+          versionId,
+        ),
+      );
+    }
+  }
+
+  return sectionParamSweepsAndVersions;
 }
 
 function* getProjectVariants(project) {
@@ -278,7 +310,110 @@ function* generateCombinations(objects) {
   yield* combineGroups(Object.values(groupedByParamSweepId));
 }
 
-function* cartesian(head, ...tail) {
-  const remainder = tail.length ? cartesian(...tail) : [[]];
-  for (let r of remainder) for (let h of head) yield [h, ...r];
+function generateValidCombinations(objects) {
+  // Input validation
+  if (!Array.isArray(objects) || objects.length === 0) {
+    return [];
+  }
+
+  // Helper function to check if an object can be included in a combination
+  function canIncludeObject(obj, currentCombination) {
+    if (!obj || typeof obj !== "object") return false;
+
+    // If parentVersionId is null, it can always be included
+    if (obj.parentVersionId === null) {
+      return true;
+    }
+
+    // Check if there's an object in the combination with matching versionId
+    return currentCombination.some(
+      (item) => item.versionId === obj.parentVersionId,
+    );
+  }
+
+  // Helper function to get all valid objects that can be added to current combination
+  function getValidNextObjects(currentCombination, remainingObjects) {
+    if (
+      !Array.isArray(currentCombination) ||
+      !Array.isArray(remainingObjects)
+    ) {
+      return [];
+    }
+
+    return remainingObjects.filter(
+      (obj) =>
+        obj &&
+        !currentCombination.some((item) => item.sectionId === obj.sectionId) &&
+        canIncludeObject(obj, currentCombination),
+    );
+  }
+
+  // Helper function to create a unique key for a combination
+  function getCombinationKey(combination) {
+    return combination
+      .map((obj) => obj.id)
+      .sort((a, b) => a - b)
+      .join(",");
+  }
+
+  // Helper function to recursively build combinations
+  function buildCombinations(
+    currentCombination,
+    remainingObjects,
+    uniqueCombinations,
+  ) {
+    // Validate inputs
+    if (
+      !Array.isArray(currentCombination) ||
+      !Array.isArray(remainingObjects)
+    ) {
+      return;
+    }
+
+    // Get all valid objects that can be added
+    const validNextObjects = getValidNextObjects(
+      currentCombination,
+      remainingObjects,
+    );
+
+    // If no more valid objects can be added, this combination is complete
+    if (validNextObjects.length === 0) {
+      if (currentCombination.length > 0) {
+        const key = getCombinationKey(currentCombination);
+        uniqueCombinations.set(key, [...currentCombination]);
+      }
+      return;
+    }
+
+    // Try adding each valid object
+    for (const obj of validNextObjects) {
+      currentCombination.push(obj);
+      const newRemaining = remainingObjects.filter((item) => item !== obj);
+      buildCombinations(currentCombination, newRemaining, uniqueCombinations);
+      currentCombination.pop();
+    }
+
+    // Store the current combination if it's not empty
+    if (currentCombination.length > 0) {
+      const key = getCombinationKey(currentCombination);
+      uniqueCombinations.set(key, [...currentCombination]);
+    }
+  }
+
+  const uniqueCombinations = new Map();
+  buildCombinations([], objects, uniqueCombinations);
+
+  // Handle case where no valid combinations were found
+  if (uniqueCombinations.size === 0) {
+    return [];
+  }
+
+  // Convert Map values to array and sort by length
+  const combinations = Array.from(uniqueCombinations.values()).sort(
+    (a, b) => b.length - a.length,
+  );
+
+  // Keep only the combinations with maximum length
+  const maxLength = combinations[0].length;
+  return combinations.filter((combo) => combo.length === maxLength);
 }

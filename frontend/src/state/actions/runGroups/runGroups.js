@@ -78,7 +78,6 @@ function toggleRunGroupSectionAttr({
       newState = true;
     }
     state.x[id].sections[sectionId][attrName][attrId] = newState;
-    // if toggled to be selected, force all ancestors to be selected too
     if (newState) {
       // if we set version or param sweep to true, we also need to set selected to true
       // (this is redundant, but doesn't hurt, if we're already setting selected)
@@ -87,7 +86,7 @@ function toggleRunGroupSectionAttr({
           ? null
           : ancestors[ancestors.length - 1].variantId;
       state.x[id].sections[sectionId].selected[parentVariantId] = true;
-
+      // if toggled to be selected, force all ancestors to be selected too
       forceAllAncestorsToBeSelected(state, id, ancestors);
     }
   });
