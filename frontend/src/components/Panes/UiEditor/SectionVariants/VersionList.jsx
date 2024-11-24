@@ -1,12 +1,8 @@
 import C from "constants/constants.json";
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { FaRegSnowflake } from "react-icons/fa";
 import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
 import { toggleParamSweepIsFrozen } from "state/actions/runGroups/paramSweep";
-import {
-  manualDndChildrenReset,
-  setSectionInfoAttr,
-} from "state/actions/sections/sectionInfos";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { toggleVariantFrozenState } from "state/actions/sectionVariants";
 import { useParamSweep, useSectionInfos } from "state/definitions";
 import {
@@ -28,7 +24,6 @@ export function VersionList({ sectionId }) {
       attr: "previewParamSweepId",
       value: null,
     });
-    manualDndChildrenReset();
     maybeRunGuiToYaml(sectionId);
   }
 
@@ -57,14 +52,11 @@ function EVItems({ sectionId }) {
 
   function onMouseOver(id) {
     setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: id });
-    const newChildren = useSectionInfos.getState().variants[id].children;
-    useDndChildren.getState().updateOneParent(sectionId, newChildren);
     maybeRunGuiToYaml(sectionId);
   }
 
   function onClick(id) {
     setSectionInfoAttr({ sectionId, attr: "variantId", value: id });
-    manualDndChildrenReset();
     maybeRunGuiToYaml(sectionId);
   }
 

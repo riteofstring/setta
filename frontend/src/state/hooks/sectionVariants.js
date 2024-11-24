@@ -7,7 +7,7 @@ export function useGetParamEnteredValueAndKeywordPositions(
   paramInfoId,
 ) {
   return useSectionInfos((x) => {
-    const variantIdToShow = getSectionVariantIdToShow(sectionId, x.x);
+    const variantIdToShow = getSectionVariantIdToShow(sectionId, x);
     const vals = x.variants[variantIdToShow].values;
     if (paramInfoId in vals) {
       return {
@@ -40,14 +40,14 @@ export function useSectionIdToChildren() {
 export function useListElementIdx(sectionId) {
   return useSectionInfos((x) => {
     const parentId = x.x[sectionId].parentId;
-    const variantIdToShow = getSectionVariantIdToShow(parentId, x.x);
+    const variantIdToShow = getSectionVariantIdToShow(parentId, x);
     return x.variants[variantIdToShow].children.indexOf(sectionId);
   });
 }
 
 function useSectionVariantAttr(sectionId, attr, equalityFn) {
   return useSectionInfos((x) => {
-    const variantIdToShow = getSectionVariantIdToShow(sectionId, x.x);
+    const variantIdToShow = getSectionVariantIdToShow(sectionId, x);
     return x.variants[variantIdToShow][attr];
   }, equalityFn);
 }

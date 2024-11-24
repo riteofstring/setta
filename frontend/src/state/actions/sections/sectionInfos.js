@@ -1,7 +1,7 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useSectionInfos } from "state/definitions";
 import {
-  getSectionIdToChildren,
+  getSectionIdToChildrenToShow,
   setSectionVariantChildren,
 } from "../sectionVariants";
 
@@ -116,9 +116,7 @@ function valueOrNewValueFn({ obj, attr, value, newValueFn }) {
 }
 
 export function manualDndChildrenReset() {
-  useDndChildren
-    .getState()
-    .update(getSectionIdToChildren(useSectionInfos.getState().variants));
+  useDndChildren.getState().update(getSectionIdToChildrenToShow());
 }
 
 export function setAllPreviewVariantIdsToNull() {

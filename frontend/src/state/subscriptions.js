@@ -3,6 +3,7 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { updateKeywordRegex } from "state/actions/keywordRegex";
 import { useMisc, useSectionInfos, useUITypes } from "state/definitions";
+import { getSectionIdToChildrenToShow } from "./actions/sectionVariants";
 
 function getSingletonSubscriptionFn(type) {
   return (state) => {
@@ -41,8 +42,8 @@ export function subscribe() {
   );
 
   useSectionInfos.subscribe(
-    (state) => Object.keys(state.x),
-    (x) => useDndChildren.getState().updateKeys(x),
+    getSectionIdToChildrenToShow,
+    (x) => useDndChildren.getState().update(x),
     { equalityFn: _.isEqual },
   );
 }

@@ -1,4 +1,3 @@
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useSectionInfos, useUITypes } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
@@ -155,7 +154,7 @@ export function getSectionCodeInfoColId(sectionId) {
 
 export function getSectionVariantIdToShow(sectionId, state = {}) {
   const { variantId, previewVariantId } =
-    state[sectionId] ?? useSectionInfos.getState().x[sectionId];
+    state.x?.[sectionId] ?? useSectionInfos.getState().x[sectionId];
   return previewVariantId ?? variantId;
 }
 
@@ -166,17 +165,14 @@ export function setSectionVariantChildren({ sectionId, newStateFn }) {
     newChildren = newStateFn(state.variants[variantId].children);
     state.variants[variantId].children = newChildren;
   });
-  useDndChildren.getState().updateOneParent(sectionId, newChildren);
 }
 
-export function getSectionIdToChildren(sectionVariantState) {
+export function getSectionIdToChildrenToShow(sectionInfoState) {
   const output = {};
-  const s = useSectionInfos.getState().x;
-  for (const [variantId, variantInfo] of Object.entries(sectionVariantState)) {
-    const sInfo = _.find(s, (obj) => obj.variantId === variantId);
-    if (sInfo) {
-      output[sInfo.id] = variantInfo.children;
-    }
+  const s = sectionInfoState ?? useSectionInfos.getState();
+  for (const sectionId of Object.keys(s.x)) {
+    output[sectionId] =
+      s.variants[getSectionVariantIdToShow(sectionId, s)].children;
   }
   return output;
 }
