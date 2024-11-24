@@ -25,6 +25,11 @@
   "updateInteractiveCode": "Mod + Enter",
   "paramSelect": "Mod + Shift",
   "formatCode": "Shift + Alt + F",
+  "fitViewShortcut": "F",
+  "zoomToMouseShortcut": "Z",
+  "deleteSectionShortcut": "Backspace",
+  "selectAllSectionsShortcut": "Mod + A",
+  "showVersionsTabShortcut": "V",
   "defaultCodeSectionSize": { "width": 500, "height": "auto" },
   "defaultTerminalSectionSize": { "width": 700, "height": 300 },
   "defaultSectionSize": { "width": "auto", "height": "auto" },
@@ -59,5 +64,8 @@
   "zoomOnDoubleClick": true,
   "clearTerminalBeforeMarkingAsReady": true,
   "defaultTerminalShell": null,
+  "exportDbRawOnSave": false,
+  "exportDbReadableOnSave": false,
+  "exportDbReadableWithVariantsOnSave": false,
   "languageServerSettings": {}
 }

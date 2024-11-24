@@ -21,6 +21,7 @@ import { useGetSectionInfo } from "state/hooks/sections";
 import {
   useSectionCode,
   useSectionKeywordPositions,
+  useSectionVariantIsFrozen,
 } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
@@ -88,6 +89,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
+  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
 
   function onChange(v) {
     setSectionVariantAttr(sectionId, "code", v);
@@ -107,6 +109,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     escapeToBlur: true,
     tabToAutocomplete: true,
     indentWithTab: true,
+    isDisabled: variantIsDisabled,
   });
 
   return (
@@ -134,24 +137,33 @@ export function useCodeAreaHeight({ sectionId }) {
 
   const wrapperRef = useRef(null);
   const editorRef = useRef(null);
+  const resizeObserverRef = useRef(null);
   const [nowheel, setNoWheel] = useState("");
-
-  function computeNoWheel() {
-    return editorRef.current.scrollDOM.scrollHeight >
-      editorRef.current.scrollDOM.clientHeight
-      ? "nowheel"
-      : "";
-  }
 
   const handleCreateEditor = useCallback((view) => {
     editorRef.current = view;
-    setNoWheel(computeNoWheel());
+
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      setNoWheel(
+        entry.target.scrollHeight > entry.target.clientHeight ? "nowheel" : "",
+      );
+    });
+    resizeObserver.observe(editorRef.current.scrollDOM);
+    resizeObserverRef.current = resizeObserver;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+    };
   }, []);
 
   const maxHeight =
     height === "auto" || resizeEvent === "start"
       ? undefined
-      : `${height - 32}px`;
+      : `${height - 30}px`;
   const overflow = resizeEvent === "start" ? "overflow-y-auto" : "";
 
   const editorScrollTop = editorRef.current?.scrollDOM.scrollTop;
@@ -162,7 +174,6 @@ export function useCodeAreaHeight({ sectionId }) {
       wrapperRef.current.scrollTop = editorScrollTop;
     } else if (editorRef.current && resizeEvent === "end") {
       editorRef.current.scrollDOM.scrollTop = wrapperScrollTop;
-      setNoWheel(computeNoWheel());
     }
   }, [resizeEvent]);
 

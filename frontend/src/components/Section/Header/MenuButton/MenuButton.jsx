@@ -3,12 +3,14 @@ import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import C from "constants/constants.json";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { HeaderIcon } from "../HeaderIcon";
+import { ClearValues } from "./ClearValues";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
 import { HideShowParamsButton } from "./HideShowParamsButton";
 import { HideShowSearchButton } from "./HideShowSearchButton";
 import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
 import { MultirunButton } from "./MultiRunButton";
+import { ResetToDefaultVersion } from "./ResetToDefaultVersion";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
 import { ConvertFormat, RenderInfo } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
@@ -73,7 +75,12 @@ function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
 export function getMenuItems(uiTypeName) {
   switch (uiTypeName) {
     case C.INFO:
-      return [RenderInfo, ConvertFormat];
+      return [
+        RenderInfo,
+        ConvertFormat,
+        CreateNewVersionButton,
+        ResetToDefaultVersion,
+      ];
     case C.SECTION:
       return [
         SaveCustomArgumentsButton,
@@ -83,6 +90,8 @@ export function getMenuItems(uiTypeName) {
         HideShowParamsButton,
         HideShowUnpinnedParamsButton,
         ShowYaml,
+        ClearValues,
+        ResetToDefaultVersion,
       ];
     case C.GLOBAL_VARIABLES:
       return [
@@ -91,14 +100,18 @@ export function getMenuItems(uiTypeName) {
         MultirunButton,
         HideShowUnpinnedParamsButton,
         ShowYaml,
+        ClearValues,
+        ResetToDefaultVersion,
       ];
     case C.PARAM_SWEEP:
-      return [CreateNewParamSweepButton];
+      return [CreateNewParamSweepButton, ShowYaml, ResetToDefaultVersion];
+    case C.GLOBAL_PARAM_SWEEP:
+      return [ShowYaml];
     case C.LIST_ROOT:
     case C.DICT_ROOT:
     case C.CODE:
     case C.INTERACTIVE_CODE:
-      return [CreateNewVersionButton];
+      return [CreateNewVersionButton, ResetToDefaultVersion];
     default:
       return [];
   }

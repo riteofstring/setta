@@ -31,3 +31,12 @@ export function getProjectConfigMetadata() {
 export function setShownRunGroup(runGroupId) {
   useProjectConfig.setState({ shownRunGroup: runGroupId });
 }
+
+export function setPreviewRunGroup(runGroupId) {
+  useProjectConfig.setState({ previewRunGroup: runGroupId });
+}
+
+export function getActuallyShownRunGroup() {
+  const p = useProjectConfig.getState();
+  return p.previewRunGroup ?? p.shownRunGroup;
+}

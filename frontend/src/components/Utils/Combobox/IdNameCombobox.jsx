@@ -12,6 +12,7 @@ export function IdNameCombobox({
   outerDivClasses = "",
   placeholder,
   bg,
+  isDisabled,
 }) {
   const itemToString = (x) => (x ? x.name : "");
 
@@ -52,6 +53,7 @@ export function IdNameCombobox({
         onInputClick={onInputClick}
         placeholder={placeholder}
         bg={bg}
+        isDisabled={isDisabled}
       />
 
       <ComboboxList

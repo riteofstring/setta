@@ -73,7 +73,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "22875dc9-752a-4188-bcd2-c21352358da3"
+      "codeInfoColId": "22875dc9-752a-4188-bcd2-c21352358da3",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "0d59b94d-4ca1-4759-b5f1-db4c0107d80d": {
       "name": "expected_ivory",
@@ -84,7 +87,10 @@
       "children": [
         "0c34488b-ea76-4a05-96c0-1433c440da1b"
       ],
-      "codeInfoColId": "dfb3537d-97b7-4a33-89fa-2793304f6acd"
+      "codeInfoColId": "dfb3537d-97b7-4a33-89fa-2793304f6acd",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "14173e89-51f1-48b5-aefb-804fff1f2164": {
       "name": "friendly_plum",
@@ -93,7 +99,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "3260a637-dce5-4f7e-b0fa-f9b377a13576"
+      "codeInfoColId": "3260a637-dce5-4f7e-b0fa-f9b377a13576",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "1da8ad57-c195-4d6c-baaa-b51f1ef1cc15": {
       "name": "round_peach",
@@ -102,7 +111,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "688cba52-0295-4840-a249-c312228755e1"
+      "codeInfoColId": "688cba52-0295-4840-a249-c312228755e1",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "3dbb4893-bd44-4e67-a6c3-1148d7205d42": {
       "name": "mathematical_magenta",
@@ -111,7 +123,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "a662db1f-c2ab-42de-b650-7c462fc593e5"
+      "codeInfoColId": "a662db1f-c2ab-42de-b650-7c462fc593e5",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "3ec298ce-5d49-42f8-8700-3e2efb26855b": {
       "name": "config1",
@@ -120,7 +135,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "a91ec9e9-441b-47de-bbbb-555a635e8394"
+      "codeInfoColId": "a91ec9e9-441b-47de-bbbb-555a635e8394",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "40fd1a3c-6fca-4b87-b427-5bee353cef09": {
       "name": "config1",
@@ -129,7 +147,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "c2f756fe-7160-4b5f-893e-a9a41ced1084"
+      "codeInfoColId": "c2f756fe-7160-4b5f-893e-a9a41ced1084",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "43a579a2-adf1-4378-a8a3-013710251c69": {
       "name": "confident_amethyst",
@@ -138,7 +159,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "a184e19d-ffb4-4339-a075-d91a806a7237"
+      "codeInfoColId": "a184e19d-ffb4-4339-a075-d91a806a7237",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "5380aa69-09b9-4621-a302-79da25d5e544": {
       "name": "exceptional_maroon",
@@ -150,7 +174,10 @@
         "9ec72858-6c5d-43b2-be73-e1017ab30f10",
         "1252064e-3eee-4fd8-9192-a2d3555e3ed6"
       ],
-      "codeInfoColId": "e2c2d700-bb27-4e4d-b8a9-2fff9e3f2ade"
+      "codeInfoColId": "e2c2d700-bb27-4e4d-b8a9-2fff9e3f2ade",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "54bf9ed0-5d78-460b-9a52-4227c5f490b6": {
       "name": "wee_peach",
@@ -159,7 +186,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "6cfa5297-e64e-4a38-b72f-94fab5582f3c"
+      "codeInfoColId": "6cfa5297-e64e-4a38-b72f-94fab5582f3c",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "71cb48cb-b3f1-4a31-8dd1-01ff7341facd": {
       "name": "rising_crimson",
@@ -168,7 +198,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "154ebcc9-953c-418d-902f-9939bcfef748"
+      "codeInfoColId": "154ebcc9-953c-418d-902f-9939bcfef748",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "7a4d7553-e651-42a5-8e7c-a325ce9b3b37": {
       "name": "panicky_apricot",
@@ -177,7 +210,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "00952c9e-e308-40bc-aba3-cc04f9920809"
+      "codeInfoColId": "00952c9e-e308-40bc-aba3-cc04f9920809",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "8226a890-8524-430c-8d8f-861b5db786f1": {
       "name": "disturbing_harlequin",
@@ -186,7 +222,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "91f99ee4-c926-4e2e-a094-2ea22ba8a387"
+      "codeInfoColId": "91f99ee4-c926-4e2e-a094-2ea22ba8a387",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "956bd407-95e4-457a-bbca-2ee6fecde7d5": {
       "name": "youthful_lavender",
@@ -195,7 +234,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "843370ab-6475-4e40-961e-75b0edd43983"
+      "codeInfoColId": "843370ab-6475-4e40-961e-75b0edd43983",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "a8361b95-8fcc-42ee-b99f-72113229162e": {
       "name": "dynamic_ivory",
@@ -204,7 +246,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "21076e93-4bdc-4214-98da-9300cfb75165"
+      "codeInfoColId": "21076e93-4bdc-4214-98da-9300cfb75165",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "b6f4bca9-0c4d-4f73-9660-c1f79030691e": {
       "name": "capable_lavender",
@@ -218,7 +263,10 @@
         "978a7722-c14a-460b-bfa7-f9253b978d41",
         "72b9394e-48f8-488f-ae90-914a895335cf"
       ],
-      "codeInfoColId": "490eeea1-e9e1-4659-8c67-3b16f36c669d"
+      "codeInfoColId": "490eeea1-e9e1-4659-8c67-3b16f36c669d",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "bb16a231-3ff5-434f-a1af-ea6b3139dd5e": {
       "name": "necessary_ivory",
@@ -233,7 +281,10 @@
         "fab5ccf9-c2a1-4352-99aa-7b9b557ac466",
         "c36c883d-babc-435b-8cbf-efe28fb5b3e5"
       ],
-      "codeInfoColId": "2e7e21d8-171a-442b-b2fd-82ee146ffd31"
+      "codeInfoColId": "2e7e21d8-171a-442b-b2fd-82ee146ffd31",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "d7c2a6b6-5fa1-49fd-9360-1c49331a4e60": {
       "name": "existing_olive",
@@ -242,7 +293,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "3fd80ddf-69d3-4d05-a729-1a752d65f2bf"
+      "codeInfoColId": "3fd80ddf-69d3-4d05-a729-1a752d65f2bf",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "dc1879dd-4591-46c0-8fc6-f733c6b177ca": {
       "name": "config1",
@@ -292,7 +346,10 @@
         }
       },
       "children": [],
-      "codeInfoColId": "6c82f532-d860-4860-87f0-6add6e84c165"
+      "codeInfoColId": "6c82f532-d860-4860-87f0-6add6e84c165",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "f28956a9-e609-4946-ada3-01e09cef9901": {
       "name": "prior_tan",
@@ -301,7 +358,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "d80e8d8d-0ff5-459f-8a82-dc4aa5cf56c7"
+      "codeInfoColId": "d80e8d8d-0ff5-459f-8a82-dc4aa5cf56c7",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "fe28bfc8-f735-4272-ab16-ce7fcbb18767": {
       "name": "legislative_blue",
@@ -310,7 +370,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "a37f88b3-2638-4d4b-a52c-9a07c2bcbf6d"
+      "codeInfoColId": "a37f88b3-2638-4d4b-a52c-9a07c2bcbf6d",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     },
     "fe621fb8-0584-422b-a221-4b4d7fbe8ff7": {
       "name": "liberal_gold",
@@ -319,7 +382,10 @@
       "keywordPositions": [],
       "values": {},
       "children": [],
-      "codeInfoColId": "93ec225a-a19b-442e-8cc8-b8a411921de3"
+      "codeInfoColId": "93ec225a-a19b-442e-8cc8-b8a411921de3",
+      "isFrozen": false,
+      "isDefault": true,
+      "description": ""
     }
   },
   "uiTypes": {
@@ -542,7 +608,8 @@
             }
           ]
         }
-      ]
+      ],
+      "isFrozen": false
     }
   },
   "runGroups": {},
@@ -554,7 +621,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "8b20e30b-7a10-4775-914f-ba43b528a2fc",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -577,7 +643,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "1252064e-3eee-4fd8-9192-a2d3555e3ed6": {
       "id": "1252064e-3eee-4fd8-9192-a2d3555e3ed6",
@@ -586,7 +653,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "8d5d4b90-e34e-467e-876b-9b064620f4f0",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -609,7 +675,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "2a7156ce-56f0-4f44-a415-190464979f61": {
       "id": "2a7156ce-56f0-4f44-a415-190464979f61",
@@ -618,7 +685,6 @@
       "uiTypeId": "af0538a7-9667-400e-987e-ae3c844e0fcd",
       "uiTypeColId": "4d17b28e-51ff-4617-8564-eb4494cd7b6f",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -641,7 +707,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "350241fe-50f9-44a9-8553-fb57eb72f881": {
       "id": "350241fe-50f9-44a9-8553-fb57eb72f881",
@@ -650,7 +717,6 @@
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
       "uiTypeColId": "57361935-d007-420a-aab8-cca04ff45bb3",
       "social": null,
-      "description": "",
       "codeLanguage": "python",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -673,7 +739,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "4b71ccae-dc5f-4151-be02-9cbbf661d822": {
       "id": "4b71ccae-dc5f-4151-be02-9cbbf661d822",
@@ -682,7 +749,6 @@
       "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
       "uiTypeColId": "cb50eed8-8934-4302-b80b-fbd63637bbf6",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -705,7 +771,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "55ab0625-b101-48b6-abb2-ad8bb9331396": {
       "id": "55ab0625-b101-48b6-abb2-ad8bb9331396",
@@ -714,7 +781,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "6cc98acd-c4f7-4de4-8ff2-a33d30bee3c1",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -737,7 +803,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "65ce7866-37da-4360-a0e5-50298c2f69e6": {
       "id": "65ce7866-37da-4360-a0e5-50298c2f69e6",
@@ -746,7 +813,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "356d8ea1-04ba-4c47-944d-7adaae5f276a",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -769,7 +835,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 1,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "6e694ec2-8a81-4c0a-b669-9b4074a914b4": {
       "id": "6e694ec2-8a81-4c0a-b669-9b4074a914b4",
@@ -778,7 +845,6 @@
       "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
       "uiTypeColId": "4e8113f8-2b55-4d9d-a3cf-b290e8aa2c03",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -801,7 +867,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "72b9394e-48f8-488f-ae90-914a895335cf": {
       "id": "72b9394e-48f8-488f-ae90-914a895335cf",
@@ -810,7 +877,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "6d734bff-3096-4644-8b96-bf2b60026f54",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -833,7 +899,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "81826fec-6648-4250-9b2d-448a75a361e9": {
       "id": "81826fec-6648-4250-9b2d-448a75a361e9",
@@ -842,7 +909,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "7b572a8d-8e1d-4b35-8beb-f9e1df4d6a02",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -865,7 +931,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "8d73c344-5501-4790-98ed-c00cb9d87393": {
       "id": "8d73c344-5501-4790-98ed-c00cb9d87393",
@@ -874,7 +941,6 @@
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
       "uiTypeColId": "73a2bf21-5e2d-45bb-8c89-25d2f5518d00",
       "social": null,
-      "description": "",
       "codeLanguage": "bash",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -897,7 +963,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "978a7722-c14a-460b-bfa7-f9253b978d41": {
       "id": "978a7722-c14a-460b-bfa7-f9253b978d41",
@@ -906,7 +973,6 @@
       "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
       "uiTypeColId": "57ba1051-2255-4414-91ce-04d0efd2cec7",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -929,7 +995,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "9af48137-00f6-4b9e-beb0-2467cbd877ff": {
       "id": "9af48137-00f6-4b9e-beb0-2467cbd877ff",
@@ -938,7 +1005,6 @@
       "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
       "uiTypeColId": "f6860aad-29c4-4909-b01f-337fbd52dfd5",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -961,7 +1027,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "9ec72858-6c5d-43b2-be73-e1017ab30f10": {
       "id": "9ec72858-6c5d-43b2-be73-e1017ab30f10",
@@ -970,7 +1037,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "b165f346-d8b2-4d25-96b5-c69d889c1234",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -993,7 +1059,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "a6d874df-7f5c-4970-b85e-b86a9af4e2cf": {
       "id": "a6d874df-7f5c-4970-b85e-b86a9af4e2cf",
@@ -1002,7 +1069,6 @@
       "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
       "uiTypeColId": "0b1acd6b-68d1-4981-8c2c-a538ad8a7c70",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -1025,7 +1091,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "b9763d11-7dd2-4a98-a390-e1ae9799def0": {
       "id": "b9763d11-7dd2-4a98-a390-e1ae9799def0",
@@ -1034,7 +1101,6 @@
       "uiTypeId": "76cd4b19-cc63-4e2c-8214-5a4246ca637c",
       "uiTypeColId": "6de69125-8256-484b-9d35-b3cf4c41e4d2",
       "social": "https://www.youtube.com/watch?v=l8pRSuU81PU&ab_channel=AndrejKarpathy",
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -1057,7 +1123,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "c27f4f05-7a54-44e6-b222-c77581c4ea37": {
       "id": "c27f4f05-7a54-44e6-b222-c77581c4ea37",
@@ -1066,7 +1133,6 @@
       "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
       "uiTypeColId": "fdc39bbf-baba-46e8-9a38-c578daa67290",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -1091,7 +1157,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "YAML"
+      "displayMode": "YAML",
+      "renderMarkdown": false
     },
     "c36c883d-babc-435b-8cbf-efe28fb5b3e5": {
       "id": "c36c883d-babc-435b-8cbf-efe28fb5b3e5",
@@ -1100,7 +1167,6 @@
       "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
       "uiTypeColId": "5834e9d2-8bc8-40f3-9817-8525f02cad0a",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -1123,7 +1189,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "d10030ff-a3e6-4152-b4ed-df3e818ff398": {
       "id": "d10030ff-a3e6-4152-b4ed-df3e818ff398",
@@ -1132,7 +1199,6 @@
       "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
       "uiTypeColId": "71d31928-1d53-483b-8ea4-f16b39f97e02",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -1155,7 +1221,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "d82c1e46-126f-4fa9-b08b-15341a1433a7": {
       "id": "d82c1e46-126f-4fa9-b08b-15341a1433a7",
@@ -1164,7 +1231,6 @@
       "uiTypeId": "76cd4b19-cc63-4e2c-8214-5a4246ca637c",
       "uiTypeColId": "881c223c-e354-426a-b311-949357712059",
       "social": "https://x.com/KevMusgrave/status/1841192499160789355",
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -1187,7 +1253,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "de4841d2-f44b-4015-9654-a05cb26a0608": {
       "id": "de4841d2-f44b-4015-9654-a05cb26a0608",
@@ -1196,7 +1263,6 @@
       "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
       "uiTypeColId": "3f47fcc0-df98-4ab5-a25b-3e2d3c2cadf6",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -1219,7 +1285,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     },
     "fab5ccf9-c2a1-4352-99aa-7b9b557ac466": {
       "id": "fab5ccf9-c2a1-4352-99aa-7b9b557ac466",
@@ -1228,7 +1295,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "fe5440e5-7710-4dbf-97a2-2c95b365097b",
       "social": null,
-      "description": "",
       "codeLanguage": "",
       "configLanguage": "python",
       "isFrozen": 0,
@@ -1251,7 +1317,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "canvasSettings": {},
-      "displayMode": "GUI"
+      "displayMode": "GUI",
+      "renderMarkdown": false
     }
   },
   "codeInfo": {

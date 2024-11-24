@@ -88,3 +88,19 @@ export function getParamIdsToShowInArea(
 
   return { requiredParamIdsToPaths, topLevelParamIds };
 }
+
+export function paramNameFromPathArray(codeInfo, pathMap, paramId) {
+  if (pathMap[paramId].length === 1) {
+    return codeInfo[pathMap[paramId][0]].name;
+  } else {
+    let name = "";
+    for (const [pathIdx, currId] of pathMap[paramId].entries()) {
+      if (pathIdx === 0) {
+        name = codeInfo[currId].name;
+      } else {
+        name += `["${codeInfo[currId].name}"]`;
+      }
+    }
+    return name;
+  }
+}

@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useActiveSection } from "state/definitions";
+import { useActiveSection, useSectionInfos } from "state/definitions";
 import { getHighestAncestor } from "./sectionChildren";
 import { setZIndices } from "./sectionPositions";
 
@@ -25,4 +25,8 @@ export function setActiveSectionIdAndUpdateZIndex(id) {
   setActiveSectionIds([id]);
   const highestAncestor = getHighestAncestor(id);
   setZIndices([highestAncestor], false);
+}
+
+export function setAllSectionsAsActive() {
+  setActiveSectionIds(Object.keys(useSectionInfos.getState().x));
 }

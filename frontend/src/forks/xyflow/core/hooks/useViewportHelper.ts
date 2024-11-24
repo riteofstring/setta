@@ -60,7 +60,8 @@ export function setCenter(x, y, options) {
 
   const nextZoom =
     typeof options?.zoom !== "undefined" ? options.zoom : maxZoom;
-  const centerX = width / 2 - x * nextZoom;
+  const centerX =
+    width / 2 - x * nextZoom + localStorageFns.overviewTrueWidth.state()[0];
   const centerY = height / 2 - y * nextZoom;
   const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
 

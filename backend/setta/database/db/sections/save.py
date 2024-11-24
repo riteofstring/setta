@@ -9,14 +9,14 @@ def save_sections(db, sections, section_variants):
             uiTypeId,
             uiTypeColId,
             social,
-            description,
             codeLanguage,
             configLanguage,
             isFrozen,
             jsonSource,
             hideUnpinnedParams,
             displayMode,
-            canvasSettings
+            canvasSettings,
+            renderMarkdown
         )
         VALUES (
             :id,
@@ -24,14 +24,14 @@ def save_sections(db, sections, section_variants):
             :uiTypeId,
             :uiTypeColId,
             :social,
-            :description,
             :codeLanguage,
             :configLanguage,
             :isFrozen,
             :jsonSource,
             :hideUnpinnedParams,
             :displayMode,
-            :canvasSettings
+            :canvasSettings,
+            :renderMarkdown
         )
         ON CONFLICT (id)
         DO UPDATE SET
@@ -39,14 +39,14 @@ def save_sections(db, sections, section_variants):
             uiTypeId = :uiTypeId,
             uiTypeColId = :uiTypeColId,
             social = :social,
-            description = :description,
             codeLanguage = :codeLanguage,
             configLanguage = :configLanguage,
             isFrozen = :isFrozen,
             jsonSource = :jsonSource,
             hideUnpinnedParams = :hideUnpinnedParams,
             displayMode = :displayMode,
-            canvasSettings = :canvasSettings
+            canvasSettings = :canvasSettings,
+            renderMarkdown = :renderMarkdown
     """
 
     query_params = [
@@ -56,7 +56,6 @@ def save_sections(db, sections, section_variants):
             "uiTypeId": s["uiTypeId"],
             "uiTypeColId": s["uiTypeColId"],
             "social": s["social"],
-            "description": s["description"],
             "codeLanguage": s["codeLanguage"],
             "configLanguage": s["configLanguage"],
             "isFrozen": s["isFrozen"],
@@ -66,6 +65,7 @@ def save_sections(db, sections, section_variants):
             "canvasSettings": json.dumps(s["canvasSettings"])
             if len(s["canvasSettings"]) > 0
             else None,
+            "renderMarkdown": s["renderMarkdown"],
         }
         for s in sections.values()
     ]

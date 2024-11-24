@@ -15,7 +15,6 @@ export function getOutlineColor({
   isActiveSection,
   isGlobalVariables,
   isInOtherProjectConfigs,
-  isSelectingParams,
 }) {
   if (jsonSourceMissing) {
     return "outline-red-600 dark:outline-red-400";
@@ -27,14 +26,14 @@ export function getOutlineColor({
     if (isActiveSection) {
       return "outline-purple-600 dark:outline-purple-700";
     }
-    return `outline-transparent ${!isSelectingParams ? "active:outline-fuchsia-400" : ""}`;
+    return `outline-transparent active:outline-fuchsia-400`;
   }
 
   if (isActiveSection) {
     return "outline-blue-600 dark:outline-blue-700";
   }
 
-  return `outline-transparent ${!isSelectingParams ? "active:outline-cyan-300" : ""}`;
+  return `outline-transparent active:outline-cyan-300`;
 }
 
 export function getOnSectionClick({ sectionId, isActiveSection }) {

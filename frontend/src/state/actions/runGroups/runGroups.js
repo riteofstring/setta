@@ -1,6 +1,30 @@
-import { useMisc, useProjectConfig, useRunGroups } from "state/definitions";
-import { getSectionByName } from "state/getters/sectionInfo";
+import C from "constants/constants.json";
+import _ from "lodash";
+import {
+  useMisc,
+  useNodeInternals,
+  useProjectConfig,
+  useRunGroups,
+  useSectionInfos,
+  useSectionVariants,
+} from "state/definitions";
+import {
+  getSectionByName,
+  getSectionInfo,
+  getSectionName,
+  getSectionType,
+} from "state/getters/sectionInfo";
+import { useSectionTypeNames } from "state/hooks/uiTypes";
 import { createNewId } from "utils/idNameCreation";
+
+const RUNNABLE_SECTION_TYPES = [
+  C.SECTION,
+  C.LIST_ROOT,
+  C.DICT_ROOT,
+  C.DECK,
+  C.GLOBAL_VARIABLES,
+  C.CODE,
+];
 
 export function setAllRunGroups(payload) {
   useRunGroups.setState({ x: payload });
@@ -9,6 +33,11 @@ export function setAllRunGroups(payload) {
 export function initRunGroup({ id, name }) {
   useRunGroups.setState((state) => {
     state.x[id] = { name, sections: {} };
+    for (const c of useNodeInternals.getState().x.keys()) {
+      if (RUNNABLE_SECTION_TYPES.includes(getSectionType(c).type)) {
+        maybeInitRunGroupSection(state, id, c, null);
+      }
+    }
   });
 
   useProjectConfig.setState((state) => {
@@ -22,79 +51,181 @@ export function toggleRunGroup(id) {
   });
 }
 
-export function maybeInitRunGroupSection({ id, sectionId }) {
-  useRunGroups.setState((state) => {
-    if (!(sectionId in state.x[id].sections)) {
-      state.x[id].sections[sectionId] = {
-        selected: false,
-        paramSweeps: {},
-        versions: {},
-      };
-    }
-  });
+function newRunGroupSection(sectionId, initVariantId) {
+  return {
+    selected: true,
+    paramSweeps: {},
+    versions: { [initVariantId ?? getSectionInfo(sectionId).variantId]: true },
+  };
 }
 
-export function toggleRunGroupSection({ id, sectionId }) {
-  maybeInitRunGroupSection({ id, sectionId });
-  useRunGroups.setState((state) => {
-    const s = state.x[id].sections[sectionId];
-    s.selected = !s.selected;
-  });
-}
-
-export function maybeInitRunGroupSectionAttr({
+// must use inside of setState
+function maybeInitRunGroupSection(
+  state,
   id,
+  sectionId,
+  parentVariantId,
+  initVariantId = null,
+) {
+  let isNewInit = false;
+  if (!(sectionId in state.x[id].sections)) {
+    state.x[id].sections[sectionId] = {};
+    maybeInitAllDescendants(
+      state,
+      id,
+      initVariantId ?? getSectionInfo(sectionId).variantId,
+    );
+    isNewInit = true;
+  }
+  if (!(parentVariantId in state.x[id].sections[sectionId])) {
+    state.x[id].sections[sectionId][parentVariantId] = newRunGroupSection(
+      sectionId,
+      initVariantId,
+    );
+    isNewInit = true;
+  }
+
+  return isNewInit;
+}
+
+function maybeInitAllDescendants(state, id, variantId) {
+  for (const c of useSectionVariants.getState().x[variantId].children) {
+    maybeInitRunGroupSection(state, id, c, variantId);
+  }
+}
+
+// must use inside of setState
+function forceAllAncestorsToBeSelected(state, id, ancestors) {
+  for (const [idx, a] of ancestors.entries()) {
+    const parentVariantId = idx === 0 ? null : ancestors[idx - 1].variantId;
+    maybeInitRunGroupSection(state, id, a.id, parentVariantId);
+    const currState = state.x[id].sections[a.id][parentVariantId];
+    currState.versions[a.variantId] = true;
+    currState.selected = true;
+  }
+}
+
+function allAncestorsAreSelected(state, id, ancestors) {
+  for (const [idx, a] of ancestors.entries()) {
+    const parentVariantId = idx === 0 ? null : ancestors[idx - 1].variantId;
+    if (
+      !state.x[id].sections[a.id]?.[parentVariantId].versions[a.variantId] ||
+      !sectionIsSelected(state, id, a.id, parentVariantId)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function sectionIsSelected(state, id, sectionId, parentVariantId) {
+  return state.x[id].sections[sectionId]?.[parentVariantId].selected;
+}
+
+function toggleRunGroupSectionAttr({
+  id,
+  ancestors,
   sectionId,
   attrName,
   attrId,
+  parentVariantId,
 }) {
-  maybeInitRunGroupSection({ id, sectionId });
   useRunGroups.setState((state) => {
-    if (!(attrId in state.x[id].sections[sectionId][attrName])) {
-      state.x[id].sections[sectionId][attrName][attrId] = false;
+    const isNewInit = maybeInitRunGroupSection(
+      state,
+      id,
+      sectionId,
+      parentVariantId,
+      attrName === "versions" ? attrId : null,
+    );
+    let newState;
+    const thisSectionState = state.x[id].sections[sectionId][parentVariantId];
+    // if not new init, and if all ancestors are selected, and (when toggling version or paramsweep) the section itself is selected
+    if (
+      !isNewInit &&
+      allAncestorsAreSelected(state, id, ancestors) &&
+      (attrName === "selected" ||
+        sectionIsSelected(state, id, sectionId, parentVariantId))
+    ) {
+      newState = attrId
+        ? !thisSectionState[attrName][attrId]
+        : !thisSectionState[attrName];
+    } else {
+      newState = true;
+    }
+
+    if (attrId) {
+      thisSectionState[attrName][attrId] = newState;
+    } else {
+      thisSectionState[attrName] = newState;
+    }
+    if (newState) {
+      // if we set version or param sweep to true, we also need to set selected to true
+      // (if we're already setting selected, this is redundant, but doesn't hurt)
+      thisSectionState.selected = true;
+      // if toggled to be selected, force all ancestors to be selected too
+      forceAllAncestorsToBeSelected(state, id, ancestors);
+
+      // if any children haven't been initialized, then it means we're
+      // selecting this section or version for the first time
+      // so by default we want all children to be selected too.
+      if (attrName === "selected" || attrName === "versions") {
+        const variantId =
+          attrName === "versions"
+            ? attrId
+            : getSectionInfo(sectionId).variantId;
+        maybeInitAllDescendants(state, id, variantId);
+      }
     }
   });
 }
 
-export function toggleRunGroupSectionAttr({ id, sectionId, attrName, attrId }) {
-  maybeInitRunGroupSectionAttr({
+export function toggleRunGroupSection({
+  id,
+  ancestors,
+  sectionId,
+  parentVariantId,
+}) {
+  toggleRunGroupSectionAttr({
     id,
+    ancestors,
     sectionId,
-    attrName,
-    attrId,
-  });
-  useRunGroups.setState((state) => {
-    const s = state.x[id].sections[sectionId];
-    if (s.selected) {
-      s[attrName][attrId] = !s[attrName][attrId];
-    } else {
-      for (const _attrId of Object.keys(s[attrName])) {
-        s[attrName][_attrId] = _attrId === attrId;
-      }
-      s.selected = true;
-    }
+    attrName: "selected",
+    parentVariantId,
   });
 }
 
 export function toggleRunGroupSectionParamSweep({
   id,
-  sectionId,
   paramSweepId,
+  ancestors,
+  sectionId,
+  parentVariantId,
 }) {
   toggleRunGroupSectionAttr({
     id,
+    ancestors,
     sectionId,
     attrName: "paramSweeps",
     attrId: paramSweepId,
+    parentVariantId,
   });
 }
 
-export function toggleRunGroupSectionVersion({ id, sectionId, versionId }) {
+export function toggleRunGroupSectionVersion({
+  id,
+  versionId,
+  ancestors,
+  sectionId,
+  parentVariantId,
+}) {
   toggleRunGroupSectionAttr({
     id,
+    ancestors,
     sectionId,
     attrName: "versions",
     attrId: versionId,
+    parentVariantId,
   });
 }
 
@@ -133,4 +264,30 @@ function parsePrettyRunGroupSections(runGroup) {
     // }
   }
   return sections;
+}
+
+export function useRunGroupListing(variantId) {
+  const sectionTypeNames = useSectionTypeNames();
+  return useSectionVariants((x) => {
+    const output = [];
+    for (const childId of x.x[variantId].children) {
+      if (RUNNABLE_SECTION_TYPES.includes(sectionTypeNames[childId])) {
+        output.push({ id: childId, name: getSectionName(childId) });
+      }
+    }
+    return output;
+  }, _.isEqual);
+}
+
+export function useTopLevelRunGroupListing() {
+  const sectionTypeNames = useSectionTypeNames();
+  return useSectionInfos((x) => {
+    const output = [];
+    for (const [k, v] of Object.entries(x.x)) {
+      if (!v.parentId && RUNNABLE_SECTION_TYPES.includes(sectionTypeNames[k])) {
+        output.push({ id: k, name: v.name });
+      }
+    }
+    return output;
+  }, _.isEqual);
 }

@@ -6,10 +6,12 @@ import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
 import { matchSorter } from "match-sorter";
 import { forwardRef, useEffect, useState } from "react";
 import { BiPlus } from "react-icons/bi";
+import { HiHome } from "react-icons/hi";
 import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { Link, useNavigate } from "react-router-dom";
-import { dbDeleteProjectConfigs } from "requests/projects";
+import { dbSetAsDefaultProject } from "requests/projects";
+import { openDeleteProjectWarningModal } from "state/actions/modal";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
 import { useGetAllProjectConfigMetadata } from "state/hooks/project";
@@ -50,14 +52,33 @@ function RightColumn({ projects, setDoRefresh }) {
   }
 
   async function onClickDelete() {
-    const res = await dbDeleteProjectConfigs(selectedProjects);
-    if (res.status === 200) {
-      setDoRefresh(true);
+    openDeleteProjectWarningModal({
+      setDoRefresh,
+      setSelectedProjects,
+      selectedProjects: selectedProjects.map((s) => ({
+        id: s,
+        name: projects.find((p) => p.id === s).name,
+      })),
+    });
+  }
+
+  function onEscapeClearSelectedProjects(e) {
+    if (e.key === "Escape") {
+      setSelectedProjects([]);
     }
   }
 
+  async function onClickMakeDefault() {
+    const projectId = selectedProjects[0];
+    await dbSetAsDefaultProject(projectId);
+    setDoRefresh(true);
+  }
+
   return (
-    <div className="overflow-y-auto px-10 py-8">
+    <div
+      className="overflow-y-auto px-10 py-8"
+      onKeyDown={onEscapeClearSelectedProjects}
+    >
       <div className="flex justify-between gap-4">
         <div className="flex gap-4">
           <StandardButton
@@ -70,9 +91,18 @@ function RightColumn({ projects, setDoRefresh }) {
           <StandardButton
             twClasses="py-2 px-4 rounded-full font-medium  text-white/75 bg-setta-500/25 hover:bg-red-500 hover:text-white gap-2"
             onClick={onClickDelete}
+            disabled={selectedProjects.length === 0}
           >
             <IoClose />
             Delete
+          </StandardButton>
+          <StandardButton
+            twClasses="py-2 px-4 rounded-full font-medium  text-white/75 bg-setta-500/25 hover:bg-green-500 hover:text-white gap-2"
+            onClick={onClickMakeDefault}
+            disabled={selectedProjects.length !== 1}
+          >
+            <HiHome />
+            Make Default
           </StandardButton>
         </div>
         <Link
@@ -109,6 +139,7 @@ function ProjectItems({ projects, selectedProjects, onSelectProject }) {
           key={`Project ${i} ${x.name}`}
           isSelected={selectedProjects.includes(x.id)}
           onSelectProject={onSelectProject}
+          inSelectionMode={selectedProjects.length > 0}
         />
       ))}
     </div>
@@ -116,29 +147,42 @@ function ProjectItems({ projects, selectedProjects, onSelectProject }) {
 }
 
 const ProjectItem = forwardRef(
-  ({ project, isSelected, onSelectProject }, forwardedRef) => {
+  ({ project, isSelected, onSelectProject, inSelectionMode }, forwardedRef) => {
     const itemStyles =
       "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-setta-600 gap-0";
 
+    const WrapperDiv = !inSelectionMode ? Link : "div";
+    const wrapperProps = !inSelectionMode
+      ? {
+          to: `/${project.name}`,
+          state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+          className: "contents",
+          relative: "path",
+        }
+      : {
+          className: "contents",
+          onClick: (e) => onSelectProject(e, project.id),
+        };
+
     return (
       <div ref={forwardedRef} className={itemStyles}>
-        <Link
-          to={`/${project.name}`}
-          state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
-          className="contents"
-          relative="path"
-        >
+        <WrapperDiv {...wrapperProps}>
           <ThumbnailArea
             project={project}
             isSelected={isSelected}
             onSelectProject={onSelectProject}
           />
-          <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-setta-800 ">
-            <p className=" text-sm text-setta-600 dark:text-setta-100">
-              {project.name}
-            </p>
+          <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-setta-800">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-setta-600 dark:text-setta-100">
+                {project.name}
+              </p>
+              {!!project.isDefault && (
+                <HiHome className="h-4 w-4 text-setta-600 dark:text-setta-100" />
+              )}
+            </div>
           </div>
-        </Link>
+        </WrapperDiv>
       </div>
     );
   },
@@ -152,7 +196,7 @@ function ThumbnailArea({ project, isSelected, onSelectProject }) {
     <div
       className={`absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-center p-4 ${project.previewImgColor}`}
     >
-      <aside className="z-[1000] col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
+      <aside className="z-[10] col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
         <IconButton
           icon={<IoMdCheckmark />}
           color="text-white/50 hover:text-white"

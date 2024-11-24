@@ -1,12 +1,18 @@
 import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { FaRegSnowflake } from "react-icons/fa";
+import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
+import { toggleParamSweepIsFrozen } from "state/actions/runGroups/paramSweep";
 import {
   manualDndChildrenReset,
   setSectionInfoAttr,
 } from "state/actions/sections/sectionInfos";
-import { getSectionVariantId } from "state/actions/sectionVariants";
-import { useSectionInfos, useSectionVariants } from "state/definitions";
+import { toggleVariantFrozenState } from "state/actions/sectionVariants";
+import {
+  useParamSweep,
+  useSectionInfos,
+  useSectionVariants,
+} from "state/definitions";
 import {
   getForSectionId,
   useCurrParamSweepId,
@@ -27,6 +33,7 @@ export function VersionList({ sectionId }) {
       value: null,
     });
     manualDndChildrenReset();
+    maybeRunGuiToYaml(sectionId);
   }
 
   return (
@@ -54,16 +61,19 @@ function EVItems({ sectionId }) {
 
   function onMouseOver(id) {
     setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: id });
-    const newChildren =
-      useSectionVariants.getState().x[
-        getSectionVariantId(sectionId)["previewVariantId"]
-      ].children;
+    const newChildren = useSectionVariants.getState().x[id].children;
     useDndChildren.getState().updateOneParent(sectionId, newChildren);
+    maybeRunGuiToYaml(sectionId);
   }
 
   function onClick(id) {
     setSectionInfoAttr({ sectionId, attr: "variantId", value: id });
     manualDndChildrenReset();
+    maybeRunGuiToYaml(sectionId);
+  }
+
+  function isFrozenHook(id) {
+    return { hook: useSectionVariants, selector: (x) => x.x[id].isFrozen };
   }
 
   return sectionVariantNames.map((e) => (
@@ -74,6 +84,8 @@ function EVItems({ sectionId }) {
       isCurr={currVariantId === e.id}
       onMouseOver={onMouseOver}
       onClick={onClick}
+      onFreezeClick={toggleVariantFrozenState}
+      isFrozenHook={isFrozenHook}
     />
   ));
 }
@@ -98,6 +110,10 @@ function ParamSweepItems({ sectionId }) {
     });
   }
 
+  function isFrozenHook(id) {
+    return { hook: useParamSweep, selector: (x) => x.x[id].isFrozen };
+  }
+
   return paramSweepNames.map((e) => (
     <OneItem
       key={e.id}
@@ -106,11 +122,24 @@ function ParamSweepItems({ sectionId }) {
       isCurr={currParamSweepId === e.id}
       onMouseOver={onMouseOver}
       onClick={onClick}
+      onFreezeClick={toggleParamSweepIsFrozen}
+      isFrozenHook={isFrozenHook}
     />
   ));
 }
 
-function OneItem({ id, name, isCurr, onMouseOver, onClick }) {
+function OneItem({
+  id,
+  name,
+  isCurr,
+  onMouseOver,
+  onClick,
+  onFreezeClick,
+  isFrozenHook,
+}) {
+  const { hook: useIsFrozen, selector: frozenSelector } = isFrozenHook(id);
+  const isFrozen = useIsFrozen(frozenSelector);
+
   return (
     <li
       onMouseOver={() => onMouseOver(id)}
@@ -126,7 +155,17 @@ function OneItem({ id, name, isCurr, onMouseOver, onClick }) {
       >
         {name}
       </p>
-      <button className="cursor-pointer bg-transparent text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50">
+      <button
+        className={`cursor-pointer bg-transparent ${
+          isFrozen
+            ? "text-blue-500"
+            : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
+        }`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onFreezeClick(id);
+        }}
+      >
         <FaRegSnowflake />
       </button>
     </li>

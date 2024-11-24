@@ -40,7 +40,7 @@ def version():
 )
 @click.option("--with_examples", is_flag=True)
 def init_db(path, with_examples):
-    dbq = DBQueue(path, True)
+    dbq = DBQueue(path)
     maybe_create_tables_and_seed(dbq, with_examples)
 
 

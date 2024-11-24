@@ -116,6 +116,11 @@ export const MODAL_TYPE = {
     title: "Save Custom Arguments",
     buttonText: "Save",
   },
+  DELETE_PROJECT_WARNING: {
+    purpose: null,
+    title: "Confirm Deletion",
+    buttonText: "Delete",
+  },
 };
 
 export const PAGE_LOAD_TYPES = {

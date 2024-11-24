@@ -10,10 +10,13 @@ import {
 } from "state/actions/sectionVariants";
 import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
+import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 
 export function SectionSearch({ sectionId, selectedItem }) {
+  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
+
   function onEnter(value) {
     function callbackSetAttr(id) {
       // for this callback, an undefined id means that the selectedItem is already selected.
@@ -33,6 +36,7 @@ export function SectionSearch({ sectionId, selectedItem }) {
       onEnter={onEnter}
       dummyCodeClassName="single-cell-child rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]"
       realCodeClassName="single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-setta-100 bg-white mx-[.125rem] py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
+      isDisabled={variantIsDisabled}
     />
   );
 }
@@ -46,6 +50,7 @@ export function ParamSweepSectionSearch({
   onPlusClick,
   onMinusClick,
   disablePlusButton,
+  isDisabled,
 }) {
   async function onEnter(value) {
     function callbackSetAttr(id) {
@@ -71,6 +76,7 @@ export function ParamSweepSectionSearch({
         visualSectionId={sectionId}
         selectedItem={selectedItem}
         onEnter={onEnter}
+        isDisabled={isDisabled}
         dummyCodeClassName="single-cell-child rounded-2xl w-full border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono text-xs [tab-size:4] [word-break:break-word]"
         realCodeClassName="single-cell-child nodrag w-full [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
       />
@@ -79,6 +85,7 @@ export function ParamSweepSectionSearch({
           className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
             hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
           onClick={onMinusClick}
+          disabled={isDisabled}
         >
           <i className="gg-remove" />
         </button>
@@ -86,7 +93,7 @@ export function ParamSweepSectionSearch({
           className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
             hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
           onClick={onPlusClick}
-          disabled={disablePlusButton}
+          disabled={disablePlusButton || isDisabled}
         >
           <i className="gg-add" />
         </button>
@@ -102,6 +109,7 @@ function SectionSearchCore({
   onEnter,
   dummyCodeClassName,
   realCodeClassName,
+  isDisabled,
 }) {
   const configLanguage = useSectionInfos(
     (x) => x.x[dataSectionId].configLanguage,
@@ -177,6 +185,7 @@ function SectionSearchCore({
         language={configLanguage}
         keywordPositions={localKeywordPositions}
         setKeywordPositions={setLocalKeywordPositions}
+        isDisabled={isDisabled}
       />
       <LoadingSpinner sectionId={dataSectionId} />
     </search>

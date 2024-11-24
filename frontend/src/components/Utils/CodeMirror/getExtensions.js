@@ -26,6 +26,7 @@ export function getExtensions({
   onTab,
   onEscape,
   onModEnterDoNothing,
+  isDisabled,
 }) {
   const extensions = [
     EditorView.lineWrapping,
@@ -157,6 +158,10 @@ export function getExtensions({
         ]),
       ),
     );
+  }
+
+  if (isDisabled) {
+    extensions.push(EditorState.readOnly.of(true));
   }
 
   return extensions;

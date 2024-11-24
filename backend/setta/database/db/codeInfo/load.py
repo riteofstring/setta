@@ -26,7 +26,6 @@ def load_code_info(db, ids):
     code_info_cols = {}
     for k in ids:
         code_info_cols[k] = {
-            "id": k,
             "children": defaultdict(list),
         }
         code_info_cols[k]["children"][None] = []

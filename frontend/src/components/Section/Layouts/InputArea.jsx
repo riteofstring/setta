@@ -1,4 +1,4 @@
-import { YamlView } from "components/Params/YamlView";
+import { SectionYamlView } from "components/Params/YamlView";
 import React from "react";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useSectionSelectedItem } from "state/hooks/sectionVariants";
@@ -11,7 +11,7 @@ function _InputArea({ sectionId, bgColor }) {
   const selectedItem = useSectionSelectedItem(sectionId);
   const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
   const hideParams = useGetSectionInfo(sectionId, "hideParams");
-  const { showYaml, yamlValue, setYamlValue } = useShowYaml(sectionId);
+  const showYaml = useShowYaml(sectionId);
 
   return (
     <>
@@ -28,13 +28,7 @@ function _InputArea({ sectionId, bgColor }) {
           <ParamGroupContainer sectionId={sectionId} />
         </>
       )}
-      {!!showYaml && (
-        <YamlView
-          sectionId={sectionId}
-          yamlValue={yamlValue}
-          setYamlValue={setYamlValue}
-        />
-      )}
+      {!!showYaml && <SectionYamlView sectionId={sectionId} />}
     </>
   );
 }

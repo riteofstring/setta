@@ -11,6 +11,7 @@ import {
   addRegularSectionInEmptySpace,
 } from "state/actions/sections/createSections";
 import { autoLayout } from "state/actions/sections/sectionPositions";
+import { resetAllSectionsToDefaultVersions } from "state/actions/sectionVariants";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";
@@ -68,6 +69,9 @@ function Items() {
       </MenuItem>
       <MenuItem onClick={undoProjectState} shortcut={shortcuts.undoShortcut}>
         Undo
+      </MenuItem>
+      <MenuItem onClick={resetAllSectionsToDefaultVersions}>
+        Reset sections
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
       <Link to={SETTINGS_ROUTER_PATH}>

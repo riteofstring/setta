@@ -1,87 +1,273 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { dbSectionToDict } from "requests/guiToYaml";
+import { dbGuiToYaml } from "requests/guiToYaml";
 import {
   addCodeInfoBatch,
   batchUpdateCodeInfoAttrs,
 } from "state/actions/codeInfo";
 import { initializeParam } from "state/actions/initializeParam";
-import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import {
   getSectionSelectedItem,
   setParamEnteredValueBatch,
 } from "state/actions/sectionVariants";
-import { useCodeInfo, useSectionInfos } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
+import {
+  useCodeInfo,
+  useOriginalYamlObj,
+  useParamSweep,
+  useRunGroups,
+  useSectionInfos,
+  useSectionVariants,
+  useYamlValue,
+} from "state/definitions";
+import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
+import { getForSectionId } from "state/hooks/paramSweep";
+import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { parseAllDocuments, stringify } from "yaml";
-import { batchUpdateCodeInfoChildren } from "./codeInfoCols";
+import { parseAllDocuments } from "yaml";
+import {
+  batchUpdateCodeInfoChildren,
+  getSectionCodeInfoChildren,
+} from "./codeInfoCols";
+import {
+  getParamIds,
+  paramNameFromPathArray,
+} from "./sections/sectionContents";
 
-export async function guiToYaml(sectionId, setYamlValue, setOriginalObj) {
-  const selectedItem = getSectionSelectedItem(sectionId);
-  const selectedItemName = selectedItem
-    ? useCodeInfo.getState().x[selectedItem].name
-    : null;
-  const pinnedIds = getParamIdsToShowInArea(sectionId, true);
-  const unpinnedIds = getParamIdsToShowInArea(sectionId, false);
-
-  const res = await dbSectionToDict(sectionId, pinnedIds, unpinnedIds);
+export async function guiToYaml(sectionId) {
+  const { res, metaData } = await dbGuiToYaml(sectionId);
   if (res.status === 200) {
-    const fullOriginalObj = processObject(res.data);
-    setOriginalObj(_.pick(fullOriginalObj, ["pinned", "unpinned"]));
-    const pinnedStr = stringify(fullOriginalObj.prettyPinned);
-    const unpinnedStr = stringify(fullOriginalObj.prettyUnpinned);
-
-    let newYamlValue = "";
-    if (!_.isNil(selectedItemName)) {
-      newYamlValue += `${selectedItemName}\n---\n`;
-    }
-    if (_.size(fullOriginalObj.prettyPinned) > 0) {
-      newYamlValue += `${pinnedStr}\n---\n`;
-    } else if (newYamlValue !== "") {
-      newYamlValue += "\n---\n";
-    }
-    if (_.size(fullOriginalObj.prettyUnpinned) > 0) {
-      newYamlValue += unpinnedStr;
-    }
-    setYamlValue(newYamlValue);
+    const { originalObj, yamlValue } = res.data;
+    useOriginalYamlObj.setState(() => ({
+      [sectionId]: { originalObj, metaData },
+    }));
+    useYamlValue.setState(() => ({ [sectionId]: yamlValue }));
   }
 }
 
-function processValue(value) {
-  if (typeof value === "string") {
-    if (value === "") {
-      return value;
-    } else if (value === "true") {
-      return true; // Convert string "true" to boolean true
-    } else if (value === "false") {
-      return false; // Convert string "false" to boolean false
-    } else if (!isNaN(value)) {
-      return Number(value); // Convert numeric strings to numbers
-    } else {
-      return value; // Keep the string as is
+export function yamlToGUI(sectionId) {
+  const sectionType = getSectionType(sectionId);
+  const yamlValue = useYamlValue.getState()[sectionId] ?? "";
+  switch (sectionType.type) {
+    case C.PARAM_SWEEP:
+      paramSweepSectionYamlToGUI(sectionId, yamlValue);
+      break;
+    case C.GLOBAL_PARAM_SWEEP:
+      const metaData = useOriginalYamlObj.getState()[sectionId]?.metaData ?? {};
+      globalParamSweepSectionYamlToGUI(yamlValue, metaData);
+      break;
+    case C.GLOBAL_VARIABLES:
+    case C.SECTION:
+      const originalObj =
+        useOriginalYamlObj.getState()[sectionId]?.originalObj ?? {};
+      sectionYamlToGUI(sectionId, yamlValue, originalObj);
+      break;
+  }
+}
+
+function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
+  const forSectionId = getForSectionId(useSectionInfos.getState().x, sectionId);
+  const docs = parseAllDocuments(yamlValue);
+  const codeInfoChildren = getSectionCodeInfoChildren(forSectionId);
+  const codeInfoChildrenKeys = Object.keys(codeInfoChildren);
+  const codeInfo = useCodeInfo.getState().x;
+  const newParamSweep = [];
+
+  for (const doc of docs) {
+    const d = doc.toJS();
+    const hasCallable = !Array.isArray(d);
+    let matchingCallableId = null,
+      callableName;
+    if (hasCallable) {
+      callableName = Object.keys(d)[0];
+      matchingCallableId = tryFindingMatchingId(
+        callableName,
+        codeInfoChildrenKeys,
+        codeInfo,
+      );
+      if (!matchingCallableId) {
+        continue;
+      }
     }
-  } else if (Array.isArray(value)) {
-    // Recursively process each element in the array
-    return value.map(processValue);
-  } else if (typeof value === "object" && value !== null) {
-    // Recursively process nested objects
-    return processObject(value);
+
+    const { pathMap } = getParamIds(
+      forSectionId,
+      codeInfo,
+      codeInfoChildren,
+      matchingCallableId,
+      (p) => p.rcType === C.PARAMETER,
+    );
+
+    const paramsInDoc = callableName ? d[callableName] : d;
+    const params = [];
+
+    for (const singleParam of paramsInDoc) {
+      const paramName = Object.keys(singleParam)[0];
+      let matchingParamId;
+      for (const id of Object.keys(pathMap)) {
+        if (paramNameFromPathArray(codeInfo, pathMap, id) === paramName) {
+          matchingParamId = id;
+          break;
+        }
+      }
+      if (!matchingParamId) {
+        continue;
+      }
+      params.push({
+        paramInfoId: matchingParamId,
+        values: singleParam[paramName],
+      });
+    }
+
+    newParamSweep.push({ selectedItem: matchingCallableId, params });
+  }
+
+  const { paramSweepId } = getSectionInfo(forSectionId);
+  useParamSweep.setState((x) => {
+    x.x[paramSweepId].sweep = newParamSweep;
+  });
+}
+
+function tryFindingMatchingId(name, codeInfoChildrenKeys, codeInfo) {
+  return codeInfoChildrenKeys.find((x) => codeInfo[x]?.name === name);
+}
+
+function globalParamSweepSectionYamlToGUI(yamlValue, metaData) {
+  const doc = parseAllDocuments(yamlValue)[0].toJS();
+  const runGroupId = metaData.runGroupId;
+  const sections = useSectionInfos.getState().x;
+  const sectionVariants = useSectionVariants.getState().x;
+  const paramSweeps = useParamSweep.getState().x;
+  const newRunGroupSections = {};
+
+  for (const [k, v] of Object.entries(doc)) {
+    recursiveHelper(
+      k,
+      v,
+      sections,
+      sectionVariants,
+      paramSweeps,
+      newRunGroupSections,
+      null,
+      null,
+    );
+  }
+
+  useRunGroups.setState((x) => {
+    x.x[runGroupId].sections = newRunGroupSections;
+  });
+}
+
+function recursiveHelper(
+  name,
+  value,
+  sections,
+  sectionVariants,
+  paramSweeps,
+  newRunGroupSections,
+  forSectionId,
+  parentVariantId,
+) {
+  let nextForSectionId = forSectionId;
+  let nextParentVariantId = parentVariantId;
+  const [match, type] = getMatch(
+    name,
+    forSectionId,
+    sections,
+    sectionVariants,
+    paramSweeps,
+  );
+  if (type === "section") {
+    if (!(match in newRunGroupSections)) {
+      newRunGroupSections[match] = {};
+    }
+    newRunGroupSections[match][parentVariantId] = {
+      selected: true,
+      versions: {},
+      paramSweeps: {},
+    };
+    nextForSectionId = match;
+  } else if (type === "sectionVariant") {
+    newRunGroupSections[forSectionId][parentVariantId].versions[match] = true;
+    nextParentVariantId = match;
+  } else if (type === "paramSweep") {
+    newRunGroupSections[forSectionId][parentVariantId].paramSweeps[match] =
+      true;
+  }
+
+  if (type === "section") {
+    // if a section doesn't have any children
+    // or if none of the children start with @
+    // then we need to select the section's only version here because it won't be
+    // covered recursively
+    if (!value || !Object.keys(value).some((k) => k.startsWith("@"))) {
+      nextParentVariantId = sections[match].variantId;
+      newRunGroupSections[match][parentVariantId].versions[
+        nextParentVariantId
+      ] = true;
+    }
+  }
+
+  if (!value) {
+    return;
+  }
+
+  for (const [k, v] of Object.entries(value)) {
+    recursiveHelper(
+      k,
+      v,
+      sections,
+      sectionVariants,
+      paramSweeps,
+      newRunGroupSections,
+      nextForSectionId,
+      nextParentVariantId,
+    );
+  }
+}
+
+function getMatch(name, forSectionId, sections, sectionVariants, paramSweeps) {
+  let match, type;
+  if (forSectionId && name.startsWith("@")) {
+    const searchName = name.slice(1);
+    for (const v of sections[forSectionId].variantIds) {
+      if (sectionVariants[v].name === searchName) {
+        match = v;
+        type = "sectionVariant";
+        break;
+      }
+    }
+  } else if (forSectionId && name.startsWith("~")) {
+    const searchName = name.slice(1);
+    for (const v of sections[forSectionId].paramSweepIds) {
+      if (paramSweeps[v].name === searchName) {
+        match = v;
+        type = "paramSweep";
+        break;
+      }
+    }
+  } else if (forSectionId) {
+    for (const v of sectionVariants[sections[forSectionId].variantId]
+      .children) {
+      if (sections[v].name === name) {
+        match = v;
+        type = "section";
+        break;
+      }
+    }
   } else {
-    return value; // Return the value as is for other data types
+    for (const v of Object.values(sections)) {
+      if (v.name === name) {
+        match = v.id;
+        type = "section";
+        break;
+      }
+    }
   }
+  return [match, type];
 }
 
-function processObject(obj) {
-  const result = {};
-  for (const key of Object.keys(obj)) {
-    result[key] = processValue(obj[key]);
-  }
-  return result;
-}
-
-export function yamlToGUI(sectionId, yamlValue, originalObj) {
+function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   const docs = parseAllDocuments(yamlValue);
   console.log("docs", docs);
   let selectedItemName = null;
@@ -167,27 +353,28 @@ export function yamlToGUI(sectionId, yamlValue, originalObj) {
 
   //TODO: what should editing selectedName do? The following assumes it has no effect.
   const selectedItem = getSectionSelectedItem(sectionId);
-  const parentId = selectedItem ?? getSectionInfo(sectionId).codeInfoId;
-  const idsToChildren = {};
-  if (parentId) {
-    idsToChildren[parentId] = [];
-  }
+  const parentId = selectedItem ?? null;
+  const idsToChildren = { [parentId]: [] };
   for (const v of output) {
     idsToChildren[v.id] = [];
   }
 
   // process everything except pinned parameters that already exist
   updateIdsToChildren({
+    sectionId,
     idsToChildren,
-    output: output.filter((v) => !(v.isPinned && !v.isNewParam)),
+    output,
+    toProcess: output.filter((v) => !(v.isPinned && !v.isNewParam)),
     inputParentId: parentId,
     insertAtOriginalIdx: false,
   });
 
   // pinned parameters that already exist should be inserted at their original indices
   updateIdsToChildren({
+    sectionId,
     idsToChildren,
-    output: output.filter((v) => v.isPinned && !v.isNewParam),
+    output,
+    toProcess: output.filter((v) => v.isPinned && !v.isNewParam),
     inputParentId: parentId,
     insertAtOriginalIdx: true,
   });
@@ -339,12 +526,14 @@ function unprocessObject(obj) {
 }
 
 function updateIdsToChildren({
+  sectionId,
   idsToChildren,
   output,
+  toProcess,
   inputParentId,
   insertAtOriginalIdx,
 }) {
-  for (const v of output) {
+  for (const v of toProcess) {
     let parentId = inputParentId;
 
     if (v.keyPath.length > 1) {
@@ -359,17 +548,25 @@ function updateIdsToChildren({
       }
     }
 
-    if (!parentId) {
-      continue;
-    }
-
     if (insertAtOriginalIdx) {
-      const originalIdx = useCodeInfo
-        .getState()
-        .x[parentId].children.indexOf(v.id);
+      const originalIdx = getSectionCodeInfoChildren(sectionId)[
+        parentId
+      ].indexOf(v.id);
       idsToChildren[parentId].splice(originalIdx, 0, v.id);
     } else {
       idsToChildren[parentId].push(v.id);
     }
+  }
+}
+
+export function maybeRunGuiToYaml(sectionId) {
+  if (getSectionInfo(sectionId).displayMode === SECTION_DISPLAY_MODES.YAML) {
+    guiToYaml(sectionId);
+  }
+}
+
+export function maybeRunGuiToYamlOnAllSections() {
+  for (const k of Object.keys(useSectionInfos.getState().x)) {
+    maybeRunGuiToYaml(k);
   }
 }

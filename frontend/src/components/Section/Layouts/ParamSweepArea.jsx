@@ -1,4 +1,5 @@
 import { ParamSweepUI } from "components/Params/ParamUIs/ParamUI";
+import { ParamSweepSectionYamlView } from "components/Params/YamlView";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
 import _ from "lodash";
@@ -14,14 +15,32 @@ import {
   deleteParamSweepValue,
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
-import { getParamIds } from "state/actions/sections/sectionContents";
+import {
+  getParamIds,
+  paramNameFromPathArray,
+} from "state/actions/sections/sectionContents";
 import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useSectionCodeInfoChildren } from "state/hooks/codeInfoCols";
-import { useParamSweepInfo } from "state/hooks/paramSweep";
+import {
+  useParamSweepInfo,
+  useParamSweepIsFrozen,
+} from "state/hooks/paramSweep";
 import { useSectionTypeName } from "state/hooks/uiTypes";
 import { ParamSweepSectionSearch } from "../SectionParts/Search";
+import { useShowYaml } from "./toYaml";
 
 function _ParamSweepArea({ sectionId }) {
+  const showYaml = useShowYaml(sectionId);
+  return !showYaml ? (
+    <ParamSweepAreaGUI sectionId={sectionId} />
+  ) : (
+    <ParamSweepSectionYamlView sectionId={sectionId} />
+  );
+}
+
+export const ParamSweepArea = React.memo(_ParamSweepArea);
+
+function _ParamSweepAreaGUI({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId } =
     useParamSweepInfo(sectionId);
 
@@ -32,6 +51,10 @@ function _ParamSweepArea({ sectionId }) {
     addParamSweepCallable({ paramSweepId });
   }
 
+  const isDisabled = useParamSweepIsFrozen(sectionId);
+
+  console.log("paramSweep", paramSweep);
+
   return (
     <>
       <div className="section-main-full-w ml-1.5 flex flex-col overflow-x-clip overflow-y-scroll">
@@ -40,6 +63,7 @@ function _ParamSweepArea({ sectionId }) {
             forSectionId={forSectionId}
             paramSweepId={paramSweepId}
             paramSweep={paramSweep}
+            isDisabled={isDisabled}
           />
         )}
         {paramSweep.length > 0 ? (
@@ -52,6 +76,7 @@ function _ParamSweepArea({ sectionId }) {
               paramSweepId={paramSweepId}
               selectedItemIdx={idx}
               showParamSweepSectionSearch={showParamSweepSectionSearch}
+              isDisabled={isDisabled}
             />
           ))
         ) : (
@@ -63,6 +88,7 @@ function _ParamSweepArea({ sectionId }) {
           <button
             className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500/30 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
             onClick={onAddCallableClick}
+            disabled={isDisabled}
           >
             <i className="gg-play-list-add !scale-75" />
             <p>Callable</p>
@@ -73,7 +99,7 @@ function _ParamSweepArea({ sectionId }) {
   );
 }
 
-export const ParamSweepArea = React.memo(_ParamSweepArea);
+export const ParamSweepAreaGUI = React.memo(_ParamSweepAreaGUI);
 
 function ParamSweepForOneSelectedItem({
   sectionId,
@@ -82,6 +108,7 @@ function ParamSweepForOneSelectedItem({
   paramSweepId,
   selectedItemIdx,
   showParamSweepSectionSearch,
+  isDisabled,
 }) {
   const alreadySelected = sweep.params.map((x) => x.paramInfoId);
   const { onClickAddParam, disabled: disablePlusButton } = useOnClickAddParam({
@@ -107,6 +134,7 @@ function ParamSweepForOneSelectedItem({
           onPlusClick={onClickAddParam}
           onMinusClick={onClickRemoveParam}
           disablePlusButton={disablePlusButton}
+          isDisabled={isDisabled}
         />
       )}
       <Args
@@ -118,6 +146,7 @@ function ParamSweepForOneSelectedItem({
         selectedItemIdx={selectedItemIdx}
         alreadySelected={alreadySelected}
         showParamSweepSectionSearch={showParamSweepSectionSearch}
+        isDisabled={isDisabled}
       />
     </div>
   );
@@ -132,6 +161,7 @@ function Args({
   selectedItemIdx,
   alreadySelected,
   showParamSweepSectionSearch,
+  isDisabled,
 }) {
   return (
     <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1">
@@ -147,6 +177,7 @@ function Args({
           sectionId={sectionId}
           selectedItemIdx={selectedItemIdx}
           showParamSweepSectionSearch={showParamSweepSectionSearch}
+          isDisabled={isDisabled}
         />
       ))}
     </section>
@@ -163,6 +194,7 @@ function ArgItem({
   sectionId,
   selectedItemIdx,
   showParamSweepSectionSearch,
+  isDisabled,
 }) {
   const { paramInfoId, values } = singleParamSweep;
 
@@ -217,6 +249,7 @@ function ArgItem({
           alreadySelected={alreadySelected}
           forSectionId={forSectionId}
           showParamSweepSectionSearch={showParamSweepSectionSearch}
+          isDisabled={isDisabled}
         />
 
         <div className="flex items-center pl-0.5">
@@ -224,6 +257,7 @@ function ArgItem({
             className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
             hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
             onClick={onMinus}
+            disabled={isDisabled}
           >
             <i className="gg-remove" />
           </button>
@@ -231,6 +265,7 @@ function ArgItem({
             className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300
             hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
             onClick={onPlus}
+            disabled={isDisabled}
           >
             <i className="gg-add" />
           </button>
@@ -246,6 +281,7 @@ function ArgItem({
             onDelete={getOnDelete(valueIdx)}
             value={x}
             sectionId={sectionId}
+            isDisabled={isDisabled}
           />
         ))}
     </>
@@ -259,6 +295,7 @@ function ParamCombobox({
   onSelectedItemChange,
   forSectionId,
   showParamSweepSectionSearch,
+  isDisabled,
 }) {
   const objParams = useChildlessObjParams({
     objInfoId,
@@ -276,6 +313,7 @@ function ParamCombobox({
       outerDivClasses={`section-w-full justify-center not:last-child:mt-3 ${showParamSweepSectionSearch ? "ml-3" : ""} `}
       small={true}
       bg="bg-transparent"
+      isDisabled={isDisabled}
     />
   );
 }
@@ -287,6 +325,7 @@ function Input({
   onChange,
   onDelete,
   value,
+  isDisabled,
 }) {
   return (
     <div className="group contents">
@@ -294,6 +333,7 @@ function Input({
         className="section-left-gutter ml-2 flex h-[0.66rem] w-[0.66rem] cursor-pointer items-center justify-center place-self-center bg-transparent text-transparent opacity-75 hover:!text-setta-600 group-hover:text-setta-300 dark:hover:!text-setta-200 group-hover:dark:text-setta-600"
         onClick={onDelete}
         tabIndex="-1"
+        disabled={isDisabled}
       >
         <i className="gg-close !scale-50" />
       </button>
@@ -307,6 +347,7 @@ function Input({
           className="nodrag"
           keywordPositions={[]}
           setKeywordPositions={() => {}}
+          isDisabled={isDisabled}
         />
       </article>
     </div>
@@ -317,6 +358,7 @@ function AddRemoveButtonsForNoCallableSection({
   forSectionId,
   paramSweepId,
   paramSweep,
+  isDisabled,
 }) {
   const alreadySelected = paramSweep[0]?.params.map((x) => x.paramInfoId) ?? [];
   const selectedItemIdx = paramSweep.length > 0 ? 0 : null;
@@ -341,6 +383,7 @@ function AddRemoveButtonsForNoCallableSection({
         className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
             hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
         onClick={onClickRemoveParam}
+        disabled={isDisabled}
       >
         <i className="gg-remove" />
       </button>
@@ -348,7 +391,7 @@ function AddRemoveButtonsForNoCallableSection({
         className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
             hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
         onClick={onClickAddParam}
-        disabled={disablePlusButton}
+        disabled={disablePlusButton || isDisabled}
       >
         <i className="gg-add" />
       </button>
@@ -398,19 +441,8 @@ function useChildlessObjParams({
       ) {
         continue;
       }
-      if (pathMap[f].length === 1) {
-        output.push({ id: f, name: x.x[pathMap[f][0]].name });
-      } else {
-        let name = "";
-        for (const [pathIdx, currId] of pathMap[f].entries()) {
-          if (pathIdx === 0) {
-            name = x.x[currId].name;
-          } else {
-            name += `["${x.x[currId].name}"]`;
-          }
-        }
-        output.push({ id: f, name });
-      }
+      const paramFullPathName = paramNameFromPathArray(x.x, pathMap, f);
+      output.push({ id: f, name: paramFullPathName });
     }
     return output;
   }, _.isEqual);

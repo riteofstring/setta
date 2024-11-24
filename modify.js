@@ -7,9 +7,15 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    for (const s of Object.values(json.codeInfoCols)) {
-      delete s.id
+    for (const s of Object.values(json.sectionVariants)) {
+      s.description = "";
     }
+
+    for (const s of Object.values(json.sections)) {
+      json.sectionVariants[s["variantId"]].description = s.description
+      delete s.description;
+    }
+
     // Save the modified JSON back to the file or handle it as needed
     // Uncomment the following line to save changes back to the file
     fs.writeFileSync(filePath, JSON.stringify(json, null, 2), "utf8");

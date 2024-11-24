@@ -5,6 +5,7 @@ import {
   useSectionVariants,
   useUITypes,
 } from "state/definitions";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 import { getValueForUIType, newEV } from "utils/objs/ev";
 import { initValue } from "../utils";
@@ -21,6 +22,8 @@ export function duplicateSectionVariant({ id, newName, newCodeInfoColId }) {
     s[newId] = _.cloneDeep(s[id]);
     s[newId].name = newName;
     s[newId].codeInfoColId = newCodeInfoColId;
+    s[newId].isFrozen = false;
+    s[newId].isDefault = false;
   });
   return newId;
 }
@@ -35,7 +38,10 @@ export function initManySectionVariantIds({ variantProps }) {
         selectedItem: props.selectedItem ?? null,
         code: props.code ?? "",
         codeInfoColId: props.codeInfoColId,
+        description: props.newDescription ?? "",
         keywordPositions: props.keywordPositions ?? [],
+        isFrozen: props.isFrozen ?? false,
+        isDefault: props.isDefault ?? true,
       });
     }
   });
@@ -43,13 +49,18 @@ export function initManySectionVariantIds({ variantProps }) {
 export function initManyEnteredValues({ collectionId, paramIdsToUITypes }) {
   useSectionVariants.setState((state) => {
     _.forEach(paramIdsToUITypes, (uiType, id) => {
-      state.x[collectionId].values[id] = {
-        value: newEV(uiType),
-        keywordPositions: [],
-      };
+      state.x[collectionId].values[id] = initEnteredValue(uiType);
     });
   });
 }
+
+export function initEnteredValue(uiType) {
+  return {
+    value: newEV(uiType),
+    keywordPositions: [],
+  };
+}
+
 export function setEnteredValue({ collectionId, paramInfoId, value }) {
   useSectionVariants.setState((state) => {
     state.x[collectionId].values[paramInfoId].value = value;
@@ -86,7 +97,7 @@ export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
 }
 
 function getParamEV(sectionId, paramInfoId) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   return useSectionVariants.getState().x[variantId].values[paramInfoId].value;
 }
 
@@ -96,13 +107,13 @@ export function setParamEnteredValue({
   value,
   incrementVersion = false,
 }) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   setEnteredValue({ collectionId: variantId, paramInfoId, value });
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function setParamEnteredValueBatch({ sectionId, paramInfoIdToValue }) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   useSectionVariants.setState((state) => {
     for (const [id, value] of Object.entries(paramInfoIdToValue)) {
       state.x[variantId].values[id].value = value;
@@ -115,7 +126,7 @@ export function setParamKeywordPositions({
   paramInfoId,
   keywordPositions,
 }) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   setKeywordPositions({
     collectionId: variantId,
     paramInfoId,
@@ -124,7 +135,7 @@ export function setParamKeywordPositions({
 }
 
 export function getSectionChildren(sectionId) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   return useSectionVariants.getState().x[variantId].children;
 }
 
@@ -137,18 +148,18 @@ export function getSectionChildrenFromAllVariants(sectionId) {
 }
 
 export function getSectionCodeInfoColId(sectionId) {
-  const { variantId } = getSectionVariantId(sectionId);
-  return useSectionVariants.getState().x[variantId].codeInfoColId;
+  return useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)]
+    .codeInfoColId;
 }
 
-export function getSectionVariantId(sectionId) {
+export function getSectionVariantIdToShow(sectionId) {
   const { variantId, previewVariantId } =
     useSectionInfos.getState().x[sectionId];
-  return { variantId, previewVariantId };
+  return previewVariantId ?? variantId;
 }
 
 export function setSectionVariantChildren({ sectionId, newStateFn }) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   let newChildren;
   useSectionVariants.setState((state) => {
     newChildren = newStateFn(state.x[variantId].children);
@@ -186,14 +197,13 @@ export function getSectionIdParamInfoIdToKeywordPositions(sectionVariantState) {
 }
 
 export function getSectionSelectedItem(sectionId) {
-  const { variantId, previewVariantId } = getSectionVariantId(sectionId);
-  return useSectionVariants.getState().x[previewVariantId ?? variantId]
+  return useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)]
     .selectedItem;
 }
 
 export function getSectionCode(sectionId) {
-  const { variantId, previewVariantId } = getSectionVariantId(sectionId);
-  return useSectionVariants.getState().x[previewVariantId ?? variantId].code;
+  return useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)]
+    .code;
 }
 
 export function getSectionChildrenAcrossVariants(sectionId) {
@@ -209,9 +219,50 @@ export function getSectionChildrenAcrossVariants(sectionId) {
 }
 
 export function setSectionVariantAttr(sectionId, attr, value) {
-  const { variantId } = getSectionVariantId(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   console.log("setSectionVariantAttr", variantId, attr, value);
   useSectionVariants.setState((x) => {
     x.x[variantId][attr] = value;
+  });
+}
+
+export function toggleVariantFrozenState(variantId) {
+  useSectionVariants.setState((x) => {
+    x.x[variantId].isFrozen = !x.x[variantId].isFrozen;
+  });
+}
+
+export function getSelectedVariantIsFrozen(sectionId) {
+  const variantId = useSectionInfos.getState().x[sectionId].variantId;
+  return useSectionVariants.getState().x[variantId].isFrozen;
+}
+
+export function resetAllSectionsToDefaultVersions() {
+  useSectionInfos.setState((x) => {
+    const sectionVariants = useSectionVariants.getState().x;
+    let defaultVariantId;
+    for (const s of Object.values(x.x)) {
+      if (s.variantIds.length > 1) {
+        defaultVariantId = s.variantIds.find(
+          (v) => sectionVariants[v].isDefault,
+        );
+        if (!defaultVariantId) {
+          defaultVariantId = s.variantIds[0];
+        }
+        s.variantId = defaultVariantId;
+      }
+    }
+  });
+}
+
+export function resetSectionToDefaultVersion(sectionId) {
+  useSectionInfos.setState((x) => {
+    const sectionVariants = useSectionVariants.getState().x;
+    const variantIds = x.x[sectionId].variantIds;
+    let defaultVariantId = variantIds.find((v) => sectionVariants[v].isDefault);
+    if (defaultVariantId) {
+      defaultVariantId = variantIds[0];
+    }
+    x.x[sectionId].variantId = defaultVariantId;
   });
 }
