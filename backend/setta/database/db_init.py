@@ -62,18 +62,14 @@ CREATE_TABLES_COMMANDS = [
     );
     """,
     # SectionVariantId model
+    # "data" column is json, containing name, code, keywordPositions, description, isFrozen, isDefault
     """
     CREATE TABLE IF NOT EXISTS SectionVariantId (
         id TEXT PRIMARY KEY,
-        name TEXT,
+        data TEXT,
         selectedItem TEXT,
-        code TEXT,
-        keywordPositions TEXT,
         codeInfoColId TEXT,
-        description TEXT,
         originSectionId TEXT,
-        isFrozen BOOLEAN,
-        isDefault BOOLEAN,
         FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
         FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (codeInfoColId) REFERENCES CodeInfoColId(id) ON DELETE CASCADE
