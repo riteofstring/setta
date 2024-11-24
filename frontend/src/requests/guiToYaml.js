@@ -1,11 +1,11 @@
 import C from "constants/constants.json";
 import { getSectionCodeInfoChildren } from "state/actions/codeInfoCols";
+import { getActuallyShownRunGroup } from "state/actions/project/projectConfig";
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import { getSectionVariantIdToShow } from "state/actions/sectionVariants";
 import {
   useCodeInfo,
   useParamSweep,
-  useProjectConfig,
   useRunGroups,
   useSectionInfos,
   useSectionVariants,
@@ -71,8 +71,8 @@ export async function dbParamSweepSectionToYaml(sectionId) {
 }
 
 export async function dbGlobalParamSweepSectionToYaml() {
-  const shownRunGroup = useProjectConfig.getState().shownRunGroup;
-  const runGroup = useRunGroups.getState().x[shownRunGroup].sections;
+  const actuallyShownRunGroup = getActuallyShownRunGroup();
+  const runGroup = useRunGroups.getState().x[actuallyShownRunGroup].sections;
   const sections = useSectionInfos.getState().x;
   const sectionVariants = useSectionVariants.getState().x;
   const paramSweeps = useParamSweep.getState().x;

@@ -3,8 +3,12 @@ import { StandardAccordion } from "components/Utils/atoms/accordion/accordion";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import React, { useEffect, useState } from "react";
-import { setShownRunGroup } from "state/actions/project/projectConfig";
+import React, { useEffect } from "react";
+import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
+import {
+  setPreviewRunGroup,
+  setShownRunGroup,
+} from "state/actions/project/projectConfig";
 import {
   initRunGroup,
   toggleRunGroup,
@@ -36,16 +40,22 @@ export function GlobalParamSweepArea({ sectionId }) {
 
 function GlobalParamSweepGUI({ sectionId, width }) {
   const firstRunGroupId = useRunGroups((x) => Object.keys(x.x)[0]);
-  const shownRunGroup = useProjectConfig((x) => x.shownRunGroup);
-  const [previewRunGroup, setPreviewRunGroup] = useState(null);
+  const { shownRunGroup, previewRunGroup } = useProjectConfig(
+    (x) => _.pick(x, ["shownRunGroup", "previewRunGroup"]),
+    _.isEqual,
+  );
   const toShow = previewRunGroup ?? shownRunGroup;
-
   const { ref, isScrollable } = useIsScrollable();
+
   useEffect(() => {
     if (!shownRunGroup && firstRunGroupId) {
       setShownRunGroup(firstRunGroupId);
     }
   }, [shownRunGroup, firstRunGroupId]);
+
+  useEffect(() => {
+    maybeRunGuiToYaml(sectionId);
+  }, [toShow]);
 
   return (
     <>
@@ -53,27 +63,21 @@ function GlobalParamSweepGUI({ sectionId, width }) {
         className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll  @sm/multipane:flex-row  @sm/multipane:overflow-visible`}
         ref={ref}
       >
-        <LeftSide
-          setPreviewRunGroup={setPreviewRunGroup}
-          shownRunGroup={shownRunGroup}
-        />
+        <LeftSide shownRunGroup={shownRunGroup} />
         <RightSide sectionId={sectionId} toShow={toShow} />
       </section>
     </>
   );
 }
 
-function LeftSide({ setPreviewRunGroup, shownRunGroup }) {
+function LeftSide({ shownRunGroup }) {
   return (
     <article className="mt-2 flex flex-col gap-2 ">
       <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
         Run Groups
       </h3>
 
-      <RunGroupList
-        setPreviewRunGroup={setPreviewRunGroup}
-        shownRunGroup={shownRunGroup}
-      />
+      <RunGroupList shownRunGroup={shownRunGroup} />
       <CreateNewRunGroupButton />
     </article>
   );
@@ -102,7 +106,7 @@ function RightSide({ sectionId, toShow }) {
   );
 }
 
-function RunGroupList({ shownRunGroup, setPreviewRunGroup }) {
+function RunGroupList({ shownRunGroup }) {
   const runGroupSelection = useProjectConfig(
     (x) => x.runGroupSelection,
     _.isEqual,
@@ -115,8 +119,6 @@ function RunGroupList({ shownRunGroup, setPreviewRunGroup }) {
     }
     return output;
   }, _.isEqual);
-
-  console.log("runGroupsDetails", runGroupsDetails);
 
   return (
     <ul
