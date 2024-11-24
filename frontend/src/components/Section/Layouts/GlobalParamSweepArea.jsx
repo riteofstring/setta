@@ -335,10 +335,30 @@ function VersionItemComponent({
       parentIsSelected && !!x.x[runGroupId].sections[sectionId]?.versions[id],
   );
 
+  // Disable the checkbox if this version is selected and its the only selected version.
+  const disabled = useRunGroups((x) => {
+    const versions = x.x[runGroupId].sections[sectionId]?.versions;
+    if (!versions[id]) {
+      return false;
+    }
+    let count = 0;
+    for (const value of Object.values(versions)) {
+      if (count > 1) {
+        return false;
+      }
+      if (value) count++;
+    }
+    return versions[id] && count === 1;
+  });
+
   return (
     <>
       <div className="flex items-center gap-2 truncate">
-        <CheckboxGroup checked={isSelected} onChange={onChange}>
+        <CheckboxGroup
+          checked={isSelected}
+          onChange={onChange}
+          disabled={disabled}
+        >
           {name}
         </CheckboxGroup>
       </div>
@@ -381,7 +401,7 @@ function ParamSweepItemComponent({
   );
 }
 
-function CheckboxGroup({ children, checked, onChange }) {
+function CheckboxGroup({ children, checked, onChange, disabled }) {
   return (
     <label className="flex min-h-6 cursor-pointer items-center gap-2 text-xs text-setta-700 dark:text-setta-300">
       <input
@@ -389,6 +409,7 @@ function CheckboxGroup({ children, checked, onChange }) {
         className="h-4 w-4 min-w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
         checked={checked}
         onChange={onChange}
+        disabled={disabled}
       />
       <p className="truncate">{children}</p>
     </label>
