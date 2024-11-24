@@ -127,14 +127,8 @@ export function useUIEditorTab(sectionId) {
     sectionId ? x.x[sectionId].uiTypeId : null,
   );
   const uiTypeName = useUITypes((x) => (uiTypeId ? x.x[uiTypeId].type : null));
-  const [_storedTab, _setStoredTab] = localStorageFns["uiEditorTab"].hook();
-  const requiredTabs = getRequiredUIEditorTabs(uiTypeName);
-  const storedTab = _storedTab[uiTypeName] ?? SECTION_CONFIG_TAB;
-  // when sectionId changes, the requiredTabs might not include the previously active tab
-  const tab = requiredTabs.includes(storedTab) ? storedTab : requiredTabs[0];
-  const setTab = (newTabState) =>
-    _setStoredTab((state) => ({ ...state, [uiTypeName]: newTabState }));
-  return [tab, setTab, new Set(requiredTabs)];
+  const [_storedTab] = localStorageFns.uiEditorTab.hook();
+  return { ...getUIEditorTab(uiTypeName, _storedTab), uiTypeName };
 }
 
 function getRequiredUIEditorTabs(uiTypeName) {
@@ -185,4 +179,12 @@ export function getDefaultDisplayMode(uiTypeId) {
     default:
       return SECTION_DISPLAY_MODES.GUI;
   }
+}
+
+export function getUIEditorTab(uiTypeName, _storedTab) {
+  const requiredTabs = getRequiredUIEditorTabs(uiTypeName);
+  const storedTab = _storedTab?.[uiTypeName] ?? SECTION_CONFIG_TAB;
+  // when sectionId changes, the requiredTabs might not include the previously active tab
+  const tab = requiredTabs.includes(storedTab) ? storedTab : requiredTabs[0];
+  return { tab, requiredTabs: new Set(requiredTabs) };
 }
