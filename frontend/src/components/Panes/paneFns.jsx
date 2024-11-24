@@ -1,6 +1,7 @@
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
+import { getUIEditorTab } from "state/hooks/uiTypes";
 import { CLOSED_PANE_WIDTH, OVERVIEW, UI_EDITOR } from "utils/constants";
 
 export function TabButton({
@@ -70,15 +71,26 @@ export function onOverviewResizeStop(widthDiff) {
   }
 }
 
-export function onUIEditorTabClick(tabValue) {
-  const [vis] = localStorageFns.overviewVis.state();
-  const [tab, setTab] = localStorageFns.overviewTab.state();
-  if (tab !== tabValue) {
-    setTab(tabValue);
-    if (!vis) {
+export function getOnUIEditorTabClick(uiTypeName) {
+  const setTab = (newTabState) => {
+    const setUIEditorTab = localStorageFns.uiEditorTab.state()[1];
+    setUIEditorTab((state) => ({
+      ...state,
+      [uiTypeName]: newTabState,
+    }));
+  };
+
+  return (tabValue) => {
+    const [vis] = localStorageFns.uiEditorVis.state();
+    const [storedTab] = localStorageFns.uiEditorTab.state();
+    const { tab } = getUIEditorTab(uiTypeName, storedTab);
+    if (tab !== tabValue) {
+      setTab(tabValue);
+      if (!vis) {
+        visToggle(UI_EDITOR);
+      }
+    } else {
       visToggle(UI_EDITOR);
     }
-  } else {
-    visToggle(UI_EDITOR);
-  }
+  };
 }

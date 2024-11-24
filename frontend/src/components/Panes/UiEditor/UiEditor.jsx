@@ -18,7 +18,7 @@ import {
   UI_EDITOR,
 } from "utils/constants";
 import { uiEditorPaneOnKeyDown } from "utils/tabbingLogic";
-import { TabButton } from "../paneFns";
+import { getOnUIEditorTabClick, TabButton } from "../paneFns";
 import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
@@ -29,7 +29,7 @@ const paneName = UI_EDITOR;
 
 export function UiEditor() {
   const sectionIds = useActiveSection((x) => x.ids);
-  const [tab, setTab, requiredTabs] = useUIEditorTab(sectionIds[0]);
+  const { tab, requiredTabs, uiTypeName } = useUIEditorTab(sectionIds[0]);
   const [vis] = localStorageFns.uiEditorVis.hook();
   const [width] = localStorageFns.uiEditorWidth.hook();
   const renderMarkdown = useSectionInfos((x) =>
@@ -41,7 +41,7 @@ export function UiEditor() {
   const commonProps = {
     vis,
     tab,
-    // getOnTabClick,
+    onTabClick: getOnUIEditorTabClick(uiTypeName),
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs,
