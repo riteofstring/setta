@@ -1,16 +1,16 @@
 import _ from "lodash";
-import { useCodeInfo, useCodeInfoCols } from "state/definitions";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { createNewId, maybeNewId } from "utils/idNameCreation";
 import { getSectionCodeInfoColId } from "./sectionVariants";
 
-export function setAllCodeInfoCols(x) {
-  useCodeInfoCols.setState({ x });
+export function setAllCodeInfoCols(codeInfoCols) {
+  useSectionInfos.setState({ codeInfoCols });
 }
 
 export function getSectionCodeInfoChildren(sectionId) {
-  return useCodeInfoCols.getState().x[getSectionCodeInfoColId(sectionId)][
-    "children"
-  ];
+  return useSectionInfos.getState().codeInfoCols[
+    getSectionCodeInfoColId(sectionId)
+  ]["children"];
 }
 
 export function getCodeInfoChildren(sectionId, codeInfoId) {
@@ -26,10 +26,10 @@ export function getKwargIds(sectionId, codeInfoId, _cState) {
 
 export function initManyCodeInfoCols(sectionIds) {
   const sectionIdToCodeInfoColId = {};
-  useCodeInfoCols.setState((x) => {
+  useSectionInfos.setState((x) => {
     sectionIds.forEach((s) => {
       const id = createNewId();
-      x.x[id] = newCodeInfoCol(id);
+      x.codeInfoCols[id] = newCodeInfoCol(id);
       sectionIdToCodeInfoColId[s] = id;
     });
   });
@@ -42,24 +42,24 @@ function newCodeInfoCol(id) {
 
 export function duplicateCodeInfoCol(id) {
   const newId = createNewId();
-  useCodeInfoCols.setState((state) => {
-    const s = state.x;
+  useSectionInfos.setState((state) => {
+    const s = state.codeInfoCols;
     s[newId] = _.cloneDeep(s[id]);
   });
   return newId;
 }
 
 export function addCodeInfoColsBatch(x) {
-  useCodeInfoCols.setState((state) => {
-    state.x = { ...state.x, ...x };
+  useSectionInfos.setState((state) => {
+    state.codeInfoCols = { ...state.codeInfoCols, ...x };
   });
 }
 
 export function batchUpdateCodeInfoChildren(sectionId, idToNewChildren) {
-  const codeInfoColId = getSectionCodeInfoColId(sectionId);
-  useCodeInfoCols.setState((state) => {
+  useSectionInfos.setState((x) => {
+    const { codeInfoColId } = x.variants[x.x[sectionId].variantId];
     for (const [id, newChildren] of Object.entries(idToNewChildren)) {
-      state.x[codeInfoColId].children[id] = newChildren;
+      x.codeInfoCols[codeInfoColId].children[id] = newChildren;
     }
   });
 }

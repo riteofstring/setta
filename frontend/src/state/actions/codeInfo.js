@@ -1,10 +1,7 @@
 import _ from "lodash";
-import { useCodeInfo, useCodeInfoCols } from "state/definitions";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { getSectionCodeInfoChildren } from "./codeInfoCols";
-import {
-  getSectionCodeInfoColId,
-  getSectionSelectedItem,
-} from "./sectionVariants";
+import { getSectionSelectedItem } from "./sectionVariants";
 
 export function setAllCodeInfo(x) {
   useCodeInfo.setState({ x });
@@ -15,14 +12,18 @@ export function addCodeInfo({ sectionId, info, parent, insertIdx }) {
     state.x[info.id] = info;
   });
 
-  useCodeInfoCols.setState((state) => {
-    const codeInfoColId = getSectionCodeInfoColId(sectionId);
+  useSectionInfos.setState((x) => {
+    const { codeInfoColId } = x.variants[x.x[sectionId].variantId];
     if (_.isNil(insertIdx)) {
-      state.x[codeInfoColId]["children"][parent].push(info.id);
+      x.codeInfoCols[codeInfoColId]["children"][parent].push(info.id);
     } else {
-      state.x[codeInfoColId]["children"][parent].splice(insertIdx, 0, info.id);
+      x.codeInfoCols[codeInfoColId]["children"][parent].splice(
+        insertIdx,
+        0,
+        info.id,
+      );
     }
-    state.x[codeInfoColId]["children"][info.id] = [];
+    x.codeInfoCols[codeInfoColId]["children"][info.id] = [];
   });
 }
 
@@ -56,9 +57,9 @@ export function deleteCodeInfo({ ids }) {
   useCodeInfo.setState((state) => {
     state.x = _.omit(state.x, ids);
   });
-  useCodeInfoCols.setState((state) => {
-    state.x = _.omit(state.x, ids);
-    for (const codeCol of Object.values(state.x)) {
+  useSectionInfos.setState((state) => {
+    state.codeInfoCols = _.omit(state.codeInfoCols, ids);
+    for (const codeCol of Object.values(state.codeInfoCols)) {
       for (const parentId of Object.keys(codeCol.children)) {
         codeCol.children[parentId] = codeCol.children[parentId].filter(
           (y) => !ids.includes(y),

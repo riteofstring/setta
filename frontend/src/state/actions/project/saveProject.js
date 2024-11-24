@@ -8,7 +8,6 @@ import { dbSaveSettings } from "requests/settings";
 import {
   useArtifacts,
   useCodeInfo,
-  useCodeInfoCols,
   useKeywordRegex,
   useNodeInternals,
   useParamSweep,
@@ -71,7 +70,7 @@ export function getProjectData({
   const runGroups = useRunGroups.getState().x;
 
   const codeInfo = useCodeInfo.getState().x;
-  const codeInfoCols = useCodeInfoCols.getState().x;
+  const codeInfoCols = useSectionInfos.getState().codeInfoCols;
   const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
 
   const projectConfig = getProjectConfigMetadata();

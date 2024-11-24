@@ -1,24 +1,23 @@
 import _ from "lodash";
-import { useCodeInfoCols } from "state/definitions";
-import { useSectionCodeInfoColId } from "./sectionVariants";
+import { useSectionInfos } from "state/definitions";
 
 export function useSectionCodeInfoChildren(sectionId) {
-  const codeInfoColId = useSectionCodeInfoColId(sectionId);
-  return useCodeInfoCols((x) => x.x[codeInfoColId]["children"]);
+  return useSectionInfos((x) => {
+    const { codeInfoColId } = x.variants[x.x[sectionId].variantId];
+    return x.codeInfoCols[codeInfoColId]["children"];
+  });
 }
 
 export function useCodeInfoChildren(sectionId, codeInfoId) {
-  const codeInfoColId = useSectionCodeInfoColId(sectionId);
-  return useCodeInfoCols(
-    (x) => x.x[codeInfoColId]["children"][codeInfoId] ?? [],
-    _.isEqual,
-  );
+  return useSectionInfos((x) => {
+    const { codeInfoColId } = x.variants[x.x[sectionId].variantId];
+    return x.codeInfoCols[codeInfoColId]["children"][codeInfoId] ?? [];
+  }, _.isEqual);
 }
 
 export function useCodeInfoHasChildren(sectionId, codeInfoId) {
-  const codeInfoColId = useSectionCodeInfoColId(sectionId);
-  return useCodeInfoCols(
-    (x) => (x.x[codeInfoColId]["children"][codeInfoId] ?? []).length > 0,
-    _.isEqual,
-  );
+  return useSectionInfos((x) => {
+    const { codeInfoColId } = x.variants[x.x[sectionId].variantId];
+    return (x.x[codeInfoColId]["children"][codeInfoId] ?? []).length > 0;
+  }, _.isEqual);
 }
