@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useSectionInfos, useUITypes } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 import { getValueForUIType, newEV } from "utils/objs/ev";
@@ -88,7 +88,7 @@ export function updateSectionVariants({ sectionVariants }) {
 }
 
 export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
-  const uiType = useUITypes.getState().x[uiTypeId];
+  const uiType = useSectionInfos.getState().uiTypes[uiTypeId];
   const currValue = getParamEV(sectionId, paramInfoId);
   const value = getValueForUIType({ uiType, currValue });
   setParamEnteredValue({ sectionId, paramInfoId, value });

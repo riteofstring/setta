@@ -1,10 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import {
-  useNodeInternals,
-  useSectionInfos,
-  useUITypes,
-} from "state/definitions";
+import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { isRoot } from "utils/sectionTypeHelpers";
 
 export function getSectionInfo(sectionId) {
@@ -21,7 +17,7 @@ export function getSectionName(sectionId) {
 
 export function getSectionType(sectionId) {
   const sectionTypeId = getSectionInfo(sectionId).uiTypeId;
-  return useUITypes.getState().x[sectionTypeId];
+  return useSectionInfos.getState().uiTypes[sectionTypeId];
 }
 
 export function getSectionIsRoot(sectionId) {

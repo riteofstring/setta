@@ -6,7 +6,6 @@ import {
   useCodeInfo,
   useParamSweep,
   useSectionInfos,
-  useUITypes,
 } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { findAll } from "utils/getDescendants";
@@ -90,7 +89,7 @@ function getUITypes(sections, uiTypeCols) {
       uiTypeIds.push(...u.nonPresetUITypeIds);
     }
   }
-  return _.pick(useUITypes.getState().x, uiTypeIds);
+  return _.pick(useSectionInfos.getState().uiTypes, uiTypeIds);
 }
 
 function getCodeInfo(sections) {

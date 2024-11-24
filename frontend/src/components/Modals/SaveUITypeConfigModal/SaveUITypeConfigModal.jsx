@@ -3,7 +3,7 @@ import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
 import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { deleteUIType } from "state/actions/uiTypes/uiTypes";
-import { useUITypes } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { isPreset, isUserPreset } from "utils/sectionTypeHelpers";
 import { SaveLoadModal } from "../SaveLoadModal/SaveLoadModal";
 
@@ -12,7 +12,7 @@ export function SaveUITypeConfigModal({ open, modalType }) {
 
   useEffect(() => {
     if (open) {
-      const uiTypes = Object.values(useUITypes.getState().x).filter(
+      const uiTypes = Object.values(useSectionInfos.getState().uiTypes).filter(
         isUserPreset,
       );
       setFiles(uiTypes);

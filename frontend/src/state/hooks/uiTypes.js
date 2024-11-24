@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useSectionInfos, useUITypes } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import {
   BASE_UI_TYPE_IDS,
   INFO_CONFIG_TAB,
@@ -16,7 +16,7 @@ import { useGetSectionInfo } from "./sections";
 
 export function useGetParamUIType(sectionId, paramInfoId) {
   const uiTypeId = useParamUITypeId(sectionId, paramInfoId);
-  return useUITypes((x) => x.x[uiTypeId], _.isEqual);
+  return useSectionInfos((x) => x.uiTypes[uiTypeId], _.isEqual);
 }
 
 function useUITypeCol(sectionId, paramInfoId, key) {
@@ -47,7 +47,7 @@ export function useGetSectionType(sectionId, key) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   const nonScalars = ["config"];
   const equalityFn = nonScalars.includes(key) ? _.isEqual : undefined;
-  return useUITypes((x) => x.x[uiTypeId][key], equalityFn);
+  return useSectionInfos((x) => x.uiTypes[uiTypeId][key], equalityFn);
 }
 
 function useIsSeriesElementHelper(sectionId, parentTypesToCheck) {
@@ -55,8 +55,8 @@ function useIsSeriesElementHelper(sectionId, parentTypesToCheck) {
   const uiTypeId = useSectionInfos((x) =>
     parentId ? x.x[parentId].uiTypeId : null,
   );
-  return useUITypes((x) =>
-    uiTypeId ? parentTypesToCheck.includes(x.x[uiTypeId].type) : false,
+  return useSectionInfos((x) =>
+    uiTypeId ? parentTypesToCheck.includes(x.uiTypes[uiTypeId].type) : false,
   );
 }
 
@@ -70,7 +70,7 @@ export function useIsListElement(sectionId) {
 
 export function useSectionTypeName(sectionId) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) => x.x[uiTypeId].type);
+  return useSectionInfos((x) => x.uiTypes[uiTypeId].type);
 }
 
 export function useSectionTypeNames() {
@@ -78,24 +78,24 @@ export function useSectionTypeNames() {
     (x) => _.mapValues(x.x, (s) => s.uiTypeId),
     _.isEqual,
   );
-  return useUITypes((x) =>
-    _.mapValues(sectionIdToUITypeId, (s) => x.x[s].type),
+  return useSectionInfos((x) =>
+    _.mapValues(sectionIdToUITypeId, (s) => x.uiTypes[s].type),
   );
 }
 
 function useIsType(sectionId, type) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) => x.x[uiTypeId].type === type);
+  return useSectionInfos((x) => x.uiTypes[uiTypeId].type === type);
 }
 
 export function useIsOneOfType(sectionId, types) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) => types.includes(x.x[uiTypeId].type));
+  return useSectionInfos((x) => types.includes(x.uiTypes[uiTypeId].type));
 }
 
 export function useIsRoot(sectionId) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) => isRoot(x.x[uiTypeId].type));
+  return useSectionInfos((x) => isRoot(x.uiTypes[uiTypeId].type));
 }
 
 export function useIsDeck(sectionId) {
@@ -126,7 +126,9 @@ export function useUIEditorTab(sectionId) {
   const uiTypeId = useSectionInfos((x) =>
     sectionId ? x.x[sectionId].uiTypeId : null,
   );
-  const uiTypeName = useUITypes((x) => (uiTypeId ? x.x[uiTypeId].type : null));
+  const uiTypeName = useSectionInfos((x) =>
+    uiTypeId ? x.uiTypes[uiTypeId].type : null,
+  );
   const [_storedTab] = localStorageFns.uiEditorTab.hook();
   return { ...getUIEditorTab(uiTypeName, _storedTab), uiTypeName };
 }
@@ -172,7 +174,7 @@ function getRequiredUIEditorTabs(uiTypeName) {
 }
 
 export function getDefaultDisplayMode(uiTypeId) {
-  const uiType = useUITypes.getState().x[uiTypeId].type;
+  const uiType = useSectionInfos.getState().uiTypes[uiTypeId].type;
   switch (uiType) {
     case C.INFO:
       return SECTION_DISPLAY_MODES.RENDER;

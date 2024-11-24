@@ -16,7 +16,6 @@ import {
   useRunGroups,
   useSectionInfos,
   useSettings,
-  useUITypes,
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { yamlToGUI } from "../guiToYaml";
@@ -66,7 +65,7 @@ export function getProjectData({
       children: x.children.filter((c) => c in sections),
     }),
   );
-  const uiTypes = useUITypes.getState().x;
+  const uiTypes = useSectionInfos.getState().uiTypes;
   const uiTypeCols = useSectionInfos.getState().uiTypeCols;
   const paramSweeps = useParamSweep.getState().x;
   const runGroups = useRunGroups.getState().x;

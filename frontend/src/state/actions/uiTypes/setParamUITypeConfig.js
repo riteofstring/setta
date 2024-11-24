@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
-import { useCodeInfo, useSectionInfos, useUITypes } from "state/definitions";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { getValueForUIType } from "utils/objs/ev";
 import { setEnteredValue } from "../sectionVariants";
@@ -72,7 +72,7 @@ function createNonPresetForParam({
 }
 
 function updateEVs(uiTypeId, configName) {
-  const uiType = useUITypes.getState().x[uiTypeId];
+  const uiType = useSectionInfos.getState().uiTypes[uiTypeId];
   if (uiType.type === C.SLIDER && ["min", "max"].includes(configName)) {
     _updateEVs(uiType);
   }

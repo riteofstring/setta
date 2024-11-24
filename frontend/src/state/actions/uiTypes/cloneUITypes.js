@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useUITypes } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { isPreset } from "utils/sectionTypeHelpers";
 
@@ -15,7 +15,7 @@ export function maybeCloneUIType({
   let maybeNewUIType = currUIType;
   if (isPreset(currUIType) && !settingPreset) {
     // Try using existing non-preset (uiType with same type and that belongs to nonPresetUITypeIds)
-    const matches = _.filter(useUITypes.getState().x, (v) =>
+    const matches = _.filter(useSectionInfos.getState().uiTypes, (v) =>
       isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, currUIType.type),
     );
 

@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCodeInfo, useSectionInfos, useUITypes } from "state/definitions";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { findAllParameters } from "utils/getDescendants";
 import { getSectionInfo } from "../getters/sectionInfo";
@@ -39,12 +39,12 @@ export function initializeParam(
 function initializeParamEnteredValue(sectionId, paramIds, paramIdToUITypeId) {
   const { variantId } = useSectionInfos.getState().x[sectionId];
   const sectionVariant = useSectionInfos.getState().variants[variantId];
-  const uiTypeState = useUITypes.getState();
+  const uiTypeState = useSectionInfos.getState().uiTypes;
   const paramIdsToUITypes = {};
   for (const paramId of paramIds) {
     const ev = sectionVariant.values[paramId];
     if (_.isNil(ev)) {
-      paramIdsToUITypes[paramId] = uiTypeState.x[paramIdToUITypeId[paramId]];
+      paramIdsToUITypes[paramId] = uiTypeState[paramIdToUITypeId[paramId]];
     }
   }
 

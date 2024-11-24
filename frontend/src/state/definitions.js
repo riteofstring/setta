@@ -45,6 +45,7 @@ export const useSectionInfos = createProjectState(
           x: {},
           variants: {},
           uiTypeCols: {},
+          uiTypes: {},
         }),
       ),
     ),
@@ -180,16 +181,6 @@ export const useTypeErrors = createProjectState(
 );
 
 export const useJSONSourceMissing = createProjectState(() => ({}));
-
-export const useUITypes = createProjectState(
-  temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
-  ),
-);
 
 export const useWebsocketConnectionList = create(() => ({
   connectedTo: null,

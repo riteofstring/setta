@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { isAmongNonPresets } from "state/actions/uiTypes/cloneUITypes";
-import { useUITypes } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import {
   isBasePreset,
   isPreset,
@@ -67,8 +67,9 @@ export function useAvailableUITypesForSection(sectionId, selectedId) {
   const nonPresetFilterFn = (uiType) =>
     isAmongNonPresets(uiType, nonPresetUITypeIds);
 
-  return useUITypes(
-    (x) => filterUITypes(x.x, generalFilterFn, nonPresetFilterFn, selectedId),
+  return useSectionInfos(
+    (x) =>
+      filterUITypes(x.uiTypes, generalFilterFn, nonPresetFilterFn, selectedId),
     _.isEqual,
   );
 }
@@ -84,8 +85,9 @@ export function useAvailableUITypesForParam(
   const nonPresetFilterFn = (uiType) =>
     isAmongNonPresets(uiType, nonPresetUITypeIds);
 
-  return useUITypes(
-    (x) => filterUITypes(x.x, generalFilterFn, nonPresetFilterFn, selectedId),
+  return useSectionInfos(
+    (x) =>
+      filterUITypes(x.uiTypes, generalFilterFn, nonPresetFilterFn, selectedId),
     _.isEqual,
   );
 }

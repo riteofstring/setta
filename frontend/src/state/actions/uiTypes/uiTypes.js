@@ -1,30 +1,30 @@
-import { useUITypes } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 
-export function setAllUITypes(payload) {
-  useUITypes.setState({ x: payload });
+export function setAllUITypes(uiTypes) {
+  useSectionInfos.setState({ uiTypes });
 }
 
 export function addUIType({ uiType }) {
-  useUITypes.setState((state) => {
-    state.x[uiType.id] = uiType;
+  useSectionInfos.setState((state) => {
+    state.uiTypes[uiType.id] = uiType;
   });
 }
 
 export function setOneUITypeConfig({ uiTypeId, configName, newValueFn }) {
-  useUITypes.setState((state) => {
-    const curr = state.x[uiTypeId].config;
+  useSectionInfos.setState((state) => {
+    const curr = state.uiTypes[uiTypeId].config;
     curr[configName] = newValueFn(curr[configName]);
   });
 }
 
 export function deleteUIType({ uiTypeId }) {
-  useUITypes.setState((state) => {
-    delete state.x[uiTypeId];
+  useSectionInfos.setState((state) => {
+    delete state.uiTypes[uiTypeId];
   });
 }
 
 export function updateUITypes(payload) {
-  useUITypes.setState((state) => {
-    state.x = { ...state.x, ...payload };
+  useSectionInfos.setState((state) => {
+    state.uiTypes = { ...state.uiTypes, ...payload };
   });
 }

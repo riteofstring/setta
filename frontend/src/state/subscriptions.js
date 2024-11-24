@@ -2,14 +2,13 @@ import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { updateKeywordRegex } from "state/actions/keywordRegex";
-import { useMisc, useSectionInfos, useUITypes } from "state/definitions";
+import { useMisc, useSectionInfos } from "state/definitions";
 import { getSectionIdToChildrenToShow } from "./actions/sectionVariants";
 
 function singletonSectionsSubscriptionFn(state) {
-  const uiTypeState = useUITypes.getState();
   const output = { [C.GLOBAL_VARIABLES]: null, [C.GLOBAL_PARAM_SWEEP]: null };
   for (const s of Object.values(state.x)) {
-    const uiType = uiTypeState.x[s.uiTypeId]?.type;
+    const uiType = state.uiTypes[s.uiTypeId]?.type;
     if (output[C.GLOBAL_VARIABLES] && output[C.GLOBAL_PARAM_SWEEP]) {
       break;
     }
