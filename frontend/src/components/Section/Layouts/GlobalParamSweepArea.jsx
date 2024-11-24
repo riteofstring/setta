@@ -181,17 +181,18 @@ function SectionItem({ sectionInfo, ancestors, parentIsSelected, runGroupId }) {
   function onSectionCheckboxChange() {
     toggleRunGroupSection({
       id: runGroupId,
-      parentVariantId,
       ancestors,
       sectionId,
+      parentVariantId,
     });
   }
 
-  const isSelected = useRunGroups(
-    (x) =>
+  const isSelected = useRunGroups((x) => {
+    return (
       parentIsSelected &&
-      !!x.x[runGroupId].sections[sectionId]?.selected[parentVariantId],
-  );
+      !!x.x[runGroupId].sections[sectionId]?.[parentVariantId]?.selected
+    );
+  });
 
   return (
     <li className="flex flex-col">
@@ -203,18 +204,26 @@ function SectionItem({ sectionInfo, ancestors, parentIsSelected, runGroupId }) {
         runGroupId={runGroupId}
         isSelected={isSelected}
         ancestors={ancestors}
+        parentVariantId={parentVariantId}
       />
       <ParamSweepVersionsList
         sectionId={sectionId}
         runGroupId={runGroupId}
         isSelected={isSelected}
         ancestors={ancestors}
+        parentVariantId={parentVariantId}
       />
     </li>
   );
 }
 
-function _MaybeVersionsList({ sectionId, ancestors, runGroupId, isSelected }) {
+function _MaybeVersionsList({
+  sectionId,
+  ancestors,
+  runGroupId,
+  isSelected,
+  parentVariantId,
+}) {
   const allVersions = useGetSectionVariantNames(sectionId);
   return allVersions.length > 1 ? (
     <VersionsList
@@ -223,6 +232,7 @@ function _MaybeVersionsList({ sectionId, ancestors, runGroupId, isSelected }) {
       runGroupId={runGroupId}
       isSelected={isSelected}
       allVersions={allVersions}
+      parentVariantId={parentVariantId}
     />
   ) : (
     <div className="pl-4">
@@ -246,18 +256,20 @@ function VersionsList({
   runGroupId,
   isSelected,
   allVersions,
+  parentVariantId,
 }) {
   const atLeastOneVersionSelected = useRunGroups((x) => {
-    for (const value of Object.values(
-      x.x[runGroupId].sections[sectionId]?.versions,
-    )) {
+    const versionsObj =
+      x.x[runGroupId].sections[sectionId]?.[parentVariantId]?.versions;
+    if (!versionsObj) {
+      return false;
+    }
+    for (const value of Object.values(versionsObj)) {
       if (value) return true;
     }
     return false;
   });
 
-  // We don't need to show a warning if at least one version is selected
-  // or if this section is not selected
   const accordionRootStyles =
     atLeastOneVersionSelected || !isSelected
       ? undefined
@@ -271,6 +283,7 @@ function VersionsList({
       sectionId={sectionId}
       runGroupId={runGroupId}
       ancestors={ancestors}
+      parentVariantId={parentVariantId}
       accordionRootStyles={accordionRootStyles}
       ChildComponent={VersionItemComponent}
     />
@@ -282,6 +295,7 @@ function _ParamSweepVersionsList({
   ancestors,
   runGroupId,
   isSelected,
+  parentVariantId,
 }) {
   const allParamSweeps = useGetParamSweepNames(sectionId);
 
@@ -294,6 +308,7 @@ function _ParamSweepVersionsList({
         sectionId={sectionId}
         runGroupId={runGroupId}
         ancestors={ancestors}
+        parentVariantId={parentVariantId}
         ChildComponent={ParamSweepItemComponent}
       />
     )
@@ -309,6 +324,7 @@ function _GenericList({
   sectionId,
   runGroupId,
   ancestors,
+  parentVariantId,
   accordionRootStyles,
   ChildComponent,
 }) {
@@ -338,6 +354,7 @@ function _GenericList({
               sectionId={sectionId}
               runGroupId={runGroupId}
               ancestors={ancestors}
+              parentVariantId={parentVariantId}
             />
           </li>
         ))}
@@ -355,6 +372,7 @@ function VersionItemComponent({
   sectionId,
   runGroupId,
   ancestors,
+  parentVariantId,
 }) {
   function onChange() {
     toggleRunGroupSectionVersion({
@@ -362,12 +380,14 @@ function VersionItemComponent({
       sectionId,
       versionId: id,
       ancestors,
+      parentVariantId,
     });
   }
 
   const isSelected = useRunGroups(
     (x) =>
-      parentIsSelected && !!x.x[runGroupId].sections[sectionId]?.versions[id],
+      parentIsSelected &&
+      !!x.x[runGroupId].sections[sectionId]?.[parentVariantId].versions[id],
   );
 
   return (
@@ -395,6 +415,7 @@ function ParamSweepItemComponent({
   ancestors,
   sectionId,
   runGroupId,
+  parentVariantId,
 }) {
   function onChange() {
     toggleRunGroupSectionParamSweep({
@@ -402,11 +423,13 @@ function ParamSweepItemComponent({
       ancestors,
       sectionId,
       paramSweepId: id,
+      parentVariantId,
     });
   }
 
   const isSelected = useRunGroups(
-    (x) => !!x.x[runGroupId].sections[sectionId]?.paramSweeps[id],
+    (x) =>
+      !!x.x[runGroupId].sections[sectionId]?.[parentVariantId].paramSweeps[id],
   );
 
   return (
