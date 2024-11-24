@@ -16,8 +16,10 @@ export async function dbGuiToYaml(sectionId) {
   switch (sectionType.type) {
     case C.PARAM_SWEEP:
       return await dbParamSweepSectionToYaml(sectionId);
-    default:
+    case C.SECTION:
       return await dbSectionToYaml(sectionId);
+    case C.GLOBAL_PARAM_SWEEP:
+      return { yamlValue: "" };
   }
 }
 

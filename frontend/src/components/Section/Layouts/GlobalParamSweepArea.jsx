@@ -1,3 +1,4 @@
+import { YamlView } from "components/Params/YamlView";
 import { StandardAccordion } from "components/Utils/atoms/accordion/accordion";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
@@ -22,6 +23,7 @@ import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { createNewId, createRandomName } from "utils/idNameCreation";
+import { useShowYaml } from "./toYaml";
 
 export function GlobalParamSweepArea({ sectionId }) {
   const width = useSectionInfos((x) => {
@@ -29,10 +31,10 @@ export function GlobalParamSweepArea({ sectionId }) {
     return w === "auto" ? getSectionRect(sectionId)?.width : w;
   });
 
-  return <GlobalParamSweepGUI width={width} />;
+  return <GlobalParamSweepGUI sectionId={sectionId} width={width} />;
 }
 
-function GlobalParamSweepGUI({ width }) {
+function GlobalParamSweepGUI({ sectionId, width }) {
   const firstRunGroupId = useRunGroups((x) => Object.keys(x.x)[0]);
   const shownRunGroup = useProjectConfig((x) => x.shownRunGroup);
   const [previewRunGroup, setPreviewRunGroup] = useState(null);
@@ -51,29 +53,52 @@ function GlobalParamSweepGUI({ width }) {
         className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll  @sm/multipane:flex-row  @sm/multipane:overflow-visible`}
         ref={ref}
       >
-        <article className="mt-2 flex flex-col gap-2 ">
-          <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-            Run Groups
-          </h3>
-          {/* <FilterSection /> */}
-
-          <RunGroupList
-            setPreviewRunGroup={setPreviewRunGroup}
-            shownRunGroup={shownRunGroup}
-          />
-          <CreateNewRunGroupButton />
-        </article>
-        {!!toShow && (
-          <article className="mt-2 flex flex-1 flex-col gap-2 @sm/multipane:overflow-x-hidden">
-            <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-              Sections
-            </h3>
-            <FilterSection />
-            <TopLevelSectionList runGroupId={toShow} />
-          </article>
-        )}
+        <LeftSide
+          setPreviewRunGroup={setPreviewRunGroup}
+          shownRunGroup={shownRunGroup}
+        />
+        <RightSide sectionId={sectionId} toShow={toShow} />
       </section>
     </>
+  );
+}
+
+function LeftSide({ setPreviewRunGroup, shownRunGroup }) {
+  return (
+    <article className="mt-2 flex flex-col gap-2 ">
+      <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+        Run Groups
+      </h3>
+
+      <RunGroupList
+        setPreviewRunGroup={setPreviewRunGroup}
+        shownRunGroup={shownRunGroup}
+      />
+      <CreateNewRunGroupButton />
+    </article>
+  );
+}
+
+function RightSide({ sectionId, toShow }) {
+  const showYaml = useShowYaml(sectionId);
+
+  if (!toShow) {
+    return null;
+  }
+  return (
+    <article className="mt-2 flex flex-1 flex-col gap-2 @sm/multipane:overflow-x-hidden">
+      {!showYaml ? (
+        <>
+          <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+            Sections
+          </h3>
+          <FilterSection />
+          <TopLevelSectionList runGroupId={toShow} />
+        </>
+      ) : (
+        <YamlView sectionId={sectionId} />
+      )}
+    </article>
   );
 }
 
