@@ -89,3 +89,7 @@ export function shortcutPrettified(shortcut) {
   // Replace all occurrences of "mod" (case-insensitive) with the appropriate symbol
   return shortcut.replace(modRegex, isMacOs() ? macSymbol : windowsText);
 }
+
+export function firstElementOfSet(x) {
+  return x.values().next().value;
+}

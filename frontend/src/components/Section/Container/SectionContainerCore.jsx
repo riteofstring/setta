@@ -10,7 +10,7 @@ import { getOnSectionClick, getOutlineColor } from "./utils";
 
 function _SectionContainerCore({ sectionId }) {
   const sectionTypeName = useSectionTypeName(sectionId);
-  const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
+  const isActiveSection = useActiveSection((x) => x.ids.has(sectionId));
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const jsonSourceMissing = useJSONSourceMissing((x) => x[sectionId]);
