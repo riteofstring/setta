@@ -15,49 +15,41 @@ import { localStorageFns } from "./localStorage";
 import { useGetSectionInfo } from "./sections";
 
 export function useGetParamUIType(sectionId, paramInfoId) {
-  const uiTypeId = useParamUITypeId(sectionId, paramInfoId);
-  return useSectionInfos((x) => x.uiTypes[uiTypeId], _.isEqual);
+  return useSectionInfos((x) => {
+    const uiTypeId = getUITypeColAttr(sectionId, paramInfoId, "uiTypeId", x);
+    return x.uiTypes[uiTypeId];
+  }, _.isEqual);
 }
 
-function useUITypeCol(sectionId, paramInfoId, key) {
-  return useSectionInfos((x) => {
-    const { uiTypeColId } = x.x[sectionId];
-    if (paramInfoId.startsWith(C.JSON_SOURCE_PREFIX)) {
-      if (paramInfoId in x.uiTypeCols[uiTypeColId]) {
-        return x.uiTypeCols[uiTypeColId][paramInfoId][key];
-      } else if (key === "uiTypeId") {
-        return BASE_UI_TYPE_IDS[C.TEXT];
-      } else if (key === "nonPresetUITypeIds") {
-        return [];
-      }
+export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  const { uiTypeColId } = state.x[sectionId];
+  if (paramInfoId.startsWith(C.JSON_SOURCE_PREFIX)) {
+    if (paramInfoId in state.uiTypeCols[uiTypeColId]) {
+      return state.uiTypeCols[uiTypeColId][paramInfoId][key];
+    } else if (key === "uiTypeId") {
+      return BASE_UI_TYPE_IDS[C.TEXT];
+    } else if (key === "nonPresetUITypeIds") {
+      return [];
     }
-    return x.uiTypeCols[uiTypeColId][paramInfoId][key];
+  }
+  return state.uiTypeCols[uiTypeColId][paramInfoId][key];
+}
+
+export function useSectionType(sectionId) {
+  return useSectionInfos((x) => {
+    return x.uiTypes[x.x[sectionId].uiTypeId].type;
   });
 }
 
-function useParamUITypeId(sectionId, paramInfoId) {
-  return useUITypeCol(sectionId, paramInfoId, "uiTypeId");
-}
-
-export function useParamNonPresetUITypeIds(sectionId, paramInfoId) {
-  return useUITypeCol(sectionId, paramInfoId, "nonPresetUITypeIds");
-}
-
-export function useGetSectionType(sectionId, key) {
-  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  const nonScalars = ["config"];
-  const equalityFn = nonScalars.includes(key) ? _.isEqual : undefined;
-  return useSectionInfos((x) => x.uiTypes[uiTypeId][key], equalityFn);
-}
-
 function useIsSeriesElementHelper(sectionId, parentTypesToCheck) {
-  const parentId = useGetSectionInfo(sectionId, "parentId");
-  const uiTypeId = useSectionInfos((x) =>
-    parentId ? x.x[parentId].uiTypeId : null,
-  );
-  return useSectionInfos((x) =>
-    uiTypeId ? parentTypesToCheck.includes(x.uiTypes[uiTypeId].type) : false,
-  );
+  return useSectionInfos((x) => {
+    const { parentId } = x.x[sectionId];
+    const uiTypeId = x.x[parentId]?.uiTypeId;
+    return uiTypeId
+      ? parentTypesToCheck.includes(x.uiTypes[uiTypeId].type)
+      : false;
+  });
 }
 
 export function useIsSeriesElement(sectionId) {
@@ -123,12 +115,10 @@ export function useIsDrawArea(sectionId) {
 }
 
 export function useUIEditorTab(sectionId) {
-  const uiTypeId = useSectionInfos((x) =>
-    sectionId ? x.x[sectionId].uiTypeId : null,
-  );
-  const uiTypeName = useSectionInfos((x) =>
-    uiTypeId ? x.uiTypes[uiTypeId].type : null,
-  );
+  const uiTypeName = useSectionInfos((x) => {
+    const uiTypeId = x.x[sectionId]?.uiTypeId;
+    return uiTypeId ? x.uiTypes[uiTypeId].type : null;
+  });
   const [_storedTab] = localStorageFns.uiEditorTab.hook();
   return { ...getUIEditorTab(uiTypeName, _storedTab), uiTypeName };
 }
