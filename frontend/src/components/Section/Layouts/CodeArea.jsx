@@ -137,18 +137,27 @@ export function useCodeAreaHeight({ sectionId }) {
 
   const wrapperRef = useRef(null);
   const editorRef = useRef(null);
+  const resizeObserverRef = useRef(null);
   const [nowheel, setNoWheel] = useState("");
-
-  function computeNoWheel() {
-    return editorRef.current.scrollDOM.scrollHeight >
-      editorRef.current.scrollDOM.clientHeight
-      ? "nowheel"
-      : "";
-  }
 
   const handleCreateEditor = useCallback((view) => {
     editorRef.current = view;
-    setNoWheel(computeNoWheel());
+
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      setNoWheel(
+        entry.target.scrollHeight > entry.target.clientHeight ? "nowheel" : "",
+      );
+    });
+    resizeObserver.observe(editorRef.current.scrollDOM);
+    resizeObserverRef.current = resizeObserver;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+    };
   }, []);
 
   const maxHeight =
@@ -165,7 +174,6 @@ export function useCodeAreaHeight({ sectionId }) {
       wrapperRef.current.scrollTop = editorScrollTop;
     } else if (editorRef.current && resizeEvent === "end") {
       editorRef.current.scrollDOM.scrollTop = wrapperScrollTop;
-      setNoWheel(computeNoWheel());
     }
   }, [resizeEvent]);
 
