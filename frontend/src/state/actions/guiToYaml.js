@@ -178,12 +178,13 @@ function recursiveHelper(
     paramSweeps,
   );
   if (type === "section") {
-    newRunGroupSections[match] = {
-      [parentVariantId]: {
-        selected: true,
-        versions: {},
-        paramSweeps: {},
-      },
+    if (!(match in newRunGroupSections)) {
+      newRunGroupSections[match] = {};
+    }
+    newRunGroupSections[match][parentVariantId] = {
+      selected: true,
+      versions: {},
+      paramSweeps: {},
     };
     nextForSectionId = match;
   } else if (type === "sectionVariant") {
@@ -200,7 +201,7 @@ function recursiveHelper(
     // then we need to select the section's only version here because it won't be
     // covered recursively
     if (!value || !Object.keys(value).some((k) => k.startsWith("@"))) {
-      nextParentVariantId = sections[match].variantIds[0];
+      nextParentVariantId = sections[match].variantId;
       newRunGroupSections[match][parentVariantId].versions[
         nextParentVariantId
       ] = true;
