@@ -1,5 +1,5 @@
 import { localStorageFns } from "state/hooks/localStorage";
-import { CLOSED_PANE_WIDTH } from "utils/constants";
+import { CLOSED_PANE_WIDTH, OVERVIEW } from "utils/constants";
 
 export function usePaneFns({ paneName, onResizeStop, tab, setTab }) {
   const [vis, setVis] = localStorageFns[`${paneName}Vis`].hook();
@@ -37,7 +37,7 @@ export function TabButton({
   vis,
   tab,
   tabName,
-  getOnTabClick,
+  onTabClick,
   children,
   className,
   requiredTabs,
@@ -49,7 +49,7 @@ export function TabButton({
     <button
       id={id}
       className={`${className} ${color}`}
-      onClick={getOnTabClick(tabName)}
+      onClick={() => onTabClick(tabName)}
       disabled={disabled}
       {...props}
     >
@@ -65,4 +65,32 @@ function getColor({ vis, isCurrSelected, disabled }) {
     return "text-setta-300/50 dark:text-setta-700/50";
   }
   return "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500";
+}
+
+function visToggle(paneName, onResizeStop) {
+  const [vis, setVis] = localStorageFns[`${paneName}Vis`].state();
+  const [width] = localStorageFns[`${paneName}Width`].state();
+  const setTrueWidth = localStorageFns[`${paneName}TrueWidth`].state()[1];
+  const newVis = !vis;
+  setVis(newVis);
+  setTrueWidth(newVis ? width : CLOSED_PANE_WIDTH);
+  if (onResizeStop) {
+    const widthDiff = width - CLOSED_PANE_WIDTH;
+    onResizeStop(newVis ? widthDiff : -widthDiff);
+  }
+}
+
+export function getOnOverviewTabClick(onResizeStop) {
+  return (tabValue) => {
+    const [vis] = localStorageFns.overviewVis.state();
+    const [tab, setTab] = localStorageFns.overviewTab.state();
+    if (tab !== tabValue) {
+      setTab(tabValue);
+      if (!vis) {
+        visToggle(OVERVIEW, onResizeStop);
+      }
+    } else {
+      visToggle(OVERVIEW, onResizeStop);
+    }
+  };
 }
