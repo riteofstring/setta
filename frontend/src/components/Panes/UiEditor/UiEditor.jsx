@@ -17,21 +17,20 @@ import {
   UI_EDITOR,
 } from "utils/constants";
 import { uiEditorPaneOnKeyDown } from "utils/tabbingLogic";
-import { TabButton, usePaneFns } from "../paneFns";
+import { getOnTabClick, TabButton, usePaneVisAndWidth } from "../paneFns";
 import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { SectionVariants } from "./SectionVariants/SectionVariants";
 import { UIConfig } from "./UIConfig/UIConfig";
 
+const paneName = UI_EDITOR;
+
 export function UiEditor() {
   const sectionIds = useActiveSection((x) => x.ids);
-  const [tab, setTab, requiredTabs] = useUIEditorTab(sectionIds[0]);
-  const { vis, width, setWidth, setTrueWidth, getOnTabClick } = usePaneFns({
-    paneName: UI_EDITOR,
-    tab,
-    setTab,
-  });
+  const { tab, requiredTabs } = useUIEditorTab(sectionIds[0]);
+  const { vis, width } = usePaneVisAndWidth(paneName);
+
   const renderMarkdown = useSectionInfos((x) =>
     sectionIds.length > 0 ? x.x[sectionIds[0]].renderMarkdown : false,
   );
@@ -41,7 +40,7 @@ export function UiEditor() {
   const commonProps = {
     vis,
     tab,
-    getOnTabClick,
+    onTabClick: getOnTabClick({ paneName }),
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs,
@@ -91,14 +90,7 @@ export function UiEditor() {
           <TbVersions />
         </TabButton>
       </div>
-      <PaneContainer
-        right={true}
-        minimumWidth={425}
-        vis={vis}
-        width={width}
-        setWidth={setWidth}
-        setTrueWidth={setTrueWidth}
-      >
+      <PaneContainer right={true} minimumWidth={425} vis={vis} width={width}>
         {sectionIds.length === 1 && vis ? (
           <TabsVisible
             sectionId={sectionIds[0]}

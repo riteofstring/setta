@@ -16,6 +16,7 @@ import {
   deactivateParamSelect,
 } from "state/actions/paramSelect";
 import { useSettings } from "state/definitions";
+import { showVersionsTab } from "state/hooks/uiTypes";
 import { tabFromDocumentBody } from "utils/tabbingLogic";
 import { isMacOs } from "utils/utils";
 import { copy } from "./copyPaste/copy";
