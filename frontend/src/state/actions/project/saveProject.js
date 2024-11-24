@@ -11,6 +11,7 @@ import {
   useCodeInfoCols,
   useKeywordRegex,
   useNodeInternals,
+  useOriginalYamlObj,
   useParamSweep,
   useProjectConfig,
   useRunGroups,
@@ -19,6 +20,7 @@ import {
   useSettings,
   useUITypeCols,
   useUITypes,
+  useYamlValue,
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { yamlToGUI } from "../guiToYaml";
@@ -35,7 +37,11 @@ export function getProjectData({
   if (convertYamlToGUI) {
     for (const s of Object.values(sections)) {
       if (s.displayMode === SECTION_DISPLAY_MODES.YAML) {
-        yamlToGUI(s.id);
+        yamlToGUI(
+          s.id,
+          useYamlValue.getState()[s.id],
+          useOriginalYamlObj.getState()[s.id],
+        );
       }
     }
   }
@@ -109,7 +115,7 @@ export async function saveProject() {
   setNotificationMessage("Saving...");
   if (useProjectConfig.getState().name === SETTINGS_PROJECT_NAME) {
     res = await dbSaveSettings(getProjectData({ convertYamlToGUI: true }));
-    if (res.status === 200) {
+    if (res.status == 200) {
       useSettings.setState(res.data);
     }
   } else {

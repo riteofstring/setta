@@ -12,6 +12,5 @@ def new_section_variant(**kwargs):
         "keywordPositions": [],
         "children": [],
         "values": {},
-        "isFrozen": False,
         **kwargs,
     }

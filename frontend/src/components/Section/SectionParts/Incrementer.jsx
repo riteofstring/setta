@@ -2,11 +2,8 @@ import { useState } from "react";
 import { TbSortDescendingSmallBig } from "react-icons/tb";
 import { addChildrenToSeries } from "state/actions/sections/createSections";
 import { deleteChildrenFromSeries } from "state/actions/sections/deleteSections";
-import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 
 export function Incrementer({ sectionId, isRoot, popover = false }) {
-  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
-
   const addSections = (numSections) => {
     addChildrenToSeries({
       isRoot,
@@ -55,7 +52,6 @@ export function Incrementer({ sectionId, isRoot, popover = false }) {
         className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-setta-800 dark:text-setta-300"
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
-        disabled={variantIsDisabled}
       />
 
       {/* <div className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-[10px] focus-visible:ring-2 dark:bg-setta-800 dark:text-setta-300">
@@ -66,14 +62,12 @@ export function Incrementer({ sectionId, isRoot, popover = false }) {
         className="nodrag gg-math-minus rounded-full focus-visible:ring-2 dark:text-setta-300"
         onClick={() => deleteChildren(numSections)}
         role="button"
-        disabled={variantIsDisabled}
       />
 
       <button
         className="nodrag gg-math-plus rounded-full focus-visible:ring-2 dark:text-setta-300"
         onClick={() => addSections(numSections)}
         role="button"
-        disabled={variantIsDisabled}
       />
     </div>
     //     </Tooltip.Trigger>

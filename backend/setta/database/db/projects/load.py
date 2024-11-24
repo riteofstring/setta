@@ -22,8 +22,7 @@ def load_all_project_config_metadata(db):
             id,
             name,
             previewImgNodes,
-            previewImgColor,
-            isDefault
+            previewImgColor
         FROM
             ProjectConfig
         ORDER BY

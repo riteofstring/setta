@@ -142,21 +142,6 @@ def save_project_config_name(db, curr_name, new_name):
     db.execute(query, query_params)
 
 
-def set_as_default_project(db, projectId):
-    query = """
-        UPDATE ProjectConfig
-        SET isDefault = 0;
-    """
-    db.execute(query)
-
-    query = """
-        UPDATE ProjectConfig
-        SET isDefault = 1
-        WHERE id = :projectId;
-    """
-    db.execute(query, {"projectId": projectId})
-
-
 def save_section_configs(db, project_config_id, sections):
     query_params = []
     for section_id in sections.keys():

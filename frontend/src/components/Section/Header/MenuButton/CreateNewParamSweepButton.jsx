@@ -1,36 +1,31 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { setNotificationMessage } from "state/actions/notification";
+import { initParamSweep } from "state/actions/runGroups/paramSweep";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
-import { duplicateParamSweep, getForSectionId } from "state/hooks/paramSweep";
-import { createRandomName } from "utils/idNameCreation";
+import { getForSectionId } from "state/hooks/paramSweep";
+import { createNewId, createRandomName } from "utils/idNameCreation";
 
 export function CreateNewParamSweepButton({ sectionId }) {
   function onClick() {
+    const newId = createNewId();
+    const name = createRandomName();
+    initParamSweep({ id: newId, name });
     const forSectionId = getForSectionId(
       useSectionInfos.getState().x,
       sectionId,
     );
-    const currParamSweepId = getSectionInfo(forSectionId).paramSweepId;
-
-    const name = createRandomName();
-    const newParamSweepId = duplicateParamSweep({
-      id: currParamSweepId,
-      newName: name,
-    });
-
     setSectionInfoAttr({
       sectionId: forSectionId,
       attr: "paramSweepId",
-      value: newParamSweepId,
+      value: newId,
     });
     setSectionInfoAttr({
       sectionId: forSectionId,
       attr: "paramSweepIds",
-      newValueFn: (x) => [...x, newParamSweepId],
+      newValueFn: (x) => [...x, newId],
     });
-    setNotificationMessage("New Param Sweep Created");
+    setNotificationMessage("New Version Created");
   }
 
   return <MenuItem onClick={onClick}>New Version</MenuItem>;

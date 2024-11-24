@@ -1,12 +1,9 @@
-import {
-  screenToFlowPosition,
-  setCenter,
-} from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { updateSearch } from "state/actions/search/projectSearch";
 import { getParamIds } from "state/actions/sections/sectionContents";
-import { useCodeInfo, useProjectSearch, useSettings } from "state/definitions";
+import { goToSection } from "state/actions/sections/sectionPositions";
+import { useCodeInfo, useProjectSearch } from "state/definitions";
 import { useSectionIdToChildren } from "./sectionVariants";
 
 export function useUpdateProjectSearch() {
@@ -38,13 +35,10 @@ export function useOnEnterGoToSearchResult() {
   const [currIdx, setCurrIdx] = useState(-1);
   function onKeyDown(e) {
     if (e.key === "Enter") {
-      if (searchResults.length === 0) {
-        return;
-      }
       const newIdx = (currIdx + 1) % searchResults.length;
       const focusedSearchResult = searchResults[newIdx];
       useProjectSearch.setState({ focused: focusedSearchResult });
-      goToSearchResult(focusedSearchResult);
+      goToSection(focusedSearchResult.sectionId);
       setCurrIdx(newIdx);
     } else if (e.key === "Escape") {
       e.target.blur();
@@ -99,17 +93,3 @@ function useAllVisibleParams() {
 }
 
 const doUpdateSearch = _.debounce(updateSearch, 100);
-
-function goToSearchResult(searchResult) {
-  const { sectionId, paramInfoId } = searchResult;
-  const element = document.getElementById(
-    `ParamContainer-${sectionId}-${paramInfoId}`,
-  );
-  const { x: _x, y: _y, width, height } = element.getBoundingClientRect();
-  const { x, y } = screenToFlowPosition({
-    x: _x + width / 2,
-    y: _y + height / 2,
-  });
-  const zoom = useSettings.getState().defaultZoomLevel;
-  setCenter(x, y, { zoom });
-}

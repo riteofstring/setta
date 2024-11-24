@@ -14,10 +14,12 @@ import {
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {
+  const { ref, isScrollable } = useIsScrollable();
   const outerRef = useRef();
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
   // const waitingForResult = true;
+  const hideUnpinnedParams = useGetSectionInfo(sectionId, "hideUnpinnedParams");
 
   return (
     <div
@@ -29,7 +31,12 @@ function _ParamGroupContainer({ sectionId }) {
       ) : (
         <>
           <GetPinnedParams sectionId={sectionId} outerRef={outerRef} />
-          <GetUnpinnedParams sectionId={sectionId} />
+          <div
+            className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${isScrollable ? "nowheel" : ""} min-w-0 !max-w-full`}
+            ref={ref}
+          >
+            {!hideUnpinnedParams && <GetParams sectionId={sectionId} />}
+          </div>
         </>
       )}
     </div>
@@ -41,6 +48,11 @@ function GetPinnedParams({ sectionId, outerRef }) {
     sectionId,
     true,
   );
+
+  // const paramIds = useParamsDidUpdate({
+  //   sectionId,
+  //   isPinned: true,
+  // });
 
   return (
     topLevelParamIds.length > 0 && (
@@ -125,21 +137,12 @@ function ResizablePinnedArea({
   );
 }
 
-function GetUnpinnedParams({ sectionId }) {
-  const { ref, isScrollable } = useIsScrollable();
-  const hideUnpinnedParams = useGetSectionInfo(sectionId, "hideUnpinnedParams");
+function GetParams({ sectionId }) {
+  // const paramIds = useParamsDidUpdate({
+  //   sectionId,
+  //   isPinned: false,
+  // });
 
-  return (
-    <div
-      className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${isScrollable ? "nowheel" : ""} min-w-0 !max-w-full`}
-      ref={ref}
-    >
-      {!hideUnpinnedParams && <GetUnpinnedParamsCore sectionId={sectionId} />}
-    </div>
-  );
-}
-
-function GetUnpinnedParamsCore({ sectionId }) {
   const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     false,

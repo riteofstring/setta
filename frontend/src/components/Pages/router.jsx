@@ -15,12 +15,10 @@ const homeRoute = {
   path: HOME_ROUTER_PATH,
   element: (
     <GlobalWrapper>
-      <ModalContainer>
-        <HeaderContainer path={HOME_ROUTER_PATH} />
-        <GridContainer>
-          <HomePage />
-        </GridContainer>
-      </ModalContainer>
+      <HeaderContainer path={HOME_ROUTER_PATH} />
+      <GridContainer>
+        <HomePage />
+      </GridContainer>
     </GlobalWrapper>
   ),
 };

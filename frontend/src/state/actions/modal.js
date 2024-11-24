@@ -11,10 +11,9 @@ export function setModalData(payload) {
   useModal.setState({ modalData: payload });
 }
 
-function openFileMenuModal(modalType, data) {
+function openFileMenuModal(modalType) {
   setModalType(modalType);
   setModalOpen(true);
-  setModalData(data);
 }
 
 export function openLoadModal() {
@@ -39,8 +38,4 @@ export function openExportFullJSONModal() {
 
 export function openImportJSONModal() {
   openFileMenuModal(MODAL_TYPE.IMPORT_JSON);
-}
-
-export function openDeleteProjectWarningModal(selectedProjects) {
-  openFileMenuModal(MODAL_TYPE.DELETE_PROJECT_WARNING, selectedProjects);
 }

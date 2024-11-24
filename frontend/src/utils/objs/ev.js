@@ -56,8 +56,5 @@ function convertValueForColorPicker({ currValue }) {
 }
 
 function convertValueForDropdown({ currValue }) {
-  if (!_.isNil(currValue)) {
-    return currValue;
-  }
-  return "";
+  return currValue;
 }

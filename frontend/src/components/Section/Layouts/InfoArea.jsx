@@ -6,9 +6,9 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useIsScrollable } from "state/hooks/sectionSizes";
-import { useSectionDescription } from "state/hooks/sectionVariants";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 function _InfoArea({ sectionId }) {
@@ -23,7 +23,7 @@ function _InfoArea({ sectionId }) {
 }
 
 function _Markdown({ sectionId }) {
-  const markdownSource = useSectionDescription(sectionId);
+  const markdownSource = useSectionInfos((x) => x.x[sectionId].description);
   const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
   const { ref, isScrollable } = useIsScrollable();
 

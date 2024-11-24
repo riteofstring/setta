@@ -47,13 +47,8 @@ function dispatchStorageEvent(key, newValue) {
 }
 
 const setLocalStorageItem = (key, value) => {
+  const stringifiedValue = JSON.stringify(value);
   const actualKey = getActualKey(key);
-  let actualValue = value;
-  if (typeof value === "function") {
-    actualValue = value(JSON.parse(window.localStorage.getItem(actualKey)));
-  }
-
-  const stringifiedValue = JSON.stringify(actualValue);
   window.localStorage.setItem(actualKey, stringifiedValue);
   dispatchStorageEvent(actualKey, stringifiedValue);
 };

@@ -47,6 +47,7 @@ CREATE_TABLES_COMMANDS = [
         uiTypeId TEXT,
         uiTypeColId TEXT,
         social TEXT,
+        description TEXT,
         codeLanguage TEXT,
         configLanguage TEXT,
         isFrozen BOOLEAN,
@@ -54,7 +55,6 @@ CREATE_TABLES_COMMANDS = [
         hideUnpinnedParams BOOLEAN,
         displayMode TEXT,
         canvasSettings TEXT,
-        renderMarkdown BOOLEAN,
         FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE
@@ -88,10 +88,7 @@ CREATE_TABLES_COMMANDS = [
         code TEXT,
         keywordPositions TEXT,
         codeInfoColId TEXT,
-        description TEXT,
         originSectionId TEXT,
-        isFrozen BOOLEAN,
-        isDefault BOOLEAN,
         FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
         FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (codeInfoColId) REFERENCES CodeInfoColId(id) ON DELETE CASCADE
@@ -215,7 +212,6 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS ParamSweepId (
         id TEXT PRIMARY KEY,
         name TEXT,
-        isFrozen BOOLEAN,
         originSectionId TEXT,
         FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
     );

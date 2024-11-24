@@ -35,10 +35,7 @@ function _DndSlotAndDndWatcher({
 
 export const DndSlotAndDndWatcher = React.memo(
   _DndSlotAndDndWatcher,
-  (p, n) =>
-    p.isDeck === n.isDeck &&
-    p.children === n.children &&
-    _.isEqual(p.dragListeners, n.dragListeners),
+  (p, n) => p.isDeck === n.isDeck && p.children === n.children,
 );
 
 function _DndWatcherAndContainer({

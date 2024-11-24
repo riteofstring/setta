@@ -1,7 +1,7 @@
 def load_param_sweeps(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT ParamSweepId.id, ParamSweepId.name, ParamSweepId.isFrozen, ParamSweep.selectedItemGroupNum, ParamSweep.paramInfoGroupNum, ParamSweep.selectedItem, ParamSweep.paramInfoId, ParamSweep.value
+        SELECT ParamSweepId.id, ParamSweepId.name, ParamSweep.selectedItemGroupNum, ParamSweep.paramInfoGroupNum, ParamSweep.selectedItem, ParamSweep.paramInfoId, ParamSweep.value
         FROM ParamSweepId
         LEFT JOIN ParamSweep
         ON ParamSweepId.id = ParamSweep.idid
@@ -15,7 +15,6 @@ def load_param_sweeps(db, ids):
         if id not in output:
             output[id] = {
                 "name": row["name"],
-                "isFrozen": row["isFrozen"],
                 "sweep": [],
             }
         curr = output[id]["sweep"]

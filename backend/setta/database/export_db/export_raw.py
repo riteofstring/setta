@@ -1,6 +1,3 @@
-import os
-from pathlib import Path
-
 import yaml
 
 
@@ -23,9 +20,7 @@ def export_raw(db, filename):
     yaml.add_representer(str, literal_presenter)
 
     # For YAML export, PyYAML is used; ensure it's installed
-    filepath = Path(os.getcwd()) / f"{filename}_export.yaml"
-    print("saving raw to", filepath)
-    with open(filepath, "w") as file:
+    with open(f"{filename}_export.yaml", "w") as file:
         yaml.dump(database_export, file, allow_unicode=True)
 
 

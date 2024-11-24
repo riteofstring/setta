@@ -63,7 +63,7 @@ function _ParamContainer({
 
   const bg = paramIsSelected ? "bg-setta-500/20" : "";
 
-  function onMouseDownSelect(e) {
+  function onClickSelect(e) {
     if (!ancestorIsSelected && useParamShortcuts.getState().isSelectingParams) {
       e.stopPropagation();
       toggleParamSelected(sectionId, paramInfoId);
@@ -73,10 +73,9 @@ function _ParamContainer({
   return paramChildren.length === 0 ? (
     <>
       <article
-        id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
         className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between overflow-clip rounded-md ${bg} ${border}`}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
-        onMouseDown={onMouseDownSelect}
+        onClick={onClickSelect}
       >
         {children}
         <ParamInput
@@ -93,7 +92,7 @@ function _ParamContainer({
     <article
       className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between gap-y-1 overflow-clip rounded-md ${bg} ${border}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
-      onMouseDown={onMouseDownSelect}
+      onClick={onClickSelect}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">

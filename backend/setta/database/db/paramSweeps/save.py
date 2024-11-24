@@ -1,17 +1,13 @@
 def save_param_sweeps(db, param_sweeps):
     query = """
-        INSERT INTO ParamSweepId (id, name, isFrozen)
-        VALUES (:id, :name, :isFrozen)
+        INSERT INTO ParamSweepId (id, name)
+        VALUES (:id, :name)
         ON CONFLICT (id)
         DO UPDATE SET
-            name = :name,
-            isFrozen = :isFrozen
+            name = :name
     """
 
-    query_params = [
-        {"id": id, "name": p["name"], "isFrozen": p["isFrozen"]}
-        for id, p in param_sweeps.items()
-    ]
+    query_params = [{"id": id, "name": p["name"]} for id, p in param_sweeps.items()]
     db.executemany(query, query_params)
 
     placeholders = ", ".join(["?"] * len(param_sweeps))

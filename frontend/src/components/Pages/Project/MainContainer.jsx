@@ -1,7 +1,6 @@
 import { useCodeMirrorStyleLoader } from "components/utils/CodeMirror/useCodeMirrorStyleLoader";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
-import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { useEffect } from "react";
 import { dbRequestTypeCheck } from "requests/sections";
 import { useLoadProjectConfig } from "state/hooks/project";
@@ -14,7 +13,6 @@ import { UIPage } from "./UiPage";
 export function MainContainer() {
   const [doneLoading, is404] = useLoadProjectConfig();
   useCodeMirrorStyleLoader(doneLoading, is404);
-  useAddMouseLocationListener();
 
   useEffect(() => {
     if (doneLoading && !is404) {

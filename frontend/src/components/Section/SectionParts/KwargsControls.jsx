@@ -9,7 +9,6 @@ import {
 import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useActiveSection, useSettings } from "state/definitions";
-import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import { shortcutPrettified } from "utils/utils";
 import { getAllSelectedParams } from "../../../state/actions/kwargs/utils";
 
@@ -18,8 +17,6 @@ export function KwargsControls({
   objInfoId,
   bgColor = "bg-transparent",
 }) {
-  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
-
   const sectionIsActive = useActiveSection((x) =>
     _.isEqual(x.ids, [sectionId]),
   );
@@ -60,16 +57,10 @@ export function KwargsControls({
               className={classes}
               onClick={onClickDeleteKwarg}
               tabIndex="0"
-              disabled={variantIsDisabled}
             >
               <i className="gg-math-minus before:!left-0 " />
             </button>
-            <button
-              className={classes}
-              onClick={onClickAddKwarg}
-              tabIndex="0"
-              disabled={variantIsDisabled}
-            >
+            <button className={classes} onClick={onClickAddKwarg} tabIndex="0">
               <i className="gg-math-plus !scale-50" />
             </button>
 
@@ -80,7 +71,6 @@ export function KwargsControls({
               className={classes}
               onClick={onClickDeleteSelectedKwargs}
               tabIndex="0"
-              disabled={variantIsDisabled}
             >
               <i className="gg-close !scale-50" />
             </button>

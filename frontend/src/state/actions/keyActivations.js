@@ -1,4 +1,3 @@
-import { showVersionsTab } from "components/Panes/paneFns";
 import {
   disableFloatingBox,
   enableFloatingBox,
@@ -9,8 +8,6 @@ import {
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { onFitViewHandler } from "forks/xyflow/core/store/utils";
-import { zoomToMouseLocation } from "forks/xyflow/core/utils/mouseLocation";
 import _ from "lodash";
 import {
   activateParamSelect,
@@ -25,13 +22,11 @@ import { formatCode, updateInteractiveCode } from "./interactive";
 import { unselectAllParams } from "./kwargs/kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
-import { setAllSectionsAsActive } from "./sections/activeSections";
 import {
   addGroupInEmptySpace,
   addRegularSectionInEmptySpace,
   addTerminalInEmptySpace,
 } from "./sections/createSections";
-import { deleteAllActiveSections } from "./sections/deleteSections";
 import { groupSections } from "./sections/groupSections";
 import { focusOnSearch } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
@@ -220,11 +215,6 @@ export function attachKeyEventListeners() {
     [settings.updateInteractiveCode, updateInteractiveCode],
     [settings.formatCode, formatCode],
     [settings.paramSelect, activateParamSelect, deactivateParamSelect],
-    [settings.fitViewShortcut, onFitViewHandler],
-    [settings.zoomToMouseShortcut, zoomToMouseLocation],
-    [settings.deleteSectionShortcut, deleteAllActiveSections],
-    [settings.selectAllSectionsShortcut, setAllSectionsAsActive],
-    [settings.showVersionsTabShortcut, showVersionsTab],
     [
       settings.selectionKeyCode,
       activateSelectionKeyPressed,

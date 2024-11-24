@@ -6,7 +6,6 @@ import { MdOutlineSettingsApplications } from "react-icons/md";
 import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
 import { useActiveSection, useSectionInfos } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import {
   INFO_CONFIG_TAB,
@@ -18,20 +17,21 @@ import {
   UI_EDITOR,
 } from "utils/constants";
 import { uiEditorPaneOnKeyDown } from "utils/tabbingLogic";
-import { getOnUIEditorTabClick, TabButton } from "../paneFns";
+import { TabButton, usePaneFns } from "../paneFns";
 import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { SectionVariants } from "./SectionVariants/SectionVariants";
 import { UIConfig } from "./UIConfig/UIConfig";
 
-const paneName = UI_EDITOR;
-
 export function UiEditor() {
   const sectionIds = useActiveSection((x) => x.ids);
-  const { tab, requiredTabs, uiTypeName } = useUIEditorTab(sectionIds[0]);
-  const [vis] = localStorageFns.uiEditorVis.hook();
-  const [width] = localStorageFns.uiEditorWidth.hook();
+  const [tab, setTab, requiredTabs] = useUIEditorTab(sectionIds[0]);
+  const { vis, width, setWidth, setTrueWidth, getOnTabClick } = usePaneFns({
+    paneName: UI_EDITOR,
+    tab,
+    setTab,
+  });
   const renderMarkdown = useSectionInfos((x) =>
     sectionIds.length > 0 ? x.x[sectionIds[0]].renderMarkdown : false,
   );
@@ -41,7 +41,7 @@ export function UiEditor() {
   const commonProps = {
     vis,
     tab,
-    onTabClick: getOnUIEditorTabClick(uiTypeName),
+    getOnTabClick,
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs,
@@ -92,11 +92,12 @@ export function UiEditor() {
         </TabButton>
       </div>
       <PaneContainer
-        paneName={paneName}
         right={true}
         minimumWidth={425}
         vis={vis}
         width={width}
+        setWidth={setWidth}
+        setTrueWidth={setTrueWidth}
       >
         {sectionIds.length === 1 && vis ? (
           <TabsVisible

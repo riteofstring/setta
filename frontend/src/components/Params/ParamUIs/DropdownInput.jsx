@@ -57,13 +57,7 @@ export function DropdownInputConfig({ onChange, config }) {
   );
 }
 
-export function DropdownInput({
-  choices,
-  value,
-  onChange,
-  outerDivClasses,
-  isDisabled,
-}) {
+export function DropdownInput({ choices, value, onChange, outerDivClasses }) {
   const allItems = [
     {
       group: "Choices",
@@ -78,7 +72,6 @@ export function DropdownInput({
       value={value ? value : null}
       onSelectedItemChange={onChange}
       small={true}
-      isDisabled={isDisabled}
     />
   );
 }

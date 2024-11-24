@@ -7,13 +7,7 @@ export function setAllParamSweeps(payload) {
 
 export function initParamSweep({ id, name }) {
   useParamSweep.setState((state) => {
-    state.x[id] = { name, sweep: [], isFrozen: false };
-  });
-}
-
-export function toggleParamSweepIsFrozen(id) {
-  useParamSweep.setState((state) => {
-    state.x[id].isFrozen = !state.x[id].isFrozen;
+    state.x[id] = { name, sweep: [] };
   });
 }
 
@@ -102,7 +96,7 @@ export function changeParamSweepParamInfoId({
   useParamSweep.setState((state) => {
     state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx] = {
       paramInfoId,
-      values: [],
+      values: [""],
     };
   });
 }
@@ -123,7 +117,7 @@ export function addParamSweepParamInfoId({
   useParamSweep.setState((state) => {
     state.x[paramSweepId].sweep[actualSelectedItemIdx].params.push({
       paramInfoId,
-      values: [],
+      values: [""],
     });
   });
 }
