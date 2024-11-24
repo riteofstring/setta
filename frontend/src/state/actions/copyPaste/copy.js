@@ -12,7 +12,6 @@ import {
 import { getForSectionId } from "state/hooks/paramSweep";
 import { findAll } from "utils/getDescendants";
 import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
-import { getSectionCodeInfoChildren } from "../codeInfoCols";
 import { setNotificationMessage } from "../notification";
 import { getSectionChildrenAcrossVariants } from "../sectionVariants";
 
@@ -96,31 +95,29 @@ function getUITypes(sections, uiTypeCols) {
 }
 
 function getCodeInfo(sections) {
-  const sectionCodeInfoIds = _.mapValues(
+  const sectionCodeInfoIds = _.map(
     sections,
     (x) => getSectionInfo(x.id).codeInfoId,
   );
   let output = [];
   const codeInfoState = useCodeInfo.getState().x;
-  for (const [sectionId, cid] of Object.entries(sectionCodeInfoIds)) {
-    const codeInfos = findAll(
-      codeInfoState,
-      getSectionCodeInfoChildren(sectionId),
-      [cid],
-    ).ids.map((x) => codeInfoState[x]);
-    // if (codeInfos.some((x) => x.isSelected)) {
-    //   output.push(
-    //     ...codeInfos.filter(
-    //       (x) =>
-    //         x.isSelected ||
-    //         x.rcType === C.CALLABLE ||
-    //         x.rcType === C.COLLECTION ||
-    //         sectionCodeInfoIds.includes(x.id),
-    //     ),
-    //   );
-    // } else {
-    output.push(...codeInfos);
-    // }
+  for (const cid of sectionCodeInfoIds) {
+    const codeInfos = findAll(codeInfoState, [cid]).ids.map(
+      (x) => codeInfoState[x],
+    );
+    if (codeInfos.some((x) => x.isSelected)) {
+      output.push(
+        ...codeInfos.filter(
+          (x) =>
+            x.isSelected ||
+            x.rcType === C.CALLABLE ||
+            x.rcType === C.COLLECTION ||
+            sectionCodeInfoIds.includes(x.id),
+        ),
+      );
+    } else {
+      output.push(...codeInfos);
+    }
   }
   output = _.keyBy(_.cloneDeep(output), (x) => x.id);
 
