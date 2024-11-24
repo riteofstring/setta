@@ -190,6 +190,13 @@ def export_param_sweep_section_to_dict(sweep, codeInfo, codeInfoChildren):
     e.export()
     return e
 
+def export_single_run_group_to_dict(runGroup, sections, sectionVariants, paramSweeps):
+    runGroup = replace_null_keys_with_none(runGroup)
+    print(runGroup)
+    e = SingleRunGroupToDict(runGroup, sections, sectionVariants, paramSweeps)
+    e.export()
+    return e
+
 
 def get_first_section_code_that_needs_generated_python(p):
     for id in p["sections"].keys():
@@ -616,7 +623,6 @@ class ParamSweepSectionToDict:
         codeInfo,
         codeInfoChildren,
     ):
-        self.output = {}
         self.prettyOutput = []
         self.sweep = sweep
         self.codeInfo = codeInfo
@@ -629,7 +635,6 @@ class ParamSweepSectionToDict:
     def export_selected_item_sweep(self, selectedItemSweep):
         selectedItem = selectedItemSweep["selectedItem"]
         params = selectedItemSweep["params"]
-        # self.output[selectedItem] = {}
         if selectedItem:
             selectedItemName = self.codeInfo[selectedItem]["name"]
             currObj = {selectedItemName: []}
@@ -652,3 +657,59 @@ class ParamSweepSectionToDict:
                 paramFullPathName = None
             curr.append({paramFullPathName: p["values"]})
         self.prettyOutput.append(currObj)
+
+
+class SingleRunGroupToDict:
+    def __init__(
+        self,
+        runGroup,
+        sections,
+        sectionVariants,
+        paramSweeps,
+    ):
+        self.prettyOutput = {}
+        self.runGroup = runGroup
+        self.sections = sections
+        self.sectionVariants = sectionVariants
+        self.paramSweeps = paramSweeps
+
+    def export(self):
+        for s in self.sections.values():
+            if not s["parentId"]:
+                result = self.export_section_details(s["id"], None)
+                if result:
+                    self.prettyOutput.update(result)
+
+
+    def export_section_details(self, sectionId, parentVariantId):
+        details = self.runGroup.get(sectionId, {}).get(parentVariantId, None)
+        if not details or not details["selected"]:
+            return None
+        section_name = self.sections[sectionId]["name"]
+        output = {section_name: {}}
+        
+        for variantId, selected in details["versions"].items():
+            if not selected:
+                continue
+            variant = self.sectionVariants[variantId]
+            variant_name = f'@{variant["name"]}'
+            children = variant["children"]
+            child_dict = {}
+            for c in children:
+                child_result = self.export_section_details(c, variantId)
+                if child_result:
+                    child_dict.update(child_result)
+            if len(child_dict) == 0:
+                output[section_name][variant_name] = child_dict
+            else:
+                output[section_name][variant_name] = None
+
+        for paramSweepId, selected in details["paramSweeps"].items():
+            if not selected:
+                continue
+            param_sweep_name = f'~{self.paramSweeps[paramSweepId]["name"]}'
+            output[section_name][param_sweep_name] = None
+            
+        if len(output[section_name]) == 0:
+            output[section_name] = None
+        return output
