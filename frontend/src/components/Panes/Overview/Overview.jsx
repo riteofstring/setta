@@ -6,7 +6,7 @@ import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
 import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
-import { getOnOverviewTabClick, TabButton, usePaneFns } from "../paneFns";
+import { getOnOverviewTabClick, TabButton } from "../paneFns";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
 
@@ -18,13 +18,9 @@ export function Overview() {
       updateMapPosition(widthDiff);
     }
   }
-  const [tab, setTab] = localStorageFns.overviewTab.hook();
-  const { vis, width } = usePaneFns({
-    paneName,
-    onResizeStop,
-    tab,
-    setTab,
-  });
+  const [tab] = localStorageFns.overviewTab.hook();
+  const [vis] = localStorageFns.overviewVis.hook();
+  const [width] = localStorageFns.overviewWidth.hook();
   const commonProps = {
     vis,
     tab,
