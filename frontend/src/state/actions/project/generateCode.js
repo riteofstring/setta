@@ -138,10 +138,8 @@ function getSectionsParamSweepsAndVersions(
   const sectionParamSweepsAndVersions = [];
   for (const sectionId of sectionIds) {
     const sectionDetails = runGroupSections[sectionId]?.[variantId];
-    console.log("sectionDetails", sectionDetails)
     // is it selected for the given variantId?
     if (!sectionDetails || !sectionDetails.selected) {
-      console.log("continuing")
       continue;
     }
 
@@ -164,11 +162,9 @@ function getSectionsParamSweepsAndVersions(
     for (const [versionId, selected] of Object.entries(
       sectionDetails.versions,
     )) {
-      console.log("versionId", versionId, selected)
       if (selected) {
         // add the currently selected version if a param sweep wasn't added
         if (versionId !== currentlySelectedVariantId || !paramSweepWasAdded) {
-          console.log("adding", sectionId)
           sectionParamSweepsAndVersions.push({
             sectionId,
             paramSweepId: null,
@@ -177,7 +173,6 @@ function getSectionsParamSweepsAndVersions(
           });
         }
         const childSectionIds = project.sectionVariants[versionId].children;
-        console.log("childSectionIds", childSectionIds)
         sectionParamSweepsAndVersions.push(
           ...getSectionsParamSweepsAndVersions(
             project,

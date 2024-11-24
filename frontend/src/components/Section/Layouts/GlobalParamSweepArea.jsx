@@ -60,11 +60,10 @@ function GlobalParamSweepGUI({ width }) {
           {/* <FilterSection /> */}
 
           <RunGroupList
-            setShownRunGroup={setShownRunGroup}
             setPreviewRunGroup={setPreviewRunGroup}
             shownRunGroup={shownRunGroup}
           />
-          <CreateNewRunGroupButton setShownRunGroup={setShownRunGroup} />
+          <CreateNewRunGroupButton />
         </article>
         {!!toShow && (
           <article className="mt-2 flex flex-1 flex-col gap-2 @sm/multipane:overflow-x-hidden">
@@ -80,7 +79,7 @@ function GlobalParamSweepGUI({ width }) {
   );
 }
 
-function RunGroupList({ shownRunGroup, setShownRunGroup, setPreviewRunGroup }) {
+function RunGroupList({ shownRunGroup, setPreviewRunGroup }) {
   const runGroupSelection = useProjectConfig(
     (x) => x.runGroupSelection,
     _.isEqual,
@@ -506,7 +505,7 @@ function FilterSection() {
   );
 }
 
-function CreateNewRunGroupButton({ setShownRunGroup }) {
+function CreateNewRunGroupButton({}) {
   function onClick() {
     const id = createNewId();
     initRunGroup({ id, name: createRandomName() });
