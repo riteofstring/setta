@@ -1,5 +1,5 @@
 import { useMisc, useProjectConfig, useRunGroups } from "state/definitions";
-import { getSectionByName } from "state/getters/sectionInfo";
+import { getSectionByName, getSectionInfo } from "state/getters/sectionInfo";
 import { createNewId } from "utils/idNameCreation";
 
 export function setAllRunGroups(payload) {
@@ -22,11 +22,11 @@ export function toggleRunGroup(id) {
   });
 }
 
-function newRunGroupSection() {
+function newRunGroupSection(sectionId) {
   return {
     selected: false,
     paramSweeps: {},
-    versions: {},
+    versions: { [getSectionInfo(sectionId).variantId]: true },
   };
 }
 
@@ -36,7 +36,8 @@ function maybeInitRunGroupSection(state, id, sectionId, parentVariantId) {
     state.x[id].sections[sectionId] = {};
   }
   if (!(parentVariantId in state.x[id].sections[sectionId])) {
-    state.x[id].sections[sectionId][parentVariantId] = newRunGroupSection();
+    state.x[id].sections[sectionId][parentVariantId] =
+      newRunGroupSection(sectionId);
   }
 }
 
@@ -93,13 +94,6 @@ function toggleRunGroupSectionAttr({
       // if we set version or param sweep to true, we also need to set selected to true
       // (if we're already setting selected, this is redundant, but doesn't hurt)
       thisSectionState.selected = true;
-
-      // // we also need to make sure that at least one version is selected.
-      // // if no version is selected, then select the currently selected variantId
-      // if (!Object.values(thisSectionState.versions).some((x) => x)) {
-      //   thisSectionState.versions[getSectionInfo(sectionId).variantId] = true;
-      // }
-
       // if toggled to be selected, force all ancestors to be selected too
       forceAllAncestorsToBeSelected(state, id, ancestors);
     }

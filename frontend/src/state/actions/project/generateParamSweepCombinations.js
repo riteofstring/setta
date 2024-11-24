@@ -1,77 +1,88 @@
 export function* generateParamSweepCombinations(input) {
-  function* generateCombos(items, current = []) {
-    if (items.length === 0) {
-      yield current;
+  // First, group items by paramSweepId for easier validation
+  const sweepGroups = {};
+  for (const item of input) {
+    if (!sweepGroups[item.paramSweepId]) {
+      sweepGroups[item.paramSweepId] = [];
+    }
+    sweepGroups[item.paramSweepId].push(item);
+  }
+
+  // Helper generator function to yield combinations
+  function* generateCombos(remainingSweepIds, pickedItems = [], current = {}) {
+    if (remainingSweepIds.length === 0) {
+      // Convert the grouped combinations back to array format
+      const result = [];
+      for (const [sweepAndItem, params] of Object.entries(current)) {
+        for (const param of Object.values(params)) {
+          result.push(param);
+        }
+      }
+      yield result;
       return;
     }
 
-    const item = items[0];
-    const remainingItems = items.slice(1);
+    const sweepId = remainingSweepIds[0];
+    const nextSweepIds = remainingSweepIds.slice(1);
+    const items = sweepGroups[sweepId];
 
-    if (item.params.length === 0) {
-      yield* generateCombos(remainingItems, current);
-      return;
-    }
+    // Try each item from this sweep group
+    for (const item of items) {
+      // Skip if we already used a different item from this sweep
+      if (
+        pickedItems.some(
+          (picked) =>
+            picked.paramSweepId === item.paramSweepId &&
+            picked.selectedItem !== item.selectedItem,
+        )
+      ) {
+        continue;
+      }
 
-    const firstParamSet = [];
+      // Get all possible combinations of parameter values for this item
+      const paramCombinations = [];
+      const paramValues = {};
 
-    // Generate all combinations for the first item's params
-    for (const param of item.params) {
-      for (const value of param.values) {
-        const combination = {
-          paramSweepId: item.paramSweepId,
-          selectedItem: item.selectedItem,
-          paramInfoId: param.paramInfoId,
-          value: value,
-        };
+      // First, collect all possible values for each paramInfoId
+      for (const param of item.params) {
+        paramValues[param.paramInfoId] = param.values;
+      }
 
-        // Check if this combination would create multiple selectedItems for the same paramSweepId
-        const isValid = current.every((existing) => {
-          if (
-            existing.paramSweepId === combination.paramSweepId &&
-            existing.selectedItem !== combination.selectedItem
-          ) {
-            return false;
-          }
-          return true;
-        });
+      // Generate combinations for this paramSweepId + selectedItem
+      function generateParamCombos(paramIds, paramCurrent = {}) {
+        if (paramIds.length === 0) {
+          paramCombinations.push({ ...paramCurrent });
+          return;
+        }
 
-        // Check if this paramInfoId is already used in this combination set
-        const paramInfoIdUsed = firstParamSet.some(
-          (existing) => existing.paramInfoId === combination.paramInfoId,
-        );
+        const paramId = paramIds[0];
+        const remainingParamIds = paramIds.slice(1);
 
-        if (isValid && !paramInfoIdUsed) {
-          firstParamSet.push(combination);
+        for (const value of paramValues[paramId]) {
+          paramCurrent[paramId] = {
+            paramSweepId: item.paramSweepId,
+            selectedItem: item.selectedItem,
+            paramInfoId: paramId,
+            value: value,
+          };
+          generateParamCombos(remainingParamIds, paramCurrent);
         }
       }
-    }
 
-    // Generate all possible combinations of the params
-    let paramCombinations = [[]];
-    for (const param of item.params) {
-      const newCombinations = [];
-      for (const combo of paramCombinations) {
-        for (const value of param.values) {
-          newCombinations.push([
-            ...combo,
-            {
-              paramSweepId: item.paramSweepId,
-              selectedItem: item.selectedItem,
-              paramInfoId: param.paramInfoId,
-              value: value,
-            },
-          ]);
-        }
+      generateParamCombos(Object.keys(paramValues));
+
+      // Try each complete parameter combination for this item
+      for (const paramCombo of paramCombinations) {
+        const newCurrent = { ...current };
+        const sweepAndItem = `${item.paramSweepId}-${item.selectedItem}`;
+        newCurrent[sweepAndItem] = paramCombo;
+
+        yield* generateCombos(nextSweepIds, [...pickedItems, item], newCurrent);
       }
-      paramCombinations = newCombinations;
-    }
-
-    // Yield each combination with the remaining items
-    for (const combo of paramCombinations) {
-      yield* generateCombos(remainingItems, [...current, ...combo]);
     }
   }
 
-  yield* generateCombos(input);
+  // Start with all sweep IDs
+  const sweepIds = Object.keys(sweepGroups);
+  yield* generateCombos(sweepIds);
 }
