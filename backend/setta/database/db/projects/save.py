@@ -174,21 +174,24 @@ def save_section_configs(db, project_config_id, sections):
 
 def insert_section_configs(db, sections, id_pairs):
     query = """
-        INSERT INTO SectionConfig (projectConfigId, sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation, pinnedAreaHeight, isMinimized)
-        VALUES (:projectConfigId, :sectionId, :width, :height, :variantId, :paramSweepId, :isHorizontalOrientation, :pinnedAreaHeight, :isMinimized)
+        INSERT INTO SectionConfig (projectConfigId, sectionId, variantId, paramSweepId, data)
+        VALUES (:projectConfigId, :sectionId, :variantId, :paramSweepId, :data)
     """
 
     query_params = [
         {
             "projectConfigId": projectConfigId,
             "sectionId": sections[c]["id"],
-            "width": convert_size(sections[c]["size"]["width"]),
-            "height": convert_size(sections[c]["size"]["height"]),
             "variantId": sections[c]["variantId"],
             "paramSweepId": sections[c]["paramSweepId"],
-            "isHorizontalOrientation": sections[c]["isHorizontalOrientation"],
-            "pinnedAreaHeight": convert_size(sections[c]["pinnedAreaHeight"]),
-            "isMinimized": sections[c]["isMinimized"],
+            "data": json.dumps(
+                {
+                    k: v
+                    for k, v in sections[c].items()
+                    if k
+                    not in ["projectConfigId", "sectionId", "variantId", "paramSweepId"]
+                }
+            ),
         }
         for projectConfigId, c in id_pairs
     ]
@@ -268,10 +271,6 @@ def update_linked_project_configs(db, project):
 
     print("section_configs_to_add", section_configs_to_add, flush=True)
     insert_section_configs(db, project["sections"], section_configs_to_add)
-
-
-def convert_size(x):
-    return -1 if x == "auto" else x
 
 
 def get_missing_referenced_section_id(

@@ -46,17 +46,14 @@ CREATE_TABLES_COMMANDS = [
     );
     """,
     # SectionConfig model
+    # "data" column is json, containing size, isHorizontalOrientation, pinnedAreaHeight, isMinimized
     """
     CREATE TABLE IF NOT EXISTS SectionConfig (
         projectConfigId TEXT,
+        data TEXT,
         sectionId TEXT,
-        width INTEGER,
-        height INTEGER,
         variantId TEXT,
         paramSweepId TEXT,
-        isHorizontalOrientation BOOLEAN,
-        pinnedAreaHeight INTEGER,
-        isMinimized BOOLEAN,
         PRIMARY KEY (projectConfigId, sectionId),
         FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
         FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,

@@ -164,7 +164,7 @@ def get_section_ids(db, top_level_ids):
 
 
 def load_section_configs(db, project_config_id):
-    query = """SELECT sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation, pinnedAreaHeight, isMinimized
+    query = """SELECT sectionId, variantId, paramSweepId, data
         FROM SectionConfig
         WHERE projectConfigId = :projectConfigId
     """
@@ -175,22 +175,12 @@ def load_section_configs(db, project_config_id):
         row = dict(row)
         output[row["sectionId"]] = {
             "id": row["sectionId"],
-            "size": {
-                "width": convert_size(row["width"]),
-                "height": convert_size(row["height"]),
-            },
             "variantId": row["variantId"],
             "paramSweepId": row["paramSweepId"],
-            "isHorizontalOrientation": row["isHorizontalOrientation"],
-            "pinnedAreaHeight": convert_size(row["pinnedAreaHeight"]),
-            "isMinimized": row["isMinimized"],
+            **json.loads(row["data"]),
         }
 
     return output
-
-
-def convert_size(x):
-    return "auto" if x == -1 else x
 
 
 def num_projects_each_section_exists_in(db, section_ids):
