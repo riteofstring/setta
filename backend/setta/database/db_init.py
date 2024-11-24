@@ -4,18 +4,11 @@ from .seed import seed
 
 CREATE_TABLES_COMMANDS = [
     # CodeInfo model
+    # data column is json, containing name, editable, rcType, defaultVal, description, positionalOnly, isPinned, isFrozen, keywordPositions
     """
     CREATE TABLE IF NOT EXISTS CodeInfo (
         id TEXT PRIMARY KEY,
-        name TEXT,
-        editable BOOLEAN,
-        rcType TEXT,
-        defaultVal TEXT,
-        description TEXT,
-        positionalOnly BOOLEAN,
-        isPinned BOOLEAN,
-        isFrozen BOOLEAN,
-        keywordPositions TEXT
+        data TEXT
     );
     """,
     # CodeInfoColId model
