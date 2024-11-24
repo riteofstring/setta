@@ -1,13 +1,8 @@
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { TextAreaPopover } from "components/Utils/atoms/popover/textareapopover";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
-import React, { useState } from "react";
-import { BiPencil } from "react-icons/bi";
-import { setCodeInfoDescription } from "state/actions/codeInfo";
+import React from "react";
 import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
-import { useCodeInfo } from "state/definitions";
 import { useGetParamInfosThatHaveNames } from "state/hooks/sectionContents";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { useMatchSorterFilter } from "state/hooks/utils";
@@ -84,10 +79,6 @@ function _UIElement({ sectionId, paramInfo }) {
           {paramName}
         </p>
         <div className="flex gap-[0.1rem] place-self-end">
-          {/* <InfoViewDescription
-            sectionId={sectionId}
-            paramInfoId={paramInfoId}
-          /> */}
           <SaveUITypeConfig />
         </div>
       </div>
@@ -102,26 +93,5 @@ function _UIElement({ sectionId, paramInfo }) {
         paramInfoId={paramInfoId}
       />
     </div>
-  );
-}
-
-function InfoViewDescription({ sectionId, paramInfoId }) {
-  const info = useCodeInfo((x) => x.x[paramInfoId].description);
-  const [value, setValue] = useState(info);
-  return (
-    <TextAreaPopover
-      inputClasses="rounded-lg"
-      trigger={
-        <IconButton twClasses="" size="w-4 h-4" padding="py-2 px-2">
-          <BiPencil className="text-setta-500" />
-        </IconButton>
-      }
-      header={"Description for Infoview"}
-      onClick={() => {
-        setCodeInfoDescription({ id: paramInfoId, description: value });
-      }}
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-    />
   );
 }

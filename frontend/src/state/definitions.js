@@ -54,10 +54,6 @@ export const useHomePageSearch = create(() => ({
   value: "",
 }));
 
-export const useInfoView = createProjectState(() => ({
-  currValue: "",
-}));
-
 export const useInteractive = create(() => ({
   taskMetadata: [],
 }));

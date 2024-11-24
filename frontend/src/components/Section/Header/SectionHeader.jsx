@@ -71,7 +71,6 @@ function _SectionHeader({
                 <TbSortDescending2 className="text-setta-300 dark:text-setta-700" />
               </IconButton>
             }
-            header={"Description for Infoview"}
           />
         )}
         <LockPositionButton sectionId={sectionId} />

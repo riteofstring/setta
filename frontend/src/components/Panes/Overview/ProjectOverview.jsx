@@ -31,7 +31,6 @@ export const ProjectOverview = React.forwardRef(() => {
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
       </div>
-      {/* <InfoView /> */}
     </>
   );
 });

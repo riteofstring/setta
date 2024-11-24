@@ -41,11 +41,8 @@ export function Overview() {
         >
           <i className="gg-list  !scale-100" />
         </TabButton>
-        {/* <TabButton tabName="tab2" {...commonProps}>
-          <i className="gg-info !scale-100" />
-        </TabButton> */}
         <TabButton
-          tabName="tab3"
+          tabName="tab2"
           {...commonProps}
           {...getFloatingBoxHandlers("Config Preview")}
         >
@@ -74,9 +71,7 @@ export function Overview() {
 
 function TabsVisible({ tab }) {
   // const title = tabNameToPretty[tab];
-  const title = { tab1: "Overview", tab2: "Info", tab3: "Project Configs" }[
-    tab
-  ];
+  const title = { tab1: "Overview", tab2: "Project Configs" }[tab];
   return (
     <div
       className="mx-[1px] flex h-full min-h-0 w-[calc(100%_-_3rem)] min-w-0 flex-1
@@ -94,9 +89,7 @@ function TabContent({ tab }) {
   switch (tab) {
     case "tab1":
       return <ProjectOverview />;
-    // case "tab2":
-    //   return <InfoViewBig />;
-    case "tab3":
+    case "tab2":
       return <ProjectConfigs />;
   }
 }
