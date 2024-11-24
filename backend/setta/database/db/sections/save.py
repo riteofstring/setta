@@ -5,67 +5,35 @@ def save_sections(db, sections, section_variants):
     query = """
         INSERT INTO Section (
             id,
-            name,
+            data,
             uiTypeId,
-            uiTypeColId,
-            social,
-            codeLanguage,
-            configLanguage,
-            isFrozen,
-            jsonSource,
-            hideUnpinnedParams,
-            displayMode,
-            canvasSettings,
-            renderMarkdown
+            uiTypeColId
         )
         VALUES (
             :id,
-            :name,
+            :data,
             :uiTypeId,
-            :uiTypeColId,
-            :social,
-            :codeLanguage,
-            :configLanguage,
-            :isFrozen,
-            :jsonSource,
-            :hideUnpinnedParams,
-            :displayMode,
-            :canvasSettings,
-            :renderMarkdown
+            :uiTypeColId
         )
         ON CONFLICT (id)
         DO UPDATE SET
-            name = :name,
+            data = :data,
             uiTypeId = :uiTypeId,
-            uiTypeColId = :uiTypeColId,
-            social = :social,
-            codeLanguage = :codeLanguage,
-            configLanguage = :configLanguage,
-            isFrozen = :isFrozen,
-            jsonSource = :jsonSource,
-            hideUnpinnedParams = :hideUnpinnedParams,
-            displayMode = :displayMode,
-            canvasSettings = :canvasSettings,
-            renderMarkdown = :renderMarkdown
+            uiTypeColId = :uiTypeColId
     """
 
     query_params = [
         {
             "id": s["id"],
-            "name": s["name"],
+            "data": json.dumps(
+                {
+                    k: v
+                    for k, v in s.items()
+                    if k not in ["id", "uiTypeId", "uiTypeColId"]
+                }
+            ),
             "uiTypeId": s["uiTypeId"],
             "uiTypeColId": s["uiTypeColId"],
-            "social": s["social"],
-            "codeLanguage": s["codeLanguage"],
-            "configLanguage": s["configLanguage"],
-            "isFrozen": s["isFrozen"],
-            "jsonSource": s.get("jsonSource"),
-            "hideUnpinnedParams": s["hideUnpinnedParams"],
-            "displayMode": s["displayMode"],
-            "canvasSettings": json.dumps(s["canvasSettings"])
-            if len(s["canvasSettings"]) > 0
-            else None,
-            "renderMarkdown": s["renderMarkdown"],
         }
         for s in sections.values()
     ]

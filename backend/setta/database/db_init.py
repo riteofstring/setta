@@ -4,7 +4,7 @@ from .seed import seed
 
 CREATE_TABLES_COMMANDS = [
     # CodeInfo model
-    # data column is json, containing name, editable, rcType, defaultVal, description, positionalOnly, isPinned, isFrozen, keywordPositions
+    # "data" column is json, containing name, editable, rcType, defaultVal, description, positionalOnly, isPinned, isFrozen, keywordPositions
     """
     CREATE TABLE IF NOT EXISTS CodeInfo (
         id TEXT PRIMARY KEY,
@@ -32,22 +32,14 @@ CREATE_TABLES_COMMANDS = [
     );
     """,
     # Section model
+    # "data" column is json, containing name, social, codeLanguage, configLanguage, isFrozen, jsonSource, hideUnpinnedParams, displayMode, canvasSettings, renderMarkdown
     """
     CREATE TABLE IF NOT EXISTS Section (
         id TEXT PRIMARY KEY,
-        name TEXT,
+        data TEXT,
         paramSweepSectionId TEXT,
         uiTypeId TEXT,
         uiTypeColId TEXT,
-        social TEXT,
-        codeLanguage TEXT,
-        configLanguage TEXT,
-        isFrozen BOOLEAN,
-        jsonSource TEXT,
-        hideUnpinnedParams BOOLEAN,
-        displayMode TEXT,
-        canvasSettings TEXT,
-        renderMarkdown BOOLEAN,
         FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE

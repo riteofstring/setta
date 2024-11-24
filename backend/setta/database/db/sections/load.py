@@ -78,8 +78,10 @@ def load_sections(db, ids):
     sections = {}
     for v in db.fetchall():
         v = dict(v)
+        json_data = v.pop("data")
         sections[v["id"]] = {
             **v,
+            **json.loads(json_data),
             "isInOtherProjectConfigs": section_id_to_config_count[v["id"]] > 1,
             "parentId": child_to_parent_id.get(v["id"], None),
             "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],
@@ -90,9 +92,6 @@ def load_sections(db, ids):
             "paramSweepIds": v["paramSweepIds"].split(",")
             if v["paramSweepIds"]
             else [],
-            "canvasSettings": json.loads(v["canvasSettings"])
-            if v["canvasSettings"]
-            else {},
         }
 
     variantIds = list(

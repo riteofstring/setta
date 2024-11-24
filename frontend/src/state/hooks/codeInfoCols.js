@@ -18,6 +18,8 @@ export function useCodeInfoChildren(sectionId, codeInfoId) {
 export function useCodeInfoHasChildren(sectionId, codeInfoId) {
   return useSectionInfos((x) => {
     const { codeInfoColId } = x.variants[x.x[sectionId].variantId];
-    return (x.x[codeInfoColId]["children"][codeInfoId] ?? []).length > 0;
+    return (
+      (x.codeInfoCols[codeInfoColId]["children"][codeInfoId] ?? []).length > 0
+    );
   }, _.isEqual);
 }
