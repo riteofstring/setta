@@ -17,17 +17,13 @@ export function useSectionInfoNames() {
   return useSectionInfos((x) => _.mapValues(x.x, (y) => y.name), _.isEqual);
 }
 
-export function useSectionHasMultipleVariants(sectionId) {
-  return useSectionInfos((x) => x.x[sectionId].variantIds.length > 1);
-}
-
-export function useTempHasNested(sectionId) {
+export function useHasTempNested(sectionId) {
   return useDndChildren((x) => x.x[sectionId]?.length > 0);
 }
 
 export function useHasPermanentNested(sectionId) {
-  const variantId = useSectionInfos((x) => x.x[sectionId]?.variantId);
-  return useSectionInfos((x) =>
-    variantId ? x.variants[variantId].children.length > 0 : false,
-  );
+  return useSectionInfos((x) => {
+    const variantId = x.x[sectionId].variantId;
+    return variantId ? x.variants[variantId].children.length > 0 : false;
+  });
 }
