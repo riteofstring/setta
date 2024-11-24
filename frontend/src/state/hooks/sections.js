@@ -1,6 +1,6 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
-import { useSectionInfos, useSectionVariants } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 
 export function useGetSectionInfo(sectionId, key) {
   const equalityFn = [
@@ -27,7 +27,7 @@ export function useTempHasNested(sectionId) {
 
 export function useHasPermanentNested(sectionId) {
   const variantId = useSectionInfos((x) => x.x[sectionId]?.variantId);
-  return useSectionVariants((x) =>
-    variantId ? x.x[variantId].children.length > 0 : false,
+  return useSectionInfos((x) =>
+    variantId ? x.variants[variantId].children.length > 0 : false,
   );
 }

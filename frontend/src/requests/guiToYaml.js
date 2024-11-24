@@ -8,7 +8,6 @@ import {
   useParamSweep,
   useRunGroups,
   useSectionInfos,
-  useSectionVariants,
 } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { getForSectionId, getParamSweep } from "state/hooks/paramSweep";
@@ -40,7 +39,7 @@ export async function dbSectionToYaml(sectionId) {
   const { configLanguage } = useSectionInfos.getState().x[sectionId];
   const codeInfo = useCodeInfo.getState().x;
   const sectionVariant =
-    useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)];
+    useSectionInfos.getState().variants[getSectionVariantIdToShow(sectionId)];
   const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   const res = await post({
     body: {
@@ -77,7 +76,7 @@ export async function dbGlobalParamSweepSectionToYaml() {
   const actuallyShownRunGroup = getActuallyShownRunGroup();
   const runGroup = useRunGroups.getState().x[actuallyShownRunGroup].sections;
   const sections = useSectionInfos.getState().x;
-  const sectionVariants = useSectionVariants.getState().x;
+  const sectionVariants = useSectionInfos.getState().variants;
   const paramSweeps = useParamSweep.getState().x;
 
   const res = await post({

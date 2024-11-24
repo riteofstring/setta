@@ -1,24 +1,20 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
-import {
-  useSectionInfos,
-  useSectionVariants,
-  useUITypes,
-} from "state/definitions";
+import { useSectionInfos, useUITypes } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 import { getValueForUIType, newEV } from "utils/objs/ev";
 import { initValue } from "../utils";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
-export function setAllSectionVariants(x) {
-  useSectionVariants.setState({ x });
+export function setAllSectionVariants(variants) {
+  useSectionInfos.setState({ variants });
 }
 
 export function duplicateSectionVariant({ id, newName, newCodeInfoColId }) {
   const newId = createNewId();
-  useSectionVariants.setState((state) => {
-    const s = state.x;
+  useSectionInfos.setState((state) => {
+    const s = state.variants;
     s[newId] = _.cloneDeep(s[id]);
     s[newId].name = newName;
     s[newId].codeInfoColId = newCodeInfoColId;
@@ -29,9 +25,9 @@ export function duplicateSectionVariant({ id, newName, newCodeInfoColId }) {
 }
 
 export function initManySectionVariantIds({ variantProps }) {
-  useSectionVariants.setState((state) => {
+  useSectionInfos.setState((state) => {
     for (const props of variantProps) {
-      initValue(state.x, props.id, {
+      initValue(state.variants, props.id, {
         name: createRandomName(),
         values: props.values ?? {},
         children: props.children ?? [],
@@ -47,9 +43,9 @@ export function initManySectionVariantIds({ variantProps }) {
   });
 }
 export function initManyEnteredValues({ collectionId, paramIdsToUITypes }) {
-  useSectionVariants.setState((state) => {
+  useSectionInfos.setState((state) => {
     _.forEach(paramIdsToUITypes, (uiType, id) => {
-      state.x[collectionId].values[id] = initEnteredValue(uiType);
+      state.variants[collectionId].values[id] = initEnteredValue(uiType);
     });
   });
 }
@@ -62,8 +58,8 @@ export function initEnteredValue(uiType) {
 }
 
 export function setEnteredValue({ collectionId, paramInfoId, value }) {
-  useSectionVariants.setState((state) => {
-    state.x[collectionId].values[paramInfoId].value = value;
+  useSectionInfos.setState((state) => {
+    state.variants[collectionId].values[paramInfoId].value = value;
   });
 }
 
@@ -72,20 +68,23 @@ export function setKeywordPositions({
   paramInfoId,
   keywordPositions,
 }) {
-  useSectionVariants.setState((state) => {
-    state.x[collectionId].values[paramInfoId].keywordPositions =
+  useSectionInfos.setState((state) => {
+    state.variants[collectionId].values[paramInfoId].keywordPositions =
       keywordPositions;
   });
 }
 
 export function deleteParamInfoFromSectionVariant({ variantId, ids }) {
-  useSectionVariants.setState((state) => {
-    state.x[variantId].values = _.omit(state.x[variantId].values, ids);
+  useSectionInfos.setState((state) => {
+    state.variants[variantId].values = _.omit(
+      state.variants[variantId].values,
+      ids,
+    );
   });
 }
 export function updateSectionVariants({ sectionVariants }) {
-  useSectionVariants.setState((state) => {
-    state.x = { ...state.x, ...sectionVariants };
+  useSectionInfos.setState((state) => {
+    state.variants = { ...state.variants, ...sectionVariants };
   });
 }
 
@@ -98,7 +97,8 @@ export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
 
 function getParamEV(sectionId, paramInfoId) {
   const { variantId } = getSectionInfo(sectionId);
-  return useSectionVariants.getState().x[variantId].values[paramInfoId].value;
+  return useSectionInfos.getState().variants[variantId].values[paramInfoId]
+    .value;
 }
 
 export function setParamEnteredValue({
@@ -114,9 +114,9 @@ export function setParamEnteredValue({
 
 export function setParamEnteredValueBatch({ sectionId, paramInfoIdToValue }) {
   const { variantId } = getSectionInfo(sectionId);
-  useSectionVariants.setState((state) => {
+  useSectionInfos.setState((state) => {
     for (const [id, value] of Object.entries(paramInfoIdToValue)) {
-      state.x[variantId].values[id].value = value;
+      state.variants[variantId].values[id].value = value;
     }
   });
 }
@@ -136,20 +136,21 @@ export function setParamKeywordPositions({
 
 export function getSectionChildren(sectionId) {
   const { variantId } = getSectionInfo(sectionId);
-  return useSectionVariants.getState().x[variantId].children;
+  return useSectionInfos.getState().variants[variantId].children;
 }
 
 export function getSectionChildrenFromAllVariants(sectionId) {
   const output = [];
   for (const v of useSectionInfos.getState().x[sectionId].variantIds) {
-    output.push(...useSectionVariants.getState().x[v].children);
+    output.push(...useSectionInfos.getState().variants[v].children);
   }
   return output;
 }
 
 export function getSectionCodeInfoColId(sectionId) {
-  return useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)]
-    .codeInfoColId;
+  return useSectionInfos.getState().variants[
+    getSectionVariantIdToShow(sectionId)
+  ].codeInfoColId;
 }
 
 export function getSectionVariantIdToShow(sectionId) {
@@ -161,9 +162,9 @@ export function getSectionVariantIdToShow(sectionId) {
 export function setSectionVariantChildren({ sectionId, newStateFn }) {
   const { variantId } = getSectionInfo(sectionId);
   let newChildren;
-  useSectionVariants.setState((state) => {
-    newChildren = newStateFn(state.x[variantId].children);
-    state.x[variantId].children = newChildren;
+  useSectionInfos.setState((state) => {
+    newChildren = newStateFn(state.variants[variantId].children);
+    state.variants[variantId].children = newChildren;
   });
   useDndChildren.getState().updateOneParent(sectionId, newChildren);
 }
@@ -197,18 +198,20 @@ export function getSectionIdParamInfoIdToKeywordPositions(sectionVariantState) {
 }
 
 export function getSectionSelectedItem(sectionId) {
-  return useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)]
-    .selectedItem;
+  return useSectionInfos.getState().variants[
+    getSectionVariantIdToShow(sectionId)
+  ].selectedItem;
 }
 
 export function getSectionCode(sectionId) {
-  return useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)]
-    .code;
+  return useSectionInfos.getState().variants[
+    getSectionVariantIdToShow(sectionId)
+  ].code;
 }
 
 export function getSectionChildrenAcrossVariants(sectionId) {
   const section = useSectionInfos.getState().x[sectionId];
-  const vState = useSectionVariants.getState().x;
+  const vState = useSectionInfos.getState().variants;
   const output = new Set();
   for (const v of section.variantIds) {
     for (const c of vState[v].children) {
@@ -221,25 +224,25 @@ export function getSectionChildrenAcrossVariants(sectionId) {
 export function setSectionVariantAttr(sectionId, attr, value) {
   const { variantId } = getSectionInfo(sectionId);
   console.log("setSectionVariantAttr", variantId, attr, value);
-  useSectionVariants.setState((x) => {
-    x.x[variantId][attr] = value;
+  useSectionInfos.setState((x) => {
+    x.variants[variantId][attr] = value;
   });
 }
 
 export function toggleVariantFrozenState(variantId) {
-  useSectionVariants.setState((x) => {
-    x.x[variantId].isFrozen = !x.x[variantId].isFrozen;
+  useSectionInfos.setState((x) => {
+    x.variants[variantId].isFrozen = !x.x[variantId].isFrozen;
   });
 }
 
 export function getSelectedVariantIsFrozen(sectionId) {
   const variantId = useSectionInfos.getState().x[sectionId].variantId;
-  return useSectionVariants.getState().x[variantId].isFrozen;
+  return useSectionInfos.getState().variants[variantId].isFrozen;
 }
 
 export function resetAllSectionsToDefaultVersions() {
   useSectionInfos.setState((x) => {
-    const sectionVariants = useSectionVariants.getState().x;
+    const sectionVariants = useSectionInfos.getState().variants;
     let defaultVariantId;
     for (const s of Object.values(x.x)) {
       if (s.variantIds.length > 1) {
@@ -257,7 +260,7 @@ export function resetAllSectionsToDefaultVersions() {
 
 export function resetSectionToDefaultVersion(sectionId) {
   useSectionInfos.setState((x) => {
-    const sectionVariants = useSectionVariants.getState().x;
+    const sectionVariants = useSectionInfos.getState().variants;
     const variantIds = x.x[sectionId].variantIds;
     let defaultVariantId = variantIds.find((v) => sectionVariants[v].isDefault);
     if (defaultVariantId) {

@@ -37,12 +37,13 @@ export const useContextMenus = createProjectState(() => ({
   selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
 }));
 
-export const useSectionVariants = createProjectState(
+export const useSectionInfos = createProjectState(
   temporal(
     subscribeWithSelector(
       immer(() =>
         withVersion({
           x: {},
+          variants: {},
         }),
       ),
     ),
@@ -141,18 +142,6 @@ export const useRunGroups = createProjectState(
       withVersion({
         x: {},
       }),
-    ),
-  ),
-);
-
-export const useSectionInfos = createProjectState(
-  temporal(
-    subscribeWithSelector(
-      immer(() =>
-        withVersion({
-          x: {},
-        }),
-      ),
     ),
   ),
 );

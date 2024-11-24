@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos, useSectionVariants } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
 import {
   getAllSectionChildrenIds,
@@ -43,7 +43,7 @@ function setAllOtherWidths({ sectionId, width }) {
 export function setAllChildrenWidths({ sectionId, exclude, width }) {
   const sectionIds = getAllSectionChildrenIds(
     useSectionInfos.getState().x,
-    useSectionVariants.getState().x,
+    useSectionInfos.getState().variants,
     [sectionId],
   );
   setSectionInfoAttr({

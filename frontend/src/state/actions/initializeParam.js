@@ -2,7 +2,6 @@ import _ from "lodash";
 import {
   useCodeInfo,
   useSectionInfos,
-  useSectionVariants,
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
@@ -44,7 +43,7 @@ export function initializeParam(
 
 function initializeParamEnteredValue(sectionId, paramIds, paramIdToUITypeId) {
   const { variantId } = useSectionInfos.getState().x[sectionId];
-  const sectionVariant = useSectionVariants.getState().x[variantId];
+  const sectionVariant = useSectionInfos.getState().variants[variantId];
   const uiTypeState = useUITypes.getState();
   const paramIdsToUITypes = {};
   for (const paramId of paramIds) {

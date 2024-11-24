@@ -15,7 +15,6 @@ import {
   useProjectConfig,
   useRunGroups,
   useSectionInfos,
-  useSectionVariants,
   useSettings,
   useUITypeCols,
   useUITypes,
@@ -60,11 +59,14 @@ export function getProjectData({
 
   console.log("sections", sections);
 
-  const sectionVariants = _.mapValues(useSectionVariants.getState().x, (x) => ({
-    ...x,
-    // need this filter because some sections might be temporary
-    children: x.children.filter((c) => c in sections),
-  }));
+  const sectionVariants = _.mapValues(
+    useSectionInfos.getState().variants,
+    (x) => ({
+      ...x,
+      // need this filter because some sections might be temporary
+      children: x.children.filter((c) => c in sections),
+    }),
+  );
   const uiTypes = useUITypes.getState().x;
   const uiTypeCols = useUITypeCols.getState().y;
   const paramSweeps = useParamSweep.getState().x;

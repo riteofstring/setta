@@ -6,7 +6,6 @@ import {
   useProjectConfig,
   useRunGroups,
   useSectionInfos,
-  useSectionVariants,
 } from "state/definitions";
 import {
   getSectionByName,
@@ -105,7 +104,7 @@ function maybeInitRunGroupSection(
 }
 
 function maybeInitAllDescendants(state, id, variantId) {
-  for (const c of useSectionVariants.getState().x[variantId].children) {
+  for (const c of useSectionInfos.getState().variants[variantId].children) {
     maybeInitRunGroupSection(state, id, c, variantId);
   }
 }
@@ -284,9 +283,9 @@ function parsePrettyRunGroupSections(runGroup) {
 
 export function useRunGroupListing(variantId) {
   const sectionTypeNames = useSectionTypeNames();
-  return useSectionVariants((x) => {
+  return useSectionInfos((x) => {
     const output = [];
-    for (const childId of x.x[variantId].children) {
+    for (const childId of x.variants[variantId].children) {
       if (RUNNABLE_SECTION_TYPES.includes(sectionTypeNames[childId])) {
         output.push({ id: childId, name: getSectionName(childId) });
       }

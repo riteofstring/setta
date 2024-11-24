@@ -6,7 +6,6 @@ import {
   useCodeInfo,
   useParamSweep,
   useSectionInfos,
-  useSectionVariants,
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
@@ -131,7 +130,7 @@ function getCodeInfo(sections) {
 
 function getSectionVariants(sections) {
   const output = {};
-  const vState = useSectionVariants.getState().x;
+  const vState = useSectionInfos.getState().variants;
   for (const s of Object.values(sections)) {
     Object.assign(output, _.pick(vState, s.variantIds));
   }

@@ -8,11 +8,7 @@ import {
   setSectionInfoAttr,
 } from "state/actions/sections/sectionInfos";
 import { toggleVariantFrozenState } from "state/actions/sectionVariants";
-import {
-  useParamSweep,
-  useSectionInfos,
-  useSectionVariants,
-} from "state/definitions";
+import { useParamSweep, useSectionInfos } from "state/definitions";
 import {
   getForSectionId,
   useCurrParamSweepId,
@@ -61,7 +57,7 @@ function EVItems({ sectionId }) {
 
   function onMouseOver(id) {
     setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: id });
-    const newChildren = useSectionVariants.getState().x[id].children;
+    const newChildren = useSectionInfos.getState().variants[id].children;
     useDndChildren.getState().updateOneParent(sectionId, newChildren);
     maybeRunGuiToYaml(sectionId);
   }
@@ -73,7 +69,7 @@ function EVItems({ sectionId }) {
   }
 
   function isFrozenHook(id) {
-    return { hook: useSectionVariants, selector: (x) => x.x[id].isFrozen };
+    return { hook: useSectionInfos, selector: (x) => x.variants[id].isFrozen };
   }
 
   return sectionVariantNames.map((e) => (

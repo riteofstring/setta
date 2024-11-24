@@ -3,7 +3,6 @@ import {
   useCodeInfo,
   useCodeInfoCols,
   useSectionInfos,
-  useSectionVariants,
 } from "state/definitions";
 import { post } from "./utils";
 
@@ -11,7 +10,7 @@ export async function dbLoadSectionJSONSource(sectionId) {
   const sections = useSectionInfos.getState().x;
   const codeInfo = useCodeInfo.getState().x;
   const codeInfoCols = useCodeInfoCols.getState().x;
-  const sectionVariants = useSectionVariants.getState().x;
+  const sectionVariants = useSectionInfos.getState().variants;
   return await post({
     body: {
       project: { sections, codeInfo, codeInfoCols, sectionVariants },
@@ -25,7 +24,7 @@ export async function dbSaveSectionJSONSource(sectionId) {
   const sections = useSectionInfos.getState().x;
   const codeInfo = useCodeInfo.getState().x;
   const codeInfoCols = useCodeInfoCols.getState().x;
-  const sectionVariants = useSectionVariants.getState().x;
+  const sectionVariants = useSectionInfos.getState().variants;
 
   return await post({
     body: {

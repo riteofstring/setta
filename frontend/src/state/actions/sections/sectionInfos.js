@@ -1,5 +1,5 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import { useSectionInfos, useSectionVariants } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import {
   getSectionIdToChildren,
   setSectionVariantChildren,
@@ -55,7 +55,7 @@ export function removeSectionInfos(payload) {
 
       let isStillUsedInAVariant = false;
       for (const variantInfo of Object.values(
-        useSectionVariants.getState().x,
+        useSectionInfos.getState().variants,
       )) {
         if (variantInfo.children.includes(id)) {
           isStillUsedInAVariant = true;
@@ -64,9 +64,9 @@ export function removeSectionInfos(payload) {
       }
 
       if (!isStillUsedInAVariant) {
-        useSectionVariants.setState((v) => {
+        useSectionInfos.setState((v) => {
           for (const variantId of state.x[id].variantIds) {
-            delete v.x[variantId];
+            delete v.variants[variantId];
           }
         });
         delete state.x[id];
@@ -118,7 +118,7 @@ function valueOrNewValueFn({ obj, attr, value, newValueFn }) {
 export function manualDndChildrenReset() {
   useDndChildren
     .getState()
-    .update(getSectionIdToChildren(useSectionVariants.getState().x));
+    .update(getSectionIdToChildren(useSectionInfos.getState().variants));
 }
 
 export function setAllPreviewVariantIdsToNull() {

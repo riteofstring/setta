@@ -3,7 +3,6 @@ import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
 import {
   useCodeInfo,
   useSectionInfos,
-  useSectionVariants,
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
@@ -85,7 +84,7 @@ function updateEVs(uiTypeId, configName) {
 
 function _updateEVs(uiType) {
   const uState = useUITypeCols.getState();
-  const eState = useSectionVariants.getState();
+  const eState = useSectionInfos.getState();
   for (const [colId, col] of Object.entries(uState.y)) {
     const paramsWithUITypeId = new Set();
     for (const [pid, p] of Object.entries(col)) {
@@ -101,7 +100,7 @@ function _updateEVs(uiType) {
       if (s.uiTypeColId === colId) {
         const variantId = s.variantId;
         for (const [pid, valueInfo] of Object.entries(
-          eState.x[variantId].values,
+          eState.variants[variantId].values,
         )) {
           if (paramsWithUITypeId.has(pid)) {
             const newVal = getValueForUIType({

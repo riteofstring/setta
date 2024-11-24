@@ -16,7 +16,6 @@ import {
   useParamSweep,
   useRunGroups,
   useSectionInfos,
-  useSectionVariants,
   useYamlValue,
 } from "state/definitions";
 import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
@@ -136,7 +135,7 @@ function globalParamSweepSectionYamlToGUI(yamlValue, metaData) {
   const doc = parseAllDocuments(yamlValue)[0].toJS();
   const runGroupId = metaData.runGroupId;
   const sections = useSectionInfos.getState().x;
-  const sectionVariants = useSectionVariants.getState().x;
+  const sectionVariants = useSectionInfos.getState().variants;
   const paramSweeps = useParamSweep.getState().x;
   const newRunGroupSections = {};
 
