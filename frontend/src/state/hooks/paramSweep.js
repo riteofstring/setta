@@ -3,12 +3,18 @@ import { useParamSweep, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
 export function useParamSweepInfo(sectionId) {
-  const forSectionId = useForSectionId(sectionId);
-  const paramSweepId = useSectionInfos((x) =>
-    forSectionId ? x.x[forSectionId].paramSweepId : null,
-  );
-  const previewParamSweepId = useSectionInfos((x) =>
-    forSectionId ? x.x[forSectionId].previewParamSweepId : null,
+  const { forSectionId, paramSweepId, previewParamSweepId } = useSectionInfos(
+    (x) => {
+      const forSectionId = getForSectionId(x.x, sectionId);
+      if (forSectionId) {
+        return {
+          forSectionId,
+          paramSweepId: x.x[forSectionId].paramSweepId,
+          previewParamSweepId: x.x[forSectionId].previewParamSweepId,
+        };
+      }
+      return { forSectionId, paramSweepId: null, previewParamSweepId: null };
+    },
   );
 
   const shownParamSweepId = previewParamSweepId ?? paramSweepId;
@@ -21,13 +27,6 @@ export function useParamSweepInfo(sectionId) {
   };
 }
 
-export function useSectionHasMultipleParamSweeps(sectionId) {
-  const forSectionId = useForSectionId(sectionId);
-  return useSectionInfos(
-    (x) => forSectionId && x.x[forSectionId].paramSweepIds.length > 1,
-  );
-}
-
 export function useGetParamSweepNames(sectionId) {
   const paramSweepIds = useSectionInfos((x) => x.x[sectionId].paramSweepIds);
   return useParamSweep(
@@ -37,8 +36,9 @@ export function useGetParamSweepNames(sectionId) {
 }
 
 export function useCurrParamSweepId(sectionId) {
-  const forSectionId = useForSectionId(sectionId);
-  return useSectionInfos((x) => x.x[forSectionId].paramSweepId);
+  return useSectionInfos(
+    (x) => x.x[getForSectionId(x.x, sectionId)].paramSweepId,
+  );
 }
 
 export function useForSectionId(sectionId) {
