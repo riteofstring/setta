@@ -22,11 +22,11 @@ export function toggleRunGroup(id) {
   });
 }
 
-export function maybeInitRunGroupSection({ id, sectionId }) {
+function maybeInitRunGroupSection({ id, sectionId }) {
   useRunGroups.setState((state) => {
     if (!(sectionId in state.x[id].sections)) {
       state.x[id].sections[sectionId] = {
-        selected: false,
+        selected: {}, // maps from parent version id to true/false
         paramSweeps: {},
         versions: {},
       };
@@ -34,20 +34,15 @@ export function maybeInitRunGroupSection({ id, sectionId }) {
   });
 }
 
-export function toggleRunGroupSection({ id, sectionId }) {
+export function toggleRunGroupSection({ id, parentVersionId, sectionId }) {
   maybeInitRunGroupSection({ id, sectionId });
   useRunGroups.setState((state) => {
     const s = state.x[id].sections[sectionId];
-    s.selected = !s.selected;
+    s.selected[parentVersionId] = !s.selected[parentVersionId];
   });
 }
 
-export function maybeInitRunGroupSectionAttr({
-  id,
-  sectionId,
-  attrName,
-  attrId,
-}) {
+function maybeInitRunGroupSectionAttr({ id, sectionId, attrName, attrId }) {
   maybeInitRunGroupSection({ id, sectionId });
   useRunGroups.setState((state) => {
     if (!(attrId in state.x[id].sections[sectionId][attrName])) {
@@ -56,7 +51,13 @@ export function maybeInitRunGroupSectionAttr({
   });
 }
 
-export function toggleRunGroupSectionAttr({ id, sectionId, attrName, attrId }) {
+function toggleRunGroupSectionAttr({
+  id,
+  parentVersionId,
+  sectionId,
+  attrName,
+  attrId,
+}) {
   maybeInitRunGroupSectionAttr({
     id,
     sectionId,
@@ -65,33 +66,41 @@ export function toggleRunGroupSectionAttr({ id, sectionId, attrName, attrId }) {
   });
   useRunGroups.setState((state) => {
     const s = state.x[id].sections[sectionId];
-    if (s.selected) {
+    if (s.selected[parentVersionId]) {
       s[attrName][attrId] = !s[attrName][attrId];
     } else {
       for (const _attrId of Object.keys(s[attrName])) {
         s[attrName][_attrId] = _attrId === attrId;
       }
-      s.selected = true;
+      s.selected[parentVersionId] = true;
     }
   });
 }
 
 export function toggleRunGroupSectionParamSweep({
   id,
+  parentVersionId,
   sectionId,
   paramSweepId,
 }) {
   toggleRunGroupSectionAttr({
     id,
+    parentVersionId,
     sectionId,
     attrName: "paramSweeps",
     attrId: paramSweepId,
   });
 }
 
-export function toggleRunGroupSectionVersion({ id, sectionId, versionId }) {
+export function toggleRunGroupSectionVersion({
+  id,
+  parentVersionId,
+  sectionId,
+  versionId,
+}) {
   toggleRunGroupSectionAttr({
     id,
+    parentVersionId,
     sectionId,
     attrName: "versions",
     attrId: versionId,
