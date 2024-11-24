@@ -158,13 +158,19 @@ export function getSectionVariantIdToShow(sectionId, state = {}) {
   return previewVariantId ?? variantId;
 }
 
-export function setSectionVariantChildren({ sectionId, newStateFn }) {
-  const { variantId } = getSectionInfo(sectionId);
-  let newChildren;
-  useSectionInfos.setState((state) => {
-    newChildren = newStateFn(state.variants[variantId].children);
-    state.variants[variantId].children = newChildren;
-  });
+export function setSectionVariantChildren({ sectionId, newStateFn, state }) {
+  function fn(state) {
+    const { variantId } = state.x[sectionId];
+    state.variants[variantId].children = newStateFn(
+      state.variants[variantId].children,
+    );
+  }
+
+  if (state) {
+    fn(state);
+  } else {
+    useSectionInfos.setState(fn);
+  }
 }
 
 export function getSectionIdToChildrenToShow(sectionInfoState) {

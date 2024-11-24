@@ -50,13 +50,12 @@ export function removeSectionInfos(payload) {
         setSectionVariantChildren({
           sectionId: parentId,
           newStateFn: (children) => children.filter((x) => x !== id),
+          state,
         });
       }
 
       let isStillUsedInAVariant = false;
-      for (const variantInfo of Object.values(
-        useSectionInfos.getState().variants,
-      )) {
+      for (const variantInfo of Object.values(state.variants)) {
         if (variantInfo.children.includes(id)) {
           isStillUsedInAVariant = true;
           break;
@@ -64,11 +63,9 @@ export function removeSectionInfos(payload) {
       }
 
       if (!isStillUsedInAVariant) {
-        useSectionInfos.setState((v) => {
-          for (const variantId of state.x[id].variantIds) {
-            delete v.variants[variantId];
-          }
-        });
+        for (const variantId of state.x[id].variantIds) {
+          delete state.variants[variantId];
+        }
         delete state.x[id];
       }
     }
