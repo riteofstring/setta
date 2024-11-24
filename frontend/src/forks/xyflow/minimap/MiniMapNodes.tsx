@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { memo } from "react";
 import { getNodes } from "state/actions/nodeInternals";
-import { useNodeInternals } from "state/definitions";
+import { useActiveSection, useNodeInternals } from "state/definitions";
 import MiniMapNode from "./MiniMapNode";
 import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
 
@@ -35,6 +35,7 @@ function _MiniMapNodes({
   const nodeColorFunc = getAttrFunction(nodeColor);
   const nodeStrokeColorFunc = getAttrFunction(nodeStrokeColor);
   const nodeClassNameFunc = getAttrFunction(nodeClassName);
+  const activeSectionIds = useActiveSection((x) => x.ids);
 
   const shapeRendering =
     typeof window === "undefined" || !!window.chrome
@@ -54,7 +55,7 @@ function _MiniMapNodes({
             width={node.width!}
             height={node.height!}
             style={node.style}
-            selected={node.selected}
+            selected={activeSectionIds.includes(node.id)}
             className={nodeClassNameFunc(node)}
             color={nodeColorFunc(node)}
             borderRadius={nodeBorderRadius}

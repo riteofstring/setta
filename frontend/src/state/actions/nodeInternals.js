@@ -1,7 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
 import { getDimensions } from "forks/xyflow/core/utils";
-import { createSelectionChange } from "forks/xyflow/core/utils/changes";
 import _ from "lodash";
 import { useNodeInternals } from "state/definitions";
 
@@ -131,10 +130,6 @@ export function onNodesChange(changes) {
   const newNodes = _.cloneDeep(nodeInternals);
   for (const c of changes) {
     switch (c.type) {
-      case "select": {
-        newNodes.get(c.id).selected = c.selected;
-        break;
-      }
       case "position": {
         if (typeof c.position !== "undefined") {
           newNodes.get(c.id).position = c.position;
@@ -164,31 +159,6 @@ export function raiseTempZIndex(nodes) {
     newNodes.get(n.id).tempZIndex = newNodes.get(n.id).zIndex + 1000;
   }
   useNodeInternals.setState({ x: newNodes });
-}
-
-export function unselectNodesAndEdges({ nodes }) {
-  const nodesToUnselect = nodes ? nodes : getNodes();
-
-  const changedNodes = nodesToUnselect.map((n) => {
-    n.selected = false;
-    return createSelectionChange(n.id, false);
-  });
-
-  if (changedNodes?.length) {
-    onNodesChange(changedNodes);
-  }
-}
-
-export function resetSelectedElements() {
-  const nodes = getNodes();
-
-  const nodesToUnselect = nodes
-    .filter((e) => e.selected)
-    .map((n) => createSelectionChange(n.id, false));
-
-  if (nodesToUnselect?.length) {
-    onNodesChange(nodesToUnselect);
-  }
 }
 
 export function justMoveANode(id, position) {

@@ -5,6 +5,7 @@ import _ from "lodash";
 import React, { useRef } from "react";
 import { openSelectionContextMenu } from "state/actions/contextMenus";
 import { getNodes } from "state/actions/nodeInternals";
+import { useActiveSection } from "state/definitions";
 
 function _NodesSelection({ x, y, width, height }) {
   const transformString = useReactFlow(
@@ -14,8 +15,9 @@ function _NodesSelection({ x, y, width, height }) {
   const nodeRef = useRef(null);
 
   const onContextMenu = (event) => {
+    const activeSectionIds = useActiveSection.getState().ids;
     const selectedNodeIds = getNodes()
-      .filter((n) => n.selected)
+      .filter((n) => activeSectionIds.includes(n.id))
       .map((n) => n.id);
     openSelectionContextMenu(event, selectedNodeIds);
   };

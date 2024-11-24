@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Selection as D3Selection } from "d3";
-import { setActiveSectionIds } from "state/actions/sections/activeSections";
 import {
   useActiveSection,
   useSectionInfos,
@@ -112,7 +111,6 @@ export function getNodesInside(
     }
   }
 
-  setActiveSectionIds(visibleNodes);
   return visibleNodes;
 }
 

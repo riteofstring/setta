@@ -2,6 +2,7 @@ import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { updateNodeDimensions } from "state/actions/nodeInternals";
+import { useActiveSection } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import useVisibleNodes from "../hooks/useVisibleNodes";
 import { containerStyle } from "../styles";
@@ -23,6 +24,7 @@ const NodeRenderer = ({}) => {
   } = useReactFlow(selector, shallow);
   const nodes = useVisibleNodes();
   const resizeObserverRef = useRef<ResizeObserver>();
+  const activeSectionIds = useActiveSection((x) => x.ids);
 
   const resizeObserver = useMemo(() => {
     if (typeof ResizeObserver === "undefined") {
@@ -78,7 +80,7 @@ const NodeRenderer = ({}) => {
             style={node.style}
             xPos={posX}
             yPos={posY}
-            selected={!!node.selected}
+            selected={activeSectionIds.includes(node.id)}
             isDraggable={isDraggable}
             isSelectable={isSelectable}
             isFocusable={isFocusable}
