@@ -136,14 +136,15 @@ function SectionListCore({ sections, runGroupId }) {
   //const { ref, isScrollable } = useIsScrollable();
   //${isScrollable ? "nowheel" : ""}
   return (
-    <ul
-      className={`-mt-2 flex flex-grow flex-col overflow-visible rounded-lg bg-setta-50/40 pl-3 pr-2 pt-2 @sm/multipane:overflow-y-scroll dark:bg-setta-875`}
-      // ref={ref}
-    >
-      {sections.map((x, idx) => (
-        <SectionItem key={idx} sectionInfo={x} runGroupId={runGroupId} />
-      ))}
-    </ul>
+    sections.length > 0 && (
+      <ul
+        className={`flex flex-grow flex-col overflow-visible rounded-lg bg-setta-50/40 pl-3 pr-2 pt-1 @sm/multipane:overflow-y-scroll dark:bg-setta-875`}
+      >
+        {sections.map((x, idx) => (
+          <SectionItem key={idx} sectionInfo={x} runGroupId={runGroupId} />
+        ))}
+      </ul>
+    )
   );
 }
 
@@ -180,9 +181,8 @@ function SectionItem({ sectionInfo, runGroupId }) {
 function _VersionsList({ sectionInfo, runGroupId, isSelected }) {
   const allVersions = useGetSectionVariantNames(sectionInfo.id);
 
-  return (
+  return allVersions.length > 1 ? (
     <GenericList
-      minLength={0}
       inputList={allVersions}
       listName="Versions"
       isSelected={isSelected}
@@ -190,6 +190,10 @@ function _VersionsList({ sectionInfo, runGroupId, isSelected }) {
       runGroupId={runGroupId}
       ChildComponent={VersionItemComponent}
     />
+  ) : (
+    <div className="pl-4">
+      <SectionList variantId={allVersions[0].id} runGroupId={runGroupId} />
+    </div>
   );
 }
 
@@ -199,22 +203,22 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, isSelected }) {
   const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
 
   return (
-    <GenericList
-      minLength={0}
-      inputList={allParamSweeps}
-      listName="Param Sweeps"
-      isSelected={isSelected}
-      sectionId={sectionInfo.id}
-      runGroupId={runGroupId}
-      ChildComponent={ParamSweepItemComponent}
-    />
+    allParamSweeps.length > 0 && (
+      <GenericList
+        inputList={allParamSweeps}
+        listName="Param Sweeps"
+        isSelected={isSelected}
+        sectionId={sectionInfo.id}
+        runGroupId={runGroupId}
+        ChildComponent={ParamSweepItemComponent}
+      />
+    )
   );
 }
 
 const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
 
 function _GenericList({
-  minLength,
   inputList,
   listName,
   isSelected,
@@ -223,39 +227,35 @@ function _GenericList({
   ChildComponent,
 }) {
   return (
-    inputList.length > minLength && (
-      <>
-        <StandardAccordion
-          rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700  rounded-lg px-2 ml-8 -mr-2 -mt-0.5"
-          itemStyles="focus-within:relative focus-within:z-10"
-          headerStyles="flex flex-1 cursor-default items-center justify-between my-0.5"
-          triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md italic text-xs font-semibold opacity-60 group-hover:opacity-100 text-setta-500 dark:text-setta-300"
-          contentStyles="text-xs overflow-hidden mb-1"
-          heading={listName}
-          value={listName}
-          internalWrapper={false}
-          // defaultValue={defaultValue}
-          data-state={open}
-        >
-          <ul className="">
-            {inputList.map((e, idx) => (
-              <li
-                key={idx}
-                className="flex min-h-6 cursor-pointer flex-col rounded"
-              >
-                <ChildComponent
-                  id={e.id}
-                  name={e.name}
-                  parentIsSelected={isSelected}
-                  sectionId={sectionId}
-                  runGroupId={runGroupId}
-                />
-              </li>
-            ))}
-          </ul>
-        </StandardAccordion>
-      </>
-    )
+    <StandardAccordion
+      rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700  rounded-lg px-2 ml-8 -mr-2 -mt-0.5"
+      itemStyles="focus-within:relative focus-within:z-10"
+      headerStyles="flex flex-1 cursor-default items-center justify-between my-0.5"
+      triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md italic text-xs font-semibold opacity-60 group-hover:opacity-100 text-setta-500 dark:text-setta-300"
+      contentStyles="text-xs overflow-hidden mb-1"
+      heading={listName}
+      value={listName}
+      internalWrapper={false}
+      // defaultValue={defaultValue}
+      data-state={open}
+    >
+      <ul className="">
+        {inputList.map((e, idx) => (
+          <li
+            key={idx}
+            className="flex min-h-6 cursor-pointer flex-col rounded"
+          >
+            <ChildComponent
+              id={e.id}
+              name={e.name}
+              parentIsSelected={isSelected}
+              sectionId={sectionId}
+              runGroupId={runGroupId}
+            />
+          </li>
+        ))}
+      </ul>
+    </StandardAccordion>
   );
 }
 
