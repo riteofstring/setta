@@ -25,13 +25,7 @@ def save_sections(db, sections, section_variants):
     query_params = [
         {
             "id": s["id"],
-            "data": json.dumps(
-                {
-                    k: v
-                    for k, v in s.items()
-                    if k not in ["id", "uiTypeId", "uiTypeColId"]
-                }
-            ),
+            "data": json.dumps(s["data"]),
             "uiTypeId": s["uiTypeId"],
             "uiTypeColId": s["uiTypeColId"],
         }

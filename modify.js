@@ -7,14 +7,62 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    for (const s of Object.values(json.sectionVariants)) {
-      s.description = "";
+    for (const s of Object.values(json.codeInfo)) {
+      s.data = {};
+      for (const k of [
+        "name",
+        "editable",
+        "rcType",
+        "defaultVal",
+        "description",
+        "positionalOnly",
+        "isPinned",
+        "isFrozen",
+        "keywordPositions",
+      ]) {
+        s.data[k] = s[k];
+        delete s[k];
+      }
     }
 
     for (const s of Object.values(json.sections)) {
-      json.sectionVariants[s["variantId"]].description = s.description
-      delete s.description;
+      s.data = {};
+      for (const k of [
+        "name",
+        "social",
+        "codeLanguage",
+        "configLanguage",
+        "isFrozen",
+        "jsonSource",
+        "hideUnpinnedParams",
+        "displayMode",
+        "canvasSettings",
+        "renderMarkdown",
+      ]) {
+        s.data[k] = s[k];
+        delete s[k];
+      }
     }
+
+    for (const s of Object.values(json.section)) {
+      s.data = {};
+      for (const k of [
+        "name",
+        "social",
+        "codeLanguage",
+        "configLanguage",
+        "isFrozen",
+        "jsonSource",
+        "hideUnpinnedParams",
+        "displayMode",
+        "canvasSettings",
+        "renderMarkdown",
+      ]) {
+        s.data[k] = s[k];
+        delete s[k];
+      }
+    }
+
 
     // Save the modified JSON back to the file or handle it as needed
     // Uncomment the following line to save changes back to the file

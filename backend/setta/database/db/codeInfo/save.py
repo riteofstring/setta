@@ -18,7 +18,7 @@ def save_code_info(db, codeInfo):
         query_params.append(
             {
                 "id": codeInfoId,
-                "data": json.dumps({k: v for k, v in c.items() if k != "id"}),
+                "data": json.dumps(c["data"])
             }
         )
 

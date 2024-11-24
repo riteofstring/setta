@@ -184,14 +184,7 @@ def insert_section_configs(db, sections, id_pairs):
             "sectionId": sections[c]["id"],
             "variantId": sections[c]["variantId"],
             "paramSweepId": sections[c]["paramSweepId"],
-            "data": json.dumps(
-                {
-                    k: v
-                    for k, v in sections[c].items()
-                    if k
-                    not in ["projectConfigId", "sectionId", "variantId", "paramSweepId"]
-                }
-            ),
+            "data": json.dumps(sections[c]["data"])
         }
         for projectConfigId, c in id_pairs
     ]
