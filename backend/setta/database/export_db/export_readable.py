@@ -5,6 +5,7 @@ from pathlib import Path
 from setta.code_gen.export_selected import (
     export_param_sweep_section_to_dict,
     export_section_to_dict,
+    export_single_run_group_to_dict,
     get_for_section_id,
     get_section_name,
     get_section_type,
@@ -17,6 +18,7 @@ from setta.code_gen.export_selected import (
 )
 from setta.code_gen.yaml.section_dict import (
     param_sweep_dict_to_yaml,
+    run_group_dict_to_yaml,
     section_dict_to_yaml,
 )
 from setta.utils.constants import C
@@ -148,14 +150,20 @@ def export_param_sweep_section(
 
 def export_global_param_sweep_section(folder, config, section_id, *_, **__):
     subfolder_name = get_section_name(config, section_id)
-    # children_folder = folder / subfolder_name
-    # os.makedirs(children_folder, exist_ok=True)
-    # run_groups = config["runGroups"]
-    # for k, run_group in run_groups.items():
-    #     yamlValue = export_global
-    #     base = run_group["name"]
-    #     with open(folder / f"{base}.yaml", "w") as file:
-    #         file.write(yamlValue)
+    folder = folder / subfolder_name
+    os.makedirs(folder, exist_ok=True)
+    run_groups = config["runGroups"]
+    for run_group in run_groups.values():
+        e = export_single_run_group_to_dict(
+            run_group["sections"],
+            config["sections"],
+            config["sectionVariants"],
+            config["paramSweeps"],
+        )
+        yamlValue = run_group_dict_to_yaml(e)
+        base = run_group["name"]
+        with open(folder / f"{base}.yaml", "w") as file:
+            file.write(yamlValue)
 
 
 def maybe_with_variant_in_filename(config, section_id, variant_id, with_variants):

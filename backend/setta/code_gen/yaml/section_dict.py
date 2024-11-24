@@ -27,16 +27,22 @@ def param_sweep_dict_to_yaml(exporter_obj):
 
 
 def run_group_dict_to_yaml(exporter_obj):
-    return yaml.dump(exporter_obj.prettyOutput, Dumper=NoEmptyDictDumper)
+    if len(exporter_obj.prettyOutput) == 0:
+        return "{}"
+    return yaml.dump(
+        exporter_obj.prettyOutput, Dumper=NoEmptyDictDumper, explicit_end=False
+    )
 
 
 class NoEmptyDictDumper(yaml.Dumper):
     pass
 
+
 # Register representer for dict that skips empty ones
 def represent_dict_skip_empty(dumper, data):
     if not data:  # if dictionary is empty
-        return dumper.represent_scalar('tag:yaml.org,2002:null', '')
+        return dumper.represent_scalar("tag:yaml.org,2002:null", "")
     return dumper.represent_dict(data)
+
 
 NoEmptyDictDumper.add_representer(dict, represent_dict_skip_empty)
