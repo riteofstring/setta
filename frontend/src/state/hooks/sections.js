@@ -1,3 +1,4 @@
+import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 
@@ -21,7 +22,7 @@ export function useSectionHasMultipleVariants(sectionId) {
 }
 
 export function useTempHasNested(sectionId) {
-  return useSectionInfos((x) => x.dndChildren[sectionId]?.length > 0);
+  return useDndChildren((x) => x.x[sectionId]?.length > 0);
 }
 
 export function useHasPermanentNested(sectionId) {

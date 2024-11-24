@@ -1,10 +1,11 @@
+import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { DNDSortable } from "forks/dnd-kit/DNDSortable";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useSectionInfos } from "state/definitions";
 import { SortableSectionContainer } from "./SortableSectionContainer";
 
 export function ManyNestedSections({ sectionId, isDeck }) {
-  const tempChildIds = useSectionInfos((x) => x.dndChildren[sectionId]);
+  const tempChildIds = useDndChildren((x) => x.x[sectionId]);
 
   return (
     <DNDSortable sectionId={sectionId} items={tempChildIds}>
