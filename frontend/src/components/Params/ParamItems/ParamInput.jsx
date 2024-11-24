@@ -11,17 +11,14 @@ import {
   setParamKeywordPositions,
 } from "state/actions/sectionVariants";
 import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
-import {
-  useGetParamEnteredValue,
-  useGetParamKeywordPositions,
-} from "state/hooks/sectionVariants";
+import { useGetParamEnteredValueAndKeywordPositions } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
-  const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
-  const keywordPositions = useGetParamKeywordPositions(sectionId, paramInfoId);
+  const { value: enteredValue, keywordPositions } =
+    useGetParamEnteredValueAndKeywordPositions(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
   const [localKeywordPositions, setLocalKeywordPositions] =
     useState(keywordPositions);

@@ -3,27 +3,20 @@ import { getSectionVariantIdToShow } from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "./sections";
 
-export function useGetParamEnteredValue(sectionId, paramInfoId) {
+export function useGetParamEnteredValueAndKeywordPositions(
+  sectionId,
+  paramInfoId,
+) {
   return useSectionInfos((x) => {
     const variantIdToShow = getSectionVariantIdToShow(sectionId, x.x);
     const vals = x.variants[variantIdToShow].values;
     if (paramInfoId in vals) {
-      return vals[paramInfoId].value;
+      return {
+        value: vals[paramInfoId].value,
+        keywordPositions: vals[paramInfoId].keywordPositions,
+      };
     }
-    return "";
-  });
-}
-
-export function useGetParamKeywordPositions(sectionId, paramInfoId) {
-  return useSectionInfos((x) => {
-    if (paramInfoId) {
-      const variantIdToShow = getSectionVariantIdToShow(sectionId, x.x);
-      const vals = x.variants[variantIdToShow].values;
-      if (paramInfoId in vals) {
-        return vals[paramInfoId].keywordPositions;
-      }
-    }
-    return [];
+    return { value: "", keywordPositions: [] };
   }, _.isEqual);
 }
 
@@ -33,13 +26,6 @@ export function useGetSectionVariantNames(sectionId) {
     (x) => variantIds.map((e) => ({ id: e, name: x.variants[e].name })),
     _.isEqual,
   );
-}
-
-export function useSectionEnteredValues(sectionId) {
-  return useSectionInfos((x) => {
-    const variantIdToShow = getSectionVariantIdToShow(sectionId, x.x);
-    return Object.values(x.variants[variantIdToShow].values);
-  }, _.isEqual);
 }
 
 export function useSectionIdToChildren() {
