@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 
 import type { XYPosition } from ".";
 
@@ -7,7 +7,6 @@ import type { XYPosition } from ".";
 export type Node<U extends string | undefined = string | undefined> = {
   id: string;
   position: XYPosition;
-  style?: CSSProperties;
   dragging?: boolean;
   draggable?: boolean;
   selectable?: boolean;
@@ -29,7 +28,7 @@ export type SelectionDragHandler = (
   nodes: Node[],
 ) => void;
 
-export type WrapNodeProps<T = any> = Pick<Node<T>, "id" | "style"> & {
+export type WrapNodeProps<T = any> = Pick<Node<T>, "id"> & {
   xPos: number;
   yPos: number;
   initialized: boolean;

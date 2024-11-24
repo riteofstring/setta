@@ -54,7 +54,6 @@ function _MiniMapNodes({
             y={y}
             width={node.width!}
             height={node.height!}
-            style={node.style}
             selected={activeSectionIds.includes(node.id)}
             className={nodeClassNameFunc(node)}
             color={nodeColorFunc(node)}

@@ -77,7 +77,6 @@ const NodeRenderer = ({}) => {
           <NodeWrapper
             key={node.id}
             id={node.id}
-            style={node.style}
             xPos={posX}
             yPos={posY}
             selected={activeSectionIds.includes(node.id)}

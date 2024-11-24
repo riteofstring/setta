@@ -21,7 +21,6 @@ const _NodeWrapper = ({
   xPos,
   yPos,
   selected,
-  style,
   isDraggable: _isDraggable,
   isSelectable,
   isFocusable,
@@ -87,7 +86,6 @@ const _NodeWrapper = ({
         pointerEvents: hasPointerEvents ? "all" : "none",
         visibility: initialized ? "visible" : "hidden",
         zIndex,
-        ...style,
       }}
       data-id={id}
       data-testid={`rf__node-${id}`}
