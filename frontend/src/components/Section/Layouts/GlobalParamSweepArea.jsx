@@ -10,7 +10,7 @@ import {
   setShownRunGroup,
 } from "state/actions/project/projectConfig";
 import {
-  initRunGroup,
+  createRunGroupWithRandomName,
   toggleRunGroup,
   toggleRunGroupSection,
   toggleRunGroupSectionParamSweep,
@@ -26,7 +26,6 @@ import {
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
-import { createNewId, createRandomName } from "utils/idNameCreation";
 import { useShowYaml } from "./toYaml";
 
 export function GlobalParamSweepArea({ sectionId }) {
@@ -531,16 +530,10 @@ function FilterSection() {
 }
 
 function CreateNewRunGroupButton({}) {
-  function onClick() {
-    const id = createNewId();
-    initRunGroup({ id, name: createRandomName() });
-    setShownRunGroup(id);
-  }
-
   return (
     <button
       className="nodrag flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-1 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
-      onClick={onClick}
+      onClick={createRunGroupWithRandomName}
     >
       <i className="gg-add-r" /> New Run Group
     </button>

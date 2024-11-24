@@ -3,6 +3,7 @@ import { deleteNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useActiveSection, useSectionInfos } from "state/definitions";
 import { getSectionParentId } from "../../getters/sectionInfo";
+import { deleteRunGroups } from "../runGroups/runGroups";
 import {
   getSectionChildren,
   getSectionChildrenFromAllVariants,
@@ -16,11 +17,11 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
     idsToDelete.push(...getIdsToDelete(sid));
   }
   idsToDelete = [...new Set(idsToDelete)];
+  deleteRunGroups(idsToDelete);
   removeActiveSectionIds(idsToDelete);
   removeSectionInfos(idsToDelete);
   deleteNodes(idsToDelete);
   dbDeleteTerminals(idsToDelete); // delete any terminals associated with the sections
-
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

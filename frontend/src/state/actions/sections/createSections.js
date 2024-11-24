@@ -13,10 +13,15 @@ import { newCodeInfo } from "utils/objs/codeInfo";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionPosition } from "utils/objs/sectionPosition";
 import { insertIntoArray } from "utils/utils";
-import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
+import {
+  getSectionInfo,
+  getSectionParentId,
+  getSectionType,
+} from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
 import { initManyCodeInfoCols } from "../codeInfoCols";
 import { updateKeywordRegex } from "../keywordRegex";
+import { createFirstRunGroup } from "../runGroups/runGroups";
 import {
   getSectionChildren,
   initManySectionVariantIds,
@@ -221,6 +226,10 @@ function addSectionsToState(sectionInfos, position) {
         tempZIndex: 0,
       })),
     );
+  }
+
+  if (sectionIds.some((x) => getSectionType(x).type === C.GLOBAL_PARAM_SWEEP)) {
+    createFirstRunGroup();
   }
 }
 

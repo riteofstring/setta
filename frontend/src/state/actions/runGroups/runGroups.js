@@ -15,7 +15,11 @@ import {
   getSectionType,
 } from "state/getters/sectionInfo";
 import { useSectionTypeNames } from "state/hooks/uiTypes";
-import { createNewId } from "utils/idNameCreation";
+import { createNewId, createRandomName } from "utils/idNameCreation";
+import {
+  clearRunGroupSelection,
+  setShownRunGroup,
+} from "../project/projectConfig";
 
 const RUNNABLE_SECTION_TYPES = [
   C.SECTION,
@@ -28,6 +32,18 @@ const RUNNABLE_SECTION_TYPES = [
 
 export function setAllRunGroups(payload) {
   useRunGroups.setState({ x: payload });
+}
+
+export function createFirstRunGroup() {
+  if (_.size(useRunGroups.getState().x) === 0) {
+    createRunGroupWithRandomName();
+  }
+}
+
+export function createRunGroupWithRandomName() {
+  const id = createNewId();
+  initRunGroup({ id, name: createRandomName() });
+  setShownRunGroup(id);
 }
 
 export function initRunGroup({ id, name }) {
@@ -290,4 +306,15 @@ export function useTopLevelRunGroupListing() {
     }
     return output;
   }, _.isEqual);
+}
+
+export function deleteRunGroups(sectionIdsToDelete) {
+  if (
+    sectionIdsToDelete.some(
+      (x) => getSectionType(x).type === C.GLOBAL_PARAM_SWEEP,
+    )
+  ) {
+    useRunGroups.setState({ x: {} });
+    clearRunGroupSelection();
+  }
 }

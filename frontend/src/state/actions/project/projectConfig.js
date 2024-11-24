@@ -40,3 +40,7 @@ export function getActuallyShownRunGroup() {
   const p = useProjectConfig.getState();
   return p.previewRunGroup ?? p.shownRunGroup;
 }
+
+export function clearRunGroupSelection() {
+  useProjectConfig.setState({ runGroupSelection: {}, shownRunGroup: null });
+}
