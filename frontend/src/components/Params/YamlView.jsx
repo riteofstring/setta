@@ -16,7 +16,7 @@ export function ParamSweepSectionYamlView({ sectionId }) {
   return <YamlView sectionId={sectionId} isDisabled={isDisabled} />;
 }
 
-function YamlView({ sectionId, isDisabled }) {
+export function YamlView({ sectionId, isDisabled }) {
   const theme = useCodeMirrorStyle();
   const extensions = getExtensions({
     sectionId,

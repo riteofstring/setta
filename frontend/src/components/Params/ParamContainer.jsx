@@ -73,6 +73,7 @@ function _ParamContainer({
   return paramChildren.length === 0 ? (
     <>
       <article
+        id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
         className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between overflow-clip rounded-md ${bg} ${border}`}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
         onMouseDown={onMouseDownSelect}
