@@ -1,8 +1,14 @@
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import { useSettings } from "state/definitions";
+import { useActiveSection, useSettings } from "state/definitions";
+import { getSectionType } from "state/getters/sectionInfo";
 import { localStorageFns } from "state/hooks/localStorage";
 import { getUIEditorTab } from "state/hooks/uiTypes";
-import { CLOSED_PANE_WIDTH, OVERVIEW, UI_EDITOR } from "utils/constants";
+import {
+  CLOSED_PANE_WIDTH,
+  OVERVIEW,
+  SECTION_VARIANTS_TAB,
+  UI_EDITOR,
+} from "utils/constants";
 
 export function TabButton({
   id,
@@ -93,4 +99,17 @@ export function getOnUIEditorTabClick(uiTypeName) {
       visToggle(UI_EDITOR);
     }
   };
+}
+
+function changeUIEditorTab(tabName) {
+  const activeId = useActiveSection.getState().ids[0];
+  if (!activeId) {
+    return;
+  }
+  const uiTypeName = getSectionType(activeId).type;
+  getOnUIEditorTabClick(uiTypeName)(tabName);
+}
+
+export function showVersionsTab() {
+  changeUIEditorTab(SECTION_VARIANTS_TAB);
 }
