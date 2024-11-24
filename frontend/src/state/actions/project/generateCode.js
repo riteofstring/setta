@@ -194,8 +194,10 @@ function* getProjectVariants(project) {
     }
   }
 
-  console.log("allSweeps", allSweeps)
-  console.log("generateParamSweepCombinations(allSweeps)", [...generateParamSweepCombinations(allSweeps)])
+  console.log("allSweeps", allSweeps);
+  console.log("generateParamSweepCombinations(allSweeps)", [
+    ...generateParamSweepCombinations(allSweeps),
+  ]);
 
   if (allSweeps.length > 0) {
     for (const combo of generateParamSweepCombinations(allSweeps)) {

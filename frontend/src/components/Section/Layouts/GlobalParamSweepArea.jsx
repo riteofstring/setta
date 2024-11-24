@@ -198,7 +198,7 @@ function SectionItem({ sectionInfo, ancestors, parentIsSelected, runGroupId }) {
       <CheckboxGroup checked={isSelected} onChange={onSectionCheckboxChange}>
         {sectionInfo.name}
       </CheckboxGroup>
-      <VersionsList
+      <MaybeVersionsList
         sectionId={sectionId}
         runGroupId={runGroupId}
         isSelected={isSelected}
@@ -214,18 +214,15 @@ function SectionItem({ sectionInfo, ancestors, parentIsSelected, runGroupId }) {
   );
 }
 
-function _VersionsList({ sectionId, ancestors, runGroupId, isSelected }) {
+function _MaybeVersionsList({ sectionId, ancestors, runGroupId, isSelected }) {
   const allVersions = useGetSectionVariantNames(sectionId);
-
   return allVersions.length > 1 ? (
-    <GenericList
-      inputList={allVersions}
-      listName="Versions"
-      isSelected={isSelected}
+    <VersionsList
       sectionId={sectionId}
-      runGroupId={runGroupId}
       ancestors={ancestors}
-      ChildComponent={VersionItemComponent}
+      runGroupId={runGroupId}
+      isSelected={isSelected}
+      allVersions={allVersions}
     />
   ) : (
     <div className="pl-4">
@@ -241,7 +238,41 @@ function _VersionsList({ sectionId, ancestors, runGroupId, isSelected }) {
   );
 }
 
-const VersionsList = React.memo(_VersionsList, _.isEqual);
+const MaybeVersionsList = React.memo(_MaybeVersionsList, _.isEqual);
+
+function VersionsList({
+  sectionId,
+  ancestors,
+  runGroupId,
+  isSelected,
+  allVersions,
+}) {
+  const atLeastOneVersionSelected = useRunGroups((x) => {
+    for (const value of Object.values(
+      x.x[runGroupId].sections[sectionId]?.versions,
+    )) {
+      if (value) return true;
+    }
+    return false;
+  });
+
+  const accordionRootStyles = atLeastOneVersionSelected
+    ? undefined
+    : "bg-red dark:bg-red-700/10 hover:border-red-50 dark:hover:border-red-700";
+
+  return (
+    <GenericList
+      inputList={allVersions}
+      heading={"Versions"}
+      isSelected={isSelected}
+      sectionId={sectionId}
+      runGroupId={runGroupId}
+      ancestors={ancestors}
+      accordionRootStyles={accordionRootStyles}
+      ChildComponent={VersionItemComponent}
+    />
+  );
+}
 
 function _ParamSweepVersionsList({
   sectionId,
@@ -255,7 +286,7 @@ function _ParamSweepVersionsList({
     allParamSweeps.length > 0 && (
       <GenericList
         inputList={allParamSweeps}
-        listName="Param Sweeps"
+        heading="Param Sweeps"
         isSelected={isSelected}
         sectionId={sectionId}
         runGroupId={runGroupId}
@@ -270,22 +301,23 @@ const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
 
 function _GenericList({
   inputList,
-  listName,
+  heading,
   isSelected,
   sectionId,
   runGroupId,
   ancestors,
+  accordionRootStyles,
   ChildComponent,
 }) {
   return (
     <StandardAccordion
-      rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700  rounded-lg px-2 ml-8 -mr-2 -mt-0.5"
+      rootStyles={`${accordionRootStyles ?? "hover:bg-white hover:dark:bg-setta-700/10 hover:border-setta-50 dark:hover:border-setta-700"} border border-transparent rounded-lg px-2 ml-8 -mr-2 -mt-0.5`}
       itemStyles="focus-within:relative focus-within:z-10"
       headerStyles="flex flex-1 cursor-default items-center justify-between my-0.5"
       triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md italic text-xs font-semibold opacity-60 group-hover:opacity-100 text-setta-500 dark:text-setta-300"
       contentStyles="text-xs overflow-hidden mb-1"
-      heading={listName}
-      value={listName}
+      heading={heading}
+      value={heading}
       internalWrapper={false}
       // defaultValue={defaultValue}
       data-state={open}
@@ -335,30 +367,10 @@ function VersionItemComponent({
       parentIsSelected && !!x.x[runGroupId].sections[sectionId]?.versions[id],
   );
 
-  // Disable the checkbox if this version is selected and its the only selected version.
-  const disabled = useRunGroups((x) => {
-    const versions = x.x[runGroupId].sections[sectionId]?.versions;
-    if (!versions[id]) {
-      return false;
-    }
-    let count = 0;
-    for (const value of Object.values(versions)) {
-      if (count > 1) {
-        return false;
-      }
-      if (value) count++;
-    }
-    return versions[id] && count === 1;
-  });
-
   return (
     <>
       <div className="flex items-center gap-2 truncate">
-        <CheckboxGroup
-          checked={isSelected}
-          onChange={onChange}
-          disabled={disabled}
-        >
+        <CheckboxGroup checked={isSelected} onChange={onChange}>
           {name}
         </CheckboxGroup>
       </div>
@@ -401,7 +413,7 @@ function ParamSweepItemComponent({
   );
 }
 
-function CheckboxGroup({ children, checked, onChange, disabled }) {
+function CheckboxGroup({ children, checked, onChange }) {
   return (
     <label className="flex min-h-6 cursor-pointer items-center gap-2 text-xs text-setta-700 dark:text-setta-300">
       <input
@@ -409,7 +421,6 @@ function CheckboxGroup({ children, checked, onChange, disabled }) {
         className="h-4 w-4 min-w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
         checked={checked}
         onChange={onChange}
-        disabled={disabled}
       />
       <p className="truncate">{children}</p>
     </label>
