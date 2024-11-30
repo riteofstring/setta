@@ -1,13 +1,13 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { getSectionVariantToShow } from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";
-import { useSectionSelectedItem } from "state/hooks/sectionVariants";
 
 export function HideShowSearchButton({ sectionId }) {
-  const selectedItem = useSectionSelectedItem(sectionId);
-  const { hideSearch, hideParams } = useSectionInfos((x) => {
+  const { selectedItem, hideSearch, hideParams } = useSectionInfos((x) => {
     return {
+      selectedItem: getSectionVariantToShow(sectionId, x).selectedItem,
       hideSearch: x.x[sectionId].hideSearch,
       hideParams: x.x[sectionId].hideParams,
     };

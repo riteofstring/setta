@@ -57,10 +57,6 @@ function useSectionVariantAttr(sectionId, attr, equalityFn) {
   }, equalityFn);
 }
 
-export function useSectionSelectedItem(sectionId) {
-  return useSectionVariantAttr(sectionId, "selectedItem");
-}
-
 export function useSectionCode(sectionId) {
   return useSectionVariantAttr(sectionId, "code");
 }

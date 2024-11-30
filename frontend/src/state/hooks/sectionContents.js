@@ -8,7 +8,6 @@ import {
 import { getSectionVariantToShow } from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";
 import { useSectionCodeInfoChildren } from "./codeInfoCols";
-import { useSectionSelectedItem } from "./sectionVariants";
 
 export function useParamInfosForSidePane(sectionId) {
   return useSectionInfos((x) => {
@@ -37,10 +36,10 @@ export function useParamInfosForSidePane(sectionId) {
 }
 
 export function useParamIdsToShowInArea(sectionId, isPinned) {
-  const selectedItem = useSectionSelectedItem(sectionId);
   const codeInfoChildren = useSectionCodeInfoChildren(sectionId);
 
   return useSectionInfos((x) => {
+    const selectedItem = getSectionVariantToShow(sectionId, x).selectedItem;
     return getParamIdsToShowInArea(
       sectionId,
       isPinned,
