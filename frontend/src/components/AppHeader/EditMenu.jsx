@@ -26,18 +26,20 @@ export function EditMenu() {
 }
 
 function Items() {
-  const shortcuts = useSettings((x) =>
-    _.mapValues(
-      _.pick(x, [
-        "newCardShortcut",
-        "newGroupShortcut",
-        "typeCheckShortcut",
-        "redoShortcut",
-        "undoShortcut",
-        "groupShortcut",
-      ]),
-      shortcutPrettified,
-    ),
+  const shortcuts = useSettings(
+    (x) =>
+      _.mapValues(
+        _.pick(x, [
+          "newCardShortcut",
+          "newGroupShortcut",
+          "typeCheckShortcut",
+          "redoShortcut",
+          "undoShortcut",
+          "groupShortcut",
+        ]),
+        shortcutPrettified,
+      ),
+    _.isEqual,
   );
 
   return (

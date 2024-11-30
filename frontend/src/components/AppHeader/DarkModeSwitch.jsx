@@ -1,8 +1,9 @@
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
+import { useEffect } from "react";
 import { HiMoon } from "react-icons/hi";
 import { RiSunFill } from "react-icons/ri";
 import { toggleDarkMode } from "state/actions/localStorage";
-import { useDarkMode } from "state/hooks/localStorage";
+import { localStorageFns } from "state/hooks/localStorage";
 import { HelpText } from "./HelpText";
 
 export function DarkModeSwitch() {
@@ -28,4 +29,18 @@ export function DarkModeSwitch() {
       />
     </div>
   );
+}
+
+export function useDarkMode() {
+  const [darkMode] = localStorageFns.darkMode.hook();
+
+  useEffect(() => {
+    if (darkMode) {
+      document.querySelector("html").classList.add("dark");
+    } else {
+      document.querySelector("html").classList.remove("dark");
+    }
+  }, [darkMode]);
+
+  return darkMode;
 }
