@@ -31,8 +31,8 @@ def save_param_sweeps(db, param_sweeps):
     db.execute(query, query_params)
 
     query = """
-        INSERT INTO ParamSweep (idid, data, selectedItem, paramInfoId, "order")
-        VALUES (:idid, :data, :selectedItem, :paramInfoId, :order)
+        INSERT INTO ParamSweep (idid, selectedItemGroupNum, paramInfoGroupNum, selectedItem, paramInfoId, "order", value)
+        VALUES (:idid, :selectedItemGroupNum, :paramInfoGroupNum, :selectedItem, :paramInfoId, :order, :value)
     """
 
     query_params = []
@@ -44,10 +44,12 @@ def save_param_sweeps(db, param_sweeps):
                 query_params.append(
                     generate_query_param(
                         id,
-                        
+                        selectedItemGroupNum,
+                        None,
                         selected_item,
                         None,
                         order,
+                        None,
                     )
                 )
                 order += 1
@@ -73,15 +75,19 @@ def save_param_sweeps(db, param_sweeps):
 
 def generate_query_param(
     id,
-    data,
+    selectedItemGroupNum,
+    paramInfoGroupNum,
     selected_item,
     param_info_id,
     order,
+    value,
 ):
     return {
         "idid": id,
-        "data": data,
+        "selectedItemGroupNum": selectedItemGroupNum,
+        "paramInfoGroupNum": paramInfoGroupNum,
         "selectedItem": selected_item,
         "paramInfoId": param_info_id,
         "order": order,
+        "value": value,
     }

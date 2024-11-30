@@ -143,6 +143,3 @@ PARAM_SWEEP_ID_TABLE_DATA_JSON_FIELDS = set(
         "isFrozen",
     ]
 )
-
-PARAM_SWEEP_TABLE_DATA_JSON_FIELDS = set(["selectedItemGroupNum",
-    "paramInfoGroupNum", "value"])
