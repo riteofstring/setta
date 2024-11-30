@@ -31,7 +31,7 @@ export function DarkModeSwitch() {
   );
 }
 
-export function useDarkMode() {
+function useDarkMode() {
   const [darkMode] = localStorageFns.darkMode.hook();
 
   useEffect(() => {

@@ -1,10 +1,5 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
-
-export function useSectionInfoNames() {
-  return useSectionInfos((x) => _.mapValues(x.x, (y) => y.name), _.isEqual);
-}
 
 export function useHasTempNested(sectionId) {
   return useDndChildren((x) => x.x[sectionId]?.length > 0);

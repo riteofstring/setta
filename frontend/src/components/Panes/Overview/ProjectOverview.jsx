@@ -2,11 +2,8 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
-import { useNodeInternals } from "state/definitions";
-import { useSectionInfoNames } from "state/hooks/sections";
-import { useSectionIdToChildren } from "state/hooks/sectionVariants";
+import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
-import { getDepthListing } from "utils/childrenToDepth";
 import { ProjectName } from "./ProjectName";
 import { SectionListItems } from "./SectionListItems";
 
@@ -50,8 +47,45 @@ function useGetOverviewListing() {
     (x) => [...x.x.keys()],
     _.isEqual,
   );
-  const sectionChildren = useSectionIdToChildren();
-  const idNames = useSectionInfoNames();
+  const idToNameAndChildren = useSectionInfos((x) => {
+    const output = {};
+    for (const s of Object.values(x.x)) {
+      output[s.id] = {
+        name: s.name,
+        children: x.variants[s.variantId].children,
+      };
+    }
+    return output;
+  }, _.isEqual);
 
-  return getDepthListing(topLevelSectionIds, sectionChildren, idNames);
+  return getDepthListing(topLevelSectionIds, idToNameAndChildren);
+}
+
+function getDepthListing(topLevelIds, idToNameAndChildren) {
+  const outputList = [];
+  for (const sectionId of topLevelIds) {
+    outputList.push(
+      ...getDepthListingHelper(sectionId, idToNameAndChildren, 0),
+    );
+  }
+  return outputList;
+}
+
+function getDepthListingHelper(sectionId, idToNameAndChildren, depth) {
+  const outputList = [
+    {
+      id: sectionId,
+      name: idToNameAndChildren[sectionId].name,
+      depth: depth,
+    },
+  ];
+
+  if (idToNameAndChildren[sectionId].children) {
+    for (const childId of idToNameAndChildren[sectionId].children) {
+      outputList.push(
+        ...getDepthListingHelper(childId, idToNameAndChildren, depth + 1),
+      );
+    }
+  }
+  return outputList;
 }
