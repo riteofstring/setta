@@ -2,12 +2,10 @@ import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { dbDocstringToMarkdown } from "requests/codeInfo";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { setSectionVariantAttr } from "state/actions/sectionVariants";
-import { useSectionInfos } from "state/definitions";
-import { useSectionDescription } from "state/hooks/sectionVariants";
+import { useInfoAreaDescription } from "state/hooks/sectionVariants";
 
 export function InfoAreaSettings({ sectionId }) {
-  const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
-  const description = useSectionDescription(sectionId);
+  const { renderMarkdown, description } = useInfoAreaDescription(sectionId);
 
   async function onChange(v) {
     let newDescription;

@@ -1,5 +1,8 @@
 import _ from "lodash";
-import { getSectionVariantIdToShow } from "state/actions/sectionVariants";
+import {
+  getSectionVariantIdToShow,
+  getSectionVariantToShow,
+} from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";
 
 export function useGetParamEnteredValueAndKeywordPositions(
@@ -76,4 +79,13 @@ export function useSectionKeywordPositions(sectionId) {
 
 export function useSectionVariantIsFrozen(sectionId) {
   return useSectionInfos((x) => x.variants[x.x[sectionId].variantId].isFrozen);
+}
+
+export function useInfoAreaDescription(sectionId) {
+  return useSectionInfos((x) => {
+    return {
+      renderMarkdown: x.x[sectionId].renderMarkdown,
+      description: getSectionVariantToShow(sectionId, x).description,
+    };
+  }, _.isEqual);
 }
