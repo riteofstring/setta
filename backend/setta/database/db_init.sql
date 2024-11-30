@@ -53,8 +53,7 @@ CREATE TABLE IF NOT EXISTS SectionVariantId (
 CREATE TABLE IF NOT EXISTS SectionVariantEV (
     idid TEXT,
     codeInfoId TEXT,
-    value TEXT,
-    keywordPositions TEXT,
+    data TEXT,
     PRIMARY KEY (idid, codeInfoId),
     FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
     FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE

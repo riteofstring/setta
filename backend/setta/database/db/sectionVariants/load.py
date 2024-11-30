@@ -6,7 +6,7 @@ from setta.database.utils import parse_keyword_positions_string
 def load_section_variants(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT SectionVariantId.id, SectionVariantId.data, SectionVariantId.selectedItem, SectionVariantId.codeInfoColId, SectionVariantEV.codeInfoId, SectionVariantEV.value, SectionVariantEV.keywordPositions
+        SELECT SectionVariantId.id, SectionVariantId.data, SectionVariantId.selectedItem, SectionVariantId.codeInfoColId, SectionVariantEV.codeInfoId, SectionVariantEV.data as valueData
         FROM SectionVariantId
         LEFT JOIN SectionVariantEV
         ON SectionVariantId.id = SectionVariantEV.idid
@@ -24,13 +24,8 @@ def load_section_variants(db, ids):
                 "children": [],
                 **json.loads(row["data"]),
             }
-        if row["value"] is not None:
-            output[id]["values"][row["codeInfoId"]] = {
-                "value": row["value"],
-                "keywordPositions": parse_keyword_positions_string(
-                    row["keywordPositions"]
-                ),
-            }
+        if row["valueData"]:
+            output[id]["values"][row["codeInfoId"]] = json.loads(row["valueData"])
 
     placeholders = ", ".join(["?"] * len(output))
     query = f"""

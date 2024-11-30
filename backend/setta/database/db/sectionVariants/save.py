@@ -1,7 +1,10 @@
 import json
 
 from setta.database.utils import dump_keyword_positions_as_string
-from setta.utils.constants import SECTION_VARIANT_TABLE_DATA_JSON_FIELDS
+from setta.utils.constants import (
+    SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS,
+    SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS,
+)
 from setta.utils.utils import filter_dict
 
 
@@ -21,7 +24,9 @@ def save_section_variants(db, section_variants):
             "id": k,
             "selectedItem": v["selectedItem"],
             "codeInfoColId": v["codeInfoColId"],
-            "data": json.dumps(filter_dict(v, SECTION_VARIANT_TABLE_DATA_JSON_FIELDS)),
+            "data": json.dumps(
+                filter_dict(v, SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS)
+            ),
         }
         for k, v in section_variants.items()
     ]
@@ -38,8 +43,8 @@ def save_section_variants(db, section_variants):
 
     # add entered values
     query = """
-        INSERT INTO SectionVariantEV (idid, codeInfoId, value, keywordPositions)
-        VALUES (:idid, :codeInfoId, :value, :keywordPositions)
+        INSERT INTO SectionVariantEV (idid, codeInfoId, data)
+        VALUES (:idid, :codeInfoId, :data)
     """
     query_params = []
     for idid, variant in section_variants.items():
@@ -48,9 +53,10 @@ def save_section_variants(db, section_variants):
                 {
                     "idid": idid,
                     "codeInfoId": code_info_id,
-                    "value": value_info["value"],
-                    "keywordPositions": dump_keyword_positions_as_string(
-                        value_info["keywordPositions"]
+                    "data": json.dumps(
+                        filter_dict(
+                            value_info, SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS
+                        )
                     ),
                 }
             )
