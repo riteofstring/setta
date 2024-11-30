@@ -111,7 +111,8 @@
       "codeInfoColId": "228df757-f5f3-4647-b7c5-22ea4a6ac32f",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "09179586-8ddd-4f0b-91a0-0398d928d408": {
       "name": "soup_coin",
@@ -128,7 +129,8 @@
       "codeInfoColId": "d7e9790b-8704-450a-be5a-113f47b45d9a",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "10ea5acf-9c24-4351-bc81-252625623507": {
       "name": "roasted_maroon",
@@ -140,7 +142,8 @@
       "codeInfoColId": "a489d8f5-92bc-4f1a-8fdc-0ba18418ec4a",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "380a6d0c-a96e-48f1-b431-074c7e98eed9": {
       "name": "classical_olive",
@@ -152,7 +155,8 @@
       "codeInfoColId": "e528d509-9473-410a-96d2-0ce6bbe22293",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "4253da34-9a1a-43eb-b80f-c6708e339024": {
       "name": "substantial_brown",
@@ -197,7 +201,8 @@
       "codeInfoColId": "4fb30d97-f30f-4cdf-a700-8c2fcaec11d0",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "4c9bee35-38ab-471e-873d-62e1233eeaaf": {
       "name": "uncomfortable_tan",
@@ -209,7 +214,8 @@
       "codeInfoColId": "11acb57f-6bfb-430e-893c-5aecdec7d128",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "56758b16-1bb1-4167-852c-321b23cfce38": {
       "name": "ultimate_tomato",
@@ -221,7 +227,8 @@
       "codeInfoColId": "a6bc57c7-5d07-4f19-af50-6f05e0ce06d4",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "645069e7-0657-4c2e-9128-88c701bbd069": {
       "name": "sparkling_brown",
@@ -233,7 +240,8 @@
       "codeInfoColId": "8bf126a2-b983-438b-8c40-2419ca65cdf9",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "756e7bb0-ac13-4790-a05c-f10425d508e9": {
       "name": "secure_jade",
@@ -263,7 +271,8 @@
       "codeInfoColId": "be2a4db9-79a4-4ab8-a81e-ec972a19864f",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "7d6b798f-f0eb-44b7-b9a9-1bb9bb01185b": {
       "name": "alien_star",
@@ -308,7 +317,8 @@
       "codeInfoColId": "4fb30d97-f30f-4cdf-a700-8c2fcaec11d0",
       "isFrozen": false,
       "isDefault": false,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "8481e81d-f417-4914-b5d8-2797202392ab": {
       "name": "fast_gray",
@@ -323,7 +333,8 @@
       "codeInfoColId": "feb1cec3-2d0a-414b-bff5-a79bb5e2f4e5",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "9083beca-25c9-4a31-885a-fb19064efd3d": {
       "name": "yeasty_magenta",
@@ -345,7 +356,8 @@
       "codeInfoColId": "af6c0eb0-80d3-4679-88a5-9997d7081568",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "9b39ad4c-8887-43ea-b759-a1fc067ac3ef": {
       "name": "central_amethyst",
@@ -360,7 +372,8 @@
       "codeInfoColId": "1e63c49a-3ae0-46a7-a0db-153eac624e6e",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "a853185e-5b0d-400a-a94c-6c14a9c9809e": {
       "name": "vivid_moccasin",
@@ -405,7 +418,8 @@
       "codeInfoColId": "680ae9ba-1392-4b5e-8b2a-dce8092e0b8f",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "c1873fea-a24d-4367-97b1-88614045a575": {
       "name": "wet_teal",
@@ -462,7 +476,8 @@
       "codeInfoColId": "228df757-f5f3-4647-b7c5-22ea4a6ac32f",
       "isFrozen": false,
       "isDefault": false,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "c58d323d-382a-47b2-919f-a7f06bcac760": {
       "name": "secure_tan",
@@ -479,7 +494,8 @@
       "codeInfoColId": "1c736041-afc2-4d75-b079-85dc1e4c316d",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "dbb76902-0b6c-46fa-a765-46bdfcf92d92": {
       "name": "horizontal_green",
@@ -541,7 +557,8 @@
       "codeInfoColId": "1667b405-654b-4b07-bb0d-2b3f296ff352",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "e3280349-7dda-43f6-9cea-0b98971435a5": {
       "name": "geographical_chocolate",
@@ -553,7 +570,8 @@
       "codeInfoColId": "4aa15414-f4c3-460f-b3a7-722d81710271",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "fb08c4e1-9809-46ef-bfa5-52a4a944ef74": {
       "name": "marginal_coral",
@@ -568,7 +586,8 @@
       "codeInfoColId": "d7e9790b-8704-450a-be5a-113f47b45d9a",
       "isFrozen": false,
       "isDefault": false,
-      "description": ""
+      "description": "",
+      "sweep": []
     }
   },
   "uiTypes": {
@@ -907,7 +926,6 @@
     },
     "eb1e2aa0-ea16-433d-80b9-f4018039991e": {}
   },
-  "paramSweeps": {},
   "runGroups": {},
   "sections": {
     "04a2d718-6476-446f-bda7-4b7fc22f8972": {
@@ -924,7 +942,6 @@
       "variantIds": [
         "9b39ad4c-8887-43ea-b759-a1fc067ac3ef"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
       "size": {
@@ -932,7 +949,6 @@
         "height": "auto"
       },
       "variantId": "9b39ad4c-8887-43ea-b759-a1fc067ac3ef",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -957,7 +973,6 @@
         "4253da34-9a1a-43eb-b80f-c6708e339024",
         "7d6b798f-f0eb-44b7-b9a9-1bb9bb01185b"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
       "size": {
@@ -965,7 +980,6 @@
         "height": "auto"
       },
       "variantId": "4253da34-9a1a-43eb-b80f-c6708e339024",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -989,7 +1003,6 @@
       "variantIds": [
         "e3280349-7dda-43f6-9cea-0b98971435a5"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
       "size": {
@@ -997,7 +1010,6 @@
         "height": "auto"
       },
       "variantId": "e3280349-7dda-43f6-9cea-0b98971435a5",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1021,7 +1033,6 @@
       "variantIds": [
         "9083beca-25c9-4a31-885a-fb19064efd3d"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
       "size": {
@@ -1029,7 +1040,6 @@
         "height": "auto"
       },
       "variantId": "9083beca-25c9-4a31-885a-fb19064efd3d",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1053,7 +1063,6 @@
       "variantIds": [
         "380a6d0c-a96e-48f1-b431-074c7e98eed9"
       ],
-      "paramSweepIds": [],
       "artifacts": [
         {
           "path": "seed/examples/diffusionDrops/kevin-musgrave2.png",
@@ -1067,7 +1076,6 @@
         "height": "auto"
       },
       "variantId": "380a6d0c-a96e-48f1-b431-074c7e98eed9",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1099,7 +1107,6 @@
         "09179586-8ddd-4f0b-91a0-0398d928d408",
         "fb08c4e1-9809-46ef-bfa5-52a4a944ef74"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
       "size": {
@@ -1107,7 +1114,6 @@
         "height": "auto"
       },
       "variantId": "fb08c4e1-9809-46ef-bfa5-52a4a944ef74",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1131,7 +1137,6 @@
       "variantIds": [
         "645069e7-0657-4c2e-9128-88c701bbd069"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
       "size": {
@@ -1139,7 +1144,6 @@
         "height": "auto"
       },
       "variantId": "645069e7-0657-4c2e-9128-88c701bbd069",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1163,7 +1167,6 @@
       "variantIds": [
         "4c9bee35-38ab-471e-873d-62e1233eeaaf"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
       "size": {
@@ -1171,7 +1174,6 @@
         "height": "auto"
       },
       "variantId": "4c9bee35-38ab-471e-873d-62e1233eeaaf",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1195,7 +1197,6 @@
       "variantIds": [
         "dbb76902-0b6c-46fa-a765-46bdfcf92d92"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
       "size": {
@@ -1203,7 +1204,6 @@
         "height": 464
       },
       "variantId": "dbb76902-0b6c-46fa-a765-46bdfcf92d92",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1227,7 +1227,6 @@
       "variantIds": [
         "10ea5acf-9c24-4351-bc81-252625623507"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
       "size": {
@@ -1235,7 +1234,6 @@
         "height": "auto"
       },
       "variantId": "10ea5acf-9c24-4351-bc81-252625623507",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1260,7 +1258,6 @@
         "0022f0d8-b97f-4345-90ac-66615e576fb2",
         "c1873fea-a24d-4367-97b1-88614045a575"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
       "size": {
@@ -1268,7 +1265,6 @@
         "height": "auto"
       },
       "variantId": "0022f0d8-b97f-4345-90ac-66615e576fb2",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1292,7 +1288,6 @@
       "variantIds": [
         "756e7bb0-ac13-4790-a05c-f10425d508e9"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
       "size": {
@@ -1300,7 +1295,6 @@
         "height": 291
       },
       "variantId": "756e7bb0-ac13-4790-a05c-f10425d508e9",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1324,7 +1318,6 @@
       "variantIds": [
         "56758b16-1bb1-4167-852c-321b23cfce38"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
       "size": {
@@ -1332,7 +1325,6 @@
         "height": 621
       },
       "variantId": "56758b16-1bb1-4167-852c-321b23cfce38",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1356,7 +1348,6 @@
       "variantIds": [
         "8481e81d-f417-4914-b5d8-2797202392ab"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
       "size": {
@@ -1364,7 +1355,6 @@
         "height": "auto"
       },
       "variantId": "8481e81d-f417-4914-b5d8-2797202392ab",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1388,7 +1378,6 @@
       "variantIds": [
         "c58d323d-382a-47b2-919f-a7f06bcac760"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
       "size": {
@@ -1396,7 +1385,6 @@
         "height": 142
       },
       "variantId": "c58d323d-382a-47b2-919f-a7f06bcac760",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -1420,7 +1408,6 @@
       "variantIds": [
         "a853185e-5b0d-400a-a94c-6c14a9c9809e"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
       "size": {
@@ -1428,7 +1415,6 @@
         "height": "auto"
       },
       "variantId": "a853185e-5b0d-400a-a94c-6c14a9c9809e",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,

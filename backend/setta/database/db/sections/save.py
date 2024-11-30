@@ -78,24 +78,6 @@ def save_sections(db, sections, section_variants):
             query_params.append({"uiTypeId": uiTypeId, "sectionId": s["id"]})
     db.executemany(query, query_params)
 
-    query = f"""
-        UPDATE ParamSweepId
-        SET originSectionId = null
-        WHERE originSectionId IN ({placeholders})
-    """
-    db.execute(query, ids)
-
-    query = """
-        UPDATE ParamSweepId
-        SET originSectionId = :sectionId
-        WHERE id = :paramSweepId
-    """
-    query_params = []
-    for s in sections.values():
-        for paramSweepId in s["paramSweepIds"]:
-            query_params.append({"paramSweepId": paramSweepId, "sectionId": s["id"]})
-    db.executemany(query, query_params)
-
     query = """
         UPDATE Section
         SET paramSweepSectionId = :paramSweepSectionId

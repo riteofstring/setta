@@ -25,7 +25,6 @@ def load_section_variants(db, ids):
         if row["valueData"]:
             output[id]["values"][row["codeInfoId"]] = json.loads(row["valueData"])
 
-    placeholders = ", ".join(["?"] * len(output))
     query = f"""
         SELECT SectionVariantId.id, SectionVariantChildren.childId, SectionVariantChildren."order"
         FROM SectionVariantId
@@ -37,4 +36,37 @@ def load_section_variants(db, ids):
     db.execute(query, ids)
     for row in db.fetchall():
         output[row["id"]]["children"].append(row["childId"])
+
+    query = f"""
+        SELECT SectionVariantId.id, SectionVariantParamSweep.selectedItemGroupNum, SectionVariantParamSweep.paramInfoGroupNum, SectionVariantParamSweep.selectedItem, SectionVariantParamSweep.paramInfoId, SectionVariantParamSweep.value
+        FROM SectionVariantId
+        LEFT JOIN SectionVariantParamSweep
+        ON SectionVariantId.id = SectionVariantParamSweep.idid
+        WHERE SectionVariantId.id in ({placeholders})
+        ORDER BY SectionVariantParamSweep."order"
+    """
+    db.execute(query, ids)
+    for row in db.fetchall():
+        id = row["id"]
+        if "sweep" not in output[id]:
+            output[id]["sweep"] = []
+        curr = output[id]["sweep"]
+
+        selectedItemGroupNum = row["selectedItemGroupNum"]
+        if selectedItemGroupNum is None:
+            continue
+        if len(curr) <= selectedItemGroupNum:
+            curr.append({"selectedItem": row["selectedItem"], "params": []})
+        curr = curr[selectedItemGroupNum]["params"]
+
+        paramInfoGroupNum = row["paramInfoGroupNum"]
+        if paramInfoGroupNum is None:
+            continue
+        if len(curr) <= paramInfoGroupNum:
+            curr.append({"paramInfoId": row["paramInfoId"], "values": []})
+        curr = curr[paramInfoGroupNum]["values"]
+
+        if row["value"] is not None:
+            curr.append(row["value"])
+
     return output

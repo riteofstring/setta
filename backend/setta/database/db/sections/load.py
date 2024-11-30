@@ -9,7 +9,6 @@ from setta.database.utils import create_new_id
 from setta.utils.constants import C
 from setta.utils.utils import filter_dict
 
-from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes
 
@@ -25,7 +24,6 @@ def load_sections(db, ids):
             S.*,
             U.nonPresetUITypeIds,
             E.variantIds,
-            P.paramSweepIds,
             A.artifacts
         FROM
             Section S
@@ -49,16 +47,6 @@ def load_sections(db, ids):
                 GROUP BY
                     originSectionId
             ) AS E ON S.id = E.originSectionId
-        LEFT JOIN
-            (
-                SELECT
-                    originSectionId,
-                    GROUP_CONCAT(id) AS paramSweepIds
-                FROM
-                    ParamSweepId
-                GROUP BY
-                    originSectionId
-            ) AS P ON S.id = P.originSectionId
         LEFT JOIN
             (
                 SELECT
@@ -88,9 +76,6 @@ def load_sections(db, ids):
             "nonPresetUITypeIds": (
                 v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
             ),
-            "paramSweepIds": v["paramSweepIds"].split(",")
-            if v["paramSweepIds"]
-            else [],
         }
 
     variantIds = list(
@@ -99,14 +84,6 @@ def load_sections(db, ids):
     sectionVariants = load_section_variants(db, variantIds)
 
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
-    paramSweeps = load_param_sweeps(
-        db,
-        list(
-            itertools.chain.from_iterable(
-                [s["paramSweepIds"] for s in sections.values()]
-            )
-        ),
-    )
 
     nonPresetUITypeIds = []
     for s in sections.values():
@@ -121,7 +98,6 @@ def load_sections(db, ids):
         "sections": sections,
         "sectionVariants": sectionVariants,
         "uiTypeCols": uiTypeCols,
-        "paramSweeps": paramSweeps,
         "nonPresetUITypes": nonPresetUITypes,
     }
 
@@ -161,7 +137,7 @@ def get_section_ids(db, top_level_ids):
 
 
 def load_section_configs(db, project_config_id):
-    query = """SELECT sectionId, variantId, paramSweepId, data
+    query = """SELECT sectionId, variantId, data
         FROM SectionConfig
         WHERE projectConfigId = :projectConfigId
     """
@@ -172,7 +148,6 @@ def load_section_configs(db, project_config_id):
         output[row["sectionId"]] = {
             "id": row["sectionId"],
             "variantId": row["variantId"],
-            "paramSweepId": row["paramSweepId"],
             **json.loads(row["data"]),
         }
 

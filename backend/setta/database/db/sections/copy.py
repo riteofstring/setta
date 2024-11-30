@@ -28,12 +28,6 @@ def copy_sections(
         section["nonPresetUITypeIds"] = [
             ui_type_id_map[x] for x in section["nonPresetUITypeIds"]
         ]
-        section["paramSweepId"] = param_sweep_id_map.get(section["paramSweepId"], None)
-        section["paramSweepIds"] = [
-            param_sweep_id_map[x]
-            for x in section["paramSweepIds"]
-            if x in param_sweep_id_map
-        ]
         section["paramSweepSectionId"] = section_id_map.get(
             section["paramSweepSectionId"], None
         )

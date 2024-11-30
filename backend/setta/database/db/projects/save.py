@@ -18,7 +18,6 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import filter_dict
 
 from ..codeInfo.save import save_code_info, save_code_info_col
-from ..paramSweeps.save import save_param_sweeps
 from ..runGroups.save import save_run_groups
 from ..sections.save import save_sections
 from ..sectionVariants.save import save_section_variants
@@ -34,7 +33,6 @@ def save_project_details(db, p):
     save_ui_types(db, p["uiTypes"])
     save_ui_type_cols(db, p["uiTypeCols"])
     save_section_variants(db, p["sectionVariants"])
-    save_param_sweeps(db, p["paramSweeps"])
     save_sections(db, p["sections"], p["sectionVariants"])
     save_project(db, p["projectConfig"])
     save_section_configs(db, p["projectConfig"]["id"], p["sections"])
@@ -163,8 +161,8 @@ def save_section_configs(db, project_config_id, sections):
 
 def insert_section_configs(db, sections, id_pairs):
     query = """
-        INSERT INTO SectionConfig (projectConfigId, sectionId, variantId, paramSweepId, data)
-        VALUES (:projectConfigId, :sectionId, :variantId, :paramSweepId, :data)
+        INSERT INTO SectionConfig (projectConfigId, sectionId, variantId, data)
+        VALUES (:projectConfigId, :sectionId, :variantId, :data)
     """
 
     query_params = [
@@ -172,7 +170,6 @@ def insert_section_configs(db, sections, id_pairs):
             "projectConfigId": projectConfigId,
             "sectionId": sections[c]["id"],
             "variantId": sections[c]["variantId"],
-            "paramSweepId": sections[c]["paramSweepId"],
             "data": json.dumps(
                 filter_dict(sections[c], SECTION_CONFIG_TABLE_DATA_JSON_FIELDS)
             ),

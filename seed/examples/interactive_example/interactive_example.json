@@ -69,7 +69,8 @@
       "codeInfoColId": "8cb39cdd-f8e2-4706-9e47-fc1733fce6f0",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "56218716-8dc7-4a8b-a253-1eb2bb9cfc56": {
       "name": "ratty_red",
@@ -81,7 +82,8 @@
       "codeInfoColId": "81494cf8-fbfa-492a-8db3-f5919a5422eb",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "61ce0033-a59e-4c8e-8a52-d658feb18017": {
       "name": "hidden_bronze",
@@ -93,7 +95,8 @@
       "codeInfoColId": "0074df5c-ea05-409e-8f8b-b60c453d3e0c",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "91b7814e-8f93-4ad1-a966-00851b4e41d9": {
       "name": "victorious_white",
@@ -105,7 +108,8 @@
       "codeInfoColId": "2f3d4196-b243-4186-919f-163dc203ca5a",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "efbf1e64-8932-4fa6-928a-e930314db45c": {
       "name": "tropical_harlequin",
@@ -117,7 +121,8 @@
       "codeInfoColId": "4d31d08d-f976-4e29-85aa-d791837d7226",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     },
     "8055d10b-3623-4665-b85c-977327fa40c6": {
       "name": "involved_red",
@@ -129,7 +134,8 @@
       "codeInfoColId": "75cdb9b3-a7c8-4fd8-8da6-9667a65fea48",
       "isFrozen": false,
       "isDefault": true,
-      "description": ""
+      "description": "",
+      "sweep": []
     }
   },
   "uiTypes": {
@@ -311,7 +317,6 @@
     "ecab60b1-3cd7-4947-a61b-ccbef507c9ae": {},
     "5dd0a464-e86b-4f9c-a195-303e56dcc96d": {}
   },
-  "paramSweeps": {},
   "runGroups": {},
   "sections": {
     "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
@@ -328,7 +333,6 @@
       "variantIds": [
         "56218716-8dc7-4a8b-a253-1eb2bb9cfc56"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
       "size": {
@@ -336,7 +340,6 @@
         "height": "auto"
       },
       "variantId": "56218716-8dc7-4a8b-a253-1eb2bb9cfc56",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -360,7 +363,6 @@
       "variantIds": [
         "91b7814e-8f93-4ad1-a966-00851b4e41d9"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
       "size": {
@@ -368,7 +370,6 @@
         "height": 316
       },
       "variantId": "91b7814e-8f93-4ad1-a966-00851b4e41d9",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -392,7 +393,6 @@
       "variantIds": [
         "61ce0033-a59e-4c8e-8a52-d658feb18017"
       ],
-      "paramSweepIds": [],
       "artifacts": [
         {
           "path": "seed/examples/interactive_example/img.png",
@@ -406,7 +406,6 @@
         "height": "auto"
       },
       "variantId": "61ce0033-a59e-4c8e-8a52-d658feb18017",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -430,7 +429,6 @@
       "variantIds": [
         "00d5ac58-7a66-4ff1-a62f-af873c0a094b"
       ],
-      "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
       "size": {
@@ -438,7 +436,6 @@
         "height": 371
       },
       "variantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -462,7 +459,6 @@
       "variantIds": [
         "efbf1e64-8932-4fa6-928a-e930314db45c"
       ],
-      "paramSweepIds": [],
       "artifacts": [
         {
           "path": "seed/examples/interactive_example/losses.csv",
@@ -476,7 +472,6 @@
         "height": "auto"
       },
       "variantId": "efbf1e64-8932-4fa6-928a-e930314db45c",
-      "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
@@ -498,14 +493,12 @@
       "variantId": "8055d10b-3623-4665-b85c-977327fa40c6",
       "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
       "uiTypeColId": "5dd0a464-e86b-4f9c-a195-303e56dcc96d",
-      "paramSweepId": null,
       "social": null,
       "artifacts": [],
       "codeLanguage": "python",
       "variantIds": [
         "8055d10b-3623-4665-b85c-977327fa40c6"
       ],
-      "paramSweepIds": [],
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
       "isFrozen": false,

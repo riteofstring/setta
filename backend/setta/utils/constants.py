@@ -136,10 +136,3 @@ SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS = set(
         "displayName",
     ]
 )
-
-PARAM_SWEEP_ID_TABLE_DATA_JSON_FIELDS = set(
-    [
-        "name",
-        "isFrozen",
-    ]
-)

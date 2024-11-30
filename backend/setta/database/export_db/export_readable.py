@@ -54,7 +54,11 @@ def export_section(folder, config, section_id, with_variants):
     exporter_fn = get_exporter_fn(config, section_id)
     if not exporter_fn:
         return
-    variant_ids = get_variant_ids(config, section_id, with_variants)
+    variant_ids = (
+        get_section_variant_ids(config, section_id)
+        if with_variants
+        else [get_selected_section_variant_id(config, section_id)]
+    )
     for variant_id in variant_ids:
         if not variant_id:
             continue
@@ -127,9 +131,7 @@ def export_info_section(folder, config, section_id, variant_id, with_variants):
         file.write(description)
 
 
-def export_param_sweep_section(
-    folder, config, section_id, param_sweep_id, with_variants
-):
+def export_param_sweep_section(folder, config, section_id, variant_id, with_variants):
     for_section_id = get_for_section_id(config, section_id)
     if not for_section_id:
         return
@@ -138,12 +140,10 @@ def export_param_sweep_section(
     codeInfoChildren = config["codeInfoCols"][sectionVariant["codeInfoColId"]][
         "children"
     ]
-    sweep = config["paramSweeps"][param_sweep_id]["sweep"]
+    sweep = config["sectionVariants"][variant_id]["sweep"]
     e = export_param_sweep_section_to_dict(sweep, config["codeInfo"], codeInfoChildren)
     yamlValue = param_sweep_dict_to_yaml(e)
-    base = maybe_with_param_sweep_in_filename(
-        config, section_id, param_sweep_id, with_variants
-    )
+    base = maybe_with_variant_in_filename(config, section_id, variant_id, with_variants)
     with open(folder / f"{base}.yaml", "w") as file:
         file.write(yamlValue)
 
@@ -158,7 +158,6 @@ def export_global_param_sweep_section(folder, config, section_id, *_, **__):
             run_group["sections"],
             config["sections"],
             config["sectionVariants"],
-            config["paramSweeps"],
         )
         yamlValue = run_group_dict_to_yaml(e)
         base = run_group["name"]
@@ -171,16 +170,6 @@ def maybe_with_variant_in_filename(config, section_id, variant_id, with_variants
     variant_name = get_variant_name(config, variant_id)
     if with_variants:
         return f"{section_name}@{variant_name}"
-    return section_name
-
-
-def maybe_with_param_sweep_in_filename(
-    config, section_id, param_sweep_id, with_variants
-):
-    section_name = get_section_name(config, section_id)
-    param_sweep_name = config["paramSweeps"][param_sweep_id]["name"]
-    if with_variants:
-        return f"{section_name}@{param_sweep_name}"
     return section_name
 
 
@@ -198,20 +187,3 @@ def get_exporter_fn(config, section_id):
         return export_param_sweep_section
     elif stype == C.GLOBAL_PARAM_SWEEP:
         return export_global_param_sweep_section
-
-
-def get_variant_ids(config, section_id, with_variants):
-    stype = get_section_type(config, section_id)
-    if stype == C.PARAM_SWEEP:
-        for_section_id = get_for_section_id(config, section_id)
-        return (
-            config["sections"][for_section_id]["paramSweepIds"]
-            if with_variants
-            else [config["sections"][for_section_id]["paramSweepId"]]
-        )
-    else:
-        return (
-            get_section_variant_ids(config, section_id)
-            if with_variants
-            else [get_selected_section_variant_id(config, section_id)]
-        )

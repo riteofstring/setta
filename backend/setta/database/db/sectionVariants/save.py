@@ -60,3 +60,72 @@ def save_section_variants(db, section_variants):
                 }
             )
     db.executemany(query, query_params)
+
+    query = f"""
+        DELETE FROM SectionVariantParamSweep
+        WHERE idid IN ({placeholders})
+    """
+    query_params = list(section_variants.keys())
+    db.execute(query, query_params)
+
+    query = """
+        INSERT INTO SectionVariantParamSweep (idid, selectedItemGroupNum, paramInfoGroupNum, selectedItem, paramInfoId, "order", value)
+        VALUES (:idid, :selectedItemGroupNum, :paramInfoGroupNum, :selectedItem, :paramInfoId, :order, :value)
+    """
+
+    query_params = []
+    for id, variant in section_variants.items():
+        order = 0
+        for selectedItemGroupNum, s in enumerate(variant["sweep"]):
+            selected_item = s["selectedItem"]
+            if len(s["params"]) == 0:
+                query_params.append(
+                    generate_query_param(
+                        id,
+                        selectedItemGroupNum,
+                        None,
+                        selected_item,
+                        None,
+                        order,
+                        None,
+                    )
+                )
+                order += 1
+            else:
+                for paramInfoGroupNum, param in enumerate(s["params"]):
+                    values = param["values"] or [None]
+                    for value in values:
+                        query_params.append(
+                            generate_query_param(
+                                id,
+                                selectedItemGroupNum,
+                                paramInfoGroupNum,
+                                selected_item,
+                                param["paramInfoId"],
+                                order,
+                                value,
+                            )
+                        )
+                        order += 1
+
+    db.executemany(query, query_params)
+
+
+def generate_query_param(
+    id,
+    selectedItemGroupNum,
+    paramInfoGroupNum,
+    selected_item,
+    param_info_id,
+    order,
+    value,
+):
+    return {
+        "idid": id,
+        "selectedItemGroupNum": selectedItemGroupNum,
+        "paramInfoGroupNum": paramInfoGroupNum,
+        "selectedItem": selected_item,
+        "paramInfoId": param_info_id,
+        "order": order,
+        "value": value,
+    }

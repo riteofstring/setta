@@ -85,7 +85,6 @@ def load_project_config(db, project_config_name):
     sections = recursive_dict_merge(sections_data["sections"], sectionConfigs)
     sectionVariants = sections_data["sectionVariants"]
     uiTypeCols = sections_data["uiTypeCols"]
-    paramSweeps = sections_data["paramSweeps"]
     uiTypes = sections_data["nonPresetUITypes"]
     codeInfo, codeInfoCols = load_code_info_cols(db, sectionVariants)
     jsonSourceMissing = load_json_sources_into_data_structures(
@@ -98,7 +97,6 @@ def load_project_config(db, project_config_name):
         "sectionVariants": sectionVariants,
         "uiTypes": uiTypes,
         "uiTypeCols": uiTypeCols,
-        "paramSweeps": paramSweeps,
         "runGroups": runGroups,
         "codeInfo": codeInfo,
         "codeInfoCols": codeInfoCols,

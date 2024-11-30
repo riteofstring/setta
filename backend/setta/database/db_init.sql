@@ -32,11 +32,9 @@ CREATE TABLE IF NOT EXISTS SectionConfig (
     data TEXT,
     sectionId TEXT,
     variantId TEXT,
-    paramSweepId TEXT,
     PRIMARY KEY (projectConfigId, sectionId),
     FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
     FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
-    FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
     FOREIGN KEY (variantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
 );
    
@@ -65,6 +63,19 @@ CREATE TABLE IF NOT EXISTS SectionVariantChildren (
     PRIMARY KEY (idid, childId),
     FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
     FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS SectionVariantParamSweep (
+    idid TEXT,
+    selectedItemGroupNum INTEGER,
+    paramInfoGroupNum INTEGER,
+    selectedItem TEXT,
+    paramInfoId TEXT,
+    "order" INTEGER,
+    value TEXT,
+    PRIMARY KEY (idid, "order"),
+    FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
+    FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
+    FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS UIType (
     id TEXT PRIMARY KEY,
@@ -122,23 +133,4 @@ CREATE TABLE IF NOT EXISTS ProjectConfigRunGroup (
     PRIMARY KEY (projectConfigId, runGroupId),
     FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id),
     FOREIGN KEY (runGroupId) REFERENCES RunGroup(id)
-);
-CREATE TABLE IF NOT EXISTS ParamSweepId (
-    id TEXT PRIMARY KEY,
-    data TEXT,
-    originSectionId TEXT,
-    FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
-);
-CREATE TABLE IF NOT EXISTS ParamSweep (
-    idid TEXT,
-    selectedItemGroupNum INTEGER,
-    paramInfoGroupNum INTEGER,
-    selectedItem TEXT,
-    paramInfoId TEXT,
-    "order" INTEGER,
-    value TEXT,
-    PRIMARY KEY (idid, "order"),
-    FOREIGN KEY (idid) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
-    FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
-    FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
 );
