@@ -13,7 +13,6 @@ import {
 import {
   useCodeInfo,
   useOriginalYamlObj,
-  useParamSweep,
   useRunGroups,
   useSectionInfos,
   useYamlValue,
@@ -121,9 +120,9 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
     newParamSweep.push({ selectedItem: matchingCallableId, params });
   }
 
-  const { paramSweepId } = getSectionInfo(forSectionId);
-  useParamSweep.setState((x) => {
-    x.x[paramSweepId].sweep = newParamSweep;
+  const { variantId } = getSectionInfo(sectionId);
+  useSectionInfos.setState((x) => {
+    x.x[variantId].sweep = newParamSweep;
   });
 }
 
@@ -136,7 +135,6 @@ function globalParamSweepSectionYamlToGUI(yamlValue, metaData) {
   const runGroupId = metaData.runGroupId;
   const sections = useSectionInfos.getState().x;
   const sectionVariants = useSectionInfos.getState().variants;
-  const paramSweeps = useParamSweep.getState().x;
   const newRunGroupSections = {};
 
   for (const [k, v] of Object.entries(doc)) {
@@ -145,7 +143,6 @@ function globalParamSweepSectionYamlToGUI(yamlValue, metaData) {
       v,
       sections,
       sectionVariants,
-      paramSweeps,
       newRunGroupSections,
       null,
       null,
@@ -162,24 +159,18 @@ function recursiveHelper(
   value,
   sections,
   sectionVariants,
-  paramSweeps,
   newRunGroupSections,
   forSectionId,
   parentVariantId,
 ) {
   let nextForSectionId = forSectionId;
   let nextParentVariantId = parentVariantId;
-  const [match, type] = getMatch(
-    name,
-    forSectionId,
-    sections,
-    sectionVariants,
-    paramSweeps,
-  );
+  const [match, type] = getMatch(name, forSectionId, sections, sectionVariants);
   if (type === "section") {
     if (!(match in newRunGroupSections)) {
       newRunGroupSections[match] = {};
     }
+    console.log("section match", name, match, parentVariantId);
     newRunGroupSections[match][parentVariantId] = {
       selected: true,
       versions: {},
@@ -189,9 +180,28 @@ function recursiveHelper(
   } else if (type === "sectionVariant") {
     newRunGroupSections[forSectionId][parentVariantId].versions[match] = true;
     nextParentVariantId = match;
+    console.log("sectionvariant match", name, match, parentVariantId);
   } else if (type === "paramSweep") {
+    console.log("paramSweep", name, forSectionId, parentVariantId, match);
     newRunGroupSections[forSectionId][parentVariantId].paramSweeps[match] =
       true;
+  }
+
+  if (value) {
+    // do param sweeps first, because they need to be registered with the current parentVariantId
+    for (const [k, v] of Object.entries(
+      _.pickBy(value, (innerV, innerK) => innerK.startsWith("~")),
+    )) {
+      recursiveHelper(
+        k,
+        v,
+        sections,
+        sectionVariants,
+        newRunGroupSections,
+        nextForSectionId,
+        nextParentVariantId,
+      );
+    }
   }
 
   if (type === "section") {
@@ -211,13 +221,15 @@ function recursiveHelper(
     return;
   }
 
-  for (const [k, v] of Object.entries(value)) {
+  // do sections and variants
+  for (const [k, v] of Object.entries(
+    _.pickBy(value, (innerV, innerK) => !innerK.startsWith("~")),
+  )) {
     recursiveHelper(
       k,
       v,
       sections,
       sectionVariants,
-      paramSweeps,
       newRunGroupSections,
       nextForSectionId,
       nextParentVariantId,
@@ -225,7 +237,7 @@ function recursiveHelper(
   }
 }
 
-function getMatch(name, forSectionId, sections, sectionVariants, paramSweeps) {
+function getMatch(name, forSectionId, sections, sectionVariants) {
   let match, type;
   if (forSectionId && name.startsWith("@")) {
     const searchName = name.slice(1);
@@ -238,8 +250,9 @@ function getMatch(name, forSectionId, sections, sectionVariants, paramSweeps) {
     }
   } else if (forSectionId && name.startsWith("~")) {
     const searchName = name.slice(1);
-    for (const v of sections[forSectionId].paramSweepIds) {
-      if (paramSweeps[v].name === searchName) {
+    const { paramSweepSectionId } = sections[forSectionId];
+    for (const v of sections[paramSweepSectionId].variantIds) {
+      if (sectionVariants[v].name === searchName) {
         match = v;
         type = "paramSweep";
         break;

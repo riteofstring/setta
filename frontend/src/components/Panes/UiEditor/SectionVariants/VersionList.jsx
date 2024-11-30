@@ -1,29 +1,13 @@
-import C from "constants/constants.json";
 import { FaRegSnowflake } from "react-icons/fa";
 import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
-import { toggleParamSweepIsFrozen } from "state/actions/runGroups/paramSweep";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { toggleVariantFrozenState } from "state/actions/sectionVariants";
-import { useParamSweep, useSectionInfos } from "state/definitions";
-import {
-  getForSectionId,
-  useCurrParamSweepId,
-  useForSectionId,
-  useGetParamSweepNames,
-} from "state/hooks/paramSweep";
+import { useSectionInfos } from "state/definitions";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
-import { useSectionTypeName } from "state/hooks/uiTypes";
 
 export function VersionList({ sectionId }) {
-  const sectionTypeName = useSectionTypeName(sectionId);
-
   function onMouseLeave() {
     setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: null });
-    setSectionInfoAttr({
-      sectionId: getForSectionId(useSectionInfos.getState().x, sectionId),
-      attr: "previewParamSweepId",
-      value: null,
-    });
     maybeRunGuiToYaml(sectionId);
   }
 
@@ -36,11 +20,7 @@ export function VersionList({ sectionId }) {
         <p className="section-key text-xs text-setta-400 dark:text-setta-600">
           Name
         </p>
-        {sectionTypeName === C.PARAM_SWEEP ? (
-          <ParamSweepItems sectionId={sectionId} />
-        ) : (
-          <EVItems sectionId={sectionId} />
-        )}
+        <EVItems sectionId={sectionId} />
       </ul>
     </section>
   );
@@ -60,10 +40,6 @@ function EVItems({ sectionId }) {
     maybeRunGuiToYaml(sectionId);
   }
 
-  function isFrozenHook(id) {
-    return { hook: useSectionInfos, selector: (x) => x.variants[id].isFrozen };
-  }
-
   return sectionVariantNames.map((e) => (
     <OneItem
       key={e.id}
@@ -73,60 +49,12 @@ function EVItems({ sectionId }) {
       onMouseOver={onMouseOver}
       onClick={onClick}
       onFreezeClick={toggleVariantFrozenState}
-      isFrozenHook={isFrozenHook}
     />
   ));
 }
 
-function ParamSweepItems({ sectionId }) {
-  const forSectionId = useForSectionId(sectionId);
-  const currParamSweepId = useCurrParamSweepId(sectionId);
-  const paramSweepNames = useGetParamSweepNames(forSectionId);
-  function onMouseOver(id) {
-    setSectionInfoAttr({
-      sectionId: forSectionId,
-      attr: "previewParamSweepId",
-      value: id,
-    });
-  }
-
-  function onClick(id) {
-    setSectionInfoAttr({
-      sectionId: forSectionId,
-      attr: "paramSweepId",
-      value: id,
-    });
-  }
-
-  function isFrozenHook(id) {
-    return { hook: useParamSweep, selector: (x) => x.x[id].isFrozen };
-  }
-
-  return paramSweepNames.map((e) => (
-    <OneItem
-      key={e.id}
-      id={e.id}
-      name={e.name}
-      isCurr={currParamSweepId === e.id}
-      onMouseOver={onMouseOver}
-      onClick={onClick}
-      onFreezeClick={toggleParamSweepIsFrozen}
-      isFrozenHook={isFrozenHook}
-    />
-  ));
-}
-
-function OneItem({
-  id,
-  name,
-  isCurr,
-  onMouseOver,
-  onClick,
-  onFreezeClick,
-  isFrozenHook,
-}) {
-  const { hook: useIsFrozen, selector: frozenSelector } = isFrozenHook(id);
-  const isFrozen = useIsFrozen(frozenSelector);
+function OneItem({ id, name, isCurr, onMouseOver, onClick, onFreezeClick }) {
+  const isFrozen = useSectionInfos((x) => x.variants[id].isFrozen);
 
   return (
     <li
@@ -159,5 +87,3 @@ function OneItem({
     </li>
   );
 }
-
-// when the freeze button is active we could use text-blue-500

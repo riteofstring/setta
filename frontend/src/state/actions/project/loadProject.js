@@ -13,7 +13,6 @@ import {
 import { setAllCodeInfo } from "../codeInfo";
 import { setAllCodeInfoCols } from "../codeInfoCols";
 import { setNodes } from "../nodeInternals";
-import { setAllParamSweeps } from "../runGroups/paramSweep";
 import { setAllRunGroups } from "../runGroups/runGroups";
 import { setAllSectionInfos } from "../sections/sectionInfos";
 import { setAllSectionVariants } from "../sectionVariants";
@@ -50,7 +49,6 @@ export function loadProjectState({
   sectionVariants,
   uiTypes,
   uiTypeCols,
-  paramSweeps,
   runGroups,
   jsonSourceMissing,
 }) {
@@ -78,7 +76,6 @@ export function loadProjectState({
   setAllUITypes({ ...uiTypes, ...BASE_UI_TYPES });
   setAllSectionVariants(sectionVariants);
   setAllUITypeCols({ uiTypeCols });
-  setAllParamSweeps(paramSweeps);
   setAllRunGroups(runGroups);
   setAllSectionInfos(sections);
   useJSONSourceMissing.getState().reset();

@@ -45,7 +45,7 @@ export function ParamSweepSectionSearch({
   sectionId,
   forSectionId,
   selectedItem,
-  paramSweepId,
+  variantId,
   selectedItemIdx,
   onPlusClick,
   onMinusClick,
@@ -60,7 +60,7 @@ export function ParamSweepSectionSearch({
         selectedItem = getSectionSelectedItem(forSectionId);
       }
       setParamSweepSelectedItem({
-        paramSweepId,
+        variantId,
         selectedItemIdx,
         selectedItem,
       });

@@ -70,13 +70,6 @@ function* getProjectRuns(project) {
     !Object.values(project.projectConfig.runGroupSelection).some((x) => x)
   ) {
     const variant = _.cloneDeep(project);
-    const keepParamSweeps = [];
-    for (const s of Object.values(project.sections)) {
-      if (s.paramSweepId && s.paramSweepSectionId) {
-        keepParamSweeps.push(s.paramSweepId);
-      }
-    }
-    variant.paramSweeps = _.pick(variant.paramSweeps, keepParamSweeps);
     yield* getProjectVariants(variant);
   } else {
     for (const [runGroupId, runGroup] of Object.entries(project.runGroups)) {
@@ -109,11 +102,6 @@ function* getProjectRuns(project) {
         for (const sv of Object.values(variant.sectionVariants)) {
           sv.children = sv.children.filter((x) => x in variant.sections);
         }
-        // filter paramSweeps
-        variant.paramSweeps = _.pick(
-          variant.paramSweeps,
-          combo.filter((x) => x.paramSweepId).map((x) => x.paramSweepId),
-        );
         // set every selected section's variantId
         for (const c of combo) {
           if (c.versionId) {

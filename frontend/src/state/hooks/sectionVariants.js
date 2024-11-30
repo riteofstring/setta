@@ -22,10 +22,12 @@ export function useGetParamEnteredValueAndKeywordPositions(
 export function useGetSectionVariantNames(sectionId) {
   return useSectionInfos(
     (x) =>
-      x.x[sectionId].variantIds.map((e) => ({
-        id: e,
-        name: x.variants[e].name,
-      })),
+      sectionId
+        ? x.x[sectionId].variantIds.map((e) => ({
+            id: e,
+            name: x.variants[e].name,
+          }))
+        : [],
     _.isEqual,
   );
 }

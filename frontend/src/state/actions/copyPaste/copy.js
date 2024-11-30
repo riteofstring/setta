@@ -4,7 +4,6 @@ import _ from "lodash";
 import {
   useActiveSection,
   useCodeInfo,
-  useParamSweep,
   useSectionInfos,
 } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
@@ -33,7 +32,6 @@ export function copySections(sectionIds) {
   const sectionVariants = getSectionVariants(sections);
   const uiTypeCols = getUITypeCols(sections);
   const uiTypes = getUITypes(sections, uiTypeCols);
-  const paramSweeps = getParamSweeps(sections);
   const relativePositions = getRelativePositions(sections);
   return {
     sections,
@@ -41,7 +39,6 @@ export function copySections(sectionIds) {
     codeInfo,
     sectionVariants,
     uiTypeCols,
-    paramSweeps,
     relativePositions,
   };
 }
@@ -140,20 +137,6 @@ function getUITypeCols(sections) {
     useSectionInfos.getState().uiTypeCols,
     _.map(sections, (x) => x.uiTypeColId),
   );
-}
-
-function getParamSweeps(sections) {
-  const output = {};
-  const state = useParamSweep.getState().x;
-  const sectionState = useSectionInfos.getState().x;
-  for (const s of Object.values(sections)) {
-    if (getSectionType(s.id).type === C.PARAM_SWEEP) {
-      const forSectionId = getForSectionId(sectionState, s.id);
-      const paramSweepIds = sectionState[forSectionId].paramSweepIds;
-      Object.assign(output, _.pick(state, paramSweepIds));
-    }
-  }
-  return output;
 }
 
 function getRelativePositions(sections) {

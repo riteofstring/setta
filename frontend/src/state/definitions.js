@@ -97,16 +97,6 @@ export const useArtifacts = createProjectState(
   })),
 );
 
-export const useParamSweep = createProjectState(
-  temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
-  ),
-);
-
 export const useProjectConfig = createProjectState(
   temporal(
     immer(() =>

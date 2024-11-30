@@ -6,7 +6,6 @@ export function useGetSectionInfo(sectionId, key) {
   const equalityFn = [
     "variantIds",
     "nonPresetUITypeIds",
-    "paramSweepIds",
   ].includes(key)
     ? _.isEqual
     : undefined;

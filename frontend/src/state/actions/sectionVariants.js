@@ -37,6 +37,7 @@ export function initManySectionVariantIds({ variantProps }) {
         keywordPositions: props.keywordPositions ?? [],
         isFrozen: props.isFrozen ?? false,
         isDefault: props.isDefault ?? true,
+        sweep: props.sweep ?? [],
       });
     }
   });

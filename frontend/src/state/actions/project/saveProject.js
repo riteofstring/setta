@@ -10,7 +10,6 @@ import {
   useCodeInfo,
   useKeywordRegex,
   useNodeInternals,
-  useParamSweep,
   useProjectConfig,
   useRunGroups,
   useSectionInfos,
@@ -66,7 +65,6 @@ export function getProjectData({
   );
   const uiTypes = useSectionInfos.getState().uiTypes;
   const uiTypeCols = useSectionInfos.getState().uiTypeCols;
-  const paramSweeps = useParamSweep.getState().x;
   const runGroups = useRunGroups.getState().x;
 
   const codeInfo = useCodeInfo.getState().x;
@@ -89,7 +87,6 @@ export function getProjectData({
     sectionVariants,
     uiTypes,
     uiTypeCols,
-    paramSweeps,
     runGroups,
     sections,
     codeInfo,
