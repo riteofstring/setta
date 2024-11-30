@@ -18,14 +18,6 @@ export function duplicateSectionVariant({ id, newName, newCodeInfoColId }) {
   return newId;
 }
 
-export function initManyEnteredValues({ collectionId, paramIdsToUITypes }) {
-  useSectionInfos.setState((state) => {
-    _.forEach(paramIdsToUITypes, (uiType, id) => {
-      state.variants[collectionId].values[id] = initEnteredValue(uiType);
-    });
-  });
-}
-
 export function initEnteredValue(uiType) {
   return {
     value: newEV(uiType),

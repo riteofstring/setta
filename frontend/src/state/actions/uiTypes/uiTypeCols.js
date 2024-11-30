@@ -4,15 +4,6 @@ import { useSectionInfos } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { getSectionInfo } from "../../getters/sectionInfo";
 
-export function setManyParamUITypeIds({ collectionId, paramIdToUITypeId }) {
-  useSectionInfos.setState((state) => {
-    state.uiTypeCols[collectionId] = {
-      ...state.uiTypeCols[collectionId],
-      ...paramIdToUITypeId,
-    };
-  });
-}
-
 export function setNonPresetUITypeIds({
   collectionId,
   paramInfoId,

@@ -6,7 +6,7 @@ import { newCodeInfo } from "utils/objs/codeInfo";
 import { getSectionInfo } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo } from "../codeInfo";
 import { getKwargIds, getSectionCodeInfoChildren } from "../codeInfoCols";
-import { initializeParam } from "../initializeParam";
+import { initializeParams } from "../initializeParam";
 import { deleteParamsFromParamSweep } from "../runGroups/paramSweep";
 import { getParamIds } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
@@ -37,7 +37,7 @@ export function addKwarg({
     editable: true,
   });
   addCodeInfo({ sectionId, info: kwargInfo, parent: parentId, insertIdx });
-  initializeParam(sectionId, [kwargInfo.id]);
+  initializeParams(sectionId, [kwargInfo.id]);
   maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
 }

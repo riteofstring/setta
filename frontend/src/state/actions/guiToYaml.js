@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
-import { initializeParam } from "state/actions/initializeParam";
+import { initializeParams } from "state/actions/initializeParam";
 import { getSectionSelectedItem } from "state/actions/sectionVariants";
 import {
   useOriginalYamlObj,
@@ -427,7 +427,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     }
   });
 
-  initializeParam(sectionId, Object.keys(newInfos));
+  initializeParams(sectionId, Object.keys(newInfos));
 }
 
 function updateOutputs({ v, matches, usedOriginalIds, usedPaths, output }) {
