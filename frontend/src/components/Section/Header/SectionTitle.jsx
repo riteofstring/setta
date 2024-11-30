@@ -1,17 +1,14 @@
 import { Editable } from "components/Utils/Editable";
-import { setSectionName } from "state/actions/sections/setters";
+import C from "constants/constants.json";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { getSectionSiblingNames } from "state/getters/sectionInfo";
-import {
-  useEditableOnSubmit,
-  useTitleIsEditable,
-} from "state/hooks/editableText";
+import { useEditableOnSubmit } from "state/hooks/editableText";
+import { getIsSeriesElementHelper } from "state/hooks/uiTypes";
 import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
 
 export function SectionTitle({ sectionId, titleProps }) {
-  const sectionName = useSectionInfos((x) => x.x[sectionId].name);
-  const titleIsEditable = useTitleIsEditable(sectionId);
+  const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
 
   if (titleIsEditable) {
     return (
@@ -65,4 +62,23 @@ function setSectionName(sectionId, name, incrementVersion) {
     }
   });
   maybeIncrementProjectStateVersion(incrementVersion);
+}
+
+function useTitleIsEditable(sectionId) {
+  return useSectionInfos((x) => {
+    const isUneditableType = [
+      C.IMAGE,
+      C.LINE_PLOT,
+      C.GLOBAL_VARIABLES,
+      C.PARAM_SWEEP,
+      C.GLOBAL_PARAM_SWEEP,
+    ].includes(x.uiTypes[x.x[sectionId].uiTypeId].type);
+
+    const isListElement = getIsSeriesElementHelper(sectionId, [C.LIST_ROOT], x);
+
+    return {
+      sectionName: x.x[sectionId].name,
+      titleIsEditable: !isListElement && !isUneditableType,
+    };
+  });
 }
