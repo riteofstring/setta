@@ -5,13 +5,15 @@ import { findAllParameters } from "utils/getDescendants";
 import { getSectionCodeInfoChildren } from "./codeInfoCols";
 import { initEnteredValue } from "./sectionVariants";
 
-export function initializeChildParams(sectionId, codeInfoIds) {
-  const { ids: paramIds } = findAllParameters(
-    useSectionInfos.getState().codeInfo,
-    getSectionCodeInfoChildren(s),
-    codeInfoIds,
-  );
-  initializeParams(sectionId, paramIds);
+export function initializeChildParams({ sectionIds, codeInfoIds }) {
+  for (const s of sectionIds) {
+    const { ids: paramIds } = findAllParameters(
+      useSectionInfos.getState().codeInfo,
+      getSectionCodeInfoChildren(s),
+      codeInfoIds,
+    );
+    initializeParams(s, paramIds);
+  }
 }
 
 export function initializeParams(sectionId, paramIds) {
