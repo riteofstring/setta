@@ -2,10 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
 import { initializeParam } from "state/actions/initializeParam";
-import {
-  getSectionSelectedItem,
-  setParamEnteredValueBatch,
-} from "state/actions/sectionVariants";
+import { getSectionSelectedItem } from "state/actions/sectionVariants";
 import {
   useOriginalYamlObj,
   useSectionInfos,
@@ -418,14 +415,19 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
         x.codeInfo[id][k] = v;
       }
     }
-    const { codeInfoColId } = x.variants[x.x[sectionId].variantId];
+
+    const variantId = x.x[sectionId].variantId;
+    const variant = x.variants[variantId];
     for (const [id, newChildren] of Object.entries(idsToChildren)) {
-      x.codeInfoCols[codeInfoColId].children[id] = newChildren;
+      x.codeInfoCols[variant.codeInfoColId].children[id] = newChildren;
+    }
+
+    for (const [id, value] of Object.entries(paramInfoIdToValue)) {
+      variant.values[id].value = value;
     }
   });
 
   initializeParam(sectionId, Object.keys(newInfos));
-  setParamEnteredValueBatch({ sectionId, paramInfoIdToValue });
 }
 
 function updateOutputs({ v, matches, usedOriginalIds, usedPaths, output }) {
