@@ -159,10 +159,10 @@ export function getSectionIdParamInfoIdToKeywordPositions(sectionVariantState) {
   return output;
 }
 
-export function getSectionSelectedItem(sectionId) {
-  return useSectionInfos.getState().variants[
-    getSectionVariantIdToShow(sectionId)
-  ].selectedItem;
+export function getSectionSelectedItem(sectionId, _state = null) {
+  const state = _state ?? useSectionInfos.getState();
+  return state.variants[getSectionVariantIdToShow(sectionId, state)]
+    .selectedItem;
 }
 
 export function getSectionCode(sectionId) {
