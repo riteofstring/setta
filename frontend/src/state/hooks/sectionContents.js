@@ -3,7 +3,7 @@ import {
   getParamIds,
   getParamIdsToShowInArea,
 } from "state/actions/sections/sectionContents";
-import { useCodeInfo } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useSectionCodeInfoChildren } from "./codeInfoCols";
 import { useGetSectionInfo } from "./sections";
@@ -14,19 +14,24 @@ import { useSectionSelectedItem } from "./sectionVariants";
 //     (x) => x.callables[sectionId] ?? [],
 //     _.isEqual,
 //   );
-//   return useCodeInfo((x) => ids.map((id) => x.x[id]), _.isEqual);
+//   return useSectionInfos((x) => ids.map((id) => x.codeInfo[id]), _.isEqual);
 // }
 
 export function useGetParamInfosThatHaveNames(sectionId) {
   const selectedItem = useSectionSelectedItem(sectionId);
   const codeInfoChildren = useSectionCodeInfoChildren(sectionId);
 
-  return useCodeInfo((x) => {
-    const { ids } = getParamIds(sectionId, x.x, codeInfoChildren, selectedItem);
+  return useSectionInfos((x) => {
+    const { ids } = getParamIds(
+      sectionId,
+      x.codeInfo,
+      codeInfoChildren,
+      selectedItem,
+    );
     const haveName = [];
     for (const id of ids) {
-      if (x.x[id].name) {
-        haveName.push(x.x[id]);
+      if (x.codeInfo[id].name) {
+        haveName.push(x.codeInfo[id]);
       }
     }
     return haveName;
@@ -35,30 +40,35 @@ export function useGetParamInfosThatHaveNames(sectionId) {
 
 function useGetSelectedCollections(sectionId) {
   const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
-  return useCodeInfo((x) => _.pick(x.x, x.x[codeInfoId].children), _.isEqual);
+  return useSectionInfos(
+    (x) => _.pick(x.codeInfo, x.codeInfo[codeInfoId].children),
+    _.isEqual,
+  );
 }
 
 export function useGetSelectedCollectionsForSectionConfig(sectionId) {
   const collections = useGetSelectedCollections(sectionId);
-  return useCodeInfo(
-    (x) => assembleCollectionsForSectionConfig(x.x, collections),
+  return useSectionInfos(
+    (x) => assembleCollectionsForSectionConfig(x.codeInfo, collections),
     _.isEqual,
   );
 }
 
 export function useHasParams(sectionId) {
-  return useCodeInfo((x) => getParamIds(sectionId, x.x)["ids"].length > 0);
+  return useSectionInfos(
+    (x) => getParamIds(sectionId, x.codeInfo)["ids"].length > 0,
+  );
 }
 
 export function useParamIdsToShowInArea(sectionId, isPinned) {
   const selectedItem = useSectionSelectedItem(sectionId);
   const codeInfoChildren = useSectionCodeInfoChildren(sectionId);
 
-  return useCodeInfo((x) => {
+  return useSectionInfos((x) => {
     return getParamIdsToShowInArea(
       sectionId,
       isPinned,
-      x.x,
+      x.codeInfo,
       codeInfoChildren,
       selectedItem,
     );

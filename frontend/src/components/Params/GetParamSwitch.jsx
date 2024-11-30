@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useCodeInfo, useSectionParamFilter } from "state/definitions";
+import { useSectionInfos, useSectionParamFilter } from "state/definitions";
 import { ParamSwitch } from "./ParamSwitch";
 
 export function GetParamSwitch({
@@ -9,11 +9,11 @@ export function GetParamSwitch({
   requiredParamIdsToPaths,
   ancestorIsSelected = false,
 }) {
-  const requiredParamIdsWithNames = useCodeInfo(
+  const requiredParamIdsWithNames = useSectionInfos(
     (x) =>
       Object.keys(requiredParamIdsToPaths).map((id) => ({
         id,
-        name: x.x[id].name,
+        name: x.codeInfo[id].name,
       })),
     _.isEqual,
   );

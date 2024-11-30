@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useCodeInfo } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import {
   findAllParametersOfCallables,
   findAllParametersOfNotCallables,
@@ -15,7 +15,7 @@ export function getParamIds(
   _selectedItem = undefined,
   paramPathCondition = false,
 ) {
-  const cState = _cState ?? useCodeInfo.getState().x;
+  const cState = _cState ?? useSectionInfos.getState().codeInfo;
   const codeInfoChildren =
     _codeInfoChildren ?? getSectionCodeInfoChildren(sectionId);
   const selectedItem =
@@ -35,7 +35,7 @@ export function getParamIds(
 }
 
 export function getParamInfos(sectionId, _cState = null) {
-  const cState = _cState ?? useCodeInfo.getState().x;
+  const cState = _cState ?? useSectionInfos.getState().codeInfo;
   const { ids } = getParamIds(sectionId, cState);
   return ids.map((x) => cState[x]);
 }
@@ -47,7 +47,7 @@ export function getParamIdsToShowInArea(
   _codeInfoChildren = null,
   _selectedItem = undefined,
 ) {
-  const cState = _cState ?? useCodeInfo.getState().x;
+  const cState = _cState ?? useSectionInfos.getState().codeInfo;
   const codeInfoChildren =
     _codeInfoChildren ?? getSectionCodeInfoChildren(sectionId);
 

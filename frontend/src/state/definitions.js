@@ -12,16 +12,6 @@ export const useActiveSection = createProjectState(
   ),
 );
 
-export const useCodeInfo = createProjectState(
-  temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
-  ),
-);
-
 export const useContextMenus = createProjectState(() => ({
   pane: { isOpen: false, x: 0, y: 0 },
   deck: { isOpen: false, x: 0, y: 0, sectionId: null },
@@ -38,6 +28,7 @@ export const useSectionInfos = createProjectState(
           uiTypeCols: {},
           uiTypes: {},
           codeInfoCols: {},
+          codeInfo: {},
         }),
       ),
     ),

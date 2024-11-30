@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCodeInfo, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { findAllParameters } from "utils/getDescendants";
 import { getSectionInfo } from "../getters/sectionInfo";
@@ -15,7 +15,7 @@ export function initializeChildParams({
 }) {
   for (const s of sectionIds) {
     const { ids: paramIds } = childFinder(
-      useCodeInfo.getState().x,
+      useSectionInfos.getState().codeInfo,
       getSectionCodeInfoChildren(s),
       codeInfoIds,
     );

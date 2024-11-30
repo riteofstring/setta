@@ -1,10 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import C from "constants/constants.json";
-import {
-  useCodeInfo,
-  useParamShortcuts,
-  useSectionInfos,
-} from "state/definitions";
+import { useParamShortcuts, useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import { useGetParamUIType } from "state/hooks/uiTypes";
@@ -45,8 +41,8 @@ export function ParamUI({
     paramInfoId,
   });
   const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
-  const defaultVal = useCodeInfo((x) => x.x[paramInfoId].defaultVal);
-  const isDisabled = useCodeInfo((x) => x.x[paramInfoId].isDisabled);
+  const defaultVal = useSectionInfos((x) => x.codeInfo[paramInfoId].defaultVal);
+  const isDisabled = useSectionInfos((x) => x.codeInfo[paramInfoId].isDisabled);
   const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
   const _isDisabled = isDisabled || isSelectingParams || variantIsDisabled;
 

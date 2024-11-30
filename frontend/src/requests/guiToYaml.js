@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { getSectionCodeInfoChildren } from "state/actions/codeInfoCols";
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import { getSectionVariantIdToShow } from "state/actions/sectionVariants";
-import { useCodeInfo, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { getForSectionId, getParamSweep } from "state/hooks/paramSweep";
 import { post } from "./utils";
@@ -31,7 +31,7 @@ export async function dbSectionToYaml(sectionId) {
   delete pinnedIds.requiredParamIdsToPaths;
   delete unpinnedIds.requiredParamIdsToPaths;
   const { configLanguage } = useSectionInfos.getState().x[sectionId];
-  const codeInfo = useCodeInfo.getState().x;
+  const codeInfo = useSectionInfos.getState().codeInfo;
   const sectionVariant =
     useSectionInfos.getState().variants[getSectionVariantIdToShow(sectionId)];
   const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
@@ -52,7 +52,7 @@ export async function dbSectionToYaml(sectionId) {
 export async function dbParamSweepSectionToYaml(sectionId) {
   const forSectionId = getForSectionId(useSectionInfos.getState().x, sectionId);
   const sweep = getParamSweep(sectionId);
-  const codeInfo = useCodeInfo.getState().x;
+  const codeInfo = useSectionInfos.getState().codeInfo;
   const codeInfoChildren = getSectionCodeInfoChildren(forSectionId);
 
   const res = await post({

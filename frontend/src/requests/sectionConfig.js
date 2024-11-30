@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { addCodeInfoBatch } from "state/actions/codeInfo";
-import { useCodeInfo } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { post } from "./utils";
 
 async function dbGetCollectionsAndModules({ searchTerm }) {
@@ -18,8 +18,8 @@ export function getCollectionsAndModulesFn(callback) {
 }
 
 export async function dbGetCollectionDetails(id) {
-  const s = useCodeInfo.getState();
-  if (id in s.x) {
+  const s = useSectionInfos.getState();
+  if (id in s.codeInfo) {
     return;
   }
 

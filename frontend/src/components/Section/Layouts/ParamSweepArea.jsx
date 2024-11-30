@@ -19,7 +19,7 @@ import {
   getParamIds,
   paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
-import { useCodeInfo, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { useSectionCodeInfoChildren } from "state/hooks/codeInfoCols";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
@@ -407,8 +407,8 @@ function useShowParamSweepSectionSearch(sectionId) {
 export function useNumChildlessParams(selectedItem, sectionId) {
   const codeInfoChildren = useSectionCodeInfoChildren(sectionId);
 
-  return useCodeInfo((x) => {
-    return getParamIds(sectionId, x.x, codeInfoChildren, selectedItem)[
+  return useSectionInfos((x) => {
+    return getParamIds(sectionId, x.codeInfo, codeInfoChildren, selectedItem)[
       "ids"
     ].filter((p) => codeInfoChildren[p].length === 0).length;
   });
@@ -422,10 +422,10 @@ function useChildlessObjParams({
 }) {
   const codeInfoChildren = useSectionCodeInfoChildren(forSectionId);
 
-  return useCodeInfo((x) => {
+  return useSectionInfos((x) => {
     const { ids, pathMap } = getParamIds(
       forSectionId,
-      x.x,
+      x.codeInfo,
       codeInfoChildren,
       objInfoId,
       (p) => p.rcType === C.PARAMETER,
@@ -438,7 +438,7 @@ function useChildlessObjParams({
       ) {
         continue;
       }
-      const paramFullPathName = paramNameFromPathArray(x.x, pathMap, f);
+      const paramFullPathName = paramNameFromPathArray(x.codeInfo, pathMap, f);
       output.push({ id: f, name: paramFullPathName });
     }
     return output;

@@ -7,7 +7,6 @@ import {
 import { dbSaveSettings } from "requests/settings";
 import {
   useArtifacts,
-  useCodeInfo,
   useKeywordRegex,
   useNodeInternals,
   useProjectConfig,
@@ -64,7 +63,7 @@ export function getProjectData({
   const uiTypes = useSectionInfos.getState().uiTypes;
   const uiTypeCols = useSectionInfos.getState().uiTypeCols;
 
-  const codeInfo = useCodeInfo.getState().x;
+  const codeInfo = useSectionInfos.getState().codeInfo;
   const codeInfoCols = useSectionInfos.getState().codeInfoCols;
   const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
 

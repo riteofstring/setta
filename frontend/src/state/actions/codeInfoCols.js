@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCodeInfo, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { createNewId, maybeNewId } from "utils/idNameCreation";
 import { getSectionCodeInfoColId } from "./sectionVariants";
 
@@ -18,7 +18,7 @@ export function getCodeInfoChildren(sectionId, codeInfoId) {
 }
 
 export function getKwargIds(sectionId, codeInfoId, _cState) {
-  const cState = _cState ?? useCodeInfo.getState().x;
+  const cState = _cState ?? useSectionInfos.getState().codeInfo;
   return getCodeInfoChildren(sectionId, codeInfoId).filter(
     (x) => cState[x].editable,
   );

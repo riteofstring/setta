@@ -1,11 +1,7 @@
 import C from "constants/constants.json";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import {
-  useActiveSection,
-  useCodeInfo,
-  useSectionInfos,
-} from "state/definitions";
+import { useActiveSection, useSectionInfos } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { findAll } from "utils/getDescendants";
 import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
@@ -95,7 +91,7 @@ function getCodeInfo(sections) {
     (x) => getSectionInfo(x.id).codeInfoId,
   );
   let output = [];
-  const codeInfoState = useCodeInfo.getState().x;
+  const codeInfoState = useSectionInfos.getState().codeInfo;
   for (const cid of sectionCodeInfoIds) {
     const codeInfos = findAll(codeInfoState, [cid]).ids.map(
       (x) => codeInfoState[x],

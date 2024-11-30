@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useCodeInfo, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { post } from "./utils";
 
 export async function dbLoadSectionJSONSource(sectionId) {
@@ -28,6 +28,6 @@ function dataForRequest() {
     codeInfoCols,
     variants: sectionVariants,
   } = useSectionInfos.getState();
-  const codeInfo = useCodeInfo.getState().x;
+  const codeInfo = useSectionInfos.getState().codeInfo;
   return { sections, codeInfo, codeInfoCols, sectionVariants };
 }

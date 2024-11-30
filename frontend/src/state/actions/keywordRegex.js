@@ -1,12 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { getParamIds } from "state/actions/sections/sectionContents";
-import {
-  useCodeInfo,
-  useKeywordRegex,
-  useMisc,
-  useSectionInfos,
-} from "state/definitions";
+import { useKeywordRegex, useMisc, useSectionInfos } from "state/definitions";
 import {
   getSectionType,
   hasParentInFlattenedStructure,
@@ -143,7 +138,7 @@ function setFullParamRegex(
   parentLengths,
   isGlobalVar = false,
 ) {
-  const codeInfoState = useCodeInfo.getState().x;
+  const codeInfoState = useSectionInfos.getState().codeInfo;
   const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   const childParamInfos = paramInfoId
     ? codeInfoChildren[paramInfoId].map((x) => codeInfoState[x])

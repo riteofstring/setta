@@ -11,7 +11,6 @@ import {
   setParamEnteredValueBatch,
 } from "state/actions/sectionVariants";
 import {
-  useCodeInfo,
   useOriginalYamlObj,
   useSectionInfos,
   useYamlValue,
@@ -67,7 +66,7 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
   const docs = parseAllDocuments(yamlValue);
   const codeInfoChildren = getSectionCodeInfoChildren(forSectionId);
   const codeInfoChildrenKeys = Object.keys(codeInfoChildren);
-  const codeInfo = useCodeInfo.getState().x;
+  const codeInfo = useSectionInfos.getState().codeInfo;
   const newParamSweep = [];
 
   for (const doc of docs) {
@@ -390,7 +389,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     insertAtOriginalIdx: true,
   });
 
-  const cState = useCodeInfo.getState().x;
+  const cState = useSectionInfos.getState().codeInfo;
   const newInfos = {};
   const updatedInfos = {};
   const paramInfoIdToValue = {};

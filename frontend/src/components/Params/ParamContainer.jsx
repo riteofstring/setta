@@ -8,13 +8,12 @@ import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { toggleParamSelected } from "state/actions/kwargs/kwargs";
 import {
-  useCodeInfo,
   useParamShortcuts,
   useProjectSearch,
+  useSectionInfos,
   useTypeErrors,
 } from "state/definitions";
 import { useCodeInfoChildren } from "state/hooks/codeInfoCols";
-import { useGetSectionInfo } from "state/hooks/sections";
 import { ParamInput } from "./ParamItems/ParamInput";
 
 function _ParamContainer({
@@ -24,7 +23,6 @@ function _ParamContainer({
   ancestorIsSelected,
   children,
 }) {
-  const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
   );
@@ -44,15 +42,14 @@ function _ParamContainer({
       : isSearchResult
         ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
         : "";
-  const canBeOverriden = useCodeInfo(
-    (x) => sectionIsFrozen && x.x[paramInfoId].isFrozen,
-  );
+
   const {
     isSelected: paramIsSelected,
     description: paramDescription,
     name: paramName,
-  } = useCodeInfo(
-    (x) => _.pick(x.x[paramInfoId], ["isSelected", "description", "name"]),
+  } = useSectionInfos(
+    (x) =>
+      _.pick(x.codeInfo[paramInfoId], ["isSelected", "description", "name"]),
     _.isEqual,
   );
 

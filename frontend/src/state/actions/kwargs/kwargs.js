@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
-import { useCodeInfo, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getSectionInfo } from "../../getters/sectionInfo";
@@ -101,14 +101,14 @@ export function pinSelectedKwargs(sectionId) {
   const selectedParams = getAllSelectedParams(sectionId);
   const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   console.log("selectedParams", selectedParams);
-  useCodeInfo.setState((x) => {
+  useSectionInfos.setState((x) => {
     for (const p of selectedParams) {
       setAttrOfSelfAndDescendants(
-        x.x,
+        x.codeInfo,
         codeInfoChildren,
         p.id,
         "isPinned",
-        !x.x[p.id].isPinned,
+        !x.codeInfo[p.id].isPinned,
       );
     }
   });
@@ -116,15 +116,15 @@ export function pinSelectedKwargs(sectionId) {
 
 export function toggleParamSelected(sectionId, paramInfoId) {
   const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
-  useCodeInfo.setState((x) => {
-    const newVal = !x.x[paramInfoId].isSelected;
+  useSectionInfos.setState((x) => {
+    const newVal = !x.codeInfo[paramInfoId].isSelected;
     console.log("toggleParamSelected", newVal);
-    x.x[paramInfoId].isSelected = newVal;
+    x.codeInfo[paramInfoId].isSelected = newVal;
     // We want only the parent to be true
     // just because of the way other states interpret isSelected
     const childrenNewVal = false;
     setAttrOfSelfAndDescendants(
-      x.x,
+      x.codeInfo,
       codeInfoChildren,
       paramInfoId,
       "isSelected",
@@ -135,8 +135,8 @@ export function toggleParamSelected(sectionId, paramInfoId) {
 }
 
 export function unselectAllParams() {
-  useCodeInfo.setState((x) => {
-    for (const codeInfo of Object.values(x.x)) {
+  useSectionInfos.setState((x) => {
+    for (const codeInfo of Object.values(x.codeInfo)) {
       if (codeInfo.isSelected) {
         codeInfo.isSelected = false;
       }

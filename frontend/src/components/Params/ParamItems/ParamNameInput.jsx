@@ -1,17 +1,13 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { setCodeInfoName } from "state/actions/codeInfo";
 import { updateKeywordRegex } from "state/actions/keywordRegex";
-import {
-  useCodeInfo,
-  useParamShortcuts,
-  useSectionInfos,
-} from "state/definitions";
+import { useParamShortcuts, useSectionInfos } from "state/definitions";
 import { useCodeInfoHasChildren } from "state/hooks/codeInfoCols";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 
 export function ParamNameInput({ sectionId, paramInfoId }) {
   const configLanguage = useSectionInfos((x) => x.x[sectionId].configLanguage);
-  const value = useCodeInfo((x) => x.x[paramInfoId].name);
+  const value = useSectionInfos((x) => x.codeInfo[paramInfoId].name);
   const hasChildren = useCodeInfoHasChildren(sectionId, paramInfoId);
 
   function onChange(v) {

@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
-import { useCodeInfo, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { getValueForUIType } from "utils/objs/ev";
 import { setEnteredValue } from "../sectionVariants";
@@ -25,7 +25,7 @@ export function setParamUITypeConfig({
 }
 
 function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
-  const defaultName = useCodeInfo.getState().x[paramInfoId].name;
+  const defaultName = useSectionInfos.getState().codeInfo[paramInfoId].name;
   const { uiTypeColId } = getSectionInfo(sectionId);
   const nonPresetUITypeIds =
     useSectionInfos.getState().uiTypeCols[uiTypeColId][paramInfoId]

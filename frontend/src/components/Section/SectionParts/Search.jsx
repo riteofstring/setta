@@ -8,7 +8,7 @@ import {
   getSectionSelectedItem,
   setSectionVariantAttr,
 } from "state/actions/sectionVariants";
-import { useCodeInfo, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
@@ -119,9 +119,9 @@ function SectionSearchCore({
     name: codeInfoName,
     keywordPositions,
     description,
-  } = useCodeInfo((x) => {
+  } = useSectionInfos((x) => {
     if (selectedItem) {
-      const { name, keywordPositions, description } = x.x[selectedItem];
+      const { name, keywordPositions, description } = x.codeInfo[selectedItem];
       return { name, keywordPositions, description };
     }
     return { name: "", keywordPositions: [], description: "" };
