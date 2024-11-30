@@ -1,33 +1,27 @@
+import json
+
 from setta.database.utils import dump_keyword_positions_as_string
+from setta.utils.constants import SECTION_VARIANT_TABLE_DATA_JSON_FIELDS
+from setta.utils.utils import filter_dict
 
 
 def save_section_variants(db, section_variants):
     query = """
-        INSERT INTO SectionVariantId (id, name, selectedItem, code, codeInfoColId, description, isFrozen, keywordPositions, isDefault)
-        VALUES (:id, :name, :selectedItem, :code, :codeInfoColId, :description, :isFrozen, :keywordPositions, :isDefault)
+        INSERT INTO SectionVariantId (id, data, selectedItem, codeInfoColId)
+        VALUES (:id, :data, :selectedItem, :codeInfoColId)
         ON CONFLICT (id)
         DO UPDATE SET
-        name = :name,
+        data = :data,
         selectedItem = :selectedItem,
-        code = :code,
-        codeInfoColId = :codeInfoColId,
-        description = :description,
-        keywordPositions = :keywordPositions,
-        isFrozen = :isFrozen,
-        isDefault = :isDefault
+        codeInfoColId = :codeInfoColId
     """
 
     query_params = [
         {
             "id": k,
-            "name": v["name"],
             "selectedItem": v["selectedItem"],
-            "code": v["code"],
             "codeInfoColId": v["codeInfoColId"],
-            "description": v["description"],
-            "keywordPositions": dump_keyword_positions_as_string(v["keywordPositions"]),
-            "isFrozen": v["isFrozen"],
-            "isDefault": v["isDefault"],
+            "data": json.dumps(filter_dict(v, SECTION_VARIANT_TABLE_DATA_JSON_FIELDS)),
         }
         for k, v in section_variants.items()
     ]

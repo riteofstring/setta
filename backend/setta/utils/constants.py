@@ -101,3 +101,7 @@ SECTION_CONFIG_TABLE_DATA_JSON_FIELDS = set(
         "isMinimized",
     )
 )
+
+SECTION_VARIANT_TABLE_DATA_JSON_FIELDS = set(
+    ["name", "code", "keywordPositions", "description", "isFrozen", "isDefault"]
+)
