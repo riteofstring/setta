@@ -189,7 +189,6 @@ const ProjectItem = forwardRef(
 );
 
 function ThumbnailArea({ project, isSelected, onSelectProject }) {
-  const previewImgNodes = JSON.parse(project.previewImgNodes);
   const navigate = useNavigate();
 
   return (
@@ -213,7 +212,7 @@ function ThumbnailArea({ project, isSelected, onSelectProject }) {
           homePageProjectItemOnKeyDown(e, navigate, project.name)
         }
       >
-        <PreviewImg previewImgNodes={previewImgNodes} />
+        <PreviewImg previewImgNodes={project.childrenForPreviewImg} />
       </div>
     </div>
   );

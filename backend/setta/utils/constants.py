@@ -118,16 +118,10 @@ UI_TYPE_TABLE_DATA_JSON_FIELDS = set(
 )
 
 PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(
-    ["viewport", "isDefault", "previewImgNodes", "previewImgColor"]
+    ["viewport", "isDefault", "previewImgColor"]
 )
 
-PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS = set(
-    [
-        "x",
-        "y",
-        "zIndex",
-    ]
-)
+PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS = set(["x", "y", "zIndex", "w", "h"])
 
 SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS = set(
     [

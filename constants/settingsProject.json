@@ -6,12 +6,13 @@
     "runGroupSelection": {},
     "shownRunGroup": null,
     "viewport": null,
-    "previewImgNodes": "[{\"x\":640,\"y\":119,\"w\":552,\"h\":1718}]",
     "children": {
       "69084c06-aa67-4e6b-8098-3334044eebc9": {
         "x": 640,
         "y": 119,
-        "zIndex": 0
+        "zIndex": 0,
+        "w": 552,
+        "h": 1718
       }
     }
   },

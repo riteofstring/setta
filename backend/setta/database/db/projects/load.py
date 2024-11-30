@@ -19,19 +19,31 @@ class ProjectNotFound(Exception):
 def load_all_project_config_metadata(db):
     query = """
         SELECT
-            id,
-            name,
-            data
+            pc.id,
+            pc.name,
+            pc.data,
+            pcc.data AS child_data
         FROM
-            ProjectConfig
+            ProjectConfig pc
+        LEFT JOIN
+            ProjectConfigChildren pcc ON pc.id = pcc.parentId
         ORDER BY
-            ProjectConfig.id;
+            pc.id;
     """
     db.execute(query)
-    output = []
+    output = {}
     for row in db.fetchall():
-        output.append({"id": row["id"], "name": row["name"], **json.loads(row["data"])})
-    return output
+        id = row["id"]
+        if id not in output:
+            output[id] = {
+                "id": row["id"],
+                "name": row["name"],
+                **json.loads(row["data"]),
+                "childrenForPreviewImg": [],
+            }
+        if row["child_data"]:
+            output[id]["childrenForPreviewImg"].append(json.loads(row["child_data"]))
+    return list(output.values())
 
 
 def load_project_config_metadata(db, config_name):

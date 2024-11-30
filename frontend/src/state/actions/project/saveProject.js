@@ -17,7 +17,6 @@ import {
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { yamlToGUI } from "../guiToYaml";
-import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
 import { getProjectConfigMetadata } from "./projectConfig";
 
@@ -72,15 +71,21 @@ export function getProjectData({
   const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
 
   const projectConfig = getProjectConfigMetadata();
-  projectConfig.previewImgNodes = getPreviewImgNodes();
   const children = {};
   for (const c of useNodeInternals.getState().x.values()) {
     if (c.id in sections) {
       // need this filter because some sections might be temporary
-      children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
+      children[c.id] = {
+        x: c.position.x,
+        y: c.position.y,
+        zIndex: c.zIndex,
+        w: c.width, // save width and height so we can show preview on home page
+        h: c.height,
+      };
     }
   }
   projectConfig.children = children;
+  console.log("projectConfig", projectConfig)
 
   const output = {
     projectConfig,
@@ -144,15 +149,4 @@ async function saveProjectAs({ fn, otherArgs }) {
     }),
     ...otherArgs,
   });
-}
-
-function getPreviewImgNodes() {
-  const nodes = getNodes().map((n) => ({
-    x: Math.round(n.position.x),
-    y: Math.round(n.position.y),
-    w: Math.round(n.width),
-    h: Math.round(n.height),
-  }));
-
-  return JSON.stringify(nodes);
 }
