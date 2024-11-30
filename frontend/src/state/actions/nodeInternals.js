@@ -4,12 +4,6 @@ import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import { useNodeInternals } from "state/definitions";
 
-export function setNodes(nodes) {
-  useNodeInternals.setState((state) => ({
-    x: createNodeInternals(nodes, state.x),
-  }));
-}
-
 export function getNodes(s = null) {
   return Array.from(s ? s.x.values() : useNodeInternals.getState().x.values());
 }
@@ -22,24 +16,6 @@ export function addNodes(nodes) {
 export function deleteNodes(nodeIds) {
   const changes = nodeIds.map((id) => ({ id, type: "remove" }));
   onNodesChange(changes);
-}
-
-function createNodeInternals(nodes, nodeInternals) {
-  const nextNodeInternals = new Map();
-
-  nodes.forEach((node) => {
-    const currInternals = nodeInternals.get(node.id);
-
-    const internals = {
-      width: currInternals?.width,
-      height: currInternals?.height,
-      ...node,
-    };
-
-    nextNodeInternals.set(node.id, internals);
-  });
-
-  return nextNodeInternals;
 }
 
 export function updateNodeDimensions(updates) {

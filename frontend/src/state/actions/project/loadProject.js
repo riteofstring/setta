@@ -6,6 +6,7 @@ import { dbCreateProjectConfig, dbLoadProjectConfig } from "requests/projects";
 import { dbLoadSettingsProject } from "requests/settings";
 import {
   useJSONSourceMissing,
+  useNodeInternals,
   useProjectConfig,
   useSectionInfos,
 } from "state/definitions";
@@ -14,7 +15,6 @@ import {
   pathRelativeToProject,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
-import { setNodes } from "../nodeInternals";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export async function loadProjectConfig({ projectConfigName }) {
@@ -68,14 +68,9 @@ export function loadProjectState({
     codeInfo,
     codeInfoCols,
   });
-  setNodes(
-    _.map(projectConfig.children, (v, k) => ({
-      id: k,
-      position: { x: v.x, y: v.y },
-      zIndex: v.zIndex,
-      tempZIndex: v.zIndex,
-    })),
-  );
+  useNodeInternals.setState({
+    x: createNodesMapFromProjectConfigChildren(projectConfig),
+  });
   useJSONSourceMissing.getState().reset();
   useJSONSourceMissing.setState(jsonSourceMissing);
   maybeIncrementProjectStateVersion(true, false);
@@ -107,4 +102,20 @@ export function useNavigateToAnotherConfig() {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });
   };
+}
+
+function createNodesMapFromProjectConfigChildren(projectConfig) {
+  const nodesMap = new Map();
+
+  for (let k of Object.keys(projectConfig.children)) {
+    const v = projectConfig.children[k];
+    nodesMap.set(k, {
+      id: k,
+      position: { x: v.x, y: v.y },
+      zIndex: v.zIndex,
+      tempZIndex: v.zIndex,
+    });
+  }
+
+  return nodesMap;
 }
