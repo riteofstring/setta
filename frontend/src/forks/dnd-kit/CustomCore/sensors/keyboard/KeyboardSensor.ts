@@ -38,7 +38,6 @@ export interface KeyboardSensorOptions extends SensorOptions {
 export type KeyboardSensorProps = SensorProps<KeyboardSensorOptions>;
 
 export class KeyboardSensor implements SensorInstance {
-  public autoScrollEnabled = false;
   private referenceCoordinates: Coordinates | undefined;
   private listeners: Listeners;
   private windowListeners: Listeners;

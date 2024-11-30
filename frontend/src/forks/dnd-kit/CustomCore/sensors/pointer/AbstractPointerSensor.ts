@@ -65,7 +65,6 @@ export type AbstractPointerSensorProps =
   SensorProps<AbstractPointerSensorOptions>;
 
 export class AbstractPointerSensor implements SensorInstance {
-  public autoScrollEnabled = true;
   private document: Document;
   private activated: boolean = false;
   private initialCoordinates: Coordinates;

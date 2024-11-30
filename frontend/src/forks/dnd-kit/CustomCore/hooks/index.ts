@@ -8,10 +8,5 @@ export type {
 } from "./useDraggable";
 export { useDroppable } from "./useDroppable";
 export type { UseDroppableArguments } from "./useDroppable";
-export {
-  AutoScrollActivator,
-  MeasuringFrequency,
-  MeasuringStrategy,
-  TraversalOrder,
-} from "./utilities";
-export type { AutoScrollOptions, DroppableMeasuring } from "./utilities";
+export { MeasuringFrequency, MeasuringStrategy } from "./utilities";
+export type { DroppableMeasuring } from "./utilities";
