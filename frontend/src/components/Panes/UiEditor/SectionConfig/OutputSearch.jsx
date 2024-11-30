@@ -1,16 +1,16 @@
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { setSectionName, setSectionSize } from "state/actions/sections/setters";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { useSectionInfos } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { useAllOutputNames } from "state/hooks/outputs";
-import { useGetSectionInfo } from "state/hooks/sections";
 import { INITIAL_CHART_SIZE } from "utils/constants";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";
 
 export function OutputsSearch({ sectionId }) {
   const outputGroups = useAllOutputNames();
-  const selected = useGetSectionInfo(sectionId, "outputGroup");
+  const selected = useSectionInfos((x) => x.x[sectionId].outputGroup);
 
   function onSelectionChange({ id, newValueFn }) {
     setSectionInfoAttr({

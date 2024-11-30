@@ -17,7 +17,6 @@ import {
 } from "requests/sections";
 import { setSectionVariantAttr } from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";
-import { useGetSectionInfo } from "state/hooks/sections";
 import {
   useSectionCode,
   useSectionKeywordPositions,
@@ -27,7 +26,7 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 
 function _CodeArea({ sectionId }) {
-  const language = useGetSectionInfo(sectionId, "codeLanguage");
+  const language = useSectionInfos((x) => x.x[sectionId].codeLanguage);
 
   switch (language) {
     case "python":

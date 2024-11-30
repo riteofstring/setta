@@ -2,7 +2,7 @@ import cc from "classcat";
 import { SectionContainerNode } from "components/Section/Container/SectionContainerNode";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
-import { useGetSectionInfo } from "state/hooks/sections";
+import { useSectionInfos } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import useDrag from "../hooks/useDrag";
 import useUpdateNodePositions from "../hooks/useUpdateNodePositions";
@@ -30,7 +30,9 @@ const _NodeWrapper = ({
   zIndex,
 }: WrapNodeProps) => {
   const nodeRef = useRef<HTMLDivElement>(null);
-  const positionAndSizeLocked = useGetSectionInfo(id, "positionAndSizeLocked");
+  const positionAndSizeLocked = useSectionInfos(
+    (x) => x.x[id].positionAndSizeLocked,
+  );
   const isDraggable = _isDraggable && !positionAndSizeLocked;
   const hasPointerEvents = isSelectable || isDraggable;
   const updatePositions = useUpdateNodePositions();

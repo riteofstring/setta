@@ -12,7 +12,6 @@ import {
 } from "utils/constants";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { localStorageFns } from "./localStorage";
-import { useGetSectionInfo } from "./sections";
 
 export function useGetParamUIType(sectionId, paramInfoId) {
   return useSectionInfos((x) => {
@@ -61,8 +60,7 @@ export function useIsListElement(sectionId) {
 }
 
 export function useSectionTypeName(sectionId) {
-  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useSectionInfos((x) => x.uiTypes[uiTypeId].type);
+  return useSectionInfos((x) => x.uiTypes[x.x[sectionId].uiTypeId].type);
 }
 
 export function useSectionTypeNames() {
@@ -76,18 +74,21 @@ export function useSectionTypeNames() {
 }
 
 function useIsType(sectionId, type) {
-  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useSectionInfos((x) => x.uiTypes[uiTypeId].type === type);
+  return useSectionInfos(
+    (x) => x.uiTypes[x.x[sectionId].uiTypeId].type === type,
+  );
 }
 
 export function useIsOneOfType(sectionId, types) {
-  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useSectionInfos((x) => types.includes(x.uiTypes[uiTypeId].type));
+  return useSectionInfos((x) =>
+    types.includes(x.uiTypes[x.x[sectionId].uiTypeId].type),
+  );
 }
 
 export function useIsRoot(sectionId) {
-  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useSectionInfos((x) => isRoot(x.uiTypes[uiTypeId].type));
+  return useSectionInfos((x) =>
+    isRoot(x.uiTypes[x.x[sectionId].uiTypeId].type),
+  );
 }
 
 export function useIsDeck(sectionId) {

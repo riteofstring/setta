@@ -2,13 +2,6 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 
-export function useGetSectionInfo(sectionId, key) {
-  const equalityFn = ["variantIds", "nonPresetUITypeIds"].includes(key)
-    ? _.isEqual
-    : undefined;
-  return useSectionInfos((x) => x.x[sectionId][key], equalityFn);
-}
-
 export function useSectionInfoNames() {
   return useSectionInfos((x) => _.mapValues(x.x, (y) => y.name), _.isEqual);
 }

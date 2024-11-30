@@ -1,14 +1,14 @@
 import { Editable } from "components/Utils/Editable";
 import { setSectionName } from "state/actions/sections/setters";
+import { useSectionInfos } from "state/definitions";
 import { getSectionSiblingNames } from "state/getters/sectionInfo";
 import {
   useEditableOnSubmit,
   useTitleIsEditable,
 } from "state/hooks/editableText";
-import { useGetSectionInfo } from "state/hooks/sections";
 
 export function SectionTitle({ sectionId, titleProps }) {
-  const sectionName = useGetSectionInfo(sectionId, "name");
+  const sectionName = useSectionInfos((x) => x.x[sectionId].name);
   const titleIsEditable = useTitleIsEditable(sectionId);
 
   if (titleIsEditable) {

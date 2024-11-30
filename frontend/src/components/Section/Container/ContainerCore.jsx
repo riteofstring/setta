@@ -1,10 +1,10 @@
 import _ from "lodash";
 import React from "react";
 import { openDeckContextMenu } from "state/actions/contextMenus";
-import { useActiveSection } from "state/definitions";
+import { useActiveSection, useSectionInfos } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { useGetSectionInfo, useHasTempNested } from "state/hooks/sections";
+import { useHasTempNested } from "state/hooks/sections";
 import { sectionContainerCoreOnKeyDown } from "utils/tabbingLogic";
 import { SectionTitle } from "../Header/SectionTitle";
 import { getOnSectionClick, getOutlineColor } from "./utils";
@@ -20,9 +20,8 @@ function _Container({
   children,
 }) {
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
-  const isInOtherProjectConfigs = useGetSectionInfo(
-    sectionId,
-    "isInOtherProjectConfigs",
+  const isInOtherProjectConfigs = useSectionInfos(
+    (x) => x.x[sectionId].isInOtherProjectConfigs,
   );
 
   const refForPosition = useSectionRefAndInit(sectionId, "withNested");

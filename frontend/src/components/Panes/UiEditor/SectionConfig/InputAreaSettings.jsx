@@ -7,11 +7,10 @@ import {
   updateSections,
 } from "state/actions/sections/sectionInfos";
 import { updateSectionVariants } from "state/actions/sectionVariants";
-import { useJSONSourceMissing } from "state/definitions";
-import { useGetSectionInfo } from "state/hooks/sections";
+import { useJSONSourceMissing, useSectionInfos } from "state/definitions";
 
 export function InputAreaSettings({ sectionId }) {
-  const jsonSource = useGetSectionInfo(sectionId, "jsonSource");
+  const jsonSource = useSectionInfos((x) => x.x[sectionId].jsonSource);
 
   const [value, setValue] = useState(jsonSource ?? "");
   async function onBlur(e) {

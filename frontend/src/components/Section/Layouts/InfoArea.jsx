@@ -6,14 +6,14 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { useGetSectionInfo } from "state/hooks/sections";
+import { useSectionInfos } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useSectionDescription } from "state/hooks/sectionVariants";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 function _InfoArea({ sectionId }) {
   //TODO change this variable name
-  const displayMode = useGetSectionInfo(sectionId, "displayMode");
+  const displayMode = useSectionInfos((x) => x.x[sectionId].displayMode);
 
   return displayMode === SECTION_DISPLAY_MODES.RENDER ? (
     <Markdown sectionId={sectionId} />
@@ -24,7 +24,7 @@ function _InfoArea({ sectionId }) {
 
 function _Markdown({ sectionId }) {
   const markdownSource = useSectionDescription(sectionId);
-  const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
+  const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
   const { ref, isScrollable } = useIsScrollable();
 
   const wrapperClassName = `section-main nodrag ${isScrollable ? "nowheel" : ""} [&_.prose]flex-1 mb-4 ml-2 cursor-auto  select-text overflow-y-scroll [&_.prose]:p-0`;
