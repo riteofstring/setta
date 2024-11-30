@@ -1,8 +1,8 @@
 import { Editable } from "components/Utils/Editable";
 import C from "constants/constants.json";
+import { getSectionChildren } from "state/actions/sectionVariants";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
-import { getSectionSiblingNames } from "state/getters/sectionInfo";
+import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { getIsSeriesElementHelper } from "state/hooks/uiTypes";
 import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
@@ -32,8 +32,7 @@ function EditableTitle({ sectionId, sectionName, titleProps }) {
   }
 
   function condition(value) {
-    const sibilingNames = getSectionSiblingNames(sectionId);
-    return !sibilingNames.has(value);
+    return !getSiblingHasName(sectionId, value);
   }
 
   const [inputValue, setInputValue, onBlur, onCancel] = useEditableOnSubmit(
@@ -81,4 +80,18 @@ function useTitleIsEditable(sectionId) {
       titleIsEditable: !isListElement && !isUneditableType,
     };
   });
+}
+
+function getSiblingHasName(sectionId, newName) {
+  const state = useSectionInfos.getState();
+  const { parentId } = state.x[sectionId];
+  const siblingIds = parentId
+    ? getSectionChildren(parentId)
+    : Array.from(useNodeInternals.getState().x.keys());
+  for (const s of siblingIds) {
+    if (state.x[s].name === newName) {
+      return true;
+    }
+  }
+  return false;
 }
