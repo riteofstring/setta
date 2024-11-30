@@ -122,12 +122,32 @@ export function updateSectionInfos({
   codeInfo,
   codeInfoCols,
 }) {
-  useSectionInfos.setState((state) => ({
-    x: { ...state.x, ...sections },
-    variants: { ...state.variants, ...sectionVariants },
-    uiTypes: { ...state.uiTypes, ...uiTypes },
-    uiTypeCols: { ...state.uiTypeCols, ...uiTypeCols },
-    codeInfo: { ...state.codeInfo, ...codeInfo },
-    codeInfoCols: { ...state.codeInfoCols, ...codeInfoCols },
-  }));
+  useSectionInfos.setState((state) => {
+    _updateSectionInfos({
+      sections,
+      sectionVariants,
+      uiTypes,
+      uiTypeCols,
+      codeInfo,
+      codeInfoCols,
+      state,
+    });
+  });
+}
+
+export function _updateSectionInfos({
+  sections,
+  sectionVariants,
+  uiTypes,
+  uiTypeCols,
+  codeInfo,
+  codeInfoCols,
+  state,
+}) {
+  state.x = { ...state.x, ...sections };
+  state.variants = { ...state.variants, ...sectionVariants };
+  state.uiTypes = { ...state.uiTypes, ...uiTypes };
+  state.uiTypeCols = { ...state.uiTypeCols, ...uiTypeCols };
+  state.codeInfo = { ...state.codeInfo, ...codeInfo };
+  state.codeInfoCols = { ...state.codeInfoCols, ...codeInfoCols };
 }
