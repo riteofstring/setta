@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
-import { dbLoadSettings } from "requests/settings";
 import { useSettings } from "state/definitions";
 
 export function useShortcutSettings() {
@@ -135,22 +134,4 @@ export function useSimpleSettings() {
   };
 
   return [settings, handleInputChange];
-}
-
-export function useLoadSettings() {
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-
-  async function fn() {
-    const res = await dbLoadSettings();
-    if (res.status === 200) {
-      useSettings.setState(res.data);
-    }
-    setSettingsLoaded(true);
-  }
-
-  useEffect(() => {
-    fn();
-  }, []);
-
-  return settingsLoaded;
 }

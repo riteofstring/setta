@@ -3,7 +3,6 @@ import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown"
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { setWebsocketConnectedTo } from "state/actions/websocketConnectionList";
 import { useWebsocketConnectionList } from "state/definitions";
-import { useCLIWebsocketConnectionList } from "state/hooks/websocket";
 
 export function WebsocketConnections() {
   return (
@@ -37,5 +36,11 @@ function ConnectionItem({ info, connectedTo }) {
       <Badge twClasses={twClasses}>{"CLI"}</Badge>
       {info.websocketId}
     </MenuItem>
+  );
+}
+
+function useCLIWebsocketConnectionList() {
+  return useWebsocketConnectionList((x) =>
+    x.connections.filter((c) => c.isCLI),
   );
 }
