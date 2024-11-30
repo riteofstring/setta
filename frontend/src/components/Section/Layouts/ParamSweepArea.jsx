@@ -23,7 +23,6 @@ import { getSectionVariantToShow } from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
-import { useSectionTypeName } from "state/hooks/uiTypes";
 import { ParamSweepSectionSearch } from "../SectionParts/Search";
 import { useShowYaml } from "./toYaml";
 
@@ -397,14 +396,15 @@ function AddRemoveButtonsForNoCallableSection({
 }
 
 function useShowParamSweepSectionSearch(sectionId) {
-  const hideSearch = useSectionInfos((x) => x.x[sectionId].hideSearch);
-  const _isGlobalVariables =
-    useSectionTypeName(sectionId) === C.GLOBAL_VARIABLES;
-
-  return !hideSearch && !_isGlobalVariables;
+  return useSectionInfos((x) => {
+    return (
+      !x.x[sectionId].hideSearch &&
+      x.uiTypes[x.x[sectionId].uiTypeId].type !== C.GLOBAL_VARIABLES
+    );
+  });
 }
 
-export function useNumChildlessParams(selectedItem, sectionId) {
+function useNumChildlessParams(selectedItem, sectionId) {
   return useSectionInfos((x) => {
     const { codeInfoColId } = getSectionVariantToShow(sectionId, x);
     const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;

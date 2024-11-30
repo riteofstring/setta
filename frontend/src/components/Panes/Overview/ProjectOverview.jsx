@@ -8,7 +8,7 @@ import { ProjectName } from "./ProjectName";
 import { SectionListItems } from "./SectionListItems";
 
 export const ProjectOverview = React.forwardRef(() => {
-  const sectionList = useGetOverviewListing();
+  const sectionList = useOverviewListing();
   return <ProjectOverviewCore sectionList={sectionList} />;
 });
 
@@ -42,7 +42,7 @@ function ProjectOverviewCore({ sectionList }) {
   );
 }
 
-function useGetOverviewListing() {
+function useOverviewListing() {
   const topLevelSectionIds = useNodeInternals(
     (x) => [...x.x.keys()],
     _.isEqual,
@@ -56,6 +56,7 @@ function useGetOverviewListing() {
     return outputList;
   }, _.isEqual);
 }
+
 function getDepthListingHelper(sectionId, depth, x, outputList) {
   const section = x.x[sectionId];
   outputList.push({
