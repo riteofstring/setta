@@ -2,7 +2,7 @@ import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { memo, useEffect, useMemo, useRef } from "react";
-import { getNodes, updateNodeDimensions } from "state/actions/nodeInternals";
+import { updateNodeDimensions } from "state/actions/nodeInternals";
 import { useActiveSection, useNodeInternals } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { containerStyle } from "../styles";
@@ -22,9 +22,15 @@ const NodeRenderer = ({}) => {
     elementsSelectable,
     panActivationKeyPressed,
   } = useReactFlow(selector, shallow);
-  const nodes = useNodeInternals(getNodes, _.isEqual);
+  const nodes = useNodeInternals((x) => x.x, _.isEqual);
   const resizeObserverRef = useRef<ResizeObserver>();
   const activeSectionIds = useActiveSection((x) => x.ids);
+  // console.log(
+  //   "nodes",
+  //   nodes.forEach((value) => {
+  //     console.log("value", value);
+  //   }),
+  // );
 
   const resizeObserver = useMemo(() => {
     if (typeof ResizeObserver === "undefined") {
@@ -54,7 +60,7 @@ const NodeRenderer = ({}) => {
 
   return (
     <div className="react-flow__nodes" style={containerStyle}>
-      {nodes.map((node) => {
+      {nodes.values().map((node) => {
         const isDraggable = !!(
           !panActivationKeyPressed &&
           (node.draggable ||
