@@ -68,12 +68,7 @@ CREATE TABLE IF NOT EXISTS SectionVariantChildren (
 );
 CREATE TABLE IF NOT EXISTS UIType (
     id TEXT PRIMARY KEY,
-    name TEXT,
-    type TEXT,
-    presetType TEXT,
-    sliderConfigMin REAL,
-    sliderConfigMax REAL,
-    sliderConfigStep REAL,
+    data TEXT,
     asNonPresetForSectionId TEXT,
     asNonPresetForUITypeColId TEXT,
     asNonPresetForCodeInfoId TEXT,

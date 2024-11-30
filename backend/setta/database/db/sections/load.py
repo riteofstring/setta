@@ -10,7 +10,7 @@ from setta.utils.constants import C
 
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
-from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
+from ..uiTypes.load import load_uitypecols, load_uitypes
 
 
 def load_sections(db, ids):
@@ -116,7 +116,7 @@ def load_sections(db, ids):
         for c in u.values():
             nonPresetUITypeIds.extend(c["nonPresetUITypeIds"])
 
-    nonPresetUITypes = load_uitypes_by_condition(db, ids=nonPresetUITypeIds)
+    nonPresetUITypes = load_uitypes(db, nonPresetUITypeIds)
 
     return {
         "sections": sections,

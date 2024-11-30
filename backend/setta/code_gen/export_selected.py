@@ -1,6 +1,6 @@
 import copy
 
-from setta.utils.section_contents import get_param_ids, get_param_ids_to_show_in_area
+from setta.utils.section_contents import get_param_ids
 from setta.utils.utils import (
     QuoteInsensitiveDict,
     replace_null_keys_with_none,

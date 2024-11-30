@@ -2,7 +2,6 @@ from pathlib import Path
 from pprint import pprint
 from typing import Dict, List
 
-import yaml
 from fastapi import APIRouter
 from pydantic import BaseModel
 
