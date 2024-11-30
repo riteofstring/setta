@@ -15,7 +15,6 @@ import {
   itemIsAlreadySelected,
   setCodeInfoDescription,
 } from "../codeInfo";
-import { updateKeywordRegex } from "../keywordRegex";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { setNotificationMessage } from "../notification";
 import { setSectionInfoAttr } from "./sectionInfos";
@@ -54,7 +53,6 @@ export async function setSelectedItem(
       changedByUser,
     });
   }
-  updateKeywordRegex();
 }
 
 function createChildrenCodeInfo(sectionId, parent, params) {

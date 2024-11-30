@@ -8,7 +8,6 @@ import { PANEID } from "utils/constants";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
 import { copySections } from "../copyPaste/copy";
-import { updateKeywordRegex } from "../keywordRegex";
 import {
   getSectionChildren,
   setSectionVariantChildren,
@@ -66,9 +65,6 @@ export async function moveSection({
   });
 
   setSectionSize({ newParentId, sectionId: newSectionId });
-
-  // TODO: make this optional via input argument so that it doesn't get called unnecessarily
-  updateKeywordRegex();
 
   // maybeCreateReferenceSections({ sectionId, oldParentId });
 

@@ -1,7 +1,6 @@
 import C from "constants/constants.json";
-import _ from "lodash";
 import { getParamIds } from "state/actions/sections/sectionContents";
-import { useKeywordRegex, useMisc, useSectionInfos } from "state/definitions";
+import { useMisc, useSectionInfos } from "state/definitions";
 import {
   getSectionType,
   hasParentInFlattenedStructure,
@@ -9,15 +8,7 @@ import {
 import { getSectionCodeInfoChildren } from "./codeInfoCols";
 import { getSectionChildren } from "./sectionVariants";
 
-export function updateKeywordRegex(idsToNames = null) {
-  let x = idsToNames;
-  if (x === null) {
-    x = _.mapValues(useSectionInfos.getState().x, (v) => v.name);
-  }
-  useKeywordRegex.setState(getRegexAndColorMap(x));
-}
-
-function getRegexAndColorMap(sectionIdsToNames) {
+export function getRegexAndColorMap(sectionIdsToNames) {
   const topLevelIds = Object.keys(sectionIdsToNames).filter(
     (x) =>
       !hasParentInFlattenedStructure(x) &&
