@@ -58,8 +58,8 @@ function maybeInitRunGroupSection(
   initVariantId = null,
 ) {
   let isNewInit = false;
-  if (!(sectionId in state.variants[runGroupId].runGroup.sections)) {
-    state.variants[runGroupId].runGroup.sections[sectionId] = {};
+  if (!(sectionId in state.variants[runGroupId].runGroup)) {
+    state.variants[runGroupId].runGroup[sectionId] = {};
     maybeInitAllDescendants(
       state,
       runGroupId,
@@ -67,12 +67,8 @@ function maybeInitRunGroupSection(
     );
     isNewInit = true;
   }
-  if (
-    !(
-      parentVariantId in state.variants[runGroupId].runGroup.sections[sectionId]
-    )
-  ) {
-    state.variants[runGroupId].runGroup.sections[sectionId][parentVariantId] =
+  if (!(parentVariantId in state.variants[runGroupId].runGroup[sectionId])) {
+    state.variants[runGroupId].runGroup[sectionId][parentVariantId] =
       newRunGroupSection(sectionId, initVariantId);
     isNewInit = true;
   }
@@ -92,7 +88,7 @@ function forceAllAncestorsToBeSelected(state, runGroupId, ancestors) {
     const parentVariantId = idx === 0 ? null : ancestors[idx - 1].variantId;
     maybeInitRunGroupSection(state, runGroupId, a.id, parentVariantId);
     const currState =
-      state.variants[runGroupId].runGroup.sections[a.id][parentVariantId];
+      state.variants[runGroupId].runGroup[a.id][parentVariantId];
     currState.versions[a.variantId] = true;
     currState.selected = true;
   }
@@ -102,8 +98,9 @@ function allAncestorsAreSelected(state, runGroupId, ancestors) {
   for (const [idx, a] of ancestors.entries()) {
     const parentVariantId = idx === 0 ? null : ancestors[idx - 1].variantId;
     if (
-      !state.variants[runGroupId].runGroup.sections[a.id]?.[parentVariantId]
-        .versions[a.variantId] ||
+      !state.variants[runGroupId].runGroup[a.id]?.[parentVariantId].versions[
+        a.variantId
+      ] ||
       !sectionIsSelected(state, runGroupId, a.id, parentVariantId)
     ) {
       return false;
@@ -113,9 +110,8 @@ function allAncestorsAreSelected(state, runGroupId, ancestors) {
 }
 
 function sectionIsSelected(state, runGroupId, sectionId, parentVariantId) {
-  return state.variants[runGroupId].runGroup.sections[sectionId]?.[
-    parentVariantId
-  ].selected;
+  return state.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]
+    .selected;
 }
 
 function toggleRunGroupSectionAttr({
@@ -136,7 +132,7 @@ function toggleRunGroupSectionAttr({
     );
     let newState;
     const thisSectionState =
-      state.variants[runGroupId].runGroup.sections[sectionId][parentVariantId];
+      state.variants[runGroupId].runGroup[sectionId][parentVariantId];
     // if not new init, and if all ancestors are selected, and (when toggling version or paramsweep) the section itself is selected
     if (
       !isNewInit &&
@@ -248,9 +244,7 @@ export function setAllRunGroupsAndMaybeCreateSection(runGroups) {
 
 function parsePrettyRunGroupSections(runGroup) {
   const sections = {};
-  for (const [sectionName, sectionDetails] of Object.entries(
-    runGroup.sections,
-  )) {
+  for (const [sectionName, sectionDetails] of Object.entries(runGroup)) {
     const s = getSectionByName(sectionName);
     sections[s.id] = {};
     // TODO

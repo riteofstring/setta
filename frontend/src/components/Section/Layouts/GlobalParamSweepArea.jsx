@@ -204,7 +204,7 @@ function SectionItem({ sectionInfo, ancestors, parentIsSelected, runGroupId }) {
   const isSelected = useSectionInfos((x) => {
     return (
       parentIsSelected &&
-      !!x.variants[runGroupId].runGroup.sections[sectionId]?.[parentVariantId]
+      !!x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]
         ?.selected
     );
   });
@@ -275,7 +275,7 @@ function VersionsList({
 }) {
   const atLeastOneVersionSelected = useSectionInfos((x) => {
     const versionsObj =
-      x.variants[runGroupId].runGroup.sections[sectionId]?.[parentVariantId]
+      x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]
         ?.versions;
     if (!versionsObj) {
       return false;
@@ -403,7 +403,7 @@ function VersionItemComponent({
   const isSelected = useSectionInfos(
     (x) =>
       parentIsSelected &&
-      !!x.variants[runGroupId].runGroup.sections[sectionId]?.[parentVariantId]
+      !!x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]
         .versions[id],
   );
 
@@ -446,7 +446,7 @@ function ParamSweepItemComponent({
 
   const isSelected = useSectionInfos(
     (x) =>
-      !!x.variants[runGroupId].runGroup.sections[sectionId]?.[parentVariantId]
+      !!x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]
         .paramSweeps[id],
   );
 

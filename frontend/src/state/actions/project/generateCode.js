@@ -87,7 +87,7 @@ function* getProjectRuns(project) {
       }
       const sectionParamSweepsAndVersions = getSectionsParamSweepsAndVersions(
         project,
-        runGroup.sections,
+        runGroup,
         Object.keys(project.projectConfig.children),
         null,
       );

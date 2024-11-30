@@ -70,7 +70,7 @@ export async function dbGlobalParamSweepSectionToYaml(sectionId) {
   const shownVariantId = getSectionVariantIdToShow(sectionId);
   const sections = useSectionInfos.getState().x;
   const sectionVariants = useSectionInfos.getState().variants;
-  const runGroup = sectionVariants[shownVariantId].runGroup.sections;
+  const runGroup = sectionVariants[shownVariantId].runGroup;
 
   const res = await post({
     body: {
