@@ -19,8 +19,8 @@ export const useContextMenus = createProjectState(() => ({
 }));
 
 export const useSectionInfos = createProjectState(
-  temporal(
-    subscribeWithSelector(
+  subscribeWithSelector(
+    temporal(
       immer(() =>
         withVersion({
           x: {},

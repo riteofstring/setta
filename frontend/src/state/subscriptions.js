@@ -18,7 +18,10 @@ export function subscribe() {
 
   useSectionInfos.subscribe(
     keywordRegexSubscriptionFn,
-    (x) => useKeywordRegex.setState(getRegexAndColorMap(x)),
+    (x, prev) => {
+      console.log("keywordRegexSubscription triggered");
+      useKeywordRegex.setState(getRegexAndColorMap(x));
+    },
     { equalityFn: _.isEqual },
   );
 
@@ -47,12 +50,30 @@ function singletonSectionsSubscriptionFn(state) {
 }
 
 function keywordRegexSubscriptionFn(x) {
-  // const sectionNames = {};
-  // const sectionChildren = {};
-  // for (const [sectionId, section] of Object.entries(x.x)) {
-  //   sectionNames[sectionId] = section.name;
-  //   sectionChildren[sectionId] = x.variants[x.x[section.variantId]].children;
-  // }
-  // return { sectionNames, sectionChildren };
-  return x;
+  const output = {
+    details: {},
+    codeInfo: x.codeInfo,
+    globalVariableId: x.singletonSections[C.GLOBAL_VARIABLES],
+  };
+
+  for (const [id, s] of Object.entries(x.x)) {
+    output.details[id] = {
+      name: s.name,
+      sectionChildren: x.variants[s.variantId].children,
+      codeInfoChildren:
+        x.codeInfoCols[x.variants[s.variantId].codeInfoColId].children,
+      sectionTypeName: x.uiTypes[s.uiTypeId].type,
+      isTopLevel:
+        !s.parentId &&
+        [
+          C.GLOBAL_VARIABLES,
+          C.SECTION,
+          C.LIST_ROOT,
+          C.DICT_ROOT,
+          C.DECK,
+        ].includes(x.uiTypes[s.uiTypeId].type),
+    };
+  }
+
+  return output;
 }

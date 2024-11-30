@@ -1,20 +1,18 @@
 import C from "constants/constants.json";
 import { getParamIds } from "state/actions/sections/sectionContents";
 
-// input is useSectionInfos state
+// input is state computed by keyword regex subscription
 export function getRegexAndColorMap(state) {
-  const topLevelIds = Object.keys(state.x).filter((id) =>
-    [C.GLOBAL_VARIABLES, C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.DECK].includes(
-      state.uiTypes[state.x[id].uiTypeId].type,
-    ),
-  );
   const names = [];
   const fullNameToInfo = {};
-  for (const sid of topLevelIds) {
-    if (state.singletonSections[C.GLOBAL_VARIABLES] === sid) {
+  for (const sid of Object.keys(state.details)) {
+    if (!state.details[sid].isTopLevel) {
+      continue;
+    }
+    if (state.globalVariableId === sid) {
       setFullParamRegex(state, sid, null, names, fullNameToInfo, "", [], true);
     } else {
-      const currName = state.x[sid].name;
+      const currName = state.details[sid].name;
       setFullChildrenNamesForRegex(
         state,
         names,
@@ -64,11 +62,9 @@ function setFullChildrenNamesForRegex(
   parentName,
   parentLengths,
 ) {
-  const sectionTypeName = state.uiTypes[state.x[sectionId].uiTypeId].type;
-  for (const [idx, c] of state.variants[
-    state.x[sectionId].variantId
-  ].children.entries()) {
-    const name = state.x[c].name;
+  const sectionTypeName = state.details[sectionId].sectionTypeName;
+  for (const [idx, c] of state.details[sectionId].sectionChildren.entries()) {
+    const name = state.details[c].name;
     const currComponentName =
       sectionTypeName === C.LIST_ROOT ? `[${idx.toString()}]` : `["${name}"]`;
     const currFullName = `${parentName}${currComponentName}`;
@@ -121,10 +117,7 @@ function setFullParamRegex(
   parentLengths,
   isGlobalVar = false,
 ) {
-  const codeInfoChildren =
-    state.codeInfoCols[
-      state.variants[state.x[sectionId].variantId].codeInfoColId
-    ].children;
+  const codeInfoChildren = state.details[sectionId].codeInfoChildren;
   const childParamInfos = paramInfoId
     ? codeInfoChildren[paramInfoId].map((x) => state.codeInfo[x])
     : getParamIds(sectionId, state.codeInfo, codeInfoChildren).ids.map(
