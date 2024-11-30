@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { dbSetProjectConfigName } from "requests/projectName";
+import { useLocation, useParams } from "react-router-dom";
 import {
   dbGetAllProjectConfigMetadata,
   dbGetDefaultConfigName,
@@ -13,19 +12,10 @@ import {
 } from "state/actions/project/loadProject";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
-import {
-  useAllProjectConfigs,
-  useMisc,
-  useProjectConfig,
-} from "state/definitions";
+import { useAllProjectConfigs, useMisc } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  PAGE_LOAD_TYPES,
-  pathRelativeToProject,
-  SETTINGS_PROJECT_NAME,
-} from "utils/constants";
+import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { useHotReload } from "utils/hotReload";
-import { useEditableOnSubmit } from "./editableText";
 
 export function useGetAllProjectConfigMetadata() {
   const [projects, setProjects] = useState([]);
@@ -121,22 +111,6 @@ export function useLoadProjectConfig() {
   }, [pageLoadType, projectConfigName]);
 
   return [doneLoading, is404];
-}
-
-export function useEditableProjectName() {
-  const name = useProjectConfig((x) => x.name);
-  const navigate = useNavigate();
-  async function condition(v) {
-    const res = await dbSetProjectConfigName(v);
-    return res.status === 200;
-  }
-  async function onSetName(v) {
-    navigate(pathRelativeToProject(v), {
-      state: { pageLoadType: PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME },
-    });
-  }
-
-  return useEditableOnSubmit(name, onSetName, condition);
 }
 
 export function useConfigAddress({ project, configId }) {
