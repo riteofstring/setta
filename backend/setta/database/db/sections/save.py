@@ -1,7 +1,7 @@
 import json
 
 from setta.utils.constants import (
-    SECTION_ARTIFACTS_TABLE_DATA_JSON_FILES,
+    SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS,
     SECTION_TABLE_DATA_JSON_FIELDS,
 )
 from setta.utils.utils import filter_dict
@@ -128,7 +128,7 @@ def save_sections(db, sections, section_variants):
                     "sectionId": s["id"],
                     "artifactPath": a["path"],
                     "data": json.dumps(
-                        filter_dict(a, SECTION_ARTIFACTS_TABLE_DATA_JSON_FILES)
+                        filter_dict(a, SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS)
                     ),
                 }
             )

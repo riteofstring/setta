@@ -125,8 +125,7 @@ CREATE TABLE IF NOT EXISTS ProjectConfigRunGroup (
 );
 CREATE TABLE IF NOT EXISTS ParamSweepId (
     id TEXT PRIMARY KEY,
-    name TEXT,
-    isFrozen BOOLEAN,
+    data TEXT,
     originSectionId TEXT,
     FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
 );

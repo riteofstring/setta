@@ -121,7 +121,7 @@ PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(
     ["viewport", "isDefault", "previewImgNodes", "previewImgColor"]
 )
 
-PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FILES = set(
+PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS = set(
     [
         "x",
         "y",
@@ -129,10 +129,17 @@ PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FILES = set(
     ]
 )
 
-SECTION_ARTIFACTS_TABLE_DATA_JSON_FILES = set(
+SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS = set(
     [
         "value",
         "type",
         "displayName",
+    ]
+)
+
+PARAM_SWEEP_ID_TABLE_DATA_JSON_FIELDS = set(
+    [
+        "name",
+        "isFrozen",
     ]
 )

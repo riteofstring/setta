@@ -8,7 +8,7 @@ from setta.code_gen.export_selected import (
 )
 from setta.database.utils import create_new_id
 from setta.utils.constants import (
-    PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FILES,
+    PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS,
     PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS,
     SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
     USER_SETTINGS,
@@ -76,7 +76,7 @@ def save_project(db, project):
                 "parentId": project["id"],
                 "childId": childId,
                 "data": json.dumps(
-                    filter_dict(details, PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FILES)
+                    filter_dict(details, PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS)
                 ),
             }
             for childId, details in project["children"].items()

@@ -1,15 +1,23 @@
+import json
+
+from setta.utils.constants import PARAM_SWEEP_ID_TABLE_DATA_JSON_FIELDS
+from setta.utils.utils import filter_dict
+
+
 def save_param_sweeps(db, param_sweeps):
     query = """
-        INSERT INTO ParamSweepId (id, name, isFrozen)
-        VALUES (:id, :name, :isFrozen)
+        INSERT INTO ParamSweepId (id, data)
+        VALUES (:id, :data)
         ON CONFLICT (id)
         DO UPDATE SET
-            name = :name,
-            isFrozen = :isFrozen
+            data = :data
     """
 
     query_params = [
-        {"id": id, "name": p["name"], "isFrozen": p["isFrozen"]}
+        {
+            "id": id,
+            "data": json.dumps(filter_dict(p, PARAM_SWEEP_ID_TABLE_DATA_JSON_FIELDS)),
+        }
         for id, p in param_sweeps.items()
     ]
     db.executemany(query, query_params)
