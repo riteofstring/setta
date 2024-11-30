@@ -2,11 +2,17 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import React from "react";
 import { useGetOverviewListing } from "state/hooks/overview";
+import { useMatchSorterFilter } from "state/hooks/utils";
 import { ProjectName } from "./ProjectName";
 import { SectionListItems } from "./SectionListItems";
 
 export const ProjectOverview = React.forwardRef(() => {
-  const [filteredList, setFilter] = useGetOverviewListing();
+  const sectionList = useGetOverviewListing();
+  return <ProjectOverviewCore sectionList={sectionList} />;
+});
+
+function ProjectOverviewCore({ sectionList }) {
+  const [filteredList, setFilter] = useMatchSorterFilter(sectionList, ["name"]);
 
   return (
     <>
@@ -33,4 +39,4 @@ export const ProjectOverview = React.forwardRef(() => {
       </div>
     </>
   );
-});
+}
