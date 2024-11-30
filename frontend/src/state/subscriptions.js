@@ -23,15 +23,11 @@ function singletonSectionsSubscriptionFn(state) {
 }
 
 export function subscribe() {
-  useSectionInfos.subscribe(
-    singletonSectionsSubscriptionFn,
-    (x) => {
-      useMisc.setState((state) => {
-        state.singletonSections = x;
-      });
-    },
-    { equalityFn: _.isEqual },
-  );
+  useSectionInfos.subscribe(singletonSectionsSubscriptionFn, (x) => {
+    useMisc.setState((state) => {
+      state.singletonSections = x;
+    });
+  });
 
   useSectionInfos.subscribe(
     (state) => _.mapValues(state.x, (v) => v.name),
@@ -44,36 +40,4 @@ export function subscribe() {
     (x) => useDndChildren.getState().update(x),
     { equalityFn: _.isEqual },
   );
-
-  // useSectionInfos.subscribe(
-  //   (x) => _.mapValues(x.x, (v) => v.parentId),
-  //   (parentIds, oldParentIds) => {
-  //     const globalParamSweepSectionId =
-  //       useMisc.getState().singletonSections[C.GLOBAL_PARAM_SWEEP];
-  //     if (!globalParamSweepSectionId) {
-  //       return;
-  //     }
-  //     const needUpdate = {};
-  //     for (const [sectionId, parentId] of Object.entries(parentIds)) {
-  //       if (parentId === oldParentIds[sectionId]) {
-  //         continue;
-  //       }
-  //       needUpdate[sectionId] = parentId;
-  //     }
-  //     if (_.size(needUpdate) === 0) {
-  //       return;
-  //     }
-  //     useSectionInfos.setState((x) => {
-  //       for (const variantId of x.x[globalParamSweepSectionId].variantIds) {
-  //         const runGroup = x.variants[variantId].runGroup;
-  //         for (const [sectionId, parentId] of Object.entries(needUpdate)) {
-  //           if (sectionId in runGroup && parentId in runGroup[sectionId]) {
-  //             runGroup[sectionId];
-  //           }
-  //         }
-  //       }
-  //     });
-  //   },
-  //   { equalityFn: _.isEqual },
-  // );
 }
