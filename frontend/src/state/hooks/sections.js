@@ -3,10 +3,7 @@ import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 
 export function useGetSectionInfo(sectionId, key) {
-  const equalityFn = [
-    "variantIds",
-    "nonPresetUITypeIds",
-  ].includes(key)
+  const equalityFn = ["variantIds", "nonPresetUITypeIds"].includes(key)
     ? _.isEqual
     : undefined;
   return useSectionInfos((x) => x.x[sectionId][key], equalityFn);
