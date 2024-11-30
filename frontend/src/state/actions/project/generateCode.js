@@ -6,7 +6,12 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";
 import { sendMessage } from "requests/websocket";
-import { useWebsocketConnectionList } from "state/definitions";
+import {
+  useMisc,
+  useSectionInfos,
+  useWebsocketConnectionList,
+} from "state/definitions";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import { getForSectionId } from "state/hooks/paramSweep";
 import {
   addTerminalInitialMessage,
@@ -65,11 +70,13 @@ export async function runCode() {
 }
 
 function* getProjectRuns(project) {
+  const globalParamSweepSectionId =
+    useMisc.getState().singletonSections.globalParamSweep;
+  const selectedRunGroupIds = globalParamSweepSectionId
+    ? getSectionInfo(globalParamSweepSectionId).selectedVariantIds
+    : {};
   // if there are no run groups, or no run groups are selected
-  if (
-    _.size(project.runGroups) === 0 ||
-    !Object.values(project.projectConfig.runGroupSelection).some((x) => x)
-  ) {
+  if (!globalParamSweepSectionId || _.size(selectedRunGroupIds) === 0) {
     const variant = _.cloneDeep(project);
     const paramSweepSectionVariantIds = {};
     for (const s of Object.values(variant.sections)) {
@@ -81,10 +88,8 @@ function* getProjectRuns(project) {
     }
     yield* getProjectVariants(variant, paramSweepSectionVariantIds);
   } else {
-    for (const [runGroupId, runGroup] of Object.entries(project.runGroups)) {
-      if (!project.projectConfig.runGroupSelection[runGroupId]) {
-        continue;
-      }
+    for (const runGroupId of selectedRunGroupIds) {
+      const runGroup = useSectionInfos.getState().variants[runGroupId].runGroup;
       const sectionParamSweepsAndVersions = getSectionsParamSweepsAndVersions(
         project,
         runGroup,

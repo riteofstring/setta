@@ -35,6 +35,7 @@ export function newSectionInfo({
   renderMarkdown = false,
   positionAndSizeLocked = false,
   jsonSource = null,
+  selectedVariantIds = {},
 }) {
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _variantId = maybeNewId(variantId);
@@ -72,5 +73,6 @@ export function newSectionInfo({
     renderMarkdown,
     positionAndSizeLocked,
     jsonSource,
+    selectedVariantIds,
   };
 }
