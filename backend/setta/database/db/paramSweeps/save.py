@@ -31,19 +31,21 @@ def save_param_sweeps(db, param_sweeps):
     db.execute(query, query_params)
 
     query = """
-        INSERT INTO ParamSweep (idid, selectedItem, paramInfoId, "order", value)
-        VALUES (:idid, :selectedItem, :paramInfoId, :order, :value)
+        INSERT INTO ParamSweep (idid, selectedItemGroupNum, paramInfoGroupNum, selectedItem, paramInfoId, "order", value)
+        VALUES (:idid, :selectedItemGroupNum, :paramInfoGroupNum, :selectedItem, :paramInfoId, :order, :value)
     """
 
     query_params = []
     for id, p in param_sweeps.items():
         order = 0
-        for s in p["sweep"]:
+        for selectedItemGroupNum, s in enumerate(p["sweep"]):
             selected_item = s["selectedItem"]
             if len(s["params"]) == 0:
                 query_params.append(
                     generate_query_param(
                         id,
+                        selectedItemGroupNum,
+                        None,
                         selected_item,
                         None,
                         order,
@@ -52,12 +54,14 @@ def save_param_sweeps(db, param_sweeps):
                 )
                 order += 1
             else:
-                for param in s["params"]:
+                for paramInfoGroupNum, param in enumerate(s["params"]):
                     values = param["values"] or [None]
                     for value in values:
                         query_params.append(
                             generate_query_param(
                                 id,
+                                selectedItemGroupNum,
+                                paramInfoGroupNum,
                                 selected_item,
                                 param["paramInfoId"],
                                 order,
@@ -71,6 +75,8 @@ def save_param_sweeps(db, param_sweeps):
 
 def generate_query_param(
     id,
+    selectedItemGroupNum,
+    paramInfoGroupNum,
     selected_item,
     param_info_id,
     order,
@@ -78,6 +84,8 @@ def generate_query_param(
 ):
     return {
         "idid": id,
+        "selectedItemGroupNum": selectedItemGroupNum,
+        "paramInfoGroupNum": paramInfoGroupNum,
         "selectedItem": selected_item,
         "paramInfoId": param_info_id,
         "order": order,

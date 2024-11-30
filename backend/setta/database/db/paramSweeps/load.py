@@ -4,7 +4,7 @@ import json
 def load_param_sweeps(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT ParamSweepId.id, ParamSweepId.data, ParamSweep.selectedItem, ParamSweep.paramInfoId, ParamSweep.value
+        SELECT ParamSweepId.id, ParamSweepId.data, ParamSweep.selectedItemGroupNum, ParamSweep.paramInfoGroupNum, ParamSweep.selectedItem, ParamSweep.paramInfoId, ParamSweep.value
         FROM ParamSweepId
         LEFT JOIN ParamSweep
         ON ParamSweepId.id = ParamSweep.idid
@@ -19,6 +19,7 @@ def load_param_sweeps(db, ids):
             output[id] = {"sweep": [], **json.loads(row["data"])}
         curr = output[id]["sweep"]
 
+        selectedItemGroupNum = row["selectedItemGroupNum"]
         if selectedItemGroupNum is None:
             continue
         if len(curr) <= selectedItemGroupNum:
