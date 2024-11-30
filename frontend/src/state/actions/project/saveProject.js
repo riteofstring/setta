@@ -45,7 +45,8 @@ export function getProjectData({
     currSection.artifacts = currSection.artifacts.map((a) => ({
       path: a,
       value: a.startsWith("data:") ? artifactState[a].value : undefined,
-      ..._.pick(artifactState[a], ["type", "displayName"]),
+      type: artifactState[a].type,
+      displayName: artifactState[a].displayName,
     }));
     return currSection;
   });

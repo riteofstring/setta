@@ -1,6 +1,5 @@
 import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
-import _ from "lodash";
 import { useProjectConfig } from "state/definitions";
 
 export function setProjectConfig(payload) {
@@ -12,7 +11,12 @@ export function setProjectConfigName(name) {
 
 export function getProjectConfigMetadata() {
   const state = useProjectConfig.getState();
-  const output = _.pick(state, ["id", "name", "isDefault", "previewImgColor"]);
+  const output = {
+    id: state.id,
+    name: state.name,
+    isDefault: state.isDefault,
+    previewImgColor: state.previewImgColor,
+  };
 
   output.viewport = useReactFlow.getState().fitViewOnInit
     ? null

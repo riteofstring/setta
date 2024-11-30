@@ -344,7 +344,12 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     if (usedPaths.has(JSON.stringify(v.keyPath))) {
       continue;
     }
-    const curr = _.pick(v, ["key", "keyPath", "value", "isPinned"]);
+    const curr = {
+      key: v.key,
+      keyPath: v.keyPath,
+      value: v.value,
+      isPinned: v.isPinned,
+    };
     curr.id = createNewParamId(curr.keyPath, jsonSource);
     curr.isNewParam = true;
     output.push(curr);
@@ -421,7 +426,12 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
 }
 
 function updateOutputs({ v, matches, usedOriginalIds, usedPaths, output }) {
-  const curr = _.pick(matches[0], ["key", "keyPath", "value", "isPinned"]);
+  const curr = {
+    key: matches[0].key,
+    keyPath: matches[0].keyPath,
+    value: matches[0].value,
+    isPinned: matches[0].isPinned,
+  };
   curr.id = v.id;
   curr.editable = v.editable;
   output.push(curr);
