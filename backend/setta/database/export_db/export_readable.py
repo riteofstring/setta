@@ -152,15 +152,17 @@ def export_global_param_sweep_section(folder, config, section_id, *_, **__):
     subfolder_name = get_section_name(config, section_id)
     folder = folder / subfolder_name
     os.makedirs(folder, exist_ok=True)
-    run_groups = config["runGroups"]
-    for run_group in run_groups.values():
+    variantIds = config["sections"][section_id]["variantIds"]
+    for v in variantIds:
+        variant = config["sectionVariants"][v]
+        run_group = variant["runGroup"]
         e = export_single_run_group_to_dict(
-            run_group["sections"],
+            run_group,
             config["sections"],
             config["sectionVariants"],
         )
         yamlValue = run_group_dict_to_yaml(e)
-        base = run_group["name"]
+        base = variant["name"]
         with open(folder / f"{base}.yaml", "w") as file:
             file.write(yamlValue)
 
