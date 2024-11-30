@@ -98,9 +98,7 @@ CREATE TABLE IF NOT EXISTS ProjectConfig (
 CREATE TABLE IF NOT EXISTS ProjectConfigChildren (
     parentId TEXT,
     childId TEXT,
-    x REAL DEFAULT 0,
-    y REAL DEFAULT 0,
-    zIndex REAL DEFAULT 0,
+    data TEXT,
     PRIMARY KEY (parentId, childId),
     FOREIGN KEY (parentId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
     FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE

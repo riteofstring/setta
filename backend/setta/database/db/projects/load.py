@@ -1,7 +1,6 @@
 import json
 
 from setta.database.utils import aggregate_results
-from setta.utils.constants import PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS
 from setta.utils.utils import recursive_dict_merge
 
 from ..codeInfo.load import load_code_info_cols
@@ -43,9 +42,7 @@ def load_project_config_metadata(db, config_name):
             ProjectConfig.shownRunGroup,
             ProjectConfig.data,
             ProjectConfigChildren.childId as childId,
-            ProjectConfigChildren.x as childX,
-            ProjectConfigChildren.y as childY,
-            ProjectConfigChildren.zIndex as childZIndex
+            ProjectConfigChildren.data as childData
         FROM
             ProjectConfig
         LEFT JOIN
@@ -58,9 +55,7 @@ def load_project_config_metadata(db, config_name):
 
     query_params = {"name": config_name}
     db.execute(query, query_params)
-    out = aggregate_results(
-        db.fetchall(), "id", ["childId", "childX", "childY", "childZIndex"]
-    )
+    out = aggregate_results(db.fetchall(), "id", ["childId", "childData"])
     if len(out) > 1:
         raise ValueError(f"output should be of length 1 but has length {len(out)}")
     if len(out) == 0:
@@ -69,11 +64,7 @@ def load_project_config_metadata(db, config_name):
     children = {}
     for i, c in enumerate(out["childId"]):
         if c:
-            children[c] = {
-                "x": out["childX"][i],
-                "y": out["childY"][i],
-                "zIndex": out["childZIndex"][i],
-            }
+            children[c] = json.loads(out["childData"][i])
 
     return {
         "id": out["id"],

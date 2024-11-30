@@ -120,3 +120,11 @@ UI_TYPE_TABLE_DATA_JSON_FIELDS = set(
 PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(
     ["viewport", "isDefault", "previewImgNodes", "previewImgColor"]
 )
+
+PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FILES = set(
+    [
+        "x",
+        "y",
+        "zIndex",
+    ]
+)
