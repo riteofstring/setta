@@ -157,3 +157,7 @@ def replace_null_keys_with_none(data):
             new_dict[new_key] = value
         return new_dict
     return data
+
+
+def filter_dict(x, keys):
+    return {k: v for k, v in x.items() if k in keys}

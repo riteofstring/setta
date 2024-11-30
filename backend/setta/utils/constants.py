@@ -62,3 +62,42 @@ def load_constants():
 
 def is_from_json_source(id):
     return id.startswith(C.JSON_SOURCE_PREFIX)
+
+
+CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
+    (
+        "name",
+        "editable",
+        "rcType",
+        "defaultVal",
+        "description",
+        "positionalOnly",
+        "isPinned",
+        "isFrozen",
+        "keywordPositions",
+    )
+)
+
+SECTION_TABLE_DATA_JSON_FIELDS = set(
+    (
+        "name",
+        "social",
+        "codeLanguage",
+        "configLanguage",
+        "isFrozen",
+        "jsonSource",
+        "hideUnpinnedParams",
+        "displayMode",
+        "canvasSettings",
+        "renderMarkdown",
+    )
+)
+
+SECTION_CONFIG_TABLE_DATA_JSON_FIELDS = set(
+    (
+        "size",
+        "isHorizontalOrientation",
+        "pinnedAreaHeight",
+        "isMinimized",
+    )
+)

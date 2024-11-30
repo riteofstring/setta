@@ -1,5 +1,8 @@
 import json
 
+from setta.utils.constants import SECTION_TABLE_DATA_JSON_FIELDS
+from setta.utils.utils import filter_dict
+
 
 def save_sections(db, sections, section_variants):
     query = """
@@ -25,13 +28,7 @@ def save_sections(db, sections, section_variants):
     query_params = [
         {
             "id": s["id"],
-            "data": json.dumps(
-                {
-                    k: v
-                    for k, v in s.items()
-                    if k not in ["id", "uiTypeId", "uiTypeColId"]
-                }
-            ),
+            "data": json.dumps(filter_dict(s, SECTION_TABLE_DATA_JSON_FIELDS)),
             "uiTypeId": s["uiTypeId"],
             "uiTypeColId": s["uiTypeColId"],
         }

@@ -7,8 +7,13 @@ from setta.code_gen.export_selected import (
     get_selected_item_name,
 )
 from setta.database.utils import create_new_id
-from setta.utils.constants import USER_SETTINGS, C
+from setta.utils.constants import (
+    SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
+    USER_SETTINGS,
+    C,
+)
 from setta.utils.generate_memorable_string import generate_memorable_string
+from setta.utils.utils import filter_dict
 
 from ..codeInfo.save import save_code_info, save_code_info_col
 from ..paramSweeps.save import save_param_sweeps
@@ -185,12 +190,7 @@ def insert_section_configs(db, sections, id_pairs):
             "variantId": sections[c]["variantId"],
             "paramSweepId": sections[c]["paramSweepId"],
             "data": json.dumps(
-                {
-                    k: v
-                    for k, v in sections[c].items()
-                    if k
-                    not in ["projectConfigId", "sectionId", "variantId", "paramSweepId"]
-                }
+                filter_dict(sections[c], SECTION_CONFIG_TABLE_DATA_JSON_FIELDS)
             ),
         }
         for projectConfigId, c in id_pairs
