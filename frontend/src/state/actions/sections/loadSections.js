@@ -1,10 +1,6 @@
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { addCodeInfoBatch } from "../codeInfo";
-import { updateSectionVariants } from "../sectionVariants";
-import { updateUITypeCols } from "../uiTypes/uiTypeCols";
-import { updateUITypes } from "../uiTypes/uiTypes";
-import { updateSections } from "./sectionInfos";
+import { updateSectionInfos } from "./sectionInfos";
 
 export function loadSectionIntoState({
   sections,
@@ -27,7 +23,7 @@ export function loadSectionIntoState({
     };
   }
 
-  updateStateWithSectionCopy({
+  updateSectionInfos({
     sections,
     uiTypes,
     sectionVariants,
@@ -46,18 +42,4 @@ export function loadSectionIntoState({
   }
   addNodes(nodes);
   maybeIncrementProjectStateVersion(incrementVersion);
-}
-
-export function updateStateWithSectionCopy({
-  sections,
-  uiTypes,
-  sectionVariants,
-  uiTypeCols,
-  codeInfo,
-}) {
-  updateUITypes(uiTypes);
-  updateSectionVariants({ sectionVariants });
-  updateUITypeCols({ uiTypeCols });
-  addCodeInfoBatch(codeInfo);
-  updateSections(sections);
 }

@@ -13,7 +13,7 @@ import {
   getSectionChildren,
   setSectionVariantChildren,
 } from "../sectionVariants";
-import { updateStateWithSectionCopy } from "./loadSections";
+import { updateSectionInfos } from "./sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
 
@@ -164,7 +164,7 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
     const res = await dbCreateCopyOfSections(copySections([sectionId]));
     if (res.status === 200) {
       console.log("data", res.data);
-      updateStateWithSectionCopy({ ...res.data });
+      updateSectionInfos(res.data);
       return Object.keys(res.data.sections)[0];
     }
   }

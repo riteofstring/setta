@@ -41,7 +41,7 @@ function createNonPresetForSection({ sectionId, currUIType, defaultName }) {
     uiType: currUIType,
     name: defaultName,
   });
-  addUIType({ uiType: newUIType });
+  addUIType(newUIType);
   setSectionInfoAttr({
     sectionId,
     attr: "nonPresetUITypeIds",

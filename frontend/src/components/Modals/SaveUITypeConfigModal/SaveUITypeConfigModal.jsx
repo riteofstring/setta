@@ -33,7 +33,7 @@ export function SaveUITypeConfigModal({ open, modalType }) {
     });
     // delete old uitype if its a non-preset
     if (!isPreset(uiType)) {
-      deleteUIType({ uiTypeId: uiType.id });
+      deleteUIType(uiType.id);
     }
   }
 

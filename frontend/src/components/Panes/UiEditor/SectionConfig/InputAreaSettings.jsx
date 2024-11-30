@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
-import { addCodeInfoBatch } from "state/actions/codeInfo";
-import { addCodeInfoColsBatch } from "state/actions/codeInfoCols";
 import {
   setSectionInfoAttr,
-  updateSections,
+  updateSectionInfos,
 } from "state/actions/sections/sectionInfos";
-import { updateSectionVariants } from "state/actions/sectionVariants";
 import { useJSONSourceMissing, useSectionInfos } from "state/definitions";
 
 export function InputAreaSettings({ sectionId }) {
@@ -30,10 +27,7 @@ export function InputAreaSettings({ sectionId }) {
       }
     }
     useJSONSourceMissing.setState({ [sectionId]: jsonSourceMissing });
-    if (codeInfo) addCodeInfoBatch(codeInfo);
-    if (codeInfoCols) addCodeInfoColsBatch(codeInfoCols);
-    if (sectionVariants) updateSectionVariants({ sectionVariants });
-    if (sections) updateSections(sections);
+    updateSectionInfos({ sections, sectionVariants, codeInfo, codeInfoCols });
   }
 
   useEffect(() => {

@@ -61,7 +61,7 @@ function createNonPresetForParam({
     uiType: currUIType,
     name: defaultName,
   });
-  addUIType({ uiType: newUIType });
+  addUIType(newUIType);
 
   setNonPresetUITypeIds({
     collectionId: uiTypeColId,

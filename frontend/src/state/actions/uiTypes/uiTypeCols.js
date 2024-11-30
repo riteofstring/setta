@@ -38,12 +38,6 @@ export function deleteParamInfoFromUITypeCol({ uiTypeColId, ids }) {
   });
 }
 
-export function updateUITypeCols({ uiTypeCols }) {
-  useSectionInfos.setState((state) => {
-    state.uiTypeCols = { ...state.uiTypeCols, ...uiTypeCols };
-  });
-}
-
 function getParamUITypeId(sectionId, paramInfoId) {
   const { uiTypeColId } = getSectionInfo(sectionId);
   const uiTypeCol = useSectionInfos.getState().uiTypeCols[uiTypeColId];

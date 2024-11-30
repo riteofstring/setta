@@ -74,12 +74,6 @@ export function removeSectionInfos(payload) {
   });
 }
 
-export function updateSections(payload) {
-  useSectionInfos.setState((state) => {
-    state.x = { ...state.x, ...payload };
-  });
-}
-
 export function setSectionResizeEvent({ sectionId, resizeEvent }) {
   useSectionInfos.setState((state) => {
     state.x[sectionId].resizeEvent = resizeEvent;
@@ -118,4 +112,22 @@ export function setAllPreviewVariantIdsToNull() {
       s.previewVariantId = null;
     }
   });
+}
+
+export function updateSectionInfos({
+  sections,
+  sectionVariants,
+  uiTypes,
+  uiTypeCols,
+  codeInfo,
+  codeInfoCols,
+}) {
+  useSectionInfos.setState((state) => ({
+    x: { ...state.x, ...sections },
+    variants: { ...state.variants, ...sectionVariants },
+    uiTypes: { ...state.uiTypes, ...uiTypes },
+    uiTypeCols: { ...state.uiTypeCols, ...uiTypeCols },
+    codeInfo: { ...state.codeInfo, ...codeInfo },
+    codeInfoCols: { ...state.codeInfoCols, ...codeInfoCols },
+  }));
 }

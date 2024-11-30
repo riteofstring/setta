@@ -79,11 +79,6 @@ export function deleteParamInfoFromSectionVariant({ variantId, ids }) {
     );
   });
 }
-export function updateSectionVariants({ sectionVariants }) {
-  useSectionInfos.setState((state) => {
-    state.variants = { ...state.variants, ...sectionVariants };
-  });
-}
 
 export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
   const uiType = useSectionInfos.getState().uiTypes[uiTypeId];
