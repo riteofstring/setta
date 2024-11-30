@@ -19,7 +19,7 @@ export function useHasTempNested(sectionId) {
 
 export function useHasPermanentNested(sectionId) {
   return useSectionInfos((x) => {
-    const variantId = x.x[sectionId].variantId;
+    const variantId = x.x[sectionId]?.variantId;
     return variantId ? x.variants[variantId].children.length > 0 : false;
   });
 }
