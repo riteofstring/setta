@@ -3,8 +3,20 @@ import { DNDSortable } from "forks/dnd-kit/DNDSortable";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useSectionInfos } from "state/definitions";
 import { SortableSectionContainer } from "./SortableSectionContainer";
+import { useHasTempNested } from "./utils";
 
-export function ManyNestedSections({ sectionId, isDeck }) {
+export function MaybeManyNestedSections({ sectionId, isDeck }) {
+  const hasNested = useHasTempNested(sectionId);
+  return (
+    hasNested && (
+      <div className="flex flex-col">
+        <ManyNestedSections sectionId={sectionId} isDeck={isDeck} />
+      </div>
+    )
+  );
+}
+
+function ManyNestedSections({ sectionId, isDeck }) {
   const tempChildIds = useDndChildren((x) => x.x[sectionId]);
 
   return (
