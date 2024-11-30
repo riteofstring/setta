@@ -1,7 +1,9 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import {
   getParamIds,
   getParamIdsToShowInArea,
+  paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
 import { getSectionVariantToShow } from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";
@@ -16,15 +18,19 @@ export function useParamInfosForSidePane(sectionId) {
     );
     const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
 
-    const { ids } = getParamIds(
+    const { ids, pathMap } = getParamIds(
       sectionId,
       x.codeInfo,
       codeInfoChildren,
       selectedItem,
+      (p) => p.rcType === C.PARAMETER,
     );
     const output = [];
     for (const id of ids) {
-      output.push(x.codeInfo[id]);
+      output.push({
+        id,
+        name: paramNameFromPathArray(x.codeInfo, pathMap, id),
+      });
     }
     return output;
   }, _.isEqual);
