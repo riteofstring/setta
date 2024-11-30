@@ -52,7 +52,9 @@ export interface SensorProps<T> {
   onEnd(): void;
 }
 
-export type SensorInstance = {};
+export type SensorInstance = {
+  autoScrollEnabled: boolean;
+};
 
 export type SensorActivatorFunction<T> = (
   event: any,

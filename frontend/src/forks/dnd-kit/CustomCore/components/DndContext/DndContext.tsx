@@ -19,8 +19,12 @@ import React, {
 } from "react";
 import { unstable_batchedUpdates } from "react-dom";
 
-import type { SyntheticListener } from "../../hooks/utilities";
+import type {
+  AutoScrollOptions,
+  SyntheticListener,
+} from "../../hooks/utilities";
 import {
+  useAutoScroller,
   useCachedNode,
   useCombineActivators,
   useDragOverlayMeasuring,
@@ -41,6 +45,7 @@ import type {
   SensorActivatorFunction,
   SensorContext,
   SensorDescriptor,
+  SensorInstance,
 } from "../../sensors";
 import {
   Action,
@@ -91,6 +96,7 @@ export interface Props {
     restoreFocus?: boolean;
     screenReaderInstructions?: ScreenReaderInstructions;
   };
+  autoScroll?: boolean | AutoScrollOptions;
   cancelDrop?: CancelDrop;
   children?: React.ReactNode;
   collisionDetection?: CollisionDetection;
@@ -131,6 +137,7 @@ enum Status {
 export const DndContext = memo(function DndContext({
   id,
   accessibility,
+  autoScroll = true,
   children,
   sensors = defaultSensors,
   collisionDetection = rectIntersection,
@@ -166,6 +173,7 @@ export const DndContext = memo(function DndContext({
     [activeId, node],
   );
   const activeRef = useRef<UniqueIdentifier | null>(null);
+  const [activeSensor, setActiveSensor] = useState<SensorInstance | null>(null);
   const [activatorEvent, setActivatorEvent] = useState<Event | null>(null);
   const latestProps = useLatestValue(props, Object.values(props));
   const draggableDescribedById = useUniqueId(`DndDescribedBy`, id);
@@ -185,6 +193,7 @@ export const DndContext = memo(function DndContext({
     () => (activatorEvent ? getEventCoordinates(activatorEvent) : null),
     [activatorEvent],
   );
+  const autoScrollOptions = getAutoScrollerOptions();
   const initialActiveNodeRect = useInitialRect(
     activeNode,
     measuringConfiguration.draggable.measure,
@@ -192,6 +201,7 @@ export const DndContext = memo(function DndContext({
 
   useLayoutShiftScrollCompensation({
     activeNode: activeId ? draggableNodes.get(activeId) : null,
+    config: autoScrollOptions.layoutShiftCompensation,
     initialRect: initialActiveNodeRect,
     measure: measuringConfiguration.draggable.measure,
   });
@@ -365,7 +375,6 @@ export const DndContext = memo(function DndContext({
               active: id,
             });
             dispatchMonitorEvent({ type: "onDragStart", event });
-            setActivatorEvent(activatorEvent);
           });
         },
         onMove(coordinates) {
@@ -376,6 +385,11 @@ export const DndContext = memo(function DndContext({
         },
         onEnd: createHandler(Action.DragEnd),
         onCancel: createHandler(Action.DragCancel),
+      });
+
+      unstable_batchedUpdates(() => {
+        setActiveSensor(sensorInstance);
+        setActivatorEvent(event.nativeEvent);
       });
 
       function createHandler(type: Action.DragEnd | Action.DragCancel) {
@@ -410,6 +424,7 @@ export const DndContext = memo(function DndContext({
             dispatch({ type });
             setStatus(Status.Uninitialized);
             setOver(null);
+            setActiveSensor(null);
             setActivatorEvent(null);
 
             const eventName =
@@ -602,6 +617,15 @@ export const DndContext = memo(function DndContext({
     scrollAdjustedTranslate,
   ]);
 
+  useAutoScroller({
+    ...autoScrollOptions,
+    delta: translate,
+    draggingRect: collisionRect,
+    pointerCoordinates,
+    scrollableAncestors,
+    scrollableAncestorRects,
+  });
+
   const publicContext = useMemo(() => {
     const context: PublicContextDescriptor = {
       active,
@@ -694,4 +718,26 @@ export const DndContext = memo(function DndContext({
       />
     </DndMonitorContext.Provider>
   );
+
+  function getAutoScrollerOptions() {
+    const activeSensorDisablesAutoscroll =
+      activeSensor?.autoScrollEnabled === false;
+    const autoScrollGloballyDisabled =
+      typeof autoScroll === "object"
+        ? autoScroll.enabled === false
+        : autoScroll === false;
+    const enabled =
+      isInitialized &&
+      !activeSensorDisablesAutoscroll &&
+      !autoScrollGloballyDisabled;
+
+    if (typeof autoScroll === "object") {
+      return {
+        ...autoScroll,
+        enabled,
+      };
+    }
+
+    return { enabled };
+  }
 });

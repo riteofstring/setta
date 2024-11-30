@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { subscribe } from "state/subscriptions";
 import { pauseTemporal } from "state/utils";
@@ -13,6 +14,10 @@ pauseTemporal();
 
 const container = document.getElementById("root");
 const root = createRoot(container);
-root.render(<App />);
+root.render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
 
 reportWebVitals();

@@ -55,7 +55,6 @@ function _RegularSortableSectionContainer({ sectionId, forceApplyTransform }) {
     overIndex,
     items,
   } = useSortable({ ...dndProps, animateLayoutChanges });
-  console.log("_RegularSortableSectionContainer");
   return (
     <SortableCore
       sectionId={sectionId}

@@ -24,13 +24,16 @@ export type {
   ScreenReaderInstructions,
 } from "./components";
 export {
+  AutoScrollActivator,
   MeasuringFrequency,
   MeasuringStrategy,
+  TraversalOrder,
   useDndContext,
   useDraggable,
   useDroppable,
 } from "./hooks";
 export type {
+  AutoScrollOptions,
   DraggableAttributes,
   DraggableSyntheticListeners,
   DroppableMeasuring,
