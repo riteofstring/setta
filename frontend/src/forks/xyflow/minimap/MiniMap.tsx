@@ -136,7 +136,6 @@ function MiniMap({
           return;
         }
 
-        // @TODO: how to calculate the correct next position? Math.max(1, transform[2]) is a workaround.
         const moveScale =
           viewScaleRef.current *
           Math.max(transform[2], Math.log(transform[2])) *
