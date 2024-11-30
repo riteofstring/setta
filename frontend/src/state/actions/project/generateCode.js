@@ -7,6 +7,7 @@ import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";
 import { sendMessage } from "requests/websocket";
 import { useWebsocketConnectionList } from "state/definitions";
+import { getForSectionId } from "state/hooks/paramSweep";
 import {
   addTerminalInitialMessage,
   sendTerminalMessage,
@@ -70,7 +71,15 @@ function* getProjectRuns(project) {
     !Object.values(project.projectConfig.runGroupSelection).some((x) => x)
   ) {
     const variant = _.cloneDeep(project);
-    yield* getProjectVariants(variant);
+    const paramSweepSectionVariantIds = {};
+    for (const s of variant.sections) {
+      if (s.paramSweepSectionId) {
+        // add the currently selected variant id for the param sweep section
+        paramSweepSectionVariantIds[s.paramSweepSectionId] =
+          variant.sections[s.paramSweepSectionId].variantId;
+      }
+    }
+    yield* getProjectVariants(variant, paramSweepSectionVariantIds);
   } else {
     for (const [runGroupId, runGroup] of Object.entries(project.runGroups)) {
       if (!project.projectConfig.runGroupSelection[runGroupId]) {
@@ -109,7 +118,14 @@ function* getProjectRuns(project) {
           }
         }
 
-        yield* getProjectVariants(variant);
+        const paramSweepSectionVariantIds = {};
+        for (const c of combo) {
+          if (c.paramSweepId) {
+            const { paramSweepSectionId } = variant.sections[c.sectionId];
+            paramSweepSectionVariantIds[paramSweepSectionId] = c.paramSweepId;
+          }
+        }
+        yield* getProjectVariants(variant, paramSweepSectionVariantIds);
       }
     }
   }
@@ -174,11 +190,13 @@ function getSectionsParamSweepsAndVersions(
   return sectionParamSweepsAndVersions;
 }
 
-function* getProjectVariants(project) {
+function* getProjectVariants(project, paramSweepSectionVariantIds) {
   const allSweeps = [];
-  for (const [paramSweepId, details] of Object.entries(project.paramSweeps)) {
-    for (const s of details.sweep) {
-      allSweeps.push({ paramSweepId, ...s });
+  for (const [paramSweepSectionId, variantId] of Object.entries(
+    paramSweepSectionVariantIds,
+  )) {
+    for (const s of project.sectionVariants[variantId].sweep) {
+      allSweeps.push({ paramSweepSectionId, variantId, ...s });
     }
   }
 
@@ -191,12 +209,14 @@ function* getProjectVariants(project) {
     for (const combo of generateParamSweepCombinations(allSweeps)) {
       const variant = _.cloneDeep(project);
       for (const parts of combo) {
-        const { paramSweepId, selectedItem, paramInfoId, value } = parts;
-        const forSectionId = Object.values(project.sections).find((x) =>
-          x.paramSweepIds.includes(paramSweepId),
-        ).id;
-        const { variantId: sectionVariantId } = project.sections[forSectionId];
-        const sectionVariant = variant.sectionVariants[sectionVariantId];
+        const { paramSweepSectionId, selectedItem, paramInfoId, value } = parts;
+        const forSectionId = getForSectionId(
+          project.sections,
+          paramSweepSectionId,
+        );
+        const { variantId: forSectionVariantId } =
+          project.sections[forSectionId];
+        const sectionVariant = variant.sectionVariants[forSectionVariantId];
         sectionVariant.selectedItem = selectedItem;
         if (paramInfoId) {
           sectionVariant.values[paramInfoId].value = value;

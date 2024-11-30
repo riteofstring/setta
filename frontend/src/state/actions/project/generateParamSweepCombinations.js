@@ -1,11 +1,11 @@
 export function* generateParamSweepCombinations(input) {
-  // First, group items by paramSweepId for easier validation
+  // First, group items by variantId for easier validation
   const sweepGroups = {};
   for (const item of input) {
-    if (!sweepGroups[item.paramSweepId]) {
-      sweepGroups[item.paramSweepId] = [];
+    if (!sweepGroups[item.variantId]) {
+      sweepGroups[item.variantId] = [];
     }
-    sweepGroups[item.paramSweepId].push(item);
+    sweepGroups[item.variantId].push(item);
   }
 
   // Helper generator function to yield combinations
@@ -32,7 +32,7 @@ export function* generateParamSweepCombinations(input) {
       if (
         pickedItems.some(
           (picked) =>
-            picked.paramSweepId === item.paramSweepId &&
+            picked.variantId === item.variantId &&
             picked.selectedItem !== item.selectedItem,
         )
       ) {
@@ -48,7 +48,7 @@ export function* generateParamSweepCombinations(input) {
         paramValues[param.paramInfoId] = param.values;
       }
 
-      // Generate combinations for this paramSweepId + selectedItem
+      // Generate combinations for this variantId + selectedItem
       function generateParamCombos(paramIds, paramCurrent = {}) {
         if (paramIds.length === 0) {
           paramCombinations.push({ ...paramCurrent });
@@ -60,7 +60,8 @@ export function* generateParamSweepCombinations(input) {
 
         for (const value of paramValues[paramId]) {
           paramCurrent[paramId] = {
-            paramSweepId: item.paramSweepId,
+            paramSweepSectionId: item.paramSweepSectionId,
+            variantId: item.variantId,
             selectedItem: item.selectedItem,
             paramInfoId: paramId,
             value: value,
@@ -74,7 +75,7 @@ export function* generateParamSweepCombinations(input) {
       // Try each complete parameter combination for this item
       for (const paramCombo of paramCombinations) {
         const newCurrent = { ...current };
-        const sweepAndItem = `${item.paramSweepId}-${item.selectedItem}`;
+        const sweepAndItem = `${item.variantId}-${item.selectedItem}`;
         newCurrent[sweepAndItem] = paramCombo;
 
         yield* generateCombos(nextSweepIds, [...pickedItems, item], newCurrent);
