@@ -19,15 +19,14 @@ const RUNNABLE_SECTION_TYPES = [
   C.CODE,
 ];
 
-export function initRunGroup(variantId) {
-  useSectionInfos.setState((state) => {
-    state.variants[variantId].runGroup = { sections: {} };
-    for (const c of useNodeInternals.getState().x.keys()) {
-      if (RUNNABLE_SECTION_TYPES.includes(getSectionType(c).type)) {
-        maybeInitRunGroupSection(state, variantId, c, null);
-      }
+// use inside of setState
+export function initRunGroup(variantId, state) {
+  state.variants[variantId].runGroup = { sections: {} };
+  for (const c of useNodeInternals.getState().x.keys()) {
+    if (RUNNABLE_SECTION_TYPES.includes(getSectionType(c).type)) {
+      maybeInitRunGroupSection(state, variantId, c, null);
     }
-  });
+  }
 }
 
 export function toggleRunGroup(sectionId, runGroupId) {

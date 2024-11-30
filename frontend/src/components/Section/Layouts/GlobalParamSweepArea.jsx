@@ -526,7 +526,7 @@ function FilterSection() {
 function CreateNewRunGroupButton({ sectionId }) {
   async function onClick() {
     const variantId = await createNewVersion(sectionId);
-    initRunGroup(variantId);
+    useSectionInfos.setState((state) => initRunGroup(variantId, state));
   }
 
   return (

@@ -17,11 +17,7 @@ import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
 import { insertIntoArray } from "utils/utils";
-import {
-  getSectionInfo,
-  getSectionParentId,
-  getSectionType,
-} from "../../getters/sectionInfo";
+import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
 import { updateKeywordRegex } from "../keywordRegex";
 import { initRunGroup } from "../runGroups/runGroups";
 import {
@@ -200,6 +196,9 @@ function addSectionsToState(sectionInfos, position) {
       x.variants[s.variantId] = newSectionVariant({ codeInfoColId });
       x.uiTypeCols[s.uiTypeColId] = {};
       x.x[s.id] = s;
+      if (x.uiTypes[s.uiTypeId].type === C.GLOBAL_PARAM_SWEEP) {
+        initRunGroup(s.variantId, x);
+      }
     }
   });
 
@@ -220,12 +219,6 @@ function addSectionsToState(sectionInfos, position) {
         tempZIndex: 0,
       })),
     );
-  }
-
-  for (const s of Object.values(sectionInfos)) {
-    if (getSectionType(s.id).type === C.GLOBAL_PARAM_SWEEP) {
-      initRunGroup(s.variantId);
-    }
   }
 }
 
