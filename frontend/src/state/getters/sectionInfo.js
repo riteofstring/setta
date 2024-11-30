@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
-import { isRoot } from "utils/sectionTypeHelpers";
+import { getIsRoot } from "utils/sectionTypeHelpers";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];
@@ -21,7 +21,7 @@ export function getSectionType(sectionId) {
 }
 
 export function getSectionIsRoot(sectionId) {
-  return isRoot(getSectionType(sectionId).type);
+  return getIsRoot(getSectionType(sectionId).type);
 }
 
 export function getSectionCanOnlyBeChildOfDeck(sectionId) {

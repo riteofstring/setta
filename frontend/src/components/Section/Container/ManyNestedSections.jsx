@@ -30,7 +30,6 @@ function ManyNestedSections({ sectionId, isDeck }) {
   );
 }
 
-// disabled is passed in by DNDSortable
 function NestedSectionsWithMargin({ childIds, sectionId, isDeck }) {
   const onClick = () => {
     goToSection(sectionId);
