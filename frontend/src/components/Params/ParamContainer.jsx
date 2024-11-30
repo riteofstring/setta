@@ -47,11 +47,13 @@ function _ParamContainer({
     isSelected: paramIsSelected,
     description: paramDescription,
     name: paramName,
-  } = useSectionInfos(
-    (x) =>
-      _.pick(x.codeInfo[paramInfoId], ["isSelected", "description", "name"]),
-    _.isEqual,
-  );
+  } = useSectionInfos((x) => {
+    return {
+      isSelected: x.codeInfo[paramInfoId].isSelected,
+      description: x.codeInfo[paramInfoId].description,
+      name: x.codeInfo[paramInfoId].name,
+    };
+  }, _.isEqual);
 
   const paramChildren = useCodeInfoChildren(sectionId, paramInfoId);
 
