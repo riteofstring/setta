@@ -91,9 +91,6 @@ export function updateNodeDimensions(updates) {
         ...fitViewOnInitOptions,
       }));
 
-  useNodeInternals.setState({
-    x: _.cloneDeep(nodeInternals),
-  });
   useReactFlow.setState({ fitViewOnInitDone: nextFitViewOnInitDone });
 
   if (changes?.length > 0) {
