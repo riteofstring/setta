@@ -1,23 +1,24 @@
 import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
-import { useKeywordRegex, useMisc, useSectionInfos } from "state/definitions";
+import { useKeywordRegex, useSectionInfos } from "state/definitions";
 import { getRegexAndColorMap } from "./actions/keywordRegex";
 import { getSectionIdToChildrenToShow } from "./actions/sectionVariants";
 
 export function subscribe() {
-  useSectionInfos.subscribe(singletonSectionsSubscriptionFn, (x) => {
-    useMisc.setState((state) => {
-      state.singletonSections = x;
-    });
-  });
+  useSectionInfos.subscribe(
+    singletonSectionsSubscriptionFn,
+    (x) => {
+      useSectionInfos.setState((state) => {
+        state.singletonSections = x;
+      });
+    },
+    { equalityFn: _.isEqual },
+  );
 
   useSectionInfos.subscribe(
     keywordRegexSubscriptionFn,
-    (x) =>
-      useKeywordRegex.setState(
-        getRegexAndColorMap(_.mapValues(x.x, (v) => v.name)),
-      ),
+    (x) => useKeywordRegex.setState(getRegexAndColorMap(x)),
     { equalityFn: _.isEqual },
   );
 

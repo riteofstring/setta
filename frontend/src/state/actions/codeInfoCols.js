@@ -6,7 +6,7 @@ import { getSectionCodeInfoColId } from "./sectionVariants";
 export function getSectionCodeInfoChildren(sectionId) {
   return useSectionInfos.getState().codeInfoCols[
     getSectionCodeInfoColId(sectionId)
-  ]["children"];
+  ].children;
 }
 
 export function getCodeInfoChildren(sectionId, codeInfoId) {

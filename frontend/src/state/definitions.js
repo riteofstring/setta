@@ -29,6 +29,10 @@ export const useSectionInfos = createProjectState(
           uiTypes: {},
           codeInfoCols: {},
           codeInfo: {},
+          singletonSections: {
+            [C.GLOBAL_VARIABLES]: null,
+            [C.GLOBAL_PARAM_SWEEP]: null,
+          },
         }),
       ),
     ),
@@ -150,10 +154,6 @@ export const useMisc = create(
       mouseDownDrawArea: false,
       mouseDownDraggingSection: false,
       lastPaneClickLocation: { x: 0, y: 0 },
-      singletonSections: {
-        [C.GLOBAL_VARIABLES]: null,
-        [C.GLOBAL_PARAM_SWEEP]: null,
-      },
     })),
   ),
 );

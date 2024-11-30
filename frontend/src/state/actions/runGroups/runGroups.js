@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useMisc, useNodeInternals, useSectionInfos } from "state/definitions";
+import { useNodeInternals, useSectionInfos } from "state/definitions";
 import {
   getSectionByName,
   getSectionInfo,
@@ -234,7 +234,7 @@ export function setAllRunGroupsAndMaybeCreateSection(runGroups) {
   console.log("stateFormt", stateFormat);
 
   setAllRunGroups(stateFormat);
-  if (!useMisc.getState().singletonSections[C.GLOBAL_PARAM_SWEEP]) {
+  if (!useSectionInfos.getState().singletonSections[C.GLOBAL_PARAM_SWEEP]) {
     console.log("will create section");
   } else {
     console.log("section already exists");

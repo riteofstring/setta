@@ -1,32 +1,22 @@
 import C from "constants/constants.json";
 import { getParamIds } from "state/actions/sections/sectionContents";
-import { useMisc, useSectionInfos } from "state/definitions";
-import {
-  getSectionType,
-  hasParentInFlattenedStructure,
-} from "state/getters/sectionInfo";
-import { getSectionCodeInfoChildren } from "./codeInfoCols";
-import { getSectionChildren } from "./sectionVariants";
 
-export function getRegexAndColorMap(sectionIdsToNames) {
-  const topLevelIds = Object.keys(sectionIdsToNames).filter(
-    (x) =>
-      !hasParentInFlattenedStructure(x) &&
-      [C.GLOBAL_VARIABLES, C.SECTION, C.LIST_ROOT, C.DICT_ROOT].includes(
-        getSectionType(x).type,
-      ),
+// input is useSectionInfos state
+export function getRegexAndColorMap(state) {
+  const topLevelIds = Object.keys(state.x).filter((id) =>
+    [C.GLOBAL_VARIABLES, C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.DECK].includes(
+      state.uiTypes[state.x[id].uiTypeId].type,
+    ),
   );
   const names = [];
   const fullNameToInfo = {};
-  const sectionState = useSectionInfos.getState().x;
   for (const sid of topLevelIds) {
-    if (useMisc.getState().singletonSections[C.GLOBAL_VARIABLES] === sid) {
-      setFullParamRegex(sid, null, names, fullNameToInfo, "", [], true);
+    if (state.singletonSections[C.GLOBAL_VARIABLES] === sid) {
+      setFullParamRegex(state, sid, null, names, fullNameToInfo, "", [], true);
     } else {
-      const currName = sectionIdsToNames[sid];
+      const currName = state.x[sid].name;
       setFullChildrenNamesForRegex(
-        sectionState,
-        sectionIdsToNames,
+        state,
         names,
         fullNameToInfo,
         sid,
@@ -67,23 +57,23 @@ export function dummyRegExpObject() {
 }
 
 function setFullChildrenNamesForRegex(
-  sectionState,
-  sectionIdsToNames,
+  state,
   allNames,
   fullNameToInfo,
   sectionId,
   parentName,
   parentLengths,
 ) {
-  const sectionTypeName = getSectionType(sectionId).type;
-  for (const [idx, c] of getSectionChildren(sectionId).entries()) {
-    const name = sectionIdsToNames[c];
+  const sectionTypeName = state.uiTypes[state.x[sectionId].uiTypeId].type;
+  for (const [idx, c] of state.variants[
+    state.x[sectionId].variantId
+  ].children.entries()) {
+    const name = state.x[c].name;
     const currComponentName =
       sectionTypeName === C.LIST_ROOT ? `[${idx.toString()}]` : `["${name}"]`;
     const currFullName = `${parentName}${currComponentName}`;
     setFullChildrenNamesForRegex(
-      sectionState,
-      sectionIdsToNames,
+      state,
       allNames,
       fullNameToInfo,
       c,
@@ -95,6 +85,7 @@ function setFullChildrenNamesForRegex(
   const argsFullName = `${C.ARGS_PREFIX}${parentName}`;
   const argsParentLengths = parentLengths.map((x) => x + C.ARGS_PREFIX.length);
   setFullParamRegex(
+    state,
     sectionId,
     null,
     allNames,
@@ -121,6 +112,7 @@ function setFullChildrenNamesForRegex(
 }
 
 function setFullParamRegex(
+  state,
   sectionId,
   paramInfoId,
   allNames,
@@ -129,12 +121,14 @@ function setFullParamRegex(
   parentLengths,
   isGlobalVar = false,
 ) {
-  const codeInfoState = useSectionInfos.getState().codeInfo;
-  const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
+  const codeInfoChildren =
+    state.codeInfoCols[
+      state.variants[state.x[sectionId].variantId].codeInfoColId
+    ].children;
   const childParamInfos = paramInfoId
-    ? codeInfoChildren[paramInfoId].map((x) => codeInfoState[x])
-    : getParamIds(sectionId, codeInfoState, codeInfoChildren)["ids"].map(
-        (x) => codeInfoState[x],
+    ? codeInfoChildren[paramInfoId].map((x) => state.codeInfo[x])
+    : getParamIds(sectionId, state.codeInfo, codeInfoChildren).ids.map(
+        (x) => state.codeInfo[x],
       );
 
   for (const p of childParamInfos) {
@@ -144,6 +138,7 @@ function setFullParamRegex(
     const fullName = isGlobalVar ? p.name : `${parentName}["${p.name}"]`;
     const newLengthsArray = [...parentLengths, fullName.length];
     setFullParamRegex(
+      state,
       sectionId,
       p.id,
       allNames,

@@ -51,11 +51,3 @@ export function getSectionSiblingNames(sectionId) {
 export function getSectionByName(name) {
   return _.find(useSectionInfos.getState().x, (x) => x.name === name);
 }
-
-export function hasParentInFlattenedStructure(sectionId) {
-  let parentId = getSectionParentId(sectionId);
-  while (parentId && getSectionIsDeck(parentId)) {
-    parentId = getSectionParentId(parentId);
-  }
-  return parentId !== null;
-}
