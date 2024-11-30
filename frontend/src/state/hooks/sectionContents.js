@@ -28,12 +28,6 @@ export function useGetParamInfosThatHaveNames(sectionId) {
   }, _.isEqual);
 }
 
-export function useHasParams(sectionId) {
-  return useSectionInfos(
-    (x) => getParamIds(sectionId, x.codeInfo)["ids"].length > 0,
-  );
-}
-
 export function useParamIdsToShowInArea(sectionId, isPinned) {
   const selectedItem = useSectionSelectedItem(sectionId);
   const codeInfoChildren = useSectionCodeInfoChildren(sectionId);

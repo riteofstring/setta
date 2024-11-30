@@ -1,13 +1,13 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
+import { getParamIds } from "state/actions/sections/sectionContents";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
-import { useHasParams } from "state/hooks/sectionContents";
 
 export function HideShowParamsButton({ sectionId }) {
-  const hasParams = useHasParams(sectionId);
-  const { hideSearch, hideParams } = useSectionInfos((x) => {
+  const { hasParams, hideSearch, hideParams } = useSectionInfos((x) => {
     return {
+      hasParams: getParamIds(sectionId, x.codeInfo)["ids"].length > 0,
       hideSearch: x.x[sectionId].hideSearch,
       hideParams: x.x[sectionId].hideParams,
     };
