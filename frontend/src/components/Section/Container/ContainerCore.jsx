@@ -4,10 +4,9 @@ import { openDeckContextMenu } from "state/actions/contextMenus";
 import { useActiveSection, useSectionInfos } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { useHasTempNested } from "state/hooks/sections";
 import { sectionContainerCoreOnKeyDown } from "utils/tabbingLogic";
 import { SectionTitle } from "../Header/SectionTitle";
-import { getOnSectionClick, getOutlineColor } from "./utils";
+import { getOnSectionClick, getOutlineColor, useHasTempNested } from "./utils";
 
 function _Container({
   isDeck,

@@ -1,10 +1,10 @@
 import _ from "lodash";
 import React from "react";
-import { useHasTempNested } from "state/hooks/sections";
 import { useIsDeck } from "state/hooks/uiTypes";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { ManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
+import { useHasTempNested } from "./utils";
 
 function _SectionContainer({ sectionId, dragListeners }) {
   const isDeck = useIsDeck(sectionId);

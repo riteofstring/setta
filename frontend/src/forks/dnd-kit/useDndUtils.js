@@ -2,10 +2,10 @@ import { useDndMonitor } from "forks/dnd-kit/CustomCore";
 import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { useEffect } from "react";
+import { useSectionInfos } from "state/definitions";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import colors from "tailwindcss/colors";
-import { useHasPermanentNested } from "../../state/hooks/sections";
 
 export function useHighlightDroppable(sectionId) {
   const overIsSelf = useOverIsSelf(sectionId);
@@ -100,4 +100,11 @@ export function useDndProps({ sectionId, isTopLevel }) {
 
 export function useOverIsSelf(sectionId) {
   return useDndState((x) => x.overId === sectionId);
+}
+
+function useHasPermanentNested(sectionId) {
+  return useSectionInfos((x) => {
+    const variantId = x.x[sectionId]?.variantId;
+    return variantId ? x.variants[variantId].children.length > 0 : false;
+  });
 }
