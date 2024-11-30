@@ -3,13 +3,11 @@ import C from "constants/constants.json";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
-import { newCodeInfo } from "utils/objs/codeInfo";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionPosition } from "utils/objs/sectionPosition";
 import { insertIntoArray } from "utils/utils";
@@ -18,7 +16,6 @@ import {
   getSectionParentId,
   getSectionType,
 } from "../../getters/sectionInfo";
-import { addCodeInfo } from "../codeInfo";
 import { initManyCodeInfoCols } from "../codeInfoCols";
 import { updateKeywordRegex } from "../keywordRegex";
 import { initRunGroup } from "../runGroups/runGroups";
@@ -265,44 +262,5 @@ export function onClickAddSection({
     incrementVersion,
     inputSectionProps,
     position,
-  });
-}
-
-export function createSectionsFromArgparse({ pathToScript, args, ...props }) {
-  const varSectionId = onClickAddSection({
-    type: C.GLOBAL_VARIABLES,
-    ...props,
-    incrementVersion: false,
-  });
-
-  const sectionCodeInfoId = getSectionInfo(varSectionId).codeInfoId;
-
-  const paramIdToUITypeId = {};
-  for (const arg of args) {
-    const info = newCodeInfo({
-      name: arg.name,
-      rcType: C.PARAMETER,
-      editable: true,
-    });
-    addCodeInfo({ info, parent: sectionCodeInfoId });
-    if (arg.type === "store_true") {
-      paramIdToUITypeId[info.id] = BASE_UI_TYPE_IDS.SWITCH;
-    }
-  }
-
-  initializeChildParams({
-    sectionIds: [varSectionId],
-    codeInfoIds: [sectionCodeInfoId],
-    inputParamIdToUITypeId: paramIdToUITypeId,
-  });
-
-  onClickAddSection({
-    type: C.CODE,
-    ...props,
-    x: props.x + 600,
-    incrementVersion: false,
-    inputSectionProps: {
-      script: `python ${pathToScript} $SETTA_PYTHON_ARGPARSE`,
-    },
   });
 }

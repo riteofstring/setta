@@ -10,7 +10,6 @@ import {
   ExportJSONModal,
   ImportJSONModal,
 } from "./ImportExportModal/ImportExportModal";
-import { CreateFromArgparseModal } from "./PaneContextModal/CreateFromArgparseModal";
 import { SaveUITypeConfigModal } from "./SaveUITypeConfigModal/SaveUITypeConfigModal";
 import { SaveCustomArgumentsModal } from "./SectionSaveButtonModal/SaveCustomArgumentsModal";
 import "./styles.css";
@@ -55,8 +54,6 @@ function ModalContent({ open }) {
       return <ExportJSONModal open={open} modalType={modalType} />;
     case MODAL_TYPE.IMPORT_JSON.title:
       return <ImportJSONModal modalType={modalType} />;
-    case MODAL_TYPE.CREATE_FROM_ARGPARSE.title:
-      return <CreateFromArgparseModal modalType={modalType} />;
     case MODAL_TYPE.SAVE_UI_TYPE_CONFIG.title:
       return <SaveUITypeConfigModal open={open} modalType={modalType} />;
     case MODAL_TYPE.SAVE_CUSTOM_ARGUMENTS.title:

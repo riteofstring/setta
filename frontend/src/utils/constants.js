@@ -101,11 +101,6 @@ export const MODAL_TYPE = {
     title: "Import JSON",
     buttonText: "Import",
   },
-  CREATE_FROM_ARGPARSE: {
-    purpose: null,
-    title: "Create From Argparse",
-    buttonText: "Create",
-  },
   SAVE_UI_TYPE_CONFIG: {
     purpose: MODAL_PURPOSE.SAVE,
     title: "Save UI Type Config",
