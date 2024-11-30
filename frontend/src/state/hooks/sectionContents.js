@@ -3,28 +3,30 @@ import {
   getParamIds,
   getParamIdsToShowInArea,
 } from "state/actions/sections/sectionContents";
+import { getSectionVariantToShow } from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";
 import { useSectionCodeInfoChildren } from "./codeInfoCols";
 import { useSectionSelectedItem } from "./sectionVariants";
 
-export function useGetParamInfosThatHaveNames(sectionId) {
-  const selectedItem = useSectionSelectedItem(sectionId);
-  const codeInfoChildren = useSectionCodeInfoChildren(sectionId);
-
+export function useParamInfosForSidePane(sectionId) {
   return useSectionInfos((x) => {
+    const { selectedItem, codeInfoColId } = getSectionVariantToShow(
+      sectionId,
+      x,
+    );
+    const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
+
     const { ids } = getParamIds(
       sectionId,
       x.codeInfo,
       codeInfoChildren,
       selectedItem,
     );
-    const haveName = [];
+    const output = [];
     for (const id of ids) {
-      if (x.codeInfo[id].name) {
-        haveName.push(x.codeInfo[id]);
-      }
+      output.push(x.codeInfo[id]);
     }
-    return haveName;
+    return output;
   }, _.isEqual);
 }
 

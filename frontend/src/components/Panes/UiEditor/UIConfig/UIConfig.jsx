@@ -3,7 +3,7 @@ import _ from "lodash";
 import React from "react";
 import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
-import { useGetParamInfosThatHaveNames } from "state/hooks/sectionContents";
+import { useParamInfosForSidePane } from "state/hooks/sectionContents";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
@@ -12,7 +12,7 @@ import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 const UIElement = React.memo(_UIElement, _.isEqual);
 
 const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
-  const paramInfos = useGetParamInfosThatHaveNames(sectionId);
+  const paramInfos = useParamInfosForSidePane(sectionId);
 
   const [filteredList, setFilter] = useMatchSorterFilter(
     paramInfos,

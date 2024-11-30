@@ -2,13 +2,13 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import React from "react";
 import { setCodeInfoDescription } from "state/actions/codeInfo";
-import { useGetParamInfosThatHaveNames } from "state/hooks/sectionContents";
+import { useParamInfosForSidePane } from "state/hooks/sectionContents";
 import { useMatchSorterFilter } from "state/hooks/utils";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
 
 const _QuickInfoConfig = React.forwardRef(({ sectionId }, ref) => {
-  const paramInfos = useGetParamInfosThatHaveNames(sectionId);
+  const paramInfos = useParamInfosForSidePane(sectionId);
 
   const [filteredList, setFilter] = useMatchSorterFilter(
     paramInfos,
