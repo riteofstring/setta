@@ -1,6 +1,7 @@
 import { Badge } from "components/Utils/atoms/badges/badge";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import _ from "lodash";
 import { setWebsocketConnectedTo } from "state/actions/websocketConnectionList";
 import { useWebsocketConnectionList } from "state/definitions";
 
@@ -13,8 +14,12 @@ export function WebsocketConnections() {
 }
 
 function ConnectionList() {
-  const connections = useCLIWebsocketConnectionList();
-  const connectedTo = useWebsocketConnectionList((x) => x.connectedTo);
+  const { connectedTo, connections } = useWebsocketConnectionList((x) => {
+    return {
+      connectedTo: x.connectedTo,
+      connections: x.connections.filter((c) => c.isCLI),
+    };
+  }, _.isEqual);
 
   return connections.length > 0 ? (
     connections.map((x) => (
@@ -36,11 +41,5 @@ function ConnectionItem({ info, connectedTo }) {
       <Badge twClasses={twClasses}>{"CLI"}</Badge>
       {info.websocketId}
     </MenuItem>
-  );
-}
-
-function useCLIWebsocketConnectionList() {
-  return useWebsocketConnectionList((x) =>
-    x.connections.filter((c) => c.isCLI),
   );
 }
