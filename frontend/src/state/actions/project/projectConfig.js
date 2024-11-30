@@ -12,35 +12,11 @@ export function setProjectConfigName(name) {
 
 export function getProjectConfigMetadata() {
   const state = useProjectConfig.getState();
-  const output = _.pick(state, [
-    "id",
-    "name",
-    "isDefault",
-    "runGroupSelection",
-    "shownRunGroup",
-    "previewImgColor",
-  ]);
+  const output = _.pick(state, ["id", "name", "isDefault", "previewImgColor"]);
 
   output.viewport = useReactFlow.getState().fitViewOnInit
     ? null
     : getViewport();
 
   return output;
-}
-
-export function setShownRunGroup(runGroupId) {
-  useProjectConfig.setState({ shownRunGroup: runGroupId });
-}
-
-export function setPreviewRunGroup(runGroupId) {
-  useProjectConfig.setState({ previewRunGroup: runGroupId });
-}
-
-export function getActuallyShownRunGroup() {
-  const p = useProjectConfig.getState();
-  return p.previewRunGroup ?? p.shownRunGroup;
-}
-
-export function clearRunGroupSelection() {
-  useProjectConfig.setState({ runGroupSelection: {}, shownRunGroup: null });
 }

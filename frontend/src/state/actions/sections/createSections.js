@@ -21,7 +21,7 @@ import {
 import { addCodeInfo } from "../codeInfo";
 import { initManyCodeInfoCols } from "../codeInfoCols";
 import { updateKeywordRegex } from "../keywordRegex";
-import { createFirstRunGroup } from "../runGroups/runGroups";
+import { initRunGroup } from "../runGroups/runGroups";
 import {
   getSectionChildren,
   initManySectionVariantIds,
@@ -228,8 +228,10 @@ function addSectionsToState(sectionInfos, position) {
     );
   }
 
-  if (sectionIds.some((x) => getSectionType(x).type === C.GLOBAL_PARAM_SWEEP)) {
-    createFirstRunGroup();
+  for (const s of Object.values(sectionInfos)) {
+    if (getSectionType(s.id).type === C.GLOBAL_PARAM_SWEEP) {
+      initRunGroup(s.variantId);
+    }
   }
 }
 

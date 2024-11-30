@@ -377,7 +377,8 @@
       },
       "isHorizontalOrientation": false,
       "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "isMinimized": false,
+      "selectedVariantIds": {}
     },
     "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
       "id": "4609e4a0-49b2-4065-b1a1-e037a33641f4",
@@ -406,7 +407,8 @@
       },
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "selectedVariantIds": {}
     },
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
@@ -435,7 +437,8 @@
       },
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "selectedVariantIds": {}
     },
     "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
@@ -472,7 +475,8 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
       "aspectRatio": 1,
-      "aspectRatioExtraHeight": 24
+      "aspectRatioExtraHeight": 24,
+      "selectedVariantIds": {}
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -501,7 +505,8 @@
       },
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "selectedVariantIds": {}
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
@@ -536,7 +541,8 @@
       },
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "selectedVariantIds": {}
     }
   },
   "codeInfo": {

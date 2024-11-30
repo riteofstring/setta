@@ -11,7 +11,6 @@ import {
   useKeywordRegex,
   useNodeInternals,
   useProjectConfig,
-  useRunGroups,
   useSectionInfos,
   useSettings,
 } from "state/definitions";
@@ -64,7 +63,6 @@ export function getProjectData({
   );
   const uiTypes = useSectionInfos.getState().uiTypes;
   const uiTypeCols = useSectionInfos.getState().uiTypeCols;
-  const runGroups = useRunGroups.getState().x;
 
   const codeInfo = useCodeInfo.getState().x;
   const codeInfoCols = useSectionInfos.getState().codeInfoCols;
@@ -85,14 +83,13 @@ export function getProjectData({
     }
   }
   projectConfig.children = children;
-  console.log("projectConfig", projectConfig)
+  console.log("projectConfig", projectConfig);
 
   const output = {
     projectConfig,
     sectionVariants,
     uiTypes,
     uiTypeCols,
-    runGroups,
     sections,
     codeInfo,
     codeInfoCols,

@@ -137,21 +137,30 @@ def get_section_ids(db, top_level_ids):
 
 
 def load_section_configs(db, project_config_id):
-    query = """SELECT sectionId, variantId, data
-        FROM SectionConfig
-        WHERE projectConfigId = :projectConfigId
-    """
-    db.execute(query, {"projectConfigId": project_config_id})
-
-    output = {}
-    for row in db.fetchall():
-        output[row["sectionId"]] = {
-            "id": row["sectionId"],
-            "variantId": row["variantId"],
-            **json.loads(row["data"]),
-        }
-
-    return output
+   query = """
+       SELECT s.sectionId, s.variantId, s.data, v.variantId as selectedVariantId
+       FROM SectionConfig s
+       LEFT JOIN SectionConfigSelectedVariants v 
+           ON s.sectionId = v.sectionId 
+           AND s.projectConfigId = v.projectConfigId
+       WHERE s.projectConfigId = :projectConfigId
+   """
+   
+   db.execute(query, {"projectConfigId": project_config_id})
+   output = {}
+   for row in db.fetchall():
+       section_id = row["sectionId"]
+       if section_id not in output:
+           output[section_id] = {
+               "id": section_id,
+               "variantId": row["variantId"],
+               "selectedVariantIds": [],
+               **json.loads(row["data"]),
+           }
+       if row["selectedVariantId"]:
+           output[section_id]["selectedVariantIds"].append(row["selectedVariantId"])
+           
+   return output
 
 
 def num_projects_each_section_exists_in(db, section_ids):

@@ -1,20 +1,18 @@
 import { FaRegSnowflake } from "react-icons/fa";
-import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import {
+  onClickSetVariantId,
+  onMouseLeaveSetPreviewVariantId,
+  onMouseOverSetPreviewVariantId,
+} from "state/actions/previewOnMouseOver";
 import { toggleVariantFrozenState } from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 
 export function VersionList({ sectionId }) {
-  function onMouseLeave() {
-    setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: null });
-    maybeRunGuiToYaml(sectionId);
-  }
-
   return (
     <section
       className="section-grid-cols section-grid-rows section-grid-areas -mx-3 -my-4 grid flex-1 self-stretch"
-      onMouseLeave={onMouseLeave}
+      onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
     >
       <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-2">
         <p className="section-key text-xs text-setta-400 dark:text-setta-600">
@@ -30,24 +28,14 @@ function EVItems({ sectionId }) {
   const currVariantId = useSectionInfos((x) => x.x[sectionId].variantId);
   const sectionVariantNames = useGetSectionVariantNames(sectionId);
 
-  function onMouseOver(id) {
-    setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: id });
-    maybeRunGuiToYaml(sectionId);
-  }
-
-  function onClick(id) {
-    setSectionInfoAttr({ sectionId, attr: "variantId", value: id });
-    maybeRunGuiToYaml(sectionId);
-  }
-
   return sectionVariantNames.map((e) => (
     <OneItem
       key={e.id}
       id={e.id}
       name={e.name}
       isCurr={currVariantId === e.id}
-      onMouseOver={onMouseOver}
-      onClick={onClick}
+      onMouseOver={(id) => onMouseOverSetPreviewVariantId(sectionId, id)}
+      onClick={(id) => onClickSetVariantId(sectionId, id)}
       onFreezeClick={toggleVariantFrozenState}
     />
   ));

@@ -6,11 +6,11 @@ import _ from "lodash";
 import React, { useEffect } from "react";
 import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
 import {
-  setPreviewRunGroup,
-  setShownRunGroup,
-} from "state/actions/project/projectConfig";
+  onClickSetVariantId,
+  onMouseLeaveSetPreviewVariantId,
+  onMouseOverSetPreviewVariantId,
+} from "state/actions/previewOnMouseOver";
 import {
-  createRunGroupWithRandomName,
   toggleRunGroup,
   toggleRunGroupSection,
   toggleRunGroupSectionParamSweep,
@@ -18,11 +18,7 @@ import {
   useRunGroupListing,
   useTopLevelRunGroupListing,
 } from "state/actions/runGroups/runGroups";
-import {
-  useProjectConfig,
-  useRunGroups,
-  useSectionInfos,
-} from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
@@ -38,23 +34,18 @@ export function GlobalParamSweepArea({ sectionId }) {
 }
 
 function GlobalParamSweepGUI({ sectionId, width }) {
-  const firstRunGroupId = useRunGroups((x) => Object.keys(x.x)[0]);
-  const { shownRunGroup, previewRunGroup } = useProjectConfig(
-    (x) => _.pick(x, ["shownRunGroup", "previewRunGroup"]),
-    _.isEqual,
-  );
-  const toShow = previewRunGroup ?? shownRunGroup;
+  const { editingRunGroupId, shownRunGroupId } = useSectionInfos((x) => {
+    const s = x.x[sectionId];
+    return {
+      shownRunGroupId: s.previewVariantId ?? s.variantId,
+      editingRunGroupId: s.variantId,
+    };
+  });
   const { ref, isScrollable } = useIsScrollable();
 
   useEffect(() => {
-    if (!shownRunGroup && firstRunGroupId) {
-      setShownRunGroup(firstRunGroupId);
-    }
-  }, [shownRunGroup, firstRunGroupId]);
-
-  useEffect(() => {
     maybeRunGuiToYaml(sectionId);
-  }, [toShow]);
+  }, [shownRunGroupId]);
 
   return (
     <>
@@ -62,30 +53,33 @@ function GlobalParamSweepGUI({ sectionId, width }) {
         className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll  @sm/multipane:flex-row  @sm/multipane:overflow-visible`}
         ref={ref}
       >
-        <LeftSide shownRunGroup={shownRunGroup} />
-        <RightSide sectionId={sectionId} toShow={toShow} />
+        <LeftSide sectionId={sectionId} editingRunGroupId={editingRunGroupId} />
+        <RightSide sectionId={sectionId} shownRunGroupId={shownRunGroupId} />
       </section>
     </>
   );
 }
 
-function LeftSide({ shownRunGroup }) {
+function LeftSide({ sectionId, editingRunGroupId }) {
   return (
     <article className="mt-2 flex flex-col gap-2 ">
       <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
         Run Groups
       </h3>
 
-      <RunGroupList shownRunGroup={shownRunGroup} />
+      <RunGroupList
+        sectionId={sectionId}
+        editingRunGroupId={editingRunGroupId}
+      />
       <CreateNewRunGroupButton />
     </article>
   );
 }
 
-function RightSide({ sectionId, toShow }) {
+function RightSide({ sectionId, shownRunGroupId }) {
   const showYaml = useShowYaml(sectionId);
 
-  if (!toShow) {
+  if (!shownRunGroupId) {
     return null;
   }
   return (
@@ -96,7 +90,7 @@ function RightSide({ sectionId, toShow }) {
             Sections
           </h3>
           <FilterSection />
-          <TopLevelSectionList runGroupId={toShow} />
+          <TopLevelSectionList runGroupId={shownRunGroupId} />
         </>
       ) : (
         <YamlView sectionId={sectionId} />
@@ -105,16 +99,16 @@ function RightSide({ sectionId, toShow }) {
   );
 }
 
-function RunGroupList({ shownRunGroup }) {
-  const runGroupSelection = useProjectConfig(
-    (x) => x.runGroupSelection,
-    _.isEqual,
+function RunGroupList({ sectionId, editingRunGroupId }) {
+  const runGroupSelection = useSectionInfos(
+    (x) => x.x[sectionId].selectedVariantIds,
   );
   const { ref, isScrollable } = useIsScrollable();
-  const runGroupsDetails = useRunGroups((x) => {
+  const runGroupsDetails = useSectionInfos((x) => {
     const output = [];
-    for (const [id, details] of Object.entries(x.x)) {
-      output.push({ id, name: details.name });
+    const { variantIds } = x.x[sectionId];
+    for (const id of variantIds) {
+      output.push({ id, name: x.variants[id].name });
     }
     return output;
   }, _.isEqual);
@@ -127,14 +121,14 @@ function RunGroupList({ shownRunGroup }) {
       {runGroupsDetails.map(({ id, name }) => (
         <CheckboxNextToLabel
           key={id}
-          shown={shownRunGroup === id}
-          checked={runGroupSelection[id]}
+          shown={editingRunGroupId === id}
+          checked={runGroupSelection[id] ?? false}
           onChange={() => {
-            toggleRunGroup(id);
+            toggleRunGroup(sectionId, id);
           }}
-          onMouseOver={() => setPreviewRunGroup(id)}
-          onMouseLeave={() => setPreviewRunGroup(null)}
-          onClick={() => setShownRunGroup(id)}
+          onMouseOver={() => onMouseOverSetPreviewVariantId(sectionId, id)}
+          onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
+          onClick={() => onClickSetVariantId(sectionId, id)}
         >
           {name}
         </CheckboxNextToLabel>
@@ -210,10 +204,11 @@ function SectionItem({ sectionInfo, ancestors, parentIsSelected, runGroupId }) {
     });
   }
 
-  const isSelected = useRunGroups((x) => {
+  const isSelected = useSectionInfos((x) => {
     return (
       parentIsSelected &&
-      !!x.x[runGroupId].sections[sectionId]?.[parentVariantId]?.selected
+      !!x.variants[runGroupId].runGroup.sections[sectionId]?.[parentVariantId]
+        ?.selected
     );
   });
 
@@ -281,9 +276,10 @@ function VersionsList({
   allVersions,
   parentVariantId,
 }) {
-  const atLeastOneVersionSelected = useRunGroups((x) => {
+  const atLeastOneVersionSelected = useSectionInfos((x) => {
     const versionsObj =
-      x.x[runGroupId].sections[sectionId]?.[parentVariantId]?.versions;
+      x.variants[runGroupId].runGroup.sections[sectionId]?.[parentVariantId]
+        ?.versions;
     if (!versionsObj) {
       return false;
     }
@@ -407,10 +403,11 @@ function VersionItemComponent({
     });
   }
 
-  const isSelected = useRunGroups(
+  const isSelected = useSectionInfos(
     (x) =>
       parentIsSelected &&
-      !!x.x[runGroupId].sections[sectionId]?.[parentVariantId].versions[id],
+      !!x.variants[runGroupId].runGroup.sections[sectionId]?.[parentVariantId]
+        .versions[id],
   );
 
   return (
@@ -450,9 +447,10 @@ function ParamSweepItemComponent({
     });
   }
 
-  const isSelected = useRunGroups(
+  const isSelected = useSectionInfos(
     (x) =>
-      !!x.x[runGroupId].sections[sectionId]?.[parentVariantId].paramSweeps[id],
+      !!x.variants[runGroupId].runGroup.sections[sectionId]?.[parentVariantId]
+        .paramSweeps[id],
   );
 
   return (
@@ -533,7 +531,7 @@ function CreateNewRunGroupButton({}) {
   return (
     <button
       className="nodrag flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-1 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
-      onClick={createRunGroupWithRandomName}
+      // onClick={createRunGroupWithRandomName}
     >
       <i className="gg-add-r" /> New Run Group
     </button>

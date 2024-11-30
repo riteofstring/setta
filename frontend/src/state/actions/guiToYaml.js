@@ -13,7 +13,6 @@ import {
 import {
   useCodeInfo,
   useOriginalYamlObj,
-  useRunGroups,
   useSectionInfos,
   useYamlValue,
 } from "state/definitions";
@@ -149,8 +148,8 @@ function globalParamSweepSectionYamlToGUI(yamlValue, metaData) {
     );
   }
 
-  useRunGroups.setState((x) => {
-    x.x[runGroupId].sections = newRunGroupSections;
+  useSectionInfos.setState((x) => {
+    x.variants[runGroupId].sections = newRunGroupSections;
   });
 }
 

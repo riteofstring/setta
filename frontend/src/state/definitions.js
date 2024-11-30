@@ -115,16 +115,6 @@ export const useProjectSearch = createProjectState(() => ({
   focused: {},
 }));
 
-export const useRunGroups = createProjectState(
-  temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
-  ),
-);
-
 export const useSectionParamFilter = createProjectState(
   immer(() => ({
     x: {},

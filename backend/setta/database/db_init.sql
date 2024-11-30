@@ -37,7 +37,15 @@ CREATE TABLE IF NOT EXISTS SectionConfig (
     FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
     FOREIGN KEY (variantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
 );
-   
+CREATE TABLE IF NOT EXISTS SectionConfigSelectedVariants (
+    projectConfigId TEXT,
+    sectionId TEXT,
+    variantId TEXT,
+    PRIMARY KEY (projectConfigId, sectionId, variantId),
+    FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
+    FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
+    FOREIGN KEY (variantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
+); 
 CREATE TABLE IF NOT EXISTS SectionVariantId (
     id TEXT PRIMARY KEY,
     data TEXT,

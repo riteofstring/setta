@@ -177,6 +177,23 @@ def insert_section_configs(db, sections, id_pairs):
 
     db.executemany(query, query_params)
 
+    query = """
+        INSERT INTO SectionConfigSelectedVariants (projectConfigId, sectionId, variantId)
+        VALUES (:projectConfigId, :sectionId, :variantId)
+    """
+    query_params = []
+    for projectConfigId, c in id_pairs:
+        query_params.extend(
+            {
+                "projectConfigId": projectConfigId,
+                "sectionId": sections[c]["id"],
+                "variantId": k,
+            }
+            for k in sections[c]["selectedVariantIds"].keys()
+        )
+
+    db.executemany(query, query_params)
+
 
 # If multiple project configs share a section,
 # and that section has children,
