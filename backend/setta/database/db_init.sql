@@ -90,10 +90,7 @@ CREATE TABLE IF NOT EXISTS UITypeCol (
 CREATE TABLE IF NOT EXISTS ProjectConfig (
     id TEXT PRIMARY KEY,
     name TEXT,
-    viewport TEXT,
-    isDefault BOOLEAN DEFAULT 0,
-    previewImgNodes TEXT DEFAULT '[]',
-    previewImgColor TEXT,
+    data TEXT,
     shownRunGroup TEXT,
     UNIQUE (name),
     FOREIGN KEY (shownRunGroup) REFERENCES RunGroup(id) ON DELETE CASCADE

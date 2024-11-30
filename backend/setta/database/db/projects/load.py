@@ -1,6 +1,7 @@
 import json
 
 from setta.database.utils import aggregate_results
+from setta.utils.constants import PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS
 from setta.utils.utils import recursive_dict_merge
 
 from ..codeInfo.load import load_code_info_cols
@@ -21,16 +22,22 @@ def load_all_project_config_metadata(db):
         SELECT
             id,
             name,
-            previewImgNodes,
-            previewImgColor,
-            isDefault
+            data
         FROM
             ProjectConfig
         ORDER BY
             ProjectConfig.id;
     """
     db.execute(query)
-    return [dict(row) for row in db.fetchall()]
+    output = []
+    for row in db.fetchall():
+        row = dict(row)
+        output.append(
+            {"id": row["id"],
+            "name": row["name"],
+            **json.loads(row["data"])}
+        )
+    return output
 
 
 def load_project_config_metadata(db, config_name):
@@ -38,10 +45,8 @@ def load_project_config_metadata(db, config_name):
         SELECT
             ProjectConfig.id,
             ProjectConfig.name,
-            ProjectConfig.viewport,
-            ProjectConfig.isDefault,
             ProjectConfig.shownRunGroup,
-            ProjectConfig.previewImgColor,
+            ProjectConfig.data,
             ProjectConfigChildren.childId as childId,
             ProjectConfigChildren.x as childX,
             ProjectConfigChildren.y as childY,
@@ -75,19 +80,12 @@ def load_project_config_metadata(db, config_name):
                 "zIndex": out["childZIndex"][i],
             }
 
-    if out["viewport"]:
-        viewport = json.loads(out["viewport"])
-    else:
-        viewport = None
-
     return {
         "id": out["id"],
         "name": out["name"],
-        "isDefault": out["isDefault"],
         "children": children,
-        "viewport": viewport,
         "shownRunGroup": out["shownRunGroup"],
-        "previewImgColor": out["previewImgColor"],
+        **json.loads(out["data"]),
     }
 
 
@@ -150,12 +148,9 @@ def load_full_project(db, excludeProjectConfigName=None):
 
 def load_default_config_name(db):
     query = """
-        SELECT
-            name
-        FROM
-            ProjectConfig
-        WHERE
-            isDefault = 1
+        SELECT name
+        FROM ProjectConfig
+        WHERE json_extract(data, '$.isDefault') = 1
     """
 
     db.execute(query)

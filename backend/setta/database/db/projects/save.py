@@ -8,6 +8,7 @@ from setta.code_gen.export_selected import (
 )
 from setta.database.utils import create_new_id
 from setta.utils.constants import (
+    PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS,
     SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
     USER_SETTINGS,
     C,
@@ -42,34 +43,20 @@ def save_project_details(db, p):
 
 def save_project(db, project):
     query = """
-        INSERT INTO ProjectConfig (id, name, previewImgNodes, isDefault, viewport)
-        VALUES (:id, :name, :previewImgNodes, :isDefault, :viewport)
+        INSERT INTO ProjectConfig (id, name, data)
+        VALUES (:id, :name, :data)
         ON CONFLICT (id)
         DO UPDATE SET
         name = :name,
-        previewImgNodes = :previewImgNodes,
-        isDefault = :isDefault,
-        viewport = :viewport
+        data = :data
     """
 
     query_params = {
         "id": project["id"],
         "name": project["name"],
-        "previewImgNodes": project["previewImgNodes"],
-        "isDefault": project["isDefault"],
-        "viewport": json.dumps(project["viewport"]) if project["viewport"] else None,
+        "data": json.dumps(filter_dict(project, PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS)),
     }
     db.execute(query, query_params)
-
-    if "previewImgColor" in project:
-        query = """
-            UPDATE ProjectConfig
-            SET previewImgColor = :previewImgColor
-            WHERE ID = :id
-        """
-        db.execute(
-            query, {"id": project["id"], "previewImgColor": project["previewImgColor"]}
-        )
 
     query = """
         DELETE FROM ProjectConfigChildren
@@ -109,32 +96,22 @@ def create_project_config(db, name, previewImgColor):
         name = generate_memorable_string()
 
     query = """
-        INSERT INTO ProjectConfig (id, name, previewImgColor, viewport)
-        VALUES (:id, :name, :previewImgColor, :viewport)
+        INSERT INTO ProjectConfig (id, name, data)
+        VALUES (:id, :name, :data)
     """
     projectId = create_new_id()
     query_params = {
         "id": projectId,
         "name": name,
-        "previewImgColor": previewImgColor,
-        "viewport": json.dumps(
-            {"x": 0, "y": 0, "zoom": USER_SETTINGS["defaultZoomLevel"]}
+        "data": json.dumps(
+            {
+                "previewImgColor": previewImgColor,
+                "viewport": {"x": 0, "y": 0, "zoom": USER_SETTINGS["defaultZoomLevel"]},
+            }
         ),
     }
     db.execute(query, query_params)
-
-    query = """
-        SELECT
-            name
-        FROM
-            ProjectConfig
-        WHERE
-            id = :id
-    """
-    query_params = {"id": projectId}
-    db.execute(query, query_params)
-    out = dict(db.fetchone())
-    return out["name"]
+    return name
 
 
 def save_project_config_name(db, curr_name, new_name):
@@ -150,13 +127,19 @@ def save_project_config_name(db, curr_name, new_name):
 def set_as_default_project(db, projectId):
     query = """
         UPDATE ProjectConfig
-        SET isDefault = 0;
+        SET data = json_patch(
+            data,
+            json('{"isDefault": 0}')
+        );
     """
     db.execute(query)
 
     query = """
         UPDATE ProjectConfig
-        SET isDefault = 1
+        SET data = json_patch(
+            data,
+            json('{"isDefault": 1}')
+        )
         WHERE id = :projectId;
     """
     db.execute(query, {"projectId": projectId})

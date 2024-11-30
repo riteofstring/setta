@@ -116,3 +116,7 @@ UI_TYPE_TABLE_DATA_JSON_FIELDS = set(
         "config",
     ]
 )
+
+PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(
+    ["viewport", "isDefault", "previewImgNodes", "previewImgColor"]
+)
