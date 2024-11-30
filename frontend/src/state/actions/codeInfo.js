@@ -1,13 +1,7 @@
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 
-export function addCodeInfo({ sectionId, info, parent, insertIdx }) {
-  useSectionInfos.setState((x) => {
-    _addCodeInfo({ sectionId, info, parent, insertIdx, state: x });
-  });
-}
-
-export function _addCodeInfo({ sectionId, info, parent, insertIdx, state }) {
+export function addCodeInfo({ sectionId, info, parent, insertIdx, state }) {
   state.codeInfo[info.id] = info;
   const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
   if (_.isNil(insertIdx)) {

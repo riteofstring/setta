@@ -34,7 +34,11 @@ export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {
   return state.uiTypeCols[uiTypeColId][paramInfoId][key];
 }
 
-export function getIsSeriesElementHelper(sectionId, parentTypesToCheck, _state = {}) {
+export function getIsSeriesElementHelper(
+  sectionId,
+  parentTypesToCheck,
+  _state = {},
+) {
   const state = _state ?? useSectionInfos.getState();
   const { parentId } = state.x[sectionId];
   const uiTypeId = state.x[parentId]?.uiTypeId;

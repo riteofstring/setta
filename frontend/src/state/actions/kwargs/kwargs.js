@@ -36,8 +36,17 @@ export function addKwarg({
     rcType: C.PARAMETER,
     editable: true,
   });
-  addCodeInfo({ sectionId, info: kwargInfo, parent: parentId, insertIdx });
-  initializeParams(sectionId, [kwargInfo.id]);
+  useSectionInfos.setState((state) => {
+    addCodeInfo({
+      sectionId,
+      info: kwargInfo,
+      parent: parentId,
+      insertIdx,
+      state,
+    });
+    initializeParams(sectionId, [kwargInfo.id], state);
+  });
+
   maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
 }

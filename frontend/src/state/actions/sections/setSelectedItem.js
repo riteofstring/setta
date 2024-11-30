@@ -3,10 +3,10 @@ import {
   dbParametersRequest,
   getKeywordPositionsAndEVRefs,
 } from "requests/sections";
-import { _initializeParams } from "state/actions/initializeParam";
+import { initializeParams } from "state/actions/initializeParam";
 import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { _addCodeInfo } from "../codeInfo";
+import { addCodeInfo } from "../codeInfo";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { setNotificationMessage } from "../notification";
 import { maybeIncrementProjectStateVersion } from "../undo";
@@ -59,7 +59,7 @@ export async function setSelectedItem(
       rcType: C.CALLABLE,
       keywordPositions,
     });
-    _addCodeInfo({ sectionId: dataSectionId, info, parent: null, state });
+    addCodeInfo({ sectionId: dataSectionId, info, parent: null, state });
 
     if (paramRes) {
       const [documentation, params] = paramRes;
@@ -90,10 +90,10 @@ function createChildrenCodeInfo(sectionId, parent, params, state) {
       description: p.description,
       positionalOnly: p.positionalOnly,
     });
-    _addCodeInfo({ sectionId, info, parent, state });
+    addCodeInfo({ sectionId, info, parent, state });
     paramIds.push(info.id);
   }
-  _initializeParams(sectionId, paramIds, state);
+  initializeParams(sectionId, paramIds, state);
 }
 
 function itemHasBeenSelectedBefore(sectionId, selectedItemName) {

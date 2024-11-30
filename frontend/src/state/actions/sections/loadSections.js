@@ -1,5 +1,6 @@
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { useSectionInfos } from "state/definitions";
 import { updateSectionInfos } from "./sectionInfos";
 
 export function loadSectionIntoState({
@@ -23,12 +24,15 @@ export function loadSectionIntoState({
     };
   }
 
-  updateSectionInfos({
-    sections,
-    uiTypes,
-    sectionVariants,
-    uiTypeCols,
-    codeInfo,
+  useSectionInfos((state) => {
+    updateSectionInfos({
+      sections,
+      uiTypes,
+      sectionVariants,
+      uiTypeCols,
+      codeInfo,
+      state,
+    });
   });
 
   const nodes = [];

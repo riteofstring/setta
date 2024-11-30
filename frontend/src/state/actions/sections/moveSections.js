@@ -161,7 +161,9 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
     const res = await dbCreateCopyOfSections(copySections([sectionId]));
     if (res.status === 200) {
       console.log("data", res.data);
-      updateSectionInfos(res.data);
+      useSectionInfos((state) => {
+        updateSectionInfos({ ...res.data, state });
+      });
       return Object.keys(res.data.sections)[0];
     }
   }
