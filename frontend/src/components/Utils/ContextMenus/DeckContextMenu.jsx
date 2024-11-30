@@ -13,11 +13,12 @@ export function DeckContextMenu() {
   const { isOpen, x, y, sectionId } = useContextMenus((x) => x.deck, _.isEqual);
 
   const { positionAndSizeLocked, isHorizontalOrientation } = useSectionInfos(
-    (x) =>
-      _.pick(x.x[sectionId], [
-        "positionAndSizeLocked",
-        "isHorizontalOrientation",
-      ]),
+    (x) => {
+      return {
+        positionAndSizeLocked: x.x[sectionId]?.positionAndSizeLocked,
+        isHorizontalOrientation: x.x[sectionId]?.isHorizontalOrientation,
+      };
+    },
     _.isEqual,
   );
 
