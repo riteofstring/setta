@@ -5,7 +5,6 @@ import {
 } from "requests/sections";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import {
   addCodeInfo,
@@ -79,14 +78,6 @@ export function setSectionParentId(sectionId, parentId) {
   setSectionInfoAttr({ sectionId, attr: "parentId", value: parentId });
 }
 
-export function setSectionSize(sectionId, size) {
-  setSectionInfoAttr({
-    sectionId,
-    attr: "size",
-    newValueFn: (currSize) => ({ ...currSize, ...size }),
-  });
-}
-
 export async function createNewCodeInfoAndKeywordPositions({
   sectionId,
   selectedItemName,
@@ -136,32 +127,4 @@ export async function createCodeInfoChildren({
     setNotificationMessage("No parameters found");
   }
   setToNotWaiting();
-}
-
-export function setAspectRatioInfo({
-  sectionId,
-  aspectRatio,
-  aspectRatioExtraHeight,
-  aspectRatioExtraWidth,
-}) {
-  useSectionInfos.setState((x) => {
-    const s = x.x[sectionId];
-    s.aspectRatio = aspectRatio;
-    s.aspectRatioExtraHeight = aspectRatioExtraHeight;
-    s.aspectRatioExtraWidth = aspectRatioExtraWidth;
-  });
-}
-
-export function setCanvasSettings(sectionId, attr, value) {
-  useSectionInfos.setState((x) => {
-    const s = x.x[sectionId];
-    s.canvasSettings[attr] = value;
-  });
-}
-
-export function setCanvasColorChoices(sectionId, value) {
-  useSectionInfos.setState((x) => {
-    const s = x.x[sectionId];
-    s.canvasSettings.colorChoices = value;
-  });
 }

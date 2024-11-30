@@ -5,11 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,
-} from "state/actions/sections/sectionSizes";
-import {
-  setAspectRatioInfo,
   setSectionSize,
-} from "state/actions/sections/setters";
+  _setSectionSize,
+} from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { getImageDimensionsFromBase64 } from "utils/utils";
@@ -212,11 +210,11 @@ export async function setSectionToHaveAspectRatioAndMinSize(
 
   const extraHeight = 24;
   adjustedSize.height += extraHeight;
-  setSectionSize(sectionId, adjustedSize);
   setAspectRatioInfo({
     sectionId,
     aspectRatio: imgSize.width / imgSize.height,
     aspectRatioExtraHeight: extraHeight,
+    size: adjustedSize,
   });
 }
 
@@ -308,11 +306,11 @@ export function useYouTubeSectionSize(sectionId) {
 
   function setToDefaultSize() {
     defaultSize.height += extraHeight;
-    setSectionSize(sectionId, defaultSize);
     setAspectRatioInfo({
       sectionId,
       aspectRatio: 16 / 9,
       aspectRatioExtraHeight: extraHeight,
+      size: defaultSize,
     });
   }
 
@@ -336,12 +334,30 @@ export function useYouTubeSectionSize(sectionId) {
 
 export function useTwitterSectionSize(sectionId) {
   useEffect(() => {
-    setSectionSize(sectionId, { height: "auto" });
     setAspectRatioInfo({
       sectionId,
       aspectRatio: null,
       aspectRatioExtraHeight: null,
       aspectRatioExtraWidth: null,
+      size: { height: "auto" },
     });
   }, []);
+}
+
+function setAspectRatioInfo({
+  sectionId,
+  size,
+  aspectRatio,
+  aspectRatioExtraHeight,
+  aspectRatioExtraWidth,
+}) {
+  useSectionInfos.setState((x) => {
+    const s = x.x[sectionId];
+    s.aspectRatio = aspectRatio;
+    s.aspectRatioExtraHeight = aspectRatioExtraHeight;
+    s.aspectRatioExtraWidth = aspectRatioExtraWidth;
+    if (size) {
+      _setSectionSize(sectionId, size, x);
+    }
+  });
 }
