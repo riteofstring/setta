@@ -6,7 +6,6 @@ import {
   deleteSelectedKwargs,
   pinSelectedKwargs,
 } from "state/actions/kwargs/kwargs";
-import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useActiveSection,
@@ -34,7 +33,9 @@ export function KwargsControls({
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
   function onSearchChange(e) {
-    setSectionParamFilter({ sectionId, filter: e.target.value });
+    useSectionInfos.setState((state) => {
+      state.x[sectionId].paramFilter = e.target.value;
+    });
   }
 
   const onClickDeleteSelectedKwargs = () => {

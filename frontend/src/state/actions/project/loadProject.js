@@ -4,7 +4,11 @@ import _ from "lodash";
 import { useNavigate } from "react-router-dom";
 import { dbCreateProjectConfig, dbLoadProjectConfig } from "requests/projects";
 import { dbLoadSettingsProject } from "requests/settings";
-import { useJSONSourceMissing, useSectionInfos } from "state/definitions";
+import {
+  useJSONSourceMissing,
+  useProjectConfig,
+  useSectionInfos,
+} from "state/definitions";
 import {
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
@@ -12,7 +16,6 @@ import {
 } from "utils/constants";
 import { setNodes } from "../nodeInternals";
 import { maybeIncrementProjectStateVersion } from "../undo";
-import { setProjectConfig } from "./projectConfig";
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await dbLoadProjectConfig(projectConfigName);
@@ -44,7 +47,9 @@ export function loadProjectState({
   uiTypeCols,
   jsonSourceMissing,
 }) {
-  setProjectConfig(_.omit(projectConfig, ["children", "viewport"]));
+  useProjectConfig.setState({
+    ..._.omit(projectConfig, ["children", "viewport"]),
+  });
   if (!projectConfig.viewport) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
