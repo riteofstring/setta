@@ -1,5 +1,6 @@
 import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useKeywordRegex, useSectionInfos } from "state/definitions";
 import { getRegexAndColorMap } from "./actions/keywordRegex";
@@ -18,7 +19,7 @@ export function subscribe() {
 
   useSectionInfos.subscribe(
     keywordRegexSubscriptionFn,
-    (x, prev) => {
+    (x) => {
       console.log("keywordRegexSubscription triggered");
       useKeywordRegex.setState(getRegexAndColorMap(x));
     },
@@ -27,7 +28,21 @@ export function subscribe() {
 
   useSectionInfos.subscribe(
     getSectionIdToChildrenToShow,
-    (x) => useDndChildren.getState().update(x),
+    (x) => {
+      useDndChildren.getState().update(x);
+    },
+    { equalityFn: _.isEqual },
+  );
+
+  useReactFlow.subscribe(
+    reactFitViewOnInitSubscriptionFn,
+    (newState, prevState) => {
+      if (prevState.fitViewOnInit && newState.fitViewOnInit) {
+        // set fitViewOnInit to false if it was and is true
+        // because that means zoom or x/y position changed
+        useReactFlow.setState({ fitViewOnInit: false });
+      }
+    },
     { equalityFn: _.isEqual },
   );
 }
@@ -77,4 +92,8 @@ function keywordRegexSubscriptionFn(x) {
   }
 
   return output;
+}
+
+function reactFitViewOnInitSubscriptionFn(state) {
+  return { transform: state.transform, fitViewOnInit: state.fitViewOnInit };
 }
