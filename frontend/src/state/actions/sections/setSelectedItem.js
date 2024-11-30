@@ -14,7 +14,6 @@ import {
 } from "../codeInfo";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { setNotificationMessage } from "../notification";
-import { setSectionInfoAttr } from "./sectionInfos";
 
 export async function setSelectedItem(
   dataSectionId,
@@ -72,10 +71,6 @@ function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
     codeInfoIds: [selectedItem],
   });
   maybeIncrementProjectStateVersion(incrementVersion);
-}
-
-export function setSectionParentId(sectionId, parentId) {
-  setSectionInfoAttr({ sectionId, attr: "parentId", value: parentId });
 }
 
 export async function createNewCodeInfoAndKeywordPositions({

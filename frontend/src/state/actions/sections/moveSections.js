@@ -14,7 +14,6 @@ import {
 } from "../sectionVariants";
 import { updateSectionInfos } from "./sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
-import { setSectionParentId } from "./setters";
 
 export async function moveSections({
   sectionIds,
@@ -100,7 +99,9 @@ function setChildrenAndParent({
     });
   }
 
-  setSectionParentId(newSectionId, newParentId === PANEID ? null : newParentId);
+  useSectionInfos.setState((x) => {
+    x.x[newSectionId].parentId = newParentId === PANEID ? null : newParentId;
+  });
 }
 
 function setSectionSize({ newParentId, sectionId }) {

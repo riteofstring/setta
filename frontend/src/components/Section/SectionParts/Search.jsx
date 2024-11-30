@@ -4,7 +4,7 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { getKeywordPositionsAndEVRefs } from "requests/sections";
 import { setParamSweepSelectedItem } from "state/actions/runGroups/paramSweep";
-import { setSelectedItem } from "state/actions/sections/setters";
+import { setSelectedItem } from "state/actions/sections/setSelectedItem";
 import {
   getSectionSelectedItem,
   setSectionVariantAttr,
