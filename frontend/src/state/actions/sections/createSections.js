@@ -9,7 +9,6 @@ import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { newSectionInfo } from "utils/objs/sectionInfo";
-import { newSectionPosition } from "utils/objs/sectionPosition";
 import { insertIntoArray } from "utils/utils";
 import {
   getSectionInfo,
@@ -255,7 +254,11 @@ export function onClickAddSection({
 }) {
   const position = projectXY
     ? screenToFlowPosition({ x, y })
-    : newSectionPosition({ x, y });
+    : {
+        x: x ?? 0,
+        y: y ?? 0,
+        zIndex: zIndex ?? 0,
+      };
 
   return addSectionAtPosition({
     type,

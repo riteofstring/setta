@@ -1,10 +1,14 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export function useMatchSorterFilter(completeList, keys, delay) {
   const [filter, setFilter] = useState("");
-  const setFilterWithDelay = createDebouncedSetFilter(setFilter, delay);
+
+  const setFilterWithDelay = useCallback(
+    _.debounce((x) => setFilter(x), delay),
+    [delay],
+  );
 
   const filteredList = filter
     ? matchSorter(completeList, filter, { keys })
@@ -46,6 +50,3 @@ export function useWindowSize() {
 
   return windowSize;
 }
-
-const createDebouncedSetFilter = (setFilter, delay) =>
-  _.debounce((x) => setFilter(x), delay);
