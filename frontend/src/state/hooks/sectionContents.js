@@ -4,17 +4,8 @@ import {
   getParamIdsToShowInArea,
 } from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
-import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useSectionCodeInfoChildren } from "./codeInfoCols";
 import { useSectionSelectedItem } from "./sectionVariants";
-
-// export function useGetAllCallables(sectionId) {
-//   const ids = useSectionToParamIds(
-//     (x) => x.callables[sectionId] ?? [],
-//     _.isEqual,
-//   );
-//   return useSectionInfos((x) => ids.map((id) => x.codeInfo[id]), _.isEqual);
-// }
 
 export function useGetParamInfosThatHaveNames(sectionId) {
   const selectedItem = useSectionSelectedItem(sectionId);
@@ -35,22 +26,6 @@ export function useGetParamInfosThatHaveNames(sectionId) {
     }
     return haveName;
   }, _.isEqual);
-}
-
-function useGetSelectedCollections(sectionId) {
-  const codeInfoId = useSectionInfos((x) => x.x[sectionId].codeInfoId);
-  return useSectionInfos(
-    (x) => _.pick(x.codeInfo, x.codeInfo[codeInfoId].children),
-    _.isEqual,
-  );
-}
-
-export function useGetSelectedCollectionsForSectionConfig(sectionId) {
-  const collections = useGetSelectedCollections(sectionId);
-  return useSectionInfos(
-    (x) => assembleCollectionsForSectionConfig(x.codeInfo, collections),
-    _.isEqual,
-  );
 }
 
 export function useHasParams(sectionId) {

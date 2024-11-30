@@ -22,9 +22,6 @@ function SectionConfigCore({ sectionId }) {
 
 function SpecializedConfiguration({ sectionId }) {
   const sectionType = useSectionType(sectionId, "type");
-  // if (sectionType === C.OUTPUT) {
-  //   return <OutputsSearch sectionId={sectionId} />;
-  // } else
   if (sectionType === C.SOCIAL) {
     return <SocialAreaSettings sectionId={sectionId} />;
   } else if (sectionType === C.DRAW) {
