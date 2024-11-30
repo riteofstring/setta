@@ -15,15 +15,15 @@ export function addCodeInfo({ sectionId, info, parent, insertIdx }) {
   useSectionInfos.setState((x) => {
     const { codeInfoColId } = x.variants[x.x[sectionId].variantId];
     if (_.isNil(insertIdx)) {
-      x.codeInfoCols[codeInfoColId]["children"][parent].push(info.id);
+      x.codeInfoCols[codeInfoColId].children[parent].push(info.id);
     } else {
-      x.codeInfoCols[codeInfoColId]["children"][parent].splice(
+      x.codeInfoCols[codeInfoColId].children[parent].splice(
         insertIdx,
         0,
         info.id,
       );
     }
-    x.codeInfoCols[codeInfoColId]["children"][info.id] = [];
+    x.codeInfoCols[codeInfoColId].children[info.id] = [];
   });
 }
 
@@ -69,7 +69,7 @@ export function deleteCodeInfo({ ids }) {
   });
 }
 
-export function addCodeInfoBatch(x) {
+export function addCodeInfoBatch(codeInfo) {
   useSectionInfos.setState((state) => {
     state.codeInfo = { ...state.codeInfo, ...codeInfo };
   });

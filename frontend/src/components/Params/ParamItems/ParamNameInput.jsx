@@ -2,18 +2,24 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import _ from "lodash";
 import { setCodeInfoName } from "state/actions/codeInfo";
 import { updateKeywordRegex } from "state/actions/keywordRegex";
+import { getSectionVariantToShow } from "state/actions/sectionVariants";
 import { useParamShortcuts, useSectionInfos } from "state/definitions";
-import { useCodeInfoHasChildren } from "state/hooks/codeInfoCols";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 
 export function ParamNameInput({ sectionId, paramInfoId }) {
-  const { configLanguage, name: value } = useSectionInfos((x) => {
+  const {
+    hasChildren,
+    configLanguage,
+    name: value,
+  } = useSectionInfos((x) => {
+    const { codeInfoColId } = getSectionVariantToShow(sectionId, x);
+    const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
     return {
+      hasChildren: (codeInfoChildren[paramInfoId] ?? []).length > 0,
       configLanguage: x.x[sectionId].configLanguage,
       name: x.codeInfo[paramInfoId].name,
     };
   }, _.isEqual);
-  const hasChildren = useCodeInfoHasChildren(sectionId, paramInfoId);
 
   function onChange(v) {
     setCodeInfoName({ id: paramInfoId, name: v });

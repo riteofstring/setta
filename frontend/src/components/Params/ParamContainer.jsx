@@ -7,13 +7,13 @@ import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { toggleParamSelected } from "state/actions/kwargs/kwargs";
+import { getSectionVariantToShow } from "state/actions/sectionVariants";
 import {
   useParamShortcuts,
   useProjectSearch,
   useSectionInfos,
   useTypeErrors,
 } from "state/definitions";
-import { useCodeInfoChildren } from "state/hooks/codeInfoCols";
 import { ParamInput } from "./ParamItems/ParamInput";
 
 function _ParamContainer({
@@ -47,15 +47,17 @@ function _ParamContainer({
     isSelected: paramIsSelected,
     description: paramDescription,
     name: paramName,
+    codeInfoChildren: paramChildren,
   } = useSectionInfos((x) => {
+    const { codeInfoColId } = getSectionVariantToShow(sectionId, x);
+    const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
     return {
       isSelected: x.codeInfo[paramInfoId].isSelected,
       description: x.codeInfo[paramInfoId].description,
       name: x.codeInfo[paramInfoId].name,
+      codeInfoChildren: codeInfoChildren[paramInfoId] ?? [],
     };
   }, _.isEqual);
-
-  const paramChildren = useCodeInfoChildren(sectionId, paramInfoId);
 
   // hover:bg-setta-200/20 dark:hover:bg-setta-700/25
   // maybe use this for in bg hover state: div:hover:not(:has(div:hover))
