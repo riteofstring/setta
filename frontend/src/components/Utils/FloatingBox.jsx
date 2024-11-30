@@ -6,7 +6,7 @@ import { useSettings } from "state/definitions";
 import { shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
 
-export const useFloatingBox = create((set) => ({
+export const useFloatingBox = create(() => ({
   isFrozen: false,
   isEnabled: false,
   content: null,
