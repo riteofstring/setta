@@ -72,7 +72,7 @@ function* getProjectRuns(project) {
   ) {
     const variant = _.cloneDeep(project);
     const paramSweepSectionVariantIds = {};
-    for (const s of variant.sections) {
+    for (const s of Object.values(variant.sections)) {
       if (s.paramSweepSectionId) {
         // add the currently selected variant id for the param sweep section
         paramSweepSectionVariantIds[s.paramSweepSectionId] =
@@ -196,6 +196,7 @@ function* getProjectVariants(project, paramSweepSectionVariantIds) {
     paramSweepSectionVariantIds,
   )) {
     for (const s of project.sectionVariants[variantId].sweep) {
+      s.params = s.params.filter((x) => x.paramInfoId);
       allSweeps.push({ paramSweepSectionId, variantId, ...s });
     }
   }

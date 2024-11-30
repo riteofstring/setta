@@ -34,6 +34,7 @@ export function newSectionInfo({
   isTemporary = false,
   renderMarkdown = false,
   positionAndSizeLocked = false,
+  jsonSource = null,
 }) {
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _variantId = maybeNewId(variantId);
@@ -70,5 +71,6 @@ export function newSectionInfo({
     isTemporary,
     renderMarkdown,
     positionAndSizeLocked,
+    jsonSource,
   };
 }
