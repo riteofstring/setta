@@ -8,11 +8,7 @@ function loadAndModifyJson(filePath) {
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
     for (const s of Object.values(json.sections)) {
-      const selectedVariantIds = {};
-      for (const v of s.selectedVariantIds) {
-        selectedVariantIds[v] = true;
-      }
-      s.selectedVariantIds = selectedVariantIds;
+      s.paramFilter = "";
     }
 
     // Save the modified JSON back to the file or handle it as needed

@@ -1,8 +1,8 @@
-import { useActiveSection, useSectionParamFilter } from "state/definitions";
+import { useActiveSection, useSectionInfos } from "state/definitions";
 
 export function setSectionParamFilter({ sectionId, filter }) {
-  useSectionParamFilter.setState((state) => {
-    state.x[sectionId] = filter;
+  useSectionInfos.setState((state) => {
+    state.x[sectionId].paramFilter = filter;
   });
 }
 

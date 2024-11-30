@@ -107,12 +107,6 @@ export const useProjectSearch = createProjectState(() => ({
   focused: {},
 }));
 
-export const useSectionParamFilter = createProjectState(
-  immer(() => ({
-    x: {},
-  })),
-);
-
 export const useSectionRefs = createProjectState(
   immer(() => ({
     withNested: {},

@@ -1,5 +1,6 @@
 import C from "constants/constants.json";
 import React from "react";
+import { useSectionInfos } from "state/definitions";
 import { DrawAreaSettings } from "./DrawAreaSettings";
 import { InfoAreaSettings } from "./InfoAreaSettings";
 import { InputAreaSettings } from "./InputAreaSettings";

@@ -90,6 +90,7 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
         "displayMode",
         "canvasSettings",
         "renderMarkdown",
+        "paramFilter",
     )
 )
 

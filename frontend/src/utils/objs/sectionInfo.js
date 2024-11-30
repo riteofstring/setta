@@ -36,6 +36,7 @@ export function newSectionInfo({
   positionAndSizeLocked = false,
   jsonSource = null,
   selectedVariantIds = {},
+  paramFilter = "",
 }) {
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _variantId = maybeNewId(variantId);
@@ -74,5 +75,6 @@ export function newSectionInfo({
     positionAndSizeLocked,
     jsonSource,
     selectedVariantIds,
+    paramFilter,
   };
 }

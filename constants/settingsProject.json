@@ -204,7 +204,8 @@
       "hideUnpinnedParams": false,
       "displayMode": "GUI",
       "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "isMinimized": false,
+      "paramFilter": ""
     }
   },
   "codeInfo": {},
