@@ -10,7 +10,6 @@ import {
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
-import { isRoot } from "utils/sectionTypeHelpers";
 import { localStorageFns } from "./localStorage";
 
 export function useGetParamUIType(sectionId, paramInfoId) {
@@ -67,7 +66,7 @@ export function useSectionTypeNames() {
   );
 }
 
-function useIsType(sectionId, type) {
+export function useIsType(sectionId, type) {
   return useSectionInfos(
     (x) => x.uiTypes[x.x[sectionId].uiTypeId].type === type,
   );
@@ -77,36 +76,6 @@ export function useIsOneOfType(sectionId, types) {
   return useSectionInfos((x) =>
     types.includes(x.uiTypes[x.x[sectionId].uiTypeId].type),
   );
-}
-
-export function useIsRoot(sectionId) {
-  return useSectionInfos((x) =>
-    isRoot(x.uiTypes[x.x[sectionId].uiTypeId].type),
-  );
-}
-
-export function useIsDeck(sectionId) {
-  return useIsType(sectionId, C.DECK);
-}
-
-export function useIsSocial(sectionId) {
-  return useIsType(sectionId, C.SOCIAL);
-}
-
-export function useIsGlobalVariables(sectionId) {
-  return useIsType(sectionId, C.GLOBAL_VARIABLES);
-}
-
-export function useIsTerminal(sectionId) {
-  return useIsType(sectionId, C.TERMINAL);
-}
-
-export function useIsInteractiveCode(sectionId) {
-  return useIsType(sectionId, C.INTERACTIVE_CODE);
-}
-
-export function useIsDrawArea(sectionId) {
-  return useIsType(sectionId, C.DRAW);
 }
 
 export function useUIEditorTab(sectionId) {
