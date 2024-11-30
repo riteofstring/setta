@@ -4,10 +4,11 @@ import cc from "classcat";
 import { pointer, select } from "d3-selection";
 import type { D3ZoomEvent } from "d3-zoom";
 import { zoom, zoomIdentity } from "d3-zoom";
-import useVisibleNodes from "forks/xyflow/core/hooks/useVisibleNodes";
 import { useReactFlow } from "forks/xyflow/core/store";
+import _ from "lodash";
 import type { MouseEvent } from "react";
 import { memo, useEffect, useRef } from "react";
+import { getNodes } from "state/actions/nodeInternals";
 import { useNodeInternals } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { shallow } from "zustand/shallow";
@@ -78,7 +79,7 @@ function MiniMap({
   offsetScale = 5,
 }: MiniMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const nodes = useVisibleNodes();
+  const nodes = useNodeInternals(getNodes, _.isEqual);
   const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
   const { boundingRect, viewBB } = useReactFlow(
     getSelector(nodes, overviewWidth),
