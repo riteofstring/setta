@@ -1,6 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useEffect } from "react";
-import { setModalData, setModalOpen } from "state/actions/modal";
+import { setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
@@ -16,12 +15,6 @@ import "./styles.css";
 
 export function ModalContainer({ children }) {
   const open = useModal((x) => x.open);
-
-  useEffect(() => {
-    if (!open) {
-      setModalData(null);
-    }
-  }, [open]);
 
   return (
     <Dialog.Root open={open} onOpenChange={setModalOpen}>

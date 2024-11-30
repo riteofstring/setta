@@ -2,9 +2,8 @@ import { Item } from "components/Utils/atoms/dropdown/item";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { setModalData, setModalType } from "state/actions/modal";
 import { onClickAddSection } from "state/actions/sections/createSections";
-import { useContextMenus, useMisc } from "state/definitions";
+import { useContextMenus, useMisc, useModal } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
@@ -19,8 +18,10 @@ export function PaneContextMenu() {
   };
 
   function openLoadModal(_modalType) {
-    setModalType(_modalType);
-    setModalData(commonProps);
+    useModal.setState({
+      modalData: commonProps,
+      modalType: _modalType,
+    });
     closeAllContextMenus();
   }
 
