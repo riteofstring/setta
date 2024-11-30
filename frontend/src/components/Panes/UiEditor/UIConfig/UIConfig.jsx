@@ -13,11 +13,16 @@ const UIElement = React.memo(_UIElement, _.isEqual);
 
 const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   const paramInfos = useParamInfosForSidePane(sectionId);
+  return <UIConfigCore sectionId={sectionId} paramInfos={paramInfos} />;
+});
 
+export const UIConfig = React.memo(_UIConfig);
+
+function UIConfigCore({ sectionId, paramInfos }) {
   const [filteredList, setFilter] = useMatchSorterFilter(
     paramInfos,
     ["name"],
-    500,
+    50,
   );
 
   const inputStyles =
@@ -46,9 +51,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
       </div>
     </div>
   );
-});
-
-export const UIConfig = React.memo(_UIConfig);
+}
 
 function _UIElement({ sectionId, paramInfo }) {
   const paramInfoId = paramInfo.id;

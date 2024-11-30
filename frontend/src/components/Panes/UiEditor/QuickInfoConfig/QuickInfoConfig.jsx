@@ -9,11 +9,14 @@ const UIElement = React.memo(_UIElement, _.isEqual);
 
 const _QuickInfoConfig = React.forwardRef(({ sectionId }, ref) => {
   const paramInfos = useParamInfosForSidePane(sectionId);
+  return <QuickInfoConfigCore sectionId={sectionId} paramInfos={paramInfos} />;
+});
 
+function QuickInfoConfigCore({ sectionId, paramInfos }) {
   const [filteredList, setFilter] = useMatchSorterFilter(
     paramInfos,
     ["name"],
-    500,
+    50,
   );
 
   const inputStyles =
@@ -42,7 +45,7 @@ const _QuickInfoConfig = React.forwardRef(({ sectionId }, ref) => {
       </div>
     </div>
   );
-});
+}
 
 export const QuickInfoConfig = React.memo(_QuickInfoConfig);
 
