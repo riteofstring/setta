@@ -1,6 +1,5 @@
 import C from "constants/constants.json";
 import React from "react";
-import { useSectionType } from "state/hooks/uiTypes";
 import { DrawAreaSettings } from "./DrawAreaSettings";
 import { InfoAreaSettings } from "./InfoAreaSettings";
 import { InputAreaSettings } from "./InputAreaSettings";
@@ -21,7 +20,9 @@ function SectionConfigCore({ sectionId }) {
 }
 
 function SpecializedConfiguration({ sectionId }) {
-  const sectionType = useSectionType(sectionId, "type");
+  const sectionType = useSectionInfos((x) => {
+    return x.uiTypes[x.x[sectionId].uiTypeId].type;
+  });
   if (sectionType === C.SOCIAL) {
     return <SocialAreaSettings sectionId={sectionId} />;
   } else if (sectionType === C.DRAW) {
