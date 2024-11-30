@@ -72,10 +72,7 @@ function createChildrenCodeInfo(sectionId, parent, params) {
 }
 
 function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
-  initializeChildParams({
-    sectionIds: [sectionId],
-    codeInfoIds: [selectedItem],
-  });
+  initializeChildParams(sectionId, [selectedItem]);
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
