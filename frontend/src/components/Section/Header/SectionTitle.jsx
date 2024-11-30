@@ -5,7 +5,7 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { getIsSeriesElementHelper } from "state/hooks/uiTypes";
-import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
+import { createParamSweepSectionName } from "utils/sectionTypeHelpers";
 
 export function SectionTitle({ sectionId, titleProps }) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
@@ -57,7 +57,7 @@ function setSectionName(sectionId, name, incrementVersion) {
     const s = x.x[sectionId];
     s.name = name;
     if (s.paramSweepSectionId) {
-      x.x[paramSweepSectionId].name = getParamSweepSectionName(name);
+      x.x[paramSweepSectionId].name = createParamSweepSectionName(name);
     }
   });
   maybeIncrementProjectStateVersion(incrementVersion);

@@ -1,8 +1,6 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
-import { BASE_UI_TYPE_IDS } from "utils/constants";
-import { getSectionInfo } from "../../getters/sectionInfo";
+import { getUITypeColAttr } from "state/hooks/uiTypes";
 
 export function setNonPresetUITypeIds({
   collectionId,
@@ -22,19 +20,8 @@ export function deleteParamInfoFromUITypeCol({ uiTypeColId, ids }) {
   });
 }
 
-function getParamUITypeId(sectionId, paramInfoId) {
-  const { uiTypeColId } = getSectionInfo(sectionId);
-  const uiTypeCol = useSectionInfos.getState().uiTypeCols[uiTypeColId];
-  if (
-    paramInfoId.startsWith(C.JSON_SOURCE_PREFIX) &&
-    !(paramInfoId in uiTypeCol)
-  ) {
-    return BASE_UI_TYPE_IDS[C.TEXT];
-  }
-  return uiTypeCol[paramInfoId].uiTypeId;
-}
-
-export function getParamUIType(sectionId, paramInfoId) {
-  const uiTypeId = getParamUITypeId(sectionId, paramInfoId);
-  return useSectionInfos.getState().uiTypes[uiTypeId];
+export function getParamUIType(sectionId, paramInfoId, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  const uiTypeId = getUITypeColAttr(sectionId, paramInfoId, "uiTypeId", state);
+  return state.uiTypes[uiTypeId];
 }

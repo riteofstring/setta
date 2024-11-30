@@ -159,7 +159,7 @@ export function getSectionIdParamInfoIdToKeywordPositions(sectionVariantState) {
   return output;
 }
 
-export function getSectionSelectedItem(sectionId, _state = null) {
+export function getSectionSelectedItem(sectionId, _state) {
   const state = _state ?? useSectionInfos.getState();
   return state.variants[getSectionVariantIdToShow(sectionId, state)]
     .selectedItem;

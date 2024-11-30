@@ -39,7 +39,7 @@ export const uiTypesToPretty = Object.freeze(
   ),
 );
 
-export function getParamSweepSectionName(sectionName) {
+export function createParamSweepSectionName(sectionName) {
   return `${sectionName} Sweep`;
 }
 
