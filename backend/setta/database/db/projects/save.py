@@ -18,7 +18,6 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import filter_dict
 
 from ..codeInfo.save import save_code_info, save_code_info_col
-from ..runGroups.save import save_run_groups
 from ..sections.save import save_sections
 from ..sectionVariants.save import save_section_variants
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
@@ -37,7 +36,6 @@ def save_project_details(db, p):
     save_project(db, p["projectConfig"])
     save_section_configs(db, p["projectConfig"]["id"], p["sections"])
     update_linked_project_configs(db, p)
-    save_run_groups(db, p["projectConfig"], p["runGroups"])
 
 
 def save_project(db, project):

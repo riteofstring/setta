@@ -3,8 +3,6 @@
     "id": "006f5de6-52de-4ded-bf0b-ac70b4bda655",
     "name": "diffusionDrops",
     "isDefault": 0,
-    "runGroupSelection": {},
-    "shownRunGroup": null,
     "previewImgColor": "bg-pink-500/60 dark:bg-pink-600/30",
     "viewport": {
       "x": 971.4894942290575,
@@ -127,7 +125,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "09179586-8ddd-4f0b-91a0-0398d928d408": {
       "selectedItem": null,
@@ -145,7 +144,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 0,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "10ea5acf-9c24-4351-bc81-252625623507": {
       "selectedItem": null,
@@ -158,7 +158,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "380a6d0c-a96e-48f1-b431-074c7e98eed9": {
       "selectedItem": null,
@@ -171,7 +172,8 @@
       "isFrozen": false,
       "isDefault": true,
       "description": "",
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "4253da34-9a1a-43eb-b80f-c6708e339024": {
       "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
@@ -217,7 +219,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "4c9bee35-38ab-471e-873d-62e1233eeaaf": {
       "selectedItem": null,
@@ -230,7 +233,8 @@
       "isFrozen": false,
       "isDefault": true,
       "description": "",
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "56758b16-1bb1-4167-852c-321b23cfce38": {
       "selectedItem": null,
@@ -243,7 +247,8 @@
       "isFrozen": false,
       "isDefault": true,
       "description": "",
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "645069e7-0657-4c2e-9128-88c701bbd069": {
       "selectedItem": null,
@@ -256,7 +261,8 @@
       "isFrozen": false,
       "isDefault": true,
       "description": "",
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "756e7bb0-ac13-4790-a05c-f10425d508e9": {
       "selectedItem": "b9bf393b-96d9-4264-ad9f-bad777e6777a",
@@ -287,7 +293,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "7d6b798f-f0eb-44b7-b9a9-1bb9bb01185b": {
       "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
@@ -333,7 +340,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 0,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "8481e81d-f417-4914-b5d8-2797202392ab": {
       "selectedItem": null,
@@ -349,7 +357,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "9083beca-25c9-4a31-885a-fb19064efd3d": {
       "selectedItem": "4c97d0f4-0221-4640-b5c8-6067d47fc131",
@@ -372,7 +381,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "9b39ad4c-8887-43ea-b759-a1fc067ac3ef": {
       "selectedItem": null,
@@ -388,7 +398,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "a853185e-5b0d-400a-a94c-6c14a9c9809e": {
       "selectedItem": "ea138acc-58d2-4cfb-a2db-b5c44061f10f",
@@ -434,7 +445,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "c1873fea-a24d-4367-97b1-88614045a575": {
       "selectedItem": "e7bd857a-770d-47da-9b8e-811baa29620c",
@@ -492,7 +504,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 0,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "c58d323d-382a-47b2-919f-a7f06bcac760": {
       "selectedItem": "10aeb934-d614-4b88-a15a-890c825860e1",
@@ -510,7 +523,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "dbb76902-0b6c-46fa-a765-46bdfcf92d92": {
       "selectedItem": "c8a7d3aa-02d6-456c-8247-efc02bf86332",
@@ -573,7 +587,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "e3280349-7dda-43f6-9cea-0b98971435a5": {
       "selectedItem": null,
@@ -586,7 +601,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "fb08c4e1-9809-46ef-bfa5-52a4a944ef74": {
       "selectedItem": null,
@@ -602,7 +618,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     }
   },
   "uiTypes": {
@@ -955,7 +972,6 @@
     },
     "eb1e2aa0-ea16-433d-80b9-f4018039991e": {}
   },
-  "runGroups": {},
   "sections": {
     "04a2d718-6476-446f-bda7-4b7fc22f8972": {
       "id": "04a2d718-6476-446f-bda7-4b7fc22f8972",

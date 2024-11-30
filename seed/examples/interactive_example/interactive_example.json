@@ -3,8 +3,6 @@
     "id": "03a28f24-e773-43a3-a1cf-da0fe7c1b8f9",
     "name": "interactive_example",
     "isDefault": 0,
-    "runGroupSelection": {},
-    "shownRunGroup": null,
     "previewImgColor": "bg-indigo-500/60 dark:bg-indigo-600/30",
     "viewport": {
       "x": 363.8625758992133,
@@ -81,7 +79,8 @@
       "isFrozen": false,
       "isDefault": true,
       "description": "",
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "56218716-8dc7-4a8b-a253-1eb2bb9cfc56": {
       "selectedItem": null,
@@ -94,7 +93,8 @@
       "isFrozen": false,
       "isDefault": true,
       "description": "",
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "61ce0033-a59e-4c8e-8a52-d658feb18017": {
       "selectedItem": null,
@@ -107,7 +107,8 @@
       "isFrozen": false,
       "isDefault": true,
       "description": "",
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "8055d10b-3623-4665-b85c-977327fa40c6": {
       "selectedItem": null,
@@ -120,7 +121,8 @@
       "isFrozen": false,
       "isDefault": true,
       "description": "",
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "91b7814e-8f93-4ad1-a966-00851b4e41d9": {
       "selectedItem": null,
@@ -133,7 +135,8 @@
       "isFrozen": false,
       "isDefault": true,
       "description": "",
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "efbf1e64-8932-4fa6-928a-e930314db45c": {
       "selectedItem": null,
@@ -146,7 +149,8 @@
       "isFrozen": false,
       "isDefault": true,
       "description": "",
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     }
   },
   "uiTypes": {
@@ -345,7 +349,6 @@
     "ce01027b-26ed-4ea2-971a-fefde787cbb2": {},
     "ecab60b1-3cd7-4947-a61b-ccbef507c9ae": {}
   },
-  "runGroups": {},
   "sections": {
     "25d0e656-bec2-44a0-9728-f41d657b8508": {
       "id": "25d0e656-bec2-44a0-9728-f41d657b8508",

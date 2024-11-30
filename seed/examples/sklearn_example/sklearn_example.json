@@ -3,10 +3,6 @@
     "id": "41f411f7-b14d-4375-bfcd-204446866745",
     "name": "sklearn_example",
     "isDefault": 0,
-    "runGroupSelection": {
-      "9eb16f5e-6d52-44a5-b139-d51d91581b3f": 0
-    },
-    "shownRunGroup": "9eb16f5e-6d52-44a5-b139-d51d91581b3f",
     "previewImgColor": "bg-blue-500/60 dark:bg-blue-600/30",
     "viewport": {
       "x": 103.51586864397188,
@@ -138,7 +134,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "22f7a029-5660-4f3d-ba54-e79637f2ba61": {
       "selectedItem": "c9a3e19c-6876-468a-a9a1-6f289c9367eb",
@@ -184,7 +181,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 0,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "3383d9b9-5cee-445f-a242-fde820c76c73": {
       "selectedItem": null,
@@ -197,7 +195,66 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {
+        "name": "reasonable_fuchsia",
+        "sections": {
+          "46dc6cab-03ac-4e73-919d-63b30da0688d": {
+            "null": {
+              "selected": true,
+              "paramSweeps": {},
+              "versions": {
+                "54571c59-7a51-42d5-bb8e-b6c06b41b023": true
+              }
+            }
+          },
+          "53e4bdad-ff4e-499c-a659-07e7184d4111": {
+            "null": {
+              "selected": true,
+              "paramSweeps": {},
+              "versions": {
+                "3fd1ddfd-e80f-41a2-bcad-c0702c39f04c": true
+              }
+            }
+          },
+          "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
+            "null": {
+              "selected": true,
+              "paramSweeps": {},
+              "versions": {
+                "69220358-73c1-49c3-9b78-d7cf733b2aa8": true
+              }
+            }
+          },
+          "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
+            "null": {
+              "selected": true,
+              "paramSweeps": {},
+              "versions": {
+                "fca181fc-c326-4d50-b028-37b368372f49": true
+              }
+            }
+          },
+          "d96cb110-6f72-435a-b745-2d55e277f983": {
+            "null": {
+              "selected": true,
+              "paramSweeps": {},
+              "versions": {
+                "66e4192c-c1fc-4935-b862-e722726c1217": true
+              }
+            }
+          },
+          "e209e428-eea6-4e14-b61e-0648ec28dd76": {
+            "null": {
+              "selected": true,
+              "paramSweeps": {},
+              "versions": {
+                "22f7a029-5660-4f3d-ba54-e79637f2ba61": true
+              }
+            }
+          }
+        }
+      }
     },
     "3fd1ddfd-e80f-41a2-bcad-c0702c39f04c": {
       "selectedItem": null,
@@ -219,7 +276,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "54571c59-7a51-42d5-bb8e-b6c06b41b023": {
       "selectedItem": null,
@@ -241,7 +299,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "66e4192c-c1fc-4935-b862-e722726c1217": {
       "selectedItem": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
@@ -295,7 +354,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "69220358-73c1-49c3-9b78-d7cf733b2aa8": {
       "selectedItem": null,
@@ -308,7 +368,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "9a6859c2-a79d-4da2-b460-b57fc982d495": {
       "selectedItem": null,
@@ -321,7 +382,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c": {
       "selectedItem": null,
@@ -334,7 +396,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "f8d91f36-109b-43df-9770-b720dc3e74bd": {
       "selectedItem": null,
@@ -347,7 +410,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     },
     "fb460dcd-d460-44fc-aeae-b0b8aca93c5b": {
       "selectedItem": null,
@@ -374,7 +438,8 @@
             }
           ]
         }
-      ]
+      ],
+      "runGroup": {}
     },
     "fca181fc-c326-4d50-b028-37b368372f49": {
       "selectedItem": null,
@@ -387,7 +452,8 @@
       "keywordPositions": [],
       "isFrozen": 0,
       "isDefault": 1,
-      "sweep": []
+      "sweep": [],
+      "runGroup": {}
     }
   },
   "uiTypes": {
@@ -642,67 +708,6 @@
     "e5d2c23d-82fd-47c3-bf8d-dcb5ac18a8b7": {},
     "ef2ae12c-d8f5-4d00-bf37-eb799dd0e4a1": {},
     "f35d7b7b-d268-45c9-94de-748f8f1cd98d": {}
-  },
-  "runGroups": {
-    "9eb16f5e-6d52-44a5-b139-d51d91581b3f": {
-      "name": "reasonable_fuchsia",
-      "sections": {
-        "46dc6cab-03ac-4e73-919d-63b30da0688d": {
-          "null": {
-            "selected": true,
-            "paramSweeps": {},
-            "versions": {
-              "54571c59-7a51-42d5-bb8e-b6c06b41b023": true
-            }
-          }
-        },
-        "53e4bdad-ff4e-499c-a659-07e7184d4111": {
-          "null": {
-            "selected": true,
-            "paramSweeps": {},
-            "versions": {
-              "3fd1ddfd-e80f-41a2-bcad-c0702c39f04c": true
-            }
-          }
-        },
-        "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
-          "null": {
-            "selected": true,
-            "paramSweeps": {},
-            "versions": {
-              "69220358-73c1-49c3-9b78-d7cf733b2aa8": true
-            }
-          }
-        },
-        "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
-          "null": {
-            "selected": true,
-            "paramSweeps": {},
-            "versions": {
-              "fca181fc-c326-4d50-b028-37b368372f49": true
-            }
-          }
-        },
-        "d96cb110-6f72-435a-b745-2d55e277f983": {
-          "null": {
-            "selected": true,
-            "paramSweeps": {},
-            "versions": {
-              "66e4192c-c1fc-4935-b862-e722726c1217": true
-            }
-          }
-        },
-        "e209e428-eea6-4e14-b61e-0648ec28dd76": {
-          "null": {
-            "selected": true,
-            "paramSweeps": {},
-            "versions": {
-              "22f7a029-5660-4f3d-ba54-e79637f2ba61": true
-            }
-          }
-        }
-      }
-    }
   },
   "sections": {
     "29ca4fd3-de9b-4986-831a-e632a95b6081": {

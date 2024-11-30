@@ -49,7 +49,6 @@ export function loadProjectState({
   sectionVariants,
   uiTypes,
   uiTypeCols,
-  runGroups,
   jsonSourceMissing,
 }) {
   setAllCodeInfo(codeInfo);
@@ -76,7 +75,6 @@ export function loadProjectState({
   setAllUITypes({ ...uiTypes, ...BASE_UI_TYPES });
   setAllSectionVariants(sectionVariants);
   setAllUITypeCols({ uiTypeCols });
-  setAllRunGroups(runGroups);
   setAllSectionInfos(sections);
   useJSONSourceMissing.getState().reset();
   useJSONSourceMissing.setState(jsonSourceMissing);

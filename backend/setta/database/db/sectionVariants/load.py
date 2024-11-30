@@ -4,7 +4,7 @@ import json
 def load_section_variants(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT SectionVariantId.id, SectionVariantId.data, SectionVariantId.selectedItem, SectionVariantId.codeInfoColId, SectionVariantEV.codeInfoId, SectionVariantEV.data as valueData
+        SELECT SectionVariantId.id, SectionVariantId.data, SectionVariantId.selectedItem, SectionVariantId.codeInfoColId, SectionVariantId.runGroup, SectionVariantEV.codeInfoId, SectionVariantEV.data as valueData
         FROM SectionVariantId
         LEFT JOIN SectionVariantEV
         ON SectionVariantId.id = SectionVariantEV.idid
@@ -18,6 +18,7 @@ def load_section_variants(db, ids):
             output[id] = {
                 "selectedItem": row["selectedItem"],
                 "codeInfoColId": row["codeInfoColId"],
+                "runGroup": json.loads(row["runGroup"]),
                 "values": {},
                 "children": [],
                 **json.loads(row["data"]),

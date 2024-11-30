@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS SectionVariantId (
     selectedItem TEXT,
     codeInfoColId TEXT,
     originSectionId TEXT,
+    runGroup TEXT,
     FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
     FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE,
     FOREIGN KEY (codeInfoColId) REFERENCES CodeInfoColId(id) ON DELETE CASCADE
@@ -102,9 +103,7 @@ CREATE TABLE IF NOT EXISTS ProjectConfig (
     id TEXT PRIMARY KEY,
     name TEXT,
     data TEXT,
-    shownRunGroup TEXT,
-    UNIQUE (name),
-    FOREIGN KEY (shownRunGroup) REFERENCES RunGroup(id) ON DELETE CASCADE
+    UNIQUE (name)
 );
 CREATE TABLE IF NOT EXISTS ProjectConfigChildren (
     parentId TEXT,
@@ -120,17 +119,4 @@ CREATE TABLE IF NOT EXISTS SectionArtifacts (
     data TEXT,
     PRIMARY KEY (sectionId, artifactPath),
     FOREIGN KEY (sectionId) REFERENCES Section(id)
-);
-CREATE TABLE IF NOT EXISTS RunGroup (
-    id TEXT PRIMARY KEY,
-    jsonRepr TEXT
-);
-CREATE TABLE IF NOT EXISTS ProjectConfigRunGroup (
-    projectConfigId TEXT KEY,
-    runGroupId TEXT KEY,
-    selected BOOLEAN,
-    "order" INTEGER,
-    PRIMARY KEY (projectConfigId, runGroupId),
-    FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id),
-    FOREIGN KEY (runGroupId) REFERENCES RunGroup(id)
 );

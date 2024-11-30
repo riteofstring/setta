@@ -4,7 +4,6 @@ from setta.database.utils import aggregate_results
 from setta.utils.utils import recursive_dict_merge
 
 from ..codeInfo.load import load_code_info_cols
-from ..runGroups.load import load_run_groups
 from ..sections.load import (
     load_json_sources_into_data_structures,
     load_section_configs,
@@ -51,7 +50,6 @@ def load_project_config_metadata(db, config_name):
         SELECT
             ProjectConfig.id,
             ProjectConfig.name,
-            ProjectConfig.shownRunGroup,
             ProjectConfig.data,
             ProjectConfigChildren.childId as childId,
             ProjectConfigChildren.data as childData
@@ -82,16 +80,12 @@ def load_project_config_metadata(db, config_name):
         "id": out["id"],
         "name": out["name"],
         "children": children,
-        "shownRunGroup": out["shownRunGroup"],
         **json.loads(out["data"]),
     }
 
 
 def load_project_config(db, project_config_name):
     projectConfig = load_project_config_metadata(db, project_config_name)
-    runGroups, projectConfig["runGroupSelection"] = load_run_groups(
-        db, projectConfig["id"]
-    )
     sections_data = load_sections(db, list(projectConfig["children"].keys()))
     sectionConfigs = load_section_configs(db, projectConfig["id"])
     sections = recursive_dict_merge(sections_data["sections"], sectionConfigs)
@@ -109,7 +103,6 @@ def load_project_config(db, project_config_name):
         "sectionVariants": sectionVariants,
         "uiTypes": uiTypes,
         "uiTypeCols": uiTypeCols,
-        "runGroups": runGroups,
         "codeInfo": codeInfo,
         "codeInfoCols": codeInfoCols,
         "jsonSourceMissing": jsonSourceMissing,
