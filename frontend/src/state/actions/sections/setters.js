@@ -7,8 +7,6 @@ import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
-import { getSectionInfo } from "../../getters/sectionInfo";
 import {
   addCodeInfo,
   itemHasBeenSelectedBefore,
@@ -74,19 +72,6 @@ function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
     sectionIds: [sectionId],
     codeInfoIds: [selectedItem],
   });
-  maybeIncrementProjectStateVersion(incrementVersion);
-}
-
-export function setSectionName(sectionId, name, incrementVersion) {
-  setSectionInfoAttr({ sectionId, attr: "name", value: name });
-  const paramSweepSectionId = getSectionInfo(sectionId).paramSweepSectionId;
-  if (paramSweepSectionId) {
-    setSectionInfoAttr({
-      sectionId: paramSweepSectionId,
-      attr: "name",
-      value: getParamSweepSectionName(name),
-    });
-  }
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

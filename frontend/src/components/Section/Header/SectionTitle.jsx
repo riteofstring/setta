@@ -1,11 +1,13 @@
 import { Editable } from "components/Utils/Editable";
 import { setSectionName } from "state/actions/sections/setters";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { getSectionSiblingNames } from "state/getters/sectionInfo";
 import {
   useEditableOnSubmit,
   useTitleIsEditable,
 } from "state/hooks/editableText";
+import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
 
 export function SectionTitle({ sectionId, titleProps }) {
   const sectionName = useSectionInfos((x) => x.x[sectionId].name);
@@ -52,4 +54,15 @@ function EditableTitle({ sectionId, sectionName, titleProps }) {
       titleProps={titleProps}
     />
   );
+}
+
+function setSectionName(sectionId, name, incrementVersion) {
+  useSectionInfos.setState((x) => {
+    const s = x.x[sectionId];
+    s.name = name;
+    if (s.paramSweepSectionId) {
+      x.x[paramSweepSectionId].name = getParamSweepSectionName(name);
+    }
+  });
+  maybeIncrementProjectStateVersion(incrementVersion);
 }
