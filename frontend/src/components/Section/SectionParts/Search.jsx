@@ -1,5 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import _ from "lodash";
 import { useEffect, useState } from "react";
 import { getKeywordPositionsAndEVRefs } from "requests/sections";
 import { setParamSweepSelectedItem } from "state/actions/runGroups/paramSweep";
@@ -111,21 +112,19 @@ function SectionSearchCore({
   realCodeClassName,
   isDisabled,
 }) {
-  const configLanguage = useSectionInfos(
-    (x) => x.x[dataSectionId].configLanguage,
-  );
-
   const {
     name: codeInfoName,
     keywordPositions,
     description,
+    configLanguage,
   } = useSectionInfos((x) => {
+    const configLanguage = x.x[dataSectionId].configLanguage;
     if (selectedItem) {
       const { name, keywordPositions, description } = x.codeInfo[selectedItem];
-      return { name, keywordPositions, description };
+      return { name, keywordPositions, description, configLanguage };
     }
-    return { name: "", keywordPositions: [], description: "" };
-  });
+    return { name: "", keywordPositions: [], description: "", configLanguage };
+  }, _.isEqual);
 
   const [value, setValue] = useState(codeInfoName);
 

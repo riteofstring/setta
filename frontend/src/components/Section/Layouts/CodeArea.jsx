@@ -3,6 +3,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { getKeywordStylizer } from "components/Utils/CodeMirror/getKeywordStylizer";
 import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import _ from "lodash";
 import React, {
   useCallback,
   useEffect,
@@ -131,8 +132,12 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
 }
 
 export function useCodeAreaHeight({ sectionId }) {
-  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
-  const height = useSectionInfos((x) => x.x[sectionId].size.height);
+  const { resizeEvent, height } = useSectionInfos((x) => {
+    return {
+      resizeEvent: x.x[sectionId].resizeEvent,
+      height: x.x[sectionId].size.height,
+    };
+  }, _.isEqual);
 
   const wrapperRef = useRef(null);
   const editorRef = useRef(null);

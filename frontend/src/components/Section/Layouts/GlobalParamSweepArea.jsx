@@ -97,17 +97,17 @@ function RightSide({ sectionId, shownRunGroupId }) {
 }
 
 function RunGroupList({ sectionId, editingRunGroupId }) {
-  const runGroupSelection = useSectionInfos(
-    (x) => x.x[sectionId].selectedVariantIds,
-  );
   const { ref, isScrollable } = useIsScrollable();
-  const runGroupsDetails = useSectionInfos((x) => {
+  const { runGroupsDetails, runGroupSelection } = useSectionInfos((x) => {
     const output = [];
     const { variantIds } = x.x[sectionId];
     for (const id of variantIds) {
       output.push({ id, name: x.variants[id].name });
     }
-    return output;
+    return {
+      runGroupsDetails: output,
+      runGroupSelection: x.x[sectionId].selectedVariantIds,
+    };
   }, _.isEqual);
 
   return (

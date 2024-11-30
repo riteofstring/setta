@@ -1,4 +1,5 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
+import _ from "lodash";
 import { setCodeInfoName } from "state/actions/codeInfo";
 import { updateKeywordRegex } from "state/actions/keywordRegex";
 import { useParamShortcuts, useSectionInfos } from "state/definitions";
@@ -6,8 +7,12 @@ import { useCodeInfoHasChildren } from "state/hooks/codeInfoCols";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 
 export function ParamNameInput({ sectionId, paramInfoId }) {
-  const configLanguage = useSectionInfos((x) => x.x[sectionId].configLanguage);
-  const value = useSectionInfos((x) => x.codeInfo[paramInfoId].name);
+  const { configLanguage, name: value } = useSectionInfos((x) => {
+    return {
+      configLanguage: x.x[sectionId].configLanguage,
+      name: x.codeInfo[paramInfoId].name,
+    };
+  }, _.isEqual);
   const hasChildren = useCodeInfoHasChildren(sectionId, paramInfoId);
 
   function onChange(v) {
