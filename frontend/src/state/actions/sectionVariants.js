@@ -38,6 +38,7 @@ export function initManySectionVariantIds({ variantProps }) {
         isFrozen: props.isFrozen ?? false,
         isDefault: props.isDefault ?? true,
         sweep: props.sweep ?? [],
+        runGroup: props.runGroup ?? {},
       });
     }
   });
