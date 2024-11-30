@@ -5,12 +5,14 @@ import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import React, { useEffect } from "react";
 import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
+import { createNewVersion } from "state/actions/newVersion";
 import {
   onClickSetVariantId,
   onMouseLeaveSetPreviewVariantId,
   onMouseOverSetPreviewVariantId,
 } from "state/actions/previewOnMouseOver";
 import {
+  initRunGroup,
   toggleRunGroup,
   toggleRunGroupSection,
   toggleRunGroupSectionParamSweep,
@@ -71,7 +73,7 @@ function LeftSide({ sectionId, editingRunGroupId }) {
         sectionId={sectionId}
         editingRunGroupId={editingRunGroupId}
       />
-      <CreateNewRunGroupButton />
+      <CreateNewRunGroupButton sectionId={sectionId} />
     </article>
   );
 }
@@ -527,11 +529,16 @@ function FilterSection() {
   );
 }
 
-function CreateNewRunGroupButton({}) {
+function CreateNewRunGroupButton({ sectionId }) {
+  function onClick() {
+    const variantId = createNewVersion(sectionId);
+    initRunGroup(variantId);
+  }
+
   return (
     <button
       className="nodrag flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-1 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
-      // onClick={createRunGroupWithRandomName}
+      onClick={onClick}
     >
       <i className="gg-add-r" /> New Run Group
     </button>
