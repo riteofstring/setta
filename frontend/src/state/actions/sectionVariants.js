@@ -5,16 +5,14 @@ import { createNewId } from "utils/idNameCreation";
 import { getValueForUIType, newEV } from "utils/objs/ev";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
-export function duplicateSectionVariant({ id, newName, newCodeInfoColId }) {
+export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
   const newId = createNewId();
-  useSectionInfos.setState((state) => {
-    const s = state.variants;
-    s[newId] = _.cloneDeep(s[id]);
-    s[newId].name = newName;
-    s[newId].codeInfoColId = newCodeInfoColId;
-    s[newId].isFrozen = false;
-    s[newId].isDefault = false;
-  });
+  const s = state.variants;
+  s[newId] = _.cloneDeep(s[id]);
+  s[newId].name = newName;
+  s[newId].codeInfoColId = newCodeInfoColId;
+  s[newId].isFrozen = false;
+  s[newId].isDefault = false;
   return newId;
 }
 

@@ -20,11 +20,9 @@ export function getKwargIds(sectionId, codeInfoId, _cState) {
   );
 }
 
-export function duplicateCodeInfoCol(id) {
+export function duplicateCodeInfoCol(id, state) {
   const newId = createNewId();
-  useSectionInfos.setState((state) => {
-    const s = state.codeInfoCols;
-    s[newId] = _.cloneDeep(s[id]);
-  });
+  const s = state.codeInfoCols;
+  s[newId] = _.cloneDeep(s[id]);
   return newId;
 }
