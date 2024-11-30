@@ -18,20 +18,10 @@ class DocstringToMarkdownRequest(BaseModel):
     docstring: str
 
 
-@router.post(C.ROUTE_GET_COLLECTIONS_AND_MODULES)
-def route_get_collections_and_modules():
-    pass
-
-
 @router.post(C.ROUTE_SAVE_CODE_INFO)
 def route_save_code_info(x: SaveCodeInfoRequest, dbq=Depends(get_dbq)):
     with dbq as db:
         save_code_info(db, x.codeInfo)
-
-
-@router.post(C.ROUTE_GET_COLLECTION_DETAILS)
-def route_get_collection_details():
-    pass
 
 
 @router.post(C.ROUTE_DOCSTRING_TO_MARKDOWN)

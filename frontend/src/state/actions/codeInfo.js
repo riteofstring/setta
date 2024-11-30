@@ -4,11 +4,8 @@ import { getSectionCodeInfoChildren } from "./codeInfoCols";
 import { getSectionSelectedItem } from "./sectionVariants";
 
 export function addCodeInfo({ sectionId, info, parent, insertIdx }) {
-  useSectionInfos.setState((state) => {
-    state.codeInfo[info.id] = info;
-  });
-
   useSectionInfos.setState((x) => {
+    x.codeInfo[info.id] = info;
     const { codeInfoColId } = x.variants[x.x[sectionId].variantId];
     if (_.isNil(insertIdx)) {
       x.codeInfoCols[codeInfoColId].children[parent].push(info.id);
@@ -29,31 +26,15 @@ export function setCodeInfoName({ id, name }) {
   });
 }
 
-export function setCodeInfoKeywordPositions({ id, keywordPositions }) {
-  useSectionInfos.setState((state) => {
-    state.codeInfo[id].keywordPositions = keywordPositions;
-  });
-}
-
 export function setCodeInfoDescription({ id, description }) {
   useSectionInfos.setState((state) => {
     state.codeInfo[id].description = description;
   });
 }
 
-export function setCodeInfoFrozen({ ids, isFrozen }) {
-  useSectionInfos.setState((state) => {
-    for (const id of ids) {
-      state.codeInfo[id].isFrozen = isFrozen;
-    }
-  });
-}
-
 export function deleteCodeInfo({ ids }) {
   useSectionInfos.setState((state) => {
     state.codeInfo = _.omit(state.codeInfo, ids);
-  });
-  useSectionInfos.setState((state) => {
     state.codeInfoCols = _.omit(state.codeInfoCols, ids);
     for (const codeCol of Object.values(state.codeInfoCols)) {
       for (const parentId of Object.keys(codeCol.children)) {
@@ -103,9 +84,4 @@ export function itemIsAlreadySelected(sectionId, selectedItemName) {
     useSectionInfos.getState().codeInfo[currSelectedItem]?.name ===
     selectedItemName
   );
-}
-
-export function setSelectedItemKeywordPositions(sectionId, keywordPositions) {
-  const currSelectedItem = getSectionSelectedItem(sectionId);
-  setCodeInfoKeywordPositions({ id: currSelectedItem, keywordPositions });
 }
