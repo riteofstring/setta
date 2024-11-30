@@ -47,45 +47,27 @@ function useGetOverviewListing() {
     (x) => [...x.x.keys()],
     _.isEqual,
   );
-  const idToNameAndChildren = useSectionInfos((x) => {
-    const output = {};
-    for (const s of Object.values(x.x)) {
-      output[s.id] = {
-        name: s.name,
-        children: x.variants[s.variantId].children,
-      };
+
+  return useSectionInfos((x) => {
+    const outputList = [];
+    for (const sectionId of topLevelSectionIds) {
+      getDepthListingHelper(sectionId, 0, x, outputList);
     }
-    return output;
+    return outputList;
   }, _.isEqual);
-
-  return getDepthListing(topLevelSectionIds, idToNameAndChildren);
 }
+function getDepthListingHelper(sectionId, depth, x, outputList) {
+  const section = x.x[sectionId];
+  outputList.push({
+    id: sectionId,
+    name: section.name,
+    depth: depth,
+  });
 
-function getDepthListing(topLevelIds, idToNameAndChildren) {
-  const outputList = [];
-  for (const sectionId of topLevelIds) {
-    outputList.push(
-      ...getDepthListingHelper(sectionId, idToNameAndChildren, 0),
-    );
-  }
-  return outputList;
-}
-
-function getDepthListingHelper(sectionId, idToNameAndChildren, depth) {
-  const outputList = [
-    {
-      id: sectionId,
-      name: idToNameAndChildren[sectionId].name,
-      depth: depth,
-    },
-  ];
-
-  if (idToNameAndChildren[sectionId].children) {
-    for (const childId of idToNameAndChildren[sectionId].children) {
-      outputList.push(
-        ...getDepthListingHelper(childId, idToNameAndChildren, depth + 1),
-      );
+  const children = x.variants[section.variantId].children;
+  if (children) {
+    for (const childId of children) {
+      getDepthListingHelper(childId, depth + 1, x, outputList);
     }
   }
-  return outputList;
 }
