@@ -120,9 +120,12 @@ function setFullParamRegex(
   const codeInfoChildren = state.details[sectionId].codeInfoChildren;
   const childParamInfos = paramInfoId
     ? codeInfoChildren[paramInfoId].map((x) => state.codeInfo[x])
-    : getParamIds(sectionId, state.codeInfo, codeInfoChildren).ids.map(
-        (x) => state.codeInfo[x],
-      );
+    : getParamIds(
+        sectionId,
+        state.codeInfo,
+        codeInfoChildren,
+        state.details[sectionId].selectedItem,
+      ).ids.map((x) => state.codeInfo[x]);
 
   for (const p of childParamInfos) {
     if (!p.name) {

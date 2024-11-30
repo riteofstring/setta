@@ -63,6 +63,7 @@ function keywordRegexSubscriptionFn(x) {
       codeInfoChildren:
         x.codeInfoCols[x.variants[s.variantId].codeInfoColId].children,
       sectionTypeName: x.uiTypes[s.uiTypeId].type,
+      selectedItem: x.variants[s.variantId].selectedItem,
       isTopLevel:
         !s.parentId &&
         [
