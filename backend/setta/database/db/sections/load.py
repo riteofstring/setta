@@ -7,6 +7,7 @@ from collections import defaultdict
 from setta.database.db.sectionVariants.utils import new_section_variant
 from setta.database.utils import create_new_id
 from setta.utils.constants import C
+from setta.utils.utils import filter_dict
 
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
@@ -77,11 +78,9 @@ def load_sections(db, ids):
 
     sections = {}
     for v in db.fetchall():
-        v = dict(v)
-        json_data = v.pop("data")
         sections[v["id"]] = {
-            **v,
-            **json.loads(json_data),
+            **filter_dict(v, discard_keys=["data"]),
+            **json.loads(v["data"]),
             "isInOtherProjectConfigs": section_id_to_config_count[v["id"]] > 1,
             "parentId": child_to_parent_id.get(v["id"], None),
             "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],
@@ -134,12 +133,10 @@ def get_section_ids(db, top_level_ids):
 
     db.execute("SELECT id, originSectionId FROM SectionVariantId")
     for row in db.fetchall():
-        row = dict(row)
         section_id_to_variants[row["originSectionId"]].append(row["id"])
 
     db.execute("SELECT idid, childId FROM SectionVariantChildren")
     for row in db.fetchall():
-        row = dict(row)
         variant_id_to_children[row["idid"]].append(row["childId"])
 
     ids = copy.deepcopy(top_level_ids)
@@ -172,7 +169,6 @@ def load_section_configs(db, project_config_id):
 
     output = {}
     for row in db.fetchall():
-        row = dict(row)
         output[row["sectionId"]] = {
             "id": row["sectionId"],
             "variantId": row["variantId"],

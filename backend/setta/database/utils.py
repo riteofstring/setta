@@ -14,7 +14,6 @@ def maybe_new_id(x):
 def aggregate_results(results, top_level_key, aggregate):
     output = {}
     for row in results:
-        row = dict(row)
         key = row[top_level_key]
         if key not in output:
             output[key] = {**row, **{a: [] for a in aggregate}}
@@ -30,7 +29,6 @@ def get_children_recursively(db, ids, query):
         db.execute(query, {"parentId": c})
         parent_child_pairs = db.fetchall()
         for row in parent_child_pairs:
-            row = dict(row)
             childId = row["childId"]
             all_ids.add(childId)
             parent_to_children[row["parentId"]].append(childId)

@@ -48,8 +48,7 @@ def load_code_info(db, ids):
     db.execute(query, all_ids)
     code_info = {}
     for row in db.fetchall():
-        x = dict(row)
-        code_info[x["id"]] = {"id": x["id"], **json.loads(x["data"])}
+        code_info[row["id"]] = {"id": row["id"], **json.loads(row["data"])}
 
     return code_info, code_info_cols
 

@@ -199,7 +199,6 @@ def update_linked_project_configs(db, project):
     sections_to_project_configs = defaultdict(set)
     project_configs_to_sections = defaultdict(set)
     for row in db.fetchall():
-        row = dict(row)
         sections_to_project_configs[row["sectionId"]].add(row["projectConfigId"])
         project_configs_to_sections[row["projectConfigId"]].add(row["sectionId"])
 

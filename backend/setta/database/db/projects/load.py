@@ -31,12 +31,7 @@ def load_all_project_config_metadata(db):
     db.execute(query)
     output = []
     for row in db.fetchall():
-        row = dict(row)
-        output.append(
-            {"id": row["id"],
-            "name": row["name"],
-            **json.loads(row["data"])}
-        )
+        output.append({"id": row["id"], "name": row["name"], **json.loads(row["data"])})
     return output
 
 

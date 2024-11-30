@@ -12,7 +12,6 @@ def load_uitypes(db, ids):
     db.execute(query, ids)
     output = {}
     for row in db.fetchall():
-        row = dict(row)
         output[row["id"]] = {"id": row["id"], **json.loads(row["data"])}
     return output
 
@@ -35,7 +34,6 @@ def load_uitypecols(db, ids):
     db.execute(query, ids)
     output = {}
     for row in db.fetchall():
-        row = dict(row)
         if row["id"] not in output:
             output[row["id"]] = {}
         output[row["id"]][row["codeInfoId"]] = {
