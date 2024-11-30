@@ -46,22 +46,6 @@ export function deleteCodeInfo({ ids }) {
   });
 }
 
-export function addCodeInfoBatch(codeInfo) {
-  useSectionInfos.setState((state) => {
-    state.codeInfo = { ...state.codeInfo, ...codeInfo };
-  });
-}
-
-export function batchUpdateCodeInfoAttrs(idToNewAttrs) {
-  useSectionInfos.setState((state) => {
-    for (const [id, newAttrs] of Object.entries(idToNewAttrs)) {
-      for (const [k, v] of Object.entries(newAttrs)) {
-        state.codeInfo[id][k] = v;
-      }
-    }
-  });
-}
-
 export function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
   // empty value is equivalent to the "null" callable id
   if (selectedItemName === "") {

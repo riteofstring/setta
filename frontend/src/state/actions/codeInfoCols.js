@@ -44,12 +44,3 @@ export function duplicateCodeInfoCol(id) {
   });
   return newId;
 }
-
-export function batchUpdateCodeInfoChildren(sectionId, idToNewChildren) {
-  useSectionInfos.setState((x) => {
-    const { codeInfoColId } = x.variants[x.x[sectionId].variantId];
-    for (const [id, newChildren] of Object.entries(idToNewChildren)) {
-      x.codeInfoCols[codeInfoColId].children[id] = newChildren;
-    }
-  });
-}
