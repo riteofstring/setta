@@ -1,9 +1,5 @@
 import { useSectionInfos } from "state/definitions";
 
-export function setAllUITypes(uiTypes) {
-  useSectionInfos.setState({ uiTypes });
-}
-
 export function addUIType({ uiType }) {
   useSectionInfos.setState((state) => {
     state.uiTypes[uiType.id] = uiType;

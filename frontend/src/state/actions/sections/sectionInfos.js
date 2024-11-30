@@ -5,10 +5,6 @@ import {
   setSectionVariantChildren,
 } from "../sectionVariants";
 
-export function setAllSectionInfos(sections) {
-  useSectionInfos.setState({ x: sections });
-}
-
 export function addSectionInfo(payload) {
   useSectionInfos.setState((state) => ({ x: payload(state.x) }));
 }

@@ -3,10 +3,6 @@ import { useSectionInfos } from "state/definitions";
 import { createNewId, maybeNewId } from "utils/idNameCreation";
 import { getSectionCodeInfoColId } from "./sectionVariants";
 
-export function setAllCodeInfoCols(codeInfoCols) {
-  useSectionInfos.setState({ codeInfoCols });
-}
-
 export function getSectionCodeInfoChildren(sectionId) {
   return useSectionInfos.getState().codeInfoCols[
     getSectionCodeInfoColId(sectionId)

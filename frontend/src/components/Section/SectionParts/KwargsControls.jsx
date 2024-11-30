@@ -88,26 +88,6 @@ export function KwargsControls({
               <i className="gg-close !scale-50" />
             </button>
           </section>
-          {/* {anyParamsSelected && (
-            <section className="flex">
-              <h3 className="my-auto ml-2 pr-1  text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
-                Position
-              </h3>
-
-              <button className={classes} onClick={onPushLeft} tabIndex="-1">
-                <i className="gg-push-left ml-[2px]" />
-              </button>
-              <button className={classes} onClick={onPushRight} tabIndex="-1">
-                <i className="gg-push-right mr-[2px]" />
-              </button>
-              <button className={classes} onClick={onPushUp} tabIndex="-1">
-                <i className="gg-push-up mt-[2px]" />
-              </button>
-              <button className={classes} onClick={onPushDown} tabIndex="-1">
-                <i className="gg-push-down mb-[2px]" />
-              </button>
-            </section>
-          )} */}
         </article>
 
         <search className="nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ">

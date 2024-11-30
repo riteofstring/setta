@@ -6,10 +6,6 @@ import { getValueForUIType, newEV } from "utils/objs/ev";
 import { initValue } from "../utils";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
-export function setAllSectionVariants(variants) {
-  useSectionInfos.setState({ variants });
-}
-
 export function duplicateSectionVariant({ id, newName, newCodeInfoColId }) {
   const newId = createNewId();
   useSectionInfos.setState((state) => {

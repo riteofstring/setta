@@ -3,10 +3,6 @@ import { useSectionInfos } from "state/definitions";
 import { getSectionCodeInfoChildren } from "./codeInfoCols";
 import { getSectionSelectedItem } from "./sectionVariants";
 
-export function setAllCodeInfo(codeInfo) {
-  useSectionInfos.setState({ codeInfo });
-}
-
 export function addCodeInfo({ sectionId, info, parent, insertIdx }) {
   useSectionInfos.setState((state) => {
     state.codeInfo[info.id] = info;

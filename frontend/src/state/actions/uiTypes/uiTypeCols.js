@@ -5,10 +5,6 @@ import { initValue } from "state/utils";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { getSectionInfo } from "../../getters/sectionInfo";
 
-export function setAllUITypeCols({ uiTypeCols }) {
-  useSectionInfos.setState({ uiTypeCols });
-}
-
 export function initManyUITypeColIds({ collectionIds }) {
   useSectionInfos.setState((state) => {
     _.forEach(collectionIds, (id) => initValue(state.uiTypeCols, id, {}));
