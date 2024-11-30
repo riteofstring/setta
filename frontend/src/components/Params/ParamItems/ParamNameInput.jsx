@@ -1,6 +1,5 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
-import { setCodeInfoName } from "state/actions/codeInfo";
 import { getSectionVariantToShow } from "state/actions/sectionVariants";
 import { useParamShortcuts, useSectionInfos } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
@@ -21,7 +20,9 @@ export function ParamNameInput({ sectionId, paramInfoId }) {
   }, _.isEqual);
 
   function onChange(v) {
-    setCodeInfoName({ id: paramInfoId, name: v });
+    useSectionInfos.setState((state) => {
+      state.codeInfo[paramInfoId].name = v;
+    });
   }
 
   const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);

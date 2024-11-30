@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { useSectionInfos } from "state/definitions";
 
 export function addCodeInfo({ sectionId, info, parent, insertIdx, state }) {
   state.codeInfo[info.id] = info;
@@ -16,22 +15,14 @@ export function addCodeInfo({ sectionId, info, parent, insertIdx, state }) {
   state.codeInfoCols[codeInfoColId].children[info.id] = [];
 }
 
-export function setCodeInfoName({ id, name }) {
-  useSectionInfos.setState((state) => {
-    state.codeInfo[id].name = name;
-  });
-}
-
-export function deleteCodeInfo({ ids }) {
-  useSectionInfos.setState((state) => {
-    state.codeInfo = _.omit(state.codeInfo, ids);
-    state.codeInfoCols = _.omit(state.codeInfoCols, ids);
-    for (const codeCol of Object.values(state.codeInfoCols)) {
-      for (const parentId of Object.keys(codeCol.children)) {
-        codeCol.children[parentId] = codeCol.children[parentId].filter(
-          (y) => !ids.includes(y),
-        );
-      }
+export function deleteCodeInfo(ids, state) {
+  state.codeInfo = _.omit(state.codeInfo, ids);
+  state.codeInfoCols = _.omit(state.codeInfoCols, ids);
+  for (const codeCol of Object.values(state.codeInfoCols)) {
+    for (const parentId of Object.keys(codeCol.children)) {
+      codeCol.children[parentId] = codeCol.children[parentId].filter(
+        (y) => !ids.includes(y),
+      );
     }
-  });
+  }
 }

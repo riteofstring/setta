@@ -87,7 +87,10 @@ function deleteKwargIds({ sectionId, ids, incrementVersion }) {
   const { uiTypeColId } = getSectionInfo(sectionId);
   const { variantId } = useSectionInfos.getState().x[sectionId];
 
-  deleteCodeInfo({ ids });
+  useSectionInfos.setState((state) => {
+    deleteCodeInfo(ids, state);
+  });
+
   deleteParamInfoFromSectionVariant({ variantId, ids });
   deleteParamInfoFromUITypeCol({ uiTypeColId, ids });
   deleteParamsFromParamSweep({ sectionId, ids });
