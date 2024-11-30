@@ -34,7 +34,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
   const fullNameToInfo = {};
   const sectionState = useSectionInfos.getState().x;
   for (const sid of topLevelIds) {
-    if (useMisc.getState().singletonSections.globalVariables === sid) {
+    if (useMisc.getState().singletonSections[C.GLOBAL_VARIABLES] === sid) {
       setFullParamRegex(sid, null, names, fullNameToInfo, "", [], true);
     } else {
       const currName = sectionIdsToNames[sid];

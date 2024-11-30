@@ -43,7 +43,7 @@ export function PaneContextMenu() {
       <Item onClick={getOnClickFn({ type: C.DICT_ROOT })}>New Dict</Item>
       <Item onClick={getOnClickFn({ type: C.DECK })}>New Group</Item>
       <Item onClick={getOnClickFn({ type: C.INFO })}>New Info</Item>
-      {!singletonSections.globalVariables && (
+      {!singletonSections[C.GLOBAL_VARIABLES] && (
         <Item onClick={getOnClickFn({ type: C.GLOBAL_VARIABLES })}>
           New Global Variables
         </Item>
@@ -73,7 +73,7 @@ export function PaneContextMenu() {
         New Bash Script
       </Item>
       <Item onClick={getOnClickFn({ type: C.TERMINAL })}>New Terminal</Item>
-      {!singletonSections.globalParamSweep && (
+      {!singletonSections[C.GLOBAL_PARAM_SWEEP] && (
         <Item onClick={getOnClickFn({ type: C.GLOBAL_PARAM_SWEEP })}>
           New Global Param Sweep
         </Item>

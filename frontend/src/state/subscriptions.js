@@ -25,8 +25,7 @@ function singletonSectionsSubscriptionFn(state) {
 export function subscribe() {
   useSectionInfos.subscribe(singletonSectionsSubscriptionFn, (x) => {
     useMisc.setState((state) => {
-      state.singletonSections.globalVariables = x[C.GLOBAL_VARIABLES];
-      state.singletonSections.globalParamSweep = x[C.GLOBAL_PARAM_SWEEP];
+      state.singletonSections = x;
     });
   });
 

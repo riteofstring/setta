@@ -235,7 +235,7 @@ export function setAllRunGroupsAndMaybeCreateSection(runGroups) {
   console.log("stateFormt", stateFormat);
 
   setAllRunGroups(stateFormat);
-  if (!useMisc.getState().singletonSections.globalParamSweep) {
+  if (!useMisc.getState().singletonSections[C.GLOBAL_PARAM_SWEEP]) {
     console.log("will create section");
   } else {
     console.log("section already exists");

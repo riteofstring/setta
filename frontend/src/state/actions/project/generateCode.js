@@ -71,7 +71,7 @@ export async function runCode() {
 
 function* getProjectRuns(project) {
   const globalParamSweepSectionId =
-    useMisc.getState().singletonSections.globalParamSweep;
+    useMisc.getState().singletonSections[C.GLOBAL_PARAM_SWEEP];
   const selectedRunGroupIds = globalParamSweepSectionId
     ? getSectionInfo(globalParamSweepSectionId).selectedVariantIds
     : {};

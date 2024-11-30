@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -174,7 +175,10 @@ export const useMisc = create(
       mouseDownDrawArea: false,
       mouseDownDraggingSection: false,
       lastPaneClickLocation: { x: 0, y: 0 },
-      singletonSections: { globalVariables: null, globalParamSweep: null },
+      singletonSections: {
+        [C.GLOBAL_VARIABLES]: null,
+        [C.GLOBAL_PARAM_SWEEP]: null,
+      },
     })),
   ),
 );
