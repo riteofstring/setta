@@ -131,12 +131,10 @@ CREATE TABLE IF NOT EXISTS ParamSweepId (
 );
 CREATE TABLE IF NOT EXISTS ParamSweep (
     idid TEXT,
-    selectedItemGroupNum INTEGER,
-    paramInfoGroupNum INTEGER,
+    data TEXT,
     selectedItem TEXT,
     paramInfoId TEXT,
     "order" INTEGER,
-    value TEXT,
     PRIMARY KEY (idid, "order"),
     FOREIGN KEY (idid) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
     FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
