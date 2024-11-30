@@ -2,7 +2,7 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { setNotificationMessage } from "state/actions/notification";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
-import { getSectionConfig } from "state/getters/sectionInfo";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import { duplicateParamSweep, getForSectionId } from "state/hooks/paramSweep";
 import { createRandomName } from "utils/idNameCreation";
 
@@ -12,7 +12,7 @@ export function CreateNewParamSweepButton({ sectionId }) {
       useSectionInfos.getState().x,
       sectionId,
     );
-    const currParamSweepId = getSectionConfig(forSectionId).paramSweepId;
+    const currParamSweepId = getSectionInfo(forSectionId).paramSweepId;
 
     const name = createRandomName();
     const newParamSweepId = duplicateParamSweep({
@@ -20,10 +20,11 @@ export function CreateNewParamSweepButton({ sectionId }) {
       newName: name,
     });
 
-    useSectionInfos.setState((x) => {
-      x.sectionConfigs[forSectionId].paramSweepId = newParamSweepId;
+    setSectionInfoAttr({
+      sectionId: forSectionId,
+      attr: "paramSweepId",
+      value: newParamSweepId,
     });
-
     setSectionInfoAttr({
       sectionId: forSectionId,
       attr: "paramSweepIds",

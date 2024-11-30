@@ -9,8 +9,8 @@ export function useParamSweepInfo(sectionId) {
       if (forSectionId) {
         return {
           forSectionId,
-          paramSweepId: x.sectionConfigs[forSectionId].paramSweepId,
-          previewParamSweepId: x.sectionConfigs[forSectionId].previewParamSweepId,
+          paramSweepId: x.x[forSectionId].paramSweepId,
+          previewParamSweepId: x.x[forSectionId].previewParamSweepId,
         };
       }
       return { forSectionId, paramSweepId: null, previewParamSweepId: null };

@@ -18,11 +18,7 @@ import {
   useSectionInfos,
   useYamlValue,
 } from "state/definitions";
-import {
-  getSectionConfig,
-  getSectionInfo,
-  getSectionType,
-} from "state/getters/sectionInfo";
+import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { createNewParamId } from "utils/idNameCreation";
@@ -125,7 +121,7 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
     newParamSweep.push({ selectedItem: matchingCallableId, params });
   }
 
-  const { paramSweepId } = getSectionConfig(forSectionId);
+  const { paramSweepId } = getSectionInfo(forSectionId);
   useParamSweep.setState((x) => {
     x.x[paramSweepId].sweep = newParamSweep;
   });

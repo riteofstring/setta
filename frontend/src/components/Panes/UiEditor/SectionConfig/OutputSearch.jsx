@@ -1,7 +1,7 @@
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { setSectionName, setSectionSize } from "state/actions/sections/setters";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { getSectionConfig } from "state/getters/sectionInfo";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import { useAllOutputNames } from "state/hooks/outputs";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { INITIAL_CHART_SIZE } from "utils/constants";
@@ -19,7 +19,7 @@ export function OutputsSearch({ sectionId }) {
       newValueFn,
     });
     setSectionName(sectionId, outputGroups[id].name);
-    const currSize = getSectionConfig(sectionId).size;
+    const currSize = getSectionInfo(sectionId).size;
     if (
       currSize.width < INITIAL_CHART_SIZE.width ||
       currSize.height < INITIAL_CHART_SIZE.height

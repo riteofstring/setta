@@ -39,10 +39,7 @@ export function DrawOnImage({ sectionId }) {
       eraserBrushSize,
     },
   } = useSectionInfos(
-    (x) => ({
-      size: x.sectionConfigs[sectionId].size,
-      canvasSettings: x.x[sectionId].canvasSettings,
-    }),
+    (x) => _.pick(x.x[sectionId], ["size", "canvasSettings"]),
     _.isEqual,
   );
   const backgroundCanvasRef = useRef(null);

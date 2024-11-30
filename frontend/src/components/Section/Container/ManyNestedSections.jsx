@@ -25,7 +25,7 @@ function NestedSectionsWithMargin({ childIds, sectionId, isDeck }) {
   };
 
   const isHorizontalOrientation = useSectionInfos(
-    (x) => x.sectionConfigs[sectionId].isHorizontalOrientation,
+    (x) => x.x[sectionId].isHorizontalOrientation,
   );
 
   return (

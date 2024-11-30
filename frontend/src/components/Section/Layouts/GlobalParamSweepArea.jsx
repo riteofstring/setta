@@ -30,7 +30,7 @@ import { useShowYaml } from "./toYaml";
 
 export function GlobalParamSweepArea({ sectionId }) {
   const width = useSectionInfos((x) => {
-    const w = x.sectionConfigs[sectionId].size.width;
+    const w = x.x[sectionId].size.width;
     return w === "auto" ? getSectionRect(sectionId)?.width : w;
   });
 

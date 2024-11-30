@@ -29,10 +29,11 @@ function addParamSweepSection(sectionId) {
 
   initParamSweep({ id: paramSweepId, name: createRandomName() });
 
-  useSectionInfos.setState((x) => {
-    x.sectionConfigs[sectionId].paramSweepId = paramSweepId;
+  setSectionInfoAttr({
+    sectionId,
+    attr: "paramSweepId",
+    value: paramSweepId,
   });
-
   setSectionInfoAttr({
     sectionId,
     attr: "paramSweepIds",

@@ -9,7 +9,6 @@ import {
 } from "state/definitions";
 import {
   getSectionByName,
-  getSectionConfig,
   getSectionInfo,
   getSectionName,
   getSectionType,
@@ -71,9 +70,7 @@ function newRunGroupSection(sectionId, initVariantId) {
   return {
     selected: true,
     paramSweeps: {},
-    versions: {
-      [initVariantId ?? getSectionConfig(sectionId).variantId]: true,
-    },
+    versions: { [initVariantId ?? getSectionInfo(sectionId).variantId]: true },
   };
 }
 
@@ -91,7 +88,7 @@ function maybeInitRunGroupSection(
     maybeInitAllDescendants(
       state,
       id,
-      initVariantId ?? getSectionConfig(sectionId).variantId,
+      initVariantId ?? getSectionInfo(sectionId).variantId,
     );
     isNewInit = true;
   }

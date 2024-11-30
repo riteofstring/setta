@@ -97,9 +97,10 @@ export function setSectionParentId(sectionId, parentId) {
 }
 
 export function setSectionSize(sectionId, size) {
-  useSectionInfos.setState((x) => {
-    const s = x.sectionConfigs[sectionId];
-    s.size = { ...s.size, ...size };
+  setSectionInfoAttr({
+    sectionId,
+    attr: "size",
+    newValueFn: (currSize) => ({ ...currSize, ...size }),
   });
 }
 

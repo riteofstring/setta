@@ -1,9 +1,9 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
-import { useCodeInfo } from "state/definitions";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { getSectionConfig, getSectionInfo } from "../../getters/sectionInfo";
+import { getSectionInfo } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo } from "../codeInfo";
 import { getKwargIds, getSectionCodeInfoChildren } from "../codeInfoCols";
 import { initializeParam } from "../initializeParam";
@@ -76,7 +76,7 @@ export function deleteSelectedKwargs({ sectionId }) {
 
 function deleteKwargIds({ sectionId, ids, incrementVersion }) {
   const { uiTypeColId } = getSectionInfo(sectionId);
-  const { variantId } = getSectionConfig(sectionId);
+  const { variantId } = useSectionInfos.getState().x[sectionId];
 
   deleteCodeInfo({ ids });
   deleteParamInfoFromSectionVariant({ variantId, ids });

@@ -117,7 +117,7 @@ function* getProjectRuns(project) {
         // set every selected section's variantId
         for (const c of combo) {
           if (c.versionId) {
-            variant.sectionConfigs[c.sectionId].variantId = c.versionId;
+            variant.sections[c.sectionId].variantId = c.versionId;
           }
         }
 
@@ -142,8 +142,7 @@ function getSectionsParamSweepsAndVersions(
     }
 
     let paramSweepWasAdded = false;
-    const currentlySelectedVariantId =
-      project.sectionConfigs[sectionId].variantId;
+    const currentlySelectedVariantId = project.sections[sectionId].variantId;
     for (const [paramSweepId, selected] of Object.entries(
       sectionDetails.paramSweeps,
     )) {
@@ -208,8 +207,7 @@ function* getProjectVariants(project) {
         const forSectionId = Object.values(project.sections).find((x) =>
           x.paramSweepIds.includes(paramSweepId),
         ).id;
-        const { variantId: sectionVariantId } =
-          project.sectionConfigs[forSectionId];
+        const { variantId: sectionVariantId } = project.sections[forSectionId];
         const sectionVariant = variant.sectionVariants[sectionVariantId];
         sectionVariant.selectedItem = selectedItem;
         if (paramInfoId) {

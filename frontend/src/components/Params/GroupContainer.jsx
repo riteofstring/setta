@@ -60,9 +60,7 @@ function ResizablePinnedArea({
   requiredParamIdsToPaths,
   outerRef,
 }) {
-  const sectionHeight = useSectionInfos(
-    (x) => x.sectionConfigs[sectionId].size.height,
-  );
+  const sectionHeight = useSectionInfos((x) => x.x[sectionId].size.height);
   const height = useGetSectionInfo(sectionId, "pinnedAreaHeight");
   const [initialMaxHeight, setInitialMaxHeight] = useState(INFINITE_MAX_HEIGHT);
 

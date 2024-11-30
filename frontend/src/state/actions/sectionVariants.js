@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
-import { getSectionConfig } from "state/getters/sectionInfo";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 import { getValueForUIType, newEV } from "utils/objs/ev";
 import { initValue } from "../utils";
@@ -95,7 +95,7 @@ export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
 }
 
 function getParamEV(sectionId, paramInfoId) {
-  const { variantId } = getSectionConfig(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   return useSectionInfos.getState().variants[variantId].values[paramInfoId]
     .value;
 }
@@ -106,13 +106,13 @@ export function setParamEnteredValue({
   value,
   incrementVersion = false,
 }) {
-  const { variantId } = getSectionConfig(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   setEnteredValue({ collectionId: variantId, paramInfoId, value });
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function setParamEnteredValueBatch({ sectionId, paramInfoIdToValue }) {
-  const { variantId } = getSectionConfig(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   useSectionInfos.setState((state) => {
     for (const [id, value] of Object.entries(paramInfoIdToValue)) {
       state.variants[variantId].values[id].value = value;
@@ -125,7 +125,7 @@ export function setParamKeywordPositions({
   paramInfoId,
   keywordPositions,
 }) {
-  const { variantId } = getSectionConfig(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   setKeywordPositions({
     collectionId: variantId,
     paramInfoId,
@@ -134,7 +134,7 @@ export function setParamKeywordPositions({
 }
 
 export function getSectionChildren(sectionId) {
-  const { variantId } = getSectionConfig(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   return useSectionInfos.getState().variants[variantId].children;
 }
 
@@ -154,14 +154,13 @@ export function getSectionCodeInfoColId(sectionId) {
 
 export function getSectionVariantIdToShow(sectionId, state = {}) {
   const { variantId, previewVariantId } =
-    state.sectionConfigs?.[sectionId] ??
-    useSectionInfos.getState().sectionConfigs[sectionId];
+    state.x?.[sectionId] ?? useSectionInfos.getState().x[sectionId];
   return previewVariantId ?? variantId;
 }
 
 export function setSectionVariantChildren({ sectionId, newStateFn, state }) {
   function fn(state) {
-    const { variantId } = state.sectionConfigs[sectionId];
+    const { variantId } = state.x[sectionId];
     state.variants[variantId].children = newStateFn(
       state.variants[variantId].children,
     );
@@ -225,7 +224,7 @@ export function getSectionChildrenAcrossVariants(sectionId) {
 }
 
 export function setSectionVariantAttr(sectionId, attr, value) {
-  const { variantId } = getSectionConfig(sectionId);
+  const { variantId } = getSectionInfo(sectionId);
   console.log("setSectionVariantAttr", variantId, attr, value);
   useSectionInfos.setState((x) => {
     x.variants[variantId][attr] = value;
@@ -239,8 +238,7 @@ export function toggleVariantFrozenState(variantId) {
 }
 
 export function getSelectedVariantIsFrozen(sectionId) {
-  const variantId =
-    useSectionInfos.getState().sectionConfigs[sectionId].variantId;
+  const variantId = useSectionInfos.getState().x[sectionId].variantId;
   return useSectionInfos.getState().variants[variantId].isFrozen;
 }
 
@@ -256,7 +254,7 @@ export function resetAllSectionsToDefaultVersions() {
         if (!defaultVariantId) {
           defaultVariantId = s.variantIds[0];
         }
-        x.sectionConfigs[s.id].variantId = defaultVariantId;
+        s.variantId = defaultVariantId;
       }
     }
   });
@@ -270,6 +268,6 @@ export function resetSectionToDefaultVersion(sectionId) {
     if (defaultVariantId) {
       defaultVariantId = variantIds[0];
     }
-    x.sectionConfigs[sectionId].variantId = defaultVariantId;
+    x.x[sectionId].variantId = defaultVariantId;
   });
 }
