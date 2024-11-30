@@ -128,3 +128,11 @@ PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FILES = set(
         "zIndex",
     ]
 )
+
+SECTION_ARTIFACTS_TABLE_DATA_JSON_FILES = set(
+    [
+        "value",
+        "type",
+        "displayName",
+    ]
+)

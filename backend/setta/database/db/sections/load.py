@@ -202,7 +202,7 @@ def load_artifact_metadata(db, section_id, artifact_paths):
         query_params.extend([section_id, a])
     placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
     query = f"""
-        SELECT artifactPath as path, value, type, displayName
+        SELECT artifactPath as path, data
         FROM SectionArtifacts
         WHERE (sectionId, artifactPath) IN ({placeholders})
     """
@@ -210,10 +210,7 @@ def load_artifact_metadata(db, section_id, artifact_paths):
 
     output = []
     for row in db.fetchall():
-        curr_output = dict(row)
-        if curr_output["value"]:
-            curr_output["value"] = json.loads(curr_output["value"])
-        output.append(curr_output)
+        output.append({"path": row["path"], **json.loads(row["data"])})
     return output
 
 

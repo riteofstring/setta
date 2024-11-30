@@ -106,9 +106,7 @@ CREATE TABLE IF NOT EXISTS ProjectConfigChildren (
 CREATE TABLE IF NOT EXISTS SectionArtifacts (
     sectionId TEXT,
     artifactPath TEXT,
-    value TEXT,
-    type TEXT,
-    displayName TEXT,
+    data TEXT,
     PRIMARY KEY (sectionId, artifactPath),
     FOREIGN KEY (sectionId) REFERENCES Section(id)
 );
