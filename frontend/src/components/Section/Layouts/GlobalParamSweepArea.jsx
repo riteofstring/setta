@@ -3,8 +3,7 @@ import { StandardAccordion } from "components/Utils/atoms/accordion/accordion";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import React, { useEffect } from "react";
-import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
+import React from "react";
 import { createNewVersion } from "state/actions/newVersion";
 import {
   onClickSetVariantId,
@@ -42,12 +41,8 @@ function GlobalParamSweepGUI({ sectionId, width }) {
       shownRunGroupId: s.previewVariantId ?? s.variantId,
       editingRunGroupId: s.variantId,
     };
-  });
+  }, _.isEqual);
   const { ref, isScrollable } = useIsScrollable();
-
-  useEffect(() => {
-    maybeRunGuiToYaml(sectionId);
-  }, [shownRunGroupId]);
 
   return (
     <>

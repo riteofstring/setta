@@ -154,11 +154,11 @@ def load_section_configs(db, project_config_id):
             output[section_id] = {
                 "id": section_id,
                 "variantId": row["variantId"],
-                "selectedVariantIds": [],
+                "selectedVariantIds": {},
                 **json.loads(row["data"]),
             }
         if row["selectedVariantId"]:
-            output[section_id]["selectedVariantIds"].append(row["selectedVariantId"])
+            output[section_id]["selectedVariantIds"][row["selectedVariantId"]] = True
 
     return output
 

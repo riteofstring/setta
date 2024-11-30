@@ -153,6 +153,12 @@ def save_section_configs(db, project_config_id, sections):
     """
     db.execute(query, query_params)
 
+    query = f"""
+        DELETE FROM SectionConfigSelectedVariants
+        WHERE (projectConfigId, sectionId) IN ({placeholders})
+    """
+    db.execute(query, query_params)
+
     id_pairs = [(project_config_id, s) for s in sections.keys()]
     insert_section_configs(db, sections, id_pairs)
 
