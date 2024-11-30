@@ -1,5 +1,5 @@
 import { DialogCloseButton } from "components/Utils/atoms/dialog/dialogCloseButton";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { setModalOpen } from "state/actions/modal";
 import { MODAL_PURPOSE } from "utils/constants";
 import { FileExplorer } from "./FileExplorer";
@@ -15,11 +15,6 @@ export function SaveLoadModal({
 }) {
   const [selected, setSelected] = useState(null);
   const [filename, setFilename] = useState("");
-  const [currFiles, setCurrFiles] = useState(files);
-
-  useEffect(() => {
-    setCurrFiles(files);
-  }, [files]);
 
   function getFilenameFromId(id) {
     return files.find((f) => f.id === id)?.name ?? "";
@@ -55,7 +50,7 @@ export function SaveLoadModal({
     <div className="grid flex-grow grid-rows-[min-content_min-content_1fr_min-content] overflow-hidden">
       <Body
         modalPurpose={modalPurpose}
-        files={currFiles}
+        files={files}
         selected={selected}
         onSelectedChange={onSelectedChange}
         onFileDoubleClick={onFileDoubleClick}
