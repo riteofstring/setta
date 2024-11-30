@@ -86,7 +86,7 @@ export function updateNodeDimensions(updates) {
     fitViewOnInitDone ||
     (fitViewOnInit &&
       !fitViewOnInitDone &&
-      fitView(useReactFlow.getState, {
+      fitView({
         initial: true,
         ...fitViewOnInitOptions,
       }));
