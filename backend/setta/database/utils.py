@@ -59,11 +59,3 @@ def remap_ids(x, old_ids=None):
     id_map = create_id_map(old_ids)
     new_obj = rename_keys(x, id_map)
     return new_obj, id_map
-
-
-def parse_keyword_positions_string(x):
-    return json.loads(x) if x is not None else []
-
-
-def dump_keyword_positions_as_string(x):
-    return json.dumps(x) if len(x) > 0 else None

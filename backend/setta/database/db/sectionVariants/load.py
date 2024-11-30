@@ -1,7 +1,5 @@
 import json
 
-from setta.database.utils import parse_keyword_positions_string
-
 
 def load_section_variants(db, ids):
     placeholders = ", ".join(["?"] * len(ids))

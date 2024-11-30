@@ -1,6 +1,5 @@
 import json
 
-from setta.database.utils import dump_keyword_positions_as_string
 from setta.utils.constants import (
     SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS,
     SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS,
