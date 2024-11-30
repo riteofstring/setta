@@ -5,26 +5,29 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useNodeInternals, useSettings } from "state/definitions";
+import {
+  useNodeInternals,
+  useSectionInfos,
+  useSettings,
+} from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
+import { createNewId } from "utils/idNameCreation";
+import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newSectionInfo } from "utils/objs/sectionInfo";
+import { newSectionVariant } from "utils/objs/sectionVariant";
 import { insertIntoArray } from "utils/utils";
 import {
   getSectionInfo,
   getSectionParentId,
   getSectionType,
 } from "../../getters/sectionInfo";
-import { initManyCodeInfoCols } from "../codeInfoCols";
 import { updateKeywordRegex } from "../keywordRegex";
 import { initRunGroup } from "../runGroups/runGroups";
 import {
   getSectionChildren,
-  initManySectionVariantIds,
   setSectionVariantChildren,
 } from "../sectionVariants";
-import { initManyUITypeColIds } from "../uiTypes/uiTypeCols";
-import { addSectionInfo } from "./sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
   return addSectionInEmptySpace({ type: C.SECTION });
@@ -190,20 +193,15 @@ export function createSectionInfo({
 function addSectionsToState(sectionInfos, position) {
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
-  const sectionIdToCodeInfoColId = initManyCodeInfoCols(sectionIds);
-
-  initManySectionVariantIds({
-    variantProps: _.map(sectionInfos, (x) => ({
-      id: x.variantId,
-      codeInfoColId: sectionIdToCodeInfoColId[x.id],
-    })),
+  useSectionInfos.setState((x) => {
+    for (const s of Object.values(sectionInfos)) {
+      const codeInfoColId = createNewId();
+      x.codeInfoCols[codeInfoColId] = newCodeInfoCol();
+      x.variants[s.variantId] = newSectionVariant({ codeInfoColId });
+      x.uiTypeCols[s.uiTypeColId] = {};
+      x.x[s.id] = s;
+    }
   });
-
-  initManyUITypeColIds({
-    collectionIds: _.map(sectionInfos, (x) => x.uiTypeColId),
-  });
-
-  addSectionInfo((x) => ({ ...x, ...sectionInfos }));
 
   const topLevelSectionIds = [];
 

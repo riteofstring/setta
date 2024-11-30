@@ -1,9 +1,8 @@
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
-import { createNewId, createRandomName } from "utils/idNameCreation";
+import { createNewId } from "utils/idNameCreation";
 import { getValueForUIType, newEV } from "utils/objs/ev";
-import { initValue } from "../utils";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function duplicateSectionVariant({ id, newName, newCodeInfoColId }) {
@@ -19,26 +18,6 @@ export function duplicateSectionVariant({ id, newName, newCodeInfoColId }) {
   return newId;
 }
 
-export function initManySectionVariantIds({ variantProps }) {
-  useSectionInfos.setState((state) => {
-    for (const props of variantProps) {
-      initValue(state.variants, props.id, {
-        name: createRandomName(),
-        values: props.values ?? {},
-        children: props.children ?? [],
-        selectedItem: props.selectedItem ?? null,
-        code: props.code ?? "",
-        codeInfoColId: props.codeInfoColId,
-        description: props.newDescription ?? "",
-        keywordPositions: props.keywordPositions ?? [],
-        isFrozen: props.isFrozen ?? false,
-        isDefault: props.isDefault ?? true,
-        sweep: props.sweep ?? [],
-        runGroup: props.runGroup ?? {},
-      });
-    }
-  });
-}
 export function initManyEnteredValues({ collectionId, paramIdsToUITypes }) {
   useSectionInfos.setState((state) => {
     _.forEach(paramIdsToUITypes, (uiType, id) => {

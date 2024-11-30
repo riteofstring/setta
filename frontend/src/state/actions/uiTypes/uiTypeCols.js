@@ -1,15 +1,8 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
-import { initValue } from "state/utils";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { getSectionInfo } from "../../getters/sectionInfo";
-
-export function initManyUITypeColIds({ collectionIds }) {
-  useSectionInfos.setState((state) => {
-    _.forEach(collectionIds, (id) => initValue(state.uiTypeCols, id, {}));
-  });
-}
 
 export function setManyParamUITypeIds({ collectionId, paramIdToUITypeId }) {
   useSectionInfos.setState((state) => {
