@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
 import { updateSectionInfos } from "state/actions/sectionInfos";
-import { useJSONSourceMissing, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 
 export function InputAreaSettings({ sectionId }) {
   const jsonSource = useSectionInfos((x) => x.x[sectionId].jsonSource);
@@ -9,8 +9,7 @@ export function InputAreaSettings({ sectionId }) {
   const [value, setValue] = useState(jsonSource ?? "");
   async function onBlur(e) {
     const jsonSource = e.target.value;
-    let jsonSourceMissing = false,
-      codeInfo = null,
+    let codeInfo = null,
       codeInfoCols = null,
       sectionVariants = null,
       sections = null;
@@ -19,10 +18,8 @@ export function InputAreaSettings({ sectionId }) {
       if (res.status === 200) {
         ({ codeInfo, codeInfoCols, sectionVariants, sections } =
           res.data.project);
-        ({ jsonSourceMissing } = res.data);
       }
     }
-    useJSONSourceMissing.setState({ [sectionId]: jsonSourceMissing });
     useSectionInfos.setState((state) => {
       state.x[sectionId].jsonSource = jsonSource;
       updateSectionInfos({

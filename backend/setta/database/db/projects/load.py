@@ -93,7 +93,7 @@ def load_project_config(db, project_config_name):
     uiTypeCols = sections_data["uiTypeCols"]
     uiTypes = sections_data["nonPresetUITypes"]
     codeInfo, codeInfoCols = load_code_info_cols(db, sectionVariants)
-    jsonSourceMissing = load_json_sources_into_data_structures(
+    load_json_sources_into_data_structures(
         sections, codeInfo, codeInfoCols, sectionVariants
     )
 
@@ -105,7 +105,6 @@ def load_project_config(db, project_config_name):
         "uiTypeCols": uiTypeCols,
         "codeInfo": codeInfo,
         "codeInfoCols": codeInfoCols,
-        "jsonSourceMissing": jsonSourceMissing,
     }
 
 

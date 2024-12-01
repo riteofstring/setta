@@ -164,8 +164,6 @@ export const useTypeErrors = createProjectState(
   ),
 );
 
-export const useJSONSourceMissing = createProjectState(withResetFn(() => ({})));
-
 export const useWebsocketConnectionList = create(
   withResetFn(() => ({
     connectedTo: null,

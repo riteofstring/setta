@@ -120,15 +120,14 @@ def route_global_param_sweep_section_to_yaml(x: GlobalParamSweepSectionToYamlReq
 def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
     p = x.project
     p["sections"][x.sectionId]["jsonSource"] = x.jsonSource
-    jsonSourceMissing = load_json_sources_into_data_structures(
+    load_json_sources_into_data_structures(
         p["sections"],
         p["codeInfo"],
         p["codeInfoCols"],
         p["sectionVariants"],
         section_ids=[x.sectionId],
     )
-    jsonSourceMissing = x.sectionId in jsonSourceMissing
-    return {"project": p, "jsonSourceMissing": jsonSourceMissing}
+    return {"project": p}
 
 
 @router.post(C.ROUTE_NEW_JSON_VERSION_NAME)

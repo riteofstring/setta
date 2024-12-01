@@ -2,6 +2,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { useCodeAreaHeight } from "components/Section/Layouts/CodeArea";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import { getSectionVariant } from "state/actions/sectionInfos";
 import { useSectionInfos, useYamlValue } from "state/definitions";
 
 export function SectionYamlView({ sectionId }) {

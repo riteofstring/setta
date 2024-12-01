@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { dbCreateProjectConfig, dbLoadProjectConfig } from "requests/projects";
 import { dbLoadSettingsProject } from "requests/settings";
 import {
-  useJSONSourceMissing,
   useNodeInternals,
   useProjectConfig,
   useSectionInfos,
@@ -45,7 +44,6 @@ export function loadProjectState({
   sectionVariants,
   uiTypes,
   uiTypeCols,
-  jsonSourceMissing,
 }) {
   useProjectConfig.setState({
     ..._.omit(projectConfig, ["children", "viewport"]),
@@ -71,8 +69,6 @@ export function loadProjectState({
   useNodeInternals.setState({
     x: createNodesMapFromProjectConfigChildren(projectConfig),
   });
-  useJSONSourceMissing.getState().reset();
-  useJSONSourceMissing.setState(jsonSourceMissing);
   maybeIncrementProjectStateVersion(true, false);
   return true;
 }
