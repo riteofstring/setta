@@ -71,7 +71,7 @@ export function useAvailableUITypesForParam(
       x,
     );
 
-    const generalFilterFn = (x) => C.NON_SECTION_TYPES.includes(uiType.type);
+    const generalFilterFn = (x) => C.NON_SECTION_TYPES.includes(x.type);
     const nonPresetFilterFn = (uiType) =>
       isAmongNonPresets(uiType, nonPresetUITypeIds);
 
