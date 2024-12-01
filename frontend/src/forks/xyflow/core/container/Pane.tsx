@@ -144,7 +144,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       height: Math.abs(mousePos.y - startY),
     };
 
-    const nodes = getNodes();
+    // const nodes = getNodes();
     const selectedNodeIds = getNodesInside(
       nextUserSelectRect,
       transform,

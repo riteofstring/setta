@@ -5,7 +5,9 @@ import _ from "lodash";
 import { useNodeInternals } from "state/definitions";
 
 export function getNodes(s = null) {
-  return Array.from(s ? s.x.values() : useNodeInternals.getState().x.values());
+  const output =  Array.from(s ? s.x.values() : useNodeInternals.getState().x.values());
+  console.log("getNodes", output[0]?.position.y)
+  return output
 }
 
 export function addNodes(nodes) {
@@ -100,7 +102,7 @@ export function updateNodePositions(
 
 export function onNodesChange(changes) {
   const nodeInternals = useNodeInternals.getState().x;
-  const newNodes = _.cloneDeep(nodeInternals);
+  const newNodes = new Map(nodeInternals)
   for (const c of changes) {
     switch (c.type) {
       case "position": {

@@ -1,10 +1,10 @@
 import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
-import _ from "lodash";
-import { memo, useEffect, useMemo, useRef } from "react";
-import { getNodes, updateNodeDimensions } from "state/actions/nodeInternals";
-import { useActiveSection, useNodeInternals } from "state/definitions";
+import { useEffect, useMemo, useRef } from "react";
+import { updateNodeDimensions } from "state/actions/nodeInternals";
+import { useActiveSection } from "state/definitions";
 import { shallow } from "zustand/shallow";
+import { useVisibleNodes } from "../hooks/useVisibleNodes";
 import { containerStyle } from "../styles";
 import type { ReactFlowState } from "../types";
 
@@ -22,9 +22,10 @@ const NodeRenderer = ({}) => {
     elementsSelectable,
     panActivationKeyPressed,
   } = useReactFlow(selector, shallow);
-  const nodes = useNodeInternals(getNodes, _.isEqual);
+  const nodes = useVisibleNodes();
   const resizeObserverRef = useRef<ResizeObserver>();
   const activeSectionIds = useActiveSection((x) => x.ids);
+  // console.log("noderenderer", nodes[0]?.position.y);
 
   const resizeObserver = useMemo(() => {
     if (typeof ResizeObserver === "undefined") {
@@ -96,4 +97,4 @@ const NodeRenderer = ({}) => {
 
 NodeRenderer.displayName = "NodeRenderer";
 
-export default memo(NodeRenderer);
+export default NodeRenderer;

@@ -85,15 +85,10 @@ export const useModal = createProjectState(
   })),
 );
 
-export const useNodeInternals = createProjectState(
-  temporal(
-    withResetFn(() =>
-      withVersion({
-        x: new Map(),
-      }),
-    ),
-  ),
-);
+export const useNodeInternals = create(() => ({
+  x: new Map(),
+  reset: () => {},
+}));
 
 export const useNotification = create(
   withResetFn(() => ({
