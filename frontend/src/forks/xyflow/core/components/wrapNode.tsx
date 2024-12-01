@@ -5,7 +5,7 @@ import { memo, useEffect, useRef } from "react";
 import { useSectionInfos } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import useDrag from "../hooks/useDrag";
-import useUpdateNodePositions from "../hooks/useUpdateNodePositions";
+import { updatePositions } from "../hooks/useUpdateNodePositions";
 import type { WrapNodeProps, XYPosition } from "../types";
 import { isInputDOMNode } from "../utils";
 
@@ -35,7 +35,6 @@ const _NodeWrapper = ({
   );
   const isDraggable = _isDraggable && !positionAndSizeLocked;
   const hasPointerEvents = isSelectable || isDraggable;
-  const updatePositions = useUpdateNodePositions();
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (isInputDOMNode(event)) {

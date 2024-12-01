@@ -7,7 +7,7 @@ import { openSelectionContextMenu } from "state/actions/contextMenus";
 import { getNodes } from "state/actions/nodeInternals";
 import { useActiveSection } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
-import useUpdateNodePositions from "../hooks/useUpdateNodePositions";
+import { updatePositions } from "../hooks/useUpdateNodePositions";
 import { arrowKeyDiffs } from "./wrapNode";
 
 function _NodesSelection({ x, y, width, height }) {
@@ -16,7 +16,6 @@ function _NodesSelection({ x, y, width, height }) {
       `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
   const nodeRef = useRef(null);
-  const updatePositions = useUpdateNodePositions();
 
   useEffect(() => {
     nodeRef.current?.focus({
