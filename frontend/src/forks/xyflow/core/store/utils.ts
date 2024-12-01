@@ -39,7 +39,9 @@ export function fitView(options: InternalFitViewOptions = {}) {
       return true;
     });
 
-    if (nodes.length > 0) {
+    const nodesInitialized = nodes.every((n) => n.width && n.height);
+
+    if (nodes.length > 0 && nodesInitialized) {
       const bounds = getNodesBounds(nodes);
 
       const { x, y, zoom } = getViewportForBounds(

@@ -15,6 +15,11 @@ import type {
   XYPosition,
 } from "../types";
 
+export const getDimensions = (node: HTMLDivElement): Dimensions => ({
+  width: node.offsetWidth,
+  height: node.offsetHeight,
+});
+
 export const clampPosition = (
   position: XYPosition = { x: 0, y: 0 },
   extent: CoordinateExtent,
