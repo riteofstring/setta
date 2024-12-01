@@ -1,3 +1,4 @@
+import copy
 import json
 from collections import defaultdict
 
@@ -51,7 +52,7 @@ def load_code_info(db, ids):
     code_info = {}
     for row in db.fetchall():
         code_info[row["id"]] = {
-            **DEFAULT_VALUES["codeInfo"],
+            **copy.deepcopy(DEFAULT_VALUES["codeInfo"]),
             "id": row["id"],
             **json.loads(row["data"]),
         }
