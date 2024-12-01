@@ -97,28 +97,12 @@
           "value": "10",
           "keywordPositions": []
         },
-        "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
-          "value": "",
-          "keywordPositions": []
-        },
         "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
           "value": "dataset[0][:,::-1]",
           "keywordPositions": []
         },
-        "7b4b2118-7cbf-4275-8582-90c66a966441": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
-          "value": "",
-          "keywordPositions": []
-        },
         "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
           "value": "n_clusters",
-          "keywordPositions": []
-        },
-        "c066af9f-42b4-4359-8b44-cf774c400e81": {
-          "value": "",
           "keywordPositions": []
         },
         "c2c05abc-dd95-4071-8f37-cb2019919bce": {
@@ -133,32 +117,12 @@
       "selectedItem": "c9a3e19c-6876-468a-a9a1-6f289c9367eb",
       "codeInfoColId": "746ab224-7f51-47d1-a119-2855165c2367",
       "values": {
-        "3e754333-caea-451a-abba-dd254c49502f": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
-          "value": "",
-          "keywordPositions": []
-        },
         "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
           "value": "dataset[0][:,::-1]",
           "keywordPositions": []
         },
-        "7b4b2118-7cbf-4275-8582-90c66a966441": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
-          "value": "",
-          "keywordPositions": []
-        },
         "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
           "value": "n_clusters",
-          "keywordPositions": []
-        },
-        "c066af9f-42b4-4359-8b44-cf774c400e81": {
-          "value": "",
           "keywordPositions": []
         },
         "c2c05abc-dd95-4071-8f37-cb2019919bce": {
@@ -264,40 +228,16 @@
       "selectedItem": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
       "codeInfoColId": "743e4823-784b-48eb-94f1-9b126d47d603",
       "values": {
-        "03ee6530-d464-461c-a989-b310ee2d9b95": {
-          "value": "",
-          "keywordPositions": []
-        },
         "0aa0f46a-e923-4528-a411-500cbda6e77b": {
           "value": "n_samples",
-          "keywordPositions": []
-        },
-        "159e0416-3873-469b-915b-1f186579c380": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af": {
-          "value": "",
-          "keywordPositions": []
-        },
-        "2fae73d3-5756-42a9-beb0-7465b92ac626": {
-          "value": "",
           "keywordPositions": []
         },
         "39ed839d-f632-4373-9d72-6ce95b5bc265": {
           "value": "0",
           "keywordPositions": []
         },
-        "3e15081a-9ca5-48bf-9159-9a95331a7894": {
-          "value": "",
-          "keywordPositions": []
-        },
         "669986a2-03d6-4de4-af41-f9395cf0ef57": {
           "value": "0.6",
-          "keywordPositions": []
-        },
-        "70f4e095-c286-4379-a5f5-4d02df40e1a5": {
-          "value": "",
           "keywordPositions": []
         },
         "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": {
