@@ -223,8 +223,8 @@ export function ParamSweepUI({
           colorChoices={colorChoices}
           value={value}
           onChange={onChange}
-          wrapperClassName="section-value flex justify-self-start self-center"
-          colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 dark:bg-setta-850 dark:hover:bg-setta-900"
+          wrapperClassName="section-key-value single-cell-container  w-[calc(100%_-_2px)] h-[calc(100%_-_4px)] min-h-0 flex justify-self-start self-center ml-2"
+          colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
           isDisabled={isDisabled}
         />
       );
@@ -235,7 +235,7 @@ export function ParamSweepUI({
           choices={choices}
           value={value}
           onChange={onChange}
-          outerDivClasses="!section-value flex justify-self-start self-center"
+          outerDivClasses="section-key-value ml-2 flex justify-self-start self-center"
           isDisabled={isDisabled}
         />
       );
