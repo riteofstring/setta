@@ -7,7 +7,6 @@ import {
   getSectionName,
   getSectionType,
 } from "state/getters/sectionInfo";
-import { useSectionTypeNames } from "state/hooks/uiTypes";
 import { createNewId } from "utils/idNameCreation";
 
 const RUNNABLE_SECTION_TYPES = [
@@ -257,11 +256,12 @@ function parsePrettyRunGroupSections(runGroup) {
 }
 
 export function useRunGroupListing(variantId) {
-  const sectionTypeNames = useSectionTypeNames();
   return useSectionInfos((x) => {
     const output = [];
     for (const childId of x.variants[variantId].children) {
-      if (RUNNABLE_SECTION_TYPES.includes(sectionTypeNames[childId])) {
+      if (
+        RUNNABLE_SECTION_TYPES.includes(x.uiTypes[x.x[childId].uiTypeId].type)
+      ) {
         output.push({ id: childId, name: getSectionName(childId) });
       }
     }
@@ -270,11 +270,13 @@ export function useRunGroupListing(variantId) {
 }
 
 export function useTopLevelRunGroupListing() {
-  const sectionTypeNames = useSectionTypeNames();
   return useSectionInfos((x) => {
     const output = [];
     for (const [k, v] of Object.entries(x.x)) {
-      if (!v.parentId && RUNNABLE_SECTION_TYPES.includes(sectionTypeNames[k])) {
+      if (
+        !v.parentId &&
+        RUNNABLE_SECTION_TYPES.includes(x.uiTypes[x.x[k].uiTypeId].type)
+      ) {
         output.push({ id: k, name: v.name });
       }
     }

@@ -63,16 +63,6 @@ export function useSectionTypeName(sectionId) {
   return useSectionInfos((x) => x.uiTypes[x.x[sectionId].uiTypeId].type);
 }
 
-export function useSectionTypeNames() {
-  const sectionIdToUITypeId = useSectionInfos(
-    (x) => _.mapValues(x.x, (s) => s.uiTypeId),
-    _.isEqual,
-  );
-  return useSectionInfos((x) =>
-    _.mapValues(sectionIdToUITypeId, (s) => x.uiTypes[s].type),
-  );
-}
-
 export function useIsType(sectionId, type) {
   return useSectionInfos(
     (x) => x.uiTypes[x.x[sectionId].uiTypeId].type === type,
