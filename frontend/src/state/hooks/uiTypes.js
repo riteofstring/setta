@@ -71,12 +71,24 @@ export function useIsType(sectionId, type) {
 }
 
 export function useUIEditorTab(sectionId) {
-  const uiTypeName = useSectionInfos((x) => {
-    const uiTypeId = x.x[sectionId]?.uiTypeId;
-    return uiTypeId ? x.uiTypes[uiTypeId].type : null;
-  });
   const [_storedTab] = localStorageFns.uiEditorTab.hook();
-  return { ...getUIEditorTab(uiTypeName, _storedTab), uiTypeName };
+  return useSectionInfos((x) => {
+    let uiTypeName, renderMarkdown;
+    if (sectionId) {
+      const uiTypeId = x.x[sectionId].uiTypeId;
+      uiTypeName = x.uiTypes[uiTypeId].type;
+      renderMarkdown = x.x[sectionId].renderMarkdown;
+    } else {
+      uiTypeName = null;
+      renderMarkdown = false;
+    }
+
+    return {
+      ...getUIEditorTab(uiTypeName, _storedTab),
+      uiTypeName,
+      renderMarkdown,
+    };
+  }, _.isEqual);
 }
 
 function getRequiredUIEditorTabs(uiTypeName) {
