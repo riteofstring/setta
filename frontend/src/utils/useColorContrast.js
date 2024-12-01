@@ -40,21 +40,20 @@ const getLuminance = (r, g, b) => {
  * @param {number} options.threshold - Custom luminance threshold (defaults to 0.179)
  * @returns {string} Contrasting color in hex format
  */
-export const useContrastColor = (backgroundColor, options = {}) => {
+export const useContrastColor = (_backgroundColor, options = {}) => {
   const {
     darkColor = "#000000",
     lightColor = "#FFFFFF",
     threshold = 0.179,
   } = options;
 
+  const backgroundColor =
+    !_backgroundColor || typeof _backgroundColor !== "string"
+      ? "#000000"
+      : _backgroundColor;
+
   return useMemo(() => {
     try {
-      // Handle invalid input
-      if (!backgroundColor || typeof backgroundColor !== "string") {
-        console.warn("useContrastColor: Invalid background color provided");
-        return darkColor;
-      }
-
       // Normalize hex color
       const color = backgroundColor.startsWith("#")
         ? backgroundColor
