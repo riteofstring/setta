@@ -27,56 +27,47 @@ export function DeleteProjectWarningModal() {
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-md flex-col items-center">
-      {/* Fixed header section */}
-      <div className="w-full">
-        <div className="mb-6 flex items-start space-x-4">
-          <div className="rounded-full bg-red-100 p-2 dark:bg-red-900">
-            <BiErrorCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
-          </div>
-          <div>
-            <Dialog.Title className="mb-2 text-lg font-semibold">
-              Confirm Project Deletion
-            </Dialog.Title>
-            <Dialog.Description className="mb-4 text-sm text-gray-600 dark:text-gray-300">
-              This action cannot be undone. These projects will be permanently
-              deleted.
-            </Dialog.Description>
-          </div>
+    <div className="mx-auto flex h-full w-full flex-col items-center">
+      <header className="flex flex-col gap-2 self-start">
+        <div className="flex items-center gap-2">
+          <BiErrorCircle className="h-6 w-6 rounded-full bg-red-100 p-0.5 text-red-600 dark:bg-red-700 dark:text-red-200" />
+          <Dialog.Title className="text-xl font-semibold text-setta-800 dark:text-setta-200">
+            Confirm Project Deletion
+          </Dialog.Title>
         </div>
-      </div>
-
+        <Dialog.Description className="mb-4 text-sm text-setta-600 dark:text-setta-300">
+          This action cannot be undone. These projects will be permanently
+          deleted.
+        </Dialog.Description>
+      </header>
       {/* Scrollable content section */}
-      <div className="mb-6 w-full flex-grow overflow-auto">
-        <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-900">
-          <h4 className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-            Projects to be deleted:
-          </h4>
-          <ul className="space-y-2">
-            {selectedProjects.map((project) => (
-              <li
-                key={project.name}
-                className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400"
-              >
-                <span className="h-2 w-2 flex-shrink-0 rounded-full bg-red-500" />
-                <span>{project.name}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <div className="mb-6 w-full flex-grow overflow-auto rounded-lg bg-setta-50 p-4 dark:bg-setta-900">
+        <h4 className="mb-2 text-sm font-medium text-setta-700 dark:text-setta-300">
+          Projects to be deleted:
+        </h4>
+        <ul className="space-y-2">
+          {selectedProjects.map((project) => (
+            <li
+              key={project.name}
+              className="flex items-center space-x-2 text-sm text-setta-600 dark:text-setta-400"
+            >
+              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-red-500" />
+              <span>{project.name}</span>
+            </li>
+          ))}
+        </ul>
       </div>
-
       {/* Fixed footer section */}
-      <div className="flex w-full justify-end space-x-3 border-t border-gray-200 pt-4 dark:border-gray-700">
+      <div className="flex w-full justify-end space-x-3 border-t border-setta-200 pt-4 dark:border-setta-700">
         <button
           onClick={handleCancel}
-          className="rounded-md border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+          className="cursor-pointer rounded-full border border-setta-300 px-4 py-2 text-setta-700 transition-colors hover:bg-setta-50 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
         >
           Cancel
         </button>
         <button
           onClick={handleConfirm}
-          className="rounded-md bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700 dark:hover:bg-red-800"
+          className="cursor-pointer rounded-full bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700 dark:hover:bg-red-800"
         >
           Delete Projects
         </button>
