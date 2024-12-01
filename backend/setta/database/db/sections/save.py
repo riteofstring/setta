@@ -1,71 +1,39 @@
 import json
 
+from setta.utils.constants import (
+    SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS,
+    SECTION_TABLE_DATA_JSON_FIELDS,
+)
+from setta.utils.utils import filter_dict
+
 
 def save_sections(db, sections, section_variants):
     query = """
         INSERT INTO Section (
             id,
-            name,
+            data,
             uiTypeId,
-            uiTypeColId,
-            social,
-            codeLanguage,
-            configLanguage,
-            isFrozen,
-            jsonSource,
-            hideUnpinnedParams,
-            displayMode,
-            canvasSettings,
-            renderMarkdown
+            uiTypeColId
         )
         VALUES (
             :id,
-            :name,
+            :data,
             :uiTypeId,
-            :uiTypeColId,
-            :social,
-            :codeLanguage,
-            :configLanguage,
-            :isFrozen,
-            :jsonSource,
-            :hideUnpinnedParams,
-            :displayMode,
-            :canvasSettings,
-            :renderMarkdown
+            :uiTypeColId
         )
         ON CONFLICT (id)
         DO UPDATE SET
-            name = :name,
+            data = :data,
             uiTypeId = :uiTypeId,
-            uiTypeColId = :uiTypeColId,
-            social = :social,
-            codeLanguage = :codeLanguage,
-            configLanguage = :configLanguage,
-            isFrozen = :isFrozen,
-            jsonSource = :jsonSource,
-            hideUnpinnedParams = :hideUnpinnedParams,
-            displayMode = :displayMode,
-            canvasSettings = :canvasSettings,
-            renderMarkdown = :renderMarkdown
+            uiTypeColId = :uiTypeColId
     """
 
     query_params = [
         {
             "id": s["id"],
-            "name": s["name"],
+            "data": json.dumps(filter_dict(s, SECTION_TABLE_DATA_JSON_FIELDS)),
             "uiTypeId": s["uiTypeId"],
             "uiTypeColId": s["uiTypeColId"],
-            "social": s["social"],
-            "codeLanguage": s["codeLanguage"],
-            "configLanguage": s["configLanguage"],
-            "isFrozen": s["isFrozen"],
-            "jsonSource": s.get("jsonSource"),
-            "hideUnpinnedParams": s["hideUnpinnedParams"],
-            "displayMode": s["displayMode"],
-            "canvasSettings": json.dumps(s["canvasSettings"])
-            if len(s["canvasSettings"]) > 0
-            else None,
-            "renderMarkdown": s["renderMarkdown"],
         }
         for s in sections.values()
     ]
@@ -110,24 +78,6 @@ def save_sections(db, sections, section_variants):
             query_params.append({"uiTypeId": uiTypeId, "sectionId": s["id"]})
     db.executemany(query, query_params)
 
-    query = f"""
-        UPDATE ParamSweepId
-        SET originSectionId = null
-        WHERE originSectionId IN ({placeholders})
-    """
-    db.execute(query, ids)
-
-    query = """
-        UPDATE ParamSweepId
-        SET originSectionId = :sectionId
-        WHERE id = :paramSweepId
-    """
-    query_params = []
-    for s in sections.values():
-        for paramSweepId in s["paramSweepIds"]:
-            query_params.append({"paramSweepId": paramSweepId, "sectionId": s["id"]})
-    db.executemany(query, query_params)
-
     query = """
         UPDATE Section
         SET paramSweepSectionId = :paramSweepSectionId
@@ -149,21 +99,19 @@ def save_sections(db, sections, section_variants):
 
     # add children
     query = """
-        INSERT INTO SectionArtifacts (sectionId, artifactPath, value, type, displayName)
-        VALUES (:sectionId, :artifactPath, :value, :type, :displayName)
+        INSERT INTO SectionArtifacts (sectionId, artifactPath, data)
+        VALUES (:sectionId, :artifactPath, :data)
     """
     query_params = []
     for s in sections.values():
         for a in s["artifacts"]:
-            value = a.get("value")
-            value = json.dumps(value) if value is not None else None
             query_params.append(
                 {
                     "sectionId": s["id"],
                     "artifactPath": a["path"],
-                    "value": value,
-                    "type": a["type"],
-                    "displayName": a["displayName"],
+                    "data": json.dumps(
+                        filter_dict(a, SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS)
+                    ),
                 }
             )
     db.executemany(query, query_params)

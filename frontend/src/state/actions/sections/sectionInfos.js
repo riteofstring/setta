@@ -1,13 +1,9 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import { useSectionInfos, useSectionVariants } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import {
-  getSectionIdToChildren,
+  getSectionIdToChildrenToShow,
   setSectionVariantChildren,
 } from "../sectionVariants";
-
-export function setAllSectionInfos(sections) {
-  useSectionInfos.setState({ x: sections });
-}
 
 export function addSectionInfo(payload) {
   useSectionInfos.setState((state) => ({ x: payload(state.x) }));
@@ -47,16 +43,15 @@ export function removeSectionInfos(payload) {
     for (const id of payloadSet) {
       const parentId = state.x[id]?.parentId;
       if (parentId && state.x[parentId]?.variantId) {
-        setSectionVariantChildren({
-          sectionId: parentId,
-          newStateFn: (children) => children.filter((x) => x !== id),
-        });
+        setSectionVariantChildren(
+          parentId,
+          (children) => children.filter((x) => x !== id),
+          state,
+        );
       }
 
       let isStillUsedInAVariant = false;
-      for (const variantInfo of Object.values(
-        useSectionVariants.getState().x,
-      )) {
+      for (const variantInfo of Object.values(state.variants)) {
         if (variantInfo.children.includes(id)) {
           isStillUsedInAVariant = true;
           break;
@@ -64,11 +59,9 @@ export function removeSectionInfos(payload) {
       }
 
       if (!isStillUsedInAVariant) {
-        useSectionVariants.setState((v) => {
-          for (const variantId of state.x[id].variantIds) {
-            delete v.x[variantId];
-          }
-        });
+        for (const variantId of state.x[id].variantIds) {
+          delete state.variants[variantId];
+        }
         delete state.x[id];
       }
     }
@@ -78,12 +71,6 @@ export function removeSectionInfos(payload) {
         state.x[k].paramSweepSectionId = null;
       }
     }
-  });
-}
-
-export function updateSections(payload) {
-  useSectionInfos.setState((state) => {
-    state.x = { ...state.x, ...payload };
   });
 }
 
@@ -116,9 +103,7 @@ function valueOrNewValueFn({ obj, attr, value, newValueFn }) {
 }
 
 export function manualDndChildrenReset() {
-  useDndChildren
-    .getState()
-    .update(getSectionIdToChildren(useSectionVariants.getState().x));
+  useDndChildren.getState().update(getSectionIdToChildrenToShow());
 }
 
 export function setAllPreviewVariantIdsToNull() {
@@ -127,4 +112,21 @@ export function setAllPreviewVariantIdsToNull() {
       s.previewVariantId = null;
     }
   });
+}
+
+export function updateSectionInfos({
+  sections,
+  sectionVariants,
+  uiTypes,
+  uiTypeCols,
+  codeInfo,
+  codeInfoCols,
+  state,
+}) {
+  state.x = { ...state.x, ...sections };
+  state.variants = { ...state.variants, ...sectionVariants };
+  state.uiTypes = { ...state.uiTypes, ...uiTypes };
+  state.uiTypeCols = { ...state.uiTypeCols, ...uiTypeCols };
+  state.codeInfo = { ...state.codeInfo, ...codeInfo };
+  state.codeInfoCols = { ...state.codeInfoCols, ...codeInfoCols };
 }

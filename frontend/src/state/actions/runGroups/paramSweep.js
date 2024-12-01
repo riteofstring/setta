@@ -1,72 +1,41 @@
-import { useParamSweep } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
+import { useSectionInfos } from "state/definitions";
 
-export function setAllParamSweeps(payload) {
-  useParamSweep.setState({ x: payload });
-}
-
-export function initParamSweep({ id, name }) {
-  useParamSweep.setState((state) => {
-    state.x[id] = { name, sweep: [], isFrozen: false };
-  });
-}
-
-export function toggleParamSweepIsFrozen(id) {
-  useParamSweep.setState((state) => {
-    state.x[id].isFrozen = !state.x[id].isFrozen;
-  });
-}
-
-export function addParamSweepCallable({ paramSweepId }) {
-  useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep.push({ selectedItem: null, params: [] });
-  });
-}
-
-export function setParamSweepSelectedItem({
-  paramSweepId,
-  selectedItemIdx,
-  selectedItem,
-}) {
-  useParamSweep.setState((x) => {
-    x.x[paramSweepId].sweep[selectedItemIdx].selectedItem = selectedItem;
+export function addParamSweepCallable(variantId) {
+  useSectionInfos.setState((state) => {
+    state.variants[variantId].sweep.push({ selectedItem: null, params: [] });
   });
 }
 
 export function setParamSweepValue({
-  paramSweepId,
+  variantId,
   selectedItemIdx,
   paramIdx,
   valueIdx,
   value,
 }) {
-  useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx].values[
+  useSectionInfos.setState((state) => {
+    state.variants[variantId].sweep[selectedItemIdx].params[paramIdx].values[
       valueIdx
     ] = value;
   });
 }
 
-export function addParamSweepValue({
-  paramSweepId,
-  selectedItemIdx,
-  paramIdx,
-}) {
-  useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx].values.push(
-      "",
-    );
+export function addParamSweepValue({ variantId, selectedItemIdx, paramIdx }) {
+  useSectionInfos.setState((state) => {
+    state.variants[variantId].sweep[selectedItemIdx].params[
+      paramIdx
+    ].values.push("");
   });
 }
 
 export function deleteParamSweepValue({
-  paramSweepId,
+  variantId,
   selectedItemIdx,
   paramIdx,
   valueIdx,
 }) {
-  useParamSweep.setState((state) => {
-    const s = state.x[paramSweepId].sweep[selectedItemIdx];
+  useSectionInfos.setState((state) => {
+    const s = state.variants[variantId].sweep[selectedItemIdx];
     s.params[paramIdx].values = s.params[paramIdx].values.filter(
       (_, idx) => idx !== valueIdx,
     );
@@ -77,16 +46,15 @@ export function deleteParamSweepValue({
 }
 
 export function deleteLastParamSweepValue({
-  paramSweepId,
+  variantId,
   selectedItemIdx,
   paramIdx,
 }) {
   const valueIdx =
-    useParamSweep.getState().x[paramSweepId].sweep[selectedItemIdx].params[
-      paramIdx
-    ].values.length - 1;
+    useSectionInfos.getState().variants[variantId].sweep[selectedItemIdx]
+      .params[paramIdx].values.length - 1;
   deleteParamSweepValue({
-    paramSweepId,
+    variantId,
     selectedItemIdx,
     paramIdx,
     valueIdx,
@@ -94,13 +62,13 @@ export function deleteLastParamSweepValue({
 }
 
 export function changeParamSweepParamInfoId({
-  paramSweepId,
+  variantId,
   selectedItemIdx,
   paramIdx,
   paramInfoId,
 }) {
-  useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx] = {
+  useSectionInfos.setState((state) => {
+    state.variants[variantId].sweep[selectedItemIdx].params[paramIdx] = {
       paramInfoId,
       values: [],
     };
@@ -108,7 +76,7 @@ export function changeParamSweepParamInfoId({
 }
 
 export function addParamSweepParamInfoId({
-  paramSweepId,
+  variantId,
   selectedItemIdx,
   paramInfoId,
 }) {
@@ -116,12 +84,12 @@ export function addParamSweepParamInfoId({
   if (actualSelectedItemIdx === null) {
     // special case for a section without callables
     // that has no params yet.
-    addParamSweepCallable({ paramSweepId });
+    addParamSweepCallable(variantId);
     actualSelectedItemIdx = 0;
   }
 
-  useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep[actualSelectedItemIdx].params.push({
+  useSectionInfos.setState((state) => {
+    state.variants[variantId].sweep[actualSelectedItemIdx].params.push({
       paramInfoId,
       values: [],
     });
@@ -129,7 +97,7 @@ export function addParamSweepParamInfoId({
 }
 
 export function deleteLastParamSweepParamInfoId({
-  paramSweepId,
+  variantId,
   selectedItemIdx,
 }) {
   if (selectedItemIdx === null) {
@@ -137,8 +105,8 @@ export function deleteLastParamSweepParamInfoId({
     // that has no params yet.
     return;
   }
-  useParamSweep.setState((state) => {
-    const s = state.x[paramSweepId];
+  useSectionInfos.setState((state) => {
+    const s = state.variants[variantId];
     if (s.sweep[selectedItemIdx].params.length === 0) {
       s.sweep = s.sweep.filter((_, idx) => idx !== selectedItemIdx);
     } else {
@@ -147,19 +115,8 @@ export function deleteLastParamSweepParamInfoId({
   });
 }
 
-export function deleteParamsFromParamSweep({ sectionId, ids }) {
-  const { paramSweepId } = getSectionInfo(sectionId);
-  if (paramSweepId) {
-    useParamSweep.setState((x) => {
-      for (const s of x.x[paramSweepId].sweep) {
-        s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
-      }
-    });
+export function deleteParamsFromParamSweep(variantId, ids, state) {
+  for (const s of state.variants[variantId].sweep) {
+    s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
   }
-}
-
-export function updateParamSweeps(payload) {
-  useParamSweep.setState((state) => {
-    state.x = { ...state.x, ...payload };
-  });
 }

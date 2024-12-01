@@ -6,7 +6,11 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { updateSearch } from "state/actions/search/projectSearch";
 import { getParamIds } from "state/actions/sections/sectionContents";
-import { useCodeInfo, useProjectSearch, useSettings } from "state/definitions";
+import {
+  useProjectSearch,
+  useSectionInfos,
+  useSettings,
+} from "state/definitions";
 import { useSectionIdToChildren } from "./sectionVariants";
 
 export function useUpdateProjectSearch() {
@@ -82,15 +86,15 @@ function useAllVisibleParams() {
     });
   });
 
-  return useCodeInfo((x) => {
+  return useSectionInfos((x) => {
     const output = [];
     for (const id of allIds) {
-      const { ids: paramIds } = getParamIds(id, x.x);
+      const { ids: paramIds } = getParamIds(id, x.codeInfo);
       for (const p of paramIds) {
         output.push({
           sectionId: id,
           paramInfoId: p,
-          name: x.x[p].name,
+          name: x.codeInfo[p].name,
         });
       }
     }

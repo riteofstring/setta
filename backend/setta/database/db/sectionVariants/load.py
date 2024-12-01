@@ -1,10 +1,10 @@
-from setta.database.utils import parse_keyword_positions_string
+import json
 
 
 def load_section_variants(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT SectionVariantId.id, SectionVariantId.name, SectionVariantId.selectedItem, SectionVariantId.code, SectionVariantId.codeInfoColId, SectionVariantId.description, SectionVariantId.keywordPositions as codeAreaKeywordPositions, SectionVariantId.isFrozen, SectionVariantId.isDefault, SectionVariantEV.codeInfoId, SectionVariantEV.value, SectionVariantEV.keywordPositions
+        SELECT SectionVariantId.id, SectionVariantId.data, SectionVariantId.selectedItem, SectionVariantId.codeInfoColId, SectionVariantId.runGroup, SectionVariantEV.codeInfoId, SectionVariantEV.data as valueData
         FROM SectionVariantId
         LEFT JOIN SectionVariantEV
         ON SectionVariantId.id = SectionVariantEV.idid
@@ -16,28 +16,16 @@ def load_section_variants(db, ids):
         id = row["id"]
         if id not in output:
             output[id] = {
-                "name": row["name"],
                 "selectedItem": row["selectedItem"],
-                "code": row["code"],
                 "codeInfoColId": row["codeInfoColId"],
-                "description": row["description"],
-                "keywordPositions": parse_keyword_positions_string(
-                    row["codeAreaKeywordPositions"]
-                ),
+                "runGroup": json.loads(row["runGroup"]),
                 "values": {},
-                "isFrozen": row["isFrozen"],
-                "isDefault": row["isDefault"],
                 "children": [],
+                **json.loads(row["data"]),
             }
-        if row["value"] is not None:
-            output[id]["values"][row["codeInfoId"]] = {
-                "value": row["value"],
-                "keywordPositions": parse_keyword_positions_string(
-                    row["keywordPositions"]
-                ),
-            }
+        if row["valueData"]:
+            output[id]["values"][row["codeInfoId"]] = json.loads(row["valueData"])
 
-    placeholders = ", ".join(["?"] * len(output))
     query = f"""
         SELECT SectionVariantId.id, SectionVariantChildren.childId, SectionVariantChildren."order"
         FROM SectionVariantId
@@ -49,4 +37,37 @@ def load_section_variants(db, ids):
     db.execute(query, ids)
     for row in db.fetchall():
         output[row["id"]]["children"].append(row["childId"])
+
+    query = f"""
+        SELECT SectionVariantId.id, SectionVariantParamSweep.selectedItemGroupNum, SectionVariantParamSweep.paramInfoGroupNum, SectionVariantParamSweep.selectedItem, SectionVariantParamSweep.paramInfoId, SectionVariantParamSweep.value
+        FROM SectionVariantId
+        LEFT JOIN SectionVariantParamSweep
+        ON SectionVariantId.id = SectionVariantParamSweep.idid
+        WHERE SectionVariantId.id in ({placeholders})
+        ORDER BY SectionVariantParamSweep."order"
+    """
+    db.execute(query, ids)
+    for row in db.fetchall():
+        id = row["id"]
+        if "sweep" not in output[id]:
+            output[id]["sweep"] = []
+        curr = output[id]["sweep"]
+
+        selectedItemGroupNum = row["selectedItemGroupNum"]
+        if selectedItemGroupNum is None:
+            continue
+        if len(curr) <= selectedItemGroupNum:
+            curr.append({"selectedItem": row["selectedItem"], "params": []})
+        curr = curr[selectedItemGroupNum]["params"]
+
+        paramInfoGroupNum = row["paramInfoGroupNum"]
+        if paramInfoGroupNum is None:
+            continue
+        if len(curr) <= paramInfoGroupNum:
+            curr.append({"paramInfoId": row["paramInfoId"], "values": []})
+        curr = curr[paramInfoGroupNum]["values"]
+
+        if row["value"] is not None:
+            curr.append(row["value"])
+
     return output

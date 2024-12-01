@@ -6,15 +6,12 @@ import type {
   ZoomBehavior,
 } from "d3";
 
-import type { NodeChange } from "./changes";
 import type { Node } from "./nodes";
 import type { CoordinateExtent, Rect, Transform, XYPosition } from "./utils";
 
 export type FitView = (fitViewOptions?: FitViewOptions) => boolean;
 
 export type Project = (position: XYPosition) => XYPosition;
-
-export type OnNodesChange = (changes: NodeChange[]) => void;
 
 export type OnNodesDelete = (nodes: Node[]) => void;
 

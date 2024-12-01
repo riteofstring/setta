@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { dbSetProjectConfigName } from "requests/projectName";
+import { useLocation, useParams } from "react-router-dom";
 import {
   dbGetAllProjectConfigMetadata,
-  dbGetDefaultConfigName,
   dbLoadFullProject,
   dbLoadProjectConfigNames,
 } from "requests/projects";
@@ -11,7 +9,6 @@ import {
   loadProjectConfig,
   loadSettingsProjectConfig,
 } from "state/actions/project/loadProject";
-import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
 import {
   useAllProjectConfigs,
@@ -19,13 +16,8 @@ import {
   useProjectConfig,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  PAGE_LOAD_TYPES,
-  pathRelativeToProject,
-  SETTINGS_PROJECT_NAME,
-} from "utils/constants";
+import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { useHotReload } from "utils/hotReload";
-import { useEditableOnSubmit } from "./editableText";
 
 export function useGetAllProjectConfigMetadata() {
   const [projects, setProjects] = useState([]);
@@ -97,7 +89,7 @@ export function useLoadProjectConfig() {
 
   function changeFn() {
     console.log("CHANGING CONFIG NAME********");
-    setProjectConfigName(projectConfigName);
+    useProjectConfig.setState({ name: projectConfigName });
     useMisc.setState({ projectIsLoading: false, projectIs404: false });
   }
 
@@ -121,27 +113,6 @@ export function useLoadProjectConfig() {
   }, [pageLoadType, projectConfigName]);
 
   return [doneLoading, is404];
-}
-
-export function useEditableProjectName() {
-  const name = useProjectConfig((x) => x.name);
-  const navigate = useNavigate();
-  async function condition(v) {
-    const res = await dbSetProjectConfigName(v);
-    return res.status === 200;
-  }
-  async function onSetName(v) {
-    navigate(pathRelativeToProject(v), {
-      state: { pageLoadType: PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME },
-    });
-  }
-
-  return useEditableOnSubmit(name, onSetName, condition);
-}
-
-export function useConfigAddress({ project, configId }) {
-  const configName = project.configs.find((x) => x.id === configId).name;
-  return `${project.name}/${configName}`;
 }
 
 export function useLoadFullProject(previewEnabled) {
@@ -188,21 +159,4 @@ export function useLoadFullProject(previewEnabled) {
   }, [previewEnabled, currProjectConfigName]);
 
   return { doneLoading, currProjectConfigName };
-}
-
-export function useDefaultConfigName() {
-  const [defaultConfigName, setDefaultConfigName] = useState(null);
-
-  async function fn() {
-    const res = await dbGetDefaultConfigName();
-    if (res.status === 200) {
-      setDefaultConfigName(res.data);
-    }
-  }
-
-  useEffect(() => {
-    fn();
-  }, []);
-
-  return defaultConfigName;
 }

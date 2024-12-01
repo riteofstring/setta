@@ -1,6 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useEffect } from "react";
-import { setModalData, setModalOpen } from "state/actions/modal";
+import { setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
@@ -10,19 +9,12 @@ import {
   ExportJSONModal,
   ImportJSONModal,
 } from "./ImportExportModal/ImportExportModal";
-import { CreateFromArgparseModal } from "./PaneContextModal/CreateFromArgparseModal";
 import { SaveUITypeConfigModal } from "./SaveUITypeConfigModal/SaveUITypeConfigModal";
 import { SaveCustomArgumentsModal } from "./SectionSaveButtonModal/SaveCustomArgumentsModal";
 import "./styles.css";
 
 export function ModalContainer({ children }) {
   const open = useModal((x) => x.open);
-
-  useEffect(() => {
-    if (!open) {
-      setModalData(null);
-    }
-  }, [open]);
 
   return (
     <Dialog.Root open={open} onOpenChange={setModalOpen}>
@@ -55,8 +47,6 @@ function ModalContent({ open }) {
       return <ExportJSONModal open={open} modalType={modalType} />;
     case MODAL_TYPE.IMPORT_JSON.title:
       return <ImportJSONModal modalType={modalType} />;
-    case MODAL_TYPE.CREATE_FROM_ARGPARSE.title:
-      return <CreateFromArgparseModal modalType={modalType} />;
     case MODAL_TYPE.SAVE_UI_TYPE_CONFIG.title:
       return <SaveUITypeConfigModal open={open} modalType={modalType} />;
     case MODAL_TYPE.SAVE_CUSTOM_ARGUMENTS.title:

@@ -10,7 +10,6 @@ import { updateArtifacts } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { setCanvasSettings } from "state/actions/sections/setters";
 import {
   base64RequestId,
   setTemporaryMiscState,
@@ -38,10 +37,12 @@ export function DrawOnImage({ sectionId }) {
       canvasOpacity,
       eraserBrushSize,
     },
-  } = useSectionInfos(
-    (x) => _.pick(x.x[sectionId], ["size", "canvasSettings"]),
-    _.isEqual,
-  );
+  } = useSectionInfos((x) => {
+    return {
+      size: x.x[sectionId].size,
+      canvasSettings: x.x[sectionId].canvasSettings,
+    };
+  }, _.isEqual);
   const backgroundCanvasRef = useRef(null);
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
@@ -729,13 +730,13 @@ function exportImageToBase64(image, width, height) {
 
 function drawStrokesAndKeepOriginalProps(canvasRef, strokes) {
   const [canvas, ctx] = getCanvasAndCtx(canvasRef);
-  const startingProps = _.pick(ctx, [
-    "globalCompositeOperation",
-    "strokeStyle",
-    "globalAlpha",
-    "lineWidth",
-    "lineCap",
-  ]);
+  const startingProps = {
+    globalCompositeOperation: ctx.globalCompositeOperation,
+    strokeStyle: ctx.strokeStyle,
+    globalAlpha: ctx.globalAlpha,
+    lineWidth: ctx.lineWidth,
+    lineCap: ctx.lineCap,
+  };
   strokes.forEach((stroke) => {
     drawStroke(canvas, ctx, stroke);
   });
@@ -786,3 +787,10 @@ const debouncedSendDrawingToInteractiveTasks = _.debounce(
   },
   500,
 );
+
+function setCanvasSettings(sectionId, attr, value) {
+  useSectionInfos.setState((x) => {
+    const s = x.x[sectionId];
+    s.canvasSettings[attr] = value;
+  });
+}

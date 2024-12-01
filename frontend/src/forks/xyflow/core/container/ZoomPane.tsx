@@ -152,7 +152,6 @@ const ZoomPane = ({
             // because start and move gets called on every scroll event and not once at the beginning
             if (!isPanScrolling.current) {
               useMisc.setState({ isPanScrolling: true });
-              useReactFlow.setState({ fitViewOnInit: false });
               isPanScrolling.current = true;
             }
 
@@ -216,7 +215,6 @@ const ZoomPane = ({
         }
 
         closeAllContextMenus();
-        useReactFlow.setState({ fitViewOnInit: false });
       });
     }
   }, [d3Zoom]);

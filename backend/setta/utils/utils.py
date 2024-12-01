@@ -157,3 +157,9 @@ def replace_null_keys_with_none(data):
             new_dict[new_key] = value
         return new_dict
     return data
+
+
+def filter_dict(x, keep_keys=None, discard_keys=None):
+    if keep_keys:
+        return {k: x[k] for k in x.keys() if k in keep_keys}
+    return {k: x[k] for k in x.keys() if k not in discard_keys}

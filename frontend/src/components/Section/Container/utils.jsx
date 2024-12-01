@@ -1,3 +1,4 @@
+import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
   addActiveSectionIds,
@@ -66,4 +67,8 @@ export function getOnSectionClick({ sectionId, isActiveSection }) {
     const highestAncestor = getHighestAncestor(sectionId);
     setZIndices([highestAncestor], false);
   };
+}
+
+export function useHasTempNested(sectionId) {
+  return useDndChildren((x) => x.x[sectionId]?.length > 0);
 }

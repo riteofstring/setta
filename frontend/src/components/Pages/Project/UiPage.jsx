@@ -5,7 +5,8 @@ import { GlobalDndContext } from "forks/dnd-kit/GlobalDndContext";
 import { Controls } from "forks/xyflow/controls";
 import ReactFlow from "forks/xyflow/core/container/ReactFlow";
 import "forks/xyflow/core/styles/style.css";
-import { useInitGlobalKeyEventListeners } from "state/hooks/keyActivations";
+import { useEffect } from "react";
+import { attachKeyEventListeners } from "state/actions/keyActivations";
 import { localStorageFns } from "state/hooks/localStorage";
 import "./react-flow-css.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
@@ -24,4 +25,11 @@ export function UIPage() {
       <Controls />
     </GlobalDndContext>
   );
+}
+
+function useInitGlobalKeyEventListeners() {
+  useEffect(() => {
+    const cleanup = attachKeyEventListeners();
+    return cleanup;
+  }, []);
 }

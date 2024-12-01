@@ -1,11 +1,10 @@
-import { useGetSectionInfo } from "./sections";
-import { useIsSocial } from "./uiTypes";
-
-export const youtubeSectionAspectRatio = 16 / 9;
+import C from "constants/constants.json";
+import { useSectionInfos } from "state/definitions";
+import { useIsType } from "./uiTypes";
 
 function useIsX(sectionId, fn) {
-  const isSocial = useIsSocial(sectionId);
-  const url = useGetSectionInfo(sectionId, "social");
+  const isSocial = useIsType(sectionId, C.SOCIAL);
+  const url = useSectionInfos((x) => x.x[sectionId].social);
   return isSocial && fn(url);
 }
 

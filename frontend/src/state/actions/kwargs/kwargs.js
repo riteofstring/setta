@@ -1,12 +1,12 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
-import { useCodeInfo, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getSectionInfo } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo } from "../codeInfo";
 import { getKwargIds, getSectionCodeInfoChildren } from "../codeInfoCols";
-import { initializeParam } from "../initializeParam";
+import { initializeParams } from "../initializeParam";
 import { deleteParamsFromParamSweep } from "../runGroups/paramSweep";
 import { getParamIds } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
@@ -36,8 +36,17 @@ export function addKwarg({
     rcType: C.PARAMETER,
     editable: true,
   });
-  addCodeInfo({ sectionId, info: kwargInfo, parent: parentId, insertIdx });
-  initializeParam(sectionId, [kwargInfo.id]);
+  useSectionInfos.setState((state) => {
+    addCodeInfo({
+      sectionId,
+      info: kwargInfo,
+      parent: parentId,
+      insertIdx,
+      state,
+    });
+    initializeParams(sectionId, [kwargInfo.id], state);
+  });
+
   maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
 }
@@ -75,13 +84,14 @@ export function deleteSelectedKwargs({ sectionId }) {
 }
 
 function deleteKwargIds({ sectionId, ids, incrementVersion }) {
-  const { uiTypeColId } = getSectionInfo(sectionId);
-  const { variantId } = useSectionInfos.getState().x[sectionId];
+  useSectionInfos.setState((state) => {
+    const { uiTypeColId, variantId } = state.x[sectionId];
+    deleteCodeInfo(ids, state);
+    deleteParamInfoFromSectionVariant(variantId, ids, state);
+    deleteParamInfoFromUITypeCol(uiTypeColId, ids, state);
+    deleteParamsFromParamSweep(variantId, ids, state);
+  });
 
-  deleteCodeInfo({ ids });
-  deleteParamInfoFromSectionVariant({ variantId, ids });
-  deleteParamInfoFromUITypeCol({ uiTypeColId, ids });
-  deleteParamsFromParamSweep({ sectionId, ids });
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
@@ -101,14 +111,14 @@ export function pinSelectedKwargs(sectionId) {
   const selectedParams = getAllSelectedParams(sectionId);
   const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   console.log("selectedParams", selectedParams);
-  useCodeInfo.setState((x) => {
+  useSectionInfos.setState((x) => {
     for (const p of selectedParams) {
       setAttrOfSelfAndDescendants(
-        x.x,
+        x.codeInfo,
         codeInfoChildren,
         p.id,
         "isPinned",
-        !x.x[p.id].isPinned,
+        !x.codeInfo[p.id].isPinned,
       );
     }
   });
@@ -116,15 +126,15 @@ export function pinSelectedKwargs(sectionId) {
 
 export function toggleParamSelected(sectionId, paramInfoId) {
   const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
-  useCodeInfo.setState((x) => {
-    const newVal = !x.x[paramInfoId].isSelected;
+  useSectionInfos.setState((x) => {
+    const newVal = !x.codeInfo[paramInfoId].isSelected;
     console.log("toggleParamSelected", newVal);
-    x.x[paramInfoId].isSelected = newVal;
+    x.codeInfo[paramInfoId].isSelected = newVal;
     // We want only the parent to be true
     // just because of the way other states interpret isSelected
     const childrenNewVal = false;
     setAttrOfSelfAndDescendants(
-      x.x,
+      x.codeInfo,
       codeInfoChildren,
       paramInfoId,
       "isSelected",
@@ -135,8 +145,8 @@ export function toggleParamSelected(sectionId, paramInfoId) {
 }
 
 export function unselectAllParams() {
-  useCodeInfo.setState((x) => {
-    for (const codeInfo of Object.values(x.x)) {
+  useSectionInfos.setState((x) => {
+    for (const codeInfo of Object.values(x.codeInfo)) {
       if (codeInfo.isSelected) {
         codeInfo.isSelected = false;
       }

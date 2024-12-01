@@ -13,19 +13,16 @@ import React, {
 } from "react";
 import { openPaneContextMenu } from "state/actions/contextMenus";
 import {
-  getNodes,
-  onNodesChange,
-  resetSelectedElements,
-} from "state/actions/nodeInternals";
-import { clearActiveSectionIds } from "state/actions/sections/activeSections";
+  clearActiveSectionIds,
+  setActiveSectionIds,
+} from "state/actions/sections/activeSections";
 import { useMisc, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";
 import { containerStyle } from "../styles";
-import type { NodeChange, ReactFlowProps, ReactFlowState } from "../types";
+import type { ReactFlowProps, ReactFlowState } from "../types";
 import { SelectionMode } from "../types";
 import { getEventPosition } from "../utils";
-import { getSelectionChanges } from "../utils/changes";
 
 type PaneProps = {
   isSelecting: boolean;
@@ -80,7 +77,6 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
         y: event.clientY,
       }),
     });
-    resetSelectedElements();
     useReactFlow.setState({
       nodesSelectionDims: null,
     });
@@ -110,7 +106,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
 
     const { x, y } = getEventPosition(event, containerBounds.current);
 
-    resetSelectedElements();
+    clearActiveSectionIds();
 
     useReactFlow.setState({
       userSelectionRect: {
@@ -147,7 +143,6 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       height: Math.abs(mousePos.y - startY),
     };
 
-    const nodes = getNodes();
     const selectedNodeIds = getNodesInside(
       nextUserSelectRect,
       transform,
@@ -158,13 +153,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
 
     if (prevSelectedNodesCount.current !== selectedNodeIds.length) {
       prevSelectedNodesCount.current = selectedNodeIds.length;
-      const changes = getSelectionChanges(
-        nodes,
-        selectedNodeIds,
-      ) as NodeChange[];
-      if (changes.length) {
-        onNodesChange(changes);
-      }
+      setActiveSectionIds(selectedNodeIds);
     }
 
     useReactFlow.setState({

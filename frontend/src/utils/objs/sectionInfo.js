@@ -15,11 +15,9 @@ export function newSectionInfo({
   variantId,
   uiTypeId = BASE_UI_TYPE_IDS.SECTION,
   uiTypeColId,
-  paramSweepId = null,
   social = null,
   artifacts = [],
   variantIds = [],
-  paramSweepIds = [],
   paramSweepSectionId = null,
   nonPresetUITypeIds = [],
   codeLanguage = "",
@@ -36,6 +34,9 @@ export function newSectionInfo({
   isTemporary = false,
   renderMarkdown = false,
   positionAndSizeLocked = false,
+  jsonSource = null,
+  selectedVariantIds = {},
+  paramFilter = "",
 }) {
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _variantId = maybeNewId(variantId);
@@ -53,13 +54,11 @@ export function newSectionInfo({
     variantId: _variantId,
     uiTypeId,
     uiTypeColId: maybeNewId(uiTypeColId),
-    paramSweepId,
     social,
     artifacts,
     codeLanguage,
     configLanguage,
     variantIds: _variantIds,
-    paramSweepIds,
     paramSweepSectionId,
     nonPresetUITypeIds,
     isFrozen,
@@ -74,5 +73,8 @@ export function newSectionInfo({
     isTemporary,
     renderMarkdown,
     positionAndSizeLocked,
+    jsonSource,
+    selectedVariantIds,
+    paramFilter,
   };
 }

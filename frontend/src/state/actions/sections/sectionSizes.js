@@ -1,13 +1,12 @@
 import _ from "lodash";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos, useSectionVariants } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
 import {
   getAllSectionChildrenIds,
   getHighestAncestor,
 } from "./sectionChildren";
 import { setSectionInfoAttr } from "./sectionInfos";
-import { setSectionSize } from "./setters";
 
 export function setSelfParentSiblingChildrenWidths({ sectionId, changedSize }) {
   // set own width
@@ -43,7 +42,7 @@ function setAllOtherWidths({ sectionId, width }) {
 export function setAllChildrenWidths({ sectionId, exclude, width }) {
   const sectionIds = getAllSectionChildrenIds(
     useSectionInfos.getState().x,
-    useSectionVariants.getState().x,
+    useSectionInfos.getState().variants,
     [sectionId],
   );
   setSectionInfoAttr({
@@ -115,4 +114,14 @@ export function adjustAspectRatio(height, width, imgHeight, imgWidth) {
     // Aspect ratios match, return the provided dimensions
     return { height: height, width: width };
   }
+}
+
+export function setSectionSize(sectionId, size) {
+  useSectionInfos.setState((x) => {
+    _setSectionSize(sectionId, size, x);
+  });
+}
+
+export function _setSectionSize(sectionId, size, x) {
+  x.x[sectionId].size = { ...x.x[sectionId].size, ...size };
 }

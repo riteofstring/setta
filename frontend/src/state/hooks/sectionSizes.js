@@ -5,17 +5,13 @@ import { useEffect, useRef, useState } from "react";
 import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,
-} from "state/actions/sections/sectionSizes";
-import {
-  setAspectRatioInfo,
   setSectionSize,
-} from "state/actions/sections/setters";
+  _setSectionSize,
+} from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { getImageDimensionsFromBase64 } from "utils/utils";
-import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
-import { useGetSectionType } from "./uiTypes";
 
 export const INFINITE_MAX_HEIGHT = 100000;
 const INFINITE_MAX_WIDTH = 100000;
@@ -109,10 +105,17 @@ export function getSizeMode({ sectionType, hideParams, isTwitter }) {
 }
 
 export function useSectionMinMaxDims(sectionId) {
-  const sectionType = useGetSectionType(sectionId, "type");
-  const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
-  const hideParams = useGetSectionInfo(sectionId, "hideParams");
-  const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
+  const { sectionType, hideSearch, hideParams, isMinimized } = useSectionInfos(
+    (x) => {
+      return {
+        sectionType: x.uiTypes[x.x[sectionId].uiTypeId].type,
+        hideSearch: x.x[sectionId].hideSearch,
+        hideParams: x.x[sectionId].hideParams,
+        isMinimized: x.x[sectionId].isMinimized,
+      };
+    },
+    _.isEqual,
+  );
   const isTwitter = useIsTwitter(sectionId);
 
   const minHeight = getMinSectionHeight({
@@ -143,6 +146,7 @@ export function useIsScrollable() {
     if (!elementRef.current) return;
 
     function checkScrollable() {
+      console.log("checkScrollable");
       if (elementRef.current) {
         setIsScrollable(
           elementRef.current.scrollHeight > elementRef.current.clientHeight,
@@ -206,11 +210,11 @@ export async function setSectionToHaveAspectRatioAndMinSize(
 
   const extraHeight = 24;
   adjustedSize.height += extraHeight;
-  setSectionSize(sectionId, adjustedSize);
   setAspectRatioInfo({
     sectionId,
     aspectRatio: imgSize.width / imgSize.height,
     aspectRatioExtraHeight: extraHeight,
+    size: adjustedSize,
   });
 }
 
@@ -302,11 +306,11 @@ export function useYouTubeSectionSize(sectionId) {
 
   function setToDefaultSize() {
     defaultSize.height += extraHeight;
-    setSectionSize(sectionId, defaultSize);
     setAspectRatioInfo({
       sectionId,
       aspectRatio: 16 / 9,
       aspectRatioExtraHeight: extraHeight,
+      size: defaultSize,
     });
   }
 
@@ -330,12 +334,30 @@ export function useYouTubeSectionSize(sectionId) {
 
 export function useTwitterSectionSize(sectionId) {
   useEffect(() => {
-    setSectionSize(sectionId, { height: "auto" });
     setAspectRatioInfo({
       sectionId,
       aspectRatio: null,
       aspectRatioExtraHeight: null,
       aspectRatioExtraWidth: null,
+      size: { height: "auto" },
     });
   }, []);
+}
+
+function setAspectRatioInfo({
+  sectionId,
+  size,
+  aspectRatio,
+  aspectRatioExtraHeight,
+  aspectRatioExtraWidth,
+}) {
+  useSectionInfos.setState((x) => {
+    const s = x.x[sectionId];
+    s.aspectRatio = aspectRatio;
+    s.aspectRatioExtraHeight = aspectRatioExtraHeight;
+    s.aspectRatioExtraWidth = aspectRatioExtraWidth;
+    if (size) {
+      _setSectionSize(sectionId, size, x);
+    }
+  });
 }

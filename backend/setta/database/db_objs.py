@@ -38,6 +38,9 @@ class DB:
     def executemany(self, *args, **kwargs):
         self.cursor.executemany(*args, **kwargs)
 
+    def executescript(self, *args, **kwargs):
+        self.cursor.executescript(*args, **kwargs)
+
     def fetchall(self, *args, **kwargs):
         return self.cursor.fetchall(*args, **kwargs)
 

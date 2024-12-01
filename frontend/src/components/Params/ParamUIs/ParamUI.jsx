@@ -1,10 +1,7 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import C from "constants/constants.json";
-import {
-  useCodeInfo,
-  useParamShortcuts,
-  useSectionInfos,
-} from "state/definitions";
+import _ from "lodash";
+import { useParamShortcuts, useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import { useGetParamUIType } from "state/hooks/uiTypes";
@@ -38,15 +35,19 @@ export function ParamUI({
   keywordPositions,
   setKeywordPositions,
 }) {
-  const configLanguage = useSectionInfos((x) => x.x[sectionId].configLanguage);
+  const { configLanguage, defaultVal, isDisabled } = useSectionInfos((x) => {
+    return {
+      configLanguage: x.x[sectionId].configLanguage,
+      defaultVal: x.codeInfo[paramInfoId].defaultVal,
+      isDisabled: x.codeInfo[paramInfoId].isDisabled,
+    };
+  }, _.isEqual);
   const uiType = useGetParamUIType(sectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
     paramInfoId,
   });
   const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
-  const defaultVal = useCodeInfo((x) => x.x[paramInfoId].defaultVal);
-  const isDisabled = useCodeInfo((x) => x.x[paramInfoId].isDisabled);
   const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
   const _isDisabled = isDisabled || isSelectingParams || variantIsDisabled;
 

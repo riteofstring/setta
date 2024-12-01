@@ -1,11 +1,10 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { toggleSectionLock } from "state/actions/sections/sectionInfos";
-import { useGetSectionInfo } from "state/hooks/sections";
+import { useSectionInfos } from "state/definitions";
 
 export function LockPositionButton({ sectionId }) {
-  const positionAndSizeLocked = useGetSectionInfo(
-    sectionId,
-    "positionAndSizeLocked",
+  const positionAndSizeLocked = useSectionInfos(
+    (x) => x.x[sectionId].positionAndSizeLocked,
   );
 
   const iconClassName = positionAndSizeLocked

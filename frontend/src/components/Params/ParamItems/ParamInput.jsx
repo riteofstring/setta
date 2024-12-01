@@ -6,22 +6,17 @@ import {
   getKeywordPositionsAndEVRefs,
 } from "requests/sections";
 import { sendToInteractiveTasks } from "state/actions/interactive";
-import {
-  setParamEnteredValue,
-  setParamKeywordPositions,
-} from "state/actions/sectionVariants";
+import { setParamEnteredValue } from "state/actions/sectionVariants";
 import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
-import {
-  useGetParamEnteredValue,
-  useGetParamKeywordPositions,
-} from "state/hooks/sectionVariants";
+import { useSectionInfos } from "state/definitions";
+import { useGetParamEnteredValueAndKeywordPositions } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
-  const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
-  const keywordPositions = useGetParamKeywordPositions(sectionId, paramInfoId);
+  const { value: enteredValue, keywordPositions } =
+    useGetParamEnteredValueAndKeywordPositions(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
   const [localKeywordPositions, setLocalKeywordPositions] =
     useState(keywordPositions);
@@ -65,12 +60,10 @@ function sendParamValueToInteractiveTasks(sectionId, paramInfoId, v) {
 const debouncedSetParamEnteredValue = asyncDebounce(
   async (sectionId, paramInfoId, vStr, enteredValue, changedByUser = true) => {
     if (vStr !== enteredValue) {
-      setParamEnteredValue({
-        sectionId,
-        paramInfoId,
-        value: vStr,
-        incrementVersion: changedByUser,
+      useSectionInfos.setState((state) => {
+        setParamEnteredValue(sectionId, paramInfoId, vStr, state);
       });
+
       if (getParamUIType(sectionId, paramInfoId).type === C.TEXT) {
         const { keywordPositions } = await getKeywordPositionsAndEVRefs({
           sectionId,
@@ -78,7 +71,12 @@ const debouncedSetParamEnteredValue = asyncDebounce(
           fullText: vStr,
         });
         console.log("debouncedSetParamEnteredValue", keywordPositions);
-        setParamKeywordPositions({ sectionId, paramInfoId, keywordPositions });
+
+        useSectionInfos.setState((state) => {
+          const { variantId } = state.x[sectionId];
+          state.variants[variantId].values[paramInfoId].keywordPositions =
+            keywordPositions;
+        });
       }
     }
   },

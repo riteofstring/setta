@@ -1,15 +1,7 @@
 import C from "constants/constants.json";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import {
-  useActiveSection,
-  useCodeInfo,
-  useParamSweep,
-  useSectionInfos,
-  useSectionVariants,
-  useUITypeCols,
-  useUITypes,
-} from "state/definitions";
+import { useActiveSection, useSectionInfos } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { findAll } from "utils/getDescendants";
 import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
@@ -36,7 +28,6 @@ export function copySections(sectionIds) {
   const sectionVariants = getSectionVariants(sections);
   const uiTypeCols = getUITypeCols(sections);
   const uiTypes = getUITypes(sections, uiTypeCols);
-  const paramSweeps = getParamSweeps(sections);
   const relativePositions = getRelativePositions(sections);
   return {
     sections,
@@ -44,7 +35,6 @@ export function copySections(sectionIds) {
     codeInfo,
     sectionVariants,
     uiTypeCols,
-    paramSweeps,
     relativePositions,
   };
 }
@@ -92,7 +82,7 @@ function getUITypes(sections, uiTypeCols) {
       uiTypeIds.push(...u.nonPresetUITypeIds);
     }
   }
-  return _.pick(useUITypes.getState().x, uiTypeIds);
+  return _.pick(useSectionInfos.getState().uiTypes, uiTypeIds);
 }
 
 function getCodeInfo(sections) {
@@ -101,7 +91,7 @@ function getCodeInfo(sections) {
     (x) => getSectionInfo(x.id).codeInfoId,
   );
   let output = [];
-  const codeInfoState = useCodeInfo.getState().x;
+  const codeInfoState = useSectionInfos.getState().codeInfo;
   for (const cid of sectionCodeInfoIds) {
     const codeInfos = findAll(codeInfoState, [cid]).ids.map(
       (x) => codeInfoState[x],
@@ -131,7 +121,7 @@ function getCodeInfo(sections) {
 
 function getSectionVariants(sections) {
   const output = {};
-  const vState = useSectionVariants.getState().x;
+  const vState = useSectionInfos.getState().variants;
   for (const s of Object.values(sections)) {
     Object.assign(output, _.pick(vState, s.variantIds));
   }
@@ -140,23 +130,9 @@ function getSectionVariants(sections) {
 
 function getUITypeCols(sections) {
   return _.pick(
-    useUITypeCols.getState().y,
+    useSectionInfos.getState().uiTypeCols,
     _.map(sections, (x) => x.uiTypeColId),
   );
-}
-
-function getParamSweeps(sections) {
-  const output = {};
-  const state = useParamSweep.getState().x;
-  const sectionState = useSectionInfos.getState().x;
-  for (const s of Object.values(sections)) {
-    if (getSectionType(s.id).type === C.PARAM_SWEEP) {
-      const forSectionId = getForSectionId(sectionState, s.id);
-      const paramSweepIds = sectionState[forSectionId].paramSweepIds;
-      Object.assign(output, _.pick(state, paramSweepIds));
-    }
-  }
-  return output;
 }
 
 function getRelativePositions(sections) {

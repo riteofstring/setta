@@ -1,162 +1,86 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
 import { getDimensions } from "forks/xyflow/core/utils";
-import { createSelectionChange } from "forks/xyflow/core/utils/changes";
 import _ from "lodash";
 import { useNodeInternals } from "state/definitions";
-
-export function setNodes(nodes) {
-  useNodeInternals.setState((state) => ({
-    x: createNodeInternals(nodes, state.x),
-  }));
-}
 
 export function getNodes(s = null) {
   return Array.from(s ? s.x.values() : useNodeInternals.getState().x.values());
 }
 
 export function addNodes(nodes) {
-  const changes = nodes.map((node) => ({ item: node, type: "add" }));
-  onNodesChange(changes);
+  const newNodes = getNewNodes();
+  for (const n of nodes) {
+    newNodes.set(n.id, n);
+  }
+  useNodeInternals.setState({ x: newNodes });
 }
 
 export function deleteNodes(nodeIds) {
-  const changes = nodeIds.map((id) => ({ id, type: "remove" }));
-  onNodesChange(changes);
-}
-
-function createNodeInternals(nodes, nodeInternals) {
-  const nextNodeInternals = new Map();
-
-  nodes.forEach((node) => {
-    const currInternals = nodeInternals.get(node.id);
-
-    const internals = {
-      width: currInternals?.width,
-      height: currInternals?.height,
-      ...node,
-    };
-
-    nextNodeInternals.set(node.id, internals);
-  });
-
-  return nextNodeInternals;
+  const newNodes = getNewNodes();
+  for (const n of nodeIds) {
+    newNodes.delete(n);
+  }
+  useNodeInternals.setState({ x: newNodes });
 }
 
 export function updateNodeDimensions(updates) {
   const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions, domNode } =
     useReactFlow.getState();
-  const nodeInternals = useNodeInternals.getState().x;
+
   const viewportNode = domNode?.querySelector(".react-flow__viewport");
 
   if (!viewportNode) {
     return;
   }
 
-  const changes = updates.reduce((res, update) => {
-    const node = nodeInternals.get(update.id);
+  const newNodes = getNewNodes();
 
+  for (const u of updates) {
+    const node = newNodes.get(u.id);
     if (node) {
-      const dimensions = getDimensions(update.nodeElement);
+      const dimensions = getDimensions(u.nodeElement);
       const doUpdate = !!(
         dimensions.width &&
         dimensions.height &&
         (node.width !== dimensions.width ||
           node.height !== dimensions.height ||
-          update.forceUpdate)
+          u.forceUpdate)
       );
 
       if (doUpdate) {
-        nodeInternals.set(node.id, {
+        newNodes.set(node.id, {
           ...node,
           ...dimensions,
         });
-
-        res.push({
-          id: node.id,
-          type: "dimensions",
-          dimensions,
-        });
       }
     }
+  }
 
-    return res;
-  }, []);
+  useNodeInternals.setState({ x: newNodes });
 
   const nextFitViewOnInitDone =
     fitViewOnInitDone ||
     (fitViewOnInit &&
       !fitViewOnInitDone &&
-      fitView(useReactFlow.getState, {
+      fitView({
         initial: true,
         ...fitViewOnInitOptions,
       }));
 
-  useNodeInternals.setState({
-    x: _.cloneDeep(nodeInternals),
-  });
   useReactFlow.setState({ fitViewOnInitDone: nextFitViewOnInitDone });
-
-  if (changes?.length > 0) {
-    onNodesChange(changes);
-  }
 }
 
-export function updateNodePositions(
-  nodeDragItems,
-  positionChanged = true,
-  dragging = false,
-) {
-  const changes = nodeDragItems.map((node) => {
-    const change = {
-      id: node.id,
-      type: "position",
-      dragging,
-    };
-
-    if (positionChanged) {
-      change.position = node.position;
-    }
-
-    return change;
-  });
-
-  if (changes?.length) {
-    onNodesChange(changes);
-  }
-}
-
-export function onNodesChange(changes) {
-  const nodeInternals = useNodeInternals.getState().x;
-  const newNodes = _.cloneDeep(nodeInternals);
-  for (const c of changes) {
-    switch (c.type) {
-      case "select": {
-        newNodes.get(c.id).selected = c.selected;
-        break;
-      }
-      case "position": {
-        if (typeof c.position !== "undefined") {
-          newNodes.get(c.id).position = c.position;
-        }
-        break;
-      }
-      case "add": {
-        newNodes.set(c.item.id, c.item);
-        break;
-      }
-      case "remove": {
-        newNodes.delete(c.id);
-        break;
-      }
-    }
+export function updateNodePositions(nodeDragItems) {
+  const newNodes = getNewNodes();
+  for (const n of nodeDragItems) {
+    newNodes.get(n.id).position = n.position;
   }
   useNodeInternals.setState({ x: newNodes });
 }
 
 export function raiseTempZIndex(nodes) {
-  const nodeInternals = useNodeInternals.getState().x;
-  const newNodes = _.cloneDeep(nodeInternals);
+  const newNodes = getNewNodes();
   for (const [, n] of newNodes) {
     n.tempZIndex = n.zIndex;
   }
@@ -166,31 +90,12 @@ export function raiseTempZIndex(nodes) {
   useNodeInternals.setState({ x: newNodes });
 }
 
-export function unselectNodesAndEdges({ nodes }) {
-  const nodesToUnselect = nodes ? nodes : getNodes();
-
-  const changedNodes = nodesToUnselect.map((n) => {
-    n.selected = false;
-    return createSelectionChange(n.id, false);
-  });
-
-  if (changedNodes?.length) {
-    onNodesChange(changedNodes);
-  }
-}
-
-export function resetSelectedElements() {
-  const nodes = getNodes();
-
-  const nodesToUnselect = nodes
-    .filter((e) => e.selected)
-    .map((n) => createSelectionChange(n.id, false));
-
-  if (nodesToUnselect?.length) {
-    onNodesChange(nodesToUnselect);
-  }
-}
-
 export function justMoveANode(id, position) {
-  onNodesChange([{ id, type: "position", position }]);
+  const newNodes = getNewNodes();
+  newNodes.get(id).position = position;
+  useNodeInternals.setState({ x: newNodes });
+}
+
+export function getNewNodes() {
+  return _.cloneDeep(useNodeInternals.getState().x);
 }

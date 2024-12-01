@@ -3,19 +3,17 @@ import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos, useSectionVariants } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { PANEID } from "utils/constants";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
 import { copySections } from "../copyPaste/copy";
-import { updateKeywordRegex } from "../keywordRegex";
 import {
   getSectionChildren,
   setSectionVariantChildren,
 } from "../sectionVariants";
-import { updateStateWithSectionCopy } from "./loadSections";
+import { updateSectionInfos } from "./sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
-import { setSectionParentId } from "./setters";
 
 export async function moveSections({
   sectionIds,
@@ -67,9 +65,6 @@ export async function moveSection({
 
   setSectionSize({ newParentId, sectionId: newSectionId });
 
-  // TODO: make this optional via input argument so that it doesn't get called unnecessarily
-  updateKeywordRegex();
-
   // maybeCreateReferenceSections({ sectionId, oldParentId });
 
   maybeIncrementProjectStateVersion(incrementVersion);
@@ -104,7 +99,9 @@ function setChildrenAndParent({
     });
   }
 
-  setSectionParentId(newSectionId, newParentId === PANEID ? null : newParentId);
+  useSectionInfos.setState((x) => {
+    x.x[newSectionId].parentId = newParentId === PANEID ? null : newParentId;
+  });
 }
 
 function setSectionSize({ newParentId, sectionId }) {
@@ -146,7 +143,7 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
   // If they do include sectionId, then make a copy of sectionId
   // to prevent the possibility of sectionId appearing in 2 places at once.
   const { variantId: activeVariantId } = getSectionInfo(sectionId);
-  const variantState = useSectionVariants.getState().x;
+  const variantState = useSectionInfos.getState().variants;
   let isInOtherVariants = false;
   for (const variantId of variantIds) {
     if (variantId === activeVariantId) {
@@ -164,7 +161,9 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
     const res = await dbCreateCopyOfSections(copySections([sectionId]));
     if (res.status === 200) {
       console.log("data", res.data);
-      updateStateWithSectionCopy({ ...res.data });
+      useSectionInfos((state) => {
+        updateSectionInfos({ ...res.data, state });
+      });
       return Object.keys(res.data.sections)[0];
     }
   }
@@ -190,7 +189,7 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
 //   // the possibility of sectionId appearing in 2 places at once.
 //   const { variantId: activeVariantId, dbSource } =
 //     getSectionVariantId(oldParentId);
-//   const variantState = useSectionVariants.getState().x;
+//   const variantState = useSectionInfos.getState().variants;
 //   const infoToFullName = computeInfoToFullName();
 //   for (const variantId of variantIds) {
 //     if (variantId === activeVariantId) {
@@ -215,8 +214,8 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
 //       addCodeInfo({ info, parent: codeInfoId });
 //       setSelectedItem(newId, info.name);
 
-//       useSectionVariants.setState((state) => {
-//         state.x[dbSource][variantId].children = state.x[dbSource][
+//       useSectionInfos.setState((state) => {
+//         state.variants[dbSource][variantId].children = state.x[dbSource][
 //           variantId
 //         ].children.toSpliced(sectionIdx, 1, newId);
 //       });

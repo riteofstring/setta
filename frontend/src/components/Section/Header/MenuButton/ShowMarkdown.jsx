@@ -1,12 +1,16 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import _ from "lodash";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useGetSectionInfo } from "state/hooks/sections";
+import { useSectionInfos } from "state/definitions";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function RenderInfo({ sectionId }) {
-  //TODO change this variable name
-  const displayMode = useGetSectionInfo(sectionId, "displayMode");
-  const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
+  const { displayMode, renderMarkdown } = useSectionInfos((x) => {
+    return {
+      displayMode: x.x[sectionId].displayMode,
+      renderMarkdown: x.x[sectionId].renderMarkdown,
+    };
+  }, _.isEqual);
 
   function onClick() {
     setSectionInfoAttr({
@@ -33,8 +37,7 @@ export function RenderInfo({ sectionId }) {
 }
 
 export function ConvertFormat({ sectionId }) {
-  //TODO change this variable name
-  const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
+  const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
 
   function onClick() {
     setSectionInfoAttr({

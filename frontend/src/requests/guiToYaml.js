@@ -1,15 +1,8 @@
 import C from "constants/constants.json";
 import { getSectionCodeInfoChildren } from "state/actions/codeInfoCols";
-import { getActuallyShownRunGroup } from "state/actions/project/projectConfig";
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import { getSectionVariantIdToShow } from "state/actions/sectionVariants";
-import {
-  useCodeInfo,
-  useParamSweep,
-  useRunGroups,
-  useSectionInfos,
-  useSectionVariants,
-} from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { getForSectionId, getParamSweep } from "state/hooks/paramSweep";
 import { post } from "./utils";
@@ -20,7 +13,7 @@ export async function dbGuiToYaml(sectionId) {
     case C.PARAM_SWEEP:
       return await dbParamSweepSectionToYaml(sectionId);
     case C.GLOBAL_PARAM_SWEEP:
-      return await dbGlobalParamSweepSectionToYaml();
+      return await dbGlobalParamSweepSectionToYaml(sectionId);
     case C.GLOBAL_VARIABLES:
     case C.SECTION:
       return await dbSectionToYaml(sectionId);
@@ -38,9 +31,9 @@ export async function dbSectionToYaml(sectionId) {
   delete pinnedIds.requiredParamIdsToPaths;
   delete unpinnedIds.requiredParamIdsToPaths;
   const { configLanguage } = useSectionInfos.getState().x[sectionId];
-  const codeInfo = useCodeInfo.getState().x;
+  const codeInfo = useSectionInfos.getState().codeInfo;
   const sectionVariant =
-    useSectionVariants.getState().x[getSectionVariantIdToShow(sectionId)];
+    useSectionInfos.getState().variants[getSectionVariantIdToShow(sectionId)];
   const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   const res = await post({
     body: {
@@ -58,8 +51,8 @@ export async function dbSectionToYaml(sectionId) {
 
 export async function dbParamSweepSectionToYaml(sectionId) {
   const forSectionId = getForSectionId(useSectionInfos.getState().x, sectionId);
-  const sweep = getParamSweep(forSectionId);
-  const codeInfo = useCodeInfo.getState().x;
+  const sweep = getParamSweep(sectionId);
+  const codeInfo = useSectionInfos.getState().codeInfo;
   const codeInfoChildren = getSectionCodeInfoChildren(forSectionId);
 
   const res = await post({
@@ -73,21 +66,19 @@ export async function dbParamSweepSectionToYaml(sectionId) {
   return { res };
 }
 
-export async function dbGlobalParamSweepSectionToYaml() {
-  const actuallyShownRunGroup = getActuallyShownRunGroup();
-  const runGroup = useRunGroups.getState().x[actuallyShownRunGroup].sections;
+export async function dbGlobalParamSweepSectionToYaml(sectionId) {
+  const shownVariantId = getSectionVariantIdToShow(sectionId);
   const sections = useSectionInfos.getState().x;
-  const sectionVariants = useSectionVariants.getState().x;
-  const paramSweeps = useParamSweep.getState().x;
+  const sectionVariants = useSectionInfos.getState().variants;
+  const runGroup = sectionVariants[shownVariantId].runGroup;
 
   const res = await post({
     body: {
       runGroup,
       sections,
       sectionVariants,
-      paramSweeps,
     },
     address: C.ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML,
   });
-  return { res, metaData: { runGroupId: actuallyShownRunGroup } };
+  return { res, metaData: { runGroupId: shownVariantId } };
 }

@@ -1,14 +1,13 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
-import { useTempHasNested } from "state/hooks/sections";
-import { useIsDeck } from "state/hooks/uiTypes";
+import { useIsType } from "state/hooks/uiTypes";
 import { ContainerSwitch } from "./ContainerSwitch";
-import { ManyNestedSections } from "./ManyNestedSections";
+import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
 
 function _SectionContainer({ sectionId, dragListeners }) {
-  const isDeck = useIsDeck(sectionId);
-  const hasNested = useTempHasNested(sectionId);
+  const isDeck = useIsType(sectionId, C.DECK);
 
   return (
     <ContainerSwitch
@@ -17,12 +16,7 @@ function _SectionContainer({ sectionId, dragListeners }) {
       dragListeners={dragListeners}
     >
       {!isDeck && <SectionContainerCore sectionId={sectionId} />}
-
-      {hasNested && (
-        <div className="flex flex-col">
-          <ManyNestedSections sectionId={sectionId} isDeck={isDeck} />
-        </div>
-      )}
+      <MaybeManyNestedSections sectionId={sectionId} isDeck={isDeck} />
     </ContainerSwitch>
   );
 }

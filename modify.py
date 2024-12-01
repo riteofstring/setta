@@ -1,6 +1,8 @@
 import os
 import json
-import uuid
+
+from setta.database.utils import create_new_id
+from setta.utils import generate_memorable_string
 
 
 def load_and_modify_json(file_path):
@@ -10,34 +12,40 @@ def load_and_modify_json(file_path):
         with open(file_path, "r", encoding="utf-8") as f:
             json_data = json.load(f)
 
-        json_data["codeInfoCols"] = {}
-        for s in json_data["sections"].values():
-            codeInfoColId = str(uuid.uuid4())
-            json_data["codeInfoCols"][codeInfoColId] = {
-                "children": {None: []},
-            }
-            curr_children = json_data["codeInfoCols"][codeInfoColId]["children"]
-            old_root = json_data["codeInfo"][s["codeInfoId"]]
+        for s in json_data["sectionVariants"].values():
+            s["sweep"] = []
 
-            stack = list(curr_children.keys())
-            while len(stack) > 0:
-                id = stack.pop()
-                if id is None:
-                    new_children = [c for c in old_root["children"] if c!="callable"]
-                else:
-                    new_children = [c for c in json_data["codeInfo"][id]["children"]]
-                curr_children[id] = new_children
-                stack.extend(new_children)
+        for s in json_data['sections'].values():
+            if s.get('paramSweepSectionId'):
+                sweep_section = json_data['sections'][s['paramSweepSectionId']]
+                sweep_section_variant_ids = sweep_section['variantIds']
 
-            del s["codeInfoId"]
-
-            for variantId in s["variantIds"]:
-                json_data["sectionVariants"][variantId]["codeInfoColId"] = codeInfoColId
-
-        for c in json_data["codeInfo"].values():
-            del c["children"]
-
-            
+                variantIds = []
+                for idx, pid in enumerate(s['paramSweepIds']):
+                    if idx < len(sweep_section_variant_ids):
+                        json_data['sectionVariants'][sweep_section_variant_ids[idx]]['sweep'] = json_data['paramSweeps'][pid]['sweep']
+                        variantIds.append(sweep_section_variant_ids[idx])
+                    else:
+                        new_variant = {
+                            'id': create_new_id(),
+                            'name': generate_memorable_string(),
+                            'selectedItem': None,
+                            'code': "",
+                            'codeInfoColId': create_new_id(),
+                            'keywordPositions': [],
+                            'children': [],
+                            'values': {},
+                            'isFrozen': False,
+                            'sweep': json_data['paramSweeps'][pid]['sweep']
+                        }
+                        json_data['sectionVariants'][new_variant["id"]] = new_variant
+                        variantIds.append(new_variant["id"])
+                sweep_section['variantIds'] = variantIds
+                
+            del s["paramSweepId"]
+            del s["paramSweepIds"]
+        
+        del json_data["paramSweeps"]
 
         # Save the modified JSON back to the file
         with open(file_path, "w", encoding="utf-8") as f:

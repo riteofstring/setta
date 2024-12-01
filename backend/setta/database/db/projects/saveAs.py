@@ -29,8 +29,7 @@ def save_as_existing_project_config(db, project, config_name):
     """
 
     db.execute(query, {"config_name": config_name})
-    x = dict(db.fetchone())
-    print(x)
+    x = db.fetchone()
     project["projectConfig"] = {
         **project["projectConfig"],
         "id": x["id"],

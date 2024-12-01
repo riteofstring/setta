@@ -1,12 +1,6 @@
 import C from "constants/constants.json";
 import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
-import {
-  useCodeInfo,
-  useSectionInfos,
-  useSectionVariants,
-  useUITypeCols,
-  useUITypes,
-} from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { getValueForUIType } from "utils/objs/ev";
 import { setEnteredValue } from "../sectionVariants";
@@ -31,10 +25,11 @@ export function setParamUITypeConfig({
 }
 
 function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
-  const defaultName = useCodeInfo.getState().x[paramInfoId].name;
+  const defaultName = useSectionInfos.getState().codeInfo[paramInfoId].name;
   const { uiTypeColId } = getSectionInfo(sectionId);
   const nonPresetUITypeIds =
-    useUITypeCols.getState().y[uiTypeColId][paramInfoId].nonPresetUITypeIds;
+    useSectionInfos.getState().uiTypeCols[uiTypeColId][paramInfoId]
+      .nonPresetUITypeIds;
   const currUIType = getParamUIType(sectionId, paramInfoId);
 
   const setUITypeId = (uiTypeId) =>
@@ -66,7 +61,7 @@ function createNonPresetForParam({
     uiType: currUIType,
     name: defaultName,
   });
-  addUIType({ uiType: newUIType });
+  addUIType(newUIType);
 
   setNonPresetUITypeIds({
     collectionId: uiTypeColId,
@@ -77,16 +72,15 @@ function createNonPresetForParam({
 }
 
 function updateEVs(uiTypeId, configName) {
-  const uiType = useUITypes.getState().x[uiTypeId];
+  const uiType = useSectionInfos.getState().uiTypes[uiTypeId];
   if (uiType.type === C.SLIDER && ["min", "max"].includes(configName)) {
     _updateEVs(uiType);
   }
 }
 
 function _updateEVs(uiType) {
-  const uState = useUITypeCols.getState();
-  const eState = useSectionVariants.getState();
-  for (const [colId, col] of Object.entries(uState.y)) {
+  const { variants, uiTypeCols } = useSectionInfos.getState();
+  for (const [colId, col] of Object.entries(uiTypeCols)) {
     const paramsWithUITypeId = new Set();
     for (const [pid, p] of Object.entries(col)) {
       if (p.uiTypeId === uiType.id) {
@@ -101,7 +95,7 @@ function _updateEVs(uiType) {
       if (s.uiTypeColId === colId) {
         const variantId = s.variantId;
         for (const [pid, valueInfo] of Object.entries(
-          eState.x[variantId].values,
+          variants[variantId].values,
         )) {
           if (paramsWithUITypeId.has(pid)) {
             const newVal = getValueForUIType({
@@ -109,11 +103,7 @@ function _updateEVs(uiType) {
               currValue: valueInfo.value,
             });
             if (newVal !== valueInfo.value) {
-              setEnteredValue({
-                collectionId: variantId,
-                paramInfoId: pid,
-                value: newVal,
-              });
+              setEnteredValue(variantId, pid, newVal);
             }
           }
         }

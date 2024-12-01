@@ -2,14 +2,16 @@ import { Item } from "components/Utils/atoms/dropdown/item";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { setModalData, setModalType } from "state/actions/modal";
 import { onClickAddSection } from "state/actions/sections/createSections";
-import { useContextMenus, useMisc } from "state/definitions";
+import { useContextMenus, useModal, useSectionInfos } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
-  const singletonSections = useMisc((x) => x.singletonSections, _.isEqual);
+  const singletonSections = useSectionInfos(
+    (x) => x.singletonSections,
+    _.isEqual,
+  );
 
   const commonProps = {
     x,
@@ -19,8 +21,10 @@ export function PaneContextMenu() {
   };
 
   function openLoadModal(_modalType) {
-    setModalType(_modalType);
-    setModalData(commonProps);
+    useModal.setState({
+      modalData: commonProps,
+      modalType: _modalType,
+    });
     closeAllContextMenus();
   }
 
@@ -43,7 +47,7 @@ export function PaneContextMenu() {
       <Item onClick={getOnClickFn({ type: C.DICT_ROOT })}>New Dict</Item>
       <Item onClick={getOnClickFn({ type: C.DECK })}>New Group</Item>
       <Item onClick={getOnClickFn({ type: C.INFO })}>New Info</Item>
-      {!singletonSections.globalVariables && (
+      {!singletonSections[C.GLOBAL_VARIABLES] && (
         <Item onClick={getOnClickFn({ type: C.GLOBAL_VARIABLES })}>
           New Global Variables
         </Item>
@@ -73,7 +77,7 @@ export function PaneContextMenu() {
         New Bash Script
       </Item>
       <Item onClick={getOnClickFn({ type: C.TERMINAL })}>New Terminal</Item>
-      {!singletonSections.globalParamSweep && (
+      {!singletonSections[C.GLOBAL_PARAM_SWEEP] && (
         <Item onClick={getOnClickFn({ type: C.GLOBAL_PARAM_SWEEP })}>
           New Global Param Sweep
         </Item>

@@ -6,7 +6,7 @@ import { useSettings } from "state/definitions";
 import { shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
 
-export const useFloatingBox = create((set) => ({
+export const useFloatingBox = create(() => ({
   isFrozen: false,
   isEnabled: false,
   content: null,
@@ -75,66 +75,79 @@ export const FloatingBox = () => {
       <article className="flex-1 overflow-y-auto break-words text-sm text-setta-700 dark:text-setta-300">
         {content}
       </article>
-      {!!content && <Footer isFrozen={isFrozen} />}
+      {!!content && <FooterSwitch isFrozen={isFrozen} />}
     </div>
   );
 };
 
-function Footer({ isFrozen }) {
-  const {
-    tooltipToPlaintextShortcut,
-    tooltipToMarkdownShortcut,
-    freezeTooltipShortcut,
-    frozenTooltipToPlaintextShortcut,
-    frozenTooltipToMarkdownShortcut,
-  } = useSettings((x) =>
-    _.mapValues(
-      _.pick(x, [
-        "tooltipToPlaintextShortcut",
-        "tooltipToMarkdownShortcut",
-        "freezeTooltipShortcut",
-        "frozenTooltipToPlaintextShortcut",
-        "frozenTooltipToMarkdownShortcut",
-      ]),
-      shortcutPrettified,
-    ),
-  );
+function FooterSwitch({ isFrozen }) {
   const className =
     "mt-4 border-t border-solid border-setta-100 pt-1 text-[10px] text-setta-500 dark:border-setta-700 dark:text-setta-600";
 
-  if (isFrozen) {
-    return (
-      <p className={className}>
-        press <span className="font-black">&quot;Esc&quot;</span> to close, or{" "}
-        <span className="font-black">
-          &quot;{frozenTooltipToPlaintextShortcut}&quot;
-        </span>{" "}
-        (plaintext) or{" "}
-        <span className="font-black">
-          &quot;{frozenTooltipToMarkdownShortcut}&quot;
-        </span>{" "}
-        (markdown) to open tooltip as new section
-      </p>
-    );
-  }
+  return isFrozen ? (
+    <FrozenFooter className={className} />
+  ) : (
+    <Footer className={className} />
+  );
+}
+
+function FrozenFooter({ className }) {
+  const shortcuts = useSettings((x) => {
+    return {
+      frozenTooltipToPlaintextShortcut: shortcutPrettified(
+        x.frozenTooltipToPlaintextShortcut,
+      ),
+      frozenTooltipToMarkdownShortcut: shortcutPrettified(
+        x.frozenTooltipToMarkdownShortcut,
+      ),
+    };
+  }, _.isEqual);
+
+  return (
+    <p className={className}>
+      press <span className="font-black">&quot;Esc&quot;</span> to close, or{" "}
+      <span className="font-black">
+        &quot;{shortcuts.frozenTooltipToPlaintextShortcut}&quot;
+      </span>{" "}
+      (plaintext) or{" "}
+      <span className="font-black">
+        &quot;{shortcuts.frozenTooltipToMarkdownShortcut}&quot;
+      </span>{" "}
+      (markdown) to open tooltip as new section
+    </p>
+  );
+}
+
+function Footer({ className }) {
+  const shortcuts = useSettings((x) => {
+    return {
+      tooltipToPlaintextShortcut: shortcutPrettified(
+        x.tooltipToPlaintextShortcut,
+      ),
+      tooltipToMarkdownShortcut: shortcutPrettified(
+        x.tooltipToMarkdownShortcut,
+      ),
+      freezeTooltipShortcut: shortcutPrettified(x.freezeTooltipShortcut),
+    };
+  }, _.isEqual);
 
   return (
     <ul className={className}>
       <li>
         <strong className="font-black tracking-tighter">
-          &quot;{tooltipToPlaintextShortcut}&quot;
+          &quot;{shortcuts.tooltipToPlaintextShortcut}&quot;
         </strong>{" "}
         convert to plaintext section
       </li>
       <li>
         <strong className="font-black tracking-tighter">
-          &quot;{tooltipToMarkdownShortcut}&quot;
+          &quot;{shortcuts.tooltipToMarkdownShortcut}&quot;
         </strong>{" "}
         convert to markdown section
       </li>
       <li>
         <strong className="font-black tracking-tighter">
-          &quot;{freezeTooltipShortcut}&quot;
+          &quot;{shortcuts.freezeTooltipShortcut}&quot;
         </strong>{" "}
         freeze tooltip
       </li>
