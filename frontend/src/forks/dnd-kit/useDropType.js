@@ -3,11 +3,7 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
-import {
-  getSectionType,
-  getSectionVariant,
-  getSelectedVariantIsFrozen,
-} from "state/actions/sectionInfos";
+import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
 import { getIsRoot } from "utils/sectionTypeHelpers";
 
 export function onDragStart({ active }) {
@@ -227,7 +223,7 @@ function getBehaviorDropType(activeId, newParentId) {
     !getSectionIsRoot(newParentId) ||
     (getSectionCanOnlyBeChildOfDeck(activeId) &&
       !getSectionIsDeck(newParentId)) ||
-    getSelectedVariantIsFrozen(newParentId)
+    getSectionVariant(newParentId).isFrozen
   ) {
     return BehaviorDropType.INVALID;
   }

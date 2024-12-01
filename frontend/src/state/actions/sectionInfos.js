@@ -91,31 +91,6 @@ export function updateSectionInfos({
   state.codeInfoCols = { ...state.codeInfoCols, ...codeInfoCols };
 }
 
-export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
-  const newId = createNewId();
-  const s = state.variants;
-  s[newId] = _.cloneDeep(s[id]);
-  s[newId].name = newName;
-  s[newId].codeInfoColId = newCodeInfoColId;
-  s[newId].isFrozen = false;
-  s[newId].isDefault = false;
-  return newId;
-}
-
-export function initEnteredValue(uiType) {
-  return {
-    value: newEV(uiType),
-    keywordPositions: [],
-  };
-}
-
-export function initUITypeColEntry(uiTypeId) {
-  return {
-    uiTypeId,
-    nonPresetUITypeIds: [],
-  };
-}
-
 export function setEnteredValue(variantId, paramInfoId, value, state) {
   state.variants[variantId].values[paramInfoId].value = value;
 }
@@ -194,11 +169,6 @@ export function toggleVariantFrozenState(variantId) {
   });
 }
 
-export function getSelectedVariantIsFrozen(sectionId) {
-  const state = useSectionInfos.getState();
-  return getSectionVariant(sectionId, state).isFrozen;
-}
-
 export function resetSectionsToDefaultVersions(sectionIds) {
   useSectionInfos.setState((x) => {
     const sectionVariants = x.variants;
@@ -227,4 +197,29 @@ export function duplicateCodeInfoCol(id, state) {
   const s = state.codeInfoCols;
   s[newId] = _.cloneDeep(s[id]);
   return newId;
+}
+
+export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
+  const newId = createNewId();
+  const s = state.variants;
+  s[newId] = _.cloneDeep(s[id]);
+  s[newId].name = newName;
+  s[newId].codeInfoColId = newCodeInfoColId;
+  s[newId].isFrozen = false;
+  s[newId].isDefault = false;
+  return newId;
+}
+
+export function initEnteredValue(uiType) {
+  return {
+    value: newEV(uiType),
+    keywordPositions: [],
+  };
+}
+
+export function initUITypeColEntry(uiTypeId) {
+  return {
+    uiTypeId,
+    nonPresetUITypeIds: [],
+  };
 }
