@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { useEffect } from "react";
-import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSettings } from "state/definitions";
@@ -56,11 +55,9 @@ function CustomResizableCore({
       changedSize.width = "auto";
     }
     if (_.size(changedSize) > 0) {
-      setSectionResizeEvent({ sectionId, resizeEvent: "start" });
       useSectionInfos.setState((state) => {
         setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
       });
-      setSectionResizeEvent({ sectionId, resizeEvent: "end" });
     }
   }, [sizeMode.height, sizeMode.width]);
 
@@ -73,7 +70,9 @@ function CustomResizableCore({
   } = useAspectRatio(sectionId);
 
   function onResizeStart() {
-    setSectionResizeEvent({ sectionId, resizeEvent: "start" });
+    useSectionInfos.setState((state) => {
+      setSectionResizeEvent(sectionId, "start", state);
+    });
   }
 
   function onResizeStop(...props) {
@@ -84,8 +83,8 @@ function CustomResizableCore({
     });
     useSectionInfos.setState((state) => {
       setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
+      setSectionResizeEvent(sectionId, "end", state);
     });
-    setSectionResizeEvent({ sectionId, resizeEvent: "end" });
     maybeIncrementProjectStateVersion(true);
   }
 
@@ -159,4 +158,8 @@ function useAspectRatio(sectionId) {
       aspectRatioExtraWidth: s.aspectRatioExtraWidth ?? 0,
     };
   }, _.isEqual);
+}
+
+function setSectionResizeEvent(sectionId, resizeEvent, state) {
+  state.x[sectionId].resizeEvent = resizeEvent;
 }
