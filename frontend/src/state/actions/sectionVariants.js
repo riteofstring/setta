@@ -111,17 +111,35 @@ export function getSectionCode(sectionId) {
   ].code;
 }
 
-export function getSectionChildrenAcrossVariants(sectionId) {
-  const section = useSectionInfos.getState().x[sectionId];
-  const vState = useSectionInfos.getState().variants;
-  const output = new Set();
-  for (const v of section.variantIds) {
-    for (const c of vState[v].children) {
-      output.add(c);
-    }
+
+function getSectionChildrenFromAllVariants(sectionId, state) {
+  const output = [];
+  for (const v of state.x[sectionId].variantIds) {
+    output.push(...state.variants[v].children);
   }
   return output;
 }
+
+export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
+  const idsToDelete = [...sectionIds];
+  let idx = 0;
+  while (idx < idsToDelete.length) {
+    const idxChildren = getSectionChildrenFromAllVariants(
+      idsToDelete[idx],
+      state,
+    );
+    const { paramSweepSectionId } = state.x[idsToDelete[idx]];
+    if (idxChildren) {
+      idsToDelete.push(...idxChildren);
+    }
+    if (paramSweepSectionId) {
+      idsToDelete.push(paramSweepSectionId);
+    }
+    idx += 1;
+  }
+  return idsToDelete;
+}
+
 
 export function setSectionVariantAttr(sectionId, attr, value) {
   const { variantId } = getSectionInfo(sectionId);
