@@ -6,7 +6,7 @@ import {
   deleteSelectedKwargs,
   getAllSelectedParams,
   pinSelectedKwargs,
-} from "state/actions/kwargs/kwargs";
+} from "state/actions/kwargs";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useActiveSection,

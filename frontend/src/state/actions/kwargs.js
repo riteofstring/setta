@@ -4,13 +4,13 @@ import { useSectionInfos } from "state/definitions";
 import { findAllParameters } from "utils/getDescendants";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { addCodeInfo, deleteCodeInfo } from "../codeInfo";
-import { getSectionCodeInfoChildren } from "../codeInfoCols";
-import { initializeParams } from "../initializeParam";
-import { deleteParamsFromParamSweep } from "../runGroups/paramSweep";
-import { getParamIds } from "../sections/sectionContents";
-import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
-import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
+import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
+import { getSectionCodeInfoChildren } from "./codeInfoCols";
+import { initializeParams } from "./initializeParam";
+import { deleteParamsFromParamSweep } from "./runGroups/paramSweep";
+import { getParamIds } from "./sections/sectionContents";
+import { deleteParamInfoFromSectionVariant } from "./sectionVariants";
+import { deleteParamInfoFromUITypeCol } from "./uiTypes/uiTypeCols";
 
 export function addKwarg({
   sectionId,

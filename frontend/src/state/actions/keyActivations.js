@@ -22,7 +22,7 @@ import { isMacOs } from "utils/utils";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
 import { formatCode, updateInteractiveCode } from "./interactive";
-import { unselectAllParams } from "./kwargs/kwargs";
+import { unselectAllParams } from "./kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { setAllSectionsAsActive } from "./sections/activeSections";
