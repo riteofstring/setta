@@ -10,9 +10,9 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    for (const s of Object.values(json.sectionVariants)) {
+    for (const s of Object.values(json.codeInfo)) {
       for (const [k, v] of Object.entries(s)) {
-        const currDefault = defaultValues.sectionVariant[k];
+        const currDefault = defaultValues.codeInfo[k];
         if (
           v === currDefault ||
           (v === 0 && currDefault === false) ||
@@ -21,8 +21,7 @@ function loadAndModifyJson(filePath) {
             Array.isArray(currDefault) &&
             currDefault.length === 0) ||
           (v === null && currDefault === "") ||
-          (k === "values" && Object.keys(v).length === 0) ||
-          (k === "runGroup" && Object.keys(v).length === 0)
+          k === "children"
         ) {
           delete s[k];
         }
