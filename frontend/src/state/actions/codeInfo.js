@@ -1,8 +1,9 @@
 import _ from "lodash";
+import { getSectionVariant } from "./sectionInfos";
 
 export function addCodeInfo({ sectionId, info, parent, insertIdx, state }) {
   state.codeInfo[info.id] = info;
-  const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+  const { codeInfoColId } = getSectionVariant(sectionId, state);
   if (_.isNil(insertIdx)) {
     state.codeInfoCols[codeInfoColId].children[parent].push(info.id);
   } else {

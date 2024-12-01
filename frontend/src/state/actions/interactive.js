@@ -5,6 +5,7 @@ import { createNewId } from "utils/idNameCreation";
 import { updateArtifacts } from "./artifacts";
 import { setNotificationMessage } from "./notification";
 import { setAllRunGroupsAndMaybeCreateSection } from "./runGroups/runGroups";
+import { getSectionVariant } from "./sectionInfos";
 
 export async function updateInteractiveCode() {
   setNotificationMessage("Importing your code...");
@@ -43,7 +44,7 @@ export async function formatCode() {
   if (res.status === 200) {
     useSectionInfos.setState((state) => {
       for (const [sectionId, code] of Object.entries(res.data)) {
-        state.variants[state.x[sectionId].variantId].code = code;
+        getSectionVariant(sectionId, state).code = code;
       }
     });
   }

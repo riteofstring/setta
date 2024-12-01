@@ -3,12 +3,11 @@ import { dbNewVersionFilename } from "requests/sectionVariants";
 import { duplicateCodeInfoCol } from "state/actions/codeInfoCols";
 import { setNotificationMessage } from "state/actions/notification";
 import { createRandomName } from "utils/idNameCreation";
-import { duplicateSectionVariant } from "./sectionInfos";
+import { duplicateSectionVariant, getSectionVariant } from "./sectionInfos";
 
 export function createNewVersion(sectionId, newVersionName, state) {
   const { variantId: currVariantId } = state.x[sectionId];
-  const currCodeInfoColId =
-    state.variants[state.x[sectionId].variantId].codeInfoColId;
+  const currCodeInfoColId = getSectionVariant(sectionId, state).codeInfoColId;
   const newCodeInfoColId = duplicateCodeInfoCol(currCodeInfoColId, state);
   const newVariantId = duplicateSectionVariant(
     currVariantId,

@@ -3,6 +3,7 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { getKeywordPositionsAndEVRefs } from "requests/sections";
+import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
 import { useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -18,7 +19,7 @@ export function SectionSearch({ sectionId, selectedItem }) {
     function callbackSetAttr(id, state) {
       // for this callback, an undefined id means that the selectedItem is already selected.
       if (id !== undefined) {
-        state.variants[state.x[sectionId].variantId].selectedItem = id;
+        getSectionVariant(sectionId, state).selectedItem = id;
       }
     }
 

@@ -7,6 +7,7 @@ import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
 import { getSectionCodeInfoChildren } from "./codeInfoCols";
 import { initializeParams } from "./initializeParam";
+import { getSectionVariant } from "./sectionInfos";
 import { getParamIds } from "./sections/sectionContents";
 
 export function addKwarg({
@@ -145,7 +146,7 @@ function setAttrOfSelfAndDescendants(
 
 function getKwargIds(sectionId, codeInfoId, _state) {
   const state = _state ?? useSectionInfos.getState();
-  const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+  const { codeInfoColId } = getSectionVariant(sectionId, state);
   const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
   return codeInfoChildren[codeInfoId].filter((x) => state.codeInfo[x].editable);
 }
@@ -169,7 +170,7 @@ function getParamPath(name, parentId, state) {
 
 export function getAllSelectedParams(sectionId, state) {
   const codeInfoState = state.codeInfo;
-  const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+  const { codeInfoColId } = getSectionVariant(sectionId, state);
   const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
   const { ids } = findAllParameters(
     codeInfoState,

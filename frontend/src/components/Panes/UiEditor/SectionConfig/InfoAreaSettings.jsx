@@ -1,5 +1,6 @@
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { dbDocstringToMarkdown } from "requests/codeInfo";
+import { getSectionVariant } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useInfoAreaDescription } from "state/hooks/sectionVariants";
 
@@ -15,7 +16,7 @@ export function InfoAreaSettings({ sectionId }) {
       newDescription = description;
     }
     useSectionInfos.setState((state) => {
-      state.variants[state.x[sectionId].variantId].description = newDescription;
+      getSectionVariant(sectionId, state).description = newDescription;
       state.x[sectionId].renderMarkdown = v;
     });
   }

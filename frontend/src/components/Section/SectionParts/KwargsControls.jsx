@@ -7,6 +7,7 @@ import {
   getAllSelectedParams,
   pinSelectedKwargs,
 } from "state/actions/kwargs";
+import { getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useActiveSection,
@@ -117,7 +118,7 @@ function onClickAddKwargFn(sectionId, objInfoId) {
     useSectionInfos.setState((state) => {
       const selectedParams = getAllSelectedParams(sectionId, state);
       if (selectedParams.length > 0) {
-        const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+        const { codeInfoColId } = getSectionVariant(sectionId, state);
         const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
         for (const p of selectedParams) {
           let parentId, insertIdx;
@@ -143,7 +144,7 @@ function onClickDeleteKwargFn(sectionId, objInfoId) {
     useSectionInfos.setState((state) => {
       const selectedParams = getAllSelectedParams(sectionId, state);
       if (selectedParams.length > 0) {
-        const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+        const { codeInfoColId } = getSectionVariant(sectionId, state);
         const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
         const kwargIds = [];
         for (const p of selectedParams) {

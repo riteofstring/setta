@@ -9,6 +9,7 @@ import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { setNotificationMessage } from "../notification";
+import { getSectionVariant } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export async function setSelectedItem(
@@ -104,9 +105,8 @@ function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
   const state = useSectionInfos.getState();
 
   const codeInfoChildren =
-    state.codeInfoCols[
-      state.variants[state.x[sectionId].variantId].codeInfoColId
-    ].children;
+    state.codeInfoCols[getSectionVariant(sectionId, state).codeInfoColId]
+      .children;
   const cState = state.codeInfo;
   for (const c of codeInfoChildren[null]) {
     if (cState[c].name === selectedItemName) {
@@ -118,7 +118,6 @@ function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
 
 function itemIsAlreadySelected(sectionId, selectedItemName) {
   const state = useSectionInfos.getState();
-  const currSelectedItem =
-    state.variants[state.x[sectionId].variantId].selectedItem;
+  const currSelectedItem = getSectionVariant(sectionId, state).selectedItem;
   return state.codeInfo[currSelectedItem]?.name === selectedItemName;
 }

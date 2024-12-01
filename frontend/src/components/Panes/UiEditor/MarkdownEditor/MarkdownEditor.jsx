@@ -4,6 +4,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
+import { getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import {
@@ -127,7 +128,7 @@ export function getDefaultInfoTitle() {
 const debouncedSetDescription = _.debounce((sectionId, v, description) => {
   if (v !== description) {
     useSectionInfos.setState((state) => {
-      state.variants[state.x[sectionId].variantId].description = v;
+      getSectionVariant(sectionId, state).description = v;
       state.x[sectionId].name =
         getFirstHeadingOrText(v) ?? getDefaultInfoTitle();
     });

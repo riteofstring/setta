@@ -17,6 +17,10 @@ export function getSectionType(sectionId) {
   return useSectionInfos.getState().uiTypes[sectionTypeId].type;
 }
 
+export function getSectionVariant(sectionId, state) {
+  return state.variants[state.x[sectionId].variantId];
+}
+
 export function getHighestAncestor(
   sectionId,
   parentIdGetter = getSectionParentId,
@@ -207,7 +211,7 @@ export function toggleVariantFrozenState(variantId) {
 
 export function getSelectedVariantIsFrozen(sectionId) {
   const state = useSectionInfos.getState();
-  return state.variants[state.x[sectionId].variantId].isFrozen;
+  return getSectionVariant(sectionId, state).isFrozen;
 }
 
 export function resetSectionsToDefaultVersions(sectionIds) {
