@@ -27,36 +27,34 @@ const NodeRenderer = ({}) => {
   // and rerenders on every update.
   // Tried debugging, could not figure out why.
   const nodes = useNodeInternals(getNodes, shallow);
-  // const resizeObserverRef = useRef<ResizeObserver>();
+  const resizeObserverRef = useRef<ResizeObserver>();
   const activeSectionIds = useActiveSection((x) => x.ids);
-  console.log("nodes", nodes);
 
-  // const resizeObserver = useMemo(() => {
-  //   if (typeof ResizeObserver === "undefined") {
-  //     return null;
-  //   }
+  const resizeObserver = useMemo(() => {
+    if (typeof ResizeObserver === "undefined") {
+      return null;
+    }
 
-  //   const observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
-  //     const updates = entries.map((entry: ResizeObserverEntry) => ({
-  //       id: entry.target.getAttribute("data-id") as string,
-  //       nodeElement: entry.target as HTMLDivElement,
-  //       forceUpdate: true,
-  //     }));
+    const observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
+      const updates = entries.map((entry: ResizeObserverEntry) => ({
+        id: entry.target.getAttribute("data-id") as string,
+        nodeElement: entry.target as HTMLDivElement,
+        forceUpdate: true,
+      }));
 
-  //     console.log("updateNodeDimensions")
-  //     updateNodeDimensions(updates);
-  //   });
+      updateNodeDimensions(updates);
+    });
 
-  //   resizeObserverRef.current = observer;
+    resizeObserverRef.current = observer;
 
-  //   return observer;
-  // }, []);
+    return observer;
+  }, []);
 
-  // useEffect(() => {
-  //   return () => {
-  //     resizeObserverRef?.current?.disconnect();
-  //   };
-  // }, []);
+  useEffect(() => {
+    return () => {
+      resizeObserverRef?.current?.disconnect();
+    };
+  }, []);
 
   return (
     <div className="react-flow__nodes" style={containerStyle}>
@@ -90,7 +88,8 @@ const NodeRenderer = ({}) => {
             isDraggable={isDraggable}
             isSelectable={isSelectable}
             isFocusable={isFocusable}
-            // resizeObserver={resizeObserver}
+            resizeObserver={resizeObserver}
+            initialized={!!node.width && !!node.height}
             zIndex={node.tempZIndex}
           />
         );
