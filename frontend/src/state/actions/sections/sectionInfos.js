@@ -5,34 +5,6 @@ import {
   setSectionVariantChildren,
 } from "../sectionVariants";
 
-export function setSectionInfoAttr({
-  sectionId,
-  sectionIds,
-  attr,
-  value,
-  newValueFn,
-}) {
-  useSectionInfos.setState((state) => {
-    if (sectionIds) {
-      sectionIds.forEach((id) => {
-        valueOrNewValueFn({
-          obj: state.x[id],
-          attr,
-          value,
-          newValueFn,
-        });
-      });
-    } else if (sectionId) {
-      valueOrNewValueFn({
-        obj: state.x[sectionId],
-        attr,
-        value,
-        newValueFn,
-      });
-    }
-  });
-}
-
 export function removeSectionInfos(ids, state) {
   const idSet = new Set(ids);
   for (const id of idSet) {
@@ -80,14 +52,6 @@ export function toggleSectionLock(sectionId) {
     state.x[sectionId].positionAndSizeLocked =
       !state.x[sectionId].positionAndSizeLocked;
   });
-}
-
-function valueOrNewValueFn({ obj, attr, value, newValueFn }) {
-  if (newValueFn) {
-    obj[attr] = newValueFn(obj[attr]);
-  } else {
-    obj[attr] = value;
-  }
 }
 
 export function manualDndChildrenReset() {

@@ -217,7 +217,7 @@ function addSectionsToState(sectionInfos, position, state) {
   }
 }
 
-export function createAdjacentSection(sectionId, sectionProps) {
+export function createAdjacentSection(sectionId, sectionProps, state) {
   const { position: sectionPosition, width: sectionWidth } = useNodeInternals
     .getState()
     .x.get(sectionId);
@@ -227,7 +227,5 @@ export function createAdjacentSection(sectionId, sectionProps) {
     y: sectionPosition.y,
   };
 
-  useSectionInfos.setState((state) => {
-    createSectionInfo({ sectionProps, position, state });
-  });
+  createSectionInfo({ sectionProps, position, state });
 }

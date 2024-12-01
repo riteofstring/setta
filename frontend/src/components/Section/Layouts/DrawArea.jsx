@@ -9,7 +9,6 @@ import { BiPaint } from "react-icons/bi";
 import { updateArtifacts } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import {
   base64RequestId,
   setTemporaryMiscState,
@@ -335,10 +334,8 @@ export function DrawOnImage({ sectionId }) {
             },
           },
         });
-        setSectionInfoAttr({
-          sectionId,
-          attr: "artifacts",
-          newValueFn: (x) => [...x, artifactPath],
+        useSectionInfos.setState((state) => {
+          state.x[sectionId].artifacts.push(artifactPath);
         });
       };
 

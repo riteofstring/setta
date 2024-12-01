@@ -6,7 +6,6 @@ import { closeAllContextMenus } from "state/actions/contextMenus";
 import { clearActiveSectionIds } from "state/actions/sections/activeSections";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { createDeck } from "state/actions/sections/groupSections";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useContextMenus, useSectionInfos } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
@@ -42,10 +41,10 @@ export function SelectionContextMenu() {
   }
 
   function onClickLock() {
-    setSectionInfoAttr({
-      sectionIds: nodeIds,
-      attr: "positionAndSizeLocked",
-      value: !allLocked,
+    useSectionInfos.setState((state) => {
+      for (const n of nodeIds) {
+        state.x[n].positionAndSizeLocked = !allLocked;
+      }
     });
     closeContextMenu();
   }
