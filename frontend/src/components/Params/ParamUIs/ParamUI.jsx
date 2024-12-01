@@ -132,7 +132,7 @@ export function ParamUI({
           choices={choices}
           value={value}
           onChange={onChange}
-          outerDivClasses="section-value flex justify-self-start self-center"
+          outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
           isDisabled={isDisabled}
         />
       );
@@ -227,7 +227,7 @@ export function ParamSweepUI({
           colorChoices={colorChoices}
           value={value}
           onChange={onChange}
-          wrapperClassName="section-key-value single-cell-container  w-[calc(100%_-_2px)] h-[calc(100%_-_4px)] min-h-0 flex justify-self-start self-center ml-2"
+          wrapperClassName="section-key-value single-cell-container w-[calc(100%_-_1.25rem)] min-h-0 flex justify-self-start self-center ml-2"
           colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
           isDisabled={isDisabled}
         />
@@ -239,7 +239,7 @@ export function ParamSweepUI({
           choices={choices}
           value={value}
           onChange={onChange}
-          outerDivClasses="section-key-value ml-2 flex justify-self-start self-center"
+          outerDivClasses="section-key-value w-[calc(100%_-_1.15rem)] ml-2 flex justify-self-start self-center [&_search]:my-auto"
           isDisabled={isDisabled}
         />
       );

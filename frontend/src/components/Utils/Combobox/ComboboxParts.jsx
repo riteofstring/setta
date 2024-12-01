@@ -13,9 +13,6 @@ export function ComboboxInput({
   bg = "bg-white dark:bg-setta-900",
   isDisabled,
 }) {
-  const className =
-    "nodrag section-value mb-1 font-code z-[1] row-span-1 h-[calc(2rem-2px)] min-w-0 cursor-auto border border-solid rounded-full bg-setta-900/50 border-setta-300 px-4 font-mono text-xs text-white font-normal leading-normal outline-none placeholder:text-setta-300/25 dark:placeholder:text-setta-400/25 focus:text-clip focus-visible:border-blue-400 dark:border-setta-800 dark:caret-white dark:focus-visible:border-blue-400";
-
   const inputRef = useRef();
 
   return (
