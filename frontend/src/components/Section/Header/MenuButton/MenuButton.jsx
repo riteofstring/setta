@@ -29,6 +29,7 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
           sectionId={sectionId}
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
+          isListElement={isListElement}
         />
       </div>
     );
@@ -43,6 +44,7 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
             sectionId={sectionId}
             sectionTypeName={sectionTypeName}
             isInOtherProjectConfigs={isInOtherProjectConfigs}
+            isListElement={isListElement}
           />
         }
       >

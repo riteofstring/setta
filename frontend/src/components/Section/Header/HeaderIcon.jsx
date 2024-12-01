@@ -12,14 +12,13 @@ import { TbArrowIteration } from "react-icons/tb";
 import { useSectionInfos } from "state/definitions";
 import { useListElementIdx } from "state/hooks/sectionVariants";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
-import { useIsListElement } from "state/hooks/uiTypes";
 
 export function HeaderIcon({
   sectionId,
   sectionTypeName,
   isInOtherProjectConfigs,
+  isListElement,
 }) {
-  const isListElement = useIsListElement(sectionId);
   const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
 
   if (isListElement) {
