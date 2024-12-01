@@ -46,22 +46,14 @@ export function addKwarg({
   return kwargInfo.id;
 }
 
-export function deleteKwarg({
-  sectionId,
-  parentId = null,
-  kwargId = null,
-  state,
-}) {
-  let kwargIdToDelete = kwargId;
-  if (!kwargIdToDelete) {
-    const kwargIds = getKwargIds(sectionId, parentId, state);
-    const numKwargs = kwargIds.length;
-    if (numKwargs === 0) {
-      return;
-    }
-    kwargIdToDelete = kwargIds[numKwargs - 1];
+export function deleteLastKwarg({ sectionId, parentId = null, state }) {
+  const kwargIds = getKwargIds(sectionId, parentId, state);
+  const numKwargs = kwargIds.length;
+  if (numKwargs === 0) {
+    return;
   }
-  deleteKwargIds(sectionId, [kwargIdToDelete], state);
+  const kwargId = kwargIds[numKwargs - 1];
+  deleteKwargIds(sectionId, [kwargId], state);
 }
 
 export function deleteSelectedKwargs({ sectionId }) {
@@ -72,7 +64,7 @@ export function deleteSelectedKwargs({ sectionId }) {
   });
 }
 
-function deleteKwargIds(sectionId, ids, state) {
+export function deleteKwargIds(sectionId, ids, state) {
   const { uiTypeColId, variantId } = state.x[sectionId];
   deleteCodeInfo(ids, state);
   deleteParamInfoFromSectionVariant(variantId, ids, state);

@@ -1,7 +1,8 @@
 import _ from "lodash";
 import {
   addKwarg,
-  deleteKwarg,
+  deleteKwargIds,
+  deleteLastKwarg,
   deleteSelectedKwargs,
   pinSelectedKwargs,
 } from "state/actions/kwargs/kwargs";
@@ -144,6 +145,7 @@ function onClickDeleteKwargFn(sectionId, objInfoId) {
       if (selectedParams.length > 0) {
         const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
         const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+        const kwargIds = [];
         for (const p of selectedParams) {
           let parentId, idx;
           for (const [id, children] of Object.entries(codeInfoChildren)) {
@@ -154,14 +156,12 @@ function onClickDeleteKwargFn(sectionId, objInfoId) {
             }
           }
           if (parentId) {
-            const kwargId = codeInfoChildren[parentId][idx + 1];
-            if (kwargId) {
-              deleteKwarg({ sectionId, parentId: parent.id, kwargId, state });
-            }
+            kwargIds.push(codeInfoChildren[parentId][idx + 1]);
           }
         }
+        deleteKwargIds(sectionId, kwargIds, state);
       } else {
-        deleteKwarg({
+        deleteLastKwarg({
           sectionId,
           parentId: objInfoId,
           state,
