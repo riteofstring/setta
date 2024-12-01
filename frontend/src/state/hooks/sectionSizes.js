@@ -10,7 +10,7 @@ import {
 } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
 import { getImageDimensionsFromBase64 } from "utils/utils";
-import { useIsTwitter } from "./social";
+import { getIsTwitterSection } from "./social";
 
 export const INFINITE_MAX_HEIGHT = 100000;
 const INFINITE_MAX_WIDTH = 100000;
@@ -104,18 +104,16 @@ export function getSizeMode({ sectionType, hideParams, isTwitter }) {
 }
 
 export function useSectionMinMaxDims(sectionId) {
-  const { sectionType, hideSearch, hideParams, isMinimized } = useSectionInfos(
-    (x) => {
+  const { sectionType, hideSearch, hideParams, isMinimized, isTwitter } =
+    useSectionInfos((x) => {
       return {
+        isTwitter: getIsTwitterSection(sectionId, x),
         sectionType: getSectionType(sectionId, x),
         hideSearch: x.x[sectionId].hideSearch,
         hideParams: x.x[sectionId].hideParams,
         isMinimized: x.x[sectionId].isMinimized,
       };
-    },
-    _.isEqual,
-  );
-  const isTwitter = useIsTwitter(sectionId);
+    }, _.isEqual);
 
   const minHeight = getMinSectionHeight({
     sectionType,

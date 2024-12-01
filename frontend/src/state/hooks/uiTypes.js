@@ -60,12 +60,6 @@ export function useIsListElement(sectionId) {
   );
 }
 
-export function useIsType(sectionId, type) {
-  return useSectionInfos(
-    (x) => x.uiTypes[x.x[sectionId].uiTypeId].type === type,
-  );
-}
-
 export function useUIEditorTab(sectionId) {
   const [_storedTab] = localStorageFns.uiEditorTab.hook();
   return useSectionInfos((x) => {

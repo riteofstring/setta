@@ -11,18 +11,15 @@ import { SiGnubash, SiPython } from "react-icons/si";
 import { TbArrowIteration } from "react-icons/tb";
 import { useSectionInfos } from "state/definitions";
 import { useListElementIdx } from "state/hooks/sectionVariants";
-import { useIsTwitter, useIsYouTube } from "state/hooks/social";
+import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
 import { useIsListElement } from "state/hooks/uiTypes";
 
 export function HeaderIcon({
   sectionId,
   sectionTypeName,
-  classes,
   isInOtherProjectConfigs,
 }) {
   const isListElement = useIsListElement(sectionId);
-  const isYouTube = useIsYouTube(sectionId);
-  const isTwitter = useIsTwitter(sectionId);
   const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
 
   if (isListElement) {
@@ -74,23 +71,34 @@ export function HeaderIcon({
         <BiPaint className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
     case C.SOCIAL:
-      if (isYouTube) {
-        return (
-          <FaYoutube className="fill-setta-300 transition-colors group-hover/card-section:fill-blue-500 dark:fill-setta-500 dark:group-hover/card-section:fill-[#0084ff] " />
-        );
-      } else if (isTwitter) {
-        return (
-          <FaSquareXTwitter className="fill-setta-300 transition-colors group-hover/card-section:fill-blue-500 dark:fill-setta-500 dark:group-hover/card-section:fill-[#0084ff] " />
-        );
-      } else {
-        return (
-          <GoDotFill className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
-        );
-      }
+      return <SocialIcon sectionId={sectionId} />;
     default:
       return (
         <i className="gg-menu group/card-section:hover:bg !scale-110 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
+  }
+}
+
+function SocialIcon({ sectionId }) {
+  const { isYouTube, isTwitter } = useSectionInfos((x) => {
+    return {
+      isYouTube: linkIsYouTube(x.x[sectionId].social),
+      isTwitter: linkIsTwitter(x.x[sectionId].social),
+    };
+  });
+
+  if (isYouTube) {
+    return (
+      <FaYoutube className="fill-setta-300 transition-colors group-hover/card-section:fill-blue-500 dark:fill-setta-500 dark:group-hover/card-section:fill-[#0084ff] " />
+    );
+  } else if (isTwitter) {
+    return (
+      <FaSquareXTwitter className="fill-setta-300 transition-colors group-hover/card-section:fill-blue-500 dark:fill-setta-500 dark:group-hover/card-section:fill-[#0084ff] " />
+    );
+  } else {
+    return (
+      <GoDotFill className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+    );
   }
 }
 
