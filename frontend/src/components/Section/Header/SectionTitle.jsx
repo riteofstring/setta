@@ -87,7 +87,7 @@ function getSiblingHasName(sectionId, newName) {
   const { parentId } = state.x[sectionId];
   const siblingIds = parentId
     ? getSectionChildren(parentId)
-    : Array.from(useNodeInternals.getState().x.keys());
+    : useNodeInternals.getState().x.keys();
   for (const s of siblingIds) {
     if (state.x[s].name === newName) {
       return true;
