@@ -448,2375 +448,683 @@
   },
   "sectionVariants": {
     "00559fec-99ed-462d-b9fe-034c947a72e9": {
-      "selectedItem": null,
       "codeInfoColId": "9e7b27f1-46ee-440e-883c-a5904af3954c",
-      "values": {},
-      "children": [],
-      "name": "grim_lavender",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "grim_lavender"
     },
     "02dc4521-687d-49f9-9494-3140424acc35": {
-      "selectedItem": null,
       "codeInfoColId": "6f22b99e-1e34-404f-af87-7cecdc8c3fa3",
-      "values": {},
-      "children": [],
-      "name": "agreed_turquoise",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "agreed_turquoise"
     },
     "02df8232-a201-4a22-a5b1-89c95570122e": {
-      "selectedItem": null,
       "codeInfoColId": "757441a9-7c0b-42c7-bf32-0aee07a6aecc",
-      "values": {},
-      "children": [],
-      "name": "genuine_brown",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "genuine_brown"
     },
     "03040c56-c07d-4310-85ce-7a9ab82ba7e9": {
-      "selectedItem": null,
       "codeInfoColId": "61dda293-1561-4136-a70c-609acfd078f3",
-      "values": {},
-      "children": [],
-      "name": "temporary_violet",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "temporary_violet"
     },
     "04736a6e-46e5-450f-a468-8b2811e5e1fb": {
-      "selectedItem": null,
       "codeInfoColId": "d15c201e-ceb3-4745-922a-7237e01b9479",
-      "values": {},
-      "children": [],
-      "name": "mass_gold",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "mass_gold"
     },
     "051f5d55-817e-4e12-8e4c-03aa9ce529bb": {
-      "selectedItem": null,
       "codeInfoColId": "4eff0914-34f5-4cc0-a94e-e6ae98ea5589",
-      "values": {},
-      "children": [],
-      "name": "optimistic_magenta",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "optimistic_magenta"
     },
     "05ccfebc-59b6-408d-aed8-b48632431c47": {
-      "selectedItem": null,
       "codeInfoColId": "6a8171cc-a8be-4734-a833-a904ea00c239",
-      "values": {},
-      "children": [],
-      "name": "passing_rose",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "passing_rose"
     },
     "05d30e59-17bc-4784-a36e-dfa28f2cbc87": {
-      "selectedItem": null,
       "codeInfoColId": "79359a99-854d-410d-b54a-b319ea6a8d4a",
-      "values": {},
-      "children": [],
-      "name": "oral_coral",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "oral_coral"
     },
     "084f6e42-aa11-45c0-affb-dd738090564e": {
-      "selectedItem": null,
       "codeInfoColId": "07edc65f-1f7c-427c-b018-390a7de1d066",
-      "values": {},
-      "children": [],
-      "name": "suspicious_crimson",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "suspicious_crimson"
     },
     "08fb1320-10e6-466d-8ed5-93637f9019c2": {
-      "selectedItem": null,
       "codeInfoColId": "f9f2cfab-6463-46d0-8c82-5e9fd0c7b655",
-      "values": {},
-      "children": [],
-      "name": "victorious_amber",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "victorious_amber"
     },
     "09c14006-0c13-4f4f-bd67-b5b1c97f16d5": {
-      "selectedItem": null,
       "codeInfoColId": "8258c369-a4e7-427e-9004-51a90f67ac91",
-      "values": {},
-      "children": [],
-      "name": "consistent_black",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "consistent_black"
     },
     "0a94f1fd-3c36-465b-8bd8-c95b1c3a9133": {
-      "selectedItem": null,
       "codeInfoColId": "c532ad92-6a9b-4429-9011-59f8e72e9b09",
-      "values": {},
-      "children": [],
-      "name": "comprehensive_maroon",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "comprehensive_maroon"
     },
     "0b04e671-e9d5-4438-b2b0-97605ccca16c": {
-      "selectedItem": null,
       "codeInfoColId": "54aef8cf-d1d9-4105-809a-812f8ce2c4ac",
-      "values": {},
-      "children": [],
-      "name": "thundering_bronze",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "thundering_bronze"
     },
     "0b5a9878-b485-4d03-9a04-8fe21c1580b6": {
-      "selectedItem": null,
       "codeInfoColId": "8f8bae14-4d11-4bd3-8927-73a2914baf25",
-      "values": {},
-      "children": [],
-      "name": "flexible_fuchsia",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "flexible_fuchsia"
     },
     "0b856a48-439f-42f6-b118-fd62c3a47c15": {
-      "selectedItem": null,
       "codeInfoColId": "6d33f11d-8a74-4ad1-947e-81ea55898576",
-      "values": {},
-      "children": [],
-      "name": "funny_aqua",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "funny_aqua"
     },
     "0bc4049e-c43f-4cdf-a88c-c74d4121353f": {
-      "selectedItem": null,
       "codeInfoColId": "50ac3621-3d65-4cc0-bdb9-650abc8c655f",
-      "values": {},
-      "children": [],
-      "name": "loose_peach",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "loose_peach"
     },
     "0bd27cf1-1342-4050-9028-5c76f31e59ee": {
-      "selectedItem": null,
       "codeInfoColId": "3865b975-1cc9-4623-bf9d-f67ad1192258",
-      "values": {},
-      "children": [],
-      "name": "harsh_azure",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "harsh_azure"
     },
     "0d44bfed-0d5d-4ef4-a628-a2fa652d1880": {
-      "selectedItem": null,
       "codeInfoColId": "7079fcda-ae13-4490-8483-dbcdfa8bb511",
-      "values": {},
-      "children": [],
-      "name": "running_brown",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "running_brown"
     },
     "0d7746f7-e765-4758-bba2-d67538441f72": {
-      "selectedItem": null,
       "codeInfoColId": "fd8ea96d-80f0-49bd-83ca-437dde6e28e8",
-      "values": {},
-      "children": [],
-      "name": "creative_white",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "creative_white"
     },
     "0e93c822-3b47-4418-a680-cecf59969e7f": {
-      "selectedItem": null,
       "codeInfoColId": "549ba24d-ab12-4481-8f20-aa391900b9fd",
-      "values": {},
-      "children": [],
-      "name": "zonal_coral",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "zonal_coral"
     },
     "0f14fe4b-034f-45b5-a87a-6ac6bb5c805d": {
-      "selectedItem": null,
       "codeInfoColId": "327a2298-efe5-4aa5-91e0-474fcf77c7ad",
-      "values": {},
-      "children": [],
-      "name": "salty_amaranth",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "salty_amaranth"
     },
     "10c95ea8-153f-4eb4-b51c-f220a2a68fc8": {
-      "selectedItem": null,
       "codeInfoColId": "eb2c310b-9a30-43b6-8b9e-db75021e9f6f",
-      "values": {},
-      "children": [],
-      "name": "awake_teal",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "awake_teal"
     },
     "11017000-f576-4d30-bfa8-332e3fb9a981": {
-      "selectedItem": null,
       "codeInfoColId": "49f5dbb3-3807-40c2-98b8-d837cabf17ce",
-      "values": {},
-      "children": [],
-      "name": "tight_olive",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "tight_olive"
     },
     "1243a288-5c39-4e17-969a-c86cf6e8c957": {
-      "selectedItem": null,
       "codeInfoColId": "1f1a6b92-86fd-414b-a7f8-684965ed09c4",
-      "values": {},
-      "children": [],
-      "name": "immediate_yellow",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "immediate_yellow"
     },
     "13c47b23-0c1b-41bc-a8c9-83b78215b9cb": {
-      "selectedItem": null,
       "codeInfoColId": "f9fea162-0399-4edf-9cb8-55aebdc71376",
-      "values": {},
-      "children": [],
-      "name": "mixed_apricot",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "mixed_apricot"
     },
     "13f43e65-94e7-45aa-88e8-50c50fba6bda": {
-      "selectedItem": null,
       "codeInfoColId": "82408382-0a74-4e7d-a2c4-ebe0537e13ca",
-      "values": {},
-      "children": [],
-      "name": "complex_scarlet",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "complex_scarlet"
     },
     "141959f8-1e96-4aa2-b989-ccc79d40495b": {
-      "selectedItem": null,
       "codeInfoColId": "875d987c-74d7-40a4-b626-203b61e15894",
-      "values": {},
-      "children": [],
-      "name": "rapid_rose",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "rapid_rose"
     },
     "141abb5c-f7b5-4a96-8ce0-a60a6393aef4": {
-      "selectedItem": null,
       "codeInfoColId": "3f50d641-f182-4cc7-a18a-dc023f916b5f",
-      "values": {},
-      "children": [],
-      "name": "excellent_lavender",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "excellent_lavender"
     },
     "141e0891-ea0d-45ad-8c4a-a33e9671f082": {
-      "selectedItem": null,
       "codeInfoColId": "bd77fe85-92d2-4eb2-bb00-0ba99f840fbe",
-      "values": {},
-      "children": [],
-      "name": "unsightly_crimson",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "unsightly_crimson"
     },
     "14c3cff2-4709-4080-8037-6fae03b83462": {
-      "selectedItem": null,
       "codeInfoColId": "1d2a0bd2-5195-4bb7-bd35-b3a6b5cac799",
-      "values": {},
-      "children": [],
-      "name": "strategic_gray",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "strategic_gray"
     },
     "14d777df-9f92-4b59-b096-815c920ade06": {
-      "selectedItem": null,
       "codeInfoColId": "5611024c-f44b-466b-8420-6bca785ffb34",
-      "values": {},
-      "children": [],
-      "name": "mathematical_indigo",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "mathematical_indigo"
     },
     "15a2b889-1aea-4f84-bb4b-6254715b3dab": {
-      "selectedItem": null,
       "codeInfoColId": "2871d7be-22d4-49f6-acb4-bd47bbb4463e",
-      "values": {},
-      "children": [],
-      "name": "immediate_scarlet",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "immediate_scarlet"
     },
     "163ffcc9-16a8-44fa-9e79-7fabc4bf21f9": {
-      "selectedItem": null,
       "codeInfoColId": "6ef05ebb-af57-4483-9d51-18990f99d1a6",
-      "values": {},
-      "children": [],
-      "name": "uneven_emerald",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "uneven_emerald"
     },
     "16fad25d-c8f0-410d-af54-582d9ad00b88": {
-      "selectedItem": null,
       "codeInfoColId": "bea1b2d0-8c32-421a-9108-d0688074da2f",
-      "values": {},
-      "children": [],
-      "name": "brief_green",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "brief_green"
     },
     "195fdd51-309f-4990-8a9a-3d619c0c316d": {
-      "selectedItem": null,
       "codeInfoColId": "cc1f1b87-ca34-4162-b1d2-a2890bf07eb9",
-      "values": {},
-      "children": [],
-      "name": "christian_teal",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "christian_teal"
     },
     "196c1e9b-8d30-47b9-af0a-b5cb53bb7016": {
-      "selectedItem": null,
       "codeInfoColId": "680acb3c-d77e-4757-9810-44c3f0bf864f",
-      "values": {},
-      "children": [],
-      "name": "uptight_coffee",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "uptight_coffee"
     },
     "19906cd9-2dff-482d-9223-0dc95d1f7431": {
-      "selectedItem": null,
       "codeInfoColId": "ba8bb1f5-178e-4c6a-a715-9958d1d54d4c",
-      "values": {},
-      "children": [],
-      "name": "casual_moccasin",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "casual_moccasin"
     },
     "1a93f81b-7d78-4d27-a4b9-63e05b8c2794": {
-      "selectedItem": null,
       "codeInfoColId": "a36aa99c-312d-4d3e-8b5c-a10b706ef9e2",
-      "values": {},
-      "children": [],
-      "name": "scattered_yellow",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "scattered_yellow"
     },
     "1b88fdfc-28bc-4246-b87f-92937dc301e9": {
-      "selectedItem": null,
       "codeInfoColId": "c3d6fb8d-83fd-448c-8dca-b65d6a942ca2",
-      "values": {},
-      "children": [],
-      "name": "relieved_black",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "relieved_black"
     },
     "1b9f111e-43e3-4411-8140-95b2f16dd818": {
-      "selectedItem": null,
       "codeInfoColId": "308df097-2f15-4e24-b4c2-9e11db4f1db0",
-      "values": {},
-      "children": [],
-      "name": "convenient_emerald",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "convenient_emerald"
     },
     "1c14e9dd-93cd-4d34-9b9d-2af89735ddb4": {
-      "selectedItem": null,
       "codeInfoColId": "ce926f5a-40b1-4a80-b70d-ea47ee5f5f77",
-      "values": {},
-      "children": [],
-      "name": "grubby_green",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "grubby_green"
     },
     "1ca1ce4c-c2dd-4626-b64c-6eb485730a50": {
-      "selectedItem": null,
       "codeInfoColId": "0bad20a4-fa44-4a48-afaf-591b9a7af7c3",
-      "values": {},
-      "children": [],
-      "name": "amazing_plum",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "amazing_plum"
     },
     "1d7f0f63-8002-4e4c-b2bb-4270ed4325ef": {
-      "selectedItem": null,
       "codeInfoColId": "2a5f81d3-6029-4d6e-a85e-fb345457f132",
-      "values": {},
-      "children": [],
-      "name": "ethnic_gold",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "ethnic_gold"
     },
     "1e6c3e63-f801-495c-9ea4-c31bd192dc52": {
-      "selectedItem": null,
       "codeInfoColId": "81987028-3064-4aab-ae2d-84d73f030f49",
-      "values": {},
-      "children": [],
-      "name": "eager_sapphire",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "eager_sapphire"
     },
     "1f4ab990-72b7-4541-b0fa-955e6c76099c": {
-      "selectedItem": null,
       "codeInfoColId": "c1c24f31-f95f-4dd2-bd68-643007ec065d",
-      "values": {},
-      "children": [],
-      "name": "enormous_violet",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "enormous_violet"
     },
     "1fdf8976-d147-45d5-96c8-9a005a53277c": {
-      "selectedItem": null,
       "codeInfoColId": "e7f7e877-8ebd-4476-ab02-e09b2c4a1055",
-      "values": {},
-      "children": [],
-      "name": "crooked_fuchsia",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "crooked_fuchsia"
     },
     "20b1c2b4-dbae-4963-adb8-c4a50ad1c9df": {
-      "selectedItem": null,
       "codeInfoColId": "6af64e26-03d2-4e34-82e6-1dba5c8d9302",
-      "values": {},
-      "children": [],
-      "name": "static_indigo",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "static_indigo"
     },
     "23169b54-6d3e-4437-9494-d9b39c0aba75": {
-      "selectedItem": null,
       "codeInfoColId": "bf87994b-7fbb-4ec0-8692-2933015f7963",
-      "values": {},
-      "children": [],
-      "name": "alone_brown",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "alone_brown"
     },
     "2462086d-4996-40cb-82a1-05fa80bc4123": {
-      "selectedItem": null,
       "codeInfoColId": "02fc76b0-79d9-4d81-b625-2e10b80cdb6e",
-      "values": {},
-      "children": [],
-      "name": "nuclear_olive",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "nuclear_olive"
     },
     "26a3f9a1-a6c8-4609-a4c6-6019d8273dbe": {
-      "selectedItem": null,
       "codeInfoColId": "f8888700-96bc-4d22-b0a0-f9824e0600ab",
-      "values": {},
-      "children": [],
-      "name": "breakable_scarlet",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "breakable_scarlet"
     },
     "293f109d-24f8-4634-a418-5f2c9663a664": {
-      "selectedItem": null,
       "codeInfoColId": "b14f62c7-65db-42c1-aace-0f5b2bca9a5c",
-      "values": {},
-      "children": [],
-      "name": "ethical_yellow",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "ethical_yellow"
     },
     "2e496d47-c921-4a2c-a664-942bd7063d93": {
-      "selectedItem": null,
       "codeInfoColId": "73ebc5b1-d548-468c-802d-b7687fff0dc6",
-      "values": {},
-      "children": [],
-      "name": "gradual_yellow",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "gradual_yellow"
     },
     "307207a9-2358-4441-806c-48c9da7baba2": {
-      "selectedItem": null,
       "codeInfoColId": "31a24248-2596-431a-89cf-09bd13e06d86",
-      "values": {},
-      "children": [],
-      "name": "systematic_white",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "systematic_white"
     },
     "32796c95-dfe9-4240-a031-d0a2461e78aa": {
-      "selectedItem": null,
       "codeInfoColId": "59463271-c149-4b00-9b1e-5b8cd5263538",
-      "values": {},
-      "children": [],
-      "name": "daily_amethyst",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "daily_amethyst"
     },
     "34c0ec1f-4c35-4f35-aeee-b2cbbcfac421": {
-      "selectedItem": null,
       "codeInfoColId": "b3223f46-2faa-4f1e-a527-36035e5aba50",
-      "values": {},
-      "children": [],
-      "name": "surprising_red",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "surprising_red"
     },
     "34dd3479-7729-4f6c-8615-311ec67e76da": {
-      "selectedItem": null,
       "codeInfoColId": "1a8accba-0f11-4d6d-82fc-95a046c3edea",
-      "values": {},
-      "children": [],
-      "name": "robust_indigo",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "robust_indigo"
     },
     "354041aa-fefc-47fb-98f4-c1d3c42041ed": {
-      "selectedItem": null,
       "codeInfoColId": "2971d169-ccdc-4f71-8071-d72440509d9c",
-      "values": {},
-      "children": [],
-      "name": "brief_amaranth",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "brief_amaranth"
     },
     "368ac931-d759-4c75-9273-7cbc59e99cf8": {
-      "selectedItem": null,
       "codeInfoColId": "fc714089-c2eb-4452-9f08-449b35725de7",
-      "values": {},
-      "children": [],
-      "name": "wily_brown",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "wily_brown"
     },
     "36b2cd3a-bc83-45ef-b7d5-27ab449f58fb": {
-      "selectedItem": null,
       "codeInfoColId": "8ac8cf2d-a45e-46de-9d86-edf2a20987b4",
-      "values": {},
-      "children": [],
-      "name": "square_jade",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "square_jade"
     },
     "370433b1-0a82-4167-b712-39302e13daaa": {
-      "selectedItem": null,
       "codeInfoColId": "991ad561-933f-426d-8db3-4d6b4815f2c4",
-      "values": {},
-      "children": [],
-      "name": "frantic_plum",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "frantic_plum"
     },
     "3895b268-9426-449a-8447-b63444a52b90": {
-      "selectedItem": null,
       "codeInfoColId": "479ac6de-9309-497f-9112-1edc92fbc899",
-      "values": {},
-      "children": [],
-      "name": "dying_pink",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "dying_pink"
     },
     "39f0a74a-66ed-45ff-9ce7-ee6e0d6108a2": {
-      "selectedItem": null,
       "codeInfoColId": "92e611e7-8926-408a-b3e7-c8824ab02035",
-      "values": {},
-      "children": [],
-      "name": "automatic_lime",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "automatic_lime"
     },
     "3a9225eb-e7b1-4fcb-a4c7-5f5e84a772ec": {
-      "selectedItem": null,
       "codeInfoColId": "e2d5c5a3-56db-4cb0-a7f5-b9bab8f04b37",
-      "values": {},
-      "children": [],
-      "name": "continuous_tan",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "continuous_tan"
     },
     "3aec9e83-9ceb-4d76-afcb-9713156f59d8": {
-      "selectedItem": null,
       "codeInfoColId": "7997a75d-008d-4fc4-947b-894035ddcda7",
-      "values": {},
-      "children": [],
-      "name": "usual_gray",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "usual_gray"
     },
     "3b338ea9-91aa-4d07-b8fc-98778ba2c767": {
-      "selectedItem": null,
       "codeInfoColId": "8a9a897d-1500-4fc3-b9eb-2baf32f12a98",
-      "values": {},
-      "children": [],
-      "name": "written_purple",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "written_purple"
     },
     "3bad4a8e-793a-4a07-b64c-6833e1ffd47b": {
-      "selectedItem": null,
       "codeInfoColId": "b0de23de-d816-46b3-aa2b-ba5cb1ff4a2e",
-      "values": {},
-      "children": [],
-      "name": "annoyed_lime",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "annoyed_lime"
     },
     "3bce126b-813e-4754-94f9-4269cc6f1d9a": {
-      "selectedItem": null,
       "codeInfoColId": "72ee0cfc-c824-418d-aff5-57a1caa5ab54",
-      "values": {},
-      "children": [],
-      "name": "moral_red",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "moral_red"
     },
     "3bd121fa-4b1f-4454-8ce9-b81e60cf7468": {
-      "selectedItem": null,
       "codeInfoColId": "90a11899-5eaf-447d-84f0-01b9f647381e",
-      "values": {},
-      "children": [],
-      "name": "aggressive_lavender",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "aggressive_lavender"
     },
     "3c5b0564-4065-4e6a-8861-a86e100dc240": {
-      "selectedItem": null,
       "codeInfoColId": "18004a88-b786-472f-b959-990e550f293d",
-      "values": {},
-      "children": [],
-      "name": "low_indigo",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "low_indigo"
     },
     "3ce89d3e-e319-4dd8-b474-78c942f8c175": {
-      "selectedItem": null,
       "codeInfoColId": "d1de8272-3950-45f1-a175-dab096a6e513",
-      "values": {},
-      "children": [],
-      "name": "horrible_moccasin",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "horrible_moccasin"
     },
     "3d625635-c42d-4dd0-a647-c7a424582076": {
-      "selectedItem": null,
       "codeInfoColId": "6e3df745-f200-4de7-b548-e84acdd34b23",
-      "values": {},
-      "children": [],
-      "name": "chemical_lavender",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "chemical_lavender"
     },
     "3d6abaf4-4e81-40a8-9c09-4f15f5ce6f50": {
-      "selectedItem": null,
       "codeInfoColId": "8706883c-a318-4bb6-bdfc-d121901df1d7",
-      "values": {},
-      "children": [],
-      "name": "atomic_magenta",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "atomic_magenta"
     },
     "3d94e935-d3fd-4d33-b6b2-44b19c8e9c4a": {
-      "selectedItem": null,
       "codeInfoColId": "68b644b8-934e-4ace-9e35-fcb3c6d53301",
-      "values": {},
-      "children": [],
-      "name": "extraordinary_sapphire",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "extraordinary_sapphire"
     },
     "3d987acc-1de9-46e0-bf8d-436518a4cd87": {
-      "selectedItem": null,
       "codeInfoColId": "90a5de46-ceb9-42b9-9cdb-413380195101",
-      "values": {},
-      "children": [],
-      "name": "novel_pink",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "novel_pink"
     },
     "3deab4a1-20e0-4566-bfee-94fd63e36d5b": {
-      "selectedItem": null,
       "codeInfoColId": "d1cdbbd0-4550-4c8f-9ca4-d6a1d8d2d60c",
-      "values": {},
-      "children": [],
-      "name": "ytterbic_red",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "ytterbic_red"
     },
     "3dfd3216-32ac-4b2a-b1d0-0d0595d30f90": {
-      "selectedItem": null,
       "codeInfoColId": "66006d54-343b-48cb-8ea5-dd25c8182cb7",
-      "values": {},
-      "children": [],
-      "name": "modest_tomato",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "modest_tomato"
     },
     "3f2d99c4-388c-479b-a64b-040044c3b0c7": {
-      "selectedItem": null,
       "codeInfoColId": "22ee6195-620c-43df-9646-9fcd2487d72f",
-      "values": {},
-      "children": [],
-      "name": "shivering_bronze",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "shivering_bronze"
     },
     "3fa90062-5640-4c78-9edd-2e0489ec12e3": {
-      "selectedItem": null,
       "codeInfoColId": "eacf3f95-5260-48a7-a370-2a0af2d22e9c",
-      "values": {},
-      "children": [],
-      "name": "wonderful_beige",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "wonderful_beige"
     },
     "3fcc1a6a-54ea-44f5-b6c7-47ebdedc17c1": {
-      "selectedItem": null,
       "codeInfoColId": "49cb87be-9bfa-4485-b4af-d159d1cfdbbd",
-      "values": {},
-      "children": [],
-      "name": "yawning_white",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "yawning_white"
     },
     "4135c7b9-4f2c-4c20-8eb2-38e792efb184": {
-      "selectedItem": null,
       "codeInfoColId": "a1f349db-e283-4830-b91f-71b2a0953404",
-      "values": {},
-      "children": [],
-      "name": "eerie_coffee",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "eerie_coffee"
     },
     "43281efc-adba-4392-8b94-a08fba560332": {
-      "selectedItem": null,
       "codeInfoColId": "b181ea8b-00f3-4d00-9c4c-3ec809e6fecf",
-      "values": {},
-      "children": [],
-      "name": "extraordinary_aquamarine",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "extraordinary_aquamarine"
     },
     "45bb7816-d79a-4583-add6-a96a8112cd7d": {
-      "selectedItem": null,
       "codeInfoColId": "14ef4e11-7505-4d1f-9a62-cc0f189c0a22",
-      "values": {},
-      "children": [],
-      "name": "creative_olive",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "creative_olive"
     },
     "46fe6ceb-8405-46fc-acf4-c36d8ac0729c": {
-      "selectedItem": null,
       "codeInfoColId": "cbeb94ba-64ac-47bb-8fcb-8a07333f7d0b",
-      "values": {},
-      "children": [],
-      "name": "atomic_gray",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "atomic_gray"
     },
     "4920d031-28a7-4a36-90b6-4e3ce6047529": {
-      "selectedItem": null,
       "codeInfoColId": "c461155e-2cdf-4f61-8e99-fca3a53db39e",
-      "values": {},
-      "children": [],
-      "name": "zygomorphic_chocolate",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "zygomorphic_chocolate"
     },
     "49a087f5-f154-4751-b77c-6527a4f74568": {
-      "selectedItem": null,
       "codeInfoColId": "bd9319ed-ffef-40e2-9ae6-761c7418b5ab",
-      "values": {},
-      "children": [],
-      "name": "universal_peach",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "universal_peach"
     },
     "49e9128d-2633-4f21-b5af-9f9325197916": {
-      "selectedItem": null,
       "codeInfoColId": "61cf0f31-2bab-4b33-837a-2633bd8f0d55",
-      "values": {},
-      "children": [],
-      "name": "standard_gray",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "standard_gray"
     },
     "4a443dfa-064c-4536-ab35-7f4a742ee28e": {
-      "selectedItem": null,
       "codeInfoColId": "6d154ae9-fcca-4feb-be6f-f13922f3321c",
-      "values": {},
-      "children": [],
-      "name": "retired_beige",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "retired_beige"
     },
     "4a8b539d-8f7d-4a3a-8936-51553e396437": {
-      "selectedItem": null,
       "codeInfoColId": "70e19eca-bf7d-4fd6-92ea-3faba0989e6b",
-      "values": {},
-      "children": [],
-      "name": "colonial_red",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "colonial_red"
     },
     "4ab625f2-7091-48d4-b97c-50dc1d5c62cd": {
-      "selectedItem": null,
       "codeInfoColId": "fdecdddc-5944-4c05-893d-2d17a129dc00",
-      "values": {},
-      "children": [],
-      "name": "late_chocolate",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "late_chocolate"
     },
     "4b2d8991-b9ff-49be-8973-832e9ed1681a": {
-      "selectedItem": null,
       "codeInfoColId": "153ddb3d-6be7-4374-86d2-a828d9326057",
-      "values": {},
-      "children": [],
-      "name": "okay_blush",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "okay_blush"
     },
     "4bb21268-c4a6-4e68-88fd-c7e9b04bd3ef": {
-      "selectedItem": null,
       "codeInfoColId": "5568e518-f8d5-46eb-b2c9-bddb3e882ffa",
-      "values": {},
-      "children": [],
-      "name": "intimate_amber",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "intimate_amber"
     },
     "4c48b61b-75d5-425b-99a2-e89eafc6d748": {
-      "selectedItem": null,
       "codeInfoColId": "1b52b372-4835-456b-874a-cb34cfe805fe",
-      "values": {},
-      "children": [],
-      "name": "feminist_coffee",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "feminist_coffee"
     },
     "4d0f2c52-79e7-428f-bd61-fa0e331b107b": {
-      "selectedItem": null,
       "codeInfoColId": "440f5478-8432-40ed-9ffa-6d3682bf9ae6",
-      "values": {},
-      "children": [],
-      "name": "quickest_copper",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "quickest_copper"
     },
     "4d2a575c-2a5a-463c-ab05-86de2a670bab": {
-      "selectedItem": null,
       "codeInfoColId": "66c87cfe-891e-49a0-b4a9-ed8d6d68b9c2",
-      "values": {},
-      "children": [],
-      "name": "excessive_coral",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "excessive_coral"
     },
     "4f55cfc9-5157-48a6-981d-aa1bc4f41554": {
-      "selectedItem": null,
       "codeInfoColId": "01a91605-18d2-4ae1-8916-c076562bcd0b",
-      "values": {},
-      "children": [],
-      "name": "eager_violet",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "eager_violet"
     },
     "522e9ebb-6c10-46d3-9876-2621919a9f09": {
-      "selectedItem": null,
       "codeInfoColId": "1b1cf99d-460d-4b0a-988a-6e7f92ec2443",
-      "values": {},
-      "children": [],
-      "name": "nearby_copper",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "nearby_copper"
     },
     "5430dd2b-6ea0-481c-98cc-3293bd858045": {
-      "selectedItem": null,
       "codeInfoColId": "6cb79ebf-3c71-4304-bda5-60651e70a0b2",
-      "values": {},
-      "children": [],
-      "name": "tiny_purple",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "tiny_purple"
     },
     "549d0f51-4a50-4dc7-bfc9-72b9e79f3799": {
-      "selectedItem": null,
       "codeInfoColId": "a691357c-3540-4144-b0dc-cba605a6be94",
-      "values": {},
-      "children": [],
-      "name": "added_peach",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "added_peach"
     },
     "5611edbf-6429-430e-88dc-ab9d8588ae36": {
-      "selectedItem": null,
       "codeInfoColId": "719d83e1-d0e4-4b64-82d1-91bf2299bded",
-      "values": {},
-      "children": [],
-      "name": "exotic_cyan",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "exotic_cyan"
     },
     "573dd6fa-08c7-4241-a5d4-b31c6a78057f": {
-      "selectedItem": null,
       "codeInfoColId": "5653b4e1-6789-4d87-954e-d6fd2422a3c1",
-      "values": {},
-      "children": [],
-      "name": "little_teal",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "little_teal"
     },
     "5a7da1ad-0285-4ff9-bdda-c4cd869661e7": {
-      "selectedItem": null,
       "codeInfoColId": "7b154e0a-624d-4a3e-9b16-58595e970965",
-      "values": {},
-      "children": [],
-      "name": "entire_green",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "entire_green"
     },
     "5aedd300-12d1-4d5b-8380-36688cc8ed27": {
-      "selectedItem": null,
       "codeInfoColId": "e3478c71-ecdd-4811-ba1f-a407ca772540",
-      "values": {},
-      "children": [],
-      "name": "vocational_jade",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "vocational_jade"
     },
     "5b5c130e-b1c6-48bf-a300-7f992fc9301a": {
-      "selectedItem": null,
       "codeInfoColId": "2a8d9cb2-a0b0-4b90-9818-068c3b706c51",
-      "values": {},
-      "children": [],
-      "name": "xeric_ivory",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "xeric_ivory"
     },
     "5d600f6f-6636-4e42-97c7-8b716989f308": {
-      "selectedItem": null,
       "codeInfoColId": "9b032c54-9f7b-4d47-a4a9-9450d9871f21",
-      "values": {},
-      "children": [],
-      "name": "colourful_fuchsia",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "colourful_fuchsia"
     },
     "5f12df84-b3fc-44ae-9726-e0fe18144488": {
-      "selectedItem": null,
       "codeInfoColId": "2634b1fb-0da5-4bf8-b03c-0cc1731ded16",
-      "values": {},
-      "children": [],
-      "name": "defiant_turquoise",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "defiant_turquoise"
     },
     "5f5b8c90-22a2-4892-95f4-68070dff8590": {
-      "selectedItem": null,
       "codeInfoColId": "2facb992-5a73-443b-af09-cc95cee4d3f0",
-      "values": {},
-      "children": [],
-      "name": "financial_amethyst",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "financial_amethyst"
     },
     "5fcb464f-dc1a-424a-bb51-5b0d5998a406": {
-      "selectedItem": null,
       "codeInfoColId": "772be455-9131-4131-beaf-72720290f408",
-      "values": {},
-      "children": [],
-      "name": "continental_red",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "continental_red"
     },
     "605fba30-a34a-4577-8350-3f22a4c8fbe2": {
-      "selectedItem": null,
       "codeInfoColId": "01ce48b4-c702-412c-b625-316918a8d0b4",
-      "values": {},
-      "children": [],
-      "name": "famous_olive",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "famous_olive"
     },
     "62277ae9-3c4e-471a-9c5f-849922276c50": {
-      "selectedItem": null,
       "codeInfoColId": "5c44155b-249a-4bf4-957b-520b680b8bbe",
-      "values": {},
-      "children": [],
-      "name": "ridiculous_chocolate",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "ridiculous_chocolate"
     },
     "6296d2d9-b224-4866-9ce5-6ba9ca18932f": {
-      "selectedItem": null,
       "codeInfoColId": "1ef08bc7-6b9e-454d-aadb-5aadca043282",
-      "values": {},
-      "children": [],
-      "name": "extended_apricot",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "extended_apricot"
     },
     "646fcdd0-e4db-4264-83fb-a3aa6be2f6a2": {
-      "selectedItem": null,
       "codeInfoColId": "bc6ab776-66ac-4866-8961-ba92b7a53ca5",
-      "values": {},
-      "children": [],
-      "name": "controlled_brown",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "controlled_brown"
     },
     "65aa175d-f3d9-42a5-a809-a0cb450fb9fe": {
-      "selectedItem": null,
       "codeInfoColId": "adf514d0-fb43-4659-9d88-df8d07904302",
-      "values": {},
-      "children": [],
-      "name": "yabbering_ivory",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "yabbering_ivory"
     },
     "65c9f191-3bff-4fce-8268-c11c6853d843": {
-      "selectedItem": null,
       "codeInfoColId": "27e284a8-3ee1-4971-bf80-f0369666736a",
-      "values": {},
-      "children": [],
-      "name": "rolling_amethyst",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "rolling_amethyst"
     },
     "67769115-9d01-4dbc-a77a-0240ef449db5": {
-      "selectedItem": null,
       "codeInfoColId": "cd56e7b4-9582-47d4-a8a2-bc1c5b0e5761",
-      "values": {},
-      "children": [],
-      "name": "worldwide_azure",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "worldwide_azure"
     },
     "67d0e771-ff74-4ee7-a96d-1c13d0126aac": {
-      "selectedItem": null,
       "codeInfoColId": "1bdb21ec-898c-4303-8857-e4d090ba58c2",
-      "values": {},
-      "children": [],
-      "name": "organisational_scarlet",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "organisational_scarlet"
     },
     "6ba5d006-7498-4d65-bb82-2f3e2fb99ba3": {
-      "selectedItem": null,
       "codeInfoColId": "57860949-0526-4eb8-9ce5-9fdf649ad012",
-      "values": {},
-      "children": [],
-      "name": "teenage_magenta",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "teenage_magenta"
     },
     "6bb0ba0d-b4c1-4d85-8c5d-f747ae2e00b2": {
-      "selectedItem": null,
       "codeInfoColId": "d72ea9ed-ad95-449b-bc88-8d58617fe288",
-      "values": {},
-      "children": [],
-      "name": "proposed_harlequin",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "proposed_harlequin"
     },
     "6d2a0282-fb33-4182-9972-35f364a6c376": {
-      "selectedItem": null,
       "codeInfoColId": "f879b7f0-6504-4d3f-a27e-eb72ac95132c",
-      "values": {},
-      "children": [],
-      "name": "ideological_salmon",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "ideological_salmon"
     },
     "6fbb3638-f7dc-41c4-a166-5831fe5fb277": {
-      "selectedItem": null,
       "codeInfoColId": "23cb5bc1-f342-4fe1-ae9b-b019a6607ef4",
-      "values": {},
-      "children": [],
-      "name": "functional_chocolate",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "functional_chocolate"
     },
     "6ffcf629-409f-4bb5-b32d-96c6566507d0": {
-      "selectedItem": null,
       "codeInfoColId": "3bfa5ea7-f9ab-4a36-aa39-35d663e25a0a",
-      "values": {},
-      "children": [],
-      "name": "promising_tan",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "promising_tan"
     },
     "703f60fe-9382-4c4a-b802-6d366c13a55d": {
-      "selectedItem": null,
       "codeInfoColId": "fe6a0183-a2a4-4fdc-822f-bbfbca59a5d1",
-      "values": {},
-      "children": [],
-      "name": "content_rose",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "content_rose"
     },
     "70b0928a-259c-4500-9e4c-f3139fc882e7": {
-      "selectedItem": null,
       "codeInfoColId": "f8b3f793-1708-4869-8adc-36a0100a1c05",
-      "values": {},
-      "children": [],
-      "name": "current_blush",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "current_blush"
     },
     "725e9a0f-2e33-4d93-aac5-f4ef67add6f0": {
-      "selectedItem": null,
       "codeInfoColId": "47755ffc-3909-4982-9123-3fe62bfec577",
-      "values": {},
-      "children": [],
-      "name": "acceptable_rose",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "acceptable_rose"
     },
     "74b50536-4dbf-4a7a-b013-ff649a92858d": {
-      "selectedItem": null,
       "codeInfoColId": "78cd876d-c798-47a8-a75a-ccc78d6062c8",
-      "values": {},
-      "children": [],
-      "name": "happy_harlequin",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "happy_harlequin"
     },
     "751d4dde-a35b-4466-840d-c172f2bbeb76": {
-      "selectedItem": null,
       "codeInfoColId": "7b158e26-ea8a-4f35-b03d-0ba7c961b752",
-      "values": {},
-      "children": [],
-      "name": "satisfied_gold",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "satisfied_gold"
     },
     "75f26563-c7cc-4ead-a655-11f02e54b8b3": {
-      "selectedItem": null,
       "codeInfoColId": "72e1d38e-16c7-4f49-870a-6378c2c40e09",
-      "values": {},
-      "children": [],
-      "name": "classic_bronze",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "classic_bronze"
     },
     "77f7bed8-34c7-4b29-b075-3f3f33b95066": {
-      "selectedItem": null,
       "codeInfoColId": "799c7238-a70a-4c8c-abf5-0c87524f370b",
-      "values": {},
-      "children": [],
-      "name": "slippery_black",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "slippery_black"
     },
     "788ef916-a378-4f49-986f-e175b7be48d2": {
-      "selectedItem": null,
       "codeInfoColId": "f8413003-f923-4cfb-8245-c1b33978df63",
-      "values": {},
-      "children": [],
-      "name": "nearby_ivory",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "nearby_ivory"
     },
     "7a42e7f3-4db4-41fd-99a7-77aa24d42c5d": {
-      "selectedItem": null,
       "codeInfoColId": "071f9ce2-fa61-4734-9c89-31535a0e3c9b",
-      "values": {},
-      "children": [],
-      "name": "homely_green",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "homely_green"
     },
     "7b143950-5aa7-4fad-92bd-093048d10780": {
-      "selectedItem": null,
       "codeInfoColId": "c79d2124-0a8c-4eeb-aba0-63f9ad7de895",
-      "values": {},
-      "children": [],
-      "name": "assistant_yellow",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "assistant_yellow"
     },
     "7b745846-16e8-4808-be3f-3ffebc2fa05e": {
-      "selectedItem": null,
       "codeInfoColId": "0144f262-5363-410b-9a73-6ff2b88dcd17",
-      "values": {},
-      "children": [],
-      "name": "eager_silver",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "eager_silver"
     },
     "7c00216a-4a03-4cce-9d7c-a96d89cba413": {
-      "selectedItem": null,
       "codeInfoColId": "035f475d-34d0-41ba-b10e-03a2ca19acc2",
-      "values": {},
-      "children": [],
-      "name": "suitable_blush",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "suitable_blush"
     },
     "7e4b5b30-b7a5-4a0f-a55c-84f666765235": {
-      "selectedItem": null,
       "codeInfoColId": "d05da63e-5b27-47a5-b4d3-20098eb88879",
-      "values": {},
-      "children": [],
-      "name": "retired_plum",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "retired_plum"
     },
     "7e72832e-29e6-4f40-9642-7230cf47adb9": {
-      "selectedItem": null,
       "codeInfoColId": "ccf69091-f93d-44e2-8046-081ed5c3438f",
-      "values": {},
-      "children": [],
-      "name": "attractive_silver",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "attractive_silver"
     },
     "80f73c18-6e6c-4202-bc9a-4602c9c7c907": {
-      "selectedItem": null,
       "codeInfoColId": "3847f0bf-5533-4172-a542-b8d438fb6a9a",
-      "values": {},
-      "children": [],
-      "name": "increased_teal",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "increased_teal"
     },
     "81399760-6aaa-4ce5-ac4a-4ec4b6b02e8c": {
-      "selectedItem": null,
       "codeInfoColId": "c02fc26b-ac6b-43e1-9ce4-adc7f417f597",
-      "values": {},
-      "children": [],
-      "name": "entitled_black",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "entitled_black"
     },
     "813ac667-111b-46ad-a93f-affd7c2877dd": {
-      "selectedItem": null,
       "codeInfoColId": "e0852de6-c18b-48ac-8c49-5abd03fde52b",
-      "values": {},
-      "children": [],
-      "name": "native_beige",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "native_beige"
     },
     "824d7c55-514e-4ebe-9f39-3f69ad2babc0": {
-      "selectedItem": null,
       "codeInfoColId": "3d3c471b-ec93-4ccb-91f9-09501666616b",
-      "values": {},
-      "children": [],
-      "name": "suspicious_indigo",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "suspicious_indigo"
     },
     "82e5e63c-cebf-4cf6-aa75-afee8f6de7b1": {
-      "selectedItem": null,
       "codeInfoColId": "8841ca53-2963-4857-8041-3a23e8141ad4",
-      "values": {},
-      "children": [],
-      "name": "brainy_amber",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "brainy_amber"
     },
     "8594a9ee-ac6b-42a6-9207-d29348cfca2a": {
-      "selectedItem": null,
       "codeInfoColId": "86ee4b63-4d2f-49ad-a5a5-8295394e9fa3",
-      "values": {},
-      "children": [],
-      "name": "healthy_purple",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "healthy_purple"
     },
     "88be62aa-0f4c-4e5e-bebb-8c44a90c6fc1": {
-      "selectedItem": null,
       "codeInfoColId": "accab7fa-1685-46f2-9f37-40edb8bd936c",
-      "values": {},
-      "children": [],
-      "name": "progressive_purple",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "progressive_purple"
     },
     "88cd9613-0969-43d9-855f-92cd324f1bf3": {
-      "selectedItem": null,
       "codeInfoColId": "70cc2270-1d1d-4edd-82f8-46b0402995c5",
-      "values": {},
-      "children": [],
-      "name": "urban_azure",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "urban_azure"
     },
     "8982ca20-2cbd-4f92-90f6-ca88f99e24dc": {
-      "selectedItem": null,
       "codeInfoColId": "d054ddcf-97b7-40c6-b574-088a702e370b",
-      "values": {},
-      "children": [],
-      "name": "exceptional_violet",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "exceptional_violet"
     },
     "8bacb24f-10f8-4fd2-abb0-2e91b36c6ebd": {
-      "selectedItem": null,
       "codeInfoColId": "616b8510-20e3-4557-b4a5-fafa798d2c6b",
-      "values": {},
-      "children": [],
-      "name": "imperial_amethyst",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "imperial_amethyst"
     },
     "8c853a5b-4d76-4bfa-b0b6-e1350347bc11": {
-      "selectedItem": null,
       "codeInfoColId": "2d21d6b3-6cfa-4912-9345-d129ba2d5420",
-      "values": {},
-      "children": [],
-      "name": "sympathetic_red",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "sympathetic_red"
     },
     "8c88e3ea-5828-4260-bcab-4b5ca933449d": {
-      "selectedItem": null,
       "codeInfoColId": "ec4af041-3bb9-43ce-99ca-1d10c6dbee79",
-      "values": {},
-      "children": [],
-      "name": "premier_sapphire",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "premier_sapphire"
     },
     "8d32a783-ec65-4bdd-9335-c8dcbd6adcb9": {
-      "selectedItem": null,
       "codeInfoColId": "83179e73-e862-45f9-a56c-bd7e13eb2ee5",
-      "values": {},
-      "children": [],
-      "name": "occasional_copper",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "occasional_copper"
     },
     "8da96c25-c245-4b20-bb68-ed7d9bfad2b2": {
-      "selectedItem": null,
       "codeInfoColId": "cf7afba5-35d3-44a5-808e-ea54d75f5496",
-      "values": {},
-      "children": [],
-      "name": "zygomorphic_salmon",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "zygomorphic_salmon"
     },
     "8db16a1f-a62c-4a92-956b-b1faba69344f": {
-      "selectedItem": null,
       "codeInfoColId": "abdc3347-1f83-48a7-9ec2-c5182920787a",
-      "values": {},
-      "children": [],
-      "name": "silky_yellow",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "silky_yellow"
     },
     "91aa4418-9780-44cd-84dc-6926129109eb": {
-      "selectedItem": null,
       "codeInfoColId": "432a3050-0d52-4893-9700-641505625c7c",
-      "values": {},
-      "children": [],
-      "name": "mild_brown",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "mild_brown"
     },
     "91c1e3a6-78cf-4f66-b83f-6ff370e984b8": {
-      "selectedItem": null,
       "codeInfoColId": "abf15dbf-6f9a-4785-9fe3-36cbc649097b",
-      "values": {},
-      "children": [],
-      "name": "spotty_blue",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "spotty_blue"
     },
     "926f19ac-1406-4fcb-8610-ace61f8e3992": {
-      "selectedItem": null,
       "codeInfoColId": "625b5dd2-e307-40ee-b5cf-46cad08d8c2b",
-      "values": {},
-      "children": [],
-      "name": "incredible_copper",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "incredible_copper"
     },
     "93500b40-cf2b-4e94-8f9d-501606d9ce4a": {
-      "selectedItem": null,
       "codeInfoColId": "e65c666f-9bcc-42ef-9689-794c868bbaac",
-      "values": {},
-      "children": [],
-      "name": "conceptual_lime",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "conceptual_lime"
     },
     "93f4f67d-68f9-41d4-9cdb-d6e63df9d913": {
-      "selectedItem": null,
       "codeInfoColId": "0dad9928-4d83-4a76-96cc-1c544d378a9a",
-      "values": {},
-      "children": [],
-      "name": "nasty_gray",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "nasty_gray"
     },
     "941e0e08-cef7-4d6b-9cc9-b41022aa6d4a": {
-      "selectedItem": null,
       "codeInfoColId": "d9ee37d2-c7f9-4706-bc7c-b91a4ce144e9",
-      "values": {},
-      "children": [],
-      "name": "sticky_green",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "sticky_green"
     },
     "94d592e2-6c50-4828-9857-cdfdf5549888": {
-      "selectedItem": null,
       "codeInfoColId": "1b9a51fc-c622-45e1-b2da-dc6830aaf787",
-      "values": {},
-      "children": [],
-      "name": "steady_azure",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "steady_azure"
     },
     "95ae99e5-1308-443f-b10a-91feb989d17d": {
-      "selectedItem": null,
       "codeInfoColId": "06dd5ea1-87ad-4947-ae89-f541b677f99a",
-      "values": {},
-      "children": [],
-      "name": "future_silver",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "future_silver"
     },
     "9609f304-6490-4281-a1e8-f2fbbdbc939d": {
-      "selectedItem": null,
       "codeInfoColId": "7cdfaf6d-2628-44bb-af89-a11b09b6d8d8",
-      "values": {},
-      "children": [],
-      "name": "square_bronze",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "square_bronze"
     },
     "96241c61-4fae-48c6-844d-38783cc93472": {
-      "selectedItem": null,
       "codeInfoColId": "eb95583a-3cc3-4071-ac77-480986bbddc2",
-      "values": {},
-      "children": [],
-      "name": "driving_gray",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "driving_gray"
     },
     "963391e1-a659-4be9-8522-54b16ce6a5a0": {
-      "selectedItem": null,
       "codeInfoColId": "7b7abddf-6f80-4f73-8a5d-9f434faba016",
-      "values": {},
-      "children": [],
-      "name": "variable_scarlet",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "variable_scarlet"
     },
     "98ab0f3f-2a93-4916-bc12-e153d12dc280": {
-      "selectedItem": null,
       "codeInfoColId": "698cdb40-6ea7-4aa9-94b1-7e64a5c1e7c8",
-      "values": {},
-      "children": [],
-      "name": "brilliant_beige",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "brilliant_beige"
     },
     "9a23605d-9304-49bf-806d-fef77d634fe9": {
-      "selectedItem": null,
       "codeInfoColId": "2d693654-436a-4811-b5ad-6f031277a15a",
-      "values": {},
-      "children": [],
-      "name": "accused_aqua",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "accused_aqua"
     },
     "9a417140-d0ee-4922-9d36-36eddcd7d41c": {
-      "selectedItem": null,
       "codeInfoColId": "b9827b0b-808a-4574-bae2-140b2117e0c9",
-      "values": {},
-      "children": [],
-      "name": "balanced_sapphire",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "balanced_sapphire"
     },
     "9c3e9907-6223-4fb7-9af1-941773f70d38": {
-      "selectedItem": null,
       "codeInfoColId": "fa44abbb-25ec-430a-8b83-b80087892a31",
-      "values": {},
-      "children": [],
-      "name": "prominent_coffee",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "prominent_coffee"
     },
     "9e8963b9-70d6-418d-9b17-ebf7c5f7c3f5": {
-      "selectedItem": null,
       "codeInfoColId": "d3e63a84-196a-45ef-b63a-46eddd71f21f",
-      "values": {},
-      "children": [],
-      "name": "respectable_gray",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "respectable_gray"
     },
     "a138cc3e-a375-411b-a111-b322791917f2": {
-      "selectedItem": null,
       "codeInfoColId": "c51f81d4-ebfc-4158-8d35-9c5836b36b6f",
-      "values": {},
-      "children": [],
-      "name": "vocal_cyan",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "vocal_cyan"
     },
     "a1707529-b9b1-4c70-95f2-d851f60d7b9f": {
-      "selectedItem": null,
       "codeInfoColId": "aa645747-8e79-40b3-9df5-eabd88ee1722",
-      "values": {},
-      "children": [],
-      "name": "metropolitan_silver",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "metropolitan_silver"
     },
     "a1ded2b0-7fae-4c0f-aec9-75f32be0c18d": {
-      "selectedItem": null,
       "codeInfoColId": "c2453431-6a45-44d1-b0a6-bb3c9c43e621",
-      "values": {},
-      "children": [],
-      "name": "external_orange",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "external_orange"
     },
     "a2b8b60c-3183-4467-85d5-0dc72b976dba": {
-      "selectedItem": null,
       "codeInfoColId": "6adbf025-96e1-4aca-918f-deeae970924a",
-      "values": {},
-      "children": [],
-      "name": "selfish_aquamarine",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "selfish_aquamarine"
     },
     "a4611f22-beff-46fd-a09b-3fe9a4872fa8": {
-      "selectedItem": null,
       "codeInfoColId": "7de96a90-beab-4903-95d1-dd802713f8b0",
-      "values": {},
       "children": [
         "f9faadca-13cd-4b66-a1a4-71a35b07e746",
         "be03c045-ac0e-484a-a4f6-fc80965e240f",
@@ -2919,33 +1227,14 @@
         "a0bb3727-5649-4068-b729-1a0c70d432e8",
         "58bd2b92-f4d1-4e47-82ee-e4ec24b5b506"
       ],
-      "name": "bright_aquamarine",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "bright_aquamarine"
     },
     "a47da097-27da-4db0-98d4-632554042df1": {
-      "selectedItem": null,
       "codeInfoColId": "25de2411-445f-40e9-9cd7-fef7a9d0f180",
-      "values": {},
-      "children": [],
-      "name": "civil_azure",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "civil_azure"
     },
     "a549516e-6eb8-490a-8e78-a122dc8db562": {
-      "selectedItem": null,
       "codeInfoColId": "7844de47-d73b-42a4-a484-0dcb40960340",
-      "values": {},
       "children": [
         "07745a42-552a-4820-a167-2d99ea802a6e",
         "d9b12a0a-8496-4a3b-a3b7-1ac15f1e1491",
@@ -3048,1274 +1337,367 @@
         "f0a0302a-d89e-47c5-8c79-f29abe123999",
         "2e287df0-b16e-48c8-95b5-b1d64e623d2c"
       ],
-      "name": "stiff_olive",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "stiff_olive"
     },
     "a88fd153-9f42-4e17-915f-eda0818bb739": {
-      "selectedItem": null,
       "codeInfoColId": "89fb2d4d-1ef8-4d51-acc0-0cea5a958e2f",
-      "values": {},
-      "children": [],
-      "name": "overwhelming_bronze",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "overwhelming_bronze"
     },
     "a909faee-4987-4009-bd72-c5dc005c13d7": {
-      "selectedItem": null,
       "codeInfoColId": "f898f909-8531-4606-a863-94442183b95b",
-      "values": {},
-      "children": [],
-      "name": "energetic_plum",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "energetic_plum"
     },
     "aa4ab59f-1d2d-4e32-bd64-f023652a8f06": {
-      "selectedItem": null,
       "codeInfoColId": "5ac88eec-c690-47b7-93cb-08f686000a9e",
-      "values": {},
-      "children": [],
-      "name": "unlikely_salmon",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "unlikely_salmon"
     },
     "ac21a20f-5c71-4554-90c5-fbbd074e06b8": {
-      "selectedItem": null,
       "codeInfoColId": "45a0fca6-4aa4-46ec-8f8a-d021d7162bd1",
-      "values": {},
-      "children": [],
-      "name": "endless_jade",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "endless_jade"
     },
     "acc90f02-8797-4a17-be36-bdf8a5d8c5f3": {
-      "selectedItem": null,
       "codeInfoColId": "95e701fe-6e8f-48c0-a95c-02d353ad0feb",
-      "values": {},
-      "children": [],
-      "name": "defensive_aqua",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "defensive_aqua"
     },
     "ad706399-3de9-4be0-aad7-89e7892d925e": {
-      "selectedItem": null,
       "codeInfoColId": "c6be6246-5542-40c0-9933-92fc2428a44a",
-      "values": {},
-      "children": [],
-      "name": "unaware_purple",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "unaware_purple"
     },
     "aea3f548-611c-4992-9330-d05d7a2d95b9": {
-      "selectedItem": null,
       "codeInfoColId": "ab7f1c53-fc3c-4edb-987c-a7a4d14cffe1",
-      "values": {},
-      "children": [],
-      "name": "suspicious_tan",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "suspicious_tan"
     },
     "afbb4510-a09a-4315-93e2-1bf71f64d155": {
-      "selectedItem": null,
       "codeInfoColId": "f450823d-6b16-4c91-adf1-16f52c7863ce",
-      "values": {},
-      "children": [],
-      "name": "passive_tan",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "passive_tan"
     },
     "b0336f51-d94b-4c09-b07a-9a41bc85c4a1": {
-      "selectedItem": null,
       "codeInfoColId": "ba5d8a58-a9ff-4def-aa13-83d4d8fb917b",
-      "values": {},
-      "children": [],
-      "name": "wet_apricot",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "wet_apricot"
     },
     "b164c564-9a8c-416c-a8b2-321074efb235": {
-      "selectedItem": null,
       "codeInfoColId": "c1342049-dcfb-4f58-b2d7-5c379f8e1955",
-      "values": {},
-      "children": [],
-      "name": "broad_olive",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "broad_olive"
     },
     "b2e81e4d-82ea-4517-8d5e-0d7bbc1e139f": {
-      "selectedItem": null,
       "codeInfoColId": "9ed991b2-bbd0-449e-97ff-7caffd8bd010",
-      "values": {},
-      "children": [],
-      "name": "labour_harlequin",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "labour_harlequin"
     },
     "b3c12ce0-e6c5-4b2b-b14d-1935c3001413": {
-      "selectedItem": null,
       "codeInfoColId": "12f59d18-254e-4c8a-94e8-b05c2499aaa9",
-      "values": {},
-      "children": [],
-      "name": "dark_purple",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "dark_purple"
     },
     "b3c153af-b2ff-4b20-80cf-4e5960501f98": {
-      "selectedItem": null,
       "codeInfoColId": "b21f401e-9e12-40de-997f-38c88f9d3076",
-      "values": {},
-      "children": [],
-      "name": "early_gray",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "early_gray"
     },
     "b41919e7-a8b3-4018-970c-41f22c9bceda": {
-      "selectedItem": null,
       "codeInfoColId": "4fc5e003-47da-44ca-96e1-b4175b0cb213",
-      "values": {},
-      "children": [],
-      "name": "eventual_ivory",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "eventual_ivory"
     },
     "b41a25ed-22f9-4820-9317-f189ef9b2228": {
-      "selectedItem": null,
       "codeInfoColId": "f6007405-3f36-4412-8839-2392c4082bd6",
-      "values": {},
-      "children": [],
-      "name": "polite_lime",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "polite_lime"
     },
     "b51ad5af-49ad-4863-97ac-5d41ee29a3e9": {
-      "selectedItem": null,
       "codeInfoColId": "6d6d0207-4392-4fd2-b7db-f04284566abb",
-      "values": {},
-      "children": [],
-      "name": "intellectual_purple",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "intellectual_purple"
     },
     "b542a04b-66f8-4aba-9425-7d88725252b3": {
-      "selectedItem": null,
       "codeInfoColId": "1421d9c6-ddc9-4f86-afab-1ba4de2e233b",
-      "values": {},
-      "children": [],
-      "name": "overwhelming_coral",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "overwhelming_coral"
     },
     "b5fee6f7-a938-4744-8fe6-bef5144b97f4": {
-      "selectedItem": null,
       "codeInfoColId": "30a174e2-90f9-4854-a9db-c0a126eb2919",
-      "values": {},
-      "children": [],
-      "name": "sympathetic_emerald",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "sympathetic_emerald"
     },
     "b62d1bd0-a4a1-4abb-8418-d2356165fe18": {
-      "selectedItem": null,
       "codeInfoColId": "0fc577ad-045a-4c9d-b8dd-66fa761a78a6",
-      "values": {},
-      "children": [],
-      "name": "geographical_tan",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "geographical_tan"
     },
     "b6c6e7a6-43d5-48e2-868c-5b662162c94f": {
-      "selectedItem": null,
       "codeInfoColId": "2c6cdb15-54e1-41d3-9424-7537d76c60e7",
-      "values": {},
-      "children": [],
-      "name": "emotional_green",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "emotional_green"
     },
     "b6ed43dc-b042-4b6b-afdf-d7bb8767c757": {
-      "selectedItem": null,
       "codeInfoColId": "553e5763-88b2-4889-9421-ab6464d89b48",
-      "values": {},
-      "children": [],
-      "name": "kind_red",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "kind_red"
     },
     "b7983621-4c06-41bc-bbb4-434c12518e80": {
-      "selectedItem": null,
       "codeInfoColId": "fea9c9ac-4de0-4805-aa83-6d7318d570ed",
-      "values": {},
-      "children": [],
-      "name": "sticky_aquamarine",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "sticky_aquamarine"
     },
     "b7c3d168-c24d-4446-89fb-e02c2cd40745": {
-      "selectedItem": null,
       "codeInfoColId": "f4d8d8a3-2435-4a82-b8ba-6deae667e6ff",
-      "values": {},
-      "children": [],
-      "name": "joyous_bronze",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "joyous_bronze"
     },
     "b83c651f-9796-4e17-bbfd-18ebd946f398": {
-      "selectedItem": null,
       "codeInfoColId": "61fac8c5-253f-412a-958f-5e29db211336",
-      "values": {},
-      "children": [],
-      "name": "joint_magenta",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "joint_magenta"
     },
     "b9aac680-34f7-43e5-8f78-08042fca6c70": {
-      "selectedItem": null,
       "codeInfoColId": "9f61b4f7-8b61-463d-8245-4ce4d1cd3dca",
-      "values": {},
-      "children": [],
-      "name": "financial_apricot",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "financial_apricot"
     },
     "bc8f3439-6e6f-4ccc-b5fd-f964e18061f3": {
-      "selectedItem": null,
       "codeInfoColId": "1a9dcfdf-85fe-4c3b-82c8-546510ad78b7",
-      "values": {},
-      "children": [],
-      "name": "confidential_sapphire",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "confidential_sapphire"
     },
     "bd2ab991-1ac8-475a-b811-37c3827dae6f": {
-      "selectedItem": null,
       "codeInfoColId": "b45ded25-124a-4c97-a376-7057bacb6a62",
-      "values": {},
-      "children": [],
-      "name": "wild_coffee",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "wild_coffee"
     },
     "bef975fb-e4d5-4bc1-8927-a82f8ea3292c": {
-      "selectedItem": null,
       "codeInfoColId": "27500917-3ed0-4a62-b2c4-5f4c8fd4e3ca",
-      "values": {},
-      "children": [],
-      "name": "obvious_magenta",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "obvious_magenta"
     },
     "bf8f0f99-6af2-45ae-bcd9-1e213c6ae0ec": {
-      "selectedItem": null,
       "codeInfoColId": "1a1af6d9-f9bd-4c09-8300-206b1e57082a",
-      "values": {},
-      "children": [],
-      "name": "youngest_red",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "youngest_red"
     },
     "c19631e8-7d5d-45f1-b759-1dd06c1393c1": {
-      "selectedItem": null,
       "codeInfoColId": "beee2d0f-2acd-4b33-8402-857b53046c72",
-      "values": {},
-      "children": [],
-      "name": "obliged_blush",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "obliged_blush"
     },
     "c19dd2ff-5e8c-407e-bf11-c45a7e27558e": {
-      "selectedItem": null,
       "codeInfoColId": "ba00fef7-767a-4141-9ca5-3695990f9e20",
-      "values": {},
-      "children": [],
-      "name": "unnecessary_violet",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "unnecessary_violet"
     },
     "c41aa697-f530-4d8a-9f60-5d42c8c0f886": {
-      "selectedItem": null,
       "codeInfoColId": "f79d5258-073a-47ab-8b33-64bdcf1421e3",
-      "values": {},
-      "children": [],
-      "name": "stingy_brown",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "stingy_brown"
     },
     "c4922f22-ce03-4594-9df7-bf875795e9b7": {
-      "selectedItem": null,
       "codeInfoColId": "9f66d13f-93c9-41ab-93e5-1a84a4d38772",
-      "values": {},
-      "children": [],
-      "name": "primitive_salmon",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "primitive_salmon"
     },
     "c5d478c1-6b98-47c4-acd9-365775749adf": {
-      "selectedItem": null,
       "codeInfoColId": "88585383-1e03-4005-9f22-dfcfed4b4657",
-      "values": {},
-      "children": [],
-      "name": "public_chocolate",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "public_chocolate"
     },
     "c705314f-f256-4869-8494-e8a518931fae": {
-      "selectedItem": null,
       "codeInfoColId": "d3bce3b8-86dc-4c58-a448-916cc19b98d3",
-      "values": {},
-      "children": [],
-      "name": "ethnic_blush",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "ethnic_blush"
     },
     "c7a24558-1b36-4327-8092-049ef411b796": {
-      "selectedItem": null,
       "codeInfoColId": "31615dd3-d22a-4888-85bd-1181a0879381",
-      "values": {},
-      "children": [],
-      "name": "complex_silver",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "complex_silver"
     },
     "c7c74c39-5336-424d-9449-b5f09fc406d1": {
-      "selectedItem": null,
       "codeInfoColId": "cbc29964-b832-4afc-9893-f7be77797292",
-      "values": {},
-      "children": [],
-      "name": "impossible_maroon",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "impossible_maroon"
     },
     "c7cea9ba-c3fa-4002-beea-eda36374ac4c": {
-      "selectedItem": null,
       "codeInfoColId": "62ad7ef7-7de9-4f86-893c-61502ff26446",
-      "values": {},
-      "children": [],
-      "name": "surrounding_magenta",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "surrounding_magenta"
     },
     "ca56aa8b-9eaf-4a3b-a003-8c0f4eb5063a": {
-      "selectedItem": null,
       "codeInfoColId": "b1467583-7a18-4e26-a5e1-46fa6be5bf60",
-      "values": {},
-      "children": [],
-      "name": "remaining_fuchsia",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "remaining_fuchsia"
     },
     "cbc16314-d6eb-4094-89f2-655bf76bbcf4": {
-      "selectedItem": null,
       "codeInfoColId": "01e71150-fa5d-4b3d-aaf9-c1a27a7e92aa",
-      "values": {},
-      "children": [],
-      "name": "provincial_lime",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "provincial_lime"
     },
     "cbcae746-001b-4086-9134-a9b748f5b93d": {
-      "selectedItem": null,
       "codeInfoColId": "13ad394a-5347-415f-a431-b64d3feb7e14",
-      "values": {},
-      "children": [],
-      "name": "objective_cyan",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "objective_cyan"
     },
     "cbe6ce9d-d06f-4b25-b9d6-796d0b3cab56": {
-      "selectedItem": null,
       "codeInfoColId": "e18ab742-a6a1-43d8-b669-a3ab2338e85a",
-      "values": {},
-      "children": [],
-      "name": "agricultural_apricot",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "agricultural_apricot"
     },
     "ccaa90ea-a8f4-469c-801e-871259ee5698": {
-      "selectedItem": null,
       "codeInfoColId": "160e7cff-68c6-4671-b7a0-659273b6839d",
-      "values": {},
-      "children": [],
-      "name": "soft_emerald",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "soft_emerald"
     },
     "cdaaa1f6-e9e3-4c4c-8435-bfd1cbfb27b5": {
-      "selectedItem": null,
       "codeInfoColId": "02b11308-ca0e-4b4b-9208-78ea4c3b374a",
-      "values": {},
-      "children": [],
-      "name": "certain_bronze",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "certain_bronze"
     },
     "d15fb89e-9ef6-4245-b992-8eb4cc026119": {
-      "selectedItem": null,
       "codeInfoColId": "ddf28b8c-e010-4016-9ede-b2cd125d838a",
-      "values": {},
-      "children": [],
-      "name": "consistent_blush",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "consistent_blush"
     },
     "d3344fab-98d1-4567-be3d-640d1d551300": {
-      "selectedItem": null,
       "codeInfoColId": "b5cda0f1-d979-443a-8deb-67e839268591",
-      "values": {},
-      "children": [],
-      "name": "amazing_white",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "amazing_white"
     },
     "d39a0c69-3d5b-41d2-b27b-7ccf6121d189": {
-      "selectedItem": null,
       "codeInfoColId": "d64cbdba-3e06-463a-9e00-2d4aa4e07f11",
-      "values": {},
-      "children": [],
-      "name": "increasing_tan",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "increasing_tan"
     },
     "d6611044-bcab-4b34-85c3-8d9e5507b9f4": {
-      "selectedItem": null,
       "codeInfoColId": "dcd98853-1a3d-4d9e-b7e3-d00cd62a32c1",
-      "values": {},
-      "children": [],
-      "name": "exceptional_purple",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "exceptional_purple"
     },
     "d8324656-bcf9-4f49-96f6-ed3e2b1b503e": {
-      "selectedItem": null,
       "codeInfoColId": "3c97748f-df40-40ba-9a28-21e25605440c",
-      "values": {},
-      "children": [],
-      "name": "right_sapphire",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "right_sapphire"
     },
     "da65c8ca-ae7a-489f-a462-b02770620598": {
-      "selectedItem": null,
       "codeInfoColId": "8b19214c-18a9-46f3-b3c3-ddb3ec55919d",
-      "values": {},
-      "children": [],
-      "name": "wily_silver",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "wily_silver"
     },
     "daac4cc6-ad13-4ff0-bfd2-066d7b01f15b": {
-      "selectedItem": null,
       "codeInfoColId": "c3e83839-5c3e-4542-bbaa-6313d3346684",
-      "values": {},
-      "children": [],
-      "name": "common_purple",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "common_purple"
     },
     "daf24be4-a11e-4b7c-b91f-99a817bd0eda": {
-      "selectedItem": null,
       "codeInfoColId": "bde50a65-d0b2-4fe5-8139-8adbeb3dae2b",
-      "values": {},
-      "children": [],
-      "name": "wee_blush",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "wee_blush"
     },
     "db75e67a-92a1-4e5c-8737-a4bbba0e535f": {
-      "selectedItem": null,
       "codeInfoColId": "61f52331-9edd-4354-ba0a-2f5ba8468b2f",
-      "values": {},
-      "children": [],
-      "name": "gradual_emerald",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "gradual_emerald"
     },
     "dc2d731b-260a-4d09-b959-83bc94e4033e": {
-      "selectedItem": null,
       "codeInfoColId": "dcfa36d8-371a-4550-b6ad-212d6b09ffcb",
-      "values": {},
-      "children": [],
-      "name": "steady_harlequin",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "steady_harlequin"
     },
     "de32b3cf-7d88-4538-ab61-91c3bac46558": {
-      "selectedItem": null,
       "codeInfoColId": "785363eb-7f77-45a2-a192-f21032766435",
-      "values": {},
-      "children": [],
-      "name": "ideological_brown",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "ideological_brown"
     },
     "def39396-1a6b-48a6-9bc9-2fdaca46aa94": {
-      "selectedItem": null,
       "codeInfoColId": "5e4e0d99-1dd0-42b9-be92-6594d39303d7",
-      "values": {},
-      "children": [],
-      "name": "disastrous_gray",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "disastrous_gray"
     },
     "e0418586-a0c0-4513-a477-53e41348e36c": {
-      "selectedItem": null,
       "codeInfoColId": "8eda1768-6296-4860-9130-62bcbfa42906",
-      "values": {},
-      "children": [],
-      "name": "progressive_coral",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "progressive_coral"
     },
     "e056569b-8ddc-4541-a09d-5a710ef047f6": {
-      "selectedItem": null,
       "codeInfoColId": "5e5c7d65-1278-45a9-abb7-a481b5162b24",
-      "values": {},
-      "children": [],
-      "name": "elated_gold",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "elated_gold"
     },
     "e3c78a0f-265b-49b4-a7a8-7532b32b5332": {
-      "selectedItem": null,
       "codeInfoColId": "60f1daf9-0194-46fa-8fd1-45ebba74f1f7",
-      "values": {},
-      "children": [],
-      "name": "illegal_magenta",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "illegal_magenta"
     },
     "e3d681e1-922a-4bbc-85c1-f51751f92d78": {
-      "selectedItem": null,
       "codeInfoColId": "0d8cc2b0-ee0e-41d8-b860-e3c81adda367",
-      "values": {},
-      "children": [],
-      "name": "recent_azure",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "recent_azure"
     },
     "e406ca99-ef11-488f-bbe6-59ea5746a3cf": {
-      "selectedItem": null,
       "codeInfoColId": "a3b80868-3775-4813-bfd7-dd043e4066ce",
-      "values": {},
-      "children": [],
-      "name": "dominant_jade",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "dominant_jade"
     },
     "e55c1383-3d77-43eb-bb6c-3a5ce5631f29": {
-      "selectedItem": null,
       "codeInfoColId": "86eca223-4ea9-427d-b764-e84f38bed6a8",
-      "values": {},
-      "children": [],
-      "name": "grieving_copper",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "grieving_copper"
     },
     "e55df273-1493-48d7-8628-e353c2969865": {
-      "selectedItem": null,
       "codeInfoColId": "5bb873a7-4d43-46d8-981e-2d5f2c2c49bd",
-      "values": {},
-      "children": [],
-      "name": "concerned_black",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "concerned_black"
     },
     "e74cb26d-e8a3-4afd-a564-5411334ad2f5": {
-      "selectedItem": null,
       "codeInfoColId": "bc0f4fd8-5aba-45be-a0e6-fa9bf979423b",
-      "values": {},
-      "children": [],
-      "name": "late_emerald",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "late_emerald"
     },
     "e74f007f-cf15-439b-922c-492209500f4e": {
-      "selectedItem": null,
       "codeInfoColId": "daac2401-ded9-4d18-930c-eb17c0a7e3d3",
-      "values": {},
-      "children": [],
-      "name": "primary_ivory",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "primary_ivory"
     },
     "ea290aaa-44d5-426d-b395-88c7c14f8879": {
-      "selectedItem": null,
       "codeInfoColId": "60ba3b16-eccc-4dd4-b702-056b37ebff28",
-      "values": {},
-      "children": [],
-      "name": "big_copper",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "big_copper"
     },
     "ea8a5cf3-586a-478c-96c0-8197b381f6b8": {
-      "selectedItem": null,
       "codeInfoColId": "d07fac45-d31c-4adb-9355-682be0fe8070",
-      "values": {},
-      "children": [],
-      "name": "dead_pink",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "dead_pink"
     },
     "ee71bc9f-dc00-43ab-843b-96d15c64e13b": {
-      "selectedItem": null,
       "codeInfoColId": "ac87e177-fe9b-4c65-bed1-a77c3476410f",
-      "values": {},
-      "children": [],
-      "name": "civic_emerald",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "civic_emerald"
     },
     "eecd5d90-484a-44ae-bc2d-69cf0f326365": {
-      "selectedItem": null,
       "codeInfoColId": "424ff1cb-f273-424f-bd0a-783daa8cde48",
-      "values": {},
-      "children": [],
-      "name": "lonely_rose",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "lonely_rose"
     },
     "f13f9aad-e1df-41ce-b7e8-4889fc3ef4a2": {
-      "selectedItem": null,
       "codeInfoColId": "1cbcd263-d030-4244-b213-df1f3024a032",
-      "values": {},
-      "children": [],
-      "name": "protective_cyan",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "protective_cyan"
     },
     "f1797db3-3b31-488f-aa1e-6d9594c9a7bf": {
-      "selectedItem": null,
       "codeInfoColId": "691b1541-1c97-4913-a7a5-79e013b0e8bf",
-      "values": {},
-      "children": [],
-      "name": "rapid_tan",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "rapid_tan"
     },
     "f24f3417-ad6e-4130-8960-be9c13e35e4c": {
-      "selectedItem": null,
       "codeInfoColId": "23e826df-9dcd-4972-8f76-dd10493ab9ca",
-      "values": {},
-      "children": [],
-      "name": "original_ivory",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "original_ivory"
     },
     "f2ecd3c1-eabe-463e-98bd-9dc2c21ad0fa": {
-      "selectedItem": null,
       "codeInfoColId": "4508c183-fbe7-41a2-b1cb-c30406e0e034",
-      "values": {},
-      "children": [],
-      "name": "unnecessary_cyan",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "unnecessary_cyan"
     },
     "f3b69cd2-91dc-4873-b6e9-ceaf7da00a2d": {
-      "selectedItem": null,
       "codeInfoColId": "f5a01b8e-0430-4114-9fad-bc10f294fee7",
-      "values": {},
-      "children": [],
-      "name": "impressive_yellow",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "impressive_yellow"
     },
     "f5108e0e-bea5-4be0-b339-7831ff73b7b9": {
-      "selectedItem": null,
       "codeInfoColId": "f47b5c7c-b489-4746-a571-2dfc1fe68c66",
-      "values": {},
-      "children": [],
-      "name": "complete_scarlet",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "complete_scarlet"
     },
     "f63a6112-b2b9-4c0f-ab53-a969051a853f": {
-      "selectedItem": null,
       "codeInfoColId": "c138fdb0-19f8-4f55-99cb-33790c83196c",
-      "values": {},
-      "children": [],
-      "name": "tory_maroon",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "tory_maroon"
     },
     "f70be060-ecf2-4c38-845a-e24a9e0c51e6": {
-      "selectedItem": null,
       "codeInfoColId": "35112d33-deac-4c50-a184-970cd35c46f7",
-      "values": {},
-      "children": [],
-      "name": "legislative_olive",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "legislative_olive"
     },
     "f7d98062-5078-4f15-b558-eb23340a4d8d": {
-      "selectedItem": null,
       "codeInfoColId": "7f3885df-c31d-4d3f-a803-926daaf9a77d",
-      "values": {},
-      "children": [],
-      "name": "wandering_green",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "wandering_green"
     },
     "f7f82397-c7f4-4e41-8b1c-5f1e240c5939": {
-      "selectedItem": null,
       "codeInfoColId": "fc21a046-245d-4c43-8fc9-8888c176872c",
-      "values": {},
-      "children": [],
-      "name": "encouraging_bronze",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "encouraging_bronze"
     },
     "f9a44fb5-48c9-4da2-b934-63ef1cf0433a": {
-      "selectedItem": null,
       "codeInfoColId": "83d8d040-0571-4980-969f-1fd63deccbf4",
-      "values": {},
-      "children": [],
-      "name": "favourite_rose",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "favourite_rose"
     },
     "fb19ad12-1c6a-4042-9f7b-51a84a14dbcc": {
-      "selectedItem": null,
       "codeInfoColId": "461deaaf-9a84-4587-8bcb-ba9996eab129",
-      "values": {},
-      "children": [],
-      "name": "tasty_tomato",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "tasty_tomato"
     },
     "fb335a64-42d3-4ec9-bee2-407039ef6a27": {
-      "selectedItem": null,
       "codeInfoColId": "89f7f349-16af-4fed-8a05-8078d7200975",
-      "values": {},
-      "children": [],
-      "name": "coloured_lavender",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "coloured_lavender"
     },
     "fc9acbeb-c74f-4fcd-92a9-338b2b573092": {
-      "selectedItem": null,
       "codeInfoColId": "ff2a2f85-16e8-46d8-85b2-af0a2d1212f2",
-      "values": {},
-      "children": [],
-      "name": "shared_pink",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "shared_pink"
     },
     "fd970149-6b95-4393-9a84-39f776287a7b": {
-      "selectedItem": null,
       "codeInfoColId": "edbe85bd-f1ae-4a68-bfb2-ce9304ab0042",
-      "values": {},
-      "children": [],
-      "name": "ok_maroon",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "ok_maroon"
     },
     "feacc99d-686d-45fc-8106-0f1df74a4314": {
-      "selectedItem": null,
       "codeInfoColId": "34bf6939-5d86-420a-918c-b1ac5a726dae",
-      "values": {},
-      "children": [],
-      "name": "electronic_bronze",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "electronic_bronze"
     },
     "ff2e7c2c-7e0a-49a6-a602-21ccad52d1e6": {
-      "selectedItem": null,
       "codeInfoColId": "77633298-d601-4c96-b365-656a35da60f9",
-      "values": {},
-      "children": [],
-      "name": "silky_gold",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "silky_gold"
     },
     "ff374883-1869-4f9b-abbd-db4011c1622e": {
-      "selectedItem": null,
       "codeInfoColId": "eacb8123-3e6f-430d-8a66-49af2e8b4bcd",
-      "values": {},
-      "children": [],
-      "name": "blushing_lavender",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "blushing_lavender"
     },
     "ff5fd2c7-5c0f-4b02-860f-0d4c10a4924a": {
-      "selectedItem": null,
       "codeInfoColId": "0bec36b9-6c77-46af-8778-f9d6e7bf709f",
-      "values": {},
-      "children": [],
-      "name": "horizontal_olive",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "horizontal_olive"
     },
     "ff7a204a-60a3-4eea-838b-c5d56b445bce": {
-      "selectedItem": null,
       "codeInfoColId": "5ada8050-cb50-4942-9ad1-5adb992ab5a2",
-      "values": {},
-      "children": [],
-      "name": "screeching_azure",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "screeching_azure"
     },
     "ff817738-0e91-4c38-8858-05fd2609c123": {
-      "selectedItem": null,
       "codeInfoColId": "b5f8dc96-fe36-4724-95d5-d1f454416909",
-      "values": {},
-      "children": [],
-      "name": "cognitive_plum",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "cognitive_plum"
     }
   },
   "uiTypes": {

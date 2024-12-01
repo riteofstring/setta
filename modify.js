@@ -10,9 +10,9 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    for (const s of Object.values(json.sections)) {
+    for (const s of Object.values(json.sectionVariants)) {
       for (const [k, v] of Object.entries(s)) {
-        const currDefault = defaultValues.section[k];
+        const currDefault = defaultValues.sectionVariant[k];
         if (
           v === currDefault ||
           (v === 0 && currDefault === false) ||
@@ -21,15 +21,8 @@ function loadAndModifyJson(filePath) {
             Array.isArray(currDefault) &&
             currDefault.length === 0) ||
           (v === null && currDefault === "") ||
-          (k === "codeLanguage" && v === "") ||
-          (k === "canvasSettings" && Object.keys(v).length === 0) ||
-          (k === "selectedVariantIds" && Object.keys(v).length === 0) ||
-          k === "isInOtherProjectConfigs" ||
-          (k === "size" && v.width === "auto" && v.height === "auto") ||
-          k === "resizeEvent" ||
-          (k === "aspectRatio" && !v) ||
-          (k === "aspectRatioExtraHeight" && !v) ||
-          (k === "aspectRatioExtraWidth" && !v)
+          (k === "values" && Object.keys(v).length === 0) ||
+          (k === "runGroup" && Object.keys(v).length === 0)
         ) {
           delete s[k];
         }

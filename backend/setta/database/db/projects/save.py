@@ -13,13 +13,18 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import filter_dict
 
 from ..codeInfo.save import save_code_info, save_code_info_col
-from ..sections.save import save_sections
-from ..sectionVariants.save import save_section_variants
+from ..sections.save import add_defaults_to_sections, save_sections
+from ..sectionVariants.save import (
+    add_defaults_to_section_variants,
+    save_section_variants,
+)
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
 from .utils import remove_json_source_data, save_json_source_data
 
 
 def save_project_details(db, p):
+    add_defaults_to_sections(p["sections"])
+    add_defaults_to_section_variants(p["sectionVariants"])
     save_json_source_data(p)
     remove_json_source_data(p)
     save_code_info(db, p["codeInfo"])

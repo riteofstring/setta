@@ -9,9 +9,6 @@ from setta.utils.utils import filter_dict
 
 
 def save_sections(db, sections, section_variants):
-    for k, v in sections.items():
-        sections[k] = {**DEFAULT_VALUES["section"], **v}
-
     query = """
         INSERT INTO Section (
             id,
@@ -147,3 +144,8 @@ def save_sections(db, sections, section_variants):
             ]
         )
     db.executemany(query, query_params)
+
+
+def add_defaults_to_sections(sections):
+    for k, v in sections.items():
+        sections[k] = {**DEFAULT_VALUES["section"], **v}

@@ -1,6 +1,7 @@
 import json
 
 from setta.utils.constants import (
+    DEFAULT_VALUES,
     SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS,
     SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS,
 )
@@ -26,7 +27,11 @@ def save_section_variants(db, section_variants):
             "codeInfoColId": v["codeInfoColId"],
             "runGroup": json.dumps(v["runGroup"]),
             "data": json.dumps(
-                filter_dict(v, SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS)
+                filter_dict(
+                    v,
+                    SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS,
+                    DEFAULT_VALUES["sectionVariant"],
+                )
             ),
         }
         for k, v in section_variants.items()
@@ -131,3 +136,8 @@ def generate_query_param(
         "order": order,
         "value": value,
     }
+
+
+def add_defaults_to_section_variants(section_variants):
+    for k, v in section_variants.items():
+        section_variants[k] = {**DEFAULT_VALUES["sectionVariant"], **v}

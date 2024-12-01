@@ -56,7 +56,6 @@
   },
   "sectionVariants": {
     "00d5ac58-7a66-4ff1-a62f-af873c0a094b": {
-      "selectedItem": null,
       "codeInfoColId": "8cb39cdd-f8e2-4706-9e47-fc1733fce6f0",
       "values": {
         "20512036-3e0f-41f3-9738-6573ee71bdaf": {
@@ -72,85 +71,30 @@
           "keywordPositions": []
         }
       },
-      "children": [],
-      "name": "acceptable_purple",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "acceptable_purple"
     },
     "56218716-8dc7-4a8b-a253-1eb2bb9cfc56": {
-      "selectedItem": null,
       "codeInfoColId": "81494cf8-fbfa-492a-8db3-f5919a5422eb",
-      "values": {},
-      "children": [],
       "name": "ratty_red",
-      "code": "$SETTA_GENERATED_PYTHON\n\nfrom setta.cli.logger import Setta, SettaNumpyImg\nimport numpy as np\n\n\ns = Setta()\n\nimg = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)\ns.log({\"test_folder/another_folder/img\": SettaNumpyImg(img)}, save=True)\n\n# c = 3\n# losses = [((i - 10) / 5) ** float(c) for i in range(n)]\n# s.log({\"test_folder/losses\": losses}, save=True)\n\nprint(\"ran code!\")",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "code": "$SETTA_GENERATED_PYTHON\n\nfrom setta.cli.logger import Setta, SettaNumpyImg\nimport numpy as np\n\n\ns = Setta()\n\nimg = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)\ns.log({\"test_folder/another_folder/img\": SettaNumpyImg(img)}, save=True)\n\n# c = 3\n# losses = [((i - 10) / 5) ** float(c) for i in range(n)]\n# s.log({\"test_folder/losses\": losses}, save=True)\n\nprint(\"ran code!\")"
     },
     "61ce0033-a59e-4c8e-8a52-d658feb18017": {
-      "selectedItem": null,
       "codeInfoColId": "0074df5c-ea05-409e-8f8b-b60c453d3e0c",
-      "values": {},
-      "children": [],
-      "name": "hidden_bronze",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "hidden_bronze"
     },
     "8055d10b-3623-4665-b85c-977327fa40c6": {
-      "selectedItem": null,
       "codeInfoColId": "75cdb9b3-a7c8-4fd8-8da6-9667a65fea48",
-      "values": {},
-      "children": [],
       "name": "involved_red",
-      "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    blur_radius = float(data[\"blur_radius\"])\n    img = data[\"royal_orange\"][0][\"value\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"displayName\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    blur_radius = float(data[\"blur_radius\"])\n    img = data[\"royal_orange\"][0][\"value\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"displayName\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)"
     },
     "91b7814e-8f93-4ad1-a966-00851b4e41d9": {
-      "selectedItem": null,
       "codeInfoColId": "2f3d4196-b243-4186-919f-163dc203ca5a",
-      "values": {},
-      "children": [],
       "name": "victorious_white",
-      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\ndef fn(message):\n    data = message.content\n    c = float(data[\"c\"])\n    n = int(data[\"n\"])\n    value = [((i - 10) / 5) ** c for i in range(n)]\n    return_content = {\"value\": value, \"type\": \"list\", \"displayName\": \"Fancy Graph\"}\n    return {\"content\": [return_content]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\ndef fn(message):\n    data = message.content\n    c = float(data[\"c\"])\n    n = int(data[\"n\"])\n    value = [((i - 10) / 5) ** c for i in range(n)]\n    return_content = {\"value\": value, \"type\": \"list\", \"displayName\": \"Fancy Graph\"}\n    return {\"content\": [return_content]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)"
     },
     "efbf1e64-8932-4fa6-928a-e930314db45c": {
-      "selectedItem": null,
       "codeInfoColId": "4d31d08d-f976-4e29-85aa-d791837d7226",
-      "values": {},
-      "children": [],
-      "name": "tropical_harlequin",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "tropical_harlequin"
     }
   },
   "uiTypes": {
