@@ -1,6 +1,4 @@
 import { useSectionInfos } from "state/definitions";
-import { getValueForUIType } from "utils/objs/ev";
-import { getParamEV, setParamEnteredValue } from "../sectionVariants";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export function setParamUITypeId({

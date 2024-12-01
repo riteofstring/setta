@@ -44,7 +44,7 @@ export const tabNameToPretty = {
   [QUICKINFO_CONFIG_TAB]: "Quick Info",
   [INFO_CONFIG_TAB]: "Text Editor",
   // [RUNTIME_CONFIG_TAB]: "Runtime",
-  [SECTION_VARIANTS_TAB]: "Ver.",
+  [SECTION_VARIANTS_TAB]: "Version",
 };
 
 export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [

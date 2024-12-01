@@ -1,23 +1,17 @@
-import { useSectionInfos } from "state/definitions";
 import { maybeRunGuiToYaml } from "./guiToYaml";
+import { setSectionInfoAttr } from "./sections/sectionInfos";
 
 export function onMouseOverSetPreviewVariantId(sectionId, id) {
-  useSectionInfos.setState((state) => {
-    state.x[sectionId].previewVariantId = id;
-  });
+  setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: id });
   maybeRunGuiToYaml(sectionId);
 }
 
 export function onMouseLeaveSetPreviewVariantId(sectionId) {
-  useSectionInfos.setState((state) => {
-    state.x[sectionId].previewVariantId = null;
-  });
+  setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: null });
   maybeRunGuiToYaml(sectionId);
 }
 
 export function onClickSetVariantId(sectionId, id) {
-  useSectionInfos.setState((state) => {
-    state.x[sectionId].variantId = id;
-  });
+  setSectionInfoAttr({ sectionId, attr: "variantId", value: id });
   maybeRunGuiToYaml(sectionId);
 }

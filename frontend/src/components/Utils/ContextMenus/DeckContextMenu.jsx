@@ -28,12 +28,12 @@ export function DeckContextMenu() {
   }
 
   function onClickToggleOrientation() {
-    toggleSectionOrientation(sectionId);
+    toggleSectionOrientation({ sectionId });
     closeAllContextMenus();
   }
 
   function onClickLock() {
-    toggleSectionLock(sectionId);
+    toggleSectionLock({ sectionId });
     closeAllContextMenus();
   }
 

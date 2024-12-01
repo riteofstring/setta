@@ -1,6 +1,7 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import { getParamIds } from "state/actions/sections/sectionContents";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 export function HideShowParamsButton({ sectionId }) {
@@ -13,9 +14,7 @@ export function HideShowParamsButton({ sectionId }) {
   }, _.isEqual);
 
   function onClick() {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].hideParams = !hideParams;
-    });
+    setSectionInfoAttr({ sectionId, attr: "hideParams", value: !hideParams });
   }
 
   // only show this option if there are no parameters

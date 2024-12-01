@@ -1,5 +1,6 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
@@ -12,11 +13,13 @@ export function RenderInfo({ sectionId }) {
   }, _.isEqual);
 
   function onClick() {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].displayMode =
+    setSectionInfoAttr({
+      sectionId,
+      attr: "displayMode",
+      value:
         displayMode === SECTION_DISPLAY_MODES.RENDER
           ? SECTION_DISPLAY_MODES.EDIT
-          : SECTION_DISPLAY_MODES.RENDER;
+          : SECTION_DISPLAY_MODES.RENDER,
     });
   }
 
@@ -37,8 +40,10 @@ export function ConvertFormat({ sectionId }) {
   const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
 
   function onClick() {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].renderMarkdown = !renderMarkdown;
+    setSectionInfoAttr({
+      sectionId,
+      attr: "renderMarkdown",
+      value: !renderMarkdown,
     });
   }
 

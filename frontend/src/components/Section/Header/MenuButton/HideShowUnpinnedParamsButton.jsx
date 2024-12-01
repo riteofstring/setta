@@ -1,4 +1,5 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 export function HideShowUnpinnedParamsButton({ sectionId }) {
@@ -7,8 +8,10 @@ export function HideShowUnpinnedParamsButton({ sectionId }) {
   );
 
   function onClick() {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].hideUnpinnedParams = !hideUnpinnedParams;
+    setSectionInfoAttr({
+      sectionId,
+      attr: "hideUnpinnedParams",
+      value: !hideUnpinnedParams,
     });
   }
 
