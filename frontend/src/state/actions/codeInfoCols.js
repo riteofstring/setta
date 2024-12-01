@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
-import { getSectionCodeInfoColId } from "./sectionVariants";
+import { getSectionCodeInfoColId } from "./sectionInfos";
 
 export function getSectionCodeInfoChildren(sectionId) {
   return useSectionInfos.getState().codeInfoCols[
@@ -11,13 +11,6 @@ export function getSectionCodeInfoChildren(sectionId) {
 
 export function getCodeInfoChildren(sectionId, codeInfoId) {
   return getSectionCodeInfoChildren(sectionId)[codeInfoId];
-}
-
-export function getKwargIds(sectionId, codeInfoId, _cState) {
-  const cState = _cState ?? useSectionInfos.getState().codeInfo;
-  return getCodeInfoChildren(sectionId, codeInfoId).filter(
-    (x) => cState[x].editable,
-  );
 }
 
 export function duplicateCodeInfoCol(id, state) {

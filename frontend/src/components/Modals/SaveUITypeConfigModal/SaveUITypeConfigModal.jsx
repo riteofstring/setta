@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
-import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { deleteUIType } from "state/actions/uiTypes/uiTypes";
 import { useSectionInfos } from "state/definitions";
@@ -25,7 +24,6 @@ export function SaveUITypeConfigModal({ open, modalType }) {
       name: filename,
       presetType: PresetType.USER,
     });
-    setParamUITypeConfig({ uiType: newUIType });
     setParamUITypeId({
       uiTypeId: newUIType.id,
       sectionId,

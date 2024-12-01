@@ -1,6 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
-import { getSectionVariantToShow } from "state/actions/sectionVariants";
+import { getSectionVariantToShow } from "state/actions/sectionInfos";
 import { useParamShortcuts, useSectionInfos } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 

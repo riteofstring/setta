@@ -5,9 +5,9 @@ import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import {
   getSectionChildren,
+  getSectionType,
   getSelectedVariantIsFrozen,
-} from "state/actions/sectionVariants";
-import { getSectionType } from "state/getters/sectionInfo";
+} from "state/actions/sectionInfos";
 import { getIsRoot } from "utils/sectionTypeHelpers";
 
 export function onDragStart({ active }) {

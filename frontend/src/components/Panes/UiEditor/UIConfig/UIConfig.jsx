@@ -3,6 +3,7 @@ import _ from "lodash";
 import React from "react";
 import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
+import { useSectionInfos } from "state/definitions";
 import { useParamInfosForSidePane } from "state/hooks/sectionContents";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { useMatchSorterFilter } from "state/hooks/utils";
@@ -39,7 +40,7 @@ function UIConfigCore({ sectionId, paramInfos }) {
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll">
+      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll [&>*]:mx-[2px]">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -59,11 +60,13 @@ function _UIElement({ sectionId, paramInfo }) {
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {
-    setParamUITypeId({
-      uiTypeId: e,
-      sectionId,
-      paramInfoId,
-      incrementVersion: true,
+    useSectionInfos.setState((state) => {
+      setParamUITypeId({
+        uiTypeId: e,
+        sectionId,
+        paramInfoId,
+        state,
+      });
     });
   };
 

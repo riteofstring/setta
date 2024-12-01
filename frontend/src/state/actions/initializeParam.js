@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
-import { initEnteredValue } from "./sectionVariants";
+import { initEnteredValue } from "./sectionInfos";
 
 // use inside of setState
 export function initializeParams(sectionId, paramIds, x) {

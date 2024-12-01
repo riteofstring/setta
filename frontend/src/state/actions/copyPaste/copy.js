@@ -4,9 +4,11 @@ import _ from "lodash";
 import { useActiveSection, useSectionInfos } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { findAll } from "utils/getDescendants";
-import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
 import { setNotificationMessage } from "../notification";
-import { getSectionChildrenAcrossVariants } from "../sectionVariants";
+import {
+  getAllSectionsForDeletionOrCopying,
+  getSectionType,
+} from "../sectionInfos";
 
 export async function copy() {
   const activeSectionIds = useActiveSection.getState().ids;
@@ -23,44 +25,35 @@ export async function copy() {
 }
 
 export function copySections(sectionIds) {
-  const sections = getSections(sectionIds);
-  const codeInfo = getCodeInfo(sections);
-  const sectionVariants = getSectionVariants(sections);
-  const uiTypeCols = getUITypeCols(sections);
-  const uiTypes = getUITypes(sections, uiTypeCols);
+  const state = useSectionInfos.getState();
+  const sections = getSections(sectionIds, state);
+  const sectionVariants = getSectionVariants(sections, state);
+  const uiTypeCols = getUITypeCols(sections, state);
+  const uiTypes = getUITypes(sections, uiTypeCols, state);
+  const codeInfoCols = getCodeInfoCols(sectionVariants, state);
+  const codeInfo = getCodeInfo(codeInfoCols, state);
   const relativePositions = getRelativePositions(sections);
   return {
     sections,
-    uiTypes,
-    codeInfo,
     sectionVariants,
     uiTypeCols,
+    uiTypes,
+    codeInfoCols,
+    codeInfo,
     relativePositions,
   };
 }
 
-function getSections(sectionIds) {
-  const output = new Set(...sectionIds);
-  const ids = [...sectionIds];
-  while (ids.length > 0) {
-    const curr = ids.pop();
-    if (curr in output) {
-      continue;
-    }
-    const children = getSectionChildrenAcrossVariants(curr);
-    for (const c of children) {
-      ids.push(c);
-    }
-    output.add(curr);
-  }
-  const allSections = _.pick(useSectionInfos.getState().x, Array.from(output));
+function getSections(sectionIds, state) {
+  const ids = getAllSectionsForDeletionOrCopying(sectionIds, state);
+  const allSections = _.pick(state.x, ids);
 
   const withoutLoneParamSweeps = _.pickBy(allSections, (s) => {
     if (getSectionType(s.id).type !== C.PARAM_SWEEP) {
       return true;
     }
     // if it's a param sweep section, then keep it only if it's corresponding section is also being copied.
-    return getForSectionId(allSections, s.id);
+    return !!getForSectionId(allSections, s.id);
   });
 
   if (_.size(allSections) !== _.size(withoutLoneParamSweeps)) {
@@ -70,7 +63,22 @@ function getSections(sectionIds) {
   return withoutLoneParamSweeps;
 }
 
-function getUITypes(sections, uiTypeCols) {
+function getSectionVariants(sections, state) {
+  const output = {};
+  for (const s of Object.values(sections)) {
+    Object.assign(output, _.pick(state.variants, s.variantIds));
+  }
+  return output;
+}
+
+function getUITypeCols(sections, state) {
+  return _.pick(
+    state.uiTypeCols,
+    _.map(sections, (x) => x.uiTypeColId),
+  );
+}
+
+function getUITypes(sections, uiTypeCols, state) {
   const uiTypeIds = [];
   for (const s of Object.values(sections)) {
     uiTypeIds.push(s.uiTypeId);
@@ -82,57 +90,32 @@ function getUITypes(sections, uiTypeCols) {
       uiTypeIds.push(...u.nonPresetUITypeIds);
     }
   }
-  return _.pick(useSectionInfos.getState().uiTypes, uiTypeIds);
+  return _.pick(state.uiTypes, uiTypeIds);
 }
 
-function getCodeInfo(sections) {
-  const sectionCodeInfoIds = _.map(
-    sections,
-    (x) => getSectionInfo(x.id).codeInfoId,
+function getCodeInfoCols(sectionVariants, state) {
+  return _.pick(
+    state.codeInfoCols,
+    _.map(sectionVariants, (x) => x.codeInfoColId),
   );
+}
+
+function getCodeInfo(codeInfoCols, state) {
   let output = [];
-  const codeInfoState = useSectionInfos.getState().codeInfo;
-  for (const cid of sectionCodeInfoIds) {
-    const codeInfos = findAll(codeInfoState, [cid]).ids.map(
-      (x) => codeInfoState[x],
-    );
-    if (codeInfos.some((x) => x.isSelected)) {
-      output.push(
-        ...codeInfos.filter(
-          (x) =>
-            x.isSelected ||
-            x.rcType === C.CALLABLE ||
-            x.rcType === C.COLLECTION ||
-            sectionCodeInfoIds.includes(x.id),
-        ),
-      );
-    } else {
-      output.push(...codeInfos);
+  for (const codeInfoCol of Object.values(codeInfoCols)) {
+    const ids = findAll(
+      state.codeInfo,
+      codeInfoCol.children,
+      codeInfoCol.children[null],
+    ).ids;
+
+    for (const id of ids) {
+      output.push(state.codeInfo[id]);
     }
   }
   output = _.keyBy(_.cloneDeep(output), (x) => x.id);
 
-  for (const c of Object.values(output)) {
-    c.children = c.children.filter((x) => x in output);
-  }
-
   return output;
-}
-
-function getSectionVariants(sections) {
-  const output = {};
-  const vState = useSectionInfos.getState().variants;
-  for (const s of Object.values(sections)) {
-    Object.assign(output, _.pick(vState, s.variantIds));
-  }
-  return output;
-}
-
-function getUITypeCols(sections) {
-  return _.pick(
-    useSectionInfos.getState().uiTypeCols,
-    _.map(sections, (x) => x.uiTypeColId),
-  );
 }
 
 function getRelativePositions(sections) {

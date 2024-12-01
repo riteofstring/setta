@@ -136,6 +136,7 @@ export const useProjectSearch = createProjectState(
     sections: [],
     codeInfo: [],
     focused: {},
+    lookup: new Set(),
   })),
 );
 
@@ -191,6 +192,7 @@ export const useMisc = create(
         mouseDownDrawArea: false,
         mouseDownDraggingSection: false,
         lastPaneClickLocation: { x: 0, y: 0 },
+        undoOrRedoWasTriggered: false,
       })),
     ),
   ),

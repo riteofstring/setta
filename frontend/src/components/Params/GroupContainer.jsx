@@ -2,7 +2,6 @@ import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScal
 import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
@@ -74,7 +73,9 @@ function ResizablePinnedArea({
       minHeight: "auto",
       sizeMode: { height: SIZE_MODE.any },
     });
-    setSectionInfoAttr({ sectionId, attr: "pinnedAreaHeight", value: height });
+    useSectionInfos.setState((state) => {
+      state.x[sectionId].pinnedAreaHeight = height;
+    });
   }
 
   useEffect(() => {

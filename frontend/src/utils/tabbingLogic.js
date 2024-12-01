@@ -1,8 +1,7 @@
 import C from "constants/constants.json";
 import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
-import { getHighestAncestor } from "state/actions/sections/sectionChildren";
+import { getHighestAncestor, getSectionType } from "state/actions/sectionInfos";
 import { useSectionRefs } from "state/definitions";
-import { getSectionType } from "state/getters/sectionInfo";
 import { localStorageFns } from "state/hooks/localStorage";
 import { HOME_ROUTER_PATH, pathRelativeToProject } from "./constants";
 

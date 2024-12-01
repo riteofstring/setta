@@ -1,32 +1,27 @@
 import _ from "lodash";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
-import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
 import {
   getAllSectionChildrenIds,
   getHighestAncestor,
-} from "./sectionChildren";
-import { setSectionInfoAttr } from "./sectionInfos";
+} from "state/actions/sectionInfos";
 
-export function setSelfParentSiblingChildrenWidths({ sectionId, changedSize }) {
-  // set own width
-  setSectionSize(sectionId, changedSize);
+export function setSelfParentSiblingChildrenWidths(
+  sectionId,
+  changedSize,
+  state,
+) {
+  // set own size
+  setSectionSize(sectionId, changedSize, state);
 
   if (!_.isNil(changedSize.width)) {
-    setAllOtherWidths({
-      sectionId,
-      width: changedSize.width,
-    });
+    setAllOtherWidths(sectionId, changedSize.width, state);
   }
-
-  maybeIncrementProjectStateVersion(true);
 }
 
-function setAllOtherWidths({ sectionId, width }) {
+function setAllOtherWidths(sectionId, width, state) {
   // We want to stop width propagation as soon as we hit a horizontal group.
   const parentIdGetter = (id) => {
-    const parentId = getSectionParentId(id);
-    if (parentId && !getSectionInfo(parentId).isHorizontalOrientation) {
+    const { parentId } = state.x[id];
+    if (parentId && !state.x[parentId].isHorizontalOrientation) {
       return parentId;
     }
     return null;
@@ -36,20 +31,22 @@ function setAllOtherWidths({ sectionId, width }) {
     sectionId: highestAncestor,
     exclude: sectionId,
     width,
+    state,
   });
 }
 
-export function setAllChildrenWidths({ sectionId, exclude, width }) {
+export function setAllChildrenWidths({ sectionId, exclude, width, state }) {
   const sectionIds = getAllSectionChildrenIds(
-    useSectionInfos.getState().x,
-    useSectionInfos.getState().variants,
     [sectionId],
+    state.x,
+    state.variants,
   );
-  setSectionInfoAttr({
-    sectionIds: sectionIds.filter((x) => x !== exclude),
-    attr: "size",
-    newValueFn: (size) => ({ width, height: size.height }),
-  });
+  for (const s of sectionIds) {
+    if (s === exclude) {
+      continue;
+    }
+    setSectionSize(s, { width }, state);
+  }
 }
 
 export function adjustSizeToBeAtLeastMin(height, width, minHeight, minWidth) {
@@ -116,12 +113,6 @@ export function adjustAspectRatio(height, width, imgHeight, imgWidth) {
   }
 }
 
-export function setSectionSize(sectionId, size) {
-  useSectionInfos.setState((x) => {
-    _setSectionSize(sectionId, size, x);
-  });
-}
-
-export function _setSectionSize(sectionId, size, x) {
-  x.x[sectionId].size = { ...x.x[sectionId].size, ...size };
+export function setSectionSize(sectionId, size, state) {
+  state.x[sectionId].size = { ...state.x[sectionId].size, ...size };
 }

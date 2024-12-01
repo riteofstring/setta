@@ -1,13 +1,14 @@
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
-import { updateSectionInfos } from "./sectionInfos";
+import { updateSectionInfos } from "../sectionInfos";
 
 export function loadSectionIntoState({
   sections,
-  uiTypes,
   sectionVariants,
   uiTypeCols,
+  uiTypes,
+  codeInfoCols,
   codeInfo,
   relativePositions,
   topLevelIds,
@@ -24,13 +25,14 @@ export function loadSectionIntoState({
     };
   }
 
-  useSectionInfos((state) => {
+  useSectionInfos.setState((state) => {
     updateSectionInfos({
       sections,
-      uiTypes,
       sectionVariants,
+      uiTypes,
       uiTypeCols,
       codeInfo,
+      codeInfoCols,
       state,
     });
   });

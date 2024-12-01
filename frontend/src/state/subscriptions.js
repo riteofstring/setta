@@ -2,9 +2,18 @@ import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { useKeywordRegex, useSectionInfos } from "state/definitions";
+import {
+  useKeywordRegex,
+  useMisc,
+  useNodeInternals,
+  useSectionInfos,
+} from "state/definitions";
 import { getRegexAndColorMap } from "./actions/keywordRegex";
-import { getSectionIdToChildrenToShow } from "./actions/sectionVariants";
+import {
+  getNodeUpdateInformation,
+  updateNodeDimensions,
+} from "./actions/nodeInternals";
+import { getSectionIdToChildrenToShow } from "./actions/sectionInfos";
 
 export function subscribe() {
   useSectionInfos.subscribe(
@@ -29,7 +38,6 @@ export function subscribe() {
   useSectionInfos.subscribe(
     getSectionIdToChildrenToShow,
     (x) => {
-      console.log("dndchildren subscription!!!!!!!!!!")
       useDndChildren.getState().update(x);
     },
     { equalityFn: _.isEqual },
@@ -38,13 +46,31 @@ export function subscribe() {
   useReactFlow.subscribe(
     reactFitViewOnInitSubscriptionFn,
     (newState, prevState) => {
-      if (prevState.fitViewOnInit && newState.fitViewOnInit) {
+      if (
+        prevState.fitViewOnInit &&
+        prevState.fitViewOnInitDone &&
+        newState.fitViewOnInit &&
+        newState.fitViewOnInitDone
+      ) {
         // set fitViewOnInit to false if it was and is true
-        // because that means zoom or x/y position changed
+        // and fitViewOnInitDone was and is done (need to wait for it to execute the fitView function on project load)
+        // because that means zoom or x/y position must have changed
         useReactFlow.setState({ fitViewOnInit: false });
       }
     },
     { equalityFn: _.isEqual },
+  );
+
+  useMisc.subscribe(
+    updateNodeDimensionsSubscriptionFn,
+    (undoOrRedoWasTriggered) => {
+      if (undoOrRedoWasTriggered) {
+        updateNodeDimensions(
+          getNodeUpdateInformation(useNodeInternals.getState().x.keys(), false),
+        );
+        useMisc.setState({ undoOrRedoWasTriggered: false });
+      }
+    },
   );
 }
 
@@ -96,5 +122,13 @@ function keywordRegexSubscriptionFn(x) {
 }
 
 function reactFitViewOnInitSubscriptionFn(state) {
-  return { transform: state.transform, fitViewOnInit: state.fitViewOnInit };
+  return {
+    transform: state.transform,
+    fitViewOnInit: state.fitViewOnInit,
+    fitViewOnInitDone: state.fitViewOnInitDone,
+  };
+}
+
+function updateNodeDimensionsSubscriptionFn(state) {
+  return state.undoOrRedoWasTriggered;
 }

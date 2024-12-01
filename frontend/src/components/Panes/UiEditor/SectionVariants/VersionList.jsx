@@ -4,7 +4,7 @@ import {
   onMouseLeaveSetPreviewVariantId,
   onMouseOverSetPreviewVariantId,
 } from "state/actions/previewOnMouseOver";
-import { toggleVariantFrozenState } from "state/actions/sectionVariants";
+import { toggleVariantFrozenState } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 
@@ -15,9 +15,13 @@ export function VersionList({ sectionId }) {
       onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
     >
       <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-2">
-        <p className="section-key text-xs text-setta-400 dark:text-setta-600">
-          Name
-        </p>
+        <header className="section-key-value flex items-center justify-between">
+          <p className="text-xs text-setta-400 dark:text-setta-600">Name</p>
+          <button className="cursor-pointer rounded-md px-2 py-1 text-xs font-bold text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400">
+            Edit
+          </button>
+        </header>
+
         <EVItems sectionId={sectionId} />
       </ul>
     </section>

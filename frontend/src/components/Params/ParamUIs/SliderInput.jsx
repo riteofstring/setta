@@ -149,7 +149,8 @@ function SliderOnly({
   sliderRangeClassName,
   sliderThumbClassName,
 }) {
-  const valueNum = clamp(_.toNumber(value), min, max);
+  const asNum = _.toNumber(value);
+  const valueNum = isNaN(asNum) ? min : clamp(_.toNumber(value), min, max);
 
   return (
     <Slider.Root

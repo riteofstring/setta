@@ -4,6 +4,7 @@ import C from "constants/constants.json";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "state/actions/sections/deleteSections";
+import { useSectionInfos } from "state/definitions";
 import { useIsSeriesElement, useSectionTypeName } from "state/hooks/uiTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton";
@@ -25,7 +26,9 @@ function _SectionHeader({
     // ignore onClick events in parent components
     // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element
     e.stopPropagation();
-    deleteSections({ sectionIds: [sectionId], incrementVersion: true });
+    useSectionInfos.setState((state) => {
+      deleteSections([sectionId], state);
+    });
   };
 
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;

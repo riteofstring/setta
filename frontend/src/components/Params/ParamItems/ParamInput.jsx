@@ -6,7 +6,7 @@ import {
   getKeywordPositionsAndEVRefs,
 } from "requests/sections";
 import { sendToInteractiveTasks } from "state/actions/interactive";
-import { setParamEnteredValue } from "state/actions/sectionVariants";
+import { setParamEnteredValue } from "state/actions/sectionInfos";
 import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
 import { useSectionInfos } from "state/definitions";
 import { useGetParamEnteredValueAndKeywordPositions } from "state/hooks/sectionVariants";

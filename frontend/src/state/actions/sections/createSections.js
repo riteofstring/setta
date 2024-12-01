@@ -1,14 +1,10 @@
 import { getDefaultInfoTitle } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import C from "constants/constants.json";
-import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import {
-  useNodeInternals,
-  useSectionInfos,
-  useSettings,
-} from "state/definitions";
+import { useSectionInfos, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
@@ -16,9 +12,8 @@ import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
 import { insertIntoArray } from "utils/utils";
-import { getSectionInfo } from "../../getters/sectionInfo";
 import { initRunGroup } from "../runGroups/runGroups";
-import { setSectionVariantChildren } from "../sectionVariants";
+import { setSectionVariantChildren } from "../sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
   return addSectionInEmptySpace({ type: C.SECTION });
@@ -47,19 +42,21 @@ export function addSectionInEmptySpace({
 
   const position = { x: x + positionOffset.x, y: y + positionOffset.y };
 
-  return addSectionAtPosition({
-    type,
-    inputSectionProps,
-    position,
-    incrementVersion: true,
+  useSectionInfos.setState((state) => {
+    addSectionAtPosition({
+      type,
+      inputSectionProps,
+      position,
+      state,
+    });
   });
 }
 
 export function addSectionAtPosition({
   type,
-  incrementVersion = false,
   inputSectionProps = {},
   position,
+  state,
 }) {
   const sectionProps = {
     ...inputSectionProps,
@@ -86,12 +83,7 @@ export function addSectionAtPosition({
 
   sectionProps.uiTypeId = BASE_UI_TYPE_IDS[type];
 
-  let newId;
-  useSectionInfos.setState((state) => {
-    [newId] = createSectionInfo({ sectionProps, position, state });
-  });
-
-  maybeIncrementProjectStateVersion(incrementVersion);
+  const [newId] = createSectionInfo({ sectionProps, position, state });
   return newId;
 }
 
@@ -142,7 +134,7 @@ export function addChildrenToSeries({
     newIds = createSectionInfo({
       sectionProps: {
         parentId,
-        size: { height: "auto", width: getSectionInfo(parentId).size.width },
+        size: { height: "auto", width: state.x[parentId].size.width },
       },
       numSections: numChildren,
       state,
@@ -221,41 +213,13 @@ function addSectionsToState(sectionInfos, position, state) {
   }
 }
 
-export function createAdjacentSection(sectionId, sectionProps) {
-  const { position: sectionPosition, width: sectionWidth } = useNodeInternals
-    .getState()
-    .x.get(sectionId);
+export function createAdjacentSection(sectionId, sectionProps, state) {
+  const { x, y, width } = getSectionRect(sectionId);
 
   const position = {
-    x: sectionPosition.x + sectionWidth,
-    y: sectionPosition.y,
+    x: x + width,
+    y,
   };
 
-  useSectionInfos.setState((state) => {
-    createSectionInfo({ sectionProps, position, state });
-  });
-}
-
-export function onClickAddSection({
-  type,
-  x,
-  y,
-  projectXY,
-  incrementVersion,
-  inputSectionProps = {},
-}) {
-  const position = projectXY
-    ? screenToFlowPosition({ x, y })
-    : {
-        x: x ?? 0,
-        y: y ?? 0,
-        zIndex: zIndex ?? 0,
-      };
-
-  return addSectionAtPosition({
-    type,
-    incrementVersion,
-    inputSectionProps,
-    position,
-  });
+  createSectionInfo({ sectionProps, position, state });
 }

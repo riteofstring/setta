@@ -4,8 +4,8 @@ import {
   createNewVersionName,
   maybeSaveNewJSONVersion,
 } from "state/actions/newVersion";
+import { getSectionInfo } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
 
 export function CreateNewVersionButton({ sectionId }) {
   async function onClick() {

@@ -248,16 +248,6 @@ def update_linked_project_configs(db, project):
                     # So we need to add the child to the other project configs that it's not in.
                     if c not in other_project_section_configs:
                         section_configs_to_add.add((other_project_config, c))
-                        missing_referenced_section_id = (
-                            get_missing_referenced_section_id(
-                                project, c, other_project_section_configs
-                            )
-                        )
-                        if missing_referenced_section_id:
-                            section_configs_to_add.add(
-                                (other_project_config, missing_referenced_section_id)
-                            )
-
                     else:
                         c_already_in_at_least_one_other_config = True
 
@@ -272,18 +262,3 @@ def update_linked_project_configs(db, project):
 
     print("section_configs_to_add", section_configs_to_add, flush=True)
     insert_section_configs(db, project["sections"], section_configs_to_add)
-
-
-def get_missing_referenced_section_id(
-    project, section_id, other_project_section_configs
-):
-    if get_section_type(project, section_id) == C.REFERENCE_SECTION:
-        r = project["fullNameToInfo"][get_selected_item_name(project, section_id)]
-        if (
-            r["sectionId"]
-            and not r["paramInfoId"]
-            and not r["isArgsObj"]
-            and r["sectionId"] not in other_project_section_configs
-        ):
-            return r["sectionId"]
-    return None

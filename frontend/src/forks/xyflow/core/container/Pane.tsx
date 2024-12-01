@@ -11,11 +11,11 @@ import React, {
   ReactNode,
   useRef,
 } from "react";
-import { openPaneContextMenu } from "state/actions/contextMenus";
 import {
   clearActiveSectionIds,
   setActiveSectionIds,
-} from "state/actions/sections/activeSections";
+} from "state/actions/activeSections";
+import { openPaneContextMenu } from "state/actions/contextMenus";
 import { useMisc, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";

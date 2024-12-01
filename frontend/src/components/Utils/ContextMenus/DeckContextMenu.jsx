@@ -1,11 +1,11 @@
 import { Item } from "components/Utils/atoms/dropdown/item";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { undeck } from "state/actions/sections/groupSections";
 import {
   toggleSectionLock,
   toggleSectionOrientation,
-} from "state/actions/sections/sectionInfos";
+} from "state/actions/sectionInfos";
+import { undeck } from "state/actions/sections/groupSections";
 import { useContextMenus, useSectionInfos } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
@@ -28,12 +28,12 @@ export function DeckContextMenu() {
   }
 
   function onClickToggleOrientation() {
-    toggleSectionOrientation({ sectionId });
+    toggleSectionOrientation(sectionId);
     closeAllContextMenus();
   }
 
   function onClickLock() {
-    toggleSectionLock({ sectionId });
+    toggleSectionLock(sectionId);
     closeAllContextMenus();
   }
 

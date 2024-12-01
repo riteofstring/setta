@@ -4,8 +4,8 @@ import {
   addActiveSectionIds,
   removeActiveSectionIds,
   setActiveSectionIds,
-} from "state/actions/sections/activeSections";
-import { getHighestAncestor } from "state/actions/sections/sectionChildren";
+} from "state/actions/activeSections";
+import { getHighestAncestor } from "state/actions/sectionInfos";
 import { getParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useMisc, useParamShortcuts } from "state/definitions";

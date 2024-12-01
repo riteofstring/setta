@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 export function SocialAreaSettings({ sectionId }) {
@@ -10,7 +9,9 @@ export function SocialAreaSettings({ sectionId }) {
   function onBlur(e) {
     const blurValue = e.target.value;
     if (blurValue) {
-      setSectionInfoAttr({ sectionId, attr: "social", value: blurValue });
+      useSectionInfos.setState((state) => {
+        state.x[sectionId].social = blurValue;
+      });
     }
   }
 

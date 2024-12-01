@@ -2,7 +2,7 @@ import _ from "lodash";
 import {
   getSectionVariantIdToShow,
   getSectionVariantToShow,
-} from "state/actions/sectionVariants";
+} from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 export function useGetParamEnteredValueAndKeywordPositions(

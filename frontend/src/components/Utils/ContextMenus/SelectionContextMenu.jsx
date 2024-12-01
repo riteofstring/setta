@@ -1,11 +1,11 @@
 import { Item } from "components/Utils/atoms/dropdown/item";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
+import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { clearActiveSectionIds } from "state/actions/sections/activeSections";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { createDeck } from "state/actions/sections/groupSections";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useContextMenus, useSectionInfos } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
@@ -28,23 +28,23 @@ export function SelectionContextMenu() {
   function onClickCreate() {
     createDeck({
       nodeIds,
-      x,
-      y,
-      projectXY: true,
+      ...screenToFlowPosition({ x, y }),
     });
     closeContextMenu();
   }
 
   function onClickDelete() {
-    deleteSections({ sectionIds: nodeIds, incrementVersion: true });
+    useSectionInfos.setState((state) => {
+      deleteSections(nodeIds, state);
+    });
     closeContextMenu();
   }
 
   function onClickLock() {
-    setSectionInfoAttr({
-      sectionIds: nodeIds,
-      attr: "positionAndSizeLocked",
-      value: !allLocked,
+    useSectionInfos.setState((state) => {
+      for (const n of nodeIds) {
+        state.x[n].positionAndSizeLocked = !allLocked;
+      }
     });
     closeContextMenu();
   }

@@ -4,7 +4,7 @@ import {
   verticalListSortingStrategy,
 } from "forks/dnd-kit/CustomSortable";
 import { useDisableSortable } from "forks/dnd-kit/useDndUtils";
-import { getSectionInfo } from "state/getters/sectionInfo";
+import { getSectionInfo } from "state/actions/sectionInfos";
 import { useDndState } from "./dndState";
 import { getDndParentId } from "./useDropType";
 

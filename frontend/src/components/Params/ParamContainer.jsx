@@ -6,14 +6,15 @@ import _ from "lodash";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { toggleParamSelected } from "state/actions/kwargs/kwargs";
-import { getSectionVariantToShow } from "state/actions/sectionVariants";
+import { toggleParamSelected } from "state/actions/kwargs";
+import { getSectionVariantToShow } from "state/actions/sectionInfos";
 import {
   useParamShortcuts,
   useProjectSearch,
   useSectionInfos,
   useTypeErrors,
 } from "state/definitions";
+import { createProjectSearchLookupKey } from "state/hooks/search";
 import { ParamInput } from "./ParamItems/ParamInput";
 
 function _ParamContainer({
@@ -28,9 +29,11 @@ function _ParamContainer({
   );
   const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
     return {
-      isFocusedSearchResult: _.isEqual(x.focused, { sectionId, paramInfoId }),
-      isSearchResult: x.codeInfo.some((c) =>
-        _.isEqual(c, { sectionId, paramInfoId }),
+      isFocusedSearchResult:
+        x.focused.sectionId === sectionId &&
+        x.focused.paramInfoId === paramInfoId,
+      isSearchResult: x.lookup.has(
+        createProjectSearchLookupKey(sectionId, paramInfoId),
       ),
     };
   }, _.isEqual);

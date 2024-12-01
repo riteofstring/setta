@@ -1,6 +1,6 @@
 import { Editable } from "components/Utils/Editable";
 import C from "constants/constants.json";
-import { getSectionChildren } from "state/actions/sectionVariants";
+import { getSectionChildren } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";

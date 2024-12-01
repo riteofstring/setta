@@ -112,9 +112,15 @@ export function findAllParameters(
   );
 }
 
-export function findAll(allCodeInfo, codeInfoIds, paramPathCondition = false) {
+export function findAll(
+  allCodeInfo,
+  codeInfoChildren,
+  codeInfoIds,
+  paramPathCondition = false,
+) {
   return _findAllDescendants(
     allCodeInfo,
+    codeInfoChildren,
     codeInfoIds,
     () => true,
     () => true,
