@@ -21,7 +21,6 @@ import {
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
-import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 
@@ -84,15 +83,17 @@ function JavascriptCodeArea({ sectionId, language }) {
 }
 
 function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
-  const value = useSectionInfos(
-    (x) => getDisplayedSectionVariant(sectionId, x).code,
-  );
+  const { value, variantIsFrozen } = useSectionInfos((x) => {
+    return {
+      value: getDisplayedSectionVariant(sectionId, x).code,
+      variantIsFrozen: getSectionVariant(sectionId).isFrozen,
+    };
+  }, _.isEqual);
 
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
-  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
 
   function onChange(v) {
     useSectionInfos.setState((x) => {

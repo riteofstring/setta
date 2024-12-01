@@ -15,14 +15,13 @@ import {
   deleteParamSweepValue,
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
-import { getCodeInfoCol, getSectionType } from "state/actions/sectionInfos";
+import { getCodeInfoCol } from "state/actions/sectionInfos";
 import {
   getParamIds,
   paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
-import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import { ParamSweepSectionSearch } from "../SectionParts/Search";
 import { useShowYaml } from "./toYaml";
 
@@ -38,16 +37,17 @@ function _ParamSweepArea({ sectionId }) {
 export const ParamSweepArea = React.memo(_ParamSweepArea);
 
 function _ParamSweepAreaGUI({ sectionId }) {
-  const { variantId, paramSweep, forSectionId } = useParamSweepInfo(sectionId);
-
-  const showParamSweepSectionSearch =
-    useShowParamSweepSectionSearch(forSectionId);
+  const {
+    variantId,
+    paramSweep,
+    forSectionId,
+    variantIsFrozen,
+    showParamSweepSectionSearch,
+  } = useParamSweepInfo(sectionId);
 
   function onAddCallableClick() {
     addParamSweepCallable(variantId);
   }
-
-  const isDisabled = useSectionVariantIsFrozen(sectionId);
 
   console.log("paramSweep", paramSweep);
 
@@ -59,7 +59,7 @@ function _ParamSweepAreaGUI({ sectionId }) {
             forSectionId={forSectionId}
             variantId={variantId}
             paramSweep={paramSweep}
-            isDisabled={isDisabled}
+            isDisabled={variantIsFrozen}
           />
         )}
         {paramSweep.length > 0 ? (
@@ -72,7 +72,7 @@ function _ParamSweepAreaGUI({ sectionId }) {
               variantId={variantId}
               selectedItemIdx={idx}
               showParamSweepSectionSearch={showParamSweepSectionSearch}
-              isDisabled={isDisabled}
+              isDisabled={variantIsFrozen}
             />
           ))
         ) : (
@@ -84,7 +84,7 @@ function _ParamSweepAreaGUI({ sectionId }) {
           <button
             className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500/30 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
             onClick={onAddCallableClick}
-            disabled={isDisabled}
+            disabled={variantIsFrozen}
           >
             <i className="gg-play-list-add !scale-75" />
             <p>Callable</p>
@@ -393,15 +393,6 @@ function AddRemoveButtonsForNoCallableSection({
       </button>
     </div>
   );
-}
-
-function useShowParamSweepSectionSearch(sectionId) {
-  return useSectionInfos((x) => {
-    return (
-      !x.x[sectionId].hideSearch &&
-      getSectionType(sectionId, x) !== C.GLOBAL_VARIABLES
-    );
-  });
 }
 
 function useNumChildlessParams(selectedItem, sectionId) {

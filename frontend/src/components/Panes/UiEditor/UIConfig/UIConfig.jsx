@@ -56,8 +56,9 @@ function UIConfigCore({ sectionId, paramInfos }) {
 
 function _UIElement({ sectionId, paramInfo }) {
   const paramInfoId = paramInfo.id;
-  const uiType = useSectionInfos((x) =>
-    getParamUIType(sectionId, paramInfoId, x),
+  const uiType = useSectionInfos(
+    (x) => getParamUIType(sectionId, paramInfoId, x),
+    _.isEqual,
   );
   const paramName = paramInfo.name;
 
