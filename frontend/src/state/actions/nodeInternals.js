@@ -111,11 +111,13 @@ export function getNodeUpdateInformation(entries, fromResizeObserver) {
   const output = [];
   const refState = useSectionRefs.getState().withNested;
   entries.forEach((nodeId) => {
-    output.push({
-      id: nodeId,
-      nodeElement: refState[nodeId],
-      forceUpdate: true,
-    });
+    if (refState[nodeId]) {
+      output.push({
+        id: nodeId,
+        nodeElement: refState[nodeId],
+        forceUpdate: true,
+      });
+    }
   });
   return output;
 }
