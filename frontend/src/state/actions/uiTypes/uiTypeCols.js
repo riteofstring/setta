@@ -14,10 +14,8 @@ export function setNonPresetUITypeIds({
   });
 }
 
-export function deleteParamInfoFromUITypeCol({ uiTypeColId, ids }) {
-  useSectionInfos.setState((state) => {
-    state.uiTypeCols[uiTypeColId] = _.omit(state.uiTypeCols[uiTypeColId], ids);
-  });
+export function deleteParamInfoFromUITypeCol(uiTypeColId, ids, state) {
+  state.uiTypeCols[uiTypeColId] = _.omit(state.uiTypeCols[uiTypeColId], ids);
 }
 
 export function getParamUIType(sectionId, paramInfoId, _state) {

@@ -22,13 +22,11 @@ export function initEnteredValue(uiType) {
   };
 }
 
-export function deleteParamInfoFromSectionVariant({ variantId, ids }) {
-  useSectionInfos.setState((state) => {
-    state.variants[variantId].values = _.omit(
-      state.variants[variantId].values,
-      ids,
-    );
-  });
+export function deleteParamInfoFromSectionVariant(variantId, ids, state) {
+  state.variants[variantId].values = _.omit(
+    state.variants[variantId].values,
+    ids,
+  );
 }
 
 export function getParamEV(sectionId, paramInfoId, _state) {

@@ -84,16 +84,14 @@ export function deleteSelectedKwargs({ sectionId }) {
 }
 
 function deleteKwargIds({ sectionId, ids, incrementVersion }) {
-  const { uiTypeColId } = getSectionInfo(sectionId);
-  const { variantId } = useSectionInfos.getState().x[sectionId];
-
   useSectionInfos.setState((state) => {
+    const { uiTypeColId, variantId } = state.x[sectionId];
     deleteCodeInfo(ids, state);
+    deleteParamInfoFromSectionVariant(variantId, ids, state);
+    deleteParamInfoFromUITypeCol(uiTypeColId, ids, state);
+    deleteParamsFromParamSweep(variantId, ids, state);
   });
 
-  deleteParamInfoFromSectionVariant({ variantId, ids });
-  deleteParamInfoFromUITypeCol({ uiTypeColId, ids });
-  deleteParamsFromParamSweep({ sectionId, ids });
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

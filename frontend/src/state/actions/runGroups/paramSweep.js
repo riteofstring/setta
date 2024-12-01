@@ -1,5 +1,4 @@
 import { useSectionInfos } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
 
 export function addParamSweepCallable(variantId) {
   useSectionInfos.setState((state) => {
@@ -116,13 +115,8 @@ export function deleteLastParamSweepParamInfoId({
   });
 }
 
-export function deleteParamsFromParamSweep({ sectionId, ids }) {
-  const { variantId } = getSectionInfo(sectionId);
-  if (variantId) {
-    useSectionInfos.setState((x) => {
-      for (const s of x.variants[variantId].sweep) {
-        s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
-      }
-    });
+export function deleteParamsFromParamSweep(variantId, ids, state) {
+  for (const s of state.variants[variantId].sweep) {
+    s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
   }
 }
