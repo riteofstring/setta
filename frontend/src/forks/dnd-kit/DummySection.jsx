@@ -21,7 +21,7 @@ export const TempDNDSection = React.forwardRef(({}, ref) => {
         className="rounded-xl bg-setta-300/25"
         ref={ref}
       />
-      <div className="flex-auto bg-green-500" />
+      <div className="flex-auto bg-transparent" />
     </>
   );
 });
@@ -40,7 +40,7 @@ export const DummySection = React.forwardRef(({}, ref) => {
   const displayHeight = height * zoom;
 
   return (
-    // <div className="flex bg-red-500">
+    <div className="flex">
       <div
         style={{
           width: `${displayWidth}px`,
@@ -49,7 +49,7 @@ export const DummySection = React.forwardRef(({}, ref) => {
         className="rounded-xl bg-setta-50/25"
         ref={ref}
       />
-    // </div>
+    </div>
   );
 });
 
