@@ -70,7 +70,7 @@
     "keywordPositions": []
   },
   "codeInfoCol": {
-    "children": {}
+    "children": { "null": [] }
   },
   "ev": { "value": "", "keywordPositions": [] },
   "uiTypeColEntry": { "uiTypeId": null, "nonPresetUITypeIds": [] }
