@@ -11,7 +11,6 @@ import {
   useSectionInfos,
   useSettings,
 } from "state/definitions";
-import { useSectionIdToChildren } from "./sectionVariants";
 
 export function useUpdateProjectSearch() {
   const [value, setValue] = useState("");
@@ -68,38 +67,42 @@ export function useOnEnterGoToSearchResult() {
 }
 
 function useAllVisibleParams() {
-  const sectionIdToChildren = useSectionIdToChildren();
-  const allIds = [];
-  const allIdsSet = new Set();
-
-  // Add all keys (IDs) to the set
-  Object.entries(sectionIdToChildren).forEach(([key, value]) => {
-    if (!allIdsSet.has(key)) {
-      allIdsSet.add(key);
-      allIds.push(key);
-    }
-    value.forEach((id) => {
-      if (!allIdsSet.has(id)) {
-        allIdsSet.add(id);
-        allIds.push(id);
-      }
-    });
-  });
-
   return useSectionInfos((x) => {
     const output = [];
-    for (const id of allIds) {
-      const { ids: paramIds } = getParamIds(id, x.codeInfo);
-      for (const p of paramIds) {
-        output.push({
-          sectionId: id,
-          paramInfoId: p,
-          name: x.codeInfo[p].name,
-        });
+    const visitedSections = new Set();
+    for (const sectionId of Object.keys(x.x)) {
+      getParamsAndAddToSearchResults(
+        visitedSections,
+        sectionId,
+        x.codeInfo,
+        output,
+      );
+      const sectionChildren = x.variants[x.x[sectionId].variantId].children;
+      for (const id of sectionChildren) {
+        getParamsAndAddToSearchResults(visitedSections, id, x.codeInfo, output);
       }
     }
     return output;
-  });
+  }, _.isEqual);
+}
+
+function getParamsAndAddToSearchResults(
+  visitedSections,
+  sectionId,
+  codeInfoState,
+  output,
+) {
+  if (!visitedSections.has(sectionId)) {
+    const { ids: paramIds } = getParamIds(sectionId, codeInfoState);
+    for (const p of paramIds) {
+      output.push({
+        sectionId,
+        paramInfoId: p,
+        name: codeInfoState[p].name,
+      });
+    }
+    visitedSections.add(sectionId);
+  }
 }
 
 const doUpdateSearch = _.debounce(updateSearch, 100);
