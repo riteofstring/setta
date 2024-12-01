@@ -55,11 +55,11 @@ export function yamlToGUI(sectionId) {
 }
 
 function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
-  const forSectionId = getForSectionId(useSectionInfos.getState().x, sectionId);
+  const state = useSectionInfos.getState();
+  const forSectionId = getForSectionId(state.x, sectionId);
   const docs = parseAllDocuments(yamlValue);
   const codeInfoChildren = getSectionCodeInfoChildren(forSectionId);
   const codeInfoChildrenKeys = Object.keys(codeInfoChildren);
-  const codeInfo = useSectionInfos.getState().codeInfo;
   const newParamSweep = [];
 
   for (const doc of docs) {
@@ -72,7 +72,7 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
       matchingCallableId = tryFindingMatchingId(
         callableName,
         codeInfoChildrenKeys,
-        codeInfo,
+        state.codeInfo,
       );
       if (!matchingCallableId) {
         continue;
@@ -81,7 +81,7 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
 
     const { pathMap } = getParamIds(
       forSectionId,
-      codeInfo,
+      state,
       codeInfoChildren,
       matchingCallableId,
       (p) => p.rcType === C.PARAMETER,
@@ -94,7 +94,7 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
       const paramName = Object.keys(singleParam)[0];
       let matchingParamId;
       for (const id of Object.keys(pathMap)) {
-        if (paramNameFromPathArray(codeInfo, pathMap, id) === paramName) {
+        if (paramNameFromPathArray(state.codeInfo, pathMap, id) === paramName) {
           matchingParamId = id;
           break;
         }

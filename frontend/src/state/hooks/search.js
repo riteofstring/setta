@@ -58,15 +58,10 @@ function getAllVisibleParams() {
   const output = [];
   const visitedSections = new Set();
   for (const sectionId of Object.keys(x.x)) {
-    getParamsAndAddToSearchResults(
-      visitedSections,
-      sectionId,
-      x.codeInfo,
-      output,
-    );
+    getParamsAndAddToSearchResults(visitedSections, sectionId, x, output);
     const sectionChildren = getSectionVariant(sectionId, x).children;
     for (const id of sectionChildren) {
-      getParamsAndAddToSearchResults(visitedSections, id, x.codeInfo, output);
+      getParamsAndAddToSearchResults(visitedSections, id, x, output);
     }
   }
   return output;
@@ -75,16 +70,16 @@ function getAllVisibleParams() {
 function getParamsAndAddToSearchResults(
   visitedSections,
   sectionId,
-  codeInfoState,
+  state,
   output,
 ) {
   if (!visitedSections.has(sectionId)) {
-    const { ids: paramIds } = getParamIds(sectionId, codeInfoState);
+    const { ids: paramIds } = getParamIds(sectionId, state);
     for (const p of paramIds) {
       output.push({
         sectionId,
         paramInfoId: p,
-        name: codeInfoState[p].name,
+        name: state.codeInfo[p].name,
       });
     }
     visitedSections.add(sectionId);
