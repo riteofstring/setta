@@ -46,7 +46,7 @@ function useUpdateNodePositions() {
         return n;
       });
 
-      updateNodePositions(nodeUpdates, true, false);
+      updateNodePositions(nodeUpdates);
     },
     [],
   );

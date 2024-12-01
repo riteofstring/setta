@@ -9,6 +9,7 @@ import _ from "lodash";
 import potpack from "potpack";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals } from "state/definitions";
+import { getNewNodes } from "../nodeInternals";
 import { setActiveSectionIds } from "./activeSections";
 
 export function setZIndices(sectionIds, incrementVersion) {
@@ -69,7 +70,7 @@ export function goToSection(sectionId, duration = 100) {
 
 export function autoLayout() {
   const margin = 50;
-  const newNodes = _.cloneDeep(useNodeInternals.getState().x);
+  const newNodes = getNewNodes();
 
   let sizes = [];
   newNodes.forEach((x) => {

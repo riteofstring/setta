@@ -74,33 +74,16 @@ export function updateNodeDimensions(updates) {
   }
 }
 
-export function updateNodePositions(
-  nodeDragItems,
-  positionChanged = true,
-  dragging = false,
-) {
-  const changes = nodeDragItems.map((node) => {
-    const change = {
-      id: node.id,
-      type: "position",
-      dragging,
-    };
-
-    if (positionChanged) {
-      change.position = node.position;
-    }
-
-    return change;
-  });
-
-  if (changes?.length) {
-    onNodesChange(changes);
+export function updateNodePositions(nodeDragItems) {
+  const newNodes = getNewNodes();
+  for (const n of nodeDragItems) {
+    newNodes.get(n.id).position = n.position;
   }
+  useNodeInternals.setState({ x: newNodes });
 }
 
 export function onNodesChange(changes) {
-  const nodeInternals = useNodeInternals.getState().x;
-  const newNodes = _.cloneDeep(nodeInternals);
+  const newNodes = getNewNodes();
   for (const c of changes) {
     switch (c.type) {
       case "position": {
@@ -123,8 +106,7 @@ export function onNodesChange(changes) {
 }
 
 export function raiseTempZIndex(nodes) {
-  const nodeInternals = useNodeInternals.getState().x;
-  const newNodes = _.cloneDeep(nodeInternals);
+  const newNodes = getNewNodes();
   for (const [, n] of newNodes) {
     n.tempZIndex = n.zIndex;
   }
@@ -135,5 +117,11 @@ export function raiseTempZIndex(nodes) {
 }
 
 export function justMoveANode(id, position) {
-  onNodesChange([{ id, type: "position", position }]);
+  const newNodes = getNewNodes();
+  newNodes.get(id).position = position;
+  useNodeInternals.setState({ x: newNodes });
+}
+
+export function getNewNodes() {
+  return _.cloneDeep(useNodeInternals.getState().x);
 }

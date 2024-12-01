@@ -12,7 +12,6 @@ import React, {
   useRef,
 } from "react";
 import { openPaneContextMenu } from "state/actions/contextMenus";
-import { getNodes } from "state/actions/nodeInternals";
 import {
   clearActiveSectionIds,
   setActiveSectionIds,
@@ -144,7 +143,6 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       height: Math.abs(mousePos.y - startY),
     };
 
-    const nodes = getNodes();
     const selectedNodeIds = getNodesInside(
       nextUserSelectRect,
       transform,
