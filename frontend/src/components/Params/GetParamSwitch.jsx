@@ -11,6 +11,10 @@ export function GetParamSwitch({
 }) {
   // TODO: make this more efficient
   const filteredIds = useSectionInfos((x) => {
+    if (!x.x[sectionId].paramFilter) {
+      return paramIds;
+    }
+
     const requiredParamIdsWithNames = Object.keys(requiredParamIdsToPaths).map(
       (id) => ({
         id,
@@ -20,7 +24,7 @@ export function GetParamSwitch({
 
     const matches = matchSorter(
       requiredParamIdsWithNames,
-      x.x[sectionId].paramFilter ?? "",
+      x.x[sectionId].paramFilter,
       {
         keys: ["name"],
       },
