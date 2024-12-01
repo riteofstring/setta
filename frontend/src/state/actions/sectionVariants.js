@@ -111,7 +111,6 @@ export function getSectionCode(sectionId) {
   ].code;
 }
 
-
 function getSectionChildrenFromAllVariants(sectionId, state) {
   const output = [];
   for (const v of state.x[sectionId].variantIds) {
@@ -139,7 +138,6 @@ export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
   }
   return idsToDelete;
 }
-
 
 export function setSectionVariantAttr(sectionId, attr, value) {
   const { variantId } = getSectionInfo(sectionId);

@@ -97,8 +97,8 @@ function keywordRegexSubscriptionFn(x) {
   for (const [id, s] of Object.entries(x.x)) {
     // console.log("s.variantId", s.variantId);
     // console.log(
-      // "x.variants[s.variantId].codeInfoColId",
-      // x.variants[s.variantId].codeInfoColId,
+    // "x.variants[s.variantId].codeInfoColId",
+    // x.variants[s.variantId].codeInfoColId,
     // );
     output.details[id] = {
       name: s.name,
