@@ -27,10 +27,16 @@ export function YamlView({ sectionId, isDisabled }) {
     useYamlValue.setState({ [sectionId]: v });
   }
 
+  // We need this class to avoid double scrollbars in GlobalParamSweepArea.
+  // But we don't apply it when we're resizing because doing so causes
+  // the scrollTop logic in useCodeAreaHeight to break.
+  // (It ends up always scrolling to the top after resizing.)
+  const cmEditorClass = overflow === "" ? "[&_.cm-editor]:h-full" : "";
+
   return (
     <article
       ref={wrapperRef}
-      className={`nodrag section-full-no-title h-full min-h-0 cursor-auto [&_*]:!outline-0 [&_.cm-editor]:h-full [&_.cm-theme]:h-full ${overflow} ${nowheel}`}
+      className={`nodrag section-full-no-title min-h-0 cursor-auto [&_*]:!outline-0 [&_.cm-theme]:h-full ${cmEditorClass} ${overflow} ${nowheel}`}
     >
       <CodeMirror
         maxHeight={maxHeight}
