@@ -22,7 +22,7 @@ export function newSectionInfo({
   const _displayMode = getDefaultDisplayMode(uiTypeId);
 
   return {
-    ...DEFAULT_VALUES.section,
+    ..._.cloneDeep(DEFAULT_VALUES.section),
     id: maybeNewId(id),
     name: _name,
     variantId: _variantId,
