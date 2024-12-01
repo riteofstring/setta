@@ -194,15 +194,8 @@ function getShouldPreventDefault(parsedShortcut) {
 
   // special shortcuts
   if (
-    // isCtrlPlus(parsedShortcut, "KeyC") ||
-    // isCtrlPlus(parsedShortcut, "KeyV") ||
-    // isModPlus(parsedShortcut, "KeyC") ||
-    // isModPlus(parsedShortcut, "KeyV") ||
-    shift &&
-    !ctrl &&
-    !mod &&
-    !alt &&
-    _.isEqual(keys, new Set(["Tab"]))
+    isModOrCtrlPlus(parsedShortcut, ["KeyC"]) ||
+    isModOrCtrlPlus(parsedShortcut, "KeyV")
   ) {
     return false;
   }
@@ -420,7 +413,6 @@ export function attachKeyEventListeners() {
     });
   }
   let cleanup = attachKeyDownListener((e) => {
-    console.log("e.code", e.code, e.key);
     aModShortcutWasPressed = false;
     if (!modifierKeyCodes.has(e.code)) {
       keysPressed.add(e.code);
