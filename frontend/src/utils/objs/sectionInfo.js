@@ -7,7 +7,6 @@ import { createVarName, maybeNewId } from "../idNameCreation";
 export function newSectionInfo({
   id,
   name,
-  children = [],
   size = { width: "auto", height: "auto" },
   parentId = null,
   variantId,
@@ -44,7 +43,6 @@ export function newSectionInfo({
   return {
     id: maybeNewId(id),
     name: name ? name : createVarName(existingVarNames),
-    children,
     size,
     parentId,
     variantId: _variantId,
