@@ -1,4 +1,3 @@
-import copy
 import json
 
 from setta.utils.constants import (
@@ -141,4 +140,4 @@ def generate_query_param(
 
 def add_defaults_to_section_variants(section_variants):
     for k, v in section_variants.items():
-        section_variants[k] = {**copy.deepcopy(DEFAULT_VALUES["sectionVariant"]), **v}
+        section_variants[k] = {**DEFAULT_VALUES["sectionVariant"], **v}

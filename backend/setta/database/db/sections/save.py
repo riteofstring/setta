@@ -1,4 +1,3 @@
-import copy
 import json
 
 from setta.utils.constants import (
@@ -149,4 +148,4 @@ def save_sections(db, sections, section_variants):
 
 def add_defaults_to_sections(sections):
     for k, v in sections.items():
-        sections[k] = {**copy.deepcopy(DEFAULT_VALUES["section"]), **v}
+        sections[k] = {**DEFAULT_VALUES["section"], **v}

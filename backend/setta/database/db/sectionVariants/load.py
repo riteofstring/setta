@@ -1,4 +1,3 @@
-import copy
 import json
 
 from setta.utils.constants import DEFAULT_VALUES
@@ -19,7 +18,7 @@ def load_section_variants(db, ids):
         id = row["id"]
         if id not in output:
             output[id] = {
-                **copy.deepcopy(DEFAULT_VALUES["sectionVariant"]),
+                **DEFAULT_VALUES["sectionVariant"],
                 "selectedItem": row["selectedItem"],
                 "codeInfoColId": row["codeInfoColId"],
                 "runGroup": json.loads(row["runGroup"]),

@@ -1,4 +1,3 @@
-import copy
 import json
 
 from setta.utils.constants import CODE_INFO_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES
@@ -76,4 +75,4 @@ def save_code_info_col(db, codeInfoCols):
 
 def add_defaults_to_code_info(code_info):
     for k, v in code_info.items():
-        code_info[k] = {**copy.deepcopy(DEFAULT_VALUES["codeInfo"]), **v}
+        code_info[k] = {**DEFAULT_VALUES["codeInfo"], **v}

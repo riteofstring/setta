@@ -69,7 +69,7 @@ def load_sections(db, ids):
         v = dict(v)
         data = v.pop("data")
         sections[v["id"]] = {
-            **copy.deepcopy(DEFAULT_VALUES["section"]),
+            **DEFAULT_VALUES["section"],
             **v,
             **json.loads(data),
             "isInOtherProjectConfigs": section_id_to_config_count[v["id"]] > 1,
