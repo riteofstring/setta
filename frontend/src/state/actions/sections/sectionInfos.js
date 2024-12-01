@@ -5,10 +5,6 @@ import {
   setSectionVariantChildren,
 } from "../sectionVariants";
 
-export function addSectionInfo(payload) {
-  useSectionInfos.setState((state) => ({ x: payload(state.x) }));
-}
-
 export function setSectionInfoAttr({
   sectionId,
   sectionIds,
@@ -72,14 +68,14 @@ export function removeSectionInfos(ids, state) {
   }
 }
 
-export function toggleSectionOrientation({ sectionId }) {
+export function toggleSectionOrientation(sectionId) {
   useSectionInfos.setState((state) => {
     state.x[sectionId].isHorizontalOrientation =
       !state.x[sectionId].isHorizontalOrientation;
   });
 }
 
-export function toggleSectionLock({ sectionId }) {
+export function toggleSectionLock(sectionId) {
   useSectionInfos.setState((state) => {
     state.x[sectionId].positionAndSizeLocked =
       !state.x[sectionId].positionAndSizeLocked;
