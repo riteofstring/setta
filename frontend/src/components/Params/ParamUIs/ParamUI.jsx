@@ -74,9 +74,7 @@ export function ParamUI({
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span
-            className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
-          />
+          <span className="section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />
         </>
       );
     case C.SLIDER: {
@@ -156,7 +154,6 @@ export function ParamSweepUI({
     dataSectionId,
     paramInfoId,
   });
-  const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
 
   switch (uiType.type) {
     default:
@@ -179,9 +176,7 @@ export function ParamSweepUI({
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span
-            className={`section-key-value grid-row-start-1 border-box mx-3 self-end border-b border-setta-200/50 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""} dark:border-setta-600/30`}
-          />
+          <span className="section-key-value grid-row-start-1 border-box mx-3 self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />
         </>
       );
     case C.SLIDER: {
@@ -195,7 +190,7 @@ export function ParamSweepUI({
           max={max}
           step={step}
           isDisabled={isDisabled}
-          wrapperDivClass="section-key-value flex gap-1 ml-2"
+          wrapperDivClass="section-key-value flex gap-1"
           sliderRootClassName="data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
           sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
           sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
@@ -212,7 +207,7 @@ export function ParamSweepUI({
           defaultVal={defaultVal}
           onChange={onChange}
           isDisabled={isDisabled}
-          outerDivClassName="section-key-value flex justify-self-start self-center ml-2"
+          outerDivClassName="section-key-value flex justify-self-center self-center"
           twRootClasses="nodrag"
         />
       );
@@ -223,8 +218,8 @@ export function ParamSweepUI({
           colorChoices={colorChoices}
           value={value}
           onChange={onChange}
-          wrapperClassName="section-key-value single-cell-container  w-[calc(100%_-_2px)] h-[calc(100%_-_4px)] min-h-0 flex justify-self-start self-center ml-2"
-          colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
+          wrapperClassName="section-value flex justify-self-start self-center"
+          colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 dark:bg-setta-850 dark:hover:bg-setta-900"
           isDisabled={isDisabled}
         />
       );
@@ -235,7 +230,7 @@ export function ParamSweepUI({
           choices={choices}
           value={value}
           onChange={onChange}
-          outerDivClasses="section-key-value ml-2 flex justify-self-start self-center"
+          outerDivClasses="section-value flex justify-self-start self-center"
           isDisabled={isDisabled}
         />
       );

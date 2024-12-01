@@ -166,10 +166,7 @@ function SectionList({ ancestors, parentIsSelected, runGroupId }) {
 }
 
 const SectionListCore = React.forwardRef(
-  (
-    { sections, runGroupId, ancestors, parentIsSelected, className = "" },
-    ref,
-  ) => {
+  ({ sections, runGroupId, ancestors, parentIsSelected, className }, ref) => {
     return (
       sections.length > 0 && (
         <ul
@@ -292,7 +289,7 @@ function VersionsList({
   const accordionRootStyles =
     atLeastOneVersionSelected || !isSelected
       ? undefined
-      : "bg-red-100 dark:bg-red-950/20 hover:bg-red-500/20 border-red-300 hover:dark:bg-red-950/50 dark:border-red-700/80 hover:dark:border-red-700 [&_ul]:!bg-transparent";
+      : "bg-red dark:bg-red-700/10 hover:border-red-50 dark:hover:border-red-700";
 
   return (
     <GenericList

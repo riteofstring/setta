@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useSettings, useStateVersion } from "state/definitions";
+import { useMisc, useSettings, useStateVersion } from "state/definitions";
 import { stateDict, STATE_TYPES } from "state/utils";
 import { saveProject } from "./project/saveProject";
 
@@ -17,6 +17,7 @@ export function undoProjectState() {
     }
   }
   autoSave();
+  useMisc.setState({ undoOrRedoWasTriggered: true });
 }
 
 function undoSetPastAndFutureStates(s) {
@@ -47,6 +48,7 @@ export function redoProjectState() {
     }
   }
   autoSave();
+  useMisc.setState({ undoOrRedoWasTriggered: true });
 }
 
 function redoSetPastAndFutureStates(s) {

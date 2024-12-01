@@ -1,11 +1,12 @@
 import _ from "lodash";
-import { getSectionCodeInfoChildren } from "state/actions/codeInfoCols";
 import {
   addKwarg,
-  deleteKwarg,
+  deleteKwargIds,
+  deleteLastKwarg,
   deleteSelectedKwargs,
+  getAllSelectedParams,
   pinSelectedKwargs,
-} from "state/actions/kwargs/kwargs";
+} from "state/actions/kwargs";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useActiveSection,
@@ -14,7 +15,6 @@ import {
 } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import { shortcutPrettified } from "utils/utils";
-import { getAllSelectedParams } from "../../../state/actions/kwargs/utils";
 
 export function KwargsControls({
   sectionId,
@@ -114,54 +114,60 @@ export function KwargsControls({
 
 function onClickAddKwargFn(sectionId, objInfoId) {
   return () => {
-    const selectedParams = getAllSelectedParams(sectionId);
-    if (selectedParams.length > 0) {
-      for (const p of selectedParams) {
-        const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
-        let parentId, insertIdx;
-        for (const [id, children] of Object.entries(codeInfoChildren)) {
-          if (children.includes(p.id)) {
-            parentId = id;
-            insertIdx = children.indexOf(p.id) + 1;
-            break;
+    useSectionInfos.setState((state) => {
+      const selectedParams = getAllSelectedParams(sectionId, state);
+      if (selectedParams.length > 0) {
+        const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+        const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+        for (const p of selectedParams) {
+          let parentId, insertIdx;
+          for (const [id, children] of Object.entries(codeInfoChildren)) {
+            if (children.includes(p.id)) {
+              parentId = id;
+              insertIdx = children.indexOf(p.id) + 1;
+              break;
+            }
           }
+          addKwarg({ sectionId, parentId, insertIdx, state });
         }
-        addKwarg({ sectionId, parentId, insertIdx });
+      } else {
+        addKwarg({ sectionId, parentId: objInfoId, state });
       }
-      maybeIncrementProjectStateVersion(true);
-    } else {
-      addKwarg({ sectionId, parentId: objInfoId, incrementVersion: true });
-    }
+    });
+    maybeIncrementProjectStateVersion(true);
   };
 }
 
 function onClickDeleteKwargFn(sectionId, objInfoId) {
   return () => {
-    const selectedParams = getAllSelectedParams(sectionId);
-    if (selectedParams.length > 0) {
-      for (const p of selectedParams) {
-        const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
-        let parentId, idx;
-        for (const [id, children] of Object.entries(codeInfoChildren)) {
-          if (children.includes(p.id)) {
-            parentId = id;
-            idx = children.indexOf(p.id);
-            break;
+    useSectionInfos.setState((state) => {
+      const selectedParams = getAllSelectedParams(sectionId, state);
+      if (selectedParams.length > 0) {
+        const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+        const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+        const kwargIds = [];
+        for (const p of selectedParams) {
+          let parentId, idx;
+          for (const [id, children] of Object.entries(codeInfoChildren)) {
+            if (children.includes(p.id)) {
+              parentId = id;
+              idx = children.indexOf(p.id);
+              break;
+            }
+          }
+          if (parentId) {
+            kwargIds.push(codeInfoChildren[parentId][idx + 1]);
           }
         }
-        const kwargId = codeInfoChildren[parentId][idx + 1];
-        if (kwargId) {
-          deleteKwarg({ sectionId, parentId: parent.id, kwargId });
-        }
+        deleteKwargIds(sectionId, kwargIds, state);
+      } else {
+        deleteLastKwarg({
+          sectionId,
+          parentId: objInfoId,
+          state,
+        });
       }
-      maybeIncrementProjectStateVersion(true);
-    } else {
-      deleteKwarg({
-        sectionId,
-        parentId: objInfoId,
-        deleteLast: true,
-        incrementVersion: true,
-      });
-    }
+    });
+    maybeIncrementProjectStateVersion(true);
   };
 }

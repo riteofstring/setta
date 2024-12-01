@@ -5,9 +5,10 @@ import { updateSectionInfos } from "./sectionInfos";
 
 export function loadSectionIntoState({
   sections,
-  uiTypes,
   sectionVariants,
   uiTypeCols,
+  uiTypes,
+  codeInfoCols,
   codeInfo,
   relativePositions,
   topLevelIds,
@@ -24,13 +25,14 @@ export function loadSectionIntoState({
     };
   }
 
-  useSectionInfos((state) => {
+  useSectionInfos.setState((state) => {
     updateSectionInfos({
       sections,
-      uiTypes,
       sectionVariants,
+      uiTypes,
       uiTypeCols,
       codeInfo,
+      codeInfoCols,
       state,
     });
   });
