@@ -84,7 +84,7 @@ function* getProjectRuns(project) {
     }
     yield* getProjectVariants(variant, paramSweepSectionVariantIds);
   } else {
-    for (const runGroupId of selectedRunGroupIds) {
+    for (const runGroupId of Object.keys(selectedRunGroupIds)) {
       const runGroup = useSectionInfos.getState().variants[runGroupId].runGroup;
       const sectionParamSweepsAndVersions = getSectionsParamSweepsAndVersions(
         project,
