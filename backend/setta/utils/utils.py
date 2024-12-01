@@ -159,7 +159,9 @@ def replace_null_keys_with_none(data):
     return data
 
 
-def filter_dict(x, keep_keys=None, discard_keys=None):
-    if keep_keys:
-        return {k: x[k] for k in x.keys() if k in keep_keys}
-    return {k: x[k] for k in x.keys() if k not in discard_keys}
+def filter_dict(x, keep_keys=None, default_vals=None):
+    return {
+        k: v
+        for k, v in x.items()
+        if k in keep_keys and ((not default_vals) or (v != default_vals[k]))
+    }

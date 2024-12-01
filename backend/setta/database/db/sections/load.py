@@ -6,7 +6,7 @@ from collections import defaultdict
 
 from setta.database.db.sectionVariants.utils import new_section_variant
 from setta.database.utils import create_new_id
-from setta.utils.constants import C
+from setta.utils.constants import DEFAULT_VALUES, C
 from setta.utils.utils import filter_dict
 
 from ..sectionVariants.load import load_section_variants
@@ -66,9 +66,12 @@ def load_sections(db, ids):
 
     sections = {}
     for v in db.fetchall():
+        v = dict(v)
+        data = v.pop("data")
         sections[v["id"]] = {
-            **filter_dict(v, discard_keys=["data"]),
-            **json.loads(v["data"]),
+            **DEFAULT_VALUES["section"],
+            **v,
+            **json.loads(data),
             "isInOtherProjectConfigs": section_id_to_config_count[v["id"]] > 1,
             "parentId": child_to_parent_id.get(v["id"], None),
             "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],

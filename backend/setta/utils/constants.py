@@ -40,6 +40,7 @@ class Constants:
 C = Constants()
 USER_SETTINGS = {}
 BASE_UI_TYPE_IDS = {}
+DEFAULT_VALUES = {}
 
 
 def set_constants(**kwargs):
@@ -58,6 +59,11 @@ def load_constants():
     ) as f:
         for k, v in json.load(f).items():
             BASE_UI_TYPE_IDS[v["type"]] = k
+
+    with open(
+        get_absolute_path(__file__, CONSTANTS_FOLDER / "defaultValues.json"), "r"
+    ) as f:
+        DEFAULT_VALUES.update(json.load(f))
 
 
 def is_from_json_source(id):
