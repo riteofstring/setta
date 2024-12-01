@@ -6,7 +6,6 @@ import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,
   setSectionSize,
-  _setSectionSize,
 } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
@@ -263,9 +262,15 @@ export function setDrawAreaSectionSize({ sectionId, imgSize, isNewImg }) {
         minHeight - extraHeight,
         minWidth - extraWidth,
       );
-      setSectionSize(sectionId, {
-        width: canvasSize.width + extraWidth,
-        height: canvasSize.height + extraHeight,
+      useSectionInfos.setState((state) => {
+        setSectionSize(
+          sectionId,
+          {
+            width: canvasSize.width + extraWidth,
+            height: canvasSize.height + extraHeight,
+          },
+          state,
+        );
       });
     } else {
       canvasSize.width = width - extraWidth;
@@ -286,9 +291,15 @@ export function setDrawAreaSectionSize({ sectionId, imgSize, isNewImg }) {
     canvasSize.height =
       height === "auto" ? defaultHeight : height - extraHeight;
     if (width === "auto" || height === "auto") {
-      setSectionSize(sectionId, {
-        width: canvasSize.width + extraWidth,
-        height: canvasSize.height + extraHeight,
+      useSectionInfos.setState((state) => {
+        setSectionSize(
+          sectionId,
+          {
+            width: canvasSize.width + extraWidth,
+            height: canvasSize.height + extraHeight,
+          },
+          state,
+        );
       });
     }
   }
@@ -357,7 +368,7 @@ function setAspectRatioInfo({
     s.aspectRatioExtraHeight = aspectRatioExtraHeight;
     s.aspectRatioExtraWidth = aspectRatioExtraWidth;
     if (size) {
-      _setSectionSize(sectionId, size, x);
+      setSectionSize(sectionId, size, x);
     }
   });
 }

@@ -6,12 +6,9 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { PANEID } from "utils/constants";
 import { insertIntoArray } from "utils/utils";
-import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
+import { getSectionInfo } from "../../getters/sectionInfo";
 import { copySections } from "../copyPaste/copy";
-import {
-  getSectionChildren,
-  setSectionVariantChildren,
-} from "../sectionVariants";
+import { setSectionVariantChildren } from "../sectionVariants";
 import { updateSectionInfos } from "./sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
 
@@ -54,19 +51,21 @@ export async function moveSection({
     newParentId,
   });
 
-  setChildrenAndParent({
-    oldParentId,
-    newParentId,
-    oldSectionId: sectionId,
-    newSectionId,
-    newIndex,
-    position,
+  useSectionInfos.setState((state) => {
+    setChildrenAndParent({
+      oldParentId,
+      newParentId,
+      oldSectionId: sectionId,
+      newSectionId,
+      newIndex,
+      position,
+      state,
+    });
+
+    setSectionSizeAfterMove(newParentId, newSectionId, state);
   });
 
-  setSectionSize({ newParentId, sectionId: newSectionId });
-
   // maybeCreateReferenceSections({ sectionId, oldParentId });
-
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
@@ -77,53 +76,54 @@ function setChildrenAndParent({
   newSectionId,
   newIndex,
   position,
+  state,
 }) {
   // Remove child from old parent's list
   if (oldParentId === PANEID) {
     // This means it was a top level section
     deleteNodes([oldSectionId]);
   } else {
-    setSectionVariantChildren({
-      sectionId: oldParentId,
-      newStateFn: (x) => x.filter((y) => y !== oldSectionId),
-    });
+    setSectionVariantChildren(
+      oldParentId,
+      (x) => x.filter((y) => y !== oldSectionId),
+      state,
+    );
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
     addNodes([{ id: newSectionId, position, zIndex: 0, tempZIndex: 0 }]);
   } else {
     // Add child to new parent's list
-    setSectionVariantChildren({
-      sectionId: newParentId,
-      newStateFn: (x) => insertIntoArray(x, newIndex, newSectionId),
-    });
+    setSectionVariantChildren(
+      newParentId,
+      (x) => insertIntoArray(x, newIndex, newSectionId),
+      state,
+    );
   }
 
-  useSectionInfos.setState((x) => {
-    x.x[newSectionId].parentId = newParentId === PANEID ? null : newParentId;
-  });
+  state.x[newSectionId].parentId = newParentId === PANEID ? null : newParentId;
 }
 
-function setSectionSize({ newParentId, sectionId }) {
+function setSectionSizeAfterMove(newParentId, sectionId, state) {
   if (newParentId === PANEID) {
     return;
   }
-  const s = useSectionInfos.getState();
-  const isDeck = getSectionType(newParentId).type === C.DECK;
+  const isDeck = state.uiTypes[state.x[sectionId].uiTypeId].type === C.DECK;
 
   // if new parent is a deck and the deck has children and is not horizontal
   if (isDeck) {
-    const { isHorizontalOrientation } = getSectionInfo(newParentId);
+    const { isHorizontalOrientation } = state.x[newParentId];
     if (!isHorizontalOrientation) {
-      const deckChildren = getSectionChildren(newParentId);
+      const deckChildren =
+        state.variants[state.x[newParentId].variantId].children;
       if (deckChildren.length > 0) {
-        const width = s.x[deckChildren[0]].size.width;
-        setAllChildrenWidths({ sectionId, width });
+        const width = state.x[deckChildren[0]].size.width;
+        setAllChildrenWidths({ sectionId, width, state });
       }
     }
   } else {
-    const width = s.x[newParentId].size.width;
-    setAllChildrenWidths({ sectionId, width });
+    const width = state.x[newParentId].size.width;
+    setAllChildrenWidths({ sectionId, width, state });
   }
 }
 

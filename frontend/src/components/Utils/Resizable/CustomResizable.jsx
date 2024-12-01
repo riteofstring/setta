@@ -2,6 +2,7 @@ import _ from "lodash";
 import { useEffect } from "react";
 import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
@@ -56,7 +57,9 @@ function CustomResizableCore({
     }
     if (_.size(changedSize) > 0) {
       setSectionResizeEvent({ sectionId, resizeEvent: "start" });
-      setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
+      useSectionInfos.setState((state) => {
+        setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
+      });
       setSectionResizeEvent({ sectionId, resizeEvent: "end" });
     }
   }, [sizeMode.height, sizeMode.width]);
@@ -79,8 +82,11 @@ function CustomResizableCore({
       sizeMode,
       aspectRatio,
     });
-    setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
+    useSectionInfos.setState((state) => {
+      setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
+    });
     setSectionResizeEvent({ sectionId, resizeEvent: "end" });
+    maybeIncrementProjectStateVersion(true);
   }
 
   const heightResizable =
