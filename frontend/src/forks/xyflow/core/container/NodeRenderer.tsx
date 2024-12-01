@@ -1,6 +1,5 @@
 import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
-import _ from "lodash";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { getNodes, updateNodeDimensions } from "state/actions/nodeInternals";
 import { useActiveSection, useNodeInternals } from "state/definitions";
@@ -22,7 +21,12 @@ const NodeRenderer = ({}) => {
     elementsSelectable,
     panActivationKeyPressed,
   } = useReactFlow(selector, shallow);
-  const nodes = useNodeInternals(getNodes, _.isEqual);
+  // The getNodes selector has to use the "shallow" comparison
+  // and not _.isEqual, otherwise it only re-renders every other update,
+  // even though the MiniMap component uses the exact same hook and comparison fn
+  // and rerenders on every update.
+  // Tried debugging, could not figure out why.
+  const nodes = useNodeInternals(getNodes, shallow);
   const resizeObserverRef = useRef<ResizeObserver>();
   const activeSectionIds = useActiveSection((x) => x.ids);
 
