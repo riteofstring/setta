@@ -40,6 +40,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   const overId = over?.id;
   const oldParentId = getSectionParentId(sectionId);
   let newParentId = dndChildrenState.y[dndSectionId] ?? null;
+  let overIdx = null;
   let newIndex = null;
   let position = null;
   const behaviorDropType = useDndState.getState().behaviorDropType;
@@ -47,7 +48,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   if (newParentId) {
     const children = dndChildrenState.x[newParentId];
     const activeIdx = children.indexOf(dndSectionId);
-    const overIdx = children.indexOf(overId);
+    overIdx = children.indexOf(overId);
     const pastHalfway = collisions[0].pastHalfway;
     const maxIdx = children.length;
     newIndex = computeNewIndex(activeIdx, overIdx, pastHalfway, maxIdx);
@@ -65,6 +66,11 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   }
 
   if (behaviorDropType === BehaviorDropType.INVALID) {
+    manualDndChildrenReset();
+    return;
+  }
+
+  if (overIdx === newIndex && oldParentId === newParentId) {
     manualDndChildrenReset();
     return;
   }
