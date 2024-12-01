@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { manualDndChildrenReset } from "state/actions/sectionInfo";
+import { manualDndChildrenReset } from "state/actions/sectionInfos";
 import { createProjectState, withResetFn } from "state/utils";
 import { immer } from "zustand/middleware/immer";
 

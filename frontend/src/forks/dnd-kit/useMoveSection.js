@@ -3,13 +3,13 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import _ from "lodash";
 import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
-import { getSectionParentId } from "state/actions/sectionInfo";
+import { getSectionParentId } from "state/actions/sectionInfos";
 import {
   maybeMakeCopyOfSection,
   moveSection,
 } from "state/actions/sections/moveSections";
-import { updateSectionInfos } from "state/actions/sectionInfo";
-import { manualDndChildrenReset } from "state/actions/sectionInfo";
+import { updateSectionInfos } from "state/actions/sectionInfos";
+import { manualDndChildrenReset } from "state/actions/sectionInfos";
 import { setSectionVariantChildren } from "state/actions/sectionVariants";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";

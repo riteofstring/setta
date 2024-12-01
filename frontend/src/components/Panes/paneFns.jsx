@@ -1,5 +1,5 @@
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import { getSectionType } from "state/actions/sectionInfo";
+import { getSectionType } from "state/actions/sectionInfos";
 import { useActiveSection, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { getUIEditorTab } from "state/hooks/uiTypes";

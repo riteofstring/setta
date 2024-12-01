@@ -2,7 +2,7 @@ import _ from "lodash";
 import {
   getAllSectionChildrenIds,
   getHighestAncestor,
-} from "state/actions/sectionInfo";
+} from "state/actions/sectionInfos";
 
 export function setSelfParentSiblingChildrenWidths(
   sectionId,

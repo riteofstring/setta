@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useActiveSection, useSectionInfos } from "state/definitions";
-import { getHighestAncestor } from "./sectionInfo";
+import { getHighestAncestor } from "./sectionInfos";
 import { setZIndices } from "./sections/sectionPositions";
 
 export function setActiveSectionIds(ids) {

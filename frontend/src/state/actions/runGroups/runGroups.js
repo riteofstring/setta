@@ -5,7 +5,7 @@ import {
   getSectionInfo,
   getSectionName,
   getSectionType,
-} from "state/actions/sectionInfo";
+} from "state/actions/sectionInfos";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 

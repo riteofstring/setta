@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { getSectionCodeInfoChildren } from "state/actions/codeInfoCols";
-import { getSectionType } from "state/actions/sectionInfo";
+import { getSectionType } from "state/actions/sectionInfos";
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import { getSectionVariantIdToShow } from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";

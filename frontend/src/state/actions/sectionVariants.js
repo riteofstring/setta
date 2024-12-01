@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { getSectionInfo } from "state/actions/sectionInfo";
+import { getSectionInfo } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { newEV } from "utils/objs/ev";

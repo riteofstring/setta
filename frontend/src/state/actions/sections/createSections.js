@@ -13,7 +13,7 @@ import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
 import { insertIntoArray } from "utils/utils";
 import { initRunGroup } from "../runGroups/runGroups";
-import { getSectionInfo } from "../sectionInfo";
+import { getSectionInfo } from "../sectionInfos";
 import { setSectionVariantChildren } from "../sectionVariants";
 
 export function addRegularSectionInEmptySpace() {

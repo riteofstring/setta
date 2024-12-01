@@ -1,6 +1,6 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { guiToYaml } from "state/actions/guiToYaml";
-import { getSectionInfo } from "state/actions/sectionInfo";
+import { getSectionInfo } from "state/actions/sectionInfos";
 import { initEnteredValue } from "state/actions/sectionVariants";
 import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
 import { useSectionInfos } from "state/definitions";

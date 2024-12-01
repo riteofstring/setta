@@ -6,7 +6,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";
 import { sendMessage } from "requests/websocket";
-import { getSectionInfo } from "state/actions/sectionInfo";
+import { getSectionInfo } from "state/actions/sectionInfos";
 import { useSectionInfos, useWebsocketConnectionList } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import {

@@ -1,6 +1,6 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms/closestCorners.ts
 
-import { getSectionInfo } from "state/actions/sectionInfo";
+import { getSectionInfo } from "state/actions/sectionInfos";
 
 function compareCollisions(a, b) {
   if (!a) {

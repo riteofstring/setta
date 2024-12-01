@@ -2,7 +2,7 @@ import { useDndMonitor } from "forks/dnd-kit/CustomCore";
 import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 import _ from "lodash";
 import { useEffect } from "react";
-import { getSectionParentId } from "state/actions/sectionInfo";
+import { getSectionParentId } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import colors from "tailwindcss/colors";

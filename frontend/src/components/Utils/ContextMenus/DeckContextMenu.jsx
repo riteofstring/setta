@@ -2,8 +2,8 @@ import { Item } from "components/Utils/atoms/dropdown/item";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { undeck } from "state/actions/sections/groupSections";
-import { toggleSectionLock } from "state/actions/sectionInfo";
-import { toggleSectionOrientation } from "state/actions/sectionInfo";
+import { toggleSectionLock } from "state/actions/sectionInfos";
+import { toggleSectionOrientation } from "state/actions/sectionInfos";
 import { useContextMenus, useSectionInfos } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 

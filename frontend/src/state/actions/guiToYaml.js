@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
 import { initializeParams } from "state/actions/initializeParam";
-import { getSectionInfo, getSectionType } from "state/actions/sectionInfo";
+import { getSectionInfo, getSectionType } from "state/actions/sectionInfos";
 import { getSectionSelectedItem } from "state/actions/sectionVariants";
 import {
   useOriginalYamlObj,
