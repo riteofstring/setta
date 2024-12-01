@@ -1,7 +1,11 @@
 import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { memo, useEffect, useMemo, useRef } from "react";
-import { getNodes, updateNodeDimensions } from "state/actions/nodeInternals";
+import {
+  getNodes,
+  getNodeUpdateInformation,
+  updateNodeDimensions,
+} from "state/actions/nodeInternals";
 import { useActiveSection, useNodeInternals } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { containerStyle } from "../styles";
@@ -36,12 +40,7 @@ const NodeRenderer = ({}) => {
     }
 
     const observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
-      const updates = entries.map((entry: ResizeObserverEntry) => ({
-        id: entry.target.getAttribute("data-id") as string,
-        nodeElement: entry.target as HTMLDivElement,
-        forceUpdate: true,
-      }));
-
+      const updates = getNodeUpdateInformation(entries, true);
       updateNodeDimensions(updates);
     });
 
