@@ -5,7 +5,7 @@ import { useSectionInfos } from "state/definitions";
 import { useInfoAreaDescriptionAndEditability } from "state/hooks/sectionVariants";
 
 export function InfoAreaSettings({ sectionId }) {
-  const { renderMarkdown, description, variantIsDisabled } =
+  const { renderMarkdown, description, variantIsFrozen } =
     useInfoAreaDescriptionAndEditability(sectionId);
 
   async function onChange(v) {
@@ -28,7 +28,7 @@ export function InfoAreaSettings({ sectionId }) {
         Render Markdown
       </p>
       <SwitchInput
-        isDisabled={variantIsDisabled}
+        isDisabled={variantIsFrozen}
         value={renderMarkdown}
         onChange={onChange}
         outerDivClassName="flex items-center"

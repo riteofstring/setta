@@ -30,14 +30,14 @@ export function useDisableSortable(sectionId) {
   const { isSorting, isMovingFree } = useDndMode();
   const disabled = useDndState((x) => x.disabled[sectionId]);
   const setDisabled = useDndState((x) => x.setDisabled);
-  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
+  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
 
   useEffect(() => {
     setDisabled(sectionId, {
-      draggable: variantIsDisabled,
+      draggable: variantIsFrozen,
       droppable: true,
     });
-  }, [variantIsDisabled]);
+  }, [variantIsFrozen]);
 
   function activeIdInAncestorSet(activeId) {
     let parentId = getSectionParentId(sectionId);
@@ -51,7 +51,7 @@ export function useDisableSortable(sectionId) {
   }
 
   function enableSort({ active }) {
-    if (variantIsDisabled) {
+    if (variantIsFrozen) {
       return;
     }
 
@@ -73,7 +73,7 @@ export function useDisableSortable(sectionId) {
   }
 
   function onDragDone() {
-    setDisabled(sectionId, { draggable: variantIsDisabled, droppable: true });
+    setDisabled(sectionId, { draggable: variantIsFrozen, droppable: true });
   }
 
   useDndMonitor({
@@ -82,7 +82,7 @@ export function useDisableSortable(sectionId) {
     onDragCancel: onDragDone,
   });
 
-  return disabled ?? { draggable: variantIsDisabled, droppable: true };
+  return disabled ?? { draggable: variantIsFrozen, droppable: true };
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {

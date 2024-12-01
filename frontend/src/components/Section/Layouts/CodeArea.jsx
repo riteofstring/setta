@@ -92,7 +92,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
-  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
+  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
 
   function onChange(v) {
     useSectionInfos.setState((x) => {
@@ -114,7 +114,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     escapeToBlur: true,
     tabToAutocomplete: true,
     indentWithTab: true,
-    isDisabled: variantIsDisabled,
+    isDisabled: variantIsFrozen,
   });
 
   return (

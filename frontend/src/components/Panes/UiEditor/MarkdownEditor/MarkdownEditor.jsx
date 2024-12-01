@@ -35,7 +35,7 @@ export function MarkdownEditorInSection({ sectionId }) {
 
 const _MarkdownEditorCore = React.forwardRef(
   ({ sectionId, maxHeight, onCreateEditor, wrapperClassName }, ref) => {
-    const { renderMarkdown, description, variantIsDisabled } =
+    const { renderMarkdown, description, variantIsFrozen } =
       useInfoAreaDescriptionAndEditability(sectionId);
 
     const [localDescription, setLocalDescription] = useState(description);
@@ -59,7 +59,7 @@ const _MarkdownEditorCore = React.forwardRef(
       tabToAutocomplete: true,
       escapeToBlur: true,
       indentWithTab: true,
-      isDisabled: variantIsDisabled,
+      isDisabled: variantIsFrozen,
     });
 
     return (

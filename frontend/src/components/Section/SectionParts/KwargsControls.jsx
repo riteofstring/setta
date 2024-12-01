@@ -23,7 +23,7 @@ export function KwargsControls({
   bgColor = "bg-transparent",
 }) {
   const paramFilterValue = useSectionInfos((x) => x.x[sectionId].paramFilter);
-  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
+  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
 
   const sectionIsActive = useActiveSection((x) =>
     _.isEqual(x.ids, [sectionId]),
@@ -65,7 +65,7 @@ export function KwargsControls({
               className={classes}
               onClick={onClickDeleteKwarg}
               tabIndex="0"
-              disabled={variantIsDisabled}
+              disabled={variantIsFrozen}
             >
               <i className="gg-math-minus before:!left-0 " />
             </button>
@@ -73,7 +73,7 @@ export function KwargsControls({
               className={classes}
               onClick={onClickAddKwarg}
               tabIndex="0"
-              disabled={variantIsDisabled}
+              disabled={variantIsFrozen}
             >
               <i className="gg-math-plus !scale-50" />
             </button>
@@ -85,7 +85,7 @@ export function KwargsControls({
               className={classes}
               onClick={onClickDeleteSelectedKwargs}
               tabIndex="0"
-              disabled={variantIsDisabled}
+              disabled={variantIsFrozen}
             >
               <i className="gg-close !scale-50" />
             </button>

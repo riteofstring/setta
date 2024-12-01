@@ -48,8 +48,8 @@ export function ParamUI({
     paramInfoId,
   });
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
-  const _isDisabled = isDisabled || isSelectingParams || variantIsDisabled;
+  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
+  const _isDisabled = isDisabled || isSelectingParams || variantIsFrozen;
 
   // need to put the group/textinput in a higher div
 

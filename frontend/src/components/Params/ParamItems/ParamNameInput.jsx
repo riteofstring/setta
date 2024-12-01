@@ -25,8 +25,8 @@ export function ParamNameInput({ sectionId, paramInfoId }) {
   }
 
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
-  const isDisabled = isSelectingParams || variantIsDisabled;
+  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
+  const isDisabled = isSelectingParams || variantIsFrozen;
 
   return (
     <>

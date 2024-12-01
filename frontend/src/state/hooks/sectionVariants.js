@@ -49,7 +49,7 @@ export function useInfoAreaDescriptionAndEditability(sectionId) {
   return useSectionInfos((x) => {
     return {
       ...getInfoAreaDescription(sectionId, x),
-      variantIsDisabled: getSectionVariant(sectionId, x).isFrozen,
+      variantIsFrozen: getSectionVariant(sectionId, x).isFrozen,
     };
   }, _.isEqual);
 }
