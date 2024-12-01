@@ -22,22 +22,10 @@ export function KwargsControls({
   objInfoId,
   bgColor = "bg-transparent",
 }) {
-  const paramFilterValue = useSectionInfos((x) => x.x[sectionId].paramFilter);
   const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
 
-  const sectionIsActive = useActiveSection((x) =>
-    _.isEqual(x.ids, [sectionId]),
-  );
-  const searchShortcut = useSettings((x) =>
-    shortcutPrettified(x.searchShortcut),
-  );
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
-  function onSearchChange(e) {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].paramFilter = e.target.value;
-    });
-  }
 
   const onClickDeleteSelectedKwargs = () => {
     deleteSelectedKwargs({ sectionId, parentId: objInfoId });
@@ -92,24 +80,43 @@ export function KwargsControls({
           </section>
         </article>
 
-        <search className="nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ">
-          <i className="gg-sort-az -mr-2 text-setta-300 dark:text-setta-600" />
-          <input
-            id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-            value={paramFilterValue}
-            className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-700 placeholder-setta-600  outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300"
-            placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
-            tabIndex="0"
-            onChange={onSearchChange}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                e.target.blur();
-              }
-            }}
-          />
-        </search>
+        <ParamFilter sectionId={sectionId} />
       </section>
     </>
+  );
+}
+
+function ParamFilter({ sectionId }) {
+  const paramFilterValue = useSectionInfos((x) => x.x[sectionId].paramFilter);
+  const sectionIsActive = useActiveSection((x) =>
+    _.isEqual(x.ids, [sectionId]),
+  );
+  const searchShortcut = useSettings((x) =>
+    shortcutPrettified(x.searchShortcut),
+  );
+  function onSearchChange(e) {
+    useSectionInfos.setState((state) => {
+      state.x[sectionId].paramFilter = e.target.value;
+    });
+  }
+
+  return (
+    <search className="nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ">
+      <i className="gg-sort-az -mr-2 text-setta-300 dark:text-setta-600" />
+      <input
+        id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
+        value={paramFilterValue}
+        className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-700 placeholder-setta-600  outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300"
+        placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
+        tabIndex="0"
+        onChange={onSearchChange}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.target.blur();
+          }
+        }}
+      />
+    </search>
   );
 }
 
