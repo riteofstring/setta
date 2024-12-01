@@ -233,11 +233,12 @@ export function getSelectedVariantIsFrozen(sectionId) {
   return useSectionInfos.getState().variants[variantId].isFrozen;
 }
 
-export function resetAllSectionsToDefaultVersions() {
+export function resetSectionsToDefaultVersions(sectionIds) {
   useSectionInfos.setState((x) => {
-    const sectionVariants = useSectionInfos.getState().variants;
+    const sectionVariants = x.variants;
     let defaultVariantId;
-    for (const s of Object.values(x.x)) {
+    for (const id of sectionIds) {
+      const s = x.x[id];
       if (s.variantIds.length > 1) {
         defaultVariantId = s.variantIds.find(
           (v) => sectionVariants[v].isDefault,
@@ -251,14 +252,6 @@ export function resetAllSectionsToDefaultVersions() {
   });
 }
 
-export function resetSectionToDefaultVersion(sectionId) {
-  useSectionInfos.setState((x) => {
-    const sectionVariants = useSectionInfos.getState().variants;
-    const variantIds = x.x[sectionId].variantIds;
-    let defaultVariantId = variantIds.find((v) => sectionVariants[v].isDefault);
-    if (defaultVariantId) {
-      defaultVariantId = variantIds[0];
-    }
-    x.x[sectionId].variantId = defaultVariantId;
-  });
+export function resetAllSectionsToDefaultVersions() {
+  resetSectionsToDefaultVersions(Object.keys(useSectionInfos.getState().x));
 }
