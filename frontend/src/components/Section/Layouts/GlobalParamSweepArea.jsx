@@ -24,7 +24,7 @@ import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { createRandomName } from "utils/idNameCreation";
-import { useShowYaml } from "./toYaml";
+import { useShowYaml } from "../../../state/hooks/toYaml";
 
 export function GlobalParamSweepArea({ sectionId }) {
   const width = useSectionInfos((x) => {

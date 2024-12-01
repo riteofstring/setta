@@ -6,7 +6,7 @@ import { useSectionInfos } from "state/definitions";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 import { SectionSearch } from "../SectionParts/Search";
-import { useShowYaml } from "./toYaml";
+import { useShowYaml } from "../../../state/hooks/toYaml";
 
 function _InputArea({ sectionId, bgColor }) {
   const { selectedItem, hideSearch, hideParams } = useSectionInfos((x) => {
