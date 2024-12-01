@@ -36,6 +36,7 @@ export function copySections(sectionIds) {
     sectionVariants,
     uiTypeCols,
     uiTypes,
+    codeInfoCols,
     codeInfo,
     relativePositions,
   };

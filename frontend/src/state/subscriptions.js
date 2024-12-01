@@ -92,7 +92,14 @@ function keywordRegexSubscriptionFn(x) {
     globalVariableId: x.singletonSections[C.GLOBAL_VARIABLES],
   };
 
+  // console.log("codeInfoCols", x.codeInfoCols);
+  // console.log("variants", x.variants);
   for (const [id, s] of Object.entries(x.x)) {
+    // console.log("s.variantId", s.variantId);
+    // console.log(
+      // "x.variants[s.variantId].codeInfoColId",
+      // x.variants[s.variantId].codeInfoColId,
+    // );
     output.details[id] = {
       name: s.name,
       sectionChildren: x.variants[s.variantId].children,
