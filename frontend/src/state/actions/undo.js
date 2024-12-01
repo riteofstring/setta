@@ -5,29 +5,18 @@ import { saveProject } from "./project/saveProject";
 
 export function undoProjectState() {
   const pastStates = useStateVersion.temporal.getState().pastStates;
-  console.log("pastStates.length", pastStates.length);
-  // if (pastStates.length <= 1) {
-  //   return;
-  // }
+  if (pastStates.length <= 1) {
+    return;
+  }
 
   const version = useStateVersion.getState().version;
   for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
-    if (s.temporal) {
-      console.log("s.temporal.pastStates", _.cloneDeep(s.temporal.getState().pastStates))
-      s.temporal.getState().undo();
-      // undoSetPastAndFutureStates(s);
+    if (s.temporal && version === s.getState().version) {
+      s.temporal.getState().undo(2);
+      undoSetPastAndFutureStates(s);
     }
   }
-
-  for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
-    if (s.temporal) {
-      console.log("curr state after undo", _.cloneDeep(s.getState()))
-      // const numUndo = 2;
-      // s.temporal.getState().undo();
-      // undoSetPastAndFutureStates(s);
-    }
-  }
-  // autoSave();
+  autoSave();
 }
 
 function undoSetPastAndFutureStates(s) {
@@ -68,12 +57,10 @@ function redoSetPastAndFutureStates(s) {
 
 function incrementStateVersion(states) {
   const version = useStateVersion.getState().version;
-  console.log("incrementStateVersion");
   for (const s of states) {
     if (s.temporal) {
-      // s.setState({ version: version + 1 });
+      s.setState({ version: version + 1 });
       resumeThenPauseTemporal(s, () => s.setState({})); //trigger a zundo update without actually changing state
-      // console.log("incrementStateVersion: s.temporal.pastStates", _.cloneDeep(s.temporal.getState().pastStates))
     }
   }
 }

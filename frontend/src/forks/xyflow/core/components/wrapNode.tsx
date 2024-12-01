@@ -29,7 +29,6 @@ const _NodeWrapper = ({
   initialized,
   zIndex,
 }: WrapNodeProps) => {
-  console.log("_NodeWrapper", id, initialized)
   const nodeRef = useRef<HTMLDivElement>(null);
   const positionAndSizeLocked = useSectionInfos(
     (x) => x.x[id].positionAndSizeLocked,
