@@ -53,6 +53,7 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
   if (nodes.length === 0) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
+  const sectionState = useSectionInfos.getState();
 
   const box = nodes.reduce(
     (currBox, node) => {
@@ -62,8 +63,8 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
         rectToBox({
           x,
           y,
-          width: node.width || 0,
-          height: node.height || 0,
+          width: sectionState.x[node.id].width || 0,
+          height: sectionState.x[node.id].height || 0,
         }),
       );
     },

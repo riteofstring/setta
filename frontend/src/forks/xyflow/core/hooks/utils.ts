@@ -47,7 +47,5 @@ export function getDragItems(
         x: 0,
         y: 0,
       },
-      width: n.width,
-      height: n.height,
     }));
 }
