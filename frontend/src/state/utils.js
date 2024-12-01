@@ -43,12 +43,6 @@ export function withResetFn(config) {
         reset: resetFn,
       };
       set(initialStateWithReset, true);
-
-      // Handle temporal if it exists
-      const state = api.getState();
-      if (state.temporal) {
-        state.temporal.getState().clear();
-      }
     };
 
     // Return the initial state with reset included
@@ -70,6 +64,9 @@ export function withVersion(initialState) {
 function resetStores(stateType) {
   for (const state of stateDict[stateType]) {
     state.getState().reset();
+    if (state.temporal) {
+      state.temporal.getState().clear();
+    }
   }
 }
 

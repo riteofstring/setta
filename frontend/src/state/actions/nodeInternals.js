@@ -2,7 +2,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
 import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
-import { useNodeInternals } from "state/definitions";
+import { useNodeInternals, useSectionRefs } from "state/definitions";
 
 export function getNodes(s = null) {
   return Array.from(s ? s.x.values() : useNodeInternals.getState().x.values());
@@ -98,4 +98,26 @@ export function justMoveANode(id, position) {
 
 export function getNewNodes() {
   return _.cloneDeep(useNodeInternals.getState().x);
+}
+
+export function getNodeUpdateInformation(entries, fromResizeObserver) {
+  if (fromResizeObserver) {
+    return entries.map((entry) => ({
+      id: entry.target.getAttribute("data-id"),
+      nodeElement: entry.target,
+      forceUpdate: true,
+    }));
+  }
+  const output = [];
+  const refState = useSectionRefs.getState().withNested;
+  entries.forEach((nodeId) => {
+    if (refState[nodeId]) {
+      output.push({
+        id: nodeId,
+        nodeElement: refState[nodeId],
+        forceUpdate: true,
+      });
+    }
+  });
+  return output;
 }
