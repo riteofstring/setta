@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useSectionInfos } from "state/definitions";
+import { getSectionAttr } from "utils/constants";
 
 export function SocialAreaSettings({ sectionId }) {
-  const url = useSectionInfos((x) => x.x[sectionId].social);
+  const url = useSectionInfos((x) => getSectionAttr(x.x[sectionId], "social"));
 
   console.log("url", url);
   const [value, setValue] = useState(url ?? "");

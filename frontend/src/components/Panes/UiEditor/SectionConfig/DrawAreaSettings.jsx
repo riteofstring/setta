@@ -1,6 +1,7 @@
 import { AvailableColors } from "components/Params/ParamUIs/ColorPickerInput";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
+import { getSectionAttr } from "utils/constants";
 
 export function DrawAreaSettings({ sectionId }) {
   return <DrawAreaAvailableColors sectionId={sectionId} />;
@@ -8,7 +9,7 @@ export function DrawAreaSettings({ sectionId }) {
 
 function DrawAreaAvailableColors({ sectionId }) {
   const colors = useSectionInfos(
-    (x) => x.x[sectionId].canvasSettings?.colorChoices ?? [],
+    (x) => getSectionAttr(x.x[sectionId], "canvasSettings").colorChoices,
     _.isEqual,
   );
 

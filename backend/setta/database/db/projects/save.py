@@ -8,6 +8,7 @@ from setta.utils.constants import (
     PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS,
     SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
     USER_SETTINGS,
+    get_section_attr,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import filter_dict
@@ -190,7 +191,7 @@ def insert_section_configs(db, sections, id_pairs):
                 "sectionId": sections[c]["id"],
                 "variantId": k,
             }
-            for k in sections[c]["selectedVariantIds"].keys()
+            for k in get_section_attr(sections[c], "selectedVariantIds").keys()
         )
 
     db.executemany(query, query_params)

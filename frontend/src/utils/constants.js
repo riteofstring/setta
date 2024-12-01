@@ -1,5 +1,6 @@
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import C from "constants/constants.json";
+import DEFAULT_VALUES from "constants/defaultValues.json";
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
 export const OVERVIEW = "overview";
@@ -129,3 +130,7 @@ export const SECTION_DISPLAY_MODES = {
   YAML: "YAML",
   GUI: "GUI",
 };
+
+export function getSectionAttr(section, key) {
+  return key in section ? section[key] : DEFAULT_VALUES.section[key];
+}

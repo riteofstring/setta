@@ -6,7 +6,7 @@ from collections import defaultdict
 
 from setta.database.db.sectionVariants.utils import new_section_variant
 from setta.database.utils import create_new_id
-from setta.utils.constants import C
+from setta.utils.constants import C, get_section_attr
 from setta.utils.utils import filter_dict
 
 from ..sectionVariants.load import load_section_variants
@@ -205,10 +205,10 @@ def load_json_sources_into_data_structures(
     sections = {
         k: v
         for k, v in sections.items()
-        if v["jsonSource"] and ((not section_ids) or k in section_ids)
+        if get_section_attr(v, "jsonSource") and ((not section_ids) or k in section_ids)
     }
     for s in sections.values():
-        new_data = load_json_source(s["jsonSource"])
+        new_data = load_json_source(get_section_attr(s, "jsonSource"))
         for filename, data in new_data.items():
             codeInfo.update(data["codeInfo"])
             variantId = None

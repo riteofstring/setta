@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useSectionInfos } from "state/definitions";
+import { getSectionAttr } from "utils/constants";
 import { ParamSwitch } from "./ParamSwitch";
 
 export function GetParamSwitch({
@@ -11,7 +12,7 @@ export function GetParamSwitch({
 }) {
   // TODO: make this more efficient
   const filteredIds = useSectionInfos((x) => {
-    if (!x.x[sectionId].paramFilter) {
+    if (!getSectionAttr(x.x[sectionId], "paramFilter")) {
       return paramIds;
     }
 

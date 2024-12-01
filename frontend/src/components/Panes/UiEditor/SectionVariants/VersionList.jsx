@@ -7,6 +7,7 @@ import {
 import { toggleVariantFrozenState } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
+import { getSectionAttr } from "utils/constants";
 
 export function VersionList({ sectionId }) {
   return (
@@ -29,7 +30,9 @@ export function VersionList({ sectionId }) {
 }
 
 function EVItems({ sectionId }) {
-  const currVariantId = useSectionInfos((x) => x.x[sectionId].variantId);
+  const currVariantId = useSectionInfos((x) =>
+    getSectionAttr(x.x[sectionId], "variantId"),
+  );
   const sectionVariantNames = useGetSectionVariantNames(sectionId);
 
   return sectionVariantNames.map((e) => (
@@ -46,7 +49,9 @@ function EVItems({ sectionId }) {
 }
 
 function OneItem({ id, name, isCurr, onMouseOver, onClick, onFreezeClick }) {
-  const isFrozen = useSectionInfos((x) => x.variants[id].isFrozen);
+  const isFrozen = useSectionInfos((x) =>
+    getSectionAttr(x.variants[id], "isFrozen"),
+  );
 
   return (
     <li
