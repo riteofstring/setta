@@ -2,7 +2,11 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
 import { initializeParams } from "state/actions/initializeParam";
-import { getSectionInfo, getSectionType } from "state/actions/sectionInfos";
+import {
+  getSectionInfo,
+  getSectionType,
+  getSectionVariant,
+} from "state/actions/sectionInfos";
 import {
   useOriginalYamlObj,
   useSectionInfos,
@@ -109,7 +113,7 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
   }
 
   useSectionInfos.setState((x) => {
-    x.variants[x.x[sectionId].variantId].sweep = newParamSweep;
+    getSectionVariant(sectionId, x).sweep = newParamSweep;
   });
 }
 

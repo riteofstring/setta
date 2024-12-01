@@ -1,5 +1,6 @@
 import _ from "lodash";
 import {
+  getSectionVariant,
   getSectionVariantIdToShow,
   getSectionVariantToShow,
 } from "state/actions/sectionInfos";
@@ -59,7 +60,7 @@ export function useSectionKeywordPositions(sectionId) {
 }
 
 export function useSectionVariantIsFrozen(sectionId) {
-  return useSectionInfos((x) => x.variants[x.x[sectionId].variantId].isFrozen);
+  return useSectionInfos((x) => getSectionVariant(sectionId, x).isFrozen);
 }
 
 export function useInfoAreaDescription(sectionId) {

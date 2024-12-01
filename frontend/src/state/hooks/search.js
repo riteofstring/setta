@@ -5,6 +5,7 @@ import {
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";
+import { getSectionVariant } from "state/actions/sectionInfos";
 import { getParamIds } from "state/actions/sections/sectionContents";
 import {
   useProjectSearch,
@@ -63,7 +64,7 @@ function getAllVisibleParams() {
       x.codeInfo,
       output,
     );
-    const sectionChildren = x.variants[x.x[sectionId].variantId].children;
+    const sectionChildren = getSectionVariant(sectionId, x).children;
     for (const id of sectionChildren) {
       getParamsAndAddToSearchResults(visitedSections, id, x.codeInfo, output);
     }
