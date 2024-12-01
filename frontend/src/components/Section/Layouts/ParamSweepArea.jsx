@@ -17,7 +17,7 @@ import {
 } from "state/actions/runGroups/paramSweep";
 import {
   getSectionType,
-  getSectionVariantToShow,
+  getDisplayedSectionVariant,
 } from "state/actions/sectionInfos";
 import {
   getParamIds,
@@ -409,7 +409,7 @@ function useShowParamSweepSectionSearch(sectionId) {
 
 function useNumChildlessParams(selectedItem, sectionId) {
   return useSectionInfos((x) => {
-    const { codeInfoColId } = getSectionVariantToShow(sectionId, x);
+    const { codeInfoColId } = getDisplayedSectionVariant(sectionId, x);
     const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
     return getParamIds(sectionId, x.codeInfo, codeInfoChildren, selectedItem)[
       "ids"
@@ -424,7 +424,7 @@ function useChildlessObjParams({
   forSectionId,
 }) {
   return useSectionInfos((x) => {
-    const { codeInfoColId } = getSectionVariantToShow(forSectionId, x);
+    const { codeInfoColId } = getDisplayedSectionVariant(forSectionId, x);
     const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
     const { ids, pathMap } = getParamIds(
       forSectionId,

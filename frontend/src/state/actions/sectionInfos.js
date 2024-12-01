@@ -130,19 +130,18 @@ export function getSectionChildren(sectionId) {
 
 export function getSectionCodeInfoColId(sectionId) {
   return useSectionInfos.getState().variants[
-    getSectionVariantIdToShow(sectionId)
+    getDisplayedSectionVariantId(sectionId)
   ].codeInfoColId;
 }
 
-export function getSectionVariantToShow(sectionId, state = {}) {
-  const id = getSectionVariantIdToShow(sectionId, state);
-  return state.variants?.[id] ?? useSectionInfos.getState().variants[id];
+export function getDisplayedSectionVariant(sectionId, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  return state.variants[getDisplayedSectionVariantId(sectionId, state)];
 }
 
-export function getSectionVariantIdToShow(sectionId, state = {}) {
-  const { variantId, previewVariantId } =
-    state.x?.[sectionId] ?? useSectionInfos.getState().x[sectionId];
-  return previewVariantId ?? variantId;
+export function getDisplayedSectionVariantId(sectionId, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  return state.x[sectionId].previewVariantId ?? state.x[sectionId].variantId;
 }
 
 export function setSectionVariantChildren(sectionId, newStateFn, state) {
@@ -157,14 +156,14 @@ export function getSectionIdToChildrenToShow(sectionInfoState) {
   const s = sectionInfoState ?? useSectionInfos.getState();
   for (const sectionId of Object.keys(s.x)) {
     output[sectionId] =
-      s.variants[getSectionVariantIdToShow(sectionId, s)].children;
+      s.variants[getDisplayedSectionVariantId(sectionId, s)].children;
   }
   return output;
 }
 
 export function getSectionSelectedItem(sectionId, _state) {
   const state = _state ?? useSectionInfos.getState();
-  return state.variants[getSectionVariantIdToShow(sectionId, state)]
+  return state.variants[getDisplayedSectionVariantId(sectionId, state)]
     .selectedItem;
 }
 

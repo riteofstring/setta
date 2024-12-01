@@ -18,11 +18,7 @@ import {
 } from "requests/sections";
 import { setSectionVariantAttr } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
-import {
-  useSectionCode,
-  useSectionKeywordPositions,
-  useSectionVariantIsFrozen,
-} from "state/hooks/sectionVariants";
+import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 
@@ -42,7 +38,9 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const keywordPositions = useSectionKeywordPositions(sectionId);
+  const keywordPositions = useSectionInfos(
+    (x) => getDisplayedSectionVariant(sectionId, x).keywordPositions,
+  );
   const [localKeywordPositions, setLocalKeywordPositions] =
     useState(keywordPositions);
   const keywordStylizer = useMemo(
@@ -83,7 +81,9 @@ function JavascriptCodeArea({ sectionId, language }) {
 }
 
 function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
-  const value = useSectionCode(sectionId);
+  const value = useSectionInfos(
+    (x) => getDisplayedSectionVariant(sectionId, x).code,
+  );
 
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });

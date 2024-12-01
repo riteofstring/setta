@@ -1,6 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
-import { getSectionVariantToShow } from "state/actions/sectionInfos";
+import { getDisplayedSectionVariant } from "state/actions/sectionInfos";
 import { useParamShortcuts, useSectionInfos } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 
@@ -10,7 +10,7 @@ export function ParamNameInput({ sectionId, paramInfoId }) {
     configLanguage,
     name: value,
   } = useSectionInfos((x) => {
-    const { codeInfoColId } = getSectionVariantToShow(sectionId, x);
+    const { codeInfoColId } = getDisplayedSectionVariant(sectionId, x);
     const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
     return {
       hasChildren: (codeInfoChildren[paramInfoId] ?? []).length > 0,

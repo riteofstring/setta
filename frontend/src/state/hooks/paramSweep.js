@@ -1,11 +1,11 @@
-import { getSectionVariantIdToShow } from "state/actions/sectionInfos";
+import { getDisplayedSectionVariantId } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionVariantNames } from "./sectionVariants";
 
 export function useParamSweepInfo(sectionId) {
   return useSectionInfos((x) => {
     const forSectionId = getForSectionId(x.x, sectionId);
-    const variantId = getSectionVariantIdToShow(sectionId, x);
+    const variantId = getDisplayedSectionVariantId(sectionId, x);
     const paramSweep = x.variants[variantId].sweep;
     return {
       forSectionId,
@@ -25,10 +25,4 @@ export function useGetParamSweepNames(sectionId) {
 export function getForSectionId(state, sectionId) {
   return Object.values(state).find((s) => s.paramSweepSectionId === sectionId)
     ?.id;
-}
-
-export function getParamSweep(sectionId) {
-  return useSectionInfos.getState().variants[
-    getSectionVariantIdToShow(sectionId)
-  ].sweep;
 }

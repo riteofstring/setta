@@ -1,8 +1,7 @@
 import _ from "lodash";
 import {
+  getDisplayedSectionVariant,
   getSectionVariant,
-  getSectionVariantIdToShow,
-  getSectionVariantToShow,
 } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
@@ -11,8 +10,7 @@ export function useGetParamEnteredValueAndKeywordPositions(
   paramInfoId,
 ) {
   return useSectionInfos((x) => {
-    const variantIdToShow = getSectionVariantIdToShow(sectionId, x);
-    const vals = x.variants[variantIdToShow].values;
+    const vals = getDisplayedSectionVariant(sectionId, x).values;
     if (paramInfoId in vals) {
       return {
         value: vals[paramInfoId].value,
@@ -39,24 +37,8 @@ export function useGetSectionVariantNames(sectionId) {
 export function useListElementIdx(sectionId) {
   return useSectionInfos((x) => {
     const parentId = x.x[sectionId].parentId;
-    const variantIdToShow = getSectionVariantIdToShow(parentId, x);
-    return x.variants[variantIdToShow].children.indexOf(sectionId);
+    return getDisplayedSectionVariant(parentId).children.indexOf(sectionId);
   });
-}
-
-function useSectionVariantAttr(sectionId, attr, equalityFn) {
-  return useSectionInfos((x) => {
-    const variantIdToShow = getSectionVariantIdToShow(sectionId, x);
-    return x.variants[variantIdToShow][attr];
-  }, equalityFn);
-}
-
-export function useSectionCode(sectionId) {
-  return useSectionVariantAttr(sectionId, "code");
-}
-
-export function useSectionKeywordPositions(sectionId) {
-  return useSectionVariantAttr(sectionId, "keywordPositions", _.isEqual);
 }
 
 export function useSectionVariantIsFrozen(sectionId) {
@@ -67,7 +49,7 @@ export function useInfoAreaDescription(sectionId) {
   return useSectionInfos((x) => {
     return {
       renderMarkdown: x.x[sectionId].renderMarkdown,
-      description: getSectionVariantToShow(sectionId, x).description,
+      description: getDisplayedSectionVariant(sectionId, x).description,
     };
   }, _.isEqual);
 }
