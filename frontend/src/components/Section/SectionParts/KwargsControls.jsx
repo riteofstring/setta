@@ -1,7 +1,7 @@
 import _ from "lodash";
+import { deleteCodeInfo } from "state/actions/codeInfo";
 import {
   addKwarg,
-  deleteKwargIds,
   deleteLastKwarg,
   deleteSelectedKwargs,
   getAllSelectedParams,
@@ -159,7 +159,7 @@ function onClickDeleteKwargFn(sectionId, objInfoId) {
             kwargIds.push(codeInfoChildren[parentId][idx + 1]);
           }
         }
-        deleteKwargIds(sectionId, kwargIds, state);
+        deleteCodeInfo(sectionId, kwargIds, state);
       } else {
         deleteLastKwarg({
           sectionId,

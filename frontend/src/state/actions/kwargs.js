@@ -7,10 +7,7 @@ import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
 import { getSectionCodeInfoChildren } from "./codeInfoCols";
 import { initializeParams } from "./initializeParam";
-import { deleteParamsFromParamSweep } from "./runGroups/paramSweep";
-import { deleteParamInfoFromSectionVariant } from "./sectionInfos";
 import { getParamIds } from "./sections/sectionContents";
-import { deleteParamInfoFromUITypeCol } from "./uiTypes/uiTypeCols";
 
 export function addKwarg({
   sectionId,
@@ -51,23 +48,16 @@ export function deleteLastKwarg({ sectionId, parentId = null, state }) {
     return;
   }
   const kwargId = kwargIds[numKwargs - 1];
-  deleteKwargIds(sectionId, [kwargId], state);
+  deleteCodeInfo(sectionId, [kwargId], state);
 }
 
 export function deleteSelectedKwargs({ sectionId }) {
   const selectedParams = getAllSelectedParams(sectionId);
-  deleteKwargIds({
+  deleteCodeInfo(
     sectionId,
-    ids: selectedParams.map((x) => x.id),
-  });
-}
-
-export function deleteKwargIds(sectionId, ids, state) {
-  const { uiTypeColId, variantId } = state.x[sectionId];
-  deleteCodeInfo(ids, state);
-  deleteParamInfoFromSectionVariant(variantId, ids, state);
-  deleteParamInfoFromUITypeCol(uiTypeColId, ids, state);
-  deleteParamsFromParamSweep(variantId, ids, state);
+    selectedParams.map((x) => x.id),
+    state,
+  );
 }
 
 export function saveKwargsAsCollection({ sectionId, name }) {

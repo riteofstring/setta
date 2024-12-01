@@ -32,18 +32,12 @@ export function getHighestAncestor(
   return highestAncestor;
 }
 
-export function getAllSectionChildrenIds(
-  sectionIds,
-  sectionInfoState,
-  sectionVariantState,
-) {
+export function getAllSectionChildrenIds(sectionIds, state) {
   const ids = [...sectionIds];
   let idx = 0;
   while (idx < ids.length) {
     const currId = ids[idx];
-    ids.push(
-      ...sectionVariantState[sectionInfoState[currId].variantId].children,
-    );
+    ids.push(...state.variants[state.x[currId].variantId].children);
     idx += 1;
   }
   return ids;
@@ -102,12 +96,7 @@ export function initEnteredValue(uiType) {
     keywordPositions: [],
   };
 }
-export function deleteParamInfoFromSectionVariant(variantId, ids, state) {
-  state.variants[variantId].values = _.omit(
-    state.variants[variantId].values,
-    ids,
-  );
-}
+
 export function getParamEV(sectionId, paramInfoId, _state) {
   const state = _state ?? useSectionInfos.getState();
   const { variantId } = state.x[sectionId];

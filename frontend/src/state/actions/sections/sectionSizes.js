@@ -36,11 +36,7 @@ function setAllOtherWidths(sectionId, width, state) {
 }
 
 export function setAllChildrenWidths({ sectionId, exclude, width, state }) {
-  const sectionIds = getAllSectionChildrenIds(
-    [sectionId],
-    state.x,
-    state.variants,
-  );
+  const sectionIds = getAllSectionChildrenIds([sectionId], state);
   for (const s of sectionIds) {
     if (s === exclude) {
       continue;
