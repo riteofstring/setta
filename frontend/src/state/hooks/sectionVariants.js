@@ -1,6 +1,8 @@
 import _ from "lodash";
-import { getSectionVariantIdToShow } from "state/actions/sectionInfos";
-import { getSectionVariantToShow } from "state/actions/sectionInfos";
+import {
+  getSectionVariantIdToShow,
+  getSectionVariantToShow,
+} from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 export function useGetParamEnteredValueAndKeywordPositions(

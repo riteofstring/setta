@@ -3,7 +3,6 @@ import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
 import { initializeParams } from "state/actions/initializeParam";
 import { getSectionInfo, getSectionType } from "state/actions/sectionInfos";
-import { getSectionSelectedItem } from "./sectionInfos";
 import {
   useOriginalYamlObj,
   useSectionInfos,
@@ -15,6 +14,7 @@ import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { parseAllDocuments } from "yaml";
 import { getSectionCodeInfoChildren } from "./codeInfoCols";
+import { getSectionSelectedItem } from "./sectionInfos";
 import {
   getParamIds,
   paramNameFromPathArray,
@@ -108,9 +108,8 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
     newParamSweep.push({ selectedItem: matchingCallableId, params });
   }
 
-  const { variantId } = getSectionInfo(sectionId);
   useSectionInfos.setState((x) => {
-    x.x[variantId].sweep = newParamSweep;
+    x.variants[x.x[sectionId].variantId].sweep = newParamSweep;
   });
 }
 

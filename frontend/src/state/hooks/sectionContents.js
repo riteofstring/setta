@@ -1,11 +1,11 @@
 import C from "constants/constants.json";
 import _ from "lodash";
+import { getSectionVariantToShow } from "state/actions/sectionInfos";
 import {
   getParamIds,
   getParamIdsToShowInArea,
   paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
-import { getSectionVariantToShow } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 export function useParamInfosForSidePane(sectionId) {

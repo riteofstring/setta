@@ -19,13 +19,13 @@ import {
 import { useSettings } from "state/definitions";
 import { tabFromDocumentBody } from "utils/tabbingLogic";
 import { isMacOs } from "utils/utils";
+import { setAllSectionsAsActive } from "./activeSections";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
 import { formatCode, updateInteractiveCode } from "./interactive";
 import { unselectAllParams } from "./kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
-import { setAllSectionsAsActive } from "./activeSections";
 import {
   addGroupInEmptySpace,
   addRegularSectionInEmptySpace,

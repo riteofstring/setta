@@ -6,9 +6,9 @@ import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { BiPaint } from "react-icons/bi";
+import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { updateArtifacts } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
-import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import {
   base64RequestId,
   setTemporaryMiscState,

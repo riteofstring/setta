@@ -2,12 +2,14 @@ import C from "constants/constants.json";
 import { dbDeleteTerminals } from "requests/terminals";
 import { deleteNodes } from "state/actions/nodeInternals";
 import { useActiveSection, useSectionInfos } from "state/definitions";
-import { getSectionParentId } from "../sectionInfos";
-import { getAllSectionsForDeletionOrCopying } from "../sectionInfos";
-import { setSectionVariantChildren } from "../sectionInfos";
-import { getSectionChildren } from "../sectionInfos";
-import { maybeIncrementProjectStateVersion } from "../undo";
 import { removeActiveSectionIds } from "../activeSections";
+import {
+  getAllSectionsForDeletionOrCopying,
+  getSectionChildren,
+  getSectionParentId,
+  setSectionVariantChildren,
+} from "../sectionInfos";
+import { maybeIncrementProjectStateVersion } from "../undo";
 
 export function deleteSections(sectionIds, state) {
   const idsToDelete = [

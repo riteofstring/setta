@@ -8,8 +8,8 @@ import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
 import { getSectionCodeInfoChildren } from "./codeInfoCols";
 import { initializeParams } from "./initializeParam";
 import { deleteParamsFromParamSweep } from "./runGroups/paramSweep";
-import { getParamIds } from "./sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "./sectionInfos";
+import { getParamIds } from "./sections/sectionContents";
 import { deleteParamInfoFromUITypeCol } from "./uiTypes/uiTypeCols";
 
 export function addKwarg({

@@ -5,8 +5,10 @@ import { useActiveSection, useSectionInfos } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { findAll } from "utils/getDescendants";
 import { setNotificationMessage } from "../notification";
-import { getSectionType } from "../sectionInfos";
-import { getAllSectionsForDeletionOrCopying } from "../sectionInfos";
+import {
+  getAllSectionsForDeletionOrCopying,
+  getSectionType,
+} from "../sectionInfos";
 
 export async function copy() {
   const activeSectionIds = useActiveSection.getState().ids;

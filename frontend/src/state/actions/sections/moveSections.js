@@ -5,8 +5,7 @@ import { useSectionInfos } from "state/definitions";
 import { PANEID } from "utils/constants";
 import { insertIntoArray } from "utils/utils";
 import { copySections } from "../copyPaste/copy";
-import { getSectionInfo } from "../sectionInfos";
-import { setSectionVariantChildren } from "../sectionInfos";
+import { getSectionInfo, setSectionVariantChildren } from "../sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
 
 export function moveSections({

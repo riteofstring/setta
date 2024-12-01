@@ -6,12 +6,12 @@ import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
 import { Link } from "react-router-dom";
 import { dbRequestTypeCheck } from "requests/sections";
+import { resetAllSectionsToDefaultVersions } from "state/actions/sectionInfos";
 import {
   addGroupInEmptySpace,
   addRegularSectionInEmptySpace,
 } from "state/actions/sections/createSections";
 import { autoLayout } from "state/actions/sections/sectionPositions";
-import { resetAllSectionsToDefaultVersions } from "state/actions/sectionInfos";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";

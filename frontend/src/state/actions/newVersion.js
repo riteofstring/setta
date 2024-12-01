@@ -2,8 +2,8 @@ import { dbSaveSectionJSONSource } from "requests/jsonSource";
 import { dbNewVersionFilename } from "requests/sectionVariants";
 import { duplicateCodeInfoCol } from "state/actions/codeInfoCols";
 import { setNotificationMessage } from "state/actions/notification";
-import { duplicateSectionVariant } from "./sectionInfos";
 import { createRandomName } from "utils/idNameCreation";
+import { duplicateSectionVariant } from "./sectionInfos";
 
 export function createNewVersion(sectionId, newVersionName, state) {
   const { variantId: currVariantId } = state.x[sectionId];

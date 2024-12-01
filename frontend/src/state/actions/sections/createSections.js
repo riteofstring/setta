@@ -13,7 +13,6 @@ import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
 import { insertIntoArray } from "utils/utils";
 import { initRunGroup } from "../runGroups/runGroups";
-import { getSectionInfo } from "../sectionInfos";
 import { setSectionVariantChildren } from "../sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
@@ -135,7 +134,7 @@ export function addChildrenToSeries({
     newIds = createSectionInfo({
       sectionProps: {
         parentId,
-        size: { height: "auto", width: getSectionInfo(parentId).size.width },
+        size: { height: "auto", width: state.x[parentId].size.width },
       },
       numSections: numChildren,
       state,
