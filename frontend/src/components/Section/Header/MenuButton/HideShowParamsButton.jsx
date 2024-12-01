@@ -6,7 +6,7 @@ import { useSectionInfos } from "state/definitions";
 export function HideShowParamsButton({ sectionId }) {
   const { hasParams, hideSearch, hideParams } = useSectionInfos((x) => {
     return {
-      hasParams: getParamIds(sectionId, x)["ids"].length > 0,
+      hasParams: getParamIds(sectionId, x.codeInfo)["ids"].length > 0,
       hideSearch: x.x[sectionId].hideSearch,
       hideParams: x.x[sectionId].hideParams,
     };

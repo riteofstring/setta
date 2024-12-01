@@ -122,7 +122,7 @@ function setFullParamRegex(
     ? codeInfoChildren[paramInfoId].map((x) => state.codeInfo[x])
     : getParamIds(
         sectionId,
-        state,
+        state.codeInfo,
         codeInfoChildren,
         state.details[sectionId].selectedItem,
       ).ids.map((x) => state.codeInfo[x]);

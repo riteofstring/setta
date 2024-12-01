@@ -18,7 +18,7 @@ export function useParamInfosForSidePane(sectionId) {
 
     const { ids, pathMap } = getParamIds(
       sectionId,
-      x,
+      x.codeInfo,
       codeInfoChildren,
       selectedItem,
       (p) => p.rcType === C.PARAMETER,
@@ -44,7 +44,7 @@ export function useParamIdsToShowInArea(sectionId, isPinned) {
     return getParamIdsToShowInArea(
       sectionId,
       isPinned,
-      x,
+      x.codeInfo,
       codeInfoChildren,
       selectedItem,
     );

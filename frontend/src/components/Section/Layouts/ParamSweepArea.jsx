@@ -407,7 +407,7 @@ function useShowParamSweepSectionSearch(sectionId) {
 function useNumChildlessParams(selectedItem, sectionId) {
   return useSectionInfos((x) => {
     const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
-    return getParamIds(sectionId, x, codeInfoChildren, selectedItem)[
+    return getParamIds(sectionId, x.codeInfo, codeInfoChildren, selectedItem)[
       "ids"
     ].filter((p) => codeInfoChildren[p].length === 0).length;
   });
@@ -425,7 +425,7 @@ function useChildlessObjParams({
     const codeInfoChildren = getCodeInfoCol(forSectionId, x).children;
     const { ids, pathMap } = getParamIds(
       forSectionId,
-      x,
+      x.codeInfo,
       codeInfoChildren,
       objInfoId,
       (p) => p.rcType === C.PARAMETER,

@@ -6,21 +6,21 @@ import {
 } from "utils/getDescendants";
 import { bothTruthyOrFalsey } from "utils/utils";
 import { getSectionCodeInfoChildren } from "../codeInfoCols";
-import { getSectionVariant } from "../sectionInfos";
+import { getSectionSelectedItem } from "../sectionInfos";
 
 export function getParamIds(
   sectionId,
-  _state,
-  _codeInfoChildren,
+  _cState = null,
+  _codeInfoChildren = null,
   _selectedItem = undefined,
   paramPathCondition = false,
 ) {
-  const state = _state ?? useSectionInfos.getState();
+  const cState = _cState ?? useSectionInfos.getState().codeInfo;
   const codeInfoChildren =
     _codeInfoChildren ?? getSectionCodeInfoChildren(sectionId);
   const selectedItem =
     _selectedItem === undefined
-      ? getSectionVariant(sectionId, state).selectedItem
+      ? getSectionSelectedItem(sectionId)
       : _selectedItem;
 
   const fn = selectedItem
@@ -31,34 +31,29 @@ export function getParamIds(
     ? [selectedItem]
     : codeInfoChildren[selectedItem];
 
-  return fn(
-    state.codeInfo,
-    codeInfoChildren,
-    codeInfoIds ?? [],
-    paramPathCondition,
-  );
+  return fn(cState, codeInfoChildren, codeInfoIds ?? [], paramPathCondition);
 }
 
-export function getParamInfos(sectionId, _state) {
-  const state = _state ?? useSectionInfos.getState();
-  const { ids } = getParamIds(sectionId, state);
-  return ids.map((x) => state.codeInfo[x]);
+export function getParamInfos(sectionId, _cState = null) {
+  const cState = _cState ?? useSectionInfos.getState().codeInfo;
+  const { ids } = getParamIds(sectionId, cState);
+  return ids.map((x) => cState[x]);
 }
 
 export function getParamIdsToShowInArea(
   sectionId,
   isPinned,
-  _state,
-  _codeInfoChildren,
+  _cState = null,
+  _codeInfoChildren = null,
   _selectedItem = undefined,
 ) {
-  const state = _state ?? useSectionInfos.getState();
+  const cState = _cState ?? useSectionInfos.getState().codeInfo;
   const codeInfoChildren =
     _codeInfoChildren ?? getSectionCodeInfoChildren(sectionId);
 
   const { ids, pathMap } = getParamIds(
     sectionId,
-    state,
+    cState,
     codeInfoChildren,
     _selectedItem,
     (p) => p.rcType === C.PARAMETER,
@@ -74,7 +69,7 @@ export function getParamIdsToShowInArea(
     // 2. And: either the param has no children or at least one of its children is required
     // This logic is why it's REQUIRED for ids to be reversed (processed starting with children up to ancestors)
     if (
-      bothTruthyOrFalsey(state.codeInfo[a].isPinned, isPinned) &&
+      bothTruthyOrFalsey(cState[a].isPinned, isPinned) &&
       (codeInfoChildren[a].length === 0 ||
         codeInfoChildren[a].some((child) => child in requiredParamIdsToPaths))
     ) {

@@ -173,6 +173,12 @@ export function getSectionIdToChildrenToShow(sectionInfoState) {
   return output;
 }
 
+export function getSectionSelectedItem(sectionId, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  return state.variants[getDisplayedSectionVariantId(sectionId, state)]
+    .selectedItem;
+}
+
 function getSectionChildrenFromAllVariants(sectionId, state) {
   const output = [];
   for (const v of state.x[sectionId].variantIds) {
