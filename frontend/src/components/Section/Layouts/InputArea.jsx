@@ -3,10 +3,10 @@ import _ from "lodash";
 import React from "react";
 import { getDisplayedSectionVariant } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
+import { useShowYaml } from "../../../state/hooks/toYaml";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 import { SectionSearch } from "../SectionParts/Search";
-import { useShowYaml } from "../../../state/hooks/toYaml";
 
 function _InputArea({ sectionId, bgColor }) {
   const { selectedItem, hideSearch, hideParams } = useSectionInfos((x) => {

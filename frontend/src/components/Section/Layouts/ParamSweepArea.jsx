@@ -22,8 +22,8 @@ import {
 } from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
-import { ParamSweepSectionSearch } from "../SectionParts/Search";
 import { useShowYaml } from "../../../state/hooks/toYaml";
+import { ParamSweepSectionSearch } from "../SectionParts/Search";
 
 function _ParamSweepArea({ sectionId }) {
   const showYaml = useShowYaml(sectionId);
