@@ -160,7 +160,7 @@ export function getDisplayedSectionIdToChildren(state) {
   return output;
 }
 
-function getSectionChildrenFromAllVariants(sectionId, state) {
+function getSectionDescendantsFromAllVariants(sectionId, state) {
   const output = [];
   for (const v of state.x[sectionId].variantIds) {
     output.push(...state.variants[v].children);
@@ -172,7 +172,7 @@ export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
   const idsToDelete = [...sectionIds];
   let idx = 0;
   while (idx < idsToDelete.length) {
-    const idxChildren = getSectionChildrenFromAllVariants(
+    const idxChildren = getSectionDescendantsFromAllVariants(
       idsToDelete[idx],
       state,
     );
@@ -186,13 +186,6 @@ export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
     idx += 1;
   }
   return idsToDelete;
-}
-
-export function setSectionVariantAttr(sectionId, attr, value) {
-  const { variantId } = getSectionInfo(sectionId);
-  useSectionInfos.setState((x) => {
-    x.variants[variantId][attr] = value;
-  });
 }
 
 export function toggleVariantFrozenState(variantId) {

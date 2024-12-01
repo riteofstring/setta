@@ -18,7 +18,7 @@ import {
 } from "requests/sections";
 import {
   getDisplayedSectionVariant,
-  setSectionVariantAttr,
+  getSectionVariant,
 } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
@@ -95,7 +95,9 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
 
   function onChange(v) {
-    setSectionVariantAttr(sectionId, "code", v);
+    useSectionInfos.setState((x) => {
+      getSectionVariant(sectionId, x).code = v;
+    });
     debouncedSetKeywordPositions(sectionId, v);
   }
 
@@ -200,5 +202,7 @@ const debouncedSetKeywordPositions = asyncDebounce(async (sectionId, value) => {
     fullText: value,
     regexPatternKey: "codeAreaPattern",
   });
-  setSectionVariantAttr(sectionId, "keywordPositions", keywordPositions);
+  useSectionInfos.setState((x) => {
+    getSectionVariant(sectionId, x).keywordPositions = keywordPositions;
+  });
 }, 500);
