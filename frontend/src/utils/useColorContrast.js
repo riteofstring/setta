@@ -20,19 +20,6 @@ const hexToRGB = (hex) => {
   };
 };
 
-// Helper to convert RGB to hex
-const rgbToHex = (r, g, b) => {
-  return (
-    "#" +
-    [r, g, b]
-      .map((x) => {
-        const hex = x.toString(16);
-        return hex.length === 1 ? "0" + hex : hex;
-      })
-      .join("")
-  );
-};
-
 // Calculate relative luminance
 const getLuminance = (r, g, b) => {
   const [rs, gs, bs] = [r, g, b].map((c) => {
