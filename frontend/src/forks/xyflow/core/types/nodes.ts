@@ -32,6 +32,7 @@ export type SelectionDragHandler = (
 export type WrapNodeProps<T = any> = Pick<Node<T>, "id" | "style"> & {
   xPos: number;
   yPos: number;
+  initialized: boolean;
   isSelectable: boolean;
   isDraggable: boolean;
   isFocusable: boolean;

@@ -89,6 +89,7 @@ const NodeRenderer = ({}) => {
             isSelectable={isSelectable}
             isFocusable={isFocusable}
             resizeObserver={resizeObserver}
+            initialized={!!node.width && !!node.height}
             zIndex={node.tempZIndex}
           />
         );
