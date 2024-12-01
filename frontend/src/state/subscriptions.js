@@ -46,9 +46,15 @@ export function subscribe() {
   useReactFlow.subscribe(
     reactFitViewOnInitSubscriptionFn,
     (newState, prevState) => {
-      if (prevState.fitViewOnInit && newState.fitViewOnInit) {
+      if (
+        prevState.fitViewOnInit &&
+        prevState.fitViewOnInitDone &&
+        newState.fitViewOnInit &&
+        newState.fitViewOnInitDone
+      ) {
         // set fitViewOnInit to false if it was and is true
-        // because that means zoom or x/y position changed
+        // and fitViewOnInitDone was and is done (need to wait for it to execute the fitView function on project load)
+        // because that means zoom or x/y position must have changed
         useReactFlow.setState({ fitViewOnInit: false });
       }
     },
@@ -92,14 +98,7 @@ function keywordRegexSubscriptionFn(x) {
     globalVariableId: x.singletonSections[C.GLOBAL_VARIABLES],
   };
 
-  // console.log("codeInfoCols", x.codeInfoCols);
-  // console.log("variants", x.variants);
   for (const [id, s] of Object.entries(x.x)) {
-    // console.log("s.variantId", s.variantId);
-    // console.log(
-    // "x.variants[s.variantId].codeInfoColId",
-    // x.variants[s.variantId].codeInfoColId,
-    // );
     output.details[id] = {
       name: s.name,
       sectionChildren: x.variants[s.variantId].children,
@@ -123,7 +122,11 @@ function keywordRegexSubscriptionFn(x) {
 }
 
 function reactFitViewOnInitSubscriptionFn(state) {
-  return { transform: state.transform, fitViewOnInit: state.fitViewOnInit };
+  return {
+    transform: state.transform,
+    fitViewOnInit: state.fitViewOnInit,
+    fitViewOnInitDone: state.fitViewOnInitDone,
+  };
 }
 
 function updateNodeDimensionsSubscriptionFn(state) {

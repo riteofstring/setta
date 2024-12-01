@@ -1,3 +1,5 @@
+import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
   dbSaveAsExistingProjectConfig,
@@ -16,7 +18,6 @@ import {
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { yamlToGUI } from "../guiToYaml";
 import { setNotificationMessage } from "../notification";
-import { getProjectConfigMetadata } from "./projectConfig";
 
 export function getProjectData({
   withArtifactMetadata = false,
@@ -146,4 +147,20 @@ async function saveProjectAs({ fn, otherArgs }) {
     }),
     ...otherArgs,
   });
+}
+
+function getProjectConfigMetadata() {
+  const state = useProjectConfig.getState();
+  const output = {
+    id: state.id,
+    name: state.name,
+    isDefault: state.isDefault,
+    previewImgColor: state.previewImgColor,
+  };
+
+  output.viewport = useReactFlow.getState().fitViewOnInit
+    ? null
+    : getViewport();
+
+  return output;
 }
