@@ -1,29 +1,18 @@
-import { useSectionInfos } from "state/definitions";
 import { getValueForUIType } from "utils/objs/ev";
 import { getParamEV, setParamEnteredValue } from "../sectionVariants";
-import { maybeIncrementProjectStateVersion } from "../undo";
 
-export function setParamUITypeId({
-  uiTypeId,
-  sectionId,
-  paramInfoId,
-  incrementVersion = false,
-}) {
-  useSectionInfos.setState((state) => {
-    const { uiTypeColId } = state.x[sectionId];
-    if (!(paramInfoId in state.uiTypeCols[uiTypeColId])) {
-      state.uiTypeCols[uiTypeColId][paramInfoId] = {
-        uiTypeId,
-        nonPresetUITypeIds: [],
-      };
-    } else {
-      state.uiTypeCols[uiTypeColId][paramInfoId].uiTypeId = uiTypeId;
-    }
+export function setParamUITypeId({ uiTypeId, sectionId, paramInfoId, state }) {
+  const { uiTypeColId } = state.x[sectionId];
+  if (!(paramInfoId in state.uiTypeCols[uiTypeColId])) {
+    state.uiTypeCols[uiTypeColId][paramInfoId] = {
+      uiTypeId,
+      nonPresetUITypeIds: [],
+    };
+  } else {
+    state.uiTypeCols[uiTypeColId][paramInfoId].uiTypeId = uiTypeId;
+  }
 
-    convertValue(sectionId, paramInfoId, uiTypeId, state);
-  });
-
-  maybeIncrementProjectStateVersion(incrementVersion);
+  convertValue(sectionId, paramInfoId, uiTypeId, state);
 }
 
 function convertValue(sectionId, paramInfoId, uiTypeId, state) {
