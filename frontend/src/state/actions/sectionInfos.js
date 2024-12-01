@@ -241,3 +241,16 @@ export function resetSectionsToDefaultVersions(sectionIds) {
 export function resetAllSectionsToDefaultVersions() {
   resetSectionsToDefaultVersions(Object.keys(useSectionInfos.getState().x));
 }
+
+export function getSectionCodeInfoChildren(sectionId) {
+  return useSectionInfos.getState().codeInfoCols[
+    getSectionCodeInfoColId(sectionId)
+  ].children;
+}
+
+export function duplicateCodeInfoCol(id, state) {
+  const newId = createNewId();
+  const s = state.codeInfoCols;
+  s[newId] = _.cloneDeep(s[id]);
+  return newId;
+}

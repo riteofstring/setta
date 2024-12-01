@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { getSectionCodeInfoChildren } from "state/actions/codeInfoCols";
+import { getSectionCodeInfoChildren } from "state/actions/sectionInfos";
 import {
   getDisplayedSectionVariant,
   getDisplayedSectionVariantId,

@@ -17,7 +17,7 @@ import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { parseAllDocuments } from "yaml";
-import { getSectionCodeInfoChildren } from "./codeInfoCols";
+import { getSectionCodeInfoChildren } from "./sectionInfos";
 import {
   getParamIds,
   paramNameFromPathArray,

@@ -5,7 +5,7 @@ import { findAllParameters } from "utils/getDescendants";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
-import { getSectionCodeInfoChildren } from "./codeInfoCols";
+import { getSectionCodeInfoChildren } from "./sectionInfos";
 import { initializeParams } from "./initializeParam";
 import { getSectionVariant } from "./sectionInfos";
 import { getParamIds } from "./sections/sectionContents";

@@ -5,8 +5,7 @@ import {
   findAllParametersOfNotCallables,
 } from "utils/getDescendants";
 import { bothTruthyOrFalsey } from "utils/utils";
-import { getSectionCodeInfoChildren } from "../codeInfoCols";
-import { getSectionVariant } from "../sectionInfos";
+import { getSectionCodeInfoChildren, getSectionVariant } from "../sectionInfos";
 
 export function getParamIds(
   sectionId,
