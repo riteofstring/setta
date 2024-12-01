@@ -30,7 +30,6 @@ const _NodeWrapper = ({
   zIndex,
 }: WrapNodeProps) => {
   const nodeRef = useRef<HTMLDivElement>(null);
-  const prevNodeRef = useRef<HTMLDivElement>(null);
   const positionAndSizeLocked = useSectionInfos(
     (x) => x.x[id].positionAndSizeLocked,
   );
@@ -56,28 +55,13 @@ const _NodeWrapper = ({
   };
 
   useEffect(() => {
-    return () => {
-      if (prevNodeRef.current) {
-        resizeObserver?.unobserve(prevNodeRef.current);
-        prevNodeRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     if (nodeRef.current) {
       const currNode = nodeRef.current;
-      if (!initialized || prevNodeRef.current !== currNode) {
-        // At this point we always want to make sure that the node gets re-measured / re-initialized.
-        // We need to unobserve it first in case it is still observed
-        if (prevNodeRef.current) {
-          resizeObserver?.unobserve(prevNodeRef.current);
-        }
-        resizeObserver?.observe(currNode);
-        prevNodeRef.current = currNode;
-      }
+      resizeObserver?.observe(currNode);
+
+      return () => resizeObserver?.unobserve(currNode);
     }
-  }, [initialized]);
+  }, []);
 
   useDrag({
     nodeRef,

@@ -25,7 +25,6 @@ export function deleteNodes(nodeIds) {
 }
 
 export function updateNodeDimensions(updates) {
-  
   const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions, domNode } =
     useReactFlow.getState();
 
@@ -34,8 +33,6 @@ export function updateNodeDimensions(updates) {
   if (!viewportNode) {
     return;
   }
-
-  console.log("updateNodeDimensions")
 
   const newNodes = getNewNodes();
 
