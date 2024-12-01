@@ -74,6 +74,12 @@ export function removeSectionInfos(payload) {
   });
 }
 
+export function setSectionResizeEvent({ sectionId, resizeEvent }) {
+  useSectionInfos.setState((state) => {
+    state.x[sectionId].resizeEvent = resizeEvent;
+  });
+}
+
 export function toggleSectionOrientation({ sectionId }) {
   useSectionInfos.setState((state) => {
     state.x[sectionId].isHorizontalOrientation =
