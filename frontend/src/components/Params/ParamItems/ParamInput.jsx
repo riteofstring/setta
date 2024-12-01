@@ -11,6 +11,7 @@ import {
   setParamKeywordPositions,
 } from "state/actions/sectionVariants";
 import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
+import { useSectionInfos } from "state/definitions";
 import { useGetParamEnteredValueAndKeywordPositions } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
@@ -62,12 +63,10 @@ function sendParamValueToInteractiveTasks(sectionId, paramInfoId, v) {
 const debouncedSetParamEnteredValue = asyncDebounce(
   async (sectionId, paramInfoId, vStr, enteredValue, changedByUser = true) => {
     if (vStr !== enteredValue) {
-      setParamEnteredValue({
-        sectionId,
-        paramInfoId,
-        value: vStr,
-        incrementVersion: changedByUser,
+      useSectionInfos.setState((state) => {
+        setParamEnteredValue(sectionId, paramInfoId, vStr, state);
       });
+
       if (getParamUIType(sectionId, paramInfoId).type === C.TEXT) {
         const { keywordPositions } = await getKeywordPositionsAndEVRefs({
           sectionId,

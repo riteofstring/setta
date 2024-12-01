@@ -1,5 +1,4 @@
 import { useSectionInfos } from "state/definitions";
-import { convertValue } from "../sectionVariants";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export function setParamUITypeId({
@@ -18,8 +17,16 @@ export function setParamUITypeId({
     } else {
       state.uiTypeCols[uiTypeColId][paramInfoId].uiTypeId = uiTypeId;
     }
+
+    convertValue(sectionId, paramInfoId, uiTypeId, state);
   });
 
-  convertValue({ sectionId, paramInfoId, uiTypeId });
   maybeIncrementProjectStateVersion(incrementVersion);
+}
+
+function convertValue(sectionId, paramInfoId, uiTypeId, state) {
+  const uiType = state.uiTypes[uiTypeId];
+  const currValue = getParamEV(sectionId, paramInfoId, state);
+  const value = getValueForUIType({ uiType, currValue });
+  setParamEnteredValue(sectionId, paramInfoId, value, state);
 }

@@ -103,11 +103,7 @@ function _updateEVs(uiType) {
               currValue: valueInfo.value,
             });
             if (newVal !== valueInfo.value) {
-              setEnteredValue({
-                collectionId: variantId,
-                paramInfoId: pid,
-                value: newVal,
-              });
+              setEnteredValue(variantId, pid, newVal);
             }
           }
         }

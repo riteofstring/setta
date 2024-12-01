@@ -2,8 +2,7 @@ import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { createNewId } from "utils/idNameCreation";
-import { getValueForUIType, newEV } from "utils/objs/ev";
-import { maybeIncrementProjectStateVersion } from "./undo";
+import { newEV } from "utils/objs/ev";
 
 export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
   const newId = createNewId();
@@ -21,12 +20,6 @@ export function initEnteredValue(uiType) {
     value: newEV(uiType),
     keywordPositions: [],
   };
-}
-
-export function setEnteredValue({ collectionId, paramInfoId, value }) {
-  useSectionInfos.setState((state) => {
-    state.variants[collectionId].values[paramInfoId].value = value;
-  });
 }
 
 export function setKeywordPositions({
@@ -49,28 +42,19 @@ export function deleteParamInfoFromSectionVariant({ variantId, ids }) {
   });
 }
 
-export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
-  const uiType = useSectionInfos.getState().uiTypes[uiTypeId];
-  const currValue = getParamEV(sectionId, paramInfoId);
-  const value = getValueForUIType({ uiType, currValue });
-  setParamEnteredValue({ sectionId, paramInfoId, value });
+export function getParamEV(sectionId, paramInfoId, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  const { variantId } = state.x[sectionId];
+  return state.variants[variantId].values[paramInfoId].value;
 }
 
-function getParamEV(sectionId, paramInfoId) {
-  const { variantId } = getSectionInfo(sectionId);
-  return useSectionInfos.getState().variants[variantId].values[paramInfoId]
-    .value;
+export function setEnteredValue(variantId, paramInfoId, value, state) {
+  state.variants[variantId].values[paramInfoId].value = value;
 }
 
-export function setParamEnteredValue({
-  sectionId,
-  paramInfoId,
-  value,
-  incrementVersion = false,
-}) {
-  const { variantId } = getSectionInfo(sectionId);
-  setEnteredValue({ collectionId: variantId, paramInfoId, value });
-  maybeIncrementProjectStateVersion(incrementVersion);
+export function setParamEnteredValue(sectionId, paramInfoId, value, state) {
+  const { variantId } = state.x[sectionId];
+  setEnteredValue(variantId, paramInfoId, value, state);
 }
 
 export function setParamKeywordPositions({
