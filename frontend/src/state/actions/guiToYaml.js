@@ -18,7 +18,6 @@ import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { parseAllDocuments } from "yaml";
 import { getSectionCodeInfoChildren } from "./codeInfoCols";
-import { getSectionSelectedItem } from "./sectionInfos";
 import {
   getParamIds,
   paramNameFromPathArray,
@@ -362,7 +361,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   });
 
   //TODO: what should editing selectedName do? The following assumes it has no effect.
-  const selectedItem = getSectionSelectedItem(sectionId);
+  const { selectedItem } = getSectionVariant(sectionId);
   const parentId = selectedItem ?? null;
   const idsToChildren = { [parentId]: [] };
   for (const v of output) {
