@@ -6,7 +6,7 @@ import {
 } from "utils/getDescendants";
 import { bothTruthyOrFalsey } from "utils/utils";
 import { getSectionCodeInfoChildren } from "../codeInfoCols";
-import { getSectionVariant } from "../sectionInfos";
+import { getSectionSelectedItem } from "../sectionInfos";
 
 export function getParamIds(
   sectionId,
@@ -20,7 +20,7 @@ export function getParamIds(
     _codeInfoChildren ?? getSectionCodeInfoChildren(sectionId);
   const selectedItem =
     _selectedItem === undefined
-      ? getSectionVariant(sectionId).selectedItem
+      ? getSectionSelectedItem(sectionId)
       : _selectedItem;
 
   const fn = selectedItem
