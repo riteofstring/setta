@@ -42,7 +42,7 @@ const FlowRenderer = ({ children }) => {
 
 FlowRenderer.displayName = "FlowRenderer";
 
-export default memo(FlowRenderer);
+export default FlowRenderer;
 
 function usePanZoomInfo() {
   const {
