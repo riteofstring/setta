@@ -1,17 +1,21 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
-import { getDisplayedCodeInfoCol } from "state/actions/sectionInfos";
+import {
+  getDisplayedCodeInfoCol,
+  getSectionVariant,
+} from "state/actions/sectionInfos";
 import { useMisc, useSectionInfos } from "state/definitions";
-import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 
 export function ParamNameInput({ sectionId, paramInfoId }) {
   const {
     hasChildren,
     configLanguage,
     name: value,
+    variantIsFrozen,
   } = useSectionInfos((x) => {
     const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, x).children;
     return {
+      variantIsFrozen: getSectionVariant(sectionId, x).isFrozen,
       hasChildren: (codeInfoChildren[paramInfoId] ?? []).length > 0,
       configLanguage: x.x[sectionId].configLanguage,
       name: x.codeInfo[paramInfoId].name,
@@ -25,7 +29,6 @@ export function ParamNameInput({ sectionId, paramInfoId }) {
   }
 
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const isDisabled = isSelectingParams || variantIsFrozen;
 
   return (

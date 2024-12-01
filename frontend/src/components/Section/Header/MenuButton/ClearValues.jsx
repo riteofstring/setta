@@ -1,8 +1,8 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { guiToYaml } from "state/actions/guiToYaml";
 import { getSectionInfo, initEnteredValue } from "state/actions/sectionInfos";
-import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
 import { useSectionInfos } from "state/definitions";
+import { getParamUIType } from "state/hooks/uiTypes";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function ClearValues({ sectionId }) {

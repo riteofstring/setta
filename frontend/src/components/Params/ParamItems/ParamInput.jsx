@@ -7,9 +7,9 @@ import {
 } from "requests/sections";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setParamEnteredValue } from "state/actions/sectionInfos";
-import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
 import { useSectionInfos } from "state/definitions";
 import { useGetParamEnteredValueAndKeywordPositions } from "state/hooks/sectionVariants";
+import { getParamUIType } from "state/hooks/uiTypes";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 import { ParamUI } from "../ParamUIs/ParamUI";

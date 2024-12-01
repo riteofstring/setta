@@ -361,7 +361,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   });
 
   //TODO: what should editing selectedName do? The following assumes it has no effect.
-  const { selectedItem } = getSectionVariant(sectionId);
+  const { selectedItem } = getSectionVariant(sectionId, state);
   const parentId = selectedItem ?? null;
   const idsToChildren = { [parentId]: [] };
   for (const v of output) {

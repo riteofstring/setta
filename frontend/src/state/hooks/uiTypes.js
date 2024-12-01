@@ -13,11 +13,11 @@ import {
 import { isFromJSONSource } from "utils/utils";
 import { localStorageFns } from "./localStorage";
 
-export function useGetParamUIType(sectionId, paramInfoId) {
-  return useSectionInfos((x) => {
-    const uiTypeId = getUITypeColAttr(sectionId, paramInfoId, "uiTypeId", x);
-    return x.uiTypes[uiTypeId];
-  }, _.isEqual);
+export function getParamUIType(sectionId, paramInfoId, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  return state.uiTypes[
+    getUITypeColAttr(sectionId, paramInfoId, "uiTypeId", state)
+  ];
 }
 
 export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {

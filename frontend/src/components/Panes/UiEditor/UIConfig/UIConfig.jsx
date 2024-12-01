@@ -5,7 +5,7 @@ import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { useSectionInfos } from "state/definitions";
 import { useParamInfosForSidePane } from "state/hooks/sectionContents";
-import { useGetParamUIType } from "state/hooks/uiTypes";
+import { getParamUIType } from "state/hooks/uiTypes";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
@@ -56,7 +56,9 @@ function UIConfigCore({ sectionId, paramInfos }) {
 
 function _UIElement({ sectionId, paramInfo }) {
   const paramInfoId = paramInfo.id;
-  const uiType = useGetParamUIType(sectionId, paramInfoId);
+  const uiType = useSectionInfos((x) =>
+    getParamUIType(sectionId, paramInfoId, x),
+  );
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {

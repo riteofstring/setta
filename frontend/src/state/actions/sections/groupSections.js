@@ -47,13 +47,14 @@ export function groupSections() {
 }
 
 export async function undeck(deckId) {
-  const childIds = getSectionVariant(deckId).children;
-  const positions = {};
-  childIds.forEach((id) => {
-    const { x, y } = getSectionRect(id);
-    positions[id] = { x, y };
-  });
   useSectionInfos.setState((state) => {
+    const childIds = getSectionVariant(deckId, state).children;
+    const positions = {};
+    childIds.forEach((id) => {
+      const { x, y } = getSectionRect(id);
+      positions[id] = { x, y };
+    });
+
     moveSections({
       oldParentId: deckId,
       newParentId: null,
