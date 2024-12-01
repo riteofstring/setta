@@ -3,10 +3,7 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import _ from "lodash";
 import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
-import {
-  maybeMakeCopyOfSection,
-  moveSection,
-} from "state/actions/sections/moveSections";
+import { moveSection } from "state/actions/sections/moveSections";
 import { manualDndChildrenReset } from "state/actions/sections/sectionInfos";
 import { setSectionVariantChildren } from "state/actions/sectionVariants";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
@@ -64,32 +61,19 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
     }
   }
 
-  if (behaviorDropType === BehaviorDropType.INVALID) {
-    manualDndChildrenReset();
-    return;
-  }
-
-  if (!newParentId) {
-    return;
-  }
-
-  const newSectionId = await maybeMakeCopyOfSection({
-    sectionId,
+  await moveSection({
     oldParentId,
     newParentId,
+    sectionId,
+    newIndex,
+    position,
+    behaviorDropType,
+    incrementVersion: true,
   });
 
-  useSectionInfos.setState((state) => {
-    moveSection({
-      oldParentId,
-      newParentId,
-      oldSectionId: sectionId,
-      newSectionId,
-      newIndex,
-      position,
-      state,
-    });
-  });
+  if (behaviorDropType === BehaviorDropType.INVALID) {
+    manualDndChildrenReset();
+  }
 }
 
 export function useOnDragEnd() {

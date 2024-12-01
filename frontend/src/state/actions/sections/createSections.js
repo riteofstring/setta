@@ -1,5 +1,6 @@
 import { getDefaultInfoTitle } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import C from "constants/constants.json";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
@@ -46,21 +47,19 @@ export function addSectionInEmptySpace({
 
   const position = { x: x + positionOffset.x, y: y + positionOffset.y };
 
-  useSectionInfos.setState((state) => {
-    addSectionAtPosition({
-      type,
-      inputSectionProps,
-      position,
-      state,
-    });
+  return addSectionAtPosition({
+    type,
+    inputSectionProps,
+    position,
+    incrementVersion: true,
   });
 }
 
 export function addSectionAtPosition({
   type,
+  incrementVersion = false,
   inputSectionProps = {},
   position,
-  state,
 }) {
   const sectionProps = {
     ...inputSectionProps,
@@ -87,7 +86,12 @@ export function addSectionAtPosition({
 
   sectionProps.uiTypeId = BASE_UI_TYPE_IDS[type];
 
-  const [newId] = createSectionInfo({ sectionProps, position, state });
+  let newId;
+  useSectionInfos.setState((state) => {
+    [newId] = createSectionInfo({ sectionProps, position, state });
+  });
+
+  maybeIncrementProjectStateVersion(incrementVersion);
   return newId;
 }
 
@@ -229,5 +233,29 @@ export function createAdjacentSection(sectionId, sectionProps) {
 
   useSectionInfos.setState((state) => {
     createSectionInfo({ sectionProps, position, state });
+  });
+}
+
+export function onClickAddSection({
+  type,
+  x,
+  y,
+  projectXY,
+  incrementVersion,
+  inputSectionProps = {},
+}) {
+  const position = projectXY
+    ? screenToFlowPosition({ x, y })
+    : {
+        x: x ?? 0,
+        y: y ?? 0,
+        zIndex: zIndex ?? 0,
+      };
+
+  return addSectionAtPosition({
+    type,
+    incrementVersion,
+    inputSectionProps,
+    position,
   });
 }
