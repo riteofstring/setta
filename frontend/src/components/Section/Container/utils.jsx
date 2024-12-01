@@ -8,7 +8,7 @@ import {
 import { getHighestAncestor } from "state/actions/sectionInfos";
 import { getParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import { useMisc, useParamShortcuts } from "state/definitions";
+import { useMisc } from "state/definitions";
 import "./dndline.css";
 
 export function getOutlineColor({
@@ -45,7 +45,7 @@ export function getOnSectionClick({ sectionId, isActiveSection }) {
       return;
     }
 
-    if (useParamShortcuts.getState().isSelectingParams) {
+    if (useMisc.getState().isSelectingParams) {
       // depends on bubbling behavior (child div onclicks get executed first)
       const atLeastOneParamSelected = getParamInfos(sectionId).some(
         (x) => x.isSelected,

@@ -9,7 +9,7 @@ import { HiOutlineDuplicate } from "react-icons/hi";
 import { toggleParamSelected } from "state/actions/kwargs";
 import { getDisplayedCodeInfoCol } from "state/actions/sectionInfos";
 import {
-  useParamShortcuts,
+  useMisc,
   useProjectSearch,
   useSectionInfos,
   useTypeErrors,
@@ -68,7 +68,7 @@ function _ParamContainer({
   const bg = paramIsSelected ? "bg-setta-500/20" : "";
 
   function onMouseDownSelect(e) {
-    if (!ancestorIsSelected && useParamShortcuts.getState().isSelectingParams) {
+    if (!ancestorIsSelected && useMisc.getState().isSelectingParams) {
       e.stopPropagation();
       toggleParamSelected(sectionId, paramInfoId);
     }

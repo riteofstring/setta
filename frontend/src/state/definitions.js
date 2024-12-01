@@ -177,12 +177,6 @@ export const useTemporaryMiscState = createProjectState(
   subscribeWithSelector(withResetFn(() => ({}))),
 );
 
-export const useParamShortcuts = create(
-  withResetFn(() => ({
-    isSelectingParams: false,
-  })),
-);
-
 export const useMisc = create(
   subscribeWithSelector(
     immer(
@@ -193,6 +187,7 @@ export const useMisc = create(
         mouseDownDraggingSection: false,
         lastPaneClickLocation: { x: 0, y: 0 },
         undoOrRedoWasTriggered: false,
+        isSelectingParams: false,
       })),
     ),
   ),
