@@ -29,6 +29,7 @@ export function subscribe() {
   useSectionInfos.subscribe(
     getSectionIdToChildrenToShow,
     (x) => {
+      console.log("dndchildren subscription!!!!!!!!!!")
       useDndChildren.getState().update(x);
     },
     { equalityFn: _.isEqual },

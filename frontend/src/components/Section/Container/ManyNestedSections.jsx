@@ -19,6 +19,8 @@ export function MaybeManyNestedSections({ sectionId, isDeck }) {
 function ManyNestedSections({ sectionId, isDeck }) {
   const tempChildIds = useDndChildren((x) => x.x[sectionId]);
 
+  // console.log("tempChildIds", tempChildIds)
+
   return (
     <DNDSortable sectionId={sectionId} items={tempChildIds}>
       <NestedSectionsWithMargin

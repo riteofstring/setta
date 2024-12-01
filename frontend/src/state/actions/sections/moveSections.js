@@ -78,26 +78,27 @@ function setChildrenAndParent({
   newIndex,
   position,
 }) {
-  // Remove child from old parent's list
-  if (oldParentId === PANEID) {
-    // This means it was a top level section
-    deleteNodes([oldSectionId]);
-  } else {
-    setSectionVariantChildren({
-      sectionId: oldParentId,
-      newStateFn: (x) => x.filter((y) => y !== oldSectionId),
-    });
-  }
-  if (newParentId === PANEID) {
-    // This means it's becoming a top level section
-    addNodes([{ id: newSectionId, position, zIndex: 0, tempZIndex: 0 }]);
-  } else {
-    // Add child to new parent's list
-    setSectionVariantChildren({
-      sectionId: newParentId,
-      newStateFn: (x) => insertIntoArray(x, newIndex, newSectionId),
-    });
-  }
+  console.log("oldSectionId", oldSectionId);
+  console.log("newSectionId", newSectionId);
+  useSectionInfos.setState((state) => {
+    // Remove child from old parent's list
+    if (oldParentId === PANEID) {
+      // This means it was a top level section
+      deleteNodes([oldSectionId]);
+    }
+    if (newParentId === PANEID) {
+      // This means it's becoming a top level section
+      addNodes([{ id: newSectionId, position, zIndex: 0, tempZIndex: 0 }]);
+    }
+    setSectionVariantChildren(
+      oldParentId,
+      (x) => {
+        const filtered = x.filter((y) => y !== oldSectionId);
+        return insertIntoArray(filtered, newIndex, newSectionId);
+      },
+      state,
+    );
+  });
 
   useSectionInfos.setState((x) => {
     x.x[newSectionId].parentId = newParentId === PANEID ? null : newParentId;
