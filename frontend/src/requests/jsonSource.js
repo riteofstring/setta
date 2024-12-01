@@ -28,7 +28,7 @@ function dataForRequest() {
     x: sections,
     codeInfoCols,
     variants: sectionVariants,
+    codeInfo,
   } = useSectionInfos.getState();
-  const codeInfo = useSectionInfos.getState().codeInfo;
   return { sections, codeInfo, codeInfoCols, sectionVariants };
 }

@@ -124,8 +124,9 @@ function tryFindingMatchingId(name, codeInfoChildrenKeys, codeInfo) {
 function globalParamSweepSectionYamlToGUI(yamlValue, metaData) {
   const doc = parseAllDocuments(yamlValue)[0].toJS();
   const runGroupId = metaData.runGroupId;
-  const sections = useSectionInfos.getState().x;
-  const sectionVariants = useSectionInfos.getState().variants;
+  const state = useSectionInfos.getState();
+  const sections = state.x;
+  const sectionVariants = state.variants;
   const newRunGroupSections = {};
 
   for (const [k, v] of Object.entries(doc)) {
@@ -271,6 +272,7 @@ function getMatch(name, forSectionId, sections, sectionVariants) {
 }
 
 function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
+  const state = useSectionInfos.getState();
   const docs = parseAllDocuments(yamlValue);
   console.log("docs", docs);
   let selectedItemName = null;
@@ -331,7 +333,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     }
   }
 
-  const { jsonSource } = useSectionInfos.getState().x[sectionId];
+  const { jsonSource } = state.x[sectionId];
   // add remaining new entries
   for (const v of fNewObj) {
     if (usedPaths.has(JSON.stringify(v.keyPath))) {
@@ -387,11 +389,11 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     insertAtOriginalIdx: true,
   });
 
-  const cState = useSectionInfos.getState().codeInfo;
+  const cState = state.codeInfo;
   const newInfos = {};
   const updatedInfos = {};
   const paramInfoIdToValue = {};
-  const { configLanguage } = useSectionInfos.getState().x[sectionId];
+  const { configLanguage } = state.x[sectionId];
   for (const v of output) {
     if (!(v.id in cState)) {
       newInfos[v.id] = newCodeInfo({
