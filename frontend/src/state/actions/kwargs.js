@@ -5,9 +5,8 @@ import { findAllParameters } from "utils/getDescendants";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
-import { getSectionCodeInfoChildren } from "./sectionInfos";
 import { initializeParams } from "./initializeParam";
-import { getSectionVariant } from "./sectionInfos";
+import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
 import { getParamIds } from "./sections/sectionContents";
 
 export function addKwarg({
@@ -75,9 +74,9 @@ export function saveKwargsAsCollection({ sectionId, name }) {
 
 export function pinSelectedKwargs(sectionId) {
   const selectedParams = getAllSelectedParams(sectionId);
-  const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
-  console.log("selectedParams", selectedParams);
+
   useSectionInfos.setState((x) => {
+    const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
     for (const p of selectedParams) {
       setAttrOfSelfAndDescendants(
         x.codeInfo,
@@ -91,8 +90,8 @@ export function pinSelectedKwargs(sectionId) {
 }
 
 export function toggleParamSelected(sectionId, paramInfoId) {
-  const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
   useSectionInfos.setState((x) => {
+    const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
     const newVal = !x.codeInfo[paramInfoId].isSelected;
     console.log("toggleParamSelected", newVal);
     x.codeInfo[paramInfoId].isSelected = newVal;

@@ -128,12 +128,6 @@ export function getSectionChildren(sectionId) {
   return useSectionInfos.getState().variants[variantId].children;
 }
 
-export function getSectionCodeInfoColId(sectionId) {
-  return useSectionInfos.getState().variants[
-    getDisplayedSectionVariantId(sectionId)
-  ].codeInfoColId;
-}
-
 export function getCodeInfoCol(sectionId, _state) {
   const state = _state ?? useSectionInfos.getState();
   return state.codeInfoCols[getSectionVariant(sectionId, state).codeInfoColId];
@@ -240,12 +234,6 @@ export function resetSectionsToDefaultVersions(sectionIds) {
 
 export function resetAllSectionsToDefaultVersions() {
   resetSectionsToDefaultVersions(Object.keys(useSectionInfos.getState().x));
-}
-
-export function getSectionCodeInfoChildren(sectionId) {
-  return useSectionInfos.getState().codeInfoCols[
-    getSectionCodeInfoColId(sectionId)
-  ].children;
 }
 
 export function duplicateCodeInfoCol(id, state) {

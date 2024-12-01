@@ -3,6 +3,7 @@ import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
 import { initializeParams } from "state/actions/initializeParam";
 import {
+  getCodeInfoCol,
   getSectionInfo,
   getSectionType,
   getSectionVariant,
@@ -17,7 +18,6 @@ import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { parseAllDocuments } from "yaml";
-import { getSectionCodeInfoChildren } from "./sectionInfos";
 import {
   getParamIds,
   paramNameFromPathArray,
@@ -58,7 +58,7 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
   const state = useSectionInfos.getState();
   const forSectionId = getForSectionId(state.x, sectionId);
   const docs = parseAllDocuments(yamlValue);
-  const codeInfoChildren = getSectionCodeInfoChildren(forSectionId);
+  const codeInfoChildren = getCodeInfoCol(forSectionId, state).children;
   const codeInfoChildrenKeys = Object.keys(codeInfoChildren);
   const newParamSweep = [];
 
@@ -578,9 +578,9 @@ function updateIdsToChildren({
     }
 
     if (insertAtOriginalIdx) {
-      const originalIdx = getSectionCodeInfoChildren(sectionId)[
-        parentId
-      ].indexOf(v.id);
+      const originalIdx = getCodeInfoCol(sectionId).children[parentId].indexOf(
+        v.id,
+      );
       idsToChildren[parentId].splice(originalIdx, 0, v.id);
     } else {
       idsToChildren[parentId].push(v.id);

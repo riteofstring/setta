@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
-import { getSectionCodeInfoChildren } from "state/actions/sectionInfos";
 import {
+  getDisplayedCodeInfoCol,
   getDisplayedSectionVariant,
   getDisplayedSectionVariantId,
   getSectionType,
@@ -36,8 +36,8 @@ export async function dbSectionToYaml(sectionId) {
   const state = useSectionInfos.getState();
   const { configLanguage } = state.x[sectionId];
   const codeInfo = state.codeInfo;
-  const sectionVariant = getDisplayedSectionVariant(sectionId);
-  const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
+  const sectionVariant = getDisplayedSectionVariant(sectionId, state);
+  const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, state).children;
   const res = await post({
     body: {
       codeInfo,
@@ -55,9 +55,12 @@ export async function dbSectionToYaml(sectionId) {
 export async function dbParamSweepSectionToYaml(sectionId) {
   const state = useSectionInfos.getState();
   const forSectionId = getForSectionId(state.x, sectionId);
-  const sweep = getDisplayedSectionVariant(sectionId).sweep;
+  const sweep = getDisplayedSectionVariant(sectionId, state).sweep;
   const codeInfo = state.codeInfo;
-  const codeInfoChildren = getSectionCodeInfoChildren(forSectionId);
+  const codeInfoChildren = getDisplayedCodeInfoCol(
+    forSectionId,
+    state,
+  ).children;
 
   const res = await post({
     body: {
