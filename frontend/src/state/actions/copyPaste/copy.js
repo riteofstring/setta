@@ -44,7 +44,7 @@ export function copySections(sectionIds) {
 
 function getSections(sectionIds, state) {
   const ids = getAllSectionsForDeletionOrCopying(sectionIds, state);
-  const allSections = _.pick(useSectionInfos.getState().x, ids);
+  const allSections = _.pick(state.x, ids);
 
   const withoutLoneParamSweeps = _.pickBy(allSections, (s) => {
     if (getSectionType(s.id).type !== C.PARAM_SWEEP) {

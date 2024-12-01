@@ -1,10 +1,9 @@
-import { useSectionInfos } from "state/definitions";
 import { findAllParameters } from "utils/getDescendants";
-import { getSectionCodeInfoChildren } from "../codeInfoCols";
 
-export function getAllSelectedParams(sectionId) {
-  const codeInfoState = useSectionInfos.getState().codeInfo;
-  const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
+export function getAllSelectedParams(sectionId, state) {
+  const codeInfoState = state.codeInfo;
+  const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+  const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
   const { ids } = findAllParameters(
     codeInfoState,
     codeInfoChildren,

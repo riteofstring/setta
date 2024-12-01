@@ -114,24 +114,28 @@ export function KwargsControls({
 
 function onClickAddKwargFn(sectionId, objInfoId) {
   return () => {
-    const selectedParams = getAllSelectedParams(sectionId);
-    if (selectedParams.length > 0) {
-      for (const p of selectedParams) {
-        const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
-        let parentId, insertIdx;
-        for (const [id, children] of Object.entries(codeInfoChildren)) {
-          if (children.includes(p.id)) {
-            parentId = id;
-            insertIdx = children.indexOf(p.id) + 1;
-            break;
+    useSectionInfos.setState((state) => {
+      const selectedParams = getAllSelectedParams(sectionId, state);
+      if (selectedParams.length > 0) {
+        for (const p of selectedParams) {
+          const { codeInfoColId } =
+            state.variants[state.x[sectionId].variantId];
+          const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+          let parentId, insertIdx;
+          for (const [id, children] of Object.entries(codeInfoChildren)) {
+            if (children.includes(p.id)) {
+              parentId = id;
+              insertIdx = children.indexOf(p.id) + 1;
+              break;
+            }
           }
+          addKwarg({ sectionId, parentId, insertIdx, state });
         }
-        addKwarg({ sectionId, parentId, insertIdx });
+        maybeIncrementProjectStateVersion(true);
+      } else {
+        addKwarg({ sectionId, parentId: objInfoId, state });
       }
-      maybeIncrementProjectStateVersion(true);
-    } else {
-      addKwarg({ sectionId, parentId: objInfoId, incrementVersion: true });
-    }
+    });
   };
 }
 

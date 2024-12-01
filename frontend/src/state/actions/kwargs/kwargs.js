@@ -17,9 +17,8 @@ import { getAllSelectedParams } from "./utils";
 export function addKwarg({
   sectionId,
   parentId = null,
-  name = "",
   insertIdx = null,
-  incrementVersion = false,
+  state,
 }) {
   const { jsonSource } = getSectionInfo(sectionId);
   let actualName = name;
@@ -36,18 +35,15 @@ export function addKwarg({
     rcType: C.PARAMETER,
     editable: true,
   });
-  useSectionInfos.setState((state) => {
-    addCodeInfo({
-      sectionId,
-      info: kwargInfo,
-      parent: parentId,
-      insertIdx,
-      state,
-    });
-    initializeParams(sectionId, [kwargInfo.id], state);
+  addCodeInfo({
+    sectionId,
+    info: kwargInfo,
+    parent: parentId,
+    insertIdx,
+    state,
   });
+  initializeParams(sectionId, [kwargInfo.id], state);
 
-  maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
 }
 
