@@ -635,7 +635,7 @@ function CanvasSettings({ opacity, setOpacity }) {
   return (
     <div className="grid w-full grid-cols-[1fr,_2fr] gap-2">
       <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
-        Layer Opacity
+        Canvas Opacity
       </p>
       <SliderInput
         sliderRootClassName={sliderRootClassName}

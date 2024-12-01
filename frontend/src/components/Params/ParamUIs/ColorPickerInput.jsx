@@ -1,4 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { useContrastColor } from "utils/useContrastColor";
 import { tryParseJSON } from "utils/utils";
 
 export function ColorPickerInputConfig({ onChange, config }) {
@@ -118,12 +119,7 @@ function ColorPicker({
   colorPickerChoicesClasses,
   isDisabled,
 }) {
-  const style = {
-    // from https://codepen.io/devongovett/pen/QwLbRrW
-    "--bg": value,
-    background: "var(--bg)",
-    color: "lch(from var(--bg) calc((49.44 - l) * infinity) 0 0)",
-  };
+  const iconColor = useContrastColor(value);
   return colorChoices?.length > 0 ? (
     <ColorPickerFromColorChoices
       color={value}
@@ -136,7 +132,7 @@ function ColorPicker({
     <>
       <i
         className="gg-color-picker single-cell-child pointer-events-none mr-0.5 mt-0.5 place-self-center"
-        style={style}
+        style={{ color: iconColor }}
       />
       <input
         id="colorPicker"
@@ -162,11 +158,7 @@ function ColorPickerFromColorChoices({
     selectedItem = colorChoices[0];
   }
 
-  const style = {
-    "--bg": selectedItem.color,
-    background: "var(--bg)",
-    color: "lch(from var(--bg) calc((49.44 - l) * infinity) 0 0)",
-  };
+  const textColor = useContrastColor(selectedItem.color);
 
   return (
     <DropdownMenu.Root>
@@ -180,12 +172,12 @@ function ColorPickerFromColorChoices({
         />
         <div className="single-cell-child flex items-center justify-between overflow-hidden">
           <p
-            className="ml-[2px] truncate pl-2.5 text-xs font-semibold @[90px]:inline-block"
-            style={style}
+            className="truncate pl-2 text-xs font-semibold @[90px]:inline-block"
+            style={{ color: textColor }}
           >
             {selectedItem.description}
           </p>
-          <i className="gg-chevron-down px-2" style={style} />
+          <i className="gg-chevron-down px-2" style={{ color: textColor }} />
         </div>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content className="flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800">
