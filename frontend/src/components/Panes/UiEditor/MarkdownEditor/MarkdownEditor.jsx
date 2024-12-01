@@ -7,10 +7,7 @@ import React, { useEffect, useState } from "react";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
-import {
-  useInfoAreaDescription,
-  useSectionVariantIsFrozen,
-} from "state/hooks/sectionVariants";
+import { useInfoAreaDescriptionAndEditability } from "state/hooks/sectionVariants";
 
 export function MarkdownEditorInPane({ sectionId }) {
   return (
@@ -38,7 +35,9 @@ export function MarkdownEditorInSection({ sectionId }) {
 
 const _MarkdownEditorCore = React.forwardRef(
   ({ sectionId, maxHeight, onCreateEditor, wrapperClassName }, ref) => {
-    const { renderMarkdown, description } = useInfoAreaDescription(sectionId);
+    const { renderMarkdown, description, variantIsDisabled } =
+      useInfoAreaDescriptionAndEditability(sectionId);
+
     const [localDescription, setLocalDescription] = useState(description);
 
     useEffect(() => {
@@ -53,7 +52,6 @@ const _MarkdownEditorCore = React.forwardRef(
     }
 
     const theme = useCodeMirrorStyle();
-    const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
 
     const extensions = getExtensions({
       sectionId,

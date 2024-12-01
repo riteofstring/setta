@@ -1,15 +1,20 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
+import { getSectionVariant } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function RenderInfo({ sectionId }) {
-  const { displayMode, renderMarkdown } = useSectionInfos((x) => {
-    return {
-      displayMode: x.x[sectionId].displayMode,
-      renderMarkdown: x.x[sectionId].renderMarkdown,
-    };
-  }, _.isEqual);
+  const { displayMode, renderMarkdown, variantIsDisabled } = useSectionInfos(
+    (x) => {
+      return {
+        displayMode: x.x[sectionId].displayMode,
+        renderMarkdown: x.x[sectionId].renderMarkdown,
+        variantIsDisabled: getSectionVariant(sectionId, x).isFrozen,
+      };
+    },
+    _.isEqual,
+  );
 
   function onClick() {
     useSectionInfos.setState((state) => {
@@ -25,7 +30,7 @@ export function RenderInfo({ sectionId }) {
   // only show this option if there are no parameters
   // and the search bar isn't hidden (we don't want to hide both params and search)
   return (
-    <MenuItem onClick={onClick}>
+    <MenuItem onClick={onClick} disabled={variantIsDisabled}>
       {displayMode === SECTION_DISPLAY_MODES.EDIT
         ? `Render ${format}`
         : `Edit ${format}`}

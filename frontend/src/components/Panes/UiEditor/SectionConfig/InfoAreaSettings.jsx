@@ -2,10 +2,11 @@ import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { dbDocstringToMarkdown } from "requests/codeInfo";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
-import { useInfoAreaDescription } from "state/hooks/sectionVariants";
+import { useInfoAreaDescriptionAndEditability } from "state/hooks/sectionVariants";
 
 export function InfoAreaSettings({ sectionId }) {
-  const { renderMarkdown, description } = useInfoAreaDescription(sectionId);
+  const { renderMarkdown, description, variantIsDisabled } =
+    useInfoAreaDescriptionAndEditability(sectionId);
 
   async function onChange(v) {
     let newDescription;
@@ -27,6 +28,7 @@ export function InfoAreaSettings({ sectionId }) {
         Render Markdown
       </p>
       <SwitchInput
+        isDisabled={variantIsDisabled}
         value={renderMarkdown}
         onChange={onChange}
         outerDivClassName="flex items-center"

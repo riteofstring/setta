@@ -1,5 +1,6 @@
 import { MarkdownEditorInSection } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import "katex/dist/katex.min.css"; // `rehype-katex` does not import the CSS for you
+import _ from "lodash";
 import React from "react";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi"; // Heroicons
 import ReactMarkdown from "react-markdown";
@@ -8,7 +9,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { useSectionInfos } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
-import { useInfoAreaDescription } from "state/hooks/sectionVariants";
+import { getInfoAreaDescription } from "state/hooks/sectionVariants";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 function _InfoArea({ sectionId }) {
@@ -22,8 +23,10 @@ function _InfoArea({ sectionId }) {
 }
 
 function _Markdown({ sectionId }) {
-  const { renderMarkdown, description: markdownSource } =
-    useInfoAreaDescription(sectionId);
+  const { renderMarkdown, description } = useSectionInfos(
+    (x) => getInfoAreaDescription(sectionId, x),
+    _.isEqual,
+  );
 
   const { ref, isScrollable } = useIsScrollable();
 
@@ -39,7 +42,7 @@ function _Markdown({ sectionId }) {
           code: CodeBlock,
         }}
       >
-        {markdownSource}
+        {description}
       </ReactMarkdown>
     </div>
   ) : (
@@ -47,7 +50,7 @@ function _Markdown({ sectionId }) {
       ref={ref}
       className={`${wrapperClassName} overflow-x-clip text-wrap break-words text-xs text-setta-700 dark:text-setta-300`}
     >
-      {markdownSource}
+      {description}
     </pre>
   );
 }
