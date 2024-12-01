@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
-import { dbGetDefaultConfigName } from "requests/projects";
-import { dbLoadSettings } from "requests/settings";
-import { openWebSocket, sendLocation } from "requests/websocket";
 import { useMisc, useSettings } from "state/definitions";
+import { useDefaultConfigName } from "state/hooks/project";
+import { useLoadSettings } from "state/hooks/settings";
+import { useOpenCloseWebsocket } from "state/hooks/websocket";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
 
 export function GlobalWrapper({ children }) {
@@ -42,51 +42,4 @@ function useSetHTMLTitle() {
       document.title = "setta.dev";
     }
   }, [pathname, projectConfigName, projectIs404]);
-}
-
-function useOpenCloseWebsocket() {
-  const location = useLocation();
-
-  useEffect(() => {
-    openWebSocket(location.pathname);
-  }, []);
-
-  useEffect(() => {
-    sendLocation(location.pathname);
-  }, [location.pathname]);
-}
-
-function useLoadSettings() {
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-
-  async function fn() {
-    const res = await dbLoadSettings();
-    if (res.status === 200) {
-      useSettings.setState(res.data);
-    }
-    setSettingsLoaded(true);
-  }
-
-  useEffect(() => {
-    fn();
-  }, []);
-
-  return settingsLoaded;
-}
-
-function useDefaultConfigName() {
-  const [defaultConfigName, setDefaultConfigName] = useState(null);
-
-  async function fn() {
-    const res = await dbGetDefaultConfigName();
-    if (res.status === 200) {
-      setDefaultConfigName(res.data);
-    }
-  }
-
-  useEffect(() => {
-    fn();
-  }, []);
-
-  return defaultConfigName;
 }

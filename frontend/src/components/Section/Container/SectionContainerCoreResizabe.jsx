@@ -3,7 +3,7 @@ import C from "constants/constants.json";
 import { useSectionInfos } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useIsYouTube } from "state/hooks/social";
-import { getIsRoot } from "utils/sectionTypeHelpers";
+import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
 import { CodeArea } from "../Layouts/CodeArea";
 import { DrawOnImage } from "../Layouts/DrawArea";
@@ -14,6 +14,7 @@ import { InfoArea } from "../Layouts/InfoArea";
 import { InputArea } from "../Layouts/InputArea";
 import { LinePlotArea } from "../Layouts/LinePlotArea";
 import { ParamSweepArea } from "../Layouts/ParamSweepArea";
+import { ReferenceArea } from "../Layouts/ReferenceArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { Incrementer } from "../SectionParts/Incrementer";
@@ -51,7 +52,7 @@ export function SectionContainerCoreResizable({
         return "bg-setta-50 dark:bg-setta-860";
     }
   };
-  const isRoot = getIsRoot(sectionTypeName);
+  const _isRoot = isRoot(sectionTypeName);
 
   const bgColor = getBgColor();
   const youtube = useIsYouTube(sectionId);
@@ -78,9 +79,8 @@ export function SectionContainerCoreResizable({
           isInfo={isInfo}
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
-          isRoot={isRoot}
         />
-        {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
+        {_isRoot && <Incrementer sectionId={sectionId} isRoot={_isRoot} />}
         {!isMinimized && (
           <AreaSwitch
             sectionId={sectionId}
@@ -97,6 +97,8 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
   switch (sectionTypeName) {
     case C.SECTION:
       return <InputArea sectionId={sectionId} bgColor={bgColor} />;
+    case C.REFERENCE_SECTION:
+      return <ReferenceArea sectionId={sectionId} />;
     case C.IMAGE:
       return <ImageArea sectionId={sectionId} />;
     case C.LINE_PLOT:

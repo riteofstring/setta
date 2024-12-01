@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
-from setta.database.settings_file import SettingsFile
+from setta.database.settings_file import MetaSettingsFile, SettingsFile
 from setta.lsp.utils import (
     create_lsp_readers,
     create_lsp_writers,

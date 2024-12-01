@@ -3,24 +3,19 @@ import {
   setCenter,
 } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
-import { matchSorter } from "match-sorter";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { updateSearch } from "state/actions/search/projectSearch";
 import { getParamIds } from "state/actions/sections/sectionContents";
-import {
-  useProjectSearch,
-  useSectionInfos,
-  useSettings,
-} from "state/definitions";
+import { useCodeInfo, useProjectSearch, useSettings } from "state/definitions";
+import { useSectionIdToChildren } from "./sectionVariants";
 
 export function useUpdateProjectSearch() {
   const [value, setValue] = useState("");
-  const [visibleParams, setVisibleParams] = useState([]);
-  const [currIdx, setCurrIdx] = useState(-1);
+  const allVisibleParams = useAllVisibleParams();
 
   function onChange(v) {
     setValue(v);
-    doUpdateSearch(v, visibleParams);
-    setCurrIdx(-1);
+    doUpdateSearch(v, allVisibleParams);
   }
 
   function onBlur() {
@@ -28,14 +23,21 @@ export function useUpdateProjectSearch() {
   }
 
   function onFocus() {
-    const newVisibleParams = getAllVisibleParams();
-    setVisibleParams(newVisibleParams);
-    doUpdateSearch(value, newVisibleParams);
+    doUpdateSearch(value, allVisibleParams);
   }
 
+  useEffect(() => {
+    doUpdateSearch(value, allVisibleParams);
+  }, [allVisibleParams.length]);
+
+  return { value, onChange, onBlur, onFocus };
+}
+
+export function useOnEnterGoToSearchResult() {
+  const searchResults = useProjectSearch((x) => x.codeInfo);
+  const [currIdx, setCurrIdx] = useState(-1);
   function onKeyDown(e) {
     if (e.key === "Enter") {
-      const { codeInfo: searchResults } = useProjectSearch.getState();
       if (searchResults.length === 0) {
         return;
       }
@@ -46,49 +48,57 @@ export function useUpdateProjectSearch() {
       setCurrIdx(newIdx);
     } else if (e.key === "Escape") {
       e.target.blur();
+    } else {
+      useProjectSearch.setState({ focused: {} });
+      setCurrIdx(-1);
     }
   }
 
-  return { value, onChange, onBlur, onFocus, onKeyDown };
+  useEffect(() => {
+    if (currIdx > -1) {
+      setCurrIdx((x) => x % searchResults.length);
+    }
+  }, [searchResults.length]);
+
+  return onKeyDown;
 }
 
-function getAllVisibleParams() {
-  const x = useSectionInfos.getState();
-  const output = [];
-  const visitedSections = new Set();
-  for (const sectionId of Object.keys(x.x)) {
-    getParamsAndAddToSearchResults(
-      visitedSections,
-      sectionId,
-      x.codeInfo,
-      output,
-    );
-    const sectionChildren = x.variants[x.x[sectionId].variantId].children;
-    for (const id of sectionChildren) {
-      getParamsAndAddToSearchResults(visitedSections, id, x.codeInfo, output);
+function useAllVisibleParams() {
+  const sectionIdToChildren = useSectionIdToChildren();
+  const allIds = [];
+  const allIdsSet = new Set();
+
+  // Add all keys (IDs) to the set
+  Object.entries(sectionIdToChildren).forEach(([key, value]) => {
+    if (!allIdsSet.has(key)) {
+      allIdsSet.add(key);
+      allIds.push(key);
     }
-  }
-  return output;
+    value.forEach((id) => {
+      if (!allIdsSet.has(id)) {
+        allIdsSet.add(id);
+        allIds.push(id);
+      }
+    });
+  });
+
+  return useCodeInfo((x) => {
+    const output = [];
+    for (const id of allIds) {
+      const { ids: paramIds } = getParamIds(id, x.x);
+      for (const p of paramIds) {
+        output.push({
+          sectionId: id,
+          paramInfoId: p,
+          name: x.x[p].name,
+        });
+      }
+    }
+    return output;
+  });
 }
 
-function getParamsAndAddToSearchResults(
-  visitedSections,
-  sectionId,
-  codeInfoState,
-  output,
-) {
-  if (!visitedSections.has(sectionId)) {
-    const { ids: paramIds } = getParamIds(sectionId, codeInfoState);
-    for (const p of paramIds) {
-      output.push({
-        sectionId,
-        paramInfoId: p,
-        name: codeInfoState[p].name,
-      });
-    }
-    visitedSections.add(sectionId);
-  }
-}
+const doUpdateSearch = _.debounce(updateSearch, 100);
 
 function goToSearchResult(searchResult) {
   const { sectionId, paramInfoId } = searchResult;
@@ -102,31 +112,4 @@ function goToSearchResult(searchResult) {
   });
   const zoom = useSettings.getState().defaultZoomLevel;
   setCenter(x, y, { zoom });
-}
-
-function updateSearch(value, allVisibleParams) {
-  if (!value) {
-    useProjectSearch.getState().reset();
-    return;
-  }
-
-  const codeInfo = matchSorter(allVisibleParams, value, {
-    keys: ["name"],
-    sorter: (rankedItems) => rankedItems, //don't sort
-  });
-
-  useProjectSearch.setState({
-    codeInfo,
-    lookup: new Set(
-      codeInfo.map((x) =>
-        createProjectSearchLookupKey(x.sectionId, x.paramInfoId),
-      ),
-    ),
-  });
-}
-
-const doUpdateSearch = _.debounce(updateSearch, 100);
-
-export function createProjectSearchLookupKey(sectionId, paramInfoId) {
-  return `${sectionId}-${paramInfoId}`;
 }

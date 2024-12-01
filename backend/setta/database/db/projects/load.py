@@ -4,6 +4,7 @@ from setta.database.utils import aggregate_results
 from setta.utils.utils import recursive_dict_merge
 
 from ..codeInfo.load import load_code_info_cols
+from ..runGroups.load import load_run_groups
 from ..sections.load import (
     load_json_sources_into_data_structures,
     load_section_configs,
@@ -18,31 +19,18 @@ class ProjectNotFound(Exception):
 def load_all_project_config_metadata(db):
     query = """
         SELECT
-            pc.id,
-            pc.name,
-            pc.data,
-            pcc.data AS child_data
+            id,
+            name,
+            previewImgNodes,
+            previewImgColor,
+            isDefault
         FROM
-            ProjectConfig pc
-        LEFT JOIN
-            ProjectConfigChildren pcc ON pc.id = pcc.parentId
+            ProjectConfig
         ORDER BY
-            pc.id;
+            ProjectConfig.id;
     """
     db.execute(query)
-    output = {}
-    for row in db.fetchall():
-        id = row["id"]
-        if id not in output:
-            output[id] = {
-                "id": row["id"],
-                "name": row["name"],
-                **json.loads(row["data"]),
-                "childrenForPreviewImg": [],
-            }
-        if row["child_data"]:
-            output[id]["childrenForPreviewImg"].append(json.loads(row["child_data"]))
-    return list(output.values())
+    return [dict(row) for row in db.fetchall()]
 
 
 def load_project_config_metadata(db, config_name):
@@ -50,9 +38,14 @@ def load_project_config_metadata(db, config_name):
         SELECT
             ProjectConfig.id,
             ProjectConfig.name,
-            ProjectConfig.data,
+            ProjectConfig.viewport,
+            ProjectConfig.isDefault,
+            ProjectConfig.shownRunGroup,
+            ProjectConfig.previewImgColor,
             ProjectConfigChildren.childId as childId,
-            ProjectConfigChildren.data as childData
+            ProjectConfigChildren.x as childX,
+            ProjectConfigChildren.y as childY,
+            ProjectConfigChildren.zIndex as childZIndex
         FROM
             ProjectConfig
         LEFT JOIN
@@ -65,7 +58,9 @@ def load_project_config_metadata(db, config_name):
 
     query_params = {"name": config_name}
     db.execute(query, query_params)
-    out = aggregate_results(db.fetchall(), "id", ["childId", "childData"])
+    out = aggregate_results(
+        db.fetchall(), "id", ["childId", "childX", "childY", "childZIndex"]
+    )
     if len(out) > 1:
         raise ValueError(f"output should be of length 1 but has length {len(out)}")
     if len(out) == 0:
@@ -74,23 +69,39 @@ def load_project_config_metadata(db, config_name):
     children = {}
     for i, c in enumerate(out["childId"]):
         if c:
-            children[c] = json.loads(out["childData"][i])
+            children[c] = {
+                "x": out["childX"][i],
+                "y": out["childY"][i],
+                "zIndex": out["childZIndex"][i],
+            }
+
+    if out["viewport"]:
+        viewport = json.loads(out["viewport"])
+    else:
+        viewport = None
 
     return {
         "id": out["id"],
         "name": out["name"],
+        "isDefault": out["isDefault"],
         "children": children,
-        **json.loads(out["data"]),
+        "viewport": viewport,
+        "shownRunGroup": out["shownRunGroup"],
+        "previewImgColor": out["previewImgColor"],
     }
 
 
 def load_project_config(db, project_config_name):
     projectConfig = load_project_config_metadata(db, project_config_name)
+    runGroups, projectConfig["runGroupSelection"] = load_run_groups(
+        db, projectConfig["id"]
+    )
     sections_data = load_sections(db, list(projectConfig["children"].keys()))
     sectionConfigs = load_section_configs(db, projectConfig["id"])
     sections = recursive_dict_merge(sections_data["sections"], sectionConfigs)
     sectionVariants = sections_data["sectionVariants"]
     uiTypeCols = sections_data["uiTypeCols"]
+    paramSweeps = sections_data["paramSweeps"]
     uiTypes = sections_data["nonPresetUITypes"]
     codeInfo, codeInfoCols = load_code_info_cols(db, sectionVariants)
     jsonSourceMissing = load_json_sources_into_data_structures(
@@ -103,6 +114,8 @@ def load_project_config(db, project_config_name):
         "sectionVariants": sectionVariants,
         "uiTypes": uiTypes,
         "uiTypeCols": uiTypeCols,
+        "paramSweeps": paramSweeps,
+        "runGroups": runGroups,
         "codeInfo": codeInfo,
         "codeInfoCols": codeInfoCols,
         "jsonSourceMissing": jsonSourceMissing,
@@ -137,9 +150,12 @@ def load_full_project(db, excludeProjectConfigName=None):
 
 def load_default_config_name(db):
     query = """
-        SELECT name
-        FROM ProjectConfig
-        WHERE json_extract(data, '$.isDefault') = 1
+        SELECT
+            name
+        FROM
+            ProjectConfig
+        WHERE
+            isDefault = 1
     """
 
     db.execute(query)

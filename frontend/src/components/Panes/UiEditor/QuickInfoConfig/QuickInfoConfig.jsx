@@ -1,21 +1,19 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import React from "react";
-import { useParamInfosForSidePane } from "state/hooks/sectionContents";
+import { setCodeInfoDescription } from "state/actions/codeInfo";
+import { useGetParamInfosThatHaveNames } from "state/hooks/sectionContents";
 import { useMatchSorterFilter } from "state/hooks/utils";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
 
 const _QuickInfoConfig = React.forwardRef(({ sectionId }, ref) => {
-  const paramInfos = useParamInfosForSidePane(sectionId);
-  return <QuickInfoConfigCore sectionId={sectionId} paramInfos={paramInfos} />;
-});
+  const paramInfos = useGetParamInfosThatHaveNames(sectionId);
 
-function QuickInfoConfigCore({ sectionId, paramInfos }) {
   const [filteredList, setFilter] = useMatchSorterFilter(
     paramInfos,
     ["name"],
-    50,
+    500,
   );
 
   const inputStyles =
@@ -32,7 +30,7 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll [&>*]:mx-[2px]">
+      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -44,7 +42,7 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
       </div>
     </div>
   );
-}
+});
 
 export const QuickInfoConfig = React.memo(_QuickInfoConfig);
 
@@ -59,9 +57,9 @@ function _UIElement({ paramInfo }) {
       <textarea
         className="mx-[2px] mb-4 h-12 min-w-0 flex-grow cursor-auto rounded-lg border border-solid border-setta-100 bg-white px-2 py-1 font-mono text-xs font-medium text-setta-600 outline-0 placeholder:text-setta-200 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300 dark:placeholder:text-setta-700 dark:focus-visible:border-setta-900"
         value={description}
-        onChange={(e) => {
-          state.codeInfo[id].description = e.target.value;
-        }}
+        onChange={(e) =>
+          setCodeInfoDescription({ id, description: e.target.value })
+        }
       />
     </div>
   );

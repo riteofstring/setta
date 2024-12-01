@@ -6,15 +6,15 @@ import _ from "lodash";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { toggleParamSelected } from "state/actions/kwargs";
-import { getSectionVariantToShow } from "state/actions/sectionInfos";
+import { toggleParamSelected } from "state/actions/kwargs/kwargs";
 import {
+  useCodeInfo,
   useParamShortcuts,
   useProjectSearch,
-  useSectionInfos,
   useTypeErrors,
 } from "state/definitions";
-import { createProjectSearchLookupKey } from "state/hooks/search";
+import { useCodeInfoChildren } from "state/hooks/codeInfoCols";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { ParamInput } from "./ParamItems/ParamInput";
 
 function _ParamContainer({
@@ -24,19 +24,17 @@ function _ParamContainer({
   ancestorIsSelected,
   children,
 }) {
+  const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
   );
-  const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
-    return {
-      isFocusedSearchResult:
-        x.focused.sectionId === sectionId &&
-        x.focused.paramInfoId === paramInfoId,
-      isSearchResult: x.lookup.has(
-        createProjectSearchLookupKey(sectionId, paramInfoId),
-      ),
-    };
-  }, _.isEqual);
+  const isFocusedSearchResult = useProjectSearch((x) =>
+    _.isEqual(x.focused, { sectionId, paramInfoId }),
+  );
+
+  const isSearchResult = useProjectSearch((x) =>
+    x.codeInfo.some((c) => _.isEqual(c, { sectionId, paramInfoId })),
+  );
 
   // warnings should be AMBER
   const border = maybeErrorMessage
@@ -46,22 +44,19 @@ function _ParamContainer({
       : isSearchResult
         ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
         : "";
-
+  const canBeOverriden = useCodeInfo(
+    (x) => sectionIsFrozen && x.x[paramInfoId].isFrozen,
+  );
   const {
     isSelected: paramIsSelected,
     description: paramDescription,
     name: paramName,
-    codeInfoChildren: paramChildren,
-  } = useSectionInfos((x) => {
-    const { codeInfoColId } = getSectionVariantToShow(sectionId, x);
-    const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
-    return {
-      isSelected: x.codeInfo[paramInfoId].isSelected,
-      description: x.codeInfo[paramInfoId].description,
-      name: x.codeInfo[paramInfoId].name,
-      codeInfoChildren: codeInfoChildren[paramInfoId] ?? [],
-    };
-  }, _.isEqual);
+  } = useCodeInfo(
+    (x) => _.pick(x.x[paramInfoId], ["isSelected", "description", "name"]),
+    _.isEqual,
+  );
+
+  const paramChildren = useCodeInfoChildren(sectionId, paramInfoId);
 
   // hover:bg-setta-200/20 dark:hover:bg-setta-700/25
   // maybe use this for in bg hover state: div:hover:not(:has(div:hover))

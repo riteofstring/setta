@@ -1,29 +1,46 @@
-import C from "constants/constants.json";
 import { dbDeleteTerminals } from "requests/terminals";
 import { deleteNodes } from "state/actions/nodeInternals";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useActiveSection, useSectionInfos } from "state/definitions";
-import { removeActiveSectionIds } from "../activeSections";
+import { getSectionParentId } from "../../getters/sectionInfo";
+import { deleteRunGroups } from "../runGroups/runGroups";
 import {
-  getAllSectionsForDeletionOrCopying,
   getSectionChildren,
-  getSectionParentId,
-  setSectionVariantChildren,
-} from "../sectionInfos";
-import { maybeIncrementProjectStateVersion } from "../undo";
+  getSectionChildrenFromAllVariants,
+} from "../sectionVariants";
+import { removeActiveSectionIds } from "./activeSections";
+import { removeSectionInfos } from "./sectionInfos";
 
-export function deleteSections(sectionIds, state) {
-  const idsToDelete = [
-    ...new Set(getAllSectionsForDeletionOrCopying(sectionIds, state)),
-  ];
-  const terminalIds = idsToDelete.filter(
-    (id) => state.uiTypes[state.x[id].uiTypeId].type === C.TERMINAL,
-  );
-  removeSectionInfos(idsToDelete, state);
-  if (terminalIds) {
-    dbDeleteTerminals(terminalIds);
+export function deleteSections({ sectionIds, incrementVersion = false }) {
+  let idsToDelete = [];
+  for (const sid of sectionIds) {
+    idsToDelete.push(...getIdsToDelete(sid));
   }
+  idsToDelete = [...new Set(idsToDelete)];
+  deleteRunGroups(idsToDelete);
   removeActiveSectionIds(idsToDelete);
+  removeSectionInfos(idsToDelete);
   deleteNodes(idsToDelete);
+  dbDeleteTerminals(idsToDelete); // delete any terminals associated with the sections
+  maybeIncrementProjectStateVersion(incrementVersion);
+}
+
+function getIdsToDelete(sectionId) {
+  const sectionInfosState = useSectionInfos.getState();
+  const idsToDelete = [sectionId];
+  let idx = 0;
+  while (idx < idsToDelete.length) {
+    const idxChildren = getSectionChildrenFromAllVariants(idsToDelete[idx]);
+    const { paramSweepSectionId } = sectionInfosState.x[idsToDelete[idx]];
+    if (idxChildren) {
+      idsToDelete.push(...idxChildren);
+    }
+    if (paramSweepSectionId) {
+      idsToDelete.push(paramSweepSectionId);
+    }
+    idx += 1;
+  }
+  return idsToDelete;
 }
 
 export function deleteChildrenFromSeries({
@@ -32,59 +49,24 @@ export function deleteChildrenFromSeries({
   numChildren = 1,
   incrementVersion = false,
 }) {
-  useSectionInfos.setState((state) => {
-    if (isRoot) {
-      const children = getSectionChildren(calledBy);
-      deleteSections(children.slice(0, numChildren), state);
-    } else {
-      const parentId = getSectionParentId(calledBy);
-      const siblings = getSectionChildren(parentId);
-      const startIdx = siblings.indexOf(calledBy) + 1;
-      deleteSections(siblings.slice(startIdx, startIdx + numChildren), state);
-    }
-  });
-
-  maybeIncrementProjectStateVersion(incrementVersion);
+  if (isRoot) {
+    const children = getSectionChildren(calledBy);
+    deleteSections({
+      sectionIds: children.slice(0, numChildren),
+      incrementVersion,
+    });
+  } else {
+    const parentId = getSectionParentId(calledBy);
+    const siblings = getSectionChildren(parentId);
+    const startIdx = siblings.indexOf(calledBy) + 1;
+    deleteSections({
+      sectionIds: siblings.slice(startIdx, startIdx + numChildren),
+      incrementVersion,
+    });
+  }
 }
 
 export function deleteAllActiveSections() {
   const sectionIds = useActiveSection.getState().ids;
-  useSectionInfos.setState((state) => {
-    deleteSections(sectionIds, state);
-  });
-}
-
-function removeSectionInfos(ids, state) {
-  const idSet = new Set(ids);
-  for (const id of idSet) {
-    const parentId = state.x[id]?.parentId;
-    if (parentId && state.x[parentId]?.variantId) {
-      setSectionVariantChildren(
-        parentId,
-        (children) => children.filter((x) => x !== id),
-        state,
-      );
-    }
-
-    let isStillUsedInAVariant = false;
-    for (const variantInfo of Object.values(state.variants)) {
-      if (variantInfo.children.includes(id)) {
-        isStillUsedInAVariant = true;
-        break;
-      }
-    }
-
-    if (!isStillUsedInAVariant) {
-      for (const variantId of state.x[id].variantIds) {
-        delete state.variants[variantId];
-      }
-      delete state.x[id];
-    }
-  }
-
-  for (const [k, v] of Object.entries(state.x)) {
-    if (idSet.has(v.paramSweepSectionId)) {
-      state.x[k].paramSweepSectionId = null;
-    }
-  }
+  deleteSections({ sectionIds, incrementVersion: true });
 }

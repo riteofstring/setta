@@ -66,10 +66,8 @@ function findTopLevelSections(sections, sectionVariants) {
 function removeSingletonSectionsIfAlreadyPresent(pasteData) {
   const { sections, uiTypes } = pasteData;
 
-  const {
-    [C.GLOBAL_VARIABLES]: globalVariables,
-    [C.GLOBAL_PARAM_SWEEP]: globalParamSweep,
-  } = useSectionInfos.getState().singletonSections;
+  const { globalVariables, globalParamSweep } =
+    useMisc.getState().singletonSections;
   if (!globalVariables && !globalParamSweep) {
     return sections;
   }

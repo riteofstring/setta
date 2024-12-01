@@ -1,5 +1,6 @@
-import json
 from collections import defaultdict
+
+from setta.database.utils import parse_keyword_positions_string
 
 
 def load_code_info(db, ids):
@@ -48,7 +49,9 @@ def load_code_info(db, ids):
     db.execute(query, all_ids)
     code_info = {}
     for row in db.fetchall():
-        code_info[row["id"]] = {"id": row["id"], **json.loads(row["data"])}
+        x = dict(row)
+        x["keywordPositions"] = parse_keyword_positions_string(x["keywordPositions"])
+        code_info[x["id"]] = x
 
     return code_info, code_info_cols
 

@@ -1,9 +1,7 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { guiToYaml } from "state/actions/guiToYaml";
-import {
-  getSectionInfo,
-  resetSectionToDefaultVersion,
-} from "state/actions/sectionInfos";
+import { resetSectionToDefaultVersion } from "state/actions/sectionVariants";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function ResetToDefaultVersion({ sectionId }) {

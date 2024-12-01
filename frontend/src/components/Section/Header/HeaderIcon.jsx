@@ -9,7 +9,7 @@ import { IoLogoJavascript } from "react-icons/io";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbArrowIteration } from "react-icons/tb";
-import { useSectionInfos } from "state/definitions";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { useListElementIdx } from "state/hooks/sectionVariants";
 import { useIsTwitter, useIsYouTube } from "state/hooks/social";
 import { useIsListElement } from "state/hooks/uiTypes";
@@ -23,7 +23,7 @@ export function HeaderIcon({
   const isListElement = useIsListElement(sectionId);
   const isYouTube = useIsYouTube(sectionId);
   const isTwitter = useIsTwitter(sectionId);
-  const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
+  const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
 
   if (isListElement) {
     return <ListElementIcon sectionId={sectionId} />;
@@ -95,7 +95,7 @@ export function HeaderIcon({
 }
 
 function CodeLanguageIcon({ sectionId, classes }) {
-  const codeLanguage = useSectionInfos((x) => x.x[sectionId].codeLanguage);
+  const codeLanguage = useGetSectionInfo(sectionId, "codeLanguage");
   switch (codeLanguage) {
     case "python":
       return <SiPython className={classes} />;

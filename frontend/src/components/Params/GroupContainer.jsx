@@ -1,10 +1,11 @@
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
-import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
+import { useGetSectionInfo } from "state/hooks/sections";
 import {
   INFINITE_MAX_HEIGHT,
   PINNED_PARAMS_AREA_MIN_HEIGHT,
@@ -59,12 +60,8 @@ function ResizablePinnedArea({
   requiredParamIdsToPaths,
   outerRef,
 }) {
-  const { sectionHeight, height } = useSectionInfos((x) => {
-    return {
-      sectionHeight: x.x[sectionId].size.height,
-      height: x.x[sectionId].pinnedAreaHeight,
-    };
-  }, _.isEqual);
+  const sectionHeight = useSectionInfos((x) => x.x[sectionId].size.height);
+  const height = useGetSectionInfo(sectionId, "pinnedAreaHeight");
   const [initialMaxHeight, setInitialMaxHeight] = useState(INFINITE_MAX_HEIGHT);
 
   function onResizeStop(...props) {
@@ -73,9 +70,7 @@ function ResizablePinnedArea({
       minHeight: "auto",
       sizeMode: { height: SIZE_MODE.any },
     });
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].pinnedAreaHeight = height;
-    });
+    setSectionInfoAttr({ sectionId, attr: "pinnedAreaHeight", value: height });
   }
 
   useEffect(() => {
@@ -132,9 +127,7 @@ function ResizablePinnedArea({
 
 function GetUnpinnedParams({ sectionId }) {
   const { ref, isScrollable } = useIsScrollable();
-  const hideUnpinnedParams = useSectionInfos(
-    (x) => x.x[sectionId].hideUnpinnedParams,
-  );
+  const hideUnpinnedParams = useGetSectionInfo(sectionId, "hideUnpinnedParams");
 
   return (
     <div

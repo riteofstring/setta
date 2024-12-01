@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 
-export function getIsRoot(sectionTypeName) {
+export function isRoot(sectionTypeName) {
   return [C.LIST_ROOT, C.DICT_ROOT, C.DECK].includes(sectionTypeName);
 }
 
@@ -39,7 +39,7 @@ export const uiTypesToPretty = Object.freeze(
   ),
 );
 
-export function createParamSweepSectionName(sectionName) {
+export function getParamSweepSectionName(sectionName) {
   return `${sectionName} Sweep`;
 }
 

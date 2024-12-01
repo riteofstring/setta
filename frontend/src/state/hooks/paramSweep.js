@@ -1,25 +1,48 @@
-import { getSectionVariantIdToShow } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
-import { useGetSectionVariantNames } from "./sectionVariants";
+import _ from "lodash";
+import { useParamSweep, useSectionInfos } from "state/definitions";
+import { createNewId } from "utils/idNameCreation";
 
 export function useParamSweepInfo(sectionId) {
-  return useSectionInfos((x) => {
-    const forSectionId = getForSectionId(x.x, sectionId);
-    const variantId = getSectionVariantIdToShow(sectionId, x);
-    const paramSweep = x.variants[variantId].sweep;
-    return {
-      forSectionId,
-      variantId,
-      paramSweep,
-    };
-  });
+  const forSectionId = useForSectionId(sectionId);
+  const paramSweepId = useSectionInfos((x) =>
+    forSectionId ? x.x[forSectionId].paramSweepId : null,
+  );
+  const previewParamSweepId = useSectionInfos((x) =>
+    forSectionId ? x.x[forSectionId].previewParamSweepId : null,
+  );
+
+  const shownParamSweepId = previewParamSweepId ?? paramSweepId;
+  const paramSweep = useParamSweep((x) => x.x[shownParamSweepId], _.isEqual);
+
+  return {
+    paramSweepId: shownParamSweepId,
+    paramSweep: paramSweep.sweep,
+    forSectionId,
+  };
+}
+
+export function useSectionHasMultipleParamSweeps(sectionId) {
+  const forSectionId = useForSectionId(sectionId);
+  return useSectionInfos(
+    (x) => forSectionId && x.x[forSectionId].paramSweepIds.length > 1,
+  );
 }
 
 export function useGetParamSweepNames(sectionId) {
-  const paramSweepSectionId = useSectionInfos(
-    (x) => x.x[sectionId].paramSweepSectionId,
+  const paramSweepIds = useSectionInfos((x) => x.x[sectionId].paramSweepIds);
+  return useParamSweep(
+    (x) => paramSweepIds.map((e) => ({ id: e, name: x.x[e].name })),
+    _.isEqual,
   );
-  return useGetSectionVariantNames(paramSweepSectionId);
+}
+
+export function useCurrParamSweepId(sectionId) {
+  const forSectionId = useForSectionId(sectionId);
+  return useSectionInfos((x) => x.x[forSectionId].paramSweepId);
+}
+
+export function useForSectionId(sectionId) {
+  return useSectionInfos((x) => getForSectionId(x.x, sectionId));
 }
 
 export function getForSectionId(state, sectionId) {
@@ -27,8 +50,26 @@ export function getForSectionId(state, sectionId) {
     ?.id;
 }
 
-export function getParamSweep(sectionId) {
-  return useSectionInfos.getState().variants[
-    getSectionVariantIdToShow(sectionId)
-  ].sweep;
+export function getParamSweep(forSectionId) {
+  const { paramSweepId } = useSectionInfos.getState().x[forSectionId];
+  if (!paramSweepId) {
+    return null;
+  }
+  return useParamSweep.getState().x[paramSweepId].sweep;
+}
+
+export function duplicateParamSweep({ id, newName }) {
+  const newId = createNewId();
+  useParamSweep.setState((state) => {
+    const s = state.x;
+    s[newId] = _.cloneDeep(s[id]);
+    s[newId].name = newName;
+    s[newId].isFrozen = false;
+  });
+  return newId;
+}
+
+export function useParamSweepIsFrozen(sectionId) {
+  const paramSweepId = useCurrParamSweepId(sectionId);
+  return useParamSweep((x) => x.x[paramSweepId].isFrozen);
 }

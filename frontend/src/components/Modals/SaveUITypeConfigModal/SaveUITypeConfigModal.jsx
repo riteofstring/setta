@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
+import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { deleteUIType } from "state/actions/uiTypes/uiTypes";
-import { useSectionInfos } from "state/definitions";
+import { useUITypes } from "state/definitions";
 import { isPreset, isUserPreset } from "utils/sectionTypeHelpers";
 import { SaveLoadModal } from "../SaveLoadModal/SaveLoadModal";
 
@@ -11,7 +12,7 @@ export function SaveUITypeConfigModal({ open, modalType }) {
 
   useEffect(() => {
     if (open) {
-      const uiTypes = Object.values(useSectionInfos.getState().uiTypes).filter(
+      const uiTypes = Object.values(useUITypes.getState().x).filter(
         isUserPreset,
       );
       setFiles(uiTypes);
@@ -24,6 +25,7 @@ export function SaveUITypeConfigModal({ open, modalType }) {
       name: filename,
       presetType: PresetType.USER,
     });
+    setParamUITypeConfig({ uiType: newUIType });
     setParamUITypeId({
       uiTypeId: newUIType.id,
       sectionId,
@@ -31,7 +33,7 @@ export function SaveUITypeConfigModal({ open, modalType }) {
     });
     // delete old uitype if its a non-preset
     if (!isPreset(uiType)) {
-      deleteUIType(uiType.id);
+      deleteUIType({ uiTypeId: uiType.id });
     }
   }
 

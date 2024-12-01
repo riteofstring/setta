@@ -7,10 +7,10 @@ from collections import defaultdict
 from setta.database.db.sectionVariants.utils import new_section_variant
 from setta.database.utils import create_new_id
 from setta.utils.constants import C
-from setta.utils.utils import filter_dict
 
+from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
-from ..uiTypes.load import load_uitypecols, load_uitypes
+from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
 def load_sections(db, ids):
@@ -24,6 +24,7 @@ def load_sections(db, ids):
             S.*,
             U.nonPresetUITypeIds,
             E.variantIds,
+            P.paramSweepIds,
             A.artifacts
         FROM
             Section S
@@ -50,6 +51,16 @@ def load_sections(db, ids):
         LEFT JOIN
             (
                 SELECT
+                    originSectionId,
+                    GROUP_CONCAT(id) AS paramSweepIds
+                FROM
+                    ParamSweepId
+                GROUP BY
+                    originSectionId
+            ) AS P ON S.id = P.originSectionId
+        LEFT JOIN
+            (
+                SELECT
                     sectionId,
                     GROUP_CONCAT(artifactPath) AS artifacts
                 FROM
@@ -66,9 +77,9 @@ def load_sections(db, ids):
 
     sections = {}
     for v in db.fetchall():
+        v = dict(v)
         sections[v["id"]] = {
-            **filter_dict(v, discard_keys=["data"]),
-            **json.loads(v["data"]),
+            **v,
             "isInOtherProjectConfigs": section_id_to_config_count[v["id"]] > 1,
             "parentId": child_to_parent_id.get(v["id"], None),
             "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],
@@ -76,6 +87,12 @@ def load_sections(db, ids):
             "nonPresetUITypeIds": (
                 v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
             ),
+            "paramSweepIds": v["paramSweepIds"].split(",")
+            if v["paramSweepIds"]
+            else [],
+            "canvasSettings": json.loads(v["canvasSettings"])
+            if v["canvasSettings"]
+            else {},
         }
 
     variantIds = list(
@@ -84,6 +101,14 @@ def load_sections(db, ids):
     sectionVariants = load_section_variants(db, variantIds)
 
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
+    paramSweeps = load_param_sweeps(
+        db,
+        list(
+            itertools.chain.from_iterable(
+                [s["paramSweepIds"] for s in sections.values()]
+            )
+        ),
+    )
 
     nonPresetUITypeIds = []
     for s in sections.values():
@@ -92,12 +117,13 @@ def load_sections(db, ids):
         for c in u.values():
             nonPresetUITypeIds.extend(c["nonPresetUITypeIds"])
 
-    nonPresetUITypes = load_uitypes(db, nonPresetUITypeIds)
+    nonPresetUITypes = load_uitypes_by_condition(db, ids=nonPresetUITypeIds)
 
     return {
         "sections": sections,
         "sectionVariants": sectionVariants,
         "uiTypeCols": uiTypeCols,
+        "paramSweeps": paramSweeps,
         "nonPresetUITypes": nonPresetUITypes,
     }
 
@@ -109,10 +135,12 @@ def get_section_ids(db, top_level_ids):
 
     db.execute("SELECT id, originSectionId FROM SectionVariantId")
     for row in db.fetchall():
+        row = dict(row)
         section_id_to_variants[row["originSectionId"]].append(row["id"])
 
     db.execute("SELECT idid, childId FROM SectionVariantChildren")
     for row in db.fetchall():
+        row = dict(row)
         variant_id_to_children[row["idid"]].append(row["childId"])
 
     ids = copy.deepcopy(top_level_ids)
@@ -137,30 +165,33 @@ def get_section_ids(db, top_level_ids):
 
 
 def load_section_configs(db, project_config_id):
-    query = """
-       SELECT s.sectionId, s.variantId, s.data, v.variantId as selectedVariantId
-       FROM SectionConfig s
-       LEFT JOIN SectionConfigSelectedVariants v
-           ON s.sectionId = v.sectionId
-           AND s.projectConfigId = v.projectConfigId
-       WHERE s.projectConfigId = :projectConfigId
-   """
-
+    query = """SELECT sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation, pinnedAreaHeight, isMinimized
+        FROM SectionConfig
+        WHERE projectConfigId = :projectConfigId
+    """
     db.execute(query, {"projectConfigId": project_config_id})
+
     output = {}
     for row in db.fetchall():
-        section_id = row["sectionId"]
-        if section_id not in output:
-            output[section_id] = {
-                "id": section_id,
-                "variantId": row["variantId"],
-                "selectedVariantIds": {},
-                **json.loads(row["data"]),
-            }
-        if row["selectedVariantId"]:
-            output[section_id]["selectedVariantIds"][row["selectedVariantId"]] = True
+        row = dict(row)
+        output[row["sectionId"]] = {
+            "id": row["sectionId"],
+            "size": {
+                "width": convert_size(row["width"]),
+                "height": convert_size(row["height"]),
+            },
+            "variantId": row["variantId"],
+            "paramSweepId": row["paramSweepId"],
+            "isHorizontalOrientation": row["isHorizontalOrientation"],
+            "pinnedAreaHeight": convert_size(row["pinnedAreaHeight"]),
+            "isMinimized": row["isMinimized"],
+        }
 
     return output
+
+
+def convert_size(x):
+    return "auto" if x == -1 else x
 
 
 def num_projects_each_section_exists_in(db, section_ids):
@@ -186,7 +217,7 @@ def load_artifact_metadata(db, section_id, artifact_paths):
         query_params.extend([section_id, a])
     placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
     query = f"""
-        SELECT artifactPath as path, data
+        SELECT artifactPath as path, value, type, displayName
         FROM SectionArtifacts
         WHERE (sectionId, artifactPath) IN ({placeholders})
     """
@@ -194,7 +225,10 @@ def load_artifact_metadata(db, section_id, artifact_paths):
 
     output = []
     for row in db.fetchall():
-        output.append({"path": row["path"], **json.loads(row["data"])})
+        curr_output = dict(row)
+        if curr_output["value"]:
+            curr_output["value"] = json.loads(curr_output["value"])
+        output.append(curr_output)
     return output
 
 

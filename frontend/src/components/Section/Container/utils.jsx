@@ -1,11 +1,10 @@
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
   addActiveSectionIds,
   removeActiveSectionIds,
   setActiveSectionIds,
-} from "state/actions/activeSections";
-import { getHighestAncestor } from "state/actions/sectionInfos";
+} from "state/actions/sections/activeSections";
+import { getHighestAncestor } from "state/actions/sections/sectionChildren";
 import { getParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useMisc, useParamShortcuts } from "state/definitions";
@@ -67,8 +66,4 @@ export function getOnSectionClick({ sectionId, isActiveSection }) {
     const highestAncestor = getHighestAncestor(sectionId);
     setZIndices([highestAncestor], false);
   };
-}
-
-export function useHasTempNested(sectionId) {
-  return useDndChildren((x) => x.x[sectionId]?.length > 0);
 }

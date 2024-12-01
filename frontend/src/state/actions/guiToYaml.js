@@ -1,20 +1,34 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
-import { initializeParams } from "state/actions/initializeParam";
-import { getSectionInfo, getSectionType } from "state/actions/sectionInfos";
 import {
+  addCodeInfoBatch,
+  batchUpdateCodeInfoAttrs,
+} from "state/actions/codeInfo";
+import { initializeParam } from "state/actions/initializeParam";
+import {
+  getSectionSelectedItem,
+  setParamEnteredValueBatch,
+} from "state/actions/sectionVariants";
+import {
+  useCodeInfo,
   useOriginalYamlObj,
+  useParamSweep,
+  useRunGroups,
   useSectionInfos,
+  useSectionVariants,
   useYamlValue,
 } from "state/definitions";
+import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { parseAllDocuments } from "yaml";
-import { getSectionCodeInfoChildren } from "./codeInfoCols";
-import { getSectionSelectedItem } from "./sectionInfos";
+import {
+  batchUpdateCodeInfoChildren,
+  getSectionCodeInfoChildren,
+} from "./codeInfoCols";
 import {
   getParamIds,
   paramNameFromPathArray,
@@ -56,7 +70,7 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
   const docs = parseAllDocuments(yamlValue);
   const codeInfoChildren = getSectionCodeInfoChildren(forSectionId);
   const codeInfoChildrenKeys = Object.keys(codeInfoChildren);
-  const codeInfo = useSectionInfos.getState().codeInfo;
+  const codeInfo = useCodeInfo.getState().x;
   const newParamSweep = [];
 
   for (const doc of docs) {
@@ -108,8 +122,9 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
     newParamSweep.push({ selectedItem: matchingCallableId, params });
   }
 
-  useSectionInfos.setState((x) => {
-    x.variants[x.x[sectionId].variantId].sweep = newParamSweep;
+  const { paramSweepId } = getSectionInfo(forSectionId);
+  useParamSweep.setState((x) => {
+    x.x[paramSweepId].sweep = newParamSweep;
   });
 }
 
@@ -121,7 +136,8 @@ function globalParamSweepSectionYamlToGUI(yamlValue, metaData) {
   const doc = parseAllDocuments(yamlValue)[0].toJS();
   const runGroupId = metaData.runGroupId;
   const sections = useSectionInfos.getState().x;
-  const sectionVariants = useSectionInfos.getState().variants;
+  const sectionVariants = useSectionVariants.getState().x;
+  const paramSweeps = useParamSweep.getState().x;
   const newRunGroupSections = {};
 
   for (const [k, v] of Object.entries(doc)) {
@@ -130,14 +146,15 @@ function globalParamSweepSectionYamlToGUI(yamlValue, metaData) {
       v,
       sections,
       sectionVariants,
+      paramSweeps,
       newRunGroupSections,
       null,
       null,
     );
   }
 
-  useSectionInfos.setState((x) => {
-    x.variants[runGroupId].sections = newRunGroupSections;
+  useRunGroups.setState((x) => {
+    x.x[runGroupId].sections = newRunGroupSections;
   });
 }
 
@@ -146,18 +163,24 @@ function recursiveHelper(
   value,
   sections,
   sectionVariants,
+  paramSweeps,
   newRunGroupSections,
   forSectionId,
   parentVariantId,
 ) {
   let nextForSectionId = forSectionId;
   let nextParentVariantId = parentVariantId;
-  const [match, type] = getMatch(name, forSectionId, sections, sectionVariants);
+  const [match, type] = getMatch(
+    name,
+    forSectionId,
+    sections,
+    sectionVariants,
+    paramSweeps,
+  );
   if (type === "section") {
     if (!(match in newRunGroupSections)) {
       newRunGroupSections[match] = {};
     }
-    console.log("section match", name, match, parentVariantId);
     newRunGroupSections[match][parentVariantId] = {
       selected: true,
       versions: {},
@@ -167,28 +190,9 @@ function recursiveHelper(
   } else if (type === "sectionVariant") {
     newRunGroupSections[forSectionId][parentVariantId].versions[match] = true;
     nextParentVariantId = match;
-    console.log("sectionvariant match", name, match, parentVariantId);
   } else if (type === "paramSweep") {
-    console.log("paramSweep", name, forSectionId, parentVariantId, match);
     newRunGroupSections[forSectionId][parentVariantId].paramSweeps[match] =
       true;
-  }
-
-  if (value) {
-    // do param sweeps first, because they need to be registered with the current parentVariantId
-    for (const [k, v] of Object.entries(
-      _.pickBy(value, (innerV, innerK) => innerK.startsWith("~")),
-    )) {
-      recursiveHelper(
-        k,
-        v,
-        sections,
-        sectionVariants,
-        newRunGroupSections,
-        nextForSectionId,
-        nextParentVariantId,
-      );
-    }
   }
 
   if (type === "section") {
@@ -208,15 +212,13 @@ function recursiveHelper(
     return;
   }
 
-  // do sections and variants
-  for (const [k, v] of Object.entries(
-    _.pickBy(value, (innerV, innerK) => !innerK.startsWith("~")),
-  )) {
+  for (const [k, v] of Object.entries(value)) {
     recursiveHelper(
       k,
       v,
       sections,
       sectionVariants,
+      paramSweeps,
       newRunGroupSections,
       nextForSectionId,
       nextParentVariantId,
@@ -224,7 +226,7 @@ function recursiveHelper(
   }
 }
 
-function getMatch(name, forSectionId, sections, sectionVariants) {
+function getMatch(name, forSectionId, sections, sectionVariants, paramSweeps) {
   let match, type;
   if (forSectionId && name.startsWith("@")) {
     const searchName = name.slice(1);
@@ -237,9 +239,8 @@ function getMatch(name, forSectionId, sections, sectionVariants) {
     }
   } else if (forSectionId && name.startsWith("~")) {
     const searchName = name.slice(1);
-    const { paramSweepSectionId } = sections[forSectionId];
-    for (const v of sections[paramSweepSectionId].variantIds) {
-      if (sectionVariants[v].name === searchName) {
+    for (const v of sections[forSectionId].paramSweepIds) {
+      if (paramSweeps[v].name === searchName) {
         match = v;
         type = "paramSweep";
         break;
@@ -333,12 +334,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     if (usedPaths.has(JSON.stringify(v.keyPath))) {
       continue;
     }
-    const curr = {
-      key: v.key,
-      keyPath: v.keyPath,
-      value: v.value,
-      isPinned: v.isPinned,
-    };
+    const curr = _.pick(v, ["key", "keyPath", "value", "isPinned"]);
     curr.id = createNewParamId(curr.keyPath, jsonSource);
     curr.isNewParam = true;
     output.push(curr);
@@ -383,7 +379,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     insertAtOriginalIdx: true,
   });
 
-  const cState = useSectionInfos.getState().codeInfo;
+  const cState = useCodeInfo.getState().x;
   const newInfos = {};
   const updatedInfos = {};
   const paramInfoIdToValue = {};
@@ -407,35 +403,15 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   }
   console.log("newInfos", newInfos);
 
-  useSectionInfos.setState((x) => {
-    x.codeInfo = { ...x.codeInfo, ...newInfos };
-    for (const [id, newAttrs] of Object.entries(updatedInfos)) {
-      for (const [k, v] of Object.entries(newAttrs)) {
-        x.codeInfo[id][k] = v;
-      }
-    }
-
-    const variantId = x.x[sectionId].variantId;
-    const variant = x.variants[variantId];
-    for (const [id, newChildren] of Object.entries(idsToChildren)) {
-      x.codeInfoCols[variant.codeInfoColId].children[id] = newChildren;
-    }
-
-    initializeParams(sectionId, Object.keys(newInfos), x);
-
-    for (const [id, value] of Object.entries(paramInfoIdToValue)) {
-      variant.values[id].value = value;
-    }
-  });
+  addCodeInfoBatch(newInfos);
+  batchUpdateCodeInfoAttrs(updatedInfos);
+  batchUpdateCodeInfoChildren(sectionId, idsToChildren);
+  initializeParam(sectionId, Object.keys(newInfos));
+  setParamEnteredValueBatch({ sectionId, paramInfoIdToValue });
 }
 
 function updateOutputs({ v, matches, usedOriginalIds, usedPaths, output }) {
-  const curr = {
-    key: matches[0].key,
-    keyPath: matches[0].keyPath,
-    value: matches[0].value,
-    isPinned: matches[0].isPinned,
-  };
+  const curr = _.pick(matches[0], ["key", "keyPath", "value", "isPinned"]);
   curr.id = v.id;
   curr.editable = v.editable;
   output.push(curr);

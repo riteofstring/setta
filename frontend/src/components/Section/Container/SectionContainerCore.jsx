@@ -1,11 +1,8 @@
 import C from "constants/constants.json";
 import React from "react";
-import {
-  useActiveSection,
-  useJSONSourceMissing,
-  useSectionInfos,
-} from "state/definitions";
+import { useActiveSection, useJSONSourceMissing } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { useSectionTypeName } from "state/hooks/uiTypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
@@ -14,11 +11,13 @@ import { getOnSectionClick, getOutlineColor } from "./utils";
 function _SectionContainerCore({ sectionId }) {
   const sectionTypeName = useSectionTypeName(sectionId);
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
+  const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const jsonSourceMissing = useJSONSourceMissing((x) => x[sectionId]);
   const isGlobalVariables = sectionTypeName === C.GLOBAL_VARIABLES;
-  const isInOtherProjectConfigs = useSectionInfos(
-    (x) => x.x[sectionId].isInOtherProjectConfigs,
+  const isInOtherProjectConfigs = useGetSectionInfo(
+    sectionId,
+    "isInOtherProjectConfigs",
   );
 
   const boxShadow = isActiveSection

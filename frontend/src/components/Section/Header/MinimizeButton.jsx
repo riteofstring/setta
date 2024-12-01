@@ -1,11 +1,14 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 export function MinimizeButton({ sectionId, twClasses, ...props }) {
   const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
   function onClick() {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].isMinimized = !isMinimized;
+    setSectionInfoAttr({
+      sectionId,
+      attr: "isMinimized",
+      newValueFn: (x) => !x,
     });
   }
 

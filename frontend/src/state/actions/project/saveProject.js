@@ -1,5 +1,3 @@
-import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
-import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
   dbSaveAsExistingProjectConfig,
@@ -9,15 +7,24 @@ import {
 import { dbSaveSettings } from "requests/settings";
 import {
   useArtifacts,
+  useCodeInfo,
+  useCodeInfoCols,
   useKeywordRegex,
   useNodeInternals,
+  useParamSweep,
   useProjectConfig,
+  useRunGroups,
   useSectionInfos,
+  useSectionVariants,
   useSettings,
+  useUITypeCols,
+  useUITypes,
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { yamlToGUI } from "../guiToYaml";
+import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
+import { getProjectConfigMetadata } from "./projectConfig";
 
 export function getProjectData({
   withArtifactMetadata = false,
@@ -46,51 +53,45 @@ export function getProjectData({
     currSection.artifacts = currSection.artifacts.map((a) => ({
       path: a,
       value: a.startsWith("data:") ? artifactState[a].value : undefined,
-      type: artifactState[a].type,
-      displayName: artifactState[a].displayName,
+      ..._.pick(artifactState[a], ["type", "displayName"]),
     }));
     return currSection;
   });
 
   console.log("sections", sections);
 
-  const sectionVariants = _.mapValues(
-    useSectionInfos.getState().variants,
-    (x) => ({
-      ...x,
-      // need this filter because some sections might be temporary
-      children: x.children.filter((c) => c in sections),
-    }),
-  );
-  const uiTypes = useSectionInfos.getState().uiTypes;
-  const uiTypeCols = useSectionInfos.getState().uiTypeCols;
+  const sectionVariants = _.mapValues(useSectionVariants.getState().x, (x) => ({
+    ...x,
+    // need this filter because some sections might be temporary
+    children: x.children.filter((c) => c in sections),
+  }));
+  const uiTypes = useUITypes.getState().x;
+  const uiTypeCols = useUITypeCols.getState().y;
+  const paramSweeps = useParamSweep.getState().x;
+  const runGroups = useRunGroups.getState().x;
 
-  const codeInfo = useSectionInfos.getState().codeInfo;
-  const codeInfoCols = useSectionInfos.getState().codeInfoCols;
+  const codeInfo = useCodeInfo.getState().x;
+  const codeInfoCols = useCodeInfoCols.getState().x;
   const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
 
   const projectConfig = getProjectConfigMetadata();
+  projectConfig.previewImgNodes = getPreviewImgNodes();
   const children = {};
   for (const c of useNodeInternals.getState().x.values()) {
     if (c.id in sections) {
       // need this filter because some sections might be temporary
-      children[c.id] = {
-        x: c.position.x,
-        y: c.position.y,
-        zIndex: c.zIndex,
-        w: c.width, // save width and height so we can show preview on home page
-        h: c.height,
-      };
+      children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
     }
   }
   projectConfig.children = children;
-  console.log("projectConfig", projectConfig);
 
   const output = {
     projectConfig,
     sectionVariants,
     uiTypes,
     uiTypeCols,
+    paramSweeps,
+    runGroups,
     sections,
     codeInfo,
     codeInfoCols,
@@ -149,18 +150,13 @@ async function saveProjectAs({ fn, otherArgs }) {
   });
 }
 
-function getProjectConfigMetadata() {
-  const state = useProjectConfig.getState();
-  const output = {
-    id: state.id,
-    name: state.name,
-    isDefault: state.isDefault,
-    previewImgColor: state.previewImgColor,
-  };
+function getPreviewImgNodes() {
+  const nodes = getNodes().map((n) => ({
+    x: Math.round(n.position.x),
+    y: Math.round(n.position.y),
+    w: Math.round(n.width),
+    h: Math.round(n.height),
+  }));
 
-  output.viewport = useReactFlow.getState().fitViewOnInit
-    ? null
-    : getViewport();
-
-  return output;
+  return JSON.stringify(nodes);
 }

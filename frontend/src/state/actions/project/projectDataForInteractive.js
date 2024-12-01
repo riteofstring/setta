@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { getSectionType } from "state/actions/sectionInfos";
 import { useArtifacts, useSectionInfos } from "state/definitions";
+import { getSectionType } from "state/getters/sectionInfo";
 import { requestBase64FromDrawArea } from "../temporaryMiscState";
 import { getProjectData } from "./saveProject";
 

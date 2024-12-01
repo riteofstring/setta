@@ -1,6 +1,7 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { isAmongNonPresets } from "state/actions/uiTypes/cloneUITypes";
-import { useSectionInfos } from "state/definitions";
+import { useUITypes } from "state/definitions";
 import {
   isBasePreset,
   isPreset,
@@ -9,7 +10,8 @@ import {
   PresetType,
   uiTypesToPretty,
 } from "utils/sectionTypeHelpers";
-import { getUITypeColAttr } from "./uiTypes";
+import { useGetSectionInfo } from "./sections";
+import { useGetSectionType, useParamNonPresetUITypeIds } from "./uiTypes";
 
 function createName(uiType) {
   const x = uiTypesToPretty.get(uiType.type);
@@ -58,28 +60,51 @@ function filterUITypes(
   }));
 }
 
+export function useAvailableUITypesForSection(sectionId, selectedId) {
+  const nonPresetUITypeIds = useGetSectionInfo(sectionId, "nonPresetUITypeIds");
+  const currTypeName = useGetSectionType(sectionId, "type");
+  const generalFilterFn = getSectionFilterFn(currTypeName);
+  const nonPresetFilterFn = (uiType) =>
+    isAmongNonPresets(uiType, nonPresetUITypeIds);
+
+  return useUITypes(
+    (x) => filterUITypes(x.x, generalFilterFn, nonPresetFilterFn, selectedId),
+    _.isEqual,
+  );
+}
+
 export function useAvailableUITypesForParam(
   sectionId,
   paramInfoId,
   selectedId,
 ) {
-  return useSectionInfos((x) => {
-    const nonPresetUITypeIds = getUITypeColAttr(
-      sectionId,
-      paramInfoId,
-      "nonPresetUITypeIds",
-      x,
-    );
+  const nonPresetUITypeIds = useParamNonPresetUITypeIds(sectionId, paramInfoId);
 
-    const generalFilterFn = (x) => !isSectionUIType(x);
-    const nonPresetFilterFn = (uiType) =>
-      isAmongNonPresets(uiType, nonPresetUITypeIds);
+  const generalFilterFn = (x) => !isSectionUIType(x);
+  const nonPresetFilterFn = (uiType) =>
+    isAmongNonPresets(uiType, nonPresetUITypeIds);
 
-    return filterUITypes(
-      x.uiTypes,
-      generalFilterFn,
-      nonPresetFilterFn,
-      selectedId,
-    );
-  }, _.isEqual);
+  return useUITypes(
+    (x) => filterUITypes(x.x, generalFilterFn, nonPresetFilterFn, selectedId),
+    _.isEqual,
+  );
+}
+
+function getOtherSectionTypeNamesToShow(currTypeName) {
+  switch (currTypeName) {
+    case C.SECTION:
+      return [C.LIST_ROOT, C.DICT_ROOT];
+    case C.LIST_ROOT:
+      return [C.SECTION, C.DICT_ROOT];
+    case C.DICT_ROOT:
+      return [C.SECTION, C.LIST_ROOT];
+    default:
+      return [];
+  }
+}
+
+function getSectionFilterFn(currTypeName) {
+  return (uiType) =>
+    uiType.type === currTypeName ||
+    getOtherSectionTypeNamesToShow(currTypeName).includes(uiType.type);
 }

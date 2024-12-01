@@ -1,19 +1,14 @@
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
+import _ from "lodash";
 import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
-import {
-  getSectionParentId,
-  manualDndChildrenReset,
-  setSectionVariantChildren,
-  updateSectionInfos,
-} from "state/actions/sectionInfos";
-import {
-  maybeMakeCopyOfSection,
-  moveSection,
-} from "state/actions/sections/moveSections";
+import { moveSection } from "state/actions/sections/moveSections";
+import { manualDndChildrenReset } from "state/actions/sections/sectionInfos";
+import { setSectionVariantChildren } from "state/actions/sectionVariants";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { getSectionParentId } from "state/getters/sectionInfo";
+import { PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
 import { useDndChildren } from "./dndChildren";
@@ -21,12 +16,9 @@ import { BehaviorDropType } from "./dropTypes";
 
 function onSortEnd({ active, over }) {
   if (over && active.id !== over.id) {
-    useSectionInfos.setState((state) => {
-      setSectionVariantChildren(
-        active.data.current.sortable?.containerId,
-        updateWithArrayMove(active, over),
-        state,
-      );
+    setSectionVariantChildren({
+      sectionId: active.data.current.sortable?.containerId,
+      newStateFn: updateWithArrayMove(active, over),
     });
 
     maybeIncrementProjectStateVersion(true);
@@ -38,7 +30,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   const sectionId = active.id;
   const dndSectionId = getDndSectionId(sectionId);
   const overId = over?.id;
-  const oldParentId = getSectionParentId(sectionId);
+  const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
   let newParentId = dndChildrenState.y[dndSectionId] ?? null;
   let newIndex = null;
   let position = null;
@@ -54,46 +46,30 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   }
   // dropping nested section onto pane
   else if (!overId) {
+    newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = screenToFlowPosition({ x, y });
 
-    if (!oldParentId) {
+    if (oldParentId === PANEID) {
       justMoveANode(sectionId, position);
       return;
     }
   }
 
-  if (behaviorDropType === BehaviorDropType.INVALID) {
-    manualDndChildrenReset();
-    return;
-  }
-
-  const maybeNewSectionData = await maybeMakeCopyOfSection({
-    sectionId,
+  await moveSection({
     oldParentId,
     newParentId,
+    sectionId,
+    newIndex,
+    position,
+    behaviorDropType,
+    incrementVersion: true,
   });
 
-  useSectionInfos.setState((state) => {
-    let newSectionId;
-    if (maybeNewSectionData.sections) {
-      updateSectionInfos({ ...maybeNewSectionData, state });
-      newSectionId = Object.keys(maybeNewSectionData.sections)[0];
-    } else {
-      newSectionId = maybeNewSectionData;
-    }
-
-    moveSection({
-      oldParentId,
-      newParentId,
-      oldSectionId: sectionId,
-      newSectionId,
-      newIndex,
-      position,
-      state,
-    });
-  });
+  if (behaviorDropType === BehaviorDropType.INVALID) {
+    manualDndChildrenReset();
+  }
 }
 
 export function useOnDragEnd() {

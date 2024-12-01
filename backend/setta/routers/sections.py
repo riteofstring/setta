@@ -2,6 +2,7 @@ from pathlib import Path
 from pprint import pprint
 from typing import Dict, List
 
+import yaml
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -50,12 +51,12 @@ class GlobalParamSweepSectionToYamlRequest(BaseModel):
     runGroup: dict | None
     sections: dict
     sectionVariants: dict
+    paramSweeps: dict
 
 
 class LoadSectionJSONSourceRequest(BaseModel):
     project: dict
     sectionId: str
-    jsonSource: str
 
 
 class SaveSectionJSONSourceRequest(BaseModel):
@@ -113,9 +114,7 @@ def route_param_sweep_section_to_yaml(x: ParamSweepSectionToYamlRequest):
 @router.post(C.ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML)
 def route_global_param_sweep_section_to_yaml(x: GlobalParamSweepSectionToYamlRequest):
     output = export_single_run_group_to_dict(
-        x.runGroup,
-        x.sections,
-        x.sectionVariants,
+        x.runGroup, x.sections, x.sectionVariants, x.paramSweeps
     )
     yamlValue = run_group_dict_to_yaml(output)
     return {"yamlValue": yamlValue, "originalObj": {}}
@@ -124,7 +123,6 @@ def route_global_param_sweep_section_to_yaml(x: GlobalParamSweepSectionToYamlReq
 @router.post(C.ROUTE_LOAD_SECTION_JSON_SOURCE)
 def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
     p = x.project
-    p["sections"][x.sectionId]["jsonSource"] = x.jsonSource
     jsonSourceMissing = load_json_sources_into_data_structures(
         p["sections"],
         p["codeInfo"],

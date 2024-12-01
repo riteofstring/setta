@@ -1,29 +1,33 @@
 import { useDndMonitor } from "forks/dnd-kit/CustomCore";
 import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
-import _ from "lodash";
+import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { useEffect } from "react";
-import { getSectionParentId } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { getSectionParentId } from "state/getters/sectionInfo";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import colors from "tailwindcss/colors";
-import { BehaviorDropType } from "./dropTypes";
+import { useHasPermanentNested } from "../../state/hooks/sections";
 
 export function useHighlightDroppable(sectionId) {
-  return useDndState((x) => {
-    const behaviorDropType = x.overId === sectionId ? x.behaviorDropType : null;
-    return {
-      behaviorDropType,
-      style:
-        behaviorDropType === BehaviorDropType.INVALID
-          ? {
-              borderRadius: "1.5rem",
-              padding: "0.75rem",
-              margin: "-0.75rem",
-              backgroundColor: colors.red[600],
-            }
-          : {},
-    };
-  }, _.isEqual);
+  const overIsSelf = useOverIsSelf(sectionId);
+  const behaviorDropType = useDndState((x) =>
+    overIsSelf ? x.behaviorDropType : null,
+  );
+  const invalid = behaviorDropType === BehaviorDropType.INVALID;
+
+  const style = invalid
+    ? {
+        borderRadius: "1.5rem",
+        padding: "0.75rem",
+        margin: "-0.75rem",
+        // transition: "background-color 0.2s",
+        backgroundColor: invalid ? colors.red[600] : colors.blue[500],
+      }
+    : {};
+
+  return {
+    style,
+    behaviorDropType,
+  };
 }
 
 export function useDisableSortable(sectionId) {
@@ -94,9 +98,6 @@ export function useDndProps({ sectionId, isTopLevel }) {
   };
 }
 
-function useHasPermanentNested(sectionId) {
-  return useSectionInfos((x) => {
-    const variantId = x.x[sectionId]?.variantId;
-    return variantId ? x.variants[variantId].children.length > 0 : false;
-  });
+export function useOverIsSelf(sectionId) {
+  return useDndState((x) => x.overId === sectionId);
 }

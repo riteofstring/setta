@@ -39,7 +39,7 @@ def route_load_artifacts(x: LoadArtifactsRequest, dbq=Depends(get_dbq)):
         artifactMetadata = load_artifact_metadata(db, x.sectionId, x.artifactPaths)
     artifacts = {}
     for p in artifactMetadata:
-        if p.get("value") is not None:
+        if p["value"] is not None:
             data = {"value": p["value"], "type": p["type"]}
         else:
             wrapper = get_wrapper_for_loading(p["type"])

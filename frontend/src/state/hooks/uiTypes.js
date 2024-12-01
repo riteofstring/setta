@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos, useUITypeCols, useUITypes } from "state/definitions";
 import {
   BASE_UI_TYPE_IDS,
   INFO_CONFIG_TAB,
@@ -10,70 +10,123 @@ import {
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
+import { isRoot } from "utils/sectionTypeHelpers";
 import { localStorageFns } from "./localStorage";
+import { useGetSectionInfo } from "./sections";
 
 export function useGetParamUIType(sectionId, paramInfoId) {
-  return useSectionInfos((x) => {
-    const uiTypeId = getUITypeColAttr(sectionId, paramInfoId, "uiTypeId", x);
-    return x.uiTypes[uiTypeId];
-  }, _.isEqual);
+  const uiTypeId = useParamUITypeId(sectionId, paramInfoId);
+  return useUITypes((x) => x.x[uiTypeId], _.isEqual);
 }
 
-export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {
-  const state = _state ?? useSectionInfos.getState();
-  const { uiTypeColId } = state.x[sectionId];
-  if (paramInfoId.startsWith(C.JSON_SOURCE_PREFIX)) {
-    if (paramInfoId in state.uiTypeCols[uiTypeColId]) {
-      return state.uiTypeCols[uiTypeColId][paramInfoId][key];
-    } else if (key === "uiTypeId") {
-      return BASE_UI_TYPE_IDS[C.TEXT];
-    } else if (key === "nonPresetUITypeIds") {
-      return [];
+function useUITypeCol(sectionId, paramInfoId, key) {
+  const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
+  return useUITypeCols((x) => {
+    if (paramInfoId.startsWith(C.JSON_SOURCE_PREFIX)) {
+      if (paramInfoId in x.y[uiTypeColId]) {
+        return x.y[uiTypeColId][paramInfoId][key];
+      } else if (key === "uiTypeId") {
+        return BASE_UI_TYPE_IDS[C.TEXT];
+      } else if (key === "nonPresetUITypeIds") {
+        return [];
+      }
     }
-  }
-  return state.uiTypeCols[uiTypeColId][paramInfoId][key];
+    return x.y[uiTypeColId][paramInfoId][key];
+  });
 }
 
-export function getIsSeriesElementHelper(
-  sectionId,
-  parentTypesToCheck,
-  _state = {},
-) {
-  const state = _state ?? useSectionInfos.getState();
-  const { parentId } = state.x[sectionId];
-  const uiTypeId = state.x[parentId]?.uiTypeId;
-  return uiTypeId
-    ? parentTypesToCheck.includes(state.uiTypes[uiTypeId].type)
-    : false;
+function useParamUITypeId(sectionId, paramInfoId) {
+  return useUITypeCol(sectionId, paramInfoId, "uiTypeId");
+}
+
+export function useParamNonPresetUITypeIds(sectionId, paramInfoId) {
+  return useUITypeCol(sectionId, paramInfoId, "nonPresetUITypeIds");
+}
+
+export function useGetSectionType(sectionId, key) {
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
+  const nonScalars = ["config"];
+  const equalityFn = nonScalars.includes(key) ? _.isEqual : undefined;
+  return useUITypes((x) => x.x[uiTypeId][key], equalityFn);
+}
+
+function useIsSeriesElementHelper(sectionId, parentTypesToCheck) {
+  const parentId = useGetSectionInfo(sectionId, "parentId");
+  const uiTypeId = useSectionInfos((x) =>
+    parentId ? x.x[parentId].uiTypeId : null,
+  );
+  return useUITypes((x) =>
+    uiTypeId ? parentTypesToCheck.includes(x.x[uiTypeId].type) : false,
+  );
 }
 
 export function useIsSeriesElement(sectionId) {
-  return useSectionInfos((x) =>
-    getIsSeriesElementHelper(sectionId, [C.LIST_ROOT, C.DICT_ROOT], x),
-  );
+  return useIsSeriesElementHelper(sectionId, [C.LIST_ROOT, C.DICT_ROOT]);
 }
 
 export function useIsListElement(sectionId) {
-  return useSectionInfos((x) =>
-    getIsSeriesElementHelper(sectionId, [C.LIST_ROOT], x),
-  );
+  return useIsSeriesElementHelper(sectionId, [C.LIST_ROOT]);
 }
 
 export function useSectionTypeName(sectionId) {
-  return useSectionInfos((x) => x.uiTypes[x.x[sectionId].uiTypeId].type);
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
+  return useUITypes((x) => x.x[uiTypeId].type);
 }
 
-export function useIsType(sectionId, type) {
-  return useSectionInfos(
-    (x) => x.uiTypes[x.x[sectionId].uiTypeId].type === type,
+export function useSectionTypeNames() {
+  const sectionIdToUITypeId = useSectionInfos(
+    (x) => _.mapValues(x.x, (s) => s.uiTypeId),
+    _.isEqual,
+  );
+  return useUITypes((x) =>
+    _.mapValues(sectionIdToUITypeId, (s) => x.x[s].type),
   );
 }
 
+function useIsType(sectionId, type) {
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
+  return useUITypes((x) => x.x[uiTypeId].type === type);
+}
+
+export function useIsOneOfType(sectionId, types) {
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
+  return useUITypes((x) => types.includes(x.x[uiTypeId].type));
+}
+
+export function useIsRoot(sectionId) {
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
+  return useUITypes((x) => isRoot(x.x[uiTypeId].type));
+}
+
+export function useIsDeck(sectionId) {
+  return useIsType(sectionId, C.DECK);
+}
+
+export function useIsSocial(sectionId) {
+  return useIsType(sectionId, C.SOCIAL);
+}
+
+export function useIsGlobalVariables(sectionId) {
+  return useIsType(sectionId, C.GLOBAL_VARIABLES);
+}
+
+export function useIsTerminal(sectionId) {
+  return useIsType(sectionId, C.TERMINAL);
+}
+
+export function useIsInteractiveCode(sectionId) {
+  return useIsType(sectionId, C.INTERACTIVE_CODE);
+}
+
+export function useIsDrawArea(sectionId) {
+  return useIsType(sectionId, C.DRAW);
+}
+
 export function useUIEditorTab(sectionId) {
-  const uiTypeName = useSectionInfos((x) => {
-    const uiTypeId = x.x[sectionId]?.uiTypeId;
-    return uiTypeId ? x.uiTypes[uiTypeId].type : null;
-  });
+  const uiTypeId = useSectionInfos((x) =>
+    sectionId ? x.x[sectionId].uiTypeId : null,
+  );
+  const uiTypeName = useUITypes((x) => (uiTypeId ? x.x[uiTypeId].type : null));
   const [_storedTab] = localStorageFns.uiEditorTab.hook();
   return { ...getUIEditorTab(uiTypeName, _storedTab), uiTypeName };
 }
@@ -119,7 +172,7 @@ function getRequiredUIEditorTabs(uiTypeName) {
 }
 
 export function getDefaultDisplayMode(uiTypeId) {
-  const uiType = useSectionInfos.getState().uiTypes[uiTypeId].type;
+  const uiType = useUITypes.getState().x[uiTypeId].type;
   switch (uiType) {
     case C.INFO:
       return SECTION_DISPLAY_MODES.RENDER;

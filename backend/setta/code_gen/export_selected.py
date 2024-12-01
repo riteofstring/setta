@@ -1,6 +1,6 @@
 import copy
 
-from setta.utils.section_contents import get_param_ids
+from setta.utils.section_contents import get_param_ids, get_param_ids_to_show_in_area
 from setta.utils.utils import (
     QuoteInsensitiveDict,
     replace_null_keys_with_none,
@@ -191,9 +191,9 @@ def export_param_sweep_section_to_dict(sweep, codeInfo, codeInfoChildren):
     return e
 
 
-def export_single_run_group_to_dict(runGroup, sections, sectionVariants):
+def export_single_run_group_to_dict(runGroup, sections, sectionVariants, paramSweeps):
     runGroup = replace_null_keys_with_none(runGroup)
-    e = SingleRunGroupToDict(runGroup, sections, sectionVariants)
+    e = SingleRunGroupToDict(runGroup, sections, sectionVariants, paramSweeps)
     e.export()
     return e
 
@@ -665,11 +665,13 @@ class SingleRunGroupToDict:
         runGroup,
         sections,
         sectionVariants,
+        paramSweeps,
     ):
         self.prettyOutput = {}
         self.runGroup = runGroup
         self.sections = sections
         self.sectionVariants = sectionVariants
+        self.paramSweeps = paramSweeps
 
     def export(self):
         if not self.runGroup:
@@ -704,12 +706,10 @@ class SingleRunGroupToDict:
         if len(section_info["variantIds"]) == 1:
             output[section_name] = output[section_name][variant_name]
 
-        for paramSweepSectionVariantId, selected in details["paramSweeps"].items():
+        for paramSweepId, selected in details["paramSweeps"].items():
             if not selected:
                 continue
-            param_sweep_name = (
-                f'~{self.sectionVariants[paramSweepSectionVariantId]["name"]}'
-            )
+            param_sweep_name = f'~{self.paramSweeps[paramSweepId]["name"]}'
             output[section_name][param_sweep_name] = {}
 
         return output

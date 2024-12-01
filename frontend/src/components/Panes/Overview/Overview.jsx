@@ -33,7 +33,7 @@ export function Overview() {
       className="contents"
       onKeyDown={overviewPaneOnKeyDown}
     >
-      <div className="absolute left-0 z-[19] flex h-[calc(100%_-_48px)] w-[50px] flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
+      <div className="absolute left-0 z-[19] flex h-full w-[50px] flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton
           tabName="tab1"
           {...commonProps}
@@ -41,8 +41,11 @@ export function Overview() {
         >
           <i className="gg-list  !scale-100" />
         </TabButton>
+        {/* <TabButton tabName="tab2" {...commonProps}>
+          <i className="gg-info !scale-100" />
+        </TabButton> */}
         <TabButton
-          tabName="tab2"
+          tabName="tab3"
           {...commonProps}
           {...getFloatingBoxHandlers("Config Preview")}
         >
@@ -71,7 +74,9 @@ export function Overview() {
 
 function TabsVisible({ tab }) {
   // const title = tabNameToPretty[tab];
-  const title = { tab1: "Overview", tab2: "Project Configs" }[tab];
+  const title = { tab1: "Overview", tab2: "Info", tab3: "Project Configs" }[
+    tab
+  ];
   return (
     <div
       className="mx-[1px] flex h-full min-h-0 w-[calc(100%_-_3rem)] min-w-0 flex-1
@@ -89,7 +94,9 @@ function TabContent({ tab }) {
   switch (tab) {
     case "tab1":
       return <ProjectOverview />;
-    case "tab2":
+    // case "tab2":
+    //   return <InfoViewBig />;
+    case "tab3":
       return <ProjectConfigs />;
   }
 }

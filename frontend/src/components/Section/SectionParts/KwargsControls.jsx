@@ -1,27 +1,23 @@
 import _ from "lodash";
+import { getSectionCodeInfoChildren } from "state/actions/codeInfoCols";
 import {
   addKwarg,
-  deleteKwargIds,
-  deleteLastKwarg,
+  deleteKwarg,
   deleteSelectedKwargs,
-  getAllSelectedParams,
   pinSelectedKwargs,
-} from "state/actions/kwargs";
+} from "state/actions/kwargs/kwargs";
+import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import {
-  useActiveSection,
-  useSectionInfos,
-  useSettings,
-} from "state/definitions";
+import { useActiveSection, useSettings } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import { shortcutPrettified } from "utils/utils";
+import { getAllSelectedParams } from "../../../state/actions/kwargs/utils";
 
 export function KwargsControls({
   sectionId,
   objInfoId,
   bgColor = "bg-transparent",
 }) {
-  const paramFilterValue = useSectionInfos((x) => x.x[sectionId].paramFilter);
   const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
 
   const sectionIsActive = useActiveSection((x) =>
@@ -33,9 +29,7 @@ export function KwargsControls({
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
   function onSearchChange(e) {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].paramFilter = e.target.value;
-    });
+    setSectionParamFilter({ sectionId, filter: e.target.value });
   }
 
   const onClickDeleteSelectedKwargs = () => {
@@ -45,6 +39,8 @@ export function KwargsControls({
   function onClickPinParam() {
     pinSelectedKwargs(sectionId);
   }
+
+  const inputStyles = "";
 
   const classes =
     "focus-visible:ring-2 flex nodrag cursor-pointer bg-transparent  text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 w-[18px] rounded-full items-center justify-center";
@@ -89,14 +85,33 @@ export function KwargsControls({
               <i className="gg-close !scale-50" />
             </button>
           </section>
+          {/* {anyParamsSelected && (
+            <section className="flex">
+              <h3 className="my-auto ml-2 pr-1  text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
+                Position
+              </h3>
+
+              <button className={classes} onClick={onPushLeft} tabIndex="-1">
+                <i className="gg-push-left ml-[2px]" />
+              </button>
+              <button className={classes} onClick={onPushRight} tabIndex="-1">
+                <i className="gg-push-right mr-[2px]" />
+              </button>
+              <button className={classes} onClick={onPushUp} tabIndex="-1">
+                <i className="gg-push-up mt-[2px]" />
+              </button>
+              <button className={classes} onClick={onPushDown} tabIndex="-1">
+                <i className="gg-push-down mb-[2px]" />
+              </button>
+            </section>
+          )} */}
         </article>
 
         <search className="nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ">
           <i className="gg-sort-az -mr-2 text-setta-300 dark:text-setta-600" />
           <input
             id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-            value={paramFilterValue}
-            className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-700 placeholder-setta-600  outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300"
+            className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-300 placeholder-setta-600 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300"
             placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
             tabIndex="0"
             onChange={onSearchChange}
@@ -114,60 +129,54 @@ export function KwargsControls({
 
 function onClickAddKwargFn(sectionId, objInfoId) {
   return () => {
-    useSectionInfos.setState((state) => {
-      const selectedParams = getAllSelectedParams(sectionId, state);
-      if (selectedParams.length > 0) {
-        const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
-        const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
-        for (const p of selectedParams) {
-          let parentId, insertIdx;
-          for (const [id, children] of Object.entries(codeInfoChildren)) {
-            if (children.includes(p.id)) {
-              parentId = id;
-              insertIdx = children.indexOf(p.id) + 1;
-              break;
-            }
+    const selectedParams = getAllSelectedParams(sectionId);
+    if (selectedParams.length > 0) {
+      for (const p of selectedParams) {
+        const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
+        let parentId, insertIdx;
+        for (const [id, children] of Object.entries(codeInfoChildren)) {
+          if (children.includes(p.id)) {
+            parentId = id;
+            insertIdx = children.indexOf(p.id) + 1;
+            break;
           }
-          addKwarg({ sectionId, parentId, insertIdx, state });
         }
-      } else {
-        addKwarg({ sectionId, parentId: objInfoId, state });
+        addKwarg({ sectionId, parentId, insertIdx });
       }
-    });
-    maybeIncrementProjectStateVersion(true);
+      maybeIncrementProjectStateVersion(true);
+    } else {
+      addKwarg({ sectionId, parentId: objInfoId, incrementVersion: true });
+    }
   };
 }
 
 function onClickDeleteKwargFn(sectionId, objInfoId) {
   return () => {
-    useSectionInfos.setState((state) => {
-      const selectedParams = getAllSelectedParams(sectionId, state);
-      if (selectedParams.length > 0) {
-        const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
-        const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
-        const kwargIds = [];
-        for (const p of selectedParams) {
-          let parentId, idx;
-          for (const [id, children] of Object.entries(codeInfoChildren)) {
-            if (children.includes(p.id)) {
-              parentId = id;
-              idx = children.indexOf(p.id);
-              break;
-            }
-          }
-          if (parentId) {
-            kwargIds.push(codeInfoChildren[parentId][idx + 1]);
+    const selectedParams = getAllSelectedParams(sectionId);
+    if (selectedParams.length > 0) {
+      for (const p of selectedParams) {
+        const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
+        let parentId, idx;
+        for (const [id, children] of Object.entries(codeInfoChildren)) {
+          if (children.includes(p.id)) {
+            parentId = id;
+            idx = children.indexOf(p.id);
+            break;
           }
         }
-        deleteKwargIds(sectionId, kwargIds, state);
-      } else {
-        deleteLastKwarg({
-          sectionId,
-          parentId: objInfoId,
-          state,
-        });
+        const kwargId = codeInfoChildren[parentId][idx + 1];
+        if (kwargId) {
+          deleteKwarg({ sectionId, parentId: parent.id, kwargId });
+        }
       }
-    });
-    maybeIncrementProjectStateVersion(true);
+      maybeIncrementProjectStateVersion(true);
+    } else {
+      deleteKwarg({
+        sectionId,
+        parentId: objInfoId,
+        deleteLast: true,
+        incrementVersion: true,
+      });
+    }
   };
 }

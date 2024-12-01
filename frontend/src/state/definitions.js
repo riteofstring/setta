@@ -1,203 +1,246 @@
-import C from "constants/constants.json";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import { create, createProjectState, withResetFn, withVersion } from "./utils";
+import { create, createProjectState, withVersion } from "./utils";
 
 export const useActiveSection = createProjectState(
+  temporal(() =>
+    withVersion({
+      ids: [],
+    }),
+  ),
+);
+
+export const useCodeInfo = createProjectState(
   temporal(
-    withResetFn(() =>
+    immer(() =>
       withVersion({
-        ids: [],
+        x: {},
       }),
     ),
   ),
 );
 
-export const useContextMenus = createProjectState(
-  withResetFn(() => ({
-    pane: { isOpen: false, x: 0, y: 0 },
-    deck: { isOpen: false, x: 0, y: 0, sectionId: null },
-    selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
-  })),
-);
-
-export const useSectionInfos = createProjectState(
-  subscribeWithSelector(
-    temporal(
-      immer(
-        withResetFn(() =>
-          withVersion({
-            x: {},
-            variants: {},
-            uiTypeCols: {},
-            uiTypes: {},
-            codeInfoCols: {},
-            codeInfo: {},
-            singletonSections: {
-              [C.GLOBAL_VARIABLES]: null,
-              [C.GLOBAL_PARAM_SWEEP]: null,
-            },
-          }),
-        ),
-      ),
-    ),
-  ),
-);
-
-export const useHomePageSearch = create(
-  withResetFn(() => ({
-    value: "",
-  })),
-);
-
-export const useInteractive = create(
-  withResetFn(() => ({
-    taskMetadata: [],
-  })),
-);
-
-export const useKeywordRegex = create(
-  withResetFn(() => ({
-    pattern: "",
-    codeAreaPattern: "",
-    fullNameToInfo: {},
-  })),
-);
-
-// keys for textFields are of the form:
-// {sectionId}-null for the main section combobox
-// {sectionId}-{paramInfoId} for section parameter fields
-export const useWaitingForLSPResult = createProjectState(
-  immer(
-    withResetFn(() => ({
-      textFields: {},
-      parametersRequest: {},
-    })),
-  ),
-);
-
-export const useModal = createProjectState(
-  withResetFn(() => ({
-    open: false,
-    modalType: null,
-    modalData: null,
-  })),
-);
-
-export const useNodeInternals = createProjectState(
+export const useCodeInfoCols = createProjectState(
   temporal(
-    withResetFn(() =>
+    immer(() =>
       withVersion({
-        x: new Map(),
+        x: {},
       }),
     ),
   ),
 );
 
-export const useNotification = create(
-  withResetFn(() => ({
-    message: "",
-    timeoutId: null,
-  })),
-);
+export const useContextMenus = createProjectState(() => ({
+  pane: { isOpen: false, x: 0, y: 0 },
+  deck: { isOpen: false, x: 0, y: 0, sectionId: null },
+  selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
+}));
 
-export const useAllProjectConfigs = createProjectState(
-  withResetFn(() => ({
-    x: {},
-    names: [],
-  })),
-);
-
-export const useArtifacts = createProjectState(
-  immer(
-    withResetFn(() => ({
-      x: {},
-    })),
-  ),
-);
-
-export const useProjectConfig = createProjectState(
+export const useSectionVariants = createProjectState(
   temporal(
-    immer(
-      withResetFn(() =>
+    subscribeWithSelector(
+      immer(() =>
         withVersion({
-          id: "",
-          name: "",
-          isDefault: false,
+          x: {},
         }),
       ),
     ),
   ),
 );
 
-export const useProjectSearch = createProjectState(
-  withResetFn(() => ({
-    sections: [],
-    codeInfo: [],
-    focused: {},
-    lookup: new Set(),
+export const useHomePageSearch = create(() => ({
+  value: "",
+}));
+
+export const useInfoView = createProjectState(() => ({
+  currValue: "",
+}));
+
+export const useInteractive = create(() => ({
+  taskMetadata: [],
+}));
+
+export const useKeywordRegex = create(() => ({
+  pattern: "",
+  codeAreaPattern: "",
+  fullNameToInfo: {},
+}));
+
+// keys for textFields are of the form:
+// {sectionId}-null for the main section combobox
+// {sectionId}-{paramInfoId} for section parameter fields
+export const useWaitingForLSPResult = createProjectState(
+  immer(() => ({
+    textFields: {},
+    parametersRequest: {},
   })),
 );
 
-export const useSectionRefs = createProjectState(
-  immer(
-    withResetFn(() => ({
-      withNested: {},
-      selfOnly: {},
-    })),
+export const useModal = createProjectState(() => ({
+  open: false,
+  modalType: null,
+  modalData: null,
+}));
+
+export const useNodeInternals = createProjectState(
+  temporal(() =>
+    withVersion({
+      x: new Map(),
+    }),
   ),
 );
 
-export const useSettings = create(withResetFn(() => ({})));
+export const useNotification = create(() => ({
+  message: "",
+  timeoutId: null,
+}));
 
-export const useStateVersion = createProjectState(
-  temporal(withResetFn(() => withVersion({}))),
-);
+export const useAllProjectConfigs = createProjectState(() => ({
+  x: {},
+  names: [],
+}));
 
-export const useTypeErrors = createProjectState(
-  immer(
-    withResetFn(() => ({
-      userRequested: false,
-      errors: {},
-    })),
-  ),
-);
-
-export const useJSONSourceMissing = createProjectState(withResetFn(() => ({})));
-
-export const useWebsocketConnectionList = create(
-  withResetFn(() => ({
-    connectedTo: null,
-    connections: [],
+export const useArtifacts = createProjectState(
+  immer(() => ({
+    x: {},
   })),
 );
 
-export const useTemporaryMiscState = createProjectState(
-  subscribeWithSelector(withResetFn(() => ({}))),
-);
-
-export const useParamShortcuts = create(
-  withResetFn(() => ({
-    isSelectingParams: false,
-  })),
-);
-
-export const useMisc = create(
-  subscribeWithSelector(
-    immer(
-      withResetFn(() => ({
-        projectIsLoading: false,
-        projectIs404: false,
-        mouseDownDrawArea: false,
-        mouseDownDraggingSection: false,
-        lastPaneClickLocation: { x: 0, y: 0 },
-        undoOrRedoWasTriggered: false,
-      })),
+export const useParamSweep = createProjectState(
+  temporal(
+    immer(() =>
+      withVersion({
+        x: {},
+      }),
     ),
   ),
 );
 
-export const useYamlValue = createProjectState(withResetFn(() => {}));
+export const useProjectConfig = createProjectState(
+  temporal(
+    immer(() =>
+      withVersion({
+        id: "",
+        name: "",
+        isDefault: false,
+      }),
+    ),
+  ),
+);
 
-export const useOriginalYamlObj = createProjectState(withResetFn(() => {}));
+export const useProjectSearch = createProjectState(() => ({
+  sections: [],
+  codeInfo: [],
+  focused: {},
+}));
+
+export const useRunGroups = createProjectState(
+  temporal(
+    immer(() =>
+      withVersion({
+        x: {},
+      }),
+    ),
+  ),
+);
+
+export const useSectionInfos = createProjectState(
+  temporal(
+    subscribeWithSelector(
+      immer(() =>
+        withVersion({
+          x: {},
+        }),
+      ),
+    ),
+  ),
+);
+
+export const useSectionParamFilter = createProjectState(
+  immer(() => ({
+    x: {},
+  })),
+);
+
+export const useSectionRefs = createProjectState(
+  immer(() => ({
+    withNested: {},
+    selfOnly: {},
+  })),
+);
+
+export const useSettings = create(() => ({}));
+
+export const useStateVersion = createProjectState(
+  temporal(() => withVersion({})),
+);
+
+// TODO: remove this hardcoded example error
+export const useTypeErrors = createProjectState(
+  immer(() => ({
+    userRequested: false,
+    errors: {
+      "d96cb110-6f72-435a-b745-2d55e277f983": {
+        "0aa0f46a-e923-4528-a411-500cbda6e77b":
+          "error: Argument 1 to 'process_data' of 'DataProcessor' has incompatible type 'List[Union[int, str, List[Any]]]'; expected 'List[Union[int, float, Dict[str, Union[int, float]]]]'",
+      },
+      "c27f4f05-7a54-44e6-b222-c77581c4ea37": {
+        "80b6429e-fbb9-4070-a574-b32e0e061ab4":
+          "error: Argument 1 to 'process_data' of 'DataProcessor' has incompatible type 'List[Union[int, str, List[Any]]]'; expected 'List[Union[int, float, Dict[str, Union[int, float]]]]'",
+      },
+    },
+  })),
+);
+
+export const useJSONSourceMissing = createProjectState(() => ({}));
+
+export const useUITypeCols = createProjectState(
+  temporal(
+    immer(() =>
+      withVersion({
+        y: {},
+      }),
+    ),
+  ),
+);
+
+export const useUITypes = createProjectState(
+  temporal(
+    immer(() =>
+      withVersion({
+        x: {},
+      }),
+    ),
+  ),
+);
+
+export const useWebsocketConnectionList = create(() => ({
+  connectedTo: null,
+  connections: [],
+}));
+
+export const useTemporaryMiscState = createProjectState(
+  subscribeWithSelector(() => ({})),
+);
+
+export const useParamShortcuts = create(() => ({
+  isSelectingParams: false,
+}));
+
+export const useMisc = create(
+  subscribeWithSelector(
+    immer(() => ({
+      projectIsLoading: false,
+      projectIs404: false,
+      mouseDownDrawArea: false,
+      mouseDownDraggingSection: false,
+      lastPaneClickLocation: { x: 0, y: 0 },
+      singletonSections: { globalVariables: null, globalParamSweep: null },
+    })),
+  ),
+);
+
+export const useYamlValue = createProjectState(() => {});
+
+export const useOriginalYamlObj = createProjectState(() => {});

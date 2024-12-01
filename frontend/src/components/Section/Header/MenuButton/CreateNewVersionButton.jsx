@@ -1,25 +1,48 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { dbSaveSectionJSONSource } from "requests/jsonSource";
+import { dbNewVersionFilename } from "requests/sectionVariants";
+import { duplicateCodeInfoCol } from "state/actions/codeInfoCols";
+import { setNotificationMessage } from "state/actions/notification";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import {
-  createNewVersion,
-  createNewVersionName,
-  maybeSaveNewJSONVersion,
-} from "state/actions/newVersion";
-import { getSectionInfo } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+  duplicateSectionVariant,
+  getSectionCodeInfoColId,
+} from "state/actions/sectionVariants";
+import { getSectionInfo } from "state/getters/sectionInfo";
+import { createRandomName } from "utils/idNameCreation";
 
 export function CreateNewVersionButton({ sectionId }) {
   async function onClick() {
-    createNewVersionMaybeWithJSON(sectionId);
+    const { variantId: currVariantId, jsonSource } = getSectionInfo(sectionId);
+    const currCodeInfoColId = getSectionCodeInfoColId(sectionId);
+    const newCodeInfoColId = duplicateCodeInfoCol(currCodeInfoColId);
+    const newVariantId = duplicateSectionVariant({
+      id: currVariantId,
+      newName: await newVersionName(jsonSource),
+      newCodeInfoColId,
+    });
+    setSectionInfoAttr({ sectionId, attr: "variantId", value: newVariantId });
+    setSectionInfoAttr({
+      sectionId,
+      attr: "variantIds",
+      newValueFn: (x) => [...x, newVariantId],
+    });
+    if (jsonSource) {
+      await dbSaveSectionJSONSource(sectionId);
+    }
+
+    setNotificationMessage("New Version Created");
   }
 
   return <MenuItem onClick={onClick}>New Version</MenuItem>;
 }
 
-async function createNewVersionMaybeWithJSON(sectionId) {
-  const { jsonSource } = getSectionInfo(sectionId);
-  const newVersionName = await createNewVersionName(jsonSource);
-  useSectionInfos.setState((state) => {
-    createNewVersion(sectionId, newVersionName, state);
-  });
-  maybeSaveNewJSONVersion(sectionId, jsonSource);
+async function newVersionName(jsonSource) {
+  if (jsonSource) {
+    const res = await dbNewVersionFilename(jsonSource);
+    if (res.status === 200) {
+      return res.data;
+    }
+  }
+  return createRandomName();
 }

@@ -6,9 +6,11 @@ import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { BiPaint } from "react-icons/bi";
-import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { updateArtifacts } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
+import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { setCanvasSettings } from "state/actions/sections/setters";
 import {
   base64RequestId,
   setTemporaryMiscState,
@@ -36,12 +38,10 @@ export function DrawOnImage({ sectionId }) {
       canvasOpacity,
       eraserBrushSize,
     },
-  } = useSectionInfos((x) => {
-    return {
-      size: x.x[sectionId].size,
-      canvasSettings: x.x[sectionId].canvasSettings,
-    };
-  }, _.isEqual);
+  } = useSectionInfos(
+    (x) => _.pick(x.x[sectionId], ["size", "canvasSettings"]),
+    _.isEqual,
+  );
   const backgroundCanvasRef = useRef(null);
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
@@ -334,8 +334,10 @@ export function DrawOnImage({ sectionId }) {
             },
           },
         });
-        useSectionInfos.setState((state) => {
-          state.x[sectionId].artifacts.push(artifactPath);
+        setSectionInfoAttr({
+          sectionId,
+          attr: "artifacts",
+          newValueFn: (x) => [...x, artifactPath],
         });
       };
 
@@ -727,13 +729,13 @@ function exportImageToBase64(image, width, height) {
 
 function drawStrokesAndKeepOriginalProps(canvasRef, strokes) {
   const [canvas, ctx] = getCanvasAndCtx(canvasRef);
-  const startingProps = {
-    globalCompositeOperation: ctx.globalCompositeOperation,
-    strokeStyle: ctx.strokeStyle,
-    globalAlpha: ctx.globalAlpha,
-    lineWidth: ctx.lineWidth,
-    lineCap: ctx.lineCap,
-  };
+  const startingProps = _.pick(ctx, [
+    "globalCompositeOperation",
+    "strokeStyle",
+    "globalAlpha",
+    "lineWidth",
+    "lineCap",
+  ]);
   strokes.forEach((stroke) => {
     drawStroke(canvas, ctx, stroke);
   });
@@ -784,10 +786,3 @@ const debouncedSendDrawingToInteractiveTasks = _.debounce(
   },
   500,
 );
-
-function setCanvasSettings(sectionId, attr, value) {
-  useSectionInfos.setState((x) => {
-    const s = x.x[sectionId];
-    s.canvasSettings[attr] = value;
-  });
-}

@@ -1,16 +1,19 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { useSectionInfos } from "state/definitions";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function ShowYaml({ sectionId }) {
-  const displayMode = useSectionInfos((x) => x.x[sectionId].displayMode);
+  const displayMode = useGetSectionInfo(sectionId, "displayMode");
 
   function onClick() {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].displayMode =
+    setSectionInfoAttr({
+      sectionId,
+      attr: "displayMode",
+      value:
         displayMode === SECTION_DISPLAY_MODES.YAML
           ? SECTION_DISPLAY_MODES.GUI
-          : SECTION_DISPLAY_MODES.YAML;
+          : SECTION_DISPLAY_MODES.YAML,
     });
   }
 

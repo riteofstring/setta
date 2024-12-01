@@ -1,10 +1,11 @@
 import { dbFormateCode, dbUpdateInteractiveCode } from "requests/interactive";
 import { sendMessage } from "requests/websocket";
-import { useInteractive, useSectionInfos } from "state/definitions";
+import { useInteractive } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { updateArtifacts } from "./artifacts";
 import { setNotificationMessage } from "./notification";
 import { setAllRunGroupsAndMaybeCreateSection } from "./runGroups/runGroups";
+import { setSectionVariantAttr } from "./sectionVariants";
 
 export async function updateInteractiveCode() {
   setNotificationMessage("Importing your code...");
@@ -41,11 +42,9 @@ export async function updateInteractiveData(data) {
 export async function formatCode() {
   const res = await dbFormateCode();
   if (res.status === 200) {
-    useSectionInfos.setState((state) => {
-      for (const [sectionId, code] of Object.entries(res.data)) {
-        state.variants[state.x[sectionId].variantId].code = code;
-      }
-    });
+    for (const [sectionId, code] of Object.entries(res.data)) {
+      setSectionVariantAttr(sectionId, "code", code);
+    }
   }
 }
 

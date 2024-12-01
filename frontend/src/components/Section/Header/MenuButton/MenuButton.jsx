@@ -4,6 +4,7 @@ import C from "constants/constants.json";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { HeaderIcon } from "../HeaderIcon";
 import { ClearValues } from "./ClearValues";
+import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
 import { HideShowParamsButton } from "./HideShowParamsButton";
 import { HideShowSearchButton } from "./HideShowSearchButton";
@@ -103,7 +104,7 @@ export function getMenuItems(uiTypeName) {
         ResetToDefaultVersion,
       ];
     case C.PARAM_SWEEP:
-      return [CreateNewVersionButton, ShowYaml, ResetToDefaultVersion];
+      return [CreateNewParamSweepButton, ShowYaml, ResetToDefaultVersion];
     case C.GLOBAL_PARAM_SWEEP:
       return [ShowYaml];
     case C.LIST_ROOT:

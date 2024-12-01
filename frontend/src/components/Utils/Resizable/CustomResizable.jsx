@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useEffect } from "react";
+import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
@@ -55,24 +55,21 @@ function CustomResizableCore({
       changedSize.width = "auto";
     }
     if (_.size(changedSize) > 0) {
-      useSectionInfos.setState((state) => {
-        setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
-      });
+      setSectionResizeEvent({ sectionId, resizeEvent: "start" });
+      setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
+      setSectionResizeEvent({ sectionId, resizeEvent: "end" });
     }
   }, [sizeMode.height, sizeMode.width]);
 
-  const {
-    size,
-    positionAndSizeLocked,
-    aspectRatio,
-    aspectRatioExtraHeight,
-    aspectRatioExtraWidth,
-  } = useAspectRatio(sectionId);
+  const { size, positionAndSizeLocked } = useSectionInfos(
+    (x) => _.pick(x.x[sectionId], ["size", "positionAndSizeLocked"]),
+    _.isEqual,
+  );
+  const { aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
+    useAspectRatio(sectionId);
 
   function onResizeStart() {
-    useSectionInfos.setState((state) => {
-      setSectionResizeEvent(sectionId, "start", state);
-    });
+    setSectionResizeEvent({ sectionId, resizeEvent: "start" });
   }
 
   function onResizeStop(...props) {
@@ -81,11 +78,8 @@ function CustomResizableCore({
       sizeMode,
       aspectRatio,
     });
-    useSectionInfos.setState((state) => {
-      setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
-      setSectionResizeEvent(sectionId, "end", state);
-    });
-    maybeIncrementProjectStateVersion(true);
+    setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
+    setSectionResizeEvent({ sectionId, resizeEvent: "end" });
   }
 
   const heightResizable =
@@ -143,23 +137,15 @@ function useAspectRatio(sectionId) {
     const s = x.x[sectionId];
     if (s.isMinimized) {
       return {
-        size: s.size,
-        positionAndSizeLocked: s.positionAndSizeLocked,
         aspectRatio: false,
         aspectRatioExtraHeight: 0,
         aspectRatioExtraWidth: 0,
       };
     }
     return {
-      size: s.size,
-      positionAndSizeLocked: s.positionAndSizeLocked,
       aspectRatio: s.aspectRatio ?? false,
       aspectRatioExtraHeight: s.aspectRatioExtraHeight ?? 0,
       aspectRatioExtraWidth: s.aspectRatioExtraWidth ?? 0,
     };
   }, _.isEqual);
-}
-
-function setSectionResizeEvent(sectionId, resizeEvent, state) {
-  state.x[sectionId].resizeEvent = resizeEvent;
 }

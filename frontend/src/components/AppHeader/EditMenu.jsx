@@ -6,12 +6,12 @@ import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
 import { Link } from "react-router-dom";
 import { dbRequestTypeCheck } from "requests/sections";
-import { resetAllSectionsToDefaultVersions } from "state/actions/sectionInfos";
 import {
   addGroupInEmptySpace,
   addRegularSectionInEmptySpace,
 } from "state/actions/sections/createSections";
 import { autoLayout } from "state/actions/sections/sectionPositions";
+import { resetAllSectionsToDefaultVersions } from "state/actions/sectionVariants";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";
@@ -26,16 +26,19 @@ export function EditMenu() {
 }
 
 function Items() {
-  const shortcuts = useSettings((x) => {
-    return {
-      newCardShortcut: shortcutPrettified(x.newCardShortcut),
-      newGroupShortcut: shortcutPrettified(x.newGroupShortcut),
-      typeCheckShortcut: shortcutPrettified(x.typeCheckShortcut),
-      redoShortcut: shortcutPrettified(x.redoShortcut),
-      undoShortcut: shortcutPrettified(x.undoShortcut),
-      groupShortcut: shortcutPrettified(x.groupShortcut),
-    };
-  }, _.isEqual);
+  const shortcuts = useSettings((x) =>
+    _.mapValues(
+      _.pick(x, [
+        "newCardShortcut",
+        "newGroupShortcut",
+        "typeCheckShortcut",
+        "redoShortcut",
+        "undoShortcut",
+        "groupShortcut",
+      ]),
+      shortcutPrettified,
+    ),
+  );
 
   return (
     <>

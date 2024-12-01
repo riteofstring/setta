@@ -20,6 +20,19 @@ const hexToRGB = (hex) => {
   };
 };
 
+// Helper to convert RGB to hex
+const rgbToHex = (r, g, b) => {
+  return (
+    "#" +
+    [r, g, b]
+      .map((x) => {
+        const hex = x.toString(16);
+        return hex.length === 1 ? "0" + hex : hex;
+      })
+      .join("")
+  );
+};
+
 // Calculate relative luminance
 const getLuminance = (r, g, b) => {
   const [rs, gs, bs] = [r, g, b].map((c) => {
@@ -40,20 +53,21 @@ const getLuminance = (r, g, b) => {
  * @param {number} options.threshold - Custom luminance threshold (defaults to 0.179)
  * @returns {string} Contrasting color in hex format
  */
-export const useContrastColor = (_backgroundColor, options = {}) => {
+export const useContrastColor = (backgroundColor, options = {}) => {
   const {
     darkColor = "#000000",
     lightColor = "#FFFFFF",
     threshold = 0.179,
   } = options;
 
-  const backgroundColor =
-    !_backgroundColor || typeof _backgroundColor !== "string"
-      ? "#000000"
-      : _backgroundColor;
-
   return useMemo(() => {
     try {
+      // Handle invalid input
+      if (!backgroundColor || typeof backgroundColor !== "string") {
+        console.warn("useContrastColor: Invalid background color provided");
+        return darkColor;
+      }
+
       // Normalize hex color
       const color = backgroundColor.startsWith("#")
         ? backgroundColor

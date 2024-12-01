@@ -1,22 +1,21 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import _ from "lodash";
-import { useSectionInfos } from "state/definitions";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function RenderInfo({ sectionId }) {
-  const { displayMode, renderMarkdown } = useSectionInfos((x) => {
-    return {
-      displayMode: x.x[sectionId].displayMode,
-      renderMarkdown: x.x[sectionId].renderMarkdown,
-    };
-  }, _.isEqual);
+  //TODO change this variable name
+  const displayMode = useGetSectionInfo(sectionId, "displayMode");
+  const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
 
   function onClick() {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].displayMode =
+    setSectionInfoAttr({
+      sectionId,
+      attr: "displayMode",
+      value:
         displayMode === SECTION_DISPLAY_MODES.RENDER
           ? SECTION_DISPLAY_MODES.EDIT
-          : SECTION_DISPLAY_MODES.RENDER;
+          : SECTION_DISPLAY_MODES.RENDER,
     });
   }
 
@@ -34,11 +33,14 @@ export function RenderInfo({ sectionId }) {
 }
 
 export function ConvertFormat({ sectionId }) {
-  const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
+  //TODO change this variable name
+  const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
 
   function onClick() {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].renderMarkdown = !renderMarkdown;
+    setSectionInfoAttr({
+      sectionId,
+      attr: "renderMarkdown",
+      value: !renderMarkdown,
     });
   }
 

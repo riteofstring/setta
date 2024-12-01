@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useSettings } from "state/definitions";
 import { screenToFlowPosition, setCenter } from "../hooks/useViewportHelper";
+import { useReactFlow } from "../store";
 
 let mouseLocation;
 
@@ -26,4 +27,5 @@ export function zoomToMouseLocation() {
   const { x, y } = screenToFlowPosition(mouseLocation);
   const zoom = useSettings.getState().defaultZoomLevel;
   setCenter(x, y, { zoom });
+  useReactFlow.setState({ fitViewOnInit: false });
 }

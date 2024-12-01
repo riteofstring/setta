@@ -49,23 +49,28 @@ function usePanZoomInfo() {
     panActivationKeyPressed,
     zoomActivationKeyPressed,
     selectionKeyPressed,
-  } = useReactFlow((x) => {
-    return {
-      panActivationKeyPressed: x.panActivationKeyPressed,
-      zoomActivationKeyPressed: x.zoomActivationKeyPressed,
-      selectionKeyPressed: x.selectionKeyPressed,
-    };
-  }, _.isEqual);
-
+  } = useReactFlow(
+    (x) =>
+      _.pick(x, [
+        "panActivationKeyPressed",
+        "zoomActivationKeyPressed",
+        "selectionKeyPressed",
+      ]),
+    _.isEqual,
+  );
   return useSettings((x) => {
+    const output = _.pick(x, [
+      "panOnDrag",
+      "panOnScroll",
+      "panOnScrollSpeed",
+      "panOnScrollMode",
+      "zoomOnScroll",
+      "zoomOnPinch",
+      "zoomOnDoubleClick",
+    ]);
+
     return {
-      panOnDrag: x.panOnDrag,
-      panOnScroll: x.panOnScroll,
-      panOnScrollSpeed: x.panOnScrollSpeed,
-      panOnScrollMode: x.panOnScrollMode,
-      zoomOnScroll: x.zoomOnScroll,
-      zoomOnPinch: x.zoomOnPinch,
-      zoomOnDoubleClick: x.zoomOnDoubleClick,
+      ...output,
       panActivationKeyPressed,
       zoomActivationKeyPressed,
       selectionKeyPressed,

@@ -17,6 +17,12 @@ export type NodePositionChange = {
   dragging?: boolean;
 };
 
+export type NodeSelectionChange = {
+  id: string;
+  type: "select";
+  selected: boolean;
+};
+
 export type NodeRemoveChange = {
   id: string;
   type: "remove";
@@ -35,6 +41,7 @@ export type NodeResetChange<NodeData = any> = {
 export type NodeChange =
   | NodeDimensionChange
   | NodePositionChange
+  | NodeSelectionChange
   | NodeRemoveChange
   | NodeAddChange
   | NodeResetChange;

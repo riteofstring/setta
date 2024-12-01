@@ -1,26 +1,45 @@
-import json
-
-from setta.utils.constants import UI_TYPE_TABLE_DATA_JSON_FIELDS
-from setta.utils.utils import filter_dict
+from setta.utils.constants import C
 
 
 def save_ui_types(db, uiTypes):
+    uiTypes = list(uiTypes.values())
+
     query = """
-        INSERT INTO UIType (id, data)
-        VALUES (:id, :data)
+        INSERT INTO UIType (id, type, name, presetType)
+        VALUES (:id, :type, :name, :presetType)
         ON CONFLICT (id)
         DO UPDATE SET
-            data = :data
+            type = :type,
+            name = :name,
+            presetType = :presetType
     """
 
-    query_parameters = [
-        {
-            "id": v["id"],
-            "data": json.dumps(filter_dict(v, UI_TYPE_TABLE_DATA_JSON_FIELDS)),
-        }
-        for v in uiTypes.values()
-    ]
+    query_parameters = uiTypes
     db.executemany(query, query_parameters)
+
+    save_slider_types(db, uiTypes)
+
+
+def save_slider_types(db, uiTypes):
+    uiTypes = [x for x in uiTypes if x["type"] == C.SLIDER]
+    query = """
+        UPDATE UIType
+        SET sliderConfigMin = :sliderConfigMin,
+            sliderConfigMax = :sliderConfigMax,
+            sliderConfigStep = :sliderConfigStep
+        WHERE id = :id
+    """
+    query_parameters = [{"id": x["id"], **parse_slider_config(x)} for x in uiTypes]
+    db.executemany(query, query_parameters)
+
+
+def parse_slider_config(uiType):
+    config = uiType["config"]
+    return {
+        "sliderConfigMin": config.get("min"),
+        "sliderConfigMax": config.get("max"),
+        "sliderConfigStep": config.get("step"),
+    }
 
 
 def save_ui_type_cols(db, uitype_cols):

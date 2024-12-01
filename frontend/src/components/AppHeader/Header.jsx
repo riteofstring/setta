@@ -1,7 +1,11 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { setHomePageSearch } from "state/actions/search/homePageSearch";
 import { useHomePageSearch, useMisc } from "state/definitions";
-import { useUpdateProjectSearch } from "state/hooks/search";
+import {
+  useOnEnterGoToSearchResult,
+  useUpdateProjectSearch,
+} from "state/hooks/search";
 import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
 import { Notification } from "./Notification";
@@ -39,8 +43,8 @@ function SearchSwitch({ path }) {
 }
 
 function ProjectPageSearch() {
-  const { value, onChange, onBlur, onFocus, onKeyDown } =
-    useUpdateProjectSearch();
+  const { value, onChange, onBlur, onFocus } = useUpdateProjectSearch();
+  const onKeyDown = useOnEnterGoToSearchResult();
 
   return (
     <Search
@@ -63,7 +67,7 @@ function HomePageSearch() {
     <Search
       placeholder="Filter Project Configs"
       value={value}
-      onChange={(v) => useHomePageSearch.setState({ value: v })}
+      onChange={setHomePageSearch}
     />
   );
 }

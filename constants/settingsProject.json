@@ -3,14 +3,15 @@
     "id": "a5dfa397-089a-4f5e-bbec-978a314b4266",
     "name": "settings",
     "isDefault": 0,
+    "runGroupSelection": {},
+    "shownRunGroup": null,
     "viewport": null,
+    "previewImgNodes": "[{\"x\":640,\"y\":119,\"w\":552,\"h\":1718}]",
     "children": {
       "69084c06-aa67-4e6b-8098-3334044eebc9": {
         "x": 640,
         "y": 119,
-        "zIndex": 0,
-        "w": 552,
-        "h": 1718
+        "zIndex": 0
       }
     }
   },
@@ -175,6 +176,8 @@
       }
     }
   },
+  "paramSweeps": {},
+  "runGroups": {},
   "sections": {
     "69084c06-aa67-4e6b-8098-3334044eebc9": {
       "id": "69084c06-aa67-4e6b-8098-3334044eebc9",
@@ -204,8 +207,7 @@
       "hideUnpinnedParams": false,
       "displayMode": "GUI",
       "pinnedAreaHeight": "auto",
-      "isMinimized": false,
-      "paramFilter": ""
+      "isMinimized": false
     }
   },
   "codeInfo": {},

@@ -2,6 +2,7 @@ import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import C from "constants/constants.json";
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
+export const PANEID = "-1";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
 
@@ -43,7 +44,7 @@ export const tabNameToPretty = {
   [QUICKINFO_CONFIG_TAB]: "Quick Info",
   [INFO_CONFIG_TAB]: "Text Editor",
   // [RUNTIME_CONFIG_TAB]: "Runtime",
-  [SECTION_VARIANTS_TAB]: "Version",
+  [SECTION_VARIANTS_TAB]: "Ver.",
 };
 
 export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
@@ -99,6 +100,11 @@ export const MODAL_TYPE = {
     purpose: null,
     title: "Import JSON",
     buttonText: "Import",
+  },
+  CREATE_FROM_ARGPARSE: {
+    purpose: null,
+    title: "Create From Argparse",
+    buttonText: "Create",
   },
   SAVE_UI_TYPE_CONFIG: {
     purpose: MODAL_PURPOSE.SAVE,

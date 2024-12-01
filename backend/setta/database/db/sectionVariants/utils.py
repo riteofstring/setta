@@ -13,6 +13,5 @@ def new_section_variant(**kwargs):
         "children": [],
         "values": {},
         "isFrozen": False,
-        "sweep": [],
         **kwargs,
     }
