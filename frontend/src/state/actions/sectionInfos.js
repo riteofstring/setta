@@ -164,7 +164,7 @@ export function getSectionSelectedItem(sectionId, _state) {
     .selectedItem;
 }
 
-export function getSectionChildrenFromAllVariants(sectionId, state) {
+function getSectionChildrenFromAllVariants(sectionId, state) {
   const output = [];
   for (const v of state.x[sectionId].variantIds) {
     output.push(...state.variants[v].children);

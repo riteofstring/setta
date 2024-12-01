@@ -6,7 +6,7 @@ import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
 
-function _SectionContainer({ sectionId, dragListeners }) {
+function _SectionContainer({ sectionId, isTopLevel, dragListeners }) {
   const isDeck = useIsType(sectionId, C.DECK);
 
   return (
@@ -14,6 +14,7 @@ function _SectionContainer({ sectionId, dragListeners }) {
       isDeck={isDeck}
       sectionId={sectionId}
       dragListeners={dragListeners}
+      isTopLevel={isTopLevel}
     >
       {!isDeck && <SectionContainerCore sectionId={sectionId} />}
       <MaybeManyNestedSections sectionId={sectionId} isDeck={isDeck} />

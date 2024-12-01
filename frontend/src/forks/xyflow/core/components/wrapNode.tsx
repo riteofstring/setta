@@ -95,7 +95,7 @@ const _NodeWrapper = ({
       tabIndex={isFocusable ? 0 : undefined}
       role={isFocusable ? "button" : undefined}
     >
-      <SectionContainer sectionId={id} />
+      <SectionContainer sectionId={id} isTopLevel={true} />
     </div>
   );
 };
