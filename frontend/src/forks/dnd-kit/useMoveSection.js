@@ -44,11 +44,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   let position = null;
   const behaviorDropType = useDndState.getState().behaviorDropType;
 
-  console.log("oldParentId", oldParentId);
-  console.log("newParentId", newParentId);
-
   if (newParentId) {
-    console.log("in newParentId if statement");
     const children = dndChildrenState.x[newParentId];
     const activeIdx = children.indexOf(dndSectionId);
     const overIdx = children.indexOf(overId);
@@ -58,20 +54,17 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   }
   // dropping nested section onto pane
   else if (!overId) {
-    console.log("in !overId if statement");
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = screenToFlowPosition({ x, y });
 
     if (!oldParentId) {
-      console.log("in !oldParentId if statement");
       justMoveANode(sectionId, position);
       return;
     }
   }
 
   if (behaviorDropType === BehaviorDropType.INVALID) {
-    console.log("behaviorDropType === BehaviorDropType.INVALID");
     manualDndChildrenReset();
     return;
   }

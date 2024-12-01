@@ -38,7 +38,6 @@ export function moveSection({
   position,
   state,
 }) {
-  console.log("moveSection");
   setChildrenAndParent({
     oldParentId,
     newParentId,
@@ -61,14 +60,6 @@ function setChildrenAndParent({
   position,
   state,
 }) {
-  console.log({
-    oldParentId,
-    newParentId,
-    oldSectionId,
-    newSectionId,
-    newIndex,
-    position,
-  });
   // Remove child from old parent's list
   if (!oldParentId) {
     // This means it was a top level section
