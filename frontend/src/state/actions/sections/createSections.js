@@ -12,8 +12,8 @@ import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
 import { insertIntoArray } from "utils/utils";
-import { getSectionInfo } from "../../getters/sectionInfo";
 import { initRunGroup } from "../runGroups/runGroups";
+import { getSectionInfo } from "../sectionInfo";
 import { setSectionVariantChildren } from "../sectionVariants";
 
 export function addRegularSectionInEmptySpace() {

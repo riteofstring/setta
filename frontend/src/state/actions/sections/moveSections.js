@@ -4,8 +4,8 @@ import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { useSectionInfos } from "state/definitions";
 import { PANEID } from "utils/constants";
 import { insertIntoArray } from "utils/utils";
-import { getSectionInfo } from "../../getters/sectionInfo";
 import { copySections } from "../copyPaste/copy";
+import { getSectionInfo } from "../sectionInfo";
 import { setSectionVariantChildren } from "../sectionVariants";
 import { setAllChildrenWidths } from "./sectionSizes";
 

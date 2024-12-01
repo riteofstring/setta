@@ -1,4 +1,4 @@
-import { getSectionParentId } from "../../getters/sectionInfo";
+import { getSectionParentId } from "../sectionInfo";
 
 export function getHighestAncestor(
   sectionId,

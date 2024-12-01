@@ -1,7 +1,7 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
 
 import { useReactFlow } from "forks/xyflow/core/store";
-import { getSectionInfo } from "state/getters/sectionInfo";
+import { getSectionInfo } from "state/actions/sectionInfo";
 
 function compareCollisions(a, b) {
   if (!a) {

@@ -4,8 +4,8 @@ import _ from "lodash";
 import { useActiveSection, useSectionInfos } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { findAll } from "utils/getDescendants";
-import { getSectionType } from "../../getters/sectionInfo";
 import { setNotificationMessage } from "../notification";
+import { getSectionType } from "../sectionInfo";
 import { getAllSectionsForDeletionOrCopying } from "../sectionVariants";
 
 export async function copy() {

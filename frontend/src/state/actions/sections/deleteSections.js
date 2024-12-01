@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { dbDeleteTerminals } from "requests/terminals";
 import { deleteNodes } from "state/actions/nodeInternals";
 import { useActiveSection, useSectionInfos } from "state/definitions";
-import { getSectionParentId } from "../../getters/sectionInfo";
+import { getSectionParentId } from "../sectionInfo";
 import {
   getAllSectionsForDeletionOrCopying,
   getSectionChildren,

@@ -1,12 +1,12 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useNodeInternals, useSectionInfos } from "state/definitions";
 import {
   getSectionByName,
   getSectionInfo,
   getSectionName,
   getSectionType,
-} from "state/getters/sectionInfo";
+} from "state/actions/sectionInfo";
+import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
 const RUNNABLE_SECTION_TYPES = [
