@@ -4,7 +4,7 @@ import {
 } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { getParamIds } from "state/actions/sections/sectionContents";
 import {
   useProjectSearch,
@@ -15,10 +15,12 @@ import {
 export function useUpdateProjectSearch() {
   const [value, setValue] = useState("");
   const [visibleParams, setVisibleParams] = useState([]);
+  const [currIdx, setCurrIdx] = useState(-1);
 
   function onChange(v) {
     setValue(v);
     doUpdateSearch(v, visibleParams);
+    setCurrIdx(-1);
   }
 
   function onBlur() {
@@ -31,15 +33,9 @@ export function useUpdateProjectSearch() {
     doUpdateSearch(value, newVisibleParams);
   }
 
-  return { value, onChange, onBlur, onFocus };
-}
-
-export function useOnEnterGoToSearchResult() {
-  const searchResults = useProjectSearch((x) => x.codeInfo, _.isEqual);
-  console.log("searchResults", searchResults);
-  const [currIdx, setCurrIdx] = useState(-1);
   function onKeyDown(e) {
     if (e.key === "Enter") {
+      const { codeInfo: searchResults } = useProjectSearch.getState();
       if (searchResults.length === 0) {
         return;
       }
@@ -50,19 +46,10 @@ export function useOnEnterGoToSearchResult() {
       setCurrIdx(newIdx);
     } else if (e.key === "Escape") {
       e.target.blur();
-    } else {
-      useProjectSearch.setState({ focused: {} });
-      setCurrIdx(-1);
     }
   }
 
-  useEffect(() => {
-    if (currIdx > -1) {
-      setCurrIdx((x) => x % searchResults.length);
-    }
-  }, [searchResults.length]);
-
-  return onKeyDown;
+  return { value, onChange, onBlur, onFocus, onKeyDown };
 }
 
 function getAllVisibleParams() {
@@ -119,11 +106,7 @@ function goToSearchResult(searchResult) {
 
 function updateSearch(value, allVisibleParams) {
   if (!value) {
-    useProjectSearch.setState({
-      sections: [],
-      codeInfo: [],
-      lookup: new Set(),
-    });
+    useProjectSearch.getState().reset();
     return;
   }
 

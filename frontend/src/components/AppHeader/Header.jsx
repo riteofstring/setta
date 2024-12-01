@@ -1,10 +1,7 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useHomePageSearch, useMisc } from "state/definitions";
-import {
-  useOnEnterGoToSearchResult,
-  useUpdateProjectSearch,
-} from "state/hooks/search";
+import { useUpdateProjectSearch } from "state/hooks/search";
 import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
 import { Notification } from "./Notification";
@@ -42,8 +39,8 @@ function SearchSwitch({ path }) {
 }
 
 function ProjectPageSearch() {
-  const { value, onChange, onBlur, onFocus } = useUpdateProjectSearch();
-  const onKeyDown = useOnEnterGoToSearchResult();
+  const { value, onChange, onBlur, onFocus, onKeyDown } =
+    useUpdateProjectSearch();
 
   return (
     <Search
