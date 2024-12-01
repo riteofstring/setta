@@ -6,7 +6,6 @@ export function newCodeInfo({
   editable = false,
   rcType,
   defaultVal = null,
-  children = [],
   description = "",
   positionalOnly = false,
   isPinned = false,
