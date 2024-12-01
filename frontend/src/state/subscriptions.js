@@ -13,7 +13,12 @@ import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./actions/nodeInternals";
-import { getSectionIdToChildrenToShow } from "./actions/sectionInfos";
+import {
+  getCodeInfoCol,
+  getSectionIdToChildrenToShow,
+  getSectionType,
+  getSectionVariant,
+} from "./actions/sectionInfos";
 
 export function subscribe() {
   useSectionInfos.subscribe(
@@ -98,14 +103,16 @@ function keywordRegexSubscriptionFn(x) {
     globalVariableId: x.singletonSections[C.GLOBAL_VARIABLES],
   };
 
+  let sectionVariant, sectionTypeName;
   for (const [id, s] of Object.entries(x.x)) {
+    sectionVariant = getSectionVariant(id, x);
+    sectionTypeName = getSectionType(id, x);
     output.details[id] = {
       name: s.name,
-      sectionChildren: x.variants[s.variantId].children,
-      codeInfoChildren:
-        x.codeInfoCols[x.variants[s.variantId].codeInfoColId].children,
-      sectionTypeName: x.uiTypes[s.uiTypeId].type,
-      selectedItem: x.variants[s.variantId].selectedItem,
+      sectionChildren: sectionVariant.children,
+      codeInfoChildren: getCodeInfoCol(id, x).children,
+      sectionTypeName,
+      selectedItem: sectionVariant.selectedItem,
       isTopLevel:
         !s.parentId &&
         [
@@ -114,7 +121,7 @@ function keywordRegexSubscriptionFn(x) {
           C.LIST_ROOT,
           C.DICT_ROOT,
           C.DECK,
-        ].includes(x.uiTypes[s.uiTypeId].type),
+        ].includes(sectionTypeName),
     };
   }
 
