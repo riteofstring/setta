@@ -1,5 +1,5 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { toggleSectionLock } from "state/actions/sections/sectionInfos";
+import { toggleSectionLock } from "state/actions/sectionInfo";
 import { useSectionInfos } from "state/definitions";
 
 export function LockPositionButton({ sectionId }) {

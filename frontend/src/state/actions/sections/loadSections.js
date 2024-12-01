@@ -1,7 +1,7 @@
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
-import { updateSectionInfos } from "./sectionInfos";
+import { updateSectionInfos } from "../sectionInfo";
 
 export function loadSectionIntoState({
   sections,

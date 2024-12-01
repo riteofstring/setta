@@ -8,10 +8,8 @@ import {
   maybeMakeCopyOfSection,
   moveSection,
 } from "state/actions/sections/moveSections";
-import {
-  manualDndChildrenReset,
-  updateSectionInfos,
-} from "state/actions/sections/sectionInfos";
+import { updateSectionInfos } from "state/actions/sectionInfo";
+import { manualDndChildrenReset } from "state/actions/sectionInfo";
 import { setSectionVariantChildren } from "state/actions/sectionVariants";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
