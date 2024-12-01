@@ -134,6 +134,18 @@ export function getSectionCodeInfoColId(sectionId) {
   ].codeInfoColId;
 }
 
+export function getCodeInfoCol(sectionId, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  return state.codeInfoCols[getSectionVariant(sectionId, state).codeInfoColId];
+}
+
+export function getDisplayedCodeInfoCol(sectionId, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  return state.codeInfoCols[
+    getDisplayedSectionVariant(sectionId, state).codeInfoColId
+  ];
+}
+
 export function getDisplayedSectionVariant(sectionId, _state) {
   const state = _state ?? useSectionInfos.getState();
   return state.variants[getDisplayedSectionVariantId(sectionId, state)];

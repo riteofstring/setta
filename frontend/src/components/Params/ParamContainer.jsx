@@ -7,7 +7,7 @@ import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { toggleParamSelected } from "state/actions/kwargs";
-import { getDisplayedSectionVariant } from "state/actions/sectionInfos";
+import { getDisplayedCodeInfoCol } from "state/actions/sectionInfos";
 import {
   useParamShortcuts,
   useProjectSearch,
@@ -53,8 +53,7 @@ function _ParamContainer({
     name: paramName,
     codeInfoChildren: paramChildren,
   } = useSectionInfos((x) => {
-    const { codeInfoColId } = getDisplayedSectionVariant(sectionId, x);
-    const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
+    const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, x).children;
     return {
       isSelected: x.codeInfo[paramInfoId].isSelected,
       description: x.codeInfo[paramInfoId].description,

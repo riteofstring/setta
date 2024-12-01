@@ -16,7 +16,10 @@ import {
   dbCodeAreaInitializeCode,
   getKeywordPositionsAndEVRefs,
 } from "requests/sections";
-import { setSectionVariantAttr } from "state/actions/sectionInfos";
+import {
+  getDisplayedSectionVariant,
+  setSectionVariantAttr,
+} from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";

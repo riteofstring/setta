@@ -15,10 +15,7 @@ import {
   deleteParamSweepValue,
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
-import {
-  getSectionType,
-  getDisplayedSectionVariant,
-} from "state/actions/sectionInfos";
+import { getCodeInfoCol, getSectionType } from "state/actions/sectionInfos";
 import {
   getParamIds,
   paramNameFromPathArray,
@@ -409,8 +406,7 @@ function useShowParamSweepSectionSearch(sectionId) {
 
 function useNumChildlessParams(selectedItem, sectionId) {
   return useSectionInfos((x) => {
-    const { codeInfoColId } = getDisplayedSectionVariant(sectionId, x);
-    const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
+    const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
     return getParamIds(sectionId, x.codeInfo, codeInfoChildren, selectedItem)[
       "ids"
     ].filter((p) => codeInfoChildren[p].length === 0).length;
@@ -424,8 +420,9 @@ function useChildlessObjParams({
   forSectionId,
 }) {
   return useSectionInfos((x) => {
-    const { codeInfoColId } = getDisplayedSectionVariant(forSectionId, x);
-    const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
+    // this is for the contents of the combobox
+    // so I don't think it needs to depend on the displayed (preview) codeInfoCol
+    const codeInfoChildren = getCodeInfoCol(forSectionId, x).children;
     const { ids, pathMap } = getParamIds(
       forSectionId,
       x.codeInfo,
