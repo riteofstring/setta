@@ -22,9 +22,10 @@ const NodeRenderer = ({}) => {
     elementsSelectable,
     panActivationKeyPressed,
   } = useReactFlow(selector, shallow);
-  const nodes = useNodeInternals(getNodes, _.isEqual);
+  const nodes = useNodeInternals(getNodes, shallow);
   const resizeObserverRef = useRef<ResizeObserver>();
   const activeSectionIds = useActiveSection((x) => x.ids);
+  console.log("nodes", nodes)
 
   const resizeObserver = useMemo(() => {
     if (typeof ResizeObserver === "undefined") {
@@ -72,6 +73,7 @@ const NodeRenderer = ({}) => {
 
         const posX = node.position?.x ?? 0;
         const posY = node.position?.y ?? 0;
+        console.log("node.position", node.position)
 
         return (
           <NodeWrapper

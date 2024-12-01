@@ -36,17 +36,16 @@ const _NodeWrapper = ({
   const isDraggable = _isDraggable && !positionAndSizeLocked;
   const hasPointerEvents = isSelectable || isDraggable;
   const updatePositions = useUpdateNodePositions();
+  console.log("yPos", yPos)
 
   const onKeyDown = (event: KeyboardEvent) => {
+    console.log("onKeyDown", event)
     if (isInputDOMNode(event)) {
       return;
     }
+    console.log("past first if statement")
 
-    if (
-      isDraggable &&
-      selected &&
-      Object.prototype.hasOwnProperty.call(arrowKeyDiffs, event.key)
-    ) {
+    if (isDraggable && selected) {
       updatePositions({
         x: arrowKeyDiffs[event.key].x,
         y: arrowKeyDiffs[event.key].y,
