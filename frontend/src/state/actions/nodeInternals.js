@@ -43,9 +43,10 @@ function createNodeInternals(nodes, nodeInternals) {
 }
 
 export function updateNodeDimensions(updates) {
+  console.log("updateNodeDimensions");
   const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions, domNode } =
     useReactFlow.getState();
-  const nodeInternals = useNodeInternals.getState().x;
+  const nodeInternals = _.cloneDeep(useNodeInternals.getState().x);
   const viewportNode = domNode?.querySelector(".react-flow__viewport");
 
   if (!viewportNode) {
@@ -146,7 +147,7 @@ export function onNodesChange(changes) {
       }
     }
   }
-  useNodeInternals.setState({ x: newNodes });
+  setNodes(newNodes)
 }
 
 export function raiseTempZIndex(nodes) {

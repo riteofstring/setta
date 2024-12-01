@@ -5,12 +5,7 @@
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getNodesInside } from "forks/xyflow/core/utils/graph";
-import React, {
-  memo,
-  MouseEvent as ReactMouseEvent,
-  ReactNode,
-  useRef,
-} from "react";
+import React, { MouseEvent as ReactMouseEvent, ReactNode, useRef } from "react";
 import { openPaneContextMenu } from "state/actions/contextMenus";
 import { getNodes } from "state/actions/nodeInternals";
 import {
@@ -48,7 +43,7 @@ const selector = (s: ReactFlowState) => ({
   dragging: s.paneDragging,
 });
 
-const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
+const Pane = ({ isSelecting, panOnDrag, children }: PaneProps) => {
   const container = useRef<HTMLDivElement | null>(null);
   const prevSelectedNodesCount = useRef<number>(0);
   const containerBounds = useRef<DOMRect>();
@@ -210,7 +205,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       <UserSelection />
     </div>
   );
-});
+};
 
 Pane.displayName = "Pane";
 

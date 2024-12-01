@@ -78,7 +78,7 @@ function MiniMap({
   offsetScale = 5,
 }: MiniMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const nodes = useVisibleNodes();
+  const nodes = []
   const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
   const { boundingRect, viewBB } = useReactFlow(
     getSelector(nodes, overviewWidth),
