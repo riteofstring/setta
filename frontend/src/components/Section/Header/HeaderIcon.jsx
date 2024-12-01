@@ -1,11 +1,11 @@
 import C from "constants/constants.json";
+import _ from "lodash";
 import { BiPaint } from "react-icons/bi";
 import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
 import { FaSquareXTwitter } from "react-icons/fa6";
 import { GoDotFill } from "react-icons/go";
-import { PiTextTFill } from "react-icons/pi";
-
 import { IoLogoJavascript } from "react-icons/io";
+import { PiTextTFill } from "react-icons/pi";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbArrowIteration } from "react-icons/tb";
@@ -85,7 +85,7 @@ function SocialIcon({ sectionId }) {
       isYouTube: linkIsYouTube(x.x[sectionId].social),
       isTwitter: linkIsTwitter(x.x[sectionId].social),
     };
-  });
+  }, _.isEqual);
 
   if (isYouTube) {
     return (

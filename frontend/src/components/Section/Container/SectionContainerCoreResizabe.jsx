@@ -1,8 +1,9 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import C from "constants/constants.json";
+import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
-import { useIsYouTube } from "state/hooks/social";
+import { getIsYouTubeSection } from "state/hooks/social";
 import { getIsRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
 import { CodeArea } from "../Layouts/CodeArea";
@@ -27,7 +28,12 @@ export function SectionContainerCoreResizable({
   isInOtherProjectConfigs,
 }) {
   const isInfo = sectionTypeName === C.INFO;
-  const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
+  const { isMinimized, isYouTube } = useSectionInfos((x) => {
+    return {
+      isMinimized: x.x[sectionId].isMinimized,
+      isYouTube: getIsYouTubeSection(sectionId, x),
+    };
+  }, _.isEqual);
   const disablePointerEvents = useShouldDisablePointerEvents();
 
   const pointerSelectCSS = disablePointerEvents
@@ -54,14 +60,13 @@ export function SectionContainerCoreResizable({
   const isRoot = getIsRoot(sectionTypeName);
 
   const bgColor = getBgColor();
-  const youtube = useIsYouTube(sectionId);
 
   const borderClasses =
     "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700";
 
   const inputClasses = `${pointerSelectCSS} ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
-  } ${borderClasses} ${youtube ? "overflow-clip" : ""}`;
+  } ${borderClasses} ${isYouTube ? "overflow-clip" : ""}`;
 
   return (
     <CustomResizable
