@@ -17,7 +17,8 @@ export function getSectionType(sectionId, _state) {
   return state.uiTypes[state.x[sectionId].uiTypeId].type;
 }
 
-export function getSectionVariant(sectionId, state) {
+export function getSectionVariant(sectionId, _state) {
+  const state = _state ?? useSectionInfos.getState();
   return state.variants[state.x[sectionId].variantId];
 }
 
