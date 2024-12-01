@@ -195,7 +195,8 @@ function getShouldPreventDefault(parsedShortcut) {
   // special shortcuts
   if (
     isModOrCtrlPlus(parsedShortcut, ["KeyC"]) ||
-    isModOrCtrlPlus(parsedShortcut, "KeyV")
+    isModOrCtrlPlus(parsedShortcut, "KeyV") ||
+    isShiftPlus(parsedShortcut, ["Tab"])
   ) {
     return false;
   }
