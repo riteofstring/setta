@@ -30,7 +30,7 @@ export function YamlView({ sectionId, isDisabled }) {
   return (
     <article
       ref={wrapperRef}
-      className={`nodrag section-full-no-title h-full min-h-0 cursor-auto [&_*]:!outline-0 [&_.cm-editor]:h-full [&_.cm-theme]:h-full ${overflow} ${nowheel}`}
+      className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
     >
       <CodeMirror
         maxHeight={maxHeight}

@@ -1,4 +1,4 @@
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export function setSectionUITypeId({
@@ -6,10 +6,8 @@ export function setSectionUITypeId({
   sectionId,
   incrementVersion = false,
 }) {
-  setSectionInfoAttr({
-    sectionId,
-    attr: "uiTypeId",
-    value: uiTypeId,
+  useSectionInfos.setState((state) => {
+    state.x[sectionId].uiTypeId = uiTypeId;
   });
 
   maybeIncrementProjectStateVersion(incrementVersion);

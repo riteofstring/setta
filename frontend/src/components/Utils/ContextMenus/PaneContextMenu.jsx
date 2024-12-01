@@ -1,9 +1,10 @@
 import { Item } from "components/Utils/atoms/dropdown/item";
 import C from "constants/constants.json";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { onClickAddSection } from "state/actions/sections/createSections";
-import { useContextMenus, useModal, useSectionInfos } from "state/definitions";
+import { addSectionAtPosition } from "state/actions/sections/createSections";
+import { useContextMenus, useSectionInfos } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
@@ -13,24 +14,15 @@ export function PaneContextMenu() {
     _.isEqual,
   );
 
-  const commonProps = {
-    x,
-    y,
-    projectXY: true,
-    incrementVersion: true,
-  };
-
-  function openLoadModal(_modalType) {
-    useModal.setState({
-      modalData: commonProps,
-      modalType: _modalType,
-    });
-    closeAllContextMenus();
-  }
-
   function getOnClickFn(specificProps) {
     return () => {
-      onClickAddSection({ ...commonProps, ...specificProps });
+      useSectionInfos.setState((state) => {
+        addSectionAtPosition({
+          position: screenToFlowPosition({ x, y }),
+          state,
+          ...specificProps,
+        });
+      });
       closeAllContextMenus();
     };
   }

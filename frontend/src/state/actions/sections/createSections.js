@@ -1,6 +1,5 @@
 import { getDefaultInfoTitle } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import C from "constants/constants.json";
-import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
@@ -47,19 +46,21 @@ export function addSectionInEmptySpace({
 
   const position = { x: x + positionOffset.x, y: y + positionOffset.y };
 
-  return addSectionAtPosition({
-    type,
-    inputSectionProps,
-    position,
-    incrementVersion: true,
+  useSectionInfos.setState((state) => {
+    addSectionAtPosition({
+      type,
+      inputSectionProps,
+      position,
+      state,
+    });
   });
 }
 
 export function addSectionAtPosition({
   type,
-  incrementVersion = false,
   inputSectionProps = {},
   position,
+  state,
 }) {
   const sectionProps = {
     ...inputSectionProps,
@@ -86,12 +87,7 @@ export function addSectionAtPosition({
 
   sectionProps.uiTypeId = BASE_UI_TYPE_IDS[type];
 
-  let newId;
-  useSectionInfos.setState((state) => {
-    [newId] = createSectionInfo({ sectionProps, position, state });
-  });
-
-  maybeIncrementProjectStateVersion(incrementVersion);
+  const [newId] = createSectionInfo({ sectionProps, position, state });
   return newId;
 }
 
@@ -221,7 +217,7 @@ function addSectionsToState(sectionInfos, position, state) {
   }
 }
 
-export function createAdjacentSection(sectionId, sectionProps) {
+export function createAdjacentSection(sectionId, sectionProps, state) {
   const { position: sectionPosition, width: sectionWidth } = useNodeInternals
     .getState()
     .x.get(sectionId);
@@ -231,31 +227,5 @@ export function createAdjacentSection(sectionId, sectionProps) {
     y: sectionPosition.y,
   };
 
-  useSectionInfos.setState((state) => {
-    createSectionInfo({ sectionProps, position, state });
-  });
-}
-
-export function onClickAddSection({
-  type,
-  x,
-  y,
-  projectXY,
-  incrementVersion,
-  inputSectionProps = {},
-}) {
-  const position = projectXY
-    ? screenToFlowPosition({ x, y })
-    : {
-        x: x ?? 0,
-        y: y ?? 0,
-        zIndex: zIndex ?? 0,
-      };
-
-  return addSectionAtPosition({
-    type,
-    incrementVersion,
-    inputSectionProps,
-    position,
-  });
+  createSectionInfo({ sectionProps, position, state });
 }

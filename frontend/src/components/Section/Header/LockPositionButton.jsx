@@ -12,7 +12,7 @@ export function LockPositionButton({ sectionId }) {
     : "gg-lock-unlock !scale-[.4]";
 
   function onClick() {
-    toggleSectionLock({ sectionId });
+    toggleSectionLock(sectionId);
   }
 
   return (

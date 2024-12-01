@@ -14,7 +14,6 @@ import { InfoArea } from "../Layouts/InfoArea";
 import { InputArea } from "../Layouts/InputArea";
 import { LinePlotArea } from "../Layouts/LinePlotArea";
 import { ParamSweepArea } from "../Layouts/ParamSweepArea";
-import { ReferenceArea } from "../Layouts/ReferenceArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { Incrementer } from "../SectionParts/Incrementer";
@@ -98,8 +97,6 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
   switch (sectionTypeName) {
     case C.SECTION:
       return <InputArea sectionId={sectionId} bgColor={bgColor} />;
-    case C.REFERENCE_SECTION:
-      return <ReferenceArea sectionId={sectionId} />;
     case C.IMAGE:
       return <ImageArea sectionId={sectionId} />;
     case C.LINE_PLOT:

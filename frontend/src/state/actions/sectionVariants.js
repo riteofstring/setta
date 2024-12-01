@@ -49,14 +49,6 @@ export function getSectionChildren(sectionId) {
   return useSectionInfos.getState().variants[variantId].children;
 }
 
-export function getSectionChildrenFromAllVariants(sectionId) {
-  const output = [];
-  for (const v of useSectionInfos.getState().x[sectionId].variantIds) {
-    output.push(...useSectionInfos.getState().variants[v].children);
-  }
-  return output;
-}
-
 export function getSectionCodeInfoColId(sectionId) {
   return useSectionInfos.getState().variants[
     getSectionVariantIdToShow(sectionId)
