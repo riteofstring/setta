@@ -8,7 +8,6 @@ from setta.utils.constants import (
     PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS,
     SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
     USER_SETTINGS,
-    copy_defaults_into_obj,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import filter_dict
@@ -28,7 +27,7 @@ from .utils import remove_json_source_data, save_json_source_data
 
 
 def save_project_details(db, p):
-    copy_defaults_into_obj(p["sections"], "section")
+    add_defaults_to_sections(p["sections"])
     add_defaults_to_section_variants(p["sectionVariants"])
     add_defaults_to_code_info(p["codeInfo"])
     save_json_source_data(p)
