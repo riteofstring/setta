@@ -10,7 +10,6 @@ function useUpdateNodePositions() {
       const { nodesDraggable } = useReactFlow.getState();
       const { snapGrid } = useSettings.getState();
       const [snapToGrid] = localStorageFns.snapToGrid.state();
-      console.log("snapToGrid", snapToGrid)
       const activeSectionIds = useActiveSection.getState().ids;
       const selectedNodes = getNodes().filter(
         (n) =>
@@ -20,8 +19,8 @@ function useUpdateNodePositions() {
       );
       // by default a node moves 5px on each key press, or 20px if shift is pressed
       // if snap grid is enabled, we use that for the velocity.
-      const xVelo = snapToGrid ? snapGrid[0] : 10;
-      const yVelo = snapToGrid ? snapGrid[1] : 10;
+      const xVelo = snapToGrid ? snapGrid[0] : 5;
+      const yVelo = snapToGrid ? snapGrid[1] : 5;
       const factor = params.isShiftPressed ? 4 : 1;
 
       const positionDiffX = params.x * xVelo * factor;
@@ -47,7 +46,6 @@ function useUpdateNodePositions() {
         return n;
       });
 
-      console.log("updateNodePositions", nodeUpdates.map(n=>n.position.y))
       updateNodePositions(nodeUpdates, true, false);
     },
     [],

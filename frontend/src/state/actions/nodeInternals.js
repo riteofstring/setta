@@ -120,7 +120,6 @@ export function onNodesChange(changes) {
     }
   }
   useNodeInternals.setState({ x: newNodes });
-  console.log("useNodeInternals", useNodeInternals.getState().x)
 }
 
 export function raiseTempZIndex(nodes) {
