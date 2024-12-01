@@ -1,3 +1,6 @@
+import DEFAULT_VALUES from "constants/defaultValues.json";
+import _ from "lodash";
+
 export function newCodeInfoCol() {
-  return { children: { null: [] } };
+  return _.cloneDeep(DEFAULT_VALUES.codeInfoCol);
 }

@@ -1312,21 +1312,9 @@
         "1642efb6-c5cd-41e1-b346-cacb44d43c87": []
       }
     },
-    "8dde8d06-7744-4601-a6da-b2d47046b634": {
-      "children": {
-        "null": []
-      }
-    },
-    "4824c54e-fe92-4551-b9ca-549b651a3d4b": {
-      "children": {
-        "null": []
-      }
-    },
-    "e528d509-9473-410a-96d2-0ce6bbe22293": {
-      "children": {
-        "null": []
-      }
-    },
+    "8dde8d06-7744-4601-a6da-b2d47046b634": {},
+    "4824c54e-fe92-4551-b9ca-549b651a3d4b": {},
+    "e528d509-9473-410a-96d2-0ce6bbe22293": {},
     "641b63f2-e7e8-4e33-97f4-c99a50be894e": {
       "children": {
         "null": ["50b81980-75f1-4de8-bb0d-5042c44ecbd2"],
@@ -1350,21 +1338,9 @@
         "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": []
       }
     },
-    "11acb57f-6bfb-430e-893c-5aecdec7d128": {
-      "children": {
-        "null": []
-      }
-    },
-    "a6bc57c7-5d07-4f19-af50-6f05e0ce06d4": {
-      "children": {
-        "null": []
-      }
-    },
-    "8bf126a2-b983-438b-8c40-2419ca65cdf9": {
-      "children": {
-        "null": []
-      }
-    },
+    "11acb57f-6bfb-430e-893c-5aecdec7d128": {},
+    "a6bc57c7-5d07-4f19-af50-6f05e0ce06d4": {},
+    "8bf126a2-b983-438b-8c40-2419ca65cdf9": {},
     "684e732e-ab77-47a4-9d7d-ba895eceb3d7": {
       "children": {
         "null": ["b9bf393b-96d9-4264-ad9f-bad777e6777a"],
@@ -1378,11 +1354,7 @@
         "7a9b411c-e319-4813-8bf2-f341cf05df4a": []
       }
     },
-    "50fcd036-4f7b-4e4b-bd86-320875ffb857": {
-      "children": {
-        "null": []
-      }
-    },
+    "50fcd036-4f7b-4e4b-bd86-320875ffb857": {},
     "6a3681f2-dba7-46d8-abba-9db9f9e04c9b": {
       "children": {
         "null": ["4c97d0f4-0221-4640-b5c8-6067d47fc131"],
@@ -1392,11 +1364,7 @@
         "0a62f48a-54e6-4871-afa6-95c09bc49d61": []
       }
     },
-    "cc516188-e84d-43bd-887f-a3afc44452ce": {
-      "children": {
-        "null": []
-      }
-    },
+    "cc516188-e84d-43bd-887f-a3afc44452ce": {},
     "a599670a-881c-4dd3-a2a3-e32db5aa119d": {
       "children": {
         "null": ["ea138acc-58d2-4cfb-a2db-b5c44061f10f"],
@@ -1458,11 +1426,7 @@
         "62bd6021-0834-4317-87f4-3961d8f2e890": []
       }
     },
-    "8e5827c3-69ce-420d-b7ea-fcb6752f19dd": {
-      "children": {
-        "null": []
-      }
-    }
+    "8e5827c3-69ce-420d-b7ea-fcb6752f19dd": {}
   },
   "fullNameToInfo": {
     "__other_models[\"retail_olive\"][\"weights\"]": {

@@ -2,7 +2,10 @@ import json
 from collections import defaultdict
 
 from setta.code_gen.export_selected import get_section_variants
-from setta.database.db.codeInfo.utils import add_defaults_to_code_info
+from setta.database.db.codeInfo.utils import (
+    add_defaults_to_code_info,
+    add_defaults_to_code_info_cols,
+)
 from setta.database.db.sections.utils import add_defaults_to_sections
 from setta.database.db.sectionVariants.utils import add_defaults_to_section_variants
 from setta.database.utils import create_new_id
@@ -26,6 +29,7 @@ def save_project_details(db, p):
     add_defaults_to_sections(p["sections"])
     add_defaults_to_section_variants(p["sectionVariants"])
     add_defaults_to_code_info(p["codeInfo"])
+    add_defaults_to_code_info_cols(p["codeInfoCols"])
     save_json_source_data(p)
     remove_json_source_data(p)
     save_code_info(db, p["codeInfo"])

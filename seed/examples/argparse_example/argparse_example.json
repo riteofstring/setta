@@ -729,96 +729,24 @@
     }
   },
   "codeInfoCols": {
-    "22875dc9-752a-4188-bcd2-c21352358da3": {
-      "children": {
-        "null": []
-      }
-    },
-    "dfb3537d-97b7-4a33-89fa-2793304f6acd": {
-      "children": {
-        "null": []
-      }
-    },
-    "3260a637-dce5-4f7e-b0fa-f9b377a13576": {
-      "children": {
-        "null": []
-      }
-    },
-    "688cba52-0295-4840-a249-c312228755e1": {
-      "children": {
-        "null": []
-      }
-    },
-    "a662db1f-c2ab-42de-b650-7c462fc593e5": {
-      "children": {
-        "null": []
-      }
-    },
-    "a91ec9e9-441b-47de-bbbb-555a635e8394": {
-      "children": {
-        "null": []
-      }
-    },
-    "c2f756fe-7160-4b5f-893e-a9a41ced1084": {
-      "children": {
-        "null": []
-      }
-    },
-    "a184e19d-ffb4-4339-a075-d91a806a7237": {
-      "children": {
-        "null": []
-      }
-    },
-    "e2c2d700-bb27-4e4d-b8a9-2fff9e3f2ade": {
-      "children": {
-        "null": []
-      }
-    },
-    "6cfa5297-e64e-4a38-b72f-94fab5582f3c": {
-      "children": {
-        "null": []
-      }
-    },
-    "154ebcc9-953c-418d-902f-9939bcfef748": {
-      "children": {
-        "null": []
-      }
-    },
-    "00952c9e-e308-40bc-aba3-cc04f9920809": {
-      "children": {
-        "null": []
-      }
-    },
-    "91f99ee4-c926-4e2e-a094-2ea22ba8a387": {
-      "children": {
-        "null": []
-      }
-    },
-    "843370ab-6475-4e40-961e-75b0edd43983": {
-      "children": {
-        "null": []
-      }
-    },
-    "21076e93-4bdc-4214-98da-9300cfb75165": {
-      "children": {
-        "null": []
-      }
-    },
-    "490eeea1-e9e1-4659-8c67-3b16f36c669d": {
-      "children": {
-        "null": []
-      }
-    },
-    "2e7e21d8-171a-442b-b2fd-82ee146ffd31": {
-      "children": {
-        "null": []
-      }
-    },
-    "3fd80ddf-69d3-4d05-a729-1a752d65f2bf": {
-      "children": {
-        "null": []
-      }
-    },
+    "22875dc9-752a-4188-bcd2-c21352358da3": {},
+    "dfb3537d-97b7-4a33-89fa-2793304f6acd": {},
+    "3260a637-dce5-4f7e-b0fa-f9b377a13576": {},
+    "688cba52-0295-4840-a249-c312228755e1": {},
+    "a662db1f-c2ab-42de-b650-7c462fc593e5": {},
+    "a91ec9e9-441b-47de-bbbb-555a635e8394": {},
+    "c2f756fe-7160-4b5f-893e-a9a41ced1084": {},
+    "a184e19d-ffb4-4339-a075-d91a806a7237": {},
+    "e2c2d700-bb27-4e4d-b8a9-2fff9e3f2ade": {},
+    "6cfa5297-e64e-4a38-b72f-94fab5582f3c": {},
+    "154ebcc9-953c-418d-902f-9939bcfef748": {},
+    "00952c9e-e308-40bc-aba3-cc04f9920809": {},
+    "91f99ee4-c926-4e2e-a094-2ea22ba8a387": {},
+    "843370ab-6475-4e40-961e-75b0edd43983": {},
+    "21076e93-4bdc-4214-98da-9300cfb75165": {},
+    "490eeea1-e9e1-4659-8c67-3b16f36c669d": {},
+    "2e7e21d8-171a-442b-b2fd-82ee146ffd31": {},
+    "3fd80ddf-69d3-4d05-a729-1a752d65f2bf": {},
     "6c82f532-d860-4860-87f0-6add6e84c165": {
       "children": {
         "null": [
@@ -848,21 +776,9 @@
         "b1318655-3495-4d2d-8fef-89a138386641": []
       }
     },
-    "d80e8d8d-0ff5-459f-8a82-dc4aa5cf56c7": {
-      "children": {
-        "null": []
-      }
-    },
-    "a37f88b3-2638-4d4b-a52c-9a07c2bcbf6d": {
-      "children": {
-        "null": []
-      }
-    },
-    "93ec225a-a19b-442e-8cc8-b8a411921de3": {
-      "children": {
-        "null": []
-      }
-    }
+    "d80e8d8d-0ff5-459f-8a82-dc4aa5cf56c7": {},
+    "a37f88b3-2638-4d4b-a52c-9a07c2bcbf6d": {},
+    "93ec225a-a19b-442e-8cc8-b8a411921de3": {}
   },
   "fullNameToInfo": {
     "overwhelming_white": {
