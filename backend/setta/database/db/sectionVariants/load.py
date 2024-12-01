@@ -18,6 +18,7 @@ def load_section_variants(db, ids):
         id = row["id"]
         if id not in output:
             output[id] = {
+                **DEFAULT_VALUES["sectionVariant"],
                 "selectedItem": row["selectedItem"],
                 "codeInfoColId": row["codeInfoColId"],
                 "runGroup": json.loads(row["runGroup"]),
@@ -72,6 +73,4 @@ def load_section_variants(db, ids):
         if row["value"] is not None:
             curr.append(row["value"])
 
-    for k,v in output.items():
-        output[k] = {**DEFAULT_VALUES["sectionVariant"], **v}
     return output
