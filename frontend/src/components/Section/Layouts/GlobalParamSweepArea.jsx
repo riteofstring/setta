@@ -36,13 +36,6 @@ export function GlobalParamSweepArea({ sectionId }) {
 }
 
 function GlobalParamSweepGUI({ sectionId, width }) {
-  const { editingRunGroupId, shownRunGroupId } = useSectionInfos((x) => {
-    const s = x.x[sectionId];
-    return {
-      shownRunGroupId: s.previewVariantId ?? s.variantId,
-      editingRunGroupId: s.variantId,
-    };
-  }, _.isEqual);
   const { ref, isScrollable } = useIsScrollable();
 
   return (
@@ -51,31 +44,31 @@ function GlobalParamSweepGUI({ sectionId, width }) {
         className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main -mr-3 mb-2 flex min-w-0 flex-col gap-2 overflow-y-scroll pr-2 @sm/multipane:flex-row @sm/multipane:gap-6  @sm/multipane:overflow-visible`}
         ref={ref}
       >
-        <LeftSide sectionId={sectionId} editingRunGroupId={editingRunGroupId} />
-        <RightSide sectionId={sectionId} shownRunGroupId={shownRunGroupId} />
+        <LeftSide sectionId={sectionId} />
+        <RightSide sectionId={sectionId} />
       </section>
     </>
   );
 }
 
-function LeftSide({ sectionId, editingRunGroupId }) {
+function LeftSide({ sectionId }) {
   return (
     <article className="mt-2 flex flex-col gap-2 ">
       <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
         Run Groups
       </h3>
 
-      <RunGroupList
-        sectionId={sectionId}
-        editingRunGroupId={editingRunGroupId}
-      />
+      <RunGroupList sectionId={sectionId} />
       <CreateNewRunGroupButton sectionId={sectionId} />
     </article>
   );
 }
 
-function RightSide({ sectionId, shownRunGroupId }) {
+function RightSide({ sectionId }) {
   const showYaml = useShowYaml(sectionId);
+  const shownRunGroupId = useSectionInfos((x) => {
+    return x.x[sectionId].previewVariantId ?? x.x[sectionId].variantId;
+  }, _.isEqual);
 
   if (!shownRunGroupId) {
     return null;
@@ -103,19 +96,21 @@ function RightSide({ sectionId, shownRunGroupId }) {
   );
 }
 
-function RunGroupList({ sectionId, editingRunGroupId }) {
+function RunGroupList({ sectionId }) {
   const { ref, isScrollable } = useIsScrollable();
-  const { runGroupsDetails, runGroupSelection } = useSectionInfos((x) => {
-    const output = [];
-    const { variantIds } = x.x[sectionId];
-    for (const id of variantIds) {
-      output.push({ id, name: x.variants[id].name });
-    }
-    return {
-      runGroupsDetails: output,
-      runGroupSelection: x.x[sectionId].selectedVariantIds,
-    };
-  }, _.isEqual);
+  const { editingRunGroupId, runGroupsDetails, runGroupSelection } =
+    useSectionInfos((x) => {
+      const output = [];
+      const { variantIds, variantId } = x.x[sectionId];
+      for (const id of variantIds) {
+        output.push({ id, name: x.variants[id].name });
+      }
+      return {
+        runGroupsDetails: output,
+        runGroupSelection: x.x[sectionId].selectedVariantIds,
+        editingRunGroupId: variantId,
+      };
+    }, _.isEqual);
 
   return (
     <ul
