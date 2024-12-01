@@ -71,8 +71,3 @@ def save_code_info_col(db, codeInfoCols):
                 )
                 order += 1
     db.executemany(query, query_params)
-
-
-def add_defaults_to_code_info(code_info):
-    for k, v in code_info.items():
-        code_info[k] = {**DEFAULT_VALUES["codeInfo"], **v}

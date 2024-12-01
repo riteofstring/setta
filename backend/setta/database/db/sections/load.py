@@ -4,10 +4,10 @@ import itertools
 import json
 from collections import defaultdict
 
+from setta.database.db.sections.utils import with_section_defaults
 from setta.database.db.sectionVariants.utils import new_section_variant
 from setta.database.utils import create_new_id
-from setta.utils.constants import DEFAULT_VALUES, C
-from setta.utils.utils import filter_dict
+from setta.utils.constants import C
 
 from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes
@@ -68,18 +68,17 @@ def load_sections(db, ids):
     for v in db.fetchall():
         v = dict(v)
         data = v.pop("data")
-        sections[v["id"]] = {
-            **DEFAULT_VALUES["section"],
+        v["isInOtherProjectConfigs"] = section_id_to_config_count[v["id"]] > 1
+        v["parentId"] = child_to_parent_id.get(v["id"], None)
+        v["variantIds"] = v["variantIds"].split(",") if v["variantIds"] else []
+        v["artifacts"] = v["artifacts"].split(",") if v["artifacts"] else []
+        v["nonPresetUITypeIds"] = (
+            v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
+        )
+        sections[v["id"]] = with_section_defaults(
             **v,
             **json.loads(data),
-            "isInOtherProjectConfigs": section_id_to_config_count[v["id"]] > 1,
-            "parentId": child_to_parent_id.get(v["id"], None),
-            "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],
-            "artifacts": v["artifacts"].split(",") if v["artifacts"] else [],
-            "nonPresetUITypeIds": (
-                v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
-            ),
-        }
+        )
 
     variantIds = list(
         itertools.chain.from_iterable([s["variantIds"] for s in sections.values()])

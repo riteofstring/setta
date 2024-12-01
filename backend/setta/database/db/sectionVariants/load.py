@@ -1,6 +1,6 @@
 import json
 
-from setta.utils.constants import DEFAULT_VALUES
+from setta.database.db.sectionVariants.utils import with_section_variant_defaults
 
 
 def load_section_variants(db, ids):
@@ -17,15 +17,12 @@ def load_section_variants(db, ids):
     for row in db.fetchall():
         id = row["id"]
         if id not in output:
-            output[id] = {
-                **DEFAULT_VALUES["sectionVariant"],
-                "selectedItem": row["selectedItem"],
-                "codeInfoColId": row["codeInfoColId"],
-                "runGroup": json.loads(row["runGroup"]),
-                "values": {},
-                "children": [],
+            output[id] = with_section_variant_defaults(
+                selectedItem=row["selectedItem"],
+                codeInfoColId=row["codeInfoColId"],
+                runGroup=json.loads(row["runGroup"]),
                 **json.loads(row["data"]),
-            }
+            )
         if row["valueData"]:
             output[id]["values"][row["codeInfoId"]] = json.loads(row["valueData"])
 
