@@ -1,4 +1,5 @@
 import { Item } from "components/Utils/atoms/dropdown/item";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
@@ -28,9 +29,7 @@ export function SelectionContextMenu() {
   function onClickCreate() {
     createDeck({
       nodeIds,
-      x,
-      y,
-      projectXY: true,
+      ...screenToFlowPosition({ x, y }),
     });
     closeContextMenu();
   }

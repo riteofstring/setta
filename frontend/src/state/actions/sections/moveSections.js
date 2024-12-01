@@ -1,8 +1,6 @@
 import C from "constants/constants.json";
-import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { PANEID } from "utils/constants";
 import { insertIntoArray } from "utils/utils";
@@ -12,61 +10,48 @@ import { setSectionVariantChildren } from "../sectionVariants";
 import { updateSectionInfos } from "./sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
 
-export async function moveSections({
+export function moveSections({
   sectionIds,
   oldParentIds,
   newParentIds,
   positions,
   oldParentId,
   newParentId,
+  state,
 }) {
   for (const [idx, sectionId] of sectionIds.entries()) {
-    await moveSection({
+    moveSection({
       oldParentId: oldParentIds ? oldParentIds[sectionId] : oldParentId,
       newParentId: newParentIds ? newParentIds[sectionId] : newParentId,
-      sectionId,
+      oldSectionId: sectionId,
+      newSectionId: sectionId,
       newIndex: idx,
       position: positions ? positions[sectionId] : null,
-      behaviorDropType: null,
+      state,
     });
   }
 }
 
-export async function moveSection({
+export function moveSection({
   oldParentId,
   newParentId,
-  sectionId,
+  oldSectionId,
+  newSectionId,
   newIndex,
   position,
-  behaviorDropType,
-  incrementVersion = false,
+  state,
 }) {
-  if (!newParentId || behaviorDropType === BehaviorDropType.INVALID) {
-    return;
-  }
-
-  const newSectionId = await maybeMakeCopyOfSection({
-    sectionId,
+  setChildrenAndParent({
     oldParentId,
     newParentId,
+    oldSectionId,
+    newSectionId,
+    newIndex,
+    position,
+    state,
   });
 
-  useSectionInfos.setState((state) => {
-    setChildrenAndParent({
-      oldParentId,
-      newParentId,
-      oldSectionId: sectionId,
-      newSectionId,
-      newIndex,
-      position,
-      state,
-    });
-
-    setSectionSizeAfterMove(newParentId, newSectionId, state);
-  });
-
-  // maybeCreateReferenceSections({ sectionId, oldParentId });
-  maybeIncrementProjectStateVersion(incrementVersion);
+  setSectionSizeAfterMove(newParentId, newSectionId, state);
 }
 
 function setChildrenAndParent({
@@ -127,7 +112,11 @@ function setSectionSizeAfterMove(newParentId, sectionId, state) {
   }
 }
 
-async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
+export async function maybeMakeCopyOfSection({
+  sectionId,
+  oldParentId,
+  newParentId,
+}) {
   if (oldParentId === PANEID || oldParentId === newParentId) {
     return sectionId;
   }
