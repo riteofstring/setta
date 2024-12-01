@@ -6,7 +6,7 @@ import {
 } from "utils/getDescendants";
 import { bothTruthyOrFalsey } from "utils/utils";
 import { getSectionCodeInfoChildren } from "../codeInfoCols";
-import { getSectionSelectedItem } from "../sectionVariants";
+import { getSectionSelectedItem } from "../sectionInfos";
 
 export function getParamIds(
   sectionId,

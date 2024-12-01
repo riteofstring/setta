@@ -16,7 +16,7 @@ import {
   dbCodeAreaInitializeCode,
   getKeywordPositionsAndEVRefs,
 } from "requests/sections";
-import { setSectionVariantAttr } from "state/actions/sectionVariants";
+import { setSectionVariantAttr } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import {
   useSectionCode,

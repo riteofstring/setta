@@ -3,11 +3,9 @@ import { dbDeleteTerminals } from "requests/terminals";
 import { deleteNodes } from "state/actions/nodeInternals";
 import { useActiveSection, useSectionInfos } from "state/definitions";
 import { getSectionParentId } from "../sectionInfos";
-import {
-  getAllSectionsForDeletionOrCopying,
-  getSectionChildren,
-  setSectionVariantChildren,
-} from "../sectionVariants";
+import { getAllSectionsForDeletionOrCopying } from "../sectionInfos";
+import { setSectionVariantChildren } from "../sectionInfos";
+import { getSectionChildren } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { removeActiveSectionIds } from "../activeSections";
 

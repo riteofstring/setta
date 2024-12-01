@@ -5,7 +5,7 @@ import {
   getParamIdsToShowInArea,
   paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
-import { getSectionVariantToShow } from "state/actions/sectionVariants";
+import { getSectionVariantToShow } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 export function useParamInfosForSidePane(sectionId) {

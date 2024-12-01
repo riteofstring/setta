@@ -11,7 +11,7 @@ import {
   addRegularSectionInEmptySpace,
 } from "state/actions/sections/createSections";
 import { autoLayout } from "state/actions/sections/sectionPositions";
-import { resetAllSectionsToDefaultVersions } from "state/actions/sectionVariants";
+import { resetAllSectionsToDefaultVersions } from "state/actions/sectionInfos";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";

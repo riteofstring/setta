@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { getSectionCodeInfoChildren } from "state/actions/codeInfoCols";
 import { getSectionType } from "state/actions/sectionInfos";
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
-import { getSectionVariantIdToShow } from "state/actions/sectionVariants";
+import { getSectionVariantIdToShow } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { getForSectionId, getParamSweep } from "state/hooks/paramSweep";
 import { post } from "./utils";

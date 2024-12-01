@@ -1,7 +1,7 @@
 import { SectionYamlView } from "components/Params/YamlView";
 import _ from "lodash";
 import React from "react";
-import { getSectionVariantToShow } from "state/actions/sectionVariants";
+import { getSectionVariantToShow } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";

@@ -4,7 +4,7 @@ import {
   onMouseLeaveSetPreviewVariantId,
   onMouseOverSetPreviewVariantId,
 } from "state/actions/previewOnMouseOver";
-import { toggleVariantFrozenState } from "state/actions/sectionVariants";
+import { toggleVariantFrozenState } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 

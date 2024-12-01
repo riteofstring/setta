@@ -4,10 +4,8 @@ import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import { getSectionType } from "state/actions/sectionInfos";
-import {
-  getSectionChildren,
-  getSelectedVariantIsFrozen,
-} from "state/actions/sectionVariants";
+import { getSelectedVariantIsFrozen } from "state/actions/sectionInfos";
+import { getSectionChildren } from "state/actions/sectionInfos";
 import { getIsRoot } from "utils/sectionTypeHelpers";
 
 export function onDragStart({ active }) {

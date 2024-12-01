@@ -6,7 +6,7 @@ import { getForSectionId } from "state/hooks/paramSweep";
 import { findAll } from "utils/getDescendants";
 import { setNotificationMessage } from "../notification";
 import { getSectionType } from "../sectionInfos";
-import { getAllSectionsForDeletionOrCopying } from "../sectionVariants";
+import { getAllSectionsForDeletionOrCopying } from "../sectionInfos";
 
 export async function copy() {
   const activeSectionIds = useActiveSection.getState().ids;

@@ -9,7 +9,7 @@ import { getSectionCodeInfoChildren } from "./codeInfoCols";
 import { initializeParams } from "./initializeParam";
 import { deleteParamsFromParamSweep } from "./runGroups/paramSweep";
 import { getParamIds } from "./sections/sectionContents";
-import { deleteParamInfoFromSectionVariant } from "./sectionVariants";
+import { deleteParamInfoFromSectionVariant } from "./sectionInfos";
 import { deleteParamInfoFromUITypeCol } from "./uiTypes/uiTypeCols";
 
 export function addKwarg({

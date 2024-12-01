@@ -14,7 +14,7 @@ import { newSectionVariant } from "utils/objs/sectionVariant";
 import { insertIntoArray } from "utils/utils";
 import { initRunGroup } from "../runGroups/runGroups";
 import { getSectionInfo } from "../sectionInfos";
-import { setSectionVariantChildren } from "../sectionVariants";
+import { setSectionVariantChildren } from "../sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
   return addSectionInEmptySpace({ type: C.SECTION });

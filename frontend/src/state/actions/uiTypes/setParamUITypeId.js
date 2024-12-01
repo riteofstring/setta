@@ -1,5 +1,6 @@
 import { getValueForUIType } from "utils/objs/ev";
-import { getParamEV, setParamEnteredValue } from "../sectionVariants";
+import { setParamEnteredValue } from "../sectionInfos";
+import { getParamEV } from "../sectionInfos";
 
 export function setParamUITypeId({ uiTypeId, sectionId, paramInfoId, state }) {
   const { uiTypeColId } = state.x[sectionId];

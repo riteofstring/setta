@@ -19,7 +19,7 @@ import {
   getParamIds,
   paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
-import { getSectionVariantToShow } from "state/actions/sectionVariants";
+import { getSectionVariantToShow } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";

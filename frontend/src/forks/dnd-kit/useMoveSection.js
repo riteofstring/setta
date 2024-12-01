@@ -10,7 +10,7 @@ import {
 } from "state/actions/sections/moveSections";
 import { updateSectionInfos } from "state/actions/sectionInfos";
 import { manualDndChildrenReset } from "state/actions/sectionInfos";
-import { setSectionVariantChildren } from "state/actions/sectionVariants";
+import { setSectionVariantChildren } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { PANEID } from "utils/constants";

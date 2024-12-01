@@ -1,6 +1,6 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
-import { getSectionVariantToShow } from "state/actions/sectionVariants";
+import { getSectionVariantToShow } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 export function HideShowSearchButton({ sectionId }) {

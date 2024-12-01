@@ -5,7 +5,7 @@ import {
 } from "state/actions/uiTypes/cloneUITypes";
 import { useSectionInfos } from "state/definitions";
 import { getValueForUIType } from "utils/objs/ev";
-import { setEnteredValue } from "../sectionVariants";
+import { setEnteredValue } from "../sectionInfos";
 import { setParamUITypeId } from "./setParamUITypeId";
 import { getParamUIType } from "./uiTypeCols";
 import { setOneUITypeConfig } from "./uiTypes";

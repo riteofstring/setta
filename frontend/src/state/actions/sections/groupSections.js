@@ -8,7 +8,7 @@ import {
   useSectionInfos,
 } from "state/definitions";
 import { PANEID } from "utils/constants";
-import { getSectionChildren } from "../sectionVariants";
+import { getSectionChildren } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { addSectionAtPosition } from "./createSections";
 import { deleteSections } from "./deleteSections";

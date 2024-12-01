@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
-import { getSectionCodeInfoColId } from "./sectionVariants";
+import { getSectionCodeInfoColId } from "./sectionInfos";
 
 export function getSectionCodeInfoChildren(sectionId) {
   return useSectionInfos.getState().codeInfoCols[

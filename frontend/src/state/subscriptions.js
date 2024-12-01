@@ -13,7 +13,7 @@ import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./actions/nodeInternals";
-import { getSectionIdToChildrenToShow } from "./actions/sectionVariants";
+import { getSectionIdToChildrenToShow } from "./actions/sectionInfos";
 
 export function subscribe() {
   useSectionInfos.subscribe(

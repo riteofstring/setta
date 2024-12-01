@@ -1,4 +1,4 @@
-import { getSectionVariantIdToShow } from "state/actions/sectionVariants";
+import { getSectionVariantIdToShow } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionVariantNames } from "./sectionVariants";
 
