@@ -5,7 +5,7 @@ import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { useSectionInfos } from "state/definitions";
-import { useIsSeriesElement, useSectionTypeName } from "state/hooks/uiTypes";
+import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton";
 import { LockPositionButton } from "./LockPositionButton";
@@ -49,6 +49,7 @@ function _SectionHeader({
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
             isInOtherProjectConfigs={isInOtherProjectConfigs}
+            sectionTypeName={sectionTypeName}
           />
         </>
       )}
@@ -88,6 +89,7 @@ function CardTitle({
   isActiveSection,
   isGlobalVariables,
   isInOtherProjectConfigs,
+  sectionTypeName,
 }) {
   // const isSearchResult = useProjectSearch((x) =>
   //   x.sections.includes(sectionId)
@@ -100,8 +102,8 @@ function CardTitle({
       titleProps={getTitleStyles({
         isActiveSection,
         isGlobalVariables,
-        sectionId,
         isInOtherProjectConfigs,
+        sectionTypeName,
       })}
     />
     // </div>
@@ -113,10 +115,9 @@ export const SectionHeader = React.memo(_SectionHeader);
 function getTitleStyles({
   isActiveSection,
   isGlobalVariables,
-  sectionId,
   isInOtherProjectConfigs,
+  sectionTypeName,
 }) {
-  const sectionTypeName = useSectionTypeName(sectionId);
   const editing =
     "cursor-text nodrag px-2 py-0 leading-5 -ml-2 bg-setta-100 dark:bg-setta-800 rounded-full w-3/5 dark:text-white font-semibold text-[.7rem] tracking-tight";
 

@@ -15,7 +15,10 @@ import {
   deleteParamSweepValue,
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
-import { getSectionVariantToShow } from "state/actions/sectionInfos";
+import {
+  getSectionType,
+  getSectionVariantToShow,
+} from "state/actions/sectionInfos";
 import {
   getParamIds,
   paramNameFromPathArray,
@@ -399,7 +402,7 @@ function useShowParamSweepSectionSearch(sectionId) {
   return useSectionInfos((x) => {
     return (
       !x.x[sectionId].hideSearch &&
-      x.uiTypes[x.x[sectionId].uiTypeId].type !== C.GLOBAL_VARIABLES
+      getSectionType(sectionId, x) !== C.GLOBAL_VARIABLES
     );
   });
 }

@@ -1,6 +1,6 @@
 import { Editable } from "components/Utils/Editable";
 import C from "constants/constants.json";
-import { getSectionChildren } from "state/actions/sectionInfos";
+import { getSectionChildren, getSectionType } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -71,7 +71,7 @@ function useTitleIsEditable(sectionId) {
       C.GLOBAL_VARIABLES,
       C.PARAM_SWEEP,
       C.GLOBAL_PARAM_SWEEP,
-    ].includes(x.uiTypes[x.x[sectionId].uiTypeId].type);
+    ].includes(getSectionType(sectionId, x));
 
     const isListElement = getIsSeriesElementHelper(sectionId, [C.LIST_ROOT], x);
 

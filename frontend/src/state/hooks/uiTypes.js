@@ -60,10 +60,6 @@ export function useIsListElement(sectionId) {
   );
 }
 
-export function useSectionTypeName(sectionId) {
-  return useSectionInfos((x) => x.uiTypes[x.x[sectionId].uiTypeId].type);
-}
-
 export function useIsType(sectionId, type) {
   return useSectionInfos(
     (x) => x.uiTypes[x.x[sectionId].uiTypeId].type === type,

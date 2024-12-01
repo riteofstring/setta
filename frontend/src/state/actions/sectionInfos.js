@@ -12,9 +12,9 @@ export function getSectionParentId(sectionId) {
   return getSectionInfo(sectionId).parentId;
 }
 
-export function getSectionType(sectionId) {
-  const sectionTypeId = getSectionInfo(sectionId).uiTypeId;
-  return useSectionInfos.getState().uiTypes[sectionTypeId].type;
+export function getSectionType(sectionId, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  return state.uiTypes[state.x[sectionId].uiTypeId].type;
 }
 
 export function getSectionVariant(sectionId, state) {

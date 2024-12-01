@@ -107,7 +107,7 @@ export function useSectionMinMaxDims(sectionId) {
   const { sectionType, hideSearch, hideParams, isMinimized } = useSectionInfos(
     (x) => {
       return {
-        sectionType: x.uiTypes[x.x[sectionId].uiTypeId].type,
+        sectionType: getSectionType(sectionId, x),
         hideSearch: x.x[sectionId].hideSearch,
         hideParams: x.x[sectionId].hideParams,
         isMinimized: x.x[sectionId].isMinimized,
