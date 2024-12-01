@@ -6,7 +6,7 @@ import _ from "lodash";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { toggleParamSelected } from "state/actions/kwargs";
+import { toggleParamSelected } from "state/actions/kwargs/kwargs";
 import { getSectionVariantToShow } from "state/actions/sectionVariants";
 import {
   useParamShortcuts,

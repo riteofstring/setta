@@ -192,7 +192,6 @@ export const useMisc = create(
         mouseDownDrawArea: false,
         mouseDownDraggingSection: false,
         lastPaneClickLocation: { x: 0, y: 0 },
-        undoOrRedoWasTriggered: false,
       })),
     ),
   ),
