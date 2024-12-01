@@ -1,4 +1,5 @@
 import builtins
+import copy
 import json
 from pathlib import Path
 
@@ -68,6 +69,11 @@ def load_constants():
 
 def is_from_json_source(id):
     return id.startswith(C.JSON_SOURCE_PREFIX)
+
+
+def copy_defaults_into_obj(x, key):
+    for k,v in x.items():
+        x[k] = {**copy.deepcopy(DEFAULT_VALUES[key]), **v}
 
 
 CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
