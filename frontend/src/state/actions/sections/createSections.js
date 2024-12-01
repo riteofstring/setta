@@ -2,7 +2,6 @@ import { getDefaultInfoTitle } from "components/Panes/UiEditor/MarkdownEditor/Ma
 import C from "constants/constants.json";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
-import _ from "lodash";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
@@ -17,12 +16,9 @@ import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
 import { insertIntoArray } from "utils/utils";
-import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
+import { getSectionInfo } from "../../getters/sectionInfo";
 import { initRunGroup } from "../runGroups/runGroups";
-import {
-  getSectionChildren,
-  setSectionVariantChildren,
-} from "../sectionVariants";
+import { setSectionVariantChildren } from "../sectionVariants";
 
 export function addRegularSectionInEmptySpace() {
   return addSectionInEmptySpace({ type: C.SECTION });
@@ -90,7 +86,11 @@ export function addSectionAtPosition({
 
   sectionProps.uiTypeId = BASE_UI_TYPE_IDS[type];
 
-  const [newId] = createSectionInfo({ sectionProps, position });
+  let newId;
+  useSectionInfos.setState((state) => {
+    [newId] = createSectionInfo({ sectionProps, position, state });
+  });
+
   maybeIncrementProjectStateVersion(incrementVersion);
   return newId;
 }
@@ -126,26 +126,33 @@ export function addChildrenToSeries({
   numChildren,
   incrementVersion = false,
 }) {
-  let parentId, startIdx;
-  if (isRoot) {
-    parentId = calledBy;
-    startIdx = 0;
-  } else {
-    parentId = getSectionParentId(calledBy);
-    startIdx = getSectionChildren(parentId).indexOf(calledBy) + 1;
-  }
+  let newIds;
+  useSectionInfos.setState((state) => {
+    let parentId, startIdx;
+    if (isRoot) {
+      parentId = calledBy;
+      startIdx = 0;
+    } else {
+      parentId = state.x[calledBy].parentId;
+      startIdx =
+        state.variants[state.x[parentId].variantId].children.indexOf(calledBy) +
+        1;
+    }
 
-  const newIds = createSectionInfo({
-    sectionProps: {
+    newIds = createSectionInfo({
+      sectionProps: {
+        parentId,
+        size: { height: "auto", width: getSectionInfo(parentId).size.width },
+      },
+      numSections: numChildren,
+      state,
+    });
+
+    setSectionVariantChildren(
       parentId,
-      size: { height: "auto", width: getSectionInfo(parentId).size.width },
-    },
-    numSections: numChildren,
-  });
-
-  setSectionVariantChildren({
-    sectionId: parentId,
-    newStateFn: (x) => insertIntoArray(x, startIdx, ...newIds),
+      (x) => insertIntoArray(x, startIdx, ...newIds),
+      state,
+    );
   });
 
   maybeIncrementProjectStateVersion(incrementVersion);
@@ -154,17 +161,17 @@ export function addChildrenToSeries({
 }
 
 export function addChild({ id, parentId, type, sectionProps }) {
-  createSectionInfo({
-    sectionProps: {
-      id,
-      parentId,
-      uiTypeId: BASE_UI_TYPE_IDS[type],
-      ...sectionProps,
-    },
-  });
-  setSectionVariantChildren({
-    sectionId: parentId,
-    newStateFn: (x) => [...x, id],
+  useSectionInfos.setState((state) => {
+    createSectionInfo({
+      sectionProps: {
+        id,
+        parentId,
+        uiTypeId: BASE_UI_TYPE_IDS[type],
+        ...sectionProps,
+      },
+      state,
+    });
+    setSectionVariantChildren(parentId, (x) => [...x, id], state);
   });
 }
 
@@ -172,35 +179,31 @@ export function createSectionInfo({
   sectionProps = {},
   numSections = 1,
   position,
+  state,
 }) {
   const newInfos = {};
   for (let i = 0; i < numSections; i++) {
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
   }
-  addSectionsToState(newInfos, position);
+  addSectionsToState(newInfos, position, state);
   return Object.keys(newInfos);
 }
 
-function addSectionsToState(sectionInfos, position) {
-  const sectionIds = _.map(sectionInfos, (x) => x.id);
-
-  useSectionInfos.setState((x) => {
-    for (const s of Object.values(sectionInfos)) {
-      const codeInfoColId = createNewId();
-      x.codeInfoCols[codeInfoColId] = newCodeInfoCol();
-      x.variants[s.variantId] = newSectionVariant({ codeInfoColId });
-      x.uiTypeCols[s.uiTypeColId] = {};
-      x.x[s.id] = s;
-      if (x.uiTypes[s.uiTypeId].type === C.GLOBAL_PARAM_SWEEP) {
-        initRunGroup(s.variantId, x);
-      }
+function addSectionsToState(sectionInfos, position, state) {
+  for (const s of Object.values(sectionInfos)) {
+    const codeInfoColId = createNewId();
+    state.codeInfoCols[codeInfoColId] = newCodeInfoCol();
+    state.variants[s.variantId] = newSectionVariant({ codeInfoColId });
+    state.uiTypeCols[s.uiTypeColId] = {};
+    state.x[s.id] = s;
+    if (state.uiTypes[s.uiTypeId].type === C.GLOBAL_PARAM_SWEEP) {
+      initRunGroup(s.variantId, state);
     }
-  });
+  }
 
   const topLevelSectionIds = [];
-
-  for (const s of sectionIds) {
+  for (const s of Object.keys(sectionInfos)) {
     if (!sectionInfos[s].parentId) {
       topLevelSectionIds.push(s);
     }
@@ -228,7 +231,9 @@ export function createAdjacentSection(sectionId, sectionProps) {
     y: sectionPosition.y,
   };
 
-  createSectionInfo({ sectionProps, position });
+  useSectionInfos.setState((state) => {
+    createSectionInfo({ sectionProps, position, state });
+  });
 }
 
 export function onClickAddSection({

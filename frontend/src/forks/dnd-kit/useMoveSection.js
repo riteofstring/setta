@@ -7,6 +7,7 @@ import { moveSection } from "state/actions/sections/moveSections";
 import { manualDndChildrenReset } from "state/actions/sections/sectionInfos";
 import { setSectionVariantChildren } from "state/actions/sectionVariants";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { useSectionInfos } from "state/definitions";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import { PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
@@ -16,9 +17,12 @@ import { BehaviorDropType } from "./dropTypes";
 
 function onSortEnd({ active, over }) {
   if (over && active.id !== over.id) {
-    setSectionVariantChildren({
-      sectionId: active.data.current.sortable?.containerId,
-      newStateFn: updateWithArrayMove(active, over),
+    useSectionInfos.setState((state) => {
+      setSectionVariantChildren(
+        active.data.current.sortable?.containerId,
+        updateWithArrayMove(active, over),
+        state,
+      );
     });
 
     maybeIncrementProjectStateVersion(true);
