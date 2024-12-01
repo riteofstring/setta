@@ -27,42 +27,37 @@ export function deleteNodes(nodeIds) {
 export function updateNodeDimensions(updates) {
   const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions, domNode } =
     useReactFlow.getState();
-  const nodeInternals = useNodeInternals.getState().x;
+
   const viewportNode = domNode?.querySelector(".react-flow__viewport");
 
   if (!viewportNode) {
     return;
   }
 
-  const changes = updates.reduce((res, update) => {
-    const node = nodeInternals.get(update.id);
+  const newNodes = getNewNodes();
 
+  for (const u of updates) {
+    const node = newNodes.get(u.id);
     if (node) {
-      const dimensions = getDimensions(update.nodeElement);
+      const dimensions = getDimensions(u.nodeElement);
       const doUpdate = !!(
         dimensions.width &&
         dimensions.height &&
         (node.width !== dimensions.width ||
           node.height !== dimensions.height ||
-          update.forceUpdate)
+          u.forceUpdate)
       );
 
       if (doUpdate) {
-        nodeInternals.set(node.id, {
+        newNodes.set(node.id, {
           ...node,
           ...dimensions,
         });
-
-        res.push({
-          id: node.id,
-          type: "dimensions",
-          dimensions,
-        });
       }
     }
+  }
 
-    return res;
-  }, []);
+  useNodeInternals.setState({ x: newNodes });
 
   const nextFitViewOnInitDone =
     fitViewOnInitDone ||
@@ -74,39 +69,12 @@ export function updateNodeDimensions(updates) {
       }));
 
   useReactFlow.setState({ fitViewOnInitDone: nextFitViewOnInitDone });
-
-  if (changes?.length > 0) {
-    onNodesChange(changes);
-  }
 }
 
 export function updateNodePositions(nodeDragItems) {
   const newNodes = getNewNodes();
   for (const n of nodeDragItems) {
     newNodes.get(n.id).position = n.position;
-  }
-  useNodeInternals.setState({ x: newNodes });
-}
-
-export function onNodesChange(changes) {
-  const newNodes = getNewNodes();
-  for (const c of changes) {
-    switch (c.type) {
-      case "position": {
-        if (typeof c.position !== "undefined") {
-          newNodes.get(c.id).position = c.position;
-        }
-        break;
-      }
-      case "add": {
-        newNodes.set(c.item.id, c.item);
-        break;
-      }
-      case "remove": {
-        newNodes.delete(c.id);
-        break;
-      }
-    }
   }
   useNodeInternals.setState({ x: newNodes });
 }
