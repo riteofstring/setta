@@ -7,7 +7,6 @@ import { insertIntoArray } from "utils/utils";
 import { getSectionInfo } from "../../getters/sectionInfo";
 import { copySections } from "../copyPaste/copy";
 import { setSectionVariantChildren } from "../sectionVariants";
-import { updateSectionInfos } from "./sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
 
 export function moveSections({
@@ -149,11 +148,7 @@ export async function maybeMakeCopyOfSection({
   if (isInOtherVariants) {
     const res = await dbCreateCopyOfSections(copySections([sectionId]));
     if (res.status === 200) {
-      console.log("data", res.data);
-      useSectionInfos((state) => {
-        updateSectionInfos({ ...res.data, state });
-      });
-      return Object.keys(res.data.sections)[0];
+      return res.data;
     }
   }
 

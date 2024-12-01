@@ -7,7 +7,10 @@ import {
   maybeMakeCopyOfSection,
   moveSection,
 } from "state/actions/sections/moveSections";
-import { manualDndChildrenReset } from "state/actions/sections/sectionInfos";
+import {
+  manualDndChildrenReset,
+  updateSectionInfos,
+} from "state/actions/sections/sectionInfos";
 import { setSectionVariantChildren } from "state/actions/sectionVariants";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
@@ -73,13 +76,21 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
     return;
   }
 
-  const newSectionId = await maybeMakeCopyOfSection({
+  const maybeNewSectionData = await maybeMakeCopyOfSection({
     sectionId,
     oldParentId,
     newParentId,
   });
 
   useSectionInfos.setState((state) => {
+    let newSectionId;
+    if (maybeNewSectionData.sections) {
+      updateSectionInfos({ ...maybeNewSectionData, state });
+      newSectionId = Object.keys(maybeNewSectionData.sections)[0];
+    } else {
+      newSectionId = maybeNewSectionData;
+    }
+
     moveSection({
       oldParentId,
       newParentId,
