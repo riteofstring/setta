@@ -50,7 +50,7 @@ export function Overview() {
         </TabButton>
         <a
           href="https://setta.dev"
-          className="focus-visible:ring-light-blue-500 absolute bottom-2 left-1 flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-500"
+          className="focus-visible:ring-light-blue-500 absolute bottom-12 left-1 flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-500"
         >
           <BiHelpCircle />
         </a>
