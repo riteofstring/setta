@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
@@ -10,6 +11,23 @@ import { getParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useMisc } from "state/definitions";
 import "./dndline.css";
+
+export function getBgColor(sectionTypeName) {
+  switch (sectionTypeName) {
+    case C.CODE:
+      return "bg-white dark:bg-setta-900";
+    case C.TERMINAL:
+      return "bg-setta-950 overflow-clip";
+    case C.GLOBAL_PARAM_SWEEP:
+      return "@container/multipane";
+    // case PARAM_SWEEP:
+    //   return "bg-setta-50 dark:bg-setta-850";
+    case C.GLOBAL_VARIABLES:
+      return "bg-white dark:bg-black";
+    default:
+      return "bg-setta-50 dark:bg-setta-860";
+  }
+}
 
 export function getOutlineColor({
   jsonSourceMissing,
@@ -37,7 +55,7 @@ export function getOutlineColor({
   return `outline-transparent active:outline-cyan-300`;
 }
 
-export function getOnSectionClick({ sectionId, isActiveSection }) {
+export function getOnSectionClick(sectionId, isActiveSection) {
   return (e) => {
     e.stopPropagation();
     if (useMisc.getState().mouseDownDrawArea) {

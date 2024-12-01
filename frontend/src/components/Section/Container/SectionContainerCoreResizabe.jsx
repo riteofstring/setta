@@ -19,54 +19,33 @@ import { SocialArea } from "../Layouts/SocialArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
+import { getBgColor } from "./utils";
 
 export function SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
   isActiveSection,
-  isGlobalVariables,
   isInOtherProjectConfigs,
 }) {
-  const isInfo = sectionTypeName === C.INFO;
+  console.log("SectionContainerCoreResizable");
+
   const { isMinimized, isYouTube } = useSectionInfos((x) => {
     return {
       isMinimized: x.x[sectionId].isMinimized,
       isYouTube: getIsYouTubeSection(sectionId, x),
     };
   }, _.isEqual);
+
   const disablePointerEvents = useShouldDisablePointerEvents();
 
-  const pointerSelectCSS = disablePointerEvents
-    ? "pointer-events-none select-none"
-    : "";
-
-  const getBgColor = () => {
-    if (isGlobalVariables) {
-      return "bg-white dark:bg-black";
-    }
-    switch (sectionTypeName) {
-      case C.CODE:
-        return "bg-white dark:bg-setta-900";
-      case C.TERMINAL:
-        return "bg-setta-950 overflow-clip";
-      case C.GLOBAL_PARAM_SWEEP:
-        return "@container/multipane";
-      // case PARAM_SWEEP:
-      //   return "bg-setta-50 dark:bg-setta-850";
-      default:
-        return "bg-setta-50 dark:bg-setta-860";
-    }
-  };
   const isRoot = getIsRoot(sectionTypeName);
+  const bgColor = getBgColor(sectionTypeName);
 
-  const bgColor = getBgColor();
-
-  const borderClasses =
-    "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700";
-
-  const inputClasses = `${pointerSelectCSS} ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  ${
+  const inputClasses = `${
+    disablePointerEvents ? "pointer-events-none select-none" : ""
+  } ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700 ${isYouTube ? "overflow-clip" : ""} ${
     isActiveSection ? "z-[150]" : "z-10"
-  } ${borderClasses} ${isYouTube ? "overflow-clip" : ""}`;
+  }`;
 
   return (
     <CustomResizable
@@ -75,25 +54,21 @@ export function SectionContainerCoreResizable({
       inputClasses={inputClasses}
       // as="section"
     >
-      <>
-        <SectionHeader
+      <SectionHeader
+        sectionId={sectionId}
+        isActiveSection={isActiveSection}
+        sectionTypeName={sectionTypeName}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+        isRoot={isRoot}
+      />
+      {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
+      {!isMinimized && (
+        <AreaSwitch
           sectionId={sectionId}
-          isActiveSection={isActiveSection}
-          isGlobalVariables={isGlobalVariables}
-          isInfo={isInfo}
           sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={isInOtherProjectConfigs}
-          isRoot={isRoot}
+          bgColor={bgColor}
         />
-        {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-        {!isMinimized && (
-          <AreaSwitch
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-            bgColor={bgColor}
-          />
-        )}
-      </>
+      )}
     </CustomResizable>
   );
 }

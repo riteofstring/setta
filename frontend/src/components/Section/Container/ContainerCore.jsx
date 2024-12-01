@@ -87,7 +87,7 @@ function ContainerDeck({
       className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3 focus-visible:outline-none ${className}`}
       {...commonProps}
       onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
-      onClick={getOnSectionClick({ sectionId, isActiveSection })}
+      onClick={getOnSectionClick(sectionId, isActiveSection)}
       onKeyDown={(e) =>
         sectionContainerCoreOnKeyDown(e, refForPosition, sectionId)
       }

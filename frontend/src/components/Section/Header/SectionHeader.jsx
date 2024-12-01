@@ -17,8 +17,6 @@ function _SectionHeader({
   sectionId,
   isActiveSection,
   sectionTypeName,
-  isGlobalVariables,
-  isInfo,
   isInOtherProjectConfigs,
   isRoot,
 }) {
@@ -42,12 +40,11 @@ function _SectionHeader({
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
       />
-      {!isInfo && (
+      {sectionTypeName !== C.INFO && (
         <>
           <CardTitle
             sectionId={sectionId}
             isActiveSection={isActiveSection}
-            isGlobalVariables={isGlobalVariables}
             isInOtherProjectConfigs={isInOtherProjectConfigs}
             sectionTypeName={sectionTypeName}
           />
@@ -78,7 +75,7 @@ function _SectionHeader({
         )}
         <LockPositionButton sectionId={sectionId} />
         {!isRoot && <MinimizeButton sectionId={sectionId} />}
-        <CustomCloseButton onClick={onCustomCloseButtonClick} isInfo={isInfo} />
+        <CustomCloseButton onClick={onCustomCloseButtonClick} />
       </div>
     </header>
   );
@@ -87,7 +84,6 @@ function _SectionHeader({
 function CardTitle({
   sectionId,
   isActiveSection,
-  isGlobalVariables,
   isInOtherProjectConfigs,
   sectionTypeName,
 }) {
@@ -101,7 +97,6 @@ function CardTitle({
       sectionId={sectionId}
       titleProps={getTitleStyles({
         isActiveSection,
-        isGlobalVariables,
         isInOtherProjectConfigs,
         sectionTypeName,
       })}
@@ -114,12 +109,13 @@ export const SectionHeader = React.memo(_SectionHeader);
 
 function getTitleStyles({
   isActiveSection,
-  isGlobalVariables,
   isInOtherProjectConfigs,
   sectionTypeName,
 }) {
   const editing =
     "cursor-text nodrag px-2 py-0 leading-5 -ml-2 bg-setta-100 dark:bg-setta-800 rounded-full w-3/5 dark:text-white font-semibold text-[.7rem] tracking-tight";
+
+  const isGlobalVariables = sectionTypeName === C.GLOBAL_VARIABLES;
 
   const notEditing = `transition-colors  leading-5 tracking-tight cursor-pointer max-w-full text-[.7rem] truncate ${
     isActiveSection
