@@ -4,7 +4,7 @@ import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
-import { getIsRoot } from "utils/sectionTypeHelpers";
+import { getIsRoot } from "state/actions/uiTypes/utils";
 
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);

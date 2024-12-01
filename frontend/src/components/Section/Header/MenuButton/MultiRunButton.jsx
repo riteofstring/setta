@@ -1,10 +1,10 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { createAdjacentSection } from "state/actions/sections/createSections";
 import { goToSection } from "state/actions/sections/sectionPositions";
+import { createParamSweepSectionName } from "state/actions/uiTypes/utils";
 import { useSectionInfos } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
-import { createParamSweepSectionName } from "utils/sectionTypeHelpers";
 
 export function MultirunButton({ sectionId }) {
   function onClick(e) {

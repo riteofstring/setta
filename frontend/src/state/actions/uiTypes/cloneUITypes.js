@@ -1,6 +1,6 @@
 import _ from "lodash";
+import { isPreset } from "state/actions/uiTypes/utils";
 import { createNewId } from "utils/idNameCreation";
-import { isPreset } from "utils/sectionTypeHelpers";
 
 export function maybeGetExistingUIType({
   currUIType,

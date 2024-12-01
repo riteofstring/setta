@@ -1,11 +1,11 @@
 import { Editable } from "components/Utils/Editable";
 import C from "constants/constants.json";
 import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
+import { createParamSweepSectionName } from "state/actions/uiTypes/utils";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { getIsSeriesElementHelper } from "state/hooks/uiTypes";
-import { createParamSweepSectionName } from "utils/sectionTypeHelpers";
 
 export function SectionTitle({ sectionId, titleProps }) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);

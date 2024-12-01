@@ -1,18 +1,18 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { isAmongNonPresets } from "state/actions/uiTypes/cloneUITypes";
-import { useSectionInfos } from "state/definitions";
 import {
   isBasePreset,
   isPreset,
-  isSectionUIType,
   isUserPreset,
   PresetType,
   uiTypesToPretty,
-} from "utils/sectionTypeHelpers";
+} from "state/actions/uiTypes/utils";
+import { useSectionInfos } from "state/definitions";
 import { getUITypeColAttr } from "./uiTypes";
 
 function createName(uiType) {
-  const x = uiTypesToPretty.get(uiType.type);
+  const x = uiTypesToPretty[uiType.type];
   if (isUserPreset(uiType)) {
     return `${uiType.name} - (${x})`;
   }
@@ -71,7 +71,7 @@ export function useAvailableUITypesForParam(
       x,
     );
 
-    const generalFilterFn = (x) => !isSectionUIType(x);
+    const generalFilterFn = (x) => C.NON_SECTION_TYPES.includes(uiType.type);
     const nonPresetFilterFn = (uiType) =>
       isAmongNonPresets(uiType, nonPresetUITypeIds);
 
