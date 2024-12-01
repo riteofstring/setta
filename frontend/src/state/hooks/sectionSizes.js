@@ -104,35 +104,32 @@ export function getSizeMode({ sectionType, hideParams, isTwitter }) {
 }
 
 export function useSectionMinMaxDims(sectionId) {
-  const { sectionType, hideSearch, hideParams, isMinimized, isTwitter } =
-    useSectionInfos((x) => {
-      return {
-        isTwitter: getIsTwitterSection(sectionId, x),
-        sectionType: getSectionType(sectionId, x),
-        hideSearch: x.x[sectionId].hideSearch,
-        hideParams: x.x[sectionId].hideParams,
-        isMinimized: x.x[sectionId].isMinimized,
-      };
-    }, _.isEqual);
+  return useSectionInfos((x) => {
+    const isTwitter = getIsTwitterSection(sectionId, x);
+    const sectionType = getSectionType(sectionId, x);
+    const hideSearch = x.x[sectionId].hideSearch;
+    const hideParams = x.x[sectionId].hideParams;
+    const isMinimized = x.x[sectionId].isMinimized;
 
-  const minHeight = getMinSectionHeight({
-    sectionType,
-    hideSearch,
-    hideParams,
-    isMinimized,
-  });
+    const minHeight = getMinSectionHeight({
+      sectionType,
+      hideSearch,
+      hideParams,
+      isMinimized,
+    });
 
-  const maxHeight = getMaxSectionHeight({
-    sectionType,
-    isMinimized,
-  });
+    const maxHeight = getMaxSectionHeight({
+      sectionType,
+      isMinimized,
+    });
 
-  const minWidth = getMinSectionWidth({ sectionType, isTwitter });
-  const maxWidth = getMaxSectionWidth({ isTwitter });
+    const minWidth = getMinSectionWidth({ sectionType, isTwitter });
+    const maxWidth = getMaxSectionWidth({ isTwitter });
 
-  const sizeMode = getSizeMode({ sectionType, hideParams, isTwitter });
+    const sizeMode = getSizeMode({ sectionType, hideParams, isTwitter });
 
-  return { minHeight, maxHeight, minWidth, maxWidth, sizeMode };
+    return { minHeight, maxHeight, minWidth, maxWidth, sizeMode };
+  }, _.isEqual);
 }
 
 export function useIsScrollable() {
