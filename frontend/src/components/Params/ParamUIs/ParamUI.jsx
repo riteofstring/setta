@@ -195,7 +195,7 @@ export function ParamSweepUI({
           max={max}
           step={step}
           isDisabled={isDisabled}
-          wrapperDivClass="section-key-value flex gap-1"
+          wrapperDivClass="section-key-value flex gap-1 ml-2"
           sliderRootClassName="data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
           sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
           sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
@@ -212,7 +212,7 @@ export function ParamSweepUI({
           defaultVal={defaultVal}
           onChange={onChange}
           isDisabled={isDisabled}
-          outerDivClassName="section-key-value flex justify-self-center self-center"
+          outerDivClassName="section-key-value flex justify-self-start self-center ml-2"
           twRootClasses="nodrag"
         />
       );
@@ -235,7 +235,7 @@ export function ParamSweepUI({
           choices={choices}
           value={value}
           onChange={onChange}
-          outerDivClasses="section-value flex justify-self-start self-center"
+          outerDivClasses="!section-value flex justify-self-start self-center"
           isDisabled={isDisabled}
         />
       );
