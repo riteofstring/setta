@@ -14,6 +14,7 @@ import {
   useSectionInfos,
   useTypeErrors,
 } from "state/definitions";
+import { createProjectSearchLookupKey } from "state/hooks/search";
 import { ParamInput } from "./ParamItems/ParamInput";
 
 function _ParamContainer({
@@ -28,9 +29,11 @@ function _ParamContainer({
   );
   const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
     return {
-      isFocusedSearchResult: _.isEqual(x.focused, { sectionId, paramInfoId }),
-      isSearchResult: x.codeInfo.some((c) =>
-        _.isEqual(c, { sectionId, paramInfoId }),
+      isFocusedSearchResult:
+        x.focused.sectionId === sectionId &&
+        x.focused.paramInfoId === paramInfoId,
+      isSearchResult: x.lookup.has(
+        createProjectSearchLookupKey(sectionId, paramInfoId),
       ),
     };
   }, _.isEqual);
