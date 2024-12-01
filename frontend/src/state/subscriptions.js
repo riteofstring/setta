@@ -15,7 +15,7 @@ import {
 } from "./actions/nodeInternals";
 import {
   getCodeInfoCol,
-  getSectionIdToChildrenToShow,
+  getDisplayedSectionIdToChildren,
   getSectionType,
   getSectionVariant,
 } from "./actions/sectionInfos";
@@ -41,7 +41,7 @@ export function subscribe() {
   );
 
   useSectionInfos.subscribe(
-    getSectionIdToChildrenToShow,
+    getDisplayedSectionIdToChildren,
     (x) => {
       useDndChildren.getState().update(x);
     },

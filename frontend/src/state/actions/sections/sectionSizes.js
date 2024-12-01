@@ -1,7 +1,7 @@
 import _ from "lodash";
 import {
-  getAllSectionChildrenIds,
   getHighestAncestor,
+  getSectionDescendants,
 } from "state/actions/sectionInfos";
 
 export function setSelfParentSiblingChildrenWidths(
@@ -36,7 +36,7 @@ function setAllOtherWidths(sectionId, width, state) {
 }
 
 export function setAllChildrenWidths({ sectionId, exclude, width, state }) {
-  const sectionIds = getAllSectionChildrenIds([sectionId], state);
+  const sectionIds = getSectionDescendants(sectionId, state);
   for (const s of sectionIds) {
     if (s === exclude) {
       continue;

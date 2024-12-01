@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
-import { initEnteredValue } from "./sectionInfos";
+import { initEnteredValue, initUITypeColEntry } from "./sectionInfos";
 
 // use inside of setState
 export function initializeParams(sectionId, paramIds, x) {
@@ -10,7 +10,7 @@ export function initializeParams(sectionId, paramIds, x) {
     let uiTypeId = uiTypeCol[paramId]?.uiTypeId;
     if (!uiTypeId) {
       uiTypeId = BASE_UI_TYPE_IDS.TEXT;
-      uiTypeCol[paramId] = { uiTypeId, nonPresetUITypeIds: [] };
+      uiTypeCol[paramId] = initUITypeColEntry(uiTypeId);
     }
 
     const sectionVariant = x.variants[variantId];

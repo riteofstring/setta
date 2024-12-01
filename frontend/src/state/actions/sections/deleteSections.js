@@ -33,11 +33,11 @@ export function deleteChildrenFromSeries({
 }) {
   useSectionInfos.setState((state) => {
     if (isRoot) {
-      const children = getSectionVariant(calledBy).children;
+      const children = getSectionVariant(calledBy, state).children;
       deleteSections(children.slice(0, numChildren), state);
     } else {
       const parentId = state.x[calledBy].parentId;
-      const siblings = getSectionVariant(parentId).children;
+      const siblings = getSectionVariant(parentId, state).children;
       const startIdx = siblings.indexOf(calledBy) + 1;
       deleteSections(siblings.slice(startIdx, startIdx + numChildren), state);
     }

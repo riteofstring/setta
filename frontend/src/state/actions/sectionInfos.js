@@ -36,12 +36,12 @@ export function getHighestAncestor(
   return highestAncestor;
 }
 
-export function getAllSectionChildrenIds(sectionIds, state) {
-  const ids = [...sectionIds];
+export function getSectionDescendants(sectionId, state) {
+  const ids = [sectionId];
   let idx = 0;
   while (idx < ids.length) {
     const currId = ids[idx];
-    ids.push(...state.variants[state.x[currId].variantId].children);
+    ids.push(...getSectionVariant(currId, state).children);
     idx += 1;
   }
   return ids;
@@ -62,7 +62,7 @@ export function toggleSectionLock(sectionId) {
 }
 
 export function manualDndChildrenReset() {
-  useDndChildren.getState().update(getSectionIdToChildrenToShow());
+  useDndChildren.getState().update(getDisplayedSectionIdToChildren());
 }
 
 export function setAllPreviewVariantIdsToNull() {
@@ -108,10 +108,11 @@ export function initEnteredValue(uiType) {
   };
 }
 
-export function getParamEV(sectionId, paramInfoId, _state) {
-  const state = _state ?? useSectionInfos.getState();
-  const { variantId } = state.x[sectionId];
-  return state.variants[variantId].values[paramInfoId].value;
+export function initUITypeColEntry(uiTypeId) {
+  return {
+    uiTypeId,
+    nonPresetUITypeIds: [],
+  };
 }
 
 export function setEnteredValue(variantId, paramInfoId, value, state) {
@@ -119,8 +120,7 @@ export function setEnteredValue(variantId, paramInfoId, value, state) {
 }
 
 export function setParamEnteredValue(sectionId, paramInfoId, value, state) {
-  const { variantId } = state.x[sectionId];
-  setEnteredValue(variantId, paramInfoId, value, state);
+  setEnteredValue(state.x[sectionId].variantId, paramInfoId, value, state);
 }
 
 export function getCodeInfoCol(sectionId, _state) {
@@ -146,18 +146,15 @@ export function getDisplayedSectionVariantId(sectionId, _state) {
 }
 
 export function setSectionVariantChildren(sectionId, newStateFn, state) {
-  const { variantId } = state.x[sectionId];
-  state.variants[variantId].children = newStateFn(
-    state.variants[variantId].children,
-  );
+  const variant = getSectionVariant(sectionId, state);
+  variant.children = newStateFn(variant.children);
 }
 
-export function getSectionIdToChildrenToShow(sectionInfoState) {
+export function getDisplayedSectionIdToChildren(state) {
   const output = {};
-  const s = sectionInfoState ?? useSectionInfos.getState();
+  const s = state ?? useSectionInfos.getState();
   for (const sectionId of Object.keys(s.x)) {
-    output[sectionId] =
-      s.variants[getDisplayedSectionVariantId(sectionId, s)].children;
+    output[sectionId] = getDisplayedSectionVariant(sectionId, s).children;
   }
   return output;
 }
