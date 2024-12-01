@@ -376,17 +376,38 @@
     "20512036-3e0f-41f3-9738-6573ee71bdaf": {
       "id": "20512036-3e0f-41f3-9738-6573ee71bdaf",
       "name": "c",
-      "editable": 1
+      "editable": 1,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": []
     },
     "c24c860d-2519-4a20-8acd-90fc0ffe48a8": {
       "id": "c24c860d-2519-4a20-8acd-90fc0ffe48a8",
       "name": "blur_radius",
-      "editable": 1
+      "editable": 1,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": []
     },
     "f14239d6-f206-4655-8c34-ddd6873391a5": {
       "id": "f14239d6-f206-4655-8c34-ddd6873391a5",
       "name": "n",
-      "editable": 1
+      "editable": 1,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": []
     }
   },
   "codeInfoCols": {

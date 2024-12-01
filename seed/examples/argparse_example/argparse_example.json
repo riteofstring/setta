@@ -680,52 +680,121 @@
       "id": "03b6a0ad-0815-4697-af57-167d2accc06a",
       "name": "age",
       "editable": 1,
-      "isPinned": 1
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 1,
+      "isFrozen": 0,
+      "keywordPositions": []
     },
     "0da2c277-e1d8-4838-ba1a-71d5638a4ade": {
       "id": "0da2c277-e1d8-4838-ba1a-71d5638a4ade",
       "name": "hair_style",
-      "editable": 1
+      "editable": 1,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": []
     },
     "0eac6e6f-6f26-47af-a9a3-89d9c365b26b": {
       "id": "0eac6e6f-6f26-47af-a9a3-89d9c365b26b",
       "name": "meaning",
-      "editable": 1
+      "editable": 1,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": []
     },
     "20fe3b32-be65-4b59-9f32-013435901dcc": {
       "id": "20fe3b32-be65-4b59-9f32-013435901dcc",
       "name": "name",
-      "editable": 1
+      "editable": 1,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": []
     },
     "305eb7df-068a-419a-a321-2bf87d2c833b": {
       "id": "305eb7df-068a-419a-a321-2bf87d2c833b",
       "name": "astrology_sign",
-      "editable": 1
+      "editable": 1,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": []
     },
     "5f91dbfe-6ae2-4741-a434-f56544cf5bd3": {
       "id": "5f91dbfe-6ae2-4741-a434-f56544cf5bd3",
       "name": "verbose",
-      "editable": 1
+      "editable": 1,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": []
     },
     "61948f59-832b-4a29-9dac-facf187f8fc3": {
       "id": "61948f59-832b-4a29-9dac-facf187f8fc3",
       "name": "first_name",
-      "editable": 1
+      "editable": 1,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": []
     },
     "80b6429e-fbb9-4070-a574-b32e0e061ab4": {
       "id": "80b6429e-fbb9-4070-a574-b32e0e061ab4",
       "name": "meaning",
-      "editable": 1
+      "editable": 1,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": []
     },
     "af82bade-133f-4878-9688-91672f8fa2ee": {
       "id": "af82bade-133f-4878-9688-91672f8fa2ee",
       "name": "last_name",
-      "editable": 1
+      "editable": 1,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": []
     },
     "b1318655-3495-4d2d-8fef-89a138386641": {
       "id": "b1318655-3495-4d2d-8fef-89a138386641",
       "name": "number",
-      "editable": 1
+      "editable": 1,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": []
     }
   },
   "codeInfoCols": {

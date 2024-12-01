@@ -1,8 +1,6 @@
 import json
 from collections import defaultdict
 
-from setta.utils.constants import DEFAULT_VALUES
-
 
 def load_code_info(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
@@ -50,11 +48,7 @@ def load_code_info(db, ids):
     db.execute(query, all_ids)
     code_info = {}
     for row in db.fetchall():
-        code_info[row["id"]] = {
-            **DEFAULT_VALUES["codeInfo"],
-            "id": row["id"],
-            **json.loads(row["data"]),
-        }
+        code_info[row["id"]] = {"id": row["id"], **json.loads(row["data"])}
 
     return code_info, code_info_cols
 
