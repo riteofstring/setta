@@ -53,7 +53,7 @@ function getSections(sectionIds, state) {
       return true;
     }
     // if it's a param sweep section, then keep it only if it's corresponding section is also being copied.
-    return !!getForSectionId(allSections, s.id);
+    return !!getForSectionId(s.id, allSections);
   });
 
   if (_.size(allSections) !== _.size(withoutLoneParamSweeps)) {

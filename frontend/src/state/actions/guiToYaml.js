@@ -56,7 +56,7 @@ export function yamlToGUI(sectionId) {
 
 function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
   const state = useSectionInfos.getState();
-  const forSectionId = getForSectionId(state.x, sectionId);
+  const forSectionId = getForSectionId(sectionId, state.x);
   const docs = parseAllDocuments(yamlValue);
   const codeInfoChildren = getCodeInfoCol(forSectionId, state).children;
   const codeInfoChildrenKeys = Object.keys(codeInfoChildren);

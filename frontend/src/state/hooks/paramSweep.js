@@ -4,7 +4,7 @@ import { useGetSectionVariantNames } from "./sectionVariants";
 
 export function useParamSweepInfo(sectionId) {
   return useSectionInfos((x) => {
-    const forSectionId = getForSectionId(x.x, sectionId);
+    const forSectionId = getForSectionId(sectionId, x.x);
     const variantId = getDisplayedSectionVariantId(sectionId, x);
     const paramSweep = x.variants[variantId].sweep;
     return {
@@ -22,7 +22,8 @@ export function useGetParamSweepNames(sectionId) {
   return useGetSectionVariantNames(paramSweepSectionId);
 }
 
-export function getForSectionId(state, sectionId) {
-  return Object.values(state).find((s) => s.paramSweepSectionId === sectionId)
-    ?.id;
+export function getForSectionId(sectionId, sectionState) {
+  return Object.values(sectionState).find(
+    (s) => s.paramSweepSectionId === sectionId,
+  )?.id;
 }

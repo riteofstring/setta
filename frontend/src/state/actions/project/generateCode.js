@@ -213,8 +213,8 @@ function* getProjectVariants(project, paramSweepSectionVariantIds) {
       for (const parts of combo) {
         const { paramSweepSectionId, selectedItem, paramInfoId, value } = parts;
         const forSectionId = getForSectionId(
-          project.sections,
           paramSweepSectionId,
+          project.sections,
         );
         const { variantId: forSectionVariantId } =
           project.sections[forSectionId];

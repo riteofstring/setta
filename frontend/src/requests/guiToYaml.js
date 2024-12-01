@@ -54,7 +54,7 @@ export async function dbSectionToYaml(sectionId) {
 
 export async function dbParamSweepSectionToYaml(sectionId) {
   const state = useSectionInfos.getState();
-  const forSectionId = getForSectionId(state.x, sectionId);
+  const forSectionId = getForSectionId(sectionId, state.x);
   const sweep = getDisplayedSectionVariant(sectionId, state).sweep;
   const codeInfo = state.codeInfo;
   const codeInfoChildren = getDisplayedCodeInfoCol(
