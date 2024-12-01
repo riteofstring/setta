@@ -42,21 +42,25 @@ export function getAllSectionChildrenIds(sectionIds, state) {
   }
   return ids;
 }
+
 export function toggleSectionOrientation(sectionId) {
   useSectionInfos.setState((state) => {
     state.x[sectionId].isHorizontalOrientation =
       !state.x[sectionId].isHorizontalOrientation;
   });
 }
+
 export function toggleSectionLock(sectionId) {
   useSectionInfos.setState((state) => {
     state.x[sectionId].positionAndSizeLocked =
       !state.x[sectionId].positionAndSizeLocked;
   });
 }
+
 export function manualDndChildrenReset() {
   useDndChildren.getState().update(getSectionIdToChildrenToShow());
 }
+
 export function setAllPreviewVariantIdsToNull() {
   useSectionInfos.setState((x) => {
     for (const s of Object.values(x.x)) {
@@ -64,6 +68,7 @@ export function setAllPreviewVariantIdsToNull() {
     }
   });
 }
+
 export function updateSectionInfos({
   sections,
   sectionVariants,
@@ -80,6 +85,7 @@ export function updateSectionInfos({
   state.codeInfo = { ...state.codeInfo, ...codeInfo };
   state.codeInfoCols = { ...state.codeInfoCols, ...codeInfoCols };
 }
+
 export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
   const newId = createNewId();
   const s = state.variants;
@@ -90,6 +96,7 @@ export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
   s[newId].isDefault = false;
   return newId;
 }
+
 export function initEnteredValue(uiType) {
   return {
     value: newEV(uiType),
@@ -102,37 +109,45 @@ export function getParamEV(sectionId, paramInfoId, _state) {
   const { variantId } = state.x[sectionId];
   return state.variants[variantId].values[paramInfoId].value;
 }
+
 export function setEnteredValue(variantId, paramInfoId, value, state) {
   state.variants[variantId].values[paramInfoId].value = value;
 }
+
 export function setParamEnteredValue(sectionId, paramInfoId, value, state) {
   const { variantId } = state.x[sectionId];
   setEnteredValue(variantId, paramInfoId, value, state);
 }
+
 export function getSectionChildren(sectionId) {
   const { variantId } = getSectionInfo(sectionId);
   return useSectionInfos.getState().variants[variantId].children;
 }
+
 export function getSectionCodeInfoColId(sectionId) {
   return useSectionInfos.getState().variants[
     getSectionVariantIdToShow(sectionId)
   ].codeInfoColId;
 }
+
 export function getSectionVariantToShow(sectionId, state = {}) {
   const id = getSectionVariantIdToShow(sectionId, state);
   return state.variants?.[id] ?? useSectionInfos.getState().variants[id];
 }
+
 export function getSectionVariantIdToShow(sectionId, state = {}) {
   const { variantId, previewVariantId } =
     state.x?.[sectionId] ?? useSectionInfos.getState().x[sectionId];
   return previewVariantId ?? variantId;
 }
+
 export function setSectionVariantChildren(sectionId, newStateFn, state) {
   const { variantId } = state.x[sectionId];
   state.variants[variantId].children = newStateFn(
     state.variants[variantId].children,
   );
 }
+
 export function getSectionIdToChildrenToShow(sectionInfoState) {
   const output = {};
   const s = sectionInfoState ?? useSectionInfos.getState();
@@ -142,6 +157,7 @@ export function getSectionIdToChildrenToShow(sectionInfoState) {
   }
   return output;
 }
+
 export function getSectionIdParamInfoIdToKeywordPositions(sectionVariantState) {
   const output = {};
   const s = useSectionInfos.getState().x;
@@ -157,16 +173,19 @@ export function getSectionIdParamInfoIdToKeywordPositions(sectionVariantState) {
   }
   return output;
 }
+
 export function getSectionSelectedItem(sectionId, _state) {
   const state = _state ?? useSectionInfos.getState();
   return state.variants[getSectionVariantIdToShow(sectionId, state)]
     .selectedItem;
 }
+
 export function getSectionCode(sectionId) {
   return useSectionInfos.getState().variants[
     getSectionVariantIdToShow(sectionId)
   ].code;
 }
+
 export function getSectionChildrenFromAllVariants(sectionId, state) {
   const output = [];
   for (const v of state.x[sectionId].variantIds) {
@@ -174,6 +193,7 @@ export function getSectionChildrenFromAllVariants(sectionId, state) {
   }
   return output;
 }
+
 export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
   const idsToDelete = [...sectionIds];
   let idx = 0;
@@ -193,6 +213,7 @@ export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
   }
   return idsToDelete;
 }
+
 export function setSectionVariantAttr(sectionId, attr, value) {
   const { variantId } = getSectionInfo(sectionId);
   console.log("setSectionVariantAttr", variantId, attr, value);
@@ -200,15 +221,18 @@ export function setSectionVariantAttr(sectionId, attr, value) {
     x.variants[variantId][attr] = value;
   });
 }
+
 export function toggleVariantFrozenState(variantId) {
   useSectionInfos.setState((x) => {
     x.variants[variantId].isFrozen = !x.x[variantId].isFrozen;
   });
 }
+
 export function getSelectedVariantIsFrozen(sectionId) {
   const variantId = useSectionInfos.getState().x[sectionId].variantId;
   return useSectionInfos.getState().variants[variantId].isFrozen;
 }
+
 export function resetAllSectionsToDefaultVersions() {
   useSectionInfos.setState((x) => {
     const sectionVariants = useSectionInfos.getState().variants;
@@ -226,6 +250,7 @@ export function resetAllSectionsToDefaultVersions() {
     }
   });
 }
+
 export function resetSectionToDefaultVersion(sectionId) {
   useSectionInfos.setState((x) => {
     const sectionVariants = useSectionInfos.getState().variants;
