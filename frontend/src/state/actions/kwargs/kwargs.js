@@ -1,17 +1,16 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
 import { useSectionInfos } from "state/definitions";
+import { findAllParameters } from "utils/getDescendants";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { getSectionInfo } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo } from "../codeInfo";
-import { getKwargIds, getSectionCodeInfoChildren } from "../codeInfoCols";
+import { getSectionCodeInfoChildren } from "../codeInfoCols";
 import { initializeParams } from "../initializeParam";
 import { deleteParamsFromParamSweep } from "../runGroups/paramSweep";
 import { getParamIds } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
-import { getAllSelectedParams } from "./utils";
 
 export function addKwarg({
   sectionId,
@@ -19,14 +18,14 @@ export function addKwarg({
   insertIdx = null,
   state,
 }) {
-  const { jsonSource } = getSectionInfo(sectionId);
+  const { jsonSource } = state.x[sectionId];
   let actualName = name;
   let paramPath = null;
   if (jsonSource) {
     if (!actualName) {
       actualName = createRandomName();
     }
-    paramPath = getParamPath(actualName, parentId);
+    paramPath = getParamPath(actualName, parentId, state);
   }
   const kwargInfo = newCodeInfo({
     id: createNewParamId(paramPath, jsonSource),
@@ -42,7 +41,6 @@ export function addKwarg({
     state,
   });
   initializeParams(sectionId, [kwargInfo.id], state);
-
   return kwargInfo.id;
 }
 
@@ -155,11 +153,18 @@ function setAttrOfSelfAndDescendants(
   }
 }
 
-function getParamPath(name, parentId) {
+function getKwargIds(sectionId, codeInfoId, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+  const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+  return codeInfoChildren[codeInfoId].filter((x) => state.codeInfo[x].editable);
+}
+
+function getParamPath(name, parentId, state) {
   const path = [name];
   let id = parentId;
   while (id) {
-    const info = getSectionInfo(id);
+    const info = state.codeInfo[id];
     if (info.rcType === C.PARAMETER) {
       path.push(info.name);
       id = info.parentId;
@@ -170,4 +175,16 @@ function getParamPath(name, parentId) {
 
   path.reverse();
   return path;
+}
+
+export function getAllSelectedParams(sectionId, state) {
+  const codeInfoState = state.codeInfo;
+  const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+  const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+  const { ids } = findAllParameters(
+    codeInfoState,
+    codeInfoChildren,
+    codeInfoChildren[null],
+  );
+  return ids.map((x) => codeInfoState[x]).filter((x) => x.isSelected);
 }

@@ -4,6 +4,7 @@ import {
   deleteKwargIds,
   deleteLastKwarg,
   deleteSelectedKwargs,
+  getAllSelectedParams,
   pinSelectedKwargs,
 } from "state/actions/kwargs/kwargs";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
@@ -14,7 +15,6 @@ import {
 } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import { shortcutPrettified } from "utils/utils";
-import { getAllSelectedParams } from "../../../state/actions/kwargs/utils";
 
 export function KwargsControls({
   sectionId,
