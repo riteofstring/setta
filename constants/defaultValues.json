@@ -36,7 +36,8 @@
     "jsonSource": "",
     "selectedVariantIds": {},
     "paramFilter": "",
-    "jsonSourceMissing": false
+    "jsonSourceMissing": false,
+    "isInOtherProjectConfigs": false
   },
   "sectionVariant": {
     "name": "",

@@ -1,5 +1,8 @@
 const fs = require("fs");
 const path = require("path");
+const defaultValues = JSON.parse(
+  fs.readFileSync("constants/defaultValues.json", "utf8")
+);
 
 function loadAndModifyJson(filePath) {
   console.log("filePath", filePath);
@@ -8,7 +11,25 @@ function loadAndModifyJson(filePath) {
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
     for (const s of Object.values(json.sections)) {
-      s.paramFilter = "";
+      for (const [k, v] of Object.entries(s)) {
+        const currDefault = defaultValues.section[k];
+        if (
+          v === currDefault ||
+          (v === 0 && currDefault === false) ||
+          (Array.isArray(v) &&
+            v.length === 0 &&
+            Array.isArray(currDefault) &&
+            currDefault.length === 0) ||
+          (v === null && currDefault === "") ||
+          (k === "codeLanguage" && v === "") ||
+          (k === "canvasSettings" && Object.keys(v).length === 0) ||
+          (k === "selectedVariantIds" && Object.keys(v).length === 0) ||
+          k === "isInOtherProjectConfigs" ||
+          (k === "size" && v.width === "auto" && v.height === "auto")
+        ) {
+          delete s[k];
+        }
+      }
     }
 
     // Save the modified JSON back to the file or handle it as needed
