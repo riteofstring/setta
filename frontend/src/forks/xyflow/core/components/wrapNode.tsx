@@ -25,8 +25,7 @@ const _NodeWrapper = ({
   isDraggable: _isDraggable,
   isSelectable,
   isFocusable,
-  resizeObserver,
-  initialized,
+  // resizeObserver,
   zIndex,
 }: WrapNodeProps) => {
   const nodeRef = useRef<HTMLDivElement>(null);
@@ -54,14 +53,14 @@ const _NodeWrapper = ({
     }
   };
 
-  useEffect(() => {
-    if (nodeRef.current) {
-      const currNode = nodeRef.current;
-      resizeObserver?.observe(currNode);
+  // useEffect(() => {
+  //   if (nodeRef.current) {
+  //     const currNode = nodeRef.current;
+  //     resizeObserver?.observe(currNode);
 
-      return () => resizeObserver?.unobserve(currNode);
-    }
-  }, []);
+  //     return () => resizeObserver?.unobserve(currNode);
+  //   }
+  // }, []);
 
   useDrag({
     nodeRef,

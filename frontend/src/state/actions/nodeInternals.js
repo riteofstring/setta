@@ -1,6 +1,5 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
-import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import { useNodeInternals } from "state/definitions";
 
@@ -33,31 +32,6 @@ export function updateNodeDimensions(updates) {
   if (!viewportNode) {
     return;
   }
-
-  const newNodes = getNewNodes();
-
-  for (const u of updates) {
-    const node = newNodes.get(u.id);
-    if (node) {
-      const dimensions = getDimensions(u.nodeElement);
-      const doUpdate = !!(
-        dimensions.width &&
-        dimensions.height &&
-        (node.width !== dimensions.width ||
-          node.height !== dimensions.height ||
-          u.forceUpdate)
-      );
-
-      if (doUpdate) {
-        newNodes.set(node.id, {
-          ...node,
-          ...dimensions,
-        });
-      }
-    }
-  }
-
-  useNodeInternals.setState({ x: newNodes });
 
   const nextFitViewOnInitDone =
     fitViewOnInitDone ||

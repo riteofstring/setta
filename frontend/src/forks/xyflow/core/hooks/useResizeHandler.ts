@@ -2,7 +2,7 @@ import type { MutableRefObject } from "react";
 import { useEffect } from "react";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useReactFlow } from "../store";
-import { devWarn, getDimensions } from "../utils";
+import { devWarn } from "../utils";
 
 function useResizeHandler(
   rendererNode: MutableRefObject<HTMLDivElement | null>,
@@ -18,7 +18,10 @@ function useResizeHandler(
         return;
       }
 
-      const size = getDimensions(rendererNode.current);
+      const size = {
+        width: rendererNode.current.offsetWidth,
+        height: rendererNode.current.offsetHeight,
+      };
 
       if (size.height === 0 || size.width === 0) {
         devWarn(
