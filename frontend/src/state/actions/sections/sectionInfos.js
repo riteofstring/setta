@@ -1,44 +1,6 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useSectionInfos } from "state/definitions";
-import {
-  getSectionIdToChildrenToShow,
-  setSectionVariantChildren,
-} from "../sectionVariants";
-
-export function removeSectionInfos(ids, state) {
-  const idSet = new Set(ids);
-  for (const id of idSet) {
-    const parentId = state.x[id]?.parentId;
-    if (parentId && state.x[parentId]?.variantId) {
-      setSectionVariantChildren(
-        parentId,
-        (children) => children.filter((x) => x !== id),
-        state,
-      );
-    }
-
-    let isStillUsedInAVariant = false;
-    for (const variantInfo of Object.values(state.variants)) {
-      if (variantInfo.children.includes(id)) {
-        isStillUsedInAVariant = true;
-        break;
-      }
-    }
-
-    if (!isStillUsedInAVariant) {
-      for (const variantId of state.x[id].variantIds) {
-        delete state.variants[variantId];
-      }
-      delete state.x[id];
-    }
-  }
-
-  for (const [k, v] of Object.entries(state.x)) {
-    if (idSet.has(v.paramSweepSectionId)) {
-      state.x[k].paramSweepSectionId = null;
-    }
-  }
-}
+import { getSectionIdToChildrenToShow } from "../sectionVariants";
 
 export function toggleSectionOrientation(sectionId) {
   useSectionInfos.setState((state) => {

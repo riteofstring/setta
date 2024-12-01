@@ -3,10 +3,12 @@ import { dbDeleteTerminals } from "requests/terminals";
 import { deleteNodes } from "state/actions/nodeInternals";
 import { useActiveSection, useSectionInfos } from "state/definitions";
 import { getSectionParentId } from "../../getters/sectionInfo";
-import { getSectionChildren } from "../sectionVariants";
+import {
+  getSectionChildren,
+  setSectionVariantChildren,
+} from "../sectionVariants";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { removeActiveSectionIds } from "./activeSections";
-import { removeSectionInfos } from "./sectionInfos";
 
 export function deleteSections(sectionIds, state) {
   const idsToDelete = [...new Set(getIdsToDelete(sectionIds, state))];
@@ -75,4 +77,39 @@ export function deleteAllActiveSections() {
   useSectionInfos.setState((state) => {
     deleteSections(sectionIds, state);
   });
+}
+
+function removeSectionInfos(ids, state) {
+  const idSet = new Set(ids);
+  for (const id of idSet) {
+    const parentId = state.x[id]?.parentId;
+    if (parentId && state.x[parentId]?.variantId) {
+      setSectionVariantChildren(
+        parentId,
+        (children) => children.filter((x) => x !== id),
+        state,
+      );
+    }
+
+    let isStillUsedInAVariant = false;
+    for (const variantInfo of Object.values(state.variants)) {
+      if (variantInfo.children.includes(id)) {
+        isStillUsedInAVariant = true;
+        break;
+      }
+    }
+
+    if (!isStillUsedInAVariant) {
+      for (const variantId of state.x[id].variantIds) {
+        delete state.variants[variantId];
+      }
+      delete state.x[id];
+    }
+  }
+
+  for (const [k, v] of Object.entries(state.x)) {
+    if (idSet.has(v.paramSweepSectionId)) {
+      state.x[k].paramSweepSectionId = null;
+    }
+  }
 }
