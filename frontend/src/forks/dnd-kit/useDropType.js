@@ -238,14 +238,14 @@ function getOverId(over) {
 
 function getSectionCanOnlyBeChildOfDeck(sectionId) {
   return ![C.SECTION, C.LIST_ROOT, C.DICT_ROOT].includes(
-    getSectionType(sectionId).type,
+    getSectionType(sectionId),
   );
 }
 
 function getSectionIsDeck(sectionId) {
-  return getSectionType(sectionId).type === C.DECK;
+  return getSectionType(sectionId) === C.DECK;
 }
 
 function getSectionIsRoot(sectionId) {
-  return getIsRoot(getSectionType(sectionId).type);
+  return getIsRoot(getSectionType(sectionId));
 }

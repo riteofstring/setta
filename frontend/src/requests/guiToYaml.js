@@ -11,7 +11,7 @@ import { post } from "./utils";
 
 export async function dbGuiToYaml(sectionId) {
   const sectionType = getSectionType(sectionId);
-  switch (sectionType.type) {
+  switch (sectionType) {
     case C.PARAM_SWEEP:
       return await dbParamSweepSectionToYaml(sectionId);
     case C.GLOBAL_PARAM_SWEEP:

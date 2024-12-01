@@ -1,10 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import {
-  getSectionByName,
-  getSectionName,
-  getSectionType,
-} from "state/actions/sectionInfos";
+import { getSectionByName, getSectionType } from "state/actions/sectionInfos";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
@@ -21,7 +17,7 @@ const RUNNABLE_SECTION_TYPES = [
 export function initRunGroup(variantId, state) {
   state.variants[variantId].runGroup = { sections: {} };
   for (const c of useNodeInternals.getState().x.keys()) {
-    if (RUNNABLE_SECTION_TYPES.includes(getSectionType(c).type)) {
+    if (RUNNABLE_SECTION_TYPES.includes(getSectionType(c))) {
       maybeInitRunGroupSection(variantId, c, null, state);
     }
   }
@@ -259,7 +255,7 @@ export function useRunGroupListing(variantId) {
       if (
         RUNNABLE_SECTION_TYPES.includes(x.uiTypes[x.x[childId].uiTypeId].type)
       ) {
-        output.push({ id: childId, name: getSectionName(childId) });
+        output.push({ id: childId, name: x.x[childId].name });
       }
     }
     return output;

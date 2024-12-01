@@ -143,7 +143,7 @@ function shiftTabBackToOverviewListItem(e, sectionId) {
 
 export function focusOnSection(e, sectionId) {
   e.preventDefault();
-  if (getSectionType(sectionId).type === C.DECK) {
+  if (getSectionType(sectionId) === C.DECK) {
     useSectionRefs
       .getState()
       .withNested[sectionId].focus({ preventScroll: true });

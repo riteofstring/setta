@@ -189,7 +189,7 @@ export async function setSectionToHaveAspectRatioAndMinSize(
   sectionId,
   imgSize,
 ) {
-  const sectionType = getSectionType(sectionId).type;
+  const sectionType = getSectionType(sectionId);
   const minHeight = getMinSectionHeight({ sectionType });
   const minWidth = getMinSectionWidth({ sectionType });
   const currSize = useSectionInfos.getState().x[sectionId].size;

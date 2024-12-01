@@ -34,7 +34,7 @@ export async function guiToYaml(sectionId) {
 export function yamlToGUI(sectionId) {
   const sectionType = getSectionType(sectionId);
   const yamlValue = useYamlValue.getState()[sectionId] ?? "";
-  switch (sectionType.type) {
+  switch (sectionType) {
     case C.PARAM_SWEEP:
       paramSweepSectionYamlToGUI(sectionId, yamlValue);
       break;

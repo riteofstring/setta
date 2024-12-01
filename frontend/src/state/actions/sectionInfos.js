@@ -12,13 +12,9 @@ export function getSectionParentId(sectionId) {
   return getSectionInfo(sectionId).parentId;
 }
 
-export function getSectionName(sectionId) {
-  return getSectionInfo(sectionId).name;
-}
-
 export function getSectionType(sectionId) {
   const sectionTypeId = getSectionInfo(sectionId).uiTypeId;
-  return useSectionInfos.getState().uiTypes[sectionTypeId];
+  return useSectionInfos.getState().uiTypes[sectionTypeId].type
 }
 
 export function getSectionByName(name) {

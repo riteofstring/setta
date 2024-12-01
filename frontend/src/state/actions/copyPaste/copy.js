@@ -49,7 +49,7 @@ function getSections(sectionIds, state) {
   const allSections = _.pick(state.x, ids);
 
   const withoutLoneParamSweeps = _.pickBy(allSections, (s) => {
-    if (getSectionType(s.id).type !== C.PARAM_SWEEP) {
+    if (getSectionType(s.id) !== C.PARAM_SWEEP) {
       return true;
     }
     // if it's a param sweep section, then keep it only if it's corresponding section is also being copied.

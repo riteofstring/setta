@@ -106,7 +106,7 @@ function changeUIEditorTab(tabName) {
   if (!activeId) {
     return;
   }
-  const uiTypeName = getSectionType(activeId).type;
+  const uiTypeName = getSectionType(activeId);
   getOnUIEditorTabClick(uiTypeName)(tabName);
 }
 
