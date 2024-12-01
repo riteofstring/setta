@@ -28,7 +28,7 @@ export function getMinSectionHeight({
     return MINIMIZE_SECTION_HEIGHT;
   }
 
-  if (sectionType === C.SECTION || sectionType === C.REFERENCE_SECTION) {
+  if (sectionType === C.SECTION) {
     if (hideSearch) {
       return 78;
     } else if (hideParams) {
@@ -90,7 +90,7 @@ export function getMaxSectionWidth({ isTwitter }) {
 }
 
 export function getSizeMode({ sectionType, hideParams, isTwitter }) {
-  if (sectionType === C.SECTION || sectionType === C.REFERENCE_SECTION) {
+  if (sectionType === C.SECTION) {
     if (hideParams) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
     }
