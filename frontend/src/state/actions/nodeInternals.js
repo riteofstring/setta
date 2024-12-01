@@ -9,13 +9,19 @@ export function getNodes(s = null) {
 }
 
 export function addNodes(nodes) {
-  const changes = nodes.map((node) => ({ item: node, type: "add" }));
-  onNodesChange(changes);
+  const newNodes = getNewNodes();
+  for (const n of nodes) {
+    newNodes.set(n.id, n);
+  }
+  useNodeInternals.setState({ x: newNodes });
 }
 
 export function deleteNodes(nodeIds) {
-  const changes = nodeIds.map((id) => ({ id, type: "remove" }));
-  onNodesChange(changes);
+  const newNodes = getNewNodes();
+  for (const n of nodeIds) {
+    newNodes.delete(n);
+  }
+  useNodeInternals.setState({ x: newNodes });
 }
 
 export function updateNodeDimensions(updates) {
