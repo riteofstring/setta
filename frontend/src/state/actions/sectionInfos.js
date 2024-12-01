@@ -14,11 +14,7 @@ export function getSectionParentId(sectionId) {
 
 export function getSectionType(sectionId) {
   const sectionTypeId = getSectionInfo(sectionId).uiTypeId;
-  return useSectionInfos.getState().uiTypes[sectionTypeId].type
-}
-
-export function getSectionByName(name) {
-  return _.find(useSectionInfos.getState().x, (x) => x.name === name);
+  return useSectionInfos.getState().uiTypes[sectionTypeId].type;
 }
 
 export function getHighestAncestor(

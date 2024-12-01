@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { getSectionByName, getSectionType } from "state/actions/sectionInfos";
+import { getSectionType } from "state/actions/sectionInfos";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
@@ -236,7 +236,7 @@ export function setAllRunGroupsAndMaybeCreateSection(runGroups) {
 function parsePrettyRunGroupSections(runGroup) {
   const sections = {};
   for (const [sectionName, sectionDetails] of Object.entries(runGroup)) {
-    const s = getSectionByName(sectionName);
+    // const s = getSectionByName(sectionName);
     sections[s.id] = {};
     // TODO
     // for (const [paramSweepName, paramSweepIsSelected] of Object.entries(
