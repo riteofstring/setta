@@ -90,7 +90,7 @@ function setSectionSizeAfterMove(newParentId, sectionId, state) {
   if (!newParentId) {
     return;
   }
-  const isDeck = state.uiTypes[state.x[sectionId].uiTypeId].type === C.DECK;
+  const isDeck = state.uiTypes[state.x[newParentId].uiTypeId].type === C.DECK;
 
   // if new parent is a deck and the deck has children and is not horizontal
   if (isDeck) {
