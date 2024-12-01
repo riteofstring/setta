@@ -25,5 +25,5 @@ export function useAddMouseLocationListener() {
 export function zoomToMouseLocation() {
   const { x, y } = screenToFlowPosition(mouseLocation);
   const zoom = useSettings.getState().defaultZoomLevel;
-  setCenter(x, y, { zoom });
+  setCenter(x, y, { zoom, duration: 50 });
 }

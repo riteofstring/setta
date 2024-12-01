@@ -72,6 +72,6 @@ export function fitView(options: InternalFitViewOptions = {}) {
 }
 
 export function onFitViewHandler() {
-  fitView();
+  fitView({ duration: 50 });
   useReactFlow.setState({ fitViewOnInit: true });
 }
