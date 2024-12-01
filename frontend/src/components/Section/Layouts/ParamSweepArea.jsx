@@ -398,6 +398,12 @@ function AddRemoveButtonsForNoCallableSection({
 function useNumChildlessParams(selectedItem, sectionId) {
   return useSectionInfos((x) => {
     const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
+    console.log(
+      "useNumChildlessParams",
+      selectedItem,
+      sectionId,
+      codeInfoChildren,
+    );
     return getParamIds(sectionId, x, codeInfoChildren, selectedItem).ids.filter(
       (p) => codeInfoChildren[p].length === 0,
     ).length;
