@@ -6,7 +6,7 @@ import { newCodeInfo } from "utils/objs/codeInfo";
 import { getSectionInfo } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo } from "../codeInfo";
 import { getKwargIds, getSectionCodeInfoChildren } from "../codeInfoCols";
-import { initializeParam } from "../initializeParam";
+import { initializeParams } from "../initializeParam";
 import { deleteParamsFromParamSweep } from "../runGroups/paramSweep";
 import { getParamIds } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
@@ -36,8 +36,17 @@ export function addKwarg({
     rcType: C.PARAMETER,
     editable: true,
   });
-  addCodeInfo({ sectionId, info: kwargInfo, parent: parentId, insertIdx });
-  initializeParam(sectionId, [kwargInfo.id]);
+  useSectionInfos.setState((state) => {
+    addCodeInfo({
+      sectionId,
+      info: kwargInfo,
+      parent: parentId,
+      insertIdx,
+      state,
+    });
+    initializeParams(sectionId, [kwargInfo.id], state);
+  });
+
   maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
 }
@@ -78,7 +87,10 @@ function deleteKwargIds({ sectionId, ids, incrementVersion }) {
   const { uiTypeColId } = getSectionInfo(sectionId);
   const { variantId } = useSectionInfos.getState().x[sectionId];
 
-  deleteCodeInfo({ ids });
+  useSectionInfos.setState((state) => {
+    deleteCodeInfo(ids, state);
+  });
+
   deleteParamInfoFromSectionVariant({ variantId, ids });
   deleteParamInfoFromUITypeCol({ uiTypeColId, ids });
   deleteParamsFromParamSweep({ sectionId, ids });

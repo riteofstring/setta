@@ -1,10 +1,9 @@
 import { zoomIdentity } from "d3-zoom";
-import type { StoreApi } from "zustand";
 
 import { getNodes } from "state/actions/nodeInternals";
 import { useSettings } from "state/definitions";
 import { useReactFlow } from ".";
-import type { FitViewOptions, ReactFlowState } from "../types";
+import type { FitViewOptions } from "../types";
 import {
   getD3Transition,
   getNodesBounds,
@@ -15,10 +14,7 @@ type InternalFitViewOptions = {
   initial?: boolean;
 } & FitViewOptions;
 
-export function fitView(
-  get: StoreApi<ReactFlowState>["getState"],
-  options: InternalFitViewOptions = {},
-) {
+export function fitView(options: InternalFitViewOptions = {}) {
   const {
     width,
     height,
@@ -26,7 +22,7 @@ export function fitView(
     d3Selection,
     fitViewOnInitDone,
     fitViewOnInit,
-  } = get();
+  } = useReactFlow.getState();
 
   const { minZoom, maxZoom } = useSettings.getState();
 
@@ -76,6 +72,6 @@ export function fitView(
 }
 
 export function onFitViewHandler() {
-  fitView(useReactFlow.getState);
+  fitView();
   useReactFlow.setState({ fitViewOnInit: true });
 }

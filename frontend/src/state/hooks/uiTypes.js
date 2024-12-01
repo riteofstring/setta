@@ -34,22 +34,29 @@ export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {
   return state.uiTypeCols[uiTypeColId][paramInfoId][key];
 }
 
-function useIsSeriesElementHelper(sectionId, parentTypesToCheck) {
-  return useSectionInfos((x) => {
-    const { parentId } = x.x[sectionId];
-    const uiTypeId = x.x[parentId]?.uiTypeId;
-    return uiTypeId
-      ? parentTypesToCheck.includes(x.uiTypes[uiTypeId].type)
-      : false;
-  });
+export function getIsSeriesElementHelper(
+  sectionId,
+  parentTypesToCheck,
+  _state = {},
+) {
+  const state = _state ?? useSectionInfos.getState();
+  const { parentId } = state.x[sectionId];
+  const uiTypeId = state.x[parentId]?.uiTypeId;
+  return uiTypeId
+    ? parentTypesToCheck.includes(state.uiTypes[uiTypeId].type)
+    : false;
 }
 
 export function useIsSeriesElement(sectionId) {
-  return useIsSeriesElementHelper(sectionId, [C.LIST_ROOT, C.DICT_ROOT]);
+  return useSectionInfos((x) =>
+    getIsSeriesElementHelper(sectionId, [C.LIST_ROOT, C.DICT_ROOT], x),
+  );
 }
 
 export function useIsListElement(sectionId) {
-  return useIsSeriesElementHelper(sectionId, [C.LIST_ROOT]);
+  return useSectionInfos((x) =>
+    getIsSeriesElementHelper(sectionId, [C.LIST_ROOT], x),
+  );
 }
 
 export function useSectionTypeName(sectionId) {
@@ -69,12 +76,6 @@ export function useSectionTypeNames() {
 export function useIsType(sectionId, type) {
   return useSectionInfos(
     (x) => x.uiTypes[x.x[sectionId].uiTypeId].type === type,
-  );
-}
-
-export function useIsOneOfType(sectionId, types) {
-  return useSectionInfos((x) =>
-    types.includes(x.uiTypes[x.x[sectionId].uiTypeId].type),
   );
 }
 

@@ -6,7 +6,6 @@ import {
   deleteSelectedKwargs,
   pinSelectedKwargs,
 } from "state/actions/kwargs/kwargs";
-import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useActiveSection,
@@ -34,7 +33,9 @@ export function KwargsControls({
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
   function onSearchChange(e) {
-    setSectionParamFilter({ sectionId, filter: e.target.value });
+    useSectionInfos.setState((state) => {
+      state.x[sectionId].paramFilter = e.target.value;
+    });
   }
 
   const onClickDeleteSelectedKwargs = () => {
@@ -88,26 +89,6 @@ export function KwargsControls({
               <i className="gg-close !scale-50" />
             </button>
           </section>
-          {/* {anyParamsSelected && (
-            <section className="flex">
-              <h3 className="my-auto ml-2 pr-1  text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
-                Position
-              </h3>
-
-              <button className={classes} onClick={onPushLeft} tabIndex="-1">
-                <i className="gg-push-left ml-[2px]" />
-              </button>
-              <button className={classes} onClick={onPushRight} tabIndex="-1">
-                <i className="gg-push-right mr-[2px]" />
-              </button>
-              <button className={classes} onClick={onPushUp} tabIndex="-1">
-                <i className="gg-push-up mt-[2px]" />
-              </button>
-              <button className={classes} onClick={onPushDown} tabIndex="-1">
-                <i className="gg-push-down mb-[2px]" />
-              </button>
-            </section>
-          )} */}
         </article>
 
         <search className="nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ">

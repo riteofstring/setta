@@ -8,14 +8,12 @@ import { PANEID } from "utils/constants";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
 import { copySections } from "../copyPaste/copy";
-import { updateKeywordRegex } from "../keywordRegex";
 import {
   getSectionChildren,
   setSectionVariantChildren,
 } from "../sectionVariants";
-import { updateStateWithSectionCopy } from "./loadSections";
+import { updateSectionInfos } from "./sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
-import { setSectionParentId } from "./setters";
 
 export async function moveSections({
   sectionIds,
@@ -67,9 +65,6 @@ export async function moveSection({
 
   setSectionSize({ newParentId, sectionId: newSectionId });
 
-  // TODO: make this optional via input argument so that it doesn't get called unnecessarily
-  updateKeywordRegex();
-
   // maybeCreateReferenceSections({ sectionId, oldParentId });
 
   maybeIncrementProjectStateVersion(incrementVersion);
@@ -104,7 +99,9 @@ function setChildrenAndParent({
     });
   }
 
-  setSectionParentId(newSectionId, newParentId === PANEID ? null : newParentId);
+  useSectionInfos.setState((x) => {
+    x.x[newSectionId].parentId = newParentId === PANEID ? null : newParentId;
+  });
 }
 
 function setSectionSize({ newParentId, sectionId }) {
@@ -164,7 +161,9 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
     const res = await dbCreateCopyOfSections(copySections([sectionId]));
     if (res.status === 200) {
       console.log("data", res.data);
-      updateStateWithSectionCopy({ ...res.data });
+      useSectionInfos((state) => {
+        updateSectionInfos({ ...res.data, state });
+      });
       return Object.keys(res.data.sections)[0];
     }
   }

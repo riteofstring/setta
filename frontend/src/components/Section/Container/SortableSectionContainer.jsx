@@ -2,7 +2,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "forks/dnd-kit/CustomSortable";
 import { isTempSection, useDndState } from "forks/dnd-kit/dndState";
 import { TempDNDSection } from "forks/dnd-kit/DummySection";
-import { useDndProps, useOverIsSelf } from "forks/dnd-kit/useDndUtils";
+import { useDndProps } from "forks/dnd-kit/useDndUtils";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
@@ -87,7 +87,7 @@ function _SortableCore({
   transition,
   applyTransform,
 }) {
-  const overIsSelf = useOverIsSelf(sectionId);
+  const overIsSelf = useDndState((x) => x.overId === sectionId);
   const scaledTransform = transformWithZoom(applyTransform ? transform : null);
 
   const style = {

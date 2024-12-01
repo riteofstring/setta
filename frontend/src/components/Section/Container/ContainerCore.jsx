@@ -34,6 +34,7 @@ function _Container({
       commonProps={commonProps}
       refForPosition={refForPosition}
       className={className}
+      style={style}
     >
       {children}
     </ContainerDeck>
@@ -59,6 +60,7 @@ function ContainerDeck({
   commonProps,
   refForPosition,
   className,
+  style,
   children,
 }) {
   const hasNested = useHasTempNested(sectionId);
@@ -90,6 +92,7 @@ function ContainerDeck({
         sectionContainerCoreOnKeyDown(e, refForPosition, sectionId)
       }
       tabIndex="-1" // needed so that onKeyDown works
+      style={style}
     >
       <div
         className={`outline outline-4 ${outlineColor} absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline  outline-2 outline-transparent  dark:border-setta-700 dark:bg-setta-950/30`}

@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useMisc, useNodeInternals, useSectionInfos } from "state/definitions";
+import { useNodeInternals, useSectionInfos } from "state/definitions";
 import {
   getSectionByName,
   getSectionInfo,
@@ -19,15 +19,14 @@ const RUNNABLE_SECTION_TYPES = [
   C.CODE,
 ];
 
-export function initRunGroup(variantId) {
-  useSectionInfos.setState((state) => {
-    state.variants[variantId].runGroup = { sections: {} };
-    for (const c of useNodeInternals.getState().x.keys()) {
-      if (RUNNABLE_SECTION_TYPES.includes(getSectionType(c).type)) {
-        maybeInitRunGroupSection(state, variantId, c, null);
-      }
+// use inside of setState
+export function initRunGroup(variantId, state) {
+  state.variants[variantId].runGroup = { sections: {} };
+  for (const c of useNodeInternals.getState().x.keys()) {
+    if (RUNNABLE_SECTION_TYPES.includes(getSectionType(c).type)) {
+      maybeInitRunGroupSection(state, variantId, c, null);
     }
-  });
+  }
 }
 
 export function toggleRunGroup(sectionId, runGroupId) {
@@ -235,7 +234,7 @@ export function setAllRunGroupsAndMaybeCreateSection(runGroups) {
   console.log("stateFormt", stateFormat);
 
   setAllRunGroups(stateFormat);
-  if (!useMisc.getState().singletonSections[C.GLOBAL_PARAM_SWEEP]) {
+  if (!useSectionInfos.getState().singletonSections[C.GLOBAL_PARAM_SWEEP]) {
     console.log("will create section");
   } else {
     console.log("section already exists");

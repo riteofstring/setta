@@ -2,7 +2,6 @@ import { useState } from "react";
 import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
 import { useIdNameCombobox } from "./useIdNameCombobox";
 
-// TODO: make allItems be a list of {group: string, items: list}
 // TODO: add "display groups" argument
 export function IdNameCombobox({
   allItems,

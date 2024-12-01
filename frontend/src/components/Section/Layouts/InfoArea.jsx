@@ -12,7 +12,6 @@ import { useInfoAreaDescription } from "state/hooks/sectionVariants";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 function _InfoArea({ sectionId }) {
-  //TODO change this variable name
   const displayMode = useSectionInfos((x) => x.x[sectionId].displayMode);
 
   return displayMode === SECTION_DISPLAY_MODES.RENDER ? (

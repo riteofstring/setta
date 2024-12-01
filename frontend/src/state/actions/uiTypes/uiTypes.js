@@ -1,10 +1,6 @@
 import { useSectionInfos } from "state/definitions";
 
-export function setAllUITypes(uiTypes) {
-  useSectionInfos.setState({ uiTypes });
-}
-
-export function addUIType({ uiType }) {
+export function addUIType(uiType) {
   useSectionInfos.setState((state) => {
     state.uiTypes[uiType.id] = uiType;
   });
@@ -17,14 +13,8 @@ export function setOneUITypeConfig({ uiTypeId, configName, newValueFn }) {
   });
 }
 
-export function deleteUIType({ uiTypeId }) {
+export function deleteUIType(uiTypeId) {
   useSectionInfos.setState((state) => {
     delete state.uiTypes[uiTypeId];
-  });
-}
-
-export function updateUITypes(payload) {
-  useSectionInfos.setState((state) => {
-    state.uiTypes = { ...state.uiTypes, ...payload };
   });
 }

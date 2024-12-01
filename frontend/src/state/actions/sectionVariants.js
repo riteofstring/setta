@@ -1,54 +1,19 @@
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
-import { createNewId, createRandomName } from "utils/idNameCreation";
+import { createNewId } from "utils/idNameCreation";
 import { getValueForUIType, newEV } from "utils/objs/ev";
-import { initValue } from "../utils";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
-export function setAllSectionVariants(variants) {
-  useSectionInfos.setState({ variants });
-}
-
-export function duplicateSectionVariant({ id, newName, newCodeInfoColId }) {
+export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
   const newId = createNewId();
-  useSectionInfos.setState((state) => {
-    const s = state.variants;
-    s[newId] = _.cloneDeep(s[id]);
-    s[newId].name = newName;
-    s[newId].codeInfoColId = newCodeInfoColId;
-    s[newId].isFrozen = false;
-    s[newId].isDefault = false;
-  });
+  const s = state.variants;
+  s[newId] = _.cloneDeep(s[id]);
+  s[newId].name = newName;
+  s[newId].codeInfoColId = newCodeInfoColId;
+  s[newId].isFrozen = false;
+  s[newId].isDefault = false;
   return newId;
-}
-
-export function initManySectionVariantIds({ variantProps }) {
-  useSectionInfos.setState((state) => {
-    for (const props of variantProps) {
-      initValue(state.variants, props.id, {
-        name: createRandomName(),
-        values: props.values ?? {},
-        children: props.children ?? [],
-        selectedItem: props.selectedItem ?? null,
-        code: props.code ?? "",
-        codeInfoColId: props.codeInfoColId,
-        description: props.newDescription ?? "",
-        keywordPositions: props.keywordPositions ?? [],
-        isFrozen: props.isFrozen ?? false,
-        isDefault: props.isDefault ?? true,
-        sweep: props.sweep ?? [],
-        runGroup: props.runGroup ?? {},
-      });
-    }
-  });
-}
-export function initManyEnteredValues({ collectionId, paramIdsToUITypes }) {
-  useSectionInfos.setState((state) => {
-    _.forEach(paramIdsToUITypes, (uiType, id) => {
-      state.variants[collectionId].values[id] = initEnteredValue(uiType);
-    });
-  });
 }
 
 export function initEnteredValue(uiType) {
@@ -83,11 +48,6 @@ export function deleteParamInfoFromSectionVariant({ variantId, ids }) {
     );
   });
 }
-export function updateSectionVariants({ sectionVariants }) {
-  useSectionInfos.setState((state) => {
-    state.variants = { ...state.variants, ...sectionVariants };
-  });
-}
 
 export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
   const uiType = useSectionInfos.getState().uiTypes[uiTypeId];
@@ -111,15 +71,6 @@ export function setParamEnteredValue({
   const { variantId } = getSectionInfo(sectionId);
   setEnteredValue({ collectionId: variantId, paramInfoId, value });
   maybeIncrementProjectStateVersion(incrementVersion);
-}
-
-export function setParamEnteredValueBatch({ sectionId, paramInfoIdToValue }) {
-  const { variantId } = getSectionInfo(sectionId);
-  useSectionInfos.setState((state) => {
-    for (const [id, value] of Object.entries(paramInfoIdToValue)) {
-      state.variants[variantId].values[id].value = value;
-    }
-  });
 }
 
 export function setParamKeywordPositions({
@@ -206,10 +157,10 @@ export function getSectionIdParamInfoIdToKeywordPositions(sectionVariantState) {
   return output;
 }
 
-export function getSectionSelectedItem(sectionId) {
-  return useSectionInfos.getState().variants[
-    getSectionVariantIdToShow(sectionId)
-  ].selectedItem;
+export function getSectionSelectedItem(sectionId, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  return state.variants[getSectionVariantIdToShow(sectionId, state)]
+    .selectedItem;
 }
 
 export function getSectionCode(sectionId) {

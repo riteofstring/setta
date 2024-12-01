@@ -30,19 +30,6 @@ export function updateWithArrayMove(active, over) {
   };
 }
 
-export function checkboxChangeFn(checked, id) {
-  return (x) => {
-    if (x) {
-      return checked ? [...x, id] : x.filter((y) => y !== id);
-    }
-    return [id];
-  };
-}
-
-export function radioChangeFn(checked, id) {
-  return () => (checked ? id : null);
-}
-
 export function bothTruthyOrFalsey(a, b) {
   return !a === !b || a === b;
 }

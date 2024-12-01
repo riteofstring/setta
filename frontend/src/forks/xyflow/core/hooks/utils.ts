@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 
 import { useActiveSection } from "state/definitions";
-import type { Node, NodeDragItem, NodeInternals } from "../types";
+import type { NodeDragItem, NodeInternals } from "../types";
 
 export function hasSelector(
   target: Element,
@@ -50,33 +50,4 @@ export function getDragItems(
       width: n.width,
       height: n.height,
     }));
-}
-
-// returns two params:
-// 1. the dragged node (or the first of the list, if we are dragging a node selection)
-// 2. array of selected nodes (for multi selections)
-export function getEventHandlerParams({
-  nodeId,
-  dragItems,
-  nodeInternals,
-}: {
-  nodeId?: string;
-  dragItems: NodeDragItem[];
-  nodeInternals: NodeInternals;
-}): [Node, Node[]] {
-  const extentedDragItems: Node[] = dragItems.map((n) => {
-    const node = nodeInternals.get(n.id)!;
-
-    return {
-      ...node,
-      position: n.position,
-    };
-  });
-
-  return [
-    nodeId
-      ? extentedDragItems.find((n) => n.id === nodeId)!
-      : extentedDragItems[0],
-    extentedDragItems,
-  ];
 }

@@ -1,15 +1,8 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
-import {
-  addCodeInfoBatch,
-  batchUpdateCodeInfoAttrs,
-} from "state/actions/codeInfo";
-import { initializeParam } from "state/actions/initializeParam";
-import {
-  getSectionSelectedItem,
-  setParamEnteredValueBatch,
-} from "state/actions/sectionVariants";
+import { initializeParams } from "state/actions/initializeParam";
+import { getSectionSelectedItem } from "state/actions/sectionVariants";
 import {
   useOriginalYamlObj,
   useSectionInfos,
@@ -21,10 +14,7 @@ import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { parseAllDocuments } from "yaml";
-import {
-  batchUpdateCodeInfoChildren,
-  getSectionCodeInfoChildren,
-} from "./codeInfoCols";
+import { getSectionCodeInfoChildren } from "./codeInfoCols";
 import {
   getParamIds,
   paramNameFromPathArray,
@@ -418,11 +408,26 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   }
   console.log("newInfos", newInfos);
 
-  addCodeInfoBatch(newInfos);
-  batchUpdateCodeInfoAttrs(updatedInfos);
-  batchUpdateCodeInfoChildren(sectionId, idsToChildren);
-  initializeParam(sectionId, Object.keys(newInfos));
-  setParamEnteredValueBatch({ sectionId, paramInfoIdToValue });
+  useSectionInfos.setState((x) => {
+    x.codeInfo = { ...x.codeInfo, ...newInfos };
+    for (const [id, newAttrs] of Object.entries(updatedInfos)) {
+      for (const [k, v] of Object.entries(newAttrs)) {
+        x.codeInfo[id][k] = v;
+      }
+    }
+
+    const variantId = x.x[sectionId].variantId;
+    const variant = x.variants[variantId];
+    for (const [id, newChildren] of Object.entries(idsToChildren)) {
+      x.codeInfoCols[variant.codeInfoColId].children[id] = newChildren;
+    }
+
+    initializeParams(sectionId, Object.keys(newInfos), x);
+
+    for (const [id, value] of Object.entries(paramInfoIdToValue)) {
+      variant.values[id].value = value;
+    }
+  });
 }
 
 function updateOutputs({ v, matches, usedOriginalIds, usedPaths, output }) {
