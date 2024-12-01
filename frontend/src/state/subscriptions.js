@@ -2,17 +2,8 @@ import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import {
-  useKeywordRegex,
-  useMisc,
-  useNodeInternals,
-  useSectionInfos,
-} from "state/definitions";
+import { useKeywordRegex, useSectionInfos } from "state/definitions";
 import { getRegexAndColorMap } from "./actions/keywordRegex";
-import {
-  getNodeUpdateInformation,
-  updateNodeDimensions,
-} from "./actions/nodeInternals";
 import { getSectionIdToChildrenToShow } from "./actions/sectionVariants";
 
 export function subscribe() {
@@ -53,18 +44,6 @@ export function subscribe() {
       }
     },
     { equalityFn: _.isEqual },
-  );
-
-  useMisc.subscribe(
-    updateNodeDimensionsSubscriptionFn,
-    (undoOrRedoWasTriggered) => {
-      if (undoOrRedoWasTriggered) {
-        updateNodeDimensions(
-          getNodeUpdateInformation(useNodeInternals.getState().x.keys(), false),
-        );
-        useMisc.setState({ undoOrRedoWasTriggered: false });
-      }
-    },
   );
 }
 
@@ -117,8 +96,4 @@ function keywordRegexSubscriptionFn(x) {
 
 function reactFitViewOnInitSubscriptionFn(state) {
   return { transform: state.transform, fitViewOnInit: state.fitViewOnInit };
-}
-
-function updateNodeDimensionsSubscriptionFn(state) {
-  return state.undoOrRedoWasTriggered;
 }
