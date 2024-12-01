@@ -13,11 +13,11 @@ export function getCodeInfoChildren(sectionId, codeInfoId) {
   return getSectionCodeInfoChildren(sectionId)[codeInfoId];
 }
 
-export function getKwargIds(sectionId, codeInfoId, _cState) {
-  const cState = _cState ?? useSectionInfos.getState().codeInfo;
-  return getCodeInfoChildren(sectionId, codeInfoId).filter(
-    (x) => cState[x].editable,
-  );
+export function getKwargIds(sectionId, codeInfoId, _state) {
+  const state = _state ?? useSectionInfos.getState();
+  const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+  const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+  return codeInfoChildren[codeInfoId].filter((x) => state.codeInfo[x].editable);
 }
 
 export function duplicateCodeInfoCol(id, state) {

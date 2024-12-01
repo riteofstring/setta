@@ -11,7 +11,6 @@ import { deleteParamsFromParamSweep } from "../runGroups/paramSweep";
 import { getParamIds } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
-import { maybeIncrementProjectStateVersion } from "../undo";
 import { getAllSelectedParams } from "./utils";
 
 export function addKwarg({
@@ -47,27 +46,22 @@ export function addKwarg({
   return kwargInfo.id;
 }
 
-export function deleteKwarg(payload) {
-  let {
-    sectionId,
-    parentId = null,
-    deleteLast = false,
-    incrementVersion = false,
-  } = payload;
-  let { kwargId = "" } = payload;
-  if (deleteLast) {
-    const kwargIds = getKwargIds(sectionId, parentId);
+export function deleteKwarg({
+  sectionId,
+  parentId = null,
+  kwargId = null,
+  state,
+}) {
+  let kwargIdToDelete = kwargId;
+  if (!kwargIdToDelete) {
+    const kwargIds = getKwargIds(sectionId, parentId, state);
     const numKwargs = kwargIds.length;
     if (numKwargs === 0) {
       return;
     }
-    kwargId = kwargIds[numKwargs - 1];
+    kwargIdToDelete = kwargIds[numKwargs - 1];
   }
-  deleteKwargIds({
-    sectionId,
-    ids: [kwargId],
-    incrementVersion,
-  });
+  deleteKwargIds(sectionId, [kwargIdToDelete], state);
 }
 
 export function deleteSelectedKwargs({ sectionId }) {
@@ -75,20 +69,15 @@ export function deleteSelectedKwargs({ sectionId }) {
   deleteKwargIds({
     sectionId,
     ids: selectedParams.map((x) => x.id),
-    incrementVersion: true,
   });
 }
 
-function deleteKwargIds({ sectionId, ids, incrementVersion }) {
-  useSectionInfos.setState((state) => {
-    const { uiTypeColId, variantId } = state.x[sectionId];
-    deleteCodeInfo(ids, state);
-    deleteParamInfoFromSectionVariant(variantId, ids, state);
-    deleteParamInfoFromUITypeCol(uiTypeColId, ids, state);
-    deleteParamsFromParamSweep(variantId, ids, state);
-  });
-
-  maybeIncrementProjectStateVersion(incrementVersion);
+function deleteKwargIds(sectionId, ids, state) {
+  const { uiTypeColId, variantId } = state.x[sectionId];
+  deleteCodeInfo(ids, state);
+  deleteParamInfoFromSectionVariant(variantId, ids, state);
+  deleteParamInfoFromUITypeCol(uiTypeColId, ids, state);
+  deleteParamsFromParamSweep(variantId, ids, state);
 }
 
 export function saveKwargsAsCollection({ sectionId, name }) {

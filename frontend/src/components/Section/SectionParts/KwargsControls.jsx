@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { getSectionCodeInfoChildren } from "state/actions/codeInfoCols";
 import {
   addKwarg,
   deleteKwarg,
@@ -117,10 +116,9 @@ function onClickAddKwargFn(sectionId, objInfoId) {
     useSectionInfos.setState((state) => {
       const selectedParams = getAllSelectedParams(sectionId, state);
       if (selectedParams.length > 0) {
+        const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+        const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
         for (const p of selectedParams) {
-          const { codeInfoColId } =
-            state.variants[state.x[sectionId].variantId];
-          const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
           let parentId, insertIdx;
           for (const [id, children] of Object.entries(codeInfoChildren)) {
             if (children.includes(p.id)) {
@@ -131,41 +129,45 @@ function onClickAddKwargFn(sectionId, objInfoId) {
           }
           addKwarg({ sectionId, parentId, insertIdx, state });
         }
-        maybeIncrementProjectStateVersion(true);
       } else {
         addKwarg({ sectionId, parentId: objInfoId, state });
       }
     });
+    maybeIncrementProjectStateVersion(true);
   };
 }
 
 function onClickDeleteKwargFn(sectionId, objInfoId) {
   return () => {
-    const selectedParams = getAllSelectedParams(sectionId);
-    if (selectedParams.length > 0) {
-      for (const p of selectedParams) {
-        const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
-        let parentId, idx;
-        for (const [id, children] of Object.entries(codeInfoChildren)) {
-          if (children.includes(p.id)) {
-            parentId = id;
-            idx = children.indexOf(p.id);
-            break;
+    useSectionInfos.setState((state) => {
+      const selectedParams = getAllSelectedParams(sectionId, state);
+      if (selectedParams.length > 0) {
+        const { codeInfoColId } = state.variants[state.x[sectionId].variantId];
+        const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+        for (const p of selectedParams) {
+          let parentId, idx;
+          for (const [id, children] of Object.entries(codeInfoChildren)) {
+            if (children.includes(p.id)) {
+              parentId = id;
+              idx = children.indexOf(p.id);
+              break;
+            }
+          }
+          if (parentId) {
+            const kwargId = codeInfoChildren[parentId][idx + 1];
+            if (kwargId) {
+              deleteKwarg({ sectionId, parentId: parent.id, kwargId, state });
+            }
           }
         }
-        const kwargId = codeInfoChildren[parentId][idx + 1];
-        if (kwargId) {
-          deleteKwarg({ sectionId, parentId: parent.id, kwargId });
-        }
+      } else {
+        deleteKwarg({
+          sectionId,
+          parentId: objInfoId,
+          state,
+        });
       }
-      maybeIncrementProjectStateVersion(true);
-    } else {
-      deleteKwarg({
-        sectionId,
-        parentId: objInfoId,
-        deleteLast: true,
-        incrementVersion: true,
-      });
-    }
+    });
+    maybeIncrementProjectStateVersion(true);
   };
 }
