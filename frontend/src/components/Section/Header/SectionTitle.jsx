@@ -1,6 +1,6 @@
 import { Editable } from "components/Utils/Editable";
 import C from "constants/constants.json";
-import { getSectionChildren, getSectionType } from "state/actions/sectionInfos";
+import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -86,7 +86,7 @@ function getSiblingHasName(sectionId, newName) {
   const state = useSectionInfos.getState();
   const { parentId } = state.x[sectionId];
   const siblingIds = parentId
-    ? getSectionChildren(parentId)
+    ? getSectionVariant(parentId).children
     : useNodeInternals.getState().x.keys();
   for (const s of siblingIds) {
     if (state.x[s].name === newName) {

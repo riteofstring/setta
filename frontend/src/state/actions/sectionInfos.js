@@ -123,11 +123,6 @@ export function setParamEnteredValue(sectionId, paramInfoId, value, state) {
   setEnteredValue(variantId, paramInfoId, value, state);
 }
 
-export function getSectionChildren(sectionId) {
-  const { variantId } = getSectionInfo(sectionId);
-  return useSectionInfos.getState().variants[variantId].children;
-}
-
 export function getCodeInfoCol(sectionId, _state) {
   const state = _state ?? useSectionInfos.getState();
   return state.codeInfoCols[getSectionVariant(sectionId, state).codeInfoColId];

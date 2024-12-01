@@ -9,7 +9,7 @@ import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { setNotificationMessage } from "../notification";
-import { getSectionVariant } from "../sectionInfos";
+import { getCodeInfoCol, getSectionVariant } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export async function setSelectedItem(
@@ -103,13 +103,9 @@ function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
     return null;
   }
   const state = useSectionInfos.getState();
-
-  const codeInfoChildren =
-    state.codeInfoCols[getSectionVariant(sectionId, state).codeInfoColId]
-      .children;
-  const cState = state.codeInfo;
+  const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
   for (const c of codeInfoChildren[null]) {
-    if (cState[c].name === selectedItemName) {
+    if (state.codeInfo[c].name === selectedItemName) {
       return c;
     }
   }

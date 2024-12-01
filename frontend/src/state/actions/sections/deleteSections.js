@@ -5,7 +5,7 @@ import { useActiveSection, useSectionInfos } from "state/definitions";
 import { removeActiveSectionIds } from "../activeSections";
 import {
   getAllSectionsForDeletionOrCopying,
-  getSectionChildren,
+  getSectionVariant,
   setSectionVariantChildren,
 } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
@@ -33,11 +33,11 @@ export function deleteChildrenFromSeries({
 }) {
   useSectionInfos.setState((state) => {
     if (isRoot) {
-      const children = getSectionChildren(calledBy);
+      const children = getSectionVariant(calledBy).children;
       deleteSections(children.slice(0, numChildren), state);
     } else {
       const parentId = state.x[calledBy].parentId;
-      const siblings = getSectionChildren(parentId);
+      const siblings = getSectionVariant(parentId).children;
       const startIdx = siblings.indexOf(calledBy) + 1;
       deleteSections(siblings.slice(startIdx, startIdx + numChildren), state);
     }

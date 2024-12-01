@@ -7,7 +7,7 @@ import {
   useNodeInternals,
   useSectionInfos,
 } from "state/definitions";
-import { getSectionChildren } from "../sectionInfos";
+import { getSectionVariant } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { addSectionAtPosition } from "./createSections";
 import { deleteSections } from "./deleteSections";
@@ -47,7 +47,7 @@ export function groupSections() {
 }
 
 export async function undeck(deckId) {
-  const childIds = getSectionChildren(deckId);
+  const childIds = getSectionVariant(deckId).children;
   const positions = {};
   childIds.forEach((id) => {
     const { x, y } = getSectionRect(id);

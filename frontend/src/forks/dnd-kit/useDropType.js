@@ -4,8 +4,8 @@ import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import {
-  getSectionChildren,
   getSectionType,
+  getSectionVariant,
   getSelectedVariantIsFrozen,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "utils/sectionTypeHelpers";
@@ -150,7 +150,10 @@ function maybeMoveToNewParent({
     return;
   }
 
-  if (overId === newParentId && getSectionChildren(newParentId).length > 0) {
+  if (
+    overId === newParentId &&
+    getSectionVariant(newParentId).children.length > 0
+  ) {
     dndChildrenState.removeChild(dndSectionId);
     return;
   }
