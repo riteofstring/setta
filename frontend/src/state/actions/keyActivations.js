@@ -166,10 +166,10 @@ function isInput(event) {
   );
 }
 
-function getHasNoModifiers(parsedShortcut) {
-  const { mod, shift, ctrl, alt } = parsedShortcut;
-  return !mod && !shift && !ctrl && !alt;
-}
+// function getHasNoModifiers(parsedShortcut) {
+//   const { mod, shift, ctrl, alt } = parsedShortcut;
+//   return !mod && !shift && !ctrl && !alt;
+// }
 
 function keyUpLoop(e, shortcutInfo) {
   for (const x of shortcutInfo) {
@@ -276,19 +276,19 @@ export function attachKeyEventListeners() {
       keyDownAction,
       keyUpAction,
       allowRepeat,
-      hasNoModifiers: getHasNoModifiers(parsedShortcut),
+      // hasNoModifiers: getHasNoModifiers(parsedShortcut),
     });
   }
   let cleanup = attachKeyDownListener((e) => {
+    if (isInput(e)) {
+      return;
+    }
     aModShortcutWasPressed = false;
     if (!modifierKeyCodes.has(e.code)) {
       keysPressed.add(e.code);
     }
     for (const x of shortcutInfo) {
       if (isShortcutPressed(e, x.parsedShortcut, _isMacOs)) {
-        if (x.hasNoModifiers && isInput(e)) {
-          continue;
-        }
         if (x.shouldPreventDefault) {
           e.preventDefault();
         }
