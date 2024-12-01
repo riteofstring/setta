@@ -35,13 +35,6 @@ export function useGetSectionVariantNames(sectionId) {
   );
 }
 
-export function useSectionIdToChildren() {
-  return useSectionInfos(
-    (x) => _.mapValues(x.x, (v) => x.variants[v.variantId].children),
-    _.isEqual,
-  );
-}
-
 export function useListElementIdx(sectionId) {
   return useSectionInfos((x) => {
     const parentId = x.x[sectionId].parentId;
@@ -59,14 +52,6 @@ function useSectionVariantAttr(sectionId, attr, equalityFn) {
 
 export function useSectionCode(sectionId) {
   return useSectionVariantAttr(sectionId, "code");
-}
-
-export function useSectionDescription(sectionId) {
-  return useSectionVariantAttr(sectionId, "description");
-}
-
-export function useSectionCodeInfoColId(sectionId) {
-  return useSectionVariantAttr(sectionId, "codeInfoColId");
 }
 
 export function useSectionKeywordPositions(sectionId) {

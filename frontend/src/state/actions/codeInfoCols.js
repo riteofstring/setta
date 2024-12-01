@@ -9,10 +9,6 @@ export function getSectionCodeInfoChildren(sectionId) {
   ].children;
 }
 
-export function getCodeInfoChildren(sectionId, codeInfoId) {
-  return getSectionCodeInfoChildren(sectionId)[codeInfoId];
-}
-
 export function duplicateCodeInfoCol(id, state) {
   const newId = createNewId();
   const s = state.codeInfoCols;

@@ -8,7 +8,6 @@ export const UI_EDITOR = "uiEditor";
 export const INITIAL_OVERVIEW_WIDTH = 335;
 export const INITIAL_UI_EDITOR_WIDTH = 500;
 export const CLOSED_PANE_WIDTH = 50;
-export const INITIAL_CHART_SIZE = { width: 200, height: 200 };
 export const NAVBAR_HEIGHT = 48;
 
 // constants object
@@ -34,7 +33,6 @@ export const SECTION_CONFIG_TAB = "SectionConfig";
 export const QUICKINFO_CONFIG_TAB = "QuickInfoConfig";
 export const UI_CONFIG_TAB = "UIConfig";
 export const INFO_CONFIG_TAB = "InfoConfig";
-export const RUNTIME_CONFIG_TAB = "RuntimeConfig";
 export const SECTION_VARIANTS_TAB = "SectionVariantsConfig";
 
 export const tabNameToPretty = {
@@ -42,7 +40,6 @@ export const tabNameToPretty = {
   [SECTION_CONFIG_TAB]: "Card",
   [QUICKINFO_CONFIG_TAB]: "Quick Info",
   [INFO_CONFIG_TAB]: "Text Editor",
-  // [RUNTIME_CONFIG_TAB]: "Runtime",
   [SECTION_VARIANTS_TAB]: "Version",
 };
 

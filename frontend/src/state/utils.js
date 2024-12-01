@@ -78,13 +78,6 @@ export function resetProjectStores() {
   resetStores(STATE_TYPES.PROJECT_STATE);
 }
 
-export function initValue(state, id, value) {
-  if (!(id in state)) {
-    state[id] = value;
-  }
-  return state[id];
-}
-
 export function pauseTemporal() {
   for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
     if (s.temporal) {

@@ -67,11 +67,6 @@ class NewJSONVersionNameRequest(BaseModel):
     filenameGlob: str
 
 
-@router.post(C.ROUTE_SECTIONS)
-def route_sections():
-    pass
-
-
 @router.post(C.ROUTE_COPY_SECTIONS)
 def route_sections_make_copy(x: SectionsMakeCopyRequest):
     output = copy_sections_and_other_info(x.sectionsAndOtherInfo)

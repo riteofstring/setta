@@ -50,20 +50,6 @@ function _findAllDescendants(
   return { ids: output, pathMap };
 }
 
-export function findAllCallables(
-  allCodeInfo,
-  codeInfoIds,
-  paramPathCondition = false,
-) {
-  return _findAllDescendants(
-    allCodeInfo,
-    codeInfoIds,
-    (c) => c?.rcType === C.CALLABLE,
-    () => true,
-    paramPathCondition,
-  );
-}
-
 export function findAllParametersOfCallables(
   allCodeInfo,
   codeInfoChildren,

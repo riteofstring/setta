@@ -4,7 +4,7 @@ import {
   colors,
   uniqueNamesGenerator,
 } from "unique-names-generator";
-import { v4 as uuidv4, validate } from "uuid";
+import { v4 as uuidv4 } from "uuid";
 
 export function createNewId() {
   return uuidv4();
@@ -23,10 +23,6 @@ export function createNewParamId(paramPath, jsonSource) {
     return `${C.JSON_SOURCE_PREFIX}${metadata}`;
   }
   return createNewId();
-}
-
-export function isUUID(x) {
-  return validate(x);
 }
 
 export function createVarName(existingVarNames) {

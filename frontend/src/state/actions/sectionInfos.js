@@ -158,32 +158,10 @@ export function getSectionIdToChildrenToShow(sectionInfoState) {
   return output;
 }
 
-export function getSectionIdParamInfoIdToKeywordPositions(sectionVariantState) {
-  const output = {};
-  const s = useSectionInfos.getState().x;
-  for (const [variantId, variantInfo] of Object.entries(sectionVariantState)) {
-    const sInfo = _.find(s, (obj) => obj.variantId === variantId);
-    if (sInfo) {
-      for (const [paramInfoId, valueInfo] of Object.entries(
-        variantInfo.values,
-      )) {
-        output[`${sInfo.id}-${paramInfoId}`] = valueInfo.keywordPositions;
-      }
-    }
-  }
-  return output;
-}
-
 export function getSectionSelectedItem(sectionId, _state) {
   const state = _state ?? useSectionInfos.getState();
   return state.variants[getSectionVariantIdToShow(sectionId, state)]
     .selectedItem;
-}
-
-export function getSectionCode(sectionId) {
-  return useSectionInfos.getState().variants[
-    getSectionVariantIdToShow(sectionId)
-  ].code;
 }
 
 export function getSectionChildrenFromAllVariants(sectionId, state) {
@@ -216,7 +194,6 @@ export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
 
 export function setSectionVariantAttr(sectionId, attr, value) {
   const { variantId } = getSectionInfo(sectionId);
-  console.log("setSectionVariantAttr", variantId, attr, value);
   useSectionInfos.setState((x) => {
     x.variants[variantId][attr] = value;
   });
@@ -229,8 +206,8 @@ export function toggleVariantFrozenState(variantId) {
 }
 
 export function getSelectedVariantIsFrozen(sectionId) {
-  const variantId = useSectionInfos.getState().x[sectionId].variantId;
-  return useSectionInfos.getState().variants[variantId].isFrozen;
+  const state = useSectionInfos.getState();
+  return state.variants[state.x[sectionId].variantId].isFrozen;
 }
 
 export function resetSectionsToDefaultVersions(sectionIds) {

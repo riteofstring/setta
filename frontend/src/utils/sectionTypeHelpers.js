@@ -4,10 +4,6 @@ export function getIsRoot(sectionTypeName) {
   return [C.LIST_ROOT, C.DICT_ROOT, C.DECK].includes(sectionTypeName);
 }
 
-export function isListRoot(sectionTypeName) {
-  return sectionTypeName === C.LIST_ROOT;
-}
-
 export function isSectionUIType(uiType) {
   return !C.NON_SECTION_TYPES.includes(uiType.type);
 }
