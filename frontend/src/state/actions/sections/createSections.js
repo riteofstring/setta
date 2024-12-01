@@ -1,13 +1,10 @@
 import { getDefaultInfoTitle } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import C from "constants/constants.json";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import {
-  useNodeInternals,
-  useSectionInfos,
-  useSettings,
-} from "state/definitions";
+import { useSectionInfos, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
@@ -218,13 +215,11 @@ function addSectionsToState(sectionInfos, position, state) {
 }
 
 export function createAdjacentSection(sectionId, sectionProps, state) {
-  const { position: sectionPosition, width: sectionWidth } = useNodeInternals
-    .getState()
-    .x.get(sectionId);
+  const { x, y, width } = getSectionRect(sectionId);
 
   const position = {
-    x: sectionPosition.x + sectionWidth,
-    y: sectionPosition.y,
+    x: x + width,
+    y,
   };
 
   createSectionInfo({ sectionProps, position, state });
