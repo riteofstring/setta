@@ -25,7 +25,7 @@ import { formatCode, updateInteractiveCode } from "./interactive";
 import { unselectAllParams } from "./kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
-import { setAllSectionsAsActive } from "./sections/activeSections";
+import { setAllSectionsAsActive } from "./activeSections";
 import {
   addGroupInEmptySpace,
   addRegularSectionInEmptySpace,

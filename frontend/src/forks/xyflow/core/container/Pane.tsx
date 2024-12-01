@@ -15,7 +15,7 @@ import { openPaneContextMenu } from "state/actions/contextMenus";
 import {
   clearActiveSectionIds,
   setActiveSectionIds,
-} from "state/actions/sections/activeSections";
+} from "state/actions/activeSections";
 import { useMisc, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";

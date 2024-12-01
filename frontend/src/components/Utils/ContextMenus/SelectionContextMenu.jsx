@@ -3,7 +3,7 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { clearActiveSectionIds } from "state/actions/sections/activeSections";
+import { clearActiveSectionIds } from "state/actions/activeSections";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { createDeck } from "state/actions/sections/groupSections";
 import { useContextMenus, useSectionInfos } from "state/definitions";

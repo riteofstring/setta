@@ -8,7 +8,7 @@ import { useDropzone } from "react-dropzone";
 import { BiPaint } from "react-icons/bi";
 import { updateArtifacts } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
-import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
+import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import {
   base64RequestId,
   setTemporaryMiscState,

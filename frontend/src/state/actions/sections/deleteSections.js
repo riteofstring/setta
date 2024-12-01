@@ -9,7 +9,7 @@ import {
   setSectionVariantChildren,
 } from "../sectionVariants";
 import { maybeIncrementProjectStateVersion } from "../undo";
-import { removeActiveSectionIds } from "./activeSections";
+import { removeActiveSectionIds } from "../activeSections";
 
 export function deleteSections(sectionIds, state) {
   const idsToDelete = [

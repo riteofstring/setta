@@ -10,7 +10,7 @@ import potpack from "potpack";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals } from "state/definitions";
 import { getNewNodes } from "../nodeInternals";
-import { setActiveSectionIds } from "./activeSections";
+import { setActiveSectionIds } from "../activeSections";
 
 export function setZIndices(sectionIds, incrementVersion) {
   const nodeInternals = useNodeInternals.getState().x;
