@@ -253,7 +253,6 @@ function getMacosIgnoreWhenInInputField(parsedShortcut) {
     isCtrlPlus(parsedShortcut, ["KeyH"]) || // Delete the character behind the cursor.
     isCtrlPlus(parsedShortcut, ["KeyT"]) || // Transpose the characters on either side of the cursor.
     isModCtrlPlus(parsedShortcut, ["Space"]) || // Open the Emoji & Symbols palette.
-    isShiftPlus(parsedShortcut, ["Tab"]) || // Move to the previous field.
     isModShiftPlus(parsedShortcut, ["KeyV"]) || // Paste and match style (paste without formatting).
     isModPlus(parsedShortcut, ["ArrowUp"]) || // Move cursor to document start
     isModPlus(parsedShortcut, ["ArrowDown"]) || // Move cursor to document end
@@ -271,31 +270,38 @@ function getWindowsIgnoreWhenInInputField(parsedShortcut) {
     (!mod && !shift && !ctrl && !alt) ||
     isModOrCtrlPlus(parsedShortcut, ["KeyA"]) || // Select all text
     isModOrCtrlPlus(parsedShortcut, ["KeyC"]) || // Copy selected text
+    isModOrCtrlPlus(parsedShortcut, ["KeyV"]) || // Paste text from the clipboard
     isModOrCtrlPlus(parsedShortcut, ["KeyX"]) || // Cut selected text
-    isModOrCtrlPlus(parsedShortcut, ["KeyV"]) || // Paste text
-    isModOrCtrlPlus(parsedShortcut, ["KeyZ"]) || // Undo last action
-    isModOrCtrlPlus(parsedShortcut, ["KeyY"]) || // Redo last undone action
-    isModOrCtrlPlus(parsedShortcut, ["ArrowLeft"]) || // Move cursor one word left
-    isModOrCtrlPlus(parsedShortcut, ["ArrowRight"]) || // Move cursor one word right
-    isModOrCtrlShiftPlus(parsedShortcut, ["KeyZ"]) || // Alternative for Redo
-    isShiftPlus(parsedShortcut, ["ArrowLeft"]) || // Select text left
-    isShiftPlus(parsedShortcut, ["ArrowRight"]) || // Select text right
-    isShiftPlus(parsedShortcut, ["ArrowUp"]) || // Select text up
-    isShiftPlus(parsedShortcut, ["ArrowDown"]) || // Select text down
-    isModOrCtrlShiftPlus(parsedShortcut, ["ArrowLeft"]) || // Select text by word left
-    isModOrCtrlShiftPlus(parsedShortcut, ["ArrowRight"]) || // Select text by word right
-    isShiftPlus(parsedShortcut, ["Home"]) || // Select to line start
-    isShiftPlus(parsedShortcut, ["End"]) || // Select to line end
-    isModOrCtrlPlus(parsedShortcut, ["Home"]) || // Move to document start
-    isModOrCtrlPlus(parsedShortcut, ["End"]) || // Move to document end
-    isModOrCtrlPlus(parsedShortcut, ["Backspace"]) || // Delete previous word
-    isModOrCtrlPlus(parsedShortcut, ["Delete"]) || // Delete next word
-    isModOrCtrlPlus(parsedShortcut, ["KeyK"]) || // Delete to end of line
-    isModOrCtrlPlus(parsedShortcut, ["KeyF"]) || // Find text
-    isModOrCtrlPlus(parsedShortcut, ["KeyH"]) || // Find and replace
-    isModOrCtrlPlus(parsedShortcut, ["KeyB"]) || // Bold text
-    isModOrCtrlPlus(parsedShortcut, ["KeyI"]) || // Italicize text
-    isModOrCtrlPlus(parsedShortcut, ["KeyU"]) // Underline text
+    isModOrCtrlPlus(parsedShortcut, ["KeyZ"]) || // Undo the last action
+    isModOrCtrlPlus(parsedShortcut, ["KeyY"]) || // Redo the last undone action
+    isModOrCtrlPlus(parsedShortcut, ["ArrowLeft"]) || // Move the cursor to the beginning of the previous word
+    isModOrCtrlPlus(parsedShortcut, ["ArrowRight"]) || // Move the cursor to the beginning of the next word
+    isShiftPlus(parsedShortcut, ["ArrowLeft"]) || // Extend selection one character to the left
+    isShiftPlus(parsedShortcut, ["ArrowRight"]) || // Extend selection one character to the right
+    isModOrCtrlShiftPlus(parsedShortcut, ["ArrowLeft"]) || // Extend selection to include the previous word
+    isModOrCtrlShiftPlus(parsedShortcut, ["ArrowRight"]) || // Extend selection to include the next word
+    isModOrCtrlPlus(parsedShortcut, ["ArrowUp"]) || // Move cursor to beginning of paragraph/section
+    isModOrCtrlPlus(parsedShortcut, ["ArrowDown"]) || // Move cursor to end of paragraph/section
+    isModOrCtrlShiftPlus(parsedShortcut, ["ArrowUp"]) || // Extend selection to beginning of paragraph
+    isModOrCtrlShiftPlus(parsedShortcut, ["ArrowDown"]) || // Extend selection to end of paragraph
+    isShiftPlus(parsedShortcut, ["ArrowUp"]) || // Extend selection one line up
+    isShiftPlus(parsedShortcut, ["ArrowDown"]) || // Extend selection one line down
+    isAltPlus(parsedShortcut, ["ArrowLeft"]) || // Move cursor one word left (alternative to Ctrl+Left)
+    isAltPlus(parsedShortcut, ["ArrowRight"]) || // Move cursor one word right (alternative to Ctrl+Right)
+    isModOrCtrlPlus(parsedShortcut, ["KeyK"]) || // Create/follow link (in rich text editors)
+    isShiftPlus(parsedShortcut, ["Home"]) || // Select text from the cursor to the beginning of the line
+    isShiftPlus(parsedShortcut, ["End"]) || // Select text from the cursor to the end of the line
+    isModOrCtrlPlus(parsedShortcut, ["Home"]) || // Move the cursor to the beginning of the text field
+    isModOrCtrlPlus(parsedShortcut, ["End"]) || // Move the cursor to the end of the text field
+    isModOrCtrlShiftPlus(parsedShortcut, ["Home"]) || // Select text from the cursor to the beginning of the text field
+    isModOrCtrlShiftPlus(parsedShortcut, ["End"]) || // Select text from the cursor to the end of the text field
+    isModOrCtrlPlus(parsedShortcut, ["Backspace"]) || // Delete the word before the cursor
+    isModOrCtrlPlus(parsedShortcut, ["Delete"]) || // Delete the word after the cursor
+    isShiftPlus(parsedShortcut, ["Enter"]) || // Insert a new line without submitting
+    isModOrCtrlShiftPlus(parsedShortcut, ["KeyV"]) || // Paste without formatting
+    isModOrCtrlPlus(parsedShortcut, ["KeyB"]) || // Bold text (in rich text editors)
+    isModOrCtrlPlus(parsedShortcut, ["KeyI"]) || // Italicize text (in rich text editors)
+    isModOrCtrlPlus(parsedShortcut, ["KeyU"]) // Underline text (in rich text editors)
   );
 }
 
