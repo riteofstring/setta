@@ -68,7 +68,7 @@ function RightSide({ sectionId }) {
   const showYaml = useShowYaml(sectionId);
   const shownRunGroupId = useSectionInfos((x) => {
     return x.x[sectionId].previewVariantId ?? x.x[sectionId].variantId;
-  }, _.isEqual);
+  });
 
   if (!shownRunGroupId) {
     return null;
