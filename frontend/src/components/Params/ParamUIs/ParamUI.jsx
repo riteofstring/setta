@@ -36,24 +36,22 @@ export function ParamUI({
   setKeywordPositions,
 }) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const { uiType, configLanguage, defaultVal, isDisabled } = useSectionInfos(
-    (x) => {
+  const { uiType, configLanguage, defaultVal, disabledOrFrozen } =
+    useSectionInfos((x) => {
       return {
         uiType: getParamUIType(sectionId, paramInfoId, x),
         configLanguage: x.x[sectionId].configLanguage,
         defaultVal: x.codeInfo[paramInfoId].defaultVal,
-        isDisabled:
-          isSelectingParams ||
+        disabledOrFrozen:
           x.codeInfo[paramInfoId].isDisabled ||
           getSectionVariant(sectionId, x).isFrozen,
       };
-    },
-    _.isEqual,
-  );
+    }, _.isEqual);
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
     paramInfoId,
   });
+  const isDisabled = isSelectingParams || disabledOrFrozen;
 
   // need to put the group/textinput in a higher div
 
