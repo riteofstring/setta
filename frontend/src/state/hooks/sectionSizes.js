@@ -6,6 +6,7 @@ import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,
   setSectionSize,
+  _setSectionSize,
 } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
@@ -28,7 +29,7 @@ export function getMinSectionHeight({
     return MINIMIZE_SECTION_HEIGHT;
   }
 
-  if (sectionType === C.SECTION) {
+  if (sectionType === C.SECTION || sectionType === C.REFERENCE_SECTION) {
     if (hideSearch) {
       return 78;
     } else if (hideParams) {
@@ -90,7 +91,7 @@ export function getMaxSectionWidth({ isTwitter }) {
 }
 
 export function getSizeMode({ sectionType, hideParams, isTwitter }) {
-  if (sectionType === C.SECTION) {
+  if (sectionType === C.SECTION || sectionType === C.REFERENCE_SECTION) {
     if (hideParams) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
     }
@@ -262,15 +263,9 @@ export function setDrawAreaSectionSize({ sectionId, imgSize, isNewImg }) {
         minHeight - extraHeight,
         minWidth - extraWidth,
       );
-      useSectionInfos.setState((state) => {
-        setSectionSize(
-          sectionId,
-          {
-            width: canvasSize.width + extraWidth,
-            height: canvasSize.height + extraHeight,
-          },
-          state,
-        );
+      setSectionSize(sectionId, {
+        width: canvasSize.width + extraWidth,
+        height: canvasSize.height + extraHeight,
       });
     } else {
       canvasSize.width = width - extraWidth;
@@ -291,15 +286,9 @@ export function setDrawAreaSectionSize({ sectionId, imgSize, isNewImg }) {
     canvasSize.height =
       height === "auto" ? defaultHeight : height - extraHeight;
     if (width === "auto" || height === "auto") {
-      useSectionInfos.setState((state) => {
-        setSectionSize(
-          sectionId,
-          {
-            width: canvasSize.width + extraWidth,
-            height: canvasSize.height + extraHeight,
-          },
-          state,
-        );
+      setSectionSize(sectionId, {
+        width: canvasSize.width + extraWidth,
+        height: canvasSize.height + extraHeight,
       });
     }
   }
@@ -368,7 +357,7 @@ function setAspectRatioInfo({
     s.aspectRatioExtraHeight = aspectRatioExtraHeight;
     s.aspectRatioExtraWidth = aspectRatioExtraWidth;
     if (size) {
-      setSectionSize(sectionId, size, x);
+      _setSectionSize(sectionId, size, x);
     }
   });
 }
