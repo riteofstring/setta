@@ -6,7 +6,7 @@ import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
 import { initializeParams } from "./initializeParam";
-import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
+import { getCodeInfoCol } from "./sectionInfos";
 import { getParamIds } from "./sections/sectionContents";
 
 export function addKwarg({
@@ -73,9 +73,8 @@ export function saveKwargsAsCollection({ sectionId, name }) {
 }
 
 export function pinSelectedKwargs(sectionId) {
-  const selectedParams = getAllSelectedParams(sectionId);
-
   useSectionInfos.setState((x) => {
+    const selectedParams = getAllSelectedParams(sectionId, x);
     const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
     for (const p of selectedParams) {
       setAttrOfSelfAndDescendants(
@@ -145,8 +144,7 @@ function setAttrOfSelfAndDescendants(
 
 function getKwargIds(sectionId, codeInfoId, _state) {
   const state = _state ?? useSectionInfos.getState();
-  const { codeInfoColId } = getSectionVariant(sectionId, state);
-  const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+  const codeInfoChildren = getCodeInfoCol(sectionId, state);
   return codeInfoChildren[codeInfoId].filter((x) => state.codeInfo[x].editable);
 }
 
@@ -169,8 +167,7 @@ function getParamPath(name, parentId, state) {
 
 export function getAllSelectedParams(sectionId, state) {
   const codeInfoState = state.codeInfo;
-  const { codeInfoColId } = getSectionVariant(sectionId, state);
-  const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+  const codeInfoChildren = getCodeInfoCol(sectionId, state);
   const { ids } = findAllParameters(
     codeInfoState,
     codeInfoChildren,
