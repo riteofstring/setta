@@ -1,7 +1,6 @@
 import copy
 
 from setta.utils.constants import DEFAULT_VALUES
-from setta.utils.utils import replace_null_keys_with_none
 
 
 def with_code_info_defaults(**kwargs):
@@ -15,7 +14,7 @@ def add_defaults_to_code_info(code_info):
 
 def with_code_info_col_defaults(**kwargs):
     return {
-        **replace_null_keys_with_none(copy.deepcopy(DEFAULT_VALUES["codeInfoCol"])),
+        **copy.deepcopy(DEFAULT_VALUES["codeInfoCol"]),
         **kwargs,
     }
 
