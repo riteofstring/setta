@@ -131,7 +131,3 @@ SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS = set(
         "displayName",
     ]
 )
-
-
-def get_section_attr(section, key):
-    return section.get(key, DEFAULT_VALUES["section"][key])

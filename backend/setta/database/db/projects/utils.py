@@ -1,12 +1,7 @@
 import json
 from collections import defaultdict
 
-from setta.utils.constants import (
-    BASE_UI_TYPE_IDS,
-    C,
-    get_section_attr,
-    is_from_json_source,
-)
+from setta.utils.constants import BASE_UI_TYPE_IDS, C, is_from_json_source
 from setta.utils.utils import try_json
 
 
@@ -66,7 +61,7 @@ def save_json_source_data(p, section_ids=None):
     sections = {
         k: v
         for k, v in p["sections"].items()
-        if get_section_attr(v, "jsonSource") and ((not section_ids) or k in section_ids)
+        if v.get("jsonSource", None) and ((not section_ids) or k in section_ids)
     }
 
     to_be_saved = defaultdict(dict)

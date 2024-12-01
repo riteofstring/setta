@@ -3,7 +3,6 @@ import json
 from setta.utils.constants import (
     SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS,
     SECTION_TABLE_DATA_JSON_FIELDS,
-    get_section_attr,
 )
 from setta.utils.utils import filter_dict
 
@@ -75,7 +74,7 @@ def save_sections(db, sections, section_variants):
     """
     query_params = []
     for s in sections.values():
-        for uiTypeId in get_section_attr(s, "nonPresetUITypeIds"):
+        for uiTypeId in s["nonPresetUITypeIds"]:
             query_params.append({"uiTypeId": uiTypeId, "sectionId": s["id"]})
     db.executemany(query, query_params)
 
@@ -87,10 +86,7 @@ def save_sections(db, sections, section_variants):
     db.executemany(
         query,
         [
-            {
-                "id": s["id"],
-                "paramSweepSectionId": get_section_attr(s, "paramSweepSectionId"),
-            }
+            {"id": s["id"], "paramSweepSectionId": s["paramSweepSectionId"]}
             for s in sections.values()
         ],
     )
@@ -108,7 +104,7 @@ def save_sections(db, sections, section_variants):
     """
     query_params = []
     for s in sections.values():
-        for a in s.get("artifacts", get_section_attr(s, "artifacts")):
+        for a in s["artifacts"]:
             query_params.append(
                 {
                     "sectionId": s["id"],

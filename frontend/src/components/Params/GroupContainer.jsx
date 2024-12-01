@@ -10,7 +10,6 @@ import {
   PINNED_PARAMS_AREA_MIN_HEIGHT,
   useIsScrollable,
 } from "state/hooks/sectionSizes";
-import { getSectionAttr } from "utils/constants";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {
@@ -62,8 +61,8 @@ function ResizablePinnedArea({
 }) {
   const { sectionHeight, height } = useSectionInfos((x) => {
     return {
-      sectionHeight: getSectionAttr(x.x[sectionId], "size").height,
-      height: getSectionAttr(x.x[sectionId], "pinnedAreaHeight"),
+      sectionHeight: x.x[sectionId].size.height,
+      height: x.x[sectionId].pinnedAreaHeight,
     };
   }, _.isEqual);
   const [initialMaxHeight, setInitialMaxHeight] = useState(INFINITE_MAX_HEIGHT);
@@ -134,7 +133,7 @@ function ResizablePinnedArea({
 function GetUnpinnedParams({ sectionId }) {
   const { ref, isScrollable } = useIsScrollable();
   const hideUnpinnedParams = useSectionInfos(
-    (x) => getSectionAttr(x.x[sectionId]),hideUnpinnedParams,
+    (x) => x.x[sectionId].hideUnpinnedParams,
   );
 
   return (
