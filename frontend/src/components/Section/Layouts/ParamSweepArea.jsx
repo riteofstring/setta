@@ -407,9 +407,9 @@ function useShowParamSweepSectionSearch(sectionId) {
 function useNumChildlessParams(selectedItem, sectionId) {
   return useSectionInfos((x) => {
     const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
-    return getParamIds(sectionId, x, codeInfoChildren, selectedItem)[
-      "ids"
-    ].filter((p) => codeInfoChildren[p].length === 0).length;
+    return getParamIds(sectionId, x, codeInfoChildren, selectedItem).ids.filter(
+      (p) => codeInfoChildren[p].length === 0,
+    ).length;
   });
 }
 
