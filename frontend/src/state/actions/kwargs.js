@@ -144,7 +144,7 @@ function setAttrOfSelfAndDescendants(
 
 function getKwargIds(sectionId, codeInfoId, _state) {
   const state = _state ?? useSectionInfos.getState();
-  const codeInfoChildren = getCodeInfoCol(sectionId, state);
+  const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
   return codeInfoChildren[codeInfoId].filter((x) => state.codeInfo[x].editable);
 }
 
@@ -167,7 +167,7 @@ function getParamPath(name, parentId, state) {
 
 export function getAllSelectedParams(sectionId, state) {
   const codeInfoState = state.codeInfo;
-  const codeInfoChildren = getCodeInfoCol(sectionId, state);
+  const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
   const { ids } = findAllParameters(
     codeInfoState,
     codeInfoChildren,
