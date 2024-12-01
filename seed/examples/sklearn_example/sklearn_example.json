@@ -738,291 +738,123 @@
   "codeInfo": {
     "03ee6530-d464-461c-a989-b310ee2d9b95": {
       "id": "03ee6530-d464-461c-a989-b310ee2d9b95",
-      "name": "kwargs",
-      "editable": 0,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "name": "kwargs"
     },
     "0aa0f46a-e923-4528-a411-500cbda6e77b": {
       "id": "0aa0f46a-e923-4528-a411-500cbda6e77b",
       "name": "n_samples",
-      "editable": 0,
-      "rcType": "parameter",
       "defaultVal": "100",
-      "description": "If int, it is the total number of points equally divided among\nclusters.\nIf array-like, each element of the sequence indicates\nthe number of samples per cluster.\n\n.. versionchanged:: v0.20\n    one can now pass an array-like to the ``n_samples`` parameter",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "description": "If int, it is the total number of points equally divided among\nclusters.\nIf array-like, each element of the sequence indicates\nthe number of samples per cluster.\n\n.. versionchanged:: v0.20\n    one can now pass an array-like to the ``n_samples`` parameter"
     },
     "159e0416-3873-469b-915b-1f186579c380": {
       "id": "159e0416-3873-469b-915b-1f186579c380",
       "name": "n_features",
-      "editable": 0,
-      "rcType": "parameter",
       "defaultVal": "2",
-      "description": "The number of features for each sample.",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "description": "The number of features for each sample."
     },
     "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af": {
       "id": "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af",
-      "name": "args",
-      "editable": 0,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "name": "args"
     },
     "2fae73d3-5756-42a9-beb0-7465b92ac626": {
       "id": "2fae73d3-5756-42a9-beb0-7465b92ac626",
       "name": "shuffle",
-      "editable": 0,
-      "rcType": "parameter",
       "defaultVal": "True",
-      "description": "Shuffle the samples.",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "description": "Shuffle the samples."
     },
     "39ed839d-f632-4373-9d72-6ce95b5bc265": {
       "id": "39ed839d-f632-4373-9d72-6ce95b5bc265",
       "name": "random_state",
-      "editable": 0,
-      "rcType": "parameter",
       "defaultVal": "None",
-      "description": "Determines random number generation for dataset creation. Pass an int\nfor reproducible output across multiple function calls.\nSee :term:`Glossary <random_state>`.",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "description": "Determines random number generation for dataset creation. Pass an int\nfor reproducible output across multiple function calls.\nSee :term:`Glossary <random_state>`."
     },
     "3e15081a-9ca5-48bf-9159-9a95331a7894": {
       "id": "3e15081a-9ca5-48bf-9159-9a95331a7894",
       "name": "center_box",
-      "editable": 0,
-      "rcType": "parameter",
       "defaultVal": "(-10.0, 10.0)",
-      "description": "The bounding box for each cluster center when centers are\ngenerated at random.",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "description": "The bounding box for each cluster center when centers are\ngenerated at random."
     },
     "3e754333-caea-451a-abba-dd254c49502f": {
       "id": "3e754333-caea-451a-abba-dd254c49502f",
       "name": "n_local_trials",
-      "editable": 0,
-      "rcType": "parameter",
-      "defaultVal": "None",
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "defaultVal": "None"
     },
     "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": {
       "id": "4e70c873-ead7-4c5a-b3a0-fe504e73ad27",
       "name": "n_clusters",
-      "editable": 1,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "editable": 1
     },
     "669986a2-03d6-4de4-af41-f9395cf0ef57": {
       "id": "669986a2-03d6-4de4-af41-f9395cf0ef57",
       "name": "cluster_std",
-      "editable": 0,
-      "rcType": "parameter",
       "defaultVal": "1.0",
-      "description": "The standard deviation of the clusters.",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "description": "The standard deviation of the clusters."
     },
     "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": {
       "id": "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4",
       "name": "n_samples",
-      "editable": 1,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "editable": 1
     },
     "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
       "id": "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2",
-      "name": "kwargs",
-      "editable": 0,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "name": "kwargs"
     },
     "70f4e095-c286-4379-a5f5-4d02df40e1a5": {
       "id": "70f4e095-c286-4379-a5f5-4d02df40e1a5",
       "name": "return_centers",
-      "editable": 0,
-      "rcType": "parameter",
       "defaultVal": "False",
-      "description": "If True, then return the centers of each cluster.\n\n.. versionadded:: 0.23",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "description": "If True, then return the centers of each cluster.\n\n.. versionadded:: 0.23"
     },
     "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
       "id": "7ae757c9-9327-4931-95a3-bc200f7e10b7",
-      "name": "X",
-      "editable": 0,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "name": "X"
     },
     "7b4b2118-7cbf-4275-8582-90c66a966441": {
       "id": "7b4b2118-7cbf-4275-8582-90c66a966441",
       "name": "x_squared_norms",
-      "editable": 0,
-      "rcType": "parameter",
-      "defaultVal": "None",
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "defaultVal": "None"
     },
     "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": {
       "id": "8a10b368-9a0e-4390-b2f7-bd4ff27570d3",
       "name": "centers",
-      "editable": 0,
-      "rcType": "parameter",
       "defaultVal": "None",
-      "description": "The number of centers to generate, or the fixed center locations.\nIf n_samples is an int and centers is None, 3 centers are generated.\nIf n_samples is array-like, centers must be\neither None or an array of length equal to the length of n_samples.",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "description": "The number of centers to generate, or the fixed center locations.\nIf n_samples is an int and centers is None, 3 centers are generated.\nIf n_samples is array-like, centers must be\neither None or an array of length equal to the length of n_samples."
     },
     "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
       "id": "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5",
-      "name": "args",
-      "editable": 0,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "name": "args"
     },
     "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
       "id": "97e83315-adfc-4d50-a8ab-a8c34082eb93",
-      "name": "n_clusters",
-      "editable": 0,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "name": "n_clusters"
     },
     "bb52a19f-d69c-4973-94ae-c1d85596cbb7": {
       "id": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
       "name": "sklearn.datasets.make_blobs",
-      "editable": 0,
-      "rcType": "callable",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "rcType": "callable"
     },
     "c066af9f-42b4-4359-8b44-cf774c400e81": {
       "id": "c066af9f-42b4-4359-8b44-cf774c400e81",
       "name": "sample_weight",
-      "editable": 0,
-      "rcType": "parameter",
-      "defaultVal": "None",
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "defaultVal": "None"
     },
     "c2c05abc-dd95-4071-8f37-cb2019919bce": {
       "id": "c2c05abc-dd95-4071-8f37-cb2019919bce",
       "name": "random_state",
-      "editable": 0,
-      "rcType": "parameter",
-      "defaultVal": "None",
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "defaultVal": "None"
     },
     "c9a3e19c-6876-468a-a9a1-6f289c9367eb": {
       "id": "c9a3e19c-6876-468a-a9a1-6f289c9367eb",
       "name": "sklearn.cluster.kmeans_plusplus",
-      "editable": 0,
-      "rcType": "callable",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "rcType": "callable"
     },
     "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"password\"]}": {
       "id": "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"password\"]}",
-      "name": "password",
-      "rcType": "parameter",
-      "editable": false,
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": false,
-      "isPinned": false,
-      "isFrozen": false,
-      "keywordPositions": []
+      "name": "password"
     },
     "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"username\"]}": {
       "id": "JSON-{\"filenameGlob\": \"auth.json\", \"key\": [\"username\"]}",
-      "name": "username",
-      "rcType": "parameter",
-      "editable": false,
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": false,
-      "isPinned": false,
-      "isFrozen": false,
-      "keywordPositions": []
+      "name": "username"
     }
   },
   "codeInfoCols": {
