@@ -40,7 +40,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   const sectionId = active.id;
   const dndSectionId = getDndSectionId(sectionId);
   const overId = over?.id;
-  const oldParentId = getSectionParentId(sectionId);
+  const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
   let newParentId = dndChildrenState.y[dndSectionId] ?? null;
   let newIndex = null;
   let position = null;
@@ -56,11 +56,12 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   }
   // dropping nested section onto pane
   else if (!overId) {
+    newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = screenToFlowPosition({ x, y });
 
-    if (!oldParentId) {
+    if (oldParentId === PANEID) {
       justMoveANode(sectionId, position);
       return;
     }
