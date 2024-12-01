@@ -1,7 +1,7 @@
 import json
 from collections import defaultdict
 
-from setta.utils.constants import DEFAULT_VALUES
+from setta.utils.constants import copy_defaults_into_obj
 
 
 def load_code_info(db, ids):
@@ -50,11 +50,10 @@ def load_code_info(db, ids):
     db.execute(query, all_ids)
     code_info = {}
     for row in db.fetchall():
-        code_info[row["id"]] = {
-            **DEFAULT_VALUES["codeInfo"],
+        code_info[row["id"]] = copy_defaults_into_obj({
             "id": row["id"],
             **json.loads(row["data"]),
-        }
+        }, "codeInfo")
 
     return code_info, code_info_cols
 
