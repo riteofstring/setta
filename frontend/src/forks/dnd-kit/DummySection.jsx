@@ -40,14 +40,16 @@ export const DummySection = React.forwardRef(({}, ref) => {
   const displayHeight = height * zoom;
 
   return (
-    <div
-      style={{
-        width: `${displayWidth}px`,
-        height: `${displayHeight}px`,
-      }}
-      className="rounded-xl bg-setta-50/25"
-      ref={ref}
-    />
+    <div className="flex">
+      <div
+        style={{
+          width: `${displayWidth}px`,
+          height: `${displayHeight}px`,
+        }}
+        className="rounded-xl bg-setta-50/25"
+        ref={ref}
+      />
+    </div>
   );
 });
 
