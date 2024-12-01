@@ -1,18 +1,13 @@
 import json
 from collections import defaultdict
 
-from setta.code_gen.export_selected import (
-    get_section_type,
-    get_section_variants,
-    get_selected_item_name,
-)
+from setta.code_gen.export_selected import get_section_variants
 from setta.database.utils import create_new_id
 from setta.utils.constants import (
     PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS,
     PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS,
     SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
     USER_SETTINGS,
-    C,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import filter_dict
