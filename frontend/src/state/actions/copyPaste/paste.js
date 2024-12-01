@@ -69,7 +69,7 @@ function removeSingletonSectionsIfAlreadyPresent(pasteData) {
   const {
     [C.GLOBAL_VARIABLES]: globalVariables,
     [C.GLOBAL_PARAM_SWEEP]: globalParamSweep,
-  } = useSectionInfos.getState().singletonSections;
+  } = useMisc.getState().singletonSections;
   if (!globalVariables && !globalParamSweep) {
     return sections;
   }

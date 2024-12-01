@@ -26,14 +26,13 @@ function _ParamContainer({
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
   );
-  const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
-    return {
-      isFocusedSearchResult: _.isEqual(x.focused, { sectionId, paramInfoId }),
-      isSearchResult: x.codeInfo.some((c) =>
-        _.isEqual(c, { sectionId, paramInfoId }),
-      ),
-    };
-  }, _.isEqual);
+  const isFocusedSearchResult = useProjectSearch((x) =>
+    _.isEqual(x.focused, { sectionId, paramInfoId }),
+  );
+
+  const isSearchResult = useProjectSearch((x) =>
+    x.codeInfo.some((c) => _.isEqual(c, { sectionId, paramInfoId })),
+  );
 
   // warnings should be AMBER
   const border = maybeErrorMessage

@@ -9,6 +9,7 @@ import _ from "lodash";
 import potpack from "potpack";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals } from "state/definitions";
+import { getNodes, setNodes } from "../nodeInternals";
 import { setActiveSectionIds } from "./activeSections";
 
 export function setZIndices(sectionIds, incrementVersion) {
@@ -65,38 +66,30 @@ export function goToSection(sectionId, duration = 100) {
 
   setActiveSectionIds([sectionId]);
   setZIndices([sectionId]);
+  useReactFlow.setState({ fitViewOnInit: false });
 }
 
 export function autoLayout() {
   const margin = 50;
-  const newNodes = _.cloneDeep(useNodeInternals.getState().x);
+  const nodeInternals = _.cloneDeep(getNodes());
 
-  let sizes = [];
-  newNodes.forEach((x) => {
-    sizes.push({
-      id: x.id,
-      w: x.width + margin,
-      h: x.height + margin,
-    });
-  });
-
+  let sizes = nodeInternals.map((x) => ({
+    id: x.id,
+    w: x.width + margin,
+    h: x.height + margin,
+  }));
   potpack(sizes); // mutates input
   sizes = _.keyBy(sizes, "id");
 
-  let minX = Infinity;
-  let minY = Infinity;
-  newNodes.forEach((n) => {
-    minX = Math.min(minX, n.position.x);
-    minY = Math.min(minY, n.position.y);
-  });
-
-  newNodes.forEach((node, key) => {
+  const minX = Math.min(...nodeInternals.map((n) => n.position.x));
+  const minY = Math.min(...nodeInternals.map((n) => n.position.y));
+  const newNodes = nodeInternals.map((node) => {
     node.position = {
       x: sizes[node.id].x + minX,
       y: sizes[node.id].y + minY,
     };
-    newNodes.set(key, node);
+    return node;
   });
 
-  useNodeInternals.setState({ x: newNodes });
+  setNodes(newNodes);
 }

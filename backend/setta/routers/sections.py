@@ -55,7 +55,6 @@ class GlobalParamSweepSectionToYamlRequest(BaseModel):
 class LoadSectionJSONSourceRequest(BaseModel):
     project: dict
     sectionId: str
-    jsonSource: str
 
 
 class SaveSectionJSONSourceRequest(BaseModel):
@@ -124,7 +123,6 @@ def route_global_param_sweep_section_to_yaml(x: GlobalParamSweepSectionToYamlReq
 @router.post(C.ROUTE_LOAD_SECTION_JSON_SOURCE)
 def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
     p = x.project
-    p["sections"][x.sectionId]["jsonSource"] = x.jsonSource
     jsonSourceMissing = load_json_sources_into_data_structures(
         p["sections"],
         p["codeInfo"],

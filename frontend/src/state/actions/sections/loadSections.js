@@ -1,7 +1,10 @@
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
-import { updateSectionInfos } from "./sectionInfos";
+import { addCodeInfoBatch } from "../codeInfo";
+import { updateSectionVariants } from "../sectionVariants";
+import { updateUITypeCols } from "../uiTypes/uiTypeCols";
+import { updateUITypes } from "../uiTypes/uiTypes";
+import { updateSections } from "./sectionInfos";
 
 export function loadSectionIntoState({
   sections,
@@ -24,15 +27,12 @@ export function loadSectionIntoState({
     };
   }
 
-  useSectionInfos((state) => {
-    updateSectionInfos({
-      sections,
-      uiTypes,
-      sectionVariants,
-      uiTypeCols,
-      codeInfo,
-      state,
-    });
+  updateStateWithSectionCopy({
+    sections,
+    uiTypes,
+    sectionVariants,
+    uiTypeCols,
+    codeInfo,
   });
 
   const nodes = [];
@@ -46,4 +46,18 @@ export function loadSectionIntoState({
   }
   addNodes(nodes);
   maybeIncrementProjectStateVersion(incrementVersion);
+}
+
+export function updateStateWithSectionCopy({
+  sections,
+  uiTypes,
+  sectionVariants,
+  uiTypeCols,
+  codeInfo,
+}) {
+  updateUITypes(uiTypes);
+  updateSectionVariants({ sectionVariants });
+  updateUITypeCols({ uiTypeCols });
+  addCodeInfoBatch(codeInfo);
+  updateSections(sections);
 }

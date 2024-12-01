@@ -23,7 +23,6 @@ import { useSectionInfos } from "state/definitions";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
-import { createRandomName } from "utils/idNameCreation";
 import { useShowYaml } from "./toYaml";
 
 export function GlobalParamSweepArea({ sectionId }) {
@@ -526,7 +525,8 @@ function FilterSection() {
 
 function CreateNewRunGroupButton({ sectionId }) {
   async function onClick() {
-    createNewRunGroup(sectionId);
+    const variantId = await createNewVersion(sectionId);
+    initRunGroup(variantId);
   }
 
   return (
@@ -537,12 +537,4 @@ function CreateNewRunGroupButton({ sectionId }) {
       <i className="gg-add-r" /> New Run Group
     </button>
   );
-}
-
-function createNewRunGroup(sectionId) {
-  useSectionInfos.setState((state) => {
-    const newVersionName = createRandomName();
-    const variantId = createNewVersion(sectionId, newVersionName, state);
-    initRunGroup(variantId, state);
-  });
 }

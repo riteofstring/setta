@@ -1,5 +1,5 @@
 import cc from "classcat";
-import { SectionContainer } from "components/Section/Container/SectionContainer";
+import { SectionContainerNode } from "components/Section/Container/SectionContainerNode";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import { useSectionInfos } from "state/definitions";
@@ -97,7 +97,7 @@ const _NodeWrapper = ({
       tabIndex={isFocusable ? 0 : undefined}
       role={isFocusable ? "button" : undefined}
     >
-      <SectionContainer sectionId={id} />
+      <SectionContainerNode id={id} />
     </div>
   );
 };

@@ -3,15 +3,12 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { onClickAddSection } from "state/actions/sections/createSections";
-import { useContextMenus, useModal, useSectionInfos } from "state/definitions";
+import { useContextMenus, useMisc, useModal } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
-  const singletonSections = useSectionInfos(
-    (x) => x.singletonSections,
-    _.isEqual,
-  );
+  const singletonSections = useMisc((x) => x.singletonSections, _.isEqual);
 
   const commonProps = {
     x,

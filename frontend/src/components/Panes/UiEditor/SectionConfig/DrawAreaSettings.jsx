@@ -1,5 +1,6 @@
 import { AvailableColors } from "components/Params/ParamUIs/ColorPickerInput";
 import _ from "lodash";
+import { setCanvasColorChoices } from "state/actions/sections/setters";
 import { useSectionInfos } from "state/definitions";
 
 export function DrawAreaSettings({ sectionId }) {
@@ -75,11 +76,4 @@ function DrawAreaAvailableColors({ sectionId }) {
       updateDescription={updateDescription}
     />
   );
-}
-
-function setCanvasColorChoices(sectionId, value) {
-  useSectionInfos.setState((x) => {
-    const s = x.x[sectionId];
-    s.canvasSettings.colorChoices = value;
-  });
 }

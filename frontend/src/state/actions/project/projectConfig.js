@@ -2,6 +2,13 @@ import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { useProjectConfig } from "state/definitions";
 
+export function setProjectConfig(payload) {
+  useProjectConfig.setState((state) => ({ ...state, ...payload }), true);
+}
+export function setProjectConfigName(name) {
+  useProjectConfig.setState({ name });
+}
+
 export function getProjectConfigMetadata() {
   const state = useProjectConfig.getState();
   const output = {

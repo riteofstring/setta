@@ -1,5 +1,6 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { setHomePageSearch } from "state/actions/search/homePageSearch";
 import { useHomePageSearch, useMisc } from "state/definitions";
 import {
   useOnEnterGoToSearchResult,
@@ -66,7 +67,7 @@ function HomePageSearch() {
     <Search
       placeholder="Filter Project Configs"
       value={value}
-      onChange={(v) => useHomePageSearch.setState({ value: v })}
+      onChange={setHomePageSearch}
     />
   );
 }

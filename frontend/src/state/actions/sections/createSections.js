@@ -5,24 +5,27 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import {
-  useNodeInternals,
-  useSectionInfos,
-  useSettings,
-} from "state/definitions";
+import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
-import { createNewId } from "utils/idNameCreation";
-import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newSectionInfo } from "utils/objs/sectionInfo";
-import { newSectionVariant } from "utils/objs/sectionVariant";
+import { newSectionPosition } from "utils/objs/sectionPosition";
 import { insertIntoArray } from "utils/utils";
-import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
+import {
+  getSectionInfo,
+  getSectionParentId,
+  getSectionType,
+} from "../../getters/sectionInfo";
+import { initManyCodeInfoCols } from "../codeInfoCols";
+import { updateKeywordRegex } from "../keywordRegex";
 import { initRunGroup } from "../runGroups/runGroups";
 import {
   getSectionChildren,
+  initManySectionVariantIds,
   setSectionVariantChildren,
 } from "../sectionVariants";
+import { initManyUITypeColIds } from "../uiTypes/uiTypeCols";
+import { addSectionInfo } from "./sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
   return addSectionInEmptySpace({ type: C.SECTION });
@@ -148,6 +151,8 @@ export function addChildrenToSeries({
     newStateFn: (x) => insertIntoArray(x, startIdx, ...newIds),
   });
 
+  // TODO: either use a better subscription (current one looks at section names which gets updated before children are updated) so that we don't have to call updateKeywordRegex a second time here, or get rid of the subscription
+  updateKeywordRegex();
   maybeIncrementProjectStateVersion(incrementVersion);
 
   return newIds;
@@ -166,6 +171,7 @@ export function addChild({ id, parentId, type, sectionProps }) {
     sectionId: parentId,
     newStateFn: (x) => [...x, id],
   });
+  updateKeywordRegex();
 }
 
 export function createSectionInfo({
@@ -185,18 +191,20 @@ export function createSectionInfo({
 function addSectionsToState(sectionInfos, position) {
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
-  useSectionInfos.setState((x) => {
-    for (const s of Object.values(sectionInfos)) {
-      const codeInfoColId = createNewId();
-      x.codeInfoCols[codeInfoColId] = newCodeInfoCol();
-      x.variants[s.variantId] = newSectionVariant({ codeInfoColId });
-      x.uiTypeCols[s.uiTypeColId] = {};
-      x.x[s.id] = s;
-      if (x.uiTypes[s.uiTypeId].type === C.GLOBAL_PARAM_SWEEP) {
-        initRunGroup(s.variantId, x);
-      }
-    }
+  const sectionIdToCodeInfoColId = initManyCodeInfoCols(sectionIds);
+
+  initManySectionVariantIds({
+    variantProps: _.map(sectionInfos, (x) => ({
+      id: x.variantId,
+      codeInfoColId: sectionIdToCodeInfoColId[x.id],
+    })),
   });
+
+  initManyUITypeColIds({
+    collectionIds: _.map(sectionInfos, (x) => x.uiTypeColId),
+  });
+
+  addSectionInfo((x) => ({ ...x, ...sectionInfos }));
 
   const topLevelSectionIds = [];
 
@@ -215,6 +223,12 @@ function addSectionsToState(sectionInfos, position) {
         tempZIndex: 0,
       })),
     );
+  }
+
+  for (const s of Object.values(sectionInfos)) {
+    if (getSectionType(s.id).type === C.GLOBAL_PARAM_SWEEP) {
+      initRunGroup(s.variantId);
+    }
   }
 }
 
@@ -241,11 +255,7 @@ export function onClickAddSection({
 }) {
   const position = projectXY
     ? screenToFlowPosition({ x, y })
-    : {
-        x: x ?? 0,
-        y: y ?? 0,
-        zIndex: zIndex ?? 0,
-      };
+    : newSectionPosition({ x, y });
 
   return addSectionAtPosition({
     type,

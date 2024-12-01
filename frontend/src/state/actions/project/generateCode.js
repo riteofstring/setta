@@ -6,7 +6,11 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";
 import { sendMessage } from "requests/websocket";
-import { useSectionInfos, useWebsocketConnectionList } from "state/definitions";
+import {
+  useMisc,
+  useSectionInfos,
+  useWebsocketConnectionList,
+} from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { getForSectionId } from "state/hooks/paramSweep";
 import {
@@ -67,7 +71,7 @@ export async function runCode() {
 
 function* getProjectRuns(project) {
   const globalParamSweepSectionId =
-    useSectionInfos.getState().singletonSections[C.GLOBAL_PARAM_SWEEP];
+    useMisc.getState().singletonSections[C.GLOBAL_PARAM_SWEEP];
   const selectedRunGroupIds = globalParamSweepSectionId
     ? getSectionInfo(globalParamSweepSectionId).selectedVariantIds
     : {};

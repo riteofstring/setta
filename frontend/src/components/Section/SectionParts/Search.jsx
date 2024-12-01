@@ -3,7 +3,12 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { getKeywordPositionsAndEVRefs } from "requests/sections";
-import { setSelectedItem } from "state/actions/sections/setSelectedItem";
+import { setParamSweepSelectedItem } from "state/actions/runGroups/paramSweep";
+import { setSelectedItem } from "state/actions/sections/setters";
+import {
+  getSectionSelectedItem,
+  setSectionVariantAttr,
+} from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
@@ -14,11 +19,10 @@ export function SectionSearch({ sectionId, selectedItem }) {
   const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
 
   function onEnter(value) {
-    // gets called inside useSectionInfos.setState
-    function callbackSetAttr(id, state) {
+    function callbackSetAttr(id) {
       // for this callback, an undefined id means that the selectedItem is already selected.
       if (id !== undefined) {
-        state.variants[state.x[sectionId].variantId].selectedItem = id;
+        setSectionVariantAttr(sectionId, "selectedItem", id);
       }
     }
 
@@ -50,16 +54,17 @@ export function ParamSweepSectionSearch({
   isDisabled,
 }) {
   async function onEnter(value) {
-    // gets called inside useSectionInfos.setState
-    function callbackSetAttr(id, state) {
+    function callbackSetAttr(id) {
       let selectedItem = id;
       // for this callback, an undefined id means that the selectedItem is already selected in the forSectionId section
       if (id === undefined) {
-        selectedItem =
-          state.variants[state.x[forSectionId].variantId].selectedItem;
+        selectedItem = getSectionSelectedItem(forSectionId);
       }
-      state.variants[variantId].sweep[selectedItemIdx].selectedItem =
-        selectedItem;
+      setParamSweepSelectedItem({
+        variantId,
+        selectedItemIdx,
+        selectedItem,
+      });
     }
 
     setSelectedItem(forSectionId, sectionId, value, true, callbackSetAttr);

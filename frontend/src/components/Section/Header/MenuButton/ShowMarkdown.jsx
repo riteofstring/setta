@@ -5,6 +5,7 @@ import { useSectionInfos } from "state/definitions";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function RenderInfo({ sectionId }) {
+  //TODO change this variable name
   const { displayMode, renderMarkdown } = useSectionInfos((x) => {
     return {
       displayMode: x.x[sectionId].displayMode,

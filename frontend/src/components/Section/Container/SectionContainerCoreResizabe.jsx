@@ -3,7 +3,7 @@ import C from "constants/constants.json";
 import { useSectionInfos } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useIsYouTube } from "state/hooks/social";
-import { getIsRoot } from "utils/sectionTypeHelpers";
+import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
 import { CodeArea } from "../Layouts/CodeArea";
 import { DrawOnImage } from "../Layouts/DrawArea";
@@ -52,7 +52,7 @@ export function SectionContainerCoreResizable({
         return "bg-setta-50 dark:bg-setta-860";
     }
   };
-  const isRoot = getIsRoot(sectionTypeName);
+  const _isRoot = isRoot(sectionTypeName);
 
   const bgColor = getBgColor();
   const youtube = useIsYouTube(sectionId);
@@ -79,9 +79,8 @@ export function SectionContainerCoreResizable({
           isInfo={isInfo}
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
-          isRoot={isRoot}
         />
-        {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
+        {_isRoot && <Incrementer sectionId={sectionId} isRoot={_isRoot} />}
         {!isMinimized && (
           <AreaSwitch
             sectionId={sectionId}

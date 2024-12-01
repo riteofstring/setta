@@ -13,7 +13,7 @@ export function ClearValues({ sectionId }) {
     useSectionInfos.setState((x) => {
       for (const k of Object.keys(x.variants[variantId].values)) {
         x.variants[variantId].values[k] = initEnteredValue(
-          getParamUIType(sectionId, k, x),
+          getParamUIType(sectionId, k),
         );
       }
     });

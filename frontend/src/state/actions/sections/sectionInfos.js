@@ -5,6 +5,10 @@ import {
   setSectionVariantChildren,
 } from "../sectionVariants";
 
+export function setAllSectionInfos(sections) {
+  useSectionInfos.setState({ x: sections });
+}
+
 export function addSectionInfo(payload) {
   useSectionInfos.setState((state) => ({ x: payload(state.x) }));
 }
@@ -74,6 +78,12 @@ export function removeSectionInfos(payload) {
   });
 }
 
+export function updateSections(payload) {
+  useSectionInfos.setState((state) => {
+    state.x = { ...state.x, ...payload };
+  });
+}
+
 export function setSectionResizeEvent({ sectionId, resizeEvent }) {
   useSectionInfos.setState((state) => {
     state.x[sectionId].resizeEvent = resizeEvent;
@@ -112,21 +122,4 @@ export function setAllPreviewVariantIdsToNull() {
       s.previewVariantId = null;
     }
   });
-}
-
-export function updateSectionInfos({
-  sections,
-  sectionVariants,
-  uiTypes,
-  uiTypeCols,
-  codeInfo,
-  codeInfoCols,
-  state,
-}) {
-  state.x = { ...state.x, ...sections };
-  state.variants = { ...state.variants, ...sectionVariants };
-  state.uiTypes = { ...state.uiTypes, ...uiTypes };
-  state.uiTypeCols = { ...state.uiTypeCols, ...uiTypeCols };
-  state.codeInfo = { ...state.codeInfo, ...codeInfo };
-  state.codeInfoCols = { ...state.codeInfoCols, ...codeInfoCols };
 }

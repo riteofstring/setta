@@ -7,6 +7,16 @@ export function addParamSweepCallable(variantId) {
   });
 }
 
+export function setParamSweepSelectedItem({
+  variantId,
+  selectedItemIdx,
+  selectedItem,
+}) {
+  useSectionInfos.setState((x) => {
+    x.variants[variantId].sweep[selectedItemIdx].selectedItem = selectedItem;
+  });
+}
+
 export function setParamSweepValue({
   variantId,
   selectedItemIdx,

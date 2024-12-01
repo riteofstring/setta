@@ -6,7 +6,7 @@ import { useSectionInfos } from "state/definitions";
 import { getSectionName } from "state/getters/sectionInfo";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
-import { createParamSweepSectionName } from "utils/sectionTypeHelpers";
+import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
 
 export function MultirunButton({ sectionId }) {
   function onClick(e) {
@@ -32,7 +32,7 @@ function addParamSweepSection(sectionId) {
 
   createAdjacentSection(sectionId, {
     id: newSectionId,
-    name: createParamSweepSectionName(getSectionName(sectionId)),
+    name: getParamSweepSectionName(getSectionName(sectionId)),
     uiTypeId: BASE_UI_TYPE_IDS.PARAM_SWEEP,
   });
 }

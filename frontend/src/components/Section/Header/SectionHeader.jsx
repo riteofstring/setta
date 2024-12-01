@@ -5,6 +5,7 @@ import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { useIsSeriesElement, useSectionTypeName } from "state/hooks/uiTypes";
+import { isRoot } from "utils/sectionTypeHelpers";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton";
 import { LockPositionButton } from "./LockPositionButton";
@@ -19,7 +20,6 @@ function _SectionHeader({
   isGlobalVariables,
   isInfo,
   isInOtherProjectConfigs,
-  isRoot,
 }) {
   const onCustomCloseButtonClick = (e) => {
     // ignore onClick events in parent components
@@ -28,7 +28,8 @@ function _SectionHeader({
     deleteSections({ sectionIds: [sectionId], incrementVersion: true });
   };
 
-  const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
+  const _isRoot = isRoot(sectionTypeName);
+  const isSeriesElement = useIsSeriesElement(sectionId);
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -56,7 +57,7 @@ function _SectionHeader({
             popoverContent={
               <Incrementer
                 sectionId={sectionId}
-                isRoot={isRoot}
+                isRoot={_isRoot}
                 popover={true}
               />
             }
@@ -73,7 +74,7 @@ function _SectionHeader({
           />
         )}
         <LockPositionButton sectionId={sectionId} />
-        {!isRoot && <MinimizeButton sectionId={sectionId} />}
+        {!_isRoot && <MinimizeButton sectionId={sectionId} />}
         <CustomCloseButton onClick={onCustomCloseButtonClick} isInfo={isInfo} />
       </div>
     </header>

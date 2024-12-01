@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
-import { updateSectionInfos } from "state/actions/sections/sectionInfos";
+import { addCodeInfoBatch } from "state/actions/codeInfo";
+import { addCodeInfoColsBatch } from "state/actions/codeInfoCols";
+import {
+  setSectionInfoAttr,
+  updateSections,
+} from "state/actions/sections/sectionInfos";
+import { updateSectionVariants } from "state/actions/sectionVariants";
 import { useJSONSourceMissing, useSectionInfos } from "state/definitions";
 
 export function InputAreaSettings({ sectionId }) {
@@ -9,13 +15,14 @@ export function InputAreaSettings({ sectionId }) {
   const [value, setValue] = useState(jsonSource ?? "");
   async function onBlur(e) {
     const jsonSource = e.target.value;
+    setSectionInfoAttr({ sectionId, attr: "jsonSource", value: jsonSource });
     let jsonSourceMissing = false,
       codeInfo = null,
       codeInfoCols = null,
       sectionVariants = null,
       sections = null;
     if (jsonSource) {
-      const res = await dbLoadSectionJSONSource(sectionId, jsonSource);
+      const res = await dbLoadSectionJSONSource(sectionId);
       if (res.status === 200) {
         ({ codeInfo, codeInfoCols, sectionVariants, sections } =
           res.data.project);
@@ -23,16 +30,10 @@ export function InputAreaSettings({ sectionId }) {
       }
     }
     useJSONSourceMissing.setState({ [sectionId]: jsonSourceMissing });
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].jsonSource = jsonSource;
-      updateSectionInfos({
-        sections,
-        sectionVariants,
-        codeInfo,
-        codeInfoCols,
-        state,
-      });
-    });
+    if (codeInfo) addCodeInfoBatch(codeInfo);
+    if (codeInfoCols) addCodeInfoColsBatch(codeInfoCols);
+    if (sectionVariants) updateSectionVariants({ sectionVariants });
+    if (sections) updateSections(sections);
   }
 
   useEffect(() => {

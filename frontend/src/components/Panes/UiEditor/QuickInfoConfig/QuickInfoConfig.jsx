@@ -1,6 +1,7 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import React from "react";
+import { setCodeInfoDescription } from "state/actions/codeInfo";
 import { useParamInfosForSidePane } from "state/hooks/sectionContents";
 import { useMatchSorterFilter } from "state/hooks/utils";
 
@@ -59,9 +60,9 @@ function _UIElement({ paramInfo }) {
       <textarea
         className="mx-[2px] mb-4 h-12 min-w-0 flex-grow cursor-auto rounded-lg border border-solid border-setta-100 bg-white px-2 py-1 font-mono text-xs font-medium text-setta-600 outline-0 placeholder:text-setta-200 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300 dark:placeholder:text-setta-700 dark:focus-visible:border-setta-900"
         value={description}
-        onChange={(e) => {
-          state.codeInfo[id].description = e.target.value;
-        }}
+        onChange={(e) =>
+          setCodeInfoDescription({ id, description: e.target.value })
+        }
       />
     </div>
   );

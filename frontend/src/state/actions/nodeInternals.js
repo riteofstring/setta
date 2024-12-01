@@ -4,10 +4,14 @@ import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import { useNodeInternals } from "state/definitions";
 
+export function setNodes(nodes) {
+  useNodeInternals.setState((state) => ({
+    x: createNodeInternals(nodes, state.x),
+  }));
+}
+
 export function getNodes(s = null) {
-  const output =  Array.from(s ? s.x.values() : useNodeInternals.getState().x.values());
-  console.log("getNodes", output[0]?.position.y)
-  return output
+  return Array.from(s ? s.x.values() : useNodeInternals.getState().x.values());
 }
 
 export function addNodes(nodes) {
@@ -18,6 +22,24 @@ export function addNodes(nodes) {
 export function deleteNodes(nodeIds) {
   const changes = nodeIds.map((id) => ({ id, type: "remove" }));
   onNodesChange(changes);
+}
+
+function createNodeInternals(nodes, nodeInternals) {
+  const nextNodeInternals = new Map();
+
+  nodes.forEach((node) => {
+    const currInternals = nodeInternals.get(node.id);
+
+    const internals = {
+      width: currInternals?.width,
+      height: currInternals?.height,
+      ...node,
+    };
+
+    nextNodeInternals.set(node.id, internals);
+  });
+
+  return nextNodeInternals;
 }
 
 export function updateNodeDimensions(updates) {
@@ -64,11 +86,14 @@ export function updateNodeDimensions(updates) {
     fitViewOnInitDone ||
     (fitViewOnInit &&
       !fitViewOnInitDone &&
-      fitView({
+      fitView(useReactFlow.getState, {
         initial: true,
         ...fitViewOnInitOptions,
       }));
 
+  useNodeInternals.setState({
+    x: _.cloneDeep(nodeInternals),
+  });
   useReactFlow.setState({ fitViewOnInitDone: nextFitViewOnInitDone });
 
   if (changes?.length > 0) {
@@ -102,7 +127,7 @@ export function updateNodePositions(
 
 export function onNodesChange(changes) {
   const nodeInternals = useNodeInternals.getState().x;
-  const newNodes = new Map(nodeInternals)
+  const newNodes = _.cloneDeep(nodeInternals);
   for (const c of changes) {
     switch (c.type) {
       case "position": {

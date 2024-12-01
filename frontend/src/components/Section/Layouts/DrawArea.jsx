@@ -10,6 +10,7 @@ import { updateArtifacts } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { setCanvasSettings } from "state/actions/sections/setters";
 import {
   base64RequestId,
   setTemporaryMiscState,
@@ -787,10 +788,3 @@ const debouncedSendDrawingToInteractiveTasks = _.debounce(
   },
   500,
 );
-
-function setCanvasSettings(sectionId, attr, value) {
-  useSectionInfos.setState((x) => {
-    const s = x.x[sectionId];
-    s.canvasSettings[attr] = value;
-  });
-}

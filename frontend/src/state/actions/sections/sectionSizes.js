@@ -7,6 +7,7 @@ import {
   getHighestAncestor,
 } from "./sectionChildren";
 import { setSectionInfoAttr } from "./sectionInfos";
+import { setSectionSize } from "./setters";
 
 export function setSelfParentSiblingChildrenWidths({ sectionId, changedSize }) {
   // set own width
@@ -114,14 +115,4 @@ export function adjustAspectRatio(height, width, imgHeight, imgWidth) {
     // Aspect ratios match, return the provided dimensions
     return { height: height, width: width };
   }
-}
-
-export function setSectionSize(sectionId, size) {
-  useSectionInfos.setState((x) => {
-    _setSectionSize(sectionId, size, x);
-  });
-}
-
-export function _setSectionSize(sectionId, size, x) {
-  x.x[sectionId].size = { ...x.x[sectionId].size, ...size };
 }
