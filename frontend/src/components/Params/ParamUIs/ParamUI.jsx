@@ -74,7 +74,9 @@ export function ParamUI({
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />
+          <span
+            className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
+          />
         </>
       );
     case C.SLIDER: {
@@ -154,6 +156,7 @@ export function ParamSweepUI({
     dataSectionId,
     paramInfoId,
   });
+  const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
 
   switch (uiType.type) {
     default:
@@ -176,7 +179,9 @@ export function ParamSweepUI({
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="section-key-value grid-row-start-1 border-box mx-3 self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />
+          <span
+            className={`section-key-value grid-row-start-1 border-box mx-3 self-end border-b border-setta-200/50 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""} dark:border-setta-600/30`}
+          />
         </>
       );
     case C.SLIDER: {
