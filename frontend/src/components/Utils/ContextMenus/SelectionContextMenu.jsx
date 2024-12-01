@@ -35,7 +35,9 @@ export function SelectionContextMenu() {
   }
 
   function onClickDelete() {
-    deleteSections({ sectionIds: nodeIds, incrementVersion: true });
+    useSectionInfos.setState((state) => {
+      deleteSections(nodeIds, state);
+    });
     closeContextMenu();
   }
 

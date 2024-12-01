@@ -62,6 +62,6 @@ export async function undeck(deckId) {
       positions,
       state,
     });
+    deleteSections([deckId], state);
   });
-  deleteSections({ sectionIds: [deckId], incrementVersion: true });
 }
