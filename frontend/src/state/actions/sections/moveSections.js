@@ -2,7 +2,6 @@ import C from "constants/constants.json";
 import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { useSectionInfos } from "state/definitions";
-import { PANEID } from "utils/constants";
 import { insertIntoArray } from "utils/utils";
 import { copySections } from "../copyPaste/copy";
 import { getSectionInfo, setSectionVariantChildren } from "../sectionInfos";
@@ -39,6 +38,7 @@ export function moveSection({
   position,
   state,
 }) {
+  console.log("moveSection");
   setChildrenAndParent({
     oldParentId,
     newParentId,
@@ -61,8 +61,16 @@ function setChildrenAndParent({
   position,
   state,
 }) {
+  console.log({
+    oldParentId,
+    newParentId,
+    oldSectionId,
+    newSectionId,
+    newIndex,
+    position,
+  });
   // Remove child from old parent's list
-  if (oldParentId === PANEID) {
+  if (!oldParentId) {
     // This means it was a top level section
     deleteNodes([oldSectionId]);
   } else {
@@ -72,7 +80,7 @@ function setChildrenAndParent({
       state,
     );
   }
-  if (newParentId === PANEID) {
+  if (!newParentId) {
     // This means it's becoming a top level section
     addNodes([{ id: newSectionId, position, zIndex: 0, tempZIndex: 0 }]);
   } else {
@@ -84,11 +92,11 @@ function setChildrenAndParent({
     );
   }
 
-  state.x[newSectionId].parentId = newParentId === PANEID ? null : newParentId;
+  state.x[newSectionId].parentId = newParentId;
 }
 
 function setSectionSizeAfterMove(newParentId, sectionId, state) {
-  if (newParentId === PANEID) {
+  if (!newParentId) {
     return;
   }
   const isDeck = state.uiTypes[state.x[sectionId].uiTypeId].type === C.DECK;
@@ -115,7 +123,7 @@ export async function maybeMakeCopyOfSection({
   oldParentId,
   newParentId,
 }) {
-  if (oldParentId === PANEID || oldParentId === newParentId) {
+  if (!oldParentId || oldParentId === newParentId) {
     return sectionId;
   }
 

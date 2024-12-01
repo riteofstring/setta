@@ -7,7 +7,6 @@ import {
   useNodeInternals,
   useSectionInfos,
 } from "state/definitions";
-import { PANEID } from "utils/constants";
 import { getSectionChildren } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { addSectionAtPosition } from "./createSections";
@@ -22,7 +21,7 @@ export function createDeck({ nodeIds, x, y }) {
     });
 
     moveSections({
-      oldParentId: PANEID,
+      oldParentId: null,
       newParentId: deckId,
       sectionIds: nodeIds,
       state,
@@ -57,7 +56,7 @@ export async function undeck(deckId) {
   useSectionInfos.setState((state) => {
     moveSections({
       oldParentId: deckId,
-      newParentId: PANEID,
+      newParentId: null,
       sectionIds: childIds,
       positions,
       state,

@@ -2,7 +2,6 @@ import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import C from "constants/constants.json";
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
-export const PANEID = "-1";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
 

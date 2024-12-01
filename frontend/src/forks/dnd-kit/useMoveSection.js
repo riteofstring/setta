@@ -1,6 +1,5 @@
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import _ from "lodash";
 import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
 import {
@@ -15,7 +14,6 @@ import {
 } from "state/actions/sections/moveSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
-import { PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
 import { useDndChildren } from "./dndChildren";
@@ -40,13 +38,17 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   const sectionId = active.id;
   const dndSectionId = getDndSectionId(sectionId);
   const overId = over?.id;
-  const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
+  const oldParentId = getSectionParentId(sectionId);
   let newParentId = dndChildrenState.y[dndSectionId] ?? null;
   let newIndex = null;
   let position = null;
   const behaviorDropType = useDndState.getState().behaviorDropType;
 
+  console.log("oldParentId", oldParentId);
+  console.log("newParentId", newParentId);
+
   if (newParentId) {
+    console.log("in newParentId if statement");
     const children = dndChildrenState.x[newParentId];
     const activeIdx = children.indexOf(dndSectionId);
     const overIdx = children.indexOf(overId);
@@ -56,23 +58,21 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   }
   // dropping nested section onto pane
   else if (!overId) {
-    newParentId = PANEID;
+    console.log("in !overId if statement");
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = screenToFlowPosition({ x, y });
 
-    if (oldParentId === PANEID) {
+    if (!oldParentId) {
+      console.log("in !oldParentId if statement");
       justMoveANode(sectionId, position);
       return;
     }
   }
 
   if (behaviorDropType === BehaviorDropType.INVALID) {
+    console.log("behaviorDropType === BehaviorDropType.INVALID");
     manualDndChildrenReset();
-    return;
-  }
-
-  if (!newParentId) {
     return;
   }
 
