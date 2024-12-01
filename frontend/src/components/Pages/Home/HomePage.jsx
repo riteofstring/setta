@@ -89,20 +89,20 @@ function RightColumn({ projects, setDoRefresh }) {
             New Config
           </StandardButton>
           <StandardButton
-            twClasses="py-2 px-4 rounded-full font-medium  text-white/75 bg-setta-500/25 hover:bg-red-500 hover:text-white gap-2"
-            onClick={onClickDelete}
-            disabled={selectedProjects.length === 0}
-          >
-            <IoClose />
-            Delete
-          </StandardButton>
-          <StandardButton
-            twClasses="py-2 px-4 rounded-full font-medium  text-white/75 bg-setta-500/25 hover:bg-green-500 hover:text-white gap-2"
+            twClasses="py-2 px-4 rounded-full font-medium text-white dark:text-white/75 bg-setta-400 dark:bg-setta-500/25 hover:!bg-green-500 hover:text-white gap-2"
             onClick={onClickMakeDefault}
             disabled={selectedProjects.length !== 1}
           >
             <HiHome />
             Make Default
+          </StandardButton>
+          <StandardButton
+            twClasses="py-2 px-4 rounded-full font-medium text-white dark:text-white/75 bg-setta-400 dark:bg-setta-500/25 hover:!bg-red-500 hover:text-white gap-2"
+            onClick={onClickDelete}
+            disabled={selectedProjects.length === 0}
+          >
+            <IoClose />
+            Delete
           </StandardButton>
         </div>
         <Link

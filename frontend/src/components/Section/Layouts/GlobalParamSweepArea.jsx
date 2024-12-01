@@ -48,7 +48,7 @@ function GlobalParamSweepGUI({ sectionId, width }) {
   return (
     <>
       <section
-        className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll  @sm/multipane:flex-row  @sm/multipane:overflow-visible`}
+        className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main -mr-3 mb-2 flex min-w-0 flex-col gap-2 overflow-y-scroll pr-2 @sm/multipane:flex-row @sm/multipane:gap-6  @sm/multipane:overflow-visible`}
         ref={ref}
       >
         <LeftSide sectionId={sectionId} editingRunGroupId={editingRunGroupId} />
@@ -80,14 +80,20 @@ function RightSide({ sectionId, shownRunGroupId }) {
   if (!shownRunGroupId) {
     return null;
   }
+  // -mr-[14px]
   return (
-    <article className="mt-2 flex flex-1 flex-col gap-2 @sm/multipane:overflow-x-hidden">
+    <article
+      className={`${showYaml ? "-mr-2 overflow-visible @sm/multipane:-mr-[14px] @sm/multipane:overflow-y-scroll" : "h-full min-h-0 overflow-x-clip"} mt-2 flex  flex-1 flex-col gap-2  pb-2 `}
+    >
       {!showYaml ? (
         <>
-          <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-            Sections
-          </h3>
-          <FilterSection />
+          <div className="flex gap-4">
+            <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+              Sections
+            </h3>
+            <FilterSection />
+          </div>
+
           <TopLevelSectionList runGroupId={shownRunGroupId} />
         </>
       ) : (
@@ -510,17 +516,19 @@ function CheckboxNextToLabel({
 
 function FilterSection() {
   const inputStyles =
-    "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-7 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
+    "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-4 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
 
   return (
-    <search className="flex min-w-0 items-center pb-1">
+    <div className="-mt-1 flex-1">
       <StandardSearch
-        leftElement={<i className="gg-sort-az !scale-75 text-setta-400" />}
+        leftElement={
+          <i className="gg-sort-az mb-[2px] !scale-50 text-setta-400" />
+        }
         placeholder="Filter"
         inputStyles={inputStyles}
         outerClasses="flex-1"
       />
-    </search>
+    </div>
   );
 }
 

@@ -96,7 +96,7 @@ export function KwargsControls({
           <input
             id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
             value={paramFilterValue}
-            className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-300 placeholder-setta-600 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300"
+            className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-700 placeholder-setta-600  outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300"
             placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
             tabIndex="0"
             onChange={onSearchChange}
