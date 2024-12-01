@@ -32,7 +32,7 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll [&>*]:mx-[2px]">
+      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement

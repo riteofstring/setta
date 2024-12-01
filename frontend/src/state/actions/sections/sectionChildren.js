@@ -16,9 +16,9 @@ export function getHighestAncestor(
 }
 
 export function getAllSectionChildrenIds(
+  sectionIds,
   sectionInfoState,
   sectionVariantState,
-  sectionIds,
 ) {
   const ids = [...sectionIds];
   let idx = 0;
