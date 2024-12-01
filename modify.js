@@ -25,7 +25,11 @@ function loadAndModifyJson(filePath) {
           (k === "canvasSettings" && Object.keys(v).length === 0) ||
           (k === "selectedVariantIds" && Object.keys(v).length === 0) ||
           k === "isInOtherProjectConfigs" ||
-          (k === "size" && v.width === "auto" && v.height === "auto")
+          (k === "size" && v.width === "auto" && v.height === "auto") ||
+          k === "resizeEvent" ||
+          (k === "aspectRatio" && !v) ||
+          (k === "aspectRatioExtraHeight" && !v) ||
+          (k === "aspectRatioExtraWidth" && !v)
         ) {
           delete s[k];
         }

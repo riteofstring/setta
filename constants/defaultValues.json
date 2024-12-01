@@ -37,7 +37,10 @@
     "selectedVariantIds": {},
     "paramFilter": "",
     "jsonSourceMissing": false,
-    "isInOtherProjectConfigs": false
+    "isInOtherProjectConfigs": false,
+    "aspectRatio": false,
+    "aspectRatioExtraHeight": 0,
+    "aspectRatioExtraWidth": 0
   },
   "sectionVariant": {
     "name": "",

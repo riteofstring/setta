@@ -866,11 +866,7 @@
       "size": {
         "width": 649,
         "height": "auto"
-      },
-      "aspectRatio": null,
-      "aspectRatioExtraHeight": null,
-      "aspectRatioExtraWidth": null,
-      "resizeEvent": "end"
+      }
     },
     "de4841d2-f44b-4015-9654-a05cb26a0608": {
       "id": "de4841d2-f44b-4015-9654-a05cb26a0608",
