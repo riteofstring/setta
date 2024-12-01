@@ -6,10 +6,7 @@ import {
   getKeywordPositionsAndEVRefs,
 } from "requests/sections";
 import { sendToInteractiveTasks } from "state/actions/interactive";
-import {
-  setParamEnteredValue,
-  setParamKeywordPositions,
-} from "state/actions/sectionVariants";
+import { setParamEnteredValue } from "state/actions/sectionVariants";
 import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
 import { useSectionInfos } from "state/definitions";
 import { useGetParamEnteredValueAndKeywordPositions } from "state/hooks/sectionVariants";
@@ -74,7 +71,12 @@ const debouncedSetParamEnteredValue = asyncDebounce(
           fullText: vStr,
         });
         console.log("debouncedSetParamEnteredValue", keywordPositions);
-        setParamKeywordPositions({ sectionId, paramInfoId, keywordPositions });
+
+        useSectionInfos.setState((state) => {
+          const { variantId } = state.x[sectionId];
+          state.variants[variantId].values[paramInfoId].keywordPositions =
+            keywordPositions;
+        });
       }
     }
   },

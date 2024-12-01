@@ -22,17 +22,6 @@ export function initEnteredValue(uiType) {
   };
 }
 
-export function setKeywordPositions({
-  collectionId,
-  paramInfoId,
-  keywordPositions,
-}) {
-  useSectionInfos.setState((state) => {
-    state.variants[collectionId].values[paramInfoId].keywordPositions =
-      keywordPositions;
-  });
-}
-
 export function deleteParamInfoFromSectionVariant({ variantId, ids }) {
   useSectionInfos.setState((state) => {
     state.variants[variantId].values = _.omit(
@@ -55,19 +44,6 @@ export function setEnteredValue(variantId, paramInfoId, value, state) {
 export function setParamEnteredValue(sectionId, paramInfoId, value, state) {
   const { variantId } = state.x[sectionId];
   setEnteredValue(variantId, paramInfoId, value, state);
-}
-
-export function setParamKeywordPositions({
-  sectionId,
-  paramInfoId,
-  keywordPositions,
-}) {
-  const { variantId } = getSectionInfo(sectionId);
-  setKeywordPositions({
-    collectionId: variantId,
-    paramInfoId,
-    keywordPositions,
-  });
 }
 
 export function getSectionChildren(sectionId) {

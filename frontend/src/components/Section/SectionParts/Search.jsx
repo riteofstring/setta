@@ -186,14 +186,6 @@ function SectionSearchCore({
   );
 }
 
-function mergeCompletionsAndHistory(completions, history) {
-  const existingNames = new Set(history.map((x) => x.name));
-  const filteredCompletions = completions.filter(
-    (x) => !existingNames.has(x.name),
-  );
-  return [...filteredCompletions, ...history];
-}
-
 function LoadingSpinner({ sectionId }) {
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
