@@ -77,21 +77,13 @@ export function findAllParameters(
   );
 }
 
-export function findAll(
-  allCodeInfo,
-  codeInfoChildren,
-  codeInfoIds,
-  paramPathCondition = null,
-  earlyReturnCondition = null,
-) {
+export function findAll(allCodeInfo, codeInfoChildren) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoChildren,
-    codeInfoIds,
+    codeInfoChildren[null] ?? [],
     () => true,
     () => true,
-    paramPathCondition,
-    earlyReturnCondition,
   );
 }
 
