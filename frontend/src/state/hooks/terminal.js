@@ -240,7 +240,7 @@ export async function restoreTerminals() {
         parentId: groupId,
         type: C.TERMINAL,
         sectionProps: {
-          size: useSettings.getState().defaultTerminalSectionSize,
+          size: useSettings.getState().backend.defaultTerminalSectionSize,
           isTemporary: terminalInfo.isTemporary,
         },
       });

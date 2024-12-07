@@ -108,7 +108,11 @@ def create_project_config(db, name, previewImgColor):
         "data": json.dumps(
             {
                 "previewImgColor": previewImgColor,
-                "viewport": {"x": 0, "y": 0, "zoom": USER_SETTINGS["defaultZoomLevel"]},
+                "viewport": {
+                    "x": 0,
+                    "y": 0,
+                    "zoom": USER_SETTINGS["gui"]["defaultZoomLevel"],
+                },
             }
         ),
     }

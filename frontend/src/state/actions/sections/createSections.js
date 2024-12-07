@@ -78,11 +78,11 @@ function getDefaultSectionSize(type) {
   const settings = useSettings.getState();
   switch (type) {
     case C.CODE:
-      return settings.defaultCodeSectionSize;
+      return settings.backend.defaultCodeSectionSize;
     case C.TERMINAL:
-      return settings.defaultTerminalSectionSize;
+      return settings.backend.defaultTerminalSectionSize;
     default:
-      return settings.defaultSectionSize;
+      return settings.backend.defaultSectionSize;
   }
 }
 

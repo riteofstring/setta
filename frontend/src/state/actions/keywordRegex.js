@@ -1,5 +1,4 @@
 import C from "constants/constants.json";
-import { getParamIds } from "state/actions/sections/sectionContents";
 
 // input is state computed by keyword regex subscription
 export function getRegexAndColorMap(state) {
@@ -118,7 +117,9 @@ function setFullParamRegex(
   isGlobalVar = false,
 ) {
   const codeInfoChildren = state.details[sectionId].codeInfoChildren;
-  const childParamInfos = codeInfoChildren[codeInfoId].map((x) => state.codeInfo[x])
+  const childParamInfos = codeInfoChildren[codeInfoId].map(
+    (x) => state.codeInfo[x],
+  );
 
   for (const p of childParamInfos) {
     if (!p.name) {

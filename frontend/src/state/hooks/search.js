@@ -96,7 +96,7 @@ function goToSearchResult(searchResult) {
     x: _x + width / 2,
     y: _y + height / 2,
   });
-  const zoom = useSettings.getState().defaultZoomLevel;
+  const zoom = useSettings.getState().gui.defaultZoomLevel;
   setCenter(x, y, { zoom });
 }
 

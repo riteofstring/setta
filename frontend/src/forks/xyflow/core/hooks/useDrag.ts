@@ -59,7 +59,7 @@ function useDrag({
         const { nodesSelectionDims, shiftNodesSelection, setNodesSelection } =
           useReactFlow.getState();
 
-        const { snapGrid } = useSettings.getState();
+        const { snapGrid } = useSettings.getState().gui;
         const [snapToGrid] = localStorageFns.snapToGrid.state();
 
         const delta = { x: x - lastPos.current.x, y: y - lastPos.current.y };

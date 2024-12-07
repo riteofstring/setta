@@ -5,7 +5,7 @@ import { shortcutPrettified } from "utils/utils";
 export function HelpText() {
   const [showMessage, setState] = localStorageFns.showNavBarHelpMessage.hook();
   const shortcut = useSettings((x) =>
-    shortcutPrettified(x.showTooltipShortcut),
+    shortcutPrettified(x.shortcuts.showTooltipShortcut),
   );
 
   return (

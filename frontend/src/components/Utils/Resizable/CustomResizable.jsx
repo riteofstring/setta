@@ -96,7 +96,7 @@ function CustomResizableCore({
     minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
-  const snapGrid = useSettings((x) => x.snapGrid);
+  const snapGrid = useSettings((x) => x.gui.snapGrid);
   const snapToGrid = localStorageFns.snapToGrid.hook()[0];
 
   return (

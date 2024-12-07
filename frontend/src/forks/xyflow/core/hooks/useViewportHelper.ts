@@ -26,7 +26,7 @@ export function zoomTo(zoomLevel, options) {
 }
 
 export function resetZoom() {
-  const { defaultZoomLevel } = useSettings.getState();
+  const { defaultZoomLevel } = useSettings.getState().gui;
   zoomTo(defaultZoomLevel, { duration: 100 });
 }
 
@@ -56,7 +56,7 @@ export function getViewport() {
 
 export function setCenter(x, y, options) {
   const { width, height, d3Zoom, d3Selection } = useReactFlow.getState();
-  const { maxZoom } = useSettings.getState();
+  const { maxZoom } = useSettings.getState().gui;
 
   const nextZoom =
     typeof options?.zoom !== "undefined" ? options.zoom : maxZoom;
@@ -70,7 +70,7 @@ export function setCenter(x, y, options) {
 
 export function fitBounds(bounds, options) {
   const { width, height, d3Zoom, d3Selection } = useReactFlow.getState();
-  const { minZoom, maxZoom } = useSettings.getState();
+  const { minZoom, maxZoom } = useSettings.getState().gui;
   const { x, y, zoom } = getViewportForBounds(
     bounds,
     width,
@@ -86,7 +86,7 @@ export function fitBounds(bounds, options) {
 
 export function screenToFlowPosition(position: XYPosition, ignoreGrid = false) {
   const { transform, domNode } = useReactFlow.getState();
-  const { snapGrid } = useSettings.getState();
+  const { snapGrid } = useSettings.getState().gui;
   const [snapToGrid] = localStorageFns.snapToGrid.state();
 
   if (!domNode) {

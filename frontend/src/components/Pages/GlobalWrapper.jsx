@@ -14,7 +14,9 @@ export function GlobalWrapper({ children }) {
 }
 
 export function IndexRouteComponent() {
-  const showDefaultConfigOnLoad = useSettings((x) => x.showDefaultConfigOnLoad);
+  const showDefaultConfigOnLoad = useSettings(
+    (x) => x.backend.showDefaultConfigOnLoad,
+  );
   const defaultConfigName = useDefaultConfigName();
   if (!defaultConfigName) {
     return null;

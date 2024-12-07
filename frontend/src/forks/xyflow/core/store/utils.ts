@@ -24,7 +24,7 @@ export function fitView(options: InternalFitViewOptions = {}) {
     fitViewOnInit,
   } = useReactFlow.getState();
 
-  const { minZoom, maxZoom } = useSettings.getState();
+  const { minZoom, maxZoom } = useSettings.getState().gui;
 
   const isInitialFitView =
     options.initial && !fitViewOnInitDone && fitViewOnInit;
