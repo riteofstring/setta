@@ -197,9 +197,6 @@ function GetUnpinnedParams({ sectionId }) {
   );
 
   const handleMouseMove = useCallback((e) => {
-    // Add this console.log to verify this is being called
-    console.log("Mouse moving", resizeRef.current.isResizing);
-
     if (!resizeRef.current.isResizing || !ref.current) return;
 
     requestAnimationFrame(() => {
@@ -212,8 +209,6 @@ function GetUnpinnedParams({ sectionId }) {
         Math.min(80, resizeRef.current.startPercentage + diffAsPercentage),
       );
 
-      console.log("Setting new width", newPercentage); // Debug log
-
       setColumnWidth((prev) => ({
         pixels: (containerWidth - 12) * (newPercentage / 100),
         percentage: newPercentage,
@@ -222,27 +217,19 @@ function GetUnpinnedParams({ sectionId }) {
   }, []);
 
   const handleMouseUp = useCallback(() => {
-    console.log("Mouse up"); // Debug log
     resizeRef.current.isResizing = false;
   }, []);
 
-  // Add this useEffect to handle mouse events
+  // Modified useEffect to always attach listeners
   useEffect(() => {
-    const mouseMoveHandler = (e) => handleMouseMove(e);
-    const mouseUpHandler = () => handleMouseUp();
-
-    if (resizeRef.current.isResizing) {
-      console.log("Adding event listeners"); // Debug log
-      window.addEventListener("mousemove", mouseMoveHandler);
-      window.addEventListener("mouseup", mouseUpHandler);
-    }
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
 
     return () => {
-      window.removeEventListener("mousemove", mouseMoveHandler);
-      window.removeEventListener("mouseup", mouseUpHandler);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [handleMouseMove, handleMouseUp]);
-
   return (
     <div
       className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${
