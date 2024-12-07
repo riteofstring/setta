@@ -1,5 +1,6 @@
 import C from "constants/constants.json";
 import {
+  getCodeChildrenAndParentCodeInfoId,
   getDisplayedCodeInfoCol,
   getDisplayedSectionVariant,
   getDisplayedSectionVariantId,
@@ -8,7 +9,6 @@ import {
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
-import { getCodeChildrenAndParentCodeInfoId } from "state/hooks/sectionContents";
 import { post } from "./utils";
 
 export async function dbGuiToYaml(sectionId) {

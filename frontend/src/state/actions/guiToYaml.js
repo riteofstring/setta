@@ -14,12 +14,12 @@ import {
   useYamlValue,
 } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
-import { getCodeChildrenAndParentCodeInfoId } from "state/hooks/sectionContents";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { newEVEntry } from "utils/objs/ev";
 import { parseAllDocuments } from "yaml";
+import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
 import {
   getParamIds,
   paramNameFromPathArray,
