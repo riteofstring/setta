@@ -13,8 +13,8 @@ import {
 import { getProjectDataForSaving } from "state/actions/project/saveProject";
 import {
   useAllProjectConfigs,
-  useMisc,
   useProjectConfig,
+  useProjectLoading,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
@@ -70,7 +70,7 @@ export function useLoadProjectConfig() {
   const { state } = useLocation();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
-  const is404 = useMisc((x) => x.projectIs404);
+  const is404 = useProjectLoading((x) => x.projectIs404);
   const isHotReload = useHotReload();
 
   async function loadFn() {
@@ -79,7 +79,7 @@ export function useLoadProjectConfig() {
     setDoneLoading(false);
     const res = await loadProjectConfig({ projectConfigName });
     setDoneLoading(true);
-    useMisc.setState({ projectIsLoading: false, projectIs404: !res });
+    useProjectLoading.setState({ projectIsLoading: false, projectIs404: !res });
   }
 
   async function loadSettingsProject() {
@@ -88,21 +88,24 @@ export function useLoadProjectConfig() {
     setDoneLoading(false);
     const res = await loadSettingsProjectConfig();
     setDoneLoading(true);
-    useMisc.setState({ projectIsLoading: false, projectIs404: !res });
+    useProjectLoading.setState({ projectIsLoading: false, projectIs404: !res });
   }
 
   function changeFn() {
     console.log("CHANGING CONFIG NAME********");
     useProjectConfig.setState({ name: projectConfigName });
-    useMisc.setState({ projectIsLoading: false, projectIs404: false });
+    useProjectLoading.setState({
+      projectIsLoading: false,
+      projectIs404: false,
+    });
   }
 
   useEffect(() => {
-    if (isHotReload || useMisc.getState().projectIsLoading) {
+    if (isHotReload || useProjectLoading.getState().projectIsLoading) {
       return;
     }
 
-    useMisc.setState({ projectIsLoading: true });
+    useProjectLoading.setState({ projectIsLoading: true });
 
     if (projectConfigName === SETTINGS_PROJECT_NAME) {
       loadSettingsProject();

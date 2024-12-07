@@ -72,14 +72,18 @@ export function subscribe() {
 
   useMisc.subscribe(
     updateNodeDimensionsSubscriptionFn,
-    (undoOrRedoWasTriggered) => {
-      if (undoOrRedoWasTriggered) {
+    (x) => {
+      if (x.undoOrRedoWasTriggered || x.requestUpdateNodeDimensions) {
         updateNodeDimensions(
           getNodeUpdateInformation(useNodeInternals.getState().x.keys(), false),
         );
-        useMisc.setState({ undoOrRedoWasTriggered: false });
+        useMisc.setState({
+          undoOrRedoWasTriggered: false,
+          requestUpdateNodeDimensions: false,
+        });
       }
     },
+    { equalityFn: _.isEqual },
   );
 }
 
@@ -141,5 +145,8 @@ function reactFitViewOnInitSubscriptionFn(state) {
 }
 
 function updateNodeDimensionsSubscriptionFn(state) {
-  return state.undoOrRedoWasTriggered;
+  return {
+    undoOrRedoWasTriggered: state.undoOrRedoWasTriggered,
+    requestUpdateNodeDimensions: state.requestUpdateNodeDimensions,
+  };
 }

@@ -151,14 +151,18 @@ export function useCodeAreaHeight({ sectionId }) {
   const resizeObserverRef = useRef(null);
   const [nowheel, setNoWheel] = useState("");
   const readyToBeVisible = useReadyToBeVisible();
+  const [firstRender, setFirstRender] = useState(false);
 
   const handleCreateEditor = useCallback((view) => {
-    useMisc.setState((state) => ({
-      numInitializedSections: state.numInitializedSections + 1,
-    }));
-
     editorRef.current = view;
     const resizeObserver = new ResizeObserver(([entry]) => {
+      if (!firstRender) {
+        useMisc.setState((state) => ({
+          numInitializedSections: state.numInitializedSections + 1,
+          requestUpdateNodeDimensions: true,
+        }));
+        setFirstRender(true);
+      }
       setNoWheel(
         entry.target.scrollHeight > entry.target.clientHeight ? "nowheel" : "",
       );
