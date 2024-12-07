@@ -29,10 +29,10 @@ export async function dbLoadFullProject({ excludeProjectConfigName }) {
   });
 }
 
-export async function dbCreateProjectConfig(name) {
+export async function dbCreateProjectConfig({ name, previewImgColor }) {
   return await post({
     address: C.ROUTE_CREATE_PROJECT_CONFIG,
-    body: { name },
+    body: { name, previewImgColor },
   });
 }
 

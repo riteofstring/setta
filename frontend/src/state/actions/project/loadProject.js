@@ -9,7 +9,11 @@ import {
   useProjectConfig,
   useSectionInfos,
 } from "state/definitions";
-import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
+import {
+  PAGE_LOAD_TYPES,
+  pathRelativeToProject,
+  PROJECT_CONFIG_PREVIEW_IMG_COLORS,
+} from "utils/constants";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export async function loadProjectConfig({ projectConfigName }) {
@@ -72,9 +76,19 @@ export function loadProjectState({
 export function useCreateAndGoToProjectConfig() {
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
   return async () => {
-    const { data: newProjectName } = await dbCreateProjectConfig();
+    const previewImgColor = getRandomProjectConfigPreviewImgColor();
+    const { data: newProjectName } = await dbCreateProjectConfig({
+      previewImgColor,
+    });
     navigateToAnotherConfig(newProjectName);
   };
+}
+
+function getRandomProjectConfigPreviewImgColor() {
+  const randomIndex = Math.floor(
+    Math.random() * PROJECT_CONFIG_PREVIEW_IMG_COLORS.length,
+  );
+  return PROJECT_CONFIG_PREVIEW_IMG_COLORS[randomIndex];
 }
 
 export function useNavigateToAnotherConfig() {
