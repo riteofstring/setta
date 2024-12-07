@@ -1,5 +1,7 @@
 import copy
 
+from setta.database.db.sectionVariants.utils import new_ev_entry
+from setta.database.db.uiTypes.utils import new_ui_type_col_entry
 from setta.utils.section_contents import get_param_ids
 from setta.utils.utils import (
     QuoteInsensitiveDict,
@@ -7,7 +9,7 @@ from setta.utils.utils import (
     try_json,
 )
 
-from ..utils.constants import BASE_UI_TYPE_IDS, C
+from ..utils.constants import C
 from .find_placeholders import double_braces, needs_generated_python
 from .utils import process_refs
 
@@ -71,11 +73,9 @@ def get_top_level_param_ids(p, id):
 
 def get_param_ui_type(p, section_id, id):
     ui_type_col_id = p["sections"][section_id]["uiTypeColId"]
-    ui_type_col = p["uiTypeCols"][ui_type_col_id]
-    if id not in ui_type_col:
-        ui_type_id = BASE_UI_TYPE_IDS[C.TEXT]
-    else:
-        ui_type_id = ui_type_col[id]["uiTypeId"]
+    ui_type_col = p["uiTypeCols"][ui_type_col_id] if ui_type_col_id else {}
+    ui_type_col_entry = ui_type_col.get(id, new_ui_type_col_entry())
+    ui_type_id = ui_type_col_entry["uiTypeId"]
     ui_type = p["uiTypes"][ui_type_id]
     return ui_type["type"]
 
@@ -423,11 +423,15 @@ class Exporter:
 
     def export_param_value(self, section_id, id):
         variant = get_selected_section_variant(self.p, section_id)
-        value = variant["values"][id]["value"]
-        refs = self.p["paramEVRefs"][section_id][id]
-        value, used_ref_var_names = process_refs(
-            value, refs, self.maybe_create_ref_var_name
-        )
+        if id in variant["values"]:
+            value = variant["values"][id]["value"]
+            refs = self.p["paramEVRefs"][section_id][id]
+            value, used_ref_var_names = process_refs(
+                value, refs, self.maybe_create_ref_var_name
+            )
+        else:
+            value = new_ev_entry()["value"]
+            used_ref_var_names = []
         return value, used_ref_var_names
 
     def maybe_create_ref_var_name(

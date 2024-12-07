@@ -303,7 +303,9 @@ def load_json_source(filename_glob):
                 process_object(v, filename, path)
             else:
                 # For non-objects, store the value directly
-                new_data[filename]["sectionVariantValues"][full_key] = new_ev_entry(value=json.dumps(v))
+                new_data[filename]["sectionVariantValues"][full_key] = new_ev_entry(
+                    value=json.dumps(v)
+                )
 
         parent_id = None
         if len(current_path) > 0:
