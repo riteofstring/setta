@@ -95,10 +95,10 @@ function FrozenFooter({ className }) {
   const shortcuts = useSettings((x) => {
     return {
       frozenTooltipToPlaintextShortcut: shortcutPrettified(
-        x.shortcuts.frozenTooltipToPlaintextShortcut,
+        x.frozenTooltipToPlaintextShortcut,
       ),
       frozenTooltipToMarkdownShortcut: shortcutPrettified(
-        x.shortcuts.frozenTooltipToMarkdownShortcut,
+        x.frozenTooltipToMarkdownShortcut,
       ),
     };
   }, _.isEqual);
@@ -122,10 +122,10 @@ function Footer({ className }) {
   const shortcuts = useSettings((x) => {
     return {
       tooltipToPlaintextShortcut: shortcutPrettified(
-        x.shortcuts.tooltipToPlaintextShortcut,
+        x.tooltipToPlaintextShortcut,
       ),
       tooltipToMarkdownShortcut: shortcutPrettified(
-        x.shortcuts.tooltipToMarkdownShortcut,
+        x.tooltipToMarkdownShortcut,
       ),
       freezeTooltipShortcut: shortcutPrettified(x.freezeTooltipShortcut),
     };

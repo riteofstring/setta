@@ -1,29 +1,19 @@
 import _ from "lodash";
-import { createNewId } from "utils/idNameCreation";
-import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { getSectionVariant } from "./sectionInfos";
 
 export function addCodeInfo({ sectionId, info, parent, insertIdx, state }) {
   state.codeInfo[info.id] = info;
-  const variant = getSectionVariant(sectionId, state);
-  let codeInfoColId = variant.codeInfoColId;
-  if (!codeInfoColId) {
-    codeInfoColId = createNewId();
-    variant.codeInfoColId = codeInfoColId;
-    state.codeInfoCols[codeInfoColId] = newCodeInfoCol();
-  }
-
-  const currCodeInfoCol = state.codeInfoCols[codeInfoColId];
-  if (!(parent in currCodeInfoCol.children)) {
-    currCodeInfoCol.children[parent] = [];
-  }
-
+  const { codeInfoColId } = getSectionVariant(sectionId, state);
   if (_.isNil(insertIdx)) {
-    currCodeInfoCol.children[parent].push(info.id);
+    state.codeInfoCols[codeInfoColId].children[parent].push(info.id);
   } else {
-    currCodeInfoCol.children[parent].splice(insertIdx, 0, info.id);
+    state.codeInfoCols[codeInfoColId].children[parent].splice(
+      insertIdx,
+      0,
+      info.id,
+    );
   }
-  currCodeInfoCol.children[info.id] = [];
+  state.codeInfoCols[codeInfoColId].children[info.id] = [];
 }
 
 export function deleteCodeInfo(sectionId, ids, state) {

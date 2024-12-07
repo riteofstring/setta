@@ -1,4 +1,3 @@
-import copy
 import json
 import os
 import re
@@ -160,25 +159,7 @@ def replace_null_keys_with_none(data):
     return data
 
 
-def filter_dict(x, keep_keys=None, default_vals=None):
-    if not isinstance(x, dict):
-        return x
-
-    return {
-        k: filter_dict(v, None, default_vals.get(k) if default_vals else None)
-        for k, v in x.items()
-        if (not keep_keys or k in keep_keys)
-        and ((not default_vals) or (k not in default_vals) or (v != default_vals[k]))
-    }
-
-
-def deep_merge(d1, d2):
-    result = {}
-    for k in set(d1) | set(d2):
-        if k in d1 and k in d2 and isinstance(d1[k], dict) and isinstance(d2[k], dict):
-            result[k] = deep_merge(d1[k], d2[k])
-        elif k in d2:
-            result[k] = d2[k]
-        else:
-            result[k] = d1[k]
-    return result
+def filter_dict(x, keep_keys=None, discard_keys=None):
+    if keep_keys:
+        return {k: x[k] for k in x.keys() if k in keep_keys}
+    return {k: x[k] for k in x.keys() if k not in discard_keys}

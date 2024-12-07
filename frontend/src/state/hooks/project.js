@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import {
-  dbFilterDataForJSONExport,
   dbGetAllProjectConfigMetadata,
   dbLoadFullProject,
   dbLoadProjectConfigNames,
@@ -10,7 +9,7 @@ import {
   loadProjectConfig,
   loadSettingsProjectConfig,
 } from "state/actions/project/loadProject";
-import { getProjectDataForSaving } from "state/actions/project/saveProject";
+import { getProjectData } from "state/actions/project/saveProject";
 import {
   useAllProjectConfigs,
   useMisc,
@@ -22,15 +21,13 @@ import { useHotReload } from "utils/hotReload";
 
 export function useGetAllProjectConfigMetadata() {
   const [projects, setProjects] = useState([]);
-  const [defaultProjectName, setDefaultProjectName] = useState([]);
   async function getAllProjectConfigMetadata() {
     const res = await dbGetAllProjectConfigMetadata();
     if (res.status === 200) {
-      setProjects(res.data[0]);
-      setDefaultProjectName(res.data[1]);
+      setProjects(res.data);
     }
   }
-  return { projects, defaultProjectName, getAllProjectConfigMetadata };
+  return { projects, getAllProjectConfigMetadata };
 }
 
 export function useGetAllProjectConfigMetadataForFileMenu(open) {
@@ -48,12 +45,11 @@ export function useGetAllProjectConfigMetadataForFileMenu(open) {
 
 export function useExportProjectJson() {
   const [projectJson, setProjectJson] = useState({});
-  async function exportProjectJson() {
-    const project = getProjectDataForSaving();
-    const res = await dbFilterDataForJSONExport(project);
-    if (res.status === 200) {
-      setProjectJson(res.data);
-    }
+  function exportProjectJson() {
+    const { project, ...theRest } = getProjectData({
+      withArtifactMetadata: true,
+    });
+    setProjectJson(theRest);
   }
   async function exportFullProjectJson() {
     const res = await dbLoadFullProject({});

@@ -50,6 +50,38 @@ function _findAllDescendants(
   return { ids: output, pathMap };
 }
 
+export function findAllParametersOfCallables(
+  allCodeInfo,
+  codeInfoChildren,
+  codeInfoIds,
+  paramPathCondition = false,
+) {
+  return _findAllDescendants(
+    allCodeInfo,
+    codeInfoChildren,
+    codeInfoIds,
+    (c) => c?.rcType === C.PARAMETER,
+    (c) => c?.rcType === C.CALLABLE,
+    paramPathCondition,
+  );
+}
+
+export function findAllParametersOfNotCallables(
+  allCodeInfo,
+  codeInfoChildren,
+  codeInfoIds,
+  paramPathCondition = false,
+) {
+  return _findAllDescendants(
+    allCodeInfo,
+    codeInfoChildren,
+    codeInfoIds,
+    (c) => c?.rcType === C.PARAMETER,
+    (c) => c?.rcType !== C.CALLABLE,
+    paramPathCondition,
+  );
+}
+
 export function findAllParameters(
   allCodeInfo,
   codeInfoChildren,
