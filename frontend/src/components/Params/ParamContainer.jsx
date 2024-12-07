@@ -97,7 +97,7 @@ function _ParamContainer({
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-args-nested section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between rounded-sm ${bg} ${border}`}
+        className={`section-args-nested section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between rounded-sm hover:bg-setta-50 hover:dark:bg-setta-800/70 ${bg} ${border}`}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
         onMouseDown={onMouseDownSelect}
         style={gridStyle}
