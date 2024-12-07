@@ -2,11 +2,12 @@ import CodeMirror from "@uiw/react-codemirror";
 import { useCodeAreaHeight } from "components/Section/Layouts/CodeArea";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/utils/CodeMirror/useCodeMirrorStyle";
+import C from "constants/constants.json";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos, useSettings } from "state/definitions";
 import { useInfoAreaDescriptionAndEditability } from "state/hooks/sectionVariants";
 
 export function MarkdownEditorInPane({ sectionId }) {
@@ -119,16 +120,13 @@ function getFirstHeadingOrText(markdown) {
   return output;
 }
 
-export function getDefaultInfoTitle() {
-  return "Empty Info Section";
-}
-
 const debouncedSetDescription = _.debounce((sectionId, v, description) => {
   if (v !== description) {
     useSectionInfos.setState((state) => {
       getSectionVariant(sectionId, state).description = v;
       state.x[sectionId].name =
-        getFirstHeadingOrText(v) ?? getDefaultInfoTitle();
+        getFirstHeadingOrText(v) ??
+        useSettings.getState().sections[C.INFO].name;
     });
     maybeIncrementProjectStateVersion(true);
   }

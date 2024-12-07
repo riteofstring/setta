@@ -9,7 +9,6 @@ import {
 import { dbSaveSettings } from "requests/settings";
 import {
   useArtifacts,
-  useKeywordRegex,
   useNodeInternals,
   useProjectConfig,
   useSectionInfos,
@@ -67,7 +66,6 @@ export function getProjectData({
 
   const codeInfo = useSectionInfos.getState().codeInfo;
   const codeInfoCols = useSectionInfos.getState().codeInfoCols;
-  const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
 
   const projectConfig = getProjectConfigMetadata();
   const children = {};
@@ -94,7 +92,6 @@ export function getProjectData({
     sections,
     codeInfo,
     codeInfoCols,
-    fullNameToInfo,
   };
 
   // console.log(output);
@@ -112,10 +109,7 @@ export async function saveProject() {
     }
   } else {
     res = await dbSaveProject({
-      project: getProjectData({
-        withArtifactMetadata: true,
-        convertYamlToGUI: true,
-      }),
+      project: getProjectDataForSaving(),
     });
   }
 
@@ -140,10 +134,7 @@ export async function saveAsExistingProjectConfig({ configName }) {
 
 async function saveProjectAs({ fn, otherArgs }) {
   await fn({
-    project: getProjectData({
-      withArtifactMetadata: true,
-      convertYamlToGUI: true,
-    }),
+    project: getProjectDataForSaving(),
     ...otherArgs,
   });
 }
@@ -153,7 +144,6 @@ function getProjectConfigMetadata() {
   const output = {
     id: state.id,
     name: state.name,
-    isDefault: state.isDefault,
     previewImgColor: state.previewImgColor,
   };
 
@@ -162,4 +152,11 @@ function getProjectConfigMetadata() {
     : getViewport();
 
   return output;
+}
+
+export function getProjectDataForSaving() {
+  return getProjectData({
+    withArtifactMetadata: true,
+    convertYamlToGUI: true,
+  });
 }

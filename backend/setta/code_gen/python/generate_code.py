@@ -126,7 +126,7 @@ def maybe_prepend_with_imports_and_replace_templated_code(
     var_name_to_line_num,
     replace_templated_code=True,
 ):
-    if USER_SETTINGS["inferImports"]:
+    if USER_SETTINGS["backend"]["inferImports"]:
         if force_appear_var_name:
             line_num = var_name_to_line_num[force_appear_var_name]
             original_force_appear_var_str = lines[line_num]

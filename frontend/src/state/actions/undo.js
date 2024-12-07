@@ -86,7 +86,7 @@ export function maybeIncrementProjectStateVersion(
 }
 
 const autoSave = _.debounce(() => {
-  if (useSettings.getState().autosave) {
+  if (useSettings.getState().backend.autosave) {
     saveProject();
   }
 }, 1000);

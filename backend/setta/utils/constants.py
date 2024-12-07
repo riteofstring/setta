@@ -40,6 +40,7 @@ class Constants:
 C = Constants()
 USER_SETTINGS = {}
 BASE_UI_TYPE_IDS = {}
+DEFAULT_VALUES = {}
 
 
 def set_constants(**kwargs):
@@ -59,9 +60,14 @@ def load_constants():
         for k, v in json.load(f).items():
             BASE_UI_TYPE_IDS[v["type"]] = k
 
+    with open(
+        get_absolute_path(__file__, CONSTANTS_FOLDER / "defaultValues.json"), "r"
+    ) as f:
+        DEFAULT_VALUES.update(json.load(f))
+
 
 def is_from_json_source(id):
-    return id.startswith(C.JSON_SOURCE_PREFIX)
+    return id and id.startswith(C.JSON_SOURCE_PREFIX)
 
 
 CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
@@ -118,9 +124,7 @@ UI_TYPE_TABLE_DATA_JSON_FIELDS = set(
     ]
 )
 
-PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(
-    ["viewport", "isDefault", "previewImgColor"]
-)
+PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(["viewport", "previewImgColor"])
 
 PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS = set(["x", "y", "zIndex", "w", "h"])
 

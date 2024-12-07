@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { getDisplayedSectionVariant } from "state/actions/sectionInfos";
+import { getCodeChildrenAndParentCodeInfoId } from "state/actions/sectionInfos";
 import {
   getParamIds,
   getParamIdsToShowInArea,
@@ -10,17 +10,13 @@ import { useSectionInfos } from "state/definitions";
 
 export function useParamInfosForSidePane(sectionId) {
   return useSectionInfos((x) => {
-    const { selectedItem, codeInfoColId } = getDisplayedSectionVariant(
-      sectionId,
-      x,
-    );
-    const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
-
+    const { codeInfoChildren, parentCodeInfoId } =
+      getCodeChildrenAndParentCodeInfoId(sectionId, x);
     const { ids, pathMap } = getParamIds(
       sectionId,
       x,
       codeInfoChildren,
-      selectedItem,
+      parentCodeInfoId,
       (p) => p.rcType === C.PARAMETER,
     );
     const output = [];
@@ -36,17 +32,15 @@ export function useParamInfosForSidePane(sectionId) {
 
 export function useParamIdsToShowInArea(sectionId, isPinned) {
   return useSectionInfos((x) => {
-    const { selectedItem, codeInfoColId } = getDisplayedSectionVariant(
-      sectionId,
-      x,
-    );
-    const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
+    const { codeInfoChildren, parentCodeInfoId, startAtDepth } =
+      getCodeChildrenAndParentCodeInfoId(sectionId, x);
     return getParamIdsToShowInArea(
       sectionId,
       isPinned,
       x,
       codeInfoChildren,
-      selectedItem,
+      parentCodeInfoId,
+      startAtDepth,
     );
   }, _.isEqual);
 }
