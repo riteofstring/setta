@@ -25,15 +25,15 @@ def add_defaults_to_project(p):
 
 
 def filter_data_for_json_export(p):
-    # p["projectConfig"] = filter_dict(
-    #     p["projectConfig"],
-    #     DEFAULT_VALUES["projectConfig"].keys(),
-    #     DEFAULT_VALUES["projectConfig"],
-    # )
-    # for k, v in p["sections"].items():
-    #     p["sections"][k] = filter_dict(
-    #         v, DEFAULT_VALUES["section"].keys(), DEFAULT_VALUES["section"]
-    #     )
+    p["projectConfig"] = filter_dict(
+        p["projectConfig"],
+        DEFAULT_VALUES["projectConfig"].keys(),
+        DEFAULT_VALUES["projectConfig"],
+    )
+    for k, v in p["sections"].items():
+        p["sections"][k] = filter_dict(
+            v, DEFAULT_VALUES["section"].keys(), DEFAULT_VALUES["section"]
+        )
 
     for k, v in p["sectionVariants"].items():
         curr = p["sectionVariants"]
@@ -41,34 +41,26 @@ def filter_data_for_json_export(p):
             v, DEFAULT_VALUES["sectionVariant"].keys(), DEFAULT_VALUES["sectionVariant"]
         )
         if "values" in curr[k]:
-            curr[k]["values"] = {
-                paramId: filter_dict(
-                    curr[k]["values"][paramId],
-                    DEFAULT_VALUES["evEntry"].keys(),
-                    DEFAULT_VALUES["evEntry"],
-                )
-                for paramId in curr[k]["values"].keys()
-            }
-            curr[k]["values"] = {
-                paramId: evEntry
-                for paramId, evEntry in curr[k]["values"].items()
-                if len(evEntry) > 0
-            }
+            curr[k]["values"] = filter_dict(
+                curr[k]["values"],
+                DEFAULT_VALUES["evEntry"].keys(),
+                DEFAULT_VALUES["evEntry"],
+            )
 
-    # for k, v in p["codeInfo"].items():
-    #     p["codeInfo"][k] = filter_dict(
-    #         v, DEFAULT_VALUES["codeInfo"].keys(), DEFAULT_VALUES["codeInfo"]
-    #     )
+    for k, v in p["codeInfo"].items():
+        p["codeInfo"][k] = filter_dict(
+            v, DEFAULT_VALUES["codeInfo"].keys(), DEFAULT_VALUES["codeInfo"]
+        )
 
-    # for k, v in p["codeInfoCols"].items():
-    #     p["codeInfoCols"][k] = filter_dict(
-    #         v, DEFAULT_VALUES["codeInfoCol"].keys(), DEFAULT_VALUES["codeInfoCol"]
-    #     )
+    for k, v in p["codeInfoCols"].items():
+        p["codeInfoCols"][k] = filter_dict(
+            v, DEFAULT_VALUES["codeInfoCol"].keys(), DEFAULT_VALUES["codeInfoCol"]
+        )
 
-    # for k, v in p["uiTypeCols"].items():
-    #     for paramId, uiTypeColInfo in v.items():
-    #         p["uiTypeCols"][k][paramId] = filter_dict(
-    #             uiTypeColInfo,
-    #             DEFAULT_VALUES["uiTypeColEntry"].keys(),
-    #             DEFAULT_VALUES["uiTypeColEntry"],
-    #         )
+    for k, v in p["uiTypeCols"].items():
+        for paramId, uiTypeColInfo in v.items():
+            p["uiTypeCols"][k][paramId] = filter_dict(
+                uiTypeColInfo,
+                DEFAULT_VALUES["uiTypeColEntry"].keys(),
+                DEFAULT_VALUES["uiTypeColEntry"],
+            )
