@@ -53,6 +53,7 @@
     "description": "",
     "keywordPositions": [],
     "isFrozen": false,
+    "isDefault": true,
     "sweep": [],
     "runGroup": {}
   },
