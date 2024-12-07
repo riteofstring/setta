@@ -34,7 +34,7 @@ export function useParamInfosForSidePane(sectionId) {
 
 export function useParamIdsToShowInArea(sectionId, isPinned) {
   return useSectionInfos((x) => {
-    const { codeInfoChildren, parentCodeInfoId } =
+    const { codeInfoChildren, parentCodeInfoId, startAtDepth } =
       getCodeChildrenAndParentCodeInfoId(sectionId, x);
     return getParamIdsToShowInArea(
       sectionId,
@@ -42,6 +42,7 @@ export function useParamIdsToShowInArea(sectionId, isPinned) {
       x,
       codeInfoChildren,
       parentCodeInfoId,
+      startAtDepth,
     );
   }, _.isEqual);
 }
@@ -50,7 +51,8 @@ function getCodeChildrenAndParentCodeInfoId(sectionId, x) {
   const sectionVariant = getDisplayedSectionVariant(sectionId, x);
   const { codeInfoColId } = sectionVariant;
 
-  let parentCodeInfoId;
+  let parentCodeInfoId,
+    startAtDepth = 0;
   const { jsonSource, jsonSourceKeys } = x.x[sectionId];
   if (
     jsonSource &&
@@ -58,6 +60,7 @@ function getCodeChildrenAndParentCodeInfoId(sectionId, x) {
     jsonSourceKeys.length > 0
   ) {
     parentCodeInfoId = createJSONSourceParamId(jsonSourceKeys, jsonSource);
+    startAtDepth = jsonSourceKeys.length;
   } else {
     parentCodeInfoId = sectionVariant.selectedItem;
   }
@@ -66,5 +69,5 @@ function getCodeChildrenAndParentCodeInfoId(sectionId, x) {
     ? x.codeInfoCols[codeInfoColId].children
     : newUITypeColEntry();
 
-  return { codeInfoChildren, parentCodeInfoId };
+  return { codeInfoChildren, parentCodeInfoId, startAtDepth };
 }

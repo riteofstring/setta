@@ -43,6 +43,7 @@ export function getParamIdsToShowInArea(
   _state,
   _codeInfoChildren,
   _parentCodeInfoId = undefined,
+  startAtDepth = 0,
 ) {
   const state = _state ?? useSectionInfos.getState();
   const codeInfoChildren =
@@ -71,10 +72,19 @@ export function getParamIdsToShowInArea(
         codeInfoChildren[a].some((child) => child in requiredParamIdsToPaths))
     ) {
       for (const p of pathMap[a]) {
-        requiredParamIdsToPaths[p] = pathMap[p];
-        if (!topLevelParamIdsSet.has(pathMap[a][0])) {
-          topLevelParamIds.push(pathMap[a][0]);
-          topLevelParamIdsSet.add(pathMap[a][0]);
+        if (startAtDepth > 0) {
+          if (startAtDepth < pathMap[p].length) {
+            requiredParamIdsToPaths[p] = pathMap[p].slice(startAtDepth);
+          }
+        } else {
+          requiredParamIdsToPaths[p] = pathMap[p];
+        }
+        if (
+          pathMap[a][startAtDepth] &&
+          !topLevelParamIdsSet.has(pathMap[a][startAtDepth])
+        ) {
+          topLevelParamIds.push(pathMap[a][startAtDepth]);
+          topLevelParamIdsSet.add(pathMap[a][startAtDepth]);
         }
       }
     }
