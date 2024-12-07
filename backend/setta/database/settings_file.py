@@ -89,7 +89,7 @@ class MetaSettingsFile:
         variantIds = set()
         setting_sections = []
         for s in p["sections"].values():
-            if s["jsonSource"].startswith("setta-settings"):
+            if s.get("jsonSource", "").startswith("setta-settings"):
                 setting_sections.append(s)
                 variantIds.add(s["variantId"])
 
