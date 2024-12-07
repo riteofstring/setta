@@ -158,11 +158,11 @@ export function useCodeAreaHeight({ sectionId }) {
     const resizeObserver = new ResizeObserver(([entry]) => {
       if (!didFirstRender) {
         useMisc.setState((state) => {
-          const newNumInitializedSections = state.numInitializedSections + 1;
+          const newNumInitialized = state.numInitializedCodeAreas + 1;
           return {
-            numInitializedSections: newNumInitializedSections,
+            numInitializedCodeAreas: newNumInitialized,
             requestUpdateNodeDimensions:
-              newNumInitializedSections === state.numDisplayedSections,
+              newNumInitialized === state.numDisplayedCodeAreas,
           };
         });
         setDidFirstRender(true);
@@ -177,7 +177,7 @@ export function useCodeAreaHeight({ sectionId }) {
 
   useEffect(() => {
     useMisc.setState((state) => ({
-      numDisplayedSections: state.numDisplayedSections + 1,
+      numDisplayedCodeAreas: state.numDisplayedCodeAreas + 1,
     }));
 
     return () => {
@@ -185,10 +185,16 @@ export function useCodeAreaHeight({ sectionId }) {
         resizeObserverRef.current.disconnect();
       }
 
+      // the math.max is to prevent it from going negative if that ever happens
       useMisc.setState((state) => {
-        const output = { numDisplayedSections: state.numDisplayedSections - 1 };
+        const output = {
+          numDisplayedCodeAreas: Math.max(0, state.numDisplayedCodeAreas - 1),
+        };
         if (didFirstRender) {
-          output[numInitializedSections] = state.numInitializedSections - 1;
+          output[numInitializedCodeAreas] = Math.max(
+            0,
+            state.numInitializedCodeAreas - 1,
+          );
         }
         return output;
       });
