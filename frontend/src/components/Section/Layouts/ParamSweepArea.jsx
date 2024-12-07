@@ -398,11 +398,12 @@ function AddRemoveButtonsForNoCallableSection({
 function useNumChildlessParams(selectedItem, sectionId) {
   return useSectionInfos((x) => {
     const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
-    return findAllParameters(
-      x.codeInfo,
+    return findAllParameters({
+      allCodeInfo: x.codeInfo,
       codeInfoChildren,
-      selectedItem,
-    ).ids.filter((p) => codeInfoChildren[p].length === 0).length;
+      startingId: selectedItem,
+      additionalOutputCondition: (c) => codeInfoChildren[c.id]?.length === 0,
+    }).ids.length;
   });
 }
 
@@ -416,17 +417,15 @@ function useChildlessObjParams({
     // this is for the contents of the combobox
     // so I don't think it needs to depend on the displayed (preview) codeInfoCol
     const codeInfoChildren = getCodeInfoCol(forSectionId, x).children;
-    const { ids, pathMap } = findAllParametersAndPathMaps(
-      x.codeInfo,
+    const { ids, pathMap } = findAllParametersAndPathMaps({
+      allCodeInfo: x.codeInfo,
       codeInfoChildren,
-      objInfoId,
-    );
+      startingId: objInfoId,
+      additionalOutputCondition: (c) => codeInfoChildren[c.id]?.length === 0,
+    });
     const output = [];
     for (const f of ids) {
-      if (
-        (f !== paramInfoId && alreadySelected.includes(f)) ||
-        codeInfoChildren[f].length > 0
-      ) {
+      if (f !== paramInfoId && alreadySelected.includes(f)) {
         continue;
       }
       const paramFullPathName = paramNameFromPathArray(x.codeInfo, pathMap, f);

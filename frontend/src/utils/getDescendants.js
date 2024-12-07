@@ -49,7 +49,7 @@ function _findAllDescendants(
 
     if (
       output.length > 0 &&
-      earlyReturnCondition?.(output[output.length - 1])
+      earlyReturnCondition?.(allCodeInfo[output[output.length - 1]])
     ) {
       return { ids: output, pathMap, earlyReturnTriggered: true };
     }
@@ -58,24 +58,28 @@ function _findAllDescendants(
   return { ids: output, pathMap, earlyReturnTriggered: false };
 }
 
-export function findAllParameters(
+export function findAllParameters({
   allCodeInfo,
   codeInfoChildren,
   startingId,
+  additionalOutputCondition = null,
   paramPathCondition = null,
   earlyReturnCondition = null,
-) {
+}) {
   const codeInfoIds = startingId ? [startingId] : codeInfoChildren[startingId];
   // if startingId is null, then we're starting at the root
-  // so we don't want to avoid the parameters of callables 
+  // so we don't want to avoid the parameters of callables
   const stackCondition = startingId
     ? () => true
     : (c) => c?.rcType === C.PARAMETER;
+
   return _findAllDescendants(
     allCodeInfo,
     codeInfoChildren,
     codeInfoIds ?? [],
-    (c) => c?.rcType === C.PARAMETER,
+    (c) =>
+      c?.rcType === C.PARAMETER &&
+      (!additionalOutputCondition || additionalOutputCondition(c)),
     stackCondition,
     paramPathCondition,
     earlyReturnCondition,
@@ -92,6 +96,9 @@ export function findAll(allCodeInfo, codeInfoChildren) {
   );
 }
 
-export function findAllParametersAndPathMaps(...props) {
-  return findAllParameters(...props, (p) => p.rcType === C.PARAMETER);
+export function findAllParametersAndPathMaps(props) {
+  return findAllParameters({
+    ...props,
+    paramPathCondition: (p) => p.rcType === C.PARAMETER,
+  });
 }

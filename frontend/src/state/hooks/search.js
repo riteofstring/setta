@@ -77,11 +77,11 @@ function getParamsAndAddToSearchResults(
   if (!visitedSections.has(sectionId)) {
     const { selectedItem } = getSectionVariant(sectionId, state);
     const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
-    const { ids: paramIds } = findAllParameters(
-      state.codeInfo,
+    const { ids: paramIds } = findAllParameters({
+      allCodeInfo: state.codeInfo,
       codeInfoChildren,
-      selectedItem,
-    );
+      startingId: selectedItem,
+    });
     for (const p of paramIds) {
       output.push({
         sectionId,

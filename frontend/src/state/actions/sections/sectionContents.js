@@ -19,11 +19,11 @@ export function getParamIdsToShowInArea(
   const codeInfoChildren =
     _codeInfoChildren ?? getCodeInfoCol(sectionId, state).children;
 
-  const { ids, pathMap } = findAllParametersAndPathMaps(
-    state.codeInfo,
+  const { ids, pathMap } = findAllParametersAndPathMaps({
+    allCodeInfo: state.codeInfo,
     codeInfoChildren,
-    _parentCodeInfoId,
-  );
+    startingId: _parentCodeInfoId,
+  });
   ids.reverse();
 
   let topLevelParamIds = [];
@@ -84,25 +84,24 @@ function getSectionHasSomeParamCondition(sectionId, state, condition) {
   const { selectedItem } = getSectionVariant(sectionId, state);
   const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
 
-  const { earlyReturnTriggered } = findAllParameters(
-    state.codeInfo,
+  const { earlyReturnTriggered } = findAllParameters({
+    allCodeInfo: state.codeInfo,
     codeInfoChildren,
-    selectedItem,
-    null,
-    condition,
-  );
+    startingId: selectedItem,
+    earlyReturnCondition: condition,
+  });
 
   return earlyReturnTriggered;
 }
 
 export function getSectionHasParams(sectionId, state) {
-  return getSectionHasSomeParamCondition(sectionId, state, (outputId) => {
-    return state.codeInfo[outputId].rcType === C.PARAMETER;
+  return getSectionHasSomeParamCondition(sectionId, state, (c) => {
+    return c?.rcType === C.PARAMETER;
   });
 }
 
 export function getSectionHasAtLeastOneSelectedParam(sectionId, state) {
-  return getSectionHasSomeParamCondition(sectionId, state, (outputId) => {
-    return state.codeInfo[outputId].isSelected;
+  return getSectionHasSomeParamCondition(sectionId, state, (c) => {
+    return c?.isSelected;
   });
 }

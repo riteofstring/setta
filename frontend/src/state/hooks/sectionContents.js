@@ -11,11 +11,12 @@ export function useParamInfosForSidePane(sectionId) {
   return useSectionInfos((x) => {
     const { codeInfoChildren, parentCodeInfoId } =
       getCodeChildrenAndParentCodeInfoId(sectionId, x);
-    const { ids, pathMap } = findAllParametersAndPathMaps(
-      x.codeInfo,
+    const { ids, pathMap } = findAllParametersAndPathMaps({
+      allCodeInfo: x.codeInfo,
       codeInfoChildren,
-      parentCodeInfoId,
-    );
+      startingId: parentCodeInfoId,
+      additionalOutputCondition: (c) => codeInfoChildren[c.id]?.length === 0,
+    });
     const output = [];
     for (const id of ids) {
       output.push({

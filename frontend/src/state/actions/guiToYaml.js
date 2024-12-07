@@ -80,11 +80,11 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
       }
     }
 
-    const { pathMap } = findAllParametersAndPathMaps(
-      state.codeInfo,
+    const { pathMap } = findAllParametersAndPathMaps({
+      allCodeInfo: state.codeInfo,
       codeInfoChildren,
-      matchingCallableId,
-    );
+      startingId: matchingCallableId,
+    });
 
     const paramsInDoc = callableName ? d[callableName] : d;
     const params = [];
