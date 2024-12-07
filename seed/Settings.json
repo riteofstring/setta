@@ -73,7 +73,7 @@
   "languageServer": {},
   "sections": {
     "CODE": {
-      "size": { "width": 500, "height": "auto" }
+      "size": { "width": 500 }
     },
     "TERMINAL": {
       "size": { "width": 700, "height": 300 }

@@ -14,10 +14,10 @@ export function newSectionInfo({
 }) {
   const uiTypeName = useSectionInfos.getState().uiTypes[uiTypeId].type;
 
-  const output = {
-    ..._.cloneDeep(DEFAULT_VALUES.section),
-    ..._.cloneDeep(useSettings.getState().sections[uiTypeName]),
-  };
+  const output = _.merge(
+    _.cloneDeep(DEFAULT_VALUES.section),
+    _.cloneDeep(useSettings.getState().sections[uiTypeName]),
+  );
 
   if (!output.name) {
     output.name = createVarName(
@@ -28,12 +28,14 @@ export function newSectionInfo({
   const _variantId = maybeNewId(variantId);
   const _variantIds = [...variantIds, _variantId];
 
-  return {
-    ...output,
-    id: maybeNewId(id),
-    variantId: _variantId,
-    uiTypeId,
-    variantIds: _variantIds,
-    ...props,
-  };
+  return _.merge(
+    output,
+    {
+      id: maybeNewId(id),
+      variantId: _variantId,
+      uiTypeId,
+      variantIds: _variantIds,
+    },
+    props,
+  );
 }
