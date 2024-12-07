@@ -23,10 +23,6 @@ def add_defaults_to_project(p):
 
 
 def filter_data_for_json_export(p):
-    from pprint import pprint
-
-    pprint(p)
-
     p["projectConfig"] = filter_dict(
         p["projectConfig"], None, DEFAULT_VALUES["projectConfig"]
     )
