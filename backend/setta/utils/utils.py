@@ -159,11 +159,13 @@ def replace_null_keys_with_none(data):
         return new_dict
     return data
 
-
+from pprint import pprint
 def filter_dict(x, keep_keys=None, default_vals=None):
     if not isinstance(x, dict):
+        print("returning early")
+        pprint(x)
         return x
-
+    
     return {
         k: filter_dict(v, None, default_vals.get(k) if default_vals else None)
         for k, v in x.items()
