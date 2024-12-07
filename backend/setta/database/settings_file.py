@@ -100,8 +100,7 @@ class MetaSettingsFile:
                 break
 
         if not variantId:
-            variant = new_section_variant(name=settings_path)
-            variantId = variant["id"]
+            variantId, variant = new_section_variant(name=settings_path)
             codeInfoColId = variant["codeInfoColId"]
             p["sectionVariants"][variantId] = variant
             p["codeInfoCols"][codeInfoColId] = {

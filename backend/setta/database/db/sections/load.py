@@ -5,7 +5,7 @@ import json
 from collections import defaultdict
 
 from setta.database.db.sections.utils import with_section_defaults
-from setta.database.db.sectionVariants.utils import new_section_variant
+from setta.database.db.sectionVariants.utils import new_ev_entry, new_section_variant
 from setta.database.utils import create_new_id
 from setta.utils.constants import C
 
@@ -226,8 +226,7 @@ def load_json_sources_into_data_structures(
                 variantId = create_new_id()
                 codeInfoColId = create_new_id()
                 s["variantIds"].append(variantId)
-                sectionVariants[variantId] = new_section_variant(
-                    id=variantId,
+                _, sectionVariants[variantId] = new_section_variant(
                     name=filename,
                     codeInfoColId=codeInfoColId,
                     values=data["sectionVariantValues"],
@@ -299,18 +298,12 @@ def load_json_source(filename_glob):
             # Create variant value entry
             if isinstance(v, dict):
                 # For objects, store empty value and process children
-                new_data[filename]["sectionVariantValues"][full_key] = {
-                    "value": "",
-                    "keywordPositions": [],
-                }
+                new_data[filename]["sectionVariantValues"][full_key] = new_ev_entry()
                 # Recursively process nested object
                 process_object(v, filename, path)
             else:
                 # For non-objects, store the value directly
-                new_data[filename]["sectionVariantValues"][full_key] = {
-                    "value": json.dumps(v),
-                    "keywordPositions": [],
-                }
+                new_data[filename]["sectionVariantValues"][full_key] = new_ev_entry(value=json.dumps(v))
 
         parent_id = None
         if len(current_path) > 0:
