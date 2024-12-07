@@ -28,9 +28,9 @@ CREATE TABLE IF NOT EXISTS Section (
     paramSweepSectionId TEXT,
     uiTypeId TEXT,
     uiTypeColId TEXT,
-    FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
+    FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE SET NULL,
     FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
-    FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE
+    FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE SET NULL
 );
 CREATE TABLE IF NOT EXISTS SectionConfig (
     projectConfigId TEXT,
@@ -58,9 +58,9 @@ CREATE TABLE IF NOT EXISTS SectionVariantId (
     codeInfoColId TEXT,
     originSectionId TEXT,
     runGroup TEXT,
-    FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
+    FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE SET NULL,
     FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE,
-    FOREIGN KEY (codeInfoColId) REFERENCES CodeInfoColId(id) ON DELETE CASCADE
+    FOREIGN KEY (codeInfoColId) REFERENCES CodeInfoColId(id) ON DELETE SET NULL
 );
 CREATE TABLE IF NOT EXISTS SectionVariantEV (
     idid TEXT,
