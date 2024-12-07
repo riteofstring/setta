@@ -15,7 +15,7 @@ import {
 } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
-import { findAllParameters } from "utils/getDescendants";
+import { findAllParametersAndPathMaps } from "utils/getDescendants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { newEVEntry } from "utils/objs/ev";
@@ -80,11 +80,10 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
       }
     }
 
-    const { pathMap } = findAllParameters(
+    const { pathMap } = findAllParametersAndPathMaps(
       state.codeInfo,
       codeInfoChildren,
       matchingCallableId,
-      (p) => p.rcType === C.PARAMETER,
     );
 
     const paramsInDoc = callableName ? d[callableName] : d;

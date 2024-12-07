@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { getCodeChildrenAndParentCodeInfoId } from "state/actions/sectionInfos";
 import {
@@ -6,17 +5,16 @@ import {
   paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
-import { findAllParameters } from "utils/getDescendants";
+import { findAllParametersAndPathMaps } from "utils/getDescendants";
 
 export function useParamInfosForSidePane(sectionId) {
   return useSectionInfos((x) => {
     const { codeInfoChildren, parentCodeInfoId } =
       getCodeChildrenAndParentCodeInfoId(sectionId, x);
-    const { ids, pathMap } = findAllParameters(
+    const { ids, pathMap } = findAllParametersAndPathMaps(
       x.codeInfo,
       codeInfoChildren,
       parentCodeInfoId,
-      (p) => p.rcType === C.PARAMETER,
     );
     const output = [];
     for (const id of ids) {

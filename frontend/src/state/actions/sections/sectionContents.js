@@ -1,6 +1,9 @@
 import C from "constants/constants.json";
 import { useSectionInfos } from "state/definitions";
-import { findAllParameters } from "utils/getDescendants";
+import {
+  findAllParameters,
+  findAllParametersAndPathMaps,
+} from "utils/getDescendants";
 import { bothTruthyOrFalsey } from "utils/utils";
 import { getCodeInfoCol, getSectionVariant } from "../sectionInfos";
 
@@ -16,11 +19,10 @@ export function getParamIdsToShowInArea(
   const codeInfoChildren =
     _codeInfoChildren ?? getCodeInfoCol(sectionId, state).children;
 
-  const { ids, pathMap } = findAllParameters(
+  const { ids, pathMap } = findAllParametersAndPathMaps(
     state.codeInfo,
     codeInfoChildren,
     _parentCodeInfoId,
-    (p) => p.rcType === C.PARAMETER,
   );
   ids.reverse();
 

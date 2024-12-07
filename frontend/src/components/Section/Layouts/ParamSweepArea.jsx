@@ -1,7 +1,6 @@
 import { ParamSweepUI } from "components/Params/ParamUIs/ParamUI";
 import { SectionYamlView } from "components/Params/YamlView";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
-import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
 import { FiEdit3 } from "react-icons/fi";
@@ -19,7 +18,10 @@ import { getCodeInfoCol } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
-import { findAllParameters } from "utils/getDescendants";
+import {
+  findAllParameters,
+  findAllParametersAndPathMaps,
+} from "utils/getDescendants";
 import { useShowYaml } from "../../../state/hooks/toYaml";
 import { ParamSweepSectionSearch } from "../SectionParts/Search";
 
@@ -414,11 +416,10 @@ function useChildlessObjParams({
     // this is for the contents of the combobox
     // so I don't think it needs to depend on the displayed (preview) codeInfoCol
     const codeInfoChildren = getCodeInfoCol(forSectionId, x).children;
-    const { ids, pathMap } = findAllParameters(
+    const { ids, pathMap } = findAllParametersAndPathMaps(
       x.codeInfo,
       codeInfoChildren,
       objInfoId,
-      (p) => p.rcType === C.PARAMETER,
     );
     const output = [];
     for (const f of ids) {

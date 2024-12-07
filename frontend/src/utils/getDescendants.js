@@ -94,3 +94,7 @@ export function findAll(
     earlyReturnCondition,
   );
 }
+
+export function findAllParametersAndPathMaps(...props) {
+  return findAllParameters(...props, (p) => p.rcType === C.PARAMETER);
+}
