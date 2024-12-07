@@ -22,7 +22,7 @@ from setta.code_gen.yaml.section_dict import (
     section_dict_to_yaml,
 )
 from setta.utils.constants import C
-from setta.utils.section_contents import get_param_ids_to_show_in_area
+from setta.utils.section_contents import getParamIdsToShowInArea
 
 from .utils import get_configs_and_root_folder
 
@@ -77,16 +77,18 @@ def export_code(folder, config, section_id, variant_id, with_variants):
 def export_regular_section(folder, config, section_id, variant_id, with_variants):
     sectionVariant = config["sectionVariants"][variant_id]
     selectedItemId = sectionVariant["selectedItem"]
-    codeInfoChildren = config["codeInfoCols"][sectionVariant["codeInfoColId"]][
-        "children"
-    ]
-    pinned = get_param_ids_to_show_in_area(
+    codeInfoChildren = (
+        config["codeInfoCols"]
+        .get(sectionVariant["codeInfoColId"], {})
+        .get("children", {})
+    )
+    pinned = getParamIdsToShowInArea(
         True,
         config["codeInfo"],
         codeInfoChildren,
         selectedItemId,
     )
-    unpinned = get_param_ids_to_show_in_area(
+    unpinned = getParamIdsToShowInArea(
         False,
         config["codeInfo"],
         codeInfoChildren,

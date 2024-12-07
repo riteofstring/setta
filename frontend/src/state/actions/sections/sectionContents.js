@@ -1,5 +1,4 @@
 import C from "constants/constants.json";
-import { useSectionInfos } from "state/definitions";
 import {
   findAllParameters,
   findAllParametersAndPathMaps,
@@ -8,21 +7,16 @@ import { bothTruthyOrFalsey } from "utils/utils";
 import { getCodeInfoCol, getSectionVariant } from "../sectionInfos";
 
 export function getParamIdsToShowInArea(
-  sectionId,
   isPinned,
-  _state,
-  _codeInfoChildren,
-  _parentCodeInfoId = undefined,
+  codeInfo,
+  codeInfoChildren,
+  parentCodeInfoId,
   startAtDepth = 0,
 ) {
-  const state = _state ?? useSectionInfos.getState();
-  const codeInfoChildren =
-    _codeInfoChildren ?? getCodeInfoCol(sectionId, state).children;
-
   const { ids, pathMap } = findAllParametersAndPathMaps({
-    allCodeInfo: state.codeInfo,
+    allCodeInfo: codeInfo,
     codeInfoChildren,
-    startingId: _parentCodeInfoId,
+    startingId: parentCodeInfoId,
   });
   ids.reverse();
 
@@ -35,7 +29,7 @@ export function getParamIdsToShowInArea(
     // 2. And: either the param has no children or at least one of its children is required
     // This logic is why it's REQUIRED for ids to be reversed (processed starting with children up to ancestors)
     if (
-      bothTruthyOrFalsey(state.codeInfo[a].isPinned, isPinned) &&
+      bothTruthyOrFalsey(codeInfo[a].isPinned, isPinned) &&
       (codeInfoChildren[a].length === 0 ||
         codeInfoChildren[a].some((child) => child in requiredParamIdsToPaths))
     ) {

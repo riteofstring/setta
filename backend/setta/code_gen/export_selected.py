@@ -3,7 +3,7 @@ import copy
 from setta.database.db.codeInfo.utils import new_code_info_col
 from setta.database.db.sectionVariants.utils import new_ev_entry
 from setta.database.db.uiTypes.utils import new_ui_type_col_entry
-from setta.utils.section_contents import get_param_ids
+from setta.utils.section_contents import findAllParametersAndPathMaps
 from setta.utils.utils import (
     QuoteInsensitiveDict,
     replace_null_keys_with_none,
@@ -654,11 +654,10 @@ class ParamSweepSectionToDict:
             curr = currObj[selectedItemName]
         else:
             curr = currObj = []
-        result = get_param_ids(
-            self.codeInfo,
-            self.codeInfoChildren,
-            selectedItem,
-            lambda p: p["rcType"] == C.PARAMETER,
+        result = findAllParametersAndPathMaps(
+            allCodeInfo=self.codeInfo,
+            codeInfoChildren=self.codeInfoChildren,
+            startingId=selectedItem,
         )
         pathMap = result["pathMap"]
         for p in params:

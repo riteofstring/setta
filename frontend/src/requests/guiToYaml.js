@@ -28,18 +28,17 @@ export async function dbSectionToYaml(sectionId) {
   const state = useSectionInfos.getState();
   const { codeInfoChildren, parentCodeInfoId, startAtDepth } =
     getCodeChildrenAndParentCodeInfoId(sectionId, state);
+  const codeInfo = state.codeInfo;
   const pinnedIds = getParamIdsToShowInArea(
-    sectionId,
     true,
-    state,
+    codeInfo,
     codeInfoChildren,
     parentCodeInfoId,
     startAtDepth,
   );
   const unpinnedIds = getParamIdsToShowInArea(
-    sectionId,
     false,
-    state,
+    codeInfo,
     codeInfoChildren,
     parentCodeInfoId,
     startAtDepth,
@@ -51,7 +50,6 @@ export async function dbSectionToYaml(sectionId) {
   delete pinnedIds.requiredParamIdsToPaths;
   delete unpinnedIds.requiredParamIdsToPaths;
   const { configLanguage } = state.x[sectionId];
-  const codeInfo = state.codeInfo;
   const sectionVariant = getDisplayedSectionVariant(sectionId, state);
   const res = await post({
     body: {
