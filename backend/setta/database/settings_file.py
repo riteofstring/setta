@@ -1,7 +1,10 @@
 import json
 import os
 
-from setta.database.db.projects.utils import add_defaults_to_project
+from setta.database.db.projects.utils import (
+    add_defaults_to_project,
+    filter_data_for_json_export,
+)
 from setta.database.db.sections.jsonSource import (
     remove_json_source_data,
     save_json_source_data,
@@ -135,6 +138,7 @@ class MetaSettingsFile:
         # TODO: make this less horrible. This shouldn't have to be done here.
         for v in p["sections"].values():
             v.pop("previewVariantId", None)
+        filter_data_for_json_export(p)
         self.save_raw(p)
         return saved_data[self.settings_path]
 

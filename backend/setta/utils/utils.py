@@ -163,5 +163,6 @@ def filter_dict(x, keep_keys=None, default_vals=None):
     return {
         k: v
         for k, v in x.items()
-        if k in keep_keys and ((not default_vals) or (v != default_vals[k]))
+        if (not keep_keys or k in keep_keys)
+        and ((not default_vals) or (k not in default_vals) or (v != default_vals[k]))
     }
