@@ -10,11 +10,11 @@ function Background() {
   const offset = 2;
   const [darkMode] = localStorageFns.darkMode.hook();
   const patternColor = useSettings((x) =>
-    darkMode ? x.gridColorDarkMode : x.gridColor,
+    darkMode ? x.gui.gridColorDarkMode : x.gui.gridColor,
   );
-  const patternSize = useSettings((x) => x.gridPatternSize);
-  const gapXY: [number, number] = useSettings((x) => x.snapGrid);
-  const variant = useSettings((x) => BackgroundVariant[x.gridPattern]);
+  const patternSize = useSettings((x) => x.gui.gridPatternSize);
+  const gapXY: [number, number] = useSettings((x) => x.gui.snapGrid);
+  const variant = useSettings((x) => BackgroundVariant[x.gui.gridPattern]);
   const ref = useRef<SVGSVGElement>(null);
 
   const isDots = variant === BackgroundVariant.Dots;

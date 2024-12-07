@@ -2,7 +2,6 @@
   "projectConfig": {
     "id": "03a28f24-e773-43a3-a1cf-da0fe7c1b8f9",
     "name": "interactive_example",
-    "isDefault": 0,
     "previewImgColor": "bg-indigo-500/60 dark:bg-indigo-600/30",
     "viewport": {
       "x": 363.8625758992133,
@@ -56,7 +55,6 @@
   },
   "sectionVariants": {
     "00d5ac58-7a66-4ff1-a62f-af873c0a094b": {
-      "selectedItem": null,
       "codeInfoColId": "8cb39cdd-f8e2-4706-9e47-fc1733fce6f0",
       "values": {
         "20512036-3e0f-41f3-9738-6573ee71bdaf": {
@@ -72,85 +70,25 @@
           "keywordPositions": []
         }
       },
-      "children": [],
-      "name": "acceptable_purple",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "acceptable_purple"
     },
     "56218716-8dc7-4a8b-a253-1eb2bb9cfc56": {
-      "selectedItem": null,
-      "codeInfoColId": "81494cf8-fbfa-492a-8db3-f5919a5422eb",
-      "values": {},
-      "children": [],
       "name": "ratty_red",
-      "code": "$SETTA_GENERATED_PYTHON\n\nfrom setta.cli.logger import Setta, SettaNumpyImg\nimport numpy as np\n\n\ns = Setta()\n\nimg = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)\ns.log({\"test_folder/another_folder/img\": SettaNumpyImg(img)}, save=True)\n\n# c = 3\n# losses = [((i - 10) / 5) ** float(c) for i in range(n)]\n# s.log({\"test_folder/losses\": losses}, save=True)\n\nprint(\"ran code!\")",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "code": "$SETTA_GENERATED_PYTHON\n\nfrom setta.cli.logger import Setta, SettaNumpyImg\nimport numpy as np\n\n\ns = Setta()\n\nimg = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)\ns.log({\"test_folder/another_folder/img\": SettaNumpyImg(img)}, save=True)\n\n# c = 3\n# losses = [((i - 10) / 5) ** float(c) for i in range(n)]\n# s.log({\"test_folder/losses\": losses}, save=True)\n\nprint(\"ran code!\")"
     },
     "61ce0033-a59e-4c8e-8a52-d658feb18017": {
-      "selectedItem": null,
-      "codeInfoColId": "0074df5c-ea05-409e-8f8b-b60c453d3e0c",
-      "values": {},
-      "children": [],
-      "name": "hidden_bronze",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "hidden_bronze"
     },
     "8055d10b-3623-4665-b85c-977327fa40c6": {
-      "selectedItem": null,
-      "codeInfoColId": "75cdb9b3-a7c8-4fd8-8da6-9667a65fea48",
-      "values": {},
-      "children": [],
       "name": "involved_red",
-      "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    blur_radius = float(data[\"blur_radius\"])\n    img = data[\"royal_orange\"][0][\"value\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"displayName\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    blur_radius = float(data[\"blur_radius\"])\n    img = data[\"royal_orange\"][0][\"value\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"displayName\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)"
     },
     "91b7814e-8f93-4ad1-a966-00851b4e41d9": {
-      "selectedItem": null,
-      "codeInfoColId": "2f3d4196-b243-4186-919f-163dc203ca5a",
-      "values": {},
-      "children": [],
       "name": "victorious_white",
-      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\ndef fn(message):\n    data = message.content\n    c = float(data[\"c\"])\n    n = int(data[\"n\"])\n    value = [((i - 10) / 5) ** c for i in range(n)]\n    return_content = {\"value\": value, \"type\": \"list\", \"displayName\": \"Fancy Graph\"}\n    return {\"content\": [return_content]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\ndef fn(message):\n    data = message.content\n    c = float(data[\"c\"])\n    n = int(data[\"n\"])\n    value = [((i - 10) / 5) ** c for i in range(n)]\n    return_content = {\"value\": value, \"type\": \"list\", \"displayName\": \"Fancy Graph\"}\n    return {\"content\": [return_content]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)"
     },
     "efbf1e64-8932-4fa6-928a-e930314db45c": {
-      "selectedItem": null,
-      "codeInfoColId": "4d31d08d-f976-4e29-85aa-d791837d7226",
-      "values": {},
-      "children": [],
-      "name": "tropical_harlequin",
-      "code": "",
-      "keywordPositions": [],
-      "isFrozen": false,
-      "isDefault": true,
-      "description": "",
-      "sweep": [],
-      "runGroup": {}
+      "name": "tropical_harlequin"
     }
   },
   "uiTypes": {
@@ -322,9 +260,6 @@
     }
   },
   "uiTypeCols": {
-    "3072250c-fb83-4b58-9e3b-303f13b1e623": {},
-    "5dd0a464-e86b-4f9c-a195-303e56dcc96d": {},
-    "a3934747-efba-49aa-a500-100b033196d2": {},
     "b3449dbb-8328-43bb-8e45-b76173bf679c": {
       "20512036-3e0f-41f3-9738-6573ee71bdaf": {
         "uiTypeId": "76c639bd-eae5-4497-bf8b-0e668d8baf6c",
@@ -338,110 +273,45 @@
         "uiTypeId": "eab8f446-17cc-4512-bab5-42bff8570f1f",
         "nonPresetUITypeIds": []
       }
-    },
-    "ce01027b-26ed-4ea2-971a-fefde787cbb2": {},
-    "ecab60b1-3cd7-4947-a61b-ccbef507c9ae": {}
+    }
   },
   "sections": {
     "25d0e656-bec2-44a0-9728-f41d657b8508": {
       "id": "25d0e656-bec2-44a0-9728-f41d657b8508",
-      "paramSweepSectionId": null,
       "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
-      "uiTypeColId": "5dd0a464-e86b-4f9c-a195-303e56dcc96d",
-      "nonPresetUITypeIds": [],
       "variantIds": ["8055d10b-3623-4665-b85c-977327fa40c6"],
-      "artifacts": [],
       "name": "spatial_orange",
-      "social": null,
-      "codeLanguage": "python",
-      "isFrozen": false,
-      "hideUnpinnedParams": false,
-      "jsonSource": "",
-      "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI",
-      "renderMarkdown": false,
-      "isInOtherProjectConfigs": false,
-      "parentId": null,
       "variantId": "8055d10b-3623-4665-b85c-977327fa40c6",
       "size": {
         "width": 735,
         "height": "auto"
-      },
-      "isHorizontalOrientation": false,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false,
-      "selectedVariantIds": {},
-      "paramFilter": ""
+      }
     },
     "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
       "id": "4609e4a0-49b2-4065-b1a1-e037a33641f4",
-      "paramSweepSectionId": null,
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-      "uiTypeColId": "ce01027b-26ed-4ea2-971a-fefde787cbb2",
-      "nonPresetUITypeIds": [],
       "variantIds": ["56218716-8dc7-4a8b-a253-1eb2bb9cfc56"],
-      "artifacts": [],
       "name": "Code",
-      "social": null,
-      "codeLanguage": "python",
-      "isFrozen": 0,
-      "hideUnpinnedParams": 0,
-      "jsonSource": "",
-      "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI",
-      "renderMarkdown": false,
-      "isInOtherProjectConfigs": false,
-      "parentId": null,
       "variantId": "56218716-8dc7-4a8b-a253-1eb2bb9cfc56",
       "size": {
         "width": 500,
         "height": "auto"
-      },
-      "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": 0,
-      "selectedVariantIds": {},
-      "paramFilter": ""
+      }
     },
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
-      "paramSweepSectionId": null,
       "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
-      "uiTypeColId": "ecab60b1-3cd7-4947-a61b-ccbef507c9ae",
-      "nonPresetUITypeIds": [],
       "variantIds": ["91b7814e-8f93-4ad1-a966-00851b4e41d9"],
-      "artifacts": [],
       "name": "exclusive_jade",
-      "social": null,
-      "codeLanguage": "python",
-      "isFrozen": 0,
-      "hideUnpinnedParams": 0,
-      "jsonSource": "",
-      "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI",
-      "renderMarkdown": false,
-      "isInOtherProjectConfigs": false,
-      "parentId": null,
       "variantId": "91b7814e-8f93-4ad1-a966-00851b4e41d9",
       "size": {
         "width": 484,
         "height": 316
-      },
-      "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": 0,
-      "selectedVariantIds": {},
-      "paramFilter": ""
+      }
     },
     "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
-      "paramSweepSectionId": null,
       "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
-      "uiTypeColId": "a3934747-efba-49aa-a500-100b033196d2",
-      "nonPresetUITypeIds": [],
       "variantIds": ["61ce0033-a59e-4c8e-8a52-d658feb18017"],
       "artifacts": [
         {
@@ -451,67 +321,29 @@
         }
       ],
       "name": "royal_orange",
-      "social": null,
-      "codeLanguage": "",
-      "isFrozen": 0,
-      "hideUnpinnedParams": 0,
-      "jsonSource": "",
-      "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI",
-      "renderMarkdown": false,
-      "isInOtherProjectConfigs": false,
-      "parentId": null,
       "variantId": "61ce0033-a59e-4c8e-8a52-d658feb18017",
       "size": {
         "width": 200,
         "height": 224
       },
-      "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": 0,
       "aspectRatio": 1,
-      "aspectRatioExtraHeight": 24,
-      "selectedVariantIds": {},
-      "paramFilter": ""
+      "aspectRatioExtraHeight": 24
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
-      "paramSweepSectionId": null,
       "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
       "uiTypeColId": "b3449dbb-8328-43bb-8e45-b76173bf679c",
-      "nonPresetUITypeIds": [],
       "variantIds": ["00d5ac58-7a66-4ff1-a62f-af873c0a094b"],
-      "artifacts": [],
       "name": "Global Variables",
-      "social": null,
-      "codeLanguage": "",
-      "isFrozen": 0,
-      "hideUnpinnedParams": 0,
-      "jsonSource": "",
-      "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI",
-      "renderMarkdown": false,
-      "isInOtherProjectConfigs": false,
-      "parentId": null,
       "variantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
       "size": {
         "width": 432,
         "height": 371
-      },
-      "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": 0,
-      "selectedVariantIds": {},
-      "paramFilter": ""
+      }
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
-      "paramSweepSectionId": null,
       "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c",
-      "uiTypeColId": "3072250c-fb83-4b58-9e3b-303f13b1e623",
-      "nonPresetUITypeIds": [],
       "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
       "artifacts": [
         {
@@ -521,65 +353,24 @@
         }
       ],
       "name": "institutional_fuchsia",
-      "social": null,
-      "codeLanguage": "",
-      "isFrozen": 0,
-      "hideUnpinnedParams": 0,
-      "jsonSource": "",
-      "configLanguage": "python",
-      "canvasSettings": {},
-      "displayMode": "GUI",
-      "renderMarkdown": false,
-      "isInOtherProjectConfigs": false,
-      "parentId": null,
-      "variantId": "efbf1e64-8932-4fa6-928a-e930314db45c",
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
-      "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": 0,
-      "selectedVariantIds": {},
-      "paramFilter": ""
+      "variantId": "efbf1e64-8932-4fa6-928a-e930314db45c"
     }
   },
   "codeInfo": {
     "20512036-3e0f-41f3-9738-6573ee71bdaf": {
       "id": "20512036-3e0f-41f3-9738-6573ee71bdaf",
       "name": "c",
-      "editable": 1,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "editable": 1
     },
     "c24c860d-2519-4a20-8acd-90fc0ffe48a8": {
       "id": "c24c860d-2519-4a20-8acd-90fc0ffe48a8",
       "name": "blur_radius",
-      "editable": 1,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "editable": 1
     },
     "f14239d6-f206-4655-8c34-ddd6873391a5": {
       "id": "f14239d6-f206-4655-8c34-ddd6873391a5",
       "name": "n",
-      "editable": 1,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "keywordPositions": []
+      "editable": 1
     }
   },
   "codeInfoCols": {
@@ -594,51 +385,6 @@
         "f14239d6-f206-4655-8c34-ddd6873391a5": [],
         "c24c860d-2519-4a20-8acd-90fc0ffe48a8": []
       }
-    },
-    "81494cf8-fbfa-492a-8db3-f5919a5422eb": {
-      "children": {
-        "null": []
-      }
-    },
-    "0074df5c-ea05-409e-8f8b-b60c453d3e0c": {
-      "children": {
-        "null": []
-      }
-    },
-    "75cdb9b3-a7c8-4fd8-8da6-9667a65fea48": {
-      "children": {
-        "null": []
-      }
-    },
-    "2f3d4196-b243-4186-919f-163dc203ca5a": {
-      "children": {
-        "null": []
-      }
-    },
-    "4d31d08d-f976-4e29-85aa-d791837d7226": {
-      "children": {
-        "null": []
-      }
-    }
-  },
-  "fullNameToInfo": {
-    "c": {
-      "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
-      "paramInfoId": "20512036-3e0f-41f3-9738-6573ee71bdaf",
-      "componentIndices": [1],
-      "isArgsObj": false
-    },
-    "n": {
-      "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
-      "paramInfoId": "f14239d6-f206-4655-8c34-ddd6873391a5",
-      "componentIndices": [1],
-      "isArgsObj": false
-    },
-    "blur_radius": {
-      "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
-      "paramInfoId": "c24c860d-2519-4a20-8acd-90fc0ffe48a8",
-      "componentIndices": [11],
-      "isArgsObj": false
     }
   }
 }

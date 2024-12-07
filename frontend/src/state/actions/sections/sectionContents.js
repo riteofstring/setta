@@ -1,9 +1,6 @@
 import C from "constants/constants.json";
 import { useSectionInfos } from "state/definitions";
-import {
-  findAllParametersOfCallables,
-  findAllParametersOfNotCallables,
-} from "utils/getDescendants";
+import { findAllParameters } from "utils/getDescendants";
 import { bothTruthyOrFalsey } from "utils/utils";
 import { getCodeInfoCol, getSectionVariant } from "../sectionInfos";
 
@@ -11,26 +8,22 @@ export function getParamIds(
   sectionId,
   _state,
   _codeInfoChildren,
-  _selectedItem = undefined,
+  _parentCodeInfoId = undefined,
   paramPathCondition = false,
 ) {
   const state = _state ?? useSectionInfos.getState();
   const codeInfoChildren =
     _codeInfoChildren ?? getCodeInfoCol(sectionId, state).children;
-  const selectedItem =
-    _selectedItem === undefined
+  const parentCodeInfoId =
+    _parentCodeInfoId === undefined
       ? getSectionVariant(sectionId, state).selectedItem
-      : _selectedItem;
+      : _parentCodeInfoId;
 
-  const fn = selectedItem
-    ? findAllParametersOfCallables
-    : findAllParametersOfNotCallables;
+  const codeInfoIds = parentCodeInfoId
+    ? [parentCodeInfoId]
+    : codeInfoChildren[null];
 
-  const codeInfoIds = selectedItem
-    ? [selectedItem]
-    : codeInfoChildren[selectedItem];
-
-  return fn(
+  return findAllParameters(
     state.codeInfo,
     codeInfoChildren,
     codeInfoIds ?? [],
@@ -49,7 +42,8 @@ export function getParamIdsToShowInArea(
   isPinned,
   _state,
   _codeInfoChildren,
-  _selectedItem = undefined,
+  _parentCodeInfoId = undefined,
+  startAtDepth = 0,
 ) {
   const state = _state ?? useSectionInfos.getState();
   const codeInfoChildren =
@@ -59,7 +53,7 @@ export function getParamIdsToShowInArea(
     sectionId,
     state,
     codeInfoChildren,
-    _selectedItem,
+    _parentCodeInfoId,
     (p) => p.rcType === C.PARAMETER,
   );
   ids.reverse();
@@ -78,10 +72,19 @@ export function getParamIdsToShowInArea(
         codeInfoChildren[a].some((child) => child in requiredParamIdsToPaths))
     ) {
       for (const p of pathMap[a]) {
-        requiredParamIdsToPaths[p] = pathMap[p];
-        if (!topLevelParamIdsSet.has(pathMap[a][0])) {
-          topLevelParamIds.push(pathMap[a][0]);
-          topLevelParamIdsSet.add(pathMap[a][0]);
+        if (startAtDepth > 0) {
+          if (startAtDepth < pathMap[p].length) {
+            requiredParamIdsToPaths[p] = pathMap[p].slice(startAtDepth);
+          }
+        } else {
+          requiredParamIdsToPaths[p] = pathMap[p];
+        }
+        if (
+          pathMap[a][startAtDepth] &&
+          !topLevelParamIdsSet.has(pathMap[a][startAtDepth])
+        ) {
+          topLevelParamIds.push(pathMap[a][startAtDepth]);
+          topLevelParamIdsSet.add(pathMap[a][startAtDepth]);
         }
       }
     }

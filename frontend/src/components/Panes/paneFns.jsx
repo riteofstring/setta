@@ -72,7 +72,7 @@ export function onOverviewTabClick(tabValue) {
 }
 
 export function onOverviewResizeStop(widthDiff) {
-  if (useSettings.getState().leftSidePaneShiftsMap) {
+  if (useSettings.getState().gui.leftSidePaneShiftsMap) {
     updateMapPosition(widthDiff);
   }
 }

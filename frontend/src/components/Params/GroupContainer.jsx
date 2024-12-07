@@ -92,7 +92,7 @@ function ResizablePinnedArea({
   return (
     <ResizableWithScale
       handleWrapperClass="nodrag"
-      className="relative -mt-1 flex max-h-[50%] flex-col items-start justify-between overflow-hidden border-b border-white bg-blue-200/50 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30"
+      className="items-startjustify-between relative -mt-1 flex max-h-[50%] flex-col overflow-hidden border-b border-white bg-blue-200/50 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30"
       as="section"
       size={{ height }}
       onResizeStop={onResizeStop}
@@ -136,60 +136,17 @@ function GetUnpinnedParams({ sectionId }) {
     (x) => x.x[sectionId].hideUnpinnedParams,
   );
 
-  const [isResizing, setIsResizing] = useState(false);
-  const [columnWidth, setColumnWidth] = useState(200);
-  const [startX, setStartX] = useState(0);
-
-  const handleResizeStart = (e) => {
-    e.preventDefault();
-    setIsResizing(true);
-    setStartX(e.clientX);
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isResizing || !ref.current) return;
-
-    const diff = e.clientX - startX;
-    const containerWidth = ref.current.clientWidth;
-    const minWidth = 100;
-    const maxWidth = containerWidth - 200;
-
-    const newWidth = Math.max(minWidth, Math.min(maxWidth, columnWidth + diff));
-    setColumnWidth(newWidth);
-    setStartX(e.clientX);
-  };
-
-  const handleMouseUp = () => {
-    setIsResizing(false);
-  };
-
-  useEffect(() => {
-    if (isResizing) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-      };
-    }
-  }, [isResizing, startX, columnWidth]);
   return (
     <div
       className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${isScrollable ? "nowheel" : ""} min-w-0 !max-w-full`}
       ref={ref}
     >
-      {!hideUnpinnedParams && (
-        <GetUnpinnedParamsCore
-          sectionId={sectionId}
-          onResizeStart={handleResizeStart}
-          baseColumnWidth={columnWidth}
-        />
-      )}
+      {!hideUnpinnedParams && <GetUnpinnedParamsCore sectionId={sectionId} />}
     </div>
   );
 }
 
-function GetUnpinnedParamsCore({ sectionId, onResizeStart, baseColumnWidth }) {
+function GetUnpinnedParamsCore({ sectionId }) {
   const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     false,
@@ -200,8 +157,6 @@ function GetUnpinnedParamsCore({ sectionId, onResizeStart, baseColumnWidth }) {
       sectionId={sectionId}
       paramIds={topLevelParamIds}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
-      onResizeStart={onResizeStart}
-      baseColumnWidth={baseColumnWidth}
     />
   );
 }

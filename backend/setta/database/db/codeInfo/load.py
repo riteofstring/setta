@@ -1,5 +1,9 @@
 import json
-from collections import defaultdict
+
+from setta.database.db.codeInfo.utils import (
+    with_code_info_col_defaults,
+    with_code_info_defaults,
+)
 
 
 def load_code_info(db, ids):
@@ -24,16 +28,15 @@ def load_code_info(db, ids):
     all_ids = set()
     code_info_cols = {}
     for k in ids:
-        code_info_cols[k] = {
-            "children": defaultdict(list),
-        }
-        code_info_cols[k]["children"][None] = []
+        code_info_cols[k] = with_code_info_col_defaults()
     for row in results:
         (codeInfoColId, parentId, childId, _) = row
         if parentId:
             all_ids.add(parentId)
         all_ids.add(childId)
         children_dict = code_info_cols[codeInfoColId]["children"]
+        if parentId not in children_dict:
+            children_dict[parentId] = []
         children_dict[parentId].append(childId)
         if childId not in children_dict:
             children_dict[childId] = []
@@ -48,7 +51,9 @@ def load_code_info(db, ids):
     db.execute(query, all_ids)
     code_info = {}
     for row in db.fetchall():
-        code_info[row["id"]] = {"id": row["id"], **json.loads(row["data"])}
+        code_info[row["id"]] = with_code_info_defaults(
+            id=row["id"], **json.loads(row["data"])
+        )
 
     return code_info, code_info_cols
 
