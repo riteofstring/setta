@@ -184,8 +184,8 @@ export const useMisc = create(
       lastPaneClickLocation: { x: 0, y: 0 },
       undoOrRedoWasTriggered: false,
       isSelectingParams: false,
-      numCodeAreasDisplayed: 0,
-      codeAreaIsInitialized: new Set()
+      numDisplayedSections: 0,
+      numInitializedSections: 0,
     })),
   ),
 );

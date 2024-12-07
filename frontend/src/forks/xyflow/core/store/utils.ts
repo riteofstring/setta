@@ -86,3 +86,7 @@ export function onFitViewHandler() {
     duration + 10,
   );
 }
+
+export function useReadyToBeVisible() {
+  return useReactFlow((x) => !x.fitViewOnInit || x.fitViewOnInitDone);
+}

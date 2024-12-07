@@ -1,5 +1,6 @@
 import cc from "classcat";
 import { SectionContainer } from "components/Section/Container/SectionContainer";
+import _ from "lodash";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import { useSectionInfos } from "state/definitions";
@@ -27,6 +28,7 @@ const _NodeWrapper = ({
   isFocusable,
   resizeObserver,
   zIndex,
+  visibility,
 }: WrapNodeProps) => {
   const nodeRef = useRef<HTMLDivElement>(null);
   const positionAndSizeLocked = useSectionInfos(
@@ -85,7 +87,7 @@ const _NodeWrapper = ({
       style={{
         transform: `translate(${xPos}px,${yPos}px)`,
         pointerEvents: hasPointerEvents ? "all" : "none",
-        visibility: "visible",
+        visibility,
         zIndex,
         ...style,
       }}

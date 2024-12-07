@@ -132,11 +132,23 @@ export function setSectionVariantChildren(sectionId, newStateFn, state) {
   variant.children = newStateFn(variant.children);
 }
 
+function getDisplayedSectionIdToChildrenHelper(sectionId, state, output) {
+  const children = getDisplayedSectionVariant(sectionId, state).children;
+  output[sectionId] = children;
+  if (children) {
+    for (const childId of children) {
+      getDisplayedSectionIdToChildrenHelper(childId, state, output);
+    }
+  }
+}
+
 export function getDisplayedSectionIdToChildren(state) {
   const output = {};
   const s = state ?? useSectionInfos.getState();
-  for (const sectionId of Object.keys(s.x)) {
-    output[sectionId] = getDisplayedSectionVariant(sectionId, s).children;
+  for (const section of Object.values(s.x)) {
+    if (!section.parentId) {
+      getDisplayedSectionIdToChildrenHelper(section.id, s, output);
+    }
   }
   return output;
 }
@@ -239,4 +251,15 @@ export function getCodeChildrenAndParentCodeInfoId(sectionId, x) {
     : newUITypeColEntry();
 
   return { codeInfoChildren, parentCodeInfoId, startAtDepth };
+}
+
+export function getTotalNumberOfIds(idToChildren) {
+  const allIds = new Set();
+
+  for (const [id, children] of Object.entries(idToChildren)) {
+    allIds.add(id);
+    children.forEach((childId) => allIds.add(childId));
+  }
+
+  return allIds.size;
 }
