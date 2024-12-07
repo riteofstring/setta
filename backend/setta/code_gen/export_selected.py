@@ -619,7 +619,11 @@ class SectionToDict:
         return params, prettyParams
 
     def export_param_value(self, id):
-        value = self.sectionVariant["values"][id]["value"]
+        values = self.sectionVariant["values"]
+        if id in values:
+            value = values[id]["value"]
+        else:
+            value = new_ev_entry()["value"]
         if self.configLanguage == "json":
             value = try_json(value)
         return value, value
