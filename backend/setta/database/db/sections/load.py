@@ -4,7 +4,7 @@ import itertools
 import json
 from collections import defaultdict
 
-from setta.database.db.codeInfo.utils import new_code_info_col
+from setta.database.db.codeInfo.utils import new_code_info_col, with_code_info_defaults
 from setta.database.db.sections.utils import with_section_defaults
 from setta.database.db.sectionVariants.utils import new_ev_entry, new_section_variant
 from setta.database.utils import create_new_id
@@ -282,19 +282,9 @@ def load_json_source(filename_glob):
             children_keys.append(full_key)
 
             # Create code info entry
-            new_data[filename]["codeInfo"][full_key] = {
-                "id": full_key,
-                "name": k,
-                "rcType": C.PARAMETER,
-                "editable": False,
-                "defaultVal": None,
-                "description": "",
-                "positionalOnly": False,
-                "isPinned": False,
-                "isFrozen": False,
-                "keywordPositions": [],
-            }
-
+            new_data[filename]["codeInfo"][full_key] = with_code_info_defaults(
+                id=full_key, name=k
+            )
             new_data[filename]["codeInfoColChildren"][full_key] = []
 
             # Create variant value entry
