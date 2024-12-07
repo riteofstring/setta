@@ -3,6 +3,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { getKeywordStylizer } from "components/Utils/CodeMirror/getKeywordStylizer";
 import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { useReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, {
@@ -153,9 +154,12 @@ export function useCodeAreaHeight({ sectionId }) {
   const readyToBeVisible = useReadyToBeVisible();
 
   const handleCreateEditor = useCallback((view) => {
-    useMisc.setState((state) => ({
-      numInitializedSections: state.numInitializedSections + 1,
-    }));
+    if (useReactFlow.getState().fitViewOnInit) {
+      console.log("incrementing")
+      useMisc.setState((state) => ({
+        numInitializedSections: state.numInitializedSections + 1,
+      }));
+    }
 
     editorRef.current = view;
     const resizeObserver = new ResizeObserver(([entry]) => {
@@ -173,7 +177,8 @@ export function useCodeAreaHeight({ sectionId }) {
         resizeObserverRef.current.disconnect();
       }
 
-      if (editorRef.current) {
+      if (useReactFlow.getState().fitViewOnInit && editorRef.current) {
+        console.log("decrementing")
         useMisc.setState((state) => ({
           numInitializedSections: state.numInitializedSections - 1,
         }));
