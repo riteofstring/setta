@@ -176,17 +176,15 @@ export const useTemporaryMiscState = createProjectState(
 
 export const useMisc = create(
   subscribeWithSelector(
-    immer(
-      withResetFn(() => ({
-        projectIsLoading: false,
-        projectIs404: false,
-        mouseDownDrawArea: false,
-        mouseDownDraggingSection: false,
-        lastPaneClickLocation: { x: 0, y: 0 },
-        undoOrRedoWasTriggered: false,
-        isSelectingParams: false,
-      })),
-    ),
+    withResetFn(() => ({
+      projectIsLoading: false,
+      projectIs404: false,
+      mouseDownDrawArea: false,
+      mouseDownDraggingSection: false,
+      lastPaneClickLocation: { x: 0, y: 0 },
+      undoOrRedoWasTriggered: false,
+      isSelectingParams: false,
+    })),
   ),
 );
 
