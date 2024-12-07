@@ -18,6 +18,7 @@ import {
   getDisplayedSectionIdToChildren,
   getSectionType,
   getSectionVariant,
+  getSectionVariantAttr,
 } from "./actions/sectionInfos";
 
 export function subscribe() {
@@ -109,7 +110,7 @@ function keywordRegexSubscriptionFn(x) {
     sectionTypeName = getSectionType(id, x);
     output.details[id] = {
       name: s.name,
-      sectionChildren: sectionVariant.children,
+      sectionChildren: getSectionVariantAttr(sectionVariant, "children"),
       codeInfoChildren: getCodeInfoCol(id, x).children,
       sectionTypeName,
       selectedItem: sectionVariant.selectedItem,

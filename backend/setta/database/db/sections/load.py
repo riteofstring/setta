@@ -233,6 +233,8 @@ def load_json_sources_into_data_structures(
             if not codeInfoColId:
                 codeInfoColId = create_new_id()
                 curr_section_variant["codeInfoColId"] = codeInfoColId
+
+            if codeInfoColId not in codeInfoCols:
                 codeInfoCols[codeInfoColId] = new_code_info_col()
 
             codeInfoCols[codeInfoColId]["children"] = data["codeInfoColChildren"]

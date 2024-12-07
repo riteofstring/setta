@@ -1,3 +1,4 @@
+import DEFAULT_VALUES from "constants/defaultValues.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
@@ -136,7 +137,10 @@ export function getDisplayedSectionIdToChildren(state) {
   const output = {};
   const s = state ?? useSectionInfos.getState();
   for (const sectionId of Object.keys(s.x)) {
-    output[sectionId] = getDisplayedSectionVariant(sectionId, s).children;
+    output[sectionId] = getSectionVariantAttr(
+      getDisplayedSectionVariant(sectionId, s),
+      "children",
+    );
   }
   return output;
 }
@@ -239,4 +243,10 @@ export function getCodeChildrenAndParentCodeInfoId(sectionId, x) {
     : newUITypeColEntry();
 
   return { codeInfoChildren, parentCodeInfoId, startAtDepth };
+}
+
+export function getSectionVariantAttr(variant, attr) {
+  return variant[attr] !== undefined
+    ? variant[attr]
+    : DEFAULT_VALUES["sectionVariant"][attr];
 }

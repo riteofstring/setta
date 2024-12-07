@@ -2,7 +2,10 @@ import { useDndMonitor } from "forks/dnd-kit/CustomCore";
 import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 import _ from "lodash";
 import { useEffect } from "react";
-import { getSectionParentId } from "state/actions/sectionInfos";
+import {
+  getSectionParentId,
+  getSectionVariantAttr,
+} from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import colors from "tailwindcss/colors";
@@ -97,6 +100,8 @@ export function useDndProps({ sectionId, isTopLevel }) {
 function useHasPermanentNested(sectionId) {
   return useSectionInfos((x) => {
     const variantId = x.x[sectionId]?.variantId;
-    return variantId ? x.variants[variantId].children.length > 0 : false;
+    return variantId
+      ? getSectionVariantAttr(x.variants[variantId], "children").length > 0
+      : false;
   });
 }
