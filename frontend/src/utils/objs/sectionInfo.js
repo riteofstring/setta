@@ -7,26 +7,32 @@ import { createVarName, maybeNewId } from "../idNameCreation";
 
 export function newSectionInfo({
   id,
-  name,
   variantId,
   uiTypeId = BASE_UI_TYPE_IDS.SECTION,
   uiTypeColId,
   variantIds = [],
   ...props
 }) {
-  const _name = name
-    ? name
-    : createVarName(_.map(useSectionInfos.getState().x, (s) => s.name));
+  const uiTypeName = useSectionInfos.getState().uiTypes[uiTypeId].type;
+
+  const output = {
+    ..._.cloneDeep(DEFAULT_VALUES.section),
+    ..._.cloneDeep(useSettings.getState().sections[uiTypeName]),
+  };
+
+  if (!output.name) {
+    output.name = createVarName(
+      _.map(useSectionInfos.getState().x, (s) => s.name),
+    );
+  }
+
   const _variantId = maybeNewId(variantId);
   const _variantIds = [...variantIds, _variantId];
   const _displayMode = getDefaultDisplayMode(uiTypeId);
-  const uiTypeName = useSectionInfos.getState().uiTypes[uiTypeId].type;
 
   return {
-    ..._.cloneDeep(DEFAULT_VALUES.section),
-    ..._.cloneDeep(useSettings.getState().sections[uiTypeName]),
+    ...output,
     id: maybeNewId(id),
-    name: _name,
     variantId: _variantId,
     uiTypeId,
     variantIds: _variantIds,

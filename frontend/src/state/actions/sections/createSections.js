@@ -1,4 +1,3 @@
-import { getDefaultInfoTitle } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import C from "constants/constants.json";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
@@ -60,27 +59,10 @@ export function addSectionAtPosition({
     ...inputSectionProps,
   };
 
-  if (!sectionProps.name) {
-    sectionProps.name = getDefaultSectionName(type);
-  }
-
   sectionProps.uiTypeId = BASE_UI_TYPE_IDS[type];
 
   const [newId] = createSectionInfo({ sectionProps, position, state });
   return newId;
-}
-
-function getDefaultSectionName(type) {
-  switch (type) {
-    case C.INFO:
-      return getDefaultInfoTitle();
-    case C.GLOBAL_VARIABLES:
-      return "Global Variables";
-    case C.GLOBAL_PARAM_SWEEP:
-      return "Global Param Sweep";
-    default:
-      return null;
-  }
 }
 
 export function addChildrenToSeries({
