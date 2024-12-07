@@ -151,17 +151,17 @@ export function useCodeAreaHeight({ sectionId }) {
   const resizeObserverRef = useRef(null);
   const [nowheel, setNoWheel] = useState("");
   const readyToBeVisible = useReadyToBeVisible();
-  const [firstRender, setFirstRender] = useState(false);
+  const [didFirstRender, setDidFirstRender] = useState(false);
 
   const handleCreateEditor = useCallback((view) => {
     editorRef.current = view;
     const resizeObserver = new ResizeObserver(([entry]) => {
-      if (!firstRender) {
+      if (!didFirstRender) {
         useMisc.setState((state) => ({
           numInitializedSections: state.numInitializedSections + 1,
           requestUpdateNodeDimensions: true,
         }));
-        setFirstRender(true);
+        setDidFirstRender(true);
       }
       setNoWheel(
         entry.target.scrollHeight > entry.target.clientHeight ? "nowheel" : "",
@@ -172,16 +172,22 @@ export function useCodeAreaHeight({ sectionId }) {
   }, []);
 
   useEffect(() => {
+    useMisc.setState((state) => ({
+      numDisplayedSections: state.numDisplayedSections + 1,
+    }));
+
     return () => {
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
       }
 
-      if (editorRef.current) {
-        useMisc.setState((state) => ({
-          numInitializedSections: state.numInitializedSections - 1,
-        }));
-      }
+      useMisc.setState((state) => {
+        const output = { numDisplayedSections: state.numDisplayedSections - 1 };
+        if (didFirstRender) {
+          output[numInitializedSections] = state.numInitializedSections - 1;
+        }
+        return output;
+      });
     };
   }, []);
 

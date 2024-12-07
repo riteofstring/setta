@@ -18,7 +18,6 @@ import {
   getDisplayedSectionIdToChildren,
   getSectionType,
   getSectionVariant,
-  getTotalNumberOfIds,
 } from "./actions/sectionInfos";
 
 export function subscribe() {
@@ -45,9 +44,6 @@ export function subscribe() {
     getDisplayedSectionIdToChildren,
     (x) => {
       useDndChildren.getState().update(x);
-      useMisc.setState({
-        numDisplayedSections: getTotalNumberOfIds(x),
-      });
     },
     { equalityFn: _.isEqual },
   );
