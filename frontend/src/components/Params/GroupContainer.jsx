@@ -1,7 +1,7 @@
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
@@ -136,53 +136,126 @@ function GetUnpinnedParams({ sectionId }) {
     (x) => x.x[sectionId].hideUnpinnedParams,
   );
 
-  const [isResizing, setIsResizing] = useState(false);
-  const [columnWidth, setColumnWidth] = useState(200);
-  const [startX, setStartX] = useState(0);
+  const resizeRef = useRef({
+    isResizing: false,
+    startX: 0,
+    startWidth: 0,
+    containerWidth: 0,
+    widthPercentage: 50,
+  });
 
-  const handleResizeStart = (e) => {
-    e.preventDefault();
-    setIsResizing(true);
-    setStartX(e.clientX);
-  };
+  const [columnWidth, setColumnWidth] = useState({
+    pixels: 0,
+    percentage: 50,
+  });
 
-  const handleMouseMove = (e) => {
-    if (!isResizing || !ref.current) return;
-
-    const diff = e.clientX - startX;
-    const containerWidth = ref.current.clientWidth;
-    const minWidth = 100;
-    const maxWidth = containerWidth - 200;
-
-    const newWidth = Math.max(minWidth, Math.min(maxWidth, columnWidth + diff));
-    setColumnWidth(newWidth);
-    setStartX(e.clientX);
-  };
-
-  const handleMouseUp = () => {
-    setIsResizing(false);
-  };
-
+  // Set initial width on mount
   useEffect(() => {
-    if (isResizing) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-      };
+    if (ref.current) {
+      const containerWidth = ref.current.clientWidth;
+      const initialPixels = (containerWidth - 12) / 2; // 12px is 0.75rem gutter
+      setColumnWidth({
+        pixels: initialPixels,
+        percentage: 50,
+      });
     }
-  }, [isResizing, startX, columnWidth]);
+  }, []);
+
+  // Handle container resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (ref.current) {
+        const containerWidth = ref.current.clientWidth;
+        setColumnWidth((prev) => ({
+          pixels: (containerWidth - 12) * (prev.percentage / 100),
+          percentage: prev.percentage,
+        }));
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(handleResize);
+    if (ref.current) {
+      resizeObserver.observe(ref.current);
+    }
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  const handleResizeStart = useCallback(
+    (e) => {
+      console.log("Resize start triggered");
+      e.preventDefault();
+      if (ref.current) {
+        resizeRef.current = {
+          isResizing: true,
+          startX: e.clientX,
+          startPercentage: columnWidth.percentage,
+        };
+      }
+    },
+    [columnWidth.percentage],
+  );
+
+  const handleMouseMove = useCallback((e) => {
+    // Add this console.log to verify this is being called
+    console.log("Mouse moving", resizeRef.current.isResizing);
+
+    if (!resizeRef.current.isResizing || !ref.current) return;
+
+    requestAnimationFrame(() => {
+      const containerWidth = ref.current.clientWidth;
+      const diff = e.clientX - resizeRef.current.startX;
+      const diffAsPercentage = (diff / containerWidth) * 100;
+
+      const newPercentage = Math.max(
+        20,
+        Math.min(80, resizeRef.current.startPercentage + diffAsPercentage),
+      );
+
+      console.log("Setting new width", newPercentage); // Debug log
+
+      setColumnWidth((prev) => ({
+        pixels: (containerWidth - 12) * (newPercentage / 100),
+        percentage: newPercentage,
+      }));
+    });
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    console.log("Mouse up"); // Debug log
+    resizeRef.current.isResizing = false;
+  }, []);
+
+  // Add this useEffect to handle mouse events
+  useEffect(() => {
+    const mouseMoveHandler = (e) => handleMouseMove(e);
+    const mouseUpHandler = () => handleMouseUp();
+
+    if (resizeRef.current.isResizing) {
+      console.log("Adding event listeners"); // Debug log
+      window.addEventListener("mousemove", mouseMoveHandler);
+      window.addEventListener("mouseup", mouseUpHandler);
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", mouseMoveHandler);
+      window.removeEventListener("mouseup", mouseUpHandler);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
   return (
     <div
-      className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${isScrollable ? "nowheel" : ""} min-w-0 !max-w-full`}
+      className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${
+        isScrollable ? "nowheel" : ""
+      } min-w-0 !max-w-full`}
       ref={ref}
     >
       {!hideUnpinnedParams && (
         <GetUnpinnedParamsCore
           sectionId={sectionId}
           onResizeStart={handleResizeStart}
-          baseColumnWidth={columnWidth}
+          baseColumnWidth={columnWidth.pixels} // Pass pixels for precise sizing
+          widthPercentage={columnWidth.percentage} // Pass percentage for responsive behavior
         />
       )}
     </div>

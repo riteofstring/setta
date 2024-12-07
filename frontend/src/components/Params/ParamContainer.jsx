@@ -3,7 +3,7 @@ import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { toggleParamSelected } from "state/actions/kwargs";
@@ -26,6 +26,7 @@ function _ParamContainer({
   children,
   onResizeStart,
   baseColumnWidth,
+  widthPercentage,
 }) {
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -65,9 +66,6 @@ function _ParamContainer({
     };
   }, _.isEqual);
 
-  // hover:bg-setta-200/20 dark:hover:bg-setta-700/25
-  // maybe use this for in bg hover state: div:hover:not(:has(div:hover))
-
   const bg = paramIsSelected ? "bg-setta-500/20" : "";
 
   function onMouseDownSelect(e) {
@@ -77,25 +75,35 @@ function _ParamContainer({
     }
   }
 
-  // const handleKeyChange = (e) => {
-  //   onUpdate({ ...data, key: e.target.value });
-  // };
+  const containerRef = useRef(null);
+  const [pixelWidth, setPixelWidth] = useState(0);
 
-  // const handleValueChange = (e) => {
-  //   if (!data.nested) {
-  //     onUpdate({ ...data, value: e.target.value });
-  //   }
-  // };
+  useEffect(() => {
+    const updatePixelWidth = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.clientWidth;
+        const newPixelWidth = (containerWidth * widthPercentage) / 100;
+        setPixelWidth(newPixelWidth);
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(updatePixelWidth);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+    updatePixelWidth(); // Initial calculation
+
+    return () => resizeObserver.disconnect();
+  }, [widthPercentage]);
 
   const nestedGridStyle = {
-    gridTemplateColumns: `${baseColumnWidth}px [c3] 0.75rem [c4] 1fr [c5]`,
+    // Use a CSS calc() function to provide a fallback
+    gridTemplateColumns: `minmax(min-content, ${baseColumnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`,
   };
 
   const gridStyle = {
-    gridTemplateColumns: `[c1] 0.75rem [c2] ${baseColumnWidth}px [c3] 0.75rem [c4] 1fr [c5]`,
+    gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${baseColumnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`,
   };
-
-  // [c1] 0.75rem [c2] 1fr [c3] 0.75rem [c4] 1fr [c5] 0.75rem [c6]
 
   return paramChildren.length === 0 ? (
     <>
