@@ -3,6 +3,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { getKeywordStylizer } from "components/Utils/CodeMirror/getKeywordStylizer";
 import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, {
   useCallback,
@@ -20,7 +21,7 @@ import {
   getDisplayedSectionVariant,
   getSectionVariant,
 } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useMisc, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 
@@ -149,10 +150,10 @@ export function useCodeAreaHeight({ sectionId }) {
   const editorRef = useRef(null);
   const resizeObserverRef = useRef(null);
   const [nowheel, setNoWheel] = useState("");
+  const fitViewOnInitDone = useReactFlow((x) => x.fitViewOnInitDone);
 
   const handleCreateEditor = useCallback((view) => {
     editorRef.current = view;
-
     const resizeObserver = new ResizeObserver(([entry]) => {
       setNoWheel(
         entry.target.scrollHeight > entry.target.clientHeight ? "nowheel" : "",
@@ -160,15 +161,43 @@ export function useCodeAreaHeight({ sectionId }) {
     });
     resizeObserver.observe(editorRef.current.scrollDOM);
     resizeObserverRef.current = resizeObserver;
+
+    useMisc.setState((state) => {
+      const x = new Set(state.codeAreaIsInitialized);
+      x.add(sectionId);
+      return { codeAreaIsInitialized: x };
+    });
   }, []);
 
   useEffect(() => {
+    useMisc.setState((state) => ({
+      numCodeAreasDisplayed: state.numCodeAreasDisplayed + 1,
+    }));
+
     return () => {
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
       }
+
+      useMisc.setState((state) => {
+        const x = new Set(state.codeAreaIsInitialized);
+        x.delete(sectionId);
+        return {
+          codeAreaIsInitialized: x,
+          numCodeAreasDisplayed: state.numCodeAreasDisplayed - 1,
+        };
+      });
     };
   }, []);
+
+  useEffect(() => {
+    if (fitViewOnInitDone) {
+      // Need to basically get code mirror to refresh its display
+      // after on fitview is done. Otherwise some of the lines
+      // might not appear until you move around a bit.
+      editorRef.current.requestMeasure();
+    }
+  }, [fitViewOnInitDone]);
 
   const maxHeight =
     height === "auto" || resizeEvent === "start"
