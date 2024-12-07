@@ -73,5 +73,5 @@
     "exportDbReadableOnSave": false,
     "exportDbReadableWithVariantsOnSave": false
   },
-  "languageServerSettings": {}
+  "languageServer": {}
 }

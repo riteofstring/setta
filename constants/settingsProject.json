@@ -171,7 +171,7 @@
   "sections": {
     "69084c06-aa67-4e6b-8098-3334044eebc9": {
       "id": "69084c06-aa67-4e6b-8098-3334044eebc9",
-      "name": "settings",
+      "name": "shortcuts",
       "size": {
         "width": 550,
         "height": "auto"
@@ -182,7 +182,56 @@
       "configLanguage": "json",
       "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
       "hideSearch": true,
-      "jsonSource": "setta-settings*.json"
+      "jsonSource": "setta-settings*.json",
+      "jsonSourceKeys": ["shortcuts"]
+    },
+    "6b264a9a-0f87-4288-80aa-45cc6b16db96": {
+      "id": "6b264a9a-0f87-4288-80aa-45cc6b16db96",
+      "name": "gui",
+      "size": {
+        "width": 550,
+        "height": "auto"
+      },
+      "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
+      "configLanguage": "json",
+      "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
+      "hideSearch": true,
+      "jsonSource": "setta-settings*.json",
+      "jsonSourceKeys": ["gui"]
+    },
+    "f74b5aaf-d11d-4153-b55b-9c18e11e3a73": {
+      "id": "f74b5aaf-d11d-4153-b55b-9c18e11e3a73",
+      "name": "backend",
+      "size": {
+        "width": 550,
+        "height": "auto"
+      },
+      "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
+      "configLanguage": "json",
+      "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
+      "hideSearch": true,
+      "jsonSource": "setta-settings*.json",
+      "jsonSourceKeys": ["backend"]
+    },
+    "8389d4b3-0a1e-4c44-819b-7c745d6c3f1b": {
+      "id": "8389d4b3-0a1e-4c44-819b-7c745d6c3f1b",
+      "name": "languageServer",
+      "size": {
+        "width": 550,
+        "height": "auto"
+      },
+      "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
+      "configLanguage": "json",
+      "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
+      "hideSearch": true,
+      "jsonSource": "setta-settings*.json",
+      "jsonSourceKeys": ["languageServer"]
     }
   },
   "codeInfo": {},
