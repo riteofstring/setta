@@ -87,6 +87,10 @@ function _ParamContainer({
   //   }
   // };
 
+  const nestedGridStyle = {
+    gridTemplateColumns: `${baseColumnWidth}px [c3] 0.75rem [c4] 1fr [c5]`,
+  };
+
   const gridStyle = {
     gridTemplateColumns: `[c1] 0.75rem [c2] ${baseColumnWidth}px [c3] 0.75rem [c4] 1fr [c5]`,
   };
@@ -97,10 +101,10 @@ function _ParamContainer({
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-args-nested section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between rounded-sm hover:bg-setta-50 hover:dark:bg-setta-800/70 ${bg} ${border}`}
+        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm hover:bg-setta-50 hover:dark:bg-setta-800/70 ${bg} ${border}`}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
         onMouseDown={onMouseDownSelect}
-        style={gridStyle}
+        style={nestedGridStyle}
       >
         {children}
         <ParamInput
@@ -116,7 +120,7 @@ function _ParamContainer({
     </>
   ) : (
     <article
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border}`}
+      className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
       onMouseDown={onMouseDownSelect}
       style={gridStyle}
