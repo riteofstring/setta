@@ -387,25 +387,5 @@
         "c24c860d-2519-4a20-8acd-90fc0ffe48a8": []
       }
     }
-  },
-  "fullNameToInfo": {
-    "c": {
-      "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
-      "paramInfoId": "20512036-3e0f-41f3-9738-6573ee71bdaf",
-      "componentIndices": [1],
-      "isArgsObj": false
-    },
-    "n": {
-      "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
-      "paramInfoId": "f14239d6-f206-4655-8c34-ddd6873391a5",
-      "componentIndices": [1],
-      "isArgsObj": false
-    },
-    "blur_radius": {
-      "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
-      "paramInfoId": "c24c860d-2519-4a20-8acd-90fc0ffe48a8",
-      "componentIndices": [11],
-      "isArgsObj": false
-    }
   }
 }
