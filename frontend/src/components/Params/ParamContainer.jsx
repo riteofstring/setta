@@ -129,8 +129,9 @@ function _ParamContainer({
           paramIds={paramChildren}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           ancestorIsSelected={ancestorIsSelected || paramIsSelected}
+          onResizeStart={onResizeStart}
+          baseColumnWidth={baseColumnWidth}
         />
-        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
       </div>
     </article>
   );
