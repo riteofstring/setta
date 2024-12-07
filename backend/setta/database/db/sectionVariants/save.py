@@ -9,8 +9,6 @@ from setta.utils.utils import filter_dict
 
 
 def save_section_variants(db, section_variants):
-    default_values = DEFAULT_VALUES["sectionVariant"]
-
     query = """
         INSERT INTO SectionVariantId (id, data, selectedItem, codeInfoColId, runGroup)
         VALUES (:id, :data, :selectedItem, :codeInfoColId, :runGroup)
@@ -25,9 +23,9 @@ def save_section_variants(db, section_variants):
     query_params = [
         {
             "id": k,
-            "selectedItem": v.get("selectedItem", default_values["selectedItem"]),
-            "codeInfoColId": v.get("codeInfoColId", default_values["codeInfoColId"]),
-            "runGroup": json.dumps(v.get("runGroup", default_values["runGroup"])),
+            "selectedItem": v["selectedItem"],
+            "codeInfoColId": v["codeInfoColId"],
+            "runGroup": json.dumps(v["runGroup"]),
             "data": json.dumps(
                 filter_dict(
                     v,
@@ -56,9 +54,7 @@ def save_section_variants(db, section_variants):
     """
     query_params = []
     for idid, variant in section_variants.items():
-        for code_info_id, value_info in variant.get(
-            "values", default_values["values"]
-        ).items():
+        for code_info_id, value_info in variant["values"].items():
             query_params.append(
                 {
                     "idid": idid,
@@ -86,8 +82,6 @@ def save_section_variants(db, section_variants):
 
     query_params = []
     for id, variant in section_variants.items():
-        if "sweep" not in variant:
-            continue
         order = 0
         for selectedItemGroupNum, s in enumerate(variant["sweep"]):
             selected_item = s["selectedItem"]

@@ -18,7 +18,6 @@ import {
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { yamlToGUI } from "../guiToYaml";
 import { setNotificationMessage } from "../notification";
-import { getSectionVariantAttr } from "../sectionInfos";
 
 export function getProjectData({
   withArtifactMetadata = false,
@@ -60,9 +59,7 @@ export function getProjectData({
     (x) => ({
       ...x,
       // need this filter because some sections might be temporary
-      children: getSectionVariantAttr(x, "children").filter(
-        (c) => c in sections,
-      ),
+      children: x.children.filter((c) => c in sections),
     }),
   );
   const uiTypes = useSectionInfos.getState().uiTypes;
