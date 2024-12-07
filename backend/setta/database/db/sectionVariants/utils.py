@@ -6,7 +6,7 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 
 
 def new_section_variant(**kwargs):
-    id = create_new_id()
+    id = kwargs.get("id", create_new_id())
     name = kwargs.get("name", generate_memorable_string())
     codeInfoColId = kwargs.get("codeInfoColId", create_new_id())
     obj = with_section_variant_defaults(name=name, codeInfoColId=codeInfoColId)

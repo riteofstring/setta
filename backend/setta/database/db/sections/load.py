@@ -4,6 +4,7 @@ import itertools
 import json
 from collections import defaultdict
 
+from setta.database.db.codeInfo.utils import new_code_info_col
 from setta.database.db.sections.utils import with_section_defaults
 from setta.database.db.sectionVariants.utils import new_ev_entry, new_section_variant
 from setta.database.utils import create_new_id
@@ -218,22 +219,23 @@ def load_json_sources_into_data_structures(
                 if sectionVariants[vid]["name"] == filename:
                     variantId = vid
                     break
-            if variantId:
-                sectionVariants[variantId]["values"] = data["sectionVariantValues"]
-                codeInfoColId = sectionVariants[variantId]["codeInfoColId"]
-                codeInfoCols[codeInfoColId]["children"] = data["codeInfoColChildren"]
-            else:
-                variantId = create_new_id()
-                codeInfoColId = create_new_id()
-                s["variantIds"].append(variantId)
-                _, sectionVariants[variantId] = new_section_variant(
+            if not variantId:
+                variantId, section_variant = new_section_variant(
                     name=filename,
-                    codeInfoColId=codeInfoColId,
-                    values=data["sectionVariantValues"],
                 )
-                codeInfoCols[codeInfoColId] = {
-                    "children": data["codeInfoColChildren"],
-                }
+                s["variantIds"].append(variantId)
+                sectionVariants[variantId] = section_variant
+
+            curr_section_variant = sectionVariants[variantId]
+            curr_section_variant["values"] = data["sectionVariantValues"]
+            codeInfoColId = sectionVariants[variantId].get("codeInfoColId")
+
+            if not codeInfoColId:
+                codeInfoColId = create_new_id()
+                curr_section_variant["codeInfoColId"] = codeInfoColId
+                codeInfoCols[codeInfoColId] = new_code_info_col()
+
+            codeInfoCols[codeInfoColId]["children"] = data["codeInfoColChildren"]
 
             s["configLanguage"] = "json"
             filenames_loaded.add(filename)
@@ -246,20 +248,17 @@ def load_json_sources_into_data_structures(
                 to_delete.append(vid)
 
     for vid in to_delete:
-        del codeInfoCols[sectionVariants[vid]["codeInfoColId"]]
+        if sectionVariants[vid]["codeInfoColId"]:
+            del codeInfoCols[sectionVariants[vid]["codeInfoColId"]]
         del sectionVariants[vid]
 
     for s in sections.values():
         s["jsonSourceMissing"] = False
         s["variantIds"] = [v for v in s["variantIds"] if v in sectionVariants]
         if len(s["variantIds"]) == 0:
-            variant = new_section_variant()
-            s["configLanguage"] = "python"
-            s["variantIds"].append(variant["id"])
-            sectionVariants[variant["id"]] = variant
-            codeInfoCols[variant["codeInfoColId"]] = {
-                "children": {None: []},
-            }
+            variantId, variant = new_section_variant()
+            s["variantIds"].append(variantId)
+            sectionVariants[variantId] = variant
             s["jsonSourceMissing"] = True
         elif s["variantId"] not in s["variantIds"]:
             s["variantId"] = s["variantIds"][0]

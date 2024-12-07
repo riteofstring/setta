@@ -17,14 +17,7 @@
   "sectionVariants": {
     "19f203aa-cae6-4ccc-928c-dab0194ade77": {
       "id": "19f203aa-cae6-4ccc-928c-dab0194ade77",
-      "name": "setta-settings.json",
-      "selectedItem": null,
-      "code": "",
-      "codeInfoColId": "a386b032-1e99-42b1-b99c-d71b89fed5fd",
-      "keywordPositions": [],
-      "description": "",
-      "children": [],
-      "values": {}
+      "name": "setta-settings.json"
     }
   },
   "uiTypes": {
@@ -179,42 +172,20 @@
     "69084c06-aa67-4e6b-8098-3334044eebc9": {
       "id": "69084c06-aa67-4e6b-8098-3334044eebc9",
       "name": "settings",
-      "children": [],
       "size": {
         "width": 550,
         "height": "auto"
       },
-      "zIndex": 0,
       "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
-      "paramSweepId": null,
-      "social": null,
-      "codeLanguage": "",
       "configLanguage": "json",
       "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
-      "paramSweepIds": [],
-      "paramSweepSectionId": null,
-      "nonPresetUITypeIds": [],
-      "isFrozen": false,
-      "jsonSource": "setta-settings*.json",
-      "isHorizontalOrientation": false,
-      "hideParams": false,
       "hideSearch": true,
-      "hideUnpinnedParams": false,
-      "displayMode": "GUI",
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false,
-      "paramFilter": ""
+      "jsonSource": "setta-settings*.json"
     }
   },
   "codeInfo": {},
-  "codeInfoCols": {
-    "a386b032-1e99-42b1-b99c-d71b89fed5fd": {
-      "children": {
-        "null": []
-      }
-    }
-  },
+  "codeInfoCols": {},
   "fullNameToInfo": {}
 }
