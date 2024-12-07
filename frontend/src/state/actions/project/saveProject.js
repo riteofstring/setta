@@ -20,7 +20,7 @@ import { setNotificationMessage } from "../notification";
 
 export function getProjectData({
   withArtifactMetadata = false,
-  convertYamlToGUI = false,
+  convertYamlToGUI = true,
 }) {
   // remove temporary sections
   let sections = _.pickBy(useSectionInfos.getState().x, (x) => !x.isTemporary);
@@ -103,7 +103,7 @@ export async function saveProject() {
   let res;
   setNotificationMessage("Saving...");
   if (useProjectConfig.getState().name === SETTINGS_PROJECT_NAME) {
-    res = await dbSaveSettings(getProjectData({ convertYamlToGUI: true }));
+    res = await dbSaveSettings(getProjectData({}));
     if (res.status === 200) {
       useSettings.setState(res.data);
     }

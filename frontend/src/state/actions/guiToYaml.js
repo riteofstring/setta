@@ -28,10 +28,10 @@ export async function guiToYaml(sectionId) {
   console.log(res, metaData);
   if (res.status === 200) {
     const { originalObj, yamlValue } = res.data;
-    useOriginalYamlObj.setState(() => ({
+    useOriginalYamlObj.setState({
       [sectionId]: { originalObj, metaData },
-    }));
-    useYamlValue.setState(() => ({ [sectionId]: yamlValue }));
+    });
+    useYamlValue.setState({ [sectionId]: yamlValue });
   }
 }
 
@@ -610,14 +610,14 @@ function updateIdsToChildren({
   }
 }
 
-export function maybeRunGuiToYaml(sectionId) {
+export async function maybeRunGuiToYaml(sectionId) {
   if (getSectionInfo(sectionId).displayMode === SECTION_DISPLAY_MODES.YAML) {
-    guiToYaml(sectionId);
+    await guiToYaml(sectionId);
   }
 }
 
-export function maybeRunGuiToYamlOnAllSections() {
+export async function maybeRunGuiToYamlOnAllSections() {
   for (const k of Object.keys(useSectionInfos.getState().x)) {
-    maybeRunGuiToYaml(k);
+    await maybeRunGuiToYaml(k);
   }
 }
