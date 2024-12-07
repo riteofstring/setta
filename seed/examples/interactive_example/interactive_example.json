@@ -285,7 +285,8 @@
       "size": {
         "width": 735,
         "height": "auto"
-      }
+      },
+      "defaultVariantId": "8055d10b-3623-4665-b85c-977327fa40c6"
     },
     "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
       "id": "4609e4a0-49b2-4065-b1a1-e037a33641f4",
@@ -296,7 +297,8 @@
       "size": {
         "width": 500,
         "height": "auto"
-      }
+      },
+      "defaultVariantId": "56218716-8dc7-4a8b-a253-1eb2bb9cfc56"
     },
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
@@ -307,7 +309,8 @@
       "size": {
         "width": 484,
         "height": 316
-      }
+      },
+      "defaultVariantId": "91b7814e-8f93-4ad1-a966-00851b4e41d9"
     },
     "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
@@ -327,7 +330,8 @@
         "height": 224
       },
       "aspectRatio": 1,
-      "aspectRatioExtraHeight": 24
+      "aspectRatioExtraHeight": 24,
+      "defaultVariantId": "61ce0033-a59e-4c8e-8a52-d658feb18017"
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -339,7 +343,8 @@
       "size": {
         "width": 432,
         "height": 371
-      }
+      },
+      "defaultVariantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b"
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
@@ -353,7 +358,8 @@
         }
       ],
       "name": "institutional_fuchsia",
-      "variantId": "efbf1e64-8932-4fa6-928a-e930314db45c"
+      "variantId": "efbf1e64-8932-4fa6-928a-e930314db45c",
+      "defaultVariantId": "efbf1e64-8932-4fa6-928a-e930314db45c"
     }
   },
   "codeInfo": {

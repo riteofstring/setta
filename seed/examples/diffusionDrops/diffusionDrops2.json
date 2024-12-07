@@ -63,8 +63,7 @@
           "keywordPositions": []
         }
       },
-      "name": "frog_dog",
-      "isDefault": 1
+      "name": "frog_dog"
     },
     "09179586-8ddd-4f0b-91a0-0398d928d408": {
       "children": [
@@ -73,12 +72,10 @@
         "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
         "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
       ],
-      "name": "soup_coin",
-      "isDefault": 0
+      "name": "soup_coin"
     },
     "10ea5acf-9c24-4351-bc81-252625623507": {
-      "name": "roasted_maroon",
-      "isDefault": 1
+      "name": "roasted_maroon"
     },
     "4253da34-9a1a-43eb-b80f-c6708e339024": {
       "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
@@ -89,12 +86,10 @@
           "keywordPositions": []
         }
       },
-      "name": "substantial_brown",
-      "isDefault": 1
+      "name": "substantial_brown"
     },
     "6ef0c4bb-3346-4c41-b92e-82a306e88ec0": {
       "name": "useful_amber",
-      "isDefault": 1,
       "runGroup": {
         "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861": {
           "null": {
@@ -232,8 +227,7 @@
           "keywordPositions": []
         }
       },
-      "name": "secure_jade",
-      "isDefault": 1
+      "name": "secure_jade"
     },
     "7d6b798f-f0eb-44b7-b9a9-1bb9bb01185b": {
       "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
@@ -256,16 +250,14 @@
           "keywordPositions": []
         }
       },
-      "name": "alien_star",
-      "isDefault": 0
+      "name": "alien_star"
     },
     "8481e81d-f417-4914-b5d8-2797202392ab": {
       "children": [
         "04a2d718-6476-446f-bda7-4b7fc22f8972",
         "93b410c0-33e9-4d66-95be-37d223d99c0a"
       ],
-      "name": "fast_gray",
-      "isDefault": 1
+      "name": "fast_gray"
     },
     "9083beca-25c9-4a31-885a-fb19064efd3d": {
       "selectedItem": "4c97d0f4-0221-4640-b5c8-6067d47fc131",
@@ -281,23 +273,20 @@
           ]
         }
       },
-      "name": "yeasty_magenta",
-      "isDefault": 1
+      "name": "yeasty_magenta"
     },
     "9b39ad4c-8887-43ea-b759-a1fc067ac3ef": {
       "children": [
         "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
         "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3"
       ],
-      "name": "central_amethyst",
-      "isDefault": 1
+      "name": "central_amethyst"
     },
     "a853185e-5b0d-400a-a94c-6c14a9c9809e": {
       "selectedItem": "ea138acc-58d2-4cfb-a2db-b5c44061f10f",
       "codeInfoColId": "a599670a-881c-4dd3-a2a3-e32db5aa119d",
       "values": {},
-      "name": "vivid_moccasin",
-      "isDefault": 1
+      "name": "vivid_moccasin"
     },
     "c1873fea-a24d-4367-97b1-88614045a575": {
       "selectedItem": "e7bd857a-770d-47da-9b8e-811baa29620c",
@@ -308,8 +297,7 @@
           "keywordPositions": []
         }
       },
-      "name": "wet_teal",
-      "isDefault": 0
+      "name": "wet_teal"
     },
     "c58d323d-382a-47b2-919f-a7f06bcac760": {
       "selectedItem": "10aeb934-d614-4b88-a15a-890c825860e1",
@@ -320,12 +308,10 @@
           "keywordPositions": []
         }
       },
-      "name": "secure_tan",
-      "isDefault": 1
+      "name": "secure_tan"
     },
     "d35234fa-3d81-4e87-b6d2-c26b1e8b064f": {
-      "name": "marvellous_olive",
-      "isDefault": 1
+      "name": "marvellous_olive"
     },
     "dbb76902-0b6c-46fa-a765-46bdfcf92d92": {
       "selectedItem": "c8a7d3aa-02d6-456c-8247-efc02bf86332",
@@ -341,20 +327,17 @@
           ]
         }
       },
-      "name": "horizontal_green",
-      "isDefault": 1
+      "name": "horizontal_green"
     },
     "e3280349-7dda-43f6-9cea-0b98971435a5": {
-      "name": "geographical_chocolate",
-      "isDefault": 1
+      "name": "geographical_chocolate"
     },
     "fb08c4e1-9809-46ef-bfa5-52a4a944ef74": {
       "children": [
         "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
         "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
       ],
-      "name": "marginal_coral",
-      "isDefault": 1
+      "name": "marginal_coral"
     }
   },
   "uiTypes": {
@@ -515,7 +498,8 @@
       "size": {
         "width": 472,
         "height": "auto"
-      }
+      },
+      "defaultVariantId": "9b39ad4c-8887-43ea-b759-a1fc067ac3ef"
     },
     "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba": {
       "id": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
@@ -530,7 +514,8 @@
       "size": {
         "width": 472,
         "height": "auto"
-      }
+      },
+      "defaultVariantId": "4253da34-9a1a-43eb-b80f-c6708e339024"
     },
     "45ee78a4-2ad3-4541-8a65-87a21a798887": {
       "id": "45ee78a4-2ad3-4541-8a65-87a21a798887",
@@ -542,14 +527,16 @@
       "size": {
         "width": 425,
         "height": "auto"
-      }
+      },
+      "defaultVariantId": "e3280349-7dda-43f6-9cea-0b98971435a5"
     },
     "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861": {
       "id": "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["9083beca-25c9-4a31-885a-fb19064efd3d"],
       "name": "transform",
-      "variantId": "9083beca-25c9-4a31-885a-fb19064efd3d"
+      "variantId": "9083beca-25c9-4a31-885a-fb19064efd3d",
+      "defaultVariantId": "9083beca-25c9-4a31-885a-fb19064efd3d"
     },
     "5d1b3653-766a-4290-9da5-1cdee8f54c24": {
       "id": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
@@ -563,7 +550,8 @@
       "size": {
         "width": 425,
         "height": "auto"
-      }
+      },
+      "defaultVariantId": "09179586-8ddd-4f0b-91a0-0398d928d408"
     },
     "93b410c0-33e9-4d66-95be-37d223d99c0a": {
       "id": "93b410c0-33e9-4d66-95be-37d223d99c0a",
@@ -575,7 +563,8 @@
       "size": {
         "width": 282,
         "height": 464
-      }
+      },
+      "defaultVariantId": "dbb76902-0b6c-46fa-a765-46bdfcf92d92"
     },
     "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7": {
       "id": "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7",
@@ -587,7 +576,8 @@
       "size": {
         "width": 425,
         "height": "auto"
-      }
+      },
+      "defaultVariantId": "10ea5acf-9c24-4351-bc81-252625623507"
     },
     "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3": {
       "id": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
@@ -602,7 +592,8 @@
       "size": {
         "width": 472,
         "height": "auto"
-      }
+      },
+      "defaultVariantId": "0022f0d8-b97f-4345-90ac-66615e576fb2"
     },
     "baf34852-dfdb-4a2f-850a-6c903acbf1f5": {
       "id": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
@@ -614,7 +605,8 @@
       "size": {
         "width": 425,
         "height": 291
-      }
+      },
+      "defaultVariantId": "756e7bb0-ac13-4790-a05c-f10425d508e9"
     },
     "bcfc6af0-5083-4bc2-b577-94c9f1272778": {
       "id": "bcfc6af0-5083-4bc2-b577-94c9f1272778",
@@ -625,14 +617,16 @@
       "size": {
         "width": 584,
         "height": 257
-      }
+      },
+      "defaultVariantId": "d35234fa-3d81-4e87-b6d2-c26b1e8b064f"
     },
     "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d": {
       "id": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
       "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
       "variantIds": ["8481e81d-f417-4914-b5d8-2797202392ab"],
       "name": "premier_blue",
-      "variantId": "8481e81d-f417-4914-b5d8-2797202392ab"
+      "variantId": "8481e81d-f417-4914-b5d8-2797202392ab",
+      "defaultVariantId": "8481e81d-f417-4914-b5d8-2797202392ab"
     },
     "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91": {
       "id": "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
@@ -644,7 +638,8 @@
       "size": {
         "width": 425,
         "height": 142
-      }
+      },
+      "defaultVariantId": "c58d323d-382a-47b2-919f-a7f06bcac760"
     },
     "ec733ff2-400f-44c2-826c-c3a0686cb75d": {
       "id": "ec733ff2-400f-44c2-826c-c3a0686cb75d",
@@ -655,14 +650,16 @@
       "size": {
         "width": 624,
         "height": "auto"
-      }
+      },
+      "defaultVariantId": "6ef0c4bb-3346-4c41-b92e-82a306e88ec0"
     },
     "fa8f5823-fd6b-43f0-a2df-a47e821de0de": {
       "id": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["a853185e-5b0d-400a-a94c-6c14a9c9809e"],
       "name": "model",
-      "variantId": "a853185e-5b0d-400a-a94c-6c14a9c9809e"
+      "variantId": "a853185e-5b0d-400a-a94c-6c14a9c9809e",
+      "defaultVariantId": "a853185e-5b0d-400a-a94c-6c14a9c9809e"
     }
   },
   "codeInfo": {
