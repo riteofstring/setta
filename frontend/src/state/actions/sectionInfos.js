@@ -3,6 +3,7 @@ import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { newCodeInfoCol } from "utils/objs/codeInfoCol";
+import { newEVEntry } from "utils/objs/ev";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];
@@ -92,6 +93,9 @@ export function updateSectionInfos({
 }
 
 export function setEnteredValue(variantId, paramInfoId, value, state) {
+  if (!(paramInfoId in state.variants[variantId].values)) {
+    state.variants[variantId].values[paramInfoId] = newEVEntry();
+  }
   state.variants[variantId].values[paramInfoId].value = value;
 }
 
