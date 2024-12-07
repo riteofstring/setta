@@ -8,20 +8,20 @@ export function getParamIds(
   sectionId,
   _state,
   _codeInfoChildren,
-  _selectedItem = undefined,
+  _parentCodeInfoId = undefined,
   paramPathCondition = false,
 ) {
   const state = _state ?? useSectionInfos.getState();
   const codeInfoChildren =
     _codeInfoChildren ?? getCodeInfoCol(sectionId, state).children;
-  const selectedItem =
-    _selectedItem === undefined
+  const parentCodeInfoId =
+    _parentCodeInfoId === undefined
       ? getSectionVariant(sectionId, state).selectedItem
-      : _selectedItem;
+      : _parentCodeInfoId;
 
-  const codeInfoIds = selectedItem
-    ? [selectedItem]
-    : codeInfoChildren[selectedItem];
+  const codeInfoIds = parentCodeInfoId
+    ? [parentCodeInfoId]
+    : codeInfoChildren[null];
 
   return findAllParameters(
     state.codeInfo,
@@ -42,7 +42,7 @@ export function getParamIdsToShowInArea(
   isPinned,
   _state,
   _codeInfoChildren,
-  _selectedItem = undefined,
+  _parentCodeInfoId = undefined,
 ) {
   const state = _state ?? useSectionInfos.getState();
   const codeInfoChildren =
@@ -52,7 +52,7 @@ export function getParamIdsToShowInArea(
     sectionId,
     state,
     codeInfoChildren,
-    _selectedItem,
+    _parentCodeInfoId,
     (p) => p.rcType === C.PARAMETER,
   );
   ids.reverse();

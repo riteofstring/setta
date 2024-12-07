@@ -7,24 +7,18 @@ import {
   paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
-import { newCodeInfoCol } from "utils/objs/codeInfoCol";
+import { createJSONSourceParamId } from "utils/idNameCreation";
 import { newUITypeColEntry } from "utils/objs/uiTypeCol";
 
 export function useParamInfosForSidePane(sectionId) {
   return useSectionInfos((x) => {
-    const { selectedItem, codeInfoColId } = getDisplayedSectionVariant(
-      sectionId,
-      x,
-    );
-    const codeInfoChildren = codeInfoColId
-      ? x.codeInfoCols[codeInfoColId].children
-      : newUITypeColEntry();
-
+    const { codeInfoChildren, parentCodeInfoId } =
+      getCodeChildrenAndParentCodeInfoId(sectionId, x);
     const { ids, pathMap } = getParamIds(
       sectionId,
       x,
       codeInfoChildren,
-      selectedItem,
+      parentCodeInfoId,
       (p) => p.rcType === C.PARAMETER,
     );
     const output = [];
@@ -40,19 +34,37 @@ export function useParamInfosForSidePane(sectionId) {
 
 export function useParamIdsToShowInArea(sectionId, isPinned) {
   return useSectionInfos((x) => {
-    const { selectedItem, codeInfoColId } = getDisplayedSectionVariant(
-      sectionId,
-      x,
-    );
-    const codeInfoChildren = codeInfoColId
-      ? x.codeInfoCols[codeInfoColId].children
-      : newCodeInfoCol().children;
+    const { codeInfoChildren, parentCodeInfoId } =
+      getCodeChildrenAndParentCodeInfoId(sectionId, x);
     return getParamIdsToShowInArea(
       sectionId,
       isPinned,
       x,
       codeInfoChildren,
-      selectedItem,
+      parentCodeInfoId,
     );
   }, _.isEqual);
+}
+
+function getCodeChildrenAndParentCodeInfoId(sectionId, x) {
+  const sectionVariant = getDisplayedSectionVariant(sectionId, x);
+  const { codeInfoColId } = sectionVariant;
+
+  let parentCodeInfoId;
+  const { jsonSource, jsonSourceKeys } = x.x[sectionId];
+  if (
+    jsonSource &&
+    Array.isArray(jsonSourceKeys) &&
+    jsonSourceKeys.length > 0
+  ) {
+    parentCodeInfoId = createJSONSourceParamId(jsonSourceKeys, jsonSource);
+  } else {
+    parentCodeInfoId = sectionVariant.selectedItem;
+  }
+
+  const codeInfoChildren = codeInfoColId
+    ? x.codeInfoCols[codeInfoColId].children
+    : newUITypeColEntry();
+
+  return { codeInfoChildren, parentCodeInfoId };
 }

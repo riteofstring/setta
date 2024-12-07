@@ -1,7 +1,6 @@
 import json
 import os
 
-from setta.code_gen.export_selected import get_selected_section_variant
 from setta.database.db.codeInfo.utils import (
     add_defaults_to_code_info,
     add_defaults_to_code_info_cols,
@@ -75,7 +74,9 @@ class MetaSettingsFile:
         curr_variant, setting_sections = self.get_selected_section_variant(p)
         saved_settings_path = curr_variant["name"]
         if settings_path:
-            self.update_settings_path(p, setting_sections, saved_settings_path, settings_path)
+            self.update_settings_path(
+                p, setting_sections, saved_settings_path, settings_path
+            )
         else:
             self.settings_path = saved_settings_path
 
@@ -98,13 +99,17 @@ class MetaSettingsFile:
             if s["jsonSource"].startswith("setta-settings"):
                 setting_sections.append(s)
                 variantIds.add(s["variantId"])
-        
+
         if len(variantIds) != 1:
-            raise ValueError("The settings sections are not all referring to the same file.")
+            raise ValueError(
+                "The settings sections are not all referring to the same file."
+            )
 
         return p["sectionVariants"][list(variantIds)[0]], setting_sections
 
-    def update_settings_path(self, p, setting_sections, saved_settings_path, settings_path):
+    def update_settings_path(
+        self, p, setting_sections, saved_settings_path, settings_path
+    ):
         print("updating settings path", settings_path)
         if saved_settings_path == settings_path:
             self.settings_path = settings_path

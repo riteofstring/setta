@@ -274,7 +274,10 @@ def load_json_source(filename_glob):
         children_keys = []
         for k, v in obj.items():
             path = current_path + [k]
-            key = json.dumps({"filenameGlob": filename_glob, "key": path})
+            # specify separators to make json.dumps equivalent to JSON.stringify
+            key = json.dumps(
+                {"filenameGlob": filename_glob, "key": path}, separators=(",", ":")
+            )
             full_key = f"{C.JSON_SOURCE_PREFIX}{key}"
             children_keys.append(full_key)
 
@@ -308,8 +311,10 @@ def load_json_source(filename_glob):
 
         parent_id = None
         if len(current_path) > 0:
+            # specify separators to make json.dumps equivalent to JSON.stringify
             parent_path = json.dumps(
-                {"filenameGlob": filename_glob, "key": current_path}
+                {"filenameGlob": filename_glob, "key": current_path},
+                separators=(",", ":"),
             )
             parent_id = f"{C.JSON_SOURCE_PREFIX}{parent_path}"
 
