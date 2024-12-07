@@ -57,6 +57,7 @@ class SaveAsExistingProjectConfigRequest(BaseModel):
 
 class CreateProjectConfigRequest(BaseModel):
     name: Optional[str] = None
+    previewImgColor: str
 
 
 class DeleteProjectConfigsRequest(BaseModel):
@@ -115,7 +116,7 @@ def route_save_project(x: ProjectSaveRequest, dbq=Depends(get_dbq)):
 @router.post(C.ROUTE_CREATE_PROJECT_CONFIG)
 def route_create_project_config(x: CreateProjectConfigRequest, dbq=Depends(get_dbq)):
     with dbq as db:
-        return create_project_config(db, x.name)
+        return create_project_config(db, x.name, x.previewImgColor)
 
 
 @router.post(C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG)
