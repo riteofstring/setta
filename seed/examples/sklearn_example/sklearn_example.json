@@ -437,24 +437,11 @@
       "config": {}
     }
   },
-  "uiTypeCols": {
-    "001e3176-40f8-48ba-93c9-a60e4f5fa604": {},
-    "1670b0c5-4c23-4c16-90bf-84e8a6b7d43a": {},
-    "2e7c7457-4ce1-4be5-8b35-3c86aff732d7": {},
-    "3fe82a18-fa95-41ef-8474-c14df7e37620": {},
-    "50c9cc9e-2a00-4eed-8302-a20fecf59f46": {},
-    "76acd209-655a-4f25-8a34-b682de670fd6": {},
-    "8d49f34e-ab85-46c2-b13d-66af60b363cf": {},
-    "8e312942-b6ac-472b-bb4d-b23642d0d1de": {},
-    "e5d2c23d-82fd-47c3-bf8d-dcb5ac18a8b7": {},
-    "ef2ae12c-d8f5-4d00-bf37-eb799dd0e4a1": {},
-    "f35d7b7b-d268-45c9-94de-748f8f1cd98d": {}
-  },
+  "uiTypeCols": {},
   "sections": {
     "29ca4fd3-de9b-4986-831a-e632a95b6081": {
       "id": "29ca4fd3-de9b-4986-831a-e632a95b6081",
       "uiTypeId": "2b06a83b-b96a-490d-a2d7-3631619e6495",
-      "uiTypeColId": "50c9cc9e-2a00-4eed-8302-a20fecf59f46",
       "variantIds": ["9a6859c2-a79d-4da2-b460-b57fc982d495"],
       "name": "prickly_beige",
       "displayMode": "RENDER",
@@ -467,7 +454,6 @@
     "40c921b7-10e8-4c69-a9fa-f39db37ea98f": {
       "id": "40c921b7-10e8-4c69-a9fa-f39db37ea98f",
       "uiTypeId": "02f5da7b-71ae-4e42-b5b3-286fae1823ee",
-      "uiTypeColId": "ef2ae12c-d8f5-4d00-bf37-eb799dd0e4a1",
       "variantIds": ["3383d9b9-5cee-445f-a242-fde820c76c73"],
       "name": "Global Param Sweep",
       "variantId": "3383d9b9-5cee-445f-a242-fde820c76c73",
@@ -483,7 +469,6 @@
       "id": "46dc6cab-03ac-4e73-919d-63b30da0688d",
       "paramSweepSectionId": "a439f079-d1f0-4dee-8490-6bb69be8c3ea",
       "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
-      "uiTypeColId": "8d49f34e-ab85-46c2-b13d-66af60b363cf",
       "variantIds": ["54571c59-7a51-42d5-bb8e-b6c06b41b023"],
       "name": "Global Variables",
       "variantId": "54571c59-7a51-42d5-bb8e-b6c06b41b023",
@@ -495,7 +480,6 @@
     "53e4bdad-ff4e-499c-a659-07e7184d4111": {
       "id": "53e4bdad-ff4e-499c-a659-07e7184d4111",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": "76acd209-655a-4f25-8a34-b682de670fd6",
       "variantIds": ["3fd1ddfd-e80f-41a2-bcad-c0702c39f04c"],
       "name": "abstract_ivory",
       "configLanguage": "json",
@@ -505,7 +489,6 @@
     "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
       "id": "6bce72ee-335b-42f4-9949-af8cd83c9ffe",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-      "uiTypeColId": "1670b0c5-4c23-4c16-90bf-84e8a6b7d43a",
       "variantIds": ["69220358-73c1-49c3-9b78-d7cf733b2aa8"],
       "name": "Code",
       "variantId": "69220358-73c1-49c3-9b78-d7cf733b2aa8",
@@ -517,7 +500,6 @@
     "a2b333dc-65bb-45be-8318-dfa3338a6090": {
       "id": "a2b333dc-65bb-45be-8318-dfa3338a6090",
       "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
-      "uiTypeColId": "001e3176-40f8-48ba-93c9-a60e4f5fa604",
       "variantIds": ["bc3f3f42-899b-4ef2-a550-d19fcbcfe38c"],
       "name": "fast_pink",
       "variantId": "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c",
@@ -529,7 +511,6 @@
     "a439f079-d1f0-4dee-8490-6bb69be8c3ea": {
       "id": "a439f079-d1f0-4dee-8490-6bb69be8c3ea",
       "uiTypeId": "af0538a7-9667-400e-987e-ae3c844e0fcd",
-      "uiTypeColId": "e5d2c23d-82fd-47c3-bf8d-dcb5ac18a8b7",
       "variantIds": ["f8d91f36-109b-43df-9770-b720dc3e74bd"],
       "name": "Global Variables Sweep",
       "variantId": "f8d91f36-109b-43df-9770-b720dc3e74bd"
@@ -537,7 +518,6 @@
     "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
       "id": "bea52bce-2689-41d8-a870-fa8fedcfd78a",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-      "uiTypeColId": "f35d7b7b-d268-45c9-94de-748f8f1cd98d",
       "variantIds": ["fca181fc-c326-4d50-b028-37b368372f49"],
       "name": "Script",
       "codeLanguage": "bash",
@@ -551,7 +531,6 @@
       "id": "d96cb110-6f72-435a-b745-2d55e277f983",
       "paramSweepSectionId": "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": "3fe82a18-fa95-41ef-8474-c14df7e37620",
       "variantIds": ["66e4192c-c1fc-4935-b862-e722726c1217"],
       "name": "dataset",
       "variantId": "66e4192c-c1fc-4935-b862-e722726c1217",
@@ -563,7 +542,6 @@
     "e209e428-eea6-4e14-b61e-0648ec28dd76": {
       "id": "e209e428-eea6-4e14-b61e-0648ec28dd76",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": "2e7c7457-4ce1-4be5-8b35-3c86aff732d7",
       "variantIds": [
         "1fc1e842-82fe-4a48-8794-23178822e22e",
         "22f7a029-5660-4f3d-ba54-e79637f2ba61"
@@ -575,7 +553,6 @@
     "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7": {
       "id": "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7",
       "uiTypeId": "af0538a7-9667-400e-987e-ae3c844e0fcd",
-      "uiTypeColId": "8e312942-b6ac-472b-bb4d-b23642d0d1de",
       "variantIds": ["fb460dcd-d460-44fc-aeae-b0b8aca93c5b"],
       "name": "dataset Sweep",
       "variantId": "fb460dcd-d460-44fc-aeae-b0b8aca93c5b"

@@ -504,27 +504,11 @@
       "config": {}
     }
   },
-  "uiTypeCols": {
-    "3562b0be-4c55-4496-a179-4a75ec91a524": {},
-    "3999a2dc-7210-4d3f-a6cb-28b7ec912d03": {},
-    "45999936-ac07-4aee-8751-2592c08feeee": {},
-    "527609ff-a61b-4e1f-ac5f-b50fde216719": {},
-    "69ecb4f5-9c64-4f20-bb10-7662f18177e6": {},
-    "8cb2ddc1-4ba6-4b71-9509-4137f06f9017": {},
-    "9e4418e7-dacf-4ac4-85a4-6921ff0c2cd0": {},
-    "a1e0f6e5-7af2-438c-82e3-ed5ce5d9c432": {},
-    "a5d299bd-58e7-45bc-8a61-d13ebe20124d": {},
-    "a95060a5-3cf2-49cc-a912-db0dba0205ea": {},
-    "b1abc839-5b74-4fc9-b1f7-65300a3d183f": {},
-    "c40244ce-c012-4dfa-81f9-9cf89bcd76df": {},
-    "e205db42-5447-43b4-a7e8-79e5177e741c": {},
-    "e79094db-4304-4667-9c93-9e1e8a61567e": {}
-  },
+  "uiTypeCols": {},
   "sections": {
     "04a2d718-6476-446f-bda7-4b7fc22f8972": {
       "id": "04a2d718-6476-446f-bda7-4b7fc22f8972",
       "uiTypeId": "623a9242-53e9-4b42-b695-431e9754a836",
-      "uiTypeColId": "a5d299bd-58e7-45bc-8a61-d13ebe20124d",
       "variantIds": ["9b39ad4c-8887-43ea-b759-a1fc067ac3ef"],
       "name": "other_models",
       "parentId": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
@@ -537,7 +521,6 @@
     "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba": {
       "id": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": "b1abc839-5b74-4fc9-b1f7-65300a3d183f",
       "variantIds": [
         "4253da34-9a1a-43eb-b80f-c6708e339024",
         "7d6b798f-f0eb-44b7-b9a9-1bb9bb01185b"
@@ -553,7 +536,6 @@
     "45ee78a4-2ad3-4541-8a65-87a21a798887": {
       "id": "45ee78a4-2ad3-4541-8a65-87a21a798887",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": "c40244ce-c012-4dfa-81f9-9cf89bcd76df",
       "variantIds": ["e3280349-7dda-43f6-9cea-0b98971435a5"],
       "name": "stormy_salmon",
       "parentId": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
@@ -566,7 +548,6 @@
     "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861": {
       "id": "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": "a95060a5-3cf2-49cc-a912-db0dba0205ea",
       "variantIds": ["9083beca-25c9-4a31-885a-fb19064efd3d"],
       "name": "transform",
       "variantId": "9083beca-25c9-4a31-885a-fb19064efd3d"
@@ -574,7 +555,6 @@
     "5d1b3653-766a-4290-9da5-1cdee8f54c24": {
       "id": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
       "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
-      "uiTypeColId": "527609ff-a61b-4e1f-ac5f-b50fde216719",
       "variantIds": [
         "09179586-8ddd-4f0b-91a0-0398d928d408",
         "fb08c4e1-9809-46ef-bfa5-52a4a944ef74"
@@ -589,7 +569,6 @@
     "93b410c0-33e9-4d66-95be-37d223d99c0a": {
       "id": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": "a1e0f6e5-7af2-438c-82e3-ed5ce5d9c432",
       "variantIds": ["dbb76902-0b6c-46fa-a765-46bdfcf92d92"],
       "name": "optimizer",
       "parentId": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
@@ -602,7 +581,6 @@
     "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7": {
       "id": "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": "69ecb4f5-9c64-4f20-bb10-7662f18177e6",
       "variantIds": ["10ea5acf-9c24-4351-bc81-252625623507"],
       "name": "marvellous_red",
       "parentId": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
@@ -615,7 +593,6 @@
     "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3": {
       "id": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": "3562b0be-4c55-4496-a179-4a75ec91a524",
       "variantIds": [
         "0022f0d8-b97f-4345-90ac-66615e576fb2",
         "c1873fea-a24d-4367-97b1-88614045a575"
@@ -631,7 +608,6 @@
     "baf34852-dfdb-4a2f-850a-6c903acbf1f5": {
       "id": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": "3999a2dc-7210-4d3f-a6cb-28b7ec912d03",
       "variantIds": ["756e7bb0-ac13-4790-a05c-f10425d508e9"],
       "name": "joyous_elephant",
       "parentId": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
@@ -644,7 +620,6 @@
     "bcfc6af0-5083-4bc2-b577-94c9f1272778": {
       "id": "bcfc6af0-5083-4bc2-b577-94c9f1272778",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-      "uiTypeColId": "e79094db-4304-4667-9c93-9e1e8a61567e",
       "variantIds": ["d35234fa-3d81-4e87-b6d2-c26b1e8b064f"],
       "name": "Code",
       "variantId": "d35234fa-3d81-4e87-b6d2-c26b1e8b064f",
@@ -656,7 +631,6 @@
     "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d": {
       "id": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
       "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
-      "uiTypeColId": "45999936-ac07-4aee-8751-2592c08feeee",
       "variantIds": ["8481e81d-f417-4914-b5d8-2797202392ab"],
       "name": "premier_blue",
       "variantId": "8481e81d-f417-4914-b5d8-2797202392ab"
@@ -664,7 +638,6 @@
     "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91": {
       "id": "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": "e205db42-5447-43b4-a7e8-79e5177e741c",
       "variantIds": ["c58d323d-382a-47b2-919f-a7f06bcac760"],
       "name": "incredible_leopard",
       "parentId": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
@@ -677,7 +650,6 @@
     "ec733ff2-400f-44c2-826c-c3a0686cb75d": {
       "id": "ec733ff2-400f-44c2-826c-c3a0686cb75d",
       "uiTypeId": "02f5da7b-71ae-4e42-b5b3-286fae1823ee",
-      "uiTypeColId": "8cb2ddc1-4ba6-4b71-9509-4137f06f9017",
       "variantIds": ["6ef0c4bb-3346-4c41-b92e-82a306e88ec0"],
       "name": "Global Param Sweep",
       "variantId": "6ef0c4bb-3346-4c41-b92e-82a306e88ec0",
@@ -689,7 +661,6 @@
     "fa8f5823-fd6b-43f0-a2df-a47e821de0de": {
       "id": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": "9e4418e7-dacf-4ac4-85a4-6921ff0c2cd0",
       "variantIds": ["a853185e-5b0d-400a-a94c-6c14a9c9809e"],
       "name": "model",
       "variantId": "a853185e-5b0d-400a-a94c-6c14a9c9809e"

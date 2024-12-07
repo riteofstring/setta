@@ -10,14 +10,14 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    for (const s of Object.values(json.sectionVariants)) {
-      if (s.codeInfoColId) {
+    for (const s of Object.values(json.sections)) {
+      if (s.uiTypeColId) {
         if (
-          !(s.codeInfoColId in json.codeInfoCols) ||
-          Object.keys(json.codeInfoCols[s.codeInfoColId]).length === 0
+          !(s.uiTypeColId in json.uiTypeCols) ||
+          Object.keys(json.uiTypeCols[s.uiTypeColId]).length === 0
         ) {
-          delete json.codeInfoCols[s.codeInfoColId];
-          delete s.codeInfoColId;
+          delete json.uiTypeCols[s.uiTypeColId];
+          delete s.uiTypeColId;
         }
       }
     }

@@ -261,9 +261,6 @@
     }
   },
   "uiTypeCols": {
-    "3072250c-fb83-4b58-9e3b-303f13b1e623": {},
-    "5dd0a464-e86b-4f9c-a195-303e56dcc96d": {},
-    "a3934747-efba-49aa-a500-100b033196d2": {},
     "b3449dbb-8328-43bb-8e45-b76173bf679c": {
       "20512036-3e0f-41f3-9738-6573ee71bdaf": {
         "uiTypeId": "76c639bd-eae5-4497-bf8b-0e668d8baf6c",
@@ -277,15 +274,12 @@
         "uiTypeId": "eab8f446-17cc-4512-bab5-42bff8570f1f",
         "nonPresetUITypeIds": []
       }
-    },
-    "ce01027b-26ed-4ea2-971a-fefde787cbb2": {},
-    "ecab60b1-3cd7-4947-a61b-ccbef507c9ae": {}
+    }
   },
   "sections": {
     "25d0e656-bec2-44a0-9728-f41d657b8508": {
       "id": "25d0e656-bec2-44a0-9728-f41d657b8508",
       "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
-      "uiTypeColId": "5dd0a464-e86b-4f9c-a195-303e56dcc96d",
       "variantIds": ["8055d10b-3623-4665-b85c-977327fa40c6"],
       "name": "spatial_orange",
       "variantId": "8055d10b-3623-4665-b85c-977327fa40c6",
@@ -297,7 +291,6 @@
     "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
       "id": "4609e4a0-49b2-4065-b1a1-e037a33641f4",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-      "uiTypeColId": "ce01027b-26ed-4ea2-971a-fefde787cbb2",
       "variantIds": ["56218716-8dc7-4a8b-a253-1eb2bb9cfc56"],
       "name": "Code",
       "variantId": "56218716-8dc7-4a8b-a253-1eb2bb9cfc56",
@@ -309,7 +302,6 @@
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
       "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
-      "uiTypeColId": "ecab60b1-3cd7-4947-a61b-ccbef507c9ae",
       "variantIds": ["91b7814e-8f93-4ad1-a966-00851b4e41d9"],
       "name": "exclusive_jade",
       "variantId": "91b7814e-8f93-4ad1-a966-00851b4e41d9",
@@ -321,7 +313,6 @@
     "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
       "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
-      "uiTypeColId": "a3934747-efba-49aa-a500-100b033196d2",
       "variantIds": ["61ce0033-a59e-4c8e-8a52-d658feb18017"],
       "artifacts": [
         {
@@ -354,7 +345,6 @@
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
       "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c",
-      "uiTypeColId": "3072250c-fb83-4b58-9e3b-303f13b1e623",
       "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
       "artifacts": [
         {
