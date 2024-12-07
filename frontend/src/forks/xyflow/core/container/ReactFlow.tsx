@@ -16,7 +16,7 @@ const wrapperStyle: CSSProperties = {
 
 const ReactFlow = () => {
   const [snapToGrid] = localStorageFns.snapToGrid.hook();
-  const showGridLines = useSettings((x) => !!x.gui.showGridLines);
+  const showGridLines = useSettings((x) => !!x.showGridLines);
 
   return (
     <div

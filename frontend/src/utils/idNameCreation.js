@@ -14,17 +14,13 @@ export function maybeNewId(x) {
   return x ? x : createNewId();
 }
 
-export function createJSONSourceParamId(paramPath, jsonSource) {
-  const metadata = JSON.stringify({
-    filenameGlob: jsonSource,
-    key: paramPath,
-  });
-  return `${C.JSON_SOURCE_PREFIX}${metadata}`;
-}
-
 export function createNewParamId(paramPath, jsonSource) {
   if (jsonSource) {
-    return createJSONSourceParamId(paramPath, jsonSource);
+    const metadata = JSON.stringify({
+      filenameGlob: jsonSource,
+      key: paramPath,
+    });
+    return `${C.JSON_SOURCE_PREFIX}${metadata}`;
   }
   return createNewId();
 }

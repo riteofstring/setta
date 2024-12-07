@@ -1,11 +1,31 @@
-import DEFAULT_VALUES from "constants/defaultValues.json";
-import _ from "lodash";
 import { createRandomName } from "utils/idNameCreation";
 
-export function newSectionVariant({ name, ...props }) {
+export function newSectionVariant({
+  name,
+  values = {},
+  children = [],
+  selectedItem = null,
+  code = "",
+  codeInfoColId = null,
+  description = "",
+  keywordPositions = [],
+  isFrozen = false,
+  isDefault = true,
+  sweep = [],
+  runGroup = {},
+}) {
   return {
-    ..._.cloneDeep(DEFAULT_VALUES.sectionVariant),
     name: name ?? createRandomName(),
-    ...props,
+    values,
+    children,
+    selectedItem,
+    code,
+    codeInfoColId,
+    description,
+    keywordPositions,
+    isFrozen,
+    isDefault,
+    sweep,
+    runGroup,
   };
 }

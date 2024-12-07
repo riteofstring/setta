@@ -386,7 +386,7 @@ function useZoomPaneInit(zoomPane, translateExtent) {
 function zoomPaneInit({ zoomPane, translateExtent, initialViewport }) {
   if (zoomPane.current) {
     const bbox = zoomPane.current.getBoundingClientRect();
-    const { minZoom, maxZoom } = useSettings.getState().gui;
+    const { minZoom, maxZoom } = useSettings.getState();
     // .interpolate(interpolate) makes the interpolations linear instead of curved
     const d3ZoomInstance = zoom()
       .interpolate(interpolate)

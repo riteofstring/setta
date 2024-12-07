@@ -92,7 +92,7 @@ function ParamFilter({ sectionId }) {
     _.isEqual(x.ids, [sectionId]),
   );
   const searchShortcut = useSettings((x) =>
-    shortcutPrettified(x.shortcuts.searchShortcut),
+    shortcutPrettified(x.searchShortcut),
   );
   function onSearchChange(e) {
     useSectionInfos.setState((state) => {

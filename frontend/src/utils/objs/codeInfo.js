@@ -1,11 +1,31 @@
-import DEFAULT_VALUES from "constants/defaultValues.json";
-import _ from "lodash";
 import { maybeNewId } from "../idNameCreation";
 
-export function newCodeInfo({ id, ...props }) {
+export function newCodeInfo({
+  id,
+  name = "",
+  editable = false,
+  rcType,
+  defaultVal = null,
+  children = [],
+  description = "",
+  positionalOnly = false,
+  isPinned = false,
+  isFrozen = false,
+  isSelected = false,
+  keywordPositions = [],
+}) {
   return {
-    ..._.cloneDeep(DEFAULT_VALUES.codeInfo),
     id: maybeNewId(id),
-    ...props,
+    name,
+    editable,
+    rcType,
+    defaultVal,
+    children,
+    description,
+    positionalOnly,
+    isPinned,
+    isFrozen,
+    isSelected,
+    keywordPositions,
   };
 }
