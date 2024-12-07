@@ -82,7 +82,7 @@ function setFullChildrenNamesForRegex(
   setFullParamRegex(
     state,
     sectionId,
-    null,
+    state.details[sectionId].selectedItem,
     allNames,
     fullNameToInfo,
     argsFullName,
