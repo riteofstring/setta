@@ -10,7 +10,9 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    delete json.projectConfig.isDefault
+    if (!json.projectConfig.viewport) {
+      delete json.projectConfig.viewport;
+    }
     // for (const s of Object.values(json.sections)) {
     //   if (s.uiTypeColId) {
     //     if (

@@ -10,6 +10,7 @@ from setta.database.db.sections.utils import add_defaults_to_sections
 from setta.database.db.sectionVariants.utils import add_defaults_to_section_variants
 from setta.database.utils import create_new_id
 from setta.utils.constants import (
+    DEFAULT_VALUES,
     PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS,
     PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS,
     SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
@@ -19,10 +20,10 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import filter_dict
 
 from ..codeInfo.save import save_code_info, save_code_info_col
+from ..sections.jsonSource import remove_json_source_data, save_json_source_data
 from ..sections.save import save_sections
 from ..sectionVariants.save import save_section_variants
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
-from .utils import remove_json_source_data, save_json_source_data
 
 
 def save_project_details(db, p):
@@ -56,7 +57,13 @@ def save_project(db, project):
     query_params = {
         "id": project["id"],
         "name": project["name"],
-        "data": json.dumps(filter_dict(project, PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS)),
+        "data": json.dumps(
+            filter_dict(
+                project,
+                PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS,
+                DEFAULT_VALUES["projectConfig"],
+            )
+        ),
     }
     db.execute(query, query_params)
 
@@ -132,7 +139,7 @@ def save_project_config_name(db, curr_name, new_name):
 
 def set_as_default_project(db, projectId):
     query = """
-        UPDATE Metadata 
+        UPDATE Metadata
         SET defaultProject = :projectId
         WHERE id = 1;
     """

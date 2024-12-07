@@ -5,7 +5,7 @@ from setta.database.db.codeInfo.utils import (
     add_defaults_to_code_info,
     add_defaults_to_code_info_cols,
 )
-from setta.database.db.projects.utils import (
+from setta.database.db.sections.jsonSource import (
     remove_json_source_data,
     save_json_source_data,
 )
