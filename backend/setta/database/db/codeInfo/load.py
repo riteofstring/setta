@@ -6,8 +6,8 @@ from setta.database.db.codeInfo.utils import (
 )
 
 
-def load_code_info(db, ids):
-    placeholders = ", ".join(["?"] * len(ids))
+def load_code_info(db, codeInfoColIds):
+    placeholders = ", ".join(["?"] * len(codeInfoColIds))
     query = f"""
         WITH RECURSIVE DESCENDANTS AS (
             SELECT c.idid, c.parentId, c.childId, c."order"
@@ -23,11 +23,11 @@ def load_code_info(db, ids):
         SELECT * FROM DESCENDANTS
         ORDER BY idid, "order";
     """
-    db.execute(query, tuple(ids))
+    db.execute(query, tuple(codeInfoColIds))
     results = db.fetchall()
     all_ids = set()
     code_info_cols = {}
-    for k in ids:
+    for k in codeInfoColIds:
         code_info_cols[k] = with_code_info_col_defaults()
     for row in results:
         (codeInfoColId, parentId, childId, _) = row
@@ -59,5 +59,7 @@ def load_code_info(db, ids):
 
 
 def load_code_info_cols(db, sectionVariants):
-    collection_ids = [v["codeInfoColId"] for v in sectionVariants.values()]
+    collection_ids = [
+        v["codeInfoColId"] for v in sectionVariants.values() if v["codeInfoColId"]
+    ]
     return load_code_info(db, collection_ids)
