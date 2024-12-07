@@ -1,6 +1,9 @@
 import json
 
-from setta.database.db.sectionVariants.utils import with_section_variant_defaults
+from setta.database.db.sectionVariants.utils import (
+    with_ev_entry_defaults,
+    with_section_variant_defaults,
+)
 
 
 def load_section_variants(db, ids):
@@ -24,7 +27,9 @@ def load_section_variants(db, ids):
                 **json.loads(row["data"]),
             )
         if row["valueData"]:
-            output[id]["values"][row["codeInfoId"]] = json.loads(row["valueData"])
+            output[id]["values"][row["codeInfoId"]] = with_ev_entry_defaults(
+                **json.loads(row["valueData"])
+            )
 
     query = f"""
         SELECT SectionVariantId.id, SectionVariantChildren.childId, SectionVariantChildren."order"

@@ -61,7 +61,9 @@ def save_section_variants(db, section_variants):
                     "codeInfoId": code_info_id,
                     "data": json.dumps(
                         filter_dict(
-                            value_info, SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS
+                            value_info,
+                            SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS,
+                            DEFAULT_VALUES["evEntry"],
                         )
                     ),
                 }

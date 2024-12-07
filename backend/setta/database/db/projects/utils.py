@@ -6,12 +6,13 @@ from setta.database.db.codeInfo.utils import (
 )
 from setta.database.db.sections.utils import add_defaults_to_sections
 from setta.database.db.sectionVariants.utils import add_defaults_to_section_variants
+from setta.database.db.uiTypes.utils import add_defaults_to_ui_type_cols
 from setta.utils.constants import DEFAULT_VALUES
-from setta.utils.utils import filter_dict
+from setta.utils.utils import deep_merge, filter_dict
 
 
 def with_project_config_defaults(**kwargs):
-    return {**copy.deepcopy(DEFAULT_VALUES["projectConfig"]), **kwargs}
+    return deep_merge(copy.deepcopy(DEFAULT_VALUES["projectConfig"]), kwargs)
 
 
 def add_defaults_to_project(p):
@@ -20,6 +21,7 @@ def add_defaults_to_project(p):
     add_defaults_to_section_variants(p["sectionVariants"])
     add_defaults_to_code_info(p["codeInfo"])
     add_defaults_to_code_info_cols(p["codeInfoCols"])
+    add_defaults_to_ui_type_cols(p["uiTypeCols"])
 
 
 def filter_data_for_json_export(p):
@@ -30,9 +32,12 @@ def filter_data_for_json_export(p):
         p["sections"][k] = filter_dict(v, None, DEFAULT_VALUES["section"])
 
     for k, v in p["sectionVariants"].items():
-        p["sectionVariants"][k] = filter_dict(v, None, DEFAULT_VALUES["sectionVariant"])
-        if "values" in v:
-            v["values"] = filter_dict(v["values"], None, DEFAULT_VALUES["evEntry"])
+        curr = p["sectionVariants"]
+        curr[k] = filter_dict(v, None, DEFAULT_VALUES["sectionVariant"])
+        if "values" in curr[k]:
+            curr[k]["values"] = filter_dict(
+                curr[k]["values"], None, DEFAULT_VALUES["evEntry"]
+            )
 
     for k, v in p["codeInfo"].items():
         p["codeInfo"][k] = filter_dict(v, None, DEFAULT_VALUES["codeInfo"])
@@ -41,4 +46,7 @@ def filter_data_for_json_export(p):
         p["codeInfoCols"][k] = filter_dict(v, None, DEFAULT_VALUES["codeInfoCol"])
 
     for k, v in p["uiTypeCols"].items():
-        p["uiTypeCols"][k] = filter_dict(v, None, DEFAULT_VALUES["uiTypeColEntry"])
+        for paramId, uiTypeColInfo in v.items():
+            p["uiTypeCols"][k][paramId] = filter_dict(
+                uiTypeColInfo, None, DEFAULT_VALUES["uiTypeColEntry"]
+            )

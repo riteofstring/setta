@@ -67,7 +67,7 @@ def load_constants():
 
 
 def is_from_json_source(id):
-    return id.startswith(C.JSON_SOURCE_PREFIX)
+    return id and id.startswith(C.JSON_SOURCE_PREFIX)
 
 
 CODE_INFO_TABLE_DATA_JSON_FIELDS = set(

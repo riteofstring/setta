@@ -8,42 +8,42 @@
         "y": 119,
         "zIndex": 0,
         "w": 552,
-        "h": 1718
+        "h": 938
       },
       "6b264a9a-0f87-4288-80aa-45cc6b16db96": {
         "x": 600,
         "y": 119,
         "zIndex": 0,
         "w": 552,
-        "h": 1718
+        "h": 506
       },
       "f74b5aaf-d11d-4153-b55b-9c18e11e3a73": {
         "x": 1200,
         "y": 119,
         "zIndex": 0,
         "w": 552,
-        "h": 1718
+        "h": 338
       },
       "8389d4b3-0a1e-4c44-819b-7c745d6c3f1b": {
         "x": 1800,
         "y": 119,
         "zIndex": 0,
         "w": 552,
-        "h": 1718
+        "h": 80
       },
       "514c2046-25de-4b0a-b6f9-fca1dd14ad8e": {
         "x": 2400,
         "y": 119,
         "zIndex": 0,
         "w": 552,
-        "h": 1718
+        "h": 458
       }
     }
   },
   "sectionVariants": {
     "19f203aa-cae6-4ccc-928c-dab0194ade77": {
-      "id": "19f203aa-cae6-4ccc-928c-dab0194ade77",
-      "name": "setta-settings.json"
+      "name": "setta-settings.json",
+      "id": "19f203aa-cae6-4ccc-928c-dab0194ade77"
     }
   },
   "uiTypes": {
@@ -113,84 +113,64 @@
   "uiTypeCols": {
     "04f95495-52ba-4277-a79e-228bb1c6a5bc": {
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"gui\",\"panOnScrollMode\"]}": {
-        "uiTypeId": "86b19dfb-742b-4d82-aa5f-5d4cca9f3d0a",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "86b19dfb-742b-4d82-aa5f-5d4cca9f3d0a"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"gui\",\"selectionMode\"]}": {
-        "uiTypeId": "1ec5d8de-f984-451d-b43a-78917f698d52",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "1ec5d8de-f984-451d-b43a-78917f698d52"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"gui\",\"showGridLines\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"gui\",\"gridColor\"]}": {
-        "uiTypeId": "74de30af-accf-44db-9b6b-da4260f0bd60",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "74de30af-accf-44db-9b6b-da4260f0bd60"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"gui\",\"gridColorDarkMode\"]}": {
-        "uiTypeId": "74de30af-accf-44db-9b6b-da4260f0bd60",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "74de30af-accf-44db-9b6b-da4260f0bd60"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"gui\",\"gridPattern\"]}": {
-        "uiTypeId": "90f2233a-2864-498f-a4df-4c027fa0c4a4",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "90f2233a-2864-498f-a4df-4c027fa0c4a4"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"backend\",\"showDefaultConfigOnLoad\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"backend\",\"inferImports\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"backend\",\"autosave\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"backend\",\"autobackup\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"gui\",\"leftSidePaneShiftsMap\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"gui\",\"panOnDrag\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"gui\",\"panOnScroll\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"gui\",\"zoomOnScroll\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"gui\",\"zoomOnPinch\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"gui\",\"zoomOnDoubleClick\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"backend\",\"clearTerminalBeforeMarkingAsReady\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"backend\",\"exportDbRawOnSave\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"backend\",\"exportDbReadableOnSave\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"backend\",\"exportDbReadableWithVariantsOnSave\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        "nonPresetUITypeIds": []
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       }
     }
   },
@@ -199,14 +179,13 @@
       "id": "69084c06-aa67-4e6b-8098-3334044eebc9",
       "name": "shortcuts",
       "size": {
-        "width": 550,
-        "height": "auto"
+        "width": 550
       },
       "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
-      "configLanguage": "json",
       "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
+      "configLanguage": "json",
       "hideSearch": true,
       "jsonSource": "setta-settings*.json",
       "jsonSourceKeys": ["shortcuts"]
@@ -215,14 +194,13 @@
       "id": "6b264a9a-0f87-4288-80aa-45cc6b16db96",
       "name": "gui",
       "size": {
-        "width": 550,
-        "height": "auto"
+        "width": 550
       },
       "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
-      "configLanguage": "json",
       "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
+      "configLanguage": "json",
       "hideSearch": true,
       "jsonSource": "setta-settings*.json",
       "jsonSourceKeys": ["gui"]
@@ -231,14 +209,13 @@
       "id": "f74b5aaf-d11d-4153-b55b-9c18e11e3a73",
       "name": "backend",
       "size": {
-        "width": 550,
-        "height": "auto"
+        "width": 550
       },
       "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
-      "configLanguage": "json",
       "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
+      "configLanguage": "json",
       "hideSearch": true,
       "jsonSource": "setta-settings*.json",
       "jsonSourceKeys": ["backend"]
@@ -247,14 +224,13 @@
       "id": "8389d4b3-0a1e-4c44-819b-7c745d6c3f1b",
       "name": "languageServer",
       "size": {
-        "width": 550,
-        "height": "auto"
+        "width": 550
       },
       "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
-      "configLanguage": "json",
       "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
+      "configLanguage": "json",
       "hideSearch": true,
       "jsonSource": "setta-settings*.json",
       "jsonSourceKeys": ["languageServer"]
@@ -263,14 +239,13 @@
       "id": "514c2046-25de-4b0a-b6f9-fca1dd14ad8e",
       "name": "sections",
       "size": {
-        "width": 550,
-        "height": "auto"
+        "width": 550
       },
       "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
-      "configLanguage": "json",
       "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
+      "configLanguage": "json",
       "hideSearch": true,
       "jsonSource": "setta-settings*.json",
       "jsonSourceKeys": ["sections"]

@@ -1,11 +1,11 @@
 import copy
 
 from setta.utils.constants import DEFAULT_VALUES
-from setta.utils.utils import replace_null_keys_with_none
+from setta.utils.utils import deep_merge, replace_null_keys_with_none
 
 
 def with_code_info_defaults(**kwargs):
-    return {**copy.deepcopy(DEFAULT_VALUES["codeInfo"]), **kwargs}
+    return deep_merge(copy.deepcopy(DEFAULT_VALUES["codeInfo"]), kwargs)
 
 
 def add_defaults_to_code_info(code_info):
@@ -14,10 +14,10 @@ def add_defaults_to_code_info(code_info):
 
 
 def with_code_info_col_defaults(**kwargs):
-    return {
-        **replace_null_keys_with_none(copy.deepcopy(DEFAULT_VALUES["codeInfoCol"])),
-        **kwargs,
-    }
+    return deep_merge(
+        replace_null_keys_with_none(copy.deepcopy(DEFAULT_VALUES["codeInfoCol"])),
+        replace_null_keys_with_none(kwargs),
+    )
 
 
 def add_defaults_to_code_info_cols(code_info_cols):
