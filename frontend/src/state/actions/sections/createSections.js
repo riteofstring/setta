@@ -4,7 +4,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos, useSettings } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { newSectionInfo } from "utils/objs/sectionInfo";
@@ -60,10 +60,6 @@ export function addSectionAtPosition({
     ...inputSectionProps,
   };
 
-  if (!sectionProps.size) {
-    sectionProps.size = getDefaultSectionSize(type);
-  }
-
   if (!sectionProps.name) {
     sectionProps.name = getDefaultSectionName(type);
   }
@@ -72,18 +68,6 @@ export function addSectionAtPosition({
 
   const [newId] = createSectionInfo({ sectionProps, position, state });
   return newId;
-}
-
-function getDefaultSectionSize(type) {
-  const settings = useSettings.getState();
-  switch (type) {
-    case C.CODE:
-      return settings.backend.defaultCodeSectionSize;
-    case C.TERMINAL:
-      return settings.backend.defaultTerminalSectionSize;
-    default:
-      return settings.backend.defaultSectionSize;
-  }
 }
 
 function getDefaultSectionName(type) {

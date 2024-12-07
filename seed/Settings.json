@@ -58,9 +58,6 @@
     "leftSidePaneShiftsMap": true
   },
   "backend": {
-    "defaultCodeSectionSize": { "width": 500, "height": "auto" },
-    "defaultTerminalSectionSize": { "width": 700, "height": 300 },
-    "defaultSectionSize": { "width": "auto", "height": "auto" },
     "showDefaultConfigOnLoad": true,
     "inferImports": true,
     "autosave": false,
@@ -73,5 +70,13 @@
     "exportDbReadableOnSave": false,
     "exportDbReadableWithVariantsOnSave": false
   },
-  "languageServer": {}
+  "languageServer": {},
+  "sections": {
+    "CODE": {
+      "size": { "width": 500, "height": "auto" }
+    },
+    "TERMINAL": {
+      "size": { "width": 700, "height": 300 }
+    }
+  }
 }
