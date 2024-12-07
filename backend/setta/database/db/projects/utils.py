@@ -41,11 +41,19 @@ def filter_data_for_json_export(p):
             v, DEFAULT_VALUES["sectionVariant"].keys(), DEFAULT_VALUES["sectionVariant"]
         )
         if "values" in curr[k]:
-            curr[k]["values"] = filter_dict(
-                curr[k]["values"],
-                DEFAULT_VALUES["evEntry"].keys(),
-                DEFAULT_VALUES["evEntry"],
-            )
+            curr[k]["values"] = {
+                paramId: filter_dict(
+                    curr[k]["values"][paramId],
+                    DEFAULT_VALUES["evEntry"].keys(),
+                    DEFAULT_VALUES["evEntry"],
+                )
+                for paramId in curr[k]["values"].keys()
+            }
+            curr[k]["values"] = {
+                paramId: evEntry
+                for paramId, evEntry in curr[k]["values"].items()
+                if len(evEntry) > 0
+            }
 
     for k, v in p["codeInfo"].items():
         p["codeInfo"][k] = filter_dict(
@@ -64,3 +72,9 @@ def filter_data_for_json_export(p):
                 DEFAULT_VALUES["uiTypeColEntry"].keys(),
                 DEFAULT_VALUES["uiTypeColEntry"],
             )
+
+        p["uiTypeCols"][k] = {
+            paramId: uiTypeCol
+            for paramId, uiTypeCol in p["uiTypeCols"][k].items()
+            if len(uiTypeCol) > 0
+        }

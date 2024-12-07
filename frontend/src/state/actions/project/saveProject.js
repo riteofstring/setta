@@ -109,10 +109,7 @@ export async function saveProject() {
     }
   } else {
     res = await dbSaveProject({
-      project: getProjectData({
-        withArtifactMetadata: true,
-        convertYamlToGUI: true,
-      }),
+      project: getProjectDataForSaving(),
     });
   }
 
@@ -137,10 +134,7 @@ export async function saveAsExistingProjectConfig({ configName }) {
 
 async function saveProjectAs({ fn, otherArgs }) {
   await fn({
-    project: getProjectData({
-      withArtifactMetadata: true,
-      convertYamlToGUI: true,
-    }),
+    project: getProjectDataForSaving(),
     ...otherArgs,
   });
 }
@@ -158,4 +152,11 @@ function getProjectConfigMetadata() {
     : getViewport();
 
   return output;
+}
+
+export function getProjectDataForSaving() {
+  return getProjectData({
+    withArtifactMetadata: true,
+    convertYamlToGUI: true,
+  });
 }
