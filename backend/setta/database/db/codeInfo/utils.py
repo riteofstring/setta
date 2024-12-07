@@ -23,3 +23,7 @@ def with_code_info_col_defaults(**kwargs):
 def add_defaults_to_code_info_cols(code_info_cols):
     for k, v in code_info_cols.items():
         code_info_cols[k] = with_code_info_col_defaults(**v)
+
+
+def new_code_info_col():
+    return copy.deepcopy(DEFAULT_VALUES["codeInfoCol"])

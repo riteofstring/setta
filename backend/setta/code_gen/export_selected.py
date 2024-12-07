@@ -1,5 +1,6 @@
 import copy
 
+from setta.database.db.codeInfo.utils import new_code_info_col
 from setta.database.db.sectionVariants.utils import new_ev_entry
 from setta.database.db.uiTypes.utils import new_ui_type_col_entry
 from setta.utils.section_contents import get_param_ids
@@ -58,12 +59,16 @@ def get_selected_item_id(p, id):
 
 def get_code_info_children(p, section_id, id):
     codeInfoChildren = get_section_code_info_children(p, section_id)
-    return codeInfoChildren[id]
+    return codeInfoChildren.get(id, [])
 
 
 def get_section_code_info_children(p, section_id):
     codeInfoColId = get_selected_section_variant(p, section_id)["codeInfoColId"]
-    return p["codeInfoCols"][codeInfoColId]["children"]
+    if not codeInfoColId:
+        codeInfoCol = new_code_info_col()
+    else:
+        codeInfoCol = p["codeInfoCols"][codeInfoColId]
+    return codeInfoCol["children"]
 
 
 def get_top_level_param_ids(p, id):
