@@ -47,7 +47,7 @@ export function useParamIdsToShowInArea(sectionId, isPinned) {
   }, _.isEqual);
 }
 
-function getCodeChildrenAndParentCodeInfoId(sectionId, x) {
+export function getCodeChildrenAndParentCodeInfoId(sectionId, x) {
   const sectionVariant = getDisplayedSectionVariant(sectionId, x);
   const { codeInfoColId } = sectionVariant;
 
