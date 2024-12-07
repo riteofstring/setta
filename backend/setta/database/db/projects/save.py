@@ -138,6 +138,7 @@ def set_as_default_project(db, projectId):
     """
     db.execute(query, {"projectId": projectId})
 
+
 def save_section_configs(db, project_config_id, sections):
     query_params = []
     for section_id in sections.keys():
