@@ -21,13 +21,15 @@ import { useHotReload } from "utils/hotReload";
 
 export function useGetAllProjectConfigMetadata() {
   const [projects, setProjects] = useState([]);
+  const [defaultProjectName, setDefaultProjectName] = useState([]);
   async function getAllProjectConfigMetadata() {
     const res = await dbGetAllProjectConfigMetadata();
     if (res.status === 200) {
-      setProjects(res.data);
+      setProjects(res.data[0]);
+      setDefaultProjectName(res.data[1]);
     }
   }
-  return { projects, getAllProjectConfigMetadata };
+  return { projects, defaultProjectName, getAllProjectConfigMetadata };
 }
 
 export function useGetAllProjectConfigMetadataForFileMenu(open) {

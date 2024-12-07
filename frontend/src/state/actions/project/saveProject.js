@@ -153,7 +153,6 @@ function getProjectConfigMetadata() {
   const output = {
     id: state.id,
     name: state.name,
-    isDefault: state.isDefault,
     previewImgColor: state.previewImgColor,
   };
 

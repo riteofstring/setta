@@ -21,7 +21,7 @@ import "./homepage.css";
 
 export function HomePage() {
   const [doRefresh, setDoRefresh] = useState(true);
-  const { projects, getAllProjectConfigMetadata } =
+  const { projects, defaultProjectName, getAllProjectConfigMetadata } =
     useGetAllProjectConfigMetadata();
 
   useEffect(() => {
@@ -33,12 +33,16 @@ export function HomePage() {
 
   return (
     <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-900">
-      <RightColumn projects={projects} setDoRefresh={setDoRefresh} />
+      <RightColumn
+        projects={projects}
+        defaultProjectName={defaultProjectName}
+        setDoRefresh={setDoRefresh}
+      />
     </GridWrapper>
   );
 }
 
-function RightColumn({ projects, setDoRefresh }) {
+function RightColumn({ projects, defaultProjectName, setDoRefresh }) {
   const [selectedProjects, setSelectedProjects] = useState([]);
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
 
@@ -115,6 +119,7 @@ function RightColumn({ projects, setDoRefresh }) {
       </div>
       <ProjectItems
         projects={projects}
+        defaultProjectName={defaultProjectName}
         selectedProjects={selectedProjects}
         onSelectProject={onSelectProject}
       />
@@ -122,7 +127,12 @@ function RightColumn({ projects, setDoRefresh }) {
   );
 }
 
-function ProjectItems({ projects, selectedProjects, onSelectProject }) {
+function ProjectItems({
+  projects,
+  defaultProjectName,
+  selectedProjects,
+  onSelectProject,
+}) {
   const searchValue = useHomePageSearch((x) => x.value);
   const filteredProjects = matchSorter(projects, searchValue, {
     keys: ["name"],
@@ -136,6 +146,7 @@ function ProjectItems({ projects, selectedProjects, onSelectProject }) {
       {filteredProjects.map((x, i) => (
         <ProjectItem
           project={x}
+          isDefault={x.name === defaultProjectName}
           key={`Project ${i} ${x.name}`}
           isSelected={selectedProjects.includes(x.id)}
           onSelectProject={onSelectProject}
@@ -147,7 +158,10 @@ function ProjectItems({ projects, selectedProjects, onSelectProject }) {
 }
 
 const ProjectItem = forwardRef(
-  ({ project, isSelected, onSelectProject, inSelectionMode }, forwardedRef) => {
+  (
+    { project, isDefault, isSelected, onSelectProject, inSelectionMode },
+    forwardedRef,
+  ) => {
     const itemStyles =
       "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-setta-600 gap-0";
 
@@ -177,7 +191,7 @@ const ProjectItem = forwardRef(
               <p className="text-sm text-setta-600 dark:text-setta-100">
                 {project.name}
               </p>
-              {!!project.isDefault && (
+              {isDefault && (
                 <HiHome className="h-4 w-4 text-setta-600 dark:text-setta-100" />
               )}
             </div>

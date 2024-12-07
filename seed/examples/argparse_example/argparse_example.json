@@ -2,7 +2,6 @@
   "projectConfig": {
     "id": "06053c7e-2445-4fe5-9143-f6b75f12d332",
     "name": "argparse_example",
-    "isDefault": 1,
     "previewImgColor": "bg-red-500/60 dark:bg-red-600/30",
     "viewport": {
       "x": 1866.4990810538588,

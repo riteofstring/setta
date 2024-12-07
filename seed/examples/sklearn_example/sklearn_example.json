@@ -2,7 +2,6 @@
   "projectConfig": {
     "id": "41f411f7-b14d-4375-bfcd-204446866745",
     "name": "sklearn_example",
-    "isDefault": 0,
     "previewImgColor": "bg-blue-500/60 dark:bg-blue-600/30",
     "viewport": {
       "x": 103.51586864397188,

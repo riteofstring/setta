@@ -42,7 +42,9 @@ def load_all_project_config_metadata(db):
             }
         if row["child_data"]:
             output[id]["childrenForPreviewImg"].append(json.loads(row["child_data"]))
-    return list(output.values())
+
+    default_name = load_default_config_name(db)
+    return list(output.values()), default_name
 
 
 def load_project_config_metadata(db, config_name):
@@ -136,10 +138,14 @@ def load_full_project(db, excludeProjectConfigName=None):
 
 def load_default_config_name(db):
     query = """
-        SELECT name
-        FROM ProjectConfig
-        WHERE json_extract(data, '$.isDefault') = 1
+        SELECT pc.name 
+        FROM Metadata m
+        JOIN ProjectConfig pc ON m.defaultProject = pc.id
+        WHERE m.id = 1;
     """
 
     db.execute(query)
-    return db.fetchall()[0][0]
+    results = db.fetchall()
+    if len(results) > 0:
+        return results[0][0]
+    return None

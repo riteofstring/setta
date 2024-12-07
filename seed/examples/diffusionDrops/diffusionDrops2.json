@@ -2,7 +2,6 @@
   "projectConfig": {
     "id": "8c34ad3e-2384-4472-b49c-d316d20ca88b",
     "name": "diffusionDrops2",
-    "isDefault": 0,
     "previewImgColor": "bg-purple-500/60 dark:bg-purple-600/30",
     "viewport": {
       "x": -198.14784903371185,

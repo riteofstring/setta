@@ -132,24 +132,11 @@ def save_project_config_name(db, curr_name, new_name):
 
 def set_as_default_project(db, projectId):
     query = """
-        UPDATE ProjectConfig
-        SET data = json_patch(
-            data,
-            json('{"isDefault": 0}')
-        );
-    """
-    db.execute(query)
-
-    query = """
-        UPDATE ProjectConfig
-        SET data = json_patch(
-            data,
-            json('{"isDefault": 1}')
-        )
-        WHERE id = :projectId;
+        UPDATE Metadata 
+        SET defaultProject = :projectId
+        WHERE id = 1;
     """
     db.execute(query, {"projectId": projectId})
-
 
 def save_section_configs(db, project_config_id, sections):
     query_params = []

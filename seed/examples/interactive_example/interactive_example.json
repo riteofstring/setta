@@ -2,7 +2,6 @@
   "projectConfig": {
     "id": "03a28f24-e773-43a3-a1cf-da0fe7c1b8f9",
     "name": "interactive_example",
-    "isDefault": 0,
     "previewImgColor": "bg-indigo-500/60 dark:bg-indigo-600/30",
     "viewport": {
       "x": 363.8625758992133,

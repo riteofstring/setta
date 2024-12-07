@@ -125,7 +125,7 @@ UI_TYPE_TABLE_DATA_JSON_FIELDS = set(
 )
 
 PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(
-    ["viewport", "isDefault", "previewImgColor"]
+    ["viewport", "previewImgColor"]
 )
 
 PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS = set(["x", "y", "zIndex", "w", "h"])
