@@ -10,14 +10,14 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    for (const s of Object.values(json.uiTypeCols)) {
-      for (const [k, v] of Object.entries(s)) {
+    for (const s of Object.values(json.sectionVariants)) {
+      if (s.codeInfoColId) {
         if (
-          v.uiTypeId === defaultValues.uiTypeColEntry.uiTypeId &&
-          v.nonPresetUITypeIds.length === 0
+          s.codeInfoColId in json.codeInfoCols &&
+          Object.keys(json.codeInfoCols[s.codeInfoColId]).length === 0
         ) {
-          console.log("Deleting", k);
-          delete s[k];
+          delete json.codeInfoCols[s.codeInfoColId];
+          delete s.codeInfoColId;
         }
       }
     }
