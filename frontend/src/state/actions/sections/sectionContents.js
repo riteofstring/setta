@@ -1,9 +1,6 @@
 import C from "constants/constants.json";
 import { useSectionInfos } from "state/definitions";
-import {
-  findAllParametersOfCallables,
-  findAllParametersOfNotCallables,
-} from "utils/getDescendants";
+import { findAllParameters } from "utils/getDescendants";
 import { bothTruthyOrFalsey } from "utils/utils";
 import { getCodeInfoCol, getSectionVariant } from "../sectionInfos";
 
@@ -22,15 +19,11 @@ export function getParamIds(
       ? getSectionVariant(sectionId, state).selectedItem
       : _selectedItem;
 
-  const fn = selectedItem
-    ? findAllParametersOfCallables
-    : findAllParametersOfNotCallables;
-
   const codeInfoIds = selectedItem
     ? [selectedItem]
     : codeInfoChildren[selectedItem];
 
-  return fn(
+  return findAllParameters(
     state.codeInfo,
     codeInfoChildren,
     codeInfoIds ?? [],
