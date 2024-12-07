@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import DEFAULT_VALUES from "constants/defaultValues.json";
 import _ from "lodash";
 import { clamp } from "utils/utils";
 
@@ -60,4 +61,11 @@ function convertValueForDropdown({ currValue }) {
     return currValue;
   }
   return "";
+}
+
+export function newEVEntry(uiType) {
+  return {
+    ..._.cloneDeep(DEFAULT_VALUES.ev),
+    value: newEV(uiType),
+  };
 }

@@ -1,3 +1,4 @@
+import DEFAULT_VALUES from "constants/defaultValues.json";
 import _ from "lodash";
 import {
   getDisplayedSectionVariant,
@@ -17,7 +18,7 @@ export function useGetParamEnteredValueAndKeywordPositions(
         keywordPositions: vals[paramInfoId].keywordPositions,
       };
     }
-    return { value: "", keywordPositions: [] };
+    return DEFAULT_VALUES.ev;
   }, _.isEqual);
 }
 

@@ -2,7 +2,6 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
-import { newEV } from "utils/objs/ev";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];
@@ -208,13 +207,6 @@ export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
   s[newId].isFrozen = false;
   s[newId].isDefault = false;
   return newId;
-}
-
-export function initEnteredValue(uiType) {
-  return {
-    value: newEV(uiType),
-    keywordPositions: [],
-  };
 }
 
 export function initUITypeColEntry(uiTypeId) {
