@@ -6,6 +6,7 @@ import {
   getSectionInfo,
   getSectionType,
   getSectionVariant,
+  setEnteredValue,
 } from "state/actions/sectionInfos";
 import {
   useOriginalYamlObj,
@@ -16,6 +17,7 @@ import { getForSectionId } from "state/hooks/paramSweep";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
+import { newEVEntry } from "utils/objs/ev";
 import { parseAllDocuments } from "yaml";
 import {
   getParamIds,
@@ -392,6 +394,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   const updatedInfos = {};
   const paramInfoIdToValue = {};
   const { configLanguage } = state.x[sectionId];
+  const defaultValue = newEVEntry().value;
   for (const v of output) {
     if (!(v.id in cState)) {
       newInfos[v.id] = newCodeInfo({
@@ -408,8 +411,12 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
       configLanguage === "json"
         ? JSON.stringify(v.value)
         : unprocessValue(v.value);
+
+    // remove the value if it's equal to the default value
+    if (paramInfoIdToValue[v.id] === defaultValue) {
+      delete paramInfoIdToValue[v.id];
+    }
   }
-  console.log("newInfos", newInfos);
 
   useSectionInfos.setState((x) => {
     x.codeInfo = { ...x.codeInfo, ...newInfos };
@@ -426,7 +433,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     }
 
     for (const [id, value] of Object.entries(paramInfoIdToValue)) {
-      variant.values[id].value = value;
+      setEnteredValue(variantId, id, value, x);
     }
   });
 }
