@@ -7,8 +7,6 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
-import { createNewId } from "utils/idNameCreation";
-import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
 import { insertIntoArray } from "utils/utils";
@@ -173,10 +171,7 @@ export function createSectionInfo({
 
 function addSectionsToState(sectionInfos, position, state) {
   for (const s of Object.values(sectionInfos)) {
-    const codeInfoColId = createNewId();
-    state.codeInfoCols[codeInfoColId] = newCodeInfoCol();
-    state.variants[s.variantId] = newSectionVariant({ codeInfoColId });
-    state.uiTypeCols[s.uiTypeColId] = {};
+    state.variants[s.variantId] = newSectionVariant({});
     state.x[s.id] = s;
     if (state.uiTypes[s.uiTypeId].type === C.GLOBAL_PARAM_SWEEP) {
       initRunGroup(s.variantId, state);

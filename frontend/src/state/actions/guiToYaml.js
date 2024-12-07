@@ -1,7 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
-import { initializeParams } from "state/actions/initializeParam";
 import {
   getCodeInfoCol,
   getSectionInfo,
@@ -425,8 +424,6 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     for (const [id, newChildren] of Object.entries(idsToChildren)) {
       x.codeInfoCols[variant.codeInfoColId].children[id] = newChildren;
     }
-
-    initializeParams(sectionId, Object.keys(newInfos), x);
 
     for (const [id, value] of Object.entries(paramInfoIdToValue)) {
       variant.values[id].value = value;

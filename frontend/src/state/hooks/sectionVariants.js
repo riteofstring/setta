@@ -1,10 +1,10 @@
-import DEFAULT_VALUES from "constants/defaultValues.json";
 import _ from "lodash";
 import {
   getDisplayedSectionVariant,
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
+import { newEVEntry } from "utils/objs/ev";
 
 export function useGetParamEnteredValueAndKeywordPositions(
   sectionId,
@@ -18,7 +18,7 @@ export function useGetParamEnteredValueAndKeywordPositions(
         keywordPositions: vals[paramInfoId].keywordPositions,
       };
     }
-    return DEFAULT_VALUES.evEntry;
+    return newEVEntry();
   }, _.isEqual);
 }
 

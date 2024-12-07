@@ -27,7 +27,6 @@ export function newSectionInfo({
     name: _name,
     variantId: _variantId,
     uiTypeId,
-    uiTypeColId: maybeNewId(uiTypeColId),
     variantIds: _variantIds,
     displayMode: _displayMode,
     ...props,

@@ -1,14 +1,13 @@
 import { getValueForUIType } from "utils/objs/ev";
-import {
-  getSectionVariant,
-  initUITypeColEntry,
-  setParamEnteredValue,
-} from "../sectionInfos";
+import { newUITypeColEntry } from "utils/objs/uiTypeCol";
+import { getSectionVariant, setParamEnteredValue } from "../sectionInfos";
 
 export function setParamUITypeId({ uiTypeId, sectionId, paramInfoId, state }) {
   const { uiTypeColId } = state.x[sectionId];
   if (!(paramInfoId in state.uiTypeCols[uiTypeColId])) {
-    state.uiTypeCols[uiTypeColId][paramInfoId] = initUITypeColEntry(uiTypeId);
+    state.uiTypeCols[uiTypeColId][paramInfoId] = newUITypeColEntry({
+      uiTypeId,
+    });
   } else {
     state.uiTypeCols[uiTypeColId][paramInfoId].uiTypeId = uiTypeId;
   }

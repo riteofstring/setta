@@ -63,9 +63,6 @@ function convertValueForDropdown({ currValue }) {
   return "";
 }
 
-export function newEVEntry(uiType) {
-  return {
-    ..._.cloneDeep(DEFAULT_VALUES.evEntry),
-    value: newEV(uiType),
-  };
+export function newEVEntry() {
+  return _.cloneDeep(DEFAULT_VALUES.evEntry);
 }

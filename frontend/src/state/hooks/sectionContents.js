@@ -7,6 +7,7 @@ import {
   paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
+import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 
 export function useParamInfosForSidePane(sectionId) {
   return useSectionInfos((x) => {
@@ -40,7 +41,9 @@ export function useParamIdsToShowInArea(sectionId, isPinned) {
       sectionId,
       x,
     );
-    const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
+    const codeInfoChildren = codeInfoColId
+      ? x.codeInfoCols[codeInfoColId].children
+      : newCodeInfoCol().children;
     return getParamIdsToShowInArea(
       sectionId,
       isPinned,

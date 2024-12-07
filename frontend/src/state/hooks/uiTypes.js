@@ -1,5 +1,4 @@
 import C from "constants/constants.json";
-import DEFAULT_VALUES from "constants/defaultValues.json";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import {
@@ -10,6 +9,7 @@ import {
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
+import { newUITypeColEntry } from "utils/objs/uiTypeCol";
 import { localStorageFns } from "./localStorage";
 
 export function getParamUIType(sectionId, paramInfoId, _state) {
@@ -24,10 +24,8 @@ export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {
   const { uiTypeColId } = state.x[sectionId];
   if (uiTypeColId && paramInfoId in state.uiTypeCols[uiTypeColId]) {
     return state.uiTypeCols[uiTypeColId][paramInfoId][key];
-  } else if (key === "uiTypeId") {
-    return DEFAULT_VALUES.uiTypeColEntry.uiTypeId;
-  } else if (key === "nonPresetUITypeIds") {
-    return [...DEFAULT_VALUES.uiTypeColEntry.nonPresetUITypeIds];
+  } else {
+    return newUITypeColEntry()[key];
   }
 }
 

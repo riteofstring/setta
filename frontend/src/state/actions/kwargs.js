@@ -5,7 +5,6 @@ import { findAllParameters } from "utils/getDescendants";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
-import { initializeParams } from "./initializeParam";
 import { getCodeInfoCol } from "./sectionInfos";
 import { getParamIds } from "./sections/sectionContents";
 
@@ -37,7 +36,6 @@ export function addKwarg({
     insertIdx,
     state,
   });
-  initializeParams(sectionId, [kwargInfo.id], state);
   return kwargInfo.id;
 }
 

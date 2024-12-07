@@ -3,7 +3,6 @@ import {
   dbParametersRequest,
   getKeywordPositionsAndEVRefs,
 } from "requests/sections";
-import { initializeParams } from "state/actions/initializeParam";
 import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
@@ -94,7 +93,6 @@ function createChildrenCodeInfo(sectionId, parent, params, state) {
     addCodeInfo({ sectionId, info, parent, state });
     paramIds.push(info.id);
   }
-  initializeParams(sectionId, paramIds, state);
 }
 
 function itemHasBeenSelectedBefore(sectionId, selectedItemName) {

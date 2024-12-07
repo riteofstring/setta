@@ -2,6 +2,7 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
+import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];
@@ -100,7 +101,8 @@ export function setParamEnteredValue(sectionId, paramInfoId, value, state) {
 
 export function getCodeInfoCol(sectionId, _state) {
   const state = _state ?? useSectionInfos.getState();
-  return state.codeInfoCols[getSectionVariant(sectionId, state).codeInfoColId];
+  const codeInfoColId = getSectionVariant(sectionId, state).codeInfoColId;
+  return codeInfoColId ? state.codeInfoCols[codeInfoColId] : newCodeInfoCol();
 }
 
 export function getDisplayedCodeInfoCol(sectionId, _state) {
@@ -207,11 +209,4 @@ export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
   s[newId].isFrozen = false;
   s[newId].isDefault = false;
   return newId;
-}
-
-export function initUITypeColEntry(uiTypeId) {
-  return {
-    uiTypeId,
-    nonPresetUITypeIds: [],
-  };
 }
