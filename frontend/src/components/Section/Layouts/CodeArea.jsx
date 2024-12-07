@@ -157,10 +157,14 @@ export function useCodeAreaHeight({ sectionId }) {
     editorRef.current = view;
     const resizeObserver = new ResizeObserver(([entry]) => {
       if (!didFirstRender) {
-        useMisc.setState((state) => ({
-          numInitializedSections: state.numInitializedSections + 1,
-          requestUpdateNodeDimensions: true,
-        }));
+        useMisc.setState((state) => {
+          const newNumInitializedSections = state.numInitializedSections + 1;
+          return {
+            numInitializedSections: newNumInitializedSections,
+            requestUpdateNodeDimensions:
+              newNumInitializedSections === state.numDisplayedSections,
+          };
+        });
         setDidFirstRender(true);
       }
       setNoWheel(

@@ -60,11 +60,6 @@ export function updateNodeDimensions(updates) {
   useNodeInternals.setState({ x: newNodes });
 
   const miscState = useMisc.getState();
-  console.log(
-    "updateNodeDimensions",
-    miscState.numInitializedSections,
-    miscState.numDisplayedSections,
-  );
   // don't do fitView until all code areas are done rendering
   if (
     miscState.numDisplayedSections === 0 ||

@@ -68,8 +68,8 @@ export function subscribe() {
 
   useMisc.subscribe(
     updateNodeDimensionsSubscriptionFn,
-    (x) => {
-      if (x.undoOrRedoWasTriggered || x.requestUpdateNodeDimensions) {
+    (shouldUpdate) => {
+      if (shouldUpdate) {
         updateNodeDimensions(
           getNodeUpdateInformation(useNodeInternals.getState().x.keys(), false),
         );
@@ -141,8 +141,5 @@ function reactFitViewOnInitSubscriptionFn(state) {
 }
 
 function updateNodeDimensionsSubscriptionFn(state) {
-  return {
-    undoOrRedoWasTriggered: state.undoOrRedoWasTriggered,
-    requestUpdateNodeDimensions: state.requestUpdateNodeDimensions,
-  };
+  return state.undoOrRedoWasTriggered || state.requestUpdateNodeDimensions;
 }
