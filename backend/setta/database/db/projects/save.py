@@ -6,6 +6,7 @@ from setta.database.db.codeInfo.utils import (
     add_defaults_to_code_info,
     add_defaults_to_code_info_cols,
 )
+from setta.database.db.projects.utils import get_random_project_config_preview_img_color
 from setta.database.db.sections.utils import add_defaults_to_sections
 from setta.database.db.sectionVariants.utils import add_defaults_to_section_variants
 from setta.database.utils import create_new_id
@@ -93,7 +94,7 @@ def save_project(db, project):
     db.executemany(query, query_params)
 
 
-def create_project_config(db, name, previewImgColor):
+def create_project_config(db, name):
     query = """
         SELECT name
         FROM ProjectConfig
@@ -114,7 +115,7 @@ def create_project_config(db, name, previewImgColor):
         "name": name,
         "data": json.dumps(
             {
-                "previewImgColor": previewImgColor,
+                "previewImgColor": get_random_project_config_preview_img_color(),
                 "viewport": {
                     "x": 0,
                     "y": 0,
