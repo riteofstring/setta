@@ -56,6 +56,8 @@ def condition_keep_code_info(k, jsonCodeInfoWithUIType, keepCodeInfoThatHaveUITy
 
 def remove_json_source_data(p, keepCodeInfoThatHaveUITypes=True):
     for variant in p["sectionVariants"].values():
+        if "values" not in variant:
+            continue
         variant["values"] = {
             k: v for k, v in variant["values"].items() if not is_from_json_source(k)
         }

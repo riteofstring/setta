@@ -2,12 +2,6 @@ import json
 from collections import defaultdict
 
 from setta.code_gen.export_selected import get_section_variants
-from setta.database.db.codeInfo.utils import (
-    add_defaults_to_code_info,
-    add_defaults_to_code_info_cols,
-)
-from setta.database.db.sections.utils import add_defaults_to_sections
-from setta.database.db.sectionVariants.utils import add_defaults_to_section_variants
 from setta.database.utils import create_new_id
 from setta.utils.constants import (
     DEFAULT_VALUES,
@@ -27,10 +21,6 @@ from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
 def save_project_details(db, p):
-    add_defaults_to_sections(p["sections"])
-    add_defaults_to_section_variants(p["sectionVariants"])
-    add_defaults_to_code_info(p["codeInfo"])
-    add_defaults_to_code_info_cols(p["codeInfoCols"])
     save_json_source_data(p)
     remove_json_source_data(p)
     save_code_info(db, p["codeInfo"])
@@ -199,7 +189,9 @@ def insert_section_configs(db, sections, id_pairs):
                 "sectionId": sections[c]["id"],
                 "variantId": k,
             }
-            for k in sections[c]["selectedVariantIds"].keys()
+            for k in sections[c]
+            .get("selectedVariantIds", DEFAULT_VALUES["section"]["selectedVariantIds"])
+            .keys()
         )
 
     db.executemany(query, query_params)
@@ -238,7 +230,9 @@ def update_linked_project_configs(db, project):
             continue
         children_have_been_visited.add(curr)
         for variant in get_section_variants(project, curr):
-            children = variant["children"]
+            children = variant.get(
+                "children", DEFAULT_VALUES["sectionVariant"]["children"]
+            )
             for c in children:
                 if c in has_been_visited_as_child:
                     continue

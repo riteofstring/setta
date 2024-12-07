@@ -9,6 +9,8 @@ from setta.utils.utils import filter_dict
 
 
 def save_sections(db, sections, section_variants):
+    default_values = DEFAULT_VALUES["section"]
+
     query = """
         INSERT INTO Section (
             id,
@@ -33,12 +35,10 @@ def save_sections(db, sections, section_variants):
         {
             "id": s["id"],
             "data": json.dumps(
-                filter_dict(
-                    s, SECTION_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["section"]
-                )
+                filter_dict(s, SECTION_TABLE_DATA_JSON_FIELDS, default_values)
             ),
             "uiTypeId": s["uiTypeId"],
-            "uiTypeColId": s["uiTypeColId"],
+            "uiTypeColId": s.get("uiTypeColId", default_values["uiTypeColId"]),
         }
         for s in sections.values()
     ]
@@ -79,7 +79,9 @@ def save_sections(db, sections, section_variants):
     """
     query_params = []
     for s in sections.values():
-        for uiTypeId in s["nonPresetUITypeIds"]:
+        for uiTypeId in s.get(
+            "nonPresetUITypeIds", default_values["nonPresetUITypeIds"]
+        ):
             query_params.append({"uiTypeId": uiTypeId, "sectionId": s["id"]})
     db.executemany(query, query_params)
 
@@ -91,7 +93,12 @@ def save_sections(db, sections, section_variants):
     db.executemany(
         query,
         [
-            {"id": s["id"], "paramSweepSectionId": s["paramSweepSectionId"]}
+            {
+                "id": s["id"],
+                "paramSweepSectionId": s.get(
+                    "paramSweepSectionId", default_values["paramSweepSectionId"]
+                ),
+            }
             for s in sections.values()
         ],
     )
@@ -109,7 +116,7 @@ def save_sections(db, sections, section_variants):
     """
     query_params = []
     for s in sections.values():
-        for a in s["artifacts"]:
+        for a in s.get("artifacts", default_values["artifacts"]):
             query_params.append(
                 {
                     "sectionId": s["id"],
@@ -140,7 +147,11 @@ def save_sections(db, sections, section_variants):
         query_params.extend(
             [
                 {"idid": idid, "childId": x, "order": i}
-                for i, x in enumerate(variant["children"])
+                for i, x in enumerate(
+                    variant.get(
+                        "children", DEFAULT_VALUES["sectionVariant"]["children"]
+                    )
+                )
             ]
         )
     db.executemany(query, query_params)

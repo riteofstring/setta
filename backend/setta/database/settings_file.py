@@ -1,20 +1,12 @@
 import json
 import os
 
-from setta.database.db.codeInfo.utils import (
-    add_defaults_to_code_info,
-    add_defaults_to_code_info_cols,
-)
 from setta.database.db.sections.jsonSource import (
     remove_json_source_data,
     save_json_source_data,
 )
 from setta.database.db.sections.load import load_json_sources_into_data_structures
-from setta.database.db.sections.utils import add_defaults_to_sections
-from setta.database.db.sectionVariants.utils import (
-    add_defaults_to_section_variants,
-    new_section_variant,
-)
+from setta.database.db.sectionVariants.utils import new_section_variant
 from setta.utils.constants import CONSTANTS_FOLDER, SEED_FOLDER, USER_SETTINGS
 from setta.utils.utils import get_absolute_path
 
@@ -83,10 +75,6 @@ class MetaSettingsFile:
     def load(self):
         with open(self.meta_settings_path, "r") as f:
             p = json.load(f)
-        add_defaults_to_sections(p["sections"])
-        add_defaults_to_section_variants(p["sectionVariants"])
-        add_defaults_to_code_info(p["codeInfo"])
-        add_defaults_to_code_info_cols(p["codeInfoCols"])
         load_json_sources_into_data_structures(
             p["sections"], p["codeInfo"], p["codeInfoCols"], p["sectionVariants"]
         )
