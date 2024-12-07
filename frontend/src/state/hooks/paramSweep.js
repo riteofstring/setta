@@ -11,14 +11,15 @@ import { useGetSectionVariantNames } from "./sectionVariants";
 export function useParamSweepInfo(sectionId) {
   return useSectionInfos((x) => {
     const displayedVariantId = getDisplayedSectionVariantId(sectionId, x);
+    const forSectionId = getForSectionId(sectionId, x.x);
     return {
-      forSectionId: getForSectionId(sectionId, x.x),
+      forSectionId,
       variantId: displayedVariantId,
       paramSweep: x.variants[displayedVariantId].sweep,
       variantIsFrozen: getSectionVariant(sectionId).isFrozen,
       showParamSweepSectionSearch:
-        !x.x[sectionId].hideSearch &&
-        getSectionType(sectionId, x) !== C.GLOBAL_VARIABLES,
+        !x.x[forSectionId].hideSearch &&
+        getSectionType(forSectionId, x) !== C.GLOBAL_VARIABLES,
     };
   }, _.isEqual);
 }
