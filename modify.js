@@ -13,7 +13,7 @@ function loadAndModifyJson(filePath) {
     for (const s of Object.values(json.sectionVariants)) {
       if (s.codeInfoColId) {
         if (
-          s.codeInfoColId in json.codeInfoCols &&
+          !(s.codeInfoColId in json.codeInfoCols) ||
           Object.keys(json.codeInfoCols[s.codeInfoColId]).length === 0
         ) {
           delete json.codeInfoCols[s.codeInfoColId];
