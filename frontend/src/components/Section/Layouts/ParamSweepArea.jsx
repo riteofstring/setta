@@ -16,12 +16,10 @@ import {
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
 import { getCodeInfoCol } from "state/actions/sectionInfos";
-import {
-  getParamIds,
-  paramNameFromPathArray,
-} from "state/actions/sections/sectionContents";
+import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
+import { findAllParameters } from "utils/getDescendants";
 import { useShowYaml } from "../../../state/hooks/toYaml";
 import { ParamSweepSectionSearch } from "../SectionParts/Search";
 
@@ -398,9 +396,11 @@ function AddRemoveButtonsForNoCallableSection({
 function useNumChildlessParams(selectedItem, sectionId) {
   return useSectionInfos((x) => {
     const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
-    return getParamIds(sectionId, x, codeInfoChildren, selectedItem).ids.filter(
-      (p) => codeInfoChildren[p].length === 0,
-    ).length;
+    return findAllParameters(
+      x.codeInfo,
+      codeInfoChildren,
+      selectedItem,
+    ).ids.filter((p) => codeInfoChildren[p].length === 0).length;
   });
 }
 
@@ -414,9 +414,8 @@ function useChildlessObjParams({
     // this is for the contents of the combobox
     // so I don't think it needs to depend on the displayed (preview) codeInfoCol
     const codeInfoChildren = getCodeInfoCol(forSectionId, x).children;
-    const { ids, pathMap } = getParamIds(
-      forSectionId,
-      x,
+    const { ids, pathMap } = findAllParameters(
+      x.codeInfo,
       codeInfoChildren,
       objInfoId,
       (p) => p.rcType === C.PARAMETER,

@@ -2,19 +2,18 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { getCodeChildrenAndParentCodeInfoId } from "state/actions/sectionInfos";
 import {
-  getParamIds,
   getParamIdsToShowInArea,
   paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
+import { findAllParameters } from "utils/getDescendants";
 
 export function useParamInfosForSidePane(sectionId) {
   return useSectionInfos((x) => {
     const { codeInfoChildren, parentCodeInfoId } =
       getCodeChildrenAndParentCodeInfoId(sectionId, x);
-    const { ids, pathMap } = getParamIds(
-      sectionId,
-      x,
+    const { ids, pathMap } = findAllParameters(
+      x.codeInfo,
       codeInfoChildren,
       parentCodeInfoId,
       (p) => p.rcType === C.PARAMETER,

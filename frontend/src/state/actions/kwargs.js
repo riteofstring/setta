@@ -1,12 +1,10 @@
 import C from "constants/constants.json";
-import { dbSaveCodeInfo } from "requests/sectionConfig";
 import { useSectionInfos } from "state/definitions";
 import { findAllParameters } from "utils/getDescendants";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
 import { getCodeInfoCol } from "./sectionInfos";
-import { getParamIds } from "./sections/sectionContents";
 
 export function addKwarg({
   sectionId,
@@ -59,15 +57,15 @@ export function deleteSelectedKwargs({ sectionId }) {
 }
 
 export function saveKwargsAsCollection({ sectionId, name }) {
-  // TODO: update this because children are no longer stored in codeInfo
-  const { ids: children } = getParamIds(sectionId);
-  const collection = newCodeInfo({
-    name,
-    rcType: C.COLLECTION,
-  });
-  dbSaveCodeInfo({
-    codeInfo: { [collection.id]: collection },
-  });
+  // // TODO: update this because children are no longer stored in codeInfo
+  // const { ids: children } = getParamIds(sectionId);
+  // const collection = newCodeInfo({
+  //   name,
+  //   rcType: C.COLLECTION,
+  // });
+  // dbSaveCodeInfo({
+  //   codeInfo: { [collection.id]: collection },
+  // });
 }
 
 export function pinSelectedKwargs(sectionId) {
@@ -166,10 +164,6 @@ function getParamPath(name, parentId, state) {
 export function getAllSelectedParams(sectionId, state) {
   const codeInfoState = state.codeInfo;
   const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
-  const { ids } = findAllParameters(
-    codeInfoState,
-    codeInfoChildren,
-    codeInfoChildren[null],
-  );
+  const { ids } = findAllParameters(codeInfoState, codeInfoChildren, null);
   return ids.map((x) => codeInfoState[x]).filter((x) => x.isSelected);
 }

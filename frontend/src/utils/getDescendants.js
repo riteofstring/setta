@@ -6,7 +6,8 @@ function _findAllDescendants(
   codeInfoIds,
   outputCondition,
   stackCondition,
-  paramPathCondition = false, // false or a function
+  paramPathCondition = null, // null or a function
+  earlyReturnCondition = null, // null or a function
 ) {
   const output = [];
   const idStack = codeInfoIds
@@ -45,24 +46,34 @@ function _findAllDescendants(
       }
       idStack.push(...children);
     }
+
+    if (
+      output.length > 0 &&
+      earlyReturnCondition?.(output[output.length - 1])
+    ) {
+      return { ids: output, pathMap, earlyReturnTriggered: true };
+    }
   }
 
-  return { ids: output, pathMap };
+  return { ids: output, pathMap, earlyReturnTriggered: false };
 }
 
 export function findAllParameters(
   allCodeInfo,
   codeInfoChildren,
-  codeInfoIds,
-  paramPathCondition = false,
+  startingId,
+  paramPathCondition = null,
+  earlyReturnCondition = null,
 ) {
+  const codeInfoIds = startingId ? [startingId] : codeInfoChildren[startingId];
   return _findAllDescendants(
     allCodeInfo,
     codeInfoChildren,
-    codeInfoIds,
+    codeInfoIds ?? [],
     (c) => c?.rcType === C.PARAMETER,
     () => true,
     paramPathCondition,
+    earlyReturnCondition,
   );
 }
 
@@ -70,7 +81,8 @@ export function findAll(
   allCodeInfo,
   codeInfoChildren,
   codeInfoIds,
-  paramPathCondition = false,
+  paramPathCondition = null,
+  earlyReturnCondition = null,
 ) {
   return _findAllDescendants(
     allCodeInfo,
@@ -79,5 +91,6 @@ export function findAll(
     () => true,
     () => true,
     paramPathCondition,
+    earlyReturnCondition,
   );
 }

@@ -15,15 +15,13 @@ import {
 } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
+import { findAllParameters } from "utils/getDescendants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { newEVEntry } from "utils/objs/ev";
 import { parseAllDocuments } from "yaml";
 import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
-import {
-  getParamIds,
-  paramNameFromPathArray,
-} from "./sections/sectionContents";
+import { paramNameFromPathArray } from "./sections/sectionContents";
 
 export async function guiToYaml(sectionId) {
   const { res, metaData } = await dbGuiToYaml(sectionId);
@@ -82,9 +80,8 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
       }
     }
 
-    const { pathMap } = getParamIds(
-      forSectionId,
-      state,
+    const { pathMap } = findAllParameters(
+      state.codeInfo,
       codeInfoChildren,
       matchingCallableId,
       (p) => p.rcType === C.PARAMETER,

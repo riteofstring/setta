@@ -4,39 +4,6 @@ import { findAllParameters } from "utils/getDescendants";
 import { bothTruthyOrFalsey } from "utils/utils";
 import { getCodeInfoCol, getSectionVariant } from "../sectionInfos";
 
-export function getParamIds(
-  sectionId,
-  _state,
-  _codeInfoChildren,
-  _parentCodeInfoId = undefined,
-  paramPathCondition = false,
-) {
-  const state = _state ?? useSectionInfos.getState();
-  const codeInfoChildren =
-    _codeInfoChildren ?? getCodeInfoCol(sectionId, state).children;
-  const parentCodeInfoId =
-    _parentCodeInfoId === undefined
-      ? getSectionVariant(sectionId, state).selectedItem
-      : _parentCodeInfoId;
-
-  const codeInfoIds = parentCodeInfoId
-    ? [parentCodeInfoId]
-    : codeInfoChildren[null];
-
-  return findAllParameters(
-    state.codeInfo,
-    codeInfoChildren,
-    codeInfoIds ?? [],
-    paramPathCondition,
-  );
-}
-
-export function getParamInfos(sectionId, _state) {
-  const state = _state ?? useSectionInfos.getState();
-  const { ids } = getParamIds(sectionId, state);
-  return ids.map((x) => state.codeInfo[x]);
-}
-
 export function getParamIdsToShowInArea(
   sectionId,
   isPinned,
@@ -49,9 +16,8 @@ export function getParamIdsToShowInArea(
   const codeInfoChildren =
     _codeInfoChildren ?? getCodeInfoCol(sectionId, state).children;
 
-  const { ids, pathMap } = getParamIds(
-    sectionId,
-    state,
+  const { ids, pathMap } = findAllParameters(
+    state.codeInfo,
     codeInfoChildren,
     _parentCodeInfoId,
     (p) => p.rcType === C.PARAMETER,
@@ -110,4 +76,31 @@ export function paramNameFromPathArray(codeInfo, pathMap, paramId) {
     }
     return name;
   }
+}
+
+function getSectionHasSomeParamCondition(sectionId, state, condition) {
+  const { selectedItem } = getSectionVariant(sectionId, state);
+  const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
+
+  const { earlyReturnTriggered } = findAllParameters(
+    state.codeInfo,
+    codeInfoChildren,
+    selectedItem,
+    null,
+    condition,
+  );
+
+  return earlyReturnTriggered;
+}
+
+export function getSectionHasParams(sectionId, state) {
+  return getSectionHasSomeParamCondition(sectionId, state, (outputId) => {
+    return state.codeInfo[outputId].rcType === C.PARAMETER;
+  });
+}
+
+export function getSectionHasAtLeastOneSelectedParam(sectionId, state) {
+  return getSectionHasSomeParamCondition(sectionId, state, (outputId) => {
+    return state.codeInfo[outputId].isSelected;
+  });
 }
