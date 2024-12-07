@@ -171,7 +171,11 @@ def insert_section_configs(db, sections, id_pairs):
             "sectionId": sections[c]["id"],
             "variantId": sections[c]["variantId"],
             "data": json.dumps(
-                filter_dict(sections[c], SECTION_CONFIG_TABLE_DATA_JSON_FIELDS)
+                filter_dict(
+                    sections[c],
+                    SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
+                    DEFAULT_VALUES["section"],
+                )
             ),
         }
         for projectConfigId, c in id_pairs
