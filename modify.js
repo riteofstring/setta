@@ -10,16 +10,14 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    for (const s of Object.values(json.sectionVariants)) {
-      // console.log("s.values", s.values)
-      if (!s.values){
-        continue
-      }
-      for (const [k, v] of Object.entries(s.values)) {
-        console.log("v.value, v.keywordPositions", v.value, v.keywordPositions)
-        if (!v.value && v.keywordPositions.length === 0) {
-          console.log("Deleting", k)
-          delete s.values[k];
+    for (const s of Object.values(json.uiTypeCols)) {
+      for (const [k, v] of Object.entries(s)) {
+        if (
+          v.uiTypeId === defaultValues.uiTypeColEntry.uiTypeId &&
+          v.nonPresetUITypeIds.length === 0
+        ) {
+          console.log("Deleting", k);
+          delete s[k];
         }
       }
     }

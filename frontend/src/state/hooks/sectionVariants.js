@@ -18,7 +18,7 @@ export function useGetParamEnteredValueAndKeywordPositions(
         keywordPositions: vals[paramInfoId].keywordPositions,
       };
     }
-    return DEFAULT_VALUES.ev;
+    return DEFAULT_VALUES.evEntry;
   }, _.isEqual);
 }
 

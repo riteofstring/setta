@@ -1,6 +1,6 @@
 import json
 
-from setta.utils.constants import UI_TYPE_TABLE_DATA_JSON_FIELDS
+from setta.utils.constants import UI_TYPE_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES
 from setta.utils.utils import filter_dict
 
 

@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
+import DEFAULT_VALUES from "constants/defaultValues.json";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import {
-  BASE_UI_TYPE_IDS,
   INFO_CONFIG_TAB,
   QUICKINFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
@@ -10,7 +10,6 @@ import {
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
-import { isFromJSONSource } from "utils/utils";
 import { localStorageFns } from "./localStorage";
 
 export function getParamUIType(sectionId, paramInfoId, _state) {
@@ -23,16 +22,13 @@ export function getParamUIType(sectionId, paramInfoId, _state) {
 export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {
   const state = _state ?? useSectionInfos.getState();
   const { uiTypeColId } = state.x[sectionId];
-  if (isFromJSONSource(paramInfoId)) {
-    if (paramInfoId in state.uiTypeCols[uiTypeColId]) {
-      return state.uiTypeCols[uiTypeColId][paramInfoId][key];
-    } else if (key === "uiTypeId") {
-      return BASE_UI_TYPE_IDS[C.TEXT];
-    } else if (key === "nonPresetUITypeIds") {
-      return [];
-    }
+  if (paramInfoId in state.uiTypeCols[uiTypeColId]) {
+    return state.uiTypeCols[uiTypeColId][paramInfoId][key];
+  } else if (key === "uiTypeId") {
+    return DEFAULT_VALUES.uiTypeColEntry.uiTypeId;
+  } else if (key === "nonPresetUITypeIds") {
+    return [...DEFAULT_VALUES.uiTypeColEntry.nonPresetUITypeIds];
   }
-  return state.uiTypeCols[uiTypeColId][paramInfoId][key];
 }
 
 export function getIsSeriesElementHelper(

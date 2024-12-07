@@ -447,98 +447,11 @@
   "uiTypeCols": {
     "001e3176-40f8-48ba-93c9-a60e4f5fa604": {},
     "1670b0c5-4c23-4c16-90bf-84e8a6b7d43a": {},
-    "2e7c7457-4ce1-4be5-8b35-3c86aff732d7": {
-      "3e754333-caea-451a-abba-dd254c49502f": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "7b4b2118-7cbf-4275-8582-90c66a966441": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "c066af9f-42b4-4359-8b44-cf774c400e81": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "c2c05abc-dd95-4071-8f37-cb2019919bce": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      }
-    },
-    "3fe82a18-fa95-41ef-8474-c14df7e37620": {
-      "03ee6530-d464-461c-a989-b310ee2d9b95": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "0aa0f46a-e923-4528-a411-500cbda6e77b": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "159e0416-3873-469b-915b-1f186579c380": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "2fae73d3-5756-42a9-beb0-7465b92ac626": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "39ed839d-f632-4373-9d72-6ce95b5bc265": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "3e15081a-9ca5-48bf-9159-9a95331a7894": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "669986a2-03d6-4de4-af41-f9395cf0ef57": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "70f4e095-c286-4379-a5f5-4d02df40e1a5": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      }
-    },
+    "2e7c7457-4ce1-4be5-8b35-3c86aff732d7": {},
+    "3fe82a18-fa95-41ef-8474-c14df7e37620": {},
     "50c9cc9e-2a00-4eed-8302-a20fecf59f46": {},
     "76acd209-655a-4f25-8a34-b682de670fd6": {},
-    "8d49f34e-ab85-46c2-b13d-66af60b363cf": {
-      "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      }
-    },
+    "8d49f34e-ab85-46c2-b13d-66af60b363cf": {},
     "8e312942-b6ac-472b-bb4d-b23642d0d1de": {},
     "e5d2c23d-82fd-47c3-bf8d-dcb5ac18a8b7": {},
     "ef2ae12c-d8f5-4d00-bf37-eb799dd0e4a1": {},

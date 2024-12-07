@@ -1,5 +1,4 @@
 import copy
-from unittest.mock import DEFAULT
 
 from setta.database.utils import create_new_id
 from setta.utils.constants import DEFAULT_VALUES
@@ -23,9 +22,9 @@ def add_defaults_to_section_variants(section_variants):
         section_variants[k] = with_section_variant_defaults(**v)
 
 
-def with_ev_defaults(**kwargs):
-    return {**copy.deepcopy(DEFAULT_VALUES["ev"]), **kwargs}
+def with_ev_entry_defaults(**kwargs):
+    return {**copy.deepcopy(DEFAULT_VALUES["evEntry"]), **kwargs}
 
 
 def new_ev_entry(**kwargs):
-    return with_ev_defaults(**kwargs)
+    return with_ev_entry_defaults(**kwargs)
