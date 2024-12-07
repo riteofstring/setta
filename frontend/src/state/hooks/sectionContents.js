@@ -8,6 +8,7 @@ import {
 } from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
 import { newCodeInfoCol } from "utils/objs/codeInfoCol";
+import { newUITypeColEntry } from "utils/objs/uiTypeCol";
 
 export function useParamInfosForSidePane(sectionId) {
   return useSectionInfos((x) => {
@@ -15,7 +16,9 @@ export function useParamInfosForSidePane(sectionId) {
       sectionId,
       x,
     );
-    const codeInfoChildren = x.codeInfoCols[codeInfoColId].children;
+    const codeInfoChildren = codeInfoColId
+      ? x.codeInfoCols[codeInfoColId].children
+      : newUITypeColEntry();
 
     const { ids, pathMap } = getParamIds(
       sectionId,
