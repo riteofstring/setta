@@ -7,6 +7,11 @@
     grid-area: title;
     /* grid-column: key / value; */
   }
+
+  .section-center {
+    grid-area: center-gutter;
+  }
+
   .section-search {
     grid-area: search;
   }

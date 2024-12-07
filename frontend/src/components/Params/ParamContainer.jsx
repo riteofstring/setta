@@ -16,6 +16,7 @@ import {
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import { ParamInput } from "./ParamItems/ParamInput";
+import { ResizeHandle } from "./ResizeHandle";
 
 function _ParamContainer({
   sectionId,
@@ -23,6 +24,8 @@ function _ParamContainer({
   requiredParamIdsToPaths,
   ancestorIsSelected,
   children,
+  onResizeStart,
+  baseColumnWidth,
 }) {
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -74,13 +77,30 @@ function _ParamContainer({
     }
   }
 
+  // const handleKeyChange = (e) => {
+  //   onUpdate({ ...data, key: e.target.value });
+  // };
+
+  // const handleValueChange = (e) => {
+  //   if (!data.nested) {
+  //     onUpdate({ ...data, value: e.target.value });
+  //   }
+  // };
+
+  const gridStyle = {
+    gridTemplateColumns: `[c1] 0.75rem [c2] ${baseColumnWidth}px [c3] 0.75rem [c4] 1fr [c5]`,
+  };
+
+  // [c1] 0.75rem [c2] 1fr [c3] 0.75rem [c4] 1fr [c5] 0.75rem [c6]
+
   return paramChildren.length === 0 ? (
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between rounded-sm ${bg} ${border}`}
+        className={`section-args-nested section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between rounded-sm ${bg} ${border}`}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
         onMouseDown={onMouseDownSelect}
+        style={gridStyle}
       >
         {children}
         <ParamInput
@@ -88,6 +108,7 @@ function _ParamContainer({
           paramInfoId={paramInfoId}
           maybeErrorMessage={maybeErrorMessage}
         />
+        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
         )}
@@ -95,9 +116,10 @@ function _ParamContainer({
     </>
   ) : (
     <article
-      className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border}`}
+      className={`section-args-nested section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
       onMouseDown={onMouseDownSelect}
+      style={gridStyle}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">
@@ -108,6 +130,7 @@ function _ParamContainer({
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           ancestorIsSelected={ancestorIsSelected || paramIsSelected}
         />
+        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
       </div>
     </article>
   );
