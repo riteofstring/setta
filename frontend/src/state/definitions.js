@@ -190,8 +190,4 @@ export const useMisc = create(
 
 export const useYamlValue = createProjectState(withResetFn(() => {}));
 
-export const useYamlValueIsInitialized = createProjectState(
-  withResetFn(() => {}),
-);
-
 export const useOriginalYamlObj = createProjectState(withResetFn(() => {}));

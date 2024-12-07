@@ -12,7 +12,6 @@ import {
   useOriginalYamlObj,
   useSectionInfos,
   useYamlValue,
-  useYamlValueIsInitialized,
 } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
@@ -29,11 +28,10 @@ export async function guiToYaml(sectionId) {
   console.log(res, metaData);
   if (res.status === 200) {
     const { originalObj, yamlValue } = res.data;
-    useOriginalYamlObj.setState({
+    useOriginalYamlObj.setState(() => ({
       [sectionId]: { originalObj, metaData },
-    });
-    useYamlValue.setState({ [sectionId]: yamlValue });
-    useYamlValueIsInitialized.setState({ [sectionId]: true });
+    }));
+    useYamlValue.setState(() => ({ [sectionId]: yamlValue }));
   }
 }
 
@@ -622,17 +620,4 @@ export function maybeRunGuiToYamlOnAllSections() {
   for (const k of Object.keys(useSectionInfos.getState().x)) {
     maybeRunGuiToYaml(k);
   }
-}
-
-export function allYamlSectionsAreInitialized() {
-  const yamlInitializedState = useYamlValueIsInitialized.getState();
-  for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (
-      s.display === SECTION_DISPLAY_MODES.YAML &&
-      !yamlInitializedState[s.id]
-    ) {
-      return false;
-    }
-  }
-  return true;
 }
