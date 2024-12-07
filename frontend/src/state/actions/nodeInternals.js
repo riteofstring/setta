@@ -61,7 +61,6 @@ export function updateNodeDimensions(updates) {
 
   const miscState = useMisc.getState();
   // don't do fitView until all code areas are done rendering
-  console.log("updateNodeDimensions",miscState.numInitializedSections,miscState.numDisplayedSections)
   if (miscState.numInitializedSections !== miscState.numDisplayedSections) {
     return;
   }
