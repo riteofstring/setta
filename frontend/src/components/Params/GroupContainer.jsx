@@ -254,8 +254,8 @@ function GetUnpinnedParams({ sectionId }) {
         <GetUnpinnedParamsCore
           sectionId={sectionId}
           onResizeStart={handleResizeStart}
-          baseColumnWidth={columnWidth.pixels} // Pass pixels for precise sizing
-          widthPercentage={columnWidth.percentage} // Pass percentage for responsive behavior
+          baseColumnWidth={columnWidth.pixels}
+          widthPercentage={columnWidth.percentage}
         />
       )}
     </div>
