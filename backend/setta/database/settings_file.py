@@ -135,9 +135,6 @@ class MetaSettingsFile:
         p["uiTypes"] = {
             k: v for k, v in p["uiTypes"].items() if v["presetType"] != "BASE"
         }
-        # TODO: make this less horrible. This shouldn't have to be done here.
-        for v in p["sections"].values():
-            v.pop("previewVariantId", None)
         filter_data_for_json_export(p)
         self.save_raw(p)
         return saved_data[self.settings_path]

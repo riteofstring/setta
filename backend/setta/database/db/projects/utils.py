@@ -26,27 +26,41 @@ def add_defaults_to_project(p):
 
 def filter_data_for_json_export(p):
     p["projectConfig"] = filter_dict(
-        p["projectConfig"], None, DEFAULT_VALUES["projectConfig"]
+        p["projectConfig"],
+        DEFAULT_VALUES["projectConfig"].keys(),
+        DEFAULT_VALUES["projectConfig"],
     )
     for k, v in p["sections"].items():
-        p["sections"][k] = filter_dict(v, None, DEFAULT_VALUES["section"])
+        p["sections"][k] = filter_dict(
+            v, DEFAULT_VALUES["section"].keys(), DEFAULT_VALUES["section"]
+        )
 
     for k, v in p["sectionVariants"].items():
         curr = p["sectionVariants"]
-        curr[k] = filter_dict(v, None, DEFAULT_VALUES["sectionVariant"])
+        curr[k] = filter_dict(
+            v, DEFAULT_VALUES["sectionVariant"].keys(), DEFAULT_VALUES["sectionVariant"]
+        )
         if "values" in curr[k]:
             curr[k]["values"] = filter_dict(
-                curr[k]["values"], None, DEFAULT_VALUES["evEntry"]
+                curr[k]["values"],
+                DEFAULT_VALUES["evEntry"].keys(),
+                DEFAULT_VALUES["evEntry"],
             )
 
     for k, v in p["codeInfo"].items():
-        p["codeInfo"][k] = filter_dict(v, None, DEFAULT_VALUES["codeInfo"])
+        p["codeInfo"][k] = filter_dict(
+            v, DEFAULT_VALUES["codeInfo"].keys(), DEFAULT_VALUES["codeInfo"]
+        )
 
     for k, v in p["codeInfoCols"].items():
-        p["codeInfoCols"][k] = filter_dict(v, None, DEFAULT_VALUES["codeInfoCol"])
+        p["codeInfoCols"][k] = filter_dict(
+            v, DEFAULT_VALUES["codeInfoCol"].keys(), DEFAULT_VALUES["codeInfoCol"]
+        )
 
     for k, v in p["uiTypeCols"].items():
         for paramId, uiTypeColInfo in v.items():
             p["uiTypeCols"][k][paramId] = filter_dict(
-                uiTypeColInfo, None, DEFAULT_VALUES["uiTypeColEntry"]
+                uiTypeColInfo,
+                DEFAULT_VALUES["uiTypeColEntry"].keys(),
+                DEFAULT_VALUES["uiTypeColEntry"],
             )
