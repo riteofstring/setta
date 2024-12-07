@@ -3,7 +3,7 @@ import copy
 from setta.database.utils import create_new_id
 from setta.utils.constants import DEFAULT_VALUES
 from setta.utils.generate_memorable_string import generate_memorable_string
-from setta.utils.utils import deep_merge
+from setta.utils.utils import recursive_dict_merge
 
 
 def new_section_variant(**kwargs):
@@ -15,7 +15,7 @@ def new_section_variant(**kwargs):
 
 
 def with_section_variant_defaults(**kwargs):
-    return deep_merge(copy.deepcopy(DEFAULT_VALUES["sectionVariant"]), kwargs)
+    return recursive_dict_merge(copy.deepcopy(DEFAULT_VALUES["sectionVariant"]), kwargs)
 
 
 def add_defaults_to_section_variants(section_variants):
@@ -26,7 +26,7 @@ def add_defaults_to_section_variants(section_variants):
 
 
 def with_ev_entry_defaults(**kwargs):
-    return deep_merge(copy.deepcopy(DEFAULT_VALUES["evEntry"]), kwargs)
+    return recursive_dict_merge(copy.deepcopy(DEFAULT_VALUES["evEntry"]), kwargs)
 
 
 def new_ev_entry(**kwargs):

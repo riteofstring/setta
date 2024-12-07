@@ -170,15 +170,3 @@ def filter_dict(x, keep_keys=None, default_vals=None):
         if (not keep_keys or k in keep_keys)
         and ((not default_vals) or (k not in default_vals) or (v != default_vals[k]))
     }
-
-
-def deep_merge(d1, d2):
-    result = {}
-    for k in set(d1) | set(d2):
-        if k in d1 and k in d2 and isinstance(d1[k], dict) and isinstance(d2[k], dict):
-            result[k] = deep_merge(d1[k], d2[k])
-        elif k in d2:
-            result[k] = d2[k]
-        else:
-            result[k] = d1[k]
-    return result

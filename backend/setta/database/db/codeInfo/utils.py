@@ -1,11 +1,11 @@
 import copy
 
 from setta.utils.constants import DEFAULT_VALUES
-from setta.utils.utils import deep_merge, replace_null_keys_with_none
+from setta.utils.utils import recursive_dict_merge, replace_null_keys_with_none
 
 
 def with_code_info_defaults(**kwargs):
-    return deep_merge(copy.deepcopy(DEFAULT_VALUES["codeInfo"]), kwargs)
+    return recursive_dict_merge(copy.deepcopy(DEFAULT_VALUES["codeInfo"]), kwargs)
 
 
 def add_defaults_to_code_info(code_info):
@@ -14,7 +14,7 @@ def add_defaults_to_code_info(code_info):
 
 
 def with_code_info_col_defaults(**kwargs):
-    return deep_merge(
+    return recursive_dict_merge(
         replace_null_keys_with_none(copy.deepcopy(DEFAULT_VALUES["codeInfoCol"])),
         replace_null_keys_with_none(kwargs),
     )

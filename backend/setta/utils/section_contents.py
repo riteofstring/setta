@@ -2,6 +2,7 @@ from setta.utils.constants import C
 
 # js->python conversion done by claude
 
+
 def _findAllDescendants(
     allCodeInfo,
     codeInfoChildren,
@@ -31,7 +32,7 @@ def _findAllDescendants(
             output.append(currInfo["id"])
 
         if stackCondition(currInfo):
-            children = list(reversed(codeInfoChildren[currInfo["id"]].copy()))
+            children = list(reversed(codeInfoChildren[currInfo["id"]]))
             if paramPathCondition:
                 currentPath = pathMap[id]
                 for childId in children:

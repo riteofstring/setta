@@ -8,11 +8,11 @@ from setta.database.db.sections.utils import add_defaults_to_sections
 from setta.database.db.sectionVariants.utils import add_defaults_to_section_variants
 from setta.database.db.uiTypes.utils import add_defaults_to_ui_type_cols
 from setta.utils.constants import DEFAULT_VALUES
-from setta.utils.utils import deep_merge, filter_dict
+from setta.utils.utils import filter_dict, recursive_dict_merge
 
 
 def with_project_config_defaults(**kwargs):
-    return deep_merge(copy.deepcopy(DEFAULT_VALUES["projectConfig"]), kwargs)
+    return recursive_dict_merge(copy.deepcopy(DEFAULT_VALUES["projectConfig"]), kwargs)
 
 
 def add_defaults_to_project(p):
