@@ -66,12 +66,17 @@ export function findAllParameters(
   earlyReturnCondition = null,
 ) {
   const codeInfoIds = startingId ? [startingId] : codeInfoChildren[startingId];
+  // if startingId is null, then we're starting at the root
+  // so we don't want to avoid the parameters of callables 
+  const stackCondition = startingId
+    ? () => true
+    : (c) => c?.rcType === C.PARAMETER;
   return _findAllDescendants(
     allCodeInfo,
     codeInfoChildren,
     codeInfoIds ?? [],
     (c) => c?.rcType === C.PARAMETER,
-    () => true,
+    stackCondition,
     paramPathCondition,
     earlyReturnCondition,
   );
