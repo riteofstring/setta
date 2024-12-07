@@ -26,7 +26,13 @@ def save_section_variants(db, section_variants):
             "selectedItem": v["selectedItem"],
             "codeInfoColId": v["codeInfoColId"],
             "runGroup": json.dumps(v["runGroup"]),
-            "data": json.dumps(v["data"]),
+            "data": json.dumps(
+                filter_dict(
+                    v,
+                    SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS,
+                    DEFAULT_VALUES["sectionVariant"],
+                )
+            ),
         }
         for k, v in section_variants.items()
     ]
@@ -53,7 +59,11 @@ def save_section_variants(db, section_variants):
                 {
                     "idid": idid,
                     "codeInfoId": code_info_id,
-                    "data": json.dumps(value_info["data"])
+                    "data": json.dumps(
+                        filter_dict(
+                            value_info, SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS
+                        )
+                    ),
                 }
             )
     db.executemany(query, query_params)

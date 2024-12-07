@@ -1,5 +1,13 @@
 import json
 
+from setta.utils.constants import (
+    DEFAULT_VALUES,
+    SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS,
+    SECTION_TABLE_DATA_JSON_FIELDS,
+)
+from setta.utils.utils import filter_dict
+
+
 def save_sections(db, sections, section_variants):
     query = """
         INSERT INTO Section (
@@ -24,7 +32,11 @@ def save_sections(db, sections, section_variants):
     query_params = [
         {
             "id": s["id"],
-            "data": json.dumps(s["data"]),
+            "data": json.dumps(
+                filter_dict(
+                    s, SECTION_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["section"]
+                )
+            ),
             "uiTypeId": s["uiTypeId"],
             "uiTypeColId": s["uiTypeColId"],
         }
@@ -102,7 +114,9 @@ def save_sections(db, sections, section_variants):
                 {
                     "sectionId": s["id"],
                     "artifactPath": a["path"],
-                    "data": json.dumps(a["data"]),
+                    "data": json.dumps(
+                        filter_dict(a, SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS)
+                    ),
                 }
             )
     db.executemany(query, query_params)
