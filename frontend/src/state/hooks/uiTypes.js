@@ -22,7 +22,7 @@ export function getParamUIType(sectionId, paramInfoId, _state) {
 export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {
   const state = _state ?? useSectionInfos.getState();
   const { uiTypeColId } = state.x[sectionId];
-  if (paramInfoId in state.uiTypeCols[uiTypeColId]) {
+  if (uiTypeColId && paramInfoId in state.uiTypeCols[uiTypeColId]) {
     return state.uiTypeCols[uiTypeColId][paramInfoId][key];
   } else if (key === "uiTypeId") {
     return DEFAULT_VALUES.uiTypeColEntry.uiTypeId;
