@@ -22,8 +22,9 @@ export function addCodeInfo({ sectionId, info, parent, insertIdx, state }) {
 export function deleteCodeInfo(sectionId, ids, state) {
   const { uiTypeColId, variantId } = state.x[sectionId];
 
-  state.codeInfo = _.omit(state.codeInfo, ids);
-  state.codeInfoCols = _.omit(state.codeInfoCols, ids);
+  // state.codeInfo = _.omit(state.codeInfo, ids);
+  // state.codeInfoCols = _.omit(state.codeInfoCols, ids);
+  const notInAnyCodeInfoCol = []
   for (const codeCol of Object.values(state.codeInfoCols)) {
     for (const parentId of Object.keys(codeCol.children)) {
       codeCol.children[parentId] = codeCol.children[parentId].filter(
