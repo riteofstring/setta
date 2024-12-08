@@ -142,7 +142,6 @@ function GetUnpinnedParams({ sectionId }) {
     startX: 0,
     startWidth: 0,
     containerWidth: 0,
-    widthPercentage: 50,
   });
 
   const [columnWidth, setColumnWidth] = useState({
@@ -247,7 +246,6 @@ function GetUnpinnedParams({ sectionId }) {
           sectionId={sectionId}
           onResizeStart={handleResizeStart}
           baseColumnWidth={columnWidth.pixels}
-          widthPercentage={columnWidth.percentage}
         />
       )}
     </div>

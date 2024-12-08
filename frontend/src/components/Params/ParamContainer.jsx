@@ -3,7 +3,7 @@ import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { toggleParamSelected } from "state/actions/kwargs";
@@ -26,7 +26,6 @@ function _ParamContainer({
   children,
   onResizeStart,
   baseColumnWidth,
-  widthPercentage,
 }) {
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -74,27 +73,6 @@ function _ParamContainer({
       toggleParamSelected(sectionId, paramInfoId);
     }
   }
-
-  const containerRef = useRef(null);
-  const [pixelWidth, setPixelWidth] = useState(0);
-
-  useEffect(() => {
-    const updatePixelWidth = () => {
-      if (containerRef.current) {
-        const containerWidth = containerRef.current.clientWidth;
-        const newPixelWidth = (containerWidth * widthPercentage) / 100;
-        setPixelWidth(newPixelWidth);
-      }
-    };
-
-    const resizeObserver = new ResizeObserver(updatePixelWidth);
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-    updatePixelWidth(); // Initial calculation
-
-    return () => resizeObserver.disconnect();
-  }, [widthPercentage]);
 
   const nestedGridStyle = {
     // Use a CSS calc() function to provide a fallback
