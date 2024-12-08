@@ -166,7 +166,7 @@ function OneItemEditing({ sectionId, id, isCurr, deletable }) {
     return true;
   }
 
-  const [inputValue, setInputValue, onBlur, onCancel] = useEditableOnSubmit(
+  const [inputValue, onChange, onBlur, onKeyDown] = useEditableOnSubmit(
     name,
     onSetName,
     condition,
@@ -176,25 +176,12 @@ function OneItemEditing({ sectionId, id, isCurr, deletable }) {
     <li className="section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between border-b border-setta-200 px-1 py-[0.125rem] text-xs focus-within:!border-blue-500  hover:border-setta-500 dark:border-setta-700 dark:hover:border-setta-500 ">
       <input
         value={inputValue}
-        onChange={(e) => {
-          setInputValue(e.target.value);
-        }}
-        onBlur={(e) => {
-          onBlur(e.target.value);
-        }}
+        onChange={onChange}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
         className="flex-1 truncate text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-200"
       />
-      {/* <Editable
-        value={inputValue}
-        onChange={setInputValue}
-        onBlur={onBlur}
-        onCancel={onCancel}
-        titleProps={{
-          editing:
-            "section-key truncate text-setta-400 dark:text-setta-400 flex-1",
-          notEditing: "section-key truncate text-setta-400 dark:text-setta-400",
-        }}
-      /> */}
+
       {deletable && (
         <button
           className={

@@ -119,6 +119,6 @@ export function showParamUITypeTab() {
   changeUIEditorTab(UI_CONFIG_TAB);
 }
 
-export function showProjectOverviewTab(){
-  onOverviewTabClick("tab1")
+export function showProjectOverviewTab() {
+  onOverviewTabClick("tab1");
 }

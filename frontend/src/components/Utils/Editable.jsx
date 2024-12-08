@@ -1,20 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
-export function Editable({ value, onChange, onBlur, onCancel, titleProps }) {
+export function Editable({ value, onChange, onBlur, onKeyDown, titleProps }) {
   const [isEditing, setIsEditing] = useState(false);
-
-  function localOnChange(e) {
-    onChange(e.target.value);
-  }
 
   function localOnBlur(e) {
     setIsEditing(false);
-    onBlur(e.target.value);
-  }
-
-  function localOnCancel() {
-    setIsEditing(false);
-    onCancel();
+    onBlur(e);
   }
 
   function onClick() {
@@ -24,9 +15,9 @@ export function Editable({ value, onChange, onBlur, onCancel, titleProps }) {
   return isEditing ? (
     <InEditMode
       value={value}
-      onChange={localOnChange}
+      onChange={onChange}
       onBlur={localOnBlur}
-      onCancel={localOnCancel}
+      onKeyDown={onKeyDown}
       titleProps={titleProps["editing"]}
     />
   ) : (
@@ -38,7 +29,7 @@ export function Editable({ value, onChange, onBlur, onCancel, titleProps }) {
   );
 }
 
-function InEditMode({ value, onChange, onBlur, onCancel, titleProps }) {
+function InEditMode({ value, onChange, onBlur, onKeyDown, titleProps }) {
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -47,16 +38,14 @@ function InEditMode({ value, onChange, onBlur, onCancel, titleProps }) {
     inputRef.current.setSelectionRange(0, s);
   }, []);
 
-  const keyDownHandler = getKeyDownHandler({ onCancel, onBlur });
-
   return (
     <input
       value={value}
       onChange={onChange}
       onBlur={onBlur}
+      onKeyDown={onKeyDown}
       className={titleProps}
       ref={inputRef}
-      onKeyDown={keyDownHandler}
       size="1"
     />
   );
@@ -80,14 +69,4 @@ function InNonEditMode({ value, onClick, titleProps }) {
       {value}
     </p>
   );
-}
-
-function getKeyDownHandler({ onCancel, onBlur }) {
-  return (event) => {
-    if (event.key === "Escape") {
-      onCancel();
-    } else if (event.key === "Enter") {
-      onBlur(event);
-    }
-  };
 }
