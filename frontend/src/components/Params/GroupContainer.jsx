@@ -29,7 +29,7 @@ function _ParamGroupContainer({ sectionId }) {
       ) : (
         <>
           <GetPinnedParams sectionId={sectionId} outerRef={outerRef} />
-          <GetUnpinnedParams sectionId={sectionId} />
+          <GetUnpinnedParams sectionId={sectionId} outerRef={outerRef} />
         </>
       )}
     </div>
@@ -131,7 +131,7 @@ function ResizablePinnedArea({
   );
 }
 
-function GetUnpinnedParams({ sectionId }) {
+function GetUnpinnedParams({ sectionId, outerRef }) {
   const { ref, isScrollable } = useIsScrollable();
   const hideUnpinnedParams = useSectionInfos(
     (x) => x.x[sectionId].hideUnpinnedParams,
@@ -148,8 +148,8 @@ function GetUnpinnedParams({ sectionId }) {
 
   // Initialize dimensions once on mount
   useEffect(() => {
-    if (ref.current) {
-      const containerWidth = ref.current.clientWidth;
+    if (outerRef.current) {
+      const containerWidth = outerRef.current.clientWidth;
       const initialPixels = (containerWidth - 12) / 2;
 
       resizeRef.current.containerWidth = containerWidth;
@@ -162,8 +162,8 @@ function GetUnpinnedParams({ sectionId }) {
   // Handle container resize with debounced updates
   useEffect(() => {
     const handleResize = _.debounce(() => {
-      if (ref.current) {
-        const containerWidth = ref.current.clientWidth;
+      if (outerRef.current) {
+        const containerWidth = outerRef.current.clientWidth;
         const currentPercentage = resizeRef.current.currentPercentage;
 
         resizeRef.current.containerWidth = containerWidth;
@@ -175,8 +175,8 @@ function GetUnpinnedParams({ sectionId }) {
     }, 16); // Debounce to roughly match 60fps
 
     const resizeObserver = new ResizeObserver(handleResize);
-    if (ref.current) {
-      resizeObserver.observe(ref.current);
+    if (outerRef.current) {
+      resizeObserver.observe(outerRef.current);
     }
 
     return () => {
@@ -187,7 +187,7 @@ function GetUnpinnedParams({ sectionId }) {
 
   const handleResizeStart = useCallback((e) => {
     e.preventDefault();
-    if (ref.current) {
+    if (outerRef.current) {
       resizeRef.current = {
         ...resizeRef.current,
         isResizing: true,
@@ -198,7 +198,7 @@ function GetUnpinnedParams({ sectionId }) {
   }, []);
 
   const handleMouseMove = useCallback((e) => {
-    if (!resizeRef.current.isResizing || !ref.current) return;
+    if (!resizeRef.current.isResizing || !outerRef.current) return;
 
     requestAnimationFrame(() => {
       const { containerWidth, startX, startPercentage } = resizeRef.current;
