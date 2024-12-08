@@ -8,6 +8,7 @@ export function GetParamSwitch({
   paramIds,
   requiredParamIdsToPaths,
   ancestorIsSelected = false,
+  onResizeStart,
 }) {
   // TODO: make this more efficient
   const filteredIds = useSectionInfos((x) => {
@@ -46,6 +47,7 @@ export function GetParamSwitch({
       paramInfoId={e}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       ancestorIsSelected={ancestorIsSelected}
+      onResizeStart={onResizeStart}
     />
   ));
 }

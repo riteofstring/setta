@@ -194,3 +194,14 @@ export const useMisc = create(
 export const useYamlValue = createProjectState(withResetFn(() => {}));
 
 export const useOriginalYamlObj = createProjectState(withResetFn(() => {}));
+
+export const useSectionColumnWidth = createProjectState(
+  subscribeWithSelector(withResetFn(() => {})),
+);
+
+export const useResizerStore = createProjectState(
+  withResetFn(() => ({
+    activeResizer: null, // { sectionId, ref, startX, startWidth, containerWidth, maxNestedDepth }
+    globalEventListenersInitialized: false,
+  })),
+);
