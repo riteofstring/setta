@@ -98,7 +98,7 @@ export function ParamContainer({
       },
       { fireImmediately: true },
     );
-  }, []);
+  }, [paramChildren.length > 0]); // have to update the subscriber when parameter becomes a parent or child
 
   // const nestedGridStyle = {
   //   // Use a CSS calc() function to provide a fallback
