@@ -1,7 +1,7 @@
-import { Editable } from "components/Utils/Editable";
 import _ from "lodash";
 import { useState } from "react";
-import { FaRegSnowflake, FaRegStar } from "react-icons/fa";
+import { FaRegSnowflake } from "react-icons/fa";
+import { HiHome } from "react-icons/hi";
 import {
   onClickSetVariantId,
   onMouseLeaveSetPreviewVariantId,
@@ -23,13 +23,17 @@ export function VersionList({ sectionId }) {
 
   return (
     <section className="section-grid-cols section-grid-rows section-grid-areas -mx-3 -my-4 grid flex-1 self-stretch">
-      <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-2">
-        <header className="section-key-value flex items-center justify-between">
-          <p className="text-xs text-setta-400 dark:text-setta-600">Name</p>
+      <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-6">
+        <header className="absolute right-16 top-[15px] flex items-center gap-2">
+          {/* <p className="text-xs text-setta-400 dark:text-setta-600">Name</p> */}
+          <button className="flex cursor-pointer items-center justify-center gap-1 rounded-md  px-2 py-1 text-xs font-bold text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400">
+            Add Version
+          </button>
           <button
-            className="cursor-pointer rounded-md px-2 py-1 text-xs font-bold text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400"
+            className="flex cursor-pointer items-center justify-center gap-1 rounded-md  px-2 py-1 text-xs font-bold text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400"
             onClick={onClickEditButton}
           >
+            <i className="gg-pen" />
             {isEditing ? "Done Editing" : "Edit"}
           </button>
         </header>
@@ -90,7 +94,7 @@ function OneItem({ sectionId, id, isCurr }) {
     <li
       onMouseOver={() => onMouseOverSetPreviewVariantId(sectionId, id)}
       onClick={() => onClickSetVariantId(sectionId, id)}
-      className="section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between rounded-lg px-2 py-[0.125rem] text-xs hover:bg-setta-200/30 dark:hover:bg-setta-800/50"
+      className="section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between rounded-sm border-b border-transparent px-1 py-[0.125rem] text-xs hover:bg-setta-200/30 dark:hover:bg-setta-800/50"
     >
       <p
         className={`section-key truncate ${
@@ -105,7 +109,7 @@ function OneItem({ sectionId, id, isCurr }) {
         <button
           className={`cursor-pointer bg-transparent ${
             isDefault
-              ? "text-blue-500"
+              ? "text-green-500"
               : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
           }`}
           onClick={(e) => {
@@ -113,13 +117,13 @@ function OneItem({ sectionId, id, isCurr }) {
             setDefaultSectionVariant(sectionId, id);
           }}
         >
-          <FaRegStar />
+          <HiHome />
         </button>
         <button
           className={`cursor-pointer bg-transparent ${
             isFrozen
               ? "text-blue-500"
-              : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
+              : "text-transparent hover:!text-blue-400 group-hover/versionitem:text-setta-400/50"
           }`}
           onClick={(e) => {
             e.stopPropagation();
@@ -159,8 +163,18 @@ function OneItemEditing({ sectionId, id, isCurr, deletable }) {
   );
 
   return (
-    <li className="section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between rounded-lg px-2 py-[0.125rem] text-xs hover:bg-setta-200/30 dark:hover:bg-setta-800/50">
-      <Editable
+    <li className="section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between border-b border-setta-200 px-1 py-[0.125rem] text-xs focus-within:!border-blue-500  hover:border-setta-500 dark:border-setta-700 dark:hover:border-setta-500 ">
+      <input
+        value={inputValue}
+        onChange={(e) => {
+          setInputValue(e.target.value);
+        }}
+        onBlur={(e) => {
+          onBlur(e.target.value);
+        }}
+        className="flex-1 truncate text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-200"
+      />
+      {/* <Editable
         value={inputValue}
         onChange={setInputValue}
         onBlur={onBlur}
@@ -170,11 +184,11 @@ function OneItemEditing({ sectionId, id, isCurr, deletable }) {
             "section-key truncate text-setta-400 dark:text-setta-400 flex-1",
           notEditing: "section-key truncate text-setta-400 dark:text-setta-400",
         }}
-      />
+      /> */}
       {deletable && (
         <button
           className={
-            "cursor-pointer bg-transparent text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
+            "cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/versionitem:text-setta-400/50"
           }
           onClick={(e) => {
             e.stopPropagation();
