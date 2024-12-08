@@ -76,7 +76,7 @@ function _ParamContainer({
 
   // Fetch initial state
   const nestedRef = useRef();
-  // const realNestedRef = useRef();
+  const realNestedRef = useRef();
   // const gridRef = useRef();
   // Connect to the store on mount, disconnect on unmount, catch state-changes in a reference
   useEffect(() => {
@@ -92,9 +92,9 @@ function _ParamContainer({
         // if (gridRef.current) {
         //   gridRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
         // }
-        // if (realNestedRef.current) {
-        //   realNestedRef.current.style.width = `${columnWidth}px`;
-        // }
+        if (realNestedRef.current) {
+          realNestedRef.current.style.width = `${columnWidth}px`;
+        }
       },
     );
   }, []);
@@ -117,10 +117,7 @@ function _ParamContainer({
         onMouseDown={onMouseDownSelect}
         ref={nestedRef}
       >
-        <div
-          className="section-key overflow-hidden"
-          // ref={realNestedRef}
-        >
+        <div className="section-key overflow-hidden" ref={realNestedRef}>
           {children}
         </div>
         <ParamInput
