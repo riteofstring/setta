@@ -140,7 +140,6 @@ export function useIsScrollable() {
     if (!elementRef.current) return;
 
     function checkScrollable() {
-      console.log("checkScrollable");
       if (elementRef.current) {
         setIsScrollable(
           elementRef.current.scrollHeight > elementRef.current.clientHeight,

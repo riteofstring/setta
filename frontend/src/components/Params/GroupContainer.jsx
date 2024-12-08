@@ -208,7 +208,7 @@ function useColumnResizer(sectionId, outerRef) {
 
   // Handle container resize with debounced updates
   useEffect(() => {
-    const handleResize = _.debounce(() => {
+    const handleResize = () => {
       if (outerRef.current) {
         const containerWidth = outerRef.current.clientWidth;
         const currentPercentage = resizeRef.current.currentPercentage;
@@ -219,7 +219,7 @@ function useColumnResizer(sectionId, outerRef) {
           [sectionId]: (containerWidth - 12) * (currentPercentage / 100),
         });
       }
-    }, 16); // Debounce to roughly match 60fps
+    };
 
     const resizeObserver = new ResizeObserver(handleResize);
     if (outerRef.current) {
@@ -227,7 +227,6 @@ function useColumnResizer(sectionId, outerRef) {
     }
 
     return () => {
-      handleResize.cancel();
       resizeObserver.disconnect();
     };
   }, []);
