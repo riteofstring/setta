@@ -29,6 +29,7 @@
     "selectAllSectionsShortcut": "Mod + A",
     "showVersionsTabShortcut": "V",
     "showParamUITypeTabShortcut": "P",
+    "showProjectOverviewTabShortcut": "O",
     "updateInteractiveCode": "Mod + Enter",
     "paramSelect": "Mod + Shift",
     "formatCode": "Shift + Alt + F",

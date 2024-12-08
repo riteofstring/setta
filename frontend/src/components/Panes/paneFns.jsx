@@ -118,3 +118,7 @@ export function showVersionsTab() {
 export function showParamUITypeTab() {
   changeUIEditorTab(UI_CONFIG_TAB);
 }
+
+export function showProjectOverviewTab(){
+  onOverviewTabClick("tab1")
+}
