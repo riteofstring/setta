@@ -71,7 +71,7 @@ function _ParamContainer({
 
   const bg = paramIsSelected
     ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white"
-    : "transition-colors active:!bg-cyan-300";
+    : "transition-colors";
 
   function onMouseDownSelect(e) {
     if (!ancestorIsSelected && useMisc.getState().isSelectingParams) {
