@@ -1,14 +1,37 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 function _IframeArea({ sectionId }) {
   //   const iframeCode = useSectionInfos((x) => x.x[sectionId].iframeCode);
+  const containerRef = useRef(null);
   const iframeCode =
-    '<iframe src="http://127.0.0.1:8000/api/docs" width="100%" height="100%" frameborder="0"></iframe>';
+    '<iframe src="http://127.0.0.1:8000/api/docs" frameborder="0"></iframe>';
 
   const validationError = validateIframeCode(iframeCode);
 
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        // If there's an iframe in the sanitized content, update its dimensions
+        const iframeElement = containerRef.current.querySelector("iframe");
+        if (iframeElement) {
+          iframeElement.style.width = `${width}px`;
+          iframeElement.style.height = `${height}px`;
+        }
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [iframeCode]);
+
   return validationError ? null : (
-    <div className="section-w-full section-row-left-bottom flex">
+    <div className="section-full-no-title" ref={containerRef}>
       <div dangerouslySetInnerHTML={{ __html: iframeCode }} />
     </div>
   );
