@@ -3,6 +3,7 @@ import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { DrawAreaSettings } from "./DrawAreaSettings";
+import { IframeSettings } from "./IframeSettings";
 import { InfoAreaSettings } from "./InfoAreaSettings";
 import { InputAreaSettings } from "./InputAreaSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
@@ -25,13 +26,17 @@ function SpecializedConfiguration({ sectionId }) {
   const sectionType = useSectionInfos((x) => {
     return getSectionType(sectionId, x);
   });
-  if (sectionType === C.SOCIAL) {
-    return <SocialAreaSettings sectionId={sectionId} />;
-  } else if (sectionType === C.DRAW) {
-    return <DrawAreaSettings sectionId={sectionId} />;
-  } else if (sectionType === C.SECTION || sectionType === C.GLOBAL_VARIABLES) {
-    return <InputAreaSettings sectionId={sectionId} />;
-  } else if (sectionType === C.INFO) {
-    return <InfoAreaSettings sectionId={sectionId} />;
+  switch (sectionType) {
+    case C.SOCIAL:
+      return <SocialAreaSettings sectionId={sectionId} />;
+    case C.DRAW:
+      return <DrawAreaSettings sectionId={sectionId} />;
+    case C.SECTION:
+    case C.GLOBAL_VARIABLES:
+      return <InputAreaSettings sectionId={sectionId} />;
+    case C.INFO:
+      return <InfoAreaSettings sectionId={sectionId} />;
+    case C.IFRAME:
+      return <IframeSettings sectionId={sectionId} />;
   }
 }

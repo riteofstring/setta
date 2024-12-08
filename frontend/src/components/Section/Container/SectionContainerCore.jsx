@@ -34,7 +34,7 @@ function _SectionContainerCore({ sectionId }) {
 
   return (
     <section
-      className={`group/card-section rounded-xl border border-white bg-white dark:border-setta-700 dark:bg-setta-925 ${boxShadow} dndline w-min outline outline-4 [transition:_box-shadow_500ms_ease] ${outlineColor} [transition:_outline-color_200ms_ease] `}
+      className={`group/card-section rounded-xl border border-white bg-white dark:border-setta-700 dark:bg-setta-925 ${boxShadow} dndline w-min outline outline-4 [transition:_box-shadow_500ms_ease] ${outlineColor} [transition:_outline-color_200ms_ease]`}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
       ref={refForPosition}
     >
