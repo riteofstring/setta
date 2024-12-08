@@ -14,7 +14,7 @@ import {
 import { clamp } from "utils/utils";
 import { GetParamSwitch } from "./GetParamSwitch";
 
-export function ParamGroupContainer({ sectionId }) {
+function _ParamGroupContainer({ sectionId }) {
   const outerRef = useRef();
   const [maxNestedDepth, setMaxNestedDepth] = useState({
     pinned: 1,
@@ -55,6 +55,8 @@ export function ParamGroupContainer({ sectionId }) {
     </div>
   );
 }
+
+export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
 function GetPinnedParams({
   sectionId,
@@ -278,8 +280,8 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
         resizeRef.current.currentWidth = boundedWidth;
         resizeRef.current.currentPercentage =
           (boundedWidth / containerWidth) * 100;
-        
-        console.log("handleResize")
+
+        console.log("handleResize");
 
         setColumnWidth(sectionId, boundedWidth);
       }

@@ -19,7 +19,7 @@ import { createProjectSearchLookupKey } from "state/hooks/search";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
 
-export function ParamContainer({
+function _ParamContainer({
   sectionId,
   paramInfoId,
   requiredParamIdsToPaths,
@@ -153,6 +153,8 @@ export function ParamContainer({
     </article>
   );
 }
+
+export const ParamContainer = React.memo(_ParamContainer);
 
 function ErrorSection({ maybeErrorMessage }) {
   return (
