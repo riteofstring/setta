@@ -418,7 +418,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
       newInfos[v.id] = newCodeInfo({
         id: v.id,
         name: v.key,
-        editable: v.editable ?? parentCodeInfoId === null,
+        editable: v.editable ?? true,
         rcType: C.PARAMETER,
         isPinned: v.isPinned,
       });
