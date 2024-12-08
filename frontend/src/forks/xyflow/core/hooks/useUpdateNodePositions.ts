@@ -8,7 +8,8 @@ export const updatePositions = (params: {
   y: number;
   isShiftPressed: boolean;
 }) => {
-  const { nodesDraggable } = useReactFlow.getState();
+  const { nodesSelectionDims, nodesDraggable, shiftNodesSelection } =
+    useReactFlow.getState();
   const { snapGrid } = useSettings.getState().gui;
   const [snapToGrid] = localStorageFns.snapToGrid.state();
   const activeSectionIds = useActiveSection.getState().ids;
@@ -45,4 +46,7 @@ export const updatePositions = (params: {
   });
 
   updateNodePositions(nodeUpdates);
+  if (nodesSelectionDims) {
+    shiftNodesSelection({ x: positionDiffX, y: positionDiffY });
+  }
 };
