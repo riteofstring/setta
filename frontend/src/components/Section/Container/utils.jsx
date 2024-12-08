@@ -7,9 +7,9 @@ import {
   setActiveSectionIds,
 } from "state/actions/activeSections";
 import { getHighestAncestor } from "state/actions/sectionInfos";
-import { getSectionHasAtLeastOneSelectedParam } from "state/actions/sections/sectionContents";
+import { getParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import { useMisc, useSectionInfos } from "state/definitions";
+import { useMisc } from "state/definitions";
 import "./dndline.css";
 
 export function getBgColor(sectionTypeName) {
@@ -65,9 +65,8 @@ export function getOnSectionClick(sectionId, isActiveSection) {
 
     if (useMisc.getState().isSelectingParams) {
       // depends on bubbling behavior (child div onclicks get executed first)
-      const atLeastOneParamSelected = getSectionHasAtLeastOneSelectedParam(
-        sectionId,
-        useSectionInfos.getState(),
+      const atLeastOneParamSelected = getParamInfos(sectionId).some(
+        (x) => x.isSelected,
       );
       if (!isActiveSection && atLeastOneParamSelected) {
         addActiveSectionIds([sectionId]);

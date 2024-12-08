@@ -9,6 +9,7 @@ import {
 import { dbSaveSettings } from "requests/settings";
 import {
   useArtifacts,
+  useKeywordRegex,
   useNodeInternals,
   useProjectConfig,
   useSectionInfos,
@@ -20,7 +21,7 @@ import { setNotificationMessage } from "../notification";
 
 export function getProjectData({
   withArtifactMetadata = false,
-  convertYamlToGUI = true,
+  convertYamlToGUI = false,
 }) {
   // remove temporary sections
   let sections = _.pickBy(useSectionInfos.getState().x, (x) => !x.isTemporary);
@@ -66,6 +67,7 @@ export function getProjectData({
 
   const codeInfo = useSectionInfos.getState().codeInfo;
   const codeInfoCols = useSectionInfos.getState().codeInfoCols;
+  const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
 
   const projectConfig = getProjectConfigMetadata();
   const children = {};
@@ -92,6 +94,7 @@ export function getProjectData({
     sections,
     codeInfo,
     codeInfoCols,
+    fullNameToInfo,
   };
 
   // console.log(output);
@@ -103,13 +106,16 @@ export async function saveProject() {
   let res;
   setNotificationMessage("Saving...");
   if (useProjectConfig.getState().name === SETTINGS_PROJECT_NAME) {
-    res = await dbSaveSettings(getProjectData({}));
+    res = await dbSaveSettings(getProjectData({ convertYamlToGUI: true }));
     if (res.status === 200) {
       useSettings.setState(res.data);
     }
   } else {
     res = await dbSaveProject({
-      project: getProjectDataForSaving(),
+      project: getProjectData({
+        withArtifactMetadata: true,
+        convertYamlToGUI: true,
+      }),
     });
   }
 
@@ -134,7 +140,10 @@ export async function saveAsExistingProjectConfig({ configName }) {
 
 async function saveProjectAs({ fn, otherArgs }) {
   await fn({
-    project: getProjectDataForSaving(),
+    project: getProjectData({
+      withArtifactMetadata: true,
+      convertYamlToGUI: true,
+    }),
     ...otherArgs,
   });
 }
@@ -144,6 +153,7 @@ function getProjectConfigMetadata() {
   const output = {
     id: state.id,
     name: state.name,
+    isDefault: state.isDefault,
     previewImgColor: state.previewImgColor,
   };
 
@@ -152,11 +162,4 @@ function getProjectConfigMetadata() {
     : getViewport();
 
   return output;
-}
-
-export function getProjectDataForSaving() {
-  return getProjectData({
-    withArtifactMetadata: true,
-    convertYamlToGUI: true,
-  });
 }

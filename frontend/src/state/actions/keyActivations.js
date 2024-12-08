@@ -1,8 +1,4 @@
-import {
-  showParamUITypeTab,
-  showProjectOverviewTab,
-  showVersionsTab,
-} from "components/Panes/paneFns";
+import { showVersionsTab } from "components/Panes/paneFns";
 import {
   disableFloatingBox,
   enableFloatingBox,
@@ -11,11 +7,7 @@ import {
   removeFrozenFloatingBox,
 } from "components/Utils/FloatingBox";
 import { useDndState } from "forks/dnd-kit/dndState";
-import {
-  resetZoom,
-  zoomIn,
-  zoomOut,
-} from "forks/xyflow/core/hooks/useViewportHelper";
+import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { onFitViewHandler } from "forks/xyflow/core/store/utils";
 import { zoomToMouseLocation } from "forks/xyflow/core/utils/mouseLocation";
@@ -45,34 +37,7 @@ import { focusOnSearch } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
 
 let keysPressed = new Set();
-let keysPressedTimeStamps = new Map();
 let aModShortcutWasPressed = false;
-
-function resetKeysPressed() {
-  keysPressed = new Set();
-  keysPressedTimeStamps = new Map();
-}
-
-function deleteKeyPressed(key) {
-  keysPressed.delete(key);
-  keysPressedTimeStamps.delete(key);
-}
-
-function addKeyPressed(key) {
-  keysPressed.add(key);
-  keysPressedTimeStamps.set(key, Date.now());
-}
-
-function clearStaleKeys() {
-  const now = Date.now();
-
-  // First, collect all stale keys
-  for (const [key, timestamp] of keysPressedTimeStamps) {
-    if (now - timestamp > 100) {
-      deleteKeyPressed(key);
-    }
-  }
-}
 
 function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {
   attachTo.addEventListener(eventName, action);
@@ -239,7 +204,7 @@ function getShouldPreventDefault(parsedShortcut) {
   return true;
 }
 
-function getIsInput(event) {
+function isInput(event) {
   return (
     event.target instanceof HTMLInputElement ||
     event.target instanceof HTMLTextAreaElement ||
@@ -350,78 +315,74 @@ function keyUpLoop(e, shortcutInfo) {
 }
 
 export function attachKeyEventListeners() {
-  const shortcuts = useSettings.getState().shortcuts;
+  const settings = useSettings.getState();
 
   const conditionAndAction = [
     ["tab", tabFromDocumentBody],
     ["shift + tab", tabFromDocumentBody],
-    [shortcuts.shortnewCardShortcut, addRegularSectionInEmptySpace],
-    [shortcuts.newGroupShortcut, addGroupInEmptySpace],
-    [shortcuts.newTerminalShortcut, addTerminalInEmptySpace],
-    [shortcuts.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
+    [settings.newCardShortcut, addRegularSectionInEmptySpace],
+    [settings.newGroupShortcut, addGroupInEmptySpace],
+    [settings.newTerminalShortcut, addTerminalInEmptySpace],
+    [settings.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
     [
-      shortcuts.tooltipToPlaintextShortcut,
+      settings.tooltipToPlaintextShortcut,
       getConvertFloatingBoxToSectionFn(false),
     ],
     [
-      shortcuts.tooltipToMarkdownShortcut,
+      settings.tooltipToMarkdownShortcut,
       getConvertFloatingBoxToSectionFn(true),
     ],
-    [shortcuts.freezeTooltipShortcut, freezeFloatingBox],
+    [settings.freezeTooltipShortcut, freezeFloatingBox],
     [
-      shortcuts.frozenTooltipToPlaintextShortcut,
+      settings.frozenTooltipToPlaintextShortcut,
       getConvertFloatingBoxToSectionFn(false),
     ],
     [
-      shortcuts.frozenTooltipToMarkdownShortcut,
+      settings.frozenTooltipToMarkdownShortcut,
       getConvertFloatingBoxToSectionFn(true),
     ],
-    [shortcuts.undoShortcut, _.throttle(undoProjectState, 100), null, true],
-    [shortcuts.redoShortcut, _.throttle(redoProjectState, 100), null, true],
-    [shortcuts.groupShortcut, groupSections],
-    [shortcuts.saveShortcut, saveProject],
-    [shortcuts.loadShortcut, openLoadModal],
-    [shortcuts.saveAsShortcut, openSaveAsModal],
-    [shortcuts.searchShortcut, focusOnSearch],
-    [shortcuts.resetZoomShortcut, resetZoom],
-    [shortcuts.copyShortcut, copy],
-    [shortcuts.pasteShortcut, paste],
-    [shortcuts.updateInteractiveCode, updateInteractiveCode],
-    [shortcuts.formatCode, formatCode],
-    [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
-    [shortcuts.fitViewShortcut, onFitViewHandler],
-    [shortcuts.zoomToMouseShortcut, zoomToMouseLocation],
-    [shortcuts.deleteSectionShortcut, deleteAllActiveSections],
-    [shortcuts.selectAllSectionsShortcut, setAllSectionsAsActive],
-    [shortcuts.showVersionsTabShortcut, showVersionsTab],
-    [shortcuts.showParamUITypeTabShortcut, showParamUITypeTab],
-    [shortcuts.showProjectOverviewTabShortcut, showProjectOverviewTab],
-    [shortcuts.zoomInShortcut, _.throttle(zoomIn, 50), null, true],
-    [shortcuts.zoomOutShortcut, _.throttle(zoomOut, 50), null, true],
+    [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
+    [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
+    [settings.groupShortcut, groupSections],
+    [settings.saveShortcut, saveProject],
+    [settings.loadShortcut, openLoadModal],
+    [settings.saveAsShortcut, openSaveAsModal],
+    [settings.searchShortcut, focusOnSearch],
+    [settings.resetZoomShortcut, resetZoom],
+    [settings.copyShortcut, copy],
+    [settings.pasteShortcut, paste],
+    [settings.updateInteractiveCode, updateInteractiveCode],
+    [settings.formatCode, formatCode],
+    [settings.paramSelect, activateParamSelect, deactivateParamSelect],
+    [settings.fitViewShortcut, onFitViewHandler],
+    [settings.zoomToMouseShortcut, zoomToMouseLocation],
+    [settings.deleteSectionShortcut, deleteAllActiveSections],
+    [settings.selectAllSectionsShortcut, setAllSectionsAsActive],
+    [settings.showVersionsTabShortcut, showVersionsTab],
     [
-      shortcuts.selectionKeyCode,
+      settings.selectionKeyCode,
       activateSelectionKeyPressed,
       deactivateSelectionKeyPressed,
     ],
     [
-      shortcuts.multiSelectionKeyCode,
+      settings.multiSelectionKeyCode,
       activateMultiSelectionPressed,
       deactivateMultiSelectionPressed,
     ],
-    [shortcuts.panActivationKeyCode, activatePanMode, deactivatePanMode],
-    [shortcuts.zoomActivationKeyCode, activateZoomMode, deactivateZoomMode],
+    [settings.panActivationKeyCode, activatePanMode, deactivatePanMode],
+    [settings.zoomActivationKeyCode, activateZoomMode, deactivateZoomMode],
     [
-      shortcuts.moveSectionKeyCode,
+      settings.moveSectionKeyCode,
       activateMoveSectionMode,
       deactivateMoveSectionMode,
     ],
     [
-      shortcuts.sortingShortcut,
+      settings.sortingShortcut,
       useDndState.getState().activateSortingMode,
       useDndState.getState().deactivate,
     ],
     [
-      shortcuts.movingFreeShortcut,
+      settings.movingFreeShortcut,
       useDndState.getState().activateMovingFreeMode,
       useDndState.getState().deactivate,
     ],
@@ -453,17 +414,13 @@ export function attachKeyEventListeners() {
     });
   }
   let cleanup = attachKeyDownListener((e) => {
-    // need to clear keys by timestamp because keyup does not trigger on mac when cmd key is held down
-    clearStaleKeys();
     aModShortcutWasPressed = false;
     if (!modifierKeyCodes.has(e.code)) {
-      addKeyPressed(e.code);
+      keysPressed.add(e.code);
     }
-    const isInput = getIsInput(e);
-
     for (const x of shortcutInfo) {
       if (isShortcutPressed(e, x.parsedShortcut, _isMacOs)) {
-        if (x.ignoreWhenInInputField && isInput) {
+        if (x.ignoreWhenInInputField && isInput(e)) {
           continue;
         }
         if (x.shouldPreventDefault) {
@@ -488,16 +445,16 @@ export function attachKeyEventListeners() {
   cleanup = attachKeyUpListener((e) => {
     if (_isMacOs && e.key === "Meta") {
       // special case because on mac, meta key causes the other pressed keys to not trigger keyup
-      resetKeysPressed();
+      keysPressed = new Set();
     } else {
-      deleteKeyPressed(e.code);
+      keysPressed.delete(e.code);
     }
     keyUpLoop(e, shortcutInfo);
   });
   cleanup_functions.push(cleanup);
 
   cleanup = attachEventListenerAndReturnCleanup(window, "blur", (e) => {
-    resetKeysPressed();
+    keysPressed = new Set();
     keyUpLoop(e, shortcutInfo);
   });
   cleanup_functions.push(cleanup);

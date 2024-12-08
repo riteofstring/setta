@@ -7,7 +7,6 @@ import {
   CLOSED_PANE_WIDTH,
   OVERVIEW,
   SECTION_VARIANTS_TAB,
-  UI_CONFIG_TAB,
   UI_EDITOR,
 } from "utils/constants";
 
@@ -73,7 +72,7 @@ export function onOverviewTabClick(tabValue) {
 }
 
 export function onOverviewResizeStop(widthDiff) {
-  if (useSettings.getState().gui.leftSidePaneShiftsMap) {
+  if (useSettings.getState().leftSidePaneShiftsMap) {
     updateMapPosition(widthDiff);
   }
 }
@@ -113,12 +112,4 @@ function changeUIEditorTab(tabName) {
 
 export function showVersionsTab() {
   changeUIEditorTab(SECTION_VARIANTS_TAB);
-}
-
-export function showParamUITypeTab() {
-  changeUIEditorTab(UI_CONFIG_TAB);
-}
-
-export function showProjectOverviewTab(){
-  onOverviewTabClick("tab1")
 }

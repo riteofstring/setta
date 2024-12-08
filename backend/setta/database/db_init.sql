@@ -1,9 +1,4 @@
--- TABLES --
-CREATE TABLE IF NOT EXISTS Metadata (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    defaultProject TEXT,
-    FOREIGN KEY (defaultProject) REFERENCES ProjectConfig(id)
-);
+
 CREATE TABLE IF NOT EXISTS CodeInfo (
     id TEXT PRIMARY KEY,
     data TEXT
@@ -28,9 +23,9 @@ CREATE TABLE IF NOT EXISTS Section (
     paramSweepSectionId TEXT,
     uiTypeId TEXT,
     uiTypeColId TEXT,
-    FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE SET NULL,
+    FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
     FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
-    FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE SET NULL
+    FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS SectionConfig (
     projectConfigId TEXT,
@@ -58,9 +53,9 @@ CREATE TABLE IF NOT EXISTS SectionVariantId (
     codeInfoColId TEXT,
     originSectionId TEXT,
     runGroup TEXT,
-    FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE SET NULL,
+    FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
     FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE,
-    FOREIGN KEY (codeInfoColId) REFERENCES CodeInfoColId(id) ON DELETE SET NULL
+    FOREIGN KEY (codeInfoColId) REFERENCES CodeInfoColId(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS SectionVariantEV (
     idid TEXT,
@@ -133,31 +128,3 @@ CREATE TABLE IF NOT EXISTS SectionArtifacts (
     PRIMARY KEY (sectionId, artifactPath),
     FOREIGN KEY (sectionId) REFERENCES Section(id)
 );
-
--- INSERTS ---
-INSERT OR IGNORE INTO Metadata (id, defaultProject) VALUES (1, NULL);
-
-
-
--- TRIGGERS --
-CREATE TRIGGER IF NOT EXISTS set_new_default_project 
-AFTER DELETE ON ProjectConfig
-WHEN (SELECT defaultProject FROM Metadata WHERE id = 1) = OLD.id
-BEGIN
-    UPDATE Metadata 
-    SET defaultProject = (
-        SELECT id 
-        FROM ProjectConfig 
-        LIMIT 1
-    )
-    WHERE id = 1;
-END;
-
-CREATE TRIGGER IF NOT EXISTS set_default_project_if_null 
-AFTER INSERT ON ProjectConfig
-WHEN (SELECT defaultProject FROM Metadata WHERE id = 1) IS NULL
-BEGIN
-    UPDATE Metadata 
-    SET defaultProject = NEW.id
-    WHERE id = 1;
-END;

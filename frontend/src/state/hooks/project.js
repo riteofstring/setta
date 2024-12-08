@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import {
-  dbFilterDataForJSONExport,
   dbGetAllProjectConfigMetadata,
   dbLoadFullProject,
   dbLoadProjectConfigNames,
@@ -10,11 +9,11 @@ import {
   loadProjectConfig,
   loadSettingsProjectConfig,
 } from "state/actions/project/loadProject";
-import { getProjectDataForSaving } from "state/actions/project/saveProject";
+import { getProjectData } from "state/actions/project/saveProject";
 import {
   useAllProjectConfigs,
+  useMisc,
   useProjectConfig,
-  useProjectLoading,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
@@ -22,15 +21,13 @@ import { useHotReload } from "utils/hotReload";
 
 export function useGetAllProjectConfigMetadata() {
   const [projects, setProjects] = useState([]);
-  const [defaultProjectName, setDefaultProjectName] = useState([]);
   async function getAllProjectConfigMetadata() {
     const res = await dbGetAllProjectConfigMetadata();
     if (res.status === 200) {
-      setProjects(res.data[0]);
-      setDefaultProjectName(res.data[1]);
+      setProjects(res.data);
     }
   }
-  return { projects, defaultProjectName, getAllProjectConfigMetadata };
+  return { projects, getAllProjectConfigMetadata };
 }
 
 export function useGetAllProjectConfigMetadataForFileMenu(open) {
@@ -48,12 +45,11 @@ export function useGetAllProjectConfigMetadataForFileMenu(open) {
 
 export function useExportProjectJson() {
   const [projectJson, setProjectJson] = useState({});
-  async function exportProjectJson() {
-    const project = getProjectDataForSaving();
-    const res = await dbFilterDataForJSONExport(project);
-    if (res.status === 200) {
-      setProjectJson(res.data);
-    }
+  function exportProjectJson() {
+    const { project, ...theRest } = getProjectData({
+      withArtifactMetadata: true,
+    });
+    setProjectJson(theRest);
   }
   async function exportFullProjectJson() {
     const res = await dbLoadFullProject({});
@@ -70,7 +66,7 @@ export function useLoadProjectConfig() {
   const { state } = useLocation();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
-  const is404 = useProjectLoading((x) => x.projectIs404);
+  const is404 = useMisc((x) => x.projectIs404);
   const isHotReload = useHotReload();
 
   async function loadFn() {
@@ -79,7 +75,7 @@ export function useLoadProjectConfig() {
     setDoneLoading(false);
     const res = await loadProjectConfig({ projectConfigName });
     setDoneLoading(true);
-    useProjectLoading.setState({ projectIsLoading: false, projectIs404: !res });
+    useMisc.setState({ projectIsLoading: false, projectIs404: !res });
   }
 
   async function loadSettingsProject() {
@@ -88,24 +84,21 @@ export function useLoadProjectConfig() {
     setDoneLoading(false);
     const res = await loadSettingsProjectConfig();
     setDoneLoading(true);
-    useProjectLoading.setState({ projectIsLoading: false, projectIs404: !res });
+    useMisc.setState({ projectIsLoading: false, projectIs404: !res });
   }
 
   function changeFn() {
     console.log("CHANGING CONFIG NAME********");
     useProjectConfig.setState({ name: projectConfigName });
-    useProjectLoading.setState({
-      projectIsLoading: false,
-      projectIs404: false,
-    });
+    useMisc.setState({ projectIsLoading: false, projectIs404: false });
   }
 
   useEffect(() => {
-    if (isHotReload || useProjectLoading.getState().projectIsLoading) {
+    if (isHotReload || useMisc.getState().projectIsLoading) {
       return;
     }
 
-    useProjectLoading.setState({ projectIsLoading: true });
+    useMisc.setState({ projectIsLoading: true });
 
     if (projectConfigName === SETTINGS_PROJECT_NAME) {
       loadSettingsProject();

@@ -32,14 +32,12 @@ function _Markdown({ sectionId }) {
 
   const wrapperClassName = `section-main nodrag ${isScrollable ? "nowheel" : ""} -mr-[13px] pr-4 mb-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
 
-  // the classes "prose-code:before:hidden prose-code:after:hidden" are needed to prevent backticks from appearing
-  // https://github.com/tailwindlabs/tailwindcss-typography/issues/18#issuecomment-1280797041
   return renderMarkdown ? (
     <div ref={ref} className={wrapperClassName}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
-        className="prose-headings: prose prose-sm min-w-[100%] [flex:1_1_auto] dark:prose-invert   prose-headings:tracking-tighter prose-headings:text-setta-400  prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&_*]:[word-wrap:break-word]"
+        className="prose-headings: prose prose-sm min-w-[100%] [flex:1_1_auto] dark:prose-invert   prose-headings:tracking-tighter prose-headings:text-setta-400  prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm [&_*]:[word-wrap:break-word]"
         components={{
           code: CodeBlock,
         }}
@@ -64,12 +62,8 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
   const [copied, setCopied] = React.useState(false);
   const codeRef = React.useRef(null);
 
-  // Check if this is a block-level code element (triple backticks)
-  const isBlockCode =
-    node?.tagName === "code" && node?.position?.start?.column === 1;
-
   // Don't render copy button for inline code
-  if (!isBlockCode) {
+  if (inline) {
     return (
       <code className={className} {...props}>
         {children}
@@ -91,7 +85,7 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
   };
 
   return (
-    <span className="group relative block">
+    <div className="group relative">
       <button
         onClick={handleCopy}
         className="absolute bottom-0 right-0 top-0 cursor-pointer rounded bg-transparent text-setta-300 opacity-0 transition-opacity 
@@ -108,6 +102,6 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
       <code ref={codeRef} className={`${className}`} {...props}>
         {children}
       </code>
-    </span>
+    </div>
   );
 };

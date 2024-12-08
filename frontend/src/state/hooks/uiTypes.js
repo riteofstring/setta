@@ -2,13 +2,15 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import {
+  BASE_UI_TYPE_IDS,
   INFO_CONFIG_TAB,
   QUICKINFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
+  SECTION_DISPLAY_MODES,
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
-import { newUITypeColEntry } from "utils/objs/uiTypeCol";
+import { isFromJSONSource } from "utils/utils";
 import { localStorageFns } from "./localStorage";
 
 export function getParamUIType(sectionId, paramInfoId, _state) {
@@ -21,11 +23,16 @@ export function getParamUIType(sectionId, paramInfoId, _state) {
 export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {
   const state = _state ?? useSectionInfos.getState();
   const { uiTypeColId } = state.x[sectionId];
-  if (uiTypeColId && paramInfoId in state.uiTypeCols[uiTypeColId]) {
-    return state.uiTypeCols[uiTypeColId][paramInfoId][key];
-  } else {
-    return newUITypeColEntry()[key];
+  if (isFromJSONSource(paramInfoId)) {
+    if (paramInfoId in state.uiTypeCols[uiTypeColId]) {
+      return state.uiTypeCols[uiTypeColId][paramInfoId][key];
+    } else if (key === "uiTypeId") {
+      return BASE_UI_TYPE_IDS[C.TEXT];
+    } else if (key === "nonPresetUITypeIds") {
+      return [];
+    }
   }
+  return state.uiTypeCols[uiTypeColId][paramInfoId][key];
 }
 
 export function getIsSeriesElementHelper(
@@ -111,6 +118,16 @@ function getRequiredUIEditorTabs(uiTypeName) {
         INFO_CONFIG_TAB,
         SECTION_VARIANTS_TAB,
       ];
+  }
+}
+
+export function getDefaultDisplayMode(uiTypeId) {
+  const uiType = useSectionInfos.getState().uiTypes[uiTypeId].type;
+  switch (uiType) {
+    case C.INFO:
+      return SECTION_DISPLAY_MODES.RENDER;
+    default:
+      return SECTION_DISPLAY_MODES.GUI;
   }
 }
 

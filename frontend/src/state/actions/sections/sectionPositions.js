@@ -8,7 +8,7 @@ import {
 import _ from "lodash";
 import potpack from "potpack";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useNodeInternals, useSettings } from "state/definitions";
+import { useNodeInternals } from "state/definitions";
 import { setActiveSectionIds } from "../activeSections";
 import { getNewNodes } from "../nodeInternals";
 
@@ -40,7 +40,7 @@ export function setZIndices(sectionIds, incrementVersion) {
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
-export function goToSection(sectionId) {
+export function goToSection(sectionId, duration = 100) {
   const rfStore = useReactFlow.getState();
   const {
     x: sectionX,
@@ -58,7 +58,6 @@ export function goToSection(sectionId) {
     true,
   );
 
-  const duration = useSettings.getState().gui.transitionDuration;
   const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
   rfStore.d3Zoom.transform(
     getD3Transition(rfStore.d3Selection, duration),

@@ -28,12 +28,12 @@ export function EditMenu() {
 function Items() {
   const shortcuts = useSettings((x) => {
     return {
-      newCardShortcut: shortcutPrettified(x.shortcuts.newCardShortcut),
-      newGroupShortcut: shortcutPrettified(x.shortcuts.newGroupShortcut),
-      typeCheckShortcut: shortcutPrettified(x.shortcuts.typeCheckShortcut),
-      redoShortcut: shortcutPrettified(x.shortcuts.redoShortcut),
-      undoShortcut: shortcutPrettified(x.shortcuts.undoShortcut),
-      groupShortcut: shortcutPrettified(x.shortcuts.groupShortcut),
+      newCardShortcut: shortcutPrettified(x.newCardShortcut),
+      newGroupShortcut: shortcutPrettified(x.newGroupShortcut),
+      typeCheckShortcut: shortcutPrettified(x.typeCheckShortcut),
+      redoShortcut: shortcutPrettified(x.redoShortcut),
+      undoShortcut: shortcutPrettified(x.undoShortcut),
+      groupShortcut: shortcutPrettified(x.groupShortcut),
     };
   }, _.isEqual);
 

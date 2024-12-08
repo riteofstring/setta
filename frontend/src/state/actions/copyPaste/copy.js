@@ -103,7 +103,11 @@ function getCodeInfoCols(sectionVariants, state) {
 function getCodeInfo(codeInfoCols, state) {
   let output = [];
   for (const codeInfoCol of Object.values(codeInfoCols)) {
-    const { ids } = findAll(state.codeInfo, codeInfoCol.children);
+    const ids = findAll(
+      state.codeInfo,
+      codeInfoCol.children,
+      codeInfoCol.children[null],
+    ).ids;
 
     for (const id of ids) {
       output.push(state.codeInfo[id]);

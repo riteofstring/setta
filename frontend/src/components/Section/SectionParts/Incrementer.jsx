@@ -8,11 +8,21 @@ export function Incrementer({ sectionId, isRoot, popover = false }) {
   const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
 
   const addSections = (numSections) => {
-    addChildrenToSeries(isRoot, sectionId, numSections);
+    addChildrenToSeries({
+      isRoot,
+      calledBy: sectionId,
+      numChildren: numSections,
+      incrementVersion: true,
+    });
   };
 
   const deleteChildren = (numSections) => {
-    deleteChildrenFromSeries(isRoot, sectionId, numSections);
+    deleteChildrenFromSeries({
+      isRoot,
+      calledBy: sectionId,
+      numChildren: numSections,
+      incrementVersion: true,
+    });
   };
 
   const numSectionsOnChange = (value) => {

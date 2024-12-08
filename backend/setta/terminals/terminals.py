@@ -62,8 +62,8 @@ def is_command_running_in_pty(pid):
 
 
 def get_terminal_shell():
-    if USER_SETTINGS["backend"]["defaultTerminalShell"]:
-        return USER_SETTINGS["backend"]["defaultTerminalShell"]
+    if USER_SETTINGS["defaultTerminalShell"]:
+        return USER_SETTINGS["defaultTerminalShell"]
     if IS_WINDOWS:
         return "bash.exe"
     if IS_MACOS:
@@ -94,10 +94,7 @@ class TerminalWebsockets:
                 "isTemporary": isTemporary,
             }
             pty_info = self.PTY_PIDS[sectionId]
-            if (
-                IS_WINDOWS
-                or not USER_SETTINGS["backend"]["clearTerminalBeforeMarkingAsReady"]
-            ):
+            if IS_WINDOWS or not USER_SETTINGS["clearTerminalBeforeMarkingAsReady"]:
                 pty_info["terminalPromptIsReady"].set()
 
             print("created new pty_process", sectionId, flush=True)
