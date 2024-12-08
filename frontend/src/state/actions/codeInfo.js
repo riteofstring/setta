@@ -20,22 +20,19 @@ export function addCodeInfo({ sectionId, info, parent, insertIdx, state }) {
 }
 
 export function deleteCodeInfo(sectionId, ids, state) {
-  const { uiTypeColId, variantId } = state.x[sectionId];
-
-  state.codeInfo = _.omit(state.codeInfo, ids);
-  state.codeInfoCols = _.omit(state.codeInfoCols, ids);
-  for (const codeCol of Object.values(state.codeInfoCols)) {
-    for (const parentId of Object.keys(codeCol.children)) {
-      codeCol.children[parentId] = codeCol.children[parentId].filter(
-        (y) => !ids.includes(y),
-      );
-    }
+  const variant = getSectionVariant(sectionId, state);
+  const codeInfoCol = getOrCreateCodeInfoCol(variant, state);
+  for (const parentId of Object.keys(codeInfoCol.children)) {
+    codeInfoCol.children[parentId] = codeInfoCol.children[parentId].filter(
+      (y) => !ids.includes(y),
+    );
   }
+
+  const { variantId, uiTypeColId } = state.x[sectionId];
   state.variants[variantId].values = _.omit(
     state.variants[variantId].values,
     ids,
   );
-
   state.uiTypeCols[uiTypeColId] = _.omit(state.uiTypeCols[uiTypeColId], ids);
 
   for (const s of state.variants[variantId].sweep) {
