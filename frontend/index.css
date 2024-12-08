@@ -7,6 +7,11 @@
     grid-area: title;
     /* grid-column: key / value; */
   }
+
+  .section-center {
+    grid-area: center-gutter;
+  }
+
   .section-search {
     grid-area: search;
   }
@@ -260,6 +265,11 @@ body {
 .section-args-nested {
   grid-template-columns: 0.75rem 1fr 0.75rem 1fr;
   grid-template-areas: "left-gutter key center-gutter value";
+}
+
+.section-args-nested-key-value {
+  grid-template-columns: 1fr 0.75rem 1fr;
+  grid-template-areas: "key center-gutter value";
 }
 
 @supports (-moz-appearance: none) {

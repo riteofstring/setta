@@ -29,8 +29,8 @@ import type { ControlProps } from "./types";
 function useZoomReached() {
   const { minZoom, maxZoom } = useSettings(
     (x) => ({
-      minZoom: x.gui.minZoom,
-      maxZoom: x.gui.maxZoom,
+      minZoom: x.minZoom,
+      maxZoom: x.maxZoom,
     }),
     shallow,
   );

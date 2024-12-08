@@ -4,7 +4,6 @@ import C from "constants/constants.json";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "state/actions/sections/deleteSections";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
@@ -28,7 +27,6 @@ function _SectionHeader({
     useSectionInfos.setState((state) => {
       deleteSections([sectionId], state);
     });
-    maybeIncrementProjectStateVersion(true);
   };
 
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
@@ -56,8 +54,15 @@ function _SectionHeader({
       <div className="z-10 ml-auto flex items-center">
         {isSeriesElement && (
           <StandardPopover
+            popoverContent={
+              <Incrementer
+                sectionId={sectionId}
+                isRoot={isRoot}
+                popover={true}
+              />
+            }
             arrowClasses="fill-white dark:fill-setta-800"
-            contentClasses="z-20"
+            inputClasses="rounded-lg"
             trigger={
               <IconButton
                 twClasses="[&_*]:hover:text-setta-500 [&_*]:dark:hover:text-setta-400"
@@ -66,9 +71,7 @@ function _SectionHeader({
                 <TbSortDescending2 className="text-setta-300 dark:text-setta-700" />
               </IconButton>
             }
-          >
-            <Incrementer sectionId={sectionId} isRoot={isRoot} popover={true} />
-          </StandardPopover>
+          />
         )}
         <LockPositionButton sectionId={sectionId} />
         {!isRoot && <MinimizeButton sectionId={sectionId} />}

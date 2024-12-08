@@ -28,7 +28,7 @@ function FixedTitle({ sectionName, className }) {
 
 function EditableTitle({ sectionId, sectionName, titleProps }) {
   function onTitleInputChange(value) {
-    setSectionName(sectionId, value);
+    setSectionName(sectionId, value, true);
   }
 
   function condition(value) {
@@ -52,7 +52,7 @@ function EditableTitle({ sectionId, sectionName, titleProps }) {
   );
 }
 
-function setSectionName(sectionId, name) {
+function setSectionName(sectionId, name, incrementVersion) {
   useSectionInfos.setState((x) => {
     const s = x.x[sectionId];
     s.name = name;
@@ -60,7 +60,7 @@ function setSectionName(sectionId, name) {
       x.x[paramSweepSectionId].name = createParamSweepSectionName(name);
     }
   });
-  maybeIncrementProjectStateVersion(true);
+  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 function useTitleIsEditable(sectionId) {

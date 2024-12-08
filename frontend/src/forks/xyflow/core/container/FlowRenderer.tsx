@@ -29,13 +29,13 @@ const FlowRenderer = ({ children }) => {
     zoomOnDoubleClick,
   } = useSettings((x) => {
     return {
-      panOnDrag: x.gui.panOnDrag,
-      panOnScroll: x.gui.panOnScroll,
-      panOnScrollSpeed: x.gui.panOnScrollSpeed,
-      panOnScrollMode: x.gui.panOnScrollMode,
-      zoomOnScroll: x.gui.zoomOnScroll,
-      zoomOnPinch: x.gui.zoomOnPinch,
-      zoomOnDoubleClick: x.gui.zoomOnDoubleClick,
+      panOnDrag: x.panOnDrag,
+      panOnScroll: x.panOnScroll,
+      panOnScrollSpeed: x.panOnScrollSpeed,
+      panOnScrollMode: x.panOnScrollMode,
+      zoomOnScroll: x.zoomOnScroll,
+      zoomOnPinch: x.zoomOnPinch,
+      zoomOnDoubleClick: x.zoomOnDoubleClick,
     };
   }, _.isEqual);
 

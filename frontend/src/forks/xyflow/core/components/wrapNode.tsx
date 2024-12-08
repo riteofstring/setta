@@ -27,7 +27,6 @@ const _NodeWrapper = ({
   isFocusable,
   resizeObserver,
   zIndex,
-  visibility,
 }: WrapNodeProps) => {
   const nodeRef = useRef<HTMLDivElement>(null);
   const positionAndSizeLocked = useSectionInfos(
@@ -86,7 +85,7 @@ const _NodeWrapper = ({
       style={{
         transform: `translate(${xPos}px,${yPos}px)`,
         pointerEvents: hasPointerEvents ? "all" : "none",
-        visibility,
+        visibility: "visible",
         zIndex,
         ...style,
       }}

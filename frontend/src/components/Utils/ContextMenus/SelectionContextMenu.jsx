@@ -6,7 +6,6 @@ import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { createDeck } from "state/actions/sections/groupSections";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useContextMenus, useSectionInfos } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
@@ -39,7 +38,6 @@ export function SelectionContextMenu() {
       deleteSections(nodeIds, state);
     });
     closeContextMenu();
-    maybeIncrementProjectStateVersion(true);
   }
 
   function onClickLock() {

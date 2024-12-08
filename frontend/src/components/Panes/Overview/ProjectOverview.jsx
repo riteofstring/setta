@@ -2,7 +2,7 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
-import { useSectionInfos } from "state/definitions";
+import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import { ProjectName } from "./ProjectName";
 import { SectionListItems } from "./SectionListItems";
@@ -43,12 +43,15 @@ function ProjectOverviewCore({ sectionList }) {
 }
 
 function useOverviewListing() {
+  const topLevelSectionIds = useNodeInternals(
+    (x) => [...x.x.keys()],
+    _.isEqual,
+  );
+
   return useSectionInfos((x) => {
     const outputList = [];
-    for (const section of Object.values(x.x)) {
-      if (!section.parentId) {
-        getDepthListingHelper(section.id, 0, x, outputList);
-      }
+    for (const sectionId of topLevelSectionIds) {
+      getDepthListingHelper(sectionId, 0, x, outputList);
     }
     return outputList;
   }, _.isEqual);
