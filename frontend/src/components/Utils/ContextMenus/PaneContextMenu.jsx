@@ -78,7 +78,6 @@ export function PaneContextMenu() {
       )}
       <Item onClick={getOnClickFn({ type: C.DRAW })}>New Drawing Area</Item>
       <Item onClick={getOnClickFn({ type: C.SOCIAL })}>New Social</Item>
-      <Item onClick={getOnClickFn({ type: C.IFRAME })}>New IFrame</Item>
     </ContextMenuCore>
   );
 }

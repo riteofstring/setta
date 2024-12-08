@@ -3,7 +3,6 @@ import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React from "react";
-import { TbDragDrop } from "react-icons/tb";
 
 export const TempDNDSection = React.forwardRef(({}, ref) => {
   const { width, height } = useDndState(
@@ -19,11 +18,9 @@ export const TempDNDSection = React.forwardRef(({}, ref) => {
     <>
       <div
         style={{ width: `${width}px`, height: `${height}px` }}
-        className="flex items-center justify-center rounded-xl bg-setta-100/70 shadow-inner dark:bg-setta-500/60"
+        className="rounded-xl bg-setta-300/25"
         ref={ref}
-      >
-        <TbDragDrop className="scale-150 text-xl font-black text-setta-50 dark:text-setta-400/70" />
-      </div>
+      />
       <div className="flex-auto bg-transparent" />
     </>
   );
@@ -48,7 +45,7 @@ export const DummySection = React.forwardRef(({}, ref) => {
         width: `${displayWidth}px`,
         height: `${displayHeight}px`,
       }}
-      className="rounded-xl bg-blue-500/90 shadow-lg dark:bg-blue-700/90"
+      className="rounded-xl bg-setta-50/25"
       ref={ref}
     />
   );

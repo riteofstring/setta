@@ -19,7 +19,6 @@ import { TerminalArea } from "../Layouts/TerminalArea";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { getBgColor } from "./utils";
-import { IframeArea } from "../Layouts/IframeArea";
 
 export function SectionContainerCoreResizable({
   sectionId,
@@ -88,8 +87,6 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
       return <TerminalArea sectionId={sectionId} />;
     case C.GLOBAL_PARAM_SWEEP:
       return <GlobalParamSweepArea sectionId={sectionId} />;
-    case C.IFRAME:
-      return <IframeArea sectionId={sectionId} />;
     default:
       return null;
   }

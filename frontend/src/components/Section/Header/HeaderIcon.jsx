@@ -67,7 +67,7 @@ export function HeaderIcon({
       );
     case C.DRAW:
       return (
-        <BiPaint className="p-0 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+        <BiPaint className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
     case C.SOCIAL:
       return <SocialIcon sectionId={sectionId} />;
