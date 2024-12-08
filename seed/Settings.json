@@ -58,7 +58,8 @@
     "zoomOnPinch": true,
     "zoomOnDoubleClick": true,
     "selectionMode": "partial",
-    "leftSidePaneShiftsMap": true
+    "leftSidePaneShiftsMap": true,
+    "transitionDuration": 50
   },
   "backend": {
     "showDefaultConfigOnLoad": true,

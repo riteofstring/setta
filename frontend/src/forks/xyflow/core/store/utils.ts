@@ -75,7 +75,7 @@ export function onFitViewHandler() {
   if (useReactFlow.getState().fitViewOnInit) {
     return;
   }
-  const duration = 50;
+  const duration = useSettings.getState().gui.transitionDuration;
   fitView({ duration });
   // Hack to set fitViewOnInit after transform is done.
   // If it gets set before the transform is done, then the
