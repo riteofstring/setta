@@ -35,7 +35,8 @@
     "multiSelectionKeyCode": "Mod",
     "panActivationKeyCode": "Space",
     "zoomActivationKeyCode": "Mod",
-    "moveSectionKeyCode": "Mod"
+    "zoomInShortcut": "Equal",
+    "zoomOutShortcut": "Minus"
   },
   "gui": {
     "snapGrid": [15, 15],

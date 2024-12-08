@@ -7,7 +7,11 @@ import {
   removeFrozenFloatingBox,
 } from "components/Utils/FloatingBox";
 import { useDndState } from "forks/dnd-kit/dndState";
-import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
+import {
+  resetZoom,
+  zoomIn,
+  zoomOut,
+} from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { onFitViewHandler } from "forks/xyflow/core/store/utils";
 import { zoomToMouseLocation } from "forks/xyflow/core/utils/mouseLocation";
@@ -386,6 +390,8 @@ export function attachKeyEventListeners() {
     [shortcuts.deleteSectionShortcut, deleteAllActiveSections],
     [shortcuts.selectAllSectionsShortcut, setAllSectionsAsActive],
     [shortcuts.showVersionsTabShortcut, showVersionsTab],
+    [shortcuts.zoomInShortcut, zoomIn, null, true],
+    [shortcuts.zoomOutShortcut, zoomOut, null, true],
     [
       shortcuts.selectionKeyCode,
       activateSelectionKeyPressed,
