@@ -9,6 +9,7 @@ import { CodeArea } from "../Layouts/CodeArea";
 import { DrawOnImage } from "../Layouts/DrawArea";
 import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
+import { IframeArea } from "../Layouts/IframeArea";
 import { ImageArea } from "../Layouts/ImageArea";
 import { InfoArea } from "../Layouts/InfoArea";
 import { InputArea } from "../Layouts/InputArea";
@@ -19,7 +20,6 @@ import { TerminalArea } from "../Layouts/TerminalArea";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { getBgColor } from "./utils";
-import { IframeArea } from "../Layouts/IframeArea";
 
 export function SectionContainerCoreResizable({
   sectionId,

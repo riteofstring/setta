@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 
 export function getIsRoot(sectionTypeName) {
-  return [C.LIST_ROOT, C.DICT_ROOT, C.DECK].includes(sectionTypeName);
+  return [C.LIST_ROOT, C.DICT_ROOT, C.GROUP].includes(sectionTypeName);
 }
 
 export const uiTypesToPretty = {
@@ -13,7 +13,7 @@ export const uiTypesToPretty = {
   [C.SECTION]: "Object",
   [C.LIST_ROOT]: "List of Objects",
   [C.DICT_ROOT]: "Dict of Objects",
-  [C.DECK]: "Deck",
+  [C.GROUP]: "Group",
   [C.IMAGE]: "Image",
   [C.LINE_PLOT]: "Line Plot",
   [C.DRAW]: "Drawing Area",

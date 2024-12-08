@@ -14,10 +14,10 @@ export function openPaneContextMenu(e) {
   openContextMenu(e, "pane");
 }
 
-export function openDeckContextMenu(e, sectionId) {
+export function openGroupContextMenu(e, sectionId) {
   // stopPropagation so that context menus work for nested groups.
   e.stopPropagation();
-  openContextMenu(e, "deck", { sectionId });
+  openContextMenu(e, "group", { sectionId });
 }
 
 export function openSelectionContextMenu(e, nodeIds) {

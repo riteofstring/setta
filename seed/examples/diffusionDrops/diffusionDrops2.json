@@ -394,7 +394,7 @@
     },
     "0e050316-06ca-48f4-92c1-9845abdf85f7": {
       "id": "0e050316-06ca-48f4-92c1-9845abdf85f7",
-      "type": "DECK",
+      "type": "GROUP",
       "name": "",
       "presetType": "BASE",
       "config": {}

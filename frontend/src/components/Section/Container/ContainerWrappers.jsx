@@ -6,7 +6,7 @@ import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
 function _DndSlotAndDndWatcher({
-  isDeck,
+  isGroup,
   sectionId,
   isTopLevel,
   droppableRef,
@@ -17,9 +17,9 @@ function _DndSlotAndDndWatcher({
   const { style, behaviorDropType } = useHighlightDroppable(sectionId);
 
   return (
-    <DndSlot behaviorDropType={behaviorDropType} isDeck={isDeck}>
+    <DndSlot behaviorDropType={behaviorDropType} isGroup={isGroup}>
       <DndWatcherAndContainer
-        isDeck={isDeck}
+        isGroup={isGroup}
         sectionId={sectionId}
         isTopLevel={isTopLevel}
         droppableRef={droppableRef}
@@ -36,13 +36,13 @@ function _DndSlotAndDndWatcher({
 export const DndSlotAndDndWatcher = React.memo(
   _DndSlotAndDndWatcher,
   (p, n) =>
-    p.isDeck === n.isDeck &&
+    p.isGroup === n.isGroup &&
     p.children === n.children &&
     _.isEqual(p.dragListeners, n.dragListeners),
 );
 
 function _DndWatcherAndContainer({
-  isDeck,
+  isGroup,
   sectionId,
   isTopLevel,
   droppableRef,
@@ -63,7 +63,7 @@ function _DndWatcherAndContainer({
 
   return (
     <Container
-      isDeck={isDeck}
+      isGroup={isGroup}
       sectionId={sectionId}
       droppableRef={droppableRef}
       draggableRef={draggableRef}

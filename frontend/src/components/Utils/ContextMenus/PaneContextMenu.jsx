@@ -39,7 +39,7 @@ export function PaneContextMenu() {
       <Item onClick={getOnClickFn({ type: C.SECTION })}>New Section</Item>
       <Item onClick={getOnClickFn({ type: C.LIST_ROOT })}>New List</Item>
       <Item onClick={getOnClickFn({ type: C.DICT_ROOT })}>New Dict</Item>
-      <Item onClick={getOnClickFn({ type: C.DECK })}>New Group</Item>
+      <Item onClick={getOnClickFn({ type: C.GROUP })}>New Group</Item>
       <Item onClick={getOnClickFn({ type: C.INFO })}>New Info</Item>
       {!singletonSections[C.GLOBAL_VARIABLES] && (
         <Item onClick={getOnClickFn({ type: C.GLOBAL_VARIABLES })}>

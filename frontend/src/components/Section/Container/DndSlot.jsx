@@ -1,7 +1,7 @@
 import { BehaviorDropType, behaviorToPretty } from "forks/dnd-kit/dropTypes";
 import { RiDragDropFill } from "react-icons/ri";
 
-export function DndSlot({ behaviorDropType, children, isDeck }) {
+export function DndSlot({ behaviorDropType, children, isGroup }) {
   const text = behaviorToPretty[behaviorDropType];
 
   return (
@@ -10,7 +10,7 @@ export function DndSlot({ behaviorDropType, children, isDeck }) {
         <DndSlotMiddle
           text={text}
           behaviorDropType={behaviorDropType}
-          isDeck={isDeck}
+          isGroup={isGroup}
         />
       )}
       {children}
@@ -18,23 +18,23 @@ export function DndSlot({ behaviorDropType, children, isDeck }) {
   );
 }
 
-function DndSlotMiddle({ text, behaviorDropType, isDeck }) {
+function DndSlotMiddle({ text, behaviorDropType, isGroup }) {
   return (
     <div
       className={`absolute z-20 grid h-full w-full justify-center ${
-        isDeck ? "[place-content:end_center]" : "place-content-center"
+        isGroup ? "[place-content:end_center]" : "place-content-center"
       }`}
     >
       <DndSlotInner
         text={text}
         behaviorDropType={behaviorDropType}
-        isDeck={isDeck}
+        isGroup={isGroup}
       />
     </div>
   );
 }
 
-function DndSlotInner({ text, behaviorDropType, isDeck }) {
+function DndSlotInner({ text, behaviorDropType, isGroup }) {
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
   return (
     <div
@@ -42,7 +42,7 @@ function DndSlotInner({ text, behaviorDropType, isDeck }) {
         invalid
           ? "[background-color:rgba(220,_38,_38,_0.8)]"
           : "[background-color:rgba(37,_99,_235,_0.8)]"
-      } ${isDeck && "mb-8"}`}
+      } ${isGroup && "mb-8"}`}
     >
       <div className="flex items-center gap-2">
         <RiDragDropFill />

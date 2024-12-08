@@ -5,12 +5,15 @@ import {
   toggleSectionLock,
   toggleSectionOrientation,
 } from "state/actions/sectionInfos";
-import { undeck } from "state/actions/sections/groupSections";
+import { ungroup } from "state/actions/sections/groupSections";
 import { useContextMenus, useSectionInfos } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
-export function DeckContextMenu() {
-  const { isOpen, x, y, sectionId } = useContextMenus((x) => x.deck, _.isEqual);
+export function GroupContextMenu() {
+  const { isOpen, x, y, sectionId } = useContextMenus(
+    (x) => x.group,
+    _.isEqual,
+  );
 
   const { positionAndSizeLocked, isHorizontalOrientation } = useSectionInfos(
     (x) => {
@@ -22,8 +25,8 @@ export function DeckContextMenu() {
     _.isEqual,
   );
 
-  function onClickUndeck() {
-    undeck(sectionId);
+  function onClickUngroup() {
+    ungroup(sectionId);
     closeAllContextMenus();
   }
 
@@ -52,7 +55,7 @@ export function DeckContextMenu() {
       closeContextMenu={closeAllContextMenus}
       isOpen={isOpen}
     >
-      <Item onClick={onClickUndeck}>Ungroup</Item>
+      <Item onClick={onClickUngroup}>Ungroup</Item>
       <Item onClick={onClickToggleOrientation}>{orientationItem}</Item>
       <Item onClick={onClickLock}>{lockItem}</Item>
     </ContextMenuCore>

@@ -183,7 +183,7 @@ def get_exporter_fn(config, section_id):
         return export_code
     elif stype in [C.SECTION, C.GLOBAL_VARIABLES]:
         return export_regular_section
-    elif stype in [C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
+    elif stype in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
         return export_list_section
     elif stype == C.INFO:
         return export_info_section

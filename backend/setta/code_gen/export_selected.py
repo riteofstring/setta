@@ -221,7 +221,7 @@ def code_section_needs_generated_python(p, id):
 
 def flatten_groups(p):
     for sid in p["sections"].keys():
-        if get_section_type(p, sid) != C.DECK:
+        if get_section_type(p, sid) != C.GROUP:
             continue
 
         children = get_section_children(p, sid)

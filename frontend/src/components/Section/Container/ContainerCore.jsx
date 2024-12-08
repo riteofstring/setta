@@ -1,6 +1,6 @@
 import _ from "lodash";
 import React from "react";
-import { openDeckContextMenu } from "state/actions/contextMenus";
+import { openGroupContextMenu } from "state/actions/contextMenus";
 import { useActiveSection, useSectionInfos } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
@@ -9,7 +9,7 @@ import { SectionTitle } from "../Header/SectionTitle";
 import { getOnSectionClick, getOutlineColor, useHasTempNested } from "./utils";
 
 function _Container({
-  isDeck,
+  isGroup,
   sectionId,
   droppableRef,
   draggableRef,
@@ -28,8 +28,8 @@ function _Container({
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
 
-  return isDeck ? (
-    <ContainerDeck
+  return isGroup ? (
+    <ContainerGroup
       sectionId={sectionId}
       commonProps={commonProps}
       refForPosition={refForPosition}
@@ -37,7 +37,7 @@ function _Container({
       style={style}
     >
       {children}
-    </ContainerDeck>
+    </ContainerGroup>
   ) : (
     <div
       className={`${className} focus-visible:outline-none`}
@@ -55,7 +55,7 @@ function _Container({
 
 export const Container = React.memo(_Container, _.isEqual);
 
-function ContainerDeck({
+function ContainerGroup({
   sectionId,
   commonProps,
   refForPosition,
@@ -70,7 +70,7 @@ function ContainerDeck({
   );
   const disablePointerEvents = useShouldDisablePointerEvents();
 
-  // Apply this only to the deck title.
+  // Apply this only to the group title.
   // For sections, this is applied in SectionContainerCore.
   // We want to apply this lower down in the component tree, because dnd needs onPointerDown to work.
   const pointerSelectCSS = disablePointerEvents
@@ -86,7 +86,7 @@ function ContainerDeck({
     <div
       className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3 focus-visible:outline-none ${className}`}
       {...commonProps}
-      onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
+      onContextMenu={(e) => openGroupContextMenu(e, sectionId)}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
       onKeyDown={(e) =>
         sectionContainerCoreOnKeyDown(e, refForPosition, sectionId)
@@ -99,7 +99,7 @@ function ContainerDeck({
       />
       <div className="relative min-h-8 w-full">
         <div className={`${pointerSelectCSS} absolute inset-0 overflow-hidden`}>
-          <DeckSectionTitle sectionId={sectionId} />
+          <GroupSectionTitle sectionId={sectionId} />
         </div>
       </div>
 
@@ -114,7 +114,7 @@ function ContainerDeck({
   );
 }
 
-function DeckSectionTitle({ sectionId }) {
+function GroupSectionTitle({ sectionId }) {
   const className = "max-w-";
   const titleProps = {
     editing:

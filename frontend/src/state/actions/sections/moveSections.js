@@ -90,16 +90,16 @@ function setSectionSizeAfterMove(newParentId, sectionId, state) {
   if (!newParentId) {
     return;
   }
-  const isDeck = state.uiTypes[state.x[newParentId].uiTypeId].type === C.DECK;
+  const isGroup = state.uiTypes[state.x[newParentId].uiTypeId].type === C.GROUP;
 
-  // if new parent is a deck and the deck has children and is not horizontal
-  if (isDeck) {
+  // if new parent is a group and the group has children and is not horizontal
+  if (isGroup) {
     const { isHorizontalOrientation } = state.x[newParentId];
     if (!isHorizontalOrientation) {
-      const deckChildren =
+      const groupChildren =
         state.variants[state.x[newParentId].variantId].children;
-      if (deckChildren.length > 0) {
-        const width = state.x[deckChildren[0]].size.width;
+      if (groupChildren.length > 0) {
+        const width = state.x[groupChildren[0]].size.width;
         setAllChildrenWidths({ sectionId, width, state });
       }
     }

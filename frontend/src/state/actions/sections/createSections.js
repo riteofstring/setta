@@ -17,7 +17,7 @@ export function addRegularSectionInEmptySpace() {
 }
 
 export function addGroupInEmptySpace() {
-  return addSectionInEmptySpace({ type: C.DECK });
+  return addSectionInEmptySpace({ type: C.GROUP });
 }
 
 export function addTerminalInEmptySpace() {

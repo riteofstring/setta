@@ -223,7 +223,7 @@ export async function restoreTerminals() {
       return;
     }
     const groupId = addSectionInEmptySpace({
-      type: C.DECK,
+      type: C.GROUP,
       sectionProps: {
         name: getRestoredTerminalsGroupName(),
         isTemporary: terminalsWithoutSections.every((x) => x.isTemporary),

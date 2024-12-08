@@ -218,11 +218,11 @@ export function getDndParentId(dndSectionId) {
 
 function getBehaviorDropType(activeId, newParentId) {
   // invalid if parent can't have children
-  // or if child can only be in deck and parent is not a deck
+  // or if child can only be in group and parent is not a group
   if (
     !getSectionIsRoot(newParentId) ||
-    (getSectionCanOnlyBeChildOfDeck(activeId) &&
-      !getSectionIsDeck(newParentId)) ||
+    (getSectionCanOnlyBeChildOfGroup(activeId) &&
+      !getSectionIsGroup(newParentId)) ||
     getSectionVariant(newParentId).isFrozen
   ) {
     return BehaviorDropType.INVALID;
@@ -235,14 +235,14 @@ function getOverId(over) {
   return over ? over.id : null;
 }
 
-function getSectionCanOnlyBeChildOfDeck(sectionId) {
+function getSectionCanOnlyBeChildOfGroup(sectionId) {
   return ![C.SECTION, C.LIST_ROOT, C.DICT_ROOT].includes(
     getSectionType(sectionId),
   );
 }
 
-function getSectionIsDeck(sectionId) {
-  return getSectionType(sectionId) === C.DECK;
+function getSectionIsGroup(sectionId) {
+  return getSectionType(sectionId) === C.GROUP;
 }
 
 function getSectionIsRoot(sectionId) {

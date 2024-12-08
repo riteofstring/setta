@@ -12,17 +12,17 @@ import { maybeIncrementProjectStateVersion } from "../undo";
 import { addSectionAtPosition } from "./createSections";
 import { deleteSections } from "./deleteSections";
 
-export function createDeck({ nodeIds, x, y }) {
+export function createGroup({ nodeIds, x, y }) {
   useSectionInfos.setState((state) => {
-    const deckId = addSectionAtPosition({
-      type: C.DECK,
+    const groupId = addSectionAtPosition({
+      type: C.GROUP,
       position: { x, y },
       state,
     });
 
     moveSections({
       oldParentId: null,
-      newParentId: deckId,
+      newParentId: groupId,
       sectionIds: nodeIds,
       state,
     });
@@ -41,14 +41,14 @@ export function groupSections() {
     const nodeIds = selectedNodes.map((x) => x[1].id);
     const x = Math.min(...selectedNodes.map((x) => x[1].position.x));
     const y = Math.min(...selectedNodes.map((x) => x[1].position.y));
-    createDeck({ nodeIds, x, y });
+    createGroup({ nodeIds, x, y });
     useReactFlow.setState({ nodesSelectionDims: null });
   }
 }
 
-export async function undeck(deckId) {
+export async function ungroup(groupId) {
   useSectionInfos.setState((state) => {
-    const childIds = getSectionVariant(deckId, state).children;
+    const childIds = getSectionVariant(groupId, state).children;
     const positions = {};
     childIds.forEach((id) => {
       const { x, y } = getSectionRect(id);
@@ -56,12 +56,12 @@ export async function undeck(deckId) {
     });
 
     moveSections({
-      oldParentId: deckId,
+      oldParentId: groupId,
       newParentId: null,
       sectionIds: childIds,
       positions,
       state,
     });
-    deleteSections([deckId], state);
+    deleteSections([groupId], state);
   });
 }

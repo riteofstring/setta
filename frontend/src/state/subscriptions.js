@@ -134,7 +134,7 @@ function keywordRegexSubscriptionFn(x) {
           C.SECTION,
           C.LIST_ROOT,
           C.DICT_ROOT,
-          C.DECK,
+          C.GROUP,
         ].includes(sectionTypeName),
     };
   }

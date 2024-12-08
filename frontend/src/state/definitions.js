@@ -17,7 +17,7 @@ export const useActiveSection = createProjectState(
 export const useContextMenus = createProjectState(
   withResetFn(() => ({
     pane: { isOpen: false, x: 0, y: 0 },
-    deck: { isOpen: false, x: 0, y: 0, sectionId: null },
+    group: { isOpen: false, x: 0, y: 0, sectionId: null },
     selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
   })),
 );
