@@ -192,7 +192,7 @@ export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
 
 export function toggleVariantFrozenState(variantId) {
   useSectionInfos.setState((x) => {
-    x.variants[variantId].isFrozen = !x.x[variantId].isFrozen;
+    x.variants[variantId].isFrozen = !x.variants[variantId].isFrozen;
   });
 }
 
