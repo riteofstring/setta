@@ -123,7 +123,7 @@ function OneItem({ sectionId, id, isCurr }) {
           className={`cursor-pointer bg-transparent ${
             isFrozen
               ? "text-blue-500"
-              : "text-transparent hover:!text-cyan-500 group-hover/versionitem:text-setta-400/50"
+              : "text-transparent hover:!text-blue-400 group-hover/versionitem:text-setta-400/50"
           }`}
           onClick={(e) => {
             e.stopPropagation();
