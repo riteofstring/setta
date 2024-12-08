@@ -7,6 +7,7 @@ import {
   CLOSED_PANE_WIDTH,
   OVERVIEW,
   SECTION_VARIANTS_TAB,
+  UI_CONFIG_TAB,
   UI_EDITOR,
 } from "utils/constants";
 
@@ -112,4 +113,8 @@ function changeUIEditorTab(tabName) {
 
 export function showVersionsTab() {
   changeUIEditorTab(SECTION_VARIANTS_TAB);
+}
+
+export function showParamUITypeTab() {
+  changeUIEditorTab(UI_CONFIG_TAB);
 }

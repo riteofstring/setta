@@ -28,6 +28,7 @@
     "deleteSectionShortcut": "Backspace",
     "selectAllSectionsShortcut": "Mod + A",
     "showVersionsTabShortcut": "V",
+    "showParamUITypeTabShortcut": "P",
     "updateInteractiveCode": "Mod + Enter",
     "paramSelect": "Mod + Shift",
     "formatCode": "Shift + Alt + F",

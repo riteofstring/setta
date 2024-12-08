@@ -1,4 +1,4 @@
-import { showVersionsTab } from "components/Panes/paneFns";
+import { showParamUITypeTab, showVersionsTab } from "components/Panes/paneFns";
 import {
   disableFloatingBox,
   enableFloatingBox,
@@ -390,8 +390,9 @@ export function attachKeyEventListeners() {
     [shortcuts.deleteSectionShortcut, deleteAllActiveSections],
     [shortcuts.selectAllSectionsShortcut, setAllSectionsAsActive],
     [shortcuts.showVersionsTabShortcut, showVersionsTab],
-    [shortcuts.zoomInShortcut, zoomIn, null, true],
-    [shortcuts.zoomOutShortcut, zoomOut, null, true],
+    [shortcuts.showParamUITypeTabShortcut, showParamUITypeTab],
+    [shortcuts.zoomInShortcut, _.throttle(zoomIn, 50), null, true],
+    [shortcuts.zoomOutShortcut, _.throttle(zoomOut, 50), null, true],
     [
       shortcuts.selectionKeyCode,
       activateSelectionKeyPressed,
