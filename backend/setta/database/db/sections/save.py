@@ -1,6 +1,7 @@
 import json
 
 from setta.utils.constants import (
+    DEFAULT_VALUES,
     SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS,
     SECTION_TABLE_DATA_JSON_FIELDS,
 )
@@ -31,7 +32,11 @@ def save_sections(db, sections, section_variants):
     query_params = [
         {
             "id": s["id"],
-            "data": json.dumps(filter_dict(s, SECTION_TABLE_DATA_JSON_FIELDS)),
+            "data": json.dumps(
+                filter_dict(
+                    s, SECTION_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["section"]
+                )
+            ),
             "uiTypeId": s["uiTypeId"],
             "uiTypeColId": s["uiTypeColId"],
         }

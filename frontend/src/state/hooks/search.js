@@ -5,13 +5,13 @@ import {
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";
-import { getSectionVariant } from "state/actions/sectionInfos";
-import { getParamIds } from "state/actions/sections/sectionContents";
+import { getCodeInfoCol, getSectionVariant } from "state/actions/sectionInfos";
 import {
   useProjectSearch,
   useSectionInfos,
   useSettings,
 } from "state/definitions";
+import { findAllParameters } from "utils/getDescendants";
 
 export function useUpdateProjectSearch() {
   const [value, setValue] = useState("");
@@ -53,6 +53,7 @@ export function useUpdateProjectSearch() {
   return { value, onChange, onBlur, onFocus, onKeyDown };
 }
 
+// TODO: this doesn't look correct, it's not recursive
 function getAllVisibleParams() {
   const x = useSectionInfos.getState();
   const output = [];
@@ -74,7 +75,13 @@ function getParamsAndAddToSearchResults(
   output,
 ) {
   if (!visitedSections.has(sectionId)) {
-    const { ids: paramIds } = getParamIds(sectionId, state);
+    const { selectedItem } = getSectionVariant(sectionId, state);
+    const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
+    const { ids: paramIds } = findAllParameters({
+      allCodeInfo: state.codeInfo,
+      codeInfoChildren,
+      startingId: selectedItem,
+    });
     for (const p of paramIds) {
       output.push({
         sectionId,
@@ -96,7 +103,7 @@ function goToSearchResult(searchResult) {
     x: _x + width / 2,
     y: _y + height / 2,
   });
-  const zoom = useSettings.getState().defaultZoomLevel;
+  const zoom = useSettings.getState().gui.defaultZoomLevel;
   setCenter(x, y, { zoom });
 }
 

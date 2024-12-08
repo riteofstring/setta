@@ -25,12 +25,7 @@ export function deleteSections(sectionIds, state) {
   deleteNodes(idsToDelete);
 }
 
-export function deleteChildrenFromSeries({
-  isRoot,
-  calledBy,
-  numChildren = 1,
-  incrementVersion = false,
-}) {
+export function deleteChildrenFromSeries(isRoot, calledBy, numChildren = 1) {
   useSectionInfos.setState((state) => {
     if (isRoot) {
       const children = getSectionVariant(calledBy, state).children;
@@ -43,7 +38,7 @@ export function deleteChildrenFromSeries({
     }
   });
 
-  maybeIncrementProjectStateVersion(incrementVersion);
+  maybeIncrementProjectStateVersion(true);
 }
 
 export function deleteAllActiveSections() {
@@ -51,6 +46,7 @@ export function deleteAllActiveSections() {
   useSectionInfos.setState((state) => {
     deleteSections(sectionIds, state);
   });
+  maybeIncrementProjectStateVersion(true);
 }
 
 function removeSectionInfos(ids, state) {

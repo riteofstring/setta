@@ -26,7 +26,7 @@ function maybeAddArtifactSection(artifactPath, sectionType) {
 
   addSectionInEmptySpace({
     type: sectionType,
-    inputSectionProps: { artifacts: [artifactPath] },
+    sectionProps: { artifacts: [artifactPath] },
   });
 }
 

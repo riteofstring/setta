@@ -1,12 +1,12 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
-import { initializeParams } from "state/actions/initializeParam";
 import {
   getCodeInfoCol,
   getSectionInfo,
   getSectionType,
   getSectionVariant,
+  setEnteredValue,
 } from "state/actions/sectionInfos";
 import {
   useOriginalYamlObj,
@@ -15,22 +15,24 @@ import {
 } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
+import { findAllParametersAndPathMaps } from "utils/getDescendants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
+import { newEVEntry } from "utils/objs/ev";
 import { parseAllDocuments } from "yaml";
-import {
-  getParamIds,
-  paramNameFromPathArray,
-} from "./sections/sectionContents";
+import { getOrCreateCodeInfoCol } from "./codeInfo";
+import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
+import { paramNameFromPathArray } from "./sections/sectionContents";
 
 export async function guiToYaml(sectionId) {
   const { res, metaData } = await dbGuiToYaml(sectionId);
+  console.log(res, metaData);
   if (res.status === 200) {
     const { originalObj, yamlValue } = res.data;
-    useOriginalYamlObj.setState(() => ({
+    useOriginalYamlObj.setState({
       [sectionId]: { originalObj, metaData },
-    }));
-    useYamlValue.setState(() => ({ [sectionId]: yamlValue }));
+    });
+    useYamlValue.setState({ [sectionId]: yamlValue });
   }
 }
 
@@ -79,13 +81,11 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
       }
     }
 
-    const { pathMap } = getParamIds(
-      forSectionId,
-      state,
+    const { pathMap } = findAllParametersAndPathMaps({
+      allCodeInfo: state.codeInfo,
       codeInfoChildren,
-      matchingCallableId,
-      (p) => p.rcType === C.PARAMETER,
-    );
+      startingId: matchingCallableId,
+    });
 
     const paramsInDoc = callableName ? d[callableName] : d;
     const params = [];
@@ -299,6 +299,22 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     flattenObject(unpinned, true),
   );
 
+  const { jsonSource, jsonSourceKeys } = state.x[sectionId];
+  if (
+    jsonSource &&
+    Array.isArray(jsonSourceKeys) &&
+    jsonSourceKeys.length > 0
+  ) {
+    // When we do gui to yaml, we use the startAtDepth
+    // argument, which means that the nesting specified
+    // by jsonSourceKeys is skipped, so the produced yaml is not nested.
+    // Now when we receive the yaml, we have to prepend the jsonSourceKeys
+    // to the keyPath so that matches can be found correctly.
+    for (const v of fNewObj) {
+      v.keyPath = [...jsonSourceKeys, ...v.keyPath];
+    }
+  }
+
   const output = [];
   const usedOriginalIds = new Set();
   const usedPaths = new Set();
@@ -332,7 +348,6 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     }
   }
 
-  const { jsonSource } = state.x[sectionId];
   // add remaining new entries
   for (const v of fNewObj) {
     if (usedPaths.has(JSON.stringify(v.keyPath))) {
@@ -361,9 +376,11 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   });
 
   //TODO: what should editing selectedName do? The following assumes it has no effect.
-  const { selectedItem } = getSectionVariant(sectionId, state);
-  const parentId = selectedItem ?? null;
-  const idsToChildren = { [parentId]: [] };
+  const { parentCodeInfoId, startAtDepth } = getCodeChildrenAndParentCodeInfoId(
+    sectionId,
+    state,
+  );
+  const idsToChildren = { [parentCodeInfoId]: [] };
   for (const v of output) {
     idsToChildren[v.id] = [];
   }
@@ -374,8 +391,9 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     idsToChildren,
     output,
     toProcess: output.filter((v) => !(v.isPinned && !v.isNewParam)),
-    inputParentId: parentId,
+    inputParentId: parentCodeInfoId,
     insertAtOriginalIdx: false,
+    startAtDepth,
   });
 
   // pinned parameters that already exist should be inserted at their original indices
@@ -384,8 +402,9 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     idsToChildren,
     output,
     toProcess: output.filter((v) => v.isPinned && !v.isNewParam),
-    inputParentId: parentId,
+    inputParentId: parentCodeInfoId,
     insertAtOriginalIdx: true,
+    startAtDepth,
   });
 
   const cState = state.codeInfo;
@@ -393,12 +412,13 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   const updatedInfos = {};
   const paramInfoIdToValue = {};
   const { configLanguage } = state.x[sectionId];
+  const defaultValue = newEVEntry().value;
   for (const v of output) {
     if (!(v.id in cState)) {
       newInfos[v.id] = newCodeInfo({
         id: v.id,
         name: v.key,
-        editable: v.editable ?? selectedItem === null,
+        editable: v.editable ?? true,
         rcType: C.PARAMETER,
         isPinned: v.isPinned,
       });
@@ -409,8 +429,12 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
       configLanguage === "json"
         ? JSON.stringify(v.value)
         : unprocessValue(v.value);
+
+    // remove the value if it's equal to the default value
+    if (paramInfoIdToValue[v.id] === defaultValue) {
+      delete paramInfoIdToValue[v.id];
+    }
   }
-  console.log("newInfos", newInfos);
 
   useSectionInfos.setState((x) => {
     x.codeInfo = { ...x.codeInfo, ...newInfos };
@@ -423,13 +447,11 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     const variantId = x.x[sectionId].variantId;
     const variant = x.variants[variantId];
     for (const [id, newChildren] of Object.entries(idsToChildren)) {
-      x.codeInfoCols[variant.codeInfoColId].children[id] = newChildren;
+      getOrCreateCodeInfoCol(variant, x).children[id] = newChildren;
     }
 
-    initializeParams(sectionId, Object.keys(newInfos), x);
-
     for (const [id, value] of Object.entries(paramInfoIdToValue)) {
-      variant.values[id].value = value;
+      setEnteredValue(variantId, id, value, x);
     }
   });
 }
@@ -561,11 +583,12 @@ function updateIdsToChildren({
   toProcess,
   inputParentId,
   insertAtOriginalIdx,
+  startAtDepth,
 }) {
   for (const v of toProcess) {
     let parentId = inputParentId;
 
-    if (v.keyPath.length > 1) {
+    if (v.keyPath.length > startAtDepth + 1) {
       // find parent
       const match = _.find(output, (x) =>
         _.isEqual(x.keyPath, v.keyPath.slice(0, -1)),
@@ -588,14 +611,14 @@ function updateIdsToChildren({
   }
 }
 
-export function maybeRunGuiToYaml(sectionId) {
+export async function maybeRunGuiToYaml(sectionId) {
   if (getSectionInfo(sectionId).displayMode === SECTION_DISPLAY_MODES.YAML) {
-    guiToYaml(sectionId);
+    await guiToYaml(sectionId);
   }
 }
 
-export function maybeRunGuiToYamlOnAllSections() {
+export async function maybeRunGuiToYamlOnAllSections() {
   for (const k of Object.keys(useSectionInfos.getState().x)) {
-    maybeRunGuiToYaml(k);
+    await maybeRunGuiToYaml(k);
   }
 }

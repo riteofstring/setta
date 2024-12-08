@@ -4,6 +4,7 @@ import {
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
+import { newEVEntry } from "utils/objs/ev";
 
 export function useGetParamEnteredValueAndKeywordPositions(
   sectionId,
@@ -17,7 +18,7 @@ export function useGetParamEnteredValueAndKeywordPositions(
         keywordPositions: vals[paramInfoId].keywordPositions,
       };
     }
-    return { value: "", keywordPositions: [] };
+    return newEVEntry();
   }, _.isEqual);
 }
 

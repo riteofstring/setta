@@ -4,7 +4,7 @@ import {
   addKwarg,
   deleteLastKwarg,
   deleteSelectedKwargs,
-  getAllSelectedParams,
+  getAllSelectedParamIds,
   pinSelectedKwargs,
 } from "state/actions/kwargs";
 import { getSectionVariant } from "state/actions/sectionInfos";
@@ -28,11 +28,13 @@ export function KwargsControls({
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
 
   const onClickDeleteSelectedKwargs = () => {
-    deleteSelectedKwargs({ sectionId, parentId: objInfoId });
+    deleteSelectedKwargs(sectionId);
+    maybeIncrementProjectStateVersion(true);
   };
 
   function onClickPinParam() {
     pinSelectedKwargs(sectionId);
+    maybeIncrementProjectStateVersion(true);
   }
 
   const classes =
@@ -92,7 +94,7 @@ function ParamFilter({ sectionId }) {
     _.isEqual(x.ids, [sectionId]),
   );
   const searchShortcut = useSettings((x) =>
-    shortcutPrettified(x.searchShortcut),
+    shortcutPrettified(x.shortcuts.searchShortcut),
   );
   function onSearchChange(e) {
     useSectionInfos.setState((state) => {
@@ -123,16 +125,16 @@ function ParamFilter({ sectionId }) {
 function onClickAddKwargFn(sectionId, objInfoId) {
   return () => {
     useSectionInfos.setState((state) => {
-      const selectedParams = getAllSelectedParams(sectionId, state);
-      if (selectedParams.length > 0) {
+      const selectedParamIds = getAllSelectedParamIds(sectionId, state);
+      if (selectedParamIds.length > 0) {
         const { codeInfoColId } = getSectionVariant(sectionId, state);
         const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
-        for (const p of selectedParams) {
+        for (const p of selectedParamIds) {
           let parentId, insertIdx;
           for (const [id, children] of Object.entries(codeInfoChildren)) {
-            if (children.includes(p.id)) {
+            if (children.includes(p)) {
               parentId = id;
-              insertIdx = children.indexOf(p.id) + 1;
+              insertIdx = children.indexOf(p) + 1;
               break;
             }
           }
@@ -149,17 +151,17 @@ function onClickAddKwargFn(sectionId, objInfoId) {
 function onClickDeleteKwargFn(sectionId, objInfoId) {
   return () => {
     useSectionInfos.setState((state) => {
-      const selectedParams = getAllSelectedParams(sectionId, state);
-      if (selectedParams.length > 0) {
+      const selectedParamIds = getAllSelectedParamIds(sectionId, state);
+      if (selectedParamIds.length > 0) {
         const { codeInfoColId } = getSectionVariant(sectionId, state);
         const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
         const kwargIds = [];
-        for (const p of selectedParams) {
+        for (const p of selectedParamIds) {
           let parentId, idx;
           for (const [id, children] of Object.entries(codeInfoChildren)) {
-            if (children.includes(p.id)) {
+            if (children.includes(p)) {
               parentId = id;
-              idx = children.indexOf(p.id);
+              idx = children.indexOf(p);
               break;
             }
           }

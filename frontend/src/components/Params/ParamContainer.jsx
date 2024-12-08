@@ -3,7 +3,7 @@ import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { toggleParamSelected } from "state/actions/kwargs";
@@ -16,7 +16,6 @@ import {
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import { ParamInput } from "./ParamItems/ParamInput";
-import { ResizeHandle } from "./ResizeHandle";
 
 function _ParamContainer({
   sectionId,
@@ -24,9 +23,6 @@ function _ParamContainer({
   requiredParamIdsToPaths,
   ancestorIsSelected,
   children,
-  onResizeStart,
-  baseColumnWidth,
-  widthPercentage,
 }) {
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -66,6 +62,9 @@ function _ParamContainer({
     };
   }, _.isEqual);
 
+  // hover:bg-setta-200/20 dark:hover:bg-setta-700/25
+  // maybe use this for in bg hover state: div:hover:not(:has(div:hover))
+
   const bg = paramIsSelected ? "bg-setta-500/20" : "";
 
   function onMouseDownSelect(e) {
@@ -75,57 +74,20 @@ function _ParamContainer({
     }
   }
 
-  const containerRef = useRef(null);
-  const [pixelWidth, setPixelWidth] = useState(0);
-
-  useEffect(() => {
-    const updatePixelWidth = () => {
-      if (containerRef.current) {
-        const containerWidth = containerRef.current.clientWidth;
-        const newPixelWidth = (containerWidth * widthPercentage) / 100;
-        setPixelWidth(newPixelWidth);
-      }
-    };
-
-    const resizeObserver = new ResizeObserver(updatePixelWidth);
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-    updatePixelWidth(); // Initial calculation
-
-    return () => resizeObserver.disconnect();
-  }, [widthPercentage]);
-
-  const nestedGridStyle = {
-    // Use a CSS calc() function to provide a fallback
-    gridTemplateColumns: `minmax(min-content, ${baseColumnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`,
-  };
-
-  const gridStyle = {
-    gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${baseColumnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`,
-  };
-
   return paramChildren.length === 0 ? (
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm hover:bg-setta-50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
+        className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between rounded-sm ${bg} ${border}`}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
         onMouseDown={onMouseDownSelect}
-        style={nestedGridStyle}
       >
-        <div
-          className="section-key overflow-hidden"
-          style={{ width: `${baseColumnWidth}px` }}
-        >
-          {children}
-        </div>
+        {children}
         <ParamInput
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           maybeErrorMessage={maybeErrorMessage}
         />
-        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
         )}
@@ -133,10 +95,9 @@ function _ParamContainer({
     </>
   ) : (
     <article
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border}`}
+      className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
       onMouseDown={onMouseDownSelect}
-      style={gridStyle}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">
@@ -146,8 +107,6 @@ function _ParamContainer({
           paramIds={paramChildren}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           ancestorIsSelected={ancestorIsSelected || paramIsSelected}
-          onResizeStart={onResizeStart}
-          baseColumnWidth={baseColumnWidth}
         />
       </div>
     </article>

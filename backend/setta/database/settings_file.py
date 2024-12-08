@@ -1,8 +1,11 @@
 import json
 import os
 
-from setta.code_gen.export_selected import get_selected_section_variant
 from setta.database.db.projects.utils import (
+    add_defaults_to_project,
+    filter_data_for_json_export,
+)
+from setta.database.db.sections.jsonSource import (
     remove_json_source_data,
     save_json_source_data,
 )
@@ -64,52 +67,64 @@ class MetaSettingsFile:
         if not p:
             p = self.load()
 
-        sectionId = self.get_settings_section_id(p)
-        saved_settings_path = get_selected_section_variant(p, sectionId)["name"]
+        curr_variant, setting_sections = self.get_selected_section_variant(p)
+        saved_settings_path = curr_variant["name"]
         if settings_path:
-            self.update_settings_path(p, sectionId, saved_settings_path, settings_path)
+            self.update_settings_path(
+                p, setting_sections, saved_settings_path, settings_path
+            )
         else:
             self.settings_path = saved_settings_path
 
     def load(self):
         with open(self.meta_settings_path, "r") as f:
             p = json.load(f)
+        add_defaults_to_project(p)
         load_json_sources_into_data_structures(
             p["sections"], p["codeInfo"], p["codeInfoCols"], p["sectionVariants"]
         )
         return p
 
-    def get_settings_section_id(self, p):
-        num_sections = len(p["sections"])
-        if num_sections > 1:
-            raise ValueError(
-                f"The settings project should have only 1 section. Found {num_sections} sections"
-            )
-        return list(p["sections"].keys())[0]
+    def get_selected_section_variant(self, p):
+        variantIds = set()
+        setting_sections = []
+        for s in p["sections"].values():
+            if s.get("jsonSource", "").startswith("setta-settings"):
+                setting_sections.append(s)
+                variantIds.add(s["variantId"])
 
-    def update_settings_path(self, p, sectionId, saved_settings_path, settings_path):
+        if len(variantIds) != 1:
+            raise ValueError(
+                "The settings sections are not all referring to the same file."
+            )
+
+        return p["sectionVariants"][list(variantIds)[0]], setting_sections
+
+    def update_settings_path(
+        self, p, setting_sections, saved_settings_path, settings_path
+    ):
         print("updating settings path", settings_path)
         if saved_settings_path == settings_path:
             self.settings_path = settings_path
             return
-        section = p["sections"][sectionId]
         variantId = None
-        for v in section["variantIds"]:
-            if p["sectionVariants"][v]["name"] == settings_path:
-                variantId = v
+        for section in setting_sections:
+            for v in section["variantIds"]:
+                if p["sectionVariants"][v]["name"] == settings_path:
+                    variantId = v
+                    break
+            if variantId:
                 break
 
         if not variantId:
-            variant = new_section_variant(name=settings_path)
-            variantId = variant["id"]
-            codeInfoColId = variant["codeInfoColId"]
+            variantId, variant = new_section_variant(name=settings_path)
             p["sectionVariants"][variantId] = variant
-            p["codeInfoCols"][codeInfoColId] = {
-                "children": {None: []},
-            }
-            section["variantIds"].append(variantId)
-
-        section["variantId"] = variantId
+            for section in setting_sections:
+                section["variantId"] = variantId
+                section["variantIds"].append(variantId)
+        else:
+            for section in setting_sections:
+                section["variantId"] = variantId
         remove_json_source_data(p, keepCodeInfoThatHaveUITypes=False)
         self.save_raw(p)
 
@@ -120,18 +135,15 @@ class MetaSettingsFile:
         p["uiTypes"] = {
             k: v for k, v in p["uiTypes"].items() if v["presetType"] != "BASE"
         }
-        # TODO: make this less horrible. This shouldn't have to be done here.
-        for v in p["sections"].values():
-            v.pop("previewVariantId", None)
+        filter_data_for_json_export(p)
         self.save_raw(p)
         return saved_data[self.settings_path]
 
     def save_raw(self, data):
         with open(self.meta_settings_path, "w") as f:
             json.dump(data, f, indent=2)
-        self.settings_path = get_selected_section_variant(
-            data, self.get_settings_section_id(data)
-        )["name"]
+        curr_variant, _ = self.get_selected_section_variant(data)
+        self.settings_path = curr_variant["name"]
 
     def seed(self):
         with open(

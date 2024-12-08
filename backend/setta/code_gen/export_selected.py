@@ -1,13 +1,16 @@
 import copy
 
-from setta.utils.section_contents import get_param_ids
+from setta.database.db.codeInfo.utils import new_code_info_col
+from setta.database.db.sectionVariants.utils import new_ev_entry
+from setta.database.db.uiTypes.utils import new_ui_type_col_entry
+from setta.utils.section_contents import findAllParametersAndPathMaps
 from setta.utils.utils import (
     QuoteInsensitiveDict,
     replace_null_keys_with_none,
     try_json,
 )
 
-from ..utils.constants import BASE_UI_TYPE_IDS, C
+from ..utils.constants import C
 from .find_placeholders import double_braces, needs_generated_python
 from .utils import process_refs
 
@@ -56,12 +59,16 @@ def get_selected_item_id(p, id):
 
 def get_code_info_children(p, section_id, id):
     codeInfoChildren = get_section_code_info_children(p, section_id)
-    return codeInfoChildren[id]
+    return codeInfoChildren.get(id, [])
 
 
 def get_section_code_info_children(p, section_id):
     codeInfoColId = get_selected_section_variant(p, section_id)["codeInfoColId"]
-    return p["codeInfoCols"][codeInfoColId]["children"]
+    if not codeInfoColId:
+        codeInfoCol = new_code_info_col()
+    else:
+        codeInfoCol = p["codeInfoCols"][codeInfoColId]
+    return codeInfoCol["children"]
 
 
 def get_top_level_param_ids(p, id):
@@ -71,11 +78,9 @@ def get_top_level_param_ids(p, id):
 
 def get_param_ui_type(p, section_id, id):
     ui_type_col_id = p["sections"][section_id]["uiTypeColId"]
-    ui_type_col = p["uiTypeCols"][ui_type_col_id]
-    if id not in ui_type_col:
-        ui_type_id = BASE_UI_TYPE_IDS[C.TEXT]
-    else:
-        ui_type_id = ui_type_col[id]["uiTypeId"]
+    ui_type_col = p["uiTypeCols"][ui_type_col_id] if ui_type_col_id else {}
+    ui_type_col_entry = ui_type_col.get(id, new_ui_type_col_entry())
+    ui_type_id = ui_type_col_entry["uiTypeId"]
     ui_type = p["uiTypes"][ui_type_id]
     return ui_type["type"]
 
@@ -423,11 +428,15 @@ class Exporter:
 
     def export_param_value(self, section_id, id):
         variant = get_selected_section_variant(self.p, section_id)
-        value = variant["values"][id]["value"]
-        refs = self.p["paramEVRefs"][section_id][id]
-        value, used_ref_var_names = process_refs(
-            value, refs, self.maybe_create_ref_var_name
-        )
+        if id in variant["values"]:
+            value = variant["values"][id]["value"]
+            refs = self.p["paramEVRefs"][section_id][id]
+            value, used_ref_var_names = process_refs(
+                value, refs, self.maybe_create_ref_var_name
+            )
+        else:
+            value = new_ev_entry()["value"]
+            used_ref_var_names = []
         return value, used_ref_var_names
 
     def maybe_create_ref_var_name(
@@ -610,7 +619,11 @@ class SectionToDict:
         return params, prettyParams
 
     def export_param_value(self, id):
-        value = self.sectionVariant["values"][id]["value"]
+        values = self.sectionVariant["values"]
+        if id in values:
+            value = values[id]["value"]
+        else:
+            value = new_ev_entry()["value"]
         if self.configLanguage == "json":
             value = try_json(value)
         return value, value
@@ -641,11 +654,10 @@ class ParamSweepSectionToDict:
             curr = currObj[selectedItemName]
         else:
             curr = currObj = []
-        result = get_param_ids(
-            self.codeInfo,
-            self.codeInfoChildren,
-            selectedItem,
-            lambda p: p["rcType"] == C.PARAMETER,
+        result = findAllParametersAndPathMaps(
+            allCodeInfo=self.codeInfo,
+            codeInfoChildren=self.codeInfoChildren,
+            startingId=selectedItem,
         )
         pathMap = result["pathMap"]
         for p in params:

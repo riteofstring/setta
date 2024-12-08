@@ -19,12 +19,14 @@ import { shortcutPrettified } from "utils/utils";
 export function FileMenu() {
   const shortcuts = useSettings((x) => {
     return {
-      newProjectConfigShortcut: shortcutPrettified(x.newProjectConfigShortcut),
-      saveShortcut: shortcutPrettified(x.saveShortcut),
-      saveAsShortcut: shortcutPrettified(x.saveAsShortcut),
-      loadShortcut: shortcutPrettified(x.loadShortcut),
-      undoShortcut: shortcutPrettified(x.undoShortcut),
-      groupShortcut: shortcutPrettified(x.groupShortcut),
+      newProjectConfigShortcut: shortcutPrettified(
+        x.shortcuts.newProjectConfigShortcut,
+      ),
+      saveShortcut: shortcutPrettified(x.shortcuts.saveShortcut),
+      saveAsShortcut: shortcutPrettified(x.shortcuts.saveAsShortcut),
+      loadShortcut: shortcutPrettified(x.shortcuts.loadShortcut),
+      undoShortcut: shortcutPrettified(x.shortcuts.undoShortcut),
+      groupShortcut: shortcutPrettified(x.shortcuts.groupShortcut),
     };
   }, _.isEqual);
 
