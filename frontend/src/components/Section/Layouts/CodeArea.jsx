@@ -165,6 +165,13 @@ export function useCodeAreaHeight({ sectionId }) {
               newNumInitialized === state.numDisplayedCodeAreas,
           };
         });
+        useSectionInfos.setState((state) => {
+          const s = state.x[sectionId];
+          if (s.tempSavedSize) {
+            s.size = s.tempSavedSize;
+            delete s.tempSavedSize;
+          }
+        });
         setDidFirstRender(true);
       }
       setNoWheel(
