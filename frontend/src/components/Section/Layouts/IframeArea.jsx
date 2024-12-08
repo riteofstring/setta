@@ -1,12 +1,9 @@
 import React, { useEffect, useRef } from "react";
+import { useSectionInfos } from "state/definitions";
 
 function _IframeArea({ sectionId }) {
-  //   const iframeCode = useSectionInfos((x) => x.x[sectionId].iframeCode);
+  const iframeCode = useSectionInfos((x) => x.x[sectionId].iframeCode);
   const containerRef = useRef(null);
-  const iframeCode =
-    '<iframe src="http://127.0.0.1:8000/api/docs" frameborder="0"></iframe>';
-
-  const validationError = validateIframeCode(iframeCode);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -30,7 +27,7 @@ function _IframeArea({ sectionId }) {
     };
   }, [iframeCode]);
 
-  return validationError ? null : (
+  return !iframeCode || validateIframeCode(iframeCode) ? null : (
     <div className="section-full-no-title" ref={containerRef}>
       <div dangerouslySetInnerHTML={{ __html: iframeCode }} />
     </div>
