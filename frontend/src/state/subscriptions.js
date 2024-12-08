@@ -119,23 +119,26 @@ function keywordRegexSubscriptionFn(x) {
 
   let sectionVariant, sectionTypeName;
   for (const [id, s] of Object.entries(x.x)) {
-    sectionVariant = getSectionVariant(id, x);
     sectionTypeName = getSectionType(id, x);
+    if (
+      ![
+        C.GLOBAL_VARIABLES,
+        C.SECTION,
+        C.LIST_ROOT,
+        C.DICT_ROOT,
+        C.DECK,
+      ].includes(sectionTypeName)
+    ) {
+      continue;
+    }
+    sectionVariant = getSectionVariant(id, x);
     output.details[id] = {
       name: s.name,
       sectionChildren: sectionVariant.children,
       codeInfoChildren: getCodeInfoCol(id, x).children,
       sectionTypeName,
       selectedItem: sectionVariant.selectedItem,
-      isTopLevel:
-        !s.parentId &&
-        [
-          C.GLOBAL_VARIABLES,
-          C.SECTION,
-          C.LIST_ROOT,
-          C.DICT_ROOT,
-          C.DECK,
-        ].includes(sectionTypeName),
+      isTopLevel: !s.parentId,
     };
   }
 

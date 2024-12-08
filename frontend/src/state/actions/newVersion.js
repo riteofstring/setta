@@ -12,7 +12,9 @@ import { duplicateSectionVariant, getSectionVariant } from "./sectionInfos";
 export function createNewVersion(sectionId, newVersionName, state) {
   const { variantId: currVariantId } = state.x[sectionId];
   const currCodeInfoColId = getSectionVariant(sectionId, state).codeInfoColId;
-  const newCodeInfoColId = duplicateCodeInfoCol(currCodeInfoColId, state);
+  const newCodeInfoColId = currCodeInfoColId
+    ? duplicateCodeInfoCol(currCodeInfoColId, state)
+    : null;
   const newVariantId = duplicateSectionVariant(
     currVariantId,
     newVersionName,
