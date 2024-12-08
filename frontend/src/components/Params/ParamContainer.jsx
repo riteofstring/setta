@@ -109,12 +109,17 @@ function _ParamContainer({
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm hover:bg-setta-50 hover:dark:bg-setta-800/70 ${bg} ${border}`}
+        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm hover:bg-setta-50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
         onMouseDown={onMouseDownSelect}
         style={nestedGridStyle}
       >
-        {children}
+        <div
+          className="section-key overflow-hidden"
+          style={{ width: `${baseColumnWidth}px` }}
+        >
+          {children}
+        </div>
         <ParamInput
           sectionId={sectionId}
           paramInfoId={paramInfoId}
