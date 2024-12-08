@@ -13,27 +13,32 @@ export function GetParamSwitch({
 }) {
   // TODO: make this more efficient
   const filteredIds = useSectionInfos((x) => {
-    if (!x.x[sectionId].paramFilter) {
-      return paramIds;
-    }
+    let matches = paramIds;
 
-    const requiredParamIdsWithNames = Object.keys(requiredParamIdsToPaths).map(
-      (id) => ({
+    if (x.x[sectionId].paramFilter) {
+      const requiredParamIdsWithNames = Object.keys(
+        requiredParamIdsToPaths,
+      ).map((id) => ({
         id,
         name: x.codeInfo[id].name,
-      }),
-    );
+      }));
 
-    const matches = matchSorter(
-      requiredParamIdsWithNames,
-      x.x[sectionId].paramFilter,
-      {
-        keys: ["name"],
-      },
-    );
+      matches = matchSorter(
+        requiredParamIdsWithNames,
+        x.x[sectionId].paramFilter,
+        {
+          keys: ["name"],
+        },
+      );
+    }
+
     const filteredRequired = new Set();
     for (const m of matches) {
-      for (const p of requiredParamIdsToPaths[m.id]) {
+      const path = requiredParamIdsToPaths[m.hasOwnProperty("id") ? m.id : m];
+      if (!path) {
+        continue;
+      }
+      for (const p of path) {
         filteredRequired.add(p);
       }
     }
