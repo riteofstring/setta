@@ -183,7 +183,7 @@ function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
-function useColumnResizer(sectionId, outerRef) {
+function useColumnResizer(sectionId, ref) {
   // Use ref for both resize state and current width to avoid race conditions
   const resizeRef = useRef({
     isResizing: false,
@@ -195,8 +195,8 @@ function useColumnResizer(sectionId, outerRef) {
 
   // Initialize dimensions once on mount
   useEffect(() => {
-    if (outerRef.current) {
-      const containerWidth = outerRef.current.clientWidth;
+    if (ref.current) {
+      const containerWidth = ref.current.clientWidth;
       const initialPixels = (containerWidth - 12) / 2;
 
       resizeRef.current.containerWidth = containerWidth;
@@ -209,8 +209,8 @@ function useColumnResizer(sectionId, outerRef) {
   // Handle container resize with debounced updates
   useEffect(() => {
     const handleResize = () => {
-      if (outerRef.current) {
-        const containerWidth = outerRef.current.clientWidth;
+      if (ref.current) {
+        const containerWidth = ref.current.clientWidth;
         const currentPercentage = resizeRef.current.currentPercentage;
 
         resizeRef.current.containerWidth = containerWidth;
@@ -222,8 +222,8 @@ function useColumnResizer(sectionId, outerRef) {
     };
 
     const resizeObserver = new ResizeObserver(handleResize);
-    if (outerRef.current) {
-      resizeObserver.observe(outerRef.current);
+    if (ref.current) {
+      resizeObserver.observe(ref.current);
     }
 
     return () => {
@@ -233,7 +233,7 @@ function useColumnResizer(sectionId, outerRef) {
 
   const handleResizeStart = useCallback((e) => {
     e.preventDefault();
-    if (outerRef.current) {
+    if (ref.current) {
       resizeRef.current = {
         ...resizeRef.current,
         isResizing: true,
@@ -244,7 +244,7 @@ function useColumnResizer(sectionId, outerRef) {
   }, []);
 
   const handleMouseMove = useCallback((e) => {
-    if (!resizeRef.current.isResizing || !outerRef.current) return;
+    if (!resizeRef.current.isResizing || !ref.current) return;
 
     requestAnimationFrame(() => {
       const { containerWidth, startX, startPercentage } = resizeRef.current;
