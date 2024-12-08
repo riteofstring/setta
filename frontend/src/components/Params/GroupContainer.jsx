@@ -143,15 +143,20 @@ function GetUnpinnedParams({ sectionId }) {
     startPercentage: 0,
   });
 
-  const [columnWidth, setColumnWidth] = useState(50);
+  const [columnWidth, setColumnWidth] = useState({
+    pixels: 0,
+    percentage: 50,
+  });
 
   // Set initial width on mount
   useEffect(() => {
     if (ref.current) {
       const containerWidth = ref.current.clientWidth;
       const initialPixels = (containerWidth - 12) / 2; // 12px is 0.75rem gutter
-      useSectionColumnWidth.setState({ initialPixels });
-      setColumnWidth(50);
+      setColumnWidth({
+        pixels: initialPixels,
+        percentage: 50,
+      });
     }
   }, []);
 
@@ -160,9 +165,10 @@ function GetUnpinnedParams({ sectionId }) {
     const handleResize = () => {
       if (ref.current) {
         const containerWidth = ref.current.clientWidth;
-        useSectionColumnWidth.setState({
-          initialPixels: (containerWidth - 12) * (columnWidth / 100),
-        });
+        setColumnWidth((prev) => ({
+          pixels: (containerWidth - 12) * (prev.percentage / 100),
+          percentage: prev.percentage,
+        }));
       }
     };
 
@@ -174,16 +180,20 @@ function GetUnpinnedParams({ sectionId }) {
     return () => resizeObserver.disconnect();
   }, []);
 
-  const handleResizeStart = useCallback((e) => {
-    e.preventDefault();
-    if (ref.current) {
-      resizeRef.current = {
-        isResizing: true,
-        startX: e.clientX,
-        startPercentage: columnWidth,
-      };
-    }
-  }, []);
+  const handleResizeStart = useCallback(
+    (e) => {
+      console.log("Resize start triggered");
+      e.preventDefault();
+      if (ref.current) {
+        resizeRef.current = {
+          isResizing: true,
+          startX: e.clientX,
+          startPercentage: columnWidth.percentage,
+        };
+      }
+    },
+    [columnWidth.percentage],
+  );
 
   const handleMouseMove = useCallback((e) => {
     if (!resizeRef.current.isResizing || !ref.current) return;
@@ -201,10 +211,10 @@ function GetUnpinnedParams({ sectionId }) {
         Math.min(80, resizeRef.current.startPercentage + diffAsPercentage),
       );
 
-      useSectionColumnWidth.setState({
-        initialPixels: (containerWidth - 12) * (newPercentage / 100),
-      });
-      setColumnWidth(newPercentage);
+      setColumnWidth((prev) => ({
+        pixels: (containerWidth - 12) * (newPercentage / 100),
+        percentage: newPercentage,
+      }));
     });
   }, []);
 

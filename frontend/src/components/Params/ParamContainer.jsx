@@ -74,8 +74,6 @@ function _ParamContainer({
     }
   }
 
-  const baseColumnWidth = useSectionColumnWidth((x) => x.initialPixels);
-
   const nestedGridStyle = {
     // Use a CSS calc() function to provide a fallback
     gridTemplateColumns: `minmax(min-content, ${baseColumnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`,
