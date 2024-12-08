@@ -99,7 +99,7 @@ export function useColumnResizer(sectionId, ref, maxNestedDepth) {
     isDragging: false,
   });
 
-  function setNewWidth(containerWidth, width, setGlobalState) {
+  function setNewWidth(containerWidth, width) {
     const boundedWidth = calculateBoundedWidth(
       width,
       containerWidth,
@@ -107,9 +107,7 @@ export function useColumnResizer(sectionId, ref, maxNestedDepth) {
     );
     widthRef.current.currentWidth = boundedWidth;
     widthRef.current.currentPercentage = (boundedWidth / containerWidth) * 100;
-    if (setGlobalState) {
-      setSectionWidth(sectionId, boundedWidth);
-    }
+    setSectionWidth(sectionId, boundedWidth);
   }
 
   function updatedWidthOnContainerResize() {
@@ -119,7 +117,7 @@ export function useColumnResizer(sectionId, ref, maxNestedDepth) {
     const currentPercentage = widthRef.current.currentPercentage;
     const newWidth = (containerWidth * currentPercentage) / 100;
     widthRef.current.containerWidth = containerWidth;
-    setNewWidth(containerWidth, newWidth, true);
+    setNewWidth(containerWidth, newWidth);
   }
 
   useEffect(() => {
@@ -153,7 +151,7 @@ export function useColumnResizer(sectionId, ref, maxNestedDepth) {
         ? existingWidth + CENTER_OFFSET
         : containerWidth / 2;
       widthRef.current.containerWidth = containerWidth;
-      setNewWidth(containerWidth, initialWidth, !existingWidth);
+      setNewWidth(containerWidth, initialWidth);
     }
   }, [maxNestedDepth]);
 
