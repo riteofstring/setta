@@ -1,5 +1,6 @@
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
@@ -201,7 +202,10 @@ function GetUnpinnedParams({ sectionId }) {
 
     requestAnimationFrame(() => {
       const containerWidth = ref.current.clientWidth;
-      const diff = e.clientX - resizeRef.current.startX;
+      const diff =
+        (e.clientX - resizeRef.current.startX) /
+        useReactFlow.getState().transform[2];
+
       const diffAsPercentage = (diff / containerWidth) * 100;
 
       const newPercentage = Math.max(
@@ -230,6 +234,7 @@ function GetUnpinnedParams({ sectionId }) {
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [handleMouseMove, handleMouseUp]);
+
   return (
     <div
       className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${
