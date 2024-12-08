@@ -32,6 +32,8 @@ function _ParamContainer({
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
   );
+
+  // const maybeErrorMessage = useTypeErrors((x) => "error");
   const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
     return {
       isFocusedSearchResult:
@@ -85,7 +87,7 @@ function _ParamContainer({
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm hover:bg-setta-50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
+        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows -ml-[2px] grid grid-cols-subgrid items-center justify-between rounded-sm pl-[2px] hover:bg-setta-50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
         onMouseDownCapture={onMouseDownSelect} // has to be on capture for selection to work
         ref={childlessRef}
@@ -161,7 +163,7 @@ function useColumnWidth(sectionId, paramChildren) {
 function ErrorSection({ maybeErrorMessage }) {
   return (
     <Accordion.Root
-      className="card-arg-group-error group/arg-group rounded-b-lg "
+      className="section-key-value group/arg-group -ml-[2px] rounded-b-lg"
       type="single"
       // defaultValue="item-1"
       collapsible
@@ -192,7 +194,7 @@ const AccordionTrigger = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Header className="flex">
       <Accordion.Trigger
-        className="group -ml-3 mt-1 flex h-6 flex-1 cursor-default items-center justify-between overflow-hidden bg-red-500 pl-3 pr-2 font-mono text-xs font-bold text-red-50 outline-none transition-all hover:cursor-pointer dark:bg-red-800"
+        className="group mt-1 flex h-6 flex-1 cursor-default items-center justify-between overflow-hidden bg-red-500 pl-[2px] pr-1 font-mono text-xs font-bold text-red-50 outline-none transition-all hover:cursor-pointer dark:bg-red-800"
         {...props}
         ref={forwardedRef}
       >
@@ -207,15 +209,15 @@ const AccordionTrigger = React.forwardRef(
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
-      className="nowheel nodrag relative -mx-3  -mb-1 overflow-hidden bg-white px-1 text-xs dark:bg-setta-950"
+      className="nowheel nodrag relative -mb-1 overflow-hidden bg-white px-1 text-xs dark:bg-setta-950"
       {...props}
       ref={forwardedRef}
     >
-      <aside className=" mt-1 h-full cursor-text select-text overflow-y-scroll px-2 pb-2 pt-[.15rem] font-mono dark:text-setta-100">
+      <aside className=" mt-1 h-full cursor-text select-text overflow-y-scroll pb-2 pt-[.15rem] font-mono dark:text-setta-100">
         {children}
       </aside>
       <IconButton
-        twClasses="absolute right-4 bottom-2 h-3 w-3 cursor-pointer text-setta-400 dark:text-setta-200 hover:text-setta-600 dark:hover:text-white"
+        twClasses="absolute right-1 bottom-1.5 h-3 w-3 cursor-pointer text-setta-400 dark:text-setta-200 hover:text-setta-600 dark:hover:text-white"
         bg="bg-transparent hover:bg-setta-100 dark:hover:bg-setta-600"
         icon={<HiOutlineDuplicate />}
         onClick={() => navigator.clipboard.writeText(children)}

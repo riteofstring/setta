@@ -179,7 +179,7 @@ function GetUnpinnedParams({
 
   return (
     <div
-      className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${
+      className={`section-args-nested grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
         isScrollable ? "nowheel" : ""
       } min-w-0 !max-w-full`}
       ref={ref}
