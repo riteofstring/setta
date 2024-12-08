@@ -1,7 +1,11 @@
 import { dbSaveSectionJSONSource } from "requests/jsonSource";
 import { dbNewVersionFilename } from "requests/sectionVariants";
 import { setNotificationMessage } from "state/actions/notification";
-import { duplicateCodeInfoCol } from "state/actions/sectionInfos";
+import {
+  duplicateCodeInfoCol,
+  getSectionInfo,
+} from "state/actions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { createRandomName } from "utils/idNameCreation";
 import { duplicateSectionVariant, getSectionVariant } from "./sectionInfos";
 
@@ -35,4 +39,13 @@ export async function createNewVersionName(jsonSource) {
     }
   }
   return createRandomName();
+}
+
+export async function createNewVersionMaybeWithJSON(sectionId) {
+  const { jsonSource } = getSectionInfo(sectionId);
+  const newVersionName = await createNewVersionName(jsonSource);
+  useSectionInfos.setState((state) => {
+    createNewVersion(sectionId, newVersionName, state);
+  });
+  maybeSaveNewJSONVersion(sectionId, jsonSource);
 }
