@@ -290,8 +290,6 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   pinned = pinned ?? {};
   unpinned = unpinned ?? {};
 
-  console.log("unpinned", unpinned)
-
   const fOriginalObj = mergePinnedAndUnpinned(
     flattenObject(originalObj.pinned),
     flattenObject(originalObj.unpinned),

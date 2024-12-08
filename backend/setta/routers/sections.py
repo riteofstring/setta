@@ -89,8 +89,6 @@ def route_section_to_yaml(x: SectionToYamlRequest):
 
     yamlValue = section_dict_to_yaml(output, x.codeInfo, x.sectionVariant)
 
-    print(yamlValue)
-
     return {
         "yamlValue": yamlValue,
         "originalObj": {
