@@ -74,40 +74,10 @@ function _ParamContainer({
     }
   }
 
-  // Fetch initial state
-  const nestedRef = useRef();
-  const realNestedRef = useRef();
-  const gridRef = useRef();
-  // Connect to the store on mount, disconnect on unmount, catch state-changes in a reference
-  useEffect(() => {
-    // Subscribe to store updates
-    return useSectionColumnWidth.subscribe(
-      (state) => state[sectionId],
-      (columnWidth) => {
-        // Update div style directly
-        if (nestedRef.current) {
-          // Use a CSS calc() function to provide a fallback
-          nestedRef.current.style.gridTemplateColumns = `minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
-        }
-        if (gridRef.current) {
-          gridRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
-        }
-        if (realNestedRef.current) {
-          realNestedRef.current.style.width = `${columnWidth}px`;
-        }
-      },
-      { fireImmediately: true },
-    );
-  }, [paramChildren.length > 0]); // have to update the subscriber when parameter becomes a parent or child
-
-  // const nestedGridStyle = {
-  //   // Use a CSS calc() function to provide a fallback
-  //   gridTemplateColumns: `minmax(min-content, ${baseColumnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`,
-  // };
-
-  // const gridStyle = {
-  //   gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${baseColumnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`,
-  // };
+  const { childlessRef, childlessNameRef, parentRef } = useColumnWidth(
+    sectionId,
+    paramChildren,
+  );
 
   return paramChildren.length === 0 ? (
     <>
@@ -116,9 +86,9 @@ function _ParamContainer({
         className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm hover:bg-setta-50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
         onMouseDown={onMouseDownSelect}
-        ref={nestedRef}
+        ref={childlessRef}
       >
-        <div className="section-key overflow-hidden" ref={realNestedRef}>
+        <div className="section-key overflow-hidden" ref={childlessNameRef}>
           {children}
         </div>
         <ParamInput
@@ -137,7 +107,7 @@ function _ParamContainer({
       className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
       onMouseDown={onMouseDownSelect}
-      ref={gridRef}
+      ref={parentRef}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">
@@ -155,6 +125,32 @@ function _ParamContainer({
 }
 
 export const ParamContainer = React.memo(_ParamContainer);
+
+function useColumnWidth(sectionId, paramChildren) {
+  const childlessRef = useRef();
+  const childlessNameRef = useRef();
+  const parentRef = useRef();
+  useEffect(() => {
+    return useSectionColumnWidth.subscribe(
+      (state) => state[sectionId],
+      (columnWidth) => {
+        if (childlessRef.current) {
+          // Use a CSS calc() function to provide a fallback
+          childlessRef.current.style.gridTemplateColumns = `minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
+        }
+        if (parentRef.current) {
+          parentRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
+        }
+        if (childlessNameRef.current) {
+          childlessNameRef.current.style.width = `${columnWidth}px`;
+        }
+      },
+      { fireImmediately: true },
+    );
+  }, [paramChildren.length > 0]); // have to update the subscriber when parameter becomes a parent or child
+
+  return { childlessRef, childlessNameRef, parentRef };
+}
 
 function ErrorSection({ maybeErrorMessage }) {
   return (
