@@ -16,7 +16,7 @@ import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {
   const outerRef = useRef();
-  const handleColumnResizeStart = useColumnResizer(sectionId, outerRef);
+  const handleColumnResizeStart = useColumnResizer(sectionId, outerRef, 72+12*2);
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
   // const waitingForResult = true;
