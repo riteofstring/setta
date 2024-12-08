@@ -26,7 +26,8 @@ export function addTerminalInEmptySpace() {
 
 export function addSectionInEmptySpace({
   type,
-  inputSectionProps = {},
+  sectionProps = {},
+  sectionVariantProps = {},
   positionOffset = { x: 0, y: 0 },
 }) {
   const {
@@ -42,7 +43,8 @@ export function addSectionInEmptySpace({
   useSectionInfos.setState((state) => {
     addSectionAtPosition({
       type,
-      inputSectionProps,
+      sectionProps,
+      sectionVariantProps,
       position,
       state,
     });
@@ -52,17 +54,18 @@ export function addSectionInEmptySpace({
 
 export function addSectionAtPosition({
   type,
-  inputSectionProps = {},
+  sectionProps = {},
+  sectionVariantProps = {},
   position,
   state,
 }) {
-  const sectionProps = {
-    ...inputSectionProps,
-  };
-
-  sectionProps.uiTypeId = BASE_UI_TYPE_IDS[type];
-
-  const [newId] = createSectionInfo({ sectionProps, position, state });
+  const [newId] = createSectionInfo({
+    sectionProps: { ...sectionProps, uiTypeId: BASE_UI_TYPE_IDS[type] },
+    sectionVariantProps,
+    position,
+    state,
+  });
+  console.log("newId", newId)
   return newId;
 }
 
@@ -118,32 +121,25 @@ export function addChild({ id, parentId, type, sectionProps }) {
 
 export function createSectionInfo({
   sectionProps = {},
+  sectionVariantProps = {},
   numSections = 1,
   position,
   state,
 }) {
-  const newInfos = {};
-  for (let i = 0; i < numSections; i++) {
-    const sectionInfo = newSectionInfo(sectionProps);
-    newInfos[sectionInfo.id] = sectionInfo;
-  }
-  addSectionsToState(newInfos, position, state);
-  return Object.keys(newInfos);
-}
+  const newIds = [];
+  const topLevelSectionIds = [];
 
-function addSectionsToState(sectionInfos, position, state) {
-  for (const s of Object.values(sectionInfos)) {
-    state.variants[s.variantId] = newSectionVariant({});
+  for (let i = 0; i < numSections; i++) {
+    const s = newSectionInfo(sectionProps);
+    newIds.push(s.id);
     state.x[s.id] = s;
+    console.log("s", s)
+    state.variants[s.variantId] = newSectionVariant(sectionVariantProps);
     if (state.uiTypes[s.uiTypeId].type === C.GLOBAL_PARAM_SWEEP) {
       initRunGroup(s.variantId, state);
     }
-  }
-
-  const topLevelSectionIds = [];
-  for (const s of Object.keys(sectionInfos)) {
-    if (!sectionInfos[s].parentId) {
-      topLevelSectionIds.push(s);
+    if (!s.parentId) {
+      topLevelSectionIds.push(s.id);
     }
   }
 
@@ -157,6 +153,8 @@ function addSectionsToState(sectionInfos, position, state) {
       })),
     );
   }
+
+  return newIds;
 }
 
 export function createAdjacentSection(sectionId, sectionProps, state) {

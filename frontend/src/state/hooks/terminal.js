@@ -7,12 +7,7 @@ import {
   addChild,
   addSectionInEmptySpace,
 } from "state/actions/sections/createSections";
-import {
-  useMisc,
-  useProjectConfig,
-  useSectionInfos,
-  useSettings,
-} from "state/definitions";
+import { useMisc, useProjectConfig, useSectionInfos } from "state/definitions";
 import { URLS } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
@@ -229,7 +224,7 @@ export async function restoreTerminals() {
     }
     const groupId = addSectionInEmptySpace({
       type: C.DECK,
-      inputSectionProps: {
+      sectionProps: {
         name: getRestoredTerminalsGroupName(),
         isTemporary: terminalsWithoutSections.every((x) => x.isTemporary),
       },
@@ -240,7 +235,6 @@ export async function restoreTerminals() {
         parentId: groupId,
         type: C.TERMINAL,
         sectionProps: {
-          size: useSettings.getState().backend.defaultTerminalSectionSize,
           isTemporary: terminalInfo.isTemporary,
         },
       });
