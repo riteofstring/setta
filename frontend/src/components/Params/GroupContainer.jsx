@@ -185,6 +185,18 @@ function GetUnpinnedParams({ sectionId }) {
     };
   }, []);
 
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    if (ref.current) {
+      resizeRef.current = {
+        ...resizeRef.current,
+        isResizing: true,
+        startX: e.clientX,
+        startPercentage: resizeRef.current.currentPercentage,
+      };
+    }
+  }, []);
+
   const handleMouseMove = useCallback((e) => {
     if (!resizeRef.current.isResizing || !ref.current) return;
 
@@ -229,12 +241,17 @@ function GetUnpinnedParams({ sectionId }) {
       } min-w-0 !max-w-full`}
       ref={ref}
     >
-      {!hideUnpinnedParams && <GetUnpinnedParamsCore sectionId={sectionId} />}
+      {!hideUnpinnedParams && (
+        <GetUnpinnedParamsCore
+          sectionId={sectionId}
+          onResizeStart={handleResizeStart}
+        />
+      )}
     </div>
   );
 }
 
-function GetUnpinnedParamsCore({ sectionId }) {
+function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
   const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     false,
@@ -245,6 +262,7 @@ function GetUnpinnedParamsCore({ sectionId }) {
       sectionId={sectionId}
       paramIds={topLevelParamIds}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
+      onResizeStart={onResizeStart}
     />
   );
 }

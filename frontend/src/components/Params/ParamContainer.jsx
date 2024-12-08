@@ -25,6 +25,7 @@ function _ParamContainer({
   requiredParamIdsToPaths,
   ancestorIsSelected,
   children,
+  onResizeStart,
 }) {
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -121,7 +122,7 @@ function _ParamContainer({
           paramInfoId={paramInfoId}
           maybeErrorMessage={maybeErrorMessage}
         />
-        <ResizeHandle />
+        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
         )}
@@ -142,6 +143,7 @@ function _ParamContainer({
           paramIds={paramChildren}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           ancestorIsSelected={ancestorIsSelected || paramIsSelected}
+          onResizeStart={onResizeStart}
         />
       </div>
     </article>
