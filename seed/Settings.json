@@ -79,8 +79,7 @@
       "size": { "width": 700, "height": 300 }
     },
     "GLOBAL_VARIABLES": {
-      "name": "Global Variables",
-      "displayMode": "YAML"
+      "name": "Global Variables"
     },
     "GLOBAL_PARAM_SWEEP": {
       "name": "Global Param Sweep"
