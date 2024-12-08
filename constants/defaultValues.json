@@ -48,7 +48,8 @@
     "isInOtherProjectConfigs": false,
     "aspectRatio": false,
     "aspectRatioExtraHeight": 0,
-    "aspectRatioExtraWidth": 0
+    "aspectRatioExtraWidth": 0,
+    "columnWidth": null
   },
   "sectionVariant": {
     "name": "",

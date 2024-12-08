@@ -97,6 +97,7 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
         "canvasSettings",
         "renderMarkdown",
         "paramFilter",
+        "columnWidth"
     )
 )
 

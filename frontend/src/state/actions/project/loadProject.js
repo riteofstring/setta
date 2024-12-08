@@ -7,6 +7,7 @@ import { dbLoadSettingsProject } from "requests/settings";
 import {
   useNodeInternals,
   useProjectConfig,
+  useSectionColumnWidth,
   useSectionInfos,
 } from "state/definitions";
 import {
@@ -67,6 +68,7 @@ export async function loadProjectState({
     codeInfo,
     codeInfoCols,
   });
+  useSectionColumnWidth.setState(_.mapValues(sections, (x) => x.columnWidth));
   useNodeInternals.setState({
     x: createNodesMapFromProjectConfigChildren(projectConfig),
   });
