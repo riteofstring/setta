@@ -292,23 +292,19 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     }
   }, []);
 
-  const handleMouseMove = useCallback(
-    (e) => {
-      if (!resizeRef.current.isResizing || !ref.current) return;
+  const handleMouseMove = (e) => {
+    if (!resizeRef.current.isResizing || !ref.current) return;
 
-      requestAnimationFrame(() => {
-        const { containerWidth, startX, startWidth } = resizeRef.current;
-        const diff =
-          (e.clientX - startX) / useReactFlow.getState().transform[2];
-        setNewWidth(containerWidth, startWidth + diff, true);
-      });
-    },
-    [marginPx],
-  );
+    requestAnimationFrame(() => {
+      const { containerWidth, startX, startWidth } = resizeRef.current;
+      const diff = (e.clientX - startX) / useReactFlow.getState().transform[2];
+      setNewWidth(containerWidth, startWidth + diff, true);
+    });
+  };
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = () => {
     resizeRef.current.isResizing = false;
-  }, []);
+  };
 
   useEffect(() => {
     window.addEventListener("mousemove", handleMouseMove);
@@ -318,10 +314,11 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [handleMouseMove, handleMouseUp]);
+  }, []);
 
   return handleResizeStart;
 }
+
 function getLongestListLength(obj) {
   return Object.values(obj).reduce(
     (max, arr) => (arr.length > max ? arr.length : max),
