@@ -28,7 +28,10 @@ function _IframeArea({ sectionId }) {
   }, [iframeCode]);
 
   return !iframeCode || validateIframeCode(iframeCode) ? null : (
-    <div className="section-full-no-title" ref={containerRef}>
+    <div
+      className="section-main mb-2 mt-1.5 overflow-clip rounded-md"
+      ref={containerRef}
+    >
       <div dangerouslySetInnerHTML={{ __html: iframeCode }} />
     </div>
   );
