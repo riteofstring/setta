@@ -1,13 +1,16 @@
 import { Editable } from "components/Utils/Editable";
 import _ from "lodash";
 import { useState } from "react";
-import { FaRegSnowflake } from "react-icons/fa";
+import { FaRegSnowflake, FaRegStar } from "react-icons/fa";
 import {
   onClickSetVariantId,
   onMouseLeaveSetPreviewVariantId,
   onMouseOverSetPreviewVariantId,
 } from "state/actions/previewOnMouseOver";
-import { toggleVariantFrozenState } from "state/actions/sectionInfos";
+import {
+  setDefaultSectionVariant,
+  toggleVariantFrozenState,
+} from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 
@@ -66,10 +69,11 @@ function EVItems({ sectionId, isEditing }) {
 }
 
 function OneItem({ sectionId, id, isCurr }) {
-  const { name, isFrozen } = useSectionInfos(
+  const { name, isFrozen, isDefault } = useSectionInfos(
     (x) => ({
       name: x.variants[id].name,
       isFrozen: x.variants[id].isFrozen,
+      isDefault: x.variants[id].isDefault,
     }),
     _.isEqual,
   );
@@ -89,19 +93,34 @@ function OneItem({ sectionId, id, isCurr }) {
       >
         {name}
       </p>
-      <button
-        className={`cursor-pointer bg-transparent ${
-          isFrozen
-            ? "text-blue-500"
-            : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
-        }`}
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleVariantFrozenState(id);
-        }}
-      >
-        <FaRegSnowflake />
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          className={`cursor-pointer bg-transparent ${
+            isDefault
+              ? "text-blue-500"
+              : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setDefaultSectionVariant(sectionId, id);
+          }}
+        >
+          <FaRegStar />
+        </button>
+        <button
+          className={`cursor-pointer bg-transparent ${
+            isFrozen
+              ? "text-blue-500"
+              : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleVariantFrozenState(id);
+          }}
+        >
+          <FaRegSnowflake />
+        </button>
+      </div>
     </li>
   );
 }
