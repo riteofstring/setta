@@ -1,44 +1,35 @@
 import React, { useEffect, useRef } from "react";
 import { useSectionInfos } from "state/definitions";
 
-function _IframeArea({ sectionId, scale = 0.5 }) {
+function _IframeArea({ sectionId }) {
   const iframeCode = useSectionInfos((x) => x.x[sectionId].iframeCode);
   const containerRef = useRef(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const updateIframe = (entries) => {
+    const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        // If there's an iframe in the sanitized content, update its dimensions
         const iframeElement = containerRef.current.querySelector("iframe");
         if (iframeElement) {
-          // First set the iframe to match container size
-          iframeElement.style.width = "200%";
-          iframeElement.style.height = "200%";
-
-          // Apply scaling transform
-          iframeElement.style.transform = `scale(${scale})`;
-        //   iframeElement.style.transformOrigin = "top left";
+          iframeElement.style.width = `${width}px`;
+          iframeElement.style.height = `${height}px`;
         }
       }
-    };
+    });
 
-    const resizeObserver = new ResizeObserver(updateIframe);
     resizeObserver.observe(containerRef.current);
 
     return () => {
       resizeObserver.disconnect();
     };
-  }, [iframeCode, scale]);
+  }, [iframeCode]);
 
-  if (!iframeCode) return null;
-
-  return (
+  return !iframeCode || validateIframeCode(iframeCode) ? null : (
     <div className="section-full-no-title" ref={containerRef}>
-      <div
-        className="h-full w-full"
-        dangerouslySetInnerHTML={{ __html: iframeCode }}
-      />
+      <div dangerouslySetInnerHTML={{ __html: iframeCode }} />
     </div>
   );
 }
