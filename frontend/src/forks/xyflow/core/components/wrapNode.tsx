@@ -1,6 +1,5 @@
 import cc from "classcat";
 import { SectionContainer } from "components/Section/Container/SectionContainer";
-import _ from "lodash";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import { useSectionInfos } from "state/definitions";

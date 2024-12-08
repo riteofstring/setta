@@ -47,6 +47,7 @@ export function addSectionInEmptySpace({
       state,
     });
   });
+  maybeIncrementProjectStateVersion(true);
 }
 
 export function addSectionAtPosition({
@@ -65,12 +66,7 @@ export function addSectionAtPosition({
   return newId;
 }
 
-export function addChildrenToSeries({
-  isRoot,
-  calledBy,
-  numChildren,
-  incrementVersion = false,
-}) {
+export function addChildrenToSeries(isRoot, calledBy, numChildren) {
   let newIds;
   useSectionInfos.setState((state) => {
     let parentId, startIdx;
@@ -100,7 +96,7 @@ export function addChildrenToSeries({
     );
   });
 
-  maybeIncrementProjectStateVersion(incrementVersion);
+  maybeIncrementProjectStateVersion(true);
 
   return newIds;
 }

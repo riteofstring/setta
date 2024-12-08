@@ -29,10 +29,12 @@ export function KwargsControls({
 
   const onClickDeleteSelectedKwargs = () => {
     deleteSelectedKwargs(sectionId);
+    maybeIncrementProjectStateVersion(true);
   };
 
   function onClickPinParam() {
     pinSelectedKwargs(sectionId);
+    maybeIncrementProjectStateVersion(true);
   }
 
   const classes =

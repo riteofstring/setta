@@ -4,6 +4,7 @@ import C from "constants/constants.json";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "state/actions/sections/deleteSections";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
@@ -27,6 +28,7 @@ function _SectionHeader({
     useSectionInfos.setState((state) => {
       deleteSections([sectionId], state);
     });
+    maybeIncrementProjectStateVersion(true);
   };
 
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
