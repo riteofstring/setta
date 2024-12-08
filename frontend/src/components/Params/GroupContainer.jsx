@@ -16,10 +16,15 @@ import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {
   const outerRef = useRef();
+  const [maxNestedDepth, setMaxNestedDepth] = useState({
+    pinned: 1,
+    unpinned: 1,
+  });
+
   const handleColumnResizeStart = useColumnResizer(
     sectionId,
     outerRef,
-    72 + 12 * 2,
+    Math.max(maxNestedDepth.pinned, maxNestedDepth.unpinned),
   );
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
@@ -38,10 +43,12 @@ function _ParamGroupContainer({ sectionId }) {
             sectionId={sectionId}
             outerRef={outerRef}
             handleColumnResizeStart={handleColumnResizeStart}
+            setMaxNestedDepth={setMaxNestedDepth}
           />
           <GetUnpinnedParams
             sectionId={sectionId}
             handleColumnResizeStart={handleColumnResizeStart}
+            setMaxNestedDepth={setMaxNestedDepth}
           />
         </>
       )}
@@ -49,11 +56,22 @@ function _ParamGroupContainer({ sectionId }) {
   );
 }
 
-function GetPinnedParams({ sectionId, outerRef, handleColumnResizeStart }) {
+function GetPinnedParams({
+  sectionId,
+  outerRef,
+  handleColumnResizeStart,
+  setMaxNestedDepth,
+}) {
   const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     true,
   );
+
+  const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
+
+  useEffect(() => {
+    setMaxNestedDepth((s) => ({ ...s, pinned: maxNestedDepth }));
+  }, [maxNestedDepth]);
 
   return (
     topLevelParamIds.length > 0 && (
@@ -147,7 +165,11 @@ function ResizablePinnedArea({
   );
 }
 
-function GetUnpinnedParams({ sectionId, handleColumnResizeStart }) {
+function GetUnpinnedParams({
+  sectionId,
+  handleColumnResizeStart,
+  setMaxNestedDepth,
+}) {
   const { ref, isScrollable } = useIsScrollable();
   const hideUnpinnedParams = useSectionInfos(
     (x) => x.x[sectionId].hideUnpinnedParams,
@@ -164,17 +186,28 @@ function GetUnpinnedParams({ sectionId, handleColumnResizeStart }) {
         <GetUnpinnedParamsCore
           sectionId={sectionId}
           onResizeStart={handleColumnResizeStart}
+          setMaxNestedDepth={setMaxNestedDepth}
         />
       )}
     </div>
   );
 }
 
-function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
+function GetUnpinnedParamsCore({
+  sectionId,
+  onResizeStart,
+  setMaxNestedDepth,
+}) {
   const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     false,
   );
+
+  const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
+
+  useEffect(() => {
+    setMaxNestedDepth((s) => ({ ...s, unpinned: maxNestedDepth }));
+  }, [maxNestedDepth]);
 
   return (
     <GetParamSwitch
@@ -188,7 +221,9 @@ function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
-function useColumnResizer(sectionId, ref, marginPx) {
+function useColumnResizer(sectionId, ref, maxNestedDepth) {
+  const marginPx = 72 + Math.max(0, 12 * (maxNestedDepth - 1));
+
   // Use ref for both resize state and current width to avoid race conditions
   const resizeRef = useRef({
     isResizing: false,
@@ -301,6 +336,13 @@ function useColumnResizer(sectionId, ref, marginPx) {
 
 function setColumnWidth(sectionId, width) {
   useSectionColumnWidth.setState({
-    [sectionId]: width - 24, // Maintain the existing 24px adjustment
+    [sectionId]: width - 18, // Maintain the existing 24px adjustment
   });
+}
+
+function getLongestListLength(obj) {
+  return Object.values(obj).reduce(
+    (max, arr) => (arr.length > max ? arr.length : max),
+    0,
+  );
 }
