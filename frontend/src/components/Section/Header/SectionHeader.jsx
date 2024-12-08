@@ -1,5 +1,5 @@
-import * as Popover from "@radix-ui/react-popover";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import C from "constants/constants.json";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
@@ -55,25 +55,25 @@ function _SectionHeader({
 
       <div className="z-10 ml-auto flex items-center">
         {isSeriesElement && (
-          <Popover.Root>
-            <Popover.Trigger>
+          <StandardPopover
+            popoverContent={
+              <Incrementer
+                sectionId={sectionId}
+                isRoot={isRoot}
+                popover={true}
+              />
+            }
+            arrowClasses="fill-white dark:fill-setta-800"
+            inputClasses="rounded-lg"
+            trigger={
               <IconButton
                 twClasses="[&_*]:hover:text-setta-500 [&_*]:dark:hover:text-setta-400"
                 bg="bg-transparent"
               >
                 <TbSortDescending2 className="text-setta-300 dark:text-setta-700" />
               </IconButton>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content className="z-20">
-                <Incrementer
-                  sectionId={sectionId}
-                  isRoot={isRoot}
-                  popover={true}
-                />
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
+            }
+          />
         )}
         <LockPositionButton sectionId={sectionId} />
         {!isRoot && <MinimizeButton sectionId={sectionId} />}
@@ -141,28 +141,4 @@ function getTitleStyles({
     "select-none italic  tracking-tighter text-xs text-setta-400 max-w-full truncate pr-0.5";
 
   return { editing, notEditing, fixed };
-}
-
-{
-  /* <DropdownMenu.Root>
-<DropdownMenu.Trigger>
-  <IconButton
-    twClasses="[&_*]:hover:text-setta-500 [&_*]:dark:hover:text-setta-400"
-    bg="bg-transparent"
-  >
-    <TbSortDescending2 className="text-setta-300 dark:text-setta-700" />
-  </IconButton>
-</DropdownMenu.Trigger>
-<DropdownMenu.Portal>
-  <DropdownMenu.Content className="z-20">
-    <DropdownMenu.Item>
-      <Incrementer
-        sectionId={sectionId}
-        isRoot={isRoot}
-        dropdown={true}
-      />
-    </DropdownMenu.Item>
-  </DropdownMenu.Content>
-</DropdownMenu.Portal>
-</DropdownMenu.Root> */
 }
