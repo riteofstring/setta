@@ -28,6 +28,8 @@ export function deleteCodeInfo(sectionId, ids, state) {
     );
   }
 
+  codeInfoCol.children = _.omit(codeInfoCol.children, ids);
+
   const { variantId, uiTypeColId } = state.x[sectionId];
   state.variants[variantId].values = _.omit(
     state.variants[variantId].values,
