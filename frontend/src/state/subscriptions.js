@@ -103,7 +103,7 @@ function singletonSectionsSubscriptionFn(state) {
 function keywordRegexSubscriptionFn(x) {
   const output = {
     details: {},
-    codeInfo: x.codeInfo,
+    codeInfo: _.mapValues(x.codeInfo, (c) => ({ id: c.id, name: c.name })),
     globalVariableId: x.singletonSections[C.GLOBAL_VARIABLES],
   };
 
