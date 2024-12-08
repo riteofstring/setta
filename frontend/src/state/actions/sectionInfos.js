@@ -153,6 +153,15 @@ export function getDisplayedSectionIdToChildren(state) {
   return output;
 }
 
+export function getSectionIdToParentId(state) {
+  const output = {};
+  const s = state ?? useSectionInfos.getState();
+  for (const section of Object.values(s.x)) {
+    output[section.id] = section.parentId;
+  }
+  return output;
+}
+
 function getSectionDescendantsFromAllVariants(sectionId, state) {
   const output = [];
   for (const v of state.x[sectionId].variantIds) {
@@ -183,7 +192,15 @@ export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
 
 export function toggleVariantFrozenState(variantId) {
   useSectionInfos.setState((x) => {
-    x.variants[variantId].isFrozen = !x.x[variantId].isFrozen;
+    x.variants[variantId].isFrozen = !x.variants[variantId].isFrozen;
+  });
+}
+
+export function setDefaultSectionVariant(sectionId, variantId) {
+  useSectionInfos.setState((x) => {
+    for (const v of x.x[sectionId].variantIds) {
+      x.variants[v].isDefault = v === variantId;
+    }
   });
 }
 

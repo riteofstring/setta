@@ -30,7 +30,7 @@ function _Markdown({ sectionId }) {
 
   const { ref, isScrollable } = useIsScrollable();
 
-  const wrapperClassName = `section-main nodrag ${isScrollable ? "nowheel" : ""} -mr-[13px] pr-4 mb-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
+  const wrapperClassName = `section-main -mt-1  nodrag ${isScrollable ? "nowheel" : ""} -mr-[13px] pr-4 mb-3 ml-1 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
 
   // the classes "prose-code:before:hidden prose-code:after:hidden" are needed to prevent backticks from appearing
   // https://github.com/tailwindlabs/tailwindcss-typography/issues/18#issuecomment-1280797041

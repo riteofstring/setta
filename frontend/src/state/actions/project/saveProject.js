@@ -11,6 +11,7 @@ import {
   useArtifacts,
   useNodeInternals,
   useProjectConfig,
+  useSectionColumnWidth,
   useSectionInfos,
   useSettings,
 } from "state/definitions";
@@ -23,7 +24,8 @@ export function getProjectData({
   convertYamlToGUI = true,
 }) {
   // remove temporary sections
-  let sections = _.pickBy(useSectionInfos.getState().x, (x) => !x.isTemporary);
+  let sections = _.cloneDeep(useSectionInfos.getState().x);
+  sections = _.pickBy(sections, (x) => !x.isTemporary);
   if (convertYamlToGUI) {
     for (const s of Object.values(sections)) {
       if (s.displayMode === SECTION_DISPLAY_MODES.YAML) {
@@ -33,22 +35,21 @@ export function getProjectData({
   }
 
   sections = _.mapValues(sections, (x) => {
+    x.columnWidth = useSectionColumnWidth.getState()[x.id];
+
     const artifactState = useArtifacts.getState().x;
     if (!withArtifactMetadata) {
       return _.omit(x, ["artifacts"]);
     }
-    const currSection = _.cloneDeep(x);
     // keep only artifact paths that are actually saved to disk
-    currSection.artifacts = currSection.artifacts.filter(
-      (a) => artifactState[a].isSaved,
-    );
-    currSection.artifacts = currSection.artifacts.map((a) => ({
+    x.artifacts = x.artifacts.filter((a) => artifactState[a].isSaved);
+    x.artifacts = x.artifacts.map((a) => ({
       path: a,
       value: a.startsWith("data:") ? artifactState[a].value : undefined,
       type: artifactState[a].type,
       displayName: artifactState[a].displayName,
     }));
-    return currSection;
+    return x;
   });
 
   console.log("sections", sections);

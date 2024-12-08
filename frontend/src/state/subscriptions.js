@@ -13,9 +13,11 @@ import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./actions/nodeInternals";
+import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
 import {
   getCodeInfoCol,
   getDisplayedSectionIdToChildren,
+  getSectionIdToParentId,
   getSectionType,
   getSectionVariant,
 } from "./actions/sectionInfos";
@@ -44,6 +46,14 @@ export function subscribe() {
     getDisplayedSectionIdToChildren,
     (x) => {
       useDndChildren.getState().update(x);
+    },
+    { equalityFn: _.isEqual },
+  );
+
+  useSectionInfos.subscribe(
+    getSectionIdToParentId,
+    (newVal, oldVal) => {
+      updateRunGroupsWithNewHierarchy(newVal, oldVal);
     },
     { equalityFn: _.isEqual },
   );
@@ -103,29 +113,32 @@ function singletonSectionsSubscriptionFn(state) {
 function keywordRegexSubscriptionFn(x) {
   const output = {
     details: {},
-    codeInfo: x.codeInfo,
+    codeInfo: _.mapValues(x.codeInfo, (c) => ({ id: c.id, name: c.name })),
     globalVariableId: x.singletonSections[C.GLOBAL_VARIABLES],
   };
 
   let sectionVariant, sectionTypeName;
   for (const [id, s] of Object.entries(x.x)) {
-    sectionVariant = getSectionVariant(id, x);
     sectionTypeName = getSectionType(id, x);
+    if (
+      ![
+        C.GLOBAL_VARIABLES,
+        C.SECTION,
+        C.LIST_ROOT,
+        C.DICT_ROOT,
+        C.DECK,
+      ].includes(sectionTypeName)
+    ) {
+      continue;
+    }
+    sectionVariant = getSectionVariant(id, x);
     output.details[id] = {
       name: s.name,
       sectionChildren: sectionVariant.children,
       codeInfoChildren: getCodeInfoCol(id, x).children,
       sectionTypeName,
       selectedItem: sectionVariant.selectedItem,
-      isTopLevel:
-        !s.parentId &&
-        [
-          C.GLOBAL_VARIABLES,
-          C.SECTION,
-          C.LIST_ROOT,
-          C.DICT_ROOT,
-          C.DECK,
-        ].includes(sectionTypeName),
+      isTopLevel: !s.parentId,
     };
   }
 

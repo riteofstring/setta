@@ -23,7 +23,7 @@ import { getOnUIEditorTabClick, TabButton } from "../paneFns";
 import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
-import { SectionVariants } from "./SectionVariants/SectionVariants";
+import { VersionList } from "./SectionVariants/VersionList";
 import { UIConfig } from "./UIConfig/UIConfig";
 
 const paneName = UI_EDITOR;
@@ -135,7 +135,7 @@ function TabContent({ sectionId, tab }) {
     case INFO_CONFIG_TAB:
       return <MarkdownEditorInPane sectionId={sectionId} />;
     case SECTION_VARIANTS_TAB:
-      return <SectionVariants sectionId={sectionId} />;
+      return <VersionList sectionId={sectionId} />;
   }
 }
 

@@ -48,7 +48,8 @@
     "isInOtherProjectConfigs": false,
     "aspectRatio": false,
     "aspectRatioExtraHeight": 0,
-    "aspectRatioExtraWidth": 0
+    "aspectRatioExtraWidth": 0,
+    "columnWidth": null
   },
   "sectionVariant": {
     "name": "",
@@ -81,6 +82,7 @@
     "children": { "null": [] }
   },
   "evEntry": { "value": "", "keywordPositions": [] },
+  "runGroupEntry": { "selected": true, "paramSweeps": {}, "versions": {} },
   "uiTypeColEntry": {
     "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
     "nonPresetUITypeIds": []

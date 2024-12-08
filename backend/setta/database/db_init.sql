@@ -57,7 +57,6 @@ CREATE TABLE IF NOT EXISTS SectionVariantId (
     selectedItem TEXT,
     codeInfoColId TEXT,
     originSectionId TEXT,
-    runGroup TEXT,
     FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE SET NULL,
     FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE,
     FOREIGN KEY (codeInfoColId) REFERENCES CodeInfoColId(id) ON DELETE SET NULL
@@ -90,6 +89,40 @@ CREATE TABLE IF NOT EXISTS SectionVariantParamSweep (
     FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
     FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
     FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS SectionVariantRunGroup (
+    idid TEXT,
+    sectionId TEXT,
+    parentVariantId TEXT,
+    selected BOOLEAN,
+    PRIMARY KEY (idid, sectionId, parentVariantId),
+    FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
+    FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE
+    FOREIGN KEY (parentVariantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS SectionVariantRunGroupVersions (
+    idid TEXT,
+    sectionId TEXT,
+    parentVariantId TEXT,
+    versionId TEXT,
+    selected BOOLEAN,
+    PRIMARY KEY (idid, sectionId, parentVariantId, versionId),
+    FOREIGN KEY (idid, sectionId, parentVariantId) 
+        REFERENCES SectionVariantRunGroup(idid, sectionId, parentVariantId) 
+        ON DELETE CASCADE,
+    FOREIGN KEY (versionId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS SectionVariantRunGroupParamSweeps (
+    idid TEXT,
+    sectionId TEXT,
+    parentVariantId TEXT,
+    sweepId TEXT,
+    selected BOOLEAN,
+    PRIMARY KEY (idid, sectionId, parentVariantId, sweepId),
+    FOREIGN KEY (idid, sectionId, parentVariantId) 
+        REFERENCES SectionVariantRunGroup(idid, sectionId, parentVariantId) 
+        ON DELETE CASCADE,
+    FOREIGN KEY (sweepId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS UIType (
     id TEXT PRIMARY KEY,
