@@ -372,26 +372,24 @@ export function DrawOnImage({ sectionId }) {
             <BiPaint />
           </button>
           <StandardPopover
-            popoverContent={
-              <BrushSettings
-                opacity={opacity}
-                setOpacity={setOpacity}
-                brushSize={brushSize}
-                setBrushSize={setBrushSize}
-                brushShape={brushShape}
-                setBrushShape={setBrushShape}
-              />
-            }
             arrowClasses="fill-white dark:fill-setta-800"
-            inputClasses="rounded-lg"
-            contentClasses="bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
+            contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
             trigger={
               <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-200 py-1  text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800  dark:text-setta-400 dark:hover:bg-setta-900">
                 <i className="gg-chevron-down" />
               </button>
             }
             header={"Brush Settings"}
-          />
+          >
+            <BrushSettings
+              opacity={opacity}
+              setOpacity={setOpacity}
+              brushSize={brushSize}
+              setBrushSize={setBrushSize}
+              brushShape={brushShape}
+              setBrushShape={setBrushShape}
+            />
+          </StandardPopover>
         </div>
         <div className="flex self-stretch">
           <button
@@ -403,34 +401,25 @@ export function DrawOnImage({ sectionId }) {
             <i className="gg-erase" />
           </button>
           <StandardPopover
-            popoverContent={
-              <EraserSettings
-                brushSize={eraserBrushSize}
-                setBrushSize={setEraserBrushSize}
-              />
-            }
             arrowClasses="fill-white dark:fill-setta-800"
-            inputClasses="rounded-lg"
-            contentClasses="bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
+            contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
             trigger={
               <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-200 py-1  text-xs text-setta-700 hover:bg-setta-300 dark:bg-setta-800  dark:text-setta-400 dark:hover:bg-setta-900">
                 <i className="gg-chevron-down" />
               </button>
             }
             header={"Brush Settings"}
-          />
+          >
+            <EraserSettings
+              brushSize={eraserBrushSize}
+              setBrushSize={setEraserBrushSize}
+            />
+          </StandardPopover>
         </div>
 
         <StandardPopover
-          popoverContent={
-            <CanvasSettings
-              opacity={canvasOpacity}
-              setOpacity={setCanvasOpacity}
-            />
-          }
           arrowClasses="fill-white dark:fill-setta-800"
-          inputClasses="rounded-lg"
-          contentClasses="bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
+          contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
           trigger={
             <button className="flex w-12 cursor-pointer items-center justify-center gap-0 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
               <i className="gg-image" />
@@ -438,7 +427,12 @@ export function DrawOnImage({ sectionId }) {
             </button>
           }
           header={"Layer Opacity"}
-        />
+        >
+          <CanvasSettings
+            opacity={canvasOpacity}
+            setOpacity={setCanvasOpacity}
+          />
+        </StandardPopover>
 
         <button
           className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
