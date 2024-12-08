@@ -234,71 +234,55 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     currentPercentage: 50, // Track percentage for container resizes
   });
 
+  function calculateNewWidth(
+    newContainerWidth,
+    newColumnWidth,
+    setGlobalState,
+  ) {
+    const boundedWidth = clamp(
+      newColumnWidth,
+      marginPx,
+      newContainerWidth - marginPx,
+    );
+    resizeRef.current.containerWidth = newContainerWidth;
+    resizeRef.current.currentWidth = boundedWidth;
+    resizeRef.current.currentPercentage =
+      (boundedWidth / newContainerWidth) * 100;
+
+    if (setGlobalState) {
+      setColumnWidth(sectionId, boundedWidth);
+    }
+  }
+
+  function updatedWidthOnContainerResize() {
+    if (ref.current) {
+      const containerWidth = ref.current.clientWidth;
+      const currentPercentage = resizeRef.current.currentPercentage;
+      const newWidth = (containerWidth * currentPercentage) / 100;
+      calculateNewWidth(containerWidth, newWidth, true);
+    }
+  }
+
   // In the first useEffect where dimensions are initialized
   useEffect(() => {
     if (ref.current) {
       const containerWidth = ref.current.clientWidth;
-      // Check global state first
       const existingWidth = useSectionColumnWidth.getState()[sectionId];
-      console.log("existingWidth", existingWidth);
       const initialWidth = existingWidth ?? containerWidth / 2;
-
-      resizeRef.current.containerWidth = containerWidth;
-      resizeRef.current.currentWidth = initialWidth;
-      resizeRef.current.currentPercentage =
-        (initialWidth / containerWidth) * 100;
-
-      if (!existingWidth) {
-        console.log(
-          "in initial useEffect, setting column width to initialWidth",
-          initialWidth,
-        );
-        setColumnWidth(sectionId, initialWidth);
-      }
+      calculateNewWidth(containerWidth, initialWidth, !!existingWidth);
     }
-  }, []);
+  }, [marginPx]);
 
   // Handle container resize and margin changes with debounced updates
   useEffect(() => {
-    const handleResize = () => {
-      if (ref.current) {
-        const containerWidth = ref.current.clientWidth;
-        const currentPercentage = resizeRef.current.currentPercentage;
-        resizeRef.current.containerWidth = containerWidth;
-
-        // First calculate width based on percentage
-        const newWidth = (containerWidth * currentPercentage) / 100;
-
-        // Then ensure it respects margin constraints
-        const boundedWidth = clamp(
-          newWidth,
-          marginPx,
-          containerWidth - marginPx,
-        );
-
-        // Update both width and percentage if bounds were hit
-        resizeRef.current.currentWidth = boundedWidth;
-        resizeRef.current.currentPercentage =
-          (boundedWidth / containerWidth) * 100;
-
-        console.log("handleResize");
-
-        setColumnWidth(sectionId, boundedWidth);
-      }
-    };
-
-    // Call immediately to handle margin changes
-    handleResize();
-
-    const resizeObserver = new ResizeObserver(handleResize);
+    const resizeObserver = new ResizeObserver(updatedWidthOnContainerResize);
     if (ref.current) {
       resizeObserver.observe(ref.current);
     }
-
     return () => {
       resizeObserver.disconnect();
     };
-  }, [marginPx]); // Add marginPx as dependency
+  }, []);
 
   const handleResizeStart = useCallback((e) => {
     e.preventDefault();
@@ -356,7 +340,6 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
 }
 
 function setColumnWidth(sectionId, width) {
-  console.log("setting column width to", width);
   useSectionColumnWidth.setState({
     [sectionId]: width, // Maintain the existing 24px adjustment
   });
