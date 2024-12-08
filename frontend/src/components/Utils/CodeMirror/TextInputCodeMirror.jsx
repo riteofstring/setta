@@ -30,6 +30,7 @@ export function TextInputCodeMirror({
   language,
   keywordPositions,
   setKeywordPositions,
+  dummyDivId,
   autocomplete = true,
   initializeGenCode = true,
   isKeyName = false,
@@ -80,6 +81,7 @@ export function TextInputCodeMirror({
     <>
       {!realIsInitialized && (
         <DummyCodeMirror
+          divId={dummyDivId}
           code={value}
           onMouseDownCapture={localOnMouseDownCapture}
           onFocus={onFocus}

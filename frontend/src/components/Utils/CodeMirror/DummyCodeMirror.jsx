@@ -18,6 +18,7 @@ const lineWrapStyle = {
 //https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
 //https://github.com/jamischarles/codemirror-server-render
 export function DummyCodeMirror({
+  divId,
   code,
   theme,
   onMouseDownCapture,
@@ -29,6 +30,7 @@ export function DummyCodeMirror({
 }) {
   return code ? (
     <HighlightedCode
+      divId={divId}
       code={code}
       theme={theme}
       onMouseDownCapture={onMouseDownCapture}
@@ -39,6 +41,7 @@ export function DummyCodeMirror({
     />
   ) : (
     <PlaceholderCode
+      divId={divId}
       className={className}
       placeholder={placeholder}
       onMouseDownCapture={onMouseDownCapture}
@@ -48,6 +51,7 @@ export function DummyCodeMirror({
 }
 
 function PlaceholderCode({
+  divId,
   className,
   placeholder,
   onMouseDownCapture,
@@ -56,6 +60,7 @@ function PlaceholderCode({
   // returns <br/> if no placeholder, so that the div takes up space
   return (
     <span
+      id={divId}
       className={`${className} text-gray-600 outline-none`}
       style={lineWrapStyle}
       onMouseDownCapture={onMouseDownCapture}
@@ -68,6 +73,7 @@ function PlaceholderCode({
 }
 
 function HighlightedCode({
+  divId,
   code,
   theme,
   onMouseDownCapture,
@@ -189,6 +195,7 @@ function HighlightedCode({
   // TODO: the style object here seems to reduce performance
   return (
     <div
+      id={divId}
       className={`${className} ${scopeClassName} outline-none`}
       style={lineWrapStyle}
       onMouseDownCapture={onMouseDownCapture}

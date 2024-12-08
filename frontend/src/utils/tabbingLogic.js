@@ -188,3 +188,7 @@ const firstFocusableElement = (container) => {
 
   return focusableElements[0];
 };
+
+export function focusOnSectionSearch(sectionId) {
+  document.getElementById(`${sectionId}-search`).focus({ preventScroll: true });
+}

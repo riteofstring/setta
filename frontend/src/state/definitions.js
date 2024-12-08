@@ -140,11 +140,13 @@ export const useProjectSearch = createProjectState(
 );
 
 export const useSectionRefs = createProjectState(
-  immer(
-    withResetFn(() => ({
-      withNested: {},
-      selfOnly: {},
-    })),
+  subscribeWithSelector(
+    immer(
+      withResetFn(() => ({
+        withNested: {},
+        selfOnly: {},
+      })),
+    ),
   ),
 );
 

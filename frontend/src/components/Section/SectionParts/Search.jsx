@@ -28,6 +28,7 @@ export function SectionSearch({ sectionId, selectedItem }) {
 
   return (
     <SectionSearchCore
+      divId={`${sectionId}-search`}
       dataSectionId={sectionId}
       visualSectionId={sectionId}
       selectedItem={selectedItem}
@@ -107,6 +108,7 @@ function SectionSearchCore({
   dummyCodeClassName,
   realCodeClassName,
   isDisabled,
+  divId,
 }) {
   const {
     name: codeInfoName,
@@ -166,6 +168,7 @@ function SectionSearchCore({
       {...getFloatingBoxHandlers(description, codeInfoName)}
     >
       <TextInputCodeMirror
+        dummyDivId={divId}
         dataSectionId={dataSectionId}
         visualSectionId={visualSectionId}
         paramInfoId={null}

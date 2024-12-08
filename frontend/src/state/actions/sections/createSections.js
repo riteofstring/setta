@@ -3,21 +3,34 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos, useSectionRefs } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
+import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
+import { setActiveSectionIds } from "../activeSections";
 import { initRunGroup } from "../runGroups/runGroups";
 import { setSectionVariantChildren } from "../sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
-  return addSectionInEmptySpace({ type: C.SECTION });
+  const newId = addSectionInEmptySpace({ type: C.SECTION });
+  setActiveSectionIds([newId]);
+  const unsub = useSectionRefs.subscribe(
+    (state) => state.selfOnly[newId],
+    (newSectionRef) => {
+      if (newSectionRef) {
+        focusOnSectionSearch(newId);
+      }
+      unsub();
+    },
+  );
 }
 
 export function addGroupInEmptySpace() {
-  return addSectionInEmptySpace({ type: C.GROUP });
+  const newId = addSectionInEmptySpace({ type: C.GROUP });
+  setActiveSectionIds([newId]);
 }
 
 export function addTerminalInEmptySpace() {
@@ -28,7 +41,7 @@ export function addSectionInEmptySpace({
   type,
   sectionProps = {},
   sectionVariantProps = {},
-  positionOffset = { x: 0, y: 0 },
+  positionOffset = { x: 10, y: 10 },
 }) {
   const {
     transform: [_x, _y, zoom],
@@ -40,8 +53,9 @@ export function addSectionInEmptySpace({
 
   const position = { x: x + positionOffset.x, y: y + positionOffset.y };
 
+  let newId;
   useSectionInfos.setState((state) => {
-    addSectionAtPosition({
+    newId = addSectionAtPosition({
       type,
       sectionProps,
       sectionVariantProps,
@@ -50,6 +64,7 @@ export function addSectionInEmptySpace({
     });
   });
   maybeIncrementProjectStateVersion(true);
+  return newId;
 }
 
 export function addSectionAtPosition({
