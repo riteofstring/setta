@@ -45,7 +45,7 @@ export function IframeSettings({ sectionId }) {
           value={iframeCode}
           onChange={handleCodeChange}
           className="h-48 w-full resize-y rounded-md border border-solid border-setta-200 bg-white/80 p-3 font-mono text-sm text-setta-800 placeholder-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:placeholder-setta-600"
-          placeholder="<iframe src='...' width='100%' height='100%'></iframe>"
+          placeholder="<iframe src='...'></iframe>"
           spellCheck="false"
         />
 
@@ -54,15 +54,6 @@ export function IframeSettings({ sectionId }) {
             {error}
           </div>
         )}
-
-        <aside className="text-xs text-setta-700 dark:text-setta-500">
-          <h3 className="mb-2 font-medium">Tips:</h3>
-          <ul className="space-y-1">
-            <li>Use width="100%" and height="100%" for responsive sizing</li>
-            <li>Include frameborder="0" to remove the default border</li>
-            <li>Consider adding title="..." for accessibility</li>
-          </ul>
-        </aside>
       </section>
     </div>
   );
