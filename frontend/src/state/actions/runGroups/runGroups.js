@@ -276,3 +276,18 @@ export function useTopLevelRunGroupListing() {
     return output;
   }, _.isEqual);
 }
+
+export function updateRunGroupsWithNewHierarchy(sectionIdsToChildren) {
+  useSectionInfos.setState((state) => {
+    const globalParamSweepSectionId =
+      state.singletonSections[C.GLOBAL_PARAM_SWEEP];
+    const { variantIds } = state.x[globalParamSweepSectionId];
+    for (const variantId of variantIds) {
+      for (const [sectionId, details] of Object.entries(
+        state.variants[variantId].runGroup,
+      )) {
+        console.log("rungroup sectionId", sectionId, details);
+      }
+    }
+  });
+}

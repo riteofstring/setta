@@ -13,6 +13,7 @@ import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./actions/nodeInternals";
+import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
 import {
   getCodeInfoCol,
   getDisplayedSectionIdToChildren,
@@ -42,8 +43,14 @@ export function subscribe() {
 
   useSectionInfos.subscribe(
     getDisplayedSectionIdToChildren,
-    (x) => {
-      useDndChildren.getState().update(x);
+    (newVal, prevVal) => {
+      console.log(
+        "getDisplayedSectionIdToChildren subscription",
+        prevVal,
+        newVal,
+      );
+      useDndChildren.getState().update(newVal);
+      updateRunGroupsWithNewHierarchy(newVal);
     },
     { equalityFn: _.isEqual },
   );
