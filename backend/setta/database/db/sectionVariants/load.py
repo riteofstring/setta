@@ -2,7 +2,6 @@ import json
 
 from setta.database.db.sectionVariants.utils import (
     with_ev_entry_defaults,
-    with_run_group_entry_defaults,
     with_section_variant_defaults,
 )
 
@@ -76,29 +75,66 @@ def load_section_variants(db, ids):
             curr.append(row["value"])
 
     query = f"""
-        SELECT SectionVariantId.id, SectionVariantRunGroup.sectionId, SectionVariantRunGroup.parentVariantId, SectionVariantRunGroup.data
+        SELECT
+            SectionVariantId.id,
+            SectionVariantRunGroup.sectionId,
+            SectionVariantRunGroup.parentVariantId,
+            SectionVariantRunGroup.selected,
+            SectionVariantRunGroupVersions.versionId,
+            SectionVariantRunGroupVersions.selected as version_selected,
+            SectionVariantRunGroupParamSweeps.sweepId,
+            SectionVariantRunGroupParamSweeps.selected as sweep_selected
         FROM SectionVariantId
         LEFT JOIN SectionVariantRunGroup
-        ON SectionVariantId.id = SectionVariantRunGroup.idid
+            ON SectionVariantId.id = SectionVariantRunGroup.idid
+        LEFT JOIN SectionVariantRunGroupVersions
+            ON SectionVariantRunGroup.idid = SectionVariantRunGroupVersions.idid
+            AND SectionVariantRunGroup.sectionId = SectionVariantRunGroupVersions.sectionId
+            AND (
+                (SectionVariantRunGroup.parentVariantId IS NULL AND SectionVariantRunGroupVersions.parentVariantId IS NULL)
+                OR SectionVariantRunGroup.parentVariantId = SectionVariantRunGroupVersions.parentVariantId
+            )
+        LEFT JOIN SectionVariantRunGroupParamSweeps
+            ON SectionVariantRunGroup.idid = SectionVariantRunGroupParamSweeps.idid
+            AND SectionVariantRunGroup.sectionId = SectionVariantRunGroupParamSweeps.sectionId
+            AND (
+                (SectionVariantRunGroup.parentVariantId IS NULL AND SectionVariantRunGroupParamSweeps.parentVariantId IS NULL)
+                OR SectionVariantRunGroup.parentVariantId = SectionVariantRunGroupParamSweeps.parentVariantId
+            )
         WHERE SectionVariantId.id in ({placeholders})
     """
     db.execute(query, ids)
-    print("fetching run groups")
     for row in db.fetchall():
-        print("row", dict(row))
         id = row["id"]
         if "runGroup" not in output[id]:
             output[id]["runGroup"] = {}
         curr = output[id]["runGroup"]
         sectionId = row["sectionId"]
+
         if not sectionId:
             continue
+
+        print(dict(row))
+
         if sectionId not in curr:
             curr[sectionId] = {}
+        if row["parentVariantId"] not in curr[sectionId]:
+            curr[sectionId][row["parentVariantId"]] = {
+                "selected": row["selected"],
+                "versions": {},
+                "paramSweeps": {},
+            }
 
-        curr[sectionId][row["parentVariantId"]] = with_run_group_entry_defaults(
-            **json.loads(row["data"])
-        )
-        print('curr[row["sectionId"]]', curr[row["sectionId"]])
+        # Add version data if present
+        if row["versionId"] is not None:
+            curr[sectionId][row["parentVariantId"]]["versions"][row["versionId"]] = row[
+                "version_selected"
+            ]
+
+        # Add param sweep data if present
+        if row["sweepId"] is not None:
+            curr[sectionId][row["parentVariantId"]]["paramSweeps"][
+                row["sweepId"]
+            ] = row["sweep_selected"]
 
     return output
