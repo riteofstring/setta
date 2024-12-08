@@ -1,6 +1,6 @@
 import copy
 
-from setta.database.utils import create_new_id
+from setta.database.utils import create_new_id, rename_keys
 
 from ..sections.copy import copy_sections_and_other_info
 
@@ -30,9 +30,7 @@ def copy_project_config(
     if do_create_new_id:
         new_project_config["id"] = create_new_id()
     if section_id_map:
-        for section_id in list(new_project_config["children"].keys()):
-            new_project_config["children"][
-                section_id_map[section_id]
-            ] = new_project_config["children"][section_id]
-            del new_project_config["children"][section_id]
+        new_project_config["children"] = rename_keys(
+            new_project_config["children"], section_id_map
+        )
     return new_project_config

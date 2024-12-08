@@ -1,14 +1,19 @@
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import _ from "lodash";
 import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
-import { moveSection } from "state/actions/sections/moveSections";
-import { manualDndChildrenReset } from "state/actions/sections/sectionInfos";
-import { setSectionVariantChildren } from "state/actions/sectionVariants";
+import {
+  getSectionParentId,
+  manualDndChildrenReset,
+  setSectionVariantChildren,
+  updateSectionInfos,
+} from "state/actions/sectionInfos";
+import {
+  maybeMakeCopyOfSection,
+  moveSection,
+} from "state/actions/sections/moveSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { getSectionParentId } from "state/getters/sectionInfo";
-import { PANEID } from "utils/constants";
+import { useSectionInfos } from "state/definitions";
 import { updateWithArrayMove } from "utils/utils";
 import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
 import { useDndChildren } from "./dndChildren";
@@ -16,9 +21,12 @@ import { BehaviorDropType } from "./dropTypes";
 
 function onSortEnd({ active, over }) {
   if (over && active.id !== over.id) {
-    setSectionVariantChildren({
-      sectionId: active.data.current.sortable?.containerId,
-      newStateFn: updateWithArrayMove(active, over),
+    useSectionInfos.setState((state) => {
+      setSectionVariantChildren(
+        active.data.current.sortable?.containerId,
+        updateWithArrayMove(active, over),
+        state,
+      );
     });
 
     maybeIncrementProjectStateVersion(true);
@@ -30,8 +38,9 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   const sectionId = active.id;
   const dndSectionId = getDndSectionId(sectionId);
   const overId = over?.id;
-  const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
+  const oldParentId = getSectionParentId(sectionId);
   let newParentId = dndChildrenState.y[dndSectionId] ?? null;
+  let overIdx = null;
   let newIndex = null;
   let position = null;
   const behaviorDropType = useDndState.getState().behaviorDropType;
@@ -39,37 +48,58 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   if (newParentId) {
     const children = dndChildrenState.x[newParentId];
     const activeIdx = children.indexOf(dndSectionId);
-    const overIdx = children.indexOf(overId);
+    overIdx = children.indexOf(overId);
     const pastHalfway = collisions[0].pastHalfway;
     const maxIdx = children.length;
     newIndex = computeNewIndex(activeIdx, overIdx, pastHalfway, maxIdx);
   }
   // dropping nested section onto pane
   else if (!overId) {
-    newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = screenToFlowPosition({ x, y });
 
-    if (oldParentId === PANEID) {
+    if (!oldParentId) {
       justMoveANode(sectionId, position);
       return;
     }
   }
 
-  await moveSection({
-    oldParentId,
-    newParentId,
-    sectionId,
-    newIndex,
-    position,
-    behaviorDropType,
-    incrementVersion: true,
-  });
-
   if (behaviorDropType === BehaviorDropType.INVALID) {
     manualDndChildrenReset();
+    return;
   }
+
+  if (overIdx === newIndex && oldParentId === newParentId) {
+    manualDndChildrenReset();
+    return;
+  }
+
+  const maybeNewSectionData = await maybeMakeCopyOfSection({
+    sectionId,
+    oldParentId,
+    newParentId,
+  });
+
+  useSectionInfos.setState((state) => {
+    let newSectionId;
+    if (maybeNewSectionData.sections) {
+      updateSectionInfos({ ...maybeNewSectionData, state });
+      newSectionId = Object.keys(maybeNewSectionData.sections)[0];
+    } else {
+      newSectionId = maybeNewSectionData;
+    }
+
+    moveSection({
+      oldParentId,
+      newParentId,
+      oldSectionId: sectionId,
+      newSectionId,
+      newIndex,
+      position,
+      state,
+    });
+  });
 }
 
 export function useOnDragEnd() {

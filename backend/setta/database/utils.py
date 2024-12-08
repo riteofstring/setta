@@ -1,6 +1,4 @@
 import copy
-import json
-from collections import defaultdict
 from uuid import uuid4
 
 
@@ -15,28 +13,12 @@ def maybe_new_id(x):
 def aggregate_results(results, top_level_key, aggregate):
     output = {}
     for row in results:
-        row = dict(row)
         key = row[top_level_key]
         if key not in output:
             output[key] = {**row, **{a: [] for a in aggregate}}
         for a in aggregate:
             output[key][a].append(row[a])
     return output
-
-
-def get_children_recursively(db, ids, query):
-    all_ids = set(ids)
-    parent_to_children = defaultdict(list, {c: [] for c in ids})
-    for c in ids:
-        db.execute(query, {"parentId": c})
-        parent_child_pairs = db.fetchall()
-        for row in parent_child_pairs:
-            row = dict(row)
-            childId = row["childId"]
-            all_ids.add(childId)
-            parent_to_children[row["parentId"]].append(childId)
-
-    return list(all_ids), parent_to_children
 
 
 def rename_keys(x, to_rename):
@@ -59,11 +41,3 @@ def remap_ids(x, old_ids=None):
     id_map = create_id_map(old_ids)
     new_obj = rename_keys(x, id_map)
     return new_obj, id_map
-
-
-def parse_keyword_positions_string(x):
-    return json.loads(x) if x is not None else []
-
-
-def dump_keyword_positions_as_string(x):
-    return json.dumps(x) if len(x) > 0 else None

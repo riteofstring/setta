@@ -1,14 +1,5 @@
 import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { useEffect } from "react";
-import { attachKeyEventListeners } from "state/actions/keyActivations";
-
-export function useInitGlobalKeyEventListeners() {
-  useEffect(() => {
-    const cleanup = attachKeyEventListeners();
-    return cleanup;
-  }, []);
-}
 
 export function useShouldDisablePointerEvents() {
   const isSortingOrMovingFree = useDndState(

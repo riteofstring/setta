@@ -1,6 +1,6 @@
 import _ from "lodash";
-import { manualDndChildrenReset } from "state/actions/sections/sectionInfos";
-import { createProjectState } from "state/utils";
+import { manualDndChildrenReset } from "state/actions/sectionInfos";
+import { createProjectState, withResetFn } from "state/utils";
 import { immer } from "zustand/middleware/immer";
 
 const initialState = {
@@ -17,27 +17,29 @@ const initialState = {
 };
 
 export const useDndState = createProjectState(
-  immer((set, get) => ({
-    ...initialState,
-    setActive: ({ id, isTopLevel, width, height }) =>
-      set({ activeId: id, activeIsTopLevel: isTopLevel, width, height }),
-    activateSortingMode: () => set({ isSorting: true, isMovingFree: false }),
-    activateMovingFreeMode: () => {
-      set({ isMovingFree: true, isSorting: false });
-    },
-    deactivate: () => {
-      set({ ...initialState, disabled: get().disabled });
-      manualDndChildrenReset();
-    },
-    setDisabled: (sectionId, disabled) =>
-      set((state) => {
-        state.disabled[sectionId] = disabled;
-      }),
-    setTime: (sectionId) =>
-      set((state) => {
-        state.times[sectionId] = Date.now();
-      }),
-  })),
+  immer(
+    withResetFn((set, get) => ({
+      ...initialState,
+      setActive: ({ id, isTopLevel, width, height }) =>
+        set({ activeId: id, activeIsTopLevel: isTopLevel, width, height }),
+      activateSortingMode: () => set({ isSorting: true, isMovingFree: false }),
+      activateMovingFreeMode: () => {
+        set({ isMovingFree: true, isSorting: false });
+      },
+      deactivate: () => {
+        set({ ...initialState, disabled: get().disabled });
+        manualDndChildrenReset();
+      },
+      setDisabled: (sectionId, disabled) =>
+        set((state) => {
+          state.disabled[sectionId] = disabled;
+        }),
+      setTime: (sectionId) =>
+        set((state) => {
+          state.times[sectionId] = Date.now();
+        }),
+    })),
+  ),
 );
 
 const dndIdSuffix = "-TempDND";

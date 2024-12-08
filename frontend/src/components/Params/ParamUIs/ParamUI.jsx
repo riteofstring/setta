@@ -1,13 +1,10 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import C from "constants/constants.json";
-import {
-  useCodeInfo,
-  useParamShortcuts,
-  useSectionInfos,
-} from "state/definitions";
+import _ from "lodash";
+import { getSectionVariant } from "state/actions/sectionInfos";
+import { useMisc, useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
-import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
-import { useGetParamUIType } from "state/hooks/uiTypes";
+import { getParamUIType } from "state/hooks/uiTypes";
 import { ColorPickerInput, ColorPickerInputConfig } from "./ColorPickerInput";
 import { DropdownInput, DropdownInputConfig } from "./DropdownInput";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
@@ -38,17 +35,23 @@ export function ParamUI({
   keywordPositions,
   setKeywordPositions,
 }) {
-  const configLanguage = useSectionInfos((x) => x.x[sectionId].configLanguage);
-  const uiType = useGetParamUIType(sectionId, paramInfoId);
+  const isSelectingParams = useMisc((x) => x.isSelectingParams);
+  const { uiType, configLanguage, defaultVal, disabledOrFrozen } =
+    useSectionInfos((x) => {
+      return {
+        uiType: getParamUIType(sectionId, paramInfoId, x),
+        configLanguage: x.x[sectionId].configLanguage,
+        defaultVal: x.codeInfo[paramInfoId].defaultVal,
+        disabledOrFrozen:
+          x.codeInfo[paramInfoId].isDisabled ||
+          getSectionVariant(sectionId, x).isFrozen,
+      };
+    }, _.isEqual);
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
     paramInfoId,
   });
-  const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
-  const defaultVal = useCodeInfo((x) => x.x[paramInfoId].defaultVal);
-  const isDisabled = useCodeInfo((x) => x.x[paramInfoId].isDisabled);
-  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
-  const _isDisabled = isDisabled || isSelectingParams || variantIsDisabled;
+  const isDisabled = isSelectingParams || disabledOrFrozen;
 
   // need to put the group/textinput in a higher div
 
@@ -63,17 +66,19 @@ export function ParamUI({
             value={value}
             defaultVal={defaultVal}
             onChange={onChange}
-            dummyCodeClassName={`section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!_isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+            dummyCodeClassName={`section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
             realCodeClassName={`nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
             language={configLanguage}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
-            isDisabled={_isDisabled}
+            isDisabled={isDisabled}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />
+          <span
+            className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
+          />
         </>
       );
     case C.SLIDER: {
@@ -86,7 +91,7 @@ export function ParamUI({
           min={min}
           max={max}
           step={step}
-          isDisabled={_isDisabled}
+          isDisabled={isDisabled}
           wrapperDivClass="section-value flex gap-1"
           sliderRootClassName=" data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
           sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
@@ -103,7 +108,7 @@ export function ParamUI({
           value={value}
           defaultVal={defaultVal}
           onChange={onChange}
-          isDisabled={_isDisabled}
+          isDisabled={isDisabled}
           outerDivClassName="section-value flex justify-self-start self-center"
           twRootClasses="nodrag"
         />
@@ -117,7 +122,7 @@ export function ParamUI({
           onChange={onChange}
           wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
           colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
-          isDisabled={_isDisabled}
+          isDisabled={isDisabled}
         />
       );
     case C.DROPDOWN:
@@ -127,8 +132,8 @@ export function ParamUI({
           choices={choices}
           value={value}
           onChange={onChange}
-          outerDivClasses="section-value flex justify-self-start self-center"
-          isDisabled={_isDisabled}
+          outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
+          isDisabled={isDisabled}
         />
       );
   }
@@ -145,14 +150,17 @@ export function ParamSweepUI({
   setKeywordPositions,
   isDisabled,
 }) {
-  const configLanguage = useSectionInfos(
-    (x) => x.x[dataSectionId].configLanguage,
-  );
-  const uiType = useGetParamUIType(dataSectionId, paramInfoId);
+  const { uiType, configLanguage } = useSectionInfos((x) => {
+    return {
+      uiType: getParamUIType(dataSectionId, paramInfoId, x),
+      configLanguage: x.x[dataSectionId].configLanguage,
+    };
+  }, _.isEqual);
   const waitingForResult = useTextFieldWaitingForLSPResult({
     dataSectionId,
     paramInfoId,
   });
+  const isSelectingParams = useMisc((x) => x.isSelectingParams);
 
   switch (uiType.type) {
     default:
@@ -175,7 +183,9 @@ export function ParamSweepUI({
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="section-key-value grid-row-start-1 border-box mx-3 self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />
+          <span
+            className={`section-key-value grid-row-start-1 border-box mx-3 self-end border-b border-setta-200/50 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""} dark:border-setta-600/30`}
+          />
         </>
       );
     case C.SLIDER: {
@@ -189,7 +199,7 @@ export function ParamSweepUI({
           max={max}
           step={step}
           isDisabled={isDisabled}
-          wrapperDivClass="section-key-value flex gap-1"
+          wrapperDivClass="section-key-value flex gap-1 ml-2"
           sliderRootClassName="data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
           sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
           sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
@@ -206,7 +216,7 @@ export function ParamSweepUI({
           defaultVal={defaultVal}
           onChange={onChange}
           isDisabled={isDisabled}
-          outerDivClassName="section-key-value flex justify-self-center self-center"
+          outerDivClassName="section-key-value flex justify-self-start self-center ml-2"
           twRootClasses="nodrag"
         />
       );
@@ -217,8 +227,8 @@ export function ParamSweepUI({
           colorChoices={colorChoices}
           value={value}
           onChange={onChange}
-          wrapperClassName="section-value flex justify-self-start self-center"
-          colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg bg-setta-100 px-2 dark:bg-setta-850 dark:hover:bg-setta-900"
+          wrapperClassName="section-key-value single-cell-container w-[calc(100%_-_1.25rem)] min-h-0 flex justify-self-start self-center ml-2"
+          colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
           isDisabled={isDisabled}
         />
       );
@@ -229,7 +239,7 @@ export function ParamSweepUI({
           choices={choices}
           value={value}
           onChange={onChange}
-          outerDivClasses="section-value flex justify-self-start self-center"
+          outerDivClasses="section-key-value w-[calc(100%_-_1.15rem)] ml-2 flex justify-self-start self-center [&_search]:my-auto"
           isDisabled={isDisabled}
         />
       );

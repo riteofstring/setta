@@ -1,6 +1,4 @@
-import C from "constants/constants.json";
 import { useEffect, useState } from "react";
-import { useIsListElement, useIsOneOfType } from "./uiTypes";
 
 export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
   const [inputValue, setInputValue] = useState(initialValue);
@@ -22,18 +20,4 @@ export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
   }, [initialValue]);
 
   return [inputValue, setInputValue, onBlur, onCancel];
-}
-
-export function useTitleIsEditable(sectionId) {
-  const isUneditableType = useIsOneOfType(sectionId, [
-    C.IMAGE,
-    C.LINE_PLOT,
-    C.GLOBAL_VARIABLES,
-    C.PARAM_SWEEP,
-    C.GLOBAL_PARAM_SWEEP,
-  ]);
-
-  const isListElement = useIsListElement(sectionId);
-
-  return !isListElement && !isUneditableType;
 }

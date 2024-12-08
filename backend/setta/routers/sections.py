@@ -2,7 +2,6 @@ from pathlib import Path
 from pprint import pprint
 from typing import Dict, List
 
-import yaml
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -16,11 +15,11 @@ from setta.code_gen.yaml.section_dict import (
     run_group_dict_to_yaml,
     section_dict_to_yaml,
 )
-from setta.database.db.projects.utils import save_json_source_data
 from setta.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
 )
+from setta.database.db.sections.jsonSource import save_json_source_data
 from setta.database.db.sections.load import load_json_sources_into_data_structures
 from setta.utils.constants import C
 from setta.utils.generate_new_filename import generate_new_filename
@@ -51,12 +50,12 @@ class GlobalParamSweepSectionToYamlRequest(BaseModel):
     runGroup: dict | None
     sections: dict
     sectionVariants: dict
-    paramSweeps: dict
 
 
 class LoadSectionJSONSourceRequest(BaseModel):
     project: dict
     sectionId: str
+    jsonSource: str
 
 
 class SaveSectionJSONSourceRequest(BaseModel):
@@ -66,11 +65,6 @@ class SaveSectionJSONSourceRequest(BaseModel):
 
 class NewJSONVersionNameRequest(BaseModel):
     filenameGlob: str
-
-
-@router.post(C.ROUTE_SECTIONS)
-def route_sections():
-    pass
 
 
 @router.post(C.ROUTE_COPY_SECTIONS)
@@ -114,7 +108,9 @@ def route_param_sweep_section_to_yaml(x: ParamSweepSectionToYamlRequest):
 @router.post(C.ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML)
 def route_global_param_sweep_section_to_yaml(x: GlobalParamSweepSectionToYamlRequest):
     output = export_single_run_group_to_dict(
-        x.runGroup, x.sections, x.sectionVariants, x.paramSweeps
+        x.runGroup,
+        x.sections,
+        x.sectionVariants,
     )
     yamlValue = run_group_dict_to_yaml(output)
     return {"yamlValue": yamlValue, "originalObj": {}}
@@ -123,15 +119,15 @@ def route_global_param_sweep_section_to_yaml(x: GlobalParamSweepSectionToYamlReq
 @router.post(C.ROUTE_LOAD_SECTION_JSON_SOURCE)
 def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
     p = x.project
-    jsonSourceMissing = load_json_sources_into_data_structures(
+    p["sections"][x.sectionId]["jsonSource"] = x.jsonSource
+    load_json_sources_into_data_structures(
         p["sections"],
         p["codeInfo"],
         p["codeInfoCols"],
         p["sectionVariants"],
         section_ids=[x.sectionId],
     )
-    jsonSourceMissing = x.sectionId in jsonSourceMissing
-    return {"project": p, "jsonSourceMissing": jsonSourceMissing}
+    return {"project": p}
 
 
 @router.post(C.ROUTE_NEW_JSON_VERSION_NAME)

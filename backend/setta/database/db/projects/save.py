@@ -1,25 +1,28 @@
 import json
 from collections import defaultdict
 
-from setta.code_gen.export_selected import (
-    get_section_type,
-    get_section_variants,
-    get_selected_item_name,
-)
+from setta.code_gen.export_selected import get_section_variants
+from setta.database.db.projects.utils import add_defaults_to_project
 from setta.database.utils import create_new_id
-from setta.utils.constants import USER_SETTINGS, C
+from setta.utils.constants import (
+    DEFAULT_VALUES,
+    PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS,
+    PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS,
+    SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
+    USER_SETTINGS,
+)
 from setta.utils.generate_memorable_string import generate_memorable_string
+from setta.utils.utils import filter_dict
 
 from ..codeInfo.save import save_code_info, save_code_info_col
-from ..paramSweeps.save import save_param_sweeps
-from ..runGroups.save import save_run_groups
+from ..sections.jsonSource import remove_json_source_data, save_json_source_data
 from ..sections.save import save_sections
 from ..sectionVariants.save import save_section_variants
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
-from .utils import remove_json_source_data, save_json_source_data
 
 
 def save_project_details(db, p):
+    add_defaults_to_project(p)
     save_json_source_data(p)
     remove_json_source_data(p)
     save_code_info(db, p["codeInfo"])
@@ -27,44 +30,34 @@ def save_project_details(db, p):
     save_ui_types(db, p["uiTypes"])
     save_ui_type_cols(db, p["uiTypeCols"])
     save_section_variants(db, p["sectionVariants"])
-    save_param_sweeps(db, p["paramSweeps"])
     save_sections(db, p["sections"], p["sectionVariants"])
     save_project(db, p["projectConfig"])
     save_section_configs(db, p["projectConfig"]["id"], p["sections"])
     update_linked_project_configs(db, p)
-    save_run_groups(db, p["projectConfig"], p["runGroups"])
 
 
 def save_project(db, project):
     query = """
-        INSERT INTO ProjectConfig (id, name, previewImgNodes, isDefault, viewport)
-        VALUES (:id, :name, :previewImgNodes, :isDefault, :viewport)
+        INSERT INTO ProjectConfig (id, name, data)
+        VALUES (:id, :name, :data)
         ON CONFLICT (id)
         DO UPDATE SET
         name = :name,
-        previewImgNodes = :previewImgNodes,
-        isDefault = :isDefault,
-        viewport = :viewport
+        data = :data
     """
 
     query_params = {
         "id": project["id"],
         "name": project["name"],
-        "previewImgNodes": project["previewImgNodes"],
-        "isDefault": project["isDefault"],
-        "viewport": json.dumps(project["viewport"]) if project["viewport"] else None,
+        "data": json.dumps(
+            filter_dict(
+                project,
+                PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS,
+                DEFAULT_VALUES["projectConfig"],
+            )
+        ),
     }
     db.execute(query, query_params)
-
-    if "previewImgColor" in project:
-        query = """
-            UPDATE ProjectConfig
-            SET previewImgColor = :previewImgColor
-            WHERE ID = :id
-        """
-        db.execute(
-            query, {"id": project["id"], "previewImgColor": project["previewImgColor"]}
-        )
 
     query = """
         DELETE FROM ProjectConfigChildren
@@ -73,8 +66,8 @@ def save_project(db, project):
     db.execute(query, {"parentId": project["id"]})
 
     query = """
-        INSERT INTO ProjectConfigChildren (parentId, childId, x, y, zIndex)
-        VALUES (:parentId, :childId, :x, :y, :zIndex)
+        INSERT INTO ProjectConfigChildren (parentId, childId, data)
+        VALUES (:parentId, :childId, :data)
     """
     query_params = []
     query_params.extend(
@@ -82,9 +75,9 @@ def save_project(db, project):
             {
                 "parentId": project["id"],
                 "childId": childId,
-                "x": details["x"],
-                "y": details["y"],
-                "zIndex": details["zIndex"],
+                "data": json.dumps(
+                    filter_dict(details, PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS)
+                ),
             }
             for childId, details in project["children"].items()
         ]
@@ -104,32 +97,26 @@ def create_project_config(db, name, previewImgColor):
         name = generate_memorable_string()
 
     query = """
-        INSERT INTO ProjectConfig (id, name, previewImgColor, viewport)
-        VALUES (:id, :name, :previewImgColor, :viewport)
+        INSERT INTO ProjectConfig (id, name, data)
+        VALUES (:id, :name, :data)
     """
     projectId = create_new_id()
     query_params = {
         "id": projectId,
         "name": name,
-        "previewImgColor": previewImgColor,
-        "viewport": json.dumps(
-            {"x": 0, "y": 0, "zoom": USER_SETTINGS["defaultZoomLevel"]}
+        "data": json.dumps(
+            {
+                "previewImgColor": previewImgColor,
+                "viewport": {
+                    "x": 0,
+                    "y": 0,
+                    "zoom": USER_SETTINGS["gui"]["defaultZoomLevel"],
+                },
+            }
         ),
     }
     db.execute(query, query_params)
-
-    query = """
-        SELECT
-            name
-        FROM
-            ProjectConfig
-        WHERE
-            id = :id
-    """
-    query_params = {"id": projectId}
-    db.execute(query, query_params)
-    out = dict(db.fetchone())
-    return out["name"]
+    return name
 
 
 def save_project_config_name(db, curr_name, new_name):
@@ -144,15 +131,9 @@ def save_project_config_name(db, curr_name, new_name):
 
 def set_as_default_project(db, projectId):
     query = """
-        UPDATE ProjectConfig
-        SET isDefault = 0;
-    """
-    db.execute(query)
-
-    query = """
-        UPDATE ProjectConfig
-        SET isDefault = 1
-        WHERE id = :projectId;
+        UPDATE Metadata
+        SET defaultProject = :projectId
+        WHERE id = 1;
     """
     db.execute(query, {"projectId": projectId})
 
@@ -168,30 +149,54 @@ def save_section_configs(db, project_config_id, sections):
     """
     db.execute(query, query_params)
 
+    query = f"""
+        DELETE FROM SectionConfigSelectedVariants
+        WHERE (projectConfigId, sectionId) IN ({placeholders})
+    """
+    db.execute(query, query_params)
+
     id_pairs = [(project_config_id, s) for s in sections.keys()]
     insert_section_configs(db, sections, id_pairs)
 
 
 def insert_section_configs(db, sections, id_pairs):
     query = """
-        INSERT INTO SectionConfig (projectConfigId, sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation, pinnedAreaHeight, isMinimized)
-        VALUES (:projectConfigId, :sectionId, :width, :height, :variantId, :paramSweepId, :isHorizontalOrientation, :pinnedAreaHeight, :isMinimized)
+        INSERT INTO SectionConfig (projectConfigId, sectionId, variantId, data)
+        VALUES (:projectConfigId, :sectionId, :variantId, :data)
     """
 
     query_params = [
         {
             "projectConfigId": projectConfigId,
             "sectionId": sections[c]["id"],
-            "width": convert_size(sections[c]["size"]["width"]),
-            "height": convert_size(sections[c]["size"]["height"]),
             "variantId": sections[c]["variantId"],
-            "paramSweepId": sections[c]["paramSweepId"],
-            "isHorizontalOrientation": sections[c]["isHorizontalOrientation"],
-            "pinnedAreaHeight": convert_size(sections[c]["pinnedAreaHeight"]),
-            "isMinimized": sections[c]["isMinimized"],
+            "data": json.dumps(
+                filter_dict(
+                    sections[c],
+                    SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
+                    DEFAULT_VALUES["section"],
+                )
+            ),
         }
         for projectConfigId, c in id_pairs
     ]
+
+    db.executemany(query, query_params)
+
+    query = """
+        INSERT INTO SectionConfigSelectedVariants (projectConfigId, sectionId, variantId)
+        VALUES (:projectConfigId, :sectionId, :variantId)
+    """
+    query_params = []
+    for projectConfigId, c in id_pairs:
+        query_params.extend(
+            {
+                "projectConfigId": projectConfigId,
+                "sectionId": sections[c]["id"],
+                "variantId": k,
+            }
+            for k in sections[c]["selectedVariantIds"].keys()
+        )
 
     db.executemany(query, query_params)
 
@@ -213,7 +218,6 @@ def update_linked_project_configs(db, project):
     sections_to_project_configs = defaultdict(set)
     project_configs_to_sections = defaultdict(set)
     for row in db.fetchall():
-        row = dict(row)
         sections_to_project_configs[row["sectionId"]].add(row["projectConfigId"])
         project_configs_to_sections[row["projectConfigId"]].add(row["sectionId"])
 
@@ -244,16 +248,6 @@ def update_linked_project_configs(db, project):
                     # So we need to add the child to the other project configs that it's not in.
                     if c not in other_project_section_configs:
                         section_configs_to_add.add((other_project_config, c))
-                        missing_referenced_section_id = (
-                            get_missing_referenced_section_id(
-                                project, c, other_project_section_configs
-                            )
-                        )
-                        if missing_referenced_section_id:
-                            section_configs_to_add.add(
-                                (other_project_config, missing_referenced_section_id)
-                            )
-
                     else:
                         c_already_in_at_least_one_other_config = True
 
@@ -268,22 +262,3 @@ def update_linked_project_configs(db, project):
 
     print("section_configs_to_add", section_configs_to_add, flush=True)
     insert_section_configs(db, project["sections"], section_configs_to_add)
-
-
-def convert_size(x):
-    return -1 if x == "auto" else x
-
-
-def get_missing_referenced_section_id(
-    project, section_id, other_project_section_configs
-):
-    if get_section_type(project, section_id) == C.REFERENCE_SECTION:
-        r = project["fullNameToInfo"][get_selected_item_name(project, section_id)]
-        if (
-            r["sectionId"]
-            and not r["paramInfoId"]
-            and not r["isArgsObj"]
-            and r["sectionId"] not in other_project_section_configs
-        ):
-            return r["sectionId"]
-    return None

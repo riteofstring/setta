@@ -1,47 +1,43 @@
 import { useDndMonitor } from "forks/dnd-kit/CustomCore";
 import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
-import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
+import _ from "lodash";
 import { useEffect } from "react";
-import { getSectionParentId } from "state/getters/sectionInfo";
+import { getSectionParentId } from "state/actions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import colors from "tailwindcss/colors";
-import { useHasPermanentNested } from "../../state/hooks/sections";
+import { BehaviorDropType } from "./dropTypes";
 
 export function useHighlightDroppable(sectionId) {
-  const overIsSelf = useOverIsSelf(sectionId);
-  const behaviorDropType = useDndState((x) =>
-    overIsSelf ? x.behaviorDropType : null,
-  );
-  const invalid = behaviorDropType === BehaviorDropType.INVALID;
-
-  const style = invalid
-    ? {
-        borderRadius: "1.5rem",
-        padding: "0.75rem",
-        margin: "-0.75rem",
-        // transition: "background-color 0.2s",
-        backgroundColor: invalid ? colors.red[600] : colors.blue[500],
-      }
-    : {};
-
-  return {
-    style,
-    behaviorDropType,
-  };
+  return useDndState((x) => {
+    const behaviorDropType = x.overId === sectionId ? x.behaviorDropType : null;
+    return {
+      behaviorDropType,
+      style:
+        behaviorDropType === BehaviorDropType.INVALID
+          ? {
+              borderRadius: "1.5rem",
+              padding: "0.75rem",
+              margin: "-0.75rem",
+              backgroundColor: colors.red[600],
+            }
+          : {},
+    };
+  }, _.isEqual);
 }
 
 export function useDisableSortable(sectionId) {
   const { isSorting, isMovingFree } = useDndMode();
   const disabled = useDndState((x) => x.disabled[sectionId]);
   const setDisabled = useDndState((x) => x.setDisabled);
-  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
+  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
 
   useEffect(() => {
     setDisabled(sectionId, {
-      draggable: variantIsDisabled,
+      draggable: variantIsFrozen,
       droppable: true,
     });
-  }, [variantIsDisabled]);
+  }, [variantIsFrozen]);
 
   function activeIdInAncestorSet(activeId) {
     let parentId = getSectionParentId(sectionId);
@@ -55,7 +51,7 @@ export function useDisableSortable(sectionId) {
   }
 
   function enableSort({ active }) {
-    if (variantIsDisabled) {
+    if (variantIsFrozen) {
       return;
     }
 
@@ -77,7 +73,7 @@ export function useDisableSortable(sectionId) {
   }
 
   function onDragDone() {
-    setDisabled(sectionId, { draggable: variantIsDisabled, droppable: true });
+    setDisabled(sectionId, { draggable: variantIsFrozen, droppable: true });
   }
 
   useDndMonitor({
@@ -86,7 +82,7 @@ export function useDisableSortable(sectionId) {
     onDragCancel: onDragDone,
   });
 
-  return disabled ?? { draggable: variantIsDisabled, droppable: true };
+  return disabled ?? { draggable: variantIsFrozen, droppable: true };
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
@@ -98,6 +94,9 @@ export function useDndProps({ sectionId, isTopLevel }) {
   };
 }
 
-export function useOverIsSelf(sectionId) {
-  return useDndState((x) => x.overId === sectionId);
+function useHasPermanentNested(sectionId) {
+  return useSectionInfos((x) => {
+    const variantId = x.x[sectionId]?.variantId;
+    return variantId ? x.variants[variantId].children.length > 0 : false;
+  });
 }

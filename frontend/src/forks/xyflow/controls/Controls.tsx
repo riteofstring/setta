@@ -29,8 +29,8 @@ import type { ControlProps } from "./types";
 function useZoomReached() {
   const { minZoom, maxZoom } = useSettings(
     (x) => ({
-      minZoom: x.minZoom,
-      maxZoom: x.maxZoom,
+      minZoom: x.gui.minZoom,
+      maxZoom: x.gui.maxZoom,
     }),
     shallow,
   );
@@ -68,12 +68,10 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
 
   const onZoomInHandler = () => {
     zoomIn();
-    useReactFlow.setState({ fitViewOnInit: false });
   };
 
   const onZoomOutHandler = () => {
     zoomOut();
-    useReactFlow.setState({ fitViewOnInit: false });
   };
 
   // const onToggleInteractivity = () => {

@@ -3,19 +3,25 @@ import {
   setCenter,
 } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
-import { useEffect, useState } from "react";
-import { updateSearch } from "state/actions/search/projectSearch";
-import { getParamIds } from "state/actions/sections/sectionContents";
-import { useCodeInfo, useProjectSearch, useSettings } from "state/definitions";
-import { useSectionIdToChildren } from "./sectionVariants";
+import { matchSorter } from "match-sorter";
+import { useState } from "react";
+import { getCodeInfoCol, getSectionVariant } from "state/actions/sectionInfos";
+import {
+  useProjectSearch,
+  useSectionInfos,
+  useSettings,
+} from "state/definitions";
+import { findAllParameters } from "utils/getDescendants";
 
 export function useUpdateProjectSearch() {
   const [value, setValue] = useState("");
-  const allVisibleParams = useAllVisibleParams();
+  const [visibleParams, setVisibleParams] = useState([]);
+  const [currIdx, setCurrIdx] = useState(-1);
 
   function onChange(v) {
     setValue(v);
-    doUpdateSearch(v, allVisibleParams);
+    doUpdateSearch(v, visibleParams);
+    setCurrIdx(-1);
   }
 
   function onBlur() {
@@ -23,21 +29,14 @@ export function useUpdateProjectSearch() {
   }
 
   function onFocus() {
-    doUpdateSearch(value, allVisibleParams);
+    const newVisibleParams = getAllVisibleParams();
+    setVisibleParams(newVisibleParams);
+    doUpdateSearch(value, newVisibleParams);
   }
 
-  useEffect(() => {
-    doUpdateSearch(value, allVisibleParams);
-  }, [allVisibleParams.length]);
-
-  return { value, onChange, onBlur, onFocus };
-}
-
-export function useOnEnterGoToSearchResult() {
-  const searchResults = useProjectSearch((x) => x.codeInfo);
-  const [currIdx, setCurrIdx] = useState(-1);
   function onKeyDown(e) {
     if (e.key === "Enter") {
+      const { codeInfo: searchResults } = useProjectSearch.getState();
       if (searchResults.length === 0) {
         return;
       }
@@ -48,57 +47,51 @@ export function useOnEnterGoToSearchResult() {
       setCurrIdx(newIdx);
     } else if (e.key === "Escape") {
       e.target.blur();
-    } else {
-      useProjectSearch.setState({ focused: {} });
-      setCurrIdx(-1);
     }
   }
 
-  useEffect(() => {
-    if (currIdx > -1) {
-      setCurrIdx((x) => x % searchResults.length);
-    }
-  }, [searchResults.length]);
-
-  return onKeyDown;
+  return { value, onChange, onBlur, onFocus, onKeyDown };
 }
 
-function useAllVisibleParams() {
-  const sectionIdToChildren = useSectionIdToChildren();
-  const allIds = [];
-  const allIdsSet = new Set();
-
-  // Add all keys (IDs) to the set
-  Object.entries(sectionIdToChildren).forEach(([key, value]) => {
-    if (!allIdsSet.has(key)) {
-      allIdsSet.add(key);
-      allIds.push(key);
+// TODO: this doesn't look correct, it's not recursive
+function getAllVisibleParams() {
+  const x = useSectionInfos.getState();
+  const output = [];
+  const visitedSections = new Set();
+  for (const sectionId of Object.keys(x.x)) {
+    getParamsAndAddToSearchResults(visitedSections, sectionId, x, output);
+    const sectionChildren = getSectionVariant(sectionId, x).children;
+    for (const id of sectionChildren) {
+      getParamsAndAddToSearchResults(visitedSections, id, x, output);
     }
-    value.forEach((id) => {
-      if (!allIdsSet.has(id)) {
-        allIdsSet.add(id);
-        allIds.push(id);
-      }
+  }
+  return output;
+}
+
+function getParamsAndAddToSearchResults(
+  visitedSections,
+  sectionId,
+  state,
+  output,
+) {
+  if (!visitedSections.has(sectionId)) {
+    const { selectedItem } = getSectionVariant(sectionId, state);
+    const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
+    const { ids: paramIds } = findAllParameters({
+      allCodeInfo: state.codeInfo,
+      codeInfoChildren,
+      startingId: selectedItem,
     });
-  });
-
-  return useCodeInfo((x) => {
-    const output = [];
-    for (const id of allIds) {
-      const { ids: paramIds } = getParamIds(id, x.x);
-      for (const p of paramIds) {
-        output.push({
-          sectionId: id,
-          paramInfoId: p,
-          name: x.x[p].name,
-        });
-      }
+    for (const p of paramIds) {
+      output.push({
+        sectionId,
+        paramInfoId: p,
+        name: state.codeInfo[p].name,
+      });
     }
-    return output;
-  });
+    visitedSections.add(sectionId);
+  }
 }
-
-const doUpdateSearch = _.debounce(updateSearch, 100);
 
 function goToSearchResult(searchResult) {
   const { sectionId, paramInfoId } = searchResult;
@@ -110,6 +103,33 @@ function goToSearchResult(searchResult) {
     x: _x + width / 2,
     y: _y + height / 2,
   });
-  const zoom = useSettings.getState().defaultZoomLevel;
+  const zoom = useSettings.getState().gui.defaultZoomLevel;
   setCenter(x, y, { zoom });
+}
+
+function updateSearch(value, allVisibleParams) {
+  if (!value) {
+    useProjectSearch.getState().reset();
+    return;
+  }
+
+  const codeInfo = matchSorter(allVisibleParams, value, {
+    keys: ["name"],
+    sorter: (rankedItems) => rankedItems, //don't sort
+  });
+
+  useProjectSearch.setState({
+    codeInfo,
+    lookup: new Set(
+      codeInfo.map((x) =>
+        createProjectSearchLookupKey(x.sectionId, x.paramInfoId),
+      ),
+    ),
+  });
+}
+
+const doUpdateSearch = _.debounce(updateSearch, 100);
+
+export function createProjectSearchLookupKey(sectionId, paramInfoId) {
+  return `${sectionId}-${paramInfoId}`;
 }

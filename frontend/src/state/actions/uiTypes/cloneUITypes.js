@@ -1,31 +1,26 @@
 import _ from "lodash";
-import { useUITypes } from "state/definitions";
+import { isPreset } from "state/actions/uiTypes/utils";
 import { createNewId } from "utils/idNameCreation";
-import { isPreset } from "utils/sectionTypeHelpers";
 
-export function maybeCloneUIType({
+export function maybeGetExistingUIType({
   currUIType,
-  settingPreset,
   nonPresetUITypeIds,
-  createNonPreset,
-  setUITypeId,
+  state,
 }) {
-  // If it's a preset but we're not "saving as",
+  // If it's a preset
   // then use existing non-preset, or copy into a new non-preset ui type.
-  let maybeNewUIType = currUIType;
-  if (isPreset(currUIType) && !settingPreset) {
+  let maybeExistingUIType = currUIType;
+  if (isPreset(currUIType)) {
     // Try using existing non-preset (uiType with same type and that belongs to nonPresetUITypeIds)
-    const matches = _.filter(useUITypes.getState().x, (v) =>
+    const matches = _.filter(state.uiTypes, (v) =>
       isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, currUIType.type),
     );
 
     // If there's no match, create a non-preset
-    maybeNewUIType = matches.length > 0 ? matches[0] : createNonPreset();
-    // In both cases, make the section or param to use the new or existing id
-    setUITypeId(maybeNewUIType.id);
+    maybeExistingUIType = matches.length > 0 ? matches[0] : null;
   }
 
-  return maybeNewUIType;
+  return maybeExistingUIType;
 }
 
 export function cloneNewUIType({

@@ -1,20 +1,14 @@
 import C from "constants/constants.json";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import {
-  useActiveSection,
-  useCodeInfo,
-  useParamSweep,
-  useSectionInfos,
-  useSectionVariants,
-  useUITypeCols,
-  useUITypes,
-} from "state/definitions";
+import { useActiveSection, useSectionInfos } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { findAll } from "utils/getDescendants";
-import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
 import { setNotificationMessage } from "../notification";
-import { getSectionChildrenAcrossVariants } from "../sectionVariants";
+import {
+  getAllSectionsForDeletionOrCopying,
+  getSectionType,
+} from "../sectionInfos";
 
 export async function copy() {
   const activeSectionIds = useActiveSection.getState().ids;
@@ -31,46 +25,35 @@ export async function copy() {
 }
 
 export function copySections(sectionIds) {
-  const sections = getSections(sectionIds);
-  const codeInfo = getCodeInfo(sections);
-  const sectionVariants = getSectionVariants(sections);
-  const uiTypeCols = getUITypeCols(sections);
-  const uiTypes = getUITypes(sections, uiTypeCols);
-  const paramSweeps = getParamSweeps(sections);
+  const state = useSectionInfos.getState();
+  const sections = getSections(sectionIds, state);
+  const sectionVariants = getSectionVariants(sections, state);
+  const uiTypeCols = getUITypeCols(sections, state);
+  const uiTypes = getUITypes(sections, uiTypeCols, state);
+  const codeInfoCols = getCodeInfoCols(sectionVariants, state);
+  const codeInfo = getCodeInfo(codeInfoCols, state);
   const relativePositions = getRelativePositions(sections);
   return {
     sections,
-    uiTypes,
-    codeInfo,
     sectionVariants,
     uiTypeCols,
-    paramSweeps,
+    uiTypes,
+    codeInfoCols,
+    codeInfo,
     relativePositions,
   };
 }
 
-function getSections(sectionIds) {
-  const output = new Set(...sectionIds);
-  const ids = [...sectionIds];
-  while (ids.length > 0) {
-    const curr = ids.pop();
-    if (curr in output) {
-      continue;
-    }
-    const children = getSectionChildrenAcrossVariants(curr);
-    for (const c of children) {
-      ids.push(c);
-    }
-    output.add(curr);
-  }
-  const allSections = _.pick(useSectionInfos.getState().x, Array.from(output));
+function getSections(sectionIds, state) {
+  const ids = getAllSectionsForDeletionOrCopying(sectionIds, state);
+  const allSections = _.pick(state.x, ids);
 
   const withoutLoneParamSweeps = _.pickBy(allSections, (s) => {
-    if (getSectionType(s.id).type !== C.PARAM_SWEEP) {
+    if (getSectionType(s.id) !== C.PARAM_SWEEP) {
       return true;
     }
     // if it's a param sweep section, then keep it only if it's corresponding section is also being copied.
-    return getForSectionId(allSections, s.id);
+    return !!getForSectionId(s.id, allSections);
   });
 
   if (_.size(allSections) !== _.size(withoutLoneParamSweeps)) {
@@ -80,7 +63,22 @@ function getSections(sectionIds) {
   return withoutLoneParamSweeps;
 }
 
-function getUITypes(sections, uiTypeCols) {
+function getSectionVariants(sections, state) {
+  const output = {};
+  for (const s of Object.values(sections)) {
+    Object.assign(output, _.pick(state.variants, s.variantIds));
+  }
+  return output;
+}
+
+function getUITypeCols(sections, state) {
+  return _.pick(
+    state.uiTypeCols,
+    _.map(sections, (x) => x.uiTypeColId),
+  );
+}
+
+function getUITypes(sections, uiTypeCols, state) {
   const uiTypeIds = [];
   for (const s of Object.values(sections)) {
     uiTypeIds.push(s.uiTypeId);
@@ -92,70 +90,27 @@ function getUITypes(sections, uiTypeCols) {
       uiTypeIds.push(...u.nonPresetUITypeIds);
     }
   }
-  return _.pick(useUITypes.getState().x, uiTypeIds);
+  return _.pick(state.uiTypes, uiTypeIds);
 }
 
-function getCodeInfo(sections) {
-  const sectionCodeInfoIds = _.map(
-    sections,
-    (x) => getSectionInfo(x.id).codeInfoId,
+function getCodeInfoCols(sectionVariants, state) {
+  return _.pick(
+    state.codeInfoCols,
+    _.map(sectionVariants, (x) => x.codeInfoColId),
   );
+}
+
+function getCodeInfo(codeInfoCols, state) {
   let output = [];
-  const codeInfoState = useCodeInfo.getState().x;
-  for (const cid of sectionCodeInfoIds) {
-    const codeInfos = findAll(codeInfoState, [cid]).ids.map(
-      (x) => codeInfoState[x],
-    );
-    if (codeInfos.some((x) => x.isSelected)) {
-      output.push(
-        ...codeInfos.filter(
-          (x) =>
-            x.isSelected ||
-            x.rcType === C.CALLABLE ||
-            x.rcType === C.COLLECTION ||
-            sectionCodeInfoIds.includes(x.id),
-        ),
-      );
-    } else {
-      output.push(...codeInfos);
+  for (const codeInfoCol of Object.values(codeInfoCols)) {
+    const { ids } = findAll(state.codeInfo, codeInfoCol.children);
+
+    for (const id of ids) {
+      output.push(state.codeInfo[id]);
     }
   }
   output = _.keyBy(_.cloneDeep(output), (x) => x.id);
 
-  for (const c of Object.values(output)) {
-    c.children = c.children.filter((x) => x in output);
-  }
-
-  return output;
-}
-
-function getSectionVariants(sections) {
-  const output = {};
-  const vState = useSectionVariants.getState().x;
-  for (const s of Object.values(sections)) {
-    Object.assign(output, _.pick(vState, s.variantIds));
-  }
-  return output;
-}
-
-function getUITypeCols(sections) {
-  return _.pick(
-    useUITypeCols.getState().y,
-    _.map(sections, (x) => x.uiTypeColId),
-  );
-}
-
-function getParamSweeps(sections) {
-  const output = {};
-  const state = useParamSweep.getState().x;
-  const sectionState = useSectionInfos.getState().x;
-  for (const s of Object.values(sections)) {
-    if (getSectionType(s.id).type === C.PARAM_SWEEP) {
-      const forSectionId = getForSectionId(sectionState, s.id);
-      const paramSweepIds = sectionState[forSectionId].paramSweepIds;
-      Object.assign(output, _.pick(state, paramSweepIds));
-    }
-  }
   return output;
 }
 

@@ -1,10 +1,4 @@
-import { useActiveSection, useSectionParamFilter } from "state/definitions";
-
-export function setSectionParamFilter({ sectionId, filter }) {
-  useSectionParamFilter.setState((state) => {
-    state.x[sectionId] = filter;
-  });
-}
+import { useActiveSection } from "state/definitions";
 
 export function focusOnSearch() {
   const sectionIds = useActiveSection.getState().ids;

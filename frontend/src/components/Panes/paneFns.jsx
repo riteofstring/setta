@@ -1,12 +1,13 @@
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
+import { getSectionType } from "state/actions/sectionInfos";
 import { useActiveSection, useSettings } from "state/definitions";
-import { getSectionType } from "state/getters/sectionInfo";
 import { localStorageFns } from "state/hooks/localStorage";
 import { getUIEditorTab } from "state/hooks/uiTypes";
 import {
   CLOSED_PANE_WIDTH,
   OVERVIEW,
   SECTION_VARIANTS_TAB,
+  UI_CONFIG_TAB,
   UI_EDITOR,
 } from "utils/constants";
 
@@ -72,7 +73,7 @@ export function onOverviewTabClick(tabValue) {
 }
 
 export function onOverviewResizeStop(widthDiff) {
-  if (useSettings.getState().leftSidePaneShiftsMap) {
+  if (useSettings.getState().gui.leftSidePaneShiftsMap) {
     updateMapPosition(widthDiff);
   }
 }
@@ -106,10 +107,18 @@ function changeUIEditorTab(tabName) {
   if (!activeId) {
     return;
   }
-  const uiTypeName = getSectionType(activeId).type;
+  const uiTypeName = getSectionType(activeId);
   getOnUIEditorTabClick(uiTypeName)(tabName);
 }
 
 export function showVersionsTab() {
   changeUIEditorTab(SECTION_VARIANTS_TAB);
+}
+
+export function showParamUITypeTab() {
+  changeUIEditorTab(UI_CONFIG_TAB);
+}
+
+export function showProjectOverviewTab(){
+  onOverviewTabClick("tab1")
 }

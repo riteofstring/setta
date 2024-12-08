@@ -4,7 +4,7 @@ import {
   colors,
   uniqueNamesGenerator,
 } from "unique-names-generator";
-import { v4 as uuidv4, validate } from "uuid";
+import { v4 as uuidv4 } from "uuid";
 
 export function createNewId() {
   return uuidv4();
@@ -14,19 +14,19 @@ export function maybeNewId(x) {
   return x ? x : createNewId();
 }
 
-export function createNewParamId(paramPath, jsonSource) {
-  if (jsonSource) {
-    const metadata = JSON.stringify({
-      filenameGlob: jsonSource,
-      key: paramPath,
-    });
-    return `${C.JSON_SOURCE_PREFIX}${metadata}`;
-  }
-  return createNewId();
+export function createJSONSourceParamId(paramPath, jsonSource) {
+  const metadata = JSON.stringify({
+    filenameGlob: jsonSource,
+    key: paramPath,
+  });
+  return `${C.JSON_SOURCE_PREFIX}${metadata}`;
 }
 
-export function isUUID(x) {
-  return validate(x);
+export function createNewParamId(paramPath, jsonSource) {
+  if (jsonSource) {
+    return createJSONSourceParamId(paramPath, jsonSource);
+  }
+  return createNewId();
 }
 
 export function createVarName(existingVarNames) {

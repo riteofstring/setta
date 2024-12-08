@@ -8,6 +8,18 @@ import ZoomPane from "./ZoomPane";
 
 const FlowRenderer = ({ children }) => {
   const {
+    panActivationKeyPressed,
+    zoomActivationKeyPressed,
+    selectionKeyPressed,
+  } = useReactFlow((x) => {
+    return {
+      panActivationKeyPressed: x.panActivationKeyPressed,
+      zoomActivationKeyPressed: x.zoomActivationKeyPressed,
+      selectionKeyPressed: x.selectionKeyPressed,
+    };
+  }, _.isEqual);
+
+  const {
     panOnDrag,
     panOnScroll,
     panOnScrollSpeed,
@@ -15,10 +27,17 @@ const FlowRenderer = ({ children }) => {
     zoomOnScroll,
     zoomOnPinch,
     zoomOnDoubleClick,
-    panActivationKeyPressed,
-    zoomActivationKeyPressed,
-    selectionKeyPressed,
-  } = usePanZoomInfo();
+  } = useSettings((x) => {
+    return {
+      panOnDrag: x.gui.panOnDrag,
+      panOnScroll: x.gui.panOnScroll,
+      panOnScrollSpeed: x.gui.panOnScrollSpeed,
+      panOnScrollMode: x.gui.panOnScrollMode,
+      zoomOnScroll: x.gui.zoomOnScroll,
+      zoomOnPinch: x.gui.zoomOnPinch,
+      zoomOnDoubleClick: x.gui.zoomOnDoubleClick,
+    };
+  }, _.isEqual);
 
   return (
     <ZoomPane
@@ -43,37 +62,3 @@ const FlowRenderer = ({ children }) => {
 FlowRenderer.displayName = "FlowRenderer";
 
 export default memo(FlowRenderer);
-
-function usePanZoomInfo() {
-  const {
-    panActivationKeyPressed,
-    zoomActivationKeyPressed,
-    selectionKeyPressed,
-  } = useReactFlow(
-    (x) =>
-      _.pick(x, [
-        "panActivationKeyPressed",
-        "zoomActivationKeyPressed",
-        "selectionKeyPressed",
-      ]),
-    _.isEqual,
-  );
-  return useSettings((x) => {
-    const output = _.pick(x, [
-      "panOnDrag",
-      "panOnScroll",
-      "panOnScrollSpeed",
-      "panOnScrollMode",
-      "zoomOnScroll",
-      "zoomOnPinch",
-      "zoomOnDoubleClick",
-    ]);
-
-    return {
-      ...output,
-      panActivationKeyPressed,
-      zoomActivationKeyPressed,
-      selectionKeyPressed,
-    };
-  }, _.isEqual);
-}

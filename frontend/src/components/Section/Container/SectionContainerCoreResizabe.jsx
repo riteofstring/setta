@@ -1,9 +1,9 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import C from "constants/constants.json";
+import _ from "lodash";
+import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useSectionInfos } from "state/definitions";
-import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
-import { useIsYouTube } from "state/hooks/social";
-import { isRoot } from "utils/sectionTypeHelpers";
+import { getIsYouTubeSection } from "state/hooks/social";
 import { SectionHeader } from "../Header/SectionHeader";
 import { CodeArea } from "../Layouts/CodeArea";
 import { DrawOnImage } from "../Layouts/DrawArea";
@@ -14,81 +14,50 @@ import { InfoArea } from "../Layouts/InfoArea";
 import { InputArea } from "../Layouts/InputArea";
 import { LinePlotArea } from "../Layouts/LinePlotArea";
 import { ParamSweepArea } from "../Layouts/ParamSweepArea";
-import { ReferenceArea } from "../Layouts/ReferenceArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
+import { getBgColor } from "./utils";
 
 export function SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
   isActiveSection,
-  isGlobalVariables,
   isInOtherProjectConfigs,
 }) {
-  const isInfo = sectionTypeName === C.INFO;
-  const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
-  const disablePointerEvents = useShouldDisablePointerEvents();
+  const { isMinimized, isYouTube } = useSectionInfos((x) => {
+    return {
+      isMinimized: x.x[sectionId].isMinimized,
+      isYouTube: getIsYouTubeSection(sectionId, x),
+    };
+  }, _.isEqual);
 
-  const pointerSelectCSS = disablePointerEvents
-    ? "pointer-events-none select-none"
-    : "";
-
-  const getBgColor = () => {
-    if (isGlobalVariables) {
-      return "bg-white dark:bg-black";
-    }
-    switch (sectionTypeName) {
-      case C.CODE:
-        return "bg-white dark:bg-setta-900";
-      case C.TERMINAL:
-        return "bg-setta-950 overflow-clip";
-      case C.GLOBAL_PARAM_SWEEP:
-        return "@container/multipane";
-      // case PARAM_SWEEP:
-      //   return "bg-setta-50 dark:bg-setta-850";
-      default:
-        return "bg-setta-50 dark:bg-setta-860";
-    }
-  };
-  const _isRoot = isRoot(sectionTypeName);
-
-  const bgColor = getBgColor();
-  const youtube = useIsYouTube(sectionId);
-
-  const borderClasses =
-    "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700";
-
-  const inputClasses = `${pointerSelectCSS} ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  ${
-    isActiveSection ? "z-[150]" : "z-10"
-  } ${borderClasses} ${youtube ? "overflow-clip" : ""}`;
+  const isRoot = getIsRoot(sectionTypeName);
+  const bgColor = getBgColor(sectionTypeName);
 
   return (
     <CustomResizable
       sectionId={sectionId}
-      disablePointerEvents={disablePointerEvents}
-      inputClasses={inputClasses}
-      // as="section"
+      bgColor={bgColor}
+      isYouTube={isYouTube}
+      isActiveSection={isActiveSection}
     >
-      <>
-        <SectionHeader
+      <SectionHeader
+        sectionId={sectionId}
+        isActiveSection={isActiveSection}
+        sectionTypeName={sectionTypeName}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+        isRoot={isRoot}
+      />
+      {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
+      {!isMinimized && (
+        <AreaSwitch
           sectionId={sectionId}
-          isActiveSection={isActiveSection}
-          isGlobalVariables={isGlobalVariables}
-          isInfo={isInfo}
           sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={isInOtherProjectConfigs}
+          bgColor={bgColor}
         />
-        {_isRoot && <Incrementer sectionId={sectionId} isRoot={_isRoot} />}
-        {!isMinimized && (
-          <AreaSwitch
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-            bgColor={bgColor}
-          />
-        )}
-      </>
+      )}
     </CustomResizable>
   );
 }
@@ -97,8 +66,6 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
   switch (sectionTypeName) {
     case C.SECTION:
       return <InputArea sectionId={sectionId} bgColor={bgColor} />;
-    case C.REFERENCE_SECTION:
-      return <ReferenceArea sectionId={sectionId} />;
     case C.IMAGE:
       return <ImageArea sectionId={sectionId} />;
     case C.LINE_PLOT:

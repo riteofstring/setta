@@ -1,21 +1,27 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useGetSectionInfo } from "state/hooks/sections";
+import _ from "lodash";
+import { getSectionVariant } from "state/actions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function RenderInfo({ sectionId }) {
-  //TODO change this variable name
-  const displayMode = useGetSectionInfo(sectionId, "displayMode");
-  const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
+  const { displayMode, renderMarkdown, variantIsFrozen } = useSectionInfos(
+    (x) => {
+      return {
+        displayMode: x.x[sectionId].displayMode,
+        renderMarkdown: x.x[sectionId].renderMarkdown,
+        variantIsFrozen: getSectionVariant(sectionId, x).isFrozen,
+      };
+    },
+    _.isEqual,
+  );
 
   function onClick() {
-    setSectionInfoAttr({
-      sectionId,
-      attr: "displayMode",
-      value:
+    useSectionInfos.setState((state) => {
+      state.x[sectionId].displayMode =
         displayMode === SECTION_DISPLAY_MODES.RENDER
           ? SECTION_DISPLAY_MODES.EDIT
-          : SECTION_DISPLAY_MODES.RENDER,
+          : SECTION_DISPLAY_MODES.RENDER;
     });
   }
 
@@ -24,7 +30,7 @@ export function RenderInfo({ sectionId }) {
   // only show this option if there are no parameters
   // and the search bar isn't hidden (we don't want to hide both params and search)
   return (
-    <MenuItem onClick={onClick}>
+    <MenuItem onClick={onClick} disabled={variantIsFrozen}>
       {displayMode === SECTION_DISPLAY_MODES.EDIT
         ? `Render ${format}`
         : `Edit ${format}`}
@@ -33,14 +39,11 @@ export function RenderInfo({ sectionId }) {
 }
 
 export function ConvertFormat({ sectionId }) {
-  //TODO change this variable name
-  const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
+  const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
 
   function onClick() {
-    setSectionInfoAttr({
-      sectionId,
-      attr: "renderMarkdown",
-      value: !renderMarkdown,
+    useSectionInfos.setState((state) => {
+      state.x[sectionId].renderMarkdown = !renderMarkdown;
     });
   }
 

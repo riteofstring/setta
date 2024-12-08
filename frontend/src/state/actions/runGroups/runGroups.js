@@ -1,25 +1,8 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import {
-  useMisc,
-  useNodeInternals,
-  useProjectConfig,
-  useRunGroups,
-  useSectionInfos,
-  useSectionVariants,
-} from "state/definitions";
-import {
-  getSectionByName,
-  getSectionInfo,
-  getSectionName,
-  getSectionType,
-} from "state/getters/sectionInfo";
-import { useSectionTypeNames } from "state/hooks/uiTypes";
-import { createNewId, createRandomName } from "utils/idNameCreation";
-import {
-  clearRunGroupSelection,
-  setShownRunGroup,
-} from "../project/projectConfig";
+import { getSectionType } from "state/actions/sectionInfos";
+import { useNodeInternals, useSectionInfos } from "state/definitions";
+import { createNewId } from "utils/idNameCreation";
 
 const RUNNABLE_SECTION_TYPES = [
   C.SECTION,
@@ -30,103 +13,88 @@ const RUNNABLE_SECTION_TYPES = [
   C.CODE,
 ];
 
-export function setAllRunGroups(payload) {
-  useRunGroups.setState({ x: payload });
-}
-
-export function createFirstRunGroup() {
-  if (_.size(useRunGroups.getState().x) === 0) {
-    createRunGroupWithRandomName();
+// use inside of setState
+export function initRunGroup(variantId, state) {
+  state.variants[variantId].runGroup = { sections: {} };
+  for (const c of useNodeInternals.getState().x.keys()) {
+    if (RUNNABLE_SECTION_TYPES.includes(getSectionType(c))) {
+      maybeInitRunGroupSection(variantId, c, null, state);
+    }
   }
 }
 
-export function createRunGroupWithRandomName() {
-  const id = createNewId();
-  initRunGroup({ id, name: createRandomName() });
-  setShownRunGroup(id);
-}
-
-export function initRunGroup({ id, name }) {
-  useRunGroups.setState((state) => {
-    state.x[id] = { name, sections: {} };
-    for (const c of useNodeInternals.getState().x.keys()) {
-      if (RUNNABLE_SECTION_TYPES.includes(getSectionType(c).type)) {
-        maybeInitRunGroupSection(state, id, c, null);
-      }
+export function toggleRunGroup(sectionId, runGroupId) {
+  useSectionInfos.setState((x) => {
+    const selections = x.x[sectionId].selectedVariantIds;
+    if (runGroupId in selections) {
+      delete selections[runGroupId];
+    } else {
+      selections[runGroupId] = true;
     }
   });
-
-  useProjectConfig.setState((state) => {
-    state.runGroupSelection[id] = false;
-  });
 }
 
-export function toggleRunGroup(id) {
-  useProjectConfig.setState((state) => {
-    state.runGroupSelection[id] = !state.runGroupSelection[id];
-  });
-}
-
-function newRunGroupSection(sectionId, initVariantId) {
+function newRunGroupSection(sectionId, initVariantId, state) {
   return {
     selected: true,
     paramSweeps: {},
-    versions: { [initVariantId ?? getSectionInfo(sectionId).variantId]: true },
+    versions: { [initVariantId ?? state.x[sectionId].variantId]: true },
   };
 }
 
 // must use inside of setState
 function maybeInitRunGroupSection(
-  state,
-  id,
+  runGroupId,
   sectionId,
   parentVariantId,
+  state,
   initVariantId = null,
 ) {
   let isNewInit = false;
-  if (!(sectionId in state.x[id].sections)) {
-    state.x[id].sections[sectionId] = {};
+  if (!(sectionId in state.variants[runGroupId].runGroup)) {
+    state.variants[runGroupId].runGroup[sectionId] = {};
     maybeInitAllDescendants(
+      runGroupId,
+      initVariantId ?? state.x[sectionId].variantId,
       state,
-      id,
-      initVariantId ?? getSectionInfo(sectionId).variantId,
     );
     isNewInit = true;
   }
-  if (!(parentVariantId in state.x[id].sections[sectionId])) {
-    state.x[id].sections[sectionId][parentVariantId] = newRunGroupSection(
-      sectionId,
-      initVariantId,
-    );
+  if (!(parentVariantId in state.variants[runGroupId].runGroup[sectionId])) {
+    state.variants[runGroupId].runGroup[sectionId][parentVariantId] =
+      newRunGroupSection(sectionId, initVariantId, state);
     isNewInit = true;
   }
 
   return isNewInit;
 }
 
-function maybeInitAllDescendants(state, id, variantId) {
-  for (const c of useSectionVariants.getState().x[variantId].children) {
-    maybeInitRunGroupSection(state, id, c, variantId);
+function maybeInitAllDescendants(runGroupId, variantId, state) {
+  for (const c of state.variants[variantId].children) {
+    maybeInitRunGroupSection(runGroupId, c, variantId, state);
   }
 }
 
 // must use inside of setState
-function forceAllAncestorsToBeSelected(state, id, ancestors) {
+function forceAllAncestorsToBeSelected(runGroupId, ancestors, state) {
   for (const [idx, a] of ancestors.entries()) {
     const parentVariantId = idx === 0 ? null : ancestors[idx - 1].variantId;
-    maybeInitRunGroupSection(state, id, a.id, parentVariantId);
-    const currState = state.x[id].sections[a.id][parentVariantId];
+    maybeInitRunGroupSection(runGroupId, a.id, parentVariantId, state);
+    const currState =
+      state.variants[runGroupId].runGroup[a.id][parentVariantId];
     currState.versions[a.variantId] = true;
     currState.selected = true;
   }
 }
 
-function allAncestorsAreSelected(state, id, ancestors) {
+function allAncestorsAreSelected(runGroupId, ancestors, state) {
   for (const [idx, a] of ancestors.entries()) {
     const parentVariantId = idx === 0 ? null : ancestors[idx - 1].variantId;
     if (
-      !state.x[id].sections[a.id]?.[parentVariantId].versions[a.variantId] ||
-      !sectionIsSelected(state, id, a.id, parentVariantId)
+      !state.variants[runGroupId].runGroup[a.id]?.[parentVariantId].versions[
+        a.variantId
+      ] ||
+      !sectionIsSelected(runGroupId, a.id, parentVariantId, state)
     ) {
       return false;
     }
@@ -134,34 +102,36 @@ function allAncestorsAreSelected(state, id, ancestors) {
   return true;
 }
 
-function sectionIsSelected(state, id, sectionId, parentVariantId) {
-  return state.x[id].sections[sectionId]?.[parentVariantId].selected;
+function sectionIsSelected(runGroupId, sectionId, parentVariantId, state) {
+  return state.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]
+    .selected;
 }
 
 function toggleRunGroupSectionAttr({
-  id,
+  runGroupId,
   ancestors,
   sectionId,
   attrName,
   attrId,
   parentVariantId,
 }) {
-  useRunGroups.setState((state) => {
+  useSectionInfos.setState((state) => {
     const isNewInit = maybeInitRunGroupSection(
-      state,
-      id,
+      runGroupId,
       sectionId,
       parentVariantId,
+      state,
       attrName === "versions" ? attrId : null,
     );
     let newState;
-    const thisSectionState = state.x[id].sections[sectionId][parentVariantId];
+    const thisSectionState =
+      state.variants[runGroupId].runGroup[sectionId][parentVariantId];
     // if not new init, and if all ancestors are selected, and (when toggling version or paramsweep) the section itself is selected
     if (
       !isNewInit &&
-      allAncestorsAreSelected(state, id, ancestors) &&
+      allAncestorsAreSelected(runGroupId, ancestors, state) &&
       (attrName === "selected" ||
-        sectionIsSelected(state, id, sectionId, parentVariantId))
+        sectionIsSelected(runGroupId, sectionId, parentVariantId, state))
     ) {
       newState = attrId
         ? !thisSectionState[attrName][attrId]
@@ -180,17 +150,15 @@ function toggleRunGroupSectionAttr({
       // (if we're already setting selected, this is redundant, but doesn't hurt)
       thisSectionState.selected = true;
       // if toggled to be selected, force all ancestors to be selected too
-      forceAllAncestorsToBeSelected(state, id, ancestors);
+      forceAllAncestorsToBeSelected(runGroupId, ancestors, state);
 
       // if any children haven't been initialized, then it means we're
       // selecting this section or version for the first time
       // so by default we want all children to be selected too.
       if (attrName === "selected" || attrName === "versions") {
         const variantId =
-          attrName === "versions"
-            ? attrId
-            : getSectionInfo(sectionId).variantId;
-        maybeInitAllDescendants(state, id, variantId);
+          attrName === "versions" ? attrId : state.x[sectionId].variantId;
+        maybeInitAllDescendants(runGroupId, variantId, state);
       }
     }
   });
@@ -203,7 +171,7 @@ export function toggleRunGroupSection({
   parentVariantId,
 }) {
   toggleRunGroupSectionAttr({
-    id,
+    runGroupId: id,
     ancestors,
     sectionId,
     attrName: "selected",
@@ -219,7 +187,7 @@ export function toggleRunGroupSectionParamSweep({
   parentVariantId,
 }) {
   toggleRunGroupSectionAttr({
-    id,
+    runGroupId: id,
     ancestors,
     sectionId,
     attrName: "paramSweeps",
@@ -236,7 +204,7 @@ export function toggleRunGroupSectionVersion({
   parentVariantId,
 }) {
   toggleRunGroupSectionAttr({
-    id,
+    runGroupId: id,
     ancestors,
     sectionId,
     attrName: "versions",
@@ -258,7 +226,7 @@ export function setAllRunGroupsAndMaybeCreateSection(runGroups) {
   console.log("stateFormt", stateFormat);
 
   setAllRunGroups(stateFormat);
-  if (!useMisc.getState().singletonSections.globalParamSweep) {
+  if (!useSectionInfos.getState().singletonSections[C.GLOBAL_PARAM_SWEEP]) {
     console.log("will create section");
   } else {
     console.log("section already exists");
@@ -267,10 +235,8 @@ export function setAllRunGroupsAndMaybeCreateSection(runGroups) {
 
 function parsePrettyRunGroupSections(runGroup) {
   const sections = {};
-  for (const [sectionName, sectionDetails] of Object.entries(
-    runGroup.sections,
-  )) {
-    const s = getSectionByName(sectionName);
+  for (const [sectionName, sectionDetails] of Object.entries(runGroup)) {
+    // const s = getSectionByName(sectionName);
     sections[s.id] = {};
     // TODO
     // for (const [paramSweepName, paramSweepIsSelected] of Object.entries(
@@ -283,12 +249,13 @@ function parsePrettyRunGroupSections(runGroup) {
 }
 
 export function useRunGroupListing(variantId) {
-  const sectionTypeNames = useSectionTypeNames();
-  return useSectionVariants((x) => {
+  return useSectionInfos((x) => {
     const output = [];
-    for (const childId of x.x[variantId].children) {
-      if (RUNNABLE_SECTION_TYPES.includes(sectionTypeNames[childId])) {
-        output.push({ id: childId, name: getSectionName(childId) });
+    for (const childId of x.variants[variantId].children) {
+      if (
+        RUNNABLE_SECTION_TYPES.includes(x.uiTypes[x.x[childId].uiTypeId].type)
+      ) {
+        output.push({ id: childId, name: x.x[childId].name });
       }
     }
     return output;
@@ -296,25 +263,16 @@ export function useRunGroupListing(variantId) {
 }
 
 export function useTopLevelRunGroupListing() {
-  const sectionTypeNames = useSectionTypeNames();
   return useSectionInfos((x) => {
     const output = [];
     for (const [k, v] of Object.entries(x.x)) {
-      if (!v.parentId && RUNNABLE_SECTION_TYPES.includes(sectionTypeNames[k])) {
+      if (
+        !v.parentId &&
+        RUNNABLE_SECTION_TYPES.includes(x.uiTypes[x.x[k].uiTypeId].type)
+      ) {
         output.push({ id: k, name: v.name });
       }
     }
     return output;
   }, _.isEqual);
-}
-
-export function deleteRunGroups(sectionIdsToDelete) {
-  if (
-    sectionIdsToDelete.some(
-      (x) => getSectionType(x).type === C.GLOBAL_PARAM_SWEEP,
-    )
-  ) {
-    useRunGroups.setState({ x: {} });
-    clearRunGroupSelection();
-  }
 }

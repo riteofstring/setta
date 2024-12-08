@@ -24,6 +24,7 @@ from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
+from setta.database.db.projects.utils import filter_data_for_json_export
 from setta.database.export_db.export_db import maybe_export_database
 from setta.utils.constants import C
 
@@ -71,6 +72,10 @@ class SetProjectConfigNameRequest(BaseModel):
 
 class SetAsDefaultProjectRequest(BaseModel):
     projectId: str
+
+
+class FilterDataForJSONExportRequest(BaseModel):
+    project: dict
 
 
 @router.post(C.ROUTE_ALL_PROJECT_CONFIG_METADATA)
@@ -162,3 +167,9 @@ def router_get_default_config_name(dbq=Depends(get_dbq)):
 def router_set_as_default_project(x: SetAsDefaultProjectRequest, dbq=Depends(get_dbq)):
     with dbq as db:
         set_as_default_project(db, x.projectId)
+
+
+@router.post(C.ROUTE_FILTER_DATA_FOR_JSON_EXPORT)
+def router_filter_data_for_json_export(x: FilterDataForJSONExportRequest):
+    filter_data_for_json_export(x.project)
+    return x.project

@@ -1,3 +1,5 @@
+import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
   dbSaveAsExistingProjectConfig,
@@ -7,28 +9,18 @@ import {
 import { dbSaveSettings } from "requests/settings";
 import {
   useArtifacts,
-  useCodeInfo,
-  useCodeInfoCols,
-  useKeywordRegex,
   useNodeInternals,
-  useParamSweep,
   useProjectConfig,
-  useRunGroups,
   useSectionInfos,
-  useSectionVariants,
   useSettings,
-  useUITypeCols,
-  useUITypes,
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { yamlToGUI } from "../guiToYaml";
-import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
-import { getProjectConfigMetadata } from "./projectConfig";
 
 export function getProjectData({
   withArtifactMetadata = false,
-  convertYamlToGUI = false,
+  convertYamlToGUI = true,
 }) {
   // remove temporary sections
   let sections = _.pickBy(useSectionInfos.getState().x, (x) => !x.isTemporary);
@@ -53,50 +45,53 @@ export function getProjectData({
     currSection.artifacts = currSection.artifacts.map((a) => ({
       path: a,
       value: a.startsWith("data:") ? artifactState[a].value : undefined,
-      ..._.pick(artifactState[a], ["type", "displayName"]),
+      type: artifactState[a].type,
+      displayName: artifactState[a].displayName,
     }));
     return currSection;
   });
 
   console.log("sections", sections);
 
-  const sectionVariants = _.mapValues(useSectionVariants.getState().x, (x) => ({
-    ...x,
-    // need this filter because some sections might be temporary
-    children: x.children.filter((c) => c in sections),
-  }));
-  const uiTypes = useUITypes.getState().x;
-  const uiTypeCols = useUITypeCols.getState().y;
-  const paramSweeps = useParamSweep.getState().x;
-  const runGroups = useRunGroups.getState().x;
+  const sectionVariants = _.mapValues(
+    useSectionInfos.getState().variants,
+    (x) => ({
+      ...x,
+      // need this filter because some sections might be temporary
+      children: x.children.filter((c) => c in sections),
+    }),
+  );
+  const uiTypes = useSectionInfos.getState().uiTypes;
+  const uiTypeCols = useSectionInfos.getState().uiTypeCols;
 
-  const codeInfo = useCodeInfo.getState().x;
-  const codeInfoCols = useCodeInfoCols.getState().x;
-  const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
+  const codeInfo = useSectionInfos.getState().codeInfo;
+  const codeInfoCols = useSectionInfos.getState().codeInfoCols;
 
   const projectConfig = getProjectConfigMetadata();
-  projectConfig.previewImgNodes = getPreviewImgNodes();
   const children = {};
   for (const c of useNodeInternals.getState().x.values()) {
     if (c.id in sections) {
       // need this filter because some sections might be temporary
-      children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
+      children[c.id] = {
+        x: c.position.x,
+        y: c.position.y,
+        zIndex: c.zIndex,
+        w: c.width, // save width and height so we can show preview on home page
+        h: c.height,
+      };
     }
   }
   projectConfig.children = children;
+  console.log("projectConfig", projectConfig);
 
   const output = {
     projectConfig,
     sectionVariants,
     uiTypes,
     uiTypeCols,
-    paramSweeps,
-    runGroups,
     sections,
     codeInfo,
     codeInfoCols,
-    fullNameToInfo,
-    jsonSourceMissing: {},
   };
 
   // console.log(output);
@@ -108,16 +103,13 @@ export async function saveProject() {
   let res;
   setNotificationMessage("Saving...");
   if (useProjectConfig.getState().name === SETTINGS_PROJECT_NAME) {
-    res = await dbSaveSettings(getProjectData({ convertYamlToGUI: true }));
+    res = await dbSaveSettings(getProjectData({}));
     if (res.status === 200) {
       useSettings.setState(res.data);
     }
   } else {
     res = await dbSaveProject({
-      project: getProjectData({
-        withArtifactMetadata: true,
-        convertYamlToGUI: true,
-      }),
+      project: getProjectDataForSaving(),
     });
   }
 
@@ -142,21 +134,29 @@ export async function saveAsExistingProjectConfig({ configName }) {
 
 async function saveProjectAs({ fn, otherArgs }) {
   await fn({
-    project: getProjectData({
-      withArtifactMetadata: true,
-      convertYamlToGUI: true,
-    }),
+    project: getProjectDataForSaving(),
     ...otherArgs,
   });
 }
 
-function getPreviewImgNodes() {
-  const nodes = getNodes().map((n) => ({
-    x: Math.round(n.position.x),
-    y: Math.round(n.position.y),
-    w: Math.round(n.width),
-    h: Math.round(n.height),
-  }));
+function getProjectConfigMetadata() {
+  const state = useProjectConfig.getState();
+  const output = {
+    id: state.id,
+    name: state.name,
+    previewImgColor: state.previewImgColor,
+  };
 
-  return JSON.stringify(nodes);
+  output.viewport = useReactFlow.getState().fitViewOnInit
+    ? null
+    : getViewport();
+
+  return output;
+}
+
+export function getProjectDataForSaving() {
+  return getProjectData({
+    withArtifactMetadata: true,
+    convertYamlToGUI: true,
+  });
 }

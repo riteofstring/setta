@@ -2,14 +2,12 @@ import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import C from "constants/constants.json";
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
-export const PANEID = "-1";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
 
 export const INITIAL_OVERVIEW_WIDTH = 335;
 export const INITIAL_UI_EDITOR_WIDTH = 500;
 export const CLOSED_PANE_WIDTH = 50;
-export const INITIAL_CHART_SIZE = { width: 200, height: 200 };
 export const NAVBAR_HEIGHT = 48;
 
 // constants object
@@ -35,7 +33,6 @@ export const SECTION_CONFIG_TAB = "SectionConfig";
 export const QUICKINFO_CONFIG_TAB = "QuickInfoConfig";
 export const UI_CONFIG_TAB = "UIConfig";
 export const INFO_CONFIG_TAB = "InfoConfig";
-export const RUNTIME_CONFIG_TAB = "RuntimeConfig";
 export const SECTION_VARIANTS_TAB = "SectionVariantsConfig";
 
 export const tabNameToPretty = {
@@ -43,8 +40,7 @@ export const tabNameToPretty = {
   [SECTION_CONFIG_TAB]: "Card",
   [QUICKINFO_CONFIG_TAB]: "Quick Info",
   [INFO_CONFIG_TAB]: "Text Editor",
-  // [RUNTIME_CONFIG_TAB]: "Runtime",
-  [SECTION_VARIANTS_TAB]: "Ver.",
+  [SECTION_VARIANTS_TAB]: "Version",
 };
 
 export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
@@ -100,11 +96,6 @@ export const MODAL_TYPE = {
     purpose: null,
     title: "Import JSON",
     buttonText: "Import",
-  },
-  CREATE_FROM_ARGPARSE: {
-    purpose: null,
-    title: "Create From Argparse",
-    buttonText: "Create",
   },
   SAVE_UI_TYPE_CONFIG: {
     purpose: MODAL_PURPOSE.SAVE,

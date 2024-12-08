@@ -1,12 +1,11 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useContrastColor } from "utils/useColorContrast";
 import { tryParseJSON } from "utils/utils";
 
 export function ColorPickerInputConfig({ onChange, config }) {
   const colors = config.colorChoices ?? [];
 
   const addColor = () => {
-    const colorChoices = [...colors, { color: "#000000", description: "" }];
+    const colorChoices = [...colors, { color: "#ff0000", description: "" }];
     onChange("colorChoices", () => colorChoices);
   };
 
@@ -119,7 +118,12 @@ function ColorPicker({
   colorPickerChoicesClasses,
   isDisabled,
 }) {
-  const iconColor = useContrastColor(value);
+  const style = {
+    // from https://codepen.io/devongovett/pen/QwLbRrW
+    "--bg": value,
+    background: "var(--bg)",
+    color: "lch(from var(--bg) calc((49.44 - l) * infinity) 0 0)",
+  };
   return colorChoices?.length > 0 ? (
     <ColorPickerFromColorChoices
       color={value}
@@ -132,7 +136,7 @@ function ColorPicker({
     <>
       <i
         className="gg-color-picker single-cell-child pointer-events-none mr-0.5 mt-0.5 place-self-center"
-        style={{ color: iconColor }}
+        style={style}
       />
       <input
         id="colorPicker"
@@ -158,10 +162,14 @@ function ColorPickerFromColorChoices({
     selectedItem = colorChoices[0];
   }
 
-  const textColor = useContrastColor(selectedItem.color);
+  const style = {
+    "--bg": selectedItem.color,
+    background: "var(--bg)",
+    color: "lch(from var(--bg) calc((49.44 - l) * infinity) 0 0)",
+  };
 
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger
         className={colorPickerChoicesClasses}
         disabled={isDisabled}
@@ -172,31 +180,37 @@ function ColorPickerFromColorChoices({
         />
         <div className="single-cell-child flex items-center justify-between overflow-hidden">
           <p
-            className="truncate pl-2 text-xs font-semibold @[90px]:inline-block"
-            style={{ color: textColor }}
+            className="ml-[2px] truncate pl-2.5 text-xs font-semibold @[90px]:inline-block"
+            style={style}
           >
             {selectedItem.description}
           </p>
-          <i className="gg-chevron-down px-2" style={{ color: textColor }} />
+          <i className="gg-chevron-down px-2" style={style} />
         </div>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content className="flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800">
-        {colorChoices.map((item, index) => (
-          <DropdownMenu.Item
-            key={index}
-            className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700"
-            onSelect={() => setColor(item.color)}
-          >
-            <div
-              className="mr-2 h-4 w-4 rounded-full"
-              style={{ backgroundColor: item.color }}
-            />
-            <p className="max-w-48 truncate text-xs text-setta-500 dark:text-setta-300">
-              {item.description}
-            </p>
-          </DropdownMenu.Item>
-        ))}
-      </DropdownMenu.Content>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          className="z-20 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800"
+          align="start"
+          style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}
+        >
+          {colorChoices.map((item, index) => (
+            <DropdownMenu.Item
+              key={index}
+              className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700"
+              onSelect={() => setColor(item.color)}
+            >
+              <div
+                className="mr-2 h-4 w-4 rounded-full"
+                style={{ backgroundColor: item.color }}
+              />
+              <p className="max-w-48 truncate text-xs text-setta-500 dark:text-setta-300">
+                {item.description}
+              </p>
+            </DropdownMenu.Item>
+          ))}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
     </DropdownMenu.Root>
   );
 }

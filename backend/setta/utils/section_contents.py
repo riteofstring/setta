@@ -1,136 +1,139 @@
 from setta.utils.constants import C
 
-# All this code is a conversion of frontend code to python
-# TODO: Hopefully we can get rid of this duplication in the future!
+# js->python conversion done by claude
 
 
-def both_truthy_or_falsey(a, b):
-    return (not a) == (not b) or a == b
-
-
-def _find_all_descendants(
-    all_code_info,
-    code_info_children,
-    code_info_ids,
-    output_condition,
-    stack_condition,
-    param_path_condition=None,
+def _findAllDescendants(
+    allCodeInfo,
+    codeInfoChildren,
+    codeInfoIds,
+    outputCondition,
+    stackCondition,
+    paramPathCondition=None,  # None or a function
+    earlyReturnCondition=None,  # None or a function
 ):
     output = []
-    id_stack = list(
-        reversed([x for x in code_info_ids if stack_condition(all_code_info[x])])
-    )
+    idStack = list(reversed([x for x in codeInfoIds if stackCondition(allCodeInfo[x])]))
     visited = set()
-    path_map = {} if param_path_condition else None
+    pathMap = {} if paramPathCondition else None
 
-    if param_path_condition:
-        for id in id_stack:
-            path_map[id] = [id] if param_path_condition(all_code_info[id]) else []
+    if paramPathCondition:
+        for id in idStack:
+            pathMap[id] = [id] if paramPathCondition(allCodeInfo[id]) else []
 
-    while id_stack:
-        id = id_stack.pop()
+    while len(idStack) > 0:
+        id = idStack.pop()
         if not id or id in visited:
             continue
-
         visited.add(id)
-        curr_info = all_code_info[id]
+        currInfo = allCodeInfo[id]
 
-        if output_condition(curr_info):
-            output.append(curr_info["id"])
+        if outputCondition(currInfo):
+            output.append(currInfo["id"])
 
-        if stack_condition(curr_info):
-            children = list(reversed(code_info_children[curr_info["id"]]))
-            if param_path_condition:
-                current_path = path_map[id]
-                for child_id in children:
-                    path_map[child_id] = (
-                        [*current_path, child_id]
-                        if param_path_condition(all_code_info[child_id])
-                        else [*current_path]
+        if stackCondition(currInfo):
+            children = list(reversed(codeInfoChildren[currInfo["id"]]))
+            if paramPathCondition:
+                currentPath = pathMap[id]
+                for childId in children:
+                    pathMap[childId] = (
+                        [*currentPath, childId]
+                        if paramPathCondition(allCodeInfo[childId])
+                        else [*currentPath]
                     )
-            id_stack.extend(children)
+            idStack.extend(children)
 
-    return {"ids": output, "pathMap": path_map}
+        if (
+            len(output) > 0
+            and earlyReturnCondition is not None
+            and earlyReturnCondition(allCodeInfo[output[-1]])
+        ):
+            return {"ids": output, "pathMap": pathMap, "earlyReturnTriggered": True}
+
+    return {"ids": output, "pathMap": pathMap, "earlyReturnTriggered": False}
 
 
-def find_all_parameters_of_callables(
-    all_code_info, code_info_children, code_info_ids, param_path_condition=None
+def findAllParameters(
+    allCodeInfo,
+    codeInfoChildren,
+    startingId,
+    additionalOutputCondition=None,
+    paramPathCondition=None,
+    earlyReturnCondition=None,
 ):
-    return _find_all_descendants(
-        all_code_info,
-        code_info_children,
-        code_info_ids,
-        lambda c: c.get("rcType") == C.PARAMETER,
-        lambda c: c.get("rcType") == C.CALLABLE,
-        param_path_condition,
+    codeInfoIds = [startingId] if startingId else codeInfoChildren.get(startingId, None)
+
+    # if startingId is None, then we're starting at the root
+    # so we don't want to avoid the parameters of callables
+    def stackCondition(c):
+        return True if startingId else c.get("rcType") == C.PARAMETER
+
+    return _findAllDescendants(
+        allCodeInfo,
+        codeInfoChildren,
+        codeInfoIds or [],
+        lambda c: c.get("rcType") == C.PARAMETER
+        and (not additionalOutputCondition or additionalOutputCondition(c)),
+        stackCondition,
+        paramPathCondition,
+        earlyReturnCondition,
     )
 
 
-def find_all_parameters_of_not_callables(
-    all_code_info, code_info_children, code_info_ids, param_path_condition=None
+def findAllParametersAndPathMaps(**kwargs):
+    return findAllParameters(
+        **kwargs, paramPathCondition=lambda p: p.get("rcType") == C.PARAMETER
+    )
+
+
+def getParamIdsToShowInArea(
+    isPinned, codeInfo, codeInfoChildren, parentCodeInfoId, startAtDepth=0
 ):
-    return _find_all_descendants(
-        all_code_info,
-        code_info_children,
-        code_info_ids,
-        lambda c: c.get("rcType") == C.PARAMETER,
-        lambda c: c.get("rcType") != C.CALLABLE,
-        param_path_condition,
+    result = findAllParametersAndPathMaps(
+        allCodeInfo=codeInfo,
+        codeInfoChildren=codeInfoChildren,
+        startingId=parentCodeInfoId,
     )
+    ids = result["ids"]
+    pathMap = result["pathMap"]
+    ids.reverse()
 
-
-def get_param_ids(
-    c_state, code_info_children, selected_item, param_path_condition=None
-):
-    fn = (
-        find_all_parameters_of_callables
-        if selected_item
-        else find_all_parameters_of_not_callables
-    )
-
-    code_info_ids = (
-        [selected_item] if selected_item else code_info_children[selected_item]
-    )
-
-    return fn(c_state, code_info_children, code_info_ids or [], param_path_condition)
-
-
-def get_param_ids_to_show_in_area(
-    is_pinned, c_state, code_info_children, selected_item
-):
-    result = get_param_ids(
-        c_state,
-        code_info_children,
-        selected_item,
-        lambda p: p["rcType"] == C.PARAMETER,
-    )
-    ids = list(reversed(result["ids"]))
-    path_map = result["pathMap"]
-
-    top_level_param_ids = []
-    top_level_param_ids_set = set()
-    required_param_ids_to_paths = {}
+    topLevelParamIds = []
+    topLevelParamIdsSet = set()
+    requiredParamIdsToPaths = {}
 
     for a in ids:
         # Evaluates to true if:
-        # 1. The current param's is_pinned matches the is_pinned condition
+        # 1. The current param's isPinned matches the isPinned condition
         # 2. And: either the param has no children or at least one of its children is required
-        if both_truthy_or_falsey(c_state[a].get("isPinned"), is_pinned) and (
-            len(code_info_children[a]) == 0
-            or any(
-                child in required_param_ids_to_paths for child in code_info_children[a]
-            )
+        # This logic is why it's REQUIRED for ids to be reversed (processed starting with children up to ancestors)
+        if bothTruthyOrFalsey(codeInfo[a].get("isPinned"), isPinned) and (
+            len(codeInfoChildren[a]) == 0
+            or any(child in requiredParamIdsToPaths for child in codeInfoChildren[a])
         ):
-            for p in path_map[a]:
-                required_param_ids_to_paths[p] = path_map[p]
-                if path_map[a][0] not in top_level_param_ids_set:
-                    top_level_param_ids.append(path_map[a][0])
-                    top_level_param_ids_set.add(path_map[a][0])
+            for p in pathMap[a]:
+                if startAtDepth > 0:
+                    if startAtDepth < len(pathMap[p]):
+                        requiredParamIdsToPaths[p] = pathMap[p][startAtDepth:]
+                else:
+                    requiredParamIdsToPaths[p] = pathMap[p]
 
-    # Unreverse results
-    top_level_param_ids.reverse()
+                if (
+                    len(pathMap[a]) > startAtDepth
+                    and pathMap[a][startAtDepth]
+                    and pathMap[a][startAtDepth] not in topLevelParamIdsSet
+                ):
+                    topLevelParamIds.append(pathMap[a][startAtDepth])
+                    topLevelParamIdsSet.add(pathMap[a][startAtDepth])
+
+    # unreverse results
+    topLevelParamIds.reverse()
 
     return {
-        "requiredParamIdsToPaths": required_param_ids_to_paths,
-        "topLevelParamIds": top_level_param_ids,
+        "requiredParamIdsToPaths": requiredParamIdsToPaths,
+        "topLevelParamIds": topLevelParamIds,
     }
+
+
+def bothTruthyOrFalsey(a, b):
+    return (not a) == (not b) or a == b

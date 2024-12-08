@@ -1,8 +1,9 @@
 import _ from "lodash";
 import { useEffect } from "react";
-import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSettings } from "state/definitions";
+import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { ResizableWithScale } from "./ResizableWithScale";
@@ -10,9 +11,10 @@ import { getChangedSize, SIZE_MODE } from "./utils";
 
 export function CustomResizable({
   sectionId,
-  disablePointerEvents,
+  bgColor,
+  isActiveSection,
+  isYouTube,
   children,
-  inputClasses,
   as,
 }) {
   const { minHeight, maxHeight, minWidth, maxWidth, sizeMode } =
@@ -20,13 +22,14 @@ export function CustomResizable({
   return (
     <CustomResizableCore
       sectionId={sectionId}
+      bgColor={bgColor}
+      isYouTube={isYouTube}
+      isActiveSection={isActiveSection}
       minHeight={minHeight}
       maxHeight={maxHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
       sizeMode={sizeMode}
-      inputClasses={inputClasses}
-      disablePointerEvents={disablePointerEvents}
       as={as}
     >
       {children}
@@ -36,13 +39,14 @@ export function CustomResizable({
 
 function CustomResizableCore({
   sectionId,
+  bgColor,
+  isYouTube,
+  isActiveSection,
   minHeight,
   maxHeight,
   minWidth,
   maxWidth,
   sizeMode,
-  inputClasses = "",
-  disablePointerEvents,
   children,
   as,
 }) {
@@ -55,21 +59,24 @@ function CustomResizableCore({
       changedSize.width = "auto";
     }
     if (_.size(changedSize) > 0) {
-      setSectionResizeEvent({ sectionId, resizeEvent: "start" });
-      setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
-      setSectionResizeEvent({ sectionId, resizeEvent: "end" });
+      useSectionInfos.setState((state) => {
+        setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
+      });
     }
   }, [sizeMode.height, sizeMode.width]);
 
-  const { size, positionAndSizeLocked } = useSectionInfos(
-    (x) => _.pick(x.x[sectionId], ["size", "positionAndSizeLocked"]),
-    _.isEqual,
-  );
-  const { aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
-    useAspectRatio(sectionId);
+  const {
+    size,
+    positionAndSizeLocked,
+    aspectRatio,
+    aspectRatioExtraHeight,
+    aspectRatioExtraWidth,
+  } = useAspectRatio(sectionId);
 
   function onResizeStart() {
-    setSectionResizeEvent({ sectionId, resizeEvent: "start" });
+    useSectionInfos.setState((state) => {
+      setSectionResizeEvent(sectionId, "start", state);
+    });
   }
 
   function onResizeStop(...props) {
@@ -78,13 +85,72 @@ function CustomResizableCore({
       sizeMode,
       aspectRatio,
     });
-    setSelfParentSiblingChildrenWidths({ sectionId, changedSize });
-    setSectionResizeEvent({ sectionId, resizeEvent: "end" });
+    useSectionInfos.setState((state) => {
+      setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
+      setSectionResizeEvent(sectionId, "end", state);
+    });
+    maybeIncrementProjectStateVersion(true);
   }
 
   const heightResizable =
     minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
+
+  const snapGrid = useSettings((x) => x.gui.snapGrid);
+  const snapToGrid = localStorageFns.snapToGrid.hook()[0];
+
+  return (
+    <CustomResizableSuperCore
+      sectionId={sectionId}
+      as={as}
+      bgColor={bgColor}
+      isYouTube={isYouTube}
+      isActiveSection={isActiveSection}
+      size={size}
+      minHeight={minHeight}
+      maxHeight={maxHeight}
+      minWidth={minWidth}
+      maxWidth={maxWidth}
+      heightResizable={heightResizable}
+      widthResizable={widthResizable}
+      positionAndSizeLocked={positionAndSizeLocked}
+      onResizeStart={onResizeStart}
+      onResizeStop={onResizeStop}
+      aspectRatio={aspectRatio}
+      aspectRatioExtraHeight={aspectRatioExtraHeight}
+      aspectRatioExtraWidth={aspectRatioExtraWidth}
+      snapGrid={snapGrid}
+      snapToGrid={snapToGrid}
+    >
+      {children}
+    </CustomResizableSuperCore>
+  );
+}
+
+function CustomResizableSuperCore({
+  sectionId,
+  as,
+  bgColor,
+  isYouTube,
+  isActiveSection,
+  size,
+  minHeight,
+  maxHeight,
+  minWidth,
+  maxWidth,
+  heightResizable,
+  widthResizable,
+  positionAndSizeLocked,
+  onResizeStart,
+  onResizeStop,
+  aspectRatio,
+  aspectRatioExtraHeight,
+  aspectRatioExtraWidth,
+  snapGrid,
+  snapToGrid,
+  children,
+}) {
+  const disablePointerEvents = useShouldDisablePointerEvents();
 
   const enable =
     disablePointerEvents || positionAndSizeLocked
@@ -100,11 +166,11 @@ function CustomResizableCore({
           bottomLeft: false,
         };
 
-  // console.log("size", size);
-  // console.log("aspectRatio", aspectRatio)
-
-  const snapGrid = useSettings((x) => x.snapGrid);
-  const snapToGrid = localStorageFns.snapToGrid.hook()[0];
+  const inputClasses = `${
+    disablePointerEvents ? "pointer-events-none select-none" : ""
+  } ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700 ${isYouTube ? "overflow-clip" : ""} ${
+    isActiveSection ? "z-[150]" : "z-10"
+  }`;
 
   return (
     <ResizableWithScale
@@ -137,15 +203,23 @@ function useAspectRatio(sectionId) {
     const s = x.x[sectionId];
     if (s.isMinimized) {
       return {
+        size: s.size,
+        positionAndSizeLocked: s.positionAndSizeLocked,
         aspectRatio: false,
         aspectRatioExtraHeight: 0,
         aspectRatioExtraWidth: 0,
       };
     }
     return {
+      size: s.size,
+      positionAndSizeLocked: s.positionAndSizeLocked,
       aspectRatio: s.aspectRatio ?? false,
       aspectRatioExtraHeight: s.aspectRatioExtraHeight ?? 0,
       aspectRatioExtraWidth: s.aspectRatioExtraWidth ?? 0,
     };
   }, _.isEqual);
+}
+
+function setSectionResizeEvent(sectionId, resizeEvent, state) {
+  state.x[sectionId].resizeEvent = resizeEvent;
 }

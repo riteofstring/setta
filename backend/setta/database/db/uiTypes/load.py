@@ -1,53 +1,19 @@
-from setta.utils.constants import C
+import json
 
 
-def load_uitypes_by_condition(db, preset_types=None, ids=None):
-    if preset_types and ids:
-        raise ValueError
-    if preset_types:
-        query_params = preset_types
-        placeholders = ", ".join(["?"] * len(preset_types))
-        where = f"WHERE UIType.presetType in ({placeholders})"
-    elif ids:
-        query_params = ids
-        placeholders = ", ".join(["?"] * len(ids))
-        where = f"WHERE UIType.id in ({placeholders})"
-    else:
-        return {}
-
+def load_uitypes(db, ids):
+    placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT *
+        SELECT id, data
         FROM UIType
-        {where}
+        WHERE UIType.id in ({placeholders})
     """
 
-    db.execute(query, query_params)
+    db.execute(query, ids)
     output = {}
     for row in db.fetchall():
-        row = dict(row)
-        output[row["id"]] = process_uitype(row)
+        output[row["id"]] = {"id": row["id"], **json.loads(row["data"])}
     return output
-
-
-def process_uitype(uitype):
-    output = {
-        "id": uitype["id"],
-        "name": uitype["name"],
-        "type": uitype["type"],
-        "presetType": uitype["presetType"],
-        "config": {},
-    }
-    if uitype["type"] == C.SLIDER:
-        output["config"] = load_slider_config(uitype)
-    return output
-
-
-def load_slider_config(uitype):
-    return {
-        "min": uitype["sliderConfigMin"],
-        "max": uitype["sliderConfigMax"],
-        "step": uitype["sliderConfigStep"],
-    }
 
 
 def load_uitypecols(db, ids):
@@ -68,7 +34,6 @@ def load_uitypecols(db, ids):
     db.execute(query, ids)
     output = {}
     for row in db.fetchall():
-        row = dict(row)
         if row["id"] not in output:
             output[row["id"]] = {}
         output[row["id"]][row["codeInfoId"]] = {

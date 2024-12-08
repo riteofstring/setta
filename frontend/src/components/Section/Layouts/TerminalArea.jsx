@@ -1,10 +1,14 @@
 import { useReactFlow } from "forks/xyflow/core/store";
+import _ from "lodash";
 import React, { useState } from "react";
 import { useSectionInfos } from "state/definitions";
 import { useTerminal } from "state/hooks/terminal";
 
 function _TerminalArea({ sectionId }) {
-  const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
+  const { width, height } = useSectionInfos(
+    (x) => x.x[sectionId].size,
+    _.isEqual,
+  );
   const [hasScrollbar, setHasScrollbar] = useState(false);
   const terminalRef = useTerminal({
     sectionId,

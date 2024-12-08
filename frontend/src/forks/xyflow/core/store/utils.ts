@@ -1,10 +1,9 @@
 import { zoomIdentity } from "d3-zoom";
-import type { StoreApi } from "zustand";
 
 import { getNodes } from "state/actions/nodeInternals";
 import { useSettings } from "state/definitions";
 import { useReactFlow } from ".";
-import type { FitViewOptions, ReactFlowState } from "../types";
+import type { FitViewOptions } from "../types";
 import {
   getD3Transition,
   getNodesBounds,
@@ -15,10 +14,7 @@ type InternalFitViewOptions = {
   initial?: boolean;
 } & FitViewOptions;
 
-export function fitView(
-  get: StoreApi<ReactFlowState>["getState"],
-  options: InternalFitViewOptions = {},
-) {
+export function fitView(options: InternalFitViewOptions = {}) {
   const {
     width,
     height,
@@ -26,9 +22,9 @@ export function fitView(
     d3Selection,
     fitViewOnInitDone,
     fitViewOnInit,
-  } = get();
+  } = useReactFlow.getState();
 
-  const { minZoom, maxZoom } = useSettings.getState();
+  const { minZoom, maxZoom } = useSettings.getState().gui;
 
   const isInitialFitView =
     options.initial && !fitViewOnInitDone && fitViewOnInit;
@@ -76,6 +72,21 @@ export function fitView(
 }
 
 export function onFitViewHandler() {
-  fitView(useReactFlow.getState);
-  useReactFlow.setState({ fitViewOnInit: true });
+  if (useReactFlow.getState().fitViewOnInit) {
+    return;
+  }
+  const duration = useSettings.getState().gui.transitionDuration;
+  fitView({ duration });
+  // Hack to set fitViewOnInit after transform is done.
+  // If it gets set before the transform is done, then the
+  // reactFitViewOnInitSubscriptionFn subscription will get
+  // triggered and it will reset to fitViewOnInit
+  setTimeout(
+    () => useReactFlow.setState({ fitViewOnInit: true }),
+    duration + 10,
+  );
+}
+
+export function useReadyToBeVisible() {
+  return useReactFlow((x) => !x.fitViewOnInit || x.fitViewOnInitDone);
 }

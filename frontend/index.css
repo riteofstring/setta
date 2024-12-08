@@ -7,6 +7,11 @@
     grid-area: title;
     /* grid-column: key / value; */
   }
+
+  .section-center {
+    grid-area: center-gutter;
+  }
+
   .section-search {
     grid-area: search;
   }
@@ -262,6 +267,11 @@ body {
   grid-template-areas: "left-gutter key center-gutter value";
 }
 
+.section-args-nested-key-value {
+  grid-template-columns: 1fr 0.75rem 1fr;
+  grid-template-areas: "key center-gutter value";
+}
+
 @supports (-moz-appearance: none) {
   .section-args-list {
     overflow-x: hidden;
@@ -325,6 +335,15 @@ input[type="color" i] {
 
 ::-moz-focus-inner {
   padding: 0;
+}
+
+.color-flip {
+  --bg: #ff0000;
+  background: var(--bg);
+
+  /* This swaps between white or black based on the background color. */
+  /* After testing against all RGB background colors, 49.44 minimizes the number of WCAG 4.5:1 contrast failures. */
+  color: lch(from var(--bg) calc((49.44 - l) * infinity) 0 0);
 }
 
 * {

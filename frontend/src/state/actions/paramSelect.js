@@ -1,9 +1,9 @@
-import { useParamShortcuts } from "../definitions";
+import { useMisc } from "../definitions";
 
 export function activateParamSelect() {
-  useParamShortcuts.setState({ isSelectingParams: true });
+  useMisc.setState({ isSelectingParams: true });
 }
 
 export function deactivateParamSelect() {
-  useParamShortcuts.setState({ isSelectingParams: false });
+  useMisc.setState({ isSelectingParams: false });
 }

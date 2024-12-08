@@ -8,9 +8,9 @@ import {
 import _ from "lodash";
 import potpack from "potpack";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useNodeInternals } from "state/definitions";
-import { getNodes, setNodes } from "../nodeInternals";
-import { setActiveSectionIds } from "./activeSections";
+import { useNodeInternals, useSettings } from "state/definitions";
+import { setActiveSectionIds } from "../activeSections";
+import { getNewNodes } from "../nodeInternals";
 
 export function setZIndices(sectionIds, incrementVersion) {
   const nodeInternals = useNodeInternals.getState().x;
@@ -40,7 +40,7 @@ export function setZIndices(sectionIds, incrementVersion) {
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
-export function goToSection(sectionId, duration = 100) {
+export function goToSection(sectionId) {
   const rfStore = useReactFlow.getState();
   const {
     x: sectionX,
@@ -58,6 +58,7 @@ export function goToSection(sectionId, duration = 100) {
     true,
   );
 
+  const duration = useSettings.getState().gui.transitionDuration;
   const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
   rfStore.d3Zoom.transform(
     getD3Transition(rfStore.d3Selection, duration),
@@ -66,30 +67,38 @@ export function goToSection(sectionId, duration = 100) {
 
   setActiveSectionIds([sectionId]);
   setZIndices([sectionId]);
-  useReactFlow.setState({ fitViewOnInit: false });
 }
 
 export function autoLayout() {
   const margin = 50;
-  const nodeInternals = _.cloneDeep(getNodes());
+  const newNodes = getNewNodes();
 
-  let sizes = nodeInternals.map((x) => ({
-    id: x.id,
-    w: x.width + margin,
-    h: x.height + margin,
-  }));
+  let sizes = [];
+  newNodes.forEach((x) => {
+    sizes.push({
+      id: x.id,
+      w: x.width + margin,
+      h: x.height + margin,
+    });
+  });
+
   potpack(sizes); // mutates input
   sizes = _.keyBy(sizes, "id");
 
-  const minX = Math.min(...nodeInternals.map((n) => n.position.x));
-  const minY = Math.min(...nodeInternals.map((n) => n.position.y));
-  const newNodes = nodeInternals.map((node) => {
+  let minX = Infinity;
+  let minY = Infinity;
+  newNodes.forEach((n) => {
+    minX = Math.min(minX, n.position.x);
+    minY = Math.min(minY, n.position.y);
+  });
+
+  newNodes.forEach((node, key) => {
     node.position = {
       x: sizes[node.id].x + minX,
       y: sizes[node.id].y + minY,
     };
-    return node;
+    newNodes.set(key, node);
   });
 
-  setNodes(newNodes);
+  useNodeInternals.setState({ x: newNodes });
 }

@@ -1,13 +1,15 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { guiToYaml } from "state/actions/guiToYaml";
-import { resetSectionToDefaultVersion } from "state/actions/sectionVariants";
-import { getSectionInfo } from "state/getters/sectionInfo";
+import {
+  getSectionInfo,
+  resetSectionsToDefaultVersions,
+} from "state/actions/sectionInfos";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function ResetToDefaultVersion({ sectionId }) {
   function onClick() {
     const { displayMode } = getSectionInfo(sectionId);
-    resetSectionToDefaultVersion(sectionId);
+    resetSectionsToDefaultVersions([sectionId]);
     if (displayMode === SECTION_DISPLAY_MODES.YAML) {
       guiToYaml(sectionId);
     }

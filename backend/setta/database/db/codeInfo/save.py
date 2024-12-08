@@ -1,32 +1,28 @@
-from setta.database.utils import dump_keyword_positions_as_string
-from setta.utils.utils import replace_null_keys_with_none
+import json
+
+from setta.utils.constants import CODE_INFO_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES
+from setta.utils.utils import filter_dict, replace_null_keys_with_none
 
 
 def save_code_info(db, codeInfo):
     query = """
-        INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description, positionalOnly, isPinned, isFrozen, keywordPositions)
-        VALUES (:id, :name, :editable, :rcType, :defaultVal, :description, :positionalOnly, :isPinned, :isFrozen, :keywordPositions)
+        INSERT INTO CodeInfo (id, data)
+        VALUES (:id, :data)
         ON CONFLICT (id)
         DO UPDATE SET
-            name = :name,
-            editable = :editable,
-            rcType = :rcType,
-            defaultVal = :defaultVal,
-            description = :description,
-            positionalOnly = :positionalOnly,
-            isPinned = :isPinned,
-            isFrozen = :isFrozen,
-            keywordPositions = :keywordPositions
+            data = :data
     """
 
     # insert into codeinfo table
     query_params = []
-    for c in codeInfo.values():
+    for codeInfoId, c in codeInfo.items():
         query_params.append(
             {
-                **c,
-                "keywordPositions": dump_keyword_positions_as_string(
-                    c["keywordPositions"]
+                "id": codeInfoId,
+                "data": json.dumps(
+                    filter_dict(
+                        c, CODE_INFO_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["codeInfo"]
+                    )
                 ),
             }
         )

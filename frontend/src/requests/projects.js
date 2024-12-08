@@ -81,3 +81,10 @@ export async function dbSetAsDefaultProject(projectId) {
     body: { projectId },
   });
 }
+
+export async function dbFilterDataForJSONExport(project) {
+  return await post({
+    address: C.ROUTE_FILTER_DATA_FOR_JSON_EXPORT,
+    body: { project },
+  });
+}

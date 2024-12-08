@@ -1,11 +1,12 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
+import _ from "lodash";
 import { BsCardChecklist } from "react-icons/bs";
 import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
 import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
-import { useActiveSection, useSectionInfos } from "state/definitions";
+import { useActiveSection } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import {
@@ -28,13 +29,12 @@ import { UIConfig } from "./UIConfig/UIConfig";
 const paneName = UI_EDITOR;
 
 export function UiEditor() {
-  const sectionIds = useActiveSection((x) => x.ids);
-  const { tab, requiredTabs, uiTypeName } = useUIEditorTab(sectionIds[0]);
+  const sectionIds = useActiveSection((x) => x.ids, _.isEqual);
+  const { tab, requiredTabs, uiTypeName, renderMarkdown } = useUIEditorTab(
+    sectionIds[0],
+  );
   const [vis] = localStorageFns.uiEditorVis.hook();
   const [width] = localStorageFns.uiEditorWidth.hook();
-  const renderMarkdown = useSectionInfos((x) =>
-    sectionIds.length > 0 ? x.x[sectionIds[0]].renderMarkdown : false,
-  );
   const infoTabTooltip = renderMarkdown ? "Markdown Editor" : "Text Editor";
   const inputTitle = tab === INFO_CONFIG_TAB ? infoTabTooltip : null;
 
@@ -53,7 +53,7 @@ export function UiEditor() {
       className="contents"
       onKeyDown={uiEditorPaneOnKeyDown}
     >
-      <div className="absolute right-0 z-[19] flex h-full w-[50px] flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
+      <div className="absolute right-0 z-[19] flex h-[calc(100%_-_48px)] w-[50px] flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton
           tabName={SECTION_CONFIG_TAB}
           {...commonProps}

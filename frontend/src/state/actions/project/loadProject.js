@@ -4,32 +4,24 @@ import _ from "lodash";
 import { useNavigate } from "react-router-dom";
 import { dbCreateProjectConfig, dbLoadProjectConfig } from "requests/projects";
 import { dbLoadSettingsProject } from "requests/settings";
-import { useJSONSourceMissing } from "state/definitions";
+import {
+  useNodeInternals,
+  useProjectConfig,
+  useSectionInfos,
+} from "state/definitions";
 import {
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
-import { setAllCodeInfo } from "../codeInfo";
-import { setAllCodeInfoCols } from "../codeInfoCols";
-import { setNodes } from "../nodeInternals";
-import { setAllParamSweeps } from "../runGroups/paramSweep";
-import { setAllRunGroups } from "../runGroups/runGroups";
-import {
-  manualDndChildrenReset,
-  setAllSectionInfos,
-} from "../sections/sectionInfos";
-import { setAllSectionVariants } from "../sectionVariants";
-import { setAllUITypeCols } from "../uiTypes/uiTypeCols";
-import { setAllUITypes } from "../uiTypes/uiTypes";
+import { maybeRunGuiToYamlOnAllSections } from "../guiToYaml";
 import { maybeIncrementProjectStateVersion } from "../undo";
-import { setProjectConfig } from "./projectConfig";
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await dbLoadProjectConfig(projectConfigName);
   if (res.status === 200) {
     console.log(res.data);
-    return loadProjectState(res.data);
+    return await loadProjectState(res.data);
   } else {
     return false;
   }
@@ -39,13 +31,13 @@ export async function loadSettingsProjectConfig() {
   const res = await dbLoadSettingsProject();
   if (res.status === 200) {
     console.log(res.data);
-    return loadProjectState(res.data);
+    return await loadProjectState(res.data);
   } else {
     return false;
   }
 }
 
-export function loadProjectState({
+export async function loadProjectState({
   projectConfig,
   codeInfo,
   codeInfoCols,
@@ -53,13 +45,10 @@ export function loadProjectState({
   sectionVariants,
   uiTypes,
   uiTypeCols,
-  paramSweeps,
-  runGroups,
-  jsonSourceMissing,
 }) {
-  setAllCodeInfo(codeInfo);
-  setAllCodeInfoCols(codeInfoCols);
-  setProjectConfig(_.omit(projectConfig, ["children", "viewport"]));
+  useProjectConfig.setState({
+    ..._.omit(projectConfig, ["children", "viewport"]),
+  });
   if (!projectConfig.viewport) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
@@ -70,24 +59,19 @@ export function loadProjectState({
       transform: [x, y, zoom],
     });
   }
-  setNodes(
-    _.map(projectConfig.children, (v, k) => ({
-      id: k,
-      position: { x: v.x, y: v.y },
-      zIndex: v.zIndex,
-      tempZIndex: v.zIndex,
-    })),
-  );
-  setAllUITypes({ ...uiTypes, ...BASE_UI_TYPES });
-  setAllSectionVariants(sectionVariants);
-  setAllUITypeCols({ uiTypeCols });
-  setAllParamSweeps(paramSweeps);
-  setAllRunGroups(runGroups);
-  setAllSectionInfos(sections);
-  useJSONSourceMissing.getState().reset();
-  useJSONSourceMissing.setState(jsonSourceMissing);
+  useSectionInfos.setState({
+    x: sections,
+    variants: sectionVariants,
+    uiTypes: { ...uiTypes, ...BASE_UI_TYPES },
+    uiTypeCols,
+    codeInfo,
+    codeInfoCols,
+  });
+  useNodeInternals.setState({
+    x: createNodesMapFromProjectConfigChildren(projectConfig),
+  });
+  await maybeRunGuiToYamlOnAllSections();
   maybeIncrementProjectStateVersion(true, false);
-  manualDndChildrenReset();
   return true;
 }
 
@@ -116,4 +100,20 @@ export function useNavigateToAnotherConfig() {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });
   };
+}
+
+function createNodesMapFromProjectConfigChildren(projectConfig) {
+  const nodesMap = new Map();
+
+  for (let k of Object.keys(projectConfig.children)) {
+    const v = projectConfig.children[k];
+    nodesMap.set(k, {
+      id: k,
+      position: { x: v.x, y: v.y },
+      zIndex: v.zIndex,
+      tempZIndex: v.zIndex,
+    });
+  }
+
+  return nodesMap;
 }

@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useGetSectionInfo } from "state/hooks/sections";
+import { useSectionInfos } from "state/definitions";
 
 export function SocialAreaSettings({ sectionId }) {
-  const url = useGetSectionInfo(sectionId, "social");
+  const url = useSectionInfos((x) => x.x[sectionId].social);
+
   console.log("url", url);
   const [value, setValue] = useState(url ?? "");
   function onBlur(e) {
     const blurValue = e.target.value;
     if (blurValue) {
-      setSectionInfoAttr({ sectionId, attr: "social", value: blurValue });
+      useSectionInfos.setState((state) => {
+        state.x[sectionId].social = blurValue;
+      });
     }
   }
 

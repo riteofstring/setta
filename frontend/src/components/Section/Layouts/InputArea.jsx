@@ -1,16 +1,21 @@
 import { SectionYamlView } from "components/Params/YamlView";
+import _ from "lodash";
 import React from "react";
-import { useGetSectionInfo } from "state/hooks/sections";
-import { useSectionSelectedItem } from "state/hooks/sectionVariants";
+import { getDisplayedSectionVariant } from "state/actions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
+import { useShowYaml } from "../../../state/hooks/toYaml";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 import { SectionSearch } from "../SectionParts/Search";
-import { useShowYaml } from "./toYaml";
 
 function _InputArea({ sectionId, bgColor }) {
-  const selectedItem = useSectionSelectedItem(sectionId);
-  const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
-  const hideParams = useGetSectionInfo(sectionId, "hideParams");
+  const { selectedItem, hideSearch, hideParams } = useSectionInfos((x) => {
+    return {
+      selectedItem: getDisplayedSectionVariant(sectionId, x).selectedItem,
+      hideSearch: x.x[sectionId].hideSearch,
+      hideParams: x.x[sectionId].hideParams,
+    };
+  }, _.isEqual);
   const showYaml = useShowYaml(sectionId);
 
   return (

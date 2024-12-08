@@ -1,101 +1,63 @@
 import _ from "lodash";
-import { useSectionInfos, useSectionVariants } from "state/definitions";
-import { useGetSectionInfo } from "./sections";
+import {
+  getDisplayedSectionVariant,
+  getSectionVariant,
+} from "state/actions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
+import { newEVEntry } from "utils/objs/ev";
 
-export function useGetParamEnteredValue(sectionId, paramInfoId) {
-  const variantIdToShow = useSectionVariantIdToShow(sectionId);
-  return useSectionVariants((x) => {
-    const vals = x.x[variantIdToShow].values;
+export function useGetParamEnteredValueAndKeywordPositions(
+  sectionId,
+  paramInfoId,
+) {
+  return useSectionInfos((x) => {
+    const vals = getDisplayedSectionVariant(sectionId, x).values;
     if (paramInfoId in vals) {
-      return vals[paramInfoId].value;
+      return {
+        value: vals[paramInfoId].value,
+        keywordPositions: vals[paramInfoId].keywordPositions,
+      };
     }
-    return "";
-  });
-}
-
-export function useGetParamKeywordPositions(sectionId, paramInfoId) {
-  const variantIdToShow = useSectionVariantIdToShow(sectionId);
-  return useSectionVariants((x) => {
-    if (paramInfoId) {
-      const vals = x.x[variantIdToShow].values;
-      if (paramInfoId in vals) {
-        return vals[paramInfoId].keywordPositions;
-      }
-    }
-    return [];
+    return newEVEntry();
   }, _.isEqual);
 }
 
 export function useGetSectionVariantNames(sectionId) {
-  const variantIds = useGetSectionInfo(sectionId, "variantIds");
-  return useSectionVariants(
-    (x) => variantIds.map((e) => ({ id: e, name: x.x[e].name })),
-    _.isEqual,
-  );
-}
-
-export function useSectionEnteredValues(sectionId) {
-  const variantIdToShow = useSectionVariantIdToShow(sectionId);
-  return useSectionVariants(
-    (x) => Object.values(x.x[variantIdToShow].values),
-    _.isEqual,
-  );
-}
-
-function useSectionVariantIdToShow(sectionId) {
-  return useSectionInfos((x) => {
-    const s = x.x[sectionId];
-    return s.previewVariantId ?? s.variantId;
-  });
-}
-
-export function useSectionIdToChildren() {
-  const sectionIdToVariantMetadata = useSectionInfos((x) =>
-    _.mapValues(x.x, (v) => ({
-      variantId: v.variantId,
-    })),
-  );
-  return useSectionVariants(
+  return useSectionInfos(
     (x) =>
-      _.mapValues(sectionIdToVariantMetadata, (v) => x.x[v.variantId].children),
+      sectionId
+        ? x.x[sectionId].variantIds.map((e) => ({
+            id: e,
+            name: x.variants[e].name,
+          }))
+        : [],
     _.isEqual,
   );
 }
 
 export function useListElementIdx(sectionId) {
-  const parentId = useGetSectionInfo(sectionId, "parentId");
-  const variantIdToShow = useSectionVariantIdToShow(parentId);
-  return useSectionVariants((x) =>
-    x.x[variantIdToShow].children.indexOf(sectionId),
-  );
-}
-
-function useSectionVariantAttr(sectionId, attr, equalityFn) {
-  const variantIdToShow = useSectionVariantIdToShow(sectionId);
-  return useSectionVariants((x) => x.x[variantIdToShow][attr], equalityFn);
-}
-
-export function useSectionSelectedItem(sectionId) {
-  return useSectionVariantAttr(sectionId, "selectedItem");
-}
-
-export function useSectionCode(sectionId) {
-  return useSectionVariantAttr(sectionId, "code");
-}
-
-export function useSectionDescription(sectionId) {
-  return useSectionVariantAttr(sectionId, "description");
-}
-
-export function useSectionCodeInfoColId(sectionId) {
-  return useSectionVariantAttr(sectionId, "codeInfoColId");
-}
-
-export function useSectionKeywordPositions(sectionId) {
-  return useSectionVariantAttr(sectionId, "keywordPositions", _.isEqual);
+  return useSectionInfos((x) => {
+    const parentId = x.x[sectionId].parentId;
+    return getDisplayedSectionVariant(parentId).children.indexOf(sectionId);
+  });
 }
 
 export function useSectionVariantIsFrozen(sectionId) {
-  const variantId = useSectionInfos((x) => x.x[sectionId].variantId);
-  return useSectionVariants((x) => x.x[variantId].isFrozen);
+  return useSectionInfos((x) => getSectionVariant(sectionId, x).isFrozen);
+}
+
+export function useInfoAreaDescriptionAndEditability(sectionId) {
+  return useSectionInfos((x) => {
+    return {
+      ...getInfoAreaDescription(sectionId, x),
+      variantIsFrozen: getSectionVariant(sectionId, x).isFrozen,
+    };
+  }, _.isEqual);
+}
+
+export function getInfoAreaDescription(sectionId, state) {
+  return {
+    renderMarkdown: state.x[sectionId].renderMarkdown,
+    description: getDisplayedSectionVariant(sectionId, state).description,
+  };
 }

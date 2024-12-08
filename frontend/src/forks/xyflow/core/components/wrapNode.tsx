@@ -1,11 +1,11 @@
 import cc from "classcat";
-import { SectionContainerNode } from "components/Section/Container/SectionContainerNode";
+import { SectionContainer } from "components/Section/Container/SectionContainer";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
-import { useGetSectionInfo } from "state/hooks/sections";
+import { useSectionInfos } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import useDrag from "../hooks/useDrag";
-import useUpdateNodePositions from "../hooks/useUpdateNodePositions";
+import { updatePositions } from "../hooks/useUpdateNodePositions";
 import type { WrapNodeProps, XYPosition } from "../types";
 import { isInputDOMNode } from "../utils";
 
@@ -26,14 +26,15 @@ const _NodeWrapper = ({
   isSelectable,
   isFocusable,
   resizeObserver,
-  initialized,
   zIndex,
+  visibility,
 }: WrapNodeProps) => {
   const nodeRef = useRef<HTMLDivElement>(null);
-  const positionAndSizeLocked = useGetSectionInfo(id, "positionAndSizeLocked");
+  const positionAndSizeLocked = useSectionInfos(
+    (x) => x.x[id].positionAndSizeLocked,
+  );
   const isDraggable = _isDraggable && !positionAndSizeLocked;
   const hasPointerEvents = isSelectable || isDraggable;
-  const updatePositions = useUpdateNodePositions();
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (isInputDOMNode(event)) {
@@ -85,7 +86,7 @@ const _NodeWrapper = ({
       style={{
         transform: `translate(${xPos}px,${yPos}px)`,
         pointerEvents: hasPointerEvents ? "all" : "none",
-        visibility: initialized ? "visible" : "hidden",
+        visibility,
         zIndex,
         ...style,
       }}
@@ -95,7 +96,7 @@ const _NodeWrapper = ({
       tabIndex={isFocusable ? 0 : undefined}
       role={isFocusable ? "button" : undefined}
     >
-      <SectionContainerNode id={id} />
+      <SectionContainer sectionId={id} isTopLevel={true} />
     </div>
   );
 };
