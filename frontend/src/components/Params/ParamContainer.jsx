@@ -69,7 +69,9 @@ function _ParamContainer({
     };
   }, _.isEqual);
 
-  const bg = paramIsSelected ? "bg-setta-500/20" : "";
+  const bg = paramIsSelected
+    ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white"
+    : "transition-colors active:!bg-cyan-300";
 
   function onMouseDownSelect(e) {
     if (!ancestorIsSelected && useMisc.getState().isSelectingParams) {
@@ -87,7 +89,7 @@ function _ParamContainer({
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows -ml-[2px] grid grid-cols-subgrid items-center justify-between rounded-sm pl-[2px] hover:bg-setta-50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
+        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows -ml-[2px] grid grid-cols-subgrid items-center justify-between rounded-sm pl-[2px] hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
         onMouseDownCapture={onMouseDownSelect} // has to be on capture for selection to work
         ref={childlessRef}
