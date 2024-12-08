@@ -189,7 +189,11 @@ function ColorPickerFromColorChoices({
         </div>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="z-20 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800">
+        <DropdownMenu.Content
+          className="z-20 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800"
+          align="start"
+          style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}
+        >
           {colorChoices.map((item, index) => (
             <DropdownMenu.Item
               key={index}
