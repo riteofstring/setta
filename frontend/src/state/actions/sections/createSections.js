@@ -65,7 +65,6 @@ export function addSectionAtPosition({
     position,
     state,
   });
-  console.log("newId", newId)
   return newId;
 }
 

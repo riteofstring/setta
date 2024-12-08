@@ -5,7 +5,7 @@ from setta.utils.constants import (
     SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS,
     SECTION_TABLE_DATA_JSON_FIELDS,
 )
-from setta.utils.utils import filter_dict
+from setta.utils.utils import filter_dict, replace_null_keys_with_none
 
 
 def save_sections(db, sections, section_variants):
@@ -144,3 +144,60 @@ def save_sections(db, sections, section_variants):
             ]
         )
     db.executemany(query, query_params)
+
+    placeholders = ", ".join(["?"] * len(section_variants))
+    query = f"""
+        DELETE FROM SectionVariantRunGroup
+        WHERE idid IN ({placeholders})
+    """
+    query_params = list(section_variants.keys())
+    db.execute(query, query_params)
+
+    run_group_query_params = []
+    run_group_versions_query_params = []
+    run_group_param_sweeps_query_params = []
+    for idid, variant in section_variants.items():
+        variant = replace_null_keys_with_none(variant)
+        for sectionId, detailsForSection in variant["runGroup"].items():
+            for parentVariantId, detailsForParentVariant in detailsForSection.items():
+                base_query_params = {
+                    "idid": idid,
+                    "sectionId": sectionId,
+                    "parentVariantId": parentVariantId,
+                }
+                run_group_query_params.append(
+                    {
+                        **base_query_params,
+                        "selected": detailsForParentVariant["selected"],
+                    }
+                )
+                for versionId, selected in detailsForParentVariant["versions"].items():
+                    run_group_versions_query_params.append(
+                        {
+                            **base_query_params,
+                            "versionId": versionId,
+                            "selected": selected,
+                        }
+                    )
+                for sweepId, selected in detailsForParentVariant["paramSweeps"].items():
+                    run_group_param_sweeps_query_params.append(
+                        {**base_query_params, "sweepId": sweepId, "selected": selected}
+                    )
+
+    query = """
+        INSERT INTO SectionVariantRunGroup (idid, sectionId, parentVariantId, selected)
+        VALUES (:idid, :sectionId, :parentVariantId, :selected)
+    """
+    db.executemany(query, run_group_query_params)
+
+    query = """
+        INSERT INTO SectionVariantRunGroupVersions (idid, sectionId, parentVariantId, versionId, selected)
+        VALUES (:idid, :sectionId, :parentVariantId, :versionId, :selected)
+    """
+    db.executemany(query, run_group_versions_query_params)
+
+    query = """
+        INSERT INTO SectionVariantRunGroupParamSweeps (idid, sectionId, parentVariantId, sweepId, selected)
+        VALUES (:idid, :sectionId, :parentVariantId, :sweepId, :selected)
+    """
+    db.executemany(query, run_group_param_sweeps_query_params)
