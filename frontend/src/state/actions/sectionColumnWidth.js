@@ -1,4 +1,5 @@
 import { useReactFlow } from "forks/xyflow/core/store";
+import { useCallback, useEffect, useRef } from "react";
 import { useResizerStore, useSectionColumnWidth } from "state/definitions";
 import { clamp } from "utils/utils";
 
@@ -88,4 +89,92 @@ export function initializeGlobalSectionColumnWidthEventListeners() {
     window.removeEventListener("mousemove", handleGlobalMouseMove);
     window.removeEventListener("mouseup", handleGlobalMouseUp);
   };
+}
+
+export function useColumnResizer(sectionId, ref, maxNestedDepth) {
+  const widthRef = useRef({
+    currentWidth: 0,
+    containerWidth: 0,
+    currentPercentage: 50,
+    isDragging: false,
+  });
+
+  function setNewWidth(containerWidth, width, setGlobalState) {
+    const boundedWidth = calculateBoundedWidth(
+      width,
+      containerWidth,
+      maxNestedDepth,
+    );
+    widthRef.current.currentWidth = boundedWidth;
+    widthRef.current.currentPercentage = (boundedWidth / containerWidth) * 100;
+    if (setGlobalState) {
+      setSectionWidth(sectionId, boundedWidth);
+    }
+  }
+
+  function updatedWidthOnContainerResize() {
+    if (widthRef.current.isDragging || !ref.current) return;
+
+    const containerWidth = ref.current.clientWidth;
+    const currentPercentage = widthRef.current.currentPercentage;
+    const newWidth = (containerWidth * currentPercentage) / 100;
+    widthRef.current.containerWidth = containerWidth;
+    setNewWidth(containerWidth, newWidth, true);
+  }
+
+  useEffect(() => {
+    let previousWidth = ref.current?.clientWidth;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const newWidth =
+        entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
+
+      if (newWidth !== previousWidth) {
+        previousWidth = newWidth;
+        updatedWidthOnContainerResize();
+      }
+    });
+
+    if (ref.current) {
+      resizeObserver.observe(ref.current);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [maxNestedDepth]);
+
+  useEffect(() => {
+    if (ref.current) {
+      const containerWidth = ref.current.clientWidth;
+      const existingWidth = useSectionColumnWidth.getState()[sectionId];
+      const initialWidth = existingWidth
+        ? existingWidth + CENTER_OFFSET
+        : containerWidth / 2;
+      widthRef.current.containerWidth = containerWidth;
+      setNewWidth(containerWidth, initialWidth, !existingWidth);
+    }
+  }, [maxNestedDepth]);
+
+  const handleResizeStart = useCallback(
+    (e) => {
+      e.preventDefault();
+      if (ref.current) {
+        widthRef.current.isDragging = true;
+        setActiveResizer({
+          sectionId,
+          ref,
+          startX: e.clientX,
+          startWidth: widthRef.current.currentWidth,
+          containerWidth: widthRef.current.containerWidth,
+          maxNestedDepth,
+          widthRef,
+        });
+      }
+    },
+    [sectionId, maxNestedDepth],
+  );
+
+  return handleResizeStart;
 }
