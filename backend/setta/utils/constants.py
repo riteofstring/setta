@@ -97,7 +97,6 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
         "canvasSettings",
         "renderMarkdown",
         "paramFilter",
-        "columnWidth",
     )
 )
 
@@ -115,7 +114,6 @@ SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS = set(
 )
 
 SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS = set(["value", "keywordPositions"])
-
 
 UI_TYPE_TABLE_DATA_JSON_FIELDS = set(
     [

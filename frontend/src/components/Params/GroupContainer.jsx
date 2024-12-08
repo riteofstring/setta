@@ -127,7 +127,7 @@ function ResizablePinnedArea({
   return (
     <ResizableWithScale
       handleWrapperClass="nodrag"
-      className="relative -mt-1 flex max-h-[50%] flex-col items-start overflow-hidden border-b border-white bg-blue-200/50 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30"
+      className="relative -mt-1 flex max-h-[50%] flex-col items-start justify-between overflow-hidden border-b border-white bg-blue-200/50 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30"
       as="section"
       size={{ height }}
       onResizeStop={onResizeStop}
@@ -152,7 +152,7 @@ function ResizablePinnedArea({
       </header>
 
       <div
-        className={`${isScrollable ? "nowheel" : ""} section-args-nested section-key-value self section-min-rows grid w-full grid-cols-subgrid gap-y-1 overflow-y-scroll`}
+        className={`${isScrollable ? "nowheel" : ""} section-args-nested section-key-value section-min-rows grid w-full grid-cols-subgrid gap-y-1 overflow-y-scroll`}
         ref={ref}
       >
         <GetParamSwitch
@@ -160,7 +160,6 @@ function ResizablePinnedArea({
           paramIds={topLevelParamIds}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           onResizeStart={handleColumnResizeStart}
-          isTopLevel={true}
         />
       </div>
     </ResizableWithScale>
@@ -179,7 +178,7 @@ function GetUnpinnedParams({
 
   return (
     <div
-      className={`section-args-nested grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
+      className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${
         isScrollable ? "nowheel" : ""
       } min-w-0 !max-w-full`}
       ref={ref}
@@ -217,7 +216,6 @@ function GetUnpinnedParamsCore({
       paramIds={topLevelParamIds}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       onResizeStart={onResizeStart}
-      isTopLevel={true}
     />
   );
 }

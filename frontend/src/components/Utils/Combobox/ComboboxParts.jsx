@@ -57,9 +57,9 @@ export function ComboboxList({ isOpen, children, getMenuProps, listDims }) {
 
   return createPortal(
     <div
-      className={`nowheel nodrag absolute w-fit pb-2 ${display} z-20 mt-8 max-h-96  rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50`}
+      className={`nowheel nodrag absolute w-full min-w-[40px] pb-2 ${display} z-20 mt-8 max-h-96  rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50`}
       {...getMenuProps()}
-      style={{ left: `${x}px`, top: `${y}px`, minWidth: width }}
+      style={{ width, left: `${x}px`, top: `${y}px` }}
     >
       <div className="w-full overflow-y-scroll">{children}</div>
     </div>,

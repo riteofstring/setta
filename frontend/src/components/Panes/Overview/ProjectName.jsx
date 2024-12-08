@@ -26,7 +26,7 @@ export function ProjectName() {
 }
 
 function ProjectNameOnly() {
-  const [localName, onChange, onBlur, onKeyDown] = useEditableProjectName();
+  const [localName, setLocalName, onBlur, onCancel] = useEditableProjectName();
 
   return (
     <Editable
@@ -35,9 +35,9 @@ function ProjectNameOnly() {
         notEditing: `${notEditing} text-xl text-setta-900 dark:text-setta-50 font-bold `,
       }}
       value={localName}
-      onChange={onChange}
+      onChange={setLocalName}
       onBlur={onBlur}
-      onKeyDown={onKeyDown}
+      onCancel={onCancel}
     />
   );
 }

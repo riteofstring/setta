@@ -159,15 +159,6 @@ export function useColumnResizer(sectionId, ref, maxNestedDepth) {
     (e) => {
       e.preventDefault();
       if (ref.current) {
-        if (e.detail === 2) {
-          // Double click
-          const containerWidth = ref.current.clientWidth;
-          widthRef.current.isDragging = false;
-          widthRef.current.currentPercentage = 50;
-          setNewWidth(containerWidth, containerWidth / 2);
-          return;
-        }
-
         widthRef.current.isDragging = true;
         setActiveResizer({
           sectionId,

@@ -35,7 +35,7 @@ function EditableTitle({ sectionId, sectionName, titleProps }) {
     return !getSiblingHasName(sectionId, value);
   }
 
-  const [inputValue, onChange, onBlur, onKeyDown] = useEditableOnSubmit(
+  const [inputValue, setInputValue, onBlur, onCancel] = useEditableOnSubmit(
     sectionName,
     onTitleInputChange,
     condition,
@@ -44,11 +44,10 @@ function EditableTitle({ sectionId, sectionName, titleProps }) {
   return (
     <Editable
       value={inputValue}
-      onChange={onChange}
+      onChange={setInputValue}
       onBlur={onBlur}
-      onKeyDown={onKeyDown}
+      onCancel={onCancel}
       titleProps={titleProps}
-      doubleClickToEdit={true}
     />
   );
 }

@@ -1,20 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
   const [inputValue, setInputValue] = useState(initialValue);
-  const blurTriggeredByEscapeKey = useRef(false);
 
-  function onChange(event) {
-    setInputValue(event.target.value);
-  }
-
-  async function onBlur(event) {
-    if (blurTriggeredByEscapeKey.current) {
-      blurTriggeredByEscapeKey.current = false;
-      return;
-    }
-    blurTriggeredByEscapeKey.current = false;
-    const v = event.target.value;
+  async function onBlur(v) {
     if (v != "" && v != initialValue && (await condition(v))) {
       onSetTitle(v);
     } else {
@@ -22,19 +11,13 @@ export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
     }
   }
 
-  function onKeyDown(event) {
-    if (event.key === "Escape") {
-      blurTriggeredByEscapeKey.current = true;
-      event.target.blur();
-      setInputValue(initialValue);
-    } else if (event.key === "Enter") {
-      event.target.blur();
-    }
+  function onCancel() {
+    setInputValue(initialValue);
   }
 
   useEffect(() => {
     setInputValue(initialValue);
   }, [initialValue]);
 
-  return [inputValue, onChange, onBlur, onKeyDown];
+  return [inputValue, setInputValue, onBlur, onCancel];
 }
