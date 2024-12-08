@@ -196,14 +196,6 @@ export function toggleVariantFrozenState(variantId) {
   });
 }
 
-export function setDefaultSectionVariant(sectionId, variantId) {
-  useSectionInfos.setState((x) => {
-    for (const v of x.x[sectionId].variantIds) {
-      x.variants[v].isDefault = v === variantId;
-    }
-  });
-}
-
 export function resetSectionsToDefaultVersions(sectionIds) {
   useSectionInfos.setState((x) => {
     const sectionVariants = x.variants;
