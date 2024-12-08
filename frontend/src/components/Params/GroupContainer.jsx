@@ -15,6 +15,7 @@ import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {
   const outerRef = useRef();
+  const handleColumnResizeStart = useColumnResizer(sectionId, outerRef);
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
   // const waitingForResult = true;
@@ -28,15 +29,22 @@ function _ParamGroupContainer({ sectionId }) {
         <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
       ) : (
         <>
-          <GetPinnedParams sectionId={sectionId} outerRef={outerRef} />
-          <GetUnpinnedParams sectionId={sectionId} outerRef={outerRef} />
+          <GetPinnedParams
+            sectionId={sectionId}
+            outerRef={outerRef}
+            handleColumnResizeStart={handleColumnResizeStart}
+          />
+          <GetUnpinnedParams
+            sectionId={sectionId}
+            handleColumnResizeStart={handleColumnResizeStart}
+          />
         </>
       )}
     </div>
   );
 }
 
-function GetPinnedParams({ sectionId, outerRef }) {
+function GetPinnedParams({ sectionId, outerRef, handleColumnResizeStart }) {
   const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     true,
@@ -49,6 +57,7 @@ function GetPinnedParams({ sectionId, outerRef }) {
         topLevelParamIds={topLevelParamIds}
         requiredParamIdsToPaths={requiredParamIdsToPaths}
         outerRef={outerRef}
+        handleColumnResizeStart={handleColumnResizeStart}
       />
     )
   );
@@ -59,6 +68,7 @@ function ResizablePinnedArea({
   topLevelParamIds,
   requiredParamIdsToPaths,
   outerRef,
+  handleColumnResizeStart,
 }) {
   const { sectionHeight, height } = useSectionInfos((x) => {
     return {
@@ -125,18 +135,55 @@ function ResizablePinnedArea({
           sectionId={sectionId}
           paramIds={topLevelParamIds}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={handleColumnResizeStart}
         />
       </div>
     </ResizableWithScale>
   );
 }
 
-function GetUnpinnedParams({ sectionId, outerRef }) {
+function GetUnpinnedParams({ sectionId, handleColumnResizeStart }) {
   const { ref, isScrollable } = useIsScrollable();
   const hideUnpinnedParams = useSectionInfos(
     (x) => x.x[sectionId].hideUnpinnedParams,
   );
 
+  return (
+    <div
+      className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${
+        isScrollable ? "nowheel" : ""
+      } min-w-0 !max-w-full`}
+      ref={ref}
+    >
+      {!hideUnpinnedParams && (
+        <GetUnpinnedParamsCore
+          sectionId={sectionId}
+          onResizeStart={handleColumnResizeStart}
+        />
+      )}
+    </div>
+  );
+}
+
+function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
+  const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
+    sectionId,
+    false,
+  );
+
+  return (
+    <GetParamSwitch
+      sectionId={sectionId}
+      paramIds={topLevelParamIds}
+      requiredParamIdsToPaths={requiredParamIdsToPaths}
+      onResizeStart={onResizeStart}
+    />
+  );
+}
+
+export const ParamGroupContainer = React.memo(_ParamGroupContainer);
+
+function useColumnResizer(sectionId, outerRef) {
   // Use ref for both resize state and current width to avoid race conditions
   const resizeRef = useRef({
     isResizing: false,
@@ -234,37 +281,5 @@ function GetUnpinnedParams({ sectionId, outerRef }) {
     };
   }, [handleMouseMove, handleMouseUp]);
 
-  return (
-    <div
-      className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${
-        isScrollable ? "nowheel" : ""
-      } min-w-0 !max-w-full`}
-      ref={ref}
-    >
-      {!hideUnpinnedParams && (
-        <GetUnpinnedParamsCore
-          sectionId={sectionId}
-          onResizeStart={handleResizeStart}
-        />
-      )}
-    </div>
-  );
+  return handleResizeStart;
 }
-
-function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
-  const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
-    sectionId,
-    false,
-  );
-
-  return (
-    <GetParamSwitch
-      sectionId={sectionId}
-      paramIds={topLevelParamIds}
-      requiredParamIdsToPaths={requiredParamIdsToPaths}
-      onResizeStart={onResizeStart}
-    />
-  );
-}
-
-export const ParamGroupContainer = React.memo(_ParamGroupContainer);
