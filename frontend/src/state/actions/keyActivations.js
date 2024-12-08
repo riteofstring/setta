@@ -37,7 +37,34 @@ import { focusOnSearch } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
 
 let keysPressed = new Set();
+let keysPressedTimeStamps = new Map();
 let aModShortcutWasPressed = false;
+
+function resetKeysPressed() {
+  keysPressed = new Set();
+  keysPressedTimeStamps = new Map();
+}
+
+function deleteKeyPressed(key) {
+  keysPressed.delete(key);
+  keysPressedTimeStamps.delete(key);
+}
+
+function addKeyPressed(key) {
+  keysPressed.add(key);
+  keysPressedTimeStamps.set(key, Date.now());
+}
+
+function clearStaleKeys() {
+  const now = Date.now();
+
+  // First, collect all stale keys
+  for (const [key, timestamp] of keysPressedTimeStamps) {
+    if (now - timestamp > 100) {
+      deleteKeyPressed(key);
+    }
+  }
+}
 
 function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {
   attachTo.addEventListener(eventName, action);
@@ -204,7 +231,7 @@ function getShouldPreventDefault(parsedShortcut) {
   return true;
 }
 
-function isInput(event) {
+function getIsInput(event) {
   return (
     event.target instanceof HTMLInputElement ||
     event.target instanceof HTMLTextAreaElement ||
@@ -315,74 +342,74 @@ function keyUpLoop(e, shortcutInfo) {
 }
 
 export function attachKeyEventListeners() {
-  const settings = useSettings.getState();
+  const shortcuts = useSettings.getState().shortcuts;
 
   const conditionAndAction = [
     ["tab", tabFromDocumentBody],
     ["shift + tab", tabFromDocumentBody],
-    [settings.newCardShortcut, addRegularSectionInEmptySpace],
-    [settings.newGroupShortcut, addGroupInEmptySpace],
-    [settings.newTerminalShortcut, addTerminalInEmptySpace],
-    [settings.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
+    [shortcuts.shortnewCardShortcut, addRegularSectionInEmptySpace],
+    [shortcuts.newGroupShortcut, addGroupInEmptySpace],
+    [shortcuts.newTerminalShortcut, addTerminalInEmptySpace],
+    [shortcuts.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
     [
-      settings.tooltipToPlaintextShortcut,
+      shortcuts.tooltipToPlaintextShortcut,
       getConvertFloatingBoxToSectionFn(false),
     ],
     [
-      settings.tooltipToMarkdownShortcut,
+      shortcuts.tooltipToMarkdownShortcut,
       getConvertFloatingBoxToSectionFn(true),
     ],
-    [settings.freezeTooltipShortcut, freezeFloatingBox],
+    [shortcuts.freezeTooltipShortcut, freezeFloatingBox],
     [
-      settings.frozenTooltipToPlaintextShortcut,
+      shortcuts.frozenTooltipToPlaintextShortcut,
       getConvertFloatingBoxToSectionFn(false),
     ],
     [
-      settings.frozenTooltipToMarkdownShortcut,
+      shortcuts.frozenTooltipToMarkdownShortcut,
       getConvertFloatingBoxToSectionFn(true),
     ],
-    [settings.undoShortcut, _.throttle(undoProjectState, 100), null, true],
-    [settings.redoShortcut, _.throttle(redoProjectState, 100), null, true],
-    [settings.groupShortcut, groupSections],
-    [settings.saveShortcut, saveProject],
-    [settings.loadShortcut, openLoadModal],
-    [settings.saveAsShortcut, openSaveAsModal],
-    [settings.searchShortcut, focusOnSearch],
-    [settings.resetZoomShortcut, resetZoom],
-    [settings.copyShortcut, copy],
-    [settings.pasteShortcut, paste],
-    [settings.updateInteractiveCode, updateInteractiveCode],
-    [settings.formatCode, formatCode],
-    [settings.paramSelect, activateParamSelect, deactivateParamSelect],
-    [settings.fitViewShortcut, onFitViewHandler],
-    [settings.zoomToMouseShortcut, zoomToMouseLocation],
-    [settings.deleteSectionShortcut, deleteAllActiveSections],
-    [settings.selectAllSectionsShortcut, setAllSectionsAsActive],
-    [settings.showVersionsTabShortcut, showVersionsTab],
+    [shortcuts.undoShortcut, _.throttle(undoProjectState, 100), null, true],
+    [shortcuts.redoShortcut, _.throttle(redoProjectState, 100), null, true],
+    [shortcuts.groupShortcut, groupSections],
+    [shortcuts.saveShortcut, saveProject],
+    [shortcuts.loadShortcut, openLoadModal],
+    [shortcuts.saveAsShortcut, openSaveAsModal],
+    [shortcuts.searchShortcut, focusOnSearch],
+    [shortcuts.resetZoomShortcut, resetZoom],
+    [shortcuts.copyShortcut, copy],
+    [shortcuts.pasteShortcut, paste],
+    [shortcuts.updateInteractiveCode, updateInteractiveCode],
+    [shortcuts.formatCode, formatCode],
+    [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
+    [shortcuts.fitViewShortcut, onFitViewHandler],
+    [shortcuts.zoomToMouseShortcut, zoomToMouseLocation],
+    [shortcuts.deleteSectionShortcut, deleteAllActiveSections],
+    [shortcuts.selectAllSectionsShortcut, setAllSectionsAsActive],
+    [shortcuts.showVersionsTabShortcut, showVersionsTab],
     [
-      settings.selectionKeyCode,
+      shortcuts.selectionKeyCode,
       activateSelectionKeyPressed,
       deactivateSelectionKeyPressed,
     ],
     [
-      settings.multiSelectionKeyCode,
+      shortcuts.multiSelectionKeyCode,
       activateMultiSelectionPressed,
       deactivateMultiSelectionPressed,
     ],
-    [settings.panActivationKeyCode, activatePanMode, deactivatePanMode],
-    [settings.zoomActivationKeyCode, activateZoomMode, deactivateZoomMode],
+    [shortcuts.panActivationKeyCode, activatePanMode, deactivatePanMode],
+    [shortcuts.zoomActivationKeyCode, activateZoomMode, deactivateZoomMode],
     [
-      settings.moveSectionKeyCode,
+      shortcuts.moveSectionKeyCode,
       activateMoveSectionMode,
       deactivateMoveSectionMode,
     ],
     [
-      settings.sortingShortcut,
+      shortcuts.sortingShortcut,
       useDndState.getState().activateSortingMode,
       useDndState.getState().deactivate,
     ],
     [
-      settings.movingFreeShortcut,
+      shortcuts.movingFreeShortcut,
       useDndState.getState().activateMovingFreeMode,
       useDndState.getState().deactivate,
     ],
@@ -414,13 +441,17 @@ export function attachKeyEventListeners() {
     });
   }
   let cleanup = attachKeyDownListener((e) => {
+    // need to clear keys by timestamp because keyup does not trigger on mac when cmd key is held down
+    clearStaleKeys();
     aModShortcutWasPressed = false;
     if (!modifierKeyCodes.has(e.code)) {
-      keysPressed.add(e.code);
+      addKeyPressed(e.code);
     }
+    const isInput = getIsInput(e);
+
     for (const x of shortcutInfo) {
       if (isShortcutPressed(e, x.parsedShortcut, _isMacOs)) {
-        if (x.ignoreWhenInInputField && isInput(e)) {
+        if (x.ignoreWhenInInputField && isInput) {
           continue;
         }
         if (x.shouldPreventDefault) {
@@ -445,16 +476,16 @@ export function attachKeyEventListeners() {
   cleanup = attachKeyUpListener((e) => {
     if (_isMacOs && e.key === "Meta") {
       // special case because on mac, meta key causes the other pressed keys to not trigger keyup
-      keysPressed = new Set();
+      resetKeysPressed();
     } else {
-      keysPressed.delete(e.code);
+      deleteKeyPressed(e.code);
     }
     keyUpLoop(e, shortcutInfo);
   });
   cleanup_functions.push(cleanup);
 
   cleanup = attachEventListenerAndReturnCleanup(window, "blur", (e) => {
-    keysPressed = new Set();
+    resetKeysPressed();
     keyUpLoop(e, shortcutInfo);
   });
   cleanup_functions.push(cleanup);

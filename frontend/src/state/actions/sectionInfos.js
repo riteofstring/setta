@@ -1,8 +1,10 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
-import { createNewId } from "utils/idNameCreation";
-import { newEV } from "utils/objs/ev";
+import { createJSONSourceParamId, createNewId } from "utils/idNameCreation";
+import { newCodeInfoCol } from "utils/objs/codeInfoCol";
+import { newEVEntry } from "utils/objs/ev";
+import { newUITypeColEntry } from "utils/objs/uiTypeCol";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];
@@ -92,6 +94,9 @@ export function updateSectionInfos({
 }
 
 export function setEnteredValue(variantId, paramInfoId, value, state) {
+  if (!(paramInfoId in state.variants[variantId].values)) {
+    state.variants[variantId].values[paramInfoId] = newEVEntry();
+  }
   state.variants[variantId].values[paramInfoId].value = value;
 }
 
@@ -101,7 +106,8 @@ export function setParamEnteredValue(sectionId, paramInfoId, value, state) {
 
 export function getCodeInfoCol(sectionId, _state) {
   const state = _state ?? useSectionInfos.getState();
-  return state.codeInfoCols[getSectionVariant(sectionId, state).codeInfoColId];
+  const codeInfoColId = getSectionVariant(sectionId, state).codeInfoColId;
+  return codeInfoColId ? state.codeInfoCols[codeInfoColId] : newCodeInfoCol();
 }
 
 export function getDisplayedCodeInfoCol(sectionId, _state) {
@@ -126,11 +132,23 @@ export function setSectionVariantChildren(sectionId, newStateFn, state) {
   variant.children = newStateFn(variant.children);
 }
 
+function getDisplayedSectionIdToChildrenHelper(sectionId, state, output) {
+  const children = getDisplayedSectionVariant(sectionId, state).children;
+  output[sectionId] = children;
+  if (children) {
+    for (const childId of children) {
+      getDisplayedSectionIdToChildrenHelper(childId, state, output);
+    }
+  }
+}
+
 export function getDisplayedSectionIdToChildren(state) {
   const output = {};
   const s = state ?? useSectionInfos.getState();
-  for (const sectionId of Object.keys(s.x)) {
-    output[sectionId] = getDisplayedSectionVariant(sectionId, s).children;
+  for (const section of Object.values(s.x)) {
+    if (!section.parentId) {
+      getDisplayedSectionIdToChildrenHelper(section.id, s, output);
+    }
   }
   return output;
 }
@@ -210,16 +228,38 @@ export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
   return newId;
 }
 
-export function initEnteredValue(uiType) {
-  return {
-    value: newEV(uiType),
-    keywordPositions: [],
-  };
+export function getCodeChildrenAndParentCodeInfoId(sectionId, x) {
+  const sectionVariant = getDisplayedSectionVariant(sectionId, x);
+  const { codeInfoColId } = sectionVariant;
+
+  let parentCodeInfoId,
+    startAtDepth = 0;
+  const { jsonSource, jsonSourceKeys } = x.x[sectionId];
+  if (
+    jsonSource &&
+    Array.isArray(jsonSourceKeys) &&
+    jsonSourceKeys.length > 0
+  ) {
+    parentCodeInfoId = createJSONSourceParamId(jsonSourceKeys, jsonSource);
+    startAtDepth = jsonSourceKeys.length;
+  } else {
+    parentCodeInfoId = sectionVariant.selectedItem;
+  }
+
+  const codeInfoChildren = codeInfoColId
+    ? x.codeInfoCols[codeInfoColId].children
+    : newUITypeColEntry();
+
+  return { codeInfoChildren, parentCodeInfoId, startAtDepth };
 }
 
-export function initUITypeColEntry(uiTypeId) {
-  return {
-    uiTypeId,
-    nonPresetUITypeIds: [],
-  };
+export function getTotalNumberOfIds(idToChildren) {
+  const allIds = new Set();
+
+  for (const [id, children] of Object.entries(idToChildren)) {
+    allIds.add(id);
+    children.forEach((childId) => allIds.add(childId));
+  }
+
+  return allIds.size;
 }

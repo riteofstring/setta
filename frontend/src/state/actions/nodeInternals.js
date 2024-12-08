@@ -2,7 +2,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
 import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
-import { useNodeInternals, useSectionRefs } from "state/definitions";
+import { useMisc, useNodeInternals, useSectionRefs } from "state/definitions";
 
 export function getNodes(s = null) {
   return Array.from(s ? s.x.values() : useNodeInternals.getState().x.values());
@@ -58,6 +58,12 @@ export function updateNodeDimensions(updates) {
   }
 
   useNodeInternals.setState({ x: newNodes });
+
+  const miscState = useMisc.getState();
+  // don't do fitView until all code areas are done rendering
+  if (miscState.numInitializedCodeAreas !== miscState.numDisplayedCodeAreas) {
+    return;
+  }
 
   const nextFitViewOnInitDone =
     fitViewOnInitDone ||

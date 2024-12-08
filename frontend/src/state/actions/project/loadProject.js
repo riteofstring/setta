@@ -14,13 +14,14 @@ import {
   pathRelativeToProject,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
+import { maybeRunGuiToYamlOnAllSections } from "../guiToYaml";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await dbLoadProjectConfig(projectConfigName);
   if (res.status === 200) {
     console.log(res.data);
-    return loadProjectState(res.data);
+    return await loadProjectState(res.data);
   } else {
     return false;
   }
@@ -30,13 +31,13 @@ export async function loadSettingsProjectConfig() {
   const res = await dbLoadSettingsProject();
   if (res.status === 200) {
     console.log(res.data);
-    return loadProjectState(res.data);
+    return await loadProjectState(res.data);
   } else {
     return false;
   }
 }
 
-export function loadProjectState({
+export async function loadProjectState({
   projectConfig,
   codeInfo,
   codeInfoCols,
@@ -69,6 +70,7 @@ export function loadProjectState({
   useNodeInternals.setState({
     x: createNodesMapFromProjectConfigChildren(projectConfig),
   });
+  await maybeRunGuiToYamlOnAllSections();
   maybeIncrementProjectStateVersion(true, false);
   return true;
 }

@@ -146,7 +146,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     const selectedNodeIds = getNodesInside(
       nextUserSelectRect,
       transform,
-      useSettings.getState().selectionMode === SelectionMode.Partial,
+      useSettings.getState().gui.selectionMode === SelectionMode.Partial,
       true,
     );
     // const selectedNodeIds = selectedNodes.map((n) => n.id);

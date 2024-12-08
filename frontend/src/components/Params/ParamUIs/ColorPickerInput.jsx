@@ -169,7 +169,7 @@ function ColorPickerFromColorChoices({
   };
 
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger
         className={colorPickerChoicesClasses}
         disabled={isDisabled}
@@ -188,23 +188,29 @@ function ColorPickerFromColorChoices({
           <i className="gg-chevron-down px-2" style={style} />
         </div>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content className="flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800">
-        {colorChoices.map((item, index) => (
-          <DropdownMenu.Item
-            key={index}
-            className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700"
-            onSelect={() => setColor(item.color)}
-          >
-            <div
-              className="mr-2 h-4 w-4 rounded-full"
-              style={{ backgroundColor: item.color }}
-            />
-            <p className="max-w-48 truncate text-xs text-setta-500 dark:text-setta-300">
-              {item.description}
-            </p>
-          </DropdownMenu.Item>
-        ))}
-      </DropdownMenu.Content>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          className="z-20 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800"
+          align="start"
+          style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}
+        >
+          {colorChoices.map((item, index) => (
+            <DropdownMenu.Item
+              key={index}
+              className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700"
+              onSelect={() => setColor(item.color)}
+            >
+              <div
+                className="mr-2 h-4 w-4 rounded-full"
+                style={{ backgroundColor: item.color }}
+              />
+              <p className="max-w-48 truncate text-xs text-setta-500 dark:text-setta-300">
+                {item.description}
+              </p>
+            </DropdownMenu.Item>
+          ))}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
     </DropdownMenu.Root>
   );
 }

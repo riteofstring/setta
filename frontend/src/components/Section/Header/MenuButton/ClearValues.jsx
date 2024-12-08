@@ -1,9 +1,10 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { guiToYaml } from "state/actions/guiToYaml";
-import { getSectionInfo, initEnteredValue } from "state/actions/sectionInfos";
+import { getSectionInfo } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { getParamUIType } from "state/hooks/uiTypes";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
+import { newEVEntry } from "utils/objs/ev";
 
 export function ClearValues({ sectionId }) {
   function onClick() {
@@ -11,7 +12,7 @@ export function ClearValues({ sectionId }) {
 
     useSectionInfos.setState((x) => {
       for (const k of Object.keys(x.variants[variantId].values)) {
-        x.variants[variantId].values[k] = initEnteredValue(
+        x.variants[variantId].values[k] = newEVEntry(
           getParamUIType(sectionId, k, x),
         );
       }

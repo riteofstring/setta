@@ -4,6 +4,7 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { addSectionAtPosition } from "state/actions/sections/createSections";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useContextMenus, useSectionInfos } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
@@ -23,6 +24,7 @@ export function PaneContextMenu() {
           ...specificProps,
         });
       });
+      maybeIncrementProjectStateVersion(true);
       closeAllContextMenus();
     };
   }
@@ -47,7 +49,7 @@ export function PaneContextMenu() {
       <Item
         onClick={getOnClickFn({
           type: C.CODE,
-          inputSectionProps: { codeLanguage: "python" },
+          sectionProps: { codeLanguage: "python" },
         })}
       >
         New Python Script
@@ -55,7 +57,7 @@ export function PaneContextMenu() {
       <Item
         onClick={getOnClickFn({
           type: C.INTERACTIVE_CODE,
-          inputSectionProps: { codeLanguage: "python" },
+          sectionProps: { codeLanguage: "python" },
         })}
       >
         New Interactive Python Script
@@ -63,7 +65,7 @@ export function PaneContextMenu() {
       <Item
         onClick={getOnClickFn({
           type: C.CODE,
-          inputSectionProps: { codeLanguage: "bash" },
+          sectionProps: { codeLanguage: "bash" },
         })}
       >
         New Bash Script
