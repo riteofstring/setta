@@ -87,6 +87,6 @@ export function onFitViewHandler() {
   );
 }
 
-export function useReadyToBeVisible() {
-  return useReactFlow((x) => !x.fitViewOnInit || x.fitViewOnInitDone);
+export function computeReadyToBeVisible(reactFlowState) {
+  return !reactFlowState.fitViewOnInit || reactFlowState.fitViewOnInitDone;
 }

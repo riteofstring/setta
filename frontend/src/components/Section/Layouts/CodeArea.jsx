@@ -3,7 +3,8 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { getKeywordStylizer } from "components/Utils/CodeMirror/getKeywordStylizer";
 import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useReadyToBeVisible } from "forks/xyflow/core/store/utils";
+import { useReactFlow } from "forks/xyflow/core/store";
+import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, {
   useCallback,
@@ -150,7 +151,7 @@ export function useCodeAreaHeight({ sectionId }) {
   const editorRef = useRef(null);
   const resizeObserverRef = useRef(null);
   const [nowheel, setNoWheel] = useState("");
-  const readyToBeVisible = useReadyToBeVisible();
+  const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const [didFirstRender, setDidFirstRender] = useState(false);
 
   const handleCreateEditor = useCallback((view) => {

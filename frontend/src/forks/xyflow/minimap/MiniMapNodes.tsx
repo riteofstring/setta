@@ -3,6 +3,8 @@
 import { memo } from "react";
 import { getNodes } from "state/actions/nodeInternals";
 import { useActiveSection, useNodeInternals } from "state/definitions";
+import { useReactFlow } from "../core/store";
+import { computeReadyToBeVisible } from "../core/store/utils";
 import MiniMapNode from "./MiniMapNode";
 import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
 
@@ -14,8 +16,11 @@ const getAttrFunction = (func: any): GetMiniMapNodeAttribute =>
   func instanceof Function ? func : () => func;
 
 function _MiniMapNodesReactive(props: MiniMapNodesType) {
+  const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const nodes = useNodeInternals(selectorNodes);
-  return <MiniMapNodes nodes={nodes} {...props} />;
+  if (readyToBeVisible) {
+    return <MiniMapNodes nodes={nodes} {...props} />;
+  }
 }
 
 export const MiniMapNodesReactive = memo(_MiniMapNodesReactive);
