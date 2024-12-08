@@ -185,18 +185,6 @@ function GetUnpinnedParams({ sectionId }) {
     };
   }, []);
 
-  const handleResizeStart = useCallback((e) => {
-    e.preventDefault();
-    if (ref.current) {
-      resizeRef.current = {
-        ...resizeRef.current,
-        isResizing: true,
-        startX: e.clientX,
-        startPercentage: resizeRef.current.currentPercentage,
-      };
-    }
-  }, []);
-
   const handleMouseMove = useCallback((e) => {
     if (!resizeRef.current.isResizing || !ref.current) return;
 
@@ -241,17 +229,12 @@ function GetUnpinnedParams({ sectionId }) {
       } min-w-0 !max-w-full`}
       ref={ref}
     >
-      {!hideUnpinnedParams && (
-        <GetUnpinnedParamsCore
-          sectionId={sectionId}
-          onResizeStart={handleResizeStart}
-        />
-      )}
+      {!hideUnpinnedParams && <GetUnpinnedParamsCore sectionId={sectionId} />}
     </div>
   );
 }
 
-function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
+function GetUnpinnedParamsCore({ sectionId }) {
   const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     false,
@@ -262,7 +245,6 @@ function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
       sectionId={sectionId}
       paramIds={topLevelParamIds}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
-      onResizeStart={onResizeStart}
     />
   );
 }
