@@ -259,7 +259,8 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
       const containerWidth = ref.current.clientWidth;
       const currentPercentage = resizeRef.current.currentPercentage;
       const newWidth = (containerWidth * currentPercentage) / 100;
-      calculateNewWidth(containerWidth, newWidth, true);
+      ref.current.containerWidth = containerWidth;
+      setNewWidth(containerWidth, newWidth, true);
     }
   }
 
@@ -269,7 +270,8 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
       const containerWidth = ref.current.clientWidth;
       const existingWidth = useSectionColumnWidth.getState()[sectionId];
       const initialWidth = existingWidth ?? containerWidth / 2;
-      calculateNewWidth(containerWidth, initialWidth, !!existingWidth);
+      ref.current.containerWidth = containerWidth;
+      setNewWidth(containerWidth, initialWidth, !!existingWidth);
     }
   }, [marginPx]);
 
