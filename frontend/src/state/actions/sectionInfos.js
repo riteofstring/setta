@@ -153,6 +153,15 @@ export function getDisplayedSectionIdToChildren(state) {
   return output;
 }
 
+export function getSectionIdToParentId(state) {
+  const output = {};
+  const s = state ?? useSectionInfos.getState();
+  for (const section of Object.values(s.x)) {
+    output[section.id] = section.parentId;
+  }
+  return output;
+}
+
 function getSectionDescendantsFromAllVariants(sectionId, state) {
   const output = [];
   for (const v of state.x[sectionId].variantIds) {

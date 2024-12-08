@@ -276,3 +276,38 @@ export function useTopLevelRunGroupListing() {
     return output;
   }, _.isEqual);
 }
+
+export function updateRunGroupsWithNewHierarchy(newHierarchy, oldHierarchy) {
+  useSectionInfos.setState((state) => {
+    const globalParamSweepSectionId =
+      state.singletonSections[C.GLOBAL_PARAM_SWEEP];
+    if (!globalParamSweepSectionId) {
+      return;
+    }
+    for (const [sectionId, parentId] of Object.entries(newHierarchy)) {
+      if (
+        !(sectionId in oldHierarchy) ||
+        parentId === oldHierarchy[sectionId]
+      ) {
+        continue;
+      }
+      const { variantIds } = state.x[globalParamSweepSectionId];
+      for (const variantId of variantIds) {
+        const runGroup = state.variants[variantId].runGroup;
+        if (!(sectionId in runGroup)) {
+          continue;
+        }
+        const newParentVariantIds = parentId
+          ? state.x[parentId].variantIds
+          : [null];
+        for (const newParentVariantId of newParentVariantIds) {
+          runGroup[sectionId][newParentVariantId] = newRunGroupSection(
+            sectionId,
+            undefined,
+            state,
+          );
+        }
+      }
+    }
+  });
+}
