@@ -19,7 +19,7 @@ import { createProjectSearchLookupKey } from "state/hooks/search";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
 
-function _ParamContainer({
+export function ParamContainer({
   sectionId,
   paramInfoId,
   requiredParamIdsToPaths,
@@ -96,6 +96,7 @@ function _ParamContainer({
           realNestedRef.current.style.width = `${columnWidth}px`;
         }
       },
+      { fireImmediately: true },
     );
   }, []);
 
@@ -152,8 +153,6 @@ function _ParamContainer({
     </article>
   );
 }
-
-export const ParamContainer = React.memo(_ParamContainer);
 
 function ErrorSection({ maybeErrorMessage }) {
   return (

@@ -14,7 +14,7 @@ import {
 import { clamp } from "utils/utils";
 import { GetParamSwitch } from "./GetParamSwitch";
 
-function _ParamGroupContainer({ sectionId }) {
+export function ParamGroupContainer({ sectionId }) {
   const outerRef = useRef();
   const [maxNestedDepth, setMaxNestedDepth] = useState({
     pinned: 1,
@@ -219,8 +219,6 @@ function GetUnpinnedParamsCore({
   );
 }
 
-export const ParamGroupContainer = React.memo(_ParamGroupContainer);
-
 function useColumnResizer(sectionId, ref, maxNestedDepth) {
   const marginPx = 72 + Math.max(0, 12 * (maxNestedDepth - 1));
 
@@ -234,15 +232,27 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     currentPercentage: 50, // Track percentage for container resizes
   });
 
-  // Initialize dimensions once on mount
+  // In the first useEffect where dimensions are initialized
   useEffect(() => {
     if (ref.current) {
       const containerWidth = ref.current.clientWidth;
-      const initialWidth = containerWidth / 2;
+      // Check global state first
+      const existingWidth = useSectionColumnWidth.getState()[sectionId];
+      console.log("existingWidth", existingWidth);
+      const initialWidth = existingWidth ?? containerWidth / 2;
+
       resizeRef.current.containerWidth = containerWidth;
       resizeRef.current.currentWidth = initialWidth;
-      resizeRef.current.currentPercentage = 50;
-      setColumnWidth(sectionId, initialWidth);
+      resizeRef.current.currentPercentage =
+        (initialWidth / containerWidth) * 100;
+
+      if (!existingWidth) {
+        console.log(
+          "in initial useEffect, setting column width to initialWidth",
+          initialWidth,
+        );
+        setColumnWidth(sectionId, initialWidth);
+      }
     }
   }, []);
 
@@ -268,6 +278,8 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
         resizeRef.current.currentWidth = boundedWidth;
         resizeRef.current.currentPercentage =
           (boundedWidth / containerWidth) * 100;
+        
+        console.log("handleResize")
 
         setColumnWidth(sectionId, boundedWidth);
       }
@@ -342,8 +354,9 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
 }
 
 function setColumnWidth(sectionId, width) {
+  console.log("setting column width to", width);
   useSectionColumnWidth.setState({
-    [sectionId]: width - 18, // Maintain the existing 24px adjustment
+    [sectionId]: width, // Maintain the existing 24px adjustment
   });
 }
 
