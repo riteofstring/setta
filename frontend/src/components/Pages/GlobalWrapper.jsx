@@ -18,15 +18,15 @@ export function IndexRouteComponent() {
     (x) => x.backend.showDefaultConfigOnLoad,
   );
   const defaultConfigName = useDefaultConfigName();
-  if (!defaultConfigName) {
+  if (defaultConfigName === undefined) {
     return null;
   }
 
-  return !showDefaultConfigOnLoad ? (
-    <Navigate to={HOME_ROUTER_PATH} replace />
-  ) : (
-    <Navigate to={defaultConfigName} replace />
-  );
+  if (!showDefaultConfigOnLoad || defaultConfigName === null) {
+    return <Navigate to={HOME_ROUTER_PATH} replace />;
+  }
+
+  return <Navigate to={defaultConfigName} replace />;
 }
 
 function useSetHTMLTitle() {
@@ -77,7 +77,7 @@ function useLoadSettings() {
 }
 
 function useDefaultConfigName() {
-  const [defaultConfigName, setDefaultConfigName] = useState(null);
+  const [defaultConfigName, setDefaultConfigName] = useState(undefined);
 
   async function fn() {
     const res = await dbGetDefaultConfigName();
