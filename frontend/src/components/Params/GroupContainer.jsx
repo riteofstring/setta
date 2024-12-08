@@ -184,24 +184,26 @@ function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
-function useColumnResizer(sectionId, ref) {
+function useColumnResizer(sectionId, ref, marginPx = 72) {
   // Use ref for both resize state and current width to avoid race conditions
   const resizeRef = useRef({
     isResizing: false,
     startX: 0,
-    startPercentage: 50,
-    currentPercentage: 50,
+    startWidth: 0,
+    currentWidth: 0,
     containerWidth: 0,
+    currentPercentage: 50, // Track percentage for container resizes
   });
 
   // Initialize dimensions once on mount
   useEffect(() => {
     if (ref.current) {
       const containerWidth = ref.current.clientWidth;
-      const currentPercentage = 50;
+      const initialWidth = containerWidth / 2;
       resizeRef.current.containerWidth = containerWidth;
+      resizeRef.current.currentWidth = initialWidth;
       resizeRef.current.currentPercentage = 50;
-      setColumnWidth(sectionId, containerWidth, currentPercentage);
+      setColumnWidth(sectionId, initialWidth);
     }
   }, []);
 
@@ -213,7 +215,22 @@ function useColumnResizer(sectionId, ref) {
         const currentPercentage = resizeRef.current.currentPercentage;
         resizeRef.current.containerWidth = containerWidth;
 
-        setColumnWidth(sectionId, containerWidth, currentPercentage);
+        // Calculate new width based on percentage
+        const newWidth = (containerWidth * currentPercentage) / 100;
+
+        // Ensure width stays within margin bounds
+        const boundedWidth = clamp(
+          newWidth,
+          marginPx,
+          containerWidth - marginPx,
+        );
+
+        // Update both width and percentage if bounds were hit
+        resizeRef.current.currentWidth = boundedWidth;
+        resizeRef.current.currentPercentage =
+          (boundedWidth / containerWidth) * 100;
+
+        setColumnWidth(sectionId, boundedWidth);
       }
     };
 
@@ -234,7 +251,7 @@ function useColumnResizer(sectionId, ref) {
         ...resizeRef.current,
         isResizing: true,
         startX: e.clientX,
-        startPercentage: resizeRef.current.currentPercentage,
+        startWidth: resizeRef.current.currentWidth,
       };
     }
   }, []);
@@ -243,17 +260,21 @@ function useColumnResizer(sectionId, ref) {
     if (!resizeRef.current.isResizing || !ref.current) return;
 
     requestAnimationFrame(() => {
-      const { containerWidth, startX, startPercentage } = resizeRef.current;
+      const { containerWidth, startX, startWidth } = resizeRef.current;
       const diff = (e.clientX - startX) / useReactFlow.getState().transform[2];
-      const diffAsPercentage = (diff / containerWidth) * 100;
 
-      const newPercentage = clamp(startPercentage + diffAsPercentage, 20, 80);
+      const newWidth = clamp(
+        startWidth + diff,
+        marginPx,
+        containerWidth - marginPx,
+      );
 
       // Update ref first
-      resizeRef.current.currentPercentage = newPercentage;
+      resizeRef.current.currentWidth = newWidth;
+      resizeRef.current.currentPercentage = (newWidth / containerWidth) * 100;
 
       // Then update global state
-      setColumnWidth(sectionId, containerWidth, newPercentage);
+      setColumnWidth(sectionId, newWidth);
     });
   }, []);
 
@@ -274,8 +295,8 @@ function useColumnResizer(sectionId, ref) {
   return handleResizeStart;
 }
 
-function setColumnWidth(sectionId, containerWidth, percentage) {
+function setColumnWidth(sectionId, width) {
   useSectionColumnWidth.setState({
-    [sectionId]: containerWidth * (percentage / 100) - 24,
+    [sectionId]: width - 24, // Maintain the existing 24px adjustment
   });
 }
