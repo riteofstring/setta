@@ -246,7 +246,7 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     }
   }, []);
 
-  // Handle container resize with debounced updates
+  // Handle container resize and margin changes with debounced updates
   useEffect(() => {
     const handleResize = () => {
       if (ref.current) {
@@ -254,10 +254,10 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
         const currentPercentage = resizeRef.current.currentPercentage;
         resizeRef.current.containerWidth = containerWidth;
 
-        // Calculate new width based on percentage
+        // First calculate width based on percentage
         const newWidth = (containerWidth * currentPercentage) / 100;
 
-        // Ensure width stays within margin bounds
+        // Then ensure it respects margin constraints
         const boundedWidth = clamp(
           newWidth,
           marginPx,
@@ -273,6 +273,9 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
       }
     };
 
+    // Call immediately to handle margin changes
+    handleResize();
+
     const resizeObserver = new ResizeObserver(handleResize);
     if (ref.current) {
       resizeObserver.observe(ref.current);
@@ -281,7 +284,7 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     return () => {
       resizeObserver.disconnect();
     };
-  }, []);
+  }, [marginPx]); // Add marginPx as dependency
 
   const handleResizeStart = useCallback((e) => {
     e.preventDefault();
@@ -295,27 +298,31 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     }
   }, []);
 
-  const handleMouseMove = useCallback((e) => {
-    if (!resizeRef.current.isResizing || !ref.current) return;
+  const handleMouseMove = useCallback(
+    (e) => {
+      if (!resizeRef.current.isResizing || !ref.current) return;
 
-    requestAnimationFrame(() => {
-      const { containerWidth, startX, startWidth } = resizeRef.current;
-      const diff = (e.clientX - startX) / useReactFlow.getState().transform[2];
+      requestAnimationFrame(() => {
+        const { containerWidth, startX, startWidth } = resizeRef.current;
+        const diff =
+          (e.clientX - startX) / useReactFlow.getState().transform[2];
 
-      const newWidth = clamp(
-        startWidth + diff,
-        marginPx,
-        containerWidth - marginPx,
-      );
+        const newWidth = clamp(
+          startWidth + diff,
+          marginPx,
+          containerWidth - marginPx,
+        );
 
-      // Update ref first
-      resizeRef.current.currentWidth = newWidth;
-      resizeRef.current.currentPercentage = (newWidth / containerWidth) * 100;
+        // Update ref first
+        resizeRef.current.currentWidth = newWidth;
+        resizeRef.current.currentPercentage = (newWidth / containerWidth) * 100;
 
-      // Then update global state
-      setColumnWidth(sectionId, newWidth);
-    });
-  }, []);
+        // Then update global state
+        setColumnWidth(sectionId, newWidth);
+      });
+    },
+    [marginPx],
+  ); // Add marginPx as dependency
 
   const handleMouseUp = useCallback(() => {
     resizeRef.current.isResizing = false;
