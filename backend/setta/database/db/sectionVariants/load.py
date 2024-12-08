@@ -2,6 +2,7 @@ import json
 
 from setta.database.db.sectionVariants.utils import (
     with_ev_entry_defaults,
+    with_run_group_entry_defaults,
     with_section_variant_defaults,
 )
 
@@ -9,7 +10,7 @@ from setta.database.db.sectionVariants.utils import (
 def load_section_variants(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT SectionVariantId.id, SectionVariantId.data, SectionVariantId.selectedItem, SectionVariantId.codeInfoColId, SectionVariantId.runGroup, SectionVariantEV.codeInfoId, SectionVariantEV.data as valueData
+        SELECT SectionVariantId.id, SectionVariantId.data, SectionVariantId.selectedItem, SectionVariantId.codeInfoColId, SectionVariantEV.codeInfoId, SectionVariantEV.data as valueData
         FROM SectionVariantId
         LEFT JOIN SectionVariantEV
         ON SectionVariantId.id = SectionVariantEV.idid
@@ -23,7 +24,6 @@ def load_section_variants(db, ids):
             output[id] = with_section_variant_defaults(
                 selectedItem=row["selectedItem"],
                 codeInfoColId=row["codeInfoColId"],
-                runGroup=json.loads(row["runGroup"]),
                 **json.loads(row["data"]),
             )
         if row["valueData"]:
@@ -74,5 +74,31 @@ def load_section_variants(db, ids):
 
         if row["value"] is not None:
             curr.append(row["value"])
+
+    query = f"""
+        SELECT SectionVariantId.id, SectionVariantRunGroup.sectionId, SectionVariantRunGroup.parentVariantId, SectionVariantRunGroup.data
+        FROM SectionVariantId
+        LEFT JOIN SectionVariantRunGroup
+        ON SectionVariantId.id = SectionVariantRunGroup.idid
+        WHERE SectionVariantId.id in ({placeholders})
+    """
+    db.execute(query, ids)
+    print("fetching run groups")
+    for row in db.fetchall():
+        print("row", dict(row))
+        id = row["id"]
+        if "runGroup" not in output[id]:
+            output[id]["runGroup"] = {}
+        curr = output[id]["runGroup"]
+        sectionId = row["sectionId"]
+        if not sectionId:
+            continue
+        if sectionId not in curr:
+            curr[sectionId] = {}
+
+        curr[sectionId][row["parentVariantId"]] = with_run_group_entry_defaults(
+            **json.loads(row["data"])
+        )
+        print('curr[row["sectionId"]]', curr[row["sectionId"]])
 
     return output
