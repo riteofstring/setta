@@ -354,12 +354,10 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
 }
 
 function setColumnWidth(sectionId, width) {
-  console.log("setting column width to", width);
   useSectionColumnWidth.setState({
     [sectionId]: width, // Maintain the existing 24px adjustment
   });
 }
-
 function getLongestListLength(obj) {
   return Object.values(obj).reduce(
     (max, arr) => (arr.length > max ? arr.length : max),
