@@ -53,10 +53,6 @@
     grid-row: search / left-gutter;
     grid-column: left-gutter / right-gutter;
   }
-  .section-full-no-title-to-bottom {
-    grid-row: search / bottom-gutter;
-    grid-column: left-gutter / right-gutter;
-  }
 
   .section-min-rows {
     grid-auto-rows: min-content;
