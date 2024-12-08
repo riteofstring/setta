@@ -10,13 +10,13 @@ import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
-import { setActiveSectionIds } from "../activeSections";
+import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
 import { initRunGroup } from "../runGroups/runGroups";
 import { setSectionVariantChildren } from "../sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
   const newId = addSectionInEmptySpace({ type: C.SECTION });
-  setActiveSectionIds([newId]);
+  setActiveSectionIdAndUpdateZIndex(newId);
   const unsub = useSectionRefs.subscribe(
     (state) => state.selfOnly[newId],
     (newSectionRef) => {
@@ -30,7 +30,7 @@ export function addRegularSectionInEmptySpace() {
 
 export function addGroupInEmptySpace() {
   const newId = addSectionInEmptySpace({ type: C.GROUP });
-  setActiveSectionIds([newId]);
+  setActiveSectionIdAndUpdateZIndex(newId);
 }
 
 export function addTerminalInEmptySpace() {
