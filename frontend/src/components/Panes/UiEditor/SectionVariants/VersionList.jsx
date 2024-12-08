@@ -33,7 +33,7 @@ export function VersionList({ sectionId }) {
             className="cursor-pointer rounded-md px-2 py-1 text-xs font-bold text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400"
             onClick={onClickEditButton}
           >
-            {isEditing ? "Save" : "Edit"}
+            {isEditing ? "Done Editing" : "Edit"}
           </button>
         </header>
 
@@ -54,7 +54,12 @@ function EVItems({ sectionId, isEditing }) {
 
   if (isEditing) {
     return variantIds.map((e) => (
-      <OneItemEditing key={e} id={e} isCurr={currVariantId === e} />
+      <OneItemEditing
+        key={e}
+        sectionId={sectionId}
+        id={e}
+        isCurr={currVariantId === e}
+      />
     ));
   }
 
@@ -125,19 +130,29 @@ function OneItem({ sectionId, id, isCurr }) {
   );
 }
 
-function OneItemEditing({ id, isCurr }) {
-  const { name, isFrozen } = useSectionInfos(
-    (x) => ({
-      name: x.variants[id].name,
-      isFrozen: x.variants[id].isFrozen,
-    }),
-    _.isEqual,
-  );
+function OneItemEditing({ sectionId, id, isCurr }) {
+  const name = useSectionInfos((x) => x.variants[id].name, _.isEqual);
+
+  function onSetName(v) {
+    useSectionInfos.setState((x) => {
+      x.variants[id].name = v;
+    });
+  }
+
+  function condition(v) {
+    const state = useSectionInfos.getState();
+    for (const variantId of state.x[sectionId].variantIds) {
+      if (state.variants[variantId].name === v) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   const [inputValue, setInputValue, onBlur, onCancel] = useEditableOnSubmit(
     name,
-    () => {},
-    () => true,
+    onSetName,
+    condition,
   );
 
   return (
@@ -153,19 +168,22 @@ function OneItemEditing({ id, isCurr }) {
           notEditing: "section-key truncate text-setta-400 dark:text-setta-400",
         }}
       />
-      {/* <button
-        className={`cursor-pointer bg-transparent ${
-          isFrozen
-            ? "text-blue-500"
-            : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
-        }`}
+      <button
+        className={
+          "cursor-pointer bg-transparent text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
+        }
         onClick={(e) => {
           e.stopPropagation();
-          toggleVariantFrozenState(id);
+          useSectionInfos.setState((state) => {
+            state.x[sectionId].variantIds = state.x[
+              sectionId
+            ].variantIds.filter((v) => v !== id);
+            delete state.variants[id];
+          });
         }}
       >
-        <FaRegSnowflake />
-      </button> */}
+        <i className="gg-trash" />
+      </button>
     </li>
   );
 }
