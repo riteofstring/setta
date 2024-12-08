@@ -61,6 +61,7 @@ function EVItems({ sectionId, isEditing }) {
         sectionId={sectionId}
         id={e}
         isCurr={currVariantId === e}
+        deletable={variantIds.length > 1}
       />
     ));
   }
@@ -132,7 +133,7 @@ function OneItem({ sectionId, id, isCurr }) {
   );
 }
 
-function OneItemEditing({ sectionId, id }) {
+function OneItemEditing({ sectionId, id, isCurr, deletable }) {
   const name = useSectionInfos((x) => x.variants[id].name, _.isEqual);
 
   function onSetName(v) {
@@ -170,22 +171,30 @@ function OneItemEditing({ sectionId, id }) {
           notEditing: "section-key truncate text-setta-400 dark:text-setta-400",
         }}
       />
-      <button
-        className={
-          "cursor-pointer bg-transparent text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
-        }
-        onClick={(e) => {
-          e.stopPropagation();
-          useSectionInfos.setState((state) => {
-            state.x[sectionId].variantIds = state.x[
-              sectionId
-            ].variantIds.filter((v) => v !== id);
-            delete state.variants[id];
-          });
-        }}
-      >
-        <i className="gg-trash" />
-      </button>
+      {deletable && (
+        <button
+          className={
+            "cursor-pointer bg-transparent text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
+          }
+          onClick={(e) => {
+            e.stopPropagation();
+            useSectionInfos.setState((state) => {
+              const section = state.x[sectionId];
+              section.variantIds = section.variantIds.filter((v) => v !== id);
+              const { isDefault } = state.variants[id];
+
+              if (isCurr) {
+                section.variantId = section.variantIds[0];
+              }
+              if (isDefault) {
+                state.variants[section.variantIds[0]].isDefault = true;
+              }
+            });
+          }}
+        >
+          <i className="gg-trash" />
+        </button>
+      )}
     </li>
   );
 }
