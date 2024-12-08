@@ -68,9 +68,6 @@ function GetPinnedParams({
     true,
   );
 
-  console.log("topLevelParamIds", topLevelParamIds)
-  console.log("requiredParamIdsToPaths", requiredParamIdsToPaths)
-
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
 
   useEffect(() => {
