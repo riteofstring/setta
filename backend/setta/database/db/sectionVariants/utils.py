@@ -31,3 +31,7 @@ def with_ev_entry_defaults(**kwargs):
 
 def new_ev_entry(**kwargs):
     return with_ev_entry_defaults(**kwargs)
+
+
+def with_run_group_entry_defaults(**kwargs):
+    return recursive_dict_merge(copy.deepcopy(DEFAULT_VALUES["runGroupEntry"]), kwargs)

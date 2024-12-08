@@ -4,8 +4,9 @@ from setta.utils.constants import (
     DEFAULT_VALUES,
     SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS,
     SECTION_TABLE_DATA_JSON_FIELDS,
+    SECTION_VARIANT_RUN_GROUP_TABLE_DATA_JSON_FIELDS,
 )
-from setta.utils.utils import filter_dict
+from setta.utils.utils import filter_dict, replace_null_keys_with_none
 
 
 def save_sections(db, sections, section_variants):
@@ -143,4 +144,39 @@ def save_sections(db, sections, section_variants):
                 for i, x in enumerate(variant["children"])
             ]
         )
+    db.executemany(query, query_params)
+
+    # delete entered values
+    placeholders = ", ".join(["?"] * len(section_variants))
+    query = f"""
+        DELETE FROM SectionVariantRunGroup
+        WHERE idid IN ({placeholders})
+    """
+    query_params = list(section_variants.keys())
+    db.execute(query, query_params)
+
+    # add entered values
+    query = """
+        INSERT INTO SectionVariantRunGroup (idid, sectionId, parentVariantId, data)
+        VALUES (:idid, :sectionId, :parentVariantId, :data)
+    """
+    query_params = []
+    for idid, variant in section_variants.items():
+        variant = replace_null_keys_with_none(variant)
+        for sectionId, detailsForSection in variant["runGroup"].items():
+            for parentVariantId, detailsForParentVariant in detailsForSection.items():
+                query_params.append(
+                    {
+                        "idid": idid,
+                        "sectionId": sectionId,
+                        "parentVariantId": parentVariantId,
+                        "data": json.dumps(
+                            filter_dict(
+                                detailsForParentVariant,
+                                SECTION_VARIANT_RUN_GROUP_TABLE_DATA_JSON_FIELDS,
+                                DEFAULT_VALUES["runGroupEntry"],
+                            )
+                        ),
+                    }
+                )
     db.executemany(query, query_params)
