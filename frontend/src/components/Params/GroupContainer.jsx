@@ -223,6 +223,7 @@ function GetUnpinnedParamsCore({
 
 function useColumnResizer(sectionId, ref, maxNestedDepth) {
   const marginPx = 72 + Math.max(0, 12 * (maxNestedDepth - 1));
+  const centerOffset = 18;
 
   // Use ref for both resize state and current width to avoid race conditions
   const resizeRef = useRef({
@@ -231,7 +232,7 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     startWidth: 0,
     currentWidth: 0,
     containerWidth: 0,
-    currentPercentage: 50, // Track percentage for container resizes
+    currentPercentage: 50,
   });
 
   function setNewWidth(containerWidth, width, setGlobalState) {
@@ -239,7 +240,9 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     resizeRef.current.currentWidth = boundedWidth;
     resizeRef.current.currentPercentage = (boundedWidth / containerWidth) * 100;
     if (setGlobalState) {
-      setColumnWidth(sectionId, boundedWidth);
+      useSectionColumnWidth.setState({
+        [sectionId]: boundedWidth - centerOffset,
+      });
     }
   }
 
@@ -253,14 +256,16 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     }
   }
 
-  // In the first useEffect where dimensions are initialized
   useEffect(() => {
     if (ref.current) {
       const containerWidth = ref.current.clientWidth;
       const existingWidth = useSectionColumnWidth.getState()[sectionId];
-      const initialWidth = existingWidth ?? containerWidth / 2;
+      // Add centerOffset, because locally we want the "raw" width
+      const initialWidth = existingWidth
+        ? existingWidth + centerOffset
+        : containerWidth / 2;
       resizeRef.current.containerWidth = containerWidth;
-      setNewWidth(containerWidth, initialWidth, !!existingWidth);
+      setNewWidth(containerWidth, initialWidth, !existingWidth);
     }
   }, [marginPx]);
 
@@ -299,7 +304,7 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
       });
     },
     [marginPx],
-  ); // Add marginPx as dependency
+  );
 
   const handleMouseUp = useCallback(() => {
     resizeRef.current.isResizing = false;
@@ -317,13 +322,6 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
 
   return handleResizeStart;
 }
-
-function setColumnWidth(sectionId, width) {
-  useSectionColumnWidth.setState({
-    [sectionId]: width, // Maintain the existing 24px adjustment
-  });
-}
-
 function getLongestListLength(obj) {
   return Object.values(obj).reduce(
     (max, arr) => (arr.length > max ? arr.length : max),
