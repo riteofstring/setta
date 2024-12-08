@@ -26,7 +26,7 @@ def export_raw(db, filename):
     filepath = Path(os.getcwd()) / f"{filename}_export.yaml"
     print("saving raw to", filepath)
     with open(filepath, "w") as file:
-        yaml.dump(database_export, file, allow_unicode=True)
+        yaml.dump(database_export, file, allow_unicode=True, sort_keys=False)
 
 
 def fetch_schema(cursor):
