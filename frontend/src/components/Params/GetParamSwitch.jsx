@@ -9,6 +9,7 @@ export function GetParamSwitch({
   requiredParamIdsToPaths,
   ancestorIsSelected = false,
   onResizeStart,
+  isTopLevel = false,
 }) {
   // TODO: make this more efficient
   const filteredIds = useSectionInfos((x) => {
@@ -40,7 +41,7 @@ export function GetParamSwitch({
     return paramIds.filter((p) => filteredRequired.has(p));
   }, _.isEqual);
 
-  return filteredIds.map((e) => (
+  return filteredIds.map((e, idx) => (
     <ParamSwitch
       key={e}
       sectionId={sectionId}
@@ -48,6 +49,7 @@ export function GetParamSwitch({
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       ancestorIsSelected={ancestorIsSelected}
       onResizeStart={onResizeStart}
+      isTopLevelWithPad={isTopLevel && idx > 0}
     />
   ));
 }

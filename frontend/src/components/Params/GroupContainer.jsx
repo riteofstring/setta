@@ -160,6 +160,7 @@ function ResizablePinnedArea({
           paramIds={topLevelParamIds}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           onResizeStart={handleColumnResizeStart}
+          isTopLevel={true}
         />
       </div>
     </ResizableWithScale>
@@ -216,6 +217,7 @@ function GetUnpinnedParamsCore({
       paramIds={topLevelParamIds}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       onResizeStart={onResizeStart}
+      isTopLevel={true}
     />
   );
 }

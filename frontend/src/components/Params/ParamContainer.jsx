@@ -27,6 +27,7 @@ function _ParamContainer({
   children,
   onResizeStart,
   isKwarg = false,
+  isTopLevelWithPad,
 }) {
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -109,7 +110,7 @@ function _ParamContainer({
     </>
   ) : (
     <article
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border} [&>p]:section-key-value [&>p]:!pb-0 [&>p]:!pt-2`}
+      className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border} [&>p]:section-key-value ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
       onMouseDown={onMouseDownSelect}
       ref={parentRef}
