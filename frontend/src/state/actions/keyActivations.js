@@ -355,7 +355,7 @@ export function attachKeyEventListeners() {
   const conditionAndAction = [
     ["tab", tabFromDocumentBody],
     ["shift + tab", tabFromDocumentBody],
-    [shortcuts.shortnewCardShortcut, addRegularSectionInEmptySpace],
+    [shortcuts.newCardShortcut, addRegularSectionInEmptySpace],
     [shortcuts.newGroupShortcut, addGroupInEmptySpace],
     [shortcuts.newTerminalShortcut, addTerminalInEmptySpace],
     [shortcuts.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
