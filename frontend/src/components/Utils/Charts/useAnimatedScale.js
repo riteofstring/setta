@@ -1,5 +1,4 @@
 import { scaleLinear } from "@visx/scale";
-import { animate, useMotionValue } from "framer-motion";
 import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
 
@@ -28,17 +27,29 @@ export function useAnimatedScale({
 
 function useScaleMotionValue({ isMin, allValues }) {
   const currVal = isMin ? Math.min(...allValues) : Math.max(...allValues);
-  const motionValue = useMotionValue(currVal);
-  const [scaleState, setScaleState] = useState(motionValue.get());
+  const [scaleState, setScaleState] = useState(currVal);
 
   useEffect(() => {
-    animate(motionValue, currVal, { delay: 0 });
+    let start = scaleState;
+    let end = currVal;
+    let startTime = performance.now();
+    let duration = 50;
+    let frameId;
+
+    function animate() {
+      let now = performance.now();
+      let elapsed = now - startTime;
+      let t = Math.min(elapsed / duration, 1);
+      let value = start + (end - start) * t;
+      setScaleState(value);
+      if (t < 1) requestAnimationFrame(animate);
+    }
+
+    frameId = requestAnimationFrame(animate);
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+    };
   }, [currVal]);
-
-  useEffect(() => {
-    const unsubscribe = motionValue.onChange(setScaleState);
-    return unsubscribe;
-  }, []);
 
   return scaleState;
 }

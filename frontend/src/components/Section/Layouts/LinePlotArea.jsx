@@ -1,6 +1,6 @@
 import { ParentSize } from "@visx/responsive";
 import { LineChart } from "components/Utils/Charts/LineChart";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useArtifactData } from "state/hooks/artifacts";
 
 function _LinePlotArea({ sectionId }) {
@@ -14,11 +14,23 @@ function _LinePlotArea({ sectionId }) {
 
 export const LinePlotArea = React.memo(_LinePlotArea);
 
-function LinePlotAreaCore({ series, title }) {
+function LinePlotAreaCore({ title }) {
+  const [array, setArray] = useState([1,2,3,4,5]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setArray((prevArray) => [...prevArray, Math.sin(prevArray.length + 1)]);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const series = { fancy_graph: array };
   const seriesWithX = [];
   for (const [name, data] of Object.entries(series)) {
     seriesWithX.push({ name, values: data.map((y, i) => ({ x: i, y })) });
   }
+  console.log("seriesWithX", seriesWithX)
 
   // ParentSize has min-w-0 and min-h-0 to avoid resizing bug:
   // https://github.com/airbnb/visx/issues/1014#issuecomment-1180677878
