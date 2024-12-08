@@ -49,8 +49,6 @@ function _ParamSweepAreaGUI({ sectionId }) {
     addParamSweepCallable(variantId);
   }
 
-  console.log("paramSweep", paramSweep);
-
   return (
     <>
       <div className="section-main-full-w ml-1.5 flex flex-col overflow-x-clip overflow-y-scroll">

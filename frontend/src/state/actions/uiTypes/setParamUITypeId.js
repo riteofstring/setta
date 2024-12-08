@@ -30,4 +30,28 @@ function convertValue(sectionId, paramInfoId, uiTypeId, state) {
     paramInfoId in values ? values[paramInfoId].value : newEVEntry().value;
   const value = getValueForUIType({ uiType, currValue });
   setParamEnteredValue(sectionId, paramInfoId, value, state);
+  convertParamSweepValues({ sectionId, paramInfoId, uiType, state });
+}
+
+export function convertParamSweepValues({
+  sectionId,
+  paramInfoId,
+  uiType,
+  state,
+}) {
+  const { paramSweepSectionId } = state.x[sectionId];
+  if (!paramSweepSectionId) {
+    return;
+  }
+
+  const { sweep } = getSectionVariant(paramSweepSectionId, state);
+  for (const s of sweep) {
+    for (const p of s.params) {
+      if (p.paramInfoId === paramInfoId) {
+        p.values = p.values.map((v) =>
+          getValueForUIType({ uiType, currValue: v }),
+        );
+      }
+    }
+  }
 }
