@@ -16,14 +16,18 @@ import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {
   const outerRef = useRef();
-  const handleColumnResizeStart = useColumnResizer(sectionId, outerRef);
+  const handleColumnResizeStart = useColumnResizer(
+    sectionId,
+    outerRef,
+    72 + 12 * 2,
+  );
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
   // const waitingForResult = true;
 
   return (
     <div
-      className="section-w-full section-row-pin-main -mt-3 flex flex-col overflow-y-hidden bg-red-500 pt-2"
+      className="section-w-full section-row-pin-main -mt-3 flex flex-col overflow-y-hidden pt-2"
       ref={outerRef}
     >
       {waitingForResult ? (
@@ -184,7 +188,7 @@ function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
-function useColumnResizer(sectionId, ref, marginPx = 72) {
+function useColumnResizer(sectionId, ref, marginPx) {
   // Use ref for both resize state and current width to avoid race conditions
   const resizeRef = useRef({
     isResizing: false,
