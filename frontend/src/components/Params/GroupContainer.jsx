@@ -155,7 +155,7 @@ function GetUnpinnedParams({ sectionId }) {
       resizeRef.current.containerWidth = containerWidth;
       resizeRef.current.currentPercentage = 50;
 
-      useSectionColumnWidth.setState({ initialPixels });
+      useSectionColumnWidth.setState({ [sectionId]: initialPixels });
     }
   }, []);
 
@@ -169,7 +169,7 @@ function GetUnpinnedParams({ sectionId }) {
         resizeRef.current.containerWidth = containerWidth;
 
         useSectionColumnWidth.setState({
-          initialPixels: (containerWidth - 12) * (currentPercentage / 100),
+          [sectionId]: (containerWidth - 12) * (currentPercentage / 100),
         });
       }
     }, 16); // Debounce to roughly match 60fps
@@ -215,7 +215,7 @@ function GetUnpinnedParams({ sectionId }) {
 
       // Then update global state
       useSectionColumnWidth.setState({
-        initialPixels: (containerWidth - 12) * (newPercentage / 100),
+        [sectionId]: (containerWidth - 12) * (newPercentage / 100),
       });
     });
   }, []);

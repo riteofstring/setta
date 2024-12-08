@@ -195,4 +195,6 @@ export const useYamlValue = createProjectState(withResetFn(() => {}));
 
 export const useOriginalYamlObj = createProjectState(withResetFn(() => {}));
 
-export const useSectionColumnWidth = createProjectState(withResetFn(() => {}));
+export const useSectionColumnWidth = createProjectState(
+  subscribeWithSelector(withResetFn(() => {})),
+);

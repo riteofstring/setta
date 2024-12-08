@@ -81,19 +81,22 @@ function _ParamContainer({
   // Connect to the store on mount, disconnect on unmount, catch state-changes in a reference
   useEffect(() => {
     // Subscribe to store updates
-    return useSectionColumnWidth.subscribe((state) => {
-      // Update div style directly
-      if (nestedRef.current) {
-        // Use a CSS calc() function to provide a fallback
-        nestedRef.current.style.gridTemplateColumns = `minmax(min-content, ${state.initialPixels}px) [c3] 0.75rem [c4] 1fr [c5]`;
-      }
-      if (gridRef.current) {
-        gridRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] minmax(min-content, ${state.initialPixels}px) [c3] 0.75rem [c4] 1fr [c5]`;
-      }
-      if (realNestedRef.current) {
-        realNestedRef.current.style.width = `${state.initialPixels}px`;
-      }
-    });
+    return useSectionColumnWidth.subscribe(
+      (state) => state[sectionId],
+      (columnWidth) => {
+        // Update div style directly
+        if (nestedRef.current) {
+          // Use a CSS calc() function to provide a fallback
+          nestedRef.current.style.gridTemplateColumns = `minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
+        }
+        if (gridRef.current) {
+          gridRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
+        }
+        if (realNestedRef.current) {
+          realNestedRef.current.style.width = `${columnWidth}px`;
+        }
+      },
+    );
   }, []);
 
   // const nestedGridStyle = {
