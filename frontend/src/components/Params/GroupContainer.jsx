@@ -140,8 +140,7 @@ function GetUnpinnedParams({ sectionId }) {
   const resizeRef = useRef({
     isResizing: false,
     startX: 0,
-    startWidth: 0,
-    containerWidth: 0,
+    startPercentage: 0,
   });
 
   const [columnWidth, setColumnWidth] = useState({
