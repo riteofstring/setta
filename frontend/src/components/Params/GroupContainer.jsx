@@ -254,12 +254,12 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
         const currentPercentage = resizeRef.current.currentPercentage;
         resizeRef.current.containerWidth = containerWidth;
 
-        // Calculate new width based on percentage
-        const newWidth = (containerWidth * currentPercentage) / 100;
+        // First calculate width based on percentage
+        const percentageWidth = (containerWidth * currentPercentage) / 100;
 
-        // Ensure width stays within margin bounds
+        // Then ensure it respects margin constraints
         const boundedWidth = clamp(
-          newWidth,
+          percentageWidth,
           marginPx,
           containerWidth - marginPx,
         );
