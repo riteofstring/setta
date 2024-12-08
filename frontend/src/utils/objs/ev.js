@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import DEFAULT_VALUES from "constants/defaultValues.json";
 import _ from "lodash";
 import { clamp } from "utils/utils";
 
@@ -52,7 +53,7 @@ function convertValueForColorPicker({ currValue }) {
   if (hexColorRegex.test(currValue)) {
     return currValue;
   }
-  return "#000000";
+  return "#ff0000";
 }
 
 function convertValueForDropdown({ currValue }) {
@@ -60,4 +61,8 @@ function convertValueForDropdown({ currValue }) {
     return currValue;
   }
   return "";
+}
+
+export function newEVEntry() {
+  return _.cloneDeep(DEFAULT_VALUES.evEntry);
 }

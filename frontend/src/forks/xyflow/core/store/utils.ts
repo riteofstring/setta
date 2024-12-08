@@ -24,7 +24,7 @@ export function fitView(options: InternalFitViewOptions = {}) {
     fitViewOnInit,
   } = useReactFlow.getState();
 
-  const { minZoom, maxZoom } = useSettings.getState();
+  const { minZoom, maxZoom } = useSettings.getState().gui;
 
   const isInitialFitView =
     options.initial && !fitViewOnInitDone && fitViewOnInit;
@@ -72,6 +72,21 @@ export function fitView(options: InternalFitViewOptions = {}) {
 }
 
 export function onFitViewHandler() {
-  fitView({ duration: 50 });
-  useReactFlow.setState({ fitViewOnInit: true });
+  if (useReactFlow.getState().fitViewOnInit) {
+    return;
+  }
+  const duration = useSettings.getState().gui.transitionDuration;
+  fitView({ duration });
+  // Hack to set fitViewOnInit after transform is done.
+  // If it gets set before the transform is done, then the
+  // reactFitViewOnInitSubscriptionFn subscription will get
+  // triggered and it will reset to fitViewOnInit
+  setTimeout(
+    () => useReactFlow.setState({ fitViewOnInit: true }),
+    duration + 10,
+  );
+}
+
+export function useReadyToBeVisible() {
+  return useReactFlow((x) => !x.fitViewOnInit || x.fitViewOnInitDone);
 }

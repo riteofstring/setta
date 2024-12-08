@@ -8,6 +8,7 @@ import {
 } from "state/actions/nodeInternals";
 import { useActiveSection, useNodeInternals } from "state/definitions";
 import { shallow } from "zustand/shallow";
+import { useReadyToBeVisible } from "../store/utils";
 import { containerStyle } from "../styles";
 import type { ReactFlowState } from "../types";
 
@@ -31,6 +32,7 @@ const NodeRenderer = ({}) => {
   // and rerenders on every update.
   // Tried debugging, could not figure out why.
   const nodes = useNodeInternals(getNodes, shallow);
+  const readyToBeVisible = useReadyToBeVisible();
   const resizeObserverRef = useRef<ResizeObserver>();
   const activeSectionIds = useActiveSection((x) => x.ids);
 
@@ -89,6 +91,7 @@ const NodeRenderer = ({}) => {
             isFocusable={isFocusable}
             resizeObserver={resizeObserver}
             zIndex={node.tempZIndex}
+            visibility={readyToBeVisible ? "visible" : "hidden"}
           />
         );
       })}

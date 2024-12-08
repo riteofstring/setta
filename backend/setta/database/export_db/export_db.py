@@ -35,7 +35,9 @@ def maybe_export_database(db, path):
     _export_database(
         db,
         path,
-        raw=USER_SETTINGS["exportDbRawOnSave"],
-        readable=USER_SETTINGS["exportDbReadableOnSave"],
-        readable_with_variants=USER_SETTINGS["exportDbReadableWithVariantsOnSave"],
+        raw=USER_SETTINGS["backend"]["exportDbRawOnSave"],
+        readable=USER_SETTINGS["backend"]["exportDbReadableOnSave"],
+        readable_with_variants=USER_SETTINGS["backend"][
+            "exportDbReadableWithVariantsOnSave"
+        ],
     )

@@ -95,10 +95,10 @@ function FrozenFooter({ className }) {
   const shortcuts = useSettings((x) => {
     return {
       frozenTooltipToPlaintextShortcut: shortcutPrettified(
-        x.frozenTooltipToPlaintextShortcut,
+        x.shortcuts.frozenTooltipToPlaintextShortcut,
       ),
       frozenTooltipToMarkdownShortcut: shortcutPrettified(
-        x.frozenTooltipToMarkdownShortcut,
+        x.shortcuts.frozenTooltipToMarkdownShortcut,
       ),
     };
   }, _.isEqual);
@@ -122,12 +122,14 @@ function Footer({ className }) {
   const shortcuts = useSettings((x) => {
     return {
       tooltipToPlaintextShortcut: shortcutPrettified(
-        x.tooltipToPlaintextShortcut,
+        x.shortcuts.tooltipToPlaintextShortcut,
       ),
       tooltipToMarkdownShortcut: shortcutPrettified(
-        x.tooltipToMarkdownShortcut,
+        x.shortcuts.tooltipToMarkdownShortcut,
       ),
-      freezeTooltipShortcut: shortcutPrettified(x.freezeTooltipShortcut),
+      freezeTooltipShortcut: shortcutPrettified(
+        x.shortcuts.freezeTooltipShortcut,
+      ),
     };
   }, _.isEqual);
 
@@ -186,12 +188,12 @@ export function getConvertFloatingBoxToSectionFn(renderMarkdown) {
       const content = s.title ? `## ${s.title}\n\n${s.content}` : s.content;
       addSectionInEmptySpace({
         type: C.INFO,
-        inputSectionProps: {
+        sectionProps: {
           name: s.title,
-          description: content,
           size: { width: 300, height: 300 },
           renderMarkdown,
         },
+        sectionVariantProps: { description: content },
       });
     }
     // if converting a frozen floating box, then we need to remove it

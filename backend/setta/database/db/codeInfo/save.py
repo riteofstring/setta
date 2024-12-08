@@ -1,6 +1,6 @@
 import json
 
-from setta.utils.constants import CODE_INFO_TABLE_DATA_JSON_FIELDS
+from setta.utils.constants import CODE_INFO_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES
 from setta.utils.utils import filter_dict, replace_null_keys_with_none
 
 
@@ -19,7 +19,11 @@ def save_code_info(db, codeInfo):
         query_params.append(
             {
                 "id": codeInfoId,
-                "data": json.dumps(filter_dict(c, CODE_INFO_TABLE_DATA_JSON_FIELDS)),
+                "data": json.dumps(
+                    filter_dict(
+                        c, CODE_INFO_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["codeInfo"]
+                    )
+                ),
             }
         )
 

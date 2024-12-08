@@ -1,5 +1,6 @@
 import C from "constants/constants.json";
 import {
+  getCodeChildrenAndParentCodeInfoId,
   getDisplayedCodeInfoCol,
   getDisplayedSectionVariant,
   getDisplayedSectionVariantId,
@@ -24,20 +25,32 @@ export async function dbGuiToYaml(sectionId) {
 }
 
 export async function dbSectionToYaml(sectionId) {
-  const pinnedIds = getParamIdsToShowInArea(sectionId, true);
-  const unpinnedIds = getParamIdsToShowInArea(sectionId, false);
-
+  const state = useSectionInfos.getState();
+  const { codeInfoChildren, parentCodeInfoId, startAtDepth } =
+    getCodeChildrenAndParentCodeInfoId(sectionId, state);
+  const codeInfo = state.codeInfo;
+  const pinnedIds = getParamIdsToShowInArea(
+    true,
+    codeInfo,
+    codeInfoChildren,
+    parentCodeInfoId,
+    startAtDepth,
+  );
+  const unpinnedIds = getParamIdsToShowInArea(
+    false,
+    codeInfo,
+    codeInfoChildren,
+    parentCodeInfoId,
+    startAtDepth,
+  );
   pinnedIds.requiredParamIds = Object.keys(pinnedIds.requiredParamIdsToPaths);
   unpinnedIds.requiredParamIds = Object.keys(
     unpinnedIds.requiredParamIdsToPaths,
   );
   delete pinnedIds.requiredParamIdsToPaths;
   delete unpinnedIds.requiredParamIdsToPaths;
-  const state = useSectionInfos.getState();
   const { configLanguage } = state.x[sectionId];
-  const codeInfo = state.codeInfo;
   const sectionVariant = getDisplayedSectionVariant(sectionId, state);
-  const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, state).children;
   const res = await post({
     body: {
       codeInfo,
