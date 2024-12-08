@@ -8,6 +8,7 @@ import {
   type D3ZoomEvent,
   type ZoomTransform,
 } from "d3-zoom";
+import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { useEffect, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
@@ -341,6 +342,13 @@ const ZoomPane = ({
           Array.isArray(panOnDrag) &&
           !panOnDrag.includes(event.button) &&
           (event.type === "mousedown" || event.type === "touchstart")
+        ) {
+          return false;
+        }
+
+        if (
+          useDndState.getState().isSorting ||
+          useDndState.getState().isMovingFree
         ) {
           return false;
         }

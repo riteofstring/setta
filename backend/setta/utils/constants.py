@@ -107,6 +107,7 @@ SECTION_CONFIG_TABLE_DATA_JSON_FIELDS = set(
         "isHorizontalOrientation",
         "pinnedAreaHeight",
         "isMinimized",
+        "positionAndSizeLocked",
     )
 )
 

@@ -87,10 +87,14 @@ export function useDisableSortable(sectionId) {
 
 export function useDndProps({ sectionId, isTopLevel }) {
   const hasNested = useHasPermanentNested(sectionId);
+  const positionAndSizeLocked = useSectionInfos(
+    (x) => x.x[sectionId]?.positionAndSizeLocked,
+  );
 
   return {
     id: sectionId,
     data: { isTopLevel, hasNested },
+    disabled: positionAndSizeLocked,
   };
 }
 
