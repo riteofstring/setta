@@ -37,7 +37,34 @@ import { focusOnSearch } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
 
 let keysPressed = new Set();
+let keysPressedTimeStamps = new Map();
 let aModShortcutWasPressed = false;
+
+function resetKeysPressed() {
+  keysPressed = new Set();
+  keysPressedTimeStamps = new Map();
+}
+
+function deleteKeyPressed(key) {
+  keysPressed.delete(key);
+  keysPressedTimeStamps.delete(key);
+}
+
+function addKeyPressed(key) {
+  keysPressed.add(key);
+  keysPressedTimeStamps.set(key, Date.now());
+}
+
+function clearStaleKeys() {
+  const now = Date.now();
+
+  // First, collect all stale keys
+  for (const [key, timestamp] of keysPressedTimeStamps) {
+    if (now - timestamp > 100) {
+      deleteKeyPressed(key);
+    }
+  }
+}
 
 function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {
   attachTo.addEventListener(eventName, action);
@@ -204,7 +231,7 @@ function getShouldPreventDefault(parsedShortcut) {
   return true;
 }
 
-function isInput(event) {
+function getIsInput(event) {
   return (
     event.target instanceof HTMLInputElement ||
     event.target instanceof HTMLTextAreaElement ||
@@ -414,13 +441,17 @@ export function attachKeyEventListeners() {
     });
   }
   let cleanup = attachKeyDownListener((e) => {
+    // need to clear keys by timestamp because keyup does not trigger on mac when cmd key is held down
+    clearStaleKeys();
     aModShortcutWasPressed = false;
     if (!modifierKeyCodes.has(e.code)) {
-      keysPressed.add(e.code);
+      addKeyPressed(e.code);
     }
+    const isInput = getIsInput(e);
+
     for (const x of shortcutInfo) {
       if (isShortcutPressed(e, x.parsedShortcut, _isMacOs)) {
-        if (x.ignoreWhenInInputField && isInput(e)) {
+        if (x.ignoreWhenInInputField && isInput) {
           continue;
         }
         if (x.shouldPreventDefault) {
@@ -445,16 +476,16 @@ export function attachKeyEventListeners() {
   cleanup = attachKeyUpListener((e) => {
     if (_isMacOs && e.key === "Meta") {
       // special case because on mac, meta key causes the other pressed keys to not trigger keyup
-      keysPressed = new Set();
+      resetKeysPressed();
     } else {
-      keysPressed.delete(e.code);
+      deleteKeyPressed(e.code);
     }
     keyUpLoop(e, shortcutInfo);
   });
   cleanup_functions.push(cleanup);
 
   cleanup = attachEventListenerAndReturnCleanup(window, "blur", (e) => {
-    keysPressed = new Set();
+    resetKeysPressed();
     keyUpLoop(e, shortcutInfo);
   });
   cleanup_functions.push(cleanup);
