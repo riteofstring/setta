@@ -1,21 +1,15 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import _ from "lodash";
-import { getSectionHasParams } from "state/actions/sections/sectionContents";
-import { useSectionInfos } from "state/definitions";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { useHasParams } from "state/hooks/sectionContents";
+import { useGetSectionInfo } from "state/hooks/sections";
 
 export function HideShowParamsButton({ sectionId }) {
-  const { hasParams, hideSearch, hideParams } = useSectionInfos((x) => {
-    return {
-      hasParams: getSectionHasParams(sectionId, x),
-      hideSearch: x.x[sectionId].hideSearch,
-      hideParams: x.x[sectionId].hideParams,
-    };
-  }, _.isEqual);
+  const hasParams = useHasParams(sectionId);
+  const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
+  const hideParams = useGetSectionInfo(sectionId, "hideParams");
 
   function onClick() {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].hideParams = !hideParams;
-    });
+    setSectionInfoAttr({ sectionId, attr: "hideParams", value: !hideParams });
   }
 
   // only show this option if there are no parameters

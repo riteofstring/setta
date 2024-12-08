@@ -1,11 +1,15 @@
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { TextAreaPopover } from "components/Utils/atoms/popover/textareapopover";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
-import React from "react";
+import React, { useState } from "react";
+import { BiPencil } from "react-icons/bi";
+import { setCodeInfoDescription } from "state/actions/codeInfo";
 import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
-import { useSectionInfos } from "state/definitions";
-import { useParamInfosForSidePane } from "state/hooks/sectionContents";
-import { getParamUIType } from "state/hooks/uiTypes";
+import { useCodeInfo } from "state/definitions";
+import { useGetParamInfosThatHaveNames } from "state/hooks/sectionContents";
+import { useGetParamUIType } from "state/hooks/uiTypes";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
@@ -13,17 +17,12 @@ import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 const UIElement = React.memo(_UIElement, _.isEqual);
 
 const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
-  const paramInfos = useParamInfosForSidePane(sectionId);
-  return <UIConfigCore sectionId={sectionId} paramInfos={paramInfos} />;
-});
+  const paramInfos = useGetParamInfosThatHaveNames(sectionId);
 
-export const UIConfig = React.memo(_UIConfig);
-
-function UIConfigCore({ sectionId, paramInfos }) {
   const [filteredList, setFilter] = useMatchSorterFilter(
     paramInfos,
     ["name"],
-    50,
+    500,
   );
 
   const inputStyles =
@@ -40,7 +39,7 @@ function UIConfigCore({ sectionId, paramInfos }) {
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll [&>*]:mx-[2px]">
+      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -52,24 +51,21 @@ function UIConfigCore({ sectionId, paramInfos }) {
       </div>
     </div>
   );
-}
+});
+
+export const UIConfig = React.memo(_UIConfig);
 
 function _UIElement({ sectionId, paramInfo }) {
   const paramInfoId = paramInfo.id;
-  const uiType = useSectionInfos(
-    (x) => getParamUIType(sectionId, paramInfoId, x),
-    _.isEqual,
-  );
+  const uiType = useGetParamUIType(sectionId, paramInfoId);
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {
-    useSectionInfos.setState((state) => {
-      setParamUITypeId({
-        uiTypeId: e,
-        sectionId,
-        paramInfoId,
-        state,
-      });
+    setParamUITypeId({
+      uiTypeId: e,
+      sectionId,
+      paramInfoId,
+      incrementVersion: true,
     });
   };
 
@@ -88,6 +84,10 @@ function _UIElement({ sectionId, paramInfo }) {
           {paramName}
         </p>
         <div className="flex gap-[0.1rem] place-self-end">
+          {/* <InfoViewDescription
+            sectionId={sectionId}
+            paramInfoId={paramInfoId}
+          /> */}
           <SaveUITypeConfig />
         </div>
       </div>
@@ -102,5 +102,26 @@ function _UIElement({ sectionId, paramInfo }) {
         paramInfoId={paramInfoId}
       />
     </div>
+  );
+}
+
+function InfoViewDescription({ sectionId, paramInfoId }) {
+  const info = useCodeInfo((x) => x.x[paramInfoId].description);
+  const [value, setValue] = useState(info);
+  return (
+    <TextAreaPopover
+      inputClasses="rounded-lg"
+      trigger={
+        <IconButton twClasses="" size="w-4 h-4" padding="py-2 px-2">
+          <BiPencil className="text-setta-500" />
+        </IconButton>
+      }
+      header={"Description for Infoview"}
+      onClick={() => {
+        setCodeInfoDescription({ id: paramInfoId, description: value });
+      }}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+    />
   );
 }

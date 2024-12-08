@@ -152,6 +152,7 @@ const ZoomPane = ({
             // because start and move gets called on every scroll event and not once at the beginning
             if (!isPanScrolling.current) {
               useMisc.setState({ isPanScrolling: true });
+              useReactFlow.setState({ fitViewOnInit: false });
               isPanScrolling.current = true;
             }
 
@@ -215,6 +216,7 @@ const ZoomPane = ({
         }
 
         closeAllContextMenus();
+        useReactFlow.setState({ fitViewOnInit: false });
       });
     }
   }, [d3Zoom]);
@@ -386,7 +388,7 @@ function useZoomPaneInit(zoomPane, translateExtent) {
 function zoomPaneInit({ zoomPane, translateExtent, initialViewport }) {
   if (zoomPane.current) {
     const bbox = zoomPane.current.getBoundingClientRect();
-    const { minZoom, maxZoom } = useSettings.getState().gui;
+    const { minZoom, maxZoom } = useSettings.getState();
     // .interpolate(interpolate) makes the interpolations linear instead of curved
     const d3ZoomInstance = zoom()
       .interpolate(interpolate)

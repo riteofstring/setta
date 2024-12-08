@@ -1,58 +1,59 @@
 import C from "constants/constants.json";
+import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
 import {
-  cloneNewUIType,
-  maybeGetExistingUIType,
-} from "state/actions/uiTypes/cloneUITypes";
-import { useSectionInfos } from "state/definitions";
-import { getParamUIType } from "state/hooks/uiTypes";
+  useCodeInfo,
+  useSectionInfos,
+  useSectionVariants,
+  useUITypeCols,
+  useUITypes,
+} from "state/definitions";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import { getValueForUIType } from "utils/objs/ev";
-import { setEnteredValue } from "../sectionInfos";
+import { setEnteredValue } from "../sectionVariants";
+import { maybeCloneUIType } from "./cloneUITypes";
 import { setParamUITypeId } from "./setParamUITypeId";
-import { setOneUITypeConfig } from "./uiTypes";
+import { getParamUIType, setNonPresetUITypeIds } from "./uiTypeCols";
+import { addUIType, setOneUITypeConfig } from "./uiTypes";
 
-export function setParamUITypeConfig({ sectionId, paramInfoId, configProps }) {
-  useSectionInfos.setState((state) => {
-    const { uiTypeId, oldUITypeId } = maybeCloneParamUIType(
-      sectionId,
-      paramInfoId,
-      state,
-    );
-    setOneUITypeConfig({ uiTypeId, ...configProps, state });
-    if (uiTypeId !== oldUITypeId) {
-      setParamUITypeId({ uiTypeId, sectionId, paramInfoId, state });
-    }
-    updateEVs(uiTypeId, configProps.configName, state);
+export function setParamUITypeConfig({
+  sectionId,
+  paramInfoId,
+  settingPreset = false,
+  configProps,
+}) {
+  const uiType = maybeCloneParamUIType({
+    sectionId,
+    paramInfoId,
+    settingPreset,
   });
+  setOneUITypeConfig({ uiTypeId: uiType.id, ...configProps });
+  updateEVs(uiType.id, configProps.configName);
 }
 
-function maybeCloneParamUIType(sectionId, paramInfoId, state) {
-  const defaultName = state.codeInfo[paramInfoId].name;
-  const { uiTypeColId } = state.x[sectionId];
+function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
+  const defaultName = useCodeInfo.getState().x[paramInfoId].name;
+  const { uiTypeColId } = getSectionInfo(sectionId);
   const nonPresetUITypeIds =
-    state.uiTypeCols[uiTypeColId][paramInfoId].nonPresetUITypeIds;
-  const currUIType = getParamUIType(sectionId, paramInfoId, state);
-  const existingUIType = maybeGetExistingUIType({
+    useUITypeCols.getState().y[uiTypeColId][paramInfoId].nonPresetUITypeIds;
+  const currUIType = getParamUIType(sectionId, paramInfoId);
+
+  const setUITypeId = (uiTypeId) =>
+    setParamUITypeId({ uiTypeId, sectionId, paramInfoId });
+  const createNonPreset = () =>
+    createNonPresetForParam({
+      uiTypeColId,
+      paramInfoId,
+      currUIType,
+      defaultName,
+    });
+
+  return maybeCloneUIType({
     currUIType,
+    settingPreset,
+    createNonPreset,
     nonPresetUITypeIds,
-    state,
+    setUITypeId,
   });
-  if (existingUIType) {
-    return {
-      uiTypeId: existingUIType.id,
-      oldUITypeId: currUIType.id,
-    };
-  }
-  const newUIType = createNonPresetForParam({
-    uiTypeColId,
-    paramInfoId,
-    currUIType,
-    defaultName,
-    state,
-  });
-  return {
-    uiTypeId: newUIType.id,
-    oldUITypeId: currUIType.id,
-  };
 }
 
 function createNonPresetForParam({
@@ -60,29 +61,32 @@ function createNonPresetForParam({
   paramInfoId,
   currUIType,
   defaultName,
-  state,
 }) {
   const newUIType = cloneNewUIType({
     uiType: currUIType,
     name: defaultName,
   });
-  state.uiTypes[newUIType.id] = newUIType;
-  state.uiTypeCols[uiTypeColId][paramInfoId].nonPresetUITypeIds.push(
-    newUIType.id,
-  );
+  addUIType({ uiType: newUIType });
+
+  setNonPresetUITypeIds({
+    collectionId: uiTypeColId,
+    paramInfoId,
+    newValueFn: (v) => [...v, newUIType.id],
+  });
   return newUIType;
 }
 
-function updateEVs(uiTypeId, configName, state) {
-  const uiType = state.uiTypes[uiTypeId];
+function updateEVs(uiTypeId, configName) {
+  const uiType = useUITypes.getState().x[uiTypeId];
   if (uiType.type === C.SLIDER && ["min", "max"].includes(configName)) {
-    _updateEVs(uiType, state);
+    _updateEVs(uiType);
   }
 }
 
-function _updateEVs(uiType, state) {
-  const { variants, uiTypeCols } = state;
-  for (const [colId, col] of Object.entries(uiTypeCols)) {
+function _updateEVs(uiType) {
+  const uState = useUITypeCols.getState();
+  const eState = useSectionVariants.getState();
+  for (const [colId, col] of Object.entries(uState.y)) {
     const paramsWithUITypeId = new Set();
     for (const [pid, p] of Object.entries(col)) {
       if (p.uiTypeId === uiType.id) {
@@ -93,11 +97,11 @@ function _updateEVs(uiType, state) {
       continue;
     }
 
-    for (const s of Object.values(state.x)) {
+    for (const s of Object.values(useSectionInfos.getState().x)) {
       if (s.uiTypeColId === colId) {
         const variantId = s.variantId;
         for (const [pid, valueInfo] of Object.entries(
-          variants[variantId].values,
+          eState.x[variantId].values,
         )) {
           if (paramsWithUITypeId.has(pid)) {
             const newVal = getValueForUIType({
@@ -105,7 +109,11 @@ function _updateEVs(uiType, state) {
               currValue: valueInfo.value,
             });
             if (newVal !== valueInfo.value) {
-              setEnteredValue(variantId, pid, newVal, state);
+              setEnteredValue({
+                collectionId: variantId,
+                paramInfoId: pid,
+                value: newVal,
+              });
             }
           }
         }

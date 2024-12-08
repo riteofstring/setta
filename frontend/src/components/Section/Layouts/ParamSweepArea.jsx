@@ -1,6 +1,7 @@
 import { ParamSweepUI } from "components/Params/ParamUIs/ParamUI";
-import { SectionYamlView } from "components/Params/YamlView";
+import { ParamSweepSectionYamlView } from "components/Params/YamlView";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
 import { FiEdit3 } from "react-icons/fi";
@@ -14,40 +15,45 @@ import {
   deleteParamSweepValue,
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
-import { getCodeInfoCol } from "state/actions/sectionInfos";
-import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
-import { useSectionInfos } from "state/definitions";
-import { useParamSweepInfo } from "state/hooks/paramSweep";
 import {
-  findAllParameters,
-  findAllParametersAndPathMaps,
-} from "utils/getDescendants";
-import { useShowYaml } from "../../../state/hooks/toYaml";
+  getParamIds,
+  paramNameFromPathArray,
+} from "state/actions/sections/sectionContents";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
+import { useSectionCodeInfoChildren } from "state/hooks/codeInfoCols";
+import {
+  useParamSweepInfo,
+  useParamSweepIsFrozen,
+} from "state/hooks/paramSweep";
+import { useSectionTypeName } from "state/hooks/uiTypes";
 import { ParamSweepSectionSearch } from "../SectionParts/Search";
+import { useShowYaml } from "./toYaml";
 
 function _ParamSweepArea({ sectionId }) {
   const showYaml = useShowYaml(sectionId);
   return !showYaml ? (
     <ParamSweepAreaGUI sectionId={sectionId} />
   ) : (
-    <SectionYamlView sectionId={sectionId} />
+    <ParamSweepSectionYamlView sectionId={sectionId} />
   );
 }
 
 export const ParamSweepArea = React.memo(_ParamSweepArea);
 
 function _ParamSweepAreaGUI({ sectionId }) {
-  const {
-    variantId,
-    paramSweep,
-    forSectionId,
-    variantIsFrozen,
-    showParamSweepSectionSearch,
-  } = useParamSweepInfo(sectionId);
+  const { paramSweepId, paramSweep, forSectionId } =
+    useParamSweepInfo(sectionId);
+
+  const showParamSweepSectionSearch =
+    useShowParamSweepSectionSearch(forSectionId);
 
   function onAddCallableClick() {
-    addParamSweepCallable(variantId);
+    addParamSweepCallable({ paramSweepId });
   }
+
+  const isDisabled = useParamSweepIsFrozen(sectionId);
+
+  console.log("paramSweep", paramSweep);
 
   return (
     <>
@@ -55,9 +61,9 @@ function _ParamSweepAreaGUI({ sectionId }) {
         {!showParamSweepSectionSearch && (
           <AddRemoveButtonsForNoCallableSection
             forSectionId={forSectionId}
-            variantId={variantId}
+            paramSweepId={paramSweepId}
             paramSweep={paramSweep}
-            isDisabled={variantIsFrozen}
+            isDisabled={isDisabled}
           />
         )}
         {paramSweep.length > 0 ? (
@@ -67,10 +73,10 @@ function _ParamSweepAreaGUI({ sectionId }) {
               sectionId={sectionId}
               forSectionId={forSectionId}
               sweep={sweep}
-              variantId={variantId}
+              paramSweepId={paramSweepId}
               selectedItemIdx={idx}
               showParamSweepSectionSearch={showParamSweepSectionSearch}
-              isDisabled={variantIsFrozen}
+              isDisabled={isDisabled}
             />
           ))
         ) : (
@@ -82,7 +88,7 @@ function _ParamSweepAreaGUI({ sectionId }) {
           <button
             className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500/30 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
             onClick={onAddCallableClick}
-            disabled={variantIsFrozen}
+            disabled={isDisabled}
           >
             <i className="gg-play-list-add !scale-75" />
             <p>Callable</p>
@@ -99,7 +105,7 @@ function ParamSweepForOneSelectedItem({
   sectionId,
   forSectionId,
   sweep,
-  variantId,
+  paramSweepId,
   selectedItemIdx,
   showParamSweepSectionSearch,
   isDisabled,
@@ -107,14 +113,14 @@ function ParamSweepForOneSelectedItem({
   const alreadySelected = sweep.params.map((x) => x.paramInfoId);
   const { onClickAddParam, disabled: disablePlusButton } = useOnClickAddParam({
     forSectionId,
-    variantId,
+    paramSweepId,
     selectedItem: sweep.selectedItem,
     selectedItemIdx,
     alreadySelected,
   });
 
   const onClickRemoveParam = () =>
-    deleteLastParamSweepParamInfoId({ variantId, selectedItemIdx });
+    deleteLastParamSweepParamInfoId({ paramSweepId, selectedItemIdx });
 
   return (
     <div className="section-min-rows section-grid-cols section-grid-sweep-areas mb-4 grid">
@@ -123,7 +129,7 @@ function ParamSweepForOneSelectedItem({
           sectionId={sectionId}
           forSectionId={forSectionId}
           selectedItem={sweep.selectedItem}
-          variantId={variantId}
+          paramSweepId={paramSweepId}
           selectedItemIdx={selectedItemIdx}
           onPlusClick={onClickAddParam}
           onMinusClick={onClickRemoveParam}
@@ -132,7 +138,7 @@ function ParamSweepForOneSelectedItem({
         />
       )}
       <Args
-        variantId={variantId}
+        paramSweepId={paramSweepId}
         objInfoId={sweep.selectedItem}
         paramSweep={sweep.params}
         forSectionId={forSectionId}
@@ -147,7 +153,7 @@ function ParamSweepForOneSelectedItem({
 }
 
 function Args({
-  variantId,
+  paramSweepId,
   objInfoId,
   paramSweep,
   forSectionId,
@@ -163,7 +169,7 @@ function Args({
         <ArgItem
           key={`${selectedItemIdx}-${x.paramInfoId}-${idx}`}
           objInfoId={objInfoId}
-          variantId={variantId}
+          paramSweepId={paramSweepId}
           paramIdx={idx}
           singleParamSweep={x}
           alreadySelected={alreadySelected}
@@ -180,7 +186,7 @@ function Args({
 
 function ArgItem({
   objInfoId,
-  variantId,
+  paramSweepId,
   paramIdx,
   singleParamSweep,
   alreadySelected,
@@ -195,7 +201,7 @@ function ArgItem({
   function getOnChange(valueIdx) {
     return (v) =>
       setParamSweepValue({
-        variantId,
+        paramSweepId,
         selectedItemIdx,
         paramIdx,
         valueIdx,
@@ -206,7 +212,7 @@ function ArgItem({
   function getOnDelete(valueIdx) {
     return () =>
       deleteParamSweepValue({
-        variantId,
+        paramSweepId,
         selectedItemIdx,
         paramIdx,
         valueIdx,
@@ -215,17 +221,17 @@ function ArgItem({
 
   function onPlus() {
     if (paramInfoId) {
-      addParamSweepValue({ variantId, selectedItemIdx, paramIdx });
+      addParamSweepValue({ paramSweepId, selectedItemIdx, paramIdx });
     }
   }
 
   function onMinus() {
-    deleteLastParamSweepValue({ variantId, selectedItemIdx, paramIdx });
+    deleteLastParamSweepValue({ paramSweepId, selectedItemIdx, paramIdx });
   }
 
   function onSelectedItemChange(v) {
     changeParamSweepParamInfoId({
-      variantId,
+      paramSweepId,
       selectedItemIdx,
       paramIdx,
       paramInfoId: v,
@@ -350,7 +356,7 @@ function Input({
 
 function AddRemoveButtonsForNoCallableSection({
   forSectionId,
-  variantId,
+  paramSweepId,
   paramSweep,
   isDisabled,
 }) {
@@ -359,14 +365,14 @@ function AddRemoveButtonsForNoCallableSection({
 
   const { onClickAddParam, disabled: disablePlusButton } = useOnClickAddParam({
     forSectionId,
-    variantId,
+    paramSweepId,
     selectedItem: null,
     selectedItemIdx,
     alreadySelected,
   });
 
   const onClickRemoveParam = () =>
-    deleteLastParamSweepParamInfoId({ variantId, selectedItemIdx });
+    deleteLastParamSweepParamInfoId({ paramSweepId, selectedItemIdx });
 
   return (
     <div className="mb-0.5 flex rounded-lg bg-setta-100 py-1 pl-0.5 pr-0.5 dark:bg-setta-950">
@@ -393,15 +399,21 @@ function AddRemoveButtonsForNoCallableSection({
   );
 }
 
-function useNumChildlessParams(selectedItem, sectionId) {
-  return useSectionInfos((x) => {
-    const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
-    return findAllParameters({
-      allCodeInfo: x.codeInfo,
-      codeInfoChildren,
-      startingId: selectedItem,
-      additionalOutputCondition: (c) => codeInfoChildren[c.id]?.length === 0,
-    }).ids.length;
+function useShowParamSweepSectionSearch(sectionId) {
+  const hideSearch = useSectionInfos((x) => x.x[sectionId].hideSearch);
+  const _isGlobalVariables =
+    useSectionTypeName(sectionId) === C.GLOBAL_VARIABLES;
+
+  return !hideSearch && !_isGlobalVariables;
+}
+
+export function useNumChildlessParams(selectedItem, sectionId) {
+  const codeInfoChildren = useSectionCodeInfoChildren(sectionId);
+
+  return useCodeInfo((x) => {
+    return getParamIds(sectionId, x.x, codeInfoChildren, selectedItem)[
+      "ids"
+    ].filter((p) => codeInfoChildren[p].length === 0).length;
   });
 }
 
@@ -411,22 +423,25 @@ function useChildlessObjParams({
   alreadySelected,
   forSectionId,
 }) {
-  return useSectionInfos((x) => {
-    // this is for the contents of the combobox
-    // so I don't think it needs to depend on the displayed (preview) codeInfoCol
-    const codeInfoChildren = getCodeInfoCol(forSectionId, x).children;
-    const { ids, pathMap } = findAllParametersAndPathMaps({
-      allCodeInfo: x.codeInfo,
+  const codeInfoChildren = useSectionCodeInfoChildren(forSectionId);
+
+  return useCodeInfo((x) => {
+    const { ids, pathMap } = getParamIds(
+      forSectionId,
+      x.x,
       codeInfoChildren,
-      startingId: objInfoId,
-      additionalOutputCondition: (c) => codeInfoChildren[c.id]?.length === 0,
-    });
+      objInfoId,
+      (p) => p.rcType === C.PARAMETER,
+    );
     const output = [];
     for (const f of ids) {
-      if (f !== paramInfoId && alreadySelected.includes(f)) {
+      if (
+        (f !== paramInfoId && alreadySelected.includes(f)) ||
+        codeInfoChildren[f].length > 0
+      ) {
         continue;
       }
-      const paramFullPathName = paramNameFromPathArray(x.codeInfo, pathMap, f);
+      const paramFullPathName = paramNameFromPathArray(x.x, pathMap, f);
       output.push({ id: f, name: paramFullPathName });
     }
     return output;
@@ -435,14 +450,14 @@ function useChildlessObjParams({
 
 function useOnClickAddParam({
   forSectionId,
-  variantId,
+  paramSweepId,
   selectedItem,
   selectedItemIdx,
   alreadySelected,
 }) {
   function onClickAddParam() {
     addParamSweepParamInfoId({
-      variantId,
+      paramSweepId,
       selectedItemIdx,
       paramInfoId: null,
     });

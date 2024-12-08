@@ -1,41 +1,78 @@
-import DEFAULT_VALUES from "constants/defaultValues.json";
 import _ from "lodash";
-import { useSectionInfos, useSettings } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
+import { getDefaultDisplayMode } from "state/hooks/uiTypes";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { createVarName, maybeNewId } from "../idNameCreation";
 
 export function newSectionInfo({
   id,
+  name,
+  children = [],
+  size = { width: "auto", height: "auto" },
+  position,
+  zIndex = 0,
+  parentId = null,
   variantId,
   uiTypeId = BASE_UI_TYPE_IDS.SECTION,
   uiTypeColId,
+  paramSweepId = null,
+  social = null,
+  artifacts = [],
   variantIds = [],
-  ...props
+  paramSweepIds = [],
+  paramSweepSectionId = null,
+  nonPresetUITypeIds = [],
+  codeLanguage = "",
+  configLanguage = "python",
+  isFrozen = false,
+  isHorizontalOrientation = false,
+  hideParams = false,
+  hideSearch = false,
+  hideUnpinnedParams = false,
+  displayMode = null,
+  pinnedAreaHeight = "auto",
+  isMinimized = false,
+  canvasSettings = {},
+  isTemporary = false,
+  renderMarkdown = false,
+  positionAndSizeLocked = false,
 }) {
-  const uiTypeName = useSectionInfos.getState().uiTypes[uiTypeId].type;
-
-  const output = _.merge(
-    _.cloneDeep(DEFAULT_VALUES.section),
-    _.cloneDeep(useSettings.getState().sections[uiTypeName]),
-  );
-
-  if (!output.name) {
-    output.name = createVarName(
-      _.map(useSectionInfos.getState().x, (s) => s.name),
-    );
-  }
-
+  const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _variantId = maybeNewId(variantId);
   const _variantIds = [...variantIds, _variantId];
+  const _displayMode = displayMode ?? getDefaultDisplayMode(uiTypeId);
 
-  return _.merge(
-    output,
-    {
-      id: maybeNewId(id),
-      variantId: _variantId,
-      uiTypeId,
-      variantIds: _variantIds,
-    },
-    props,
-  );
+  return {
+    id: maybeNewId(id),
+    name: name ? name : createVarName(existingVarNames),
+    children,
+    size,
+    position,
+    zIndex,
+    parentId,
+    variantId: _variantId,
+    uiTypeId,
+    uiTypeColId: maybeNewId(uiTypeColId),
+    paramSweepId,
+    social,
+    artifacts,
+    codeLanguage,
+    configLanguage,
+    variantIds: _variantIds,
+    paramSweepIds,
+    paramSweepSectionId,
+    nonPresetUITypeIds,
+    isFrozen,
+    isHorizontalOrientation,
+    hideParams,
+    hideSearch,
+    hideUnpinnedParams,
+    displayMode: _displayMode,
+    pinnedAreaHeight,
+    isMinimized,
+    canvasSettings,
+    isTemporary,
+    renderMarkdown,
+    positionAndSizeLocked,
+  };
 }

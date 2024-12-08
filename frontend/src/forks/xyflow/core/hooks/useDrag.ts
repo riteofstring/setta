@@ -5,15 +5,11 @@ import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   raiseTempZIndex,
+  unselectNodesAndEdges,
   updateNodePositions,
 } from "state/actions/nodeInternals";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import {
-  useActiveSection,
-  useMisc,
-  useNodeInternals,
-  useSettings,
-} from "state/definitions";
+import { useMisc, useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { NO_DRAG_CLASS_NAME } from "utils/constants";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../types";
@@ -59,7 +55,7 @@ function useDrag({
         const { nodesSelectionDims, shiftNodesSelection, setNodesSelection } =
           useReactFlow.getState();
 
-        const { snapGrid } = useSettings.getState().gui;
+        const { snapGrid } = useSettings.getState();
         const [snapToGrid] = localStorageFns.snapToGrid.state();
 
         const delta = { x: x - lastPos.current.x, y: y - lastPos.current.y };
@@ -92,7 +88,7 @@ function useDrag({
           return;
         }
 
-        updateNodePositions(dragItems.current);
+        updateNodePositions(dragItems.current, true, true);
         // When dragging a selection, nodeId is undefined.
         if (!nodeId && nodesSelectionDims) {
           if (dragEnd && snapToGrid) {
@@ -137,10 +133,9 @@ function useDrag({
           !isSelectable &&
           !multiSelectionActive &&
           nodeId &&
-          !useActiveSection.getState().ids.includes(nodeId)
+          !nodeInternals.get(nodeId)?.selected
         ) {
-          // TODO: determine if we need to do anything here
-          // It used to call unselectNodesAndEdges
+          unselectNodesAndEdges();
         }
 
         const pointerPos = getPointerPosition(event);

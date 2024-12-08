@@ -1,35 +1,40 @@
 import { useEffect, useState } from "react";
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
-import { updateSectionInfos } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { addCodeInfoBatch } from "state/actions/codeInfo";
+import { addCodeInfoColsBatch } from "state/actions/codeInfoCols";
+import {
+  setSectionInfoAttr,
+  updateSections,
+} from "state/actions/sections/sectionInfos";
+import { updateSectionVariants } from "state/actions/sectionVariants";
+import { useJSONSourceMissing } from "state/definitions";
+import { useGetSectionInfo } from "state/hooks/sections";
 
 export function InputAreaSettings({ sectionId }) {
-  const jsonSource = useSectionInfos((x) => x.x[sectionId].jsonSource);
+  const jsonSource = useGetSectionInfo(sectionId, "jsonSource");
 
   const [value, setValue] = useState(jsonSource ?? "");
   async function onBlur(e) {
     const jsonSource = e.target.value;
-    let codeInfo = null,
+    setSectionInfoAttr({ sectionId, attr: "jsonSource", value: jsonSource });
+    let jsonSourceMissing = false,
+      codeInfo = null,
       codeInfoCols = null,
       sectionVariants = null,
       sections = null;
     if (jsonSource) {
-      const res = await dbLoadSectionJSONSource(sectionId, jsonSource);
+      const res = await dbLoadSectionJSONSource(sectionId);
       if (res.status === 200) {
         ({ codeInfo, codeInfoCols, sectionVariants, sections } =
           res.data.project);
+        ({ jsonSourceMissing } = res.data);
       }
     }
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].jsonSource = jsonSource;
-      updateSectionInfos({
-        sections,
-        sectionVariants,
-        codeInfo,
-        codeInfoCols,
-        state,
-      });
-    });
+    useJSONSourceMissing.setState({ [sectionId]: jsonSourceMissing });
+    if (codeInfo) addCodeInfoBatch(codeInfo);
+    if (codeInfoCols) addCodeInfoColsBatch(codeInfoCols);
+    if (sectionVariants) updateSectionVariants({ sectionVariants });
+    if (sections) updateSections(sections);
   }
 
   useEffect(() => {

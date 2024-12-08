@@ -1,5 +1,8 @@
 import _ from "lodash";
-import { useAvailableUITypesForParam } from "state/hooks/presetUITypes";
+import {
+  useAvailableUITypesForParam,
+  useAvailableUITypesForSection,
+} from "state/hooks/presetUITypes";
 import { IdNameCombobox } from "./IdNameCombobox";
 
 function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
@@ -14,6 +17,17 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
       allItems={groupedAsList}
       value={selectedId}
       onSelectedItemChange={onDropdownSelect}
+    />
+  );
+}
+
+export function SectionUITypeCombobox({ sectionId, selectedId, ...props }) {
+  const availableUITypes = useAvailableUITypesForSection(sectionId, selectedId);
+  return (
+    <UITypeCombobox
+      availableUITypes={availableUITypes}
+      selectedId={selectedId}
+      {...props}
     />
   );
 }

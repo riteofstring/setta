@@ -3,20 +3,8 @@ import { DNDSortable } from "forks/dnd-kit/DNDSortable";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useSectionInfos } from "state/definitions";
 import { SortableSectionContainer } from "./SortableSectionContainer";
-import { useHasTempNested } from "./utils";
 
-export function MaybeManyNestedSections({ sectionId, isDeck }) {
-  const hasNested = useHasTempNested(sectionId);
-  return (
-    hasNested && (
-      <div className="flex flex-col">
-        <ManyNestedSections sectionId={sectionId} isDeck={isDeck} />
-      </div>
-    )
-  );
-}
-
-function ManyNestedSections({ sectionId, isDeck }) {
+export function ManyNestedSections({ sectionId, isDeck }) {
   const tempChildIds = useDndChildren((x) => x.x[sectionId]);
 
   return (
@@ -30,6 +18,7 @@ function ManyNestedSections({ sectionId, isDeck }) {
   );
 }
 
+// disabled is passed in by DNDSortable
 function NestedSectionsWithMargin({ childIds, sectionId, isDeck }) {
   const onClick = () => {
     goToSection(sectionId);
@@ -43,7 +32,7 @@ function NestedSectionsWithMargin({ childIds, sectionId, isDeck }) {
     <div className="flex items-stretch">
       {!isDeck && (
         <div
-          className={`mr-2 mt-2 min-h-full w-2 rounded-full bg-white/30 transition-all duration-75 hover:cursor-pointer hover:bg-white/50 dark:bg-setta-700 hover:dark:bg-setta-600`}
+          className={`mr-2 mt-2 min-h-full w-2 rounded-full bg-white opacity-[.16] transition-all duration-75 hover:cursor-pointer hover:opacity-[.36] dark:bg-setta-700`}
           onClick={onClick}
         />
       )}

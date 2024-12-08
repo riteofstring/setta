@@ -1,30 +1,32 @@
 import { Item } from "components/Utils/atoms/dropdown/item";
 import C from "constants/constants.json";
-import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { addSectionAtPosition } from "state/actions/sections/createSections";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useContextMenus, useSectionInfos } from "state/definitions";
+import { setModalData, setModalType } from "state/actions/modal";
+import { onClickAddSection } from "state/actions/sections/createSections";
+import { useContextMenus, useMisc } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
-  const singletonSections = useSectionInfos(
-    (x) => x.singletonSections,
-    _.isEqual,
-  );
+  const singletonSections = useMisc((x) => x.singletonSections, _.isEqual);
+
+  const commonProps = {
+    x,
+    y,
+    projectXY: true,
+    incrementVersion: true,
+  };
+
+  function openLoadModal(_modalType) {
+    setModalType(_modalType);
+    setModalData(commonProps);
+    closeAllContextMenus();
+  }
 
   function getOnClickFn(specificProps) {
     return () => {
-      useSectionInfos.setState((state) => {
-        addSectionAtPosition({
-          position: screenToFlowPosition({ x, y }),
-          state,
-          ...specificProps,
-        });
-      });
-      maybeIncrementProjectStateVersion(true);
+      onClickAddSection({ ...commonProps, ...specificProps });
       closeAllContextMenus();
     };
   }
@@ -41,7 +43,7 @@ export function PaneContextMenu() {
       <Item onClick={getOnClickFn({ type: C.DICT_ROOT })}>New Dict</Item>
       <Item onClick={getOnClickFn({ type: C.DECK })}>New Group</Item>
       <Item onClick={getOnClickFn({ type: C.INFO })}>New Info</Item>
-      {!singletonSections[C.GLOBAL_VARIABLES] && (
+      {!singletonSections.globalVariables && (
         <Item onClick={getOnClickFn({ type: C.GLOBAL_VARIABLES })}>
           New Global Variables
         </Item>
@@ -49,7 +51,7 @@ export function PaneContextMenu() {
       <Item
         onClick={getOnClickFn({
           type: C.CODE,
-          sectionProps: { codeLanguage: "python" },
+          inputSectionProps: { codeLanguage: "python" },
         })}
       >
         New Python Script
@@ -57,7 +59,7 @@ export function PaneContextMenu() {
       <Item
         onClick={getOnClickFn({
           type: C.INTERACTIVE_CODE,
-          sectionProps: { codeLanguage: "python" },
+          inputSectionProps: { codeLanguage: "python" },
         })}
       >
         New Interactive Python Script
@@ -65,13 +67,13 @@ export function PaneContextMenu() {
       <Item
         onClick={getOnClickFn({
           type: C.CODE,
-          sectionProps: { codeLanguage: "bash" },
+          inputSectionProps: { codeLanguage: "bash" },
         })}
       >
         New Bash Script
       </Item>
       <Item onClick={getOnClickFn({ type: C.TERMINAL })}>New Terminal</Item>
-      {!singletonSections[C.GLOBAL_PARAM_SWEEP] && (
+      {!singletonSections.globalParamSweep && (
         <Item onClick={getOnClickFn({ type: C.GLOBAL_PARAM_SWEEP })}>
           New Global Param Sweep
         </Item>

@@ -1,10 +1,16 @@
-import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
-import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
-import { getIsRoot } from "state/actions/uiTypes/utils";
+import {
+  getSectionChildren,
+  getSelectedVariantIsFrozen,
+} from "state/actions/sectionVariants";
+import {
+  getSectionCanOnlyBeChildOfDeck,
+  getSectionIsDeck,
+  getSectionIsRoot,
+} from "state/getters/sectionInfo";
 
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);
@@ -146,10 +152,7 @@ function maybeMoveToNewParent({
     return;
   }
 
-  if (
-    overId === newParentId &&
-    getSectionVariant(newParentId).children.length > 0
-  ) {
+  if (overId === newParentId && getSectionChildren(newParentId).length > 0) {
     dndChildrenState.removeChild(dndSectionId);
     return;
   }
@@ -223,7 +226,7 @@ function getBehaviorDropType(activeId, newParentId) {
     !getSectionIsRoot(newParentId) ||
     (getSectionCanOnlyBeChildOfDeck(activeId) &&
       !getSectionIsDeck(newParentId)) ||
-    getSectionVariant(newParentId).isFrozen
+    getSelectedVariantIsFrozen(newParentId)
   ) {
     return BehaviorDropType.INVALID;
   }
@@ -233,18 +236,4 @@ function getBehaviorDropType(activeId, newParentId) {
 
 function getOverId(over) {
   return over ? over.id : null;
-}
-
-function getSectionCanOnlyBeChildOfDeck(sectionId) {
-  return ![C.SECTION, C.LIST_ROOT, C.DICT_ROOT].includes(
-    getSectionType(sectionId),
-  );
-}
-
-function getSectionIsDeck(sectionId) {
-  return getSectionType(sectionId) === C.DECK;
-}
-
-function getSectionIsRoot(sectionId) {
-  return getIsRoot(getSectionType(sectionId));
 }

@@ -1,92 +1,162 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
 import { getDimensions } from "forks/xyflow/core/utils";
+import { createSelectionChange } from "forks/xyflow/core/utils/changes";
 import _ from "lodash";
-import { useMisc, useNodeInternals, useSectionRefs } from "state/definitions";
+import { useNodeInternals } from "state/definitions";
+
+export function setNodes(nodes) {
+  useNodeInternals.setState((state) => ({
+    x: createNodeInternals(nodes, state.x),
+  }));
+}
 
 export function getNodes(s = null) {
   return Array.from(s ? s.x.values() : useNodeInternals.getState().x.values());
 }
 
 export function addNodes(nodes) {
-  const newNodes = getNewNodes();
-  for (const n of nodes) {
-    newNodes.set(n.id, n);
-  }
-  useNodeInternals.setState({ x: newNodes });
+  const changes = nodes.map((node) => ({ item: node, type: "add" }));
+  onNodesChange(changes);
 }
 
 export function deleteNodes(nodeIds) {
-  const newNodes = getNewNodes();
-  for (const n of nodeIds) {
-    newNodes.delete(n);
-  }
-  useNodeInternals.setState({ x: newNodes });
+  const changes = nodeIds.map((id) => ({ id, type: "remove" }));
+  onNodesChange(changes);
+}
+
+function createNodeInternals(nodes, nodeInternals) {
+  const nextNodeInternals = new Map();
+
+  nodes.forEach((node) => {
+    const currInternals = nodeInternals.get(node.id);
+
+    const internals = {
+      width: currInternals?.width,
+      height: currInternals?.height,
+      ...node,
+    };
+
+    nextNodeInternals.set(node.id, internals);
+  });
+
+  return nextNodeInternals;
 }
 
 export function updateNodeDimensions(updates) {
   const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions, domNode } =
     useReactFlow.getState();
-
+  const nodeInternals = useNodeInternals.getState().x;
   const viewportNode = domNode?.querySelector(".react-flow__viewport");
 
   if (!viewportNode) {
     return;
   }
 
-  const newNodes = getNewNodes();
+  const changes = updates.reduce((res, update) => {
+    const node = nodeInternals.get(update.id);
 
-  for (const u of updates) {
-    const node = newNodes.get(u.id);
     if (node) {
-      const dimensions = getDimensions(u.nodeElement);
+      const dimensions = getDimensions(update.nodeElement);
       const doUpdate = !!(
         dimensions.width &&
         dimensions.height &&
         (node.width !== dimensions.width ||
           node.height !== dimensions.height ||
-          u.forceUpdate)
+          update.forceUpdate)
       );
 
       if (doUpdate) {
-        newNodes.set(node.id, {
+        nodeInternals.set(node.id, {
           ...node,
           ...dimensions,
         });
+
+        res.push({
+          id: node.id,
+          type: "dimensions",
+          dimensions,
+        });
       }
     }
-  }
 
-  useNodeInternals.setState({ x: newNodes });
-
-  const miscState = useMisc.getState();
-  // don't do fitView until all code areas are done rendering
-  if (miscState.numInitializedCodeAreas !== miscState.numDisplayedCodeAreas) {
-    return;
-  }
+    return res;
+  }, []);
 
   const nextFitViewOnInitDone =
     fitViewOnInitDone ||
     (fitViewOnInit &&
       !fitViewOnInitDone &&
-      fitView({
+      fitView(useReactFlow.getState, {
         initial: true,
         ...fitViewOnInitOptions,
       }));
 
+  useNodeInternals.setState({
+    x: _.cloneDeep(nodeInternals),
+  });
   useReactFlow.setState({ fitViewOnInitDone: nextFitViewOnInitDone });
+
+  if (changes?.length > 0) {
+    onNodesChange(changes);
+  }
 }
 
-export function updateNodePositions(nodeDragItems) {
-  const newNodes = getNewNodes();
-  for (const n of nodeDragItems) {
-    newNodes.get(n.id).position = n.position;
+export function updateNodePositions(
+  nodeDragItems,
+  positionChanged = true,
+  dragging = false,
+) {
+  const changes = nodeDragItems.map((node) => {
+    const change = {
+      id: node.id,
+      type: "position",
+      dragging,
+    };
+
+    if (positionChanged) {
+      change.position = node.position;
+    }
+
+    return change;
+  });
+
+  if (changes?.length) {
+    onNodesChange(changes);
+  }
+}
+
+export function onNodesChange(changes) {
+  const nodeInternals = useNodeInternals.getState().x;
+  const newNodes = _.cloneDeep(nodeInternals);
+  for (const c of changes) {
+    switch (c.type) {
+      case "select": {
+        newNodes.get(c.id).selected = c.selected;
+        break;
+      }
+      case "position": {
+        if (typeof c.position !== "undefined") {
+          newNodes.get(c.id).position = c.position;
+        }
+        break;
+      }
+      case "add": {
+        newNodes.set(c.item.id, c.item);
+        break;
+      }
+      case "remove": {
+        newNodes.delete(c.id);
+        break;
+      }
+    }
   }
   useNodeInternals.setState({ x: newNodes });
 }
 
 export function raiseTempZIndex(nodes) {
-  const newNodes = getNewNodes();
+  const nodeInternals = useNodeInternals.getState().x;
+  const newNodes = _.cloneDeep(nodeInternals);
   for (const [, n] of newNodes) {
     n.tempZIndex = n.zIndex;
   }
@@ -96,34 +166,31 @@ export function raiseTempZIndex(nodes) {
   useNodeInternals.setState({ x: newNodes });
 }
 
-export function justMoveANode(id, position) {
-  const newNodes = getNewNodes();
-  newNodes.get(id).position = position;
-  useNodeInternals.setState({ x: newNodes });
-}
+export function unselectNodesAndEdges({ nodes }) {
+  const nodesToUnselect = nodes ? nodes : getNodes();
 
-export function getNewNodes() {
-  return _.cloneDeep(useNodeInternals.getState().x);
-}
-
-export function getNodeUpdateInformation(entries, fromResizeObserver) {
-  if (fromResizeObserver) {
-    return entries.map((entry) => ({
-      id: entry.target.getAttribute("data-id"),
-      nodeElement: entry.target,
-      forceUpdate: true,
-    }));
-  }
-  const output = [];
-  const refState = useSectionRefs.getState().withNested;
-  entries.forEach((nodeId) => {
-    if (refState[nodeId]) {
-      output.push({
-        id: nodeId,
-        nodeElement: refState[nodeId],
-        forceUpdate: true,
-      });
-    }
+  const changedNodes = nodesToUnselect.map((n) => {
+    n.selected = false;
+    return createSelectionChange(n.id, false);
   });
-  return output;
+
+  if (changedNodes?.length) {
+    onNodesChange(changedNodes);
+  }
+}
+
+export function resetSelectedElements() {
+  const nodes = getNodes();
+
+  const nodesToUnselect = nodes
+    .filter((e) => e.selected)
+    .map((n) => createSelectionChange(n.id, false));
+
+  if (nodesToUnselect?.length) {
+    onNodesChange(nodesToUnselect);
+  }
+}
+
+export function justMoveANode(id, position) {
+  onNodesChange([{ id, type: "position", position }]);
 }

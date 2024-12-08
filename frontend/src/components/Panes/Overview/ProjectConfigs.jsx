@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { maybeRunGuiToYamlOnAllSections } from "state/actions/guiToYaml";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
-import { setAllPreviewVariantIdsToNull } from "state/actions/sectionInfos";
+import { setAllPreviewVariantIdsToNull } from "state/actions/sections/sectionInfos";
 import { useAllProjectConfigs, useSectionInfos } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useLoadFullProject } from "state/hooks/project";

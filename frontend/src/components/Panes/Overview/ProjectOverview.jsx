@@ -1,19 +1,12 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import _ from "lodash";
 import React from "react";
-import { useSectionInfos } from "state/definitions";
-import { useMatchSorterFilter } from "state/hooks/utils";
+import { useGetOverviewListing } from "state/hooks/overview";
 import { ProjectName } from "./ProjectName";
 import { SectionListItems } from "./SectionListItems";
 
 export const ProjectOverview = React.forwardRef(() => {
-  const sectionList = useOverviewListing();
-  return <ProjectOverviewCore sectionList={sectionList} />;
-});
-
-function ProjectOverviewCore({ sectionList }) {
-  const [filteredList, setFilter] = useMatchSorterFilter(sectionList, ["name"]);
+  const [filteredList, setFilter] = useGetOverviewListing();
 
   return (
     <>
@@ -38,34 +31,7 @@ function ProjectOverviewCore({ sectionList }) {
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
       </div>
+      {/* <InfoView /> */}
     </>
   );
-}
-
-function useOverviewListing() {
-  return useSectionInfos((x) => {
-    const outputList = [];
-    for (const section of Object.values(x.x)) {
-      if (!section.parentId) {
-        getDepthListingHelper(section.id, 0, x, outputList);
-      }
-    }
-    return outputList;
-  }, _.isEqual);
-}
-
-function getDepthListingHelper(sectionId, depth, x, outputList) {
-  const section = x.x[sectionId];
-  outputList.push({
-    id: sectionId,
-    name: section.name,
-    depth: depth,
-  });
-
-  const children = x.variants[section.variantId].children;
-  if (children) {
-    for (const childId of children) {
-      getDepthListingHelper(childId, depth + 1, x, outputList);
-    }
-  }
-}
+});

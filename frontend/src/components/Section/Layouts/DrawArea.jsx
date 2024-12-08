@@ -6,9 +6,11 @@ import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { BiPaint } from "react-icons/bi";
-import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { updateArtifacts } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
+import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { setCanvasSettings } from "state/actions/sections/setters";
 import {
   base64RequestId,
   setTemporaryMiscState,
@@ -36,12 +38,10 @@ export function DrawOnImage({ sectionId }) {
       canvasOpacity,
       eraserBrushSize,
     },
-  } = useSectionInfos((x) => {
-    return {
-      size: x.x[sectionId].size,
-      canvasSettings: x.x[sectionId].canvasSettings,
-    };
-  }, _.isEqual);
+  } = useSectionInfos(
+    (x) => _.pick(x.x[sectionId], ["size", "canvasSettings"]),
+    _.isEqual,
+  );
   const backgroundCanvasRef = useRef(null);
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
@@ -334,8 +334,10 @@ export function DrawOnImage({ sectionId }) {
             },
           },
         });
-        useSectionInfos.setState((state) => {
-          state.x[sectionId].artifacts.push(artifactPath);
+        setSectionInfoAttr({
+          sectionId,
+          attr: "artifacts",
+          newValueFn: (x) => [...x, artifactPath],
         });
       };
 
@@ -372,24 +374,26 @@ export function DrawOnImage({ sectionId }) {
             <BiPaint />
           </button>
           <StandardPopover
+            popoverContent={
+              <BrushSettings
+                opacity={opacity}
+                setOpacity={setOpacity}
+                brushSize={brushSize}
+                setBrushSize={setBrushSize}
+                brushShape={brushShape}
+                setBrushShape={setBrushShape}
+              />
+            }
             arrowClasses="fill-white dark:fill-setta-800"
-            contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
+            inputClasses="rounded-lg"
+            contentClasses="bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
             trigger={
               <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-200 py-1  text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800  dark:text-setta-400 dark:hover:bg-setta-900">
                 <i className="gg-chevron-down" />
               </button>
             }
             header={"Brush Settings"}
-          >
-            <BrushSettings
-              opacity={opacity}
-              setOpacity={setOpacity}
-              brushSize={brushSize}
-              setBrushSize={setBrushSize}
-              brushShape={brushShape}
-              setBrushShape={setBrushShape}
-            />
-          </StandardPopover>
+          />
         </div>
         <div className="flex self-stretch">
           <button
@@ -401,25 +405,34 @@ export function DrawOnImage({ sectionId }) {
             <i className="gg-erase" />
           </button>
           <StandardPopover
+            popoverContent={
+              <EraserSettings
+                brushSize={eraserBrushSize}
+                setBrushSize={setEraserBrushSize}
+              />
+            }
             arrowClasses="fill-white dark:fill-setta-800"
-            contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
+            inputClasses="rounded-lg"
+            contentClasses="bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
             trigger={
               <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-200 py-1  text-xs text-setta-700 hover:bg-setta-300 dark:bg-setta-800  dark:text-setta-400 dark:hover:bg-setta-900">
                 <i className="gg-chevron-down" />
               </button>
             }
             header={"Brush Settings"}
-          >
-            <EraserSettings
-              brushSize={eraserBrushSize}
-              setBrushSize={setEraserBrushSize}
-            />
-          </StandardPopover>
+          />
         </div>
 
         <StandardPopover
+          popoverContent={
+            <CanvasSettings
+              opacity={canvasOpacity}
+              setOpacity={setCanvasOpacity}
+            />
+          }
           arrowClasses="fill-white dark:fill-setta-800"
-          contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
+          inputClasses="rounded-lg"
+          contentClasses="bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
           trigger={
             <button className="flex w-12 cursor-pointer items-center justify-center gap-0 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
               <i className="gg-image" />
@@ -427,12 +440,7 @@ export function DrawOnImage({ sectionId }) {
             </button>
           }
           header={"Layer Opacity"}
-        >
-          <CanvasSettings
-            opacity={canvasOpacity}
-            setOpacity={setCanvasOpacity}
-          />
-        </StandardPopover>
+        />
 
         <button
           className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
@@ -629,7 +637,7 @@ function CanvasSettings({ opacity, setOpacity }) {
   return (
     <div className="grid w-full grid-cols-[1fr,_2fr] gap-2">
       <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
-        Layer Opacity
+        Canvas Opacity
       </p>
       <SliderInput
         sliderRootClassName={sliderRootClassName}
@@ -721,13 +729,13 @@ function exportImageToBase64(image, width, height) {
 
 function drawStrokesAndKeepOriginalProps(canvasRef, strokes) {
   const [canvas, ctx] = getCanvasAndCtx(canvasRef);
-  const startingProps = {
-    globalCompositeOperation: ctx.globalCompositeOperation,
-    strokeStyle: ctx.strokeStyle,
-    globalAlpha: ctx.globalAlpha,
-    lineWidth: ctx.lineWidth,
-    lineCap: ctx.lineCap,
-  };
+  const startingProps = _.pick(ctx, [
+    "globalCompositeOperation",
+    "strokeStyle",
+    "globalAlpha",
+    "lineWidth",
+    "lineCap",
+  ]);
   strokes.forEach((stroke) => {
     drawStroke(canvas, ctx, stroke);
   });
@@ -778,10 +786,3 @@ const debouncedSendDrawingToInteractiveTasks = _.debounce(
   },
   500,
 );
-
-function setCanvasSettings(sectionId, attr, value) {
-  useSectionInfos.setState((x) => {
-    const s = x.x[sectionId];
-    s.canvasSettings[attr] = value;
-  });
-}

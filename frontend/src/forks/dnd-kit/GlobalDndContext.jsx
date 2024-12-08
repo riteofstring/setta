@@ -24,7 +24,6 @@ export function GlobalDndContext({ children }) {
       onDragOver={onDragOver}
       modifiers={modifiers}
       measuring={measuring}
-      autoScroll={false}
     >
       {children}
       <DummyDragOverlay ref={dummyRef} />

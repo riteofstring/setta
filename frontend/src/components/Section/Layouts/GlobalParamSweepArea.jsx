@@ -3,15 +3,14 @@ import { StandardAccordion } from "components/Utils/atoms/accordion/accordion";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import React from "react";
-import { createNewVersion } from "state/actions/newVersion";
+import React, { useEffect } from "react";
+import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
 import {
-  onClickSetVariantId,
-  onMouseLeaveSetPreviewVariantId,
-  onMouseOverSetPreviewVariantId,
-} from "state/actions/previewOnMouseOver";
+  setPreviewRunGroup,
+  setShownRunGroup,
+} from "state/actions/project/projectConfig";
 import {
-  initRunGroup,
+  createRunGroupWithRandomName,
   toggleRunGroup,
   toggleRunGroupSection,
   toggleRunGroupSectionParamSweep,
@@ -19,12 +18,15 @@ import {
   useRunGroupListing,
   useTopLevelRunGroupListing,
 } from "state/actions/runGroups/runGroups";
-import { useSectionInfos } from "state/definitions";
+import {
+  useProjectConfig,
+  useRunGroups,
+  useSectionInfos,
+} from "state/definitions";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
-import { createRandomName } from "utils/idNameCreation";
-import { useShowYaml } from "../../../state/hooks/toYaml";
+import { useShowYaml } from "./toYaml";
 
 export function GlobalParamSweepArea({ sectionId }) {
   const width = useSectionInfos((x) => {
@@ -36,58 +38,65 @@ export function GlobalParamSweepArea({ sectionId }) {
 }
 
 function GlobalParamSweepGUI({ sectionId, width }) {
+  const firstRunGroupId = useRunGroups((x) => Object.keys(x.x)[0]);
+  const { shownRunGroup, previewRunGroup } = useProjectConfig(
+    (x) => _.pick(x, ["shownRunGroup", "previewRunGroup"]),
+    _.isEqual,
+  );
+  const toShow = previewRunGroup ?? shownRunGroup;
   const { ref, isScrollable } = useIsScrollable();
+
+  useEffect(() => {
+    if (!shownRunGroup && firstRunGroupId) {
+      setShownRunGroup(firstRunGroupId);
+    }
+  }, [shownRunGroup, firstRunGroupId]);
+
+  useEffect(() => {
+    maybeRunGuiToYaml(sectionId);
+  }, [toShow]);
 
   return (
     <>
       <section
-        className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main -mr-3 mb-2 flex min-w-0 flex-col gap-2 overflow-y-scroll pr-2 @sm/multipane:flex-row @sm/multipane:gap-6  @sm/multipane:overflow-visible`}
+        className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll  @sm/multipane:flex-row  @sm/multipane:overflow-visible`}
         ref={ref}
       >
-        <LeftSide sectionId={sectionId} />
-        <RightSide sectionId={sectionId} />
+        <LeftSide shownRunGroup={shownRunGroup} />
+        <RightSide sectionId={sectionId} toShow={toShow} />
       </section>
     </>
   );
 }
 
-function LeftSide({ sectionId }) {
+function LeftSide({ shownRunGroup }) {
   return (
     <article className="mt-2 flex flex-col gap-2 ">
       <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
         Run Groups
       </h3>
 
-      <RunGroupList sectionId={sectionId} />
-      <CreateNewRunGroupButton sectionId={sectionId} />
+      <RunGroupList shownRunGroup={shownRunGroup} />
+      <CreateNewRunGroupButton />
     </article>
   );
 }
 
-function RightSide({ sectionId }) {
+function RightSide({ sectionId, toShow }) {
   const showYaml = useShowYaml(sectionId);
-  const shownRunGroupId = useSectionInfos((x) => {
-    return x.x[sectionId].previewVariantId ?? x.x[sectionId].variantId;
-  });
 
-  if (!shownRunGroupId) {
+  if (!toShow) {
     return null;
   }
-  // -mr-[14px]
   return (
-    <article
-      className={`${showYaml ? "-mr-2 overflow-visible @sm/multipane:-mr-[14px] @sm/multipane:overflow-y-scroll" : "h-full min-h-0 overflow-x-clip"} mt-2 flex  flex-1 flex-col gap-2  pb-2 `}
-    >
+    <article className="mt-2 flex flex-1 flex-col gap-2 @sm/multipane:overflow-x-hidden">
       {!showYaml ? (
         <>
-          <div className="flex gap-4">
-            <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-              Sections
-            </h3>
-            <FilterSection />
-          </div>
-
-          <TopLevelSectionList runGroupId={shownRunGroupId} />
+          <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+            Sections
+          </h3>
+          <FilterSection />
+          <TopLevelSectionList runGroupId={toShow} />
         </>
       ) : (
         <YamlView sectionId={sectionId} />
@@ -96,21 +105,19 @@ function RightSide({ sectionId }) {
   );
 }
 
-function RunGroupList({ sectionId }) {
+function RunGroupList({ shownRunGroup }) {
+  const runGroupSelection = useProjectConfig(
+    (x) => x.runGroupSelection,
+    _.isEqual,
+  );
   const { ref, isScrollable } = useIsScrollable();
-  const { editingRunGroupId, runGroupsDetails, runGroupSelection } =
-    useSectionInfos((x) => {
-      const output = [];
-      const { variantIds, variantId } = x.x[sectionId];
-      for (const id of variantIds) {
-        output.push({ id, name: x.variants[id].name });
-      }
-      return {
-        runGroupsDetails: output,
-        runGroupSelection: x.x[sectionId].selectedVariantIds,
-        editingRunGroupId: variantId,
-      };
-    }, _.isEqual);
+  const runGroupsDetails = useRunGroups((x) => {
+    const output = [];
+    for (const [id, details] of Object.entries(x.x)) {
+      output.push({ id, name: details.name });
+    }
+    return output;
+  }, _.isEqual);
 
   return (
     <ul
@@ -120,14 +127,14 @@ function RunGroupList({ sectionId }) {
       {runGroupsDetails.map(({ id, name }) => (
         <CheckboxNextToLabel
           key={id}
-          shown={editingRunGroupId === id}
-          checked={runGroupSelection[id] ?? false}
+          shown={shownRunGroup === id}
+          checked={runGroupSelection[id]}
           onChange={() => {
-            toggleRunGroup(sectionId, id);
+            toggleRunGroup(id);
           }}
-          onMouseOver={() => onMouseOverSetPreviewVariantId(sectionId, id)}
-          onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
-          onClick={() => onClickSetVariantId(sectionId, id)}
+          onMouseOver={() => setPreviewRunGroup(id)}
+          onMouseLeave={() => setPreviewRunGroup(null)}
+          onClick={() => setShownRunGroup(id)}
         >
           {name}
         </CheckboxNextToLabel>
@@ -166,10 +173,7 @@ function SectionList({ ancestors, parentIsSelected, runGroupId }) {
 }
 
 const SectionListCore = React.forwardRef(
-  (
-    { sections, runGroupId, ancestors, parentIsSelected, className = "" },
-    ref,
-  ) => {
+  ({ sections, runGroupId, ancestors, parentIsSelected, className }, ref) => {
     return (
       sections.length > 0 && (
         <ul
@@ -206,10 +210,10 @@ function SectionItem({ sectionInfo, ancestors, parentIsSelected, runGroupId }) {
     });
   }
 
-  const isSelected = useSectionInfos((x) => {
+  const isSelected = useRunGroups((x) => {
     return (
       parentIsSelected &&
-      !!x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]?.selected
+      !!x.x[runGroupId].sections[sectionId]?.[parentVariantId]?.selected
     );
   });
 
@@ -277,9 +281,9 @@ function VersionsList({
   allVersions,
   parentVariantId,
 }) {
-  const atLeastOneVersionSelected = useSectionInfos((x) => {
+  const atLeastOneVersionSelected = useRunGroups((x) => {
     const versionsObj =
-      x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]?.versions;
+      x.x[runGroupId].sections[sectionId]?.[parentVariantId]?.versions;
     if (!versionsObj) {
       return false;
     }
@@ -292,7 +296,7 @@ function VersionsList({
   const accordionRootStyles =
     atLeastOneVersionSelected || !isSelected
       ? undefined
-      : "bg-red-100 dark:bg-red-950/20 hover:bg-red-500/20 border-red-300 hover:dark:bg-red-950/50 dark:border-red-700/80 hover:dark:border-red-700 [&_ul]:!bg-transparent";
+      : "bg-red dark:bg-red-700/10 hover:border-red-50 dark:hover:border-red-700";
 
   return (
     <GenericList
@@ -403,12 +407,10 @@ function VersionItemComponent({
     });
   }
 
-  const isSelected = useSectionInfos(
+  const isSelected = useRunGroups(
     (x) =>
       parentIsSelected &&
-      !!x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId].versions[
-        id
-      ],
+      !!x.x[runGroupId].sections[sectionId]?.[parentVariantId].versions[id],
   );
 
   return (
@@ -448,10 +450,9 @@ function ParamSweepItemComponent({
     });
   }
 
-  const isSelected = useSectionInfos(
+  const isSelected = useRunGroups(
     (x) =>
-      !!x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]
-        .paramSweeps[id],
+      !!x.x[runGroupId].sections[sectionId]?.[parentVariantId].paramSweeps[id],
   );
 
   return (
@@ -514,41 +515,27 @@ function CheckboxNextToLabel({
 
 function FilterSection() {
   const inputStyles =
-    "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-4 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
+    "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-7 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
 
   return (
-    <div className="-mt-1 flex-1">
+    <search className="flex min-w-0 items-center pb-1">
       <StandardSearch
-        leftElement={
-          <i className="gg-sort-az mb-[2px] !scale-50 text-setta-400" />
-        }
+        leftElement={<i className="gg-sort-az !scale-75 text-setta-400" />}
         placeholder="Filter"
         inputStyles={inputStyles}
         outerClasses="flex-1"
       />
-    </div>
+    </search>
   );
 }
 
-function CreateNewRunGroupButton({ sectionId }) {
-  async function onClick() {
-    createNewRunGroup(sectionId);
-  }
-
+function CreateNewRunGroupButton({}) {
   return (
     <button
       className="nodrag flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-1 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
-      onClick={onClick}
+      onClick={createRunGroupWithRandomName}
     >
       <i className="gg-add-r" /> New Run Group
     </button>
   );
-}
-
-function createNewRunGroup(sectionId) {
-  useSectionInfos.setState((state) => {
-    const newVersionName = createRandomName();
-    const variantId = createNewVersion(sectionId, newVersionName, state);
-    initRunGroup(variantId, state);
-  });
 }

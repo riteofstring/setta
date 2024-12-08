@@ -1,43 +1,66 @@
 import _ from "lodash";
-import { getCodeChildrenAndParentCodeInfoId } from "state/actions/sectionInfos";
 import {
+  getParamIds,
   getParamIdsToShowInArea,
-  paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
-import { useSectionInfos } from "state/definitions";
-import { findAllParametersAndPathMaps } from "utils/getDescendants";
+import { useCodeInfo } from "state/definitions";
+import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
+import { useSectionCodeInfoChildren } from "./codeInfoCols";
+import { useGetSectionInfo } from "./sections";
+import { useSectionSelectedItem } from "./sectionVariants";
 
-export function useParamInfosForSidePane(sectionId) {
-  return useSectionInfos((x) => {
-    const { codeInfoChildren, parentCodeInfoId } =
-      getCodeChildrenAndParentCodeInfoId(sectionId, x);
-    const { ids, pathMap } = findAllParametersAndPathMaps({
-      allCodeInfo: x.codeInfo,
-      codeInfoChildren,
-      startingId: parentCodeInfoId,
-      additionalOutputCondition: (c) => codeInfoChildren[c.id]?.length === 0,
-    });
-    const output = [];
+// export function useGetAllCallables(sectionId) {
+//   const ids = useSectionToParamIds(
+//     (x) => x.callables[sectionId] ?? [],
+//     _.isEqual,
+//   );
+//   return useCodeInfo((x) => ids.map((id) => x.x[id]), _.isEqual);
+// }
+
+export function useGetParamInfosThatHaveNames(sectionId) {
+  const selectedItem = useSectionSelectedItem(sectionId);
+  const codeInfoChildren = useSectionCodeInfoChildren(sectionId);
+
+  return useCodeInfo((x) => {
+    const { ids } = getParamIds(sectionId, x.x, codeInfoChildren, selectedItem);
+    const haveName = [];
     for (const id of ids) {
-      output.push({
-        id,
-        name: paramNameFromPathArray(x.codeInfo, pathMap, id),
-      });
+      if (x.x[id].name) {
+        haveName.push(x.x[id]);
+      }
     }
-    return output;
+    return haveName;
   }, _.isEqual);
 }
 
+function useGetSelectedCollections(sectionId) {
+  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
+  return useCodeInfo((x) => _.pick(x.x, x.x[codeInfoId].children), _.isEqual);
+}
+
+export function useGetSelectedCollectionsForSectionConfig(sectionId) {
+  const collections = useGetSelectedCollections(sectionId);
+  return useCodeInfo(
+    (x) => assembleCollectionsForSectionConfig(x.x, collections),
+    _.isEqual,
+  );
+}
+
+export function useHasParams(sectionId) {
+  return useCodeInfo((x) => getParamIds(sectionId, x.x)["ids"].length > 0);
+}
+
 export function useParamIdsToShowInArea(sectionId, isPinned) {
-  return useSectionInfos((x) => {
-    const { codeInfoChildren, parentCodeInfoId, startAtDepth } =
-      getCodeChildrenAndParentCodeInfoId(sectionId, x);
+  const selectedItem = useSectionSelectedItem(sectionId);
+  const codeInfoChildren = useSectionCodeInfoChildren(sectionId);
+
+  return useCodeInfo((x) => {
     return getParamIdsToShowInArea(
+      sectionId,
       isPinned,
-      x.codeInfo,
+      x.x,
       codeInfoChildren,
-      parentCodeInfoId,
-      startAtDepth,
+      selectedItem,
     );
   }, _.isEqual);
 }

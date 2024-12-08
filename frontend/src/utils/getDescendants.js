@@ -6,8 +6,7 @@ function _findAllDescendants(
   codeInfoIds,
   outputCondition,
   stackCondition,
-  paramPathCondition = null, // null or a function
-  earlyReturnCondition = null, // null or a function
+  paramPathCondition = false, // false or a function
 ) {
   const output = [];
   const idStack = codeInfoIds
@@ -46,59 +45,79 @@ function _findAllDescendants(
       }
       idStack.push(...children);
     }
-
-    if (
-      output.length > 0 &&
-      earlyReturnCondition?.(allCodeInfo[output[output.length - 1]])
-    ) {
-      return { ids: output, pathMap, earlyReturnTriggered: true };
-    }
   }
 
-  return { ids: output, pathMap, earlyReturnTriggered: false };
+  return { ids: output, pathMap };
 }
 
-export function findAllParameters({
+export function findAllCallables(
+  allCodeInfo,
+  codeInfoIds,
+  paramPathCondition = false,
+) {
+  return _findAllDescendants(
+    allCodeInfo,
+    codeInfoIds,
+    (c) => c?.rcType === C.CALLABLE,
+    () => true,
+    paramPathCondition,
+  );
+}
+
+export function findAllParametersOfCallables(
   allCodeInfo,
   codeInfoChildren,
-  startingId,
-  additionalOutputCondition = null,
-  paramPathCondition = null,
-  earlyReturnCondition = null,
-}) {
-  const codeInfoIds = startingId ? [startingId] : codeInfoChildren[startingId];
-  // if startingId is null, then we're starting at the root
-  // so we don't want to avoid the parameters of callables
-  const stackCondition = startingId
-    ? () => true
-    : (c) => c?.rcType === C.PARAMETER;
-
+  codeInfoIds,
+  paramPathCondition = false,
+) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoChildren,
-    codeInfoIds ?? [],
-    (c) =>
-      c?.rcType === C.PARAMETER &&
-      (!additionalOutputCondition || additionalOutputCondition(c)),
-    stackCondition,
+    codeInfoIds,
+    (c) => c?.rcType === C.PARAMETER,
+    (c) => c?.rcType === C.CALLABLE,
     paramPathCondition,
-    earlyReturnCondition,
   );
 }
 
-export function findAll(allCodeInfo, codeInfoChildren) {
+export function findAllParametersOfNotCallables(
+  allCodeInfo,
+  codeInfoChildren,
+  codeInfoIds,
+  paramPathCondition = false,
+) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoChildren,
-    codeInfoChildren[null] ?? [],
-    () => true,
-    () => true,
+    codeInfoIds,
+    (c) => c?.rcType === C.PARAMETER,
+    (c) => c?.rcType !== C.CALLABLE,
+    paramPathCondition,
   );
 }
 
-export function findAllParametersAndPathMaps(props) {
-  return findAllParameters({
-    ...props,
-    paramPathCondition: (p) => p.rcType === C.PARAMETER,
-  });
+export function findAllParameters(
+  allCodeInfo,
+  codeInfoChildren,
+  codeInfoIds,
+  paramPathCondition = false,
+) {
+  return _findAllDescendants(
+    allCodeInfo,
+    codeInfoChildren,
+    codeInfoIds,
+    (c) => c?.rcType === C.PARAMETER,
+    () => true,
+    paramPathCondition,
+  );
+}
+
+export function findAll(allCodeInfo, codeInfoIds, paramPathCondition = false) {
+  return _findAllDescendants(
+    allCodeInfo,
+    codeInfoIds,
+    () => true,
+    () => true,
+    paramPathCondition,
+  );
 }

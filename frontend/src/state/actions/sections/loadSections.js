@@ -1,15 +1,19 @@
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
-import { updateSectionInfos } from "../sectionInfos";
+import { addCodeInfoBatch } from "../codeInfo";
+import { updateParamSweeps } from "../runGroups/paramSweep";
+import { updateSectionVariants } from "../sectionVariants";
+import { updateUITypeCols } from "../uiTypes/uiTypeCols";
+import { updateUITypes } from "../uiTypes/uiTypes";
+import { updateSections } from "./sectionInfos";
 
 export function loadSectionIntoState({
   sections,
+  uiTypes,
   sectionVariants,
   uiTypeCols,
-  uiTypes,
-  codeInfoCols,
   codeInfo,
+  paramSweeps,
   relativePositions,
   topLevelIds,
   x,
@@ -25,16 +29,13 @@ export function loadSectionIntoState({
     };
   }
 
-  useSectionInfos.setState((state) => {
-    updateSectionInfos({
-      sections,
-      sectionVariants,
-      uiTypes,
-      uiTypeCols,
-      codeInfo,
-      codeInfoCols,
-      state,
-    });
+  updateStateWithSectionCopy({
+    sections,
+    uiTypes,
+    sectionVariants,
+    uiTypeCols,
+    codeInfo,
+    paramSweeps,
   });
 
   const nodes = [];
@@ -48,4 +49,20 @@ export function loadSectionIntoState({
   }
   addNodes(nodes);
   maybeIncrementProjectStateVersion(incrementVersion);
+}
+
+export function updateStateWithSectionCopy({
+  sections,
+  uiTypes,
+  sectionVariants,
+  uiTypeCols,
+  codeInfo,
+  paramSweeps,
+}) {
+  updateUITypes(uiTypes);
+  updateSectionVariants({ sectionVariants });
+  updateUITypeCols({ uiTypeCols });
+  addCodeInfoBatch(codeInfo);
+  updateSections(sections);
+  updateParamSweeps(paramSweeps);
 }

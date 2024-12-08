@@ -5,8 +5,8 @@ import {
   dbTextFieldCompletion,
   dbTextFieldInitializeCode,
 } from "requests/sections";
-import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { variableClick } from "state/actions/keyActivations";
+import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getKeywordStylizer } from "./getKeywordStylizer";

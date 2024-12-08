@@ -5,14 +5,24 @@ import { deleteChildrenFromSeries } from "state/actions/sections/deleteSections"
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 
 export function Incrementer({ sectionId, isRoot, popover = false }) {
-  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
+  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
 
   const addSections = (numSections) => {
-    addChildrenToSeries(isRoot, sectionId, numSections);
+    addChildrenToSeries({
+      isRoot,
+      calledBy: sectionId,
+      numChildren: numSections,
+      incrementVersion: true,
+    });
   };
 
   const deleteChildren = (numSections) => {
-    deleteChildrenFromSeries(isRoot, sectionId, numSections);
+    deleteChildrenFromSeries({
+      isRoot,
+      calledBy: sectionId,
+      numChildren: numSections,
+      incrementVersion: true,
+    });
   };
 
   const numSectionsOnChange = (value) => {
@@ -25,6 +35,9 @@ export function Incrementer({ sectionId, isRoot, popover = false }) {
 
   const [numSections, setNumSections] = useState(1);
   return (
+    // <Tooltip.Provider>
+    //   <Tooltip.Root>
+    //     <Tooltip.Trigger asChild>
     <div
       className={`section-key-value section-row-main -mx-2 flex items-center gap-1 rounded-lg  bg-setta-100 pl-2 pr-1 dark:bg-setta-950 ${popover ? "border border-solid border-white py-1 shadow-lg dark:border-setta-800" : ""}`}
     >
@@ -36,27 +49,42 @@ export function Incrementer({ sectionId, isRoot, popover = false }) {
       ) : (
         <p className="text-[10px] text-setta-500">Siblings</p>
       )}
+      {/* {isRoot && <i className="gg-corner-right-down -ml-1 text-setta-600" />} */}
 
       <input
         className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-setta-800 dark:text-setta-300"
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
-        disabled={variantIsFrozen}
+        disabled={variantIsDisabled}
       />
+
+      {/* <div className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-[10px] focus-visible:ring-2 dark:bg-setta-800 dark:text-setta-300">
+        {numSections}
+      </div> */}
 
       <button
         className="nodrag gg-math-minus rounded-full focus-visible:ring-2 dark:text-setta-300"
         onClick={() => deleteChildren(numSections)}
         role="button"
-        disabled={variantIsFrozen}
+        disabled={variantIsDisabled}
       />
 
       <button
         className="nodrag gg-math-plus rounded-full focus-visible:ring-2 dark:text-setta-300"
         onClick={() => addSections(numSections)}
         role="button"
-        disabled={variantIsFrozen}
+        disabled={variantIsDisabled}
       />
     </div>
+    //     </Tooltip.Trigger>
+    //     <Tooltip.Portal>
+    //       <Tooltip.Content className="z-30 rounded-md bg-white px-3 py-2 text-xs font-bold shadow-md dark:bg-setta-800">
+    //         {isRoot ? "Add / Remove Children" : "Add / Remove Siblings"}
+
+    //         <Tooltip.Arrow className="[fill:white]" />
+    //       </Tooltip.Content>
+    //     </Tooltip.Portal>
+    //   </Tooltip.Root>
+    // </Tooltip.Provider>
   );
 }

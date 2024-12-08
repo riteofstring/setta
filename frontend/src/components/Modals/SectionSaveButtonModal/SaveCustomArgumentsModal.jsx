@@ -1,6 +1,6 @@
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { useEffect, useState } from "react";
-import { saveKwargsAsCollection } from "state/actions/kwargs";
+import { saveKwargsAsCollection } from "state/actions/kwargs/kwargs";
 import { useModal } from "state/definitions";
 
 export function SaveCustomArgumentsModal({ open, modalType }) {

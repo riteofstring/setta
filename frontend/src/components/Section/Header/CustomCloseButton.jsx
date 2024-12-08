@@ -1,7 +1,7 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 
 // absolute top-1 right-1
-export function CustomCloseButton({ onClick, ...props }) {
+export function CustomCloseButton({ isInfo, onClick, ...props }) {
   // const twClasses =
   return (
     <IconButton

@@ -1,8 +1,8 @@
 import copy
 
-from ..sections.jsonSource import remove_json_source_data
 from .copy import copy_project_config, copy_project_details
 from .save import save_project_details
+from .utils import remove_json_source_data
 
 
 def save_as_new_project_config(db, project, new_config_name, with_refs):
@@ -29,7 +29,8 @@ def save_as_existing_project_config(db, project, config_name):
     """
 
     db.execute(query, {"config_name": config_name})
-    x = db.fetchone()
+    x = dict(db.fetchone())
+    print(x)
     project["projectConfig"] = {
         **project["projectConfig"],
         "id": x["id"],

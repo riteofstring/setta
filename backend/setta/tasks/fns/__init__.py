@@ -1,5 +1,6 @@
 from .codeAreaAutocomplete import codeAreaAutocomplete
 from .codeAreaInitializeCode import codeAreaInitializeCode
+from .extractArgparseArgs import extractArgparseArgs
 from .parametersRequest import parametersRequest
 from .textFieldAutocomplete import textFieldCompletion
 from .textFieldFindReferences import textFieldFindReferences

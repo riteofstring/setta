@@ -13,6 +13,7 @@ import {
   useTypeErrors,
 } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
+import { post } from "./utils";
 import { sendMessage } from "./websocket";
 
 export function dbRequestTypeCheck(userRequested = false) {
@@ -29,6 +30,13 @@ export function dbRequestTypeCheck(userRequested = false) {
 }
 
 export const debouncedTypeCheckRequest = _.debounce(dbRequestTypeCheck, 500);
+
+export async function dbGetSections() {
+  return await post({
+    body: {},
+    address: C.ROUTE_SECTIONS,
+  });
+}
 
 export async function dbParametersRequest({
   sectionId,
@@ -113,6 +121,14 @@ export async function dbCodeAreaCompletion({
     }
   }
   return res;
+}
+
+export async function dbTypeCheckRequest() {
+  const project = getProjectDataToGenerateCode({});
+  return await post({
+    body: { project },
+    address: C.ROUTE_TYPE_CHECK_REQUEST,
+  });
 }
 
 export async function dbTextFieldCompletion({

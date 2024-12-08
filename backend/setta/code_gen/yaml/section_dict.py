@@ -4,8 +4,8 @@ import yaml
 def section_dict_to_yaml(exporter_obj, codeInfo, sectionVariant):
     pinned = exporter_obj["pinned"].prettyOutput
     unpinned = exporter_obj["unpinned"].prettyOutput
-    pinnedStr = yaml.dump(pinned, sort_keys=False)
-    unpinnedStr = yaml.dump(unpinned, sort_keys=False)
+    pinnedStr = yaml.dump(pinned)
+    unpinnedStr = yaml.dump(unpinned)
 
     yamlValue = ""
     if sectionVariant["selectedItem"]:
@@ -23,17 +23,14 @@ def section_dict_to_yaml(exporter_obj, codeInfo, sectionVariant):
 
 
 def param_sweep_dict_to_yaml(exporter_obj):
-    return yaml.dump_all(exporter_obj.prettyOutput, sort_keys=False)
+    return yaml.dump_all(exporter_obj.prettyOutput)
 
 
 def run_group_dict_to_yaml(exporter_obj):
     if len(exporter_obj.prettyOutput) == 0:
         return "{}"
     return yaml.dump(
-        exporter_obj.prettyOutput,
-        Dumper=NoEmptyDictDumper,
-        explicit_end=False,
-        sort_keys=False,
+        exporter_obj.prettyOutput, Dumper=NoEmptyDictDumper, explicit_end=False
     )
 
 

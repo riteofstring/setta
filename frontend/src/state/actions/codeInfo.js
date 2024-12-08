@@ -1,54 +1,111 @@
 import _ from "lodash";
-import { createNewId } from "utils/idNameCreation";
-import { newCodeInfoCol } from "utils/objs/codeInfoCol";
-import { getSectionVariant } from "./sectionInfos";
+import { useCodeInfo, useCodeInfoCols } from "state/definitions";
+import { getSectionCodeInfoChildren } from "./codeInfoCols";
+import {
+  getSectionCodeInfoColId,
+  getSectionSelectedItem,
+} from "./sectionVariants";
 
-export function addCodeInfo({ sectionId, info, parent, insertIdx, state }) {
-  state.codeInfo[info.id] = info;
-  const variant = getSectionVariant(sectionId, state);
-  const currCodeInfoCol = getOrCreateCodeInfoCol(variant, state);
-  if (!(parent in currCodeInfoCol.children)) {
-    currCodeInfoCol.children[parent] = [];
-  }
-
-  if (_.isNil(insertIdx)) {
-    currCodeInfoCol.children[parent].push(info.id);
-  } else {
-    currCodeInfoCol.children[parent].splice(insertIdx, 0, info.id);
-  }
-  currCodeInfoCol.children[info.id] = [];
+export function setAllCodeInfo(x) {
+  useCodeInfo.setState({ x });
 }
 
-export function deleteCodeInfo(sectionId, ids, state) {
-  const variant = getSectionVariant(sectionId, state);
-  const codeInfoCol = getOrCreateCodeInfoCol(variant, state);
-  for (const parentId of Object.keys(codeInfoCol.children)) {
-    codeInfoCol.children[parentId] = codeInfoCol.children[parentId].filter(
-      (y) => !ids.includes(y),
-    );
-  }
+export function addCodeInfo({ sectionId, info, parent, insertIdx }) {
+  useCodeInfo.setState((state) => {
+    state.x[info.id] = info;
+  });
 
-  codeInfoCol.children = _.omit(codeInfoCol.children, ids);
-
-  const { variantId, uiTypeColId } = state.x[sectionId];
-  state.variants[variantId].values = _.omit(
-    state.variants[variantId].values,
-    ids,
-  );
-  state.uiTypeCols[uiTypeColId] = _.omit(state.uiTypeCols[uiTypeColId], ids);
-
-  for (const s of state.variants[variantId].sweep) {
-    s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
-  }
+  useCodeInfoCols.setState((state) => {
+    const codeInfoColId = getSectionCodeInfoColId(sectionId);
+    if (_.isNil(insertIdx)) {
+      state.x[codeInfoColId]["children"][parent].push(info.id);
+    } else {
+      state.x[codeInfoColId]["children"][parent].splice(insertIdx, 0, info.id);
+    }
+    state.x[codeInfoColId]["children"][info.id] = [];
+  });
 }
 
-export function getOrCreateCodeInfoCol(variant, state) {
-  let codeInfoColId = variant.codeInfoColId;
-  if (!codeInfoColId) {
-    codeInfoColId = createNewId();
-    variant.codeInfoColId = codeInfoColId;
-    state.codeInfoCols[codeInfoColId] = newCodeInfoCol();
+export function setCodeInfoName({ id, name }) {
+  useCodeInfo.setState((state) => {
+    state.x[id].name = name;
+  });
+}
+
+export function setCodeInfoKeywordPositions({ id, keywordPositions }) {
+  useCodeInfo.setState((state) => {
+    state.x[id].keywordPositions = keywordPositions;
+  });
+}
+
+export function setCodeInfoDescription({ id, description }) {
+  useCodeInfo.setState((state) => {
+    state.x[id].description = description;
+  });
+}
+
+export function setCodeInfoFrozen({ ids, isFrozen }) {
+  useCodeInfo.setState((state) => {
+    for (const id of ids) {
+      state.x[id].isFrozen = isFrozen;
+    }
+  });
+}
+
+export function deleteCodeInfo({ ids }) {
+  useCodeInfo.setState((state) => {
+    state.x = _.omit(state.x, ids);
+  });
+  useCodeInfoCols.setState((state) => {
+    state.x = _.omit(state.x, ids);
+    for (const codeCol of Object.values(state.x)) {
+      for (const parentId of Object.keys(codeCol.children)) {
+        codeCol.children[parentId] = codeCol.children[parentId].filter(
+          (y) => !ids.includes(y),
+        );
+      }
+    }
+  });
+}
+
+export function addCodeInfoBatch(x) {
+  useCodeInfo.setState((state) => {
+    state.x = { ...state.x, ...x };
+  });
+}
+
+export function batchUpdateCodeInfoAttrs(idToNewAttrs) {
+  useCodeInfo.setState((state) => {
+    for (const [id, newAttrs] of Object.entries(idToNewAttrs)) {
+      for (const [k, v] of Object.entries(newAttrs)) {
+        state.x[id][k] = v;
+      }
+    }
+  });
+}
+
+export function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
+  // empty value is equivalent to the "null" callable id
+  if (selectedItemName === "") {
+    return null;
   }
 
-  return state.codeInfoCols[codeInfoColId];
+  const codeInfoChildren = getSectionCodeInfoChildren(sectionId);
+  const cState = useCodeInfo.getState().x;
+  for (const c of codeInfoChildren[null]) {
+    if (cState[c].name === selectedItemName) {
+      return c;
+    }
+  }
+  return undefined;
+}
+
+export function itemIsAlreadySelected(sectionId, selectedItemName) {
+  const currSelectedItem = getSectionSelectedItem(sectionId);
+  return useCodeInfo.getState().x[currSelectedItem]?.name === selectedItemName;
+}
+
+export function setSelectedItemKeywordPositions(sectionId, keywordPositions) {
+  const currSelectedItem = getSectionSelectedItem(sectionId);
+  setCodeInfoKeywordPositions({ id: currSelectedItem, keywordPositions });
 }

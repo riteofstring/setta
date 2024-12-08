@@ -1,25 +1,29 @@
 import C from "constants/constants.json";
-import _ from "lodash";
 import { BiPaint } from "react-icons/bi";
 import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
 import { FaSquareXTwitter } from "react-icons/fa6";
 import { GoDotFill } from "react-icons/go";
-import { IoLogoJavascript } from "react-icons/io";
 import { PiTextTFill } from "react-icons/pi";
+
+import { IoLogoJavascript } from "react-icons/io";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbArrowIteration } from "react-icons/tb";
-import { useSectionInfos } from "state/definitions";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { useListElementIdx } from "state/hooks/sectionVariants";
-import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
+import { useIsTwitter, useIsYouTube } from "state/hooks/social";
+import { useIsListElement } from "state/hooks/uiTypes";
 
 export function HeaderIcon({
   sectionId,
   sectionTypeName,
+  classes,
   isInOtherProjectConfigs,
-  isListElement,
 }) {
-  const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
+  const isListElement = useIsListElement(sectionId);
+  const isYouTube = useIsYouTube(sectionId);
+  const isTwitter = useIsTwitter(sectionId);
+  const renderMarkdown = useGetSectionInfo(sectionId, "renderMarkdown");
 
   if (isListElement) {
     return <ListElementIcon sectionId={sectionId} />;
@@ -70,7 +74,19 @@ export function HeaderIcon({
         <BiPaint className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
     case C.SOCIAL:
-      return <SocialIcon sectionId={sectionId} />;
+      if (isYouTube) {
+        return (
+          <FaYoutube className="fill-setta-300 transition-colors group-hover/card-section:fill-blue-500 dark:fill-setta-500 dark:group-hover/card-section:fill-[#0084ff] " />
+        );
+      } else if (isTwitter) {
+        return (
+          <FaSquareXTwitter className="fill-setta-300 transition-colors group-hover/card-section:fill-blue-500 dark:fill-setta-500 dark:group-hover/card-section:fill-[#0084ff] " />
+        );
+      } else {
+        return (
+          <GoDotFill className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+        );
+      }
     default:
       return (
         <i className="gg-menu group/card-section:hover:bg !scale-110 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
@@ -78,31 +94,8 @@ export function HeaderIcon({
   }
 }
 
-function SocialIcon({ sectionId }) {
-  const { isYouTube, isTwitter } = useSectionInfos((x) => {
-    return {
-      isYouTube: linkIsYouTube(x.x[sectionId].social),
-      isTwitter: linkIsTwitter(x.x[sectionId].social),
-    };
-  }, _.isEqual);
-
-  if (isYouTube) {
-    return (
-      <FaYoutube className="fill-setta-300 transition-colors group-hover/card-section:fill-blue-500 dark:fill-setta-500 dark:group-hover/card-section:fill-[#0084ff] " />
-    );
-  } else if (isTwitter) {
-    return (
-      <FaSquareXTwitter className="fill-setta-300 transition-colors group-hover/card-section:fill-blue-500 dark:fill-setta-500 dark:group-hover/card-section:fill-[#0084ff] " />
-    );
-  } else {
-    return (
-      <GoDotFill className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
-    );
-  }
-}
-
 function CodeLanguageIcon({ sectionId, classes }) {
-  const codeLanguage = useSectionInfos((x) => x.x[sectionId].codeLanguage);
+  const codeLanguage = useGetSectionInfo(sectionId, "codeLanguage");
   switch (codeLanguage) {
     case "python":
       return <SiPython className={classes} />;

@@ -8,6 +8,7 @@ export type Node<U extends string | undefined = string | undefined> = {
   id: string;
   position: XYPosition;
   style?: CSSProperties;
+  selected?: boolean;
   dragging?: boolean;
   draggable?: boolean;
   selectable?: boolean;
@@ -29,20 +30,22 @@ export type SelectionDragHandler = (
   nodes: Node[],
 ) => void;
 
-export type WrapNodeProps<T = any> = Pick<Node<T>, "id" | "style"> & {
-  xPos: number;
-  yPos: number;
-  isSelectable: boolean;
-  isDraggable: boolean;
-  isFocusable: boolean;
-  resizeObserver: ResizeObserver | null;
-  zIndex: number;
-};
+export type WrapNodeProps<T = any> = Pick<Node<T>, "id" | "style"> &
+  Required<Pick<Node<T>, "selected">> & {
+    xPos: number;
+    yPos: number;
+    initialized: boolean;
+    isSelectable: boolean;
+    isDraggable: boolean;
+    isFocusable: boolean;
+    resizeObserver: ResizeObserver | null;
+    zIndex: number;
+  };
 
 // props that get passed to a custom node
 export type NodeProps<T = any> = Pick<
   WrapNodeProps<T>,
-  "id" | "xPos" | "yPos"
+  "id" | "selected" | "xPos" | "yPos"
 > & {
   dragging: boolean;
 };

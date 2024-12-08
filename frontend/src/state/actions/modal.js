@@ -1,16 +1,20 @@
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
 
-export function setModalOpen(open) {
-  if (open) {
-    useModal.setState({ open });
-  } else {
-    useModal.getState().reset();
-  }
+export function setModalOpen(payload) {
+  useModal.setState({ open: payload });
+}
+export function setModalType(payload) {
+  useModal.setState({ modalType: payload });
+}
+export function setModalData(payload) {
+  useModal.setState({ modalData: payload });
 }
 
-function openFileMenuModal(modalType, modalData) {
-  useModal.setState({ modalType, modalData, open: true });
+function openFileMenuModal(modalType, data) {
+  setModalType(modalType);
+  setModalOpen(true);
+  setModalData(data);
 }
 
 export function openLoadModal() {

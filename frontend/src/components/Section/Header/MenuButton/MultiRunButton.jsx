@@ -1,10 +1,13 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { initParamSweep } from "state/actions/runGroups/paramSweep";
 import { createAdjacentSection } from "state/actions/sections/createSections";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { createParamSweepSectionName } from "state/actions/uiTypes/utils";
 import { useSectionInfos } from "state/definitions";
+import { getSectionName } from "state/getters/sectionInfo";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
-import { createNewId } from "utils/idNameCreation";
+import { createNewId, createRandomName } from "utils/idNameCreation";
+import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
 
 export function MultirunButton({ sectionId }) {
   function onClick(e) {
@@ -22,18 +25,29 @@ export function MultirunButton({ sectionId }) {
 
 function addParamSweepSection(sectionId) {
   const newSectionId = createNewId();
+  const paramSweepId = createNewId();
 
-  useSectionInfos.setState((state) => {
-    state.x[sectionId].paramSweepSectionId = newSectionId;
+  initParamSweep({ id: paramSweepId, name: createRandomName() });
 
-    createAdjacentSection(
-      sectionId,
-      {
-        id: newSectionId,
-        name: createParamSweepSectionName(state.x[sectionId].name),
-        uiTypeId: BASE_UI_TYPE_IDS.PARAM_SWEEP,
-      },
-      state,
-    );
+  setSectionInfoAttr({
+    sectionId,
+    attr: "paramSweepId",
+    value: paramSweepId,
+  });
+  setSectionInfoAttr({
+    sectionId,
+    attr: "paramSweepIds",
+    value: [paramSweepId],
+  });
+  setSectionInfoAttr({
+    sectionId,
+    attr: "paramSweepSectionId",
+    value: newSectionId,
+  });
+
+  createAdjacentSection(sectionId, {
+    id: newSectionId,
+    name: getParamSweepSectionName(getSectionName(sectionId)),
+    uiTypeId: BASE_UI_TYPE_IDS.PARAM_SWEEP,
   });
 }

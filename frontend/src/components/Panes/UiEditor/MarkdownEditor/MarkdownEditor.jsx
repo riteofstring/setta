@@ -2,13 +2,16 @@ import CodeMirror from "@uiw/react-codemirror";
 import { useCodeAreaHeight } from "components/Section/Layouts/CodeArea";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/utils/CodeMirror/useCodeMirrorStyle";
-import C from "constants/constants.json";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
-import { getSectionVariant } from "state/actions/sectionInfos";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { setSectionVariantAttr } from "state/actions/sectionVariants";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos, useSettings } from "state/definitions";
-import { useInfoAreaDescriptionAndEditability } from "state/hooks/sectionVariants";
+import { useSectionInfos } from "state/definitions";
+import {
+  useSectionDescription,
+  useSectionVariantIsFrozen,
+} from "state/hooks/sectionVariants";
 
 export function MarkdownEditorInPane({ sectionId }) {
   return (
@@ -36,9 +39,10 @@ export function MarkdownEditorInSection({ sectionId }) {
 
 const _MarkdownEditorCore = React.forwardRef(
   ({ sectionId, maxHeight, onCreateEditor, wrapperClassName }, ref) => {
-    const { renderMarkdown, description, variantIsFrozen } =
-      useInfoAreaDescriptionAndEditability(sectionId);
-
+    const renderMarkdown = useSectionInfos(
+      (x) => x.x[sectionId].renderMarkdown,
+    );
+    const description = useSectionDescription(sectionId);
     const [localDescription, setLocalDescription] = useState(description);
 
     useEffect(() => {
@@ -53,6 +57,7 @@ const _MarkdownEditorCore = React.forwardRef(
     }
 
     const theme = useCodeMirrorStyle();
+    const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
 
     const extensions = getExtensions({
       sectionId,
@@ -60,7 +65,7 @@ const _MarkdownEditorCore = React.forwardRef(
       tabToAutocomplete: true,
       escapeToBlur: true,
       indentWithTab: true,
-      isDisabled: variantIsFrozen,
+      isDisabled: variantIsDisabled,
     });
 
     return (
@@ -120,14 +125,15 @@ function getFirstHeadingOrText(markdown) {
   return output;
 }
 
+export function getDefaultInfoTitle() {
+  return "Empty Info Section";
+}
+
 const debouncedSetDescription = _.debounce((sectionId, v, description) => {
   if (v !== description) {
-    useSectionInfos.setState((state) => {
-      getSectionVariant(sectionId, state).description = v;
-      state.x[sectionId].name =
-        getFirstHeadingOrText(v) ??
-        useSettings.getState().sections[C.INFO].name;
-    });
+    setSectionVariantAttr(sectionId, "description", v);
+    const sectionName = getFirstHeadingOrText(v) ?? getDefaultInfoTitle();
+    setSectionInfoAttr({ sectionId, attr: "name", value: sectionName });
     maybeIncrementProjectStateVersion(true);
   }
 }, 200);

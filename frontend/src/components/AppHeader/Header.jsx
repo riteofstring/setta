@@ -1,7 +1,11 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { useHomePageSearch, useProjectLoading } from "state/definitions";
-import { useUpdateProjectSearch } from "state/hooks/search";
+import { setHomePageSearch } from "state/actions/search/homePageSearch";
+import { useHomePageSearch, useMisc } from "state/definitions";
+import {
+  useOnEnterGoToSearchResult,
+  useUpdateProjectSearch,
+} from "state/hooks/search";
 import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
 import { Notification } from "./Notification";
@@ -9,7 +13,7 @@ import { ProjectNav } from "./ProjectNav";
 import { SiteLogo } from "./SiteLogo";
 
 export function HeaderContainer({ path }) {
-  const projectIs404 = useProjectLoading((x) => x.projectIs404);
+  const projectIs404 = useMisc((x) => x.projectIs404);
   return (
     <header
       className={`z-20 flex h-12 min-h-12 w-[100vw] flex-row items-center border-b border-transparent bg-white px-4 shadow-md dark:border-setta-700/30 dark:bg-setta-875 `}
@@ -39,8 +43,8 @@ function SearchSwitch({ path }) {
 }
 
 function ProjectPageSearch() {
-  const { value, onChange, onBlur, onFocus, onKeyDown } =
-    useUpdateProjectSearch();
+  const { value, onChange, onBlur, onFocus } = useUpdateProjectSearch();
+  const onKeyDown = useOnEnterGoToSearchResult();
 
   return (
     <Search
@@ -63,7 +67,7 @@ function HomePageSearch() {
     <Search
       placeholder="Filter Project Configs"
       value={value}
-      onChange={(v) => useHomePageSearch.setState({ value: v })}
+      onChange={setHomePageSearch}
     />
   );
 }

@@ -1,26 +1,28 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
-import { getSectionType } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useTempHasNested } from "state/hooks/sections";
+import { useIsDeck } from "state/hooks/uiTypes";
 import { ContainerSwitch } from "./ContainerSwitch";
-import { MaybeManyNestedSections } from "./ManyNestedSections";
+import { ManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
 
-function _SectionContainer({ sectionId, isTopLevel, dragListeners }) {
-  const isDeck = useSectionInfos(
-    (x) => getSectionType(sectionId, x) === C.DECK,
-  );
+function _SectionContainer({ sectionId, dragListeners }) {
+  const isDeck = useIsDeck(sectionId);
+  const hasNested = useTempHasNested(sectionId);
 
   return (
     <ContainerSwitch
       isDeck={isDeck}
       sectionId={sectionId}
       dragListeners={dragListeners}
-      isTopLevel={isTopLevel}
     >
       {!isDeck && <SectionContainerCore sectionId={sectionId} />}
-      <MaybeManyNestedSections sectionId={sectionId} isDeck={isDeck} />
+
+      {hasNested && (
+        <div className="flex flex-col">
+          <ManyNestedSections sectionId={sectionId} isDeck={isDeck} />
+        </div>
+      )}
     </ContainerSwitch>
   );
 }

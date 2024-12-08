@@ -1,33 +1,14 @@
-import C from "constants/constants.json";
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
   addActiveSectionIds,
   removeActiveSectionIds,
   setActiveSectionIds,
-} from "state/actions/activeSections";
-import { getHighestAncestor } from "state/actions/sectionInfos";
-import { getSectionHasAtLeastOneSelectedParam } from "state/actions/sections/sectionContents";
+} from "state/actions/sections/activeSections";
+import { getHighestAncestor } from "state/actions/sections/sectionChildren";
+import { getParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import { useMisc, useSectionInfos } from "state/definitions";
+import { useMisc, useParamShortcuts } from "state/definitions";
 import "./dndline.css";
-
-export function getBgColor(sectionTypeName) {
-  switch (sectionTypeName) {
-    case C.CODE:
-      return "bg-white dark:bg-setta-900";
-    case C.TERMINAL:
-      return "bg-setta-950 overflow-clip";
-    case C.GLOBAL_PARAM_SWEEP:
-      return "@container/multipane";
-    // case PARAM_SWEEP:
-    //   return "bg-setta-50 dark:bg-setta-850";
-    case C.GLOBAL_VARIABLES:
-      return "bg-white dark:bg-black";
-    default:
-      return "bg-setta-50 dark:bg-setta-860";
-  }
-}
 
 export function getOutlineColor({
   jsonSourceMissing,
@@ -55,7 +36,7 @@ export function getOutlineColor({
   return `outline-transparent active:outline-cyan-300`;
 }
 
-export function getOnSectionClick(sectionId, isActiveSection) {
+export function getOnSectionClick({ sectionId, isActiveSection }) {
   return (e) => {
     e.stopPropagation();
     if (useMisc.getState().mouseDownDrawArea) {
@@ -63,11 +44,10 @@ export function getOnSectionClick(sectionId, isActiveSection) {
       return;
     }
 
-    if (useMisc.getState().isSelectingParams) {
+    if (useParamShortcuts.getState().isSelectingParams) {
       // depends on bubbling behavior (child div onclicks get executed first)
-      const atLeastOneParamSelected = getSectionHasAtLeastOneSelectedParam(
-        sectionId,
-        useSectionInfos.getState(),
+      const atLeastOneParamSelected = getParamInfos(sectionId).some(
+        (x) => x.isSelected,
       );
       if (!isActiveSection && atLeastOneParamSelected) {
         addActiveSectionIds([sectionId]);
@@ -86,8 +66,4 @@ export function getOnSectionClick(sectionId, isActiveSection) {
     const highestAncestor = getHighestAncestor(sectionId);
     setZIndices([highestAncestor], false);
   };
-}
-
-export function useHasTempNested(sectionId) {
-  return useDndChildren((x) => x.x[sectionId]?.length > 0);
 }

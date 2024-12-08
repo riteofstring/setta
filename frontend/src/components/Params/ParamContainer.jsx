@@ -3,21 +3,19 @@ import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { toggleParamSelected } from "state/actions/kwargs";
-import { getDisplayedCodeInfoCol } from "state/actions/sectionInfos";
+import { toggleParamSelected } from "state/actions/kwargs/kwargs";
 import {
-  useMisc,
+  useCodeInfo,
+  useParamShortcuts,
   useProjectSearch,
-  useSectionColumnWidth,
-  useSectionInfos,
   useTypeErrors,
 } from "state/definitions";
-import { createProjectSearchLookupKey } from "state/hooks/search";
+import { useCodeInfoChildren } from "state/hooks/codeInfoCols";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { ParamInput } from "./ParamItems/ParamInput";
-import { ResizeHandle } from "./ResizeHandle";
 
 function _ParamContainer({
   sectionId,
@@ -25,21 +23,18 @@ function _ParamContainer({
   requiredParamIdsToPaths,
   ancestorIsSelected,
   children,
-  onResizeStart,
 }) {
+  const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
   );
-  const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
-    return {
-      isFocusedSearchResult:
-        x.focused.sectionId === sectionId &&
-        x.focused.paramInfoId === paramInfoId,
-      isSearchResult: x.lookup.has(
-        createProjectSearchLookupKey(sectionId, paramInfoId),
-      ),
-    };
-  }, _.isEqual);
+  const isFocusedSearchResult = useProjectSearch((x) =>
+    _.isEqual(x.focused, { sectionId, paramInfoId }),
+  );
+
+  const isSearchResult = useProjectSearch((x) =>
+    x.codeInfo.some((c) => _.isEqual(c, { sectionId, paramInfoId })),
+  );
 
   // warnings should be AMBER
   const border = maybeErrorMessage
@@ -49,54 +44,46 @@ function _ParamContainer({
       : isSearchResult
         ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
         : "";
-
+  const canBeOverriden = useCodeInfo(
+    (x) => sectionIsFrozen && x.x[paramInfoId].isFrozen,
+  );
   const {
     isSelected: paramIsSelected,
     description: paramDescription,
     name: paramName,
-    codeInfoChildren: paramChildren,
-  } = useSectionInfos((x) => {
-    const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, x).children;
-    return {
-      isSelected: x.codeInfo[paramInfoId].isSelected,
-      description: x.codeInfo[paramInfoId].description,
-      name: x.codeInfo[paramInfoId].name,
-      codeInfoChildren: codeInfoChildren[paramInfoId] ?? [],
-    };
-  }, _.isEqual);
+  } = useCodeInfo(
+    (x) => _.pick(x.x[paramInfoId], ["isSelected", "description", "name"]),
+    _.isEqual,
+  );
+
+  const paramChildren = useCodeInfoChildren(sectionId, paramInfoId);
+
+  // hover:bg-setta-200/20 dark:hover:bg-setta-700/25
+  // maybe use this for in bg hover state: div:hover:not(:has(div:hover))
 
   const bg = paramIsSelected ? "bg-setta-500/20" : "";
 
   function onMouseDownSelect(e) {
-    if (!ancestorIsSelected && useMisc.getState().isSelectingParams) {
+    if (!ancestorIsSelected && useParamShortcuts.getState().isSelectingParams) {
       e.stopPropagation();
       toggleParamSelected(sectionId, paramInfoId);
     }
   }
 
-  const { childlessRef, childlessNameRef, parentRef } = useColumnWidth(
-    sectionId,
-    paramChildren,
-  );
-
   return paramChildren.length === 0 ? (
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm hover:bg-setta-50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
+        className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between overflow-clip rounded-md ${bg} ${border}`}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
         onMouseDown={onMouseDownSelect}
-        ref={childlessRef}
       >
-        <div className="section-key overflow-hidden" ref={childlessNameRef}>
-          {children}
-        </div>
+        {children}
         <ParamInput
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           maybeErrorMessage={maybeErrorMessage}
         />
-        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
         )}
@@ -104,10 +91,9 @@ function _ParamContainer({
     </>
   ) : (
     <article
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border}`}
+      className={`section-lg-value group/arg-group section-min-rows ml-2 grid grid-cols-subgrid items-center justify-between gap-y-1 overflow-clip rounded-md ${bg} ${border}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
       onMouseDown={onMouseDownSelect}
-      ref={parentRef}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">
@@ -117,7 +103,6 @@ function _ParamContainer({
           paramIds={paramChildren}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           ancestorIsSelected={ancestorIsSelected || paramIsSelected}
-          onResizeStart={onResizeStart}
         />
       </div>
     </article>
@@ -125,32 +110,6 @@ function _ParamContainer({
 }
 
 export const ParamContainer = React.memo(_ParamContainer);
-
-function useColumnWidth(sectionId, paramChildren) {
-  const childlessRef = useRef();
-  const childlessNameRef = useRef();
-  const parentRef = useRef();
-  useEffect(() => {
-    return useSectionColumnWidth.subscribe(
-      (state) => state[sectionId],
-      (columnWidth) => {
-        if (childlessRef.current) {
-          // Use a CSS calc() function to provide a fallback
-          childlessRef.current.style.gridTemplateColumns = `minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
-        }
-        if (parentRef.current) {
-          parentRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
-        }
-        if (childlessNameRef.current) {
-          childlessNameRef.current.style.width = `${columnWidth}px`;
-        }
-      },
-      { fireImmediately: true },
-    );
-  }, [paramChildren.length > 0]); // have to update the subscriber when parameter becomes a parent or child
-
-  return { childlessRef, childlessNameRef, parentRef };
-}
 
 function ErrorSection({ maybeErrorMessage }) {
   return (

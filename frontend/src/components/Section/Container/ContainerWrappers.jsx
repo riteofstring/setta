@@ -53,8 +53,10 @@ function _DndWatcherAndContainer({
 }) {
   const activeIsSelf = useDndState((x) => x.activeId === sectionId);
   const { isSorting, isMovingFree } = useDndMode();
+  const isDraggingSortable = !isTopLevel && (isSorting || isMovingFree);
+  const isDraggingTopLevel = isTopLevel && isMovingFree;
   const trueDragListeners =
-    isMovingFree || (!isTopLevel && isSorting) ? dragListeners : {};
+    isDraggingSortable || isDraggingTopLevel ? dragListeners : {};
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting

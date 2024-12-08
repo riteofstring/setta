@@ -1,25 +1,27 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import _ from "lodash";
 import { useEffect, useState } from "react";
 import { getKeywordPositionsAndEVRefs } from "requests/sections";
-import { getSectionVariant } from "state/actions/sectionInfos";
-import { setSelectedItem } from "state/actions/sections/setSelectedItem";
-import { useSectionInfos } from "state/definitions";
+import { setParamSweepSelectedItem } from "state/actions/runGroups/paramSweep";
+import { setSelectedItem } from "state/actions/sections/setters";
+import {
+  getSectionSelectedItem,
+  setSectionVariantAttr,
+} from "state/actions/sectionVariants";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 
 export function SectionSearch({ sectionId, selectedItem }) {
-  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
+  const variantIsDisabled = useSectionVariantIsFrozen(sectionId);
 
   function onEnter(value) {
-    // gets called inside useSectionInfos.setState
-    function callbackSetAttr(id, state) {
+    function callbackSetAttr(id) {
       // for this callback, an undefined id means that the selectedItem is already selected.
       if (id !== undefined) {
-        getSectionVariant(sectionId, state).selectedItem = id;
+        setSectionVariantAttr(sectionId, "selectedItem", id);
       }
     }
 
@@ -34,7 +36,7 @@ export function SectionSearch({ sectionId, selectedItem }) {
       onEnter={onEnter}
       dummyCodeClassName="single-cell-child rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]"
       realCodeClassName="single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-setta-100 bg-white mx-[.125rem] py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
-      isDisabled={variantIsFrozen}
+      isDisabled={variantIsDisabled}
     />
   );
 }
@@ -43,7 +45,7 @@ export function ParamSweepSectionSearch({
   sectionId,
   forSectionId,
   selectedItem,
-  variantId,
+  paramSweepId,
   selectedItemIdx,
   onPlusClick,
   onMinusClick,
@@ -51,16 +53,17 @@ export function ParamSweepSectionSearch({
   isDisabled,
 }) {
   async function onEnter(value) {
-    // gets called inside useSectionInfos.setState
-    function callbackSetAttr(id, state) {
+    function callbackSetAttr(id) {
       let selectedItem = id;
       // for this callback, an undefined id means that the selectedItem is already selected in the forSectionId section
       if (id === undefined) {
-        selectedItem =
-          state.variants[state.x[forSectionId].variantId].selectedItem;
+        selectedItem = getSectionSelectedItem(forSectionId);
       }
-      state.variants[variantId].sweep[selectedItemIdx].selectedItem =
-        selectedItem;
+      setParamSweepSelectedItem({
+        paramSweepId,
+        selectedItemIdx,
+        selectedItem,
+      });
     }
 
     setSelectedItem(forSectionId, sectionId, value, true, callbackSetAttr);
@@ -108,19 +111,21 @@ function SectionSearchCore({
   realCodeClassName,
   isDisabled,
 }) {
+  const configLanguage = useSectionInfos(
+    (x) => x.x[dataSectionId].configLanguage,
+  );
+
   const {
     name: codeInfoName,
     keywordPositions,
     description,
-    configLanguage,
-  } = useSectionInfos((x) => {
-    const configLanguage = x.x[dataSectionId].configLanguage;
+  } = useCodeInfo((x) => {
     if (selectedItem) {
-      const { name, keywordPositions, description } = x.codeInfo[selectedItem];
-      return { name, keywordPositions, description, configLanguage };
+      const { name, keywordPositions, description } = x.x[selectedItem];
+      return { name, keywordPositions, description };
     }
-    return { name: "", keywordPositions: [], description: "", configLanguage };
-  }, _.isEqual);
+    return { name: "", keywordPositions: [], description: "" };
+  });
 
   const [value, setValue] = useState(codeInfoName);
 
@@ -185,6 +190,14 @@ function SectionSearchCore({
       <LoadingSpinner sectionId={dataSectionId} />
     </search>
   );
+}
+
+function mergeCompletionsAndHistory(completions, history) {
+  const existingNames = new Set(history.map((x) => x.name));
+  const filteredCompletions = completions.filter(
+    (x) => !existingNames.has(x.name),
+  );
+  return [...filteredCompletions, ...history];
 }
 
 function LoadingSpinner({ sectionId }) {

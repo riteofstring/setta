@@ -1,0 +1,21 @@
+import { Item } from "components/Utils/atoms/dropdown/item";
+import C from "constants/constants.json";
+import { undeck } from "state/actions/sections/groupSections";
+import { useGetSectionType } from "state/hooks/uiTypes";
+import { ContextMenuCore } from "./ContextMenuCore";
+
+export function NodeContextMenu(props) {
+  const { nodeId, closeContextMenu } = props;
+  const sectionType = useGetSectionType(nodeId, "type");
+  const nodeIsDeck = sectionType === C.DECK;
+  function onClick() {
+    undeck(nodeId);
+    closeContextMenu();
+  }
+
+  return nodeIsDeck ? (
+    <ContextMenuCore {...props}>
+      <Item onClick={onClick}>Undeck</Item>
+    </ContextMenuCore>
+  ) : null;
+}
