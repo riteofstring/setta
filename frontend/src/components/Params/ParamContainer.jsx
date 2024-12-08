@@ -26,6 +26,7 @@ function _ParamContainer({
   ancestorIsSelected,
   children,
   onResizeStart,
+  isKwarg = false,
 }) {
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -88,9 +89,13 @@ function _ParamContainer({
         onMouseDownCapture={onMouseDownSelect} // has to be on capture for selection to work
         ref={childlessRef}
       >
-        <div className="section-key overflow-hidden" ref={childlessNameRef}>
-          {children}
-        </div>
+        {!isKwarg ? (
+          <div className="section-key overflow-hidden" ref={childlessNameRef}>
+            {children}
+          </div>
+        ) : (
+          <>{children}</>
+        )}
         <ParamInput
           sectionId={sectionId}
           paramInfoId={paramInfoId}
@@ -104,14 +109,14 @@ function _ParamContainer({
     </>
   ) : (
     <article
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border}`}
+      className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border} [&>p]:section-key-value [&>p]:!pb-0 [&>p]:!pt-2`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
       onMouseDown={onMouseDownSelect}
       ref={parentRef}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">
-        <div className="absolute bottom-0 h-[calc(100%_-_0.25rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
+        <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
         <GetParamSwitch
           sectionId={sectionId}
           paramIds={paramChildren}
