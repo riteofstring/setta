@@ -23,6 +23,7 @@
   "LINE_PLOT": "LINE_PLOT",
   "DRAW": "DRAW",
   "SOCIAL": "SOCIAL",
+  "IFRAME": "IFRAME",
   "NON_SECTION_TYPES": ["TEXT", "SLIDER", "SWITCH", "COLOR_PICKER", "DROPDOWN"],
   "COLLECTION": "collection",
   "CALLABLE": "callable",

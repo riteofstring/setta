@@ -142,5 +142,12 @@
     "name": "",
     "presetType": "BASE",
     "config": {}
+  },
+  "fae9523f-b9ee-4f0f-8785-3ce36c546aba": {
+    "id": "fae9523f-b9ee-4f0f-8785-3ce36c546aba",
+    "type": "IFRAME",
+    "name": "",
+    "presetType": "BASE",
+    "config": {}
   }
 }
