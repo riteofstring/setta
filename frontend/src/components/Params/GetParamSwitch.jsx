@@ -9,7 +9,6 @@ export function GetParamSwitch({
   requiredParamIdsToPaths,
   ancestorIsSelected = false,
   onResizeStart,
-  baseColumnWidth,
 }) {
   // TODO: make this more efficient
   const filteredIds = useSectionInfos((x) => {
@@ -49,7 +48,6 @@ export function GetParamSwitch({
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       ancestorIsSelected={ancestorIsSelected}
       onResizeStart={onResizeStart}
-      baseColumnWidth={baseColumnWidth}
     />
   ));
 }

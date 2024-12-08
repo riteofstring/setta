@@ -194,3 +194,5 @@ export const useMisc = create(
 export const useYamlValue = createProjectState(withResetFn(() => {}));
 
 export const useOriginalYamlObj = createProjectState(withResetFn(() => {}));
+
+export const useSectionColumnWidth = createProjectState(withResetFn(() => {}));

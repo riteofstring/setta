@@ -3,7 +3,7 @@ import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { toggleParamSelected } from "state/actions/kwargs";
@@ -11,6 +11,7 @@ import { getDisplayedCodeInfoCol } from "state/actions/sectionInfos";
 import {
   useMisc,
   useProjectSearch,
+  useSectionColumnWidth,
   useSectionInfos,
   useTypeErrors,
 } from "state/definitions";
@@ -25,7 +26,6 @@ function _ParamContainer({
   ancestorIsSelected,
   children,
   onResizeStart,
-  baseColumnWidth,
 }) {
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -74,14 +74,36 @@ function _ParamContainer({
     }
   }
 
-  const nestedGridStyle = {
-    // Use a CSS calc() function to provide a fallback
-    gridTemplateColumns: `minmax(min-content, ${baseColumnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`,
-  };
+  // Fetch initial state
+  const nestedRef = useRef();
+  const realNestedRef = useRef();
+  const gridRef = useRef();
+  // Connect to the store on mount, disconnect on unmount, catch state-changes in a reference
+  useEffect(() => {
+    // Subscribe to store updates
+    return useSectionColumnWidth.subscribe((state) => {
+      // Update div style directly
+      if (nestedRef.current) {
+        // Use a CSS calc() function to provide a fallback
+        nestedRef.current.style.gridTemplateColumns = `minmax(min-content, ${state.initialPixels}px) [c3] 0.75rem [c4] 1fr [c5]`;
+      }
+      if (gridRef.current) {
+        gridRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] minmax(min-content, ${state.initialPixels}px) [c3] 0.75rem [c4] 1fr [c5]`;
+      }
+      if (realNestedRef.current) {
+        realNestedRef.current.style.width = `${state.initialPixels}px`;
+      }
+    });
+  }, []);
 
-  const gridStyle = {
-    gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${baseColumnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`,
-  };
+  // const nestedGridStyle = {
+  //   // Use a CSS calc() function to provide a fallback
+  //   gridTemplateColumns: `minmax(min-content, ${baseColumnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`,
+  // };
+
+  // const gridStyle = {
+  //   gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${baseColumnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`,
+  // };
 
   return paramChildren.length === 0 ? (
     <>
@@ -90,12 +112,9 @@ function _ParamContainer({
         className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm pr-1.5 hover:bg-setta-50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
         onMouseDown={onMouseDownSelect}
-        style={nestedGridStyle}
+        ref={nestedRef}
       >
-        <div
-          className="section-key overflow-hidden"
-          style={{ width: `${baseColumnWidth}px` }}
-        >
+        <div className="section-key overflow-hidden" ref={realNestedRef}>
           {children}
         </div>
         <ParamInput
@@ -114,7 +133,7 @@ function _ParamContainer({
       className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm pr-1.5 ${bg} ${border}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
       onMouseDown={onMouseDownSelect}
-      style={gridStyle}
+      ref={gridRef}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">
@@ -125,7 +144,6 @@ function _ParamContainer({
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           ancestorIsSelected={ancestorIsSelected || paramIsSelected}
           onResizeStart={onResizeStart}
-          baseColumnWidth={baseColumnWidth}
         />
       </div>
     </article>

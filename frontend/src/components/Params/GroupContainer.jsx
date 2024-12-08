@@ -3,7 +3,7 @@ import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useSectionInfos } from "state/definitions";
+import { useSectionColumnWidth, useSectionInfos } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
 import {
@@ -137,84 +137,86 @@ function GetUnpinnedParams({ sectionId }) {
     (x) => x.x[sectionId].hideUnpinnedParams,
   );
 
+  // Use ref for both resize state and current width to avoid race conditions
   const resizeRef = useRef({
     isResizing: false,
     startX: 0,
-    startPercentage: 0,
+    startPercentage: 50,
+    currentPercentage: 50,
+    containerWidth: 0,
   });
 
-  const [columnWidth, setColumnWidth] = useState({
-    pixels: 0,
-    percentage: 50,
-  });
-
-  // Set initial width on mount
+  // Initialize dimensions once on mount
   useEffect(() => {
     if (ref.current) {
       const containerWidth = ref.current.clientWidth;
-      const initialPixels = (containerWidth - 12) / 2; // 12px is 0.75rem gutter
-      setColumnWidth({
-        pixels: initialPixels,
-        percentage: 50,
-      });
+      const initialPixels = (containerWidth - 12) / 2;
+
+      resizeRef.current.containerWidth = containerWidth;
+      resizeRef.current.currentPercentage = 50;
+
+      useSectionColumnWidth.setState({ initialPixels });
     }
   }, []);
 
-  // Handle container resize
+  // Handle container resize with debounced updates
   useEffect(() => {
-    const handleResize = () => {
+    const handleResize = _.debounce(() => {
       if (ref.current) {
         const containerWidth = ref.current.clientWidth;
-        setColumnWidth((prev) => ({
-          pixels: (containerWidth - 12) * (prev.percentage / 100),
-          percentage: prev.percentage,
-        }));
+        const currentPercentage = resizeRef.current.currentPercentage;
+
+        resizeRef.current.containerWidth = containerWidth;
+
+        useSectionColumnWidth.setState({
+          initialPixels: (containerWidth - 12) * (currentPercentage / 100),
+        });
       }
-    };
+    }, 16); // Debounce to roughly match 60fps
 
     const resizeObserver = new ResizeObserver(handleResize);
     if (ref.current) {
       resizeObserver.observe(ref.current);
     }
 
-    return () => resizeObserver.disconnect();
+    return () => {
+      handleResize.cancel();
+      resizeObserver.disconnect();
+    };
   }, []);
 
-  const handleResizeStart = useCallback(
-    (e) => {
-      console.log("Resize start triggered");
-      e.preventDefault();
-      if (ref.current) {
-        resizeRef.current = {
-          isResizing: true,
-          startX: e.clientX,
-          startPercentage: columnWidth.percentage,
-        };
-      }
-    },
-    [columnWidth.percentage],
-  );
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    if (ref.current) {
+      resizeRef.current = {
+        ...resizeRef.current,
+        isResizing: true,
+        startX: e.clientX,
+        startPercentage: resizeRef.current.currentPercentage,
+      };
+    }
+  }, []);
 
   const handleMouseMove = useCallback((e) => {
     if (!resizeRef.current.isResizing || !ref.current) return;
 
     requestAnimationFrame(() => {
-      const containerWidth = ref.current.clientWidth;
-      const diff =
-        (e.clientX - resizeRef.current.startX) /
-        useReactFlow.getState().transform[2];
-
+      const { containerWidth, startX, startPercentage } = resizeRef.current;
+      const diff = (e.clientX - startX) / useReactFlow.getState().transform[2];
       const diffAsPercentage = (diff / containerWidth) * 100;
 
       const newPercentage = Math.max(
         20,
-        Math.min(80, resizeRef.current.startPercentage + diffAsPercentage),
+        Math.min(80, startPercentage + diffAsPercentage),
       );
 
-      setColumnWidth((prev) => ({
-        pixels: (containerWidth - 12) * (newPercentage / 100),
-        percentage: newPercentage,
-      }));
+      // Update ref first
+      resizeRef.current.currentPercentage = newPercentage;
+
+      // Then update global state
+      useSectionColumnWidth.setState({
+        initialPixels: (containerWidth - 12) * (newPercentage / 100),
+      });
     });
   }, []);
 
@@ -222,7 +224,6 @@ function GetUnpinnedParams({ sectionId }) {
     resizeRef.current.isResizing = false;
   }, []);
 
-  // Modified useEffect to always attach listeners
   useEffect(() => {
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
@@ -244,14 +245,13 @@ function GetUnpinnedParams({ sectionId }) {
         <GetUnpinnedParamsCore
           sectionId={sectionId}
           onResizeStart={handleResizeStart}
-          baseColumnWidth={columnWidth.pixels}
         />
       )}
     </div>
   );
 }
 
-function GetUnpinnedParamsCore({ sectionId, onResizeStart, baseColumnWidth }) {
+function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
   const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     false,
@@ -263,7 +263,6 @@ function GetUnpinnedParamsCore({ sectionId, onResizeStart, baseColumnWidth }) {
       paramIds={topLevelParamIds}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       onResizeStart={onResizeStart}
-      baseColumnWidth={baseColumnWidth}
     />
   );
 }
