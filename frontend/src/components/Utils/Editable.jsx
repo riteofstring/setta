@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
-export function Editable({ value, onChange, onBlur, onKeyDown, titleProps }) {
+export function Editable({
+  value,
+  onChange,
+  onBlur,
+  onKeyDown,
+  titleProps,
+  doubleClickToEdit = false,
+}) {
   const [isEditing, setIsEditing] = useState(false);
 
   function localOnBlur(e) {
@@ -8,8 +15,10 @@ export function Editable({ value, onChange, onBlur, onKeyDown, titleProps }) {
     onBlur(e);
   }
 
-  function onClick() {
-    setIsEditing(true);
+  function onClick(e) {
+    if ((doubleClickToEdit && e.detail === 2) || !doubleClickToEdit) {
+      setIsEditing(true);
+    }
   }
 
   return isEditing ? (

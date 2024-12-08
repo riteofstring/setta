@@ -48,6 +48,7 @@ function EditableTitle({ sectionId, sectionName, titleProps }) {
       onBlur={onBlur}
       onKeyDown={onKeyDown}
       titleProps={titleProps}
+      doubleClickToEdit={true}
     />
   );
 }
