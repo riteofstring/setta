@@ -234,21 +234,10 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     currentPercentage: 50, // Track percentage for container resizes
   });
 
-  function calculateNewWidth(
-    newContainerWidth,
-    newColumnWidth,
-    setGlobalState,
-  ) {
-    const boundedWidth = clamp(
-      newColumnWidth,
-      marginPx,
-      newContainerWidth - marginPx,
-    );
-    resizeRef.current.containerWidth = newContainerWidth;
+  function setNewWidth(containerWidth, width, setGlobalState) {
+    const boundedWidth = clamp(width, marginPx, containerWidth - marginPx);
     resizeRef.current.currentWidth = boundedWidth;
-    resizeRef.current.currentPercentage =
-      (boundedWidth / newContainerWidth) * 100;
-
+    resizeRef.current.currentPercentage = (boundedWidth / containerWidth) * 100;
     if (setGlobalState) {
       setColumnWidth(sectionId, boundedWidth);
     }
@@ -259,7 +248,8 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
       const containerWidth = ref.current.clientWidth;
       const currentPercentage = resizeRef.current.currentPercentage;
       const newWidth = (containerWidth * currentPercentage) / 100;
-      calculateNewWidth(containerWidth, newWidth, true);
+      resizeRef.current.containerWidth = containerWidth;
+      setNewWidth(containerWidth, newWidth, true);
     }
   }
 
@@ -269,7 +259,8 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
       const containerWidth = ref.current.clientWidth;
       const existingWidth = useSectionColumnWidth.getState()[sectionId];
       const initialWidth = existingWidth ?? containerWidth / 2;
-      calculateNewWidth(containerWidth, initialWidth, !!existingWidth);
+      resizeRef.current.containerWidth = containerWidth;
+      setNewWidth(containerWidth, initialWidth, !!existingWidth);
     }
   }, [marginPx]);
 
@@ -304,19 +295,7 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
         const { containerWidth, startX, startWidth } = resizeRef.current;
         const diff =
           (e.clientX - startX) / useReactFlow.getState().transform[2];
-
-        const newWidth = clamp(
-          startWidth + diff,
-          marginPx,
-          containerWidth - marginPx,
-        );
-
-        // Update ref first
-        resizeRef.current.currentWidth = newWidth;
-        resizeRef.current.currentPercentage = (newWidth / containerWidth) * 100;
-
-        // Then update global state
-        setColumnWidth(sectionId, newWidth);
+        setNewWidth(containerWidth, startWidth + diff, true);
       });
     },
     [marginPx],
