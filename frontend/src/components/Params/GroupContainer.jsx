@@ -2,7 +2,12 @@ import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScal
 import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { setActiveResizer } from "state/actions/sectionColumnWidth";
+import {
+  calculateBoundedWidth,
+  CENTER_OFFSET,
+  setActiveResizer,
+  setSectionWidth,
+} from "state/actions/sectionColumnWidth";
 import { useSectionColumnWidth, useSectionInfos } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
@@ -11,7 +16,6 @@ import {
   PINNED_PARAMS_AREA_MIN_HEIGHT,
   useIsScrollable,
 } from "state/hooks/sectionSizes";
-import { clamp } from "utils/utils";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {
@@ -222,9 +226,6 @@ function GetUnpinnedParamsCore({
 }
 
 function useColumnResizer(sectionId, ref, maxNestedDepth) {
-  const marginPx = 72 + Math.max(0, 12 * (maxNestedDepth - 1));
-  const centerOffset = 18;
-
   const widthRef = useRef({
     currentWidth: 0,
     containerWidth: 0,
@@ -233,18 +234,19 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
   });
 
   function setNewWidth(containerWidth, width, setGlobalState) {
-    const boundedWidth = clamp(width, marginPx, containerWidth - marginPx);
+    const boundedWidth = calculateBoundedWidth(
+      width,
+      containerWidth,
+      maxNestedDepth,
+    );
     widthRef.current.currentWidth = boundedWidth;
     widthRef.current.currentPercentage = (boundedWidth / containerWidth) * 100;
     if (setGlobalState) {
-      useSectionColumnWidth.setState({
-        [sectionId]: boundedWidth - centerOffset,
-      });
+      setSectionWidth(sectionId, boundedWidth);
     }
   }
 
-  const updatedWidthOnContainerResize = useCallback(() => {
-    // Skip updates if we're currently dragging
+  function updatedWidthOnContainerResize() {
     if (widthRef.current.isDragging || !ref.current) return;
 
     const containerWidth = ref.current.clientWidth;
@@ -252,41 +254,42 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     const newWidth = (containerWidth * currentPercentage) / 100;
     widthRef.current.containerWidth = containerWidth;
     setNewWidth(containerWidth, newWidth, true);
-  }, []);
+  }
+
+  useEffect(() => {
+    let previousWidth = ref.current?.clientWidth;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const newWidth =
+        entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
+
+      if (newWidth !== previousWidth) {
+        previousWidth = newWidth;
+        updatedWidthOnContainerResize();
+      }
+    });
+
+    if (ref.current) {
+      resizeObserver.observe(ref.current);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [maxNestedDepth]);
 
   useEffect(() => {
     if (ref.current) {
       const containerWidth = ref.current.clientWidth;
       const existingWidth = useSectionColumnWidth.getState()[sectionId];
       const initialWidth = existingWidth
-        ? existingWidth + centerOffset
+        ? existingWidth + CENTER_OFFSET
         : containerWidth / 2;
       widthRef.current.containerWidth = containerWidth;
       setNewWidth(containerWidth, initialWidth, !existingWidth);
     }
-  }, [marginPx]);
-
-  useEffect(() => {
-    const resizeObserver = new ResizeObserver(updatedWidthOnContainerResize);
-    if (ref.current) {
-      resizeObserver.observe(ref.current);
-    }
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, []);
-
-  // Expose widthRef to DOM element for global handlers
-  useEffect(() => {
-    if (ref.current) {
-      ref.current._widthRef = widthRef;
-    }
-    return () => {
-      if (ref.current) {
-        delete ref.current._widthRef;
-      }
-    };
-  }, []);
+  }, [maxNestedDepth]);
 
   const handleResizeStart = useCallback(
     (e) => {
@@ -300,6 +303,7 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
           startWidth: widthRef.current.currentWidth,
           containerWidth: widthRef.current.containerWidth,
           maxNestedDepth,
+          widthRef,
         });
       }
     },

@@ -2,6 +2,23 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { useResizerStore, useSectionColumnWidth } from "state/definitions";
 import { clamp } from "utils/utils";
 
+export const CENTER_OFFSET = 18;
+
+export function getMarginPx(maxNestedDepth) {
+  return 72 + Math.max(0, 12 * (maxNestedDepth - 1));
+}
+
+export function calculateBoundedWidth(width, containerWidth, maxNestedDepth) {
+  const marginPx = getMarginPx(maxNestedDepth);
+  return clamp(width, marginPx, containerWidth - marginPx);
+}
+
+export function setSectionWidth(sectionId, rawWidth) {
+  useSectionColumnWidth.setState({
+    [sectionId]: rawWidth - CENTER_OFFSET,
+  });
+}
+
 export function setActiveResizer(resizerData) {
   useResizerStore.setState({ activeResizer: resizerData });
 }
@@ -14,7 +31,6 @@ export function handleGlobalMouseMove(e) {
   const activeResizer = useResizerStore.getState().activeResizer;
   if (!activeResizer) return;
 
-  // Cancel any existing RAF to prevent frame queue buildup
   if (activeResizer.rafId) {
     cancelAnimationFrame(activeResizer.rafId);
   }
@@ -27,23 +43,21 @@ export function handleGlobalMouseMove(e) {
       containerWidth,
       maxNestedDepth,
       sectionId,
+      widthRef,
     } = activeResizer;
     if (!ref.current) return;
 
-    const marginPx = 72 + Math.max(0, 12 * (maxNestedDepth - 1));
-    const centerOffset = 18;
     const diff = (e.clientX - startX) / useReactFlow.getState().transform[2];
     const newWidth = startWidth + diff;
 
-    const boundedWidth = clamp(newWidth, marginPx, containerWidth - marginPx);
-    useSectionColumnWidth.setState({
-      [sectionId]: boundedWidth - centerOffset,
-    });
+    const boundedWidth = calculateBoundedWidth(
+      newWidth,
+      containerWidth,
+      maxNestedDepth,
+    );
+    setSectionWidth(sectionId, boundedWidth);
 
-    // Update the dragging state in the ref
-    if (ref.current._widthRef) {
-      ref.current._widthRef.current.currentWidth = boundedWidth;
-    }
+    widthRef.current.currentWidth = boundedWidth;
 
     delete activeResizer.rafId;
   });
@@ -51,14 +65,12 @@ export function handleGlobalMouseMove(e) {
 
 export function handleGlobalMouseUp() {
   const activeResizer = useResizerStore.getState().activeResizer;
-  if (activeResizer?.ref.current?._widthRef) {
-    const widthRef = activeResizer.ref.current._widthRef;
-    // Update percentage after drag ends
+  if (activeResizer?.widthRef) {
     const finalWidth =
-      useSectionColumnWidth.getState()[activeResizer.sectionId] + 18; // Add centerOffset back
+      useSectionColumnWidth.getState()[activeResizer.sectionId] + CENTER_OFFSET;
     const percentage = (finalWidth / activeResizer.containerWidth) * 100;
-    widthRef.current.currentPercentage = percentage;
-    widthRef.current.isDragging = false;
+    activeResizer.widthRef.current.currentPercentage = percentage;
+    activeResizer.widthRef.current.isDragging = false;
   }
   clearActiveResizer();
 }
