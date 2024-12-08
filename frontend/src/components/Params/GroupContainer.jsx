@@ -1,8 +1,8 @@
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
-import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { setActiveResizer } from "state/actions/sectionColumnWidth";
 import { useSectionColumnWidth, useSectionInfos } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
@@ -225,20 +225,17 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
   const marginPx = 72 + Math.max(0, 12 * (maxNestedDepth - 1));
   const centerOffset = 18;
 
-  // Use ref for both resize state and current width to avoid race conditions
-  const resizeRef = useRef({
-    isResizing: false,
-    startX: 0,
-    startWidth: 0,
+  const widthRef = useRef({
     currentWidth: 0,
     containerWidth: 0,
     currentPercentage: 50,
+    isDragging: false,
   });
 
   function setNewWidth(containerWidth, width, setGlobalState) {
     const boundedWidth = clamp(width, marginPx, containerWidth - marginPx);
-    resizeRef.current.currentWidth = boundedWidth;
-    resizeRef.current.currentPercentage = (boundedWidth / containerWidth) * 100;
+    widthRef.current.currentWidth = boundedWidth;
+    widthRef.current.currentPercentage = (boundedWidth / containerWidth) * 100;
     if (setGlobalState) {
       useSectionColumnWidth.setState({
         [sectionId]: boundedWidth - centerOffset,
@@ -246,30 +243,29 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     }
   }
 
-  function updatedWidthOnContainerResize() {
-    if (ref.current) {
-      const containerWidth = ref.current.clientWidth;
-      const currentPercentage = resizeRef.current.currentPercentage;
-      const newWidth = (containerWidth * currentPercentage) / 100;
-      resizeRef.current.containerWidth = containerWidth;
-      setNewWidth(containerWidth, newWidth, true);
-    }
-  }
+  const updatedWidthOnContainerResize = useCallback(() => {
+    // Skip updates if we're currently dragging
+    if (widthRef.current.isDragging || !ref.current) return;
+
+    const containerWidth = ref.current.clientWidth;
+    const currentPercentage = widthRef.current.currentPercentage;
+    const newWidth = (containerWidth * currentPercentage) / 100;
+    widthRef.current.containerWidth = containerWidth;
+    setNewWidth(containerWidth, newWidth, true);
+  }, []);
 
   useEffect(() => {
     if (ref.current) {
       const containerWidth = ref.current.clientWidth;
       const existingWidth = useSectionColumnWidth.getState()[sectionId];
-      // Add centerOffset, because locally we want the "raw" width
       const initialWidth = existingWidth
         ? existingWidth + centerOffset
         : containerWidth / 2;
-      resizeRef.current.containerWidth = containerWidth;
+      widthRef.current.containerWidth = containerWidth;
       setNewWidth(containerWidth, initialWidth, !existingWidth);
     }
   }, [marginPx]);
 
-  // Handle container resize and margin changes with debounced updates
   useEffect(() => {
     const resizeObserver = new ResizeObserver(updatedWidthOnContainerResize);
     if (ref.current) {
@@ -280,41 +276,35 @@ function useColumnResizer(sectionId, ref, maxNestedDepth) {
     };
   }, []);
 
-  const handleResizeStart = useCallback((e) => {
-    e.preventDefault();
-    if (ref.current) {
-      resizeRef.current = {
-        ...resizeRef.current,
-        isResizing: true,
-        startX: e.clientX,
-        startWidth: resizeRef.current.currentWidth,
-      };
-    }
-  }, []);
-
-  const handleMouseMove = (e) => {
-    if (!resizeRef.current.isResizing || !ref.current) return;
-
-    requestAnimationFrame(() => {
-      const { containerWidth, startX, startWidth } = resizeRef.current;
-      const diff = (e.clientX - startX) / useReactFlow.getState().transform[2];
-      setNewWidth(containerWidth, startWidth + diff, true);
-    });
-  };
-
-  const handleMouseUp = () => {
-    resizeRef.current.isResizing = false;
-  };
-
+  // Expose widthRef to DOM element for global handlers
   useEffect(() => {
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-
+    if (ref.current) {
+      ref.current._widthRef = widthRef;
+    }
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      if (ref.current) {
+        delete ref.current._widthRef;
+      }
     };
   }, []);
+
+  const handleResizeStart = useCallback(
+    (e) => {
+      e.preventDefault();
+      if (ref.current) {
+        widthRef.current.isDragging = true;
+        setActiveResizer({
+          sectionId,
+          ref,
+          startX: e.clientX,
+          startWidth: widthRef.current.currentWidth,
+          containerWidth: widthRef.current.containerWidth,
+          maxNestedDepth,
+        });
+      }
+    },
+    [sectionId, maxNestedDepth],
+  );
 
   return handleResizeStart;
 }

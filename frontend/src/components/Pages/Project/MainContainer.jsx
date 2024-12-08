@@ -4,6 +4,7 @@ import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { useEffect } from "react";
 import { dbRequestTypeCheck } from "requests/sections";
+import { initializeGlobalSectionColumnWidthEventListeners } from "state/actions/sectionColumnWidth";
 import { useLoadProjectConfig } from "state/hooks/project";
 import { restoreTerminals } from "state/hooks/terminal";
 import { Overview } from "../../../components/Panes/Overview/Overview";
@@ -20,6 +21,8 @@ export function MainContainer() {
     if (doneLoading && !is404) {
       dbRequestTypeCheck();
       restoreTerminals();
+      const cleanup = initializeGlobalSectionColumnWidthEventListeners();
+      return cleanup;
     }
   }, [doneLoading, is404]);
 
