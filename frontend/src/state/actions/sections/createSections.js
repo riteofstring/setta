@@ -133,7 +133,6 @@ export function createSectionInfo({
     const s = newSectionInfo(sectionProps);
     newIds.push(s.id);
     state.x[s.id] = s;
-    console.log("s", s)
     state.variants[s.variantId] = newSectionVariant(sectionVariantProps);
     if (state.uiTypes[s.uiTypeId].type === C.GLOBAL_PARAM_SWEEP) {
       initRunGroup(s.variantId, state);

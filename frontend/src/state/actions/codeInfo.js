@@ -6,14 +6,7 @@ import { getSectionVariant } from "./sectionInfos";
 export function addCodeInfo({ sectionId, info, parent, insertIdx, state }) {
   state.codeInfo[info.id] = info;
   const variant = getSectionVariant(sectionId, state);
-  let codeInfoColId = variant.codeInfoColId;
-  if (!codeInfoColId) {
-    codeInfoColId = createNewId();
-    variant.codeInfoColId = codeInfoColId;
-    state.codeInfoCols[codeInfoColId] = newCodeInfoCol();
-  }
-
-  const currCodeInfoCol = state.codeInfoCols[codeInfoColId];
+  const currCodeInfoCol = getOrCreateCodeInfoCol(variant, state);
   if (!(parent in currCodeInfoCol.children)) {
     currCodeInfoCol.children[parent] = [];
   }
@@ -48,4 +41,15 @@ export function deleteCodeInfo(sectionId, ids, state) {
   for (const s of state.variants[variantId].sweep) {
     s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
   }
+}
+
+export function getOrCreateCodeInfoCol(variant, state) {
+  let codeInfoColId = variant.codeInfoColId;
+  if (!codeInfoColId) {
+    codeInfoColId = createNewId();
+    variant.codeInfoColId = codeInfoColId;
+    state.codeInfoCols[codeInfoColId] = newCodeInfoCol();
+  }
+
+  return state.codeInfoCols[codeInfoColId];
 }

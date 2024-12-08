@@ -20,6 +20,7 @@ import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { newEVEntry } from "utils/objs/ev";
 import { parseAllDocuments } from "yaml";
+import { getOrCreateCodeInfoCol } from "./codeInfo";
 import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
 import { paramNameFromPathArray } from "./sections/sectionContents";
 
@@ -446,7 +447,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     const variantId = x.x[sectionId].variantId;
     const variant = x.variants[variantId];
     for (const [id, newChildren] of Object.entries(idsToChildren)) {
-      x.codeInfoCols[variant.codeInfoColId].children[id] = newChildren;
+      getOrCreateCodeInfoCol(variant, x).children[id] = newChildren;
     }
 
     for (const [id, value] of Object.entries(paramInfoIdToValue)) {
