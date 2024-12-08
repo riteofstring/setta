@@ -246,7 +246,6 @@ function GetUnpinnedParams({ sectionId }) {
         <GetUnpinnedParamsCore
           sectionId={sectionId}
           onResizeStart={handleResizeStart}
-          baseColumnWidth={columnWidth.pixels}
           widthPercentage={columnWidth.percentage}
         />
       )}
@@ -254,7 +253,7 @@ function GetUnpinnedParams({ sectionId }) {
   );
 }
 
-function GetUnpinnedParamsCore({ sectionId, onResizeStart, baseColumnWidth }) {
+function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
   const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     false,

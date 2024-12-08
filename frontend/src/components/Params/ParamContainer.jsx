@@ -25,7 +25,6 @@ function _ParamContainer({
   ancestorIsSelected,
   children,
   onResizeStart,
-  baseColumnWidth,
   widthPercentage,
 }) {
   const maybeErrorMessage = useTypeErrors(
