@@ -89,7 +89,6 @@ function ResizablePinnedArea({
       : outerRef.current?.clientHeight ?? initialMaxHeight;
 
   const { ref, isScrollable } = useIsScrollable();
-  const handleResizeStart = useColumnResizer(sectionId, outerRef);
 
   return (
     <ResizableWithScale
@@ -126,7 +125,6 @@ function ResizablePinnedArea({
           sectionId={sectionId}
           paramIds={topLevelParamIds}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={handleResizeStart}
         />
       </div>
     </ResizableWithScale>
@@ -139,44 +137,6 @@ function GetUnpinnedParams({ sectionId, outerRef }) {
     (x) => x.x[sectionId].hideUnpinnedParams,
   );
 
-  const handleResizeStart = useColumnResizer(sectionId, outerRef);
-
-  return (
-    <div
-      className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${
-        isScrollable ? "nowheel" : ""
-      } min-w-0 !max-w-full`}
-      ref={ref}
-    >
-      {!hideUnpinnedParams && (
-        <GetUnpinnedParamsCore
-          sectionId={sectionId}
-          onResizeStart={handleResizeStart}
-        />
-      )}
-    </div>
-  );
-}
-
-function GetUnpinnedParamsCore({ sectionId, onResizeStart }) {
-  const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
-    sectionId,
-    false,
-  );
-
-  return (
-    <GetParamSwitch
-      sectionId={sectionId}
-      paramIds={topLevelParamIds}
-      requiredParamIdsToPaths={requiredParamIdsToPaths}
-      onResizeStart={onResizeStart}
-    />
-  );
-}
-
-export const ParamGroupContainer = React.memo(_ParamGroupContainer);
-
-function useColumnResizer(sectionId, outerRef) {
   // Use ref for both resize state and current width to avoid race conditions
   const resizeRef = useRef({
     isResizing: false,
