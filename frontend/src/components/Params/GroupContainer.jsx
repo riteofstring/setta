@@ -11,6 +11,7 @@ import {
   PINNED_PARAMS_AREA_MIN_HEIGHT,
   useIsScrollable,
 } from "state/hooks/sectionSizes";
+import { clamp } from "utils/utils";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {
@@ -22,7 +23,7 @@ function _ParamGroupContainer({ sectionId }) {
 
   return (
     <div
-      className="section-w-full section-row-pin-main -mt-3 flex flex-col overflow-y-hidden pt-2"
+      className="section-w-full section-row-pin-main -mt-3 flex flex-col overflow-y-hidden bg-red-500 pt-2"
       ref={outerRef}
     >
       {waitingForResult ? (
@@ -197,12 +198,10 @@ function useColumnResizer(sectionId, ref) {
   useEffect(() => {
     if (ref.current) {
       const containerWidth = ref.current.clientWidth;
-      const initialPixels = (containerWidth - 12) / 2;
-
+      const currentPercentage = 50;
       resizeRef.current.containerWidth = containerWidth;
       resizeRef.current.currentPercentage = 50;
-
-      useSectionColumnWidth.setState({ [sectionId]: initialPixels });
+      setColumnWidth(sectionId, containerWidth, currentPercentage);
     }
   }, []);
 
@@ -212,12 +211,9 @@ function useColumnResizer(sectionId, ref) {
       if (ref.current) {
         const containerWidth = ref.current.clientWidth;
         const currentPercentage = resizeRef.current.currentPercentage;
-
         resizeRef.current.containerWidth = containerWidth;
 
-        useSectionColumnWidth.setState({
-          [sectionId]: (containerWidth - 12) * (currentPercentage / 100),
-        });
+        setColumnWidth(sectionId, containerWidth, currentPercentage);
       }
     };
 
@@ -251,18 +247,13 @@ function useColumnResizer(sectionId, ref) {
       const diff = (e.clientX - startX) / useReactFlow.getState().transform[2];
       const diffAsPercentage = (diff / containerWidth) * 100;
 
-      const newPercentage = Math.max(
-        20,
-        Math.min(80, startPercentage + diffAsPercentage),
-      );
+      const newPercentage = clamp(startPercentage + diffAsPercentage, 20, 80);
 
       // Update ref first
       resizeRef.current.currentPercentage = newPercentage;
 
       // Then update global state
-      useSectionColumnWidth.setState({
-        [sectionId]: (containerWidth - 12) * (newPercentage / 100),
-      });
+      setColumnWidth(sectionId, containerWidth, newPercentage);
     });
   }, []);
 
@@ -281,4 +272,10 @@ function useColumnResizer(sectionId, ref) {
   }, [handleMouseMove, handleMouseUp]);
 
   return handleResizeStart;
+}
+
+function setColumnWidth(sectionId, containerWidth, percentage) {
+  useSectionColumnWidth.setState({
+    [sectionId]: containerWidth * (percentage / 100) - 24,
+  });
 }

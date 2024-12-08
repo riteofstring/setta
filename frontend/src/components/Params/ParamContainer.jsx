@@ -76,8 +76,8 @@ function _ParamContainer({
 
   // Fetch initial state
   const nestedRef = useRef();
-  const realNestedRef = useRef();
-  const gridRef = useRef();
+  // const realNestedRef = useRef();
+  // const gridRef = useRef();
   // Connect to the store on mount, disconnect on unmount, catch state-changes in a reference
   useEffect(() => {
     // Subscribe to store updates
@@ -89,12 +89,12 @@ function _ParamContainer({
           // Use a CSS calc() function to provide a fallback
           nestedRef.current.style.gridTemplateColumns = `minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
         }
-        if (gridRef.current) {
-          gridRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
-        }
-        if (realNestedRef.current) {
-          realNestedRef.current.style.width = `${columnWidth}px`;
-        }
+        // if (gridRef.current) {
+        //   gridRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
+        // }
+        // if (realNestedRef.current) {
+        //   realNestedRef.current.style.width = `${columnWidth}px`;
+        // }
       },
     );
   }, []);
@@ -117,7 +117,10 @@ function _ParamContainer({
         onMouseDown={onMouseDownSelect}
         ref={nestedRef}
       >
-        <div className="section-key overflow-hidden" ref={realNestedRef}>
+        <div
+          className="section-key overflow-hidden"
+          // ref={realNestedRef}
+        >
           {children}
         </div>
         <ParamInput
@@ -136,7 +139,7 @@ function _ParamContainer({
       className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm pr-1.5 ${bg} ${border}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
       onMouseDown={onMouseDownSelect}
-      ref={gridRef}
+      // ref={gridRef}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">
