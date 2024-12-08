@@ -22,10 +22,7 @@ export function VersionList({ sectionId }) {
   }
 
   return (
-    <section
-      className="section-grid-cols section-grid-rows section-grid-areas -mx-3 -my-4 grid flex-1 self-stretch"
-      onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
-    >
+    <section className="section-grid-cols section-grid-rows section-grid-areas -mx-3 -my-4 grid flex-1 self-stretch">
       <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-2">
         <header className="section-key-value flex items-center justify-between">
           <p className="text-xs text-setta-400 dark:text-setta-600">Name</p>
@@ -37,7 +34,12 @@ export function VersionList({ sectionId }) {
           </button>
         </header>
 
-        <EVItems sectionId={sectionId} isEditing={isEditing} />
+        <div
+          className="contents"
+          onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
+        >
+          <EVItems sectionId={sectionId} isEditing={isEditing} />
+        </div>
       </ul>
     </section>
   );
@@ -130,7 +132,7 @@ function OneItem({ sectionId, id, isCurr }) {
   );
 }
 
-function OneItemEditing({ sectionId, id, isCurr }) {
+function OneItemEditing({ sectionId, id }) {
   const name = useSectionInfos((x) => x.variants[id].name, _.isEqual);
 
   function onSetName(v) {
