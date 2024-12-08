@@ -5,7 +5,7 @@ export function ColorPickerInputConfig({ onChange, config }) {
   const colors = config.colorChoices ?? [];
 
   const addColor = () => {
-    const colorChoices = [...colors, { color: "#000000", description: "" }];
+    const colorChoices = [...colors, { color: "#ff0000", description: "" }];
     onChange("colorChoices", () => colorChoices);
   };
 

@@ -53,7 +53,7 @@ function convertValueForColorPicker({ currValue }) {
   if (hexColorRegex.test(currValue)) {
     return currValue;
   }
-  return "#000000";
+  return "#ff0000";
 }
 
 function convertValueForDropdown({ currValue }) {
