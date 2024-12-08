@@ -14,7 +14,11 @@ export function ShowYaml({ sectionId }) {
           : SECTION_DISPLAY_MODES.YAML;
       state.x[sectionId].displayMode = newDisplayMode;
 
-      if (newDisplayMode === SECTION_DISPLAY_MODES.YAML) {
+      const { height: currHeight, width: currWidth } = state.x[sectionId].size;
+      if (
+        newDisplayMode === SECTION_DISPLAY_MODES.YAML &&
+        (currHeight === "auto" || currWidth === "auto")
+      ) {
         // This is to avoid flickering when in "auto" mode.
         // It gets set back to its original size in useCodeAreaHeight.
         state.x[sectionId].tempSavedSize = state.x[sectionId].size;
