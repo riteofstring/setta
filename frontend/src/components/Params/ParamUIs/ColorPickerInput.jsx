@@ -169,7 +169,7 @@ function ColorPickerFromColorChoices({
   };
 
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger
         className={colorPickerChoicesClasses}
         disabled={isDisabled}
