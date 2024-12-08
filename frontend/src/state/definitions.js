@@ -124,6 +124,7 @@ export const useProjectConfig = createProjectState(
         withVersion({
           id: "",
           name: "",
+          isDefault: false,
         }),
       ),
     ),
@@ -174,22 +175,19 @@ export const useTemporaryMiscState = createProjectState(
   subscribeWithSelector(withResetFn(() => ({}))),
 );
 
-export const useProjectLoading = create(
-  withResetFn(() => ({ projectIsLoading: false, projectIs404: false })),
-);
-
-export const useMisc = createProjectState(
+export const useMisc = create(
   subscribeWithSelector(
-    withResetFn(() => ({
-      mouseDownDrawArea: false,
-      mouseDownDraggingSection: false,
-      lastPaneClickLocation: { x: 0, y: 0 },
-      undoOrRedoWasTriggered: false,
-      isSelectingParams: false,
-      numDisplayedCodeAreas: 0,
-      numInitializedCodeAreas: 0,
-      requestUpdateNodeDimensions: false,
-    })),
+    immer(
+      withResetFn(() => ({
+        projectIsLoading: false,
+        projectIs404: false,
+        mouseDownDrawArea: false,
+        mouseDownDraggingSection: false,
+        lastPaneClickLocation: { x: 0, y: 0 },
+        undoOrRedoWasTriggered: false,
+        isSelectingParams: false,
+      })),
+    ),
   ),
 );
 

@@ -1,6 +1,7 @@
 import { ParamSweepUI } from "components/Params/ParamUIs/ParamUI";
 import { SectionYamlView } from "components/Params/YamlView";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
 import { FiEdit3 } from "react-icons/fi";
@@ -15,13 +16,12 @@ import {
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
 import { getCodeInfoCol } from "state/actions/sectionInfos";
-import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
+import {
+  getParamIds,
+  paramNameFromPathArray,
+} from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
-import {
-  findAllParameters,
-  findAllParametersAndPathMaps,
-} from "utils/getDescendants";
 import { useShowYaml } from "../../../state/hooks/toYaml";
 import { ParamSweepSectionSearch } from "../SectionParts/Search";
 
@@ -48,6 +48,8 @@ function _ParamSweepAreaGUI({ sectionId }) {
   function onAddCallableClick() {
     addParamSweepCallable(variantId);
   }
+
+  console.log("paramSweep", paramSweep);
 
   return (
     <>
@@ -396,12 +398,9 @@ function AddRemoveButtonsForNoCallableSection({
 function useNumChildlessParams(selectedItem, sectionId) {
   return useSectionInfos((x) => {
     const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
-    return findAllParameters({
-      allCodeInfo: x.codeInfo,
-      codeInfoChildren,
-      startingId: selectedItem,
-      additionalOutputCondition: (c) => codeInfoChildren[c.id]?.length === 0,
-    }).ids.length;
+    return getParamIds(sectionId, x, codeInfoChildren, selectedItem).ids.filter(
+      (p) => codeInfoChildren[p].length === 0,
+    ).length;
   });
 }
 
@@ -415,15 +414,19 @@ function useChildlessObjParams({
     // this is for the contents of the combobox
     // so I don't think it needs to depend on the displayed (preview) codeInfoCol
     const codeInfoChildren = getCodeInfoCol(forSectionId, x).children;
-    const { ids, pathMap } = findAllParametersAndPathMaps({
-      allCodeInfo: x.codeInfo,
+    const { ids, pathMap } = getParamIds(
+      forSectionId,
+      x,
       codeInfoChildren,
-      startingId: objInfoId,
-      additionalOutputCondition: (c) => codeInfoChildren[c.id]?.length === 0,
-    });
+      objInfoId,
+      (p) => p.rcType === C.PARAMETER,
+    );
     const output = [];
     for (const f of ids) {
-      if (f !== paramInfoId && alreadySelected.includes(f)) {
+      if (
+        (f !== paramInfoId && alreadySelected.includes(f)) ||
+        codeInfoChildren[f].length > 0
+      ) {
         continue;
       }
       const paramFullPathName = paramNameFromPathArray(x.codeInfo, pathMap, f);

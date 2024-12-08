@@ -3,7 +3,7 @@ import { Navigate, useLocation, useParams } from "react-router-dom";
 import { dbGetDefaultConfigName } from "requests/projects";
 import { dbLoadSettings } from "requests/settings";
 import { openWebSocket, sendLocation } from "requests/websocket";
-import { useProjectLoading, useSettings } from "state/definitions";
+import { useMisc, useSettings } from "state/definitions";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
 
 export function GlobalWrapper({ children }) {
@@ -14,9 +14,7 @@ export function GlobalWrapper({ children }) {
 }
 
 export function IndexRouteComponent() {
-  const showDefaultConfigOnLoad = useSettings(
-    (x) => x.backend.showDefaultConfigOnLoad,
-  );
+  const showDefaultConfigOnLoad = useSettings((x) => x.showDefaultConfigOnLoad);
   const defaultConfigName = useDefaultConfigName();
   if (!defaultConfigName) {
     return null;
@@ -32,7 +30,7 @@ export function IndexRouteComponent() {
 function useSetHTMLTitle() {
   const { pathname } = useLocation();
   const { projectConfigName } = useParams();
-  const projectIs404 = useProjectLoading((x) => x.projectIs404);
+  const projectIs404 = useMisc((x) => x.projectIs404);
   useEffect(() => {
     if (pathname === HOME_ROUTER_PATH) {
       document.title = "Home";

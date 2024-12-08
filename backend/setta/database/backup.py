@@ -42,7 +42,7 @@ def get_last_backup_time() -> Optional[float]:
 
 def cleanup_old_backups():
     backup_files = get_backup_files()
-    for old_backup in backup_files[USER_SETTINGS["backend"]["autobackupKeepLastN"] :]:
+    for old_backup in backup_files[USER_SETTINGS["autobackupKeepLastN"] :]:
         old_backup.unlink()
 
 
@@ -60,7 +60,7 @@ def create_backup(db_path):
 
 def should_create_backup() -> bool:
     """Check if it's time to create a new backup."""
-    if not USER_SETTINGS["backend"]["autobackup"]:
+    if not USER_SETTINGS["autobackup"]:
         return False
     last_backup_time = get_last_backup_time()
     print("last_backup_time", last_backup_time)
@@ -70,7 +70,7 @@ def should_create_backup() -> bool:
     current_time = time.time()
     print("current_time", current_time)
     time_since_last_backup = current_time - last_backup_time
-    return time_since_last_backup >= USER_SETTINGS["backend"]["autobackupFreq"]
+    return time_since_last_backup >= USER_SETTINGS["autobackupFreq"]
 
 
 def maybe_create_backup(db_path):

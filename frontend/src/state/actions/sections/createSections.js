@@ -1,11 +1,14 @@
+import { getDefaultInfoTitle } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import C from "constants/constants.json";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
+import { createNewId } from "utils/idNameCreation";
+import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
 import { insertIntoArray } from "utils/utils";
@@ -26,8 +29,7 @@ export function addTerminalInEmptySpace() {
 
 export function addSectionInEmptySpace({
   type,
-  sectionProps = {},
-  sectionVariantProps = {},
+  inputSectionProps = {},
   positionOffset = { x: 0, y: 0 },
 }) {
   const {
@@ -43,33 +45,79 @@ export function addSectionInEmptySpace({
   useSectionInfos.setState((state) => {
     addSectionAtPosition({
       type,
-      sectionProps,
-      sectionVariantProps,
+      inputSectionProps,
       position,
       state,
     });
   });
-  maybeIncrementProjectStateVersion(true);
 }
 
 export function addSectionAtPosition({
   type,
-  sectionProps = {},
-  sectionVariantProps = {},
+  inputSectionProps = {},
   position,
   state,
 }) {
-  const [newId] = createSectionInfo({
-    sectionProps: { ...sectionProps, uiTypeId: BASE_UI_TYPE_IDS[type] },
-    sectionVariantProps,
-    position,
-    state,
-  });
-  console.log("newId", newId)
+  const sectionProps = {
+    ...inputSectionProps,
+  };
+
+  if (!sectionProps.size) {
+    sectionProps.size = getDefaultSectionSize(type);
+  }
+
+  if (!sectionProps.name) {
+    sectionProps.name = getDefaultSectionName(type);
+  }
+
+  if (type === C.DRAW) {
+    sectionProps.canvasSettings = {
+      color: "#ff0000",
+      opacity: 1,
+      brushSize: 16,
+      brushShape: "round",
+      canvasOpacity: 0.5,
+      eraserBrushSize: 16,
+    };
+  }
+
+  sectionProps.uiTypeId = BASE_UI_TYPE_IDS[type];
+
+  const [newId] = createSectionInfo({ sectionProps, position, state });
   return newId;
 }
 
-export function addChildrenToSeries(isRoot, calledBy, numChildren) {
+function getDefaultSectionSize(type) {
+  const settings = useSettings.getState();
+  switch (type) {
+    case C.CODE:
+      return settings.defaultCodeSectionSize;
+    case C.TERMINAL:
+      return settings.defaultTerminalSectionSize;
+    default:
+      return settings.defaultSectionSize;
+  }
+}
+
+function getDefaultSectionName(type) {
+  switch (type) {
+    case C.INFO:
+      return getDefaultInfoTitle();
+    case C.GLOBAL_VARIABLES:
+      return "Global Variables";
+    case C.GLOBAL_PARAM_SWEEP:
+      return "Global Param Sweep";
+    default:
+      return null;
+  }
+}
+
+export function addChildrenToSeries({
+  isRoot,
+  calledBy,
+  numChildren,
+  incrementVersion = false,
+}) {
   let newIds;
   useSectionInfos.setState((state) => {
     let parentId, startIdx;
@@ -99,7 +147,7 @@ export function addChildrenToSeries(isRoot, calledBy, numChildren) {
     );
   });
 
-  maybeIncrementProjectStateVersion(true);
+  maybeIncrementProjectStateVersion(incrementVersion);
 
   return newIds;
 }
@@ -121,24 +169,35 @@ export function addChild({ id, parentId, type, sectionProps }) {
 
 export function createSectionInfo({
   sectionProps = {},
-  sectionVariantProps = {},
   numSections = 1,
   position,
   state,
 }) {
-  const newIds = [];
-  const topLevelSectionIds = [];
-
+  const newInfos = {};
   for (let i = 0; i < numSections; i++) {
-    const s = newSectionInfo(sectionProps);
-    newIds.push(s.id);
+    const sectionInfo = newSectionInfo(sectionProps);
+    newInfos[sectionInfo.id] = sectionInfo;
+  }
+  addSectionsToState(newInfos, position, state);
+  return Object.keys(newInfos);
+}
+
+function addSectionsToState(sectionInfos, position, state) {
+  for (const s of Object.values(sectionInfos)) {
+    const codeInfoColId = createNewId();
+    state.codeInfoCols[codeInfoColId] = newCodeInfoCol();
+    state.variants[s.variantId] = newSectionVariant({ codeInfoColId });
+    state.uiTypeCols[s.uiTypeColId] = {};
     state.x[s.id] = s;
-    state.variants[s.variantId] = newSectionVariant(sectionVariantProps);
     if (state.uiTypes[s.uiTypeId].type === C.GLOBAL_PARAM_SWEEP) {
       initRunGroup(s.variantId, state);
     }
-    if (!s.parentId) {
-      topLevelSectionIds.push(s.id);
+  }
+
+  const topLevelSectionIds = [];
+  for (const s of Object.keys(sectionInfos)) {
+    if (!sectionInfos[s].parentId) {
+      topLevelSectionIds.push(s);
     }
   }
 
@@ -152,8 +211,6 @@ export function createSectionInfo({
       })),
     );
   }
-
-  return newIds;
 }
 
 export function createAdjacentSection(sectionId, sectionProps, state) {

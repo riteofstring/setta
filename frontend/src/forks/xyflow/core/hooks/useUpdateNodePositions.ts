@@ -9,7 +9,7 @@ export const updatePositions = (params: {
   isShiftPressed: boolean;
 }) => {
   const { nodesDraggable } = useReactFlow.getState();
-  const { snapGrid } = useSettings.getState().gui;
+  const { snapGrid } = useSettings.getState();
   const [snapToGrid] = localStorageFns.snapToGrid.state();
   const activeSectionIds = useActiveSection.getState().ids;
   const selectedNodes = getNodes().filter(

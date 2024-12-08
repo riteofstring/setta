@@ -1,10 +1,13 @@
 import C from "constants/constants.json";
+import { dbSaveCodeInfo } from "requests/sectionConfig";
 import { useSectionInfos } from "state/definitions";
 import { findAllParameters } from "utils/getDescendants";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
-import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
+import { initializeParams } from "./initializeParam";
+import { getCodeInfoCol } from "./sectionInfos";
+import { getParamIds } from "./sections/sectionContents";
 
 export function addKwarg({
   sectionId,
@@ -34,6 +37,7 @@ export function addKwarg({
     insertIdx,
     state,
   });
+  initializeParams(sectionId, [kwargInfo.id], state);
   return kwargInfo.id;
 }
 
@@ -47,36 +51,38 @@ export function deleteLastKwarg({ sectionId, parentId = null, state }) {
   deleteCodeInfo(sectionId, [kwargId], state);
 }
 
-export function deleteSelectedKwargs(sectionId) {
-  useSectionInfos.setState((x) => {
-    const selectedParamIds = getAllSelectedParamIds(sectionId, x);
-    deleteCodeInfo(sectionId, selectedParamIds, x);
-  });
+export function deleteSelectedKwargs({ sectionId }) {
+  const selectedParams = getAllSelectedParams(sectionId);
+  deleteCodeInfo(
+    sectionId,
+    selectedParams.map((x) => x.id),
+    state,
+  );
 }
 
 export function saveKwargsAsCollection({ sectionId, name }) {
-  // // TODO: update this because children are no longer stored in codeInfo
-  // const { ids: children } = getParamIds(sectionId);
-  // const collection = newCodeInfo({
-  //   name,
-  //   rcType: C.COLLECTION,
-  // });
-  // dbSaveCodeInfo({
-  //   codeInfo: { [collection.id]: collection },
-  // });
+  // TODO: update this because children are no longer stored in codeInfo
+  const { ids: children } = getParamIds(sectionId);
+  const collection = newCodeInfo({
+    name,
+    rcType: C.COLLECTION,
+  });
+  dbSaveCodeInfo({
+    codeInfo: { [collection.id]: collection },
+  });
 }
 
 export function pinSelectedKwargs(sectionId) {
   useSectionInfos.setState((x) => {
-    const selectedParamIds = getAllSelectedParamIds(sectionId, x);
+    const selectedParams = getAllSelectedParams(sectionId, x);
     const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
-    for (const p of selectedParamIds) {
+    for (const p of selectedParams) {
       setAttrOfSelfAndDescendants(
         x.codeInfo,
         codeInfoChildren,
-        p,
+        p.id,
         "isPinned",
-        !x.codeInfo[p].isPinned,
+        !x.codeInfo[p.id].isPinned,
       );
     }
   });
@@ -138,7 +144,7 @@ function setAttrOfSelfAndDescendants(
 
 function getKwargIds(sectionId, codeInfoId, _state) {
   const state = _state ?? useSectionInfos.getState();
-  const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
+  const codeInfoChildren = getCodeInfoCol(sectionId, state);
   return codeInfoChildren[codeInfoId].filter((x) => state.codeInfo[x].editable);
 }
 
@@ -159,15 +165,13 @@ function getParamPath(name, parentId, state) {
   return path;
 }
 
-export function getAllSelectedParamIds(sectionId, state) {
+export function getAllSelectedParams(sectionId, state) {
   const codeInfoState = state.codeInfo;
-  const { selectedItem } = getSectionVariant(sectionId, state);
-  const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
-  const { ids } = findAllParameters({
-    allCodeInfo: codeInfoState,
+  const codeInfoChildren = getCodeInfoCol(sectionId, state);
+  const { ids } = findAllParameters(
+    codeInfoState,
     codeInfoChildren,
-    startingId: selectedItem,
-    additionalOutputCondition: (c) => c?.isSelected,
-  });
-  return ids;
+    codeInfoChildren[null],
+  );
+  return ids.map((x) => codeInfoState[x]).filter((x) => x.isSelected);
 }

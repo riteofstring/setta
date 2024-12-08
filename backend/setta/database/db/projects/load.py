@@ -1,6 +1,5 @@
 import json
 
-from setta.database.db.projects.utils import with_project_config_defaults
 from setta.database.utils import aggregate_results
 from setta.utils.utils import recursive_dict_merge
 
@@ -35,17 +34,15 @@ def load_all_project_config_metadata(db):
     for row in db.fetchall():
         id = row["id"]
         if id not in output:
-            output[id] = with_project_config_defaults(
-                id=row["id"],
-                name=row["name"],
-                childrenForPreviewImg=[],
+            output[id] = {
+                "id": row["id"],
+                "name": row["name"],
                 **json.loads(row["data"]),
-            )
+                "childrenForPreviewImg": [],
+            }
         if row["child_data"]:
             output[id]["childrenForPreviewImg"].append(json.loads(row["child_data"]))
-
-    default_name = load_default_config_name(db)
-    return list(output.values()), default_name
+    return list(output.values())
 
 
 def load_project_config_metadata(db, config_name):
@@ -139,14 +136,10 @@ def load_full_project(db, excludeProjectConfigName=None):
 
 def load_default_config_name(db):
     query = """
-        SELECT pc.name
-        FROM Metadata m
-        JOIN ProjectConfig pc ON m.defaultProject = pc.id
-        WHERE m.id = 1;
+        SELECT name
+        FROM ProjectConfig
+        WHERE json_extract(data, '$.isDefault') = 1
     """
 
     db.execute(query)
-    results = db.fetchall()
-    if len(results) > 0:
-        return results[0][0]
-    return None
+    return db.fetchall()[0][0]

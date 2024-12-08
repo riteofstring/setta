@@ -1,8 +1,8 @@
 import copy
 
-from ..sections.jsonSource import remove_json_source_data
 from .copy import copy_project_config, copy_project_details
 from .save import save_project_details
+from .utils import remove_json_source_data
 
 
 def save_as_new_project_config(db, project, new_config_name, with_refs):
