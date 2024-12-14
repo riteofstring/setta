@@ -220,14 +220,10 @@ def code_section_needs_generated_python(p, id):
     )
 
 
-def export_global_variables_and_remove_script(
-    p, keep_section_types, fn_export_global_variables
-):
+def remove_unneeded_sections(p, keep_section_types):
     to_pop = []
     for id in p["sections"].keys():
         section_type = get_section_type(p, id)
-        if section_type == C.GLOBAL_VARIABLES:
-            fn_export_global_variables(id, is_global=True)
         if section_type not in keep_section_types:
             to_pop.append(id)
     for id in to_pop:
@@ -244,10 +240,17 @@ class Exporter:
         self.always_export_args_objs = always_export_args_objs
 
     def export(self):
-        export_global_variables_and_remove_script(
+        remove_unneeded_sections(
             self.p,
-            [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.GROUP, C.CODE, C.INTERACTIVE_CODE],
-            self.export_section_params,
+            [
+                C.SECTION,
+                C.LIST_ROOT,
+                C.DICT_ROOT,
+                C.GROUP,
+                C.CODE,
+                C.INTERACTIVE_CODE,
+                C.GLOBAL_VARIABLES,
+            ],
         )
         self.export_sections(list(self.p["projectConfig"]["children"].keys()))
 
@@ -257,7 +260,6 @@ class Exporter:
     def export_section(self, id):
         var_name = self.maybe_create_var_name(
             id,
-            None,
             None,
         )
         if var_name not in self.output:
@@ -316,6 +318,10 @@ class Exporter:
                         self.p["codeEVRefs"][id],
                         self.maybe_create_ref_var_name,
                     )
+            elif type == C.GLOBAL_VARIABLES:
+                # don't need to process the output since the global variables get added directly to the output
+                # i.e. they aren't children of anything
+                self.export_section_params(id)
             else:
                 raise ValueError
         return var_name
@@ -323,7 +329,6 @@ class Exporter:
     def export_args_obj(self, id):
         var_name = self.maybe_create_var_name(
             id,
-            None,
             None,
             is_args_obj=True,
         )
@@ -343,12 +348,12 @@ class Exporter:
             self.output[var_name] = info
         return var_name
 
-    def export_section_params(self, section_id, is_global=False):
+    def export_section_params(self, section_id):
         ids = get_top_level_param_ids(self.p, section_id)
-        return self.export_params(section_id, ids, is_global=is_global)
+        return self.export_params(section_id, ids)
 
-    def export_params(self, section_id, ids, is_global=False):
-        var_names = [self.export_param(section_id, x, is_global) for x in ids]
+    def export_params(self, section_id, ids):
+        var_names = [self.export_param(section_id, x) for x in ids]
         var_names = [x for x in var_names if x]
         params = []
         unused_params = []
@@ -367,7 +372,7 @@ class Exporter:
                 positionalOnlyParams.add(v)
         return params, unused_params, positionalOnlyParams
 
-    def export_param(self, section_id, id, is_global=False):
+    def export_param(self, section_id, id):
         codeInfo = self.p["codeInfo"][id]
         param_name = codeInfo["name"]
         if not param_name:
@@ -375,8 +380,6 @@ class Exporter:
         var_name = self.maybe_create_var_name(
             section_id,
             id,
-            param_name,
-            is_global=is_global,
         )
 
         if var_name not in self.output:
@@ -431,7 +434,7 @@ class Exporter:
         if ref_is_args_obj:
             return self.export_args_obj(ref_section_id)
         elif ref_param_info_id:
-            return self.export_param(ref_section_id, ref_param_info_id, is_global=False)
+            return self.export_param(ref_section_id, ref_param_info_id)
         elif ref_section_id:
             return self.export_section(ref_section_id)
         else:
@@ -446,14 +449,12 @@ class Exporter:
         self,
         section_id,
         param_info_id,
-        param_name,
-        is_global=False,
         is_args_obj=False,
     ):
         mapping_key = (section_id, param_info_id, is_args_obj)
         var_name = self.var_name_mapping.get(mapping_key)
         if not var_name:
-            var_name = param_name if is_global else get_var_name(self.var_name_mapping)
+            var_name = get_var_name(self.var_name_mapping)
             self.var_name_mapping[mapping_key] = var_name
             self.var_name_reverse_mapping[var_name] = mapping_key
         elif var_name not in self.output:
@@ -472,7 +473,7 @@ class SimpleExporter:
         self.var_name_reverse_mapping = QuoteInsensitiveDict()
 
     def export(self):
-        export_global_variables_and_remove_script(
+        remove_unneeded_sections(
             self.p,
             [
                 C.SECTION,
@@ -482,15 +483,12 @@ class SimpleExporter:
                 C.IMAGE,
                 C.LINE_PLOT,
                 C.DRAW,
+                C.GLOBAL_VARIABLES,
             ],
-            self.export_global_variables,
         )
         for id in list(self.p["projectConfig"]["children"].keys()):
             name = get_section_name(self.p, id)
             self.output[name] = self.export_section(id, name)
-
-    def export_global_variables(self, id, **_):
-        self.output.update(self.export_section_params(id, "", is_global=True))
 
     def export_section(self, id, name):
         type = get_section_type(self.p, id)
@@ -522,6 +520,8 @@ class SimpleExporter:
         elif type == C.DRAW:
             value = get_drawings(self.p, id)
             self.create_var_mapping((id, "drawing"), name)
+        elif type == C.GLOBAL_VARIABLES:
+            self.output.update(self.export_section_params(id, "", is_global=True))
         else:
             raise ValueError
         return value

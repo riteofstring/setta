@@ -83,8 +83,8 @@ def get_value(x, selected):
     if type_value == C.TEXT:
         output = str(x["value"])
         # Although this seems redundant, it is necessary, because if we return None, it won't update the positions
-        # with the variable declaration length. 
-        relative_positions = x["ref_var_name_positions"] 
+        # with the variable declaration length.
+        relative_positions = x["ref_var_name_positions"]
     elif type_value == C.SLIDER:
         output = str(x["value"])
         relative_positions = None
@@ -251,6 +251,7 @@ def generate_code(
         var_name_to_line_num,
         replace_templated_code,
     )
+
 
 def convert_var_names_to_readable_form(
     generated_code, var_name_to_line_num, exporter_obj, code_area_ref_var_name_positions
