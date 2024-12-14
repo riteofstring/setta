@@ -199,7 +199,7 @@ export function useCodeAreaHeight({ sectionId }) {
           numDisplayedCodeAreas: Math.max(0, state.numDisplayedCodeAreas - 1),
         };
         if (didFirstRender) {
-          output[numInitializedCodeAreas] = Math.max(
+          output.numInitializedCodeAreas = Math.max(
             0,
             state.numInitializedCodeAreas - 1,
           );
