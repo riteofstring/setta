@@ -42,7 +42,7 @@ function ProjectOverviewCore({ sectionList }) {
   );
 }
 
-function useOverviewListing() {
+export function useOverviewListing() {
   return useSectionInfos((x) => {
     const outputList = [];
     for (const section of Object.values(x.x)) {

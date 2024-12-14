@@ -1,3 +1,4 @@
+import { useOverviewListing } from "components/Panes/Overview/ProjectOverview";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import {
   ComboboxItems,
@@ -7,7 +8,7 @@ import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import React, { useRef } from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { useProjectSearch, useSectionInfos } from "state/definitions";
+import { useProjectSearch } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
 import { focusOnSection } from "utils/tabbingLogic";
 
@@ -59,11 +60,17 @@ function ProjectPageFind({ children }) {
 }
 
 function ProjectPageAdvanced({ children }) {
-  const allSections = useSectionInfos((x) =>
-    Object.values(x.x).map((s) => ({ id: s.id, name: s.name })),
-  );
+  const allSections = useOverviewListing();
   const allItems = [{ group: "Sections", items: allSections }];
 
+  return (
+    <ProjectPageAdvancedCore allItems={allItems}>
+      {children}
+    </ProjectPageAdvancedCore>
+  );
+}
+
+function ProjectPageAdvancedCore({ allItems, children }) {
   function onSelectedItemChange(id) {
     goToSection(id);
     focusOnSection(null, id, false);
