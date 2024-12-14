@@ -1,4 +1,4 @@
-import { useKeywordRegex, useSectionInfos } from "state/definitions";
+import { useKeywordRegex } from "state/definitions";
 
 export function roundUpIdx(numList, x) {
   let closest = undefined;
@@ -22,11 +22,9 @@ export function computeEVReferences(project) {
   const selectedItemEVRefs = {};
   const codeEVRefs = {};
   const { fullNameToInfo } = useKeywordRegex.getState();
-  const cState = useSectionInfos.getState().codeInfo;
-  for (const sectionId of Object.keys(project["sections"])) {
+  for (const [sectionId, section] of Object.entries(project.sections)) {
     paramEVRefs[sectionId] = {};
-    const { variantId } = useSectionInfos.getState().x[sectionId];
-    const sectionVariant = project["sectionVariants"][variantId];
+    const sectionVariant = project.sectionVariants[section.variantId];
 
     for (const [paramInfoId, valueInfo] of Object.entries(
       sectionVariant.values,
@@ -39,7 +37,7 @@ export function computeEVReferences(project) {
     }
 
     if (sectionVariant.selectedItem) {
-      const codeInfo = cState[sectionVariant.selectedItem];
+      const codeInfo = project.codeInfo[sectionVariant.selectedItem];
       selectedItemEVRefs[sectionId] = findRefs({
         keywordPositions: codeInfo.keywordPositions,
         fullNameToInfo,
@@ -65,14 +63,16 @@ export function findRefs({ keywordPositions, fullNameToInfo, fullText }) {
   const output = [];
   for (const k of keywordPositions) {
     const keyword = fullText.substring(k["startPos"], k["endPos"]);
-    const info = fullNameToInfo[keyword];
-    output.push({
-      sectionId: info["sectionId"],
-      paramInfoId: info["paramInfoId"],
-      isArgsObj: info["isArgsObj"],
-      startPos: k["startPos"],
-      endPos: k["endPos"],
-    });
+    if (keyword in fullNameToInfo) {
+      const info = fullNameToInfo[keyword];
+      output.push({
+        sectionId: info["sectionId"],
+        paramInfoId: info["paramInfoId"],
+        isArgsObj: info["isArgsObj"],
+        startPos: k["startPos"],
+        endPos: k["endPos"],
+      });
+    }
   }
 
   return output;
