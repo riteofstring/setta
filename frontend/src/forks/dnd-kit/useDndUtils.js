@@ -86,27 +86,27 @@ export function useDisableSortable(sectionId) {
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
-  const hasNested = useHasPermanentNested(sectionId);
   // We only want to set disabled if positionAndSizeLocked is true.
   // If positionAndSizeLocked is false, we don't want to set disabled to false,
   // so we set it to null instead so that the disabled
   // status defers to dnd-kit's "global" disabled status.
-  const disabled = useSectionInfos((x) =>
-    x.x[sectionId]?.positionAndSizeLocked
-      ? x.x[sectionId]?.positionAndSizeLocked
-      : null,
-  );
+  // "onlyChildId" is the id of the child if the parent has just 1 child.
+  // It is needed to correctly trigger the leftDistCondition in collisionDetection.
+  const { hasNested, disabled, onlyChildId } = useSectionInfos((x) => {
+    const variantId = x.x[sectionId]?.variantId;
+    const children = variantId ? x.variants[variantId].children : [];
+    return {
+      hasNested: children.length > 0,
+      onlyChildId: children.length === 1 ? children[0] : null,
+      disabled: x.x[sectionId]?.positionAndSizeLocked
+        ? x.x[sectionId]?.positionAndSizeLocked
+        : null,
+    };
+  }, _.isEqual);
 
   return {
     id: sectionId,
-    data: { isTopLevel, hasNested },
+    data: { isTopLevel, hasNested, onlyChildId },
     disabled,
   };
-}
-
-function useHasPermanentNested(sectionId) {
-  return useSectionInfos((x) => {
-    const variantId = x.x[sectionId]?.variantId;
-    return variantId ? x.variants[variantId].children.length > 0 : false;
-  });
 }

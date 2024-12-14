@@ -3,7 +3,11 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
-import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
+import {
+  getSectionParentId,
+  getSectionType,
+  getSectionVariant,
+} from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 
 export function onDragStart({ active }) {
@@ -146,10 +150,27 @@ function maybeMoveToNewParent({
     return;
   }
 
+  const newParentNumChildren = getSectionVariant(newParentId).children.length;
+
+  // Special case where you move a section out of its parent
+  // and back in, and the section is the only-child of the parent
   if (
-    overId === newParentId &&
-    getSectionVariant(newParentId).children.length > 0
+    newParentNumChildren === 1 &&
+    getSectionParentId(active.id) === newParentId
   ) {
+    dndChildrenState.addChild({
+      oldParentId,
+      newParentId,
+      childId: dndSectionId,
+      index: 0,
+    });
+    return;
+  }
+
+  // I don't remember this logic, but it seems to help
+  // prevent flickering when dragging a section into
+  // a list with nested sections, from the left.
+  if (overId === newParentId && newParentNumChildren > 0) {
     dndChildrenState.removeChild(dndSectionId);
     return;
   }

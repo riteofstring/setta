@@ -79,12 +79,14 @@ export function getIntersectionRatio(entry, target) {
   return 0;
 }
 
-function getTriggerDistCondition(collision, containerIsHorizontal) {
+function getTriggerDistCondition(activeId, collision, containerIsHorizontal) {
   // true if section is not top level and doesn't have children
-  // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
+  // and active section is to the right of this section by at least 100 pixels (adjusted by zoom)
   return (
     !collision?.data.droppableContainer.data.current.isTopLevel &&
-    !collision?.data.droppableContainer.data.current.hasNested &&
+    (!collision?.data.droppableContainer.data.current.hasNested ||
+      collision?.data.droppableContainer.data.current.onlyChildId ===
+        activeId) &&
     collision?.data.triggerDist >
       (!containerIsHorizontal ? 100 : 20) * useReactFlow.getState().transform[2]
   );
@@ -163,6 +165,7 @@ export function customCollisionDetection({
     }
 
     bestCollision.triggerDistCondition = getTriggerDistCondition(
+      active.id,
       bestCollision,
       containerIsHorizontal,
     );
