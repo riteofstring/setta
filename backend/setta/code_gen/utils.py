@@ -20,8 +20,9 @@ def push_var_deep(objects, target_var_name):
     return everything_else + target_and_dependents
 
 
-def process_refs(value, refs, get_var_name, position=None):
-    shift = 0
+def process_refs(value, refs, get_var_name, cursor_position=None):
+    # positions is a list of tuples, where each tuple is (positions, shift, ref_var_name)
+    positions = [] if cursor_position is None else [(cursor_position, 0, None)]
     refs = sorted(refs, key=lambda x: x["startPos"], reverse=True)
     used_ref_var_names = []
     for ref in refs:
@@ -32,22 +33,30 @@ def process_refs(value, refs, get_var_name, position=None):
         startPos = ref["startPos"]
         endPos = ref["endPos"]
 
-        if position is not None:
-            # Calculate current replacement's length difference
-            length_diff = len(ref_var_name) - (endPos - startPos)
-
-            # Update position if replacement occurs before the initial position
-            if endPos <= position:
-                # All changes before the position affect its offset
-                shift += length_diff
-            elif startPos < position < endPos:
-                position = startPos + len(
-                    ref_var_name
-                )  # Reset position to after the new substring
+        positions.append((startPos, 0, ref_var_name))
+        set_new_positions_and_shifts(positions, ref_var_name, startPos, endPos)
 
         value = value[:startPos] + ref_var_name + value[endPos:]
         used_ref_var_names.append(ref_var_name)
 
-    if position is not None:
-        return value, used_ref_var_names, position + shift
-    return value, used_ref_var_names
+    positions = [(p + s, r) for p, s, r in positions]
+    return value, used_ref_var_names, positions
+
+
+def set_new_positions_and_shifts(positions, ref_var_name, startPos, endPos):
+    # Calculate current replacement's length difference
+    length_diff = len(ref_var_name) - (endPos - startPos)
+
+    for idx in range(len(positions)):
+        position, shift, curr_ref_var_name = positions[idx]
+
+        # Update position if replacement occurs before the initial position
+        if endPos <= position:
+            # All changes before the position affect its offset
+            shift += length_diff
+        elif startPos < position < endPos:
+            position = startPos + len(
+                ref_var_name
+            )  # Reset position to after the new substring
+
+        positions[idx] = position, shift, curr_ref_var_name

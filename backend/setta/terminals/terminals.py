@@ -28,7 +28,11 @@ from setta.code_gen.find_placeholders import (
     needs_yaml,
 )
 from setta.code_gen.python.generate_argparse import generate_argparse
-from setta.code_gen.python.generate_code import generate_code, replace_keywords
+from setta.code_gen.python.generate_code import (
+    convert_var_names_to_readable_form,
+    generate_code,
+    replace_keywords,
+)
 from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
     CODE_FOLDER,
@@ -208,7 +212,7 @@ class TerminalWebsockets:
             # print("write_to_terminal while loop", flush=True)
             try:
                 input_data = await websocket.receive_text()
-                print("input_data", input_data, flush=True)
+                # print("input_data", input_data, flush=True)
                 try:
                     json_val = json.loads(input_data)
                 except json.decoder.JSONDecodeError:
@@ -290,6 +294,9 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         curr_code = section_variant["code"]
         curr_dependencies = []
         replacements = {}
+        generated_python_code = None
+        generated_python_var_name_to_line_num = None
+        generated_python_code_area_ref_var_name_positions = None
         for other_s in code_sections.values():
             if double_braces(other_s["name"]) in curr_code:
                 replacements[other_s["name"]] = codePathStr(
@@ -303,18 +310,45 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 folder_path, "SETTA_YAML", "yaml"
             )
         if needs_generated_python(curr_code):
-            curr_code, _ = process_refs(
+            (
+                curr_code,
+                _,
+                generated_python_code_area_ref_var_name_positions,
+            ) = process_refs(
                 curr_code,
                 p["codeEVRefs"][s["id"]],
                 exporter_obj.get_ref_var_name,
             )
-            replacements[C.SETTA_GENERATED_PYTHON] = generate_code(
+            (
+                generated_python_code,
+                generated_python_var_name_to_line_num,
+            ) = generate_code(
                 selected,
                 curr_code,
                 replace_templated_code=False,
-            )[0]
+                make_copy_of_selected=False,
+            )
+            replacements[C.SETTA_GENERATED_PYTHON] = generated_python_code
 
-        section_variant["code"] = replace_keywords(curr_code, replacements)
+        section_variant["code"] = replace_keywords(
+            curr_code, replacements, generated_python_code_area_ref_var_name_positions
+        )
+
+        section_variant["code"], setup_code = prepend_with_setup_code(
+            section_variant["code"],
+            s["codeLanguage"],
+            folder_path,
+            p["projectConfig"]["name"],
+        )
+
+        if generated_python_code:
+            section_variant["code"] = convert_var_names_to_readable_form(
+                section_variant["code"],
+                generated_python_var_name_to_line_num,
+                exporter_obj,
+                generated_python_code_area_ref_var_name_positions,
+                setup_code,
+            )
         dependencies[s["id"]] = curr_dependencies
 
     to_write = topological_sort(dependencies)
@@ -323,12 +357,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         curr_section = code_sections[sid]
         codeLanguage = curr_section["codeLanguage"]
         extension = languageToExtension(codeLanguage)
-        code = prepend_with_setup_code(
-            get_section_code(p, sid),
-            codeLanguage,
-            folder_path,
-            p["projectConfig"]["name"],
-        )
+        code = get_section_code(p, sid)
         filepath = write_string_to_file(
             folder_path, f"{curr_section['name']}{extension}", code
         )
@@ -428,6 +457,7 @@ def write_string_to_file(folder, filename, content):
 
 
 def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name):
+    setup_code = ""
     if codeLanguage == "python":
         location = f"/{project_config_name}"
         setup_code = (
@@ -439,4 +469,4 @@ def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name
             f"os.environ['{CODE_FOLDER_ENV_VARIABLE}'] = '{folder_path}'\n"
         )
         code = setup_code + code
-    return code
+    return code, setup_code
