@@ -18,14 +18,14 @@ export function SectionListItems({
 }
 
 function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
-  const onClick = () => {
+  const onClick = (e) => {
     goToSection(sectionId);
+    focusOnSection(e, sectionId);
   };
 
   const onKeyDown = (e) => {
     if (e.code === "Space") {
-      onClick();
-      focusOnSection(e, sectionId);
+      onClick(e);
     }
   };
 
