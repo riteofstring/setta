@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
@@ -62,7 +63,10 @@ export function getProjectData({
       children: x.children.filter((c) => c in sections),
     }),
   );
-  const uiTypes = useSectionInfos.getState().uiTypes;
+  const uiTypes = _.pickBy(
+    useSectionInfos.getState().uiTypes,
+    (u) => u.presetType !== C.PRESET_UI_TYPE_BASE,
+  );
   const uiTypeCols = useSectionInfos.getState().uiTypeCols;
 
   const codeInfo = useSectionInfos.getState().codeInfo;

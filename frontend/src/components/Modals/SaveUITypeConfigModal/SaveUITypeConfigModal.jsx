@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import { useEffect, useState } from "react";
 import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
@@ -22,7 +23,7 @@ export function SaveUITypeConfigModal({ open, modalType }) {
     const newUIType = cloneNewUIType({
       uiType,
       name: filename,
-      presetType: PresetType.USER,
+      presetType: C.PRESET_UI_TYPE_USER,
     });
     setParamUITypeId({
       uiTypeId: newUIType.id,

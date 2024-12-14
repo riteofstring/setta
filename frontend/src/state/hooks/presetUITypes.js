@@ -5,7 +5,6 @@ import {
   isBasePreset,
   isPreset,
   isUserPreset,
-  PresetType,
   uiTypesToPretty,
 } from "state/actions/uiTypes/utils";
 import { useSectionInfos } from "state/definitions";
@@ -54,7 +53,7 @@ function filterUITypes(
     id: v.id,
     name: createName(v),
     presetType: v.presetType,
-    displayType: v.presetType ?? PresetType.BASE, // display non-preset types as "base" types
+    displayType: v.presetType ?? C.PRESET_UI_TYPE_BASE, // display non-preset types as "base" types
   }));
 }
 

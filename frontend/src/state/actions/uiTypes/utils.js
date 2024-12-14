@@ -31,17 +31,12 @@ export function createParamSweepSectionName(sectionName) {
   return `${sectionName} Sweep`;
 }
 
-export const PresetType = {
-  BASE: "BASE",
-  USER: "USER",
-};
-
 export function isBasePreset(uiType) {
-  return uiType.presetType === PresetType.BASE;
+  return uiType.presetType === C.PRESET_UI_TYPE_BASE;
 }
 
 export function isUserPreset(uiType) {
-  return uiType.presetType === PresetType.USER;
+  return uiType.presetType === C.PRESET_UI_TYPE_USER;
 }
 
 export function isPreset(uiType) {

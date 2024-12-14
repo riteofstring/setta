@@ -11,6 +11,7 @@ from setta.code_gen.python.generate_code import (
     maybe_prepend_with_imports_and_replace_templated_code,
 )
 from setta.tasks.task_runner import RunType
+from setta.utils.constants import add_base_ui_types
 
 from .utils import TaskDefinition
 
@@ -24,6 +25,7 @@ class TextFieldInitializeCodeContent(BaseModel):
 async def _textFieldInitializeCode(message):
     message = TextFieldInitializeCodeContent.parse_obj(message.content)
     project = message.project
+    add_base_ui_types(project)
     exporter_obj = export_selected(project, always_export_args_objs=True)
     codeJson = exporter_obj.output
     templatedCode = get_first_section_code_that_needs_generated_python(project)

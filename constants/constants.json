@@ -28,6 +28,8 @@
   "COLLECTION": "collection",
   "CALLABLE": "callable",
   "PARAMETER": "parameter",
+  "PRESET_UI_TYPE_BASE": "BASE",
+  "PRESET_UI_TYPE_USER": "USER",
   "ROUTE_PREFIX": "/api",
   "ROUTE_SWAGGER_DOCS": "/docs",
   "ROUTE_OPENAPI_DOCS": "/openapi.json",

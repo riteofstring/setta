@@ -6,7 +6,7 @@ from setta.code_gen.export_selected import export_selected, get_section_code
 from setta.code_gen.find_placeholders import needs_generated_python
 from setta.code_gen.python.generate_code import generate_code, replace_keywords
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import C
+from setta.utils.constants import C, add_base_ui_types
 
 from .utils import TaskDefinition
 
@@ -19,6 +19,7 @@ class CodeAreaInitializeCodeContent(BaseModel):
 async def _codeAreaInitializeCode(message):
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     project = message.project
+    add_base_ui_types(project)
     code = get_section_code(project, message.sectionId)
     codeJson = None
     gen_code = None

@@ -131,10 +131,6 @@ class MetaSettingsFile:
     def save(self, p):
         saved_data = save_json_source_data(p)
         remove_json_source_data(p, keepCodeInfoThatHaveUITypes=False)
-        # TODO: make this less horrible
-        p["uiTypes"] = {
-            k: v for k, v in p["uiTypes"].items() if v["presetType"] != "BASE"
-        }
         filter_data_for_json_export(p)
         self.save_raw(p)
         return saved_data[self.settings_path]

@@ -39,6 +39,7 @@ class Constants:
 
 C = Constants()
 USER_SETTINGS = {}
+BASE_UI_TYPES = {}
 BASE_UI_TYPE_IDS = {}
 DEFAULT_VALUES = {}
 
@@ -57,7 +58,8 @@ def load_constants():
     with open(
         get_absolute_path(__file__, CONSTANTS_FOLDER / "BaseUITypes.json"), "r"
     ) as f:
-        for k, v in json.load(f).items():
+        BASE_UI_TYPES.update(json.load(f))
+        for k, v in BASE_UI_TYPES.items():
             BASE_UI_TYPE_IDS[v["type"]] = k
 
     with open(
@@ -68,6 +70,10 @@ def load_constants():
 
 def is_from_json_source(id):
     return id and id.startswith(C.JSON_SOURCE_PREFIX)
+
+
+def add_base_ui_types(project):
+    project["uiTypes"].update(BASE_UI_TYPES)
 
 
 CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
