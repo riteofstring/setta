@@ -73,7 +73,9 @@
     "defaultTerminalShell": null,
     "exportDbRawOnSave": false,
     "exportDbReadableOnSave": false,
-    "exportDbReadableWithVariantsOnSave": false
+    "exportDbReadableWithVariantsOnSave": false,
+    "askToRenameReferencesOnSectionMove": true,
+    "renameReferencesOnSectionMove": false
   },
   "languageServer": {},
   "sections": {

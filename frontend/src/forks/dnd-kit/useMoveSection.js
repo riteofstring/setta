@@ -81,8 +81,8 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
     newParentId,
   });
 
+  let newSectionId;
   useSectionInfos.setState((state) => {
-    let newSectionId;
     if (maybeNewSectionData.sections) {
       updateSectionInfos({ ...maybeNewSectionData, state });
       newSectionId = Object.keys(maybeNewSectionData.sections)[0];
@@ -100,6 +100,12 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
       state,
     });
   });
+
+  // if a copy of the section wasn't made
+  if (newSectionId === sectionId) {
+    // if (_.size(paramEVRefs) === 0 && _.size())
+    // openRenameReferencesModal()
+  }
 }
 
 export function useOnDragEnd() {

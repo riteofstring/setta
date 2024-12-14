@@ -3,7 +3,7 @@ import { Decoration, ViewPlugin } from "@codemirror/view";
 
 const italicStyle = Decoration.mark({ class: "italic" });
 
-export function getKeywordStylizer(keywordPositions) {
+export function getKeywordStylizer(evRefs) {
   const keywordStylizer = ViewPlugin.fromClass(
     class {
       decorations;
@@ -23,7 +23,7 @@ export function getKeywordStylizer(keywordPositions) {
 
       buildDecorations() {
         const builder = new RangeSetBuilder();
-        for (const kp of keywordPositions) {
+        for (const kp of evRefs) {
           builder.add(kp.startPos, kp.endPos, italicStyle);
         }
         return builder.finish();

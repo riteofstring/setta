@@ -110,7 +110,11 @@ export const MODAL_TYPE = {
   DELETE_PROJECT_WARNING: {
     purpose: null,
     title: "Confirm Deletion",
-    buttonText: "Delete",
+  },
+  RENAME_REFERENCES: {
+    purpose: null,
+    title: "Rename References",
+    buttonText: "Rename",
   },
 };
 

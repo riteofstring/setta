@@ -24,7 +24,7 @@ export function DummyCodeMirror({
   onMouseDownCapture,
   onFocus,
   className,
-  keywordPositions,
+  evRefs,
   placeholder,
   language,
 }) {
@@ -36,7 +36,7 @@ export function DummyCodeMirror({
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
       className={className}
-      keywordPositions={keywordPositions}
+      evRefs={evRefs}
       language={language}
     />
   ) : (
@@ -78,7 +78,7 @@ function HighlightedCode({
   theme,
   onMouseDownCapture,
   className,
-  keywordPositions,
+  evRefs,
   language,
   onFocus,
 }) {
@@ -88,7 +88,7 @@ function HighlightedCode({
   const builder = new RangeSetBuilder();
 
   const matchedIndices = {};
-  for (const kp of keywordPositions) {
+  for (const kp of evRefs) {
     matchedIndices[kp.startPos] = {
       keywordEndIdx: kp.endPos,
       keyword: code.substring(kp.startPos, kp.endPos),

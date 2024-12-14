@@ -339,8 +339,8 @@ function Input({
           value={value}
           onChange={onChange}
           className="nodrag"
-          keywordPositions={[]}
-          setKeywordPositions={() => {}}
+          evRefs={[]}
+          setEVRefs={() => {}}
           isDisabled={isDisabled}
         />
       </article>

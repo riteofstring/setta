@@ -16,7 +16,7 @@ import React, {
 import {
   dbCodeAreaCompletion,
   dbCodeAreaInitializeCode,
-  getKeywordPositionsAndEVRefs,
+  getEVRefs,
 } from "requests/sections";
 import {
   getDisplayedSectionVariant,
@@ -42,29 +42,29 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const keywordPositions = useSectionInfos(
-    (x) => getDisplayedSectionVariant(sectionId, x).keywordPositions,
+  const evRefs = useSectionInfos(
+    (x) => getDisplayedSectionVariant(sectionId, x).evRefs,
+    _.isEqual,
   );
-  const [localKeywordPositions, setLocalKeywordPositions] =
-    useState(keywordPositions);
+  const [localEVRefs, setLocalEVRefs] = useState(evRefs);
   const keywordStylizer = useMemo(
-    () => getKeywordStylizer(localKeywordPositions),
-    [JSON.stringify(localKeywordPositions)],
+    () => getKeywordStylizer(localEVRefs),
+    [JSON.stringify(localEVRefs)],
   );
   const completionsFn = useCallback(
     getCompletionsFn(
       sectionId,
       null,
       dbCodeAreaCompletion,
-      setLocalKeywordPositions,
+      setLocalEVRefs,
       language,
     ),
     [sectionId],
   );
 
   useDeepCompareEffect(() => {
-    setLocalKeywordPositions(keywordPositions);
-  }, [keywordPositions]);
+    setLocalEVRefs(evRefs);
+  }, [evRefs]);
 
   return (
     <CoreCodeArea
@@ -101,7 +101,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     useSectionInfos.setState((x) => {
       getSectionVariant(sectionId, x).code = v;
     });
-    debouncedSetKeywordPositions(sectionId, v);
+    debouncedSetEVRefs(sectionId, v);
   }
 
   function onMouseDown() {
@@ -244,14 +244,14 @@ export function useCodeAreaHeight({ sectionId }) {
   };
 }
 
-const debouncedSetKeywordPositions = asyncDebounce(async (sectionId, value) => {
-  const { keywordPositions } = await getKeywordPositionsAndEVRefs({
+const debouncedSetEVRefs = asyncDebounce(async (sectionId, value) => {
+  const evRefs = await getEVRefs({
     sectionId,
     paramInfoId: null,
     fullText: value,
     regexPatternKey: "codeAreaPattern",
   });
   useSectionInfos.setState((x) => {
-    getSectionVariant(sectionId, x).keywordPositions = keywordPositions;
+    getSectionVariant(sectionId, x).evRefs = evRefs;
   });
 }, 500);
