@@ -31,7 +31,11 @@ def get_mappings(var_names, selected, is_dict, positionalOnlyParams=None):
         prefix = "" if idx == 0 else ", "
         if is_dict or v not in positionalOnlyParams:
             var_decl_prefix = var_declaration(
-                selected[v]["name"], v, is_dict, return_prefix=True
+                selected[v]["name"],
+                v,
+                is_dict,
+                return_prefix=True,
+                is_callable_param=True,
             )
             prefix += var_decl_prefix
 
@@ -61,11 +65,13 @@ def get_boolean(value):
     return "True" if value == "true" else "False"
 
 
-def var_declaration(var_name, value, is_dict=False, return_prefix=False):
+def var_declaration(
+    var_name, value, is_dict=False, return_prefix=False, is_callable_param=False
+):
     if is_dict:
-        prefix = f'"{var_name}":'
+        prefix = f'"{var_name}": '
     else:
-        prefix = f"{var_name}="
+        prefix = f"{var_name}=" if is_callable_param else f"{var_name} = "
     if return_prefix:
         return prefix
     return f"{prefix}{value}"
