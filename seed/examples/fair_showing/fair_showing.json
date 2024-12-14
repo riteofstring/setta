@@ -65,7 +65,6 @@
               "paramInfoId": "2c88c4d4-3f4b-4ca8-ba20-92cda978f47d",
               "isArgsObj": false,
               "startPos": 13,
-              "endPos": 19,
               "keyword": "weight"
             }
           ]
@@ -83,7 +82,6 @@
           "paramInfoId": null,
           "isArgsObj": false,
           "startPos": 51,
-          "endPos": 86,
           "keyword": "historical_black[\"annual_amaranth\"]"
         },
         {
@@ -91,7 +89,6 @@
           "paramInfoId": null,
           "isArgsObj": true,
           "startPos": 94,
-          "endPos": 131,
           "keyword": "__historical_black[\"annual_amaranth\"]"
         },
         {
@@ -99,7 +96,6 @@
           "paramInfoId": "dc5c4afc-b457-43fe-ad49-eca2a15156b7",
           "isArgsObj": false,
           "startPos": 139,
-          "endPos": 186,
           "keyword": "__historical_black[\"annual_amaranth\"][\"weight\"]"
         }
       ]
@@ -115,7 +111,6 @@
               "paramInfoId": "2c88c4d4-3f4b-4ca8-ba20-92cda978f47d",
               "isArgsObj": false,
               "startPos": 13,
-              "endPos": 19,
               "keyword": "weight"
             }
           ]
@@ -142,7 +137,6 @@
               "paramInfoId": null,
               "isArgsObj": false,
               "startPos": 0,
-              "endPos": 35,
               "keyword": "historical_black[\"annual_amaranth\"]"
             }
           ]
@@ -347,7 +341,6 @@
           "paramInfoId": null,
           "isArgsObj": false,
           "startPos": 0,
-          "endPos": 20,
           "keyword": "architectural_maroon"
         }
       ]

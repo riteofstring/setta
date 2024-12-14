@@ -22,7 +22,7 @@ function getContentDomEventListener(evRefs, editor) {
     let keywordInfo = null;
 
     for (const k of evRefs) {
-      if (pos >= k.startPos && pos < k.endPos) {
+      if (pos >= k.startPos && pos < k.startPos + k.keyword.length) {
         keywordInfo = k;
         break;
       }

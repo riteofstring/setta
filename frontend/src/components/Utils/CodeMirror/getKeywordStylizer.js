@@ -24,7 +24,11 @@ export function getKeywordStylizer(evRefs) {
       buildDecorations() {
         const builder = new RangeSetBuilder();
         for (const kp of evRefs) {
-          builder.add(kp.startPos, kp.endPos, italicStyle);
+          builder.add(
+            kp.startPos,
+            kp.startPos + kp.keyword.length,
+            italicStyle,
+          );
         }
         return builder.finish();
       }

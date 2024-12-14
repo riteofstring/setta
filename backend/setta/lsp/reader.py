@@ -269,12 +269,11 @@ class LanguageServerReader(LanguageServerInteractor):
                     positions = line_col_to_position_batch(code, line_cols)
                     position_offset = self.msg_id_to_metadata[id]["position_offset"]
                     for idx in range(0, len(positions), 2):
-                        startPos = positions[idx] - position_offset
-                        endPos = positions[idx + 1] - position_offset
+                        startPosAdjusted = positions[idx] - position_offset
                         content.append(
                             {
-                                "startPos": startPos,
-                                "endPos": endPos,
+                                "startPos": startPosAdjusted,
+                                "keyword": code[positions[idx] : positions[idx + 1]],
                             }
                         )
 

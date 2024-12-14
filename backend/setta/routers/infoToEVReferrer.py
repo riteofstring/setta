@@ -30,18 +30,18 @@ def create_new_ev_refs(replacements, newStartPositions):
             {
                 **replacements[idx]["originalEVRef"],
                 "startPos": startPos,
-                "endPos": startPos + len(newName),
                 "keyword": newName,
             }
         )
     return output
 
+
 def get_new_value_and_positions(details):
     return replace_at_positions(
-            details["string"],
-            create_replacements_array(details["replacements"]),
-            return_positions=True,
-        )
+        details["string"],
+        create_replacements_array(details["replacements"]),
+        return_positions=True,
+    )
 
 
 @router.post(C.ROUTE_MAKE_EV_REF_REPLACEMENTS)

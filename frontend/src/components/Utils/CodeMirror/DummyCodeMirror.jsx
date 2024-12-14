@@ -90,8 +90,8 @@ function HighlightedCode({
   const matchedIndices = {};
   for (const kp of evRefs) {
     matchedIndices[kp.startPos] = {
-      keywordEndIdx: kp.endPos,
-      keyword: code.substring(kp.startPos, kp.endPos),
+      keywordEndIdx: kp.startPos + kp.keyword.length,
+      keyword: kp.keyword,
     };
   }
 

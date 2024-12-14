@@ -58,7 +58,7 @@ export function getRequiredReplacements() {
 
   const infoToFullName = computeInfoToFullName();
   let curr;
-  for (const sectionId of Object.keys(useSectionInfos.getState().x)){
+  for (const sectionId of Object.keys(useSectionInfos.getState().x)) {
     const referrersToSection = useInfoToEVReferrer.getState()[sectionId];
     if (!referrersToSection) {
       continue;
