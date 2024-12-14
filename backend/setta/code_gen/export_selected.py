@@ -303,7 +303,9 @@ class Exporter:
                     code_section_needs_generated_python(self.p, id)
                     and id in self.p["codeEVRefs"]
                 ):
-                    # make sure any necessary variables get created.
+                    # Make sure any necessary variables get created.
+                    # We don't do any replacements here, because that's done later 
+                    # when the code is actually run.
                     process_refs(
                         get_section_code(self.p, id),
                         self.p["codeEVRefs"][id],
