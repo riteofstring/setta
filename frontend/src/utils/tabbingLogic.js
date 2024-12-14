@@ -141,19 +141,14 @@ function shiftTabBackToOverviewListItem(e, sectionId) {
   }
 }
 
-export function focusOnSection(e, sectionId, focusOnFirstElement = true) {
-  e?.preventDefault();
+export function focusOnSection(e, sectionId) {
+  e.preventDefault();
   if (getSectionType(sectionId) === C.GROUP) {
     useSectionRefs
       .getState()
       .withNested[sectionId].focus({ preventScroll: true });
   } else {
-    let el = useSectionRefs.getState().withNested[sectionId];
-    if (focusOnFirstElement) {
-      el = firstFocusableElement(el);
-    }
-    // console.log("el", el)
-    el.focus({
+    firstFocusableElement(useSectionRefs.getState().selfOnly[sectionId]).focus({
       preventScroll: true,
     });
   }
