@@ -36,7 +36,6 @@ from setta.utils.constants import (
     SEND_ARTIFACT_TO_ENV_VARIABLE,
     USER_SETTINGS,
     C,
-    add_base_ui_types,
 )
 
 SETTA_CLEAR_CMD = "SETTA_CLEAR_CMD"
@@ -276,7 +275,6 @@ class TerminalWebsockets:
 
 def runCode(message, terminal_write_fn=None, command_callback=None):
     p = message["content"]
-    add_base_ui_types(p)
     exporter_obj = export_selected(p, always_export_args_objs=False)
     selected = exporter_obj.output
     folder_path = create_timestamped_folder(CODE_FOLDER)

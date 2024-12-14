@@ -7,7 +7,7 @@ from setta.code_gen.export_selected import (
     get_section_type,
     simple_export_selected,
 )
-from setta.utils.constants import C, add_base_ui_types
+from setta.utils.constants import C
 
 from .dependencies import get_tasks
 
@@ -27,7 +27,6 @@ async def route_update_interactive_code(
     x: UpdateInteractiveCodeRequest, tasks=Depends(get_tasks)
 ):
     p = x.project
-    add_base_ui_types(p)
     exporter_obj = simple_export_selected(p)
 
     codeDict = {}

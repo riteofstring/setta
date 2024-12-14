@@ -10,7 +10,7 @@ from setta.utils.utils import (
     try_json,
 )
 
-from ..utils.constants import C
+from ..utils.constants import BASE_UI_TYPES, C
 from .find_placeholders import double_braces, needs_generated_python
 from .utils import process_refs
 
@@ -21,7 +21,8 @@ def get_args_var_name(var_name):
 
 def get_section_type(p, id):
     ui_type_id = p["sections"][id]["uiTypeId"]
-    return p["uiTypes"][ui_type_id]["type"]
+    ui_type = p["uiTypes"].get(ui_type_id) or BASE_UI_TYPES[ui_type_id]
+    return ui_type["type"]
 
 
 def get_artifacts(p, id):
@@ -81,7 +82,7 @@ def get_param_ui_type(p, section_id, id):
     ui_type_col = p["uiTypeCols"][ui_type_col_id] if ui_type_col_id else {}
     ui_type_col_entry = ui_type_col.get(id, new_ui_type_col_entry())
     ui_type_id = ui_type_col_entry["uiTypeId"]
-    ui_type = p["uiTypes"][ui_type_id]
+    ui_type = p["uiTypes"].get(ui_type_id) or BASE_UI_TYPES[ui_type_id]
     return ui_type["type"]
 
 

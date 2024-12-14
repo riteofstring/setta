@@ -72,10 +72,6 @@ def is_from_json_source(id):
     return id and id.startswith(C.JSON_SOURCE_PREFIX)
 
 
-def add_base_ui_types(project):
-    project["uiTypes"].update(BASE_UI_TYPES)
-
-
 CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
     (
         "name",
