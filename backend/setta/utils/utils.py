@@ -176,3 +176,40 @@ def filter_dict(x, keep_keys=None, default_vals=None):
         if (not keep_keys or k in keep_keys)
         and ((not default_vals) or (k not in default_vals) or (v != default_vals[k]))
     }
+
+
+def replace_at_positions(input_string, replacements):
+    """
+    Replace substrings at specific positions in the input string.
+
+    Args:
+        input_string (str): The original string to modify
+        replacements (list): List of tuples (position, old_value, new_value)
+
+    Returns:
+        str: Modified string with all replacements applied
+
+    Raises:
+        ValueError: If any replacement would result in an invalid operation
+    """
+    # Sort replacements by position in descending order to avoid position shifts
+    replacements = sorted(replacements, reverse=True, key=lambda x: x[0])
+
+    # Convert string to list for easier manipulation
+    result = list(input_string)
+
+    for pos, old, new in replacements:
+        # Verify the position is valid
+        if pos < 0 or pos >= len(input_string):
+            raise ValueError(f"Position {pos} is out of bounds")
+
+        # Verify the old value matches at the specified position
+        if not input_string.startswith(old, pos):
+            raise ValueError(
+                f"Expected '{old}' at position {pos}, but found '{input_string[pos:pos+len(old)]}'"
+            )
+
+        # Replace the characters
+        result[pos : pos + len(old)] = list(new)
+
+    return "".join(result)

@@ -29,9 +29,9 @@ from setta.code_gen.find_placeholders import (
 )
 from setta.code_gen.python.generate_argparse import generate_argparse
 from setta.code_gen.python.generate_code import (
+    convert_var_names_to_readable_form,
     generate_code,
     replace_keywords,
-    convert_var_names_to_readable_form
 )
 from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
@@ -310,7 +310,11 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 folder_path, "SETTA_YAML", "yaml"
             )
         if needs_generated_python(curr_code):
-            curr_code, _, generated_python_code_area_ref_var_name_positions = process_refs(
+            (
+                curr_code,
+                _,
+                generated_python_code_area_ref_var_name_positions,
+            ) = process_refs(
                 curr_code,
                 p["codeEVRefs"][s["id"]],
                 exporter_obj.get_ref_var_name,
@@ -326,7 +330,9 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
             )
             replacements[C.SETTA_GENERATED_PYTHON] = generated_python_code
 
-        section_variant["code"] = replace_keywords(curr_code, replacements, generated_python_code_area_ref_var_name_positions)
+        section_variant["code"] = replace_keywords(
+            curr_code, replacements, generated_python_code_area_ref_var_name_positions
+        )
         if generated_python_code:
             section_variant["code"] = convert_var_names_to_readable_form(
                 section_variant["code"],
@@ -335,7 +341,6 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 generated_python_code_area_ref_var_name_positions,
             )
         dependencies[s["id"]] = curr_dependencies
-        
 
     to_write = topological_sort(dependencies)
     id_to_filepath = {}

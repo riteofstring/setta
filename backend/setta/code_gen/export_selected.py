@@ -299,7 +299,9 @@ class Exporter:
                 children = get_section_children(self.p, id)
                 info["value"] = self.export_sections(children)
                 info["dependencies"] = info["value"]
-                info["ref_var_name_positions"] = [] # has to be populated when the code is generated
+                info[
+                    "ref_var_name_positions"
+                ] = []  # has to be populated when the code is generated
                 self.output[var_name] = info
             elif type in [C.CODE, C.INTERACTIVE_CODE]:
                 if (
@@ -307,7 +309,7 @@ class Exporter:
                     and id in self.p["codeEVRefs"]
                 ):
                     # Make sure any necessary variables get created.
-                    # We don't do any replacements here, because that's done later 
+                    # We don't do any replacements here, because that's done later
                     # when the code is actually run.
                     process_refs(
                         get_section_code(self.p, id),
@@ -388,11 +390,15 @@ class Exporter:
                     "type": C.NESTED_PARAM,
                     "value": params,
                     "dependencies": params,
-                    "ref_var_name_positions": [], # has to be populated when the code is generated
+                    "ref_var_name_positions": [],  # has to be populated when the code is generated
                 }
                 self.output[var_name] = info
             else:
-                value, used_ref_var_names, ref_var_name_positions = self.export_param_value(section_id, id)
+                (
+                    value,
+                    used_ref_var_names,
+                    ref_var_name_positions,
+                ) = self.export_param_value(section_id, id)
                 self.output[var_name] = {
                     "sectionId": section_id,
                     "paramInfoId": id,
@@ -400,7 +406,7 @@ class Exporter:
                     "type": get_param_ui_type(self.p, section_id, id),
                     "value": value,
                     "dependencies": used_ref_var_names,
-                    "ref_var_name_positions": ref_var_name_positions
+                    "ref_var_name_positions": ref_var_name_positions,
                 }
 
         return var_name

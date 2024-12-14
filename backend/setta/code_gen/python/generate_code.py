@@ -1,12 +1,13 @@
 import ast
 import copy
-from weakref import ref
+import re
+
+from setta.utils.utils import replace_at_positions
 
 from ...utils.constants import USER_SETTINGS, C
 from ..find_placeholders import double_braces
 from ..utils import push_var_deep
-from .infer_imports import find_missing_imports
-import re
+from .ast_utils import find_missing_imports, find_top_level_symbols
 
 
 def get_location_str(node):
@@ -21,6 +22,7 @@ def get_import_text(code):
     imports = [import_str(x) for x in find_missing_imports(code)]
     return "\n".join(imports)
 
+
 def get_mappings(var_names, selected, is_dict, positionalOnlyParams=None):
     output = ""
     relative_positions = []
@@ -28,11 +30,13 @@ def get_mappings(var_names, selected, is_dict, positionalOnlyParams=None):
     for idx, v in enumerate(var_names):
         prefix = "" if idx == 0 else ", "
         if is_dict or v not in positionalOnlyParams:
-            var_decl_prefix = var_declaration(selected[v]["name"], v, is_dict, return_prefix=True)
+            var_decl_prefix = var_declaration(
+                selected[v]["name"], v, is_dict, return_prefix=True
+            )
             prefix += var_decl_prefix
 
         curr_output = f"{prefix}{v}"
-        relative_positions.append((curr_position+len(prefix), v))
+        relative_positions.append((curr_position + len(prefix), v))
         curr_position += len(curr_output)
         output += curr_output
 
@@ -50,9 +54,7 @@ def get_callable_params(var_names, positionalOnlyParams, selected):
 
 
 def get_list_of_vars(var_names):
-    return get_mappings(
-        var_names, None, is_dict=False, positionalOnlyParams=var_names
-    )
+    return get_mappings(var_names, None, is_dict=False, positionalOnlyParams=var_names)
 
 
 def get_boolean(value):
@@ -85,23 +87,25 @@ def get_value(x, selected):
             output = prefix + output + "}"
             prefix_len = len(prefix)
         else:
-            output, relative_positions = get_callable_params(x['dependencies'], x['value']['positionalOnlyParams'], selected)
+            output, relative_positions = get_callable_params(
+                x["dependencies"], x["value"]["positionalOnlyParams"], selected
+            )
             prefix = f"{x['value']['callable']}("
             output = f"{prefix}{output})"
             prefix_len = len(prefix)
-        relative_positions = [(p+prefix_len,v) for p,v in relative_positions]
+        relative_positions = [(p + prefix_len, v) for p, v in relative_positions]
     elif type_value == C.LIST_ROOT:
         output, relative_positions = get_list_of_vars(x["value"])
         output = f"[{output}]"
-        relative_positions = [(p+1,v) for p,v in relative_positions]
+        relative_positions = [(p + 1, v) for p, v in relative_positions]
     elif type_value in [C.DICT_ROOT, C.GROUP, C.NESTED_PARAM]:
         output, relative_positions = get_dict_contents(x["value"], selected)
         output = "{" + output + "}"
-        relative_positions = [(p+1,v) for p,v in relative_positions]
+        relative_positions = [(p + 1, v) for p, v in relative_positions]
     else:
         output = None
         relative_positions = None
-    
+
     return output, relative_positions
 
 
@@ -112,7 +116,7 @@ def create_line(var_name, x, selected, force_appear):
         prefix_len = len(prefix)
         value = f"{prefix}{value}"
         if relative_positions:
-            relative_positions = [(p+prefix_len,v) for p,v in relative_positions]
+            relative_positions = [(p + prefix_len, v) for p, v in relative_positions]
     return value, relative_positions
 
 
@@ -136,7 +140,9 @@ def generate_lines_of_code_without_imports(
         selected = {v.pop("var_name"): v for v in selected}
     for var_name, x in selected.items():
         force_appear = force_appear_var_name == var_name
-        var_str, ref_var_name_positions = create_line(var_name, x, selected, force_appear=force_appear)
+        var_str, ref_var_name_positions = create_line(
+            var_name, x, selected, force_appear=force_appear
+        )
         if var_str:
             var_name_to_line_num[var_name] = len(lines)
             lines.append(var_str)
@@ -235,22 +241,57 @@ def generate_code(
         replace_templated_code,
     )
 
-from pprint import pprint
+
 def convert_var_names_to_readable_form(
     generated_code, var_name_to_line_num, exporter_obj, code_area_ref_var_name_positions
 ):
+    all_ref_var_name_positions = [*code_area_ref_var_name_positions]
+
+    # convert to global positions
     for var_name, line_num in var_name_to_line_num.items():
         details = exporter_obj.output[var_name]
-        line_col_pairs = [(line_num, col) for col, _ in details["ref_var_name_positions"]]
+        line_col_pairs = [
+            (line_num, col) for col, _ in details["ref_var_name_positions"]
+        ]
+        line_col_pairs.append((line_num, 0))  # this is for the variable declaration
         global_positions = line_col_to_position_batch(generated_code, line_col_pairs)
-        ref_var_name_global_positions = [(p, v[1]) for p, v in zip(global_positions, details["ref_var_name_positions"])]
-        print(ref_var_name_global_positions, flush=True)
-        for p,v in ref_var_name_global_positions:
-            print(generated_code[p:p+len(v)], flush=True)
-    
-    
+        variable_declaration_position = (
+            global_positions.pop()
+        )  # need to pop this before we zip with ref_var_name_positions
+        ref_var_name_global_positions = [
+            (p, v[1])
+            for p, v in zip(global_positions, details["ref_var_name_positions"])
+        ]
+        all_ref_var_name_positions.extend(ref_var_name_global_positions)
+        all_ref_var_name_positions.append((variable_declaration_position, var_name))
+
+    # create nice var names for references
+    top_level_symbols = find_top_level_symbols(generated_code)
+    var_name_to_nice_var_name_mapping = {}
+    for idx in range(len(all_ref_var_name_positions)):
+        position, var_name = all_ref_var_name_positions[idx]
+
+        # only create nice_var_name if we haven't already created it for this var_name
+        if var_name not in var_name_to_nice_var_name_mapping:
+            nice_name = exporter_obj.output[var_name]["name"]
+            nice_var_name = create_nice_var_name(top_level_symbols, nice_name)
+            top_level_symbols.add(nice_var_name)
+            var_name_to_nice_var_name_mapping[var_name] = nice_var_name
+
+        nice_var_name = var_name_to_nice_var_name_mapping[var_name]
+        all_ref_var_name_positions[idx] = position, var_name, nice_var_name
+
+    generated_code = replace_at_positions(generated_code, all_ref_var_name_positions)
     return generated_code
 
+
+def create_nice_var_name(top_level_symbols, nice_name):
+    nice_var_name = nice_name
+    counter = 2
+    while nice_var_name in top_level_symbols:
+        nice_var_name = f"{nice_var_name}_{counter}"
+        counter += 1
+    return nice_var_name
 
 
 def replace_keywords(x, replacements, ref_var_name_positions=None):
@@ -279,7 +320,6 @@ def append_to_line(input_string, line_number, append):
     lines = input_string.split("\n")
     lines[line_number] += append
     return "\n".join(lines)
-
 
 
 def position_to_line_col(text, position):

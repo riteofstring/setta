@@ -39,9 +39,8 @@ def process_refs(value, refs, get_var_name, cursor_position=None):
         value = value[:startPos] + ref_var_name + value[endPos:]
         used_ref_var_names.append(ref_var_name)
 
-    positions = [(p+s, r) for p,s,r in positions]
+    positions = [(p + s, r) for p, s, r in positions]
     return value, used_ref_var_names, positions
-
 
 
 def set_new_positions_and_shifts(positions, ref_var_name, startPos, endPos):
@@ -50,7 +49,7 @@ def set_new_positions_and_shifts(positions, ref_var_name, startPos, endPos):
 
     for idx in range(len(positions)):
         position, shift, curr_ref_var_name = positions[idx]
-        
+
         # Update position if replacement occurs before the initial position
         if endPos <= position:
             # All changes before the position affect its offset
@@ -59,5 +58,5 @@ def set_new_positions_and_shifts(positions, ref_var_name, startPos, endPos):
             position = startPos + len(
                 ref_var_name
             )  # Reset position to after the new substring
-        
+
         positions[idx] = position, shift, curr_ref_var_name
