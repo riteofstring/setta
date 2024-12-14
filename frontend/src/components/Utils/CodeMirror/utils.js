@@ -29,6 +29,7 @@ export function findRefs({ keywordPositions, fullNameToInfo, fullText }) {
         isArgsObj: info["isArgsObj"],
         startPos: k["startPos"],
         endPos: k["endPos"],
+        keyword,
       });
     }
   }

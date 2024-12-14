@@ -9,6 +9,7 @@ import {
   useNodeInternals,
   useSectionInfos,
 } from "state/definitions";
+import { getInfoToEVReferrers } from "./actions/infoToEVReferrer";
 import { getRegexAndColorMap } from "./actions/keywordRegex";
 import {
   getNodeUpdateInformation,
@@ -18,7 +19,6 @@ import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
 import {
   getCodeInfoCol,
   getDisplayedSectionIdToChildren,
-  getInfoToEVReferrers,
   getSectionIdToParentId,
   getSectionType,
   getSectionVariant,

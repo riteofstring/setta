@@ -167,7 +167,8 @@
               "paramInfoId": null,
               "isArgsObj": false,
               "startPos": 0,
-              "endPos": 18
+              "endPos": 18,
+              "keyword": "list_of_transforms"
             }
           ],
           "value": "list_of_transforms"
@@ -219,7 +220,8 @@
               "paramInfoId": null,
               "isArgsObj": false,
               "startPos": 0,
-              "endPos": 5
+              "endPos": 5,
+              "keyword": "model"
             }
           ],
           "value": "model.parameters()"
