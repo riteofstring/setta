@@ -50,7 +50,7 @@ function processEVRefForUpdater(evRefs, output, metadata) {
   }
 }
 
-export function getRequiredReplacements(sectionIds) {
+export function getRequiredReplacements() {
   const codeAreaReplacements = {};
   const codeInfoReplacements = {};
   const paramEVReplacements = {};
@@ -58,7 +58,7 @@ export function getRequiredReplacements(sectionIds) {
 
   const infoToFullName = computeInfoToFullName();
   let curr;
-  for (const sectionId of sectionIds) {
+  for (const sectionId of Object.keys(useSectionInfos.getState().x)){
     const referrersToSection = useInfoToEVReferrer.getState()[sectionId];
     if (!referrersToSection) {
       continue;
@@ -138,7 +138,7 @@ function getCodeAreaReplacementObj(codeAreaReplacements, variantId, state) {
   return codeAreaReplacements[variantId];
 }
 
-export async function maybeOpenRenameReferencesModal(sectionIds) {
+export async function maybeOpenRenameReferencesModal() {
   const renameMode =
     useSettings.getState().backend.renameReferencesOnSectionMoveMode;
 
@@ -147,7 +147,7 @@ export async function maybeOpenRenameReferencesModal(sectionIds) {
   }
 
   const [codeAreaReplacements, codeInfoReplacements, paramEVReplacements] =
-    getRequiredReplacements(sectionIds);
+    getRequiredReplacements();
 
   if (
     _.size(codeAreaReplacements) === 0 &&
