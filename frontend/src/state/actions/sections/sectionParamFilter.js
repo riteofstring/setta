@@ -1,8 +1,4 @@
-import {
-  useActiveSection,
-  useProjectSearch,
-  useSectionRefs,
-} from "state/definitions";
+import { useActiveSection, useProjectSearch } from "state/definitions";
 
 export function focusOnSearch() {
   const sectionIds = useActiveSection.getState().ids;
@@ -23,13 +19,8 @@ export function focusOnSearch() {
 
 export function focusOnAdvancedSearch() {
   useProjectSearch.setState({ mode: "advanced" });
-  const unsub = useSectionRefs.subscribe(
-    (state) => state.other["ProjectPageSearchBar"],
-    (x) => {
-      if (x) {
-        x.click();
-      }
-      unsub();
-    },
-  );
+  const element = document.getElementById("ProjectPageSearchBar");
+  if (element) {
+    element.click();
+  }
 }

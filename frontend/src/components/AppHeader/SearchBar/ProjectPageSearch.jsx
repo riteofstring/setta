@@ -5,42 +5,28 @@ import {
 } from "components/Utils/Combobox/ComboboxParts";
 import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import React from "react";
+import React, { useRef } from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useProjectSearch, useSectionInfos } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
-import { useOtherRefAndInit } from "state/hooks/sectionRef";
 import { focusOnSection } from "utils/tabbingLogic";
 
 export function ProjectPageSearchBar() {
-  const inputId = "ProjectPageSearchBar";
-  const ref = useOtherRefAndInit(inputId);
-
   return (
-    <ProjectPageSearchBarWrapper ref={ref} inputId={inputId}>
+    <ProjectPageSearchBarWrapper>
       <ProjectPageSearchInput />
     </ProjectPageSearchBarWrapper>
   );
 }
 
-const ProjectPageSearchBarWrapper = React.forwardRef(
-  ({ children, inputId }, ref) => {
-    const mode = useProjectSearch((x) => x.mode);
+function ProjectPageSearchBarWrapper({ children }) {
+  const mode = useProjectSearch((x) => x.mode);
 
-    if (mode === "find") {
-      return (
-        <ProjectPageFind ref={ref} inputId={inputId}>
-          {children}
-        </ProjectPageFind>
-      );
-    }
-    return (
-      <ProjectPageAdvanced ref={ref} inputId={inputId}>
-        {children}
-      </ProjectPageAdvanced>
-    );
-  },
-);
+  if (mode === "find") {
+    return <ProjectPageFind>{children}</ProjectPageFind>;
+  }
+  return <ProjectPageAdvanced>{children}</ProjectPageAdvanced>;
+}
 
 const ProjectPageSearchInput = React.forwardRef((props, ref) => {
   return (
@@ -54,26 +40,25 @@ const ProjectPageSearchInput = React.forwardRef((props, ref) => {
       {...getFloatingBoxHandlers(
         "Search your entire project from one location.",
       )}
+      id="ProjectPageSearchBar"
     />
   );
 });
 
-const ProjectPageFind = React.forwardRef(({ children, inputId }, ref) => {
+function ProjectPageFind({ children }) {
   const { value, onChange, onBlur, onFocus, onKeyDown } =
     useUpdateProjectSearch();
 
   return React.cloneElement(children, {
-    id: inputId,
     value,
     onChange,
     onBlur,
     onFocus,
     onKeyDown,
-    ref,
   });
-});
+}
 
-const ProjectPageAdvanced = React.forwardRef(({ children, inputId }, ref) => {
+function ProjectPageAdvanced({ children }) {
   const allSections = useSectionInfos((x) =>
     Object.values(x.x).map((s) => ({ id: s.id, name: s.name })),
   );
@@ -100,13 +85,14 @@ const ProjectPageAdvanced = React.forwardRef(({ children, inputId }, ref) => {
     onSelectedItemChange,
   });
 
+  const inputRef = useRef();
+
   return (
     <>
       {React.cloneElement(children, {
         ...getInputProps({
-          id: inputId,
           onClick: () => onInputClick(inputRef.current),
-          ref,
+          ref: inputRef,
         }),
       })}
 
@@ -124,4 +110,4 @@ const ProjectPageAdvanced = React.forwardRef(({ children, inputId }, ref) => {
       </ComboboxList>
     </>
   );
-});
+}
