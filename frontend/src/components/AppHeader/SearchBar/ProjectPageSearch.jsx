@@ -1,5 +1,10 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { useEffect } from "react";
+import {
+  clickOnProjectPageAdvancedSearch,
+  clickOnProjectPageFind,
+} from "state/actions/sections/sectionParamFilter";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useProjectSearch, useSectionInfos } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
@@ -8,6 +13,14 @@ import { SimpleSearchBar } from "./HomePageSearch";
 
 export function ProjectPageSearchBar() {
   const mode = useProjectSearch((x) => x.mode);
+
+  useEffect(() => {
+    if (mode === "simple") {
+      clickOnProjectPageFind();
+    } else {
+      clickOnProjectPageAdvancedSearch();
+    }
+  }, [mode]);
 
   switch (mode) {
     case "simple":
@@ -23,7 +36,7 @@ function ProjectPageFind() {
 
   return (
     <SimpleSearchBar
-      divId="ProjectPageSearchBar"
+      divId="ProjectPageFind"
       placeholder="Search Project"
       value={value}
       onChange={onChange}
@@ -51,7 +64,7 @@ function ProjectPageAdvancedSearch() {
   return (
     <IdNameCombobox
       allItems={allItems}
-      inputDivId="ProjectPageSearchBar"
+      inputDivId="ProjectPageAdvancedSearch"
       onSelectedItemChange={onSelectedItemChange}
     />
   );
