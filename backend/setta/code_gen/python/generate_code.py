@@ -21,15 +21,22 @@ def get_import_text(code):
     imports = [import_str(x) for x in find_missing_imports(code)]
     return "\n".join(imports)
 
-
 def get_mappings(var_names, selected, is_dict, positionalOnlyParams=None):
-    mappings = [
-        v
-        if not is_dict and v in positionalOnlyParams
-        else var_declaration(selected[v]["name"], v, is_dict)
-        for v in var_names
-    ]
-    return ", ".join(mappings)
+    output = ""
+    relative_positions = []
+    curr_position = 0
+    for idx, v in enumerate(var_names):
+        prefix = "" if idx == 0 else ", "
+        if is_dict or v not in positionalOnlyParams:
+            var_decl_prefix = var_declaration(selected[v]["name"], v, is_dict, return_prefix=True)
+            prefix += var_decl_prefix
+
+        curr_output = f"{prefix}{v}"
+        relative_positions.append((curr_position+len(prefix), v))
+        curr_position += len(curr_output)
+        output += curr_output
+
+    return output, relative_positions
 
 
 def get_dict_contents(var_names, selected):
@@ -42,48 +49,78 @@ def get_callable_params(var_names, positionalOnlyParams, selected):
     )
 
 
+def get_list_of_vars(var_names):
+    return get_mappings(
+        var_names, None, is_dict=False, positionalOnlyParams=var_names
+    )
+
+
 def get_boolean(value):
     return "True" if value == "true" else "False"
 
 
-def var_declaration(var_name, value, is_dict=False):
+def var_declaration(var_name, value, is_dict=False, return_prefix=False):
     if is_dict:
-        operator = ":"
-        var_name = f'"{var_name}"'
+        prefix = f'"{var_name}":'
     else:
-        operator = "="
-    return f"{var_name}{operator}{value}"
+        prefix = f"{var_name}="
+    if return_prefix:
+        return prefix
+    return f"{prefix}{value}"
 
 
+# returns the value and a relative_positions array (for populating some ref_var_name_positions) or None if not applicable
 def get_value(x, selected):
     type_value = x["type"]
     if type_value in [C.TEXT, C.SLIDER]:
-        return str(x["value"])
+        output = str(x["value"])
+        relative_positions = None
     elif type_value == C.SWITCH:
-        return str(get_boolean(x["value"]))
-    elif type_value in [C.SECTION]:
+        output = str(get_boolean(x["value"]))
+        relative_positions = None
+    elif type_value == C.SECTION:
         if not x["value"]["callable"]:
-            return "{" + get_dict_contents(x["dependencies"], selected) + "}"
+            output, relative_positions = get_dict_contents(x["dependencies"], selected)
+            prefix = "{"
+            output = prefix + output + "}"
+            prefix_len = len(prefix)
         else:
-            return f"{x['value']['callable']}({get_callable_params(x['dependencies'], x['value']['positionalOnlyParams'], selected)})"
+            output, relative_positions = get_callable_params(x['dependencies'], x['value']['positionalOnlyParams'], selected)
+            prefix = f"{x['value']['callable']}("
+            output = f"{prefix}{output})"
+            prefix_len = len(prefix)
+        relative_positions = [(p+prefix_len,v) for p,v in relative_positions]
     elif type_value == C.LIST_ROOT:
-        return f"[{', '.join(map(str, x['value']))}]"
+        output, relative_positions = get_list_of_vars(x["value"])
+        output = f"[{output}]"
+        relative_positions = [(p+1,v) for p,v in relative_positions]
     elif type_value in [C.DICT_ROOT, C.GROUP, C.NESTED_PARAM]:
-        return "{" + get_dict_contents(x["value"], selected) + "}"
+        output, relative_positions = get_dict_contents(x["value"], selected)
+        output = "{" + output + "}"
+        relative_positions = [(p+1,v) for p,v in relative_positions]
     else:
-        return None
+        output = None
+        relative_positions = None
+    
+    return output, relative_positions
 
 
 def create_line(var_name, x, selected, force_appear):
-    value = get_value(x, selected)
-    dec = var_declaration(var_name, value) if value or force_appear else value
-    return dec
+    value, relative_positions = get_value(x, selected)
+    if value or force_appear:
+        prefix = var_declaration(var_name, value, return_prefix=True)
+        prefix_len = len(prefix)
+        value = f"{prefix}{value}"
+        if relative_positions:
+            relative_positions = [(p+prefix_len,v) for p,v in relative_positions]
+    return value, relative_positions
 
 
 def generate_lines_of_code_without_imports(
-    selected, push_var_name=None, force_appear_var_name=None
+    selected, push_var_name=None, force_appear_var_name=None, make_copy_of_selected=True
 ):
-    selected = copy.deepcopy(selected)
+    if make_copy_of_selected:
+        selected = copy.deepcopy(selected)
     lines = []
     var_name_to_line_num = {}
     if push_var_name:
@@ -99,10 +136,12 @@ def generate_lines_of_code_without_imports(
         selected = {v.pop("var_name"): v for v in selected}
     for var_name, x in selected.items():
         force_appear = force_appear_var_name == var_name
-        var_str = create_line(var_name, x, selected, force_appear=force_appear)
+        var_str, ref_var_name_positions = create_line(var_name, x, selected, force_appear=force_appear)
         if var_str:
             var_name_to_line_num[var_name] = len(lines)
             lines.append(var_str)
+            if ref_var_name_positions:
+                x["ref_var_name_positions"] = ref_var_name_positions
 
     return lines, var_name_to_line_num
 
@@ -176,6 +215,7 @@ def generate_code(
     push_var_name=None,
     force_appear_var_name=None,
     replace_templated_code=True,
+    make_copy_of_selected=True,
 ):
     (
         lines,
@@ -184,6 +224,7 @@ def generate_code(
         selected,
         push_var_name=push_var_name,
         force_appear_var_name=force_appear_var_name,
+        make_copy_of_selected=make_copy_of_selected,
     )
 
     return maybe_prepend_with_imports_and_replace_templated_code(
@@ -198,12 +239,16 @@ from pprint import pprint
 def convert_var_names_to_readable_form(
     generated_code, var_name_to_line_num, exporter_obj, code_area_ref_var_name_positions
 ):
-    print(generated_code, flush=True)
-    print(var_name_to_line_num, flush=True)
-    # pprint(exporter_obj.output)
-    for p,v in code_area_ref_var_name_positions:
-        print(generated_code[p:p+len(v)], flush=True)
-
+    for var_name, line_num in var_name_to_line_num.items():
+        details = exporter_obj.output[var_name]
+        line_col_pairs = [(line_num, col) for col, _ in details["ref_var_name_positions"]]
+        global_positions = line_col_to_position_batch(generated_code, line_col_pairs)
+        ref_var_name_global_positions = [(p, v[1]) for p, v in zip(global_positions, details["ref_var_name_positions"])]
+        print(ref_var_name_global_positions, flush=True)
+        for p,v in ref_var_name_global_positions:
+            print(generated_code[p:p+len(v)], flush=True)
+    
+    
     return generated_code
 
 
@@ -213,15 +258,12 @@ def replace_keywords(x, replacements, ref_var_name_positions=None):
         if new_value is not None:
             old_value = double_braces(key)
             if ref_var_name_positions:
-                print("finding matches using re", old_value, x, flush=True)
                 for match in re.finditer(re.escape(old_value), x):
                     position = match.start()
-                    print("position", flush=True)
                     for idx in range(len(ref_var_name_positions)):
                         p, v = ref_var_name_positions[idx]
                         if position < p:
                             p += len(new_value) - len(old_value)
-                            print("new p", p, flush=True)
                             ref_var_name_positions[idx] = p, v
 
             x = x.replace(old_value, new_value)
@@ -238,13 +280,6 @@ def append_to_line(input_string, line_number, append):
     lines[line_number] += append
     return "\n".join(lines)
 
-
-def find_line_number(code, search_term):
-    lines = code.split("\n")
-    for i, line in enumerate(lines):
-        if search_term in line:
-            return i
-    return -1
 
 
 def position_to_line_col(text, position):

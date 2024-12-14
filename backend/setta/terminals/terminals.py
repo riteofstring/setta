@@ -322,6 +322,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 selected,
                 curr_code,
                 replace_templated_code=False,
+                make_copy_of_selected=False,
             )
             replacements[C.SETTA_GENERATED_PYTHON] = generated_python_code
 
