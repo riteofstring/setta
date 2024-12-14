@@ -2,8 +2,15 @@ import {
   computeInfoToFullName,
   keyForInfoToFullName,
 } from "components/Utils/CodeMirror/utils";
+import _ from "lodash";
 import { dbMakeEVRefReplacements } from "requests/infoToEVReferrer";
-import { useInfoToEVReferrer, useSectionInfos } from "state/definitions";
+import {
+  useInfoToEVReferrer,
+  useSectionInfos,
+  useSettings,
+} from "state/definitions";
+import { RENAME_REFERENCES_ON_SECTION_MOVE_MODES } from "utils/constants";
+import { openRenameReferencesModal } from "./modal";
 
 export function getInfoToEVReferrers(state) {
   const output = {};
@@ -132,18 +139,39 @@ function getCodeAreaReplacementObj(codeAreaReplacements, variantId, state) {
 }
 
 export async function maybeOpenRenameReferencesModal(sectionIds) {
+  const renameMode =
+    useSettings.getState().backend.renameReferencesOnSectionMoveMode;
+
+  if (renameMode === RENAME_REFERENCES_ON_SECTION_MOVE_MODES.NEVER_RENAME) {
+    return;
+  }
+
   const [codeAreaReplacements, codeInfoReplacements, paramEVReplacements] =
     getRequiredReplacements(sectionIds);
 
-  //   if (_.size(codeAreaReplacements) > 0 || _.size(codeInfoReplacements) >0 || _.size(paramEVReplacements) >0){
-  //     openRenameReferencesModal()
-  //   }
+  if (
+    _.size(codeAreaReplacements) === 0 &&
+    _.size(codeInfoReplacements) === 0 &&
+    _.size(paramEVReplacements) === 0
+  ) {
+    return;
+  }
 
-  await makeReplacements(
-    codeAreaReplacements,
-    codeInfoReplacements,
-    paramEVReplacements,
-  );
+  if (renameMode === RENAME_REFERENCES_ON_SECTION_MOVE_MODES.ALWAYS_ASK) {
+    openRenameReferencesModal(
+      codeAreaReplacements,
+      codeInfoReplacements,
+      paramEVReplacements,
+    );
+  } else if (
+    renameMode === RENAME_REFERENCES_ON_SECTION_MOVE_MODES.ALWAYS_RENAME
+  ) {
+    await makeReplacements(
+      codeAreaReplacements,
+      codeInfoReplacements,
+      paramEVReplacements,
+    );
+  }
 }
 
 export async function makeReplacements(

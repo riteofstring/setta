@@ -41,6 +41,6 @@ export function openDeleteProjectWarningModal(selectedProjects) {
   openModal(MODAL_TYPE.DELETE_PROJECT_WARNING, selectedProjects);
 }
 
-export function openRenameReferencesModal() {
-  openModal(MODAL_TYPE.RENAME_REFERENCES);
+export function openRenameReferencesModal(...data) {
+  openModal(MODAL_TYPE.RENAME_REFERENCES, data);
 }

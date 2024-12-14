@@ -1,14 +1,41 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { useState } from "react";
 import { BiErrorCircle } from "react-icons/bi";
+import { makeReplacements } from "state/actions/infoToEVReferrer";
 import { setModalOpen } from "state/actions/modal";
+import { useModal, useSettings } from "state/definitions";
+import { RENAME_REFERENCES_ON_SECTION_MOVE_MODES } from "utils/constants";
 
 export function RenameReferencesModal() {
+  const modalData = useModal((x) => x.modalData);
+
+  const [doNotAsk, setDoNotAsk] = useState(false);
+
   const handleCancel = () => {
     setModalOpen(false);
+    if (doNotAsk) {
+      useSettings.setState((state) => ({
+        backend: {
+          ...state.backend,
+          renameReferencesOnSectionMoveMode:
+            RENAME_REFERENCES_ON_SECTION_MOVE_MODES.NEVER_RENAME,
+        },
+      }));
+    }
   };
 
   const handleConfirm = async () => {
-    // TODO
+    if (doNotAsk) {
+      useSettings.setState((state) => ({
+        backend: {
+          ...state.backend,
+          renameReferencesOnSectionMoveMode:
+            RENAME_REFERENCES_ON_SECTION_MOVE_MODES.ALWAYS_RENAME,
+        },
+      }));
+    }
+    await makeReplacements(...modalData);
+    setModalOpen(false);
   };
 
   const referencesToBeUpdated = ["this", "is", "a", "test"];
@@ -50,6 +77,9 @@ export function RenameReferencesModal() {
           <input
             type="checkbox"
             className="h-4 w-4 rounded border-gray-500 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+            onChange={(e) => {
+              setDoNotAsk(e.target.checked);
+            }}
           />
           <span>Don't ask again</span>
         </label>
