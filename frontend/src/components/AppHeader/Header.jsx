@@ -1,10 +1,11 @@
-import { useProjectLoading } from "state/definitions";
+import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { useHomePageSearch, useProjectLoading } from "state/definitions";
+import { useUpdateProjectSearch } from "state/hooks/search";
 import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
 import { Notification } from "./Notification";
 import { ProjectNav } from "./ProjectNav";
-import { HomePageSearchBar } from "./SearchBar/HomePage";
-import { ProjectPageSearchBar } from "./SearchBar/ProjectPage";
 import { SiteLogo } from "./SiteLogo";
 
 export function HeaderContainer({ path }) {
