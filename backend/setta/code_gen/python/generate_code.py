@@ -192,16 +192,6 @@ def generate_code(
         replace_templated_code,
     )
 
-from pprint import pprint
-def convert_var_names_to_readable_form(
-    generated_code, var_name_to_line_num, exporter_obj
-):
-    print(generated_code, flush=True)
-    print(var_name_to_line_num, flush=True)
-    pprint(exporter_obj.output)
-
-    return generated_code
-
 
 def replace_keywords(x, replacements):
     for key, value in replacements.items():

@@ -290,8 +290,6 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         curr_code = section_variant["code"]
         curr_dependencies = []
         replacements = {}
-        generated_python_code = None
-        generated_python_var_name_to_line_num = None
         for other_s in code_sections.values():
             if double_braces(other_s["name"]) in curr_code:
                 replacements[other_s["name"]] = codePathStr(
@@ -310,25 +308,14 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 p["codeEVRefs"][s["id"]],
                 exporter_obj.get_ref_var_name,
             )
-            (
-                generated_python_code,
-                generated_python_var_name_to_line_num,
-            ) = generate_code(
+            replacements[C.SETTA_GENERATED_PYTHON] = generate_code(
                 selected,
                 curr_code,
                 replace_templated_code=False,
-            )
-            replacements[C.SETTA_GENERATED_PYTHON] = generated_python_code
+            )[0]
 
         section_variant["code"] = replace_keywords(curr_code, replacements)
-        if generated_python_code:
-            section_variant["code"] = convert_var_names_to_readable_form(
-                section_variant["code"],
-                generated_python_var_name_to_line_num,
-                exporter_obj,
-            )
         dependencies[s["id"]] = curr_dependencies
-        
 
     to_write = topological_sort(dependencies)
     id_to_filepath = {}
