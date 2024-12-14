@@ -66,7 +66,7 @@ def get_value(x, selected):
             return f"{x['value']['callable']}({get_callable_params(x['dependencies'], x['value']['positionalOnlyParams'], selected)})"
     elif type_value == C.LIST_ROOT:
         return f"[{', '.join(map(str, x['value']))}]"
-    elif type_value in [C.DICT_ROOT, C.NESTED_PARAM]:
+    elif type_value in [C.DICT_ROOT, C.GROUP, C.NESTED_PARAM]:
         return "{" + get_dict_contents(x["value"], selected) + "}"
     else:
         return None

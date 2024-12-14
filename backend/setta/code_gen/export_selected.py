@@ -220,34 +220,6 @@ def code_section_needs_generated_python(p, id):
     )
 
 
-def flatten_groups(p):
-    for sid in p["sections"].keys():
-        if get_section_type(p, sid) != C.GROUP:
-            continue
-
-        children = get_section_children(p, sid)
-        if sid in p["projectConfig"]["children"]:
-            for c in children:
-                p["projectConfig"]["children"][c] = {}
-        else:
-            parentId = None
-            for possible_parent_id in p["sections"].keys():
-                parent_idx = get_section_children(p, possible_parent_id)[
-                    "children"
-                ].index(sid)
-                if parent_idx != -1:
-                    parentId = possible_parent_id
-                    break
-            if parentId is None:
-                raise ValueError
-            parentSelectedVariant = get_selected_section_variant(p, parentId)
-            parentSelectedVariant["children"] = (
-                parentSelectedVariant["children"][:parent_idx]
-                + children
-                + parentSelectedVariant["children"][parent_idx:]
-            )
-
-
 def export_global_variables_and_remove_script(
     p, keep_section_types, fn_export_global_variables
 ):
@@ -272,10 +244,9 @@ class Exporter:
         self.always_export_args_objs = always_export_args_objs
 
     def export(self):
-        flatten_groups(self.p)
         export_global_variables_and_remove_script(
             self.p,
-            [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.CODE, C.INTERACTIVE_CODE],
+            [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.GROUP, C.CODE, C.INTERACTIVE_CODE],
             self.export_section_params,
         )
         self.export_sections(list(self.p["projectConfig"]["children"].keys()))
@@ -322,7 +293,7 @@ class Exporter:
                 }
                 info["dependencies"] = [*params, *used_ref_var_names]
                 self.output[var_name] = info
-            elif type in [C.LIST_ROOT, C.DICT_ROOT]:
+            elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
                 children = get_section_children(self.p, id)
                 info["value"] = self.export_sections(children)
                 info["dependencies"] = info["value"]
@@ -487,10 +458,17 @@ class SimpleExporter:
         self.var_name_reverse_mapping = QuoteInsensitiveDict()
 
     def export(self):
-        flatten_groups(self.p)
         export_global_variables_and_remove_script(
             self.p,
-            [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.IMAGE, C.LINE_PLOT, C.DRAW],
+            [
+                C.SECTION,
+                C.LIST_ROOT,
+                C.DICT_ROOT,
+                C.GROUP,
+                C.IMAGE,
+                C.LINE_PLOT,
+                C.DRAW,
+            ],
             self.export_global_variables,
         )
         for id in list(self.p["projectConfig"]["children"].keys()):
@@ -510,14 +488,14 @@ class SimpleExporter:
             )
             value = {"selectedItem": selectedItem, "params": params}
             self.create_var_mapping((id, "selectedItem"), f'{name}["selectedItem"]')
-        elif type in [C.LIST_ROOT, C.DICT_ROOT]:
+        elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
             children = get_section_children(self.p, id)
             if type == C.LIST_ROOT:
                 value = [
                     self.export_section(c, f"{name}[{idx}]")
                     for idx, c in enumerate(children)
                 ]
-            elif type == C.DICT_ROOT:
+            elif type in [C.DICT_ROOT, C.GROUP]:
                 value = {}
                 for c in children:
                     child_name = get_section_name(self.p, c)
