@@ -1,6 +1,7 @@
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useRef } from "react";
+import { openRenameReferencesModal } from "state/actions/modal";
 import { justMoveANode } from "state/actions/nodeInternals";
 import {
   getSectionParentId,
@@ -13,7 +14,7 @@ import {
   moveSection,
 } from "state/actions/sections/moveSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { useInfoToEVReferrer, useSectionInfos } from "state/definitions";
 import { updateWithArrayMove } from "utils/utils";
 import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
 import { useDndChildren } from "./dndChildren";
@@ -103,8 +104,11 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
 
   // if a copy of the section wasn't made
   if (newSectionId === sectionId) {
-    // if (_.size(paramEVRefs) === 0 && _.size())
-    // openRenameReferencesModal()
+    const referrers = useInfoToEVReferrer.getState()[sectionId];
+    console.log("referrers", referrers);
+    if (referrers && Object.keys(referrers).length > 0) {
+      openRenameReferencesModal();
+    }
   }
 }
 

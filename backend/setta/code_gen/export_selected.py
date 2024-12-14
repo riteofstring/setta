@@ -350,6 +350,7 @@ class Exporter:
                     "positionalOnlyParams": positionalOnlyParams,
                 },
                 "dependencies": params,
+                "ref_var_name_positions": [], # has to be populated when the code is generated
             }
             self.output[var_name] = info
         return var_name

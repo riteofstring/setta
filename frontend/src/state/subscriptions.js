@@ -3,6 +3,7 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
+  useInfoToEVReferrer,
   useKeywordRegex,
   useMisc,
   useNodeInternals,
@@ -17,6 +18,7 @@ import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
 import {
   getCodeInfoCol,
   getDisplayedSectionIdToChildren,
+  getInfoToEVReferrers,
   getSectionIdToParentId,
   getSectionType,
   getSectionVariant,
@@ -90,6 +92,16 @@ export function subscribe() {
       }
     },
     { equalityFn: _.isEqual },
+  );
+
+  useSectionInfos.subscribe(
+    getInfoToEVReferrers,
+    (infoToEVReferrers) => {
+      useInfoToEVReferrer.setState(infoToEVReferrers);
+    },
+    {
+      equalityFn: _.isEqual,
+    },
   );
 }
 
