@@ -103,16 +103,16 @@ export function toggleParamSelected(sectionId, paramInfoId) {
 }
 
 export function unselectAllParams() {
-  let didUnselectSomeParams = false;
+  let didUnselectSomeParams = false
   useSectionInfos.setState((x) => {
     for (const codeInfo of Object.values(x.codeInfo)) {
       if (codeInfo.isSelected) {
         codeInfo.isSelected = false;
-        didUnselectSomeParams = true;
+        didUnselectSomeParams = true
       }
     }
   });
-  return didUnselectSomeParams;
+  return didUnselectSomeParams
 }
 
 function setAttrOfSelfAndDescendants(

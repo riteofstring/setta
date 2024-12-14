@@ -1,25 +1,13 @@
 import { useCombobox } from "downshift";
-import { useState } from "react";
 import { useComboboxStateReducerWithFilteredItems } from "./ComboboxStateReducer";
 import { flattenedItems } from "./utils";
 
-export function useIdNameCombobox({ allItems, onSelectedItemChange, value }) {
-  const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
-
-  function onInputClick(inputRef) {
-    const rect = inputRef.getBoundingClientRect();
-    const yMargin = -30;
-    setListDims({ x: rect.left, y: rect.bottom + yMargin, width: rect.width });
-  }
-
-  function onKeyDown(e) {
-    if (e.code === "Escape") {
-      e.target.blur();
-    }
-  }
-
-  const itemToString = (x) => (x ? x.name : "");
-
+export function useIdNameCombobox({
+  allItems,
+  onSelectedItemChange,
+  value,
+  itemToString,
+}) {
   const { filteredItems, stateReducer, selection } =
     useComboboxStateReducerWithFilteredItems(
       allItems,
@@ -56,9 +44,5 @@ export function useIdNameCombobox({ allItems, onSelectedItemChange, value }) {
     getInputProps,
     highlightedIndex,
     getItemProps,
-    itemToString,
-    onInputClick,
-    onKeyDown,
-    listDims,
   };
 }

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
 import { useIdNameCombobox } from "./useIdNameCombobox";
 
@@ -11,8 +12,9 @@ export function IdNameCombobox({
   placeholder,
   bg,
   isDisabled,
-  inputDivId,
 }) {
+  const itemToString = (x) => (x ? x.name : "");
+
   const {
     isOpen,
     filteredItems,
@@ -21,15 +23,20 @@ export function IdNameCombobox({
     getInputProps,
     highlightedIndex,
     getItemProps,
-    itemToString,
-    onInputClick,
-    onKeyDown,
-    listDims,
   } = useIdNameCombobox({
     allItems,
     onSelectedItemChange,
     value,
+    itemToString,
   });
+
+  const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
+
+  function onInputClick(inputRef) {
+    const rect = inputRef.getBoundingClientRect();
+    const yMargin = -30;
+    setListDims({ x: rect.left, y: rect.bottom + yMargin, width: rect.width });
+  }
 
   return (
     <search
@@ -38,13 +45,11 @@ export function IdNameCombobox({
       } relative w-full min-w-0 flex-col items-stretch overflow-visible ${outerDivClasses}`}
     >
       <ComboboxInput
-        divId={inputDivId}
         getInputProps={getInputProps}
         getToggleButtonProps={getToggleButtonProps}
         isOpen={isOpen}
         small={small}
         onInputClick={onInputClick}
-        onKeyDown={onKeyDown}
         placeholder={placeholder}
         bg={bg}
         isDisabled={isDisabled}

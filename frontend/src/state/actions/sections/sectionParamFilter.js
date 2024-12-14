@@ -1,32 +1,17 @@
-import { useActiveSection, useProjectSearch } from "state/definitions";
+import { useActiveSection } from "state/definitions";
 
 export function focusOnSearch() {
   const sectionIds = useActiveSection.getState().ids;
+  let elementId;
   if (sectionIds.length === 1) {
-    const element = document.getElementById(`${sectionIds[0]}-args-filter`);
-    if (element) {
-      element.focus({ preventScroll: true });
-    }
-    return;
+    elementId = `${sectionIds[0]}-args-filter`;
+  } else {
+    elementId = "HeaderProjectSearch";
   }
-
-  useProjectSearch.setState({ mode: "find" });
-  // wait for re-render, otherwise the search bar re-renders after focusing on it
-  requestAnimationFrame(() => {
-    const element = document.getElementById("ProjectPageSearchBar");
+  if (elementId) {
+    const element = document.getElementById(elementId);
     if (element) {
       element.focus({ preventScroll: true });
     }
-  });
-}
-
-export function focusOnAdvancedSearch() {
-  useProjectSearch.setState({ mode: "advanced" });
-  // wait for re-render, otherwise the search bar re-renders after clicking on it
-  requestAnimationFrame(() => {
-    const element = document.getElementById("ProjectPageSearchBar");
-    if (element) {
-      element.click();
-    }
-  });
+  }
 }

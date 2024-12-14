@@ -18,8 +18,7 @@ export function useUpdateProjectSearch() {
   const [visibleParams, setVisibleParams] = useState([]);
   const [currIdx, setCurrIdx] = useState(-1);
 
-  function onChange(e) {
-    const v = e.target.value;
+  function onChange(v) {
     setValue(v);
     doUpdateSearch(v, visibleParams);
     setCurrIdx(-1);
@@ -36,7 +35,7 @@ export function useUpdateProjectSearch() {
   }
 
   function onKeyDown(e) {
-    if (e.code === "Enter") {
+    if (e.key === "Enter") {
       const { codeInfo: searchResults } = useProjectSearch.getState();
       if (searchResults.length === 0) {
         return;
@@ -46,7 +45,7 @@ export function useUpdateProjectSearch() {
       useProjectSearch.setState({ focused: focusedSearchResult });
       goToSearchResult(focusedSearchResult);
       setCurrIdx(newIdx);
-    } else if (e.code === "Escape") {
+    } else if (e.key === "Escape") {
       e.target.blur();
     }
   }
