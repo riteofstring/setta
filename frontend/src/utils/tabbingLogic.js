@@ -141,16 +141,24 @@ function shiftTabBackToOverviewListItem(e, sectionId) {
   }
 }
 
-export function focusOnSection(e, sectionId) {
-  e.preventDefault();
+export function focusOnSection(e, sectionId, focusOnFirstElement = true) {
+  e?.preventDefault();
   if (getSectionType(sectionId) === C.GROUP) {
     useSectionRefs
       .getState()
       .withNested[sectionId].focus({ preventScroll: true });
   } else {
-    firstFocusableElement(useSectionRefs.getState().selfOnly[sectionId]).focus({
-      preventScroll: true,
-    });
+    if (focusOnFirstElement) {
+      firstFocusableElement(
+        useSectionRefs.getState().selfOnly[sectionId],
+      ).focus({ preventScroll: true });
+    } else {
+      // focus on withNested here because this allows
+      // react-flow controls (like arrow key) to work
+      useSectionRefs
+        .getState()
+        .withNested[sectionId].focus({ preventScroll: true });
+    }
   }
 }
 

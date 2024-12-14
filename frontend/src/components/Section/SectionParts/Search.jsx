@@ -9,6 +9,7 @@ import { useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { focusOnSection } from "utils/tabbingLogic";
 import { asyncDebounce } from "utils/utils";
 
 export function SectionSearch({ sectionId, selectedItem }) {
@@ -141,6 +142,7 @@ function SectionSearchCore({
     if (!expectingCompletions) {
       setValue(codeInfoName);
     }
+    focusOnSection(null, visualSectionId, false);
   }
 
   function onTab(completionResult) {
