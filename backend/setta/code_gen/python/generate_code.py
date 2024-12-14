@@ -80,7 +80,12 @@ def var_declaration(
 # returns the value and a relative_positions array (for populating some ref_var_name_positions) or None if not applicable
 def get_value(x, selected):
     type_value = x["type"]
-    if type_value in [C.TEXT, C.SLIDER]:
+    if type_value == C.TEXT:
+        output = str(x["value"])
+        # Although this seems redundant, it is necessary, because if we return None, it won't update the positions
+        # with the variable declaration length. 
+        relative_positions = x["ref_var_name_positions"] 
+    elif type_value == C.SLIDER:
         output = str(x["value"])
         relative_positions = None
     elif type_value == C.SWITCH:
@@ -247,7 +252,6 @@ def generate_code(
         replace_templated_code,
     )
 
-
 def convert_var_names_to_readable_form(
     generated_code, var_name_to_line_num, exporter_obj, code_area_ref_var_name_positions
 ):
@@ -292,12 +296,12 @@ def convert_var_names_to_readable_form(
 
 
 def create_nice_var_name(top_level_symbols, nice_name):
-    nice_var_name = nice_name
+    trial_name = nice_name
     counter = 2
-    while nice_var_name in top_level_symbols:
-        nice_var_name = f"{nice_var_name}_{counter}"
+    while trial_name in top_level_symbols:
+        trial_name = f"{nice_name}_{counter}"
         counter += 1
-    return nice_var_name
+    return trial_name
 
 
 def replace_keywords(x, replacements, ref_var_name_positions=None):
