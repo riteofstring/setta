@@ -11,6 +11,7 @@
     "saveAsShortcut": "Mod + Shift + S",
     "loadShortcut": "Mod + L",
     "searchShortcut": "Mod + K",
+    "advancedSearchShortcut": "Mod + P",
     "resetZoomShortcut": "Mod + Comma",
     "copyShortcut": "Mod + C",
     "pasteShortcut": "Mod + V",

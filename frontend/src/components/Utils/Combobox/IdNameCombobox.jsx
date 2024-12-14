@@ -12,6 +12,7 @@ export function IdNameCombobox({
   placeholder,
   bg,
   isDisabled,
+  inputDivId,
 }) {
   const itemToString = (x) => (x ? x.name : "");
 
@@ -45,6 +46,7 @@ export function IdNameCombobox({
       } relative w-full min-w-0 flex-col items-stretch overflow-visible ${outerDivClasses}`}
     >
       <ComboboxInput
+        divId={inputDivId}
         getInputProps={getInputProps}
         getToggleButtonProps={getToggleButtonProps}
         isOpen={isOpen}

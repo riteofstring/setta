@@ -1,17 +1,34 @@
-import { useActiveSection } from "state/definitions";
+import { useActiveSection, useProjectSearch } from "state/definitions";
 
 export function focusOnSearch() {
   const sectionIds = useActiveSection.getState().ids;
-  let elementId;
   if (sectionIds.length === 1) {
-    elementId = `${sectionIds[0]}-args-filter`;
-  } else {
-    elementId = "HeaderProjectSearch";
-  }
-  if (elementId) {
-    const element = document.getElementById(elementId);
+    const element = document.getElementById(`${sectionIds[0]}-args-filter`);
     if (element) {
       element.focus({ preventScroll: true });
     }
+    return;
+  }
+
+  useProjectSearch.setState({ mode: "simple" });
+  clickOnProjectPageFind();
+}
+
+export function clickOnProjectPageFind() {
+  const element = document.getElementById("ProjectPageFind");
+  if (element) {
+    element.focus();
+  }
+}
+
+export function focusOnAdvancedSearch() {
+  useProjectSearch.setState({ mode: "advanced" });
+  clickOnProjectPageAdvancedSearch();
+}
+
+export function clickOnProjectPageAdvancedSearch() {
+  const element = document.getElementById("ProjectPageAdvancedSearch");
+  if (element) {
+    element.click();
   }
 }

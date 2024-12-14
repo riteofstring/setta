@@ -136,6 +136,7 @@ export const useProjectSearch = createProjectState(
     codeInfo: [],
     focused: {},
     lookup: new Set(),
+    mode: "simple",
   })),
 );
 
@@ -145,6 +146,7 @@ export const useSectionRefs = createProjectState(
       withResetFn(() => ({
         withNested: {},
         selfOnly: {},
+        other: {},
       })),
     ),
   ),
