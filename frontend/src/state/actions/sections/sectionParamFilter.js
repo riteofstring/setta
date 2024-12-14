@@ -27,7 +27,7 @@ export function focusOnAdvancedSearch() {
 }
 
 export function clickOnProjectPageAdvancedSearch() {
-  const element = document.getElementById("ProjectPageFind");
+  const element = document.getElementById("ProjectPageAdvancedSearch");
   if (element) {
     element.click();
   }
