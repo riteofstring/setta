@@ -87,14 +87,20 @@ export function useDisableSortable(sectionId) {
 
 export function useDndProps({ sectionId, isTopLevel }) {
   const hasNested = useHasPermanentNested(sectionId);
-  const positionAndSizeLocked = useSectionInfos(
-    (x) => x.x[sectionId]?.positionAndSizeLocked,
+  // We only want to set disabled if positionAndSizeLocked is true.
+  // If positionAndSizeLocked is false, we don't want to set disabled to false,
+  // so we set it to null instead so that the disabled
+  // status defers to dnd-kit's "global" disabled status.
+  const disabled = useSectionInfos((x) =>
+    x.x[sectionId]?.positionAndSizeLocked
+      ? x.x[sectionId]?.positionAndSizeLocked
+      : null,
   );
 
   return {
     id: sectionId,
     data: { isTopLevel, hasNested },
-    disabled: positionAndSizeLocked,
+    disabled,
   };
 }
 
