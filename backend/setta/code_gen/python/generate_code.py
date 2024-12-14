@@ -1,13 +1,10 @@
 import ast
 import copy
-import re
-
-from setta.utils.utils import replace_at_positions
 
 from ...utils.constants import USER_SETTINGS, C
 from ..find_placeholders import double_braces
 from ..utils import push_var_deep
-from .ast_utils import find_missing_imports, find_top_level_symbols
+from .infer_imports import find_missing_imports
 
 
 def get_location_str(node):
@@ -24,27 +21,13 @@ def get_import_text(code):
 
 
 def get_mappings(var_names, selected, is_dict, positionalOnlyParams=None):
-    output = ""
-    relative_positions = []
-    curr_position = 0
-    for idx, v in enumerate(var_names):
-        prefix = "" if idx == 0 else ", "
-        if is_dict or v not in positionalOnlyParams:
-            var_decl_prefix = var_declaration(
-                selected[v]["name"],
-                v,
-                is_dict,
-                return_prefix=True,
-                is_callable_param=True,
-            )
-            prefix += var_decl_prefix
-
-        curr_output = f"{prefix}{v}"
-        relative_positions.append((curr_position + len(prefix), v))
-        curr_position += len(curr_output)
-        output += curr_output
-
-    return output, relative_positions
+    mappings = [
+        v
+        if not is_dict and v in positionalOnlyParams
+        else var_declaration(selected[v]["name"], v, is_dict)
+        for v in var_names
+    ]
+    return ", ".join(mappings)
 
 
 def get_dict_contents(var_names, selected):
@@ -57,85 +40,48 @@ def get_callable_params(var_names, positionalOnlyParams, selected):
     )
 
 
-def get_list_of_vars(var_names):
-    return get_mappings(var_names, None, is_dict=False, positionalOnlyParams=var_names)
-
-
 def get_boolean(value):
     return "True" if value == "true" else "False"
 
 
-def var_declaration(
-    var_name, value, is_dict=False, return_prefix=False, is_callable_param=False
-):
+def var_declaration(var_name, value, is_dict=False):
     if is_dict:
-        prefix = f'"{var_name}": '
+        operator = ":"
+        var_name = f'"{var_name}"'
     else:
-        prefix = f"{var_name}=" if is_callable_param else f"{var_name} = "
-    if return_prefix:
-        return prefix
-    return f"{prefix}{value}"
+        operator = "="
+    return f"{var_name}{operator}{value}"
 
 
-# returns the value and a relative_positions array (for populating some ref_var_name_positions) or None if not applicable
 def get_value(x, selected):
     type_value = x["type"]
-    if type_value == C.TEXT:
-        output = str(x["value"])
-        # Although this seems redundant, it is necessary, because if we return None, it won't update the positions
-        # with the variable declaration length.
-        relative_positions = x["ref_var_name_positions"]
-    elif type_value == C.SLIDER:
-        output = str(x["value"])
-        relative_positions = None
+    if type_value in [C.TEXT, C.SLIDER]:
+        return str(x["value"])
     elif type_value == C.SWITCH:
-        output = str(get_boolean(x["value"]))
-        relative_positions = None
-    elif type_value == C.SECTION:
+        return str(get_boolean(x["value"]))
+    elif type_value in [C.SECTION]:
         if not x["value"]["callable"]:
-            output, relative_positions = get_dict_contents(x["dependencies"], selected)
-            prefix = "{"
-            output = prefix + output + "}"
-            prefix_len = len(prefix)
+            return "{" + get_dict_contents(x["dependencies"], selected) + "}"
         else:
-            output, relative_positions = get_callable_params(
-                x["dependencies"], x["value"]["positionalOnlyParams"], selected
-            )
-            prefix = f"{x['value']['callable']}("
-            output = f"{prefix}{output})"
-            prefix_len = len(prefix)
-        relative_positions = [(p + prefix_len, v) for p, v in relative_positions]
+            return f"{x['value']['callable']}({get_callable_params(x['dependencies'], x['value']['positionalOnlyParams'], selected)})"
     elif type_value == C.LIST_ROOT:
-        output, relative_positions = get_list_of_vars(x["value"])
-        output = f"[{output}]"
-        relative_positions = [(p + 1, v) for p, v in relative_positions]
+        return f"[{', '.join(map(str, x['value']))}]"
     elif type_value in [C.DICT_ROOT, C.GROUP, C.NESTED_PARAM]:
-        output, relative_positions = get_dict_contents(x["value"], selected)
-        output = "{" + output + "}"
-        relative_positions = [(p + 1, v) for p, v in relative_positions]
+        return "{" + get_dict_contents(x["value"], selected) + "}"
     else:
-        output = None
-        relative_positions = None
-
-    return output, relative_positions
+        return None
 
 
 def create_line(var_name, x, selected, force_appear):
-    value, relative_positions = get_value(x, selected)
-    if value or force_appear:
-        prefix = var_declaration(var_name, value, return_prefix=True)
-        prefix_len = len(prefix)
-        value = f"{prefix}{value}"
-        if relative_positions:
-            relative_positions = [(p + prefix_len, v) for p, v in relative_positions]
-    return value, relative_positions
+    value = get_value(x, selected)
+    dec = var_declaration(var_name, value) if value or force_appear else value
+    return dec
 
 
 def generate_lines_of_code_without_imports(
-    selected, push_var_name=None, force_appear_var_name=None, make_copy_of_selected=True
+    selected, push_var_name=None, force_appear_var_name=None
 ):
-    if make_copy_of_selected:
-        selected = copy.deepcopy(selected)
+    selected = copy.deepcopy(selected)
     lines = []
     var_name_to_line_num = {}
     if push_var_name:
@@ -151,14 +97,10 @@ def generate_lines_of_code_without_imports(
         selected = {v.pop("var_name"): v for v in selected}
     for var_name, x in selected.items():
         force_appear = force_appear_var_name == var_name
-        var_str, ref_var_name_positions = create_line(
-            var_name, x, selected, force_appear=force_appear
-        )
+        var_str = create_line(var_name, x, selected, force_appear=force_appear)
         if var_str:
             var_name_to_line_num[var_name] = len(lines)
             lines.append(var_str)
-            if ref_var_name_positions:
-                x["ref_var_name_positions"] = ref_var_name_positions
 
     return lines, var_name_to_line_num
 
@@ -232,7 +174,6 @@ def generate_code(
     push_var_name=None,
     force_appear_var_name=None,
     replace_templated_code=True,
-    make_copy_of_selected=True,
 ):
     (
         lines,
@@ -241,7 +182,6 @@ def generate_code(
         selected,
         push_var_name=push_var_name,
         force_appear_var_name=force_appear_var_name,
-        make_copy_of_selected=make_copy_of_selected,
     )
 
     return maybe_prepend_with_imports_and_replace_templated_code(
@@ -253,85 +193,10 @@ def generate_code(
     )
 
 
-def convert_var_names_to_readable_form(
-    generated_code,
-    var_name_to_line_num,
-    exporter_obj,
-    code_area_ref_var_name_positions,
-    setup_code,
-):
-    # need to adjust line numbers and positions with prepended setup code length
-    # because the setup code has been prepended to the generated code
-    # after the line numbers and positions are calculated.
-    setup_code_len = len(setup_code)
-    setup_code_num_lines = count_lines(setup_code)
-
-    all_ref_var_name_positions = [
-        (p + setup_code_len, v) for p, v in code_area_ref_var_name_positions
-    ]
-
-    # convert to global positions
-    for var_name, line_num in var_name_to_line_num.items():
-        line_num += setup_code_num_lines
-        details = exporter_obj.output[var_name]
-        line_col_pairs = [
-            (line_num, col) for col, _ in details["ref_var_name_positions"]
-        ]
-        line_col_pairs.append((line_num, 0))  # this is for the variable declaration
-        global_positions = line_col_to_position_batch(generated_code, line_col_pairs)
-        variable_declaration_position = (
-            global_positions.pop()
-        )  # need to pop this before we zip with ref_var_name_positions
-        ref_var_name_global_positions = [
-            (p, v[1])
-            for p, v in zip(global_positions, details["ref_var_name_positions"])
-        ]
-        all_ref_var_name_positions.extend(ref_var_name_global_positions)
-        all_ref_var_name_positions.append((variable_declaration_position, var_name))
-
-    # create nice var names for references
-    top_level_symbols = find_top_level_symbols(generated_code)
-    var_name_to_nice_var_name_mapping = {}
-    for idx in range(len(all_ref_var_name_positions)):
-        position, var_name = all_ref_var_name_positions[idx]
-
-        # only create nice_var_name if we haven't already created it for this var_name
-        if var_name not in var_name_to_nice_var_name_mapping:
-            nice_name = exporter_obj.output[var_name]["name"]
-            nice_var_name = create_nice_var_name(top_level_symbols, nice_name)
-            top_level_symbols.add(nice_var_name)
-            var_name_to_nice_var_name_mapping[var_name] = nice_var_name
-
-        nice_var_name = var_name_to_nice_var_name_mapping[var_name]
-        all_ref_var_name_positions[idx] = position, var_name, nice_var_name
-
-    generated_code = replace_at_positions(generated_code, all_ref_var_name_positions)
-    return generated_code
-
-
-def create_nice_var_name(top_level_symbols, nice_name):
-    trial_name = nice_name
-    counter = 2
-    while trial_name in top_level_symbols:
-        trial_name = f"{nice_name}_{counter}"
-        counter += 1
-    return trial_name
-
-
-def replace_keywords(x, replacements, ref_var_name_positions=None):
-    for key, new_value in replacements.items():
-        if new_value is not None:
-            old_value = double_braces(key)
-            if ref_var_name_positions:
-                for match in re.finditer(re.escape(old_value), x):
-                    position = match.start()
-                    for idx in range(len(ref_var_name_positions)):
-                        p, v = ref_var_name_positions[idx]
-                        if position < p:
-                            p += len(new_value) - len(old_value)
-                            ref_var_name_positions[idx] = p, v
-
-            x = x.replace(old_value, new_value)
+def replace_keywords(x, replacements):
+    for key, value in replacements.items():
+        if value is not None:
+            x = x.replace(double_braces(key), value)
     return x
 
 
@@ -344,6 +209,14 @@ def append_to_line(input_string, line_number, append):
     lines = input_string.split("\n")
     lines[line_number] += append
     return "\n".join(lines)
+
+
+def find_line_number(code, search_term):
+    lines = code.split("\n")
+    for i, line in enumerate(lines):
+        if search_term in line:
+            return i
+    return -1
 
 
 def position_to_line_col(text, position):

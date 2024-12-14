@@ -49,7 +49,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
             return {"content": None}
 
     if cursor_is_after_gen_code:
-        fullText, _, [(position, *_), *_] = process_refs(
+        fullText, _, position = process_refs(
             fullText,
             message.evRefs,
             exporter_obj.get_ref_var_name,
