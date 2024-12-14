@@ -2,6 +2,7 @@ import {
   computeInfoToFullName,
   keyForInfoToFullName,
 } from "components/Utils/CodeMirror/utils";
+import { dbMakeEVRefReplacements } from "requests/infoToEVReferrer";
 import { useInfoToEVReferrer, useSectionInfos } from "state/definitions";
 
 export function getInfoToEVReferrers(state) {
@@ -96,7 +97,7 @@ export function getRequiredReplacements(sectionIds) {
       }
     }
   }
-  return { codeAreaReplacements, codeInfoReplacements, paramEVReplacements };
+  return [codeAreaReplacements, codeInfoReplacements, paramEVReplacements];
 }
 
 function newReplacementObj(string) {
@@ -139,4 +140,48 @@ function getCodeAreaReplacementObj(codeAreaReplacements, variantId, state) {
     );
   }
   return codeAreaReplacements[variantId];
+}
+
+export async function maybeOpenRenameReferencesModal(sectionIds) {
+  const [codeAreaReplacements, codeInfoReplacements, paramEVReplacements] =
+    getRequiredReplacements(sectionIds);
+
+  //   if (_.size(codeAreaReplacements) > 0 || _.size(codeInfoReplacements) >0 || _.size(paramEVReplacements) >0){
+  //     openRenameReferencesModal()
+  //   }
+
+  makeReplacements(
+    codeAreaReplacements,
+    codeInfoReplacements,
+    paramEVReplacements,
+  );
+}
+
+export async function makeReplacements(
+  codeAreaReplacements,
+  codeInfoReplacements,
+  paramEVReplacements,
+) {
+  const res = await dbMakeEVRefReplacements(
+    codeAreaReplacements,
+    codeInfoReplacements,
+    paramEVReplacements,
+  );
+  if (res.status === 200) {
+    const { newCodeAreaValues, newCodeInfoValues, newParamEVValues } = res.data;
+    useSectionInfos.setState((state) => {
+      for (const [variantId, newValue] of Object.entries(newCodeAreaValues)) {
+        state.variants[variantId].code = newValue;
+      }
+      for (const [codeInfoId, newValue] of Object.entries(newCodeInfoValues)) {
+        state.codeInfo[codeInfoId].name = newValue;
+      }
+      for (const [variantId, params] of Object.entries(newParamEVValues)) {
+        for (const [referringParamInfoId, newValue] of Object.entries(params)) {
+          state.variants[variantId].values[referringParamInfoId].value =
+            newValue;
+        }
+      }
+    });
+  }
 }
