@@ -1,6 +1,7 @@
+import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { useEffect } from "react";
+import { useEffect, useRef} from "react";
 import {
   clickOnProjectPageAdvancedSearch,
   clickOnProjectPageFind,
@@ -14,28 +15,29 @@ import { SimpleSearchBar } from "./HomePageSearch";
 export function ProjectPageSearchBar() {
   const mode = useProjectSearch((x) => x.mode);
 
-  useEffect(() => {
-    if (mode === "simple") {
-      clickOnProjectPageFind();
-    } else {
-      clickOnProjectPageAdvancedSearch();
-    }
-  }, [mode]);
+  // useEffect(() => {
+  //   if (mode === "simple") {
+  //     clickOnProjectPageFind();
+  //   } else {
+  //     clickOnProjectPageAdvancedSearch();
+  //   }
+  // }, [mode]);
 
+  let ParentComponent;
   switch (mode) {
     case "simple":
-      return <ProjectPageFind />;
+      return <ProjectPageFind InputComponent={ProjectSearchBar}/>;
     case "advanced":
       return <ProjectPageAdvancedSearch />;
   }
 }
 
-function ProjectPageFind() {
+function ProjectPageFind({InputComponent}) {
   const { value, onChange, onBlur, onFocus, onKeyDown } =
     useUpdateProjectSearch();
 
   return (
-    <SimpleSearchBar
+    <ProjectSearchBar
       divId="ProjectPageFind"
       placeholder="Search Project"
       value={value}
@@ -64,8 +66,39 @@ function ProjectPageAdvancedSearch() {
   return (
     <IdNameCombobox
       allItems={allItems}
-      inputDivId="ProjectPageAdvancedSearch"
       onSelectedItemChange={onSelectedItemChange}
+      inputDivId="ProjectPageFind"
+      InputComponent={ProjectSearchBar}
+    />
+  );
+}
+
+function ProjectSearchBar({
+  divId,
+  getInputProps,
+  getToggleButtonProps,
+  isOpen,
+  small,
+  onInputClick,
+  placeholder,
+  bg = "bg-white dark:bg-setta-900",
+  isDisabled,
+}) {
+  const inputRef = useRef();
+
+  return (
+    <StandardSearch
+      id={divId}
+      outerClasses="self-center w-[clamp(10rem,_30vw,_15rem)]  ml-4"
+      inputStyles="flex-grow outline-0 cursor-auto overflow-hidden bg-setta-100 dark:bg-setta-950 hover:bg-white  hover:ring-setta-200 dark:hover:ring-setta-600 focus:bg-white rounded-full text-xs text-setta-900 dark:text-setta-200 ring-2 ring-transparent focus-visible:ring-blue-300 pl-7 py-1 placeholder-setta-300 dark:placeholder-setta-700"
+      leftElementStyles="pl-1"
+      placeholder={placeholder}
+      {...getInputProps({
+        id: divId,
+        onClick: () => onInputClick(inputRef.current),
+        ref: inputRef,
+        disabled: isDisabled,
+      })}
     />
   );
 }
