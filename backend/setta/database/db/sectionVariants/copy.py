@@ -7,7 +7,8 @@ def copy_section_variants(section_variants, code_info_id_map, code_info_col_id_m
     for obj in new_section_variants.values():
         # obj["name"] = // TODO generate new name
         obj["values"] = rename_keys(obj["values"], code_info_id_map)
-        obj["codeInfoColId"] = code_info_col_id_map[obj["codeInfoColId"]]
+        if obj["codeInfoColId"]:
+            obj["codeInfoColId"] = code_info_col_id_map[obj["codeInfoColId"]]
         if obj["selectedItem"]:
             obj["selectedItem"] = code_info_id_map[obj["selectedItem"]]
 

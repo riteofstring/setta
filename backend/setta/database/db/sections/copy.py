@@ -19,7 +19,8 @@ def copy_sections(
         section["id"] = section_id_map[section["id"]]
         section["variantId"] = section_variant_id_map[section["variantId"]]
         section["uiTypeId"] = ui_type_id_map[section["uiTypeId"]]
-        section["uiTypeColId"] = ui_type_col_id_map[section["uiTypeColId"]]
+        if section["uiTypeColId"]:
+            section["uiTypeColId"] = ui_type_col_id_map[section["uiTypeColId"]]
         section["variantIds"] = [
             section_variant_id_map[x] for x in section["variantIds"]
         ]

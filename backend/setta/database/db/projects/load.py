@@ -91,7 +91,9 @@ def load_project_config(db, project_config_name):
     projectConfig = load_project_config_metadata(db, project_config_name)
     sections_data = load_sections(db, list(projectConfig["children"].keys()))
     sectionConfigs = load_section_configs(db, projectConfig["id"])
-    sections = recursive_dict_merge(sections_data["sections"], sectionConfigs)
+    sections = recursive_dict_merge(
+        sections_data["sections"], sectionConfigs, strict_top_level_keys=True
+    )
     sectionVariants = sections_data["sectionVariants"]
     uiTypeCols = sections_data["uiTypeCols"]
     uiTypes = sections_data["nonPresetUITypes"]

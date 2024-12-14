@@ -81,7 +81,7 @@ def nested_access(input_dict, access_string):
     return result, key
 
 
-def recursive_dict_merge(dict1, dict2):
+def recursive_dict_merge(dict1, dict2, strict_top_level_keys=False):
     """
     Recursively merge two dictionaries. For conflicting keys:
     - If both values are dictionaries: merge recursively
@@ -91,6 +91,7 @@ def recursive_dict_merge(dict1, dict2):
     Args:
         dict1 (dict): First dictionary
         dict2 (dict): Second dictionary
+        strict_top_level_keys (bool): If True, only keep top-level keys from dict1
 
     Returns:
         dict: Merged dictionary
@@ -100,7 +101,13 @@ def recursive_dict_merge(dict1, dict2):
         >>> d2 = {'b': {'c': 4, 'd': [3, 4]}, 'f': 6}
         >>> recursive_dict_merge(d1, d2)
         {'a': 1, 'b': {'c': 4, 'd': [1, 2, 3, 4]}, 'f': 6}
+        >>> recursive_dict_merge(d1, d2, strict_top_level_keys=True)
+        {'a': 1, 'b': {'c': 4, 'd': [1, 2, 3, 4]}}
     """
+    if strict_top_level_keys:
+        # Only process keys that exist in dict1
+        dict2 = {k: v for k, v in dict2.items() if k in dict1}
+
     merged = dict1.copy()
 
     for key, value in dict2.items():
