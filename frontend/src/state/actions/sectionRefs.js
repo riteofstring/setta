@@ -16,3 +16,15 @@ export function deleteSectionRef({ sectionId }) {
     delete state.selfOnly[sectionId];
   });
 }
+
+export function setOtherRef(id, ref) {
+  useSectionRefs.setState((state) => {
+    state.other[id] = ref;
+  });
+}
+
+export function deleteOtherRef(id) {
+  useSectionRefs.setState((state) => {
+    delete state.other[id];
+  });
+}
