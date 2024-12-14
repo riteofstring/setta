@@ -102,7 +102,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
     });
   });
 
-  maybeOpenRenameReferencesModal([sectionId]);
+  await maybeOpenRenameReferencesModal([sectionId]);
 }
 
 export function useOnDragEnd() {

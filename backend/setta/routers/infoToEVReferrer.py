@@ -13,27 +13,64 @@ class MakeEVRefReplacementsRequest(BaseModel):
     paramEVReplacements: dict
 
 
+def create_replacements_array(replacements):
+    output = []
+    for r in replacements:
+        startPos = r["originalEVRef"]["startPos"]
+        oldName = r["originalEVRef"]["keyword"]
+        newName = r["newName"]
+        output.append((startPos, oldName, newName))
+    return output
+
+
+def create_new_ev_refs(replacements, newStartPositions):
+    output = []
+    for idx, (startPos, newName) in enumerate(newStartPositions):
+        output.append(
+            {
+                **replacements[idx]["originalEVRef"],
+                "startPos": startPos,
+                "endPos": startPos + len(newName),
+                "keyword": newName,
+            }
+        )
+    return output
+
+def get_new_value_and_positions(details):
+    return replace_at_positions(
+            details["string"],
+            create_replacements_array(details["replacements"]),
+            return_positions=True,
+        )
+
+
 @router.post(C.ROUTE_MAKE_EV_REF_REPLACEMENTS)
 def route_make_ev_ref_replacements(x: MakeEVRefReplacementsRequest):
     newCodeAreaValues = {}
     for variantId, details in x.codeAreaReplacements.items():
-        newCodeAreaValues[variantId] = replace_at_positions(
-            details["string"], details["replacements"]
-        )
+        newValue, newStartPositions = get_new_value_and_positions(details)
+        newCodeAreaValues[variantId] = [
+            newValue,
+            create_new_ev_refs(details["replacements"], newStartPositions),
+        ]
 
     newCodeInfoValues = {}
     for codeInfoId, details in x.codeInfoReplacements.items():
-        newCodeInfoValues[codeInfoId] = replace_at_positions(
-            details["string"], details["replacements"]
-        )
+        newValue, newStartPositions = get_new_value_and_positions(details)
+        newCodeInfoValues[codeInfoId] = [
+            newValue,
+            create_new_ev_refs(details["replacements"], newStartPositions),
+        ]
 
     newParamEVValues = {}
     for variantId, v in x.paramEVReplacements.items():
         newParamEVValues[variantId] = {}
         for referringParamInfoId, details in v.items():
-            newParamEVValues[variantId][referringParamInfoId] = replace_at_positions(
-                details["string"], details["replacements"]
-            )
+            newValue, newStartPositions = get_new_value_and_positions(details)
+            newParamEVValues[variantId][referringParamInfoId] = [
+                newValue,
+                create_new_ev_refs(details["replacements"], newStartPositions),
+            ]
 
     return {
         "newCodeAreaValues": newCodeAreaValues,

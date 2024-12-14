@@ -99,9 +99,7 @@ export function subscribe() {
     (infoToEVReferrers) => {
       useInfoToEVReferrer.setState(infoToEVReferrers);
     },
-    {
-      equalityFn: _.isEqual,
-    },
+    { equalityFn: _.isEqual },
   );
 }
 

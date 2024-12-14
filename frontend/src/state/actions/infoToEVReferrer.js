@@ -29,20 +29,15 @@ export function getInfoToEVReferrers(state) {
 
 function processEVRefForUpdater(evRefs, output, metadata) {
   for (const evRef of evRefs) {
-    const { sectionId, paramInfoId, isArgsObj, startPos, endPos, keyword } =
-      evRef;
-    const key = keyForInfoToFullName({ sectionId, paramInfoId, isArgsObj });
+    const { sectionId, paramInfoId } = evRef;
     if (!(sectionId in output)) {
-      output[sectionId] = [];
+      output[sectionId] = {};
     }
     if (!(paramInfoId in output[sectionId])) {
       output[sectionId][paramInfoId] = [];
     }
     output[sectionId][paramInfoId].push({
-      key,
-      startPos,
-      endPos,
-      keyword,
+      originalEVRef: evRef,
       ...metadata,
     });
   }
@@ -63,15 +58,8 @@ export function getRequiredReplacements(sectionIds) {
     }
     for (const [paramInfoId, details] of Object.entries(referrersToSection)) {
       for (const oneReferrer of details) {
-        const {
-          key,
-          variantId,
-          codeInfoId,
-          referringParamInfoId,
-          startPos,
-          keyword: oldName,
-        } = oneReferrer;
-        const newName = infoToFullName[key];
+        const { variantId, codeInfoId, referringParamInfoId, originalEVRef } =
+          oneReferrer;
         if (referringParamInfoId) {
           curr = getParamEVReplacementObj(
             paramEVReplacements,
@@ -93,7 +81,8 @@ export function getRequiredReplacements(sectionIds) {
           );
         }
 
-        curr.replacements.push([startPos, oldName, newName]);
+        const newName = infoToFullName[keyForInfoToFullName(originalEVRef)];
+        curr.replacements.push({ originalEVRef, newName });
       }
     }
   }
@@ -150,7 +139,7 @@ export async function maybeOpenRenameReferencesModal(sectionIds) {
   //     openRenameReferencesModal()
   //   }
 
-  makeReplacements(
+  await makeReplacements(
     codeAreaReplacements,
     codeInfoReplacements,
     paramEVReplacements,
@@ -170,16 +159,22 @@ export async function makeReplacements(
   if (res.status === 200) {
     const { newCodeAreaValues, newCodeInfoValues, newParamEVValues } = res.data;
     useSectionInfos.setState((state) => {
-      for (const [variantId, newValue] of Object.entries(newCodeAreaValues)) {
-        state.variants[variantId].code = newValue;
+      let curr;
+      for (const [variantId, newData] of Object.entries(newCodeAreaValues)) {
+        curr = state.variants[variantId];
+        curr.code = newData[0];
+        curr.evRefs = newData[1];
       }
-      for (const [codeInfoId, newValue] of Object.entries(newCodeInfoValues)) {
-        state.codeInfo[codeInfoId].name = newValue;
+      for (const [codeInfoId, newData] of Object.entries(newCodeInfoValues)) {
+        curr = state.codeInfo[codeInfoId];
+        curr.name = newData[0];
+        curr.evRefs = newData[1];
       }
       for (const [variantId, params] of Object.entries(newParamEVValues)) {
-        for (const [referringParamInfoId, newValue] of Object.entries(params)) {
-          state.variants[variantId].values[referringParamInfoId].value =
-            newValue;
+        for (const [referringParamInfoId, newData] of Object.entries(params)) {
+          curr = state.variants[variantId].values[referringParamInfoId];
+          curr.value = newData[0];
+          curr.evRefs = newData[1];
         }
       }
     });
