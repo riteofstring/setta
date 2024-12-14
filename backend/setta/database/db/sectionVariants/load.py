@@ -114,8 +114,6 @@ def load_section_variants(db, ids):
         if not sectionId:
             continue
 
-        print(dict(row))
-
         if sectionId not in curr:
             curr[sectionId] = {}
         if row["parentVariantId"] not in curr[sectionId]:
