@@ -27,7 +27,10 @@ import {
 import { useSettings } from "state/definitions";
 import { tabFromDocumentBody } from "utils/tabbingLogic";
 import { isMacOs } from "utils/utils";
-import { setAllSectionsAsActive } from "./activeSections";
+import {
+  clearActiveSectionIds,
+  setAllSectionsAsActive,
+} from "./activeSections";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
 import { formatCode, updateInteractiveCode } from "./interactive";
@@ -549,7 +552,10 @@ function specialModTabCase(shortcutInfo) {
 }
 
 function onEscapeKey() {
-  unselectAllParams();
+  const didUnselectSomeParams = unselectAllParams();
+  if (!didUnselectSomeParams) {
+    clearActiveSectionIds();
+  }
   removeFrozenFloatingBox();
 }
 
