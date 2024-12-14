@@ -333,12 +333,21 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         section_variant["code"] = replace_keywords(
             curr_code, replacements, generated_python_code_area_ref_var_name_positions
         )
+
+        section_variant["code"], setup_code = prepend_with_setup_code(
+            section_variant["code"],
+            s["codeLanguage"],
+            folder_path,
+            p["projectConfig"]["name"],
+        )
+
         if generated_python_code:
             section_variant["code"] = convert_var_names_to_readable_form(
                 section_variant["code"],
                 generated_python_var_name_to_line_num,
                 exporter_obj,
                 generated_python_code_area_ref_var_name_positions,
+                setup_code,
             )
         dependencies[s["id"]] = curr_dependencies
 
@@ -348,12 +357,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         curr_section = code_sections[sid]
         codeLanguage = curr_section["codeLanguage"]
         extension = languageToExtension(codeLanguage)
-        code = prepend_with_setup_code(
-            get_section_code(p, sid),
-            codeLanguage,
-            folder_path,
-            p["projectConfig"]["name"],
-        )
+        code = get_section_code(p, sid)
         filepath = write_string_to_file(
             folder_path, f"{curr_section['name']}{extension}", code
         )
@@ -453,6 +457,7 @@ def write_string_to_file(folder, filename, content):
 
 
 def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name):
+    setup_code = ""
     if codeLanguage == "python":
         location = f"/{project_config_name}"
         setup_code = (
@@ -464,4 +469,4 @@ def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name
             f"os.environ['{CODE_FOLDER_ENV_VARIABLE}'] = '{folder_path}'\n"
         )
         code = setup_code + code
-    return code
+    return code, setup_code

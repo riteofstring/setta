@@ -254,12 +254,25 @@ def generate_code(
 
 
 def convert_var_names_to_readable_form(
-    generated_code, var_name_to_line_num, exporter_obj, code_area_ref_var_name_positions
+    generated_code,
+    var_name_to_line_num,
+    exporter_obj,
+    code_area_ref_var_name_positions,
+    setup_code,
 ):
-    all_ref_var_name_positions = [*code_area_ref_var_name_positions]
+    # need to adjust line numbers and positions with prepended setup code length
+    # because the setup code has been prepended to the generated code
+    # after the line numbers and positions are calculated.
+    setup_code_len = len(setup_code)
+    setup_code_num_lines = count_lines(setup_code)
+
+    all_ref_var_name_positions = [
+        (p + setup_code_len, v) for p, v in code_area_ref_var_name_positions
+    ]
 
     # convert to global positions
     for var_name, line_num in var_name_to_line_num.items():
+        line_num += setup_code_num_lines
         details = exporter_obj.output[var_name]
         line_col_pairs = [
             (line_num, col) for col, _ in details["ref_var_name_positions"]
