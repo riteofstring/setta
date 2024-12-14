@@ -1,10 +1,6 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { useEffect } from "react";
-import {
-  clickOnProjectPageAdvancedSearch,
-  clickOnProjectPageFind,
-} from "state/actions/sections/sectionParamFilter";
+import React from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useProjectSearch, useSectionInfos } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
@@ -12,31 +8,31 @@ import { focusOnSection } from "utils/tabbingLogic";
 import { SimpleSearchBar } from "./HomePageSearch";
 
 export function ProjectPageSearchBar() {
+  return (
+    <ProjectPageSearchBarWrapper>
+      <ProjectPageSearchInput />
+    </ProjectPageSearchBarWrapper>
+  );
+}
+
+function ProjectPageSearchBarWrapper({ children }) {
   const mode = useProjectSearch((x) => x.mode);
 
-  useEffect(() => {
-    if (mode === "simple") {
-      clickOnProjectPageFind();
-    } else {
-      clickOnProjectPageAdvancedSearch();
-    }
-  }, [mode]);
-
-  switch (mode) {
-    case "simple":
-      return <ProjectPageFind />;
-    case "advanced":
-      return <ProjectPageAdvancedSearch />;
+  if (mode === "simple") {
+    return <ProjectPageFind>{children}</ProjectPageFind>;
   }
 }
 
-function ProjectPageFind() {
-  const { value, onChange, onBlur, onFocus, onKeyDown } =
-    useUpdateProjectSearch();
-
+function ProjectPageSearchInput({
+  value,
+  onChange,
+  onKeyDown,
+  onBlur,
+  onFocus,
+}) {
   return (
     <SimpleSearchBar
-      divId="ProjectPageFind"
+      divId="ProjectPageSearchBar"
       placeholder="Search Project"
       value={value}
       onChange={onChange}
@@ -48,6 +44,19 @@ function ProjectPageFind() {
       )}
     />
   );
+}
+
+function ProjectPageFind({ children }) {
+  const { value, onChange, onBlur, onFocus, onKeyDown } =
+    useUpdateProjectSearch();
+
+  return React.cloneElement(children, {
+    value,
+    onChange,
+    onBlur,
+    onFocus,
+    onKeyDown,
+  });
 }
 
 function ProjectPageAdvancedSearch() {

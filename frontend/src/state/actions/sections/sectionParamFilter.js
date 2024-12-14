@@ -11,13 +11,9 @@ export function focusOnSearch() {
   }
 
   useProjectSearch.setState({ mode: "simple" });
-  clickOnProjectPageFind();
-}
-
-export function clickOnProjectPageFind() {
-  const element = document.getElementById("ProjectPageFind");
+  const element = document.getElementById("ProjectPageSearchBar");
   if (element) {
-    element.focus();
+    element.focus({ preventScroll: true });
   }
 }
 
