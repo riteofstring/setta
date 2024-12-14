@@ -18,7 +18,8 @@ export function useUpdateProjectSearch() {
   const [visibleParams, setVisibleParams] = useState([]);
   const [currIdx, setCurrIdx] = useState(-1);
 
-  function onChange(v) {
+  function onChange(e) {
+    const v = e.target.value;
     setValue(v);
     doUpdateSearch(v, visibleParams);
     setCurrIdx(-1);

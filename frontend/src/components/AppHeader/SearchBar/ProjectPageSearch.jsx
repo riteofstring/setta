@@ -1,11 +1,15 @@
-import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import {
+  ComboboxItems,
+  ComboboxList,
+} from "components/Utils/Combobox/ComboboxParts";
+import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import React from "react";
+import React, { useRef } from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useProjectSearch, useSectionInfos } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
 import { focusOnSection } from "utils/tabbingLogic";
-import { SimpleSearchBar } from "./HomePageSearch";
 
 export function ProjectPageSearchBar() {
   return (
@@ -18,33 +22,28 @@ export function ProjectPageSearchBar() {
 function ProjectPageSearchBarWrapper({ children }) {
   const mode = useProjectSearch((x) => x.mode);
 
-  if (mode === "simple") {
+  if (mode === "find") {
     return <ProjectPageFind>{children}</ProjectPageFind>;
   }
+  return <ProjectPageAdvanced>{children}</ProjectPageAdvanced>;
 }
 
-function ProjectPageSearchInput({
-  value,
-  onChange,
-  onKeyDown,
-  onBlur,
-  onFocus,
-}) {
+const ProjectPageSearchInput = React.forwardRef((props, ref) => {
   return (
-    <SimpleSearchBar
-      divId="ProjectPageSearchBar"
+    <StandardSearch
+      outerClasses="self-center w-[clamp(10rem,_30vw,_15rem)]  ml-4"
+      inputStyles="flex-grow outline-0 cursor-auto overflow-hidden bg-setta-100 dark:bg-setta-950 hover:bg-white  hover:ring-setta-200 dark:hover:ring-setta-600 focus:bg-white rounded-full text-xs text-setta-900 dark:text-setta-200 ring-2 ring-transparent focus-visible:ring-blue-300 pl-7 py-1 placeholder-setta-300 dark:placeholder-setta-700"
+      leftElementStyles="pl-1"
       placeholder="Search Project"
-      value={value}
-      onChange={onChange}
-      onKeyDown={onKeyDown}
-      onBlur={onBlur}
-      onFocus={onFocus}
+      {...props}
+      ref={ref}
       {...getFloatingBoxHandlers(
         "Search your entire project from one location.",
       )}
+      id="ProjectPageSearchBar"
     />
   );
-}
+});
 
 function ProjectPageFind({ children }) {
   const { value, onChange, onBlur, onFocus, onKeyDown } =
@@ -59,7 +58,7 @@ function ProjectPageFind({ children }) {
   });
 }
 
-function ProjectPageAdvancedSearch() {
+function ProjectPageAdvanced({ children }) {
   const allSections = useSectionInfos((x) =>
     Object.values(x.x).map((s) => ({ id: s.id, name: s.name })),
   );
@@ -70,11 +69,45 @@ function ProjectPageAdvancedSearch() {
     focusOnSection(null, id, false);
   }
 
+  const {
+    isOpen,
+    filteredItems,
+    // getToggleButtonProps,
+    getMenuProps,
+    getInputProps,
+    highlightedIndex,
+    getItemProps,
+    itemToString,
+    onInputClick,
+    listDims,
+  } = useIdNameCombobox({
+    allItems,
+    onSelectedItemChange,
+  });
+
+  const inputRef = useRef();
+
   return (
-    <IdNameCombobox
-      allItems={allItems}
-      inputDivId="ProjectPageAdvancedSearch"
-      onSelectedItemChange={onSelectedItemChange}
-    />
+    <>
+      {React.cloneElement(children, {
+        ...getInputProps({
+          onClick: () => onInputClick(inputRef.current),
+          ref: inputRef,
+        }),
+      })}
+
+      <ComboboxList
+        isOpen={isOpen}
+        getMenuProps={getMenuProps}
+        listDims={listDims}
+      >
+        <ComboboxItems
+          filteredItems={filteredItems}
+          getItemProps={getItemProps}
+          highlightedIndex={highlightedIndex}
+          itemToString={itemToString}
+        />
+      </ComboboxList>
+    </>
   );
 }

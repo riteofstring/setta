@@ -10,7 +10,7 @@ export function focusOnSearch() {
     return;
   }
 
-  useProjectSearch.setState({ mode: "simple" });
+  useProjectSearch.setState({ mode: "find" });
   const element = document.getElementById("ProjectPageSearchBar");
   if (element) {
     element.focus({ preventScroll: true });
@@ -19,11 +19,7 @@ export function focusOnSearch() {
 
 export function focusOnAdvancedSearch() {
   useProjectSearch.setState({ mode: "advanced" });
-  clickOnProjectPageAdvancedSearch();
-}
-
-export function clickOnProjectPageAdvancedSearch() {
-  const element = document.getElementById("ProjectPageAdvancedSearch");
+  const element = document.getElementById("ProjectPageSearchBar");
   if (element) {
     element.click();
   }
