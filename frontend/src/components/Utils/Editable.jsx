@@ -16,7 +16,11 @@ export function Editable({
   }
 
   function onClick(e) {
-    if ((doubleClickToEdit && e.detail === 2) || !doubleClickToEdit) {
+    if (
+      e.code === "Space" ||
+      (doubleClickToEdit && e.detail === 2) ||
+      !doubleClickToEdit
+    ) {
       setIsEditing(true);
     }
   }
@@ -64,7 +68,7 @@ function InNonEditMode({ value, onClick, titleProps }) {
   function onKeyDown(e) {
     if (e.code === "Space") {
       e.preventDefault(); // need this to prevent title from getting erased
-      onClick();
+      onClick(e);
     }
   }
 

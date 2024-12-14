@@ -4,11 +4,13 @@ import { createPortal } from "react-dom";
 import { StandardSearchRightBtn } from "../atoms/search/StandardSearchRightBtn";
 
 export function ComboboxInput({
+  divId,
   getInputProps,
   getToggleButtonProps,
   isOpen,
   small,
   onInputClick,
+  onKeyDown,
   placeholder,
   bg = "bg-white dark:bg-setta-900",
   isDisabled,
@@ -24,7 +26,9 @@ export function ComboboxInput({
       placeholder={placeholder}
       // leftElementStyles="pl-3"
       {...getInputProps({
+        id: divId,
         onClick: () => onInputClick(inputRef.current),
+        onKeyDown,
         ref: inputRef,
         disabled: isDisabled,
       })}

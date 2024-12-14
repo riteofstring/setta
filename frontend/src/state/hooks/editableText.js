@@ -23,11 +23,11 @@ export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
   }
 
   function onKeyDown(event) {
-    if (event.key === "Escape") {
+    if (event.code === "Escape") {
       blurTriggeredByEscapeKey.current = true;
       event.target.blur();
       setInputValue(initialValue);
-    } else if (event.key === "Enter") {
+    } else if (event.code === "Enter") {
       event.target.blur();
     }
   }

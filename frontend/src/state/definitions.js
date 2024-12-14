@@ -136,6 +136,7 @@ export const useProjectSearch = createProjectState(
     codeInfo: [],
     focused: {},
     lookup: new Set(),
+    mode: "find",
   })),
 );
 

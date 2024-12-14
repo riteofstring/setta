@@ -44,7 +44,10 @@ import {
 } from "./sections/createSections";
 import { deleteAllActiveSections } from "./sections/deleteSections";
 import { groupSections } from "./sections/groupSections";
-import { focusOnSearch } from "./sections/sectionParamFilter";
+import {
+  focusOnAdvancedSearch,
+  focusOnSearch,
+} from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
 
 let keysPressed = new Set();
@@ -386,6 +389,7 @@ export function attachKeyEventListeners() {
     [shortcuts.loadShortcut, openLoadModal],
     [shortcuts.saveAsShortcut, openSaveAsModal],
     [shortcuts.searchShortcut, focusOnSearch],
+    [shortcuts.advancedSearchShortcut, focusOnAdvancedSearch],
     [shortcuts.resetZoomShortcut, resetZoom],
     [shortcuts.copyShortcut, copy],
     [shortcuts.pasteShortcut, paste],

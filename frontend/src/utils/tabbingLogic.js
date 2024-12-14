@@ -6,7 +6,7 @@ import { localStorageFns } from "state/hooks/localStorage";
 import { HOME_ROUTER_PATH, pathRelativeToProject } from "./constants";
 
 export function overviewPaneOnKeyDown(e) {
-  if (e.key !== "Tab" || e.shiftKey) {
+  if (e.code !== "Tab" || e.shiftKey) {
     return;
   }
   if (e.target === lastFocusableElement(e.currentTarget)) {
@@ -15,7 +15,7 @@ export function overviewPaneOnKeyDown(e) {
 }
 
 export function uiEditorPaneOnKeyDown(e) {
-  if (e.key !== "Tab" || e.shiftKey) {
+  if (e.code !== "Tab" || e.shiftKey) {
     return;
   }
   if (e.target === lastFocusableElement(e.currentTarget)) {
@@ -30,7 +30,7 @@ export function siteLogoOnKeyDown(e, navigate, location) {
   }
   if (e.code === "Space") {
     navigate(HOME_ROUTER_PATH);
-  } else if (e.key === "Tab" && e.shiftKey) {
+  } else if (e.code === "Tab" && e.shiftKey) {
     tabToLastFocusablePaneElement(e);
   }
 }
