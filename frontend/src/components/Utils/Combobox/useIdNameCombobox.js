@@ -12,6 +12,12 @@ export function useIdNameCombobox({ allItems, onSelectedItemChange, value }) {
     setListDims({ x: rect.left, y: rect.bottom + yMargin, width: rect.width });
   }
 
+  function onKeyDown(e) {
+    if (e.key === "Escape") {
+      e.target.blur();
+    }
+  }
+
   const itemToString = (x) => (x ? x.name : "");
 
   const { filteredItems, stateReducer, selection } =
@@ -52,6 +58,7 @@ export function useIdNameCombobox({ allItems, onSelectedItemChange, value }) {
     getItemProps,
     itemToString,
     onInputClick,
+    onKeyDown,
     listDims,
   };
 }

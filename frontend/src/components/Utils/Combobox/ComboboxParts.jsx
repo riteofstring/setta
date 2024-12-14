@@ -10,6 +10,7 @@ export function ComboboxInput({
   isOpen,
   small,
   onInputClick,
+  onKeyDown,
   placeholder,
   bg = "bg-white dark:bg-setta-900",
   isDisabled,
@@ -27,6 +28,7 @@ export function ComboboxInput({
       {...getInputProps({
         id: divId,
         onClick: () => onInputClick(inputRef.current),
+        onKeyDown,
         ref: inputRef,
         disabled: isDisabled,
       })}

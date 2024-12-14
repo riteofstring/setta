@@ -23,6 +23,7 @@ export function IdNameCombobox({
     getItemProps,
     itemToString,
     onInputClick,
+    onKeyDown,
     listDims,
   } = useIdNameCombobox({
     allItems,
@@ -43,6 +44,7 @@ export function IdNameCombobox({
         isOpen={isOpen}
         small={small}
         onInputClick={onInputClick}
+        onKeyDown={onKeyDown}
         placeholder={placeholder}
         bg={bg}
         isDisabled={isDisabled}

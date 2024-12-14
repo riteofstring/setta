@@ -86,6 +86,7 @@ function ProjectPageAdvancedCore({ allItems, children }) {
     getItemProps,
     itemToString,
     onInputClick,
+    onKeyDown,
     listDims,
   } = useIdNameCombobox({
     allItems,
@@ -99,6 +100,7 @@ function ProjectPageAdvancedCore({ allItems, children }) {
       {React.cloneElement(children, {
         ...getInputProps({
           onClick: () => onInputClick(inputRef.current),
+          onKeyDown,
           ref: inputRef,
         }),
       })}
