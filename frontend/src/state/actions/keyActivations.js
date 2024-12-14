@@ -452,7 +452,10 @@ export function attachKeyEventListeners() {
       keyDownAction,
       keyUpAction,
       allowRepeat,
-      ignoreWhenInInputField: getIgnoreWhenInInputField(_isMacOs),
+      ignoreWhenInInputField: getIgnoreWhenInInputField(
+        parsedShortcut,
+        _isMacOs,
+      ),
     });
   }
   let cleanup = attachKeyDownListener((e) => {
