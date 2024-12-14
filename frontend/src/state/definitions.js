@@ -146,7 +146,6 @@ export const useSectionRefs = createProjectState(
       withResetFn(() => ({
         withNested: {},
         selfOnly: {},
-        other: {},
       })),
     ),
   ),

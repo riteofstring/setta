@@ -11,16 +11,22 @@ export function focusOnSearch() {
   }
 
   useProjectSearch.setState({ mode: "find" });
-  const element = document.getElementById("ProjectPageSearchBar");
-  if (element) {
-    element.focus({ preventScroll: true });
-  }
+    // wait for re-render, otherwise the search bar re-renders after focusing on it
+  requestAnimationFrame(() => {
+    const element = document.getElementById("ProjectPageSearchBar");
+    if (element) {
+      element.focus({ preventScroll: true });
+    }
+  });
 }
 
 export function focusOnAdvancedSearch() {
   useProjectSearch.setState({ mode: "advanced" });
-  const element = document.getElementById("ProjectPageSearchBar");
-  if (element) {
-    element.click();
-  }
+  // wait for re-render, otherwise the search bar re-renders after clicking on it
+  requestAnimationFrame(() => {
+    const element = document.getElementById("ProjectPageSearchBar");
+    if (element) {
+      element.click();
+    }
+  });
 }
