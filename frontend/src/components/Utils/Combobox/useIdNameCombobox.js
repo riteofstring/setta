@@ -13,7 +13,7 @@ export function useIdNameCombobox({ allItems, onSelectedItemChange, value }) {
   }
 
   function onKeyDown(e) {
-    if (e.key === "Escape") {
+    if (e.code === "Escape") {
       e.target.blur();
     }
   }

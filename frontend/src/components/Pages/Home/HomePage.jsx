@@ -67,7 +67,7 @@ function RightColumn({ projects, defaultProjectName, setDoRefresh }) {
   }
 
   function onEscapeClearSelectedProjects(e) {
-    if (e.key === "Escape") {
+    if (e.code === "Escape") {
       setSelectedProjects([]);
     }
   }

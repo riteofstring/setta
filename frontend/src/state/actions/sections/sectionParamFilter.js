@@ -11,7 +11,7 @@ export function focusOnSearch() {
   }
 
   useProjectSearch.setState({ mode: "find" });
-    // wait for re-render, otherwise the search bar re-renders after focusing on it
+  // wait for re-render, otherwise the search bar re-renders after focusing on it
   requestAnimationFrame(() => {
     const element = document.getElementById("ProjectPageSearchBar");
     if (element) {

@@ -113,7 +113,7 @@ function ParamFilter({ sectionId }) {
         tabIndex="0"
         onChange={onSearchChange}
         onKeyDown={(e) => {
-          if (e.key === "Escape") {
+          if (e.code === "Escape") {
             e.target.blur();
           }
         }}
