@@ -28,7 +28,11 @@ from setta.code_gen.find_placeholders import (
     needs_yaml,
 )
 from setta.code_gen.python.generate_argparse import generate_argparse
-from setta.code_gen.python.generate_code import generate_code, replace_keywords
+from setta.code_gen.python.generate_code import (
+    generate_code,
+    replace_keywords,
+    convert_var_names_to_readable_form
+)
 from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
     CODE_FOLDER,
@@ -208,7 +212,7 @@ class TerminalWebsockets:
             # print("write_to_terminal while loop", flush=True)
             try:
                 input_data = await websocket.receive_text()
-                print("input_data", input_data, flush=True)
+                # print("input_data", input_data, flush=True)
                 try:
                     json_val = json.loads(input_data)
                 except json.decoder.JSONDecodeError:
@@ -290,6 +294,9 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         curr_code = section_variant["code"]
         curr_dependencies = []
         replacements = {}
+        generated_python_code = None
+        generated_python_var_name_to_line_num = None
+        generated_python_code_area_ref_var_name_positions = None
         for other_s in code_sections.values():
             if double_braces(other_s["name"]) in curr_code:
                 replacements[other_s["name"]] = codePathStr(
@@ -303,19 +310,31 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 folder_path, "SETTA_YAML", "yaml"
             )
         if needs_generated_python(curr_code):
-            curr_code, _ = process_refs(
+            curr_code, _, generated_python_code_area_ref_var_name_positions = process_refs(
                 curr_code,
                 p["codeEVRefs"][s["id"]],
                 exporter_obj.get_ref_var_name,
             )
-            replacements[C.SETTA_GENERATED_PYTHON] = generate_code(
+            (
+                generated_python_code,
+                generated_python_var_name_to_line_num,
+            ) = generate_code(
                 selected,
                 curr_code,
                 replace_templated_code=False,
-            )[0]
+            )
+            replacements[C.SETTA_GENERATED_PYTHON] = generated_python_code
 
-        section_variant["code"] = replace_keywords(curr_code, replacements)
+        section_variant["code"] = replace_keywords(curr_code, replacements, generated_python_code_area_ref_var_name_positions)
+        if generated_python_code:
+            section_variant["code"] = convert_var_names_to_readable_form(
+                section_variant["code"],
+                generated_python_var_name_to_line_num,
+                exporter_obj,
+                generated_python_code_area_ref_var_name_positions,
+            )
         dependencies[s["id"]] = curr_dependencies
+        
 
     to_write = topological_sort(dependencies)
     id_to_filepath = {}

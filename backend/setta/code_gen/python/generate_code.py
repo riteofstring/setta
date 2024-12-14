@@ -1,10 +1,12 @@
 import ast
 import copy
+from weakref import ref
 
 from ...utils.constants import USER_SETTINGS, C
 from ..find_placeholders import double_braces
 from ..utils import push_var_deep
 from .infer_imports import find_missing_imports
+import re
 
 
 def get_location_str(node):
@@ -192,11 +194,37 @@ def generate_code(
         replace_templated_code,
     )
 
+from pprint import pprint
+def convert_var_names_to_readable_form(
+    generated_code, var_name_to_line_num, exporter_obj, code_area_ref_var_name_positions
+):
+    print(generated_code, flush=True)
+    print(var_name_to_line_num, flush=True)
+    # pprint(exporter_obj.output)
+    for p,v in code_area_ref_var_name_positions:
+        print(generated_code[p:p+len(v)], flush=True)
 
-def replace_keywords(x, replacements):
-    for key, value in replacements.items():
-        if value is not None:
-            x = x.replace(double_braces(key), value)
+    return generated_code
+
+
+
+def replace_keywords(x, replacements, ref_var_name_positions=None):
+    for key, new_value in replacements.items():
+        if new_value is not None:
+            old_value = double_braces(key)
+            if ref_var_name_positions:
+                print("finding matches using re", old_value, x, flush=True)
+                for match in re.finditer(re.escape(old_value), x):
+                    position = match.start()
+                    print("position", flush=True)
+                    for idx in range(len(ref_var_name_positions)):
+                        p, v = ref_var_name_positions[idx]
+                        if position < p:
+                            p += len(new_value) - len(old_value)
+                            print("new p", p, flush=True)
+                            ref_var_name_positions[idx] = p, v
+
+            x = x.replace(old_value, new_value)
     return x
 
 

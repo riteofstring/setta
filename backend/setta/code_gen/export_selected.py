@@ -277,7 +277,7 @@ class Exporter:
                 ) = self.export_section_params(id)
 
                 if id in self.p["selectedItemEVRefs"]:
-                    callable, used_ref_var_names = process_refs(
+                    callable, used_ref_var_names, ref_var_name_positions = process_refs(
                         get_selected_item_name(self.p, id),
                         self.p["selectedItemEVRefs"][id],
                         self.maybe_create_ref_var_name,
@@ -285,6 +285,7 @@ class Exporter:
                 else:
                     callable = get_selected_item_name(self.p, id)
                     used_ref_var_names = []
+                    ref_var_name_positions = []
 
                 info["value"] = {
                     "callable": callable,
@@ -292,18 +293,22 @@ class Exporter:
                     "positionalOnlyParams": positionalOnlyParams,
                 }
                 info["dependencies"] = [*params, *used_ref_var_names]
+                info["ref_var_name_positions"] = ref_var_name_positions
                 self.output[var_name] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
                 children = get_section_children(self.p, id)
                 info["value"] = self.export_sections(children)
                 info["dependencies"] = info["value"]
+                info["ref_var_name_positions"] = [] # has to be populated when the code is generated
                 self.output[var_name] = info
             elif type in [C.CODE, C.INTERACTIVE_CODE]:
                 if (
                     code_section_needs_generated_python(self.p, id)
                     and id in self.p["codeEVRefs"]
                 ):
-                    # make sure any necessary variables get created.
+                    # Make sure any necessary variables get created.
+                    # We don't do any replacements here, because that's done later 
+                    # when the code is actually run.
                     process_refs(
                         get_section_code(self.p, id),
                         self.p["codeEVRefs"][id],
@@ -383,10 +388,11 @@ class Exporter:
                     "type": C.NESTED_PARAM,
                     "value": params,
                     "dependencies": params,
+                    "ref_var_name_positions": [], # has to be populated when the code is generated
                 }
                 self.output[var_name] = info
             else:
-                value, used_ref_var_names = self.export_param_value(section_id, id)
+                value, used_ref_var_names, ref_var_name_positions = self.export_param_value(section_id, id)
                 self.output[var_name] = {
                     "sectionId": section_id,
                     "paramInfoId": id,
@@ -394,6 +400,7 @@ class Exporter:
                     "type": get_param_ui_type(self.p, section_id, id),
                     "value": value,
                     "dependencies": used_ref_var_names,
+                    "ref_var_name_positions": ref_var_name_positions
                 }
 
         return var_name
@@ -403,13 +410,14 @@ class Exporter:
         if id in variant["values"]:
             value = variant["values"][id]["value"]
             refs = self.p["paramEVRefs"][section_id][id]
-            value, used_ref_var_names = process_refs(
+            value, used_ref_var_names, ref_var_name_positions = process_refs(
                 value, refs, self.maybe_create_ref_var_name
             )
         else:
             value = new_ev_entry()["value"]
             used_ref_var_names = []
-        return value, used_ref_var_names
+            ref_var_name_positions = []
+        return value, used_ref_var_names, ref_var_name_positions
 
     def maybe_create_ref_var_name(
         self, ref_section_id, ref_param_info_id, ref_is_args_obj
