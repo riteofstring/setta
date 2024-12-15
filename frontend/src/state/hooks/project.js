@@ -50,7 +50,6 @@ export function useExportProjectJson() {
   const [projectJson, setProjectJson] = useState({});
   async function exportProjectJson() {
     const project = getProjectDataForSaving();
-    console.log("exporting", project)
     const res = await dbFilterDataForJSONExport(project);
     if (res.status === 200) {
       setProjectJson(res.data);

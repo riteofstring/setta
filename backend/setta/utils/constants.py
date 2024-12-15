@@ -1,7 +1,8 @@
 import builtins
+import json
 from pathlib import Path
 
-from .utils import is_dev_mode
+from .utils import get_absolute_path, is_dev_mode
 
 CONSTANTS_FOLDER = (
     Path("../../../constants") if is_dev_mode() else Path("../static/constants")
@@ -46,6 +47,25 @@ DEFAULT_VALUES = {}
 def set_constants(**kwargs):
     for k, v in kwargs.items():
         setattr(C, k.upper(), v)
+
+
+def load_constants():
+    with open(
+        get_absolute_path(__file__, CONSTANTS_FOLDER / "constants.json"), "r"
+    ) as f:
+        set_constants(**json.load(f))
+
+    with open(
+        get_absolute_path(__file__, CONSTANTS_FOLDER / "BaseUITypes.json"), "r"
+    ) as f:
+        BASE_UI_TYPES.update(json.load(f))
+        for k, v in BASE_UI_TYPES.items():
+            BASE_UI_TYPE_IDS[v["type"]] = k
+
+    with open(
+        get_absolute_path(__file__, CONSTANTS_FOLDER / "defaultValues.json"), "r"
+    ) as f:
+        DEFAULT_VALUES.update(json.load(f))
 
 
 def is_from_json_source(id):

@@ -6,10 +6,7 @@ from setta.database.db.codeInfo.utils import (
 )
 from setta.database.db.sections.utils import add_defaults_to_sections
 from setta.database.db.sectionVariants.utils import add_defaults_to_section_variants
-from setta.database.db.uiTypes.utils import (
-    add_defaults_to_ui_type_cols,
-    add_defaults_to_ui_types,
-)
+from setta.database.db.uiTypes.utils import add_defaults_to_ui_type_cols
 from setta.utils.constants import DEFAULT_VALUES
 from setta.utils.utils import filter_dict, recursive_dict_merge
 
@@ -24,7 +21,6 @@ def add_defaults_to_project(p):
     add_defaults_to_section_variants(p["sectionVariants"])
     add_defaults_to_code_info(p["codeInfo"])
     add_defaults_to_code_info_cols(p["codeInfoCols"])
-    add_defaults_to_ui_types(p["uiTypes"])
     add_defaults_to_ui_type_cols(p["uiTypeCols"])
 
 
