@@ -22,8 +22,6 @@ export function Editable({
       !doubleClickToEdit
     ) {
       setIsEditing(true);
-    } else {
-      e.target.blur();
     }
   }
 
