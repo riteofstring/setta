@@ -5,6 +5,7 @@ import {
   deleteLastKwarg,
   deleteSelectedKwargs,
   getAllSelectedParamIds,
+  getHighestContiguousSelectedAncestor,
   pinSelectedKwargs,
 } from "state/actions/kwargs";
 import { getSectionVariant } from "state/actions/sectionInfos";
@@ -175,20 +176,33 @@ function onClickDeleteKwargFn(sectionId, objInfoId) {
 }
 
 function helperForAddDeleteKwarg(sectionId, state, callbackFn) {
-  const { ids: selectedParamIds } = getAllSelectedParamIds(sectionId, state);
+  const { ids: selectedParamIds, pathMap } = getAllSelectedParamIds(
+    sectionId,
+    state,
+  );
   if (selectedParamIds.length > 0) {
     const { codeInfoColId } = getSectionVariant(sectionId, state);
     const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+    const kwargsOfInterest = new Set();
     for (const p of selectedParamIds) {
+      const highest = getHighestContiguousSelectedAncestor(
+        state.codeInfo,
+        pathMap,
+        p,
+      );
+      if (kwargsOfInterest.has(highest)) {
+        continue;
+      }
       let parentId, idx;
       for (const [id, children] of Object.entries(codeInfoChildren)) {
-        if (children.includes(p)) {
+        if (children.includes(highest)) {
           parentId = id;
-          idx = children.indexOf(p);
+          idx = children.indexOf(highest);
           break;
         }
       }
       callbackFn({ codeInfoChildren, sectionId, parentId, idx, state });
+      kwargsOfInterest.add(highest);
     }
     return true;
   }

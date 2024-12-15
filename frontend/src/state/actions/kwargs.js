@@ -71,7 +71,6 @@ export function pinSelectedKwargs(sectionId) {
     const { ids: selectedParamIds } = getAllSelectedParamIds(sectionId, x);
     for (const p of selectedParamIds) {
       x.codeInfo[p].isPinned = !x.codeInfo[p].isPinned;
-      x.codeInfo[p].isSelected = false;
     }
   });
 }

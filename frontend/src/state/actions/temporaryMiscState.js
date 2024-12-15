@@ -25,7 +25,7 @@ function callFnAndWait({ id, condition, fn }) {
       },
     );
 
-    fn?.(actualId);
+    fn(actualId);
   });
 }
 
@@ -53,22 +53,4 @@ export async function requestBase64FromDrawArea(sectionId) {
 
 export function base64RequestId(sectionId) {
   return `${sectionId}-base64-request`;
-}
-
-export async function waitForFileDeletion(filepath) {
-  let wasDeleted = false;
-
-  await callFnAndWait({
-    id: fileDeletionRequestId(filepath),
-    condition: (x) => {
-      wasDeleted = x;
-      return true;
-    },
-  });
-
-  return wasDeleted;
-}
-
-export function fileDeletionRequestId(filepath) {
-  return `${filepath}-delete-request`;
 }

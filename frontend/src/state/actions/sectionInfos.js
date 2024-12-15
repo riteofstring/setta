@@ -1,13 +1,10 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
-import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
 import { useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newEVEntry } from "utils/objs/ev";
 import { newUITypeColEntry } from "utils/objs/uiTypeCol";
-import { openDeleteJSONSourceFileModal } from "./modal";
-import { waitForFileDeletion } from "./temporaryMiscState";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];
@@ -265,40 +262,4 @@ export function getTotalNumberOfIds(idToChildren) {
   }
 
   return allIds.size;
-}
-
-export async function deleteSectionVariantAndMaybeJsonFile(
-  sectionId,
-  variantId,
-  isCurr,
-) {
-  const state = useSectionInfos.getState();
-  const { jsonSource } = state.x[sectionId];
-  if (jsonSource) {
-    const { name: variantName } = state.variants[variantId];
-    const res = await dbGetJSONSourcePathToBeDeleted(variantName);
-    if (res.status == 200) {
-      openDeleteJSONSourceFileModal(res.data);
-      const wasDeleted = await waitForFileDeletion(res.data);
-      if (wasDeleted) {
-        deleteSectionVariant(sectionId, variantId, isCurr);
-      }
-    }
-  } else {
-    deleteSectionVariant(sectionId, variantId, isCurr);
-  }
-}
-
-function deleteSectionVariant(sectionId, variantId, isCurr) {
-  useSectionInfos.setState((state) => {
-    const section = state.x[sectionId];
-    section.variantIds = section.variantIds.filter((v) => v !== variantId);
-    if (section.defaultVariantId === variantId) {
-      section.defaultVariantId = section.variantIds[0];
-    }
-    if (isCurr) {
-      section.variantId = section.variantIds[0];
-    }
-    delete state.variants[variantId];
-  });
 }

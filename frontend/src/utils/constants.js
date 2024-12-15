@@ -111,11 +111,6 @@ export const MODAL_TYPE = {
     title: "Rename References",
     buttonText: "Rename",
   },
-  DELETE_JSON_SOURCE_FILE: {
-    purpose: null,
-    title: "Delete JSON Source File",
-    buttonText: "Delete",
-  },
 };
 
 export const PAGE_LOAD_TYPES = {
