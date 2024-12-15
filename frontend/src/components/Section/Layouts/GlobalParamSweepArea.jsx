@@ -1,6 +1,7 @@
 import { YamlView } from "components/Params/YamlView";
 import { StandardAccordion } from "components/Utils/atoms/accordion/accordion";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import React from "react";
@@ -53,14 +54,23 @@ function GlobalParamSweepGUI({ sectionId, width }) {
 
 function LeftSide({ sectionId }) {
   return (
-    <article className="mt-2 flex flex-col gap-2 ">
-      <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+    <ResizableWithScale
+      className="nodrag relative -mr-2 flex flex-col gap-2 pr-2"
+      enable={{ right: true }}
+      minWidth={100}
+      maxWidth="70%"
+      handleClasses={{
+        right:
+          "before:bg-transparent before:absolute before:top-0 before:h-3/4 before:bottom-0 before:left-0 before:right-0 before: before:m-auto before:w-1/2 hover:before:bg-setta-500/10 before:rounded-full",
+      }}
+    >
+      <h3 className="ml-0.5 mt-2 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
         Run Groups
       </h3>
 
       <RunGroupList sectionId={sectionId} />
       <CreateNewRunGroupButton sectionId={sectionId} />
-    </article>
+    </ResizableWithScale>
   );
 }
 
@@ -76,7 +86,7 @@ function RightSide({ sectionId }) {
   // -mr-[14px]
   return (
     <article
-      className={`${showYaml ? "-mr-2 overflow-visible @sm/multipane:-mr-[14px] @sm/multipane:overflow-y-scroll" : "h-full min-h-0 overflow-x-clip"} mt-2 flex  flex-1 flex-col gap-2  pb-2 `}
+      className={`${showYaml ? "-mr-2 overflow-visible @sm/multipane:-mr-[14px] @sm/multipane:overflow-y-scroll" : "h-full min-h-0 min-w-0 max-w-full overflow-x-clip"} mt-2 flex flex-1 flex-col gap-2  pb-2 `}
     >
       {!showYaml ? (
         <>
@@ -491,7 +501,7 @@ function CheckboxNextToLabel({
       onMouseLeave={onMouseLeave}
     >
       <label
-        className={`flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs text-setta-700 group-hover/runitem:!text-blue-500 dark:text-setta-200 ${shown ? "font-bold !text-blue-500" : ""}`}
+        className={`flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-700 group-hover/runitem:!text-blue-500 dark:text-setta-200 ${shown ? "font-bold !text-blue-500" : ""}`}
       >
         <input
           type="checkbox"
@@ -537,10 +547,13 @@ function CreateNewRunGroupButton({ sectionId }) {
 
   return (
     <button
-      className="nodrag flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-1 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
+      className="nodrag mb-1 flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-1 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
       onClick={onClick}
     >
-      <i className="gg-add-r" /> New Run Group
+      <span className="relative">
+        <i className="gg-add-r absolute" />
+      </span>
+      New Run Group
     </button>
   );
 }
