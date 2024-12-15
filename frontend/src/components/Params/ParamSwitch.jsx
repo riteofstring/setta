@@ -22,7 +22,6 @@ function _ParamSwitch(props) {
   const hasChildren = paramChildren.length > 0;
   const handleParamSelection = useCallback(
     (e) => {
-      console.log("onMouseDownSelect", sectionId, paramInfoId);
       if (useMisc.getState().isSelectingParams) {
         e.stopPropagation();
         toggleParamSelected(sectionId, paramInfoId);
@@ -49,17 +48,18 @@ function _ParamSwitch(props) {
     >
       {isKwarg ? (
         <ParamNameInput
-          bg={bg}
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           hasChildren={hasChildren}
           onMouseDown={onMouseDownConditional}
+          bg={bg}
         />
       ) : (
         <ParamTextLabel
-          bg={bg}
+          sectionId={sectionId}
           paramInfoId={paramInfoId}
           onMouseDown={onMouseDownConditional}
+          bg={bg}
         />
       )}
     </ParamContainer>
