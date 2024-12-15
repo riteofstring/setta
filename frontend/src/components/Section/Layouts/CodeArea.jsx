@@ -126,6 +126,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
       className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
     >
       <CodeMirror
+        id={`CodeArea-${sectionId}`}
         maxHeight={maxHeight}
         value={value}
         theme={theme}
@@ -134,6 +135,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
         indentWithTab={false} // I take care of this in getExtensions
+        tabIndex="0"
       />
     </article>
   );

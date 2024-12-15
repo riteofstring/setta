@@ -41,6 +41,17 @@ export function homePageProjectItemOnKeyDown(e, navigate, projectConfigName) {
   }
 }
 
+function withinSectionTabbingHelper(focusEl) {
+  if (focusEl.id.startsWith("CodeArea-")) {
+    const codeAreaContentEditable = getContentEditableFromCodeAreaDiv(focusEl);
+    codeAreaContentEditable.focus({ preventScroll: true });
+    movePaneToIncludeElement(codeAreaContentEditable);
+  } else {
+    focusEl.focus({ preventScroll: true });
+    movePaneToIncludeElement(focusEl);
+  }
+}
+
 export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
   if (e.code !== "Tab") {
     return;
@@ -56,16 +67,14 @@ export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
     if (!focusEl) {
       shiftTabBackToOverviewListItem(e, sectionId);
     } else {
-      focusEl.focus({ preventScroll: true });
-      movePaneToIncludeElement(focusEl);
+      withinSectionTabbingHelper(focusEl);
     }
   } else {
     const focusEl = getNextElement(e, ref, focusableArray);
     if (!focusEl) {
       tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
     } else {
-      focusEl.focus({ preventScroll: true });
-      movePaneToIncludeElement(focusEl);
+      withinSectionTabbingHelper(focusEl);
     }
   }
 }
@@ -89,6 +98,10 @@ function getCurrentElementIndex(e, focusableArray) {
   return e.target.cmView
     ? focusableArray.findIndex((f) => f.id.startsWith("CodeMirror-"))
     : focusableArray.indexOf(document.activeElement);
+}
+
+function getContentEditableFromCodeAreaDiv(el) {
+  return el.querySelector("[contenteditable]");
 }
 
 export function tabFromDocumentBody(e) {
