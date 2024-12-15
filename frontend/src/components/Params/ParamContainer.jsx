@@ -6,7 +6,6 @@ import _ from "lodash";
 import React, { useEffect, useRef } from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { getOnMouseDownSelectParamFn } from "state/actions/paramSelect";
 import {
   useProjectSearch,
   useSectionColumnWidth,
@@ -27,6 +26,7 @@ function _ParamContainer({
   isKwarg = false,
   isTopLevelWithPad,
   paramChildren,
+  onMouseDown,
 }) {
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -74,19 +74,13 @@ function _ParamContainer({
     paramChildren,
   );
 
-  const onMouseDownSelect = getOnMouseDownSelectParamFn(
-    ancestorIsSelected,
-    sectionId,
-    paramInfoId,
-  );
-
   return paramChildren.length === 0 ? (
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
         className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows -ml-[2px] grid grid-cols-subgrid items-center justify-between rounded-sm pl-[2px] hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
-        onMouseDownCapture={onMouseDownSelect} // has to be on capture for selection to work
+        onMouseDownCapture={onMouseDown} // has to be on capture for selection to work
         ref={childlessRef}
       >
         {!isKwarg ? (

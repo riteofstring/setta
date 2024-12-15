@@ -1,8 +1,8 @@
 import _ from "lodash";
-import React from "react";
-import { getOnMouseDownSelectParamFn } from "state/actions/paramSelect";
+import React, { useCallback } from "react";
+import { toggleParamSelected } from "state/actions/kwargs";
 import { getDisplayedCodeInfoCol } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useMisc, useSectionInfos } from "state/definitions";
 import { ParamContainer } from "./ParamContainer";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
@@ -19,23 +19,38 @@ function _ParamSwitch(props) {
   }, _.isEqual);
 
   const hasChildren = paramChildren.length > 0;
-  const onMouseDown = hasChildren
-    ? getOnMouseDownSelectParamFn(ancestorIsSelected, sectionId, paramInfoId)
-    : undefined;
+  const handleParamSelection = useCallback(
+    (e) => {
+      console.log("onMouseDownSelect", sectionId, paramInfoId);
+      if (!ancestorIsSelected && useMisc.getState().isSelectingParams) {
+        e.stopPropagation();
+        toggleParamSelected(sectionId, paramInfoId);
+      }
+    },
+    [ancestorIsSelected, sectionId, paramInfoId],
+  );
+
+  // No need for additional useCallback since this is just a simple conditional
+  const onMouseDownConditional = hasChildren ? handleParamSelection : undefined;
+  const onMouseDownAlways = handleParamSelection;
 
   return (
-    <ParamContainer {...props} paramChildren={paramChildren}>
+    <ParamContainer
+      {...props}
+      paramChildren={paramChildren}
+      onMouseDown={onMouseDownAlways}
+    >
       {isKwarg ? (
         <ParamNameInput
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           hasChildren={hasChildren}
-          onMouseDown={onMouseDown}
+          onMouseDown={onMouseDownConditional}
         />
       ) : (
         <ParamTextLabel
           paramInfoId={paramInfoId}
-          onMouseDown={onMouseDown}
+          onMouseDown={onMouseDownConditional}
         />
       )}
     </ParamContainer>
