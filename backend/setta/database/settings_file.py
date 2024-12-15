@@ -69,23 +69,6 @@ class MetaSettingsFile:
                 return variant["name"]
         return None
 
-    # def get_selected_section_variant(self, p):
-    #     variantIds = set()
-    #     setting_sections = []
-    #     for s in p["sections"].values():
-    #         if s.get("jsonSource", "").startswith("setta-settings"):
-    #             setting_sections.append(s)
-    #             variantIds.add(s["variantId"])
-
-    #     return p["sectionVariants"][list(variantIds)[0]], setting_sections
-
-    # def save(self, p):
-    #     saved_data = save_json_source_data(p)
-    #     remove_json_source_data(p, keepCodeInfoThatHaveUITypes=False)
-    #     filter_data_for_json_export(p)
-    #     self.save_raw(p)
-    #     return saved_data[self.settings_path]
-
     def seed_settings(self, path):
         if not os.path.exists(path):
             save_json_to_file(path, self.obj_seed_settings)

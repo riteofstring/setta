@@ -228,7 +228,7 @@ def load_json_sources_into_data_structures(
 
             curr_section_variant = sectionVariants[variantId]
             curr_section_variant["values"] = data["sectionVariantValues"]
-            codeInfoColId = sectionVariants[variantId].get("codeInfoColId")
+            codeInfoColId = curr_section_variant["codeInfoColId"]
 
             if not codeInfoColId:
                 codeInfoColId = create_new_id()
