@@ -139,7 +139,7 @@ def process_diagnostics(diagnostics, code_split, codeJson):
         if d["code"] == "reportArgumentType":
             problem_var = code_split[start["line"]][
                 start["character"] : end["character"]
-            ].strip()
+            ]
             if codeJson:
                 set_message(codeJson, problem_var, output, d["message"])
         elif d["code"] == "reportCallIssue":

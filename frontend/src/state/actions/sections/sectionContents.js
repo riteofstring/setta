@@ -4,11 +4,7 @@ import {
   findAllParametersAndPathMaps,
 } from "utils/getDescendants";
 import { bothTruthyOrFalsey } from "utils/utils";
-import {
-  getCodeChildrenAndParentCodeInfoId,
-  getCodeInfoCol,
-  getSectionVariant,
-} from "../sectionInfos";
+import { getCodeInfoCol, getSectionVariant } from "../sectionInfos";
 
 export function getParamIdsToShowInArea(
   isPinned,
@@ -102,16 +98,4 @@ export function getSectionHasAtLeastOneSelectedParam(sectionId, state) {
   return getSectionHasSomeParamCondition(sectionId, state, (c) => {
     return c?.isSelected;
   });
-}
-
-export function getAllDisplayedParamsInSection(sectionId, state) {
-  const { codeInfoChildren, parentCodeInfoId, startAtDepth } =
-    getCodeChildrenAndParentCodeInfoId(sectionId, state);
-  const { ids, pathMap } = findAllParametersAndPathMaps({
-    allCodeInfo: state.codeInfo,
-    codeInfoChildren,
-    startingId: parentCodeInfoId,
-    startAtDepth,
-  });
-  return ids.filter((x) => pathMap[x].slice(startAtDepth).length > 0);
 }

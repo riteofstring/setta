@@ -35,8 +35,8 @@ function _ParamSwitch(props) {
   const onMouseDownAlways = handleParamSelection;
 
   const bg = paramIsSelected
-    ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white"
-    : "transition-colors";
+    ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white rounded-sm"
+    : "transition-colors rounded-sm";
 
   return (
     <ParamContainer
@@ -52,7 +52,7 @@ function _ParamSwitch(props) {
           paramInfoId={paramInfoId}
           hasChildren={hasChildren}
           onMouseDown={onMouseDownConditional}
-          bg={bg}
+          bg={hasChildren ? bg : ""}
         />
       ) : (
         <ParamTextLabel

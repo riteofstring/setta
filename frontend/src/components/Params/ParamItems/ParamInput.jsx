@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { debouncedTypeCheckRequest, getEVRefs } from "requests/sections";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setParamEnteredValue } from "state/actions/sectionInfos";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { useGetParamEnteredValueAndEVRefs } from "state/hooks/sectionVariants";
 import { getParamUIType } from "state/hooks/uiTypes";
@@ -76,8 +75,6 @@ const debouncedSetParamEnteredValue = asyncDebounce(
           state.variants[variantId].values[paramInfoId].evRefs = evRefs;
         });
       }
-
-      maybeIncrementProjectStateVersion(true);
     }
   },
   50,
