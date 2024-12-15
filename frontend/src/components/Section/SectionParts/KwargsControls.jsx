@@ -5,6 +5,7 @@ import {
   deleteLastKwarg,
   deleteSelectedKwargs,
   getAllSelectedParamIds,
+  getHighestContiguousSelectedAncestor,
   pinSelectedKwargs,
 } from "state/actions/kwargs";
 import { getSectionVariant } from "state/actions/sectionInfos";
@@ -108,7 +109,7 @@ function ParamFilter({ sectionId }) {
       <input
         id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
         value={paramFilterValue}
-        className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-700 placeholder-setta-400  outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300"
+        className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-700 placeholder-setta-600  outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300"
         placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
         tabIndex="0"
         onChange={onSearchChange}
@@ -125,25 +126,20 @@ function ParamFilter({ sectionId }) {
 function onClickAddKwargFn(sectionId, objInfoId) {
   return () => {
     useSectionInfos.setState((state) => {
-      const selectedParamIds = getAllSelectedParamIds(sectionId, state);
-      if (selectedParamIds.length > 0) {
-        const { codeInfoColId } = getSectionVariant(sectionId, state);
-        const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
-        for (const p of selectedParamIds) {
-          let parentId, insertIdx;
-          for (const [id, children] of Object.entries(codeInfoChildren)) {
-            if (children.includes(p)) {
-              parentId = id;
-              insertIdx = children.indexOf(p) + 1;
-              break;
-            }
-          }
-          addKwarg({ sectionId, parentId, insertIdx, state });
-        }
-      } else {
+      function callbackFn({ sectionId, parentId, idx, state }) {
+        addKwarg({ sectionId, parentId, insertIdx: idx + 1, state });
+      }
+
+      const paramsAreSelected = helperForAddDeleteKwarg(
+        sectionId,
+        state,
+        callbackFn,
+      );
+      if (!paramsAreSelected) {
         addKwarg({ sectionId, parentId: objInfoId, state });
       }
     });
+
     maybeIncrementProjectStateVersion(true);
   };
 }
@@ -151,24 +147,20 @@ function onClickAddKwargFn(sectionId, objInfoId) {
 function onClickDeleteKwargFn(sectionId, objInfoId) {
   return () => {
     useSectionInfos.setState((state) => {
-      const selectedParamIds = getAllSelectedParamIds(sectionId, state);
-      if (selectedParamIds.length > 0) {
-        const { codeInfoColId } = getSectionVariant(sectionId, state);
-        const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
-        const kwargIds = [];
-        for (const p of selectedParamIds) {
-          let parentId, idx;
-          for (const [id, children] of Object.entries(codeInfoChildren)) {
-            if (children.includes(p)) {
-              parentId = id;
-              idx = children.indexOf(p);
-              break;
-            }
-          }
-          if (parentId) {
-            kwargIds.push(codeInfoChildren[parentId][idx + 1]);
-          }
+      let kwargIds = [];
+
+      function callbackFn({ codeInfoChildren, parentId, idx }) {
+        if (parentId) {
+          kwargIds.push(codeInfoChildren[parentId][idx + 1]);
         }
+      }
+
+      const paramsAreSelected = helperForAddDeleteKwarg(
+        sectionId,
+        state,
+        callbackFn,
+      );
+      if (paramsAreSelected) {
         deleteCodeInfo(sectionId, kwargIds, state);
       } else {
         deleteLastKwarg({
@@ -178,6 +170,41 @@ function onClickDeleteKwargFn(sectionId, objInfoId) {
         });
       }
     });
+
     maybeIncrementProjectStateVersion(true);
   };
+}
+
+function helperForAddDeleteKwarg(sectionId, state, callbackFn) {
+  const { ids: selectedParamIds, pathMap } = getAllSelectedParamIds(
+    sectionId,
+    state,
+  );
+  if (selectedParamIds.length > 0) {
+    const { codeInfoColId } = getSectionVariant(sectionId, state);
+    const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+    const kwargsOfInterest = new Set();
+    for (const p of selectedParamIds) {
+      const highest = getHighestContiguousSelectedAncestor(
+        state.codeInfo,
+        pathMap,
+        p,
+      );
+      if (kwargsOfInterest.has(highest)) {
+        continue;
+      }
+      let parentId, idx;
+      for (const [id, children] of Object.entries(codeInfoChildren)) {
+        if (children.includes(highest)) {
+          parentId = id;
+          idx = children.indexOf(highest);
+          break;
+        }
+      }
+      callbackFn({ codeInfoChildren, sectionId, parentId, idx, state });
+      kwargsOfInterest.add(highest);
+    }
+    return true;
+  }
+  return false;
 }

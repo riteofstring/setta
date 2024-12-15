@@ -7,7 +7,6 @@ export function GetParamSwitch({
   sectionId,
   paramIds,
   requiredParamIdsToPaths,
-  ancestorIsSelected = false,
   onResizeStart,
   isTopLevel = false,
 }) {
@@ -52,7 +51,6 @@ export function GetParamSwitch({
       sectionId={sectionId}
       paramInfoId={e}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
-      ancestorIsSelected={ancestorIsSelected}
       onResizeStart={onResizeStart}
       isTopLevelWithPad={isTopLevel && idx > 0}
     />

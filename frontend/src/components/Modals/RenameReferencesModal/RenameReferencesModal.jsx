@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
-import { VscReferences } from "react-icons/vsc";
+import { BiErrorCircle } from "react-icons/bi";
 import { makeReplacements } from "state/actions/infoToEVReferrer";
 import { setModalOpen } from "state/actions/modal";
 import { useModal, useSettings } from "state/definitions";
@@ -44,7 +44,7 @@ export function RenameReferencesModal() {
     <div className="mx-auto flex h-full w-full flex-col items-center">
       <header className="flex flex-col gap-2 self-start">
         <div className="flex items-center gap-2">
-          <VscReferences className="h-6 w-6 rounded-sm p-0.5 text-setta-600  dark:text-setta-200" />
+          <BiErrorCircle className="h-6 w-6 rounded-full bg-red-100 p-0.5 text-red-600 dark:bg-red-700 dark:text-red-200" />
           <Dialog.Title className="text-xl font-semibold text-setta-800 dark:text-setta-200">
             Rename References
           </Dialog.Title>
@@ -65,7 +65,7 @@ export function RenameReferencesModal() {
               key={r}
               className="flex items-center space-x-2 text-sm text-setta-600 dark:text-setta-400"
             >
-              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />
+              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-red-500" />
               <span>{r}</span>
             </li>
           ))}
@@ -76,23 +76,23 @@ export function RenameReferencesModal() {
         <label className="flex items-center space-x-2 text-sm text-setta-600 dark:text-setta-400">
           <input
             type="checkbox"
-            className="h-4 w-4 cursor-pointer rounded bg-setta-100 text-blue-600 checked:!bg-blue-500 focus:ring-1  dark:bg-setta-700"
+            className="h-4 w-4 rounded border-gray-500 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
             onChange={(e) => {
               setDoNotAsk(e.target.checked);
             }}
           />
-          <span>Don&apos;t ask again</span>
+          <span>Don't ask again</span>
         </label>
         <div className="flex w-full justify-end space-x-3">
           <button
             onClick={handleCancel}
             className="cursor-pointer rounded-full border border-setta-300 px-4 py-2 text-setta-700 transition-colors hover:bg-setta-50 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
           >
-            Don&apos;t Update
+            Don't Update
           </button>
           <button
             onClick={handleConfirm}
-            className="cursor-pointer rounded-full bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 dark:hover:bg-blue-800"
+            className="cursor-pointer rounded-full bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700 dark:hover:bg-red-800"
           >
             Update References
           </button>

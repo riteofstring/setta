@@ -29,7 +29,8 @@ import { tabFromDocumentBody } from "utils/tabbingLogic";
 import { isMacOs } from "utils/utils";
 import {
   clearActiveSectionIds,
-  setAllSectionsAsActive,
+  selectAll,
+  setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
@@ -393,13 +394,18 @@ export function attachKeyEventListeners() {
     [shortcuts.resetZoomShortcut, resetZoom],
     [shortcuts.copyShortcut, copy],
     [shortcuts.pasteShortcut, paste],
+    [shortcuts.pasteAsRefShortcut, () => paste({ asRef: true })],
     [shortcuts.updateInteractiveCode, updateInteractiveCode],
     [shortcuts.formatCode, formatCode],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, onFitViewHandler],
     [shortcuts.zoomToMouseShortcut, zoomToMouseLocation],
     [shortcuts.deleteSectionShortcut, deleteAllActiveSections],
-    [shortcuts.selectAllSectionsShortcut, setAllSectionsAsActive],
+    [
+      shortcuts.selectTopLevelNonGroupSections,
+      setTopLevelNonGroupSectionsAsActive,
+    ],
+    [shortcuts.selectAll, selectAll],
     [shortcuts.showVersionsTabShortcut, showVersionsTab],
     [shortcuts.showParamUITypeTabShortcut, showParamUITypeTab],
     [shortcuts.showProjectOverviewTabShortcut, showProjectOverviewTab],

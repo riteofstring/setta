@@ -127,7 +127,7 @@ function ResizablePinnedArea({
   return (
     <ResizableWithScale
       handleWrapperClass="nodrag"
-      className="relative -mt-1 flex max-h-[50%] flex-col items-start overflow-hidden border-b border-white bg-blue-200/50 pb-3 pr-1.5 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30"
+      className="relative -mt-1 flex max-h-[50%] flex-col items-start overflow-hidden border-b border-white bg-blue-200/50 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30"
       as="section"
       size={{ height }}
       onResizeStop={onResizeStop}
@@ -144,7 +144,7 @@ function ResizablePinnedArea({
         bottomLeft: false,
       }}
     >
-      <header className="flex w-full gap-1 px-2">
+      <header className="flex w-full gap-2 px-2">
         <i className="gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] text-setta-300 after:text-setta-300 dark:text-setta-500 dark:after:text-setta-500" />
         <p className=" text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
           Pinned Params
