@@ -98,7 +98,7 @@ function ContainerGroup({
       style={style}
     >
       <div
-        className={`outline outline-4 ${outlineColor} absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline  outline-2 outline-transparent  dark:border-setta-700 dark:bg-setta-950/30`}
+        className={`outline outline-4 ${outlineColor} absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-setta-50/50 bg-setta-200/70 outline outline-2 outline-transparent  dark:border-setta-700 dark:bg-setta-950/70`}
       />
       <div className="z-10 flex min-h-8 w-full items-center">
         <MenuButton
@@ -131,10 +131,10 @@ function ContainerGroup({
 function GroupSectionTitle({ sectionId }) {
   const titleProps = {
     editing:
-      "absolute cursor-pointer w-full text-xl font-bold tracking-tighter text-setta-100 dark:text-setta-600 cursor-pointer flex-shrink",
+      "absolute cursor-pointer w-full text-2xl tracking-tighter text-setta-500 dark:text-setta-500 cursor-pointer flex-shrink",
 
     notEditing:
-      "absolute cursor-pointer w-full truncate text-xl font-bold tracking-tighter text-setta-100 dark:text-setta-600 cursor-pointer flex-shrink",
+      "absolute cursor-pointer w-full truncate text-2xl tracking-tighter text-setta-500 dark:text-setta-500 cursor-pointer flex-shrink",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
