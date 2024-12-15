@@ -1,5 +1,6 @@
 import json
 
+from setta.database.utils import uuid_str_to_blob
 from setta.utils.constants import (
     DEFAULT_VALUES,
     SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS,
@@ -22,10 +23,10 @@ def save_section_variants(db, section_variants):
 
     query_params = [
         {
-            "id": k,
+            "id": uuid_str_to_blob(k),
             "name": v["name"],
-            "selectedItem": v["selectedItem"],
-            "codeInfoColId": v["codeInfoColId"],
+            "selectedItem": uuid_str_to_blob(v["selectedItem"]),
+            "codeInfoColId": uuid_str_to_blob(v["codeInfoColId"]),
             "data": json.dumps(
                 filter_dict(
                     v,
@@ -57,8 +58,8 @@ def save_section_variants(db, section_variants):
         for code_info_id, value_info in variant["values"].items():
             query_params.append(
                 {
-                    "idid": idid,
-                    "codeInfoId": code_info_id,
+                    "idid": uuid_str_to_blob(idid),
+                    "codeInfoId": uuid_str_to_blob(code_info_id),
                     "data": json.dumps(
                         filter_dict(
                             value_info,
@@ -130,11 +131,11 @@ def generate_query_param(
     value,
 ):
     return {
-        "idid": id,
+        "idid": uuid_str_to_blob(id),
         "selectedItemGroupNum": selectedItemGroupNum,
         "paramInfoGroupNum": paramInfoGroupNum,
-        "selectedItem": selected_item,
-        "paramInfoId": param_info_id,
+        "selectedItem": uuid_str_to_blob(selected_item),
+        "paramInfoId": uuid_str_to_blob(param_info_id),
         "order": order,
         "value": value,
     }

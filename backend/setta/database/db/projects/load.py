@@ -1,7 +1,7 @@
 import json
 
 from setta.database.db.projects.utils import with_project_config_defaults
-from setta.database.utils import aggregate_results
+from setta.database.utils import aggregate_results, blob_to_uuid_str
 from setta.utils.utils import recursive_dict_merge
 
 from ..codeInfo.load import load_code_info_cols
@@ -33,10 +33,10 @@ def load_all_project_config_metadata(db):
     db.execute(query)
     output = {}
     for row in db.fetchall():
-        id = row["id"]
+        id = blob_to_uuid_str(row["id"])
         if id not in output:
             output[id] = with_project_config_defaults(
-                id=row["id"],
+                id=id,
                 name=row["name"],
                 childrenForPreviewImg=[],
                 **json.loads(row["data"]),

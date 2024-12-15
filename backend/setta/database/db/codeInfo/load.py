@@ -4,6 +4,7 @@ from setta.database.db.codeInfo.utils import (
     with_code_info_col_defaults,
     with_code_info_defaults,
 )
+from setta.database.utils import blob_to_uuid_str
 
 
 def load_code_info(db, codeInfoColIds):
@@ -23,7 +24,7 @@ def load_code_info(db, codeInfoColIds):
         SELECT * FROM DESCENDANTS
         ORDER BY idid, "order";
     """
-    db.execute(query, tuple(codeInfoColIds))
+    db.execute(query, tuple(blob_to_uuid_str(c) for c in codeInfoColIds))
     results = db.fetchall()
     all_ids = set()
     code_info_cols = {}
@@ -52,7 +53,7 @@ def load_code_info(db, codeInfoColIds):
     code_info = {}
     for row in db.fetchall():
         code_info[row["id"]] = with_code_info_defaults(
-            id=row["id"], name=row["name"], **json.loads(row["data"])
+            id=blob_to_uuid_str(row["id"]), name=row["name"], **json.loads(row["data"])
         )
 
     return code_info, code_info_cols

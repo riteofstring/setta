@@ -3,7 +3,7 @@ from collections import defaultdict
 
 from setta.code_gen.export_selected import get_section_variants
 from setta.database.db.projects.utils import add_defaults_to_project
-from setta.database.utils import create_new_id
+from setta.database.utils import create_new_id, uuid_str_to_blob
 from setta.utils.constants import (
     DEFAULT_VALUES,
     PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS,
@@ -47,7 +47,7 @@ def save_project(db, project):
     """
 
     query_params = {
-        "id": project["id"],
+        "id": uuid_str_to_blob(project["id"]),
         "name": project["name"],
         "data": json.dumps(
             filter_dict(
@@ -63,7 +63,7 @@ def save_project(db, project):
         DELETE FROM ProjectConfigChildren
         WHERE parentId = :parentId
     """
-    db.execute(query, {"parentId": project["id"]})
+    db.execute(query, {"parentId": uuid_str_to_blob(project["id"])})
 
     query = """
         INSERT INTO ProjectConfigChildren (parentId, childId, data)
@@ -73,8 +73,8 @@ def save_project(db, project):
     query_params.extend(
         [
             {
-                "parentId": project["id"],
-                "childId": childId,
+                "parentId": uuid_str_to_blob(project["id"]),
+                "childId": uuid_str_to_blob(childId),
                 "data": json.dumps(
                     filter_dict(details, PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS)
                 ),
@@ -102,7 +102,7 @@ def create_project_config(db, name, previewImgColor):
     """
     projectId = create_new_id()
     query_params = {
-        "id": projectId,
+        "id": uuid_str_to_blob(projectId),
         "name": name,
         "data": json.dumps(
             {
@@ -135,7 +135,7 @@ def set_as_default_project(db, projectId):
         SET defaultProject = :projectId
         WHERE id = 1;
     """
-    db.execute(query, {"projectId": projectId})
+    db.execute(query, {"projectId": uuid_str_to_blob(projectId)})
 
 
 def save_section_configs(db, project_config_id, sections):
@@ -167,9 +167,9 @@ def insert_section_configs(db, sections, id_pairs):
 
     query_params = [
         {
-            "projectConfigId": projectConfigId,
-            "sectionId": sections[c]["id"],
-            "variantId": sections[c]["variantId"],
+            "projectConfigId": uuid_str_to_blob(projectConfigId),
+            "sectionId": uuid_str_to_blob(sections[c]["id"]),
+            "variantId": uuid_str_to_blob(sections[c]["variantId"]),
             "data": json.dumps(
                 filter_dict(
                     sections[c],
@@ -191,9 +191,9 @@ def insert_section_configs(db, sections, id_pairs):
     for projectConfigId, c in id_pairs:
         query_params.extend(
             {
-                "projectConfigId": projectConfigId,
-                "sectionId": sections[c]["id"],
-                "variantId": k,
+                "projectConfigId": uuid_str_to_blob(projectConfigId),
+                "sectionId": uuid_str_to_blob(sections[c]["id"]),
+                "variantId": uuid_str_to_blob(k),
             }
             for k in sections[c]["selectedVariantIds"].keys()
         )

@@ -1,9 +1,9 @@
 import copy
-from uuid import uuid4
+import uuid
 
 
 def create_new_id():
-    return str(uuid4())
+    return str(uuid.uuid4())
 
 
 def maybe_new_id(x):
@@ -41,3 +41,16 @@ def remap_ids(x, old_ids=None):
     id_map = create_id_map(old_ids)
     new_obj = rename_keys(x, id_map)
     return new_obj, id_map
+
+
+def uuid_str_to_blob(uuid_str) -> bytes | None:
+    """Convert UUID string to 16-byte blob"""
+    if uuid_str:
+        return uuid.UUID(uuid_str).bytes
+    return None
+
+def blob_to_uuid_str(blob) -> str | None:
+    """Convert 16-byte blob back to UUID string"""
+    if blob:
+        return str(uuid.UUID(bytes=blob))
+    return None
