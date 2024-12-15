@@ -1,13 +1,6 @@
 import C from "constants/constants.json";
 import { post } from "./utils";
 
-export async function dbSaveSettings(settings) {
-  return await post({
-    address: C.ROUTE_SAVE_SETTINGS,
-    body: { settings },
-  });
-}
-
 export async function dbLoadSettings() {
   return await post({
     address: C.ROUTE_LOAD_SETTINGS,
@@ -15,9 +8,9 @@ export async function dbLoadSettings() {
   });
 }
 
-export async function dbSaveSettingsProject(settingsProject) {
+export async function dbSaveSettings(settingsProject) {
   return await post({
-    address: C.ROUTE_SAVE_SETTINGS_PROJECT,
+    address: C.ROUTE_SAVE_SETTINGS,
     body: { settingsProject },
   });
 }

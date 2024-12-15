@@ -15,6 +15,7 @@ export function getParamIdsToShowInArea(
   codeInfo,
   codeInfoChildren,
   parentCodeInfoId,
+  startAtDepth = 0,
 ) {
   const { ids, pathMap } = findAllParametersAndPathMaps({
     allCodeInfo: codeInfo,
@@ -37,10 +38,19 @@ export function getParamIdsToShowInArea(
         codeInfoChildren[a].some((child) => child in requiredParamIdsToPaths))
     ) {
       for (const p of pathMap[a]) {
-        requiredParamIdsToPaths[p] = pathMap[p];
-        if (!topLevelParamIdsSet.has(pathMap[a][0])) {
-          topLevelParamIds.push(pathMap[a][0]);
-          topLevelParamIdsSet.add(pathMap[a][0]);
+        if (startAtDepth > 0) {
+          if (startAtDepth < pathMap[p].length) {
+            requiredParamIdsToPaths[p] = pathMap[p].slice(startAtDepth);
+          }
+        } else {
+          requiredParamIdsToPaths[p] = pathMap[p];
+        }
+        if (
+          pathMap[a][startAtDepth] &&
+          !topLevelParamIdsSet.has(pathMap[a][startAtDepth])
+        ) {
+          topLevelParamIds.push(pathMap[a][startAtDepth]);
+          topLevelParamIdsSet.add(pathMap[a][startAtDepth]);
         }
       }
     }
@@ -95,12 +105,13 @@ export function getSectionHasAtLeastOneSelectedParam(sectionId, state) {
 }
 
 export function getAllDisplayedParamsInSection(sectionId, state) {
-  const { codeInfoChildren, parentCodeInfoId } =
+  const { codeInfoChildren, parentCodeInfoId, startAtDepth } =
     getCodeChildrenAndParentCodeInfoId(sectionId, state);
-  const { ids } = findAllParametersAndPathMaps({
+  const { ids, pathMap } = findAllParametersAndPathMaps({
     allCodeInfo: state.codeInfo,
     codeInfoChildren,
     startingId: parentCodeInfoId,
+    startAtDepth,
   });
-  return ids;
+  return ids.filter((x) => pathMap[x].slice(startAtDepth).length > 0);
 }

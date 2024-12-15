@@ -234,8 +234,3 @@ def replace_at_positions(input_string, replacements, return_positions=False):
         new_positions.reverse()
         return final_string, new_positions
     return final_string
-
-
-def save_json_to_file(path, data):
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)

@@ -43,18 +43,6 @@
   "sectionVariants": {
     "19f203aa-cae6-4ccc-928c-dab0194ade77": {
       "name": "setta-settings.json"
-    },
-    "f3cb4189-2692-4e75-b58f-76d632f44205": {
-      "name": "setta-settings.json"
-    },
-    "36d29a06-7971-48d1-a1d2-23480f770d74": {
-      "name": "setta-settings.json"
-    },
-    "4490975a-8d8d-4f02-8ed4-f48f8258f1ec": {
-      "name": "setta-settings.json"
-    },
-    "d2c7059a-8e28-488a-aa33-056476652d5e": {
-      "name": "setta-settings.json"
     }
   },
   "uiTypes": {
@@ -207,10 +195,10 @@
       "size": {
         "width": 550
       },
-      "variantId": "f3cb4189-2692-4e75-b58f-76d632f44205",
+      "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
-      "variantIds": ["f3cb4189-2692-4e75-b58f-76d632f44205"],
+      "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
       "configLanguage": "json",
       "hideSearch": true,
       "jsonSource": "setta-settings*.json",
@@ -222,10 +210,10 @@
       "size": {
         "width": 550
       },
-      "variantId": "36d29a06-7971-48d1-a1d2-23480f770d74",
+      "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
-      "variantIds": ["36d29a06-7971-48d1-a1d2-23480f770d74"],
+      "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
       "configLanguage": "json",
       "hideSearch": true,
       "jsonSource": "setta-settings*.json",
@@ -237,10 +225,10 @@
       "size": {
         "width": 550
       },
-      "variantId": "4490975a-8d8d-4f02-8ed4-f48f8258f1ec",
+      "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
-      "variantIds": ["4490975a-8d8d-4f02-8ed4-f48f8258f1ec"],
+      "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
       "configLanguage": "json",
       "hideSearch": true,
       "jsonSource": "setta-settings*.json",
@@ -252,10 +240,10 @@
       "size": {
         "width": 550
       },
-      "variantId": "d2c7059a-8e28-488a-aa33-056476652d5e",
+      "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
-      "variantIds": ["d2c7059a-8e28-488a-aa33-056476652d5e"],
+      "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
       "configLanguage": "json",
       "hideSearch": true,
       "jsonSource": "setta-settings*.json",

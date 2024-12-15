@@ -7,7 +7,7 @@ import {
   dbSaveAsNewProjectConfig,
   dbSaveProject,
 } from "requests/projects";
-import { dbSaveSettingsProject } from "requests/settings";
+import { dbSaveSettings } from "requests/settings";
 import {
   useArtifacts,
   useNodeInternals,
@@ -108,7 +108,7 @@ export async function saveProject() {
   let res;
   setNotificationMessage("Saving...");
   if (useProjectConfig.getState().name === SETTINGS_PROJECT_NAME) {
-    res = await dbSaveSettingsProject(getProjectData({}));
+    res = await dbSaveSettings(getProjectData({}));
     if (res.status === 200) {
       useSettings.setState(res.data);
     }
