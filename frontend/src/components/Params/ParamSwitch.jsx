@@ -8,11 +8,12 @@ import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 
 function _ParamSwitch(props) {
-  const { sectionId, paramInfoId, ancestorIsSelected } = props;
+  const { sectionId, paramInfoId } = props;
 
-  const { isKwarg, paramChildren } = useSectionInfos((x) => {
+  const { paramIsSelected, isKwarg, paramChildren } = useSectionInfos((x) => {
     const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, x).children;
     return {
+      paramIsSelected: x.codeInfo[paramInfoId].isSelected,
       isKwarg: x.codeInfo[paramInfoId].editable,
       paramChildren: codeInfoChildren[paramInfoId] ?? [],
     };
@@ -22,17 +23,21 @@ function _ParamSwitch(props) {
   const handleParamSelection = useCallback(
     (e) => {
       console.log("onMouseDownSelect", sectionId, paramInfoId);
-      if (!ancestorIsSelected && useMisc.getState().isSelectingParams) {
+      if (useMisc.getState().isSelectingParams) {
         e.stopPropagation();
         toggleParamSelected(sectionId, paramInfoId);
       }
     },
-    [ancestorIsSelected, sectionId, paramInfoId],
+    [sectionId, paramInfoId],
   );
 
   // No need for additional useCallback since this is just a simple conditional
   const onMouseDownConditional = hasChildren ? handleParamSelection : undefined;
   const onMouseDownAlways = handleParamSelection;
+
+  const bg = paramIsSelected
+    ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white"
+    : "transition-colors";
 
   return (
     <ParamContainer
@@ -40,9 +45,11 @@ function _ParamSwitch(props) {
       isKwarg={isKwarg}
       paramChildren={paramChildren}
       onMouseDown={onMouseDownAlways}
+      bg={bg}
     >
       {isKwarg ? (
         <ParamNameInput
+          bg={bg}
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           hasChildren={hasChildren}
@@ -50,6 +57,7 @@ function _ParamSwitch(props) {
         />
       ) : (
         <ParamTextLabel
+          bg={bg}
           paramInfoId={paramInfoId}
           onMouseDown={onMouseDownConditional}
         />

@@ -1,6 +1,6 @@
 import { useSectionInfos } from "state/definitions";
 
-export function ParamTextLabel({ paramInfoId, onMouseDown }) {
+export function ParamTextLabel({ bg, paramInfoId, onMouseDown }) {
   const name = useSectionInfos((x) => x.codeInfo[paramInfoId].name);
 
   // function onClick() {
@@ -17,7 +17,7 @@ export function ParamTextLabel({ paramInfoId, onMouseDown }) {
 
   return (
     <p
-      className="cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200"
+      className={`${bg} cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200`}
       // onClick={onClick}
       onMouseDownCapture={onMouseDown} // has to be on capture for selection to work
     >

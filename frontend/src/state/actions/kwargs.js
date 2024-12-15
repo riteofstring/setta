@@ -96,8 +96,8 @@ export function toggleParamSelected(sectionId, paramInfoId) {
       codeInfoChildren,
       paramInfoId,
       "isSelected",
-      childrenNewVal,
-      false,
+      newVal,
+      // false,
     );
   });
 }
