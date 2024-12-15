@@ -1,20 +1,10 @@
 import json
 
-from setta.database.utils import uuid_str_to_blob
 from setta.utils.constants import DEFAULT_VALUES, UI_TYPE_TABLE_DATA_JSON_FIELDS
 from setta.utils.utils import filter_dict
 
 
-def prepare_ui_types(ui_types):
-    return {
-        uuid_str_to_blob(key): {**value, "id": uuid_str_to_blob(value["id"])}
-        for key, value in ui_types.items()
-    }
-
-
 def save_ui_types(db, uiTypes):
-    uiTypes = prepare_ui_types(uiTypes)
-
     query = """
         INSERT INTO UIType (id, type, data)
         VALUES (:id, :type, :data)
@@ -37,25 +27,7 @@ def save_ui_types(db, uiTypes):
     db.executemany(query, query_parameters)
 
 
-def prepare_ui_type_cols(uitype_cols: dict) -> dict:
-    return {
-        uuid_str_to_blob(uiTypeColId): {
-            uuid_str_to_blob(codeInfoId): {
-                "uiTypeId": uuid_str_to_blob(data["uiTypeId"]),
-                "nonPresetUITypeIds": [
-                    uuid_str_to_blob(uuid_str)
-                    for uuid_str in data["nonPresetUITypeIds"]
-                ],
-            }
-            for codeInfoId, data in colDetails.items()
-        }
-        for uiTypeColId, colDetails in uitype_cols.items()
-    }
-
-
 def save_ui_type_cols(db, uitype_cols):
-    uitype_cols = prepare_ui_type_cols(uitype_cols)
-
     query = """
         INSERT INTO UITypeColId (id)
         VALUES (:id)

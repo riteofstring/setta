@@ -1,65 +1,14 @@
 import json
 
-from setta.database.utils import uuid_str_to_blob
 from setta.utils.constants import (
     DEFAULT_VALUES,
     SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS,
     SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS,
 )
-from setta.utils.utils import filter_dict, replace_null_keys_with_none
-
-
-def prepare_section_variants(section_variants):
-    return {
-        uuid_str_to_blob(key): {
-            **value,
-            "selectedItem": uuid_str_to_blob(value["selectedItem"]),
-            "codeInfoColId": uuid_str_to_blob(value["codeInfoColId"]),
-            "children": [uuid_str_to_blob(v) for v in value["children"]],
-            "values": {
-                uuid_str_to_blob(paramInfoId): details
-                for paramInfoId, details in value["values"].items()
-            },
-            "sweep": [
-                {
-                    "selectedItem": uuid_str_to_blob(s["selectedItem"]),
-                    "params": [
-                        {**p, "paramInfoId": uuid_str_to_blob(p["paramInfoId"])}
-                        for p in s["params"]
-                    ],
-                }
-                for s in value["sweep"]
-            ],
-            "runGroup": {
-                uuid_str_to_blob(sectionId): {
-                    uuid_str_to_blob(parentVariantId): {
-                        **details,
-                        "paramSweeps": {
-                            uuid_str_to_blob(paramSweepId): paramSweepIsSelected
-                            for paramSweepId, paramSweepIsSelected in details[
-                                "paramSweeps"
-                            ].items()
-                        },
-                        "versions": {
-                            uuid_str_to_blob(versionId): versionIsSelected
-                            for versionId, versionIsSelected in details[
-                                "versions"
-                            ].items()
-                        },
-                    }
-                    for parentVariantId, details in forSectionId.items()
-                }
-                for sectionId, forSectionId in value["runGroup"].items()
-            },
-        }
-        for key, value in section_variants.items()
-    }
+from setta.utils.utils import filter_dict
 
 
 def save_section_variants(db, section_variants):
-    section_variants = replace_null_keys_with_none(section_variants)
-    section_variants = prepare_section_variants(section_variants)
-
     query = """
         INSERT INTO SectionVariantId (id, name, data, selectedItem, codeInfoColId)
         VALUES (:id, :name, :data, :selectedItem, :codeInfoColId)

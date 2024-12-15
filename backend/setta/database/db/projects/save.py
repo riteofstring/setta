@@ -2,7 +2,7 @@ import json
 from collections import defaultdict
 
 from setta.code_gen.export_selected import get_section_variants
-from setta.database.utils import create_new_id, uuid_str_to_blob
+from setta.database.utils import create_new_id
 from setta.utils.constants import (
     DEFAULT_VALUES,
     PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS,
@@ -15,7 +15,7 @@ from setta.utils.utils import filter_dict
 
 from ..codeInfo.save import save_code_info, save_code_info_col
 from ..sections.jsonSource import remove_json_source_data, save_json_source_data
-from ..sections.save import prepare_sections, save_sections
+from ..sections.save import save_sections
 from ..sectionVariants.save import save_section_variants
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
@@ -34,19 +34,7 @@ def save_project_details(db, p):
     update_linked_project_configs(db, p)
 
 
-def prepare_project_config(project_config):
-    return {
-        **project_config,
-        "id": uuid_str_to_blob(project_config["id"]),
-        "children": {
-            uuid_str_to_blob(k): v for k, v in project_config["children"].items()
-        },
-    }
-
-
 def save_project(db, project):
-    project = prepare_project_config(project)
-
     query = """
         INSERT INTO ProjectConfig (id, name, data)
         VALUES (:id, :name, :data)
@@ -110,7 +98,7 @@ def create_project_config(db, name, previewImgColor):
         INSERT INTO ProjectConfig (id, name, data)
         VALUES (:id, :name, :data)
     """
-    projectId = create_new_id(as_bytes=True)
+    projectId = create_new_id()
     query_params = {
         "id": projectId,
         "name": name,
@@ -145,13 +133,10 @@ def set_as_default_project(db, projectId):
         SET defaultProject = :projectId
         WHERE id = 1;
     """
-    db.execute(query, {"projectId": uuid_str_to_blob(projectId)})
+    db.execute(query, {"projectId": projectId})
 
 
 def save_section_configs(db, project_config_id, sections):
-    project_config_id = uuid_str_to_blob(project_config_id)
-    sections = prepare_sections(sections)
-
     query_params = []
     for section_id in sections.keys():
         query_params.extend([project_config_id, section_id])
