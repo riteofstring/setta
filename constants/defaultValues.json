@@ -81,11 +81,6 @@
   "codeInfoCol": {
     "children": { "null": [] }
   },
-  "uiType": {
-    "name": "",
-    "presetType": "BASE",
-    "config": {}
-  },
   "evEntry": { "value": "", "evRefs": [] },
   "runGroupEntry": { "selected": true, "paramSweeps": {}, "versions": {} },
   "uiTypeColEntry": {

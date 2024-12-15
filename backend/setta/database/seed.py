@@ -1,7 +1,6 @@
 import glob
 import json
 
-from setta.database.db.projects.utils import add_defaults_to_project
 from setta.utils.constants import CONSTANTS_FOLDER, SEED_FOLDER
 from setta.utils.utils import get_absolute_path
 
@@ -28,7 +27,6 @@ def seed_examples(db):
     for filepath in example_jsons:
         with open(filepath, "r") as f:
             data = json.load(f)
-        add_defaults_to_project(data)  # json files don't have all the defaults
         save_project_details(db, data)
 
 
