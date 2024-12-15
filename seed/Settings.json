@@ -15,6 +15,7 @@
     "resetZoomShortcut": "Mod + Comma",
     "copyShortcut": "Mod + C",
     "pasteShortcut": "Mod + V",
+    "pasteAsRefShortcut": "Mod + Shift + V",
     "sortingShortcut": "Shift",
     "movingFreeShortcut": "Alt",
     "showTooltipShortcut": "Q",

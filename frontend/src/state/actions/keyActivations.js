@@ -32,7 +32,7 @@ import {
   setAllSectionsAsActive,
 } from "./activeSections";
 import { copy } from "./copyPaste/copy";
-import { paste } from "./copyPaste/paste";
+import { paste, pasteAsRef } from "./copyPaste/paste";
 import { formatCode, updateInteractiveCode } from "./interactive";
 import { unselectAllParams } from "./kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
@@ -393,6 +393,7 @@ export function attachKeyEventListeners() {
     [shortcuts.resetZoomShortcut, resetZoom],
     [shortcuts.copyShortcut, copy],
     [shortcuts.pasteShortcut, paste],
+    [shortcuts.pasteAsRefShortcut, pasteAsRef],
     [shortcuts.updateInteractiveCode, updateInteractiveCode],
     [shortcuts.formatCode, formatCode],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
