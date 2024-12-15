@@ -1,22 +1,21 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
-import {
-  getDisplayedCodeInfoCol,
-  getSectionVariant,
-} from "state/actions/sectionInfos";
+import { getSectionVariant } from "state/actions/sectionInfos";
 import { useMisc, useSectionInfos } from "state/definitions";
 
-export function ParamNameInput({ sectionId, paramInfoId }) {
+export function ParamNameInput({
+  sectionId,
+  paramInfoId,
+  hasChildren,
+  onMouseDown,
+}) {
   const {
-    hasChildren,
     configLanguage,
     name: value,
     variantIsFrozen,
   } = useSectionInfos((x) => {
-    const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, x).children;
     return {
       variantIsFrozen: getSectionVariant(sectionId, x).isFrozen,
-      hasChildren: (codeInfoChildren[paramInfoId] ?? []).length > 0,
       configLanguage: x.x[sectionId].configLanguage,
       name: x.codeInfo[paramInfoId].name,
     };
@@ -50,6 +49,7 @@ export function ParamNameInput({ sectionId, paramInfoId }) {
         autocomplete={false}
         isKeyName={true}
         isDisabled={isDisabled}
+        onMouseDown={onMouseDown}
       />
       <span
         className={`${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} border-box self-end border-b border-setta-200/50 peer-focus-within/nameinput:border-blue-400 dark:border-setta-600/30`}

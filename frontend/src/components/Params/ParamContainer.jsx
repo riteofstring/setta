@@ -6,10 +6,8 @@ import _ from "lodash";
 import React, { useEffect, useRef } from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { toggleParamSelected } from "state/actions/kwargs";
-import { getDisplayedCodeInfoCol } from "state/actions/sectionInfos";
+import { getOnMouseDownSelectParamFn } from "state/actions/paramSelect";
 import {
-  useMisc,
   useProjectSearch,
   useSectionColumnWidth,
   useSectionInfos,
@@ -28,6 +26,7 @@ function _ParamContainer({
   onResizeStart,
   isKwarg = false,
   isTopLevelWithPad,
+  paramChildren,
 }) {
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -58,14 +57,11 @@ function _ParamContainer({
     isSelected: paramIsSelected,
     description: paramDescription,
     name: paramName,
-    codeInfoChildren: paramChildren,
   } = useSectionInfos((x) => {
-    const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, x).children;
     return {
       isSelected: x.codeInfo[paramInfoId].isSelected,
       description: x.codeInfo[paramInfoId].description,
       name: x.codeInfo[paramInfoId].name,
-      codeInfoChildren: codeInfoChildren[paramInfoId] ?? [],
     };
   }, _.isEqual);
 
@@ -73,16 +69,15 @@ function _ParamContainer({
     ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white"
     : "transition-colors";
 
-  function onMouseDownSelect(e) {
-    if (!ancestorIsSelected && useMisc.getState().isSelectingParams) {
-      e.stopPropagation();
-      toggleParamSelected(sectionId, paramInfoId);
-    }
-  }
-
   const { childlessRef, childlessNameRef, parentRef } = useColumnWidth(
     sectionId,
     paramChildren,
+  );
+
+  const onMouseDownSelect = getOnMouseDownSelectParamFn(
+    ancestorIsSelected,
+    sectionId,
+    paramInfoId,
   );
 
   return paramChildren.length === 0 ? (
@@ -116,7 +111,6 @@ function _ParamContainer({
     <article
       className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border} [&>p]:section-key-value ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
-      onMouseDown={onMouseDownSelect}
       ref={parentRef}
     >
       {children}
