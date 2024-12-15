@@ -168,7 +168,13 @@
         "height": 224
       },
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
-      "artifactIds": ["a3fd9568-30c4-405e-b5a2-0688754a7725"],
+      "artifacts": [
+        {
+          "path": "seed/examples/interactive_example/img.png",
+          "type": "img",
+          "displayName": "noisy img"
+        }
+      ],
       "variantIds": ["61ce0033-a59e-4c8e-8a52-d658feb18017"],
       "aspectRatioExtraHeight": 24,
       "aspectRatio": 1,
@@ -192,7 +198,13 @@
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
-      "artifactIds": ["c2d2ec99-e524-4f39-952a-9ac3713339b6"],
+      "artifacts": [
+        {
+          "path": "seed/examples/interactive_example/losses.csv",
+          "type": "list",
+          "displayName": "fancy graph"
+        }
+      ],
       "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
       "name": "institutional_fuchsia",
       "variantId": "efbf1e64-8932-4fa6-928a-e930314db45c",
@@ -229,18 +241,6 @@
         "f14239d6-f206-4655-8c34-ddd6873391a5": [],
         "c24c860d-2519-4a20-8acd-90fc0ffe48a8": []
       }
-    }
-  },
-  "artifacts": {
-    "a3fd9568-30c4-405e-b5a2-0688754a7725": {
-      "value": "seed/examples/interactive_example/img.png",
-      "type": "img",
-      "displayName": "noisy img"
-    },
-    "c2d2ec99-e524-4f39-952a-9ac3713339b6": {
-      "value": "seed/examples/interactive_example/losses.csv",
-      "type": "list",
-      "displayName": "fancy graph"
     }
   }
 }
