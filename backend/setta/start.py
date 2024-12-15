@@ -13,7 +13,8 @@ from .database.db_objs import DBQueue
 from .database.db_path import get_default_db_path
 from .database.export_db.export_db import export_database
 from .database.import_db import import_database
-from .utils.constants import C, load_constants, set_constants
+from .utils.constants import C, set_constants
+from .utils.load_constants import load_constants
 
 load_constants()
 

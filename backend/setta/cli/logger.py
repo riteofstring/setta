@@ -13,9 +13,9 @@ from setta.utils.constants import (
     PORT_ENV_VARIABLE,
     SEND_ARTIFACT_TO_ENV_VARIABLE,
     C,
-    load_constants,
     set_constants,
 )
+from setta.utils.load_constants import load_constants
 
 try:
     from PIL import Image
