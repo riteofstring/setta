@@ -29,17 +29,17 @@ def save_json_source_data(p, section_ids=None):
                         else {}
                     )
 
-                    # Navigate to the correct nested position
-                    current_dict = to_be_saved[filename]
-                    for path_part in key_path[:-1]:
-                        # Create nested dictionaries if they don't exist
-                        if path_part not in current_dict:
-                            current_dict[path_part] = {}
-                        current_dict = current_dict[path_part]
+                    current_dict = add_key_path_to_dict(
+                        to_be_saved[filename], key_path[:-1]
+                    )
 
                     # Set the value at the final position
                     if key_path:  # Only set if we have a path
                         current_dict[key_path[-1]] = value
+
+            # Make sure the jsonSourceKeys are present.
+            # (They might not be because they are completely empty)
+            add_key_path_to_dict(to_be_saved[filename], s["jsonSourceKeys"])
 
     pprint(to_be_saved)
     # Save each file
@@ -48,6 +48,15 @@ def save_json_source_data(p, section_ids=None):
             json.dump(data, f, indent=2)
 
     return to_be_saved
+
+
+def add_key_path_to_dict(output, key_path):
+    for path_part in key_path:
+        # Create nested dictionaries if they don't exist
+        if path_part not in output:
+            output[path_part] = {}
+        output = output[path_part]
+    return output
 
 
 def condition_keep_code_info(k, jsonCodeInfoWithUIType, keepCodeInfoThatHaveUITypes):
