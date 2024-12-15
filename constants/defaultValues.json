@@ -82,8 +82,6 @@
     "children": { "null": [] }
   },
   "uiType": {
-    "id": null,
-    "type": "TEXT",
     "name": "",
     "presetType": "BASE",
     "config": {}

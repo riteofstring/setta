@@ -211,7 +211,7 @@ def load_json_sources_into_data_structures(
         if v["jsonSource"] and ((not section_ids) or k in section_ids)
     }
     for s in sections.values():
-        new_data = load_json_source(s["jsonSource"], s["jsonSourceKeys"])
+        new_data = load_json_source(s["jsonSource"])
         for filename, data in new_data.items():
             codeInfo.update(data["codeInfo"])
             variantId = None
@@ -228,7 +228,7 @@ def load_json_sources_into_data_structures(
 
             curr_section_variant = sectionVariants[variantId]
             curr_section_variant["values"] = data["sectionVariantValues"]
-            codeInfoColId = curr_section_variant["codeInfoColId"]
+            codeInfoColId = sectionVariants[variantId].get("codeInfoColId")
 
             if not codeInfoColId:
                 codeInfoColId = create_new_id()
@@ -264,8 +264,51 @@ def load_json_sources_into_data_structures(
             s["variantId"] = s["variantIds"][0]
 
 
-def load_json_source(filename_glob, jsonSourceKeys):
+def load_json_source(filename_glob):
     new_data = {}
+
+    def process_object(obj, filename, current_path=[]):
+        if not isinstance(obj, dict):
+            return
+
+        children_keys = []
+        for k, v in obj.items():
+            path = current_path + [k]
+            # specify separators to make json.dumps equivalent to JSON.stringify
+            key = json.dumps(
+                {"filenameGlob": filename_glob, "key": path}, separators=(",", ":")
+            )
+            full_key = f"{C.JSON_SOURCE_PREFIX}{key}"
+            children_keys.append(full_key)
+
+            # Create code info entry
+            new_data[filename]["codeInfo"][full_key] = with_code_info_defaults(
+                id=full_key, name=k
+            )
+            new_data[filename]["codeInfoColChildren"][full_key] = []
+
+            # Create variant value entry
+            if isinstance(v, dict):
+                # For objects, store empty value and process children
+                new_data[filename]["sectionVariantValues"][full_key] = new_ev_entry()
+                # Recursively process nested object
+                process_object(v, filename, path)
+            else:
+                # For non-objects, store the value directly
+                new_data[filename]["sectionVariantValues"][full_key] = new_ev_entry(
+                    value=json.dumps(v)
+                )
+
+        parent_id = None
+        if len(current_path) > 0:
+            # specify separators to make json.dumps equivalent to JSON.stringify
+            parent_path = json.dumps(
+                {"filenameGlob": filename_glob, "key": current_path},
+                separators=(",", ":"),
+            )
+            parent_id = f"{C.JSON_SOURCE_PREFIX}{parent_path}"
+
+        new_data[filename]["codeInfoColChildren"][parent_id] = children_keys
 
     filenames = glob.glob(filename_glob)
     for filename in filenames:
@@ -273,7 +316,6 @@ def load_json_source(filename_glob, jsonSourceKeys):
             with open(filename, "r") as f:
                 jsonSourceData = json.load(f)
         except:
-            print("couldn't find", filename)
             continue
 
         new_data[filename] = {
@@ -281,74 +323,6 @@ def load_json_source(filename_glob, jsonSourceKeys):
             "codeInfoColChildren": {},
             "sectionVariantValues": {},
         }
-
-        try:
-            for k in jsonSourceKeys:
-                jsonSourceData = jsonSourceData[k]
-        except:
-            # TODO print warning or something
-            pass
-
-        process_json_object(
-            new_data, jsonSourceData, filename, filename_glob, jsonSourceKeys
-        )
-
-        if len(jsonSourceKeys) > 0:
-            # point directly from None (the root) to the children
-            highest_key = create_json_code_info_key(filename_glob, jsonSourceKeys)
-            codeInfoChildren = new_data[filename]["codeInfoColChildren"]
-            codeInfoChildren[None] = codeInfoChildren[highest_key]
-            del codeInfoChildren[highest_key]
+        process_object(jsonSourceData, filename, [])
 
     return new_data
-
-
-def process_json_object(output, obj, filename, filename_glob, current_path):
-    if not isinstance(obj, dict):
-        return
-
-    children_keys = []
-    for k, v in obj.items():
-        path = current_path + [k]
-        full_key, is_dict = create_json_code_info(
-            filename, filename_glob, path, k, v, output
-        )
-        children_keys.append(full_key)
-        if is_dict:
-            process_json_object(output, v, filename, filename_glob, path)
-
-    parent_id = None
-    if len(current_path) > 0:
-        parent_id = create_json_code_info_key(filename_glob, current_path)
-
-    output[filename]["codeInfoColChildren"][parent_id] = children_keys
-
-
-def create_json_code_info(filename, filename_glob, path, key, value, output):
-    full_key = create_json_code_info_key(filename_glob, path)
-    # Create code info entry
-    output[filename]["codeInfo"][full_key] = with_code_info_defaults(
-        id=full_key, name=key
-    )
-    output[filename]["codeInfoColChildren"][full_key] = []
-
-    is_dict = isinstance(value, dict)
-    # Create variant value entry
-    if is_dict:
-        # For objects, store empty value and process children
-        output[filename]["sectionVariantValues"][full_key] = new_ev_entry()
-    else:
-        # For non-objects, store the value directly
-        output[filename]["sectionVariantValues"][full_key] = new_ev_entry(
-            value=json.dumps(value)
-        )
-
-    return full_key, is_dict
-
-
-def create_json_code_info_key(filename_glob, path):
-    # specify separators to make json.dumps equivalent to JSON.stringify
-    key = json.dumps(
-        {"filenameGlob": filename_glob, "key": path}, separators=(",", ":")
-    )
-    return f"{C.JSON_SOURCE_PREFIX}{key}"

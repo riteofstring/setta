@@ -66,14 +66,16 @@ def import_db(yaml_path, output_path):
 @click.option("--reload", is_flag=True)
 @click.option("--with_examples", is_flag=True)
 @click.option("--db", "-d", type=str, default=get_default_db_path())
+@click.option("--settings", "-s", type=str, default=None)
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
 @click.pass_context
-def cli(ctx, reload, with_examples, db, host, port):
+def cli(ctx, reload, with_examples, db, settings, host, port):
     if ctx.invoked_subcommand is None:
         set_constants(
             with_examples=with_examples,
             db_path=db,
+            settings_path=settings,
             host=host,
             port=port,
         )
