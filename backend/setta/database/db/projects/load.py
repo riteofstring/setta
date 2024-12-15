@@ -22,7 +22,11 @@ def load_all_project_config_metadata(db):
             pc.id,
             pc.name,
             pc.data,
-            pcc.data AS child_data
+            pcc.x,
+            pcc.y,
+            pcc.zIndex,
+            pcc.w,
+            pcc.h
         FROM
             ProjectConfig pc
         LEFT JOIN
@@ -41,8 +45,16 @@ def load_all_project_config_metadata(db):
                 childrenForPreviewImg=[],
                 **json.loads(row["data"]),
             )
-        if row["child_data"]:
-            output[id]["childrenForPreviewImg"].append(json.loads(row["child_data"]))
+        if row["x"]:
+            output[id]["childrenForPreviewImg"].append(
+                {
+                    "x": row["x"],
+                    "y": row["y"],
+                    "zIndex": row["zIndex"],
+                    "w": row["w"],
+                    "h": row["h"],
+                }
+            )
 
     default_name = load_default_config_name(db)
     return list(output.values()), default_name

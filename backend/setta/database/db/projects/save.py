@@ -5,7 +5,6 @@ from setta.code_gen.export_selected import get_section_variants
 from setta.database.utils import create_new_id
 from setta.utils.constants import (
     DEFAULT_VALUES,
-    PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS,
     PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS,
     SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
     USER_SETTINGS,
@@ -64,8 +63,8 @@ def save_project(db, project):
     db.execute(query, {"parentId": project["id"]})
 
     query = """
-        INSERT INTO ProjectConfigChildren (parentId, childId, data)
-        VALUES (:parentId, :childId, :data)
+        INSERT INTO ProjectConfigChildren (parentId, childId, x, y, zIndex, w, h)
+        VALUES (:parentId, :childId, :x, :y, :zIndex, :w, :h)
     """
     query_params = []
     query_params.extend(
@@ -73,9 +72,11 @@ def save_project(db, project):
             {
                 "parentId": project["id"],
                 "childId": childId,
-                "data": json.dumps(
-                    filter_dict(details, PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS)
-                ),
+                "x": details["x"],
+                "y": details["y"],
+                "zIndex": details["zIndex"],
+                "w": details["w"],
+                "h": details["h"],
             }
             for childId, details in project["children"].items()
         ]
