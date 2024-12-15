@@ -42,7 +42,8 @@
   },
   "sectionVariants": {
     "19f203aa-cae6-4ccc-928c-dab0194ade77": {
-      "name": "setta-settings.json"
+      "name": "setta-settings.json",
+      "id": "19f203aa-cae6-4ccc-928c-dab0194ade77"
     }
   },
   "uiTypes": {

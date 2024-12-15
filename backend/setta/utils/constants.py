@@ -74,6 +74,7 @@ def is_from_json_source(id):
 
 CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
     (
+        "name",
         "editable",
         "rcType",
         "defaultVal",
@@ -81,11 +82,13 @@ CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
         "positionalOnly",
         "isPinned",
         "isFrozen",
+        "evRefs",
     )
 )
 
 SECTION_TABLE_DATA_JSON_FIELDS = set(
     (
+        "name",
         "social",
         "codeLanguage",
         "configLanguage",
@@ -111,21 +114,24 @@ SECTION_CONFIG_TABLE_DATA_JSON_FIELDS = set(
 )
 
 SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS = set(
-    ["code", "description", "isFrozen", "isDefault"]
+    ["name", "code", "evRefs", "description", "isFrozen", "isDefault"]
 )
 
-SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS = set(["value"])
+SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS = set(["value", "evRefs"])
 
 
 UI_TYPE_TABLE_DATA_JSON_FIELDS = set(
     [
         "name",
+        "type",
         "presetType",
         "config",
     ]
 )
 
 PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(["viewport", "previewImgColor"])
+
+PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS = set(["x", "y", "zIndex", "w", "h"])
 
 SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS = set(
     [

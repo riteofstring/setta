@@ -9,7 +9,7 @@ from setta.database.db.sectionVariants.utils import (
 def load_section_variants(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT SectionVariantId.id, SectionVariantId.name, SectionVariantId.data, SectionVariantId.selectedItem, SectionVariantId.codeInfoColId, SectionVariantEV.codeInfoId, SectionVariantEV.data as valueData
+        SELECT SectionVariantId.id, SectionVariantId.data, SectionVariantId.selectedItem, SectionVariantId.codeInfoColId, SectionVariantEV.codeInfoId, SectionVariantEV.data as valueData
         FROM SectionVariantId
         LEFT JOIN SectionVariantEV
         ON SectionVariantId.id = SectionVariantEV.idid
@@ -21,7 +21,6 @@ def load_section_variants(db, ids):
         id = row["id"]
         if id not in output:
             output[id] = with_section_variant_defaults(
-                name=row["name"],
                 selectedItem=row["selectedItem"],
                 codeInfoColId=row["codeInfoColId"],
                 **json.loads(row["data"]),
@@ -119,21 +118,21 @@ def load_section_variants(db, ids):
             curr[sectionId] = {}
         if row["parentVariantId"] not in curr[sectionId]:
             curr[sectionId][row["parentVariantId"]] = {
-                "selected": bool(row["selected"]),
+                "selected": row["selected"],
                 "versions": {},
                 "paramSweeps": {},
             }
 
         # Add version data if present
         if row["versionId"] is not None:
-            curr[sectionId][row["parentVariantId"]]["versions"][
-                row["versionId"]
-            ] = bool(row["version_selected"])
+            curr[sectionId][row["parentVariantId"]]["versions"][row["versionId"]] = row[
+                "version_selected"
+            ]
 
         # Add param sweep data if present
         if row["sweepId"] is not None:
             curr[sectionId][row["parentVariantId"]]["paramSweeps"][
                 row["sweepId"]
-            ] = bool(row["sweep_selected"])
+            ] = row["sweep_selected"]
 
     return output

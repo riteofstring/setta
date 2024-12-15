@@ -37,7 +37,7 @@ export const SECTION_VARIANTS_TAB = "SectionVariantsConfig";
 
 export const tabNameToPretty = {
   [UI_CONFIG_TAB]: "Params",
-  [SECTION_CONFIG_TAB]: "Card",
+  [SECTION_CONFIG_TAB]: "Section",
   [QUICKINFO_CONFIG_TAB]: "Quick Info",
   [INFO_CONFIG_TAB]: "Text Editor",
   [SECTION_VARIANTS_TAB]: "Version",
@@ -85,6 +85,11 @@ export const MODAL_TYPE = {
   EXPORT_JSON: {
     purpose: null,
     title: "Export JSON",
+    buttonText: null,
+  },
+  EXPORT_FULL_JSON: {
+    purpose: null,
+    title: "Export Full JSON",
     buttonText: null,
   },
   IMPORT_JSON: {

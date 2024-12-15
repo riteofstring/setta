@@ -1,19 +1,23 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Footer } from "components/Modals/SaveLoadModal/SaveLoadModal";
+import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { dbAddDefaultDataForJSONImport } from "requests/projects";
 import { loadProjectState } from "state/actions/project/loadProject";
-import { useProjectConfig } from "state/definitions";
 import { useExportProjectJson } from "state/hooks/project";
-import { resetProjectStores } from "state/utils";
+import { MODAL_TYPE } from "utils/constants";
 
 export function ExportJSONModal({ open, modalType }) {
-  const [projectJson, exportProjectJson] = useExportProjectJson();
+  const { projectJson, exportProjectJson, exportFullProjectJson } =
+    useExportProjectJson();
 
   useEffect(() => {
     if (open) {
-      exportProjectJson();
+      if (modalType.title === MODAL_TYPE.EXPORT_JSON.title) {
+        exportProjectJson();
+      } else if (modalType.title === MODAL_TYPE.EXPORT_FULL_JSON.title) {
+        exportFullProjectJson();
+      }
     }
   }, [open]);
 
@@ -33,15 +37,9 @@ export function ImportJSONModal({ modalType }) {
   const [value, setValue] = useState("");
 
   async function onClick() {
-    const project = JSON.parse(value);
-    // replace id and name with current project config's id and name.
-    const { id, name } = useProjectConfig.getState();
-    project["projectConfig"] = { ...project["projectConfig"], id, name };
-    const res = await dbAddDefaultDataForJSONImport(project);
-    if (res.status === 200) {
-      resetProjectStores();
-      loadProjectState(res.data);
-    }
+    const parsed = JSON.parse(value);
+    parsed.uiTypes = { ...parsed.uiTypes, ...BASE_UI_TYPES };
+    loadProjectState(parsed);
   }
 
   return (

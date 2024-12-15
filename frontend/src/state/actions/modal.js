@@ -29,6 +29,10 @@ export function openExportJSONModal() {
   openModal(MODAL_TYPE.EXPORT_JSON);
 }
 
+export function openExportFullJSONModal() {
+  openModal(MODAL_TYPE.EXPORT_FULL_JSON);
+}
+
 export function openImportJSONModal() {
   openModal(MODAL_TYPE.IMPORT_JSON);
 }

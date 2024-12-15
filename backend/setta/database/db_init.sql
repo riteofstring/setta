@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS Metadata (
 );
 CREATE TABLE IF NOT EXISTS CodeInfo (
     id TEXT PRIMARY KEY,
-    name TEXT,
     data TEXT
 );
 CREATE TABLE IF NOT EXISTS CodeInfoColId (
@@ -25,7 +24,6 @@ CREATE TABLE IF NOT EXISTS CodeInfoCol (
 );
 CREATE TABLE IF NOT EXISTS Section (
     id TEXT PRIMARY KEY,
-    name TEXT,
     data TEXT,
     paramSweepSectionId TEXT,
     uiTypeId TEXT,
@@ -55,7 +53,6 @@ CREATE TABLE IF NOT EXISTS SectionConfigSelectedVariants (
 ); 
 CREATE TABLE IF NOT EXISTS SectionVariantId (
     id TEXT PRIMARY KEY,
-    name TEXT,
     data TEXT,
     selectedItem TEXT,
     codeInfoColId TEXT,
@@ -127,25 +124,8 @@ CREATE TABLE IF NOT EXISTS SectionVariantRunGroupParamSweeps (
         ON DELETE CASCADE,
     FOREIGN KEY (sweepId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
 );
-CREATE TABLE IF NOT EXISTS EVRefs (
-    variantId TEXT,
-    codeInfoId TEXT,
-    referringParamInfoId TEXT,
-    sectionId TEXT,
-    paramInfoId TEXT,
-    isArgsObj BOOLEAN,
-    startPos INTEGER,
-    keyword TEXT,
-    PRIMARY KEY (variantId, codeInfoId, referringParamInfoId, startPos),
-    FOREIGN KEY (variantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
-    FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
-    FOREIGN KEY (referringParamInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
-    FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
-    FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
-);
 CREATE TABLE IF NOT EXISTS UIType (
     id TEXT PRIMARY KEY,
-    type TEXT,
     data TEXT,
     asNonPresetForSectionId TEXT,
     asNonPresetForUITypeColId TEXT,
@@ -174,11 +154,7 @@ CREATE TABLE IF NOT EXISTS ProjectConfig (
 CREATE TABLE IF NOT EXISTS ProjectConfigChildren (
     parentId TEXT,
     childId TEXT,
-    x REAL,
-    y REAL,
-    zIndex INTEGER,
-    w REAL,
-    h REAL,
+    data TEXT,
     PRIMARY KEY (parentId, childId),
     FOREIGN KEY (parentId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
     FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE

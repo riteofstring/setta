@@ -4,6 +4,7 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
+  openExportFullJSONModal,
   openExportJSONModal,
   openImportJSONModal,
   openLoadModal,
@@ -63,6 +64,10 @@ export function FileMenu() {
       <MenuItem onClick={openExportJSONModal}>
         {/* <BiExport /> */}
         Export JSON
+      </MenuItem>
+      <MenuItem onClick={openExportFullJSONModal}>
+        {/* <BiExport /> */}
+        Export Full JSON
       </MenuItem>
     </NavbarMenuDropdown>
   );

@@ -44,6 +44,7 @@ function ModalContent({ open }) {
     case MODAL_TYPE.SAVE_PROJECT_CONFIG_AS_WITH_REFS.title:
       return <FileMenuSaveAsModal open={open} modalType={modalType} />;
     case MODAL_TYPE.EXPORT_JSON.title:
+    case MODAL_TYPE.EXPORT_FULL_JSON.title:
       return <ExportJSONModal open={open} modalType={modalType} />;
     case MODAL_TYPE.IMPORT_JSON.title:
       return <ImportJSONModal modalType={modalType} />;
