@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from setta.cli.logger import get_wrapper_for_loading
-from setta.database.db.artifacts.load import load_artifacts
+from setta.database.db.artifacts.load import load_artifacts, load_available_artifacts
 from setta.utils.constants import C
 
 from .dependencies import get_dbq, get_websocket_manager
@@ -20,6 +20,9 @@ class SendArtifactRequest(BaseModel):
 
 class LoadArtifactsRequest(BaseModel):
     artifactIds: List[str]
+
+class LoadAvailableArtifactsRequest(BaseModel):
+    sectionType: str
 
 
 @router.post(C.ROUTE_SEND_ARTIFACT)
@@ -42,3 +45,9 @@ def route_load_artifacts(x: LoadArtifactsRequest, dbq=Depends(get_dbq)):
             wrapper.load(a["path"])
             a.update(wrapper.serialize())
     return artifacts
+
+
+@router.post(C.ROUTE_LOAD_AVAILABLE_ARTIFACTS)
+def route_load_available_artifacts(x: LoadAvailableArtifactsRequest, dbq=Depends(get_dbq)):
+    with dbq as db:
+        return load_available_artifacts(db, x.sectionType)

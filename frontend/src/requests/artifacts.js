@@ -7,3 +7,10 @@ export async function dbLoadArtifacts(artifactIds) {
     address: C.ROUTE_LOAD_ARTIFACTS,
   });
 }
+
+export async function dbLoadAvailableArtifacts(sectionType) {
+  return await post({
+    body: { sectionType },
+    address: C.ROUTE_LOAD_AVAILABLE_ARTIFACTS,
+  });
+}

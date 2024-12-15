@@ -144,10 +144,8 @@ export function DrawOnImage({ sectionId }) {
     if (!isLoaded) {
       return;
     }
-    console.log(artifacts);
     let isNewImg = false;
     for (const [artifactId, v] of Object.entries(artifacts)) {
-      console.log("v", v);
       if (v.type === "img") {
         const base64String = `data:image/png;base64,${v.value}`;
         if (imageRef.current?.src !== base64String) {
@@ -202,7 +200,6 @@ export function DrawOnImage({ sectionId }) {
   }, []);
 
   function startNewStroke(firstPoint) {
-    console.log("startNewStroke", firstPoint);
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     strokesRef.current.push({
       color: isEraser ? dCtx.strokeStyle : color,
@@ -321,7 +318,6 @@ export function DrawOnImage({ sectionId }) {
     if (imageRef.current) {
       base64["image"] = exportImageToBase64(imageRef.current, width, height);
     }
-    console.log("toBase64");
     return base64;
   }
 
@@ -699,8 +695,6 @@ const debouncedSetBrushStrokesArtifact = _.debounce(
         artifactIds.push(artifactId);
       }
     });
-
-    console.log("useArtifacts", useArtifacts.getState().x);
   },
   500,
 );
