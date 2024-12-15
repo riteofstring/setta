@@ -256,13 +256,10 @@
       "selectedItem": "4c97d0f4-0221-4640-b5c8-6067d47fc131",
       "values": {
         "0a62f48a-54e6-4871-afa6-95c09bc49d61": {
-          "evRefs": [
+          "keywordPositions": [
             {
-              "sectionId": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
-              "paramInfoId": null,
-              "isArgsObj": false,
               "startPos": 0,
-              "keyword": "list_of_transforms"
+              "endPos": 18
             }
           ],
           "value": "list_of_transforms"
@@ -311,13 +308,10 @@
       "selectedItem": "c8a7d3aa-02d6-456c-8247-efc02bf86332",
       "values": {
         "f807b59d-a434-41b6-a54c-9b35ffb61c8d": {
-          "evRefs": [
+          "keywordPositions": [
             {
-              "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
-              "paramInfoId": null,
-              "isArgsObj": false,
               "startPos": 0,
-              "keyword": "model"
+              "endPos": 5
             }
           ],
           "value": "model.parameters()"

@@ -10,20 +10,18 @@ from setta.utils.utils import filter_dict
 
 def save_section_variants(db, section_variants):
     query = """
-        INSERT INTO SectionVariantId (id, name, data, selectedItem, codeInfoColId)
-        VALUES (CAST(:id AS BLOB), :name, :data, CAST(:selectedItem AS BLOB), CAST(:codeInfoColId AS BLOB))
+        INSERT INTO SectionVariantId (id, data, selectedItem, codeInfoColId)
+        VALUES (:id, :data, :selectedItem, :codeInfoColId)
         ON CONFLICT (id)
         DO UPDATE SET
-        name = :name,
         data = :data,
-        selectedItem = CAST(:selectedItem AS BLOB),
-        codeInfoColId = CAST(:codeInfoColId AS BLOB)
+        selectedItem = :selectedItem,
+        codeInfoColId = :codeInfoColId
     """
 
     query_params = [
         {
             "id": k,
-            "name": v["name"],
             "selectedItem": v["selectedItem"],
             "codeInfoColId": v["codeInfoColId"],
             "data": json.dumps(
@@ -39,7 +37,7 @@ def save_section_variants(db, section_variants):
     db.executemany(query, query_params)
 
     # delete entered values
-    placeholders = ", ".join([f"CAST(? AS BLOB)"] * len(section_variants))
+    placeholders = ", ".join(["?"] * len(section_variants))
     query = f"""
         DELETE FROM SectionVariantEV
         WHERE idid IN ({placeholders})
@@ -50,7 +48,7 @@ def save_section_variants(db, section_variants):
     # add entered values
     query = """
         INSERT INTO SectionVariantEV (idid, codeInfoId, data)
-        VALUES (CAST(:idid AS BLOB), CAST(:codeInfoId AS BLOB), :data)
+        VALUES (:idid, :codeInfoId, :data)
     """
     query_params = []
     for idid, variant in section_variants.items():
@@ -79,7 +77,7 @@ def save_section_variants(db, section_variants):
 
     query = """
         INSERT INTO SectionVariantParamSweep (idid, selectedItemGroupNum, paramInfoGroupNum, selectedItem, paramInfoId, "order", value)
-        VALUES (CAST(:idid AS BLOB), :selectedItemGroupNum, :paramInfoGroupNum, CAST(:selectedItem AS BLOB), CAST(:paramInfoId AS BLOB), :order, :value)
+        VALUES (:idid, :selectedItemGroupNum, :paramInfoGroupNum, :selectedItem, :paramInfoId, :order, :value)
     """
 
     query_params = []

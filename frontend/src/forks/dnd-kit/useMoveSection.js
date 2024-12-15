@@ -81,8 +81,8 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
     newParentId,
   });
 
-  let newSectionId;
   useSectionInfos.setState((state) => {
+    let newSectionId;
     if (maybeNewSectionData.sections) {
       updateSectionInfos({ ...maybeNewSectionData, state });
       newSectionId = Object.keys(maybeNewSectionData.sections)[0];
@@ -99,8 +99,6 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
       position,
       state,
     });
-
-    state.shouldRenameReferences = true;
   });
 }
 

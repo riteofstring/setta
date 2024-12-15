@@ -1,24 +1,22 @@
 import json
 
-from setta.utils.constants import DEFAULT_VALUES, UI_TYPE_TABLE_DATA_JSON_FIELDS
+from setta.utils.constants import UI_TYPE_TABLE_DATA_JSON_FIELDS
 from setta.utils.utils import filter_dict
 
 
 def save_ui_types(db, uiTypes):
     query = """
-        INSERT INTO UIType (id, type, data)
-        VALUES (CAST(:id AS BLOB), :type, :data)
+        INSERT INTO UIType (id, data)
+        VALUES (:id, :data)
         ON CONFLICT (id)
         DO UPDATE SET
-            type = :type,
             data = :data
     """
 
     query_parameters = [
         {
             "id": v["id"],
-            "type": v["type"],
-            "data": json.dumps(filter_dict(v, UI_TYPE_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["uiType"])),
+            "data": json.dumps(filter_dict(v, UI_TYPE_TABLE_DATA_JSON_FIELDS)),
         }
         for v in uiTypes.values()
     ]
@@ -28,7 +26,7 @@ def save_ui_types(db, uiTypes):
 def save_ui_type_cols(db, uitype_cols):
     query = """
         INSERT INTO UITypeColId (id)
-        VALUES (CAST(:id AS BLOB))
+        VALUES (:id)
         ON CONFLICT (id)
         DO NOTHING
     """
@@ -49,7 +47,7 @@ def save_ui_type_cols(db, uitype_cols):
     """
     db.execute(query, query_params)
 
-    placeholders = ", ".join([f"CAST(? AS BLOB)"] * len(uitype_cols))
+    placeholders = ", ".join(["?"] * len(uitype_cols))
     query = f"""
         DELETE FROM UITypeCol
         WHERE idid IN ({placeholders})
@@ -59,7 +57,7 @@ def save_ui_type_cols(db, uitype_cols):
 
     query = """
         INSERT INTO UITypeCol (idid, codeInfoId, uiTypeId)
-        VALUES (CAST(:idid AS BLOB), CAST(:codeInfoId AS BLOB), CAST(:uiTypeId AS BLOB))
+        VALUES (:idid, :codeInfoId, :uiTypeId)
     """
     query_params = []
     for idid in uitype_cols.keys():
@@ -76,9 +74,9 @@ def save_ui_type_cols(db, uitype_cols):
 
     query = """
         UPDATE UIType
-        SET asNonPresetForUITypeColId = CAST(:uiTypeColId AS BLOB),
-            asNonPresetForCodeInfoId = CAST(:codeInfoId AS BLOB)
-        WHERE id = CAST(:nonPresetUITypeId AS BLOB)
+        SET asNonPresetForUITypeColId = :uiTypeColId,
+            asNonPresetForCodeInfoId = :codeInfoId
+        WHERE id = :nonPresetUITypeId
     """
     query_params = []
     for idid in uitype_cols.keys():

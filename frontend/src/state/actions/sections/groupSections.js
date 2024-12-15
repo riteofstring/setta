@@ -12,7 +12,7 @@ import { maybeIncrementProjectStateVersion } from "../undo";
 import { addSectionAtPosition } from "./createSections";
 import { deleteSections } from "./deleteSections";
 
-export async function createGroup({ nodeIds, x, y }) {
+export function createGroup({ nodeIds, x, y }) {
   useSectionInfos.setState((state) => {
     const groupId = addSectionAtPosition({
       type: C.GROUP,
@@ -26,14 +26,12 @@ export async function createGroup({ nodeIds, x, y }) {
       sectionIds: nodeIds,
       state,
     });
-
-    state.shouldRenameReferences = true;
   });
 
   maybeIncrementProjectStateVersion(true);
 }
 
-export async function groupSections() {
+export function groupSections() {
   const activeSectionIds = useActiveSection.getState().ids;
   const selectedNodes = [...useNodeInternals.getState().x].filter((x) =>
     activeSectionIds.includes(x[0]),
@@ -43,7 +41,7 @@ export async function groupSections() {
     const nodeIds = selectedNodes.map((x) => x[1].id);
     const x = Math.min(...selectedNodes.map((x) => x[1].position.x));
     const y = Math.min(...selectedNodes.map((x) => x[1].position.y));
-    await createGroup({ nodeIds, x, y });
+    createGroup({ nodeIds, x, y });
     useReactFlow.setState({ nodesSelectionDims: null });
   }
 }
@@ -64,9 +62,6 @@ export async function ungroup(groupId) {
       positions,
       state,
     });
-
     deleteSections([groupId], state);
-
-    state.shouldRenameReferences = true;
   });
 }

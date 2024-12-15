@@ -316,7 +316,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 generated_python_code_area_ref_var_name_positions,
             ) = process_refs(
                 curr_code,
-                section_variant["evRefs"],
+                p["codeEVRefs"][s["id"]],
                 exporter_obj.get_ref_var_name,
             )
             (

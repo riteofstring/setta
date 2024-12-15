@@ -6,11 +6,10 @@ from setta.utils.utils import filter_dict, replace_null_keys_with_none
 
 def save_code_info(db, codeInfo):
     query = """
-        INSERT INTO CodeInfo (id, name, data)
-        VALUES (CAST(:id AS BLOB), :name, :data)
+        INSERT INTO CodeInfo (id, data)
+        VALUES (:id, :data)
         ON CONFLICT (id)
         DO UPDATE SET
-            name = :name,
             data = :data
     """
 
@@ -20,7 +19,6 @@ def save_code_info(db, codeInfo):
         query_params.append(
             {
                 "id": codeInfoId,
-                "name": c["name"],
                 "data": json.dumps(
                     filter_dict(
                         c, CODE_INFO_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["codeInfo"]
@@ -37,7 +35,7 @@ def save_code_info_col(db, codeInfoCols):
 
     query = """
         INSERT INTO CodeInfoColId (id)
-        VALUES (CAST(:id AS BLOB))
+        VALUES (:id)
         ON CONFLICT (id)
         DO NOTHING
     """
@@ -45,7 +43,7 @@ def save_code_info_col(db, codeInfoCols):
     query_params = [{"id": k} for k in codeInfoCols.keys()]
     db.executemany(query, query_params)
 
-    placeholders = ", ".join([f"CAST(? AS BLOB)"] * len(codeInfoCols))
+    placeholders = ", ".join(["?"] * len(codeInfoCols))
     query = f"""
         DELETE FROM CodeInfoCol
         WHERE idid IN ({placeholders})
@@ -56,7 +54,7 @@ def save_code_info_col(db, codeInfoCols):
     # add children
     query = """
         INSERT INTO CodeInfoCol (idid, parentId, childId, "order")
-        VALUES (CAST(:idid AS BLOB), CAST(:parentId AS BLOB), CAST(:childId AS BLOB), :order)
+        VALUES (:idid, :parentId, :childId, :order)
     """
     query_params = []
     for idid, c in codeInfoCols.items():

@@ -39,7 +39,7 @@ def save_project_details(db, p):
 def save_project(db, project):
     query = """
         INSERT INTO ProjectConfig (id, name, data)
-        VALUES (CAST(:id AS BLOB), :name, :data)
+        VALUES (:id, :name, :data)
         ON CONFLICT (id)
         DO UPDATE SET
         name = :name,
@@ -61,13 +61,13 @@ def save_project(db, project):
 
     query = """
         DELETE FROM ProjectConfigChildren
-        WHERE parentId = CAST(:parentId AS BLOB)
+        WHERE parentId = :parentId
     """
     db.execute(query, {"parentId": project["id"]})
 
     query = """
         INSERT INTO ProjectConfigChildren (parentId, childId, data)
-        VALUES (CAST(:parentId AS BLOB), CAST(:childId AS BLOB), :data)
+        VALUES (:parentId, :childId, :data)
     """
     query_params = []
     query_params.extend(
@@ -98,7 +98,7 @@ def create_project_config(db, name, previewImgColor):
 
     query = """
         INSERT INTO ProjectConfig (id, name, data)
-        VALUES (CAST(:id AS BLOB), :name, :data)
+        VALUES (:id, :name, :data)
     """
     projectId = create_new_id()
     query_params = {
@@ -132,7 +132,7 @@ def save_project_config_name(db, curr_name, new_name):
 def set_as_default_project(db, projectId):
     query = """
         UPDATE Metadata
-        SET defaultProject = CAST(:projectId AS BLOB)
+        SET defaultProject = :projectId
         WHERE id = 1;
     """
     db.execute(query, {"projectId": projectId})
@@ -142,7 +142,7 @@ def save_section_configs(db, project_config_id, sections):
     query_params = []
     for section_id in sections.keys():
         query_params.extend([project_config_id, section_id])
-    placeholders = ", ".join([f"(CAST(? AS BLOB), CAST(? AS BLOB))"] * (len(query_params) // 2))
+    placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
     query = f"""
         DELETE FROM SectionConfig
         WHERE (projectConfigId, sectionId) IN ({placeholders})
@@ -162,7 +162,7 @@ def save_section_configs(db, project_config_id, sections):
 def insert_section_configs(db, sections, id_pairs):
     query = """
         INSERT INTO SectionConfig (projectConfigId, sectionId, variantId, data)
-        VALUES (CAST(:projectConfigId AS BLOB), CAST(:sectionId AS BLOB), CAST(:variantId AS BLOB), :data)
+        VALUES (:projectConfigId, :sectionId, :variantId, :data)
     """
 
     query_params = [
@@ -185,7 +185,7 @@ def insert_section_configs(db, sections, id_pairs):
 
     query = """
         INSERT INTO SectionConfigSelectedVariants (projectConfigId, sectionId, variantId)
-        VALUES (CAST(:projectConfigId AS BLOB), CAST(:sectionId AS BLOB), CAST(:variantId AS BLOB))
+        VALUES (:projectConfigId, :sectionId, :variantId)
     """
     query_params = []
     for projectConfigId, c in id_pairs:

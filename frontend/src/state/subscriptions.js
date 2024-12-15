@@ -3,16 +3,11 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
-  useInfoToEVReferrer,
   useKeywordRegex,
   useMisc,
   useNodeInternals,
   useSectionInfos,
 } from "state/definitions";
-import {
-  getInfoToEVReferrers,
-  maybeOpenRenameReferencesModal,
-} from "./actions/infoToEVReferrer";
 import { getRegexAndColorMap } from "./actions/keywordRegex";
 import {
   getNodeUpdateInformation,
@@ -43,11 +38,6 @@ export function subscribe() {
     (x) => {
       console.log("keywordRegexSubscription triggered");
       useKeywordRegex.setState(getRegexAndColorMap(x));
-      if (useSectionInfos.getState().shouldRenameReferences) {
-        // reset the flag used by subscriptions
-        useSectionInfos.setState({ shouldRenameReferences: false });
-        maybeOpenRenameReferencesModal();
-      }
     },
     { equalityFn: _.isEqual },
   );
@@ -98,14 +88,6 @@ export function subscribe() {
           requestUpdateNodeDimensions: false,
         });
       }
-    },
-    { equalityFn: _.isEqual },
-  );
-
-  useSectionInfos.subscribe(
-    getInfoToEVReferrers,
-    (infoToEVReferrers) => {
-      useInfoToEVReferrer.setState(infoToEVReferrers);
     },
     { equalityFn: _.isEqual },
   );

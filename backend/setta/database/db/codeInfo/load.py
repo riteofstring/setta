@@ -52,7 +52,7 @@ def load_code_info(db, codeInfoColIds):
     code_info = {}
     for row in db.fetchall():
         code_info[row["id"]] = with_code_info_defaults(
-            id=row["id"], name=row["name"], **json.loads(row["data"])
+            id=row["id"], **json.loads(row["data"])
         )
 
     return code_info, code_info_cols

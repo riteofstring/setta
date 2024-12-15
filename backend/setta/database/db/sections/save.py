@@ -12,30 +12,26 @@ def save_sections(db, sections, section_variants):
     query = """
         INSERT INTO Section (
             id,
-            name,
             data,
             uiTypeId,
             uiTypeColId
         )
         VALUES (
-            CAST(:id AS BLOB),
-            :name,
+            :id,
             :data,
-            CAST(:uiTypeId AS BLOB),
-            CAST(:uiTypeColId AS BLOB)
+            :uiTypeId,
+            :uiTypeColId
         )
         ON CONFLICT (id)
         DO UPDATE SET
-            name = :name,
             data = :data,
-            uiTypeId = CAST(:uiTypeId AS BLOB),
-            uiTypeColId = CAST(:uiTypeColId AS BLOB)
+            uiTypeId = :uiTypeId,
+            uiTypeColId = :uiTypeColId
     """
 
     query_params = [
         {
             "id": s["id"],
-            "name": s["name"],
             "data": json.dumps(
                 filter_dict(
                     s, SECTION_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["section"]
@@ -50,7 +46,7 @@ def save_sections(db, sections, section_variants):
     db.executemany(query, query_params)
 
     ids = [s["id"] for s in sections.values()]
-    placeholders = ", ".join([f"CAST(? AS BLOB)"] * len(ids))
+    placeholders = ", ".join(["?"] * len(ids))
     query = f"""
         UPDATE SectionVariantId
         SET originSectionId = null
@@ -60,8 +56,8 @@ def save_sections(db, sections, section_variants):
 
     query = """
         UPDATE SectionVariantId
-        SET originSectionId = CAST(:sectionId AS BLOB)
-        WHERE id = CAST(:variantId AS BLOB)
+        SET originSectionId = :sectionId
+        WHERE id = :variantId
     """
     query_params = []
     for s in sections.values():
@@ -78,8 +74,8 @@ def save_sections(db, sections, section_variants):
 
     query = """
         UPDATE UIType
-        SET asNonPresetForSectionId = CAST(:sectionId AS BLOB)
-        WHERE id = CAST(:uiTypeId AS BLOB)
+        SET asNonPresetForSectionId = :sectionId
+        WHERE id = :uiTypeId
     """
     query_params = []
     for s in sections.values():
@@ -89,8 +85,8 @@ def save_sections(db, sections, section_variants):
 
     query = """
         UPDATE Section
-        SET paramSweepSectionId = CAST(:paramSweepSectionId AS BLOB)
-        WHERE id = CAST(:id AS BLOB)
+        SET paramSweepSectionId = :paramSweepSectionId
+        WHERE id = :id
     """
     db.executemany(
         query,
@@ -109,7 +105,7 @@ def save_sections(db, sections, section_variants):
     # add children
     query = """
         INSERT INTO SectionArtifacts (sectionId, artifactPath, data)
-        VALUES (CAST(:sectionId AS BLOB), :artifactPath, :data)
+        VALUES (:sectionId, :artifactPath, :data)
     """
     query_params = []
     for s in sections.values():
@@ -126,7 +122,7 @@ def save_sections(db, sections, section_variants):
     db.executemany(query, query_params)
 
     # delete children
-    placeholders = ", ".join([f"CAST(? AS BLOB)"] * len(section_variants))
+    placeholders = ", ".join(["?"] * len(section_variants))
     query = f"""
         DELETE FROM SectionVariantChildren
         WHERE idid IN ({placeholders});
@@ -137,7 +133,7 @@ def save_sections(db, sections, section_variants):
     # add children
     query = """
         INSERT INTO SectionVariantChildren (idid, childId, "order")
-        VALUES (CAST(:idid AS BLOB), CAST(:childId AS BLOB), :order)
+        VALUES (:idid, :childId, :order)
     """
     query_params = []
     for idid, variant in section_variants.items():
@@ -149,7 +145,7 @@ def save_sections(db, sections, section_variants):
         )
     db.executemany(query, query_params)
 
-    placeholders = ", ".join([f"CAST(? AS BLOB)"] * len(section_variants))
+    placeholders = ", ".join(["?"] * len(section_variants))
     query = f"""
         DELETE FROM SectionVariantRunGroup
         WHERE idid IN ({placeholders})
@@ -190,18 +186,18 @@ def save_sections(db, sections, section_variants):
 
     query = """
         INSERT INTO SectionVariantRunGroup (idid, sectionId, parentVariantId, selected)
-        VALUES (CAST(:idid AS BLOB), CAST(:sectionId AS BLOB), CAST(:parentVariantId AS BLOB), :selected)
+        VALUES (:idid, :sectionId, :parentVariantId, :selected)
     """
     db.executemany(query, run_group_query_params)
 
     query = """
         INSERT INTO SectionVariantRunGroupVersions (idid, sectionId, parentVariantId, versionId, selected)
-        VALUES (CAST(:idid AS BLOB), CAST(:sectionId AS BLOB), CAST(:parentVariantId AS BLOB), CAST(:versionId AS BLOB), :selected)
+        VALUES (:idid, :sectionId, :parentVariantId, :versionId, :selected)
     """
     db.executemany(query, run_group_versions_query_params)
 
     query = """
         INSERT INTO SectionVariantRunGroupParamSweeps (idid, sectionId, parentVariantId, sweepId, selected)
-        VALUES (CAST(:idid AS BLOB), CAST(:sectionId AS BLOB), CAST(:parentVariantId AS BLOB), CAST(:sweepId AS BLOB), :selected)
+        VALUES (:idid, :sectionId, :parentVariantId, :sweepId, :selected)
     """
     db.executemany(query, run_group_param_sweeps_query_params)
