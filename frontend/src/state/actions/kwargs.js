@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { useSectionInfos } from "state/definitions";
-import { findAllParametersAndPathMaps } from "utils/getDescendants";
+import { findAllParameters } from "utils/getDescendants";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
@@ -49,7 +49,7 @@ export function deleteLastKwarg({ sectionId, parentId = null, state }) {
 
 export function deleteSelectedKwargs(sectionId) {
   useSectionInfos.setState((x) => {
-    const { ids: selectedParamIds } = getAllSelectedParamIds(sectionId, x);
+    const selectedParamIds = getAllSelectedParamIds(sectionId, x);
     deleteCodeInfo(sectionId, selectedParamIds, x);
   });
 }
@@ -68,9 +68,16 @@ export function saveKwargsAsCollection({ sectionId, name }) {
 
 export function pinSelectedKwargs(sectionId) {
   useSectionInfos.setState((x) => {
-    const { ids: selectedParamIds } = getAllSelectedParamIds(sectionId, x);
+    const selectedParamIds = getAllSelectedParamIds(sectionId, x);
+    const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
     for (const p of selectedParamIds) {
-      x.codeInfo[p].isPinned = !x.codeInfo[p].isPinned;
+      setAttrOfSelfAndDescendants(
+        x.codeInfo,
+        codeInfoChildren,
+        p,
+        "isPinned",
+        !x.codeInfo[p].isPinned,
+      );
     }
   });
 }
@@ -78,12 +85,19 @@ export function pinSelectedKwargs(sectionId) {
 export function toggleParamSelected(sectionId, paramInfoId) {
   useSectionInfos.setState((x) => {
     const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
+    const newVal = !x.codeInfo[paramInfoId].isSelected;
+    console.log("toggleParamSelected", newVal);
+    x.codeInfo[paramInfoId].isSelected = newVal;
+    // We want only the parent to be true
+    // just because of the way other states interpret isSelected
+    const childrenNewVal = false;
     setAttrOfSelfAndDescendants(
       x.codeInfo,
       codeInfoChildren,
       paramInfoId,
       "isSelected",
-      !x.codeInfo[paramInfoId].isSelected,
+      childrenNewVal,
+      false,
     );
   });
 }
@@ -101,11 +115,27 @@ export function unselectAllParams() {
   return didUnselectSomeParams;
 }
 
-function setAttrOfSelfAndDescendants(state, codeInfoChildren, id, attr, value) {
-  state[id][attr] = value;
+function setAttrOfSelfAndDescendants(
+  state,
+  codeInfoChildren,
+  id,
+  attr,
+  value,
+  setSelf = true,
+) {
+  if (setSelf) {
+    state[id][attr] = value;
+  }
   for (const paramId of codeInfoChildren[id]) {
     state[paramId][attr] = value;
-    setAttrOfSelfAndDescendants(state, codeInfoChildren, paramId, attr, value);
+    setAttrOfSelfAndDescendants(
+      state,
+      codeInfoChildren,
+      paramId,
+      attr,
+      value,
+      true,
+    );
   }
 }
 
@@ -136,28 +166,11 @@ export function getAllSelectedParamIds(sectionId, state) {
   const codeInfoState = state.codeInfo;
   const { selectedItem } = getSectionVariant(sectionId, state);
   const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
-  const { ids, pathMap } = findAllParametersAndPathMaps({
+  const { ids } = findAllParameters({
     allCodeInfo: codeInfoState,
     codeInfoChildren,
     startingId: selectedItem,
     additionalOutputCondition: (c) => c?.isSelected,
   });
-  return { ids, pathMap };
-}
-
-export function getHighestContiguousSelectedAncestor(
-  allCodeInfo,
-  pathMap,
-  paramInfoId,
-) {
-  const currPathMap = pathMap[paramInfoId];
-  let highest = paramInfoId;
-  for (let i = currPathMap.length - 2; i >= 0; i--) {
-    if (allCodeInfo[currPathMap[i]].isSelected) {
-      highest = currPathMap[i];
-    } else {
-      break;
-    }
-  }
-  return highest;
+  return ids;
 }

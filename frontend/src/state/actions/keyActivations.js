@@ -29,7 +29,7 @@ import { tabFromDocumentBody } from "utils/tabbingLogic";
 import { isMacOs } from "utils/utils";
 import {
   clearActiveSectionIds,
-  selectAll,
+  setAllSectionsAsActive,
   setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
 import { copy } from "./copyPaste/copy";
@@ -405,7 +405,7 @@ export function attachKeyEventListeners() {
       shortcuts.selectTopLevelNonGroupSections,
       setTopLevelNonGroupSectionsAsActive,
     ],
-    [shortcuts.selectAll, selectAll],
+    [shortcuts.selectAllSectionsShortcut, setAllSectionsAsActive],
     [shortcuts.showVersionsTabShortcut, showVersionsTab],
     [shortcuts.showParamUITypeTabShortcut, showParamUITypeTab],
     [shortcuts.showProjectOverviewTabShortcut, showProjectOverviewTab],
