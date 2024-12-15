@@ -4,6 +4,7 @@ from setta.database.db.codeInfo.utils import (
     add_defaults_to_code_info,
     add_defaults_to_code_info_cols,
 )
+from setta.database.db.sections.load import load_json_sources_into_data_structures
 from setta.database.db.sections.utils import add_defaults_to_sections
 from setta.database.db.sectionVariants.utils import add_defaults_to_section_variants
 from setta.database.db.uiTypes.utils import (
@@ -26,6 +27,13 @@ def add_defaults_to_project(p):
     add_defaults_to_code_info_cols(p["codeInfoCols"])
     add_defaults_to_ui_types(p["uiTypes"])
     add_defaults_to_ui_type_cols(p["uiTypeCols"])
+
+
+def add_defaults_to_project_and_load_json_sources(p):
+    add_defaults_to_project(p)
+    load_json_sources_into_data_structures(
+        p["sections"], p["codeInfo"], p["codeInfoCols"], p["sectionVariants"]
+    )
 
 
 def remove_empty(x):

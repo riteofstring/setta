@@ -25,7 +25,7 @@ from setta.database.db.projects.saveAs import (
     save_as_new_project_config,
 )
 from setta.database.db.projects.utils import (
-    add_defaults_to_project,
+    add_defaults_to_project_and_load_json_sources,
     filter_data_for_json_export,
 )
 from setta.database.export_db.export_db import maybe_export_database
@@ -184,5 +184,5 @@ def router_filter_data_for_json_export(x: FilterDataForJSONExportRequest):
 
 @router.post(C.ROUTE_ADD_DEFAULT_DATA_FOR_JSON_IMPORT)
 def router_add_default_data_for_json_import(x: FilterDataForJSONExportRequest):
-    add_defaults_to_project(x.project)
+    add_defaults_to_project_and_load_json_sources(x.project)
     return x.project
