@@ -17,10 +17,10 @@ export function roundUpIdx(numList, x) {
   return closest;
 }
 
-export function findRefs(keywordPositions, fullNameToInfo) {
+export function findRefs(keywordPositions, fullNameToInfo, fullText) {
   const output = [];
   for (const k of keywordPositions) {
-    const keyword = k.keyword;
+    const keyword = fullText.substring(k.startPos, k.endPos);
     if (keyword in fullNameToInfo) {
       const info = fullNameToInfo[keyword];
       output.push({
