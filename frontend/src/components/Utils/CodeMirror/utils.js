@@ -17,18 +17,60 @@ export function roundUpIdx(numList, x) {
   return closest;
 }
 
-export function findRefs(keywordPositions, fullNameToInfo) {
+export function computeEVReferences(project) {
+  const paramEVRefs = {};
+  const selectedItemEVRefs = {};
+  const codeEVRefs = {};
+  const { fullNameToInfo } = useKeywordRegex.getState();
+  for (const [sectionId, section] of Object.entries(project.sections)) {
+    paramEVRefs[sectionId] = {};
+    const sectionVariant = project.sectionVariants[section.variantId];
+
+    for (const [paramInfoId, valueInfo] of Object.entries(
+      sectionVariant.values,
+    )) {
+      paramEVRefs[sectionId][paramInfoId] = findRefs({
+        keywordPositions: valueInfo.keywordPositions,
+        fullNameToInfo,
+        fullText: valueInfo.value,
+      });
+    }
+
+    if (sectionVariant.selectedItem) {
+      const codeInfo = project.codeInfo[sectionVariant.selectedItem];
+      selectedItemEVRefs[sectionId] = findRefs({
+        keywordPositions: codeInfo.keywordPositions,
+        fullNameToInfo,
+        fullText: codeInfo.name,
+      });
+    }
+
+    if (sectionVariant.code) {
+      codeEVRefs[sectionId] = findRefs({
+        keywordPositions: sectionVariant.keywordPositions,
+        fullNameToInfo,
+        fullText: sectionVariant.code,
+      });
+    }
+  }
+
+  // console.log("codeEVRefs", codeEVRefs);
+
+  return { paramEVRefs, selectedItemEVRefs, codeEVRefs };
+}
+
+export function findRefs({ keywordPositions, fullNameToInfo, fullText }) {
   const output = [];
   for (const k of keywordPositions) {
-    const keyword = k.keyword;
+    const keyword = fullText.substring(k["startPos"], k["endPos"]);
     if (keyword in fullNameToInfo) {
       const info = fullNameToInfo[keyword];
       output.push({
-        sectionId: info.sectionId,
-        paramInfoId: info.paramInfoId,
-        isArgsObj: info.isArgsObj,
-        startPos: k.startPos,
-        keyword,
+        sectionId: info["sectionId"],
+        paramInfoId: info["paramInfoId"],
+        isArgsObj: info["isArgsObj"],
+        startPos: k["startPos"],
+        endPos: k["endPos"],
       });
     }
   }

@@ -1,25 +1,22 @@
 import json
 
-from setta.utils.constants import DEFAULT_VALUES, UI_TYPE_TABLE_DATA_JSON_FIELDS
+from setta.utils.constants import UI_TYPE_TABLE_DATA_JSON_FIELDS
 from setta.utils.utils import filter_dict
-from setta.database.utils import uuid_str_to_blob
 
 
 def save_ui_types(db, uiTypes):
     query = """
-        INSERT INTO UIType (id, type, data)
-        VALUES (:id, :type, :data)
+        INSERT INTO UIType (id, data)
+        VALUES (:id, :data)
         ON CONFLICT (id)
         DO UPDATE SET
-            type = :type,
             data = :data
     """
 
     query_parameters = [
         {
-            "id": uuid_str_to_blob(v["id"]),
-            "type": v["type"],
-            "data": json.dumps(filter_dict(v, UI_TYPE_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["uiType"])),
+            "id": v["id"],
+            "data": json.dumps(filter_dict(v, UI_TYPE_TABLE_DATA_JSON_FIELDS)),
         }
         for v in uiTypes.values()
     ]
@@ -34,7 +31,7 @@ def save_ui_type_cols(db, uitype_cols):
         DO NOTHING
     """
 
-    query_params = [{"id": uuid_str_to_blob(k)} for k in uitype_cols.keys()]
+    query_params = [{"id": k} for k in uitype_cols.keys()]
     db.executemany(query, query_params)
 
     query_params = []
@@ -67,9 +64,9 @@ def save_ui_type_cols(db, uitype_cols):
         for code_info_id, ui_info in uitype_cols[idid].items():
             query_params.append(
                 {
-                    "idid": uuid_str_to_blob(idid),
-                    "codeInfoId": uuid_str_to_blob(code_info_id),
-                    "uiTypeId": uuid_str_to_blob(ui_info["uiTypeId"]),
+                    "idid": idid,
+                    "codeInfoId": code_info_id,
+                    "uiTypeId": ui_info["uiTypeId"],
                 }
             )
 
@@ -87,9 +84,9 @@ def save_ui_type_cols(db, uitype_cols):
             query_params.extend(
                 [
                     {
-                        "uiTypeColId": uuid_str_to_blob(idid),
-                        "codeInfoId": uuid_str_to_blob(code_info_id),
-                        "nonPresetUITypeId": uuid_str_to_blob(x),
+                        "uiTypeColId": idid,
+                        "codeInfoId": code_info_id,
+                        "nonPresetUITypeId": x,
                     }
                     for x in ui_info["nonPresetUITypeIds"]
                 ]

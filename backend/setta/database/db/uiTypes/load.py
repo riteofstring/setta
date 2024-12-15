@@ -4,7 +4,7 @@ import json
 def load_uitypes(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT id, type, data
+        SELECT id, data
         FROM UIType
         WHERE UIType.id in ({placeholders})
     """
@@ -12,7 +12,7 @@ def load_uitypes(db, ids):
     db.execute(query, ids)
     output = {}
     for row in db.fetchall():
-        output[row["id"]] = {"id": row["id"], "type": row["type"], **json.loads(row["data"])}
+        output[row["id"]] = {"id": row["id"], **json.loads(row["data"])}
     return output
 
 

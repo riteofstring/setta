@@ -1,17 +1,15 @@
 import json
 
-from setta.database.utils import uuid_str_to_blob
 from setta.utils.constants import CODE_INFO_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES
 from setta.utils.utils import filter_dict, replace_null_keys_with_none
 
 
 def save_code_info(db, codeInfo):
     query = """
-        INSERT INTO CodeInfo (id, name, data)
-        VALUES (:id, :name, :data)
+        INSERT INTO CodeInfo (id, data)
+        VALUES (:id, :data)
         ON CONFLICT (id)
         DO UPDATE SET
-            name = :name,
             data = :data
     """
 
@@ -20,8 +18,7 @@ def save_code_info(db, codeInfo):
     for codeInfoId, c in codeInfo.items():
         query_params.append(
             {
-                "id": uuid_str_to_blob(codeInfoId),
-                "name": c["name"],
+                "id": codeInfoId,
                 "data": json.dumps(
                     filter_dict(
                         c, CODE_INFO_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["codeInfo"]
@@ -43,7 +40,7 @@ def save_code_info_col(db, codeInfoCols):
         DO NOTHING
     """
 
-    query_params = [{"id": uuid_str_to_blob(k)} for k in codeInfoCols.keys()]
+    query_params = [{"id": k} for k in codeInfoCols.keys()]
     db.executemany(query, query_params)
 
     placeholders = ", ".join(["?"] * len(codeInfoCols))
@@ -66,9 +63,9 @@ def save_code_info_col(db, codeInfoCols):
             for childId in children:
                 query_params.append(
                     {
-                        "idid": uuid_str_to_blob(idid),
-                        "parentId": uuid_str_to_blob(parentId),
-                        "childId": uuid_str_to_blob(childId),
+                        "idid": idid,
+                        "parentId": parentId,
+                        "childId": childId,
                         "order": order,
                     }
                 )

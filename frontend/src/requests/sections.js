@@ -76,17 +76,17 @@ export async function dbCodeAreaCompletion({
   fullText,
   beforeText,
   position,
-  setEVRefs,
+  setKeywordPositions,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  const evRefs = await getEVRefs({
+  const { evRefs, keywordPositions } = await getKeywordPositionsAndEVRefs({
     sectionId,
     paramInfoId: null,
     fullText,
     regexPatternKey: "codeAreaPattern",
   });
 
-  setEVRefs(evRefs);
+  setKeywordPositions(keywordPositions);
 
   const autoCompleteProps = {
     id: createNewId(),
@@ -121,16 +121,16 @@ export async function dbTextFieldCompletion({
   fullText,
   beforeText,
   position,
-  setEVRefs,
+  setKeywordPositions,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  const evRefs = await getEVRefs({
+  const { evRefs, keywordPositions } = await getKeywordPositionsAndEVRefs({
     sectionId,
     paramInfoId,
     fullText,
   });
 
-  setEVRefs(evRefs);
+  setKeywordPositions(keywordPositions);
 
   return await sendMessageAndWait({
     id: createNewId(),
@@ -147,7 +147,7 @@ export async function dbTextFieldCompletion({
   });
 }
 
-export async function getEVRefs({
+export async function getKeywordPositionsAndEVRefs({
   sectionId,
   paramInfoId,
   fullText,
@@ -181,10 +181,12 @@ export async function getEVRefs({
     // CodeMirror's RangeSetBuilder needs the list to be sorted
     keywordPositions.sort((a, b) => a.startPos - b.startPos);
 
-    evRefs = findRefs(keywordPositions, fullNameToInfo);
-
-    console.log("evRefs", evRefs);
+    evRefs = findRefs({
+      keywordPositions,
+      fullNameToInfo,
+      fullText,
+    });
   }
 
-  return evRefs;
+  return { evRefs, keywordPositions };
 }

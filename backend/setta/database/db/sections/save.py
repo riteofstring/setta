@@ -6,28 +6,24 @@ from setta.utils.constants import (
     SECTION_TABLE_DATA_JSON_FIELDS,
 )
 from setta.utils.utils import filter_dict, replace_null_keys_with_none
-from setta.database.utils import uuid_str_to_blob
 
 
 def save_sections(db, sections, section_variants):
     query = """
         INSERT INTO Section (
             id,
-            name,
             data,
             uiTypeId,
             uiTypeColId
         )
         VALUES (
             :id,
-            :name,
             :data,
             :uiTypeId,
             :uiTypeColId
         )
         ON CONFLICT (id)
         DO UPDATE SET
-            name = :name,
             data = :data,
             uiTypeId = :uiTypeId,
             uiTypeColId = :uiTypeColId
@@ -35,22 +31,21 @@ def save_sections(db, sections, section_variants):
 
     query_params = [
         {
-            "id": uuid_str_to_blob(s["id"]),
-            "name": s["name"],
+            "id": s["id"],
             "data": json.dumps(
                 filter_dict(
                     s, SECTION_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["section"]
                 )
             ),
-            "uiTypeId": uuid_str_to_blob(s["uiTypeId"]),
-            "uiTypeColId": uuid_str_to_blob(s["uiTypeColId"]),
+            "uiTypeId": s["uiTypeId"],
+            "uiTypeColId": s["uiTypeColId"],
         }
         for s in sections.values()
     ]
 
     db.executemany(query, query_params)
 
-    ids = [uuid_str_to_blob(s["id"]) for s in sections.values()]
+    ids = [s["id"] for s in sections.values()]
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
         UPDATE SectionVariantId
@@ -67,7 +62,7 @@ def save_sections(db, sections, section_variants):
     query_params = []
     for s in sections.values():
         for variantId in s["variantIds"]:
-            query_params.append({"variantId": uuid_str_to_blob(variantId), "sectionId": uuid_str_to_blob(s["id"])})
+            query_params.append({"variantId": variantId, "sectionId": s["id"]})
     db.executemany(query, query_params)
 
     query = f"""
@@ -85,7 +80,7 @@ def save_sections(db, sections, section_variants):
     query_params = []
     for s in sections.values():
         for uiTypeId in s["nonPresetUITypeIds"]:
-            query_params.append({"uiTypeId": uuid_str_to_blob(uiTypeId), "sectionId": uuid_str_to_blob(s["id"])})
+            query_params.append({"uiTypeId": uiTypeId, "sectionId": s["id"]})
     db.executemany(query, query_params)
 
     query = """
@@ -96,7 +91,7 @@ def save_sections(db, sections, section_variants):
     db.executemany(
         query,
         [
-            {"id": uuid_str_to_blob(s["id"]), "paramSweepSectionId": uuid_str_to_blob(s["paramSweepSectionId"])}
+            {"id": s["id"], "paramSweepSectionId": s["paramSweepSectionId"]}
             for s in sections.values()
         ],
     )
@@ -117,7 +112,7 @@ def save_sections(db, sections, section_variants):
         for a in s["artifacts"]:
             query_params.append(
                 {
-                    "sectionId": uuid_str_to_blob(s["id"]),
+                    "sectionId": s["id"],
                     "artifactPath": a["path"],
                     "data": json.dumps(
                         filter_dict(a, SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS)

@@ -5,7 +5,7 @@ import { goToSection } from "state/actions/sections/sectionPositions";
 import { useKeywordRegex } from "state/definitions";
 import { roundUpIdx } from "./utils";
 
-function getContentDomEventListener(evRefs, editor) {
+function getContentDomEventListener(keywordPositions, editor) {
   return (event) => {
     if (!variableClick(event)) {
       return;
@@ -21,8 +21,8 @@ function getContentDomEventListener(evRefs, editor) {
 
     let keywordInfo = null;
 
-    for (const k of evRefs) {
-      if (pos >= k.startPos && pos < k.startPos + k.keyword.length) {
+    for (const k of keywordPositions) {
+      if (pos >= k.startPos && pos < k.endPos) {
         keywordInfo = k;
         break;
       }
@@ -55,7 +55,7 @@ function fixPlaceholderCursor(divId, value, defaultVal) {
 }
 
 export function getOnCreateEditor({
-  evRefs,
+  keywordPositions,
   initialEvent,
   setRealIsInitialized,
   divId,
@@ -65,7 +65,7 @@ export function getOnCreateEditor({
   return (view) => {
     view.contentDOM.addEventListener(
       "click",
-      getContentDomEventListener(evRefs, view),
+      getContentDomEventListener(keywordPositions, view),
     );
     view.focus();
     if (initialEvent !== "tab") {
@@ -83,7 +83,7 @@ export function getCompletionsFn(
   sectionId,
   paramInfoId,
   dbCompletionFn,
-  setEVRefs,
+  setKeywordPositions,
   language,
 ) {
   if (language === "python") {
@@ -101,7 +101,7 @@ export function getCompletionsFn(
         fullText,
         beforeText: before.text,
         position: context.pos,
-        setEVRefs,
+        setKeywordPositions,
       });
       setToNotWaiting();
       console.log("res", res);

@@ -1,6 +1,5 @@
 import json
 
-from setta.database.utils import uuid_str_to_blob
 from setta.utils.constants import (
     DEFAULT_VALUES,
     SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS,
@@ -11,11 +10,10 @@ from setta.utils.utils import filter_dict
 
 def save_section_variants(db, section_variants):
     query = """
-        INSERT INTO SectionVariantId (id, name, data, selectedItem, codeInfoColId)
-        VALUES (:id, :name, :data, :selectedItem, :codeInfoColId)
+        INSERT INTO SectionVariantId (id, data, selectedItem, codeInfoColId)
+        VALUES (:id, :data, :selectedItem, :codeInfoColId)
         ON CONFLICT (id)
         DO UPDATE SET
-        name = :name,
         data = :data,
         selectedItem = :selectedItem,
         codeInfoColId = :codeInfoColId
@@ -23,10 +21,9 @@ def save_section_variants(db, section_variants):
 
     query_params = [
         {
-            "id": uuid_str_to_blob(k),
-            "name": v["name"],
-            "selectedItem": uuid_str_to_blob(v["selectedItem"]),
-            "codeInfoColId": uuid_str_to_blob(v["codeInfoColId"]),
+            "id": k,
+            "selectedItem": v["selectedItem"],
+            "codeInfoColId": v["codeInfoColId"],
             "data": json.dumps(
                 filter_dict(
                     v,
@@ -58,8 +55,8 @@ def save_section_variants(db, section_variants):
         for code_info_id, value_info in variant["values"].items():
             query_params.append(
                 {
-                    "idid": uuid_str_to_blob(idid),
-                    "codeInfoId": uuid_str_to_blob(code_info_id),
+                    "idid": idid,
+                    "codeInfoId": code_info_id,
                     "data": json.dumps(
                         filter_dict(
                             value_info,
@@ -131,11 +128,11 @@ def generate_query_param(
     value,
 ):
     return {
-        "idid": uuid_str_to_blob(id),
+        "idid": id,
         "selectedItemGroupNum": selectedItemGroupNum,
         "paramInfoGroupNum": paramInfoGroupNum,
-        "selectedItem": uuid_str_to_blob(selected_item),
-        "paramInfoId": uuid_str_to_blob(param_info_id),
+        "selectedItem": selected_item,
+        "paramInfoId": param_info_id,
         "order": order,
         "value": value,
     }
