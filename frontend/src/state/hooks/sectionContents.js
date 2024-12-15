@@ -30,14 +30,13 @@ export function useParamInfosForSidePane(sectionId) {
 
 export function useParamIdsToShowInArea(sectionId, isPinned) {
   return useSectionInfos((x) => {
-    const { codeInfoChildren, parentCodeInfoId, startAtDepth } =
+    const { codeInfoChildren, parentCodeInfoId } =
       getCodeChildrenAndParentCodeInfoId(sectionId, x);
     return getParamIdsToShowInArea(
       isPinned,
       x.codeInfo,
       codeInfoChildren,
       parentCodeInfoId,
-      startAtDepth,
     );
   }, _.isEqual);
 }

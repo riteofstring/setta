@@ -1,7 +1,7 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
-import { createJSONSourceParamId, createNewId } from "utils/idNameCreation";
+import { createNewId } from "utils/idNameCreation";
 import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newEVEntry } from "utils/objs/ev";
 import { newUITypeColEntry } from "utils/objs/uiTypeCol";
@@ -257,26 +257,13 @@ export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
 export function getCodeChildrenAndParentCodeInfoId(sectionId, x) {
   const sectionVariant = getDisplayedSectionVariant(sectionId, x);
   const { codeInfoColId } = sectionVariant;
-
-  let parentCodeInfoId,
-    startAtDepth = 0;
-  const { jsonSource, jsonSourceKeys } = x.x[sectionId];
-  if (
-    jsonSource &&
-    Array.isArray(jsonSourceKeys) &&
-    jsonSourceKeys.length > 0
-  ) {
-    parentCodeInfoId = createJSONSourceParamId(jsonSourceKeys, jsonSource);
-    startAtDepth = jsonSourceKeys.length;
-  } else {
-    parentCodeInfoId = sectionVariant.selectedItem;
-  }
+  const parentCodeInfoId = sectionVariant.selectedItem;
 
   const codeInfoChildren = codeInfoColId
     ? x.codeInfoCols[codeInfoColId].children
     : newUITypeColEntry();
 
-  return { codeInfoChildren, parentCodeInfoId, startAtDepth };
+  return { codeInfoChildren, parentCodeInfoId };
 }
 
 export function getTotalNumberOfIds(idToChildren) {
