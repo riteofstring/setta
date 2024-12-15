@@ -5,7 +5,13 @@ import {
   useNodeInternals,
   useSectionInfos,
 } from "state/definitions";
-import { getHighestAncestor, getSectionType } from "./sectionInfos";
+import { findAllParameters } from "utils/getDescendants";
+import {
+  getCodeInfoCol,
+  getHighestAncestor,
+  getSectionType,
+  getSectionVariant,
+} from "./sectionInfos";
 import { setZIndices } from "./sections/sectionPositions";
 
 export function setActiveSectionIds(ids) {
@@ -32,8 +38,26 @@ export function setActiveSectionIdAndUpdateZIndex(id) {
   setZIndices([highestAncestor], false);
 }
 
-export function setAllSectionsAsActive() {
-  setActiveSectionIds(Object.keys(useSectionInfos.getState().x));
+export function selectAll() {
+  const currActiveSections = useActiveSection.getState().ids;
+
+  // select all params within single active section
+  if (currActiveSections.length === 1) {
+    useSectionInfos.setState((state) => {
+      const sectionId = currActiveSections[0];
+      const paramIds = findAllParameters({
+        allCodeInfo: state.codeInfo,
+        codeInfoChildren: getCodeInfoCol(sectionId, state).children,
+        startingId: getSectionVariant(sectionId, state).selectedItem,
+      }).ids;
+      for (const p of paramIds) {
+        state.codeInfo[p].isSelected = true;
+      }
+    });
+  } else {
+    // select all sections
+    setActiveSectionIds(Object.keys(useSectionInfos.getState().x));
+  }
 }
 
 export function setTopLevelNonGroupSectionsAsActive() {
