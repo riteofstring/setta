@@ -45,7 +45,6 @@ export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
   if (e.code !== "Tab") {
     return;
   }
-  console.log("sectionContainerCoreOnKeyDown");
   e.preventDefault();
   e.stopPropagation();
   const highestAncestorRef =
@@ -62,14 +61,8 @@ export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
     }
   } else {
     const focusEl = getNextElement(e, ref, focusableArray);
-    console.log("focusEl", focusEl);
     if (!focusEl) {
       tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
-    } else if (focusEl.id.startsWith("CodeArea-")) {
-      const codeEditor = getCodeEditorFromCodeAreaDiv(focusEl);
-      console.log("codeEditor", codeEditor);
-      codeEditor.focus({ preventScroll: true });
-      movePaneToIncludeElement(codeEditor);
     } else {
       focusEl.focus({ preventScroll: true });
       movePaneToIncludeElement(focusEl);
@@ -96,10 +89,6 @@ function getCurrentElementIndex(e, focusableArray) {
   return e.target.cmView
     ? focusableArray.findIndex((f) => f.id.startsWith("CodeMirror-"))
     : focusableArray.indexOf(document.activeElement);
-}
-
-function getCodeEditorFromCodeAreaDiv(el) {
-  return el.querySelector('[contenteditable]');
 }
 
 export function tabFromDocumentBody(e) {
