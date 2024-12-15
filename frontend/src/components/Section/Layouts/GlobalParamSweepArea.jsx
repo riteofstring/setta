@@ -548,7 +548,7 @@ function CreateNewRunGroupButton({ sectionId }) {
 function createNewRunGroup(sectionId) {
   useSectionInfos.setState((state) => {
     const newVersionName = createRandomName();
-    const variantId = createNewVersion(sectionId, newVersionName, state);
-    initRunGroup(variantId, state);
+    const { newVariantId } = createNewVersion(sectionId, newVersionName, state);
+    initRunGroup(newVariantId, state);
   });
 }

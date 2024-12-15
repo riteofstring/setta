@@ -60,6 +60,7 @@ class LoadSectionJSONSourceRequest(BaseModel):
 class SaveSectionJSONSourceRequest(BaseModel):
     project: dict
     sectionId: str
+    forking_from: str
 
 
 class NewJSONVersionNameRequest(BaseModel):
@@ -139,4 +140,4 @@ def route_new_json_version_name(x: NewJSONVersionNameRequest):
 
 @router.post(C.ROUTE_SAVE_SECTION_JSON_SOURCE)
 def route_save_section_json_source(x: SaveSectionJSONSourceRequest):
-    save_json_source_data(x.project, [x.sectionId])
+    save_json_source_data(x.project, [x.sectionId], x.forking_from)

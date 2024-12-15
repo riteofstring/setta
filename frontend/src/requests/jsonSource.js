@@ -13,11 +13,12 @@ export async function dbLoadSectionJSONSource(sectionId, jsonSource) {
   });
 }
 
-export async function dbSaveSectionJSONSource(sectionId) {
+export async function dbSaveSectionJSONSource(sectionId, oldVariantName) {
   return await post({
     body: {
       project: dataForRequest(),
       sectionId,
+      forking_from: oldVariantName,
     },
     address: C.ROUTE_SAVE_SECTION_JSON_SOURCE,
   });
