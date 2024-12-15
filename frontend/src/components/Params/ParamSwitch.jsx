@@ -37,6 +37,7 @@ function _ParamSwitch(props) {
   return (
     <ParamContainer
       {...props}
+      isKwarg={isKwarg}
       paramChildren={paramChildren}
       onMouseDown={onMouseDownAlways}
     >
