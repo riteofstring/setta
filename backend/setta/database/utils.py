@@ -10,17 +10,6 @@ def maybe_new_id(x):
     return x if x else create_new_id()
 
 
-def aggregate_results(results, top_level_key, aggregate):
-    output = {}
-    for row in results:
-        key = row[top_level_key]
-        if key not in output:
-            output[key] = {**row, **{a: [] for a in aggregate}}
-        for a in aggregate:
-            output[key][a].append(row[a])
-    return output
-
-
 def rename_keys(x, to_rename):
     output = copy.deepcopy(x)
     for old_key in to_rename.keys():

@@ -2,11 +2,10 @@ import json
 from collections import defaultdict
 
 from setta.code_gen.export_selected import get_section_variants
-from setta.database.db.projects.utils import add_defaults_to_project
+from setta.database.db.evRefs.save import save_ev_refs
 from setta.database.utils import create_new_id
 from setta.utils.constants import (
     DEFAULT_VALUES,
-    PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS,
     PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS,
     SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
     USER_SETTINGS,
@@ -22,7 +21,6 @@ from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
 def save_project_details(db, p):
-    add_defaults_to_project(p)
     save_json_source_data(p)
     remove_json_source_data(p)
     save_code_info(db, p["codeInfo"])
@@ -31,6 +29,7 @@ def save_project_details(db, p):
     save_ui_type_cols(db, p["uiTypeCols"])
     save_section_variants(db, p["sectionVariants"])
     save_sections(db, p["sections"], p["sectionVariants"])
+    save_ev_refs(db, p["sectionVariants"], p["codeInfo"])
     save_project(db, p["projectConfig"])
     save_section_configs(db, p["projectConfig"]["id"], p["sections"])
     update_linked_project_configs(db, p)
@@ -66,8 +65,8 @@ def save_project(db, project):
     db.execute(query, {"parentId": project["id"]})
 
     query = """
-        INSERT INTO ProjectConfigChildren (parentId, childId, data)
-        VALUES (:parentId, :childId, :data)
+        INSERT INTO ProjectConfigChildren (parentId, childId, x, y, zIndex, w, h)
+        VALUES (:parentId, :childId, :x, :y, :zIndex, :w, :h)
     """
     query_params = []
     query_params.extend(
@@ -75,9 +74,11 @@ def save_project(db, project):
             {
                 "parentId": project["id"],
                 "childId": childId,
-                "data": json.dumps(
-                    filter_dict(details, PROJECT_CONFIG_CHILDREN_TABLE_DATA_JSON_FIELDS)
-                ),
+                "x": details["x"],
+                "y": details["y"],
+                "zIndex": details["zIndex"],
+                "w": details["w"],
+                "h": details["h"],
             }
             for childId, details in project["children"].items()
         ]

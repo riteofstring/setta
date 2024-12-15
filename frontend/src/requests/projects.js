@@ -88,3 +88,10 @@ export async function dbFilterDataForJSONExport(project) {
     body: { project },
   });
 }
+
+export async function dbAddDefaultDataForJSONImport(project) {
+  return await post({
+    address: C.ROUTE_ADD_DEFAULT_DATA_FOR_JSON_IMPORT,
+    body: { project },
+  });
+}
