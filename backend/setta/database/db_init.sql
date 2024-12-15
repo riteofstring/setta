@@ -39,8 +39,6 @@ CREATE TABLE IF NOT EXISTS SectionConfig (
     data TEXT,
     sectionId TEXT,
     variantId TEXT,
-    w INTEGER,
-    h INTEGER,
     PRIMARY KEY (projectConfigId, sectionId),
     FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
     FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,

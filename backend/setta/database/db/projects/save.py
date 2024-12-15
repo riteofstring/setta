@@ -2,7 +2,6 @@ import json
 from collections import defaultdict
 
 from setta.code_gen.export_selected import get_section_variants
-from setta.database.db.sections.utils import process_section_size_for_saving
 from setta.database.utils import create_new_id
 from setta.utils.constants import (
     DEFAULT_VALUES,
@@ -161,8 +160,8 @@ def save_section_configs(db, project_config_id, sections):
 
 def insert_section_configs(db, sections, id_pairs):
     query = """
-        INSERT INTO SectionConfig (projectConfigId, sectionId, variantId, w, h, data)
-        VALUES (:projectConfigId, :sectionId, :variantId, :w, :h, :data)
+        INSERT INTO SectionConfig (projectConfigId, sectionId, variantId, data)
+        VALUES (:projectConfigId, :sectionId, :variantId, :data)
     """
 
     query_params = [
@@ -170,8 +169,6 @@ def insert_section_configs(db, sections, id_pairs):
             "projectConfigId": projectConfigId,
             "sectionId": sections[c]["id"],
             "variantId": sections[c]["variantId"],
-            "w": process_section_size_for_saving(sections[c]["size"]["width"]),
-            "h": process_section_size_for_saving(sections[c]["size"]["height"]),
             "data": json.dumps(
                 filter_dict(
                     sections[c],

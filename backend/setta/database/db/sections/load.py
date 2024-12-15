@@ -5,10 +5,7 @@ import json
 from collections import defaultdict
 
 from setta.database.db.codeInfo.utils import new_code_info_col, with_code_info_defaults
-from setta.database.db.sections.utils import (
-    process_loaded_section_size,
-    with_section_defaults,
-)
+from setta.database.db.sections.utils import with_section_defaults
 from setta.database.db.sectionVariants.utils import new_ev_entry, new_section_variant
 from setta.database.utils import create_new_id
 from setta.utils.constants import C
@@ -144,7 +141,7 @@ def get_section_ids(db, top_level_ids):
 
 def load_section_configs(db, project_config_id):
     query = """
-       SELECT s.sectionId, s.variantId, s.w, s.h, s.data, v.variantId as selectedVariantId
+       SELECT s.sectionId, s.variantId, s.data, v.variantId as selectedVariantId
        FROM SectionConfig s
        LEFT JOIN SectionConfigSelectedVariants v
            ON s.sectionId = v.sectionId
@@ -161,10 +158,6 @@ def load_section_configs(db, project_config_id):
                 "id": section_id,
                 "variantId": row["variantId"],
                 "selectedVariantIds": {},
-                "size": {
-                    "width": process_loaded_section_size(row["w"]),
-                    "height": process_loaded_section_size(row["h"]),
-                },
                 **json.loads(row["data"]),
             }
         if row["selectedVariantId"]:
