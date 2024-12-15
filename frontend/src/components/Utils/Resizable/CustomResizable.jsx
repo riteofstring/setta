@@ -168,7 +168,7 @@ function CustomResizableSuperCore({
 
   const inputClasses = `${
     disablePointerEvents ? "pointer-events-none select-none" : ""
-  } ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full ${!positionAndSizeLocked ? "rounded-xl shadow-md" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700 ${isYouTube ? "overflow-clip" : ""} ${
+  } ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700 ${isYouTube ? "overflow-clip" : ""} ${
     isActiveSection ? "z-[150]" : "z-10"
   }`;
 
