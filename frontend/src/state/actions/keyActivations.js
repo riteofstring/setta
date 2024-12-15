@@ -30,6 +30,7 @@ import { isMacOs } from "utils/utils";
 import {
   clearActiveSectionIds,
   setAllSectionsAsActive,
+  setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
@@ -393,12 +394,17 @@ export function attachKeyEventListeners() {
     [shortcuts.resetZoomShortcut, resetZoom],
     [shortcuts.copyShortcut, copy],
     [shortcuts.pasteShortcut, paste],
+    [shortcuts.pasteAsRefShortcut, () => paste({ asRef: true })],
     [shortcuts.updateInteractiveCode, updateInteractiveCode],
     [shortcuts.formatCode, formatCode],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, onFitViewHandler],
     [shortcuts.zoomToMouseShortcut, zoomToMouseLocation],
     [shortcuts.deleteSectionShortcut, deleteAllActiveSections],
+    [
+      shortcuts.selectTopLevelNonGroupSections,
+      setTopLevelNonGroupSectionsAsActive,
+    ],
     [shortcuts.selectAllSectionsShortcut, setAllSectionsAsActive],
     [shortcuts.showVersionsTabShortcut, showVersionsTab],
     [shortcuts.showParamUITypeTabShortcut, showParamUITypeTab],

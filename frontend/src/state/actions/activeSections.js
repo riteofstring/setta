@@ -1,6 +1,11 @@
+import C from "constants/constants.json";
 import _ from "lodash";
-import { useActiveSection, useSectionInfos } from "state/definitions";
-import { getHighestAncestor } from "./sectionInfos";
+import {
+  useActiveSection,
+  useNodeInternals,
+  useSectionInfos,
+} from "state/definitions";
+import { getHighestAncestor, getSectionType } from "./sectionInfos";
 import { setZIndices } from "./sections/sectionPositions";
 
 export function setActiveSectionIds(ids) {
@@ -29,4 +34,12 @@ export function setActiveSectionIdAndUpdateZIndex(id) {
 
 export function setAllSectionsAsActive() {
   setActiveSectionIds(Object.keys(useSectionInfos.getState().x));
+}
+
+export function setTopLevelNonGroupSectionsAsActive() {
+  const topLevelSections = Array.from(useNodeInternals.getState().x.values());
+  const nonGroup = topLevelSections.filter(
+    (s) => getSectionType(s.id) !== C.GROUP,
+  );
+  setActiveSectionIds(nonGroup.map((x) => x.id));
 }
