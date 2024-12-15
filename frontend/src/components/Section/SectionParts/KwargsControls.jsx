@@ -5,6 +5,7 @@ import {
   deleteLastKwarg,
   deleteSelectedKwargs,
   getAllSelectedParamIds,
+  getHighestContiguousSelectedAncestor,
   pinSelectedKwargs,
 } from "state/actions/kwargs";
 import { getSectionVariant } from "state/actions/sectionInfos";
@@ -125,20 +126,33 @@ function ParamFilter({ sectionId }) {
 function onClickAddKwargFn(sectionId, objInfoId) {
   return () => {
     useSectionInfos.setState((state) => {
-      const selectedParamIds = getAllSelectedParamIds(sectionId, state);
+      const { ids: selectedParamIds, pathMap } = getAllSelectedParamIds(
+        sectionId,
+        state,
+      );
       if (selectedParamIds.length > 0) {
         const { codeInfoColId } = getSectionVariant(sectionId, state);
         const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+        const addedKwargNextToThese = new Set();
         for (const p of selectedParamIds) {
+          const highest = getHighestContiguousSelectedAncestor(
+            state.codeInfo,
+            pathMap,
+            p,
+          );
+          if (addedKwargNextToThese.has(highest)) {
+            continue;
+          }
           let parentId, insertIdx;
           for (const [id, children] of Object.entries(codeInfoChildren)) {
-            if (children.includes(p)) {
+            if (children.includes(highest)) {
               parentId = id;
-              insertIdx = children.indexOf(p) + 1;
+              insertIdx = children.indexOf(highest) + 1;
               break;
             }
           }
           addKwarg({ sectionId, parentId, insertIdx, state });
+          addedKwargNextToThese.add(highest);
         }
       } else {
         addKwarg({ sectionId, parentId: objInfoId, state });
@@ -151,12 +165,25 @@ function onClickAddKwargFn(sectionId, objInfoId) {
 function onClickDeleteKwargFn(sectionId, objInfoId) {
   return () => {
     useSectionInfos.setState((state) => {
-      const selectedParamIds = getAllSelectedParamIds(sectionId, state);
+      const { ids: selectedParamIds, pathMap } = getAllSelectedParamIds(
+        sectionId,
+        state,
+      );
       if (selectedParamIds.length > 0) {
         const { codeInfoColId } = getSectionVariant(sectionId, state);
         const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
         const kwargIds = [];
+        const deletedKwargNextToThese = new Set();
         for (const p of selectedParamIds) {
+          const highest = getHighestContiguousSelectedAncestor(
+            state.codeInfo,
+            pathMap,
+            p,
+          );
+          if (deletedKwargNextToThese.has(highest)) {
+            continue;
+          }
+
           let parentId, idx;
           for (const [id, children] of Object.entries(codeInfoChildren)) {
             if (children.includes(p)) {
@@ -168,6 +195,7 @@ function onClickDeleteKwargFn(sectionId, objInfoId) {
           if (parentId) {
             kwargIds.push(codeInfoChildren[parentId][idx + 1]);
           }
+          deletedKwargNextToThese.add(highest);
         }
         deleteCodeInfo(sectionId, kwargIds, state);
       } else {
