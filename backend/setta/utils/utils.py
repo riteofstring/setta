@@ -178,16 +178,19 @@ def filter_dict(x, keep_keys=None, default_vals=None):
     }
 
 
-def replace_at_positions(input_string, replacements):
+def replace_at_positions(input_string, replacements, return_positions=False):
     """
     Replace substrings at specific positions in the input string.
 
     Args:
         input_string (str): The original string to modify
         replacements (list): List of tuples (position, old_value, new_value)
+        return_positions (bool): Whether to return new positions of replacements
 
     Returns:
-        str: Modified string with all replacements applied
+        Union[str, Tuple[str, List[Tuple[int, str]]]]:
+            If return_positions is False: Modified string with all replacements applied
+            If return_positions is True: Tuple of (modified string, list of (position, new_value))
 
     Raises:
         ValueError: If any replacement would result in an invalid operation
@@ -197,6 +200,9 @@ def replace_at_positions(input_string, replacements):
 
     # Convert string to list for easier manipulation
     result = list(input_string)
+
+    # Track new positions if requested
+    new_positions = []
 
     for pos, old, new in replacements:
         # Verify the position is valid
@@ -209,7 +215,22 @@ def replace_at_positions(input_string, replacements):
                 f"Expected '{old}' at position {pos}, but found '{input_string[pos:pos+len(old)]}'"
             )
 
+        # Calculate the shift this replacement will cause
+        current_shift = len(new) - len(old)
+
         # Replace the characters
         result[pos : pos + len(old)] = list(new)
 
-    return "".join(result)
+        if return_positions:
+            new_positions.append((pos, new))
+            # Update all previous entries' positions to account for this shift
+            for i in range(len(new_positions) - 1):
+                pos_i, val_i = new_positions[i]
+                new_positions[i] = (pos_i + current_shift, val_i)
+
+    final_string = "".join(result)
+
+    if return_positions:
+        new_positions.reverse()
+        return final_string, new_positions
+    return final_string

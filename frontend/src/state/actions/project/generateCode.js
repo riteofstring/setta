@@ -1,7 +1,4 @@
-import {
-  computeEVReferences,
-  computeInfoToFullName,
-} from "components/Utils/CodeMirror/utils";
+import { computeInfoToFullName } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";
@@ -19,10 +16,9 @@ import { generateParamSweepCombinations } from "./generateParamSweepCombinations
 import { generateSectionParamSweepVersionCombinations } from "./generateSectionParamSweepVersionCombinations";
 import { getProjectData } from "./saveProject";
 
-export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
+export function getProjectDataToGenerateCode({ includeInfoToFullName = true }) {
   const project = getProjectData({});
-  if (includeEVReferences) {
-    Object.assign(project, computeEVReferences(project));
+  if (includeInfoToFullName) {
     project["infoToFullName"] = computeInfoToFullName(project);
   }
   // console.log(project);
@@ -31,10 +27,11 @@ export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
 
 export async function runCode() {
   const codeId = createNewId();
-  const project = getProjectDataToGenerateCode({ includeEVReferences: false });
+  const project = getProjectDataToGenerateCode({
+    includeInfoToFullName: false,
+  });
   let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
-    Object.assign(projectVariant, computeEVReferences(projectVariant));
     projectVariant["infoToFullName"] = computeInfoToFullName(projectVariant);
     let message = {
       id: codeId,

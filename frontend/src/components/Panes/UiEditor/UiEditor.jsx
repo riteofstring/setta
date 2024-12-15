@@ -145,7 +145,7 @@ function Placeholder() {
       <div className="flex flex-col items-center gap-4 place-self-center">
         <FiEdit3 className="h-20 w-20 text-setta-300 dark:text-setta-700 " />
         <h4 className="text-center text-lg font-bold tracking-widest text-setta-300 dark:text-setta-600">
-          Select A Section to Edit
+          Select A Card to Edit
         </h4>
       </div>
     </aside>

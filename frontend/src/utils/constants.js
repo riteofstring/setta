@@ -37,7 +37,7 @@ export const SECTION_VARIANTS_TAB = "SectionVariantsConfig";
 
 export const tabNameToPretty = {
   [UI_CONFIG_TAB]: "Params",
-  [SECTION_CONFIG_TAB]: "Section",
+  [SECTION_CONFIG_TAB]: "Card",
   [QUICKINFO_CONFIG_TAB]: "Quick Info",
   [INFO_CONFIG_TAB]: "Text Editor",
   [SECTION_VARIANTS_TAB]: "Version",
@@ -110,7 +110,11 @@ export const MODAL_TYPE = {
   DELETE_PROJECT_WARNING: {
     purpose: null,
     title: "Confirm Deletion",
-    buttonText: "Delete",
+  },
+  RENAME_REFERENCES: {
+    purpose: null,
+    title: "Rename References",
+    buttonText: "Rename",
   },
 };
 
@@ -128,4 +132,10 @@ export const SECTION_DISPLAY_MODES = {
   EDIT: "EDIT",
   YAML: "YAML",
   GUI: "GUI",
+};
+
+export const RENAME_REFERENCES_ON_SECTION_MOVE_MODES = {
+  ALWAYS_ASK: "Always Ask",
+  ALWAYS_RENAME: "Always Rename",
+  NEVER_RENAME: "Never Rename",
 };
