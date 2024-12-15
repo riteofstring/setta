@@ -207,27 +207,15 @@ export function toggleVariantFrozenState(variantId) {
 
 export function setDefaultSectionVariant(sectionId, variantId) {
   useSectionInfos.setState((x) => {
-    for (const v of x.x[sectionId].variantIds) {
-      x.variants[v].isDefault = v === variantId;
-    }
+    x.x[sectionId].defaultVariantId = variantId;
   });
 }
 
 export function resetSectionsToDefaultVersions(sectionIds) {
   useSectionInfos.setState((x) => {
-    const sectionVariants = x.variants;
-    let defaultVariantId;
     for (const id of sectionIds) {
       const s = x.x[id];
-      if (s.variantIds.length > 1) {
-        defaultVariantId = s.variantIds.find(
-          (v) => sectionVariants[v].isDefault,
-        );
-        if (!defaultVariantId) {
-          defaultVariantId = s.variantIds[0];
-        }
-        s.variantId = defaultVariantId;
-      }
+      s.variantId = s.defaultVariantId;
     }
   });
 }
@@ -250,7 +238,6 @@ export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
   s[newId].name = newName;
   s[newId].codeInfoColId = newCodeInfoColId;
   s[newId].isFrozen = false;
-  s[newId].isDefault = false;
   return newId;
 }
 

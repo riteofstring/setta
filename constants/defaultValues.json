@@ -16,6 +16,7 @@
     "uiTypeColId": null,
     "social": "",
     "artifacts": [],
+    "defaultVariantId": null,
     "variantIds": [],
     "paramSweepSectionId": null,
     "nonPresetUITypeIds": [],
@@ -61,7 +62,6 @@
     "description": "",
     "evRefs": [],
     "isFrozen": false,
-    "isDefault": true,
     "sweep": [],
     "runGroup": {}
   },

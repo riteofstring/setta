@@ -219,7 +219,8 @@
       "variantIds": ["d7c2a6b6-5fa1-49fd-9360-1c49331a4e60"],
       "name": "leading_amethyst",
       "variantId": "d7c2a6b6-5fa1-49fd-9360-1c49331a4e60",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "d7c2a6b6-5fa1-49fd-9360-1c49331a4e60"
     },
     "1252064e-3eee-4fd8-9192-a2d3555e3ed6": {
       "id": "1252064e-3eee-4fd8-9192-a2d3555e3ed6",
@@ -227,7 +228,8 @@
       "variantIds": ["f28956a9-e609-4946-ada3-01e09cef9901"],
       "name": "overwhelming_white",
       "variantId": "f28956a9-e609-4946-ada3-01e09cef9901",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "f28956a9-e609-4946-ada3-01e09cef9901"
     },
     "2a7156ce-56f0-4f44-a415-190464979f61": {
       "size": {
@@ -238,7 +240,8 @@
       "variantIds": ["3dbb4893-bd44-4e67-a6c3-1148d7205d42"],
       "name": "Global Variables Sweep",
       "variantId": "3dbb4893-bd44-4e67-a6c3-1148d7205d42",
-      "uiTypeId": "af0538a7-9667-400e-987e-ae3c844e0fcd"
+      "uiTypeId": "af0538a7-9667-400e-987e-ae3c844e0fcd",
+      "defaultVariantId": "3dbb4893-bd44-4e67-a6c3-1148d7205d42"
     },
     "350241fe-50f9-44a9-8553-fb57eb72f881": {
       "size": {
@@ -249,14 +252,16 @@
       "variantIds": ["3ec298ce-5d49-42f8-8700-3e2efb26855b"],
       "name": "Code",
       "variantId": "3ec298ce-5d49-42f8-8700-3e2efb26855b",
-      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29"
+      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
+      "defaultVariantId": "3ec298ce-5d49-42f8-8700-3e2efb26855b"
     },
     "4b71ccae-dc5f-4151-be02-9cbbf661d822": {
       "id": "4b71ccae-dc5f-4151-be02-9cbbf661d822",
       "variantIds": ["5380aa69-09b9-4621-a302-79da25d5e544"],
       "name": "surviving_silver",
       "variantId": "5380aa69-09b9-4621-a302-79da25d5e544",
-      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7"
+      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
+      "defaultVariantId": "5380aa69-09b9-4621-a302-79da25d5e544"
     },
     "55ab0625-b101-48b6-abb2-ad8bb9331396": {
       "id": "55ab0625-b101-48b6-abb2-ad8bb9331396",
@@ -264,7 +269,8 @@
       "variantIds": ["43a579a2-adf1-4378-a8a3-013710251c69"],
       "name": "successful_harlequin",
       "variantId": "43a579a2-adf1-4378-a8a3-013710251c69",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "43a579a2-adf1-4378-a8a3-013710251c69"
     },
     "65ce7866-37da-4360-a0e5-50298c2f69e6": {
       "id": "65ce7866-37da-4360-a0e5-50298c2f69e6",
@@ -272,7 +278,8 @@
       "name": "gorgeous_aqua",
       "isMinimized": 1,
       "variantId": "14173e89-51f1-48b5-aefb-804fff1f2164",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "14173e89-51f1-48b5-aefb-804fff1f2164"
     },
     "6e694ec2-8a81-4c0a-b669-9b4074a914b4": {
       "id": "6e694ec2-8a81-4c0a-b669-9b4074a914b4",
@@ -280,7 +287,8 @@
       "variantIds": ["fe621fb8-0584-422b-a221-4b4d7fbe8ff7"],
       "name": "visiting_teal",
       "variantId": "fe621fb8-0584-422b-a221-4b4d7fbe8ff7",
-      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f"
+      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
+      "defaultVariantId": "fe621fb8-0584-422b-a221-4b4d7fbe8ff7"
     },
     "72b9394e-48f8-488f-ae90-914a895335cf": {
       "id": "72b9394e-48f8-488f-ae90-914a895335cf",
@@ -288,7 +296,8 @@
       "variantIds": ["54bf9ed0-5d78-460b-9a52-4227c5f490b6"],
       "name": "eldest_amaranth",
       "variantId": "54bf9ed0-5d78-460b-9a52-4227c5f490b6",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "54bf9ed0-5d78-460b-9a52-4227c5f490b6"
     },
     "81826fec-6648-4250-9b2d-448a75a361e9": {
       "id": "81826fec-6648-4250-9b2d-448a75a361e9",
@@ -296,7 +305,8 @@
       "variantIds": ["a8361b95-8fcc-42ee-b99f-72113229162e"],
       "name": "imaginative_chocolate",
       "variantId": "a8361b95-8fcc-42ee-b99f-72113229162e",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "a8361b95-8fcc-42ee-b99f-72113229162e"
     },
     "8d73c344-5501-4790-98ed-c00cb9d87393": {
       "size": {
@@ -308,7 +318,8 @@
       "codeLanguage": "bash",
       "name": "Script",
       "variantId": "40fd1a3c-6fca-4b87-b427-5bee353cef09",
-      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29"
+      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
+      "defaultVariantId": "40fd1a3c-6fca-4b87-b427-5bee353cef09"
     },
     "978a7722-c14a-460b-bfa7-f9253b978d41": {
       "id": "978a7722-c14a-460b-bfa7-f9253b978d41",
@@ -316,7 +327,8 @@
       "variantIds": ["0d59b94d-4ca1-4759-b5f1-db4c0107d80d"],
       "name": "associated_tomato",
       "variantId": "0d59b94d-4ca1-4759-b5f1-db4c0107d80d",
-      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f"
+      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
+      "defaultVariantId": "0d59b94d-4ca1-4759-b5f1-db4c0107d80d"
     },
     "9af48137-00f6-4b9e-beb0-2467cbd877ff": {
       "id": "9af48137-00f6-4b9e-beb0-2467cbd877ff",
@@ -324,7 +336,8 @@
       "variantIds": ["bb16a231-3ff5-434f-a1af-ea6b3139dd5e"],
       "name": "hostile_harlequin",
       "variantId": "bb16a231-3ff5-434f-a1af-ea6b3139dd5e",
-      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7"
+      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
+      "defaultVariantId": "bb16a231-3ff5-434f-a1af-ea6b3139dd5e"
     },
     "9ec72858-6c5d-43b2-be73-e1017ab30f10": {
       "id": "9ec72858-6c5d-43b2-be73-e1017ab30f10",
@@ -332,7 +345,8 @@
       "variantIds": ["1da8ad57-c195-4d6c-baaa-b51f1ef1cc15"],
       "name": "productive_amethyst",
       "variantId": "1da8ad57-c195-4d6c-baaa-b51f1ef1cc15",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "1da8ad57-c195-4d6c-baaa-b51f1ef1cc15"
     },
     "a6d874df-7f5c-4970-b85e-b86a9af4e2cf": {
       "id": "a6d874df-7f5c-4970-b85e-b86a9af4e2cf",
@@ -340,7 +354,8 @@
       "variantIds": ["7a4d7553-e651-42a5-8e7c-a325ce9b3b37"],
       "name": "thirsty_violet",
       "variantId": "7a4d7553-e651-42a5-8e7c-a325ce9b3b37",
-      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7"
+      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
+      "defaultVariantId": "7a4d7553-e651-42a5-8e7c-a325ce9b3b37"
     },
     "b9763d11-7dd2-4a98-a390-e1ae9799def0": {
       "size": {
@@ -354,7 +369,8 @@
       "name": "informal_teal",
       "social": "https://www.youtube.com/watch?v=l8pRSuU81PU&ab_channel=AndrejKarpathy",
       "variantId": "71cb48cb-b3f1-4a31-8dd1-01ff7341facd",
-      "uiTypeId": "76cd4b19-cc63-4e2c-8214-5a4246ca637c"
+      "uiTypeId": "76cd4b19-cc63-4e2c-8214-5a4246ca637c",
+      "defaultVariantId": "71cb48cb-b3f1-4a31-8dd1-01ff7341facd"
     },
     "c27f4f05-7a54-44e6-b222-c77581c4ea37": {
       "uiTypeColId": "fdc39bbf-baba-46e8-9a38-c578daa67290",
@@ -364,7 +380,8 @@
       "variantIds": ["dc1879dd-4591-46c0-8fc6-f733c6b177ca"],
       "name": "Global Variables",
       "variantId": "dc1879dd-4591-46c0-8fc6-f733c6b177ca",
-      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a"
+      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
+      "defaultVariantId": "dc1879dd-4591-46c0-8fc6-f733c6b177ca"
     },
     "c36c883d-babc-435b-8cbf-efe28fb5b3e5": {
       "id": "c36c883d-babc-435b-8cbf-efe28fb5b3e5",
@@ -372,14 +389,16 @@
       "variantIds": ["b6f4bca9-0c4d-4f73-9660-c1f79030691e"],
       "name": "chief_aqua",
       "variantId": "b6f4bca9-0c4d-4f73-9660-c1f79030691e",
-      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f"
+      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
+      "defaultVariantId": "b6f4bca9-0c4d-4f73-9660-c1f79030691e"
     },
     "d10030ff-a3e6-4152-b4ed-df3e818ff398": {
       "id": "d10030ff-a3e6-4152-b4ed-df3e818ff398",
       "variantIds": ["058253cf-28cd-48a3-90ed-6b94971d2656"],
       "name": "nursing_green",
       "variantId": "058253cf-28cd-48a3-90ed-6b94971d2656",
-      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f"
+      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
+      "defaultVariantId": "058253cf-28cd-48a3-90ed-6b94971d2656"
     },
     "d82c1e46-126f-4fa9-b08b-15341a1433a7": {
       "aspectRatioExtraWidth": null,
@@ -393,7 +412,8 @@
       "name": "important_ivory",
       "social": "https://x.com/KevMusgrave/status/1841192499160789355",
       "variantId": "956bd407-95e4-457a-bbca-2ee6fecde7d5",
-      "uiTypeId": "76cd4b19-cc63-4e2c-8214-5a4246ca637c"
+      "uiTypeId": "76cd4b19-cc63-4e2c-8214-5a4246ca637c",
+      "defaultVariantId": "956bd407-95e4-457a-bbca-2ee6fecde7d5"
     },
     "de4841d2-f44b-4015-9654-a05cb26a0608": {
       "id": "de4841d2-f44b-4015-9654-a05cb26a0608",
@@ -401,7 +421,8 @@
       "variantIds": ["8226a890-8524-430c-8d8f-861b5db786f1"],
       "name": "skilled_blue",
       "variantId": "8226a890-8524-430c-8d8f-861b5db786f1",
-      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f"
+      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
+      "defaultVariantId": "8226a890-8524-430c-8d8f-861b5db786f1"
     },
     "fab5ccf9-c2a1-4352-99aa-7b9b557ac466": {
       "id": "fab5ccf9-c2a1-4352-99aa-7b9b557ac466",
@@ -409,7 +430,8 @@
       "variantIds": ["fe28bfc8-f735-4272-ab16-ce7fcbb18767"],
       "name": "classic_purple",
       "variantId": "fe28bfc8-f735-4272-ab16-ce7fcbb18767",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "fe28bfc8-f735-4272-ab16-ce7fcbb18767"
     }
   },
   "codeInfo": {

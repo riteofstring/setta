@@ -110,9 +110,7 @@ SECTION_CONFIG_TABLE_DATA_JSON_FIELDS = set(
     )
 )
 
-SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS = set(
-    ["code", "description", "isFrozen", "isDefault"]
-)
+SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS = set(["code", "description", "isFrozen"])
 
 SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS = set(["value"])
 

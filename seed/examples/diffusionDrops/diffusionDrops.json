@@ -85,7 +85,6 @@
         "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
         "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
       ],
-      "isDefault": 0,
       "name": "soup_coin"
     },
     "10ea5acf-9c24-4351-bc81-252625623507": {
@@ -147,7 +146,6 @@
         }
       },
       "codeInfoColId": "641b63f2-e7e8-4e33-97f4-c99a50be894e",
-      "isDefault": 0,
       "name": "alien_star"
     },
     "8481e81d-f417-4914-b5d8-2797202392ab": {
@@ -196,7 +194,6 @@
         }
       },
       "codeInfoColId": "e161a6ff-77ef-43fd-b7ec-52185d4ca006",
-      "isDefault": 0,
       "name": "wet_teal"
     },
     "c58d323d-382a-47b2-919f-a7f06bcac760": {
@@ -252,7 +249,8 @@
       "name": "other_models",
       "isInOtherProjectConfigs": true,
       "variantId": "9b39ad4c-8887-43ea-b759-a1fc067ac3ef",
-      "uiTypeId": "623a9242-53e9-4b42-b695-431e9754a836"
+      "uiTypeId": "623a9242-53e9-4b42-b695-431e9754a836",
+      "defaultVariantId": "9b39ad4c-8887-43ea-b759-a1fc067ac3ef"
     },
     "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba": {
       "size": {
@@ -267,7 +265,8 @@
       "name": "retail_olive",
       "isInOtherProjectConfigs": true,
       "variantId": "4253da34-9a1a-43eb-b80f-c6708e339024",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "4253da34-9a1a-43eb-b80f-c6708e339024"
     },
     "45ee78a4-2ad3-4541-8a65-87a21a798887": {
       "size": {
@@ -279,7 +278,8 @@
       "name": "stormy_salmon",
       "isInOtherProjectConfigs": true,
       "variantId": "e3280349-7dda-43f6-9cea-0b98971435a5",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "e3280349-7dda-43f6-9cea-0b98971435a5"
     },
     "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861": {
       "id": "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861",
@@ -287,7 +287,8 @@
       "name": "transform",
       "isInOtherProjectConfigs": true,
       "variantId": "9083beca-25c9-4a31-885a-fb19064efd3d",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "9083beca-25c9-4a31-885a-fb19064efd3d"
     },
     "56f3ff00-5aa3-4251-9720-d210908bc0b8": {
       "aspectRatioExtraWidth": 24,
@@ -311,7 +312,8 @@
       "aspectRatio": 1,
       "name": "mid_peach",
       "variantId": "380a6d0c-a96e-48f1-b431-074c7e98eed9",
-      "uiTypeId": "4ec2f5eb-3f66-4bce-a9e2-1eb4fdd96d6f"
+      "uiTypeId": "4ec2f5eb-3f66-4bce-a9e2-1eb4fdd96d6f",
+      "defaultVariantId": "380a6d0c-a96e-48f1-b431-074c7e98eed9"
     },
     "5d1b3653-766a-4290-9da5-1cdee8f54c24": {
       "size": {
@@ -325,21 +327,24 @@
       "name": "list_of_transforms",
       "isInOtherProjectConfigs": true,
       "variantId": "fb08c4e1-9809-46ef-bfa5-52a4a944ef74",
-      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f"
+      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
+      "defaultVariantId": "fb08c4e1-9809-46ef-bfa5-52a4a944ef74"
     },
     "67c603f7-a536-4603-83b3-0b882ee098b2": {
       "id": "67c603f7-a536-4603-83b3-0b882ee098b2",
       "variantIds": ["645069e7-0657-4c2e-9128-88c701bbd069"],
       "name": "graceful_cyan",
       "variantId": "645069e7-0657-4c2e-9128-88c701bbd069",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "645069e7-0657-4c2e-9128-88c701bbd069"
     },
     "70355b9b-16ab-462f-8cfc-f23e2399ec1e": {
       "id": "70355b9b-16ab-462f-8cfc-f23e2399ec1e",
       "variantIds": ["4c9bee35-38ab-471e-873d-62e1233eeaaf"],
       "name": "minor_tomato",
       "variantId": "4c9bee35-38ab-471e-873d-62e1233eeaaf",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "4c9bee35-38ab-471e-873d-62e1233eeaaf"
     },
     "93b410c0-33e9-4d66-95be-37d223d99c0a": {
       "size": {
@@ -352,7 +357,8 @@
       "name": "optimizer",
       "isInOtherProjectConfigs": true,
       "variantId": "dbb76902-0b6c-46fa-a765-46bdfcf92d92",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "dbb76902-0b6c-46fa-a765-46bdfcf92d92"
     },
     "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7": {
       "size": {
@@ -364,7 +370,8 @@
       "name": "marvellous_red",
       "isInOtherProjectConfigs": true,
       "variantId": "10ea5acf-9c24-4351-bc81-252625623507",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "10ea5acf-9c24-4351-bc81-252625623507"
     },
     "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3": {
       "size": {
@@ -379,7 +386,8 @@
       "name": "unpleasant_jade",
       "isInOtherProjectConfigs": true,
       "variantId": "0022f0d8-b97f-4345-90ac-66615e576fb2",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "0022f0d8-b97f-4345-90ac-66615e576fb2"
     },
     "baf34852-dfdb-4a2f-850a-6c903acbf1f5": {
       "size": {
@@ -392,7 +400,8 @@
       "name": "joyous_elephant",
       "isInOtherProjectConfigs": true,
       "variantId": "756e7bb0-ac13-4790-a05c-f10425d508e9",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "756e7bb0-ac13-4790-a05c-f10425d508e9"
     },
     "c68c5feb-6ca2-487b-870d-3e4415700797": {
       "size": {
@@ -403,7 +412,8 @@
       "variantIds": ["56758b16-1bb1-4167-852c-321b23cfce38"],
       "name": "light_beige",
       "variantId": "56758b16-1bb1-4167-852c-321b23cfce38",
-      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44"
+      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
+      "defaultVariantId": "56758b16-1bb1-4167-852c-321b23cfce38"
     },
     "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d": {
       "id": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
@@ -411,7 +421,8 @@
       "name": "premier_blue",
       "isInOtherProjectConfigs": true,
       "variantId": "8481e81d-f417-4914-b5d8-2797202392ab",
-      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7"
+      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
+      "defaultVariantId": "8481e81d-f417-4914-b5d8-2797202392ab"
     },
     "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91": {
       "size": {
@@ -424,7 +435,8 @@
       "name": "incredible_leopard",
       "isInOtherProjectConfigs": true,
       "variantId": "c58d323d-382a-47b2-919f-a7f06bcac760",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "c58d323d-382a-47b2-919f-a7f06bcac760"
     },
     "fa8f5823-fd6b-43f0-a2df-a47e821de0de": {
       "id": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
@@ -432,7 +444,8 @@
       "name": "model",
       "isInOtherProjectConfigs": true,
       "variantId": "a853185e-5b0d-400a-a94c-6c14a9c9809e",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "a853185e-5b0d-400a-a94c-6c14a9c9809e"
     }
   },
   "codeInfo": {

@@ -60,10 +60,11 @@ export function VersionList({ sectionId }) {
 }
 
 function EVItems({ sectionId, isEditing }) {
-  const { currVariantId, variantIds } = useSectionInfos(
+  const { currVariantId, variantIds, defaultVariantId } = useSectionInfos(
     (x) => ({
       currVariantId: x.x[sectionId].variantId,
       variantIds: x.x[sectionId].variantIds,
+      defaultVariantId: x.x[sectionId].defaultVariantId,
     }),
     _.isEqual,
   );
@@ -86,16 +87,16 @@ function EVItems({ sectionId, isEditing }) {
       sectionId={sectionId}
       id={e}
       isCurr={currVariantId === e}
+      isDefault={e === defaultVariantId}
     />
   ));
 }
 
-function OneItem({ sectionId, id, isCurr }) {
-  const { name, isFrozen, isDefault } = useSectionInfos(
+function OneItem({ sectionId, id, isCurr, isDefault }) {
+  const { name, isFrozen } = useSectionInfos(
     (x) => ({
       name: x.variants[id].name,
       isFrozen: x.variants[id].isFrozen,
-      isDefault: x.variants[id].isDefault,
     }),
     _.isEqual,
   );

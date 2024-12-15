@@ -30,9 +30,11 @@ CREATE TABLE IF NOT EXISTS Section (
     paramSweepSectionId TEXT,
     uiTypeId TEXT,
     uiTypeColId TEXT,
+    defaultVariantId TEXT,
     FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE SET NULL,
     FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
     FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE SET NULL
+    FOREIGN KEY (defaultVariantId) REFERENCES SectionVariantId(id) ON DELETE SET NULL
 );
 CREATE TABLE IF NOT EXISTS SectionConfig (
     projectConfigId TEXT,

@@ -10,20 +10,15 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    if (!json.projectConfig.viewport) {
-      delete json.projectConfig.viewport;
+    for (const s of Object.values(json.sections)) {
+      for (const variantId of s.variantIds){
+        if (json.sectionVariants[variantId].isDefault === 0){
+          delete json.sectionVariants[variantId].isDefault
+          continue
+        } 
+        s.defaultVariantId = variantId
+      }
     }
-    // for (const s of Object.values(json.sections)) {
-    //   if (s.uiTypeColId) {
-    //     if (
-    //       !(s.uiTypeColId in json.uiTypeCols) ||
-    //       Object.keys(json.uiTypeCols[s.uiTypeColId]).length === 0
-    //     ) {
-    //       delete json.uiTypeCols[s.uiTypeColId];
-    //       delete s.uiTypeColId;
-    //     }
-    //   }
-    // }
 
     // Save the modified JSON back to the file or handle it as needed
     // Uncomment the following line to save changes back to the file

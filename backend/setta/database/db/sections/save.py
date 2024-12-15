@@ -15,21 +15,24 @@ def save_sections(db, sections, section_variants):
             name,
             data,
             uiTypeId,
-            uiTypeColId
+            uiTypeColId,
+            defaultVariantId
         )
         VALUES (
             :id,
             :name,
             :data,
             :uiTypeId,
-            :uiTypeColId
+            :uiTypeColId,
+            :defaultVariantId
         )
         ON CONFLICT (id)
         DO UPDATE SET
             name = :name,
             data = :data,
             uiTypeId = :uiTypeId,
-            uiTypeColId = :uiTypeColId
+            uiTypeColId = :uiTypeColId,
+            defaultVariantId = :defaultVariantId
     """
 
     query_params = [
@@ -43,6 +46,7 @@ def save_sections(db, sections, section_variants):
             ),
             "uiTypeId": s["uiTypeId"],
             "uiTypeColId": s["uiTypeColId"],
+            "defaultVariantId": s["defaultVariantId"],
         }
         for s in sections.values()
     ]

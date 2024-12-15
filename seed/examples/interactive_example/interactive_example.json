@@ -136,7 +136,8 @@
       "variantIds": ["8055d10b-3623-4665-b85c-977327fa40c6"],
       "name": "spatial_orange",
       "variantId": "8055d10b-3623-4665-b85c-977327fa40c6",
-      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44"
+      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
+      "defaultVariantId": "8055d10b-3623-4665-b85c-977327fa40c6"
     },
     "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
       "size": {
@@ -146,7 +147,8 @@
       "variantIds": ["56218716-8dc7-4a8b-a253-1eb2bb9cfc56"],
       "name": "Code",
       "variantId": "56218716-8dc7-4a8b-a253-1eb2bb9cfc56",
-      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29"
+      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
+      "defaultVariantId": "56218716-8dc7-4a8b-a253-1eb2bb9cfc56"
     },
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "size": {
@@ -157,7 +159,8 @@
       "variantIds": ["91b7814e-8f93-4ad1-a966-00851b4e41d9"],
       "name": "exclusive_jade",
       "variantId": "91b7814e-8f93-4ad1-a966-00851b4e41d9",
-      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44"
+      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
+      "defaultVariantId": "91b7814e-8f93-4ad1-a966-00851b4e41d9"
     },
     "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
       "size": {
@@ -177,7 +180,8 @@
       "aspectRatio": 1,
       "name": "royal_orange",
       "variantId": "61ce0033-a59e-4c8e-8a52-d658feb18017",
-      "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5"
+      "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
+      "defaultVariantId": "61ce0033-a59e-4c8e-8a52-d658feb18017"
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "uiTypeColId": "b3449dbb-8328-43bb-8e45-b76173bf679c",
@@ -189,7 +193,8 @@
       "variantIds": ["00d5ac58-7a66-4ff1-a62f-af873c0a094b"],
       "name": "Global Variables",
       "variantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
-      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a"
+      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
+      "defaultVariantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b"
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
@@ -203,7 +208,8 @@
       "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
       "name": "institutional_fuchsia",
       "variantId": "efbf1e64-8932-4fa6-928a-e930314db45c",
-      "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c"
+      "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c",
+      "defaultVariantId": "efbf1e64-8932-4fa6-928a-e930314db45c"
     }
   },
   "codeInfo": {

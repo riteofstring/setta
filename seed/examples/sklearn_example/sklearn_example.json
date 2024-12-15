@@ -120,7 +120,6 @@
         }
       },
       "codeInfoColId": "746ab224-7f51-47d1-a119-2855165c2367",
-      "isDefault": 0,
       "name": "tremendous_tree"
     },
     "3383d9b9-5cee-445f-a242-fde820c76c73": {
@@ -276,7 +275,8 @@
       "variantIds": ["9a6859c2-a79d-4da2-b460-b57fc982d495"],
       "name": "prickly_beige",
       "variantId": "9a6859c2-a79d-4da2-b460-b57fc982d495",
-      "uiTypeId": "2b06a83b-b96a-490d-a2d7-3631619e6495"
+      "uiTypeId": "2b06a83b-b96a-490d-a2d7-3631619e6495",
+      "defaultVariantId": "9a6859c2-a79d-4da2-b460-b57fc982d495"
     },
     "40c921b7-10e8-4c69-a9fa-f39db37ea98f": {
       "size": {
@@ -290,7 +290,8 @@
       "selectedVariantIds": {
         "3383d9b9-5cee-445f-a242-fde820c76c73": true
       },
-      "uiTypeId": "02f5da7b-71ae-4e42-b5b3-286fae1823ee"
+      "uiTypeId": "02f5da7b-71ae-4e42-b5b3-286fae1823ee",
+      "defaultVariantId": "3383d9b9-5cee-445f-a242-fde820c76c73"
     },
     "46dc6cab-03ac-4e73-919d-63b30da0688d": {
       "size": {
@@ -301,7 +302,8 @@
       "variantIds": ["54571c59-7a51-42d5-bb8e-b6c06b41b023"],
       "name": "Global Variables",
       "variantId": "54571c59-7a51-42d5-bb8e-b6c06b41b023",
-      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a"
+      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
+      "defaultVariantId": "54571c59-7a51-42d5-bb8e-b6c06b41b023"
     },
     "53e4bdad-ff4e-499c-a659-07e7184d4111": {
       "id": "53e4bdad-ff4e-499c-a659-07e7184d4111",
@@ -310,7 +312,8 @@
       "variantIds": ["3fd1ddfd-e80f-41a2-bcad-c0702c39f04c"],
       "name": "abstract_ivory",
       "variantId": "3fd1ddfd-e80f-41a2-bcad-c0702c39f04c",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "3fd1ddfd-e80f-41a2-bcad-c0702c39f04c"
     },
     "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
       "size": {
@@ -320,7 +323,8 @@
       "variantIds": ["69220358-73c1-49c3-9b78-d7cf733b2aa8"],
       "name": "Code",
       "variantId": "69220358-73c1-49c3-9b78-d7cf733b2aa8",
-      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29"
+      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
+      "defaultVariantId": "69220358-73c1-49c3-9b78-d7cf733b2aa8"
     },
     "a2b333dc-65bb-45be-8318-dfa3338a6090": {
       "size": {
@@ -330,14 +334,16 @@
       "variantIds": ["bc3f3f42-899b-4ef2-a550-d19fcbcfe38c"],
       "name": "fast_pink",
       "variantId": "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c",
-      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44"
+      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
+      "defaultVariantId": "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c"
     },
     "a439f079-d1f0-4dee-8490-6bb69be8c3ea": {
       "id": "a439f079-d1f0-4dee-8490-6bb69be8c3ea",
       "variantIds": ["f8d91f36-109b-43df-9770-b720dc3e74bd"],
       "name": "Global Variables Sweep",
       "variantId": "f8d91f36-109b-43df-9770-b720dc3e74bd",
-      "uiTypeId": "af0538a7-9667-400e-987e-ae3c844e0fcd"
+      "uiTypeId": "af0538a7-9667-400e-987e-ae3c844e0fcd",
+      "defaultVariantId": "f8d91f36-109b-43df-9770-b720dc3e74bd"
     },
     "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
       "size": {
@@ -349,7 +355,8 @@
       "codeLanguage": "bash",
       "name": "Script",
       "variantId": "fca181fc-c326-4d50-b028-37b368372f49",
-      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29"
+      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
+      "defaultVariantId": "fca181fc-c326-4d50-b028-37b368372f49"
     },
     "d96cb110-6f72-435a-b745-2d55e277f983": {
       "size": {
@@ -360,7 +367,8 @@
       "variantIds": ["66e4192c-c1fc-4935-b862-e722726c1217"],
       "name": "dataset",
       "variantId": "66e4192c-c1fc-4935-b862-e722726c1217",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73"
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "66e4192c-c1fc-4935-b862-e722726c1217"
     },
     "e209e428-eea6-4e14-b61e-0648ec28dd76": {
       "id": "e209e428-eea6-4e14-b61e-0648ec28dd76",
@@ -371,14 +379,16 @@
       "name": "algorithm",
       "variantId": "22f7a029-5660-4f3d-ba54-e79637f2ba61",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "isFrozen": 1
+      "isFrozen": 1,
+      "defaultVariantId": "1fc1e842-82fe-4a48-8794-23178822e22e"
     },
     "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7": {
       "id": "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7",
       "variantIds": ["fb460dcd-d460-44fc-aeae-b0b8aca93c5b"],
       "name": "dataset Sweep",
       "variantId": "fb460dcd-d460-44fc-aeae-b0b8aca93c5b",
-      "uiTypeId": "af0538a7-9667-400e-987e-ae3c844e0fcd"
+      "uiTypeId": "af0538a7-9667-400e-987e-ae3c844e0fcd",
+      "defaultVariantId": "fb460dcd-d460-44fc-aeae-b0b8aca93c5b"
     }
   },
   "codeInfo": {
