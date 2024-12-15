@@ -6,7 +6,7 @@ import { useActiveSection, useMisc, useSectionInfos } from "state/definitions";
 import { setNotificationMessage } from "../notification";
 import { loadSectionIntoState } from "../sections/loadSections";
 
-export async function paste() {
+export async function paste(props) {
   let x;
   try {
     x = JSON.parse(await navigator.clipboard.readText());
@@ -14,23 +14,11 @@ export async function paste() {
     return;
   }
   if (x.copyType === "sections") {
-    pasteSections(x.data);
+    pasteSections({ data: x.data, ...props });
   }
 }
 
-export async function pasteAsRef() {
-  let x;
-  try {
-    x = JSON.parse(await navigator.clipboard.readText());
-  } catch {
-    return;
-  }
-  if (x.copyType === "sections") {
-    pasteSections(x.data, true);
-  }
-}
-
-async function pasteSections(data, asRef = false) {
+async function pasteSections({ data, asRef = false }) {
   let dataToPaste;
   if (asRef) {
     dataToPaste = data;
