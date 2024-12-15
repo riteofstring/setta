@@ -147,7 +147,7 @@ def process_diagnostics(diagnostics, code_split, codeJson):
                 continue
             missing_params = extract_parameters(d["message"])
             # get variable to the left of the equal sign
-            assigned_to = code_split[start["line"]].split("=")[0]
+            assigned_to = code_split[start["line"]].split("=")[0].strip()
             unusedParams = codeJson[assigned_to]["value"]["unusedParams"]
             for potential_problem_var in unusedParams:
                 if codeJson[potential_problem_var]["name"] in missing_params:
