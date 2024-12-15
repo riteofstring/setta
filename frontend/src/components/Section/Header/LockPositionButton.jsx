@@ -14,7 +14,11 @@ export function LockPositionButton({ sectionId }) {
 
   const iconClassName = positionAndSizeLocked ? "gg-lock" : "gg-lock-unlock";
 
-  const iconSize = isGroup ? "[&>i]:!scale-50" : "[&>i]:!scale-[.4]";
+  const iconSize = isGroup
+    ? positionAndSizeLocked
+      ? "[&>i]:!-mt-[6px]" // when isGroup && positionAndSizeLocked
+      : "[&>i]:!scale-50 [&>i]:!-mt-[9px]" // when isGroup && !positionAndSizeLocked
+    : "[&>i]:!scale-[.4]"; // when !isGroup
 
   function onClick() {
     toggleSectionLock(sectionId);
