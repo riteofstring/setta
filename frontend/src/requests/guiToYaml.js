@@ -26,7 +26,7 @@ export async function dbGuiToYaml(sectionId) {
 
 export async function dbSectionToYaml(sectionId) {
   const state = useSectionInfos.getState();
-  const { codeInfoChildren, parentCodeInfoId, startAtDepth } =
+  const { codeInfoChildren, parentCodeInfoId } =
     getCodeChildrenAndParentCodeInfoId(sectionId, state);
   const codeInfo = state.codeInfo;
   const pinnedIds = getParamIdsToShowInArea(
@@ -34,14 +34,12 @@ export async function dbSectionToYaml(sectionId) {
     codeInfo,
     codeInfoChildren,
     parentCodeInfoId,
-    startAtDepth,
   );
   const unpinnedIds = getParamIdsToShowInArea(
     false,
     codeInfo,
     codeInfoChildren,
     parentCodeInfoId,
-    startAtDepth,
   );
   pinnedIds.requiredParamIds = Object.keys(pinnedIds.requiredParamIdsToPaths);
   unpinnedIds.requiredParamIds = Object.keys(
