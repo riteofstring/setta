@@ -45,7 +45,7 @@ def _findAllDescendants(
 
         if (
             len(output) > 0
-            and earlyReturnCondition is not None
+            and earlyReturnCondition
             and earlyReturnCondition(allCodeInfo[output[-1]])
         ):
             return {"ids": output, "pathMap": pathMap, "earlyReturnTriggered": True}
@@ -87,7 +87,10 @@ def findAllParametersAndPathMaps(**kwargs):
 
 
 def getParamIdsToShowInArea(
-    isPinned, codeInfo, codeInfoChildren, parentCodeInfoId, startAtDepth=0
+    isPinned,
+    codeInfo,
+    codeInfoChildren,
+    parentCodeInfoId,
 ):
     result = findAllParametersAndPathMaps(
         allCodeInfo=codeInfo,
@@ -112,19 +115,10 @@ def getParamIdsToShowInArea(
             or any(child in requiredParamIdsToPaths for child in codeInfoChildren[a])
         ):
             for p in pathMap[a]:
-                if startAtDepth > 0:
-                    if startAtDepth < len(pathMap[p]):
-                        requiredParamIdsToPaths[p] = pathMap[p][startAtDepth:]
-                else:
-                    requiredParamIdsToPaths[p] = pathMap[p]
-
-                if (
-                    len(pathMap[a]) > startAtDepth
-                    and pathMap[a][startAtDepth]
-                    and pathMap[a][startAtDepth] not in topLevelParamIdsSet
-                ):
-                    topLevelParamIds.append(pathMap[a][startAtDepth])
-                    topLevelParamIdsSet.add(pathMap[a][startAtDepth])
+                requiredParamIdsToPaths[p] = pathMap[p]
+                if pathMap[a][0] not in topLevelParamIdsSet:
+                    topLevelParamIds.append(pathMap[a][0])
+                    topLevelParamIdsSet.add(pathMap[a][0])
 
     # unreverse results
     topLevelParamIds.reverse()

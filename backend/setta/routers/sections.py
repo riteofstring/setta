@@ -1,5 +1,4 @@
 from pathlib import Path
-from pprint import pprint
 from typing import Dict, List
 
 from fastapi import APIRouter

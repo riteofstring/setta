@@ -299,22 +299,6 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     flattenObject(unpinned, true),
   );
 
-  const { jsonSource, jsonSourceKeys } = state.x[sectionId];
-  if (
-    jsonSource &&
-    Array.isArray(jsonSourceKeys) &&
-    jsonSourceKeys.length > 0
-  ) {
-    // When we do gui to yaml, we use the startAtDepth
-    // argument, which means that the nesting specified
-    // by jsonSourceKeys is skipped, so the produced yaml is not nested.
-    // Now when we receive the yaml, we have to prepend the jsonSourceKeys
-    // to the keyPath so that matches can be found correctly.
-    for (const v of fNewObj) {
-      v.keyPath = [...jsonSourceKeys, ...v.keyPath];
-    }
-  }
-
   const output = [];
   const usedOriginalIds = new Set();
   const usedPaths = new Set();
@@ -348,6 +332,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     }
   }
 
+  const { jsonSource } = state.x[sectionId];
   // add remaining new entries
   for (const v of fNewObj) {
     if (usedPaths.has(JSON.stringify(v.keyPath))) {
@@ -376,7 +361,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   });
 
   //TODO: what should editing selectedName do? The following assumes it has no effect.
-  const { parentCodeInfoId, startAtDepth } = getCodeChildrenAndParentCodeInfoId(
+  const { parentCodeInfoId } = getCodeChildrenAndParentCodeInfoId(
     sectionId,
     state,
   );
@@ -393,7 +378,6 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     toProcess: output.filter((v) => !(v.isPinned && !v.isNewParam)),
     inputParentId: parentCodeInfoId,
     insertAtOriginalIdx: false,
-    startAtDepth,
   });
 
   // pinned parameters that already exist should be inserted at their original indices
@@ -404,7 +388,6 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     toProcess: output.filter((v) => v.isPinned && !v.isNewParam),
     inputParentId: parentCodeInfoId,
     insertAtOriginalIdx: true,
-    startAtDepth,
   });
 
   const cState = state.codeInfo;
@@ -583,12 +566,11 @@ function updateIdsToChildren({
   toProcess,
   inputParentId,
   insertAtOriginalIdx,
-  startAtDepth,
 }) {
   for (const v of toProcess) {
     let parentId = inputParentId;
 
-    if (v.keyPath.length > startAtDepth + 1) {
+    if (v.keyPath.length > 1) {
       // find parent
       const match = _.find(output, (x) =>
         _.isEqual(x.keyPath, v.keyPath.slice(0, -1)),
