@@ -22,6 +22,7 @@ import {
   getDisplayedSectionVariant,
   getSectionVariant,
 } from "state/actions/sectionInfos";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useMisc, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
@@ -256,4 +257,5 @@ const debouncedSetEVRefs = asyncDebounce(async (sectionId, value) => {
   useSectionInfos.setState((x) => {
     getSectionVariant(sectionId, x).evRefs = evRefs;
   });
+  maybeIncrementProjectStateVersion(true);
 }, 500);
