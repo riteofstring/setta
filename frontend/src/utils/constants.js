@@ -87,11 +87,6 @@ export const MODAL_TYPE = {
     title: "Export JSON",
     buttonText: null,
   },
-  EXPORT_FULL_JSON: {
-    purpose: null,
-    title: "Export Full JSON",
-    buttonText: null,
-  },
   IMPORT_JSON: {
     purpose: null,
     title: "Import JSON",

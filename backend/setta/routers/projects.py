@@ -24,7 +24,10 @@ from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
-from setta.database.db.projects.utils import add_defaults_to_project, filter_data_for_json_export
+from setta.database.db.projects.utils import (
+    add_defaults_to_project,
+    filter_data_for_json_export,
+)
 from setta.database.export_db.export_db import maybe_export_database
 from setta.utils.constants import C
 
@@ -76,6 +79,7 @@ class SetAsDefaultProjectRequest(BaseModel):
 
 class FilterDataForJSONExportRequest(BaseModel):
     project: dict
+
 
 class AddDefaultDataForJSONImportRequest(BaseModel):
     project: dict
@@ -182,6 +186,3 @@ def router_filter_data_for_json_export(x: FilterDataForJSONExportRequest):
 def router_add_default_data_for_json_import(x: FilterDataForJSONExportRequest):
     add_defaults_to_project(x.project)
     return x.project
-
-
-

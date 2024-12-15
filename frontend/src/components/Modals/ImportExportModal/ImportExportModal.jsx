@@ -7,19 +7,13 @@ import { loadProjectState } from "state/actions/project/loadProject";
 import { useProjectConfig } from "state/definitions";
 import { useExportProjectJson } from "state/hooks/project";
 import { resetProjectStores } from "state/utils";
-import { MODAL_TYPE } from "utils/constants";
 
 export function ExportJSONModal({ open, modalType }) {
-  const { projectJson, exportProjectJson, exportFullProjectJson } =
-    useExportProjectJson();
+  const [projectJson, exportProjectJson] = useExportProjectJson();
 
   useEffect(() => {
     if (open) {
-      if (modalType.title === MODAL_TYPE.EXPORT_JSON.title) {
-        exportProjectJson();
-      } else if (modalType.title === MODAL_TYPE.EXPORT_FULL_JSON.title) {
-        exportFullProjectJson();
-      }
+      exportProjectJson();
     }
   }, [open]);
 
