@@ -10,10 +10,10 @@ export function newArtifact({ name, ...props }) {
   );
 }
 
-export function newDrawAreaLayer(type) {
-  if (type === "img") {
-    return { type, opacity: 0.5, image: new Image() };
-  } else if (type === "brushStrokes") {
-    return { type, opacity: 0.5, strokes: [] };
-  }
+export function newDrawAreaLocalLayerState() {
+  return { image: new Image(), strokes: [] };
+}
+
+export function newLayerSettings() {
+  return { opacity: 0.5, brushOpacity: 1 };
 }

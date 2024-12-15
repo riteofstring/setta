@@ -22,18 +22,21 @@ import { useArtifactData } from "state/hooks/artifacts";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createNewId } from "utils/idNameCreation";
-import { newArtifact, newDrawAreaLayer } from "utils/objs/artifact";
+import {
+  newArtifact,
+  newDrawAreaLocalLayerState,
+  newLayerSettings,
+} from "utils/objs/artifact";
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
   const {
     size: { width, height },
     canvasSettings: {
+      layerSettings,
       color,
-      opacity,
       brushSize,
       brushShape,
-      canvasOpacity,
       eraserBrushSize,
     },
   } = useSectionInfos((x) => {
@@ -46,16 +49,19 @@ export function DrawOnImage({ sectionId }) {
   const [activeLayerId, setActiveLayerId] = useState(null);
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
+  const strokesRef = useRef([]);
   const prevPointRef = useRef(null);
+  const anImageHasBeenDrawn = useRef(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
-  const strokesRef = useRef([]);
+
+  console.log("layers", layers);
 
   function setColor(v) {
     setCanvasSettings(sectionId, "color", v);
   }
-  function setOpacity(v) {
-    setCanvasSettings(sectionId, "opacity", v);
+  function setBrushOpacity(v) {
+    setLayerSettings(sectionId, activeLayerId, "brushOpacity", v);
   }
   function setBrushSize(v) {
     setCanvasSettings(sectionId, "brushSize", v);
@@ -63,14 +69,24 @@ export function DrawOnImage({ sectionId }) {
   function setBrushShape(v) {
     setCanvasSettings(sectionId, "brushShape", v);
   }
-  function setCanvasOpacity(v) {
-    setCanvasSettings(sectionId, "canvasOpacity", v);
+  function setLayerOpacity(v) {
+    setLayerSettings(sectionId, activeLayerId, "opacity", v);
   }
   function setEraserBrushSize(v) {
     setCanvasSettings(sectionId, "eraserBrushSize", v);
   }
 
+  function addLayer() {
+    const id = createNewId();
+    const newLayer = newDrawAreaLocalLayerState();
+    setLayers((state) => ({ ...state, [id]: newLayer }));
+    setActiveLayerId(id);
+  }
+
   function setDraftCanvasProperties() {
+    if (!activeLayerId) {
+      return;
+    }
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     draftCanvas.width = canvasRef.current.width;
     draftCanvas.height = canvasRef.current.height;
@@ -86,27 +102,29 @@ export function DrawOnImage({ sectionId }) {
       dCtx.strokeStyle = color;
       dCtx.lineWidth = brushSize;
       dCtx.lineCap = brushShape;
-      dCtx.globalAlpha = 1;
-      draftCanvas.style.opacity = opacity;
+      dCtx.globalAlpha = layerSettings[activeLayerId].opacity;
+      draftCanvas.style.opacity = layerSettings[activeLayerId].brushOpacity;
     }
   }
 
-  function setCanvasProperties({ newLayerState, doDrawStrokes, isNewImg }) {
+  function setCanvasProperties({ doDrawStrokes }) {
+    if (!activeLayerId) {
+      return;
+    }
+
     const [canvas, ctx] = getCanvasAndCtx(canvasRef);
     clearCanvas(canvasRef);
 
-    const layersToDraw = newLayerState ?? layers;
-
     let canvasSize = null;
-    for (const [id, layer] of Object.entries(layersToDraw)) {
-      const { type, opacity } = layer;
-      if (type === "img") {
+    for (const [id, layer] of Object.entries(layers)) {
+      const { opacity } = layerSettings[id];
+      if (layer.image.complete) {
         const image = layer.image;
         if (!canvasSize) {
           canvasSize = setDrawAreaSectionSize({
             sectionId,
             imgSize: { width: image.width, height: image.height },
-            isNewImg,
+            isNewImg: !anImageHasBeenDrawn.current,
           });
 
           canvas.width = canvasSize.width;
@@ -121,9 +139,9 @@ export function DrawOnImage({ sectionId }) {
         const y = canvasSize.height / 2 - (image.height / 2) * scale;
 
         ctx.globalAlpha = opacity;
-        console.log("drawing image");
         ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
-      } else if (type === "brushStrokes" && doDrawStrokes) {
+        anImageHasBeenDrawn.current = true;
+      } else if (layer.strokes.length > 0 && doDrawStrokes) {
         drawStrokesAndKeepOriginalProps(canvasRef, layer.strokes);
       }
     }
@@ -133,11 +151,11 @@ export function DrawOnImage({ sectionId }) {
     if (!isLoaded) {
       return;
     }
-    let isNewImg = false;
+    let firstBrushStrokeLayerId = null;
     const newLayerState = _.cloneDeep(layers);
     for (const [artifactId, v] of Object.entries(artifacts)) {
       if (!(artifactId in newLayerState)) {
-        newLayerState[artifactId] = newDrawAreaLayer(v.type);
+        newLayerState[artifactId] = newDrawAreaLocalLayerState();
       }
       if (v.type === "img") {
         const base64String = `data:image/png;base64,${v.value}`;
@@ -145,16 +163,31 @@ export function DrawOnImage({ sectionId }) {
         if (storedImage.src !== base64String) {
           storedImage.src = base64String;
           await storedImage.decode();
-          isNewImg = true;
         }
       } else if (v.type === "brushStrokes") {
         newLayerState[artifactId].strokes = _.cloneDeep(v.value);
+        if (!firstBrushStrokeLayerId) {
+          firstBrushStrokeLayerId = artifactId;
+        }
       }
     }
 
-    setLayers(newLayerState);
-    setCanvasProperties({ newLayerState, doDrawStrokes: true, isNewImg });
-    setDraftCanvasProperties();
+    if (!firstBrushStrokeLayerId) {
+      firstBrushStrokeLayerId = createNewId();
+      newLayerState[firstBrushStrokeLayerId] = newDrawAreaLocalLayerState();
+    }
+
+    useSectionInfos.setState((x) => {
+      const currLayerSettings = x.x[sectionId].canvasSettings.layerSettings;
+      for (const id of Object.keys(newLayerState)) {
+        if (!(id in currLayerSettings)) {
+          currLayerSettings[id] = newLayerSettings();
+        }
+      }
+
+      setLayers(newLayerState);
+      setActiveLayerId(firstBrushStrokeLayerId);
+    });
   }
 
   useDeepCompareEffect(() => {
@@ -164,7 +197,7 @@ export function DrawOnImage({ sectionId }) {
   useEffect(() => {
     setCanvasProperties({ doDrawStrokes: true });
     setDraftCanvasProperties();
-  }, [height, width]);
+  }, [height, width, activeLayerId]);
 
   useEffect(() => {
     if (isEraser) {
@@ -177,7 +210,7 @@ export function DrawOnImage({ sectionId }) {
       setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
-  }, [isEraser, opacity, color, brushSize, eraserBrushSize, brushShape]);
+  }, [isEraser, color, brushSize, eraserBrushSize, brushShape]);
 
   useEffect(() => {
     const id = base64RequestId(sectionId);
@@ -196,7 +229,7 @@ export function DrawOnImage({ sectionId }) {
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     strokesRef.current.push({
       color: isEraser ? dCtx.strokeStyle : color,
-      opacity: isEraser ? 1 : opacity,
+      opacity: isEraser ? 1 : layerSettings[activeLayerId].opacity,
       lineWidth: dCtx.lineWidth,
       lineCap: dCtx.lineCap,
       points: [firstPoint],
@@ -270,10 +303,10 @@ export function DrawOnImage({ sectionId }) {
     }
     debouncedSetBrushStrokesArtifact(
       sectionId,
-      strokesArtifactId,
+      activeLayerId,
       strokesRef.current,
     );
-    debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
+    // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   }
 
   function onMouseEnter(e) {
@@ -379,8 +412,8 @@ export function DrawOnImage({ sectionId }) {
             header={"Brush Settings"}
           >
             <BrushSettings
-              opacity={opacity}
-              setOpacity={setOpacity}
+              opacity={layerSettings[activeLayerId]?.opacity ?? 1}
+              setOpacity={setBrushOpacity}
               brushSize={brushSize}
               setBrushSize={setBrushSize}
               brushShape={brushShape}
@@ -425,9 +458,9 @@ export function DrawOnImage({ sectionId }) {
           }
           header={"Layer Opacity"}
         >
-          <CanvasSettings
-            opacity={canvasOpacity}
-            setOpacity={setCanvasOpacity}
+          <LayerSettings
+            opacity={layerSettings[activeLayerId]?.opacity ?? 1}
+            setOpacity={setLayerOpacity}
           />
         </StandardPopover>
 
@@ -437,15 +470,19 @@ export function DrawOnImage({ sectionId }) {
         >
           <i className="gg-trash" />
         </button>
+
+        <button
+          className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
+          onClick={addLayer}
+        >
+          <i className="gg-add" />
+        </button>
       </div>
       <section
         className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0"
         {...getRootProps()}
       >
-        <div
-          className="single-cell-child single-cell-container"
-          style={{ opacity: canvasOpacity }}
-        >
+        <div className="single-cell-child single-cell-container">
           <canvas
             ref={canvasRef}
             onMouseDown={onMouseDown}
@@ -606,7 +643,7 @@ function EraserSettings({ brushSize, setBrushSize }) {
   );
 }
 
-function CanvasSettings({ opacity, setOpacity }) {
+function LayerSettings({ opacity, setOpacity }) {
   const [localOpacity, setLocalOpacity] = useState(opacity);
 
   useEffect(() => {
@@ -666,25 +703,24 @@ function getCtx(canvasRef) {
 }
 
 const debouncedSetBrushStrokesArtifact = _.debounce(
-  (sectionId, _artifactId, strokes) => {
-    const artifactId = _artifactId ?? createNewId();
-    const isNewArtifact = !_artifactId;
-
+  (sectionId, activeLayerId, strokes) => {
+    // layer ids are the same as artifact ids
+    // because we assume each artifact gets its own layer
     useArtifacts.setState((x) => {
-      if (isNewArtifact) {
-        x.x[artifactId] = newArtifact({
+      if (!(activeLayerId in x.x)) {
+        x.x[activeLayerId] = newArtifact({
           type: "brushStrokes",
           value: _.cloneDeep(strokes),
         });
       } else {
-        x.x[artifactId].value = _.cloneDeep(strokes);
+        x.x[activeLayerId].value = _.cloneDeep(strokes);
       }
     });
 
     useSectionInfos.setState((x) => {
       const artifactIds = x.x[sectionId].artifactIds;
-      if (!artifactIds.includes(artifactId)) {
-        artifactIds.push(artifactId);
+      if (!artifactIds.includes(activeLayerId)) {
+        artifactIds.push(activeLayerId);
       }
     });
   },
@@ -748,7 +784,7 @@ function drawStroke(canvas, ctx, stroke) {
   ctx.beginPath();
   ctx.globalCompositeOperation = stroke.globalCompositeOperation;
   ctx.strokeStyle = stroke.color;
-  ctx.globalAlpha = stroke.opacity;
+  // ctx.globalAlpha = stroke.opacity;
   ctx.lineWidth = stroke.lineWidth;
   ctx.lineCap = stroke.lineCap;
   let prevPoint = stroke.points[0];
@@ -778,7 +814,12 @@ const debouncedSendDrawingToInteractiveTasks = _.debounce(
 
 function setCanvasSettings(sectionId, attr, value) {
   useSectionInfos.setState((x) => {
-    const s = x.x[sectionId];
-    s.canvasSettings[attr] = value;
+    x.x[sectionId].canvasSettings[attr] = value;
+  });
+}
+
+function setLayerSettings(sectionId, activeLayerId, attr, value) {
+  useSectionInfos.setState((x) => {
+    x.x[sectionId].canvasSettings.layerSettings[activeLayerId][attr] = value;
   });
 }
