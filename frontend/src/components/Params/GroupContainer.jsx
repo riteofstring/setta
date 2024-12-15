@@ -152,7 +152,7 @@ function ResizablePinnedArea({
       </header>
 
       <div
-        className={`${isScrollable ? "nowheel" : ""} section-args-nested section-key-value section-min-rows grid w-full grid-cols-subgrid gap-y-1 overflow-y-scroll [&>*]:pr-1.5`}
+        className={`${isScrollable ? "nowheel" : ""} section-args-nested section-key-value section-min-rows grid w-full grid-cols-subgrid gap-y-1 overflow-y-scroll pr-1.5`}
         ref={ref}
       >
         <GetParamSwitch
