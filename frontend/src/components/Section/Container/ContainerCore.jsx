@@ -114,7 +114,7 @@ function ContainerGroup({
         <div className="z-10 ml-auto flex items-center">
           <IconButton
             icon={<i className="gg-lock mt-4 !scale-[.4]" />}
-            color="text-setta-200 hover:text-orange-400 dark:hover:text-orange-700"
+            color="text-setta-200 dark:text-setta-600 hover:text-orange-400 dark:hover:text-orange-700"
             bg="bg-transparent justify-content-center mr-1"
             size="w-4 h-4"
             padding="p-0"
@@ -123,7 +123,7 @@ function ContainerGroup({
       </div>
 
       {!hasNested && (
-        <div className="z-10 -mx-4 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-setta-300 dark:border-setta-800 dark:text-white">
+        <div className="z-10 -mx-4 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-setta-200/80 dark:border-setta-700 dark:text-setta-500">
           Drop A Section Here.
         </div>
       )}
