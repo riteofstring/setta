@@ -60,6 +60,7 @@ export function ParamUI({
       return (
         <>
           <TextInputCodeMirror
+            dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
             dataSectionId={sectionId}
             visualSectionId={sectionId}
             paramInfoId={paramInfoId}
