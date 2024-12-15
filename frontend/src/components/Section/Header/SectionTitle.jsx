@@ -60,6 +60,7 @@ function setSectionName(sectionId, name) {
     if (s.paramSweepSectionId) {
       x.x[paramSweepSectionId].name = createParamSweepSectionName(name);
     }
+    x.shouldRenameReferences = true;
   });
   maybeIncrementProjectStateVersion(true);
 }

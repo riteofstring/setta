@@ -12,18 +12,21 @@ def save_sections(db, sections, section_variants):
     query = """
         INSERT INTO Section (
             id,
+            name,
             data,
             uiTypeId,
             uiTypeColId
         )
         VALUES (
             :id,
+            :name,
             :data,
             :uiTypeId,
             :uiTypeColId
         )
         ON CONFLICT (id)
         DO UPDATE SET
+            name = :name,
             data = :data,
             uiTypeId = :uiTypeId,
             uiTypeColId = :uiTypeColId
@@ -32,6 +35,7 @@ def save_sections(db, sections, section_variants):
     query_params = [
         {
             "id": s["id"],
+            "name": s["name"],
             "data": json.dumps(
                 filter_dict(
                     s, SECTION_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["section"]

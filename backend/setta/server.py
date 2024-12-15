@@ -22,6 +22,7 @@ from setta.lsp.utils import (
 from setta.routers import (
     artifact_router,
     code_info_router,
+    info_to_ev_referrer_router,
     interactive_code_router,
     projects_router,
     sections_router,
@@ -114,6 +115,7 @@ app.include_router(code_info_router, **kwargs)
 app.include_router(settings_router, **kwargs)
 app.include_router(interactive_code_router, **kwargs)
 app.include_router(artifact_router, **kwargs)
+app.include_router(info_to_ev_referrer_router, **kwargs)
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988

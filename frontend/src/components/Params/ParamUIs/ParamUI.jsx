@@ -32,8 +32,8 @@ export function ParamUI({
   value,
   onChange,
   maybeErrorMessage,
-  keywordPositions,
-  setKeywordPositions,
+  evRefs,
+  setEVRefs,
 }) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const { uiType, configLanguage, defaultVal, disabledOrFrozen } =
@@ -69,8 +69,8 @@ export function ParamUI({
             dummyCodeClassName={`section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
             realCodeClassName={`nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
             language={configLanguage}
-            keywordPositions={keywordPositions}
-            setKeywordPositions={setKeywordPositions}
+            evRefs={evRefs}
+            setEVRefs={setEVRefs}
             isDisabled={isDisabled}
           />
           {waitingForResult && (
@@ -146,8 +146,8 @@ export function ParamSweepUI({
   value,
   defaultVal,
   onChange,
-  keywordPositions,
-  setKeywordPositions,
+  evRefs,
+  setEVRefs,
   isDisabled,
 }) {
   const { uiType, configLanguage } = useSectionInfos((x) => {
@@ -176,8 +176,8 @@ export function ParamSweepUI({
             dummyCodeClassName="section-key-value self-end grid-row-start-1 mx-3 py-[.125rem] nodrag cursor-text select-text break-words px-0 font-mono text-xs [tab-size:4] [word-break:break-word]"
             realCodeClassName="section-key-value self-end grid-row-start-1 py-[.125rem] mx-3 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
             language={configLanguage}
-            keywordPositions={keywordPositions}
-            setKeywordPositions={setKeywordPositions}
+            evRefs={evRefs}
+            setEVRefs={setEVRefs}
             isDisabled={isDisabled}
           />
           {waitingForResult && (
