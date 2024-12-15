@@ -4,6 +4,12 @@ from setta.utils.constants import DEFAULT_VALUES
 from setta.utils.utils import recursive_dict_merge
 
 
+def with_ui_type_defaults(**kwargs):
+    return recursive_dict_merge(copy.deepcopy(DEFAULT_VALUES["uiType"]), kwargs)
+
+
+
+
 def new_ui_type_col_entry():
     return copy.deepcopy(DEFAULT_VALUES["uiTypeColEntry"])
 

@@ -1,6 +1,6 @@
 import json
 
-from setta.utils.constants import UI_TYPE_TABLE_DATA_JSON_FIELDS
+from setta.utils.constants import DEFAULT_VALUES, UI_TYPE_TABLE_DATA_JSON_FIELDS
 from setta.utils.utils import filter_dict
 
 
@@ -18,7 +18,7 @@ def save_ui_types(db, uiTypes):
         {
             "id": v["id"],
             "type": v["type"],
-            "data": json.dumps(filter_dict(v, UI_TYPE_TABLE_DATA_JSON_FIELDS)),
+            "data": json.dumps(filter_dict(v, UI_TYPE_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["uiType"])),
         }
         for v in uiTypes.values()
     ]
