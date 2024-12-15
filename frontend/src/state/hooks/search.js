@@ -5,17 +5,13 @@ import {
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";
-import {
-  getCodeInfoCol,
-  getDisplayedSectionIdToChildren,
-  getSectionVariant,
-} from "state/actions/sectionInfos";
+import { getDisplayedSectionIdToChildren } from "state/actions/sectionInfos";
+import { getAllDisplayedParamsInSection } from "state/actions/sections/sectionContents";
 import {
   useProjectSearch,
   useSectionInfos,
   useSettings,
 } from "state/definitions";
-import { findAllParameters } from "utils/getDescendants";
 
 export function useUpdateProjectSearch() {
   const [value, setValue] = useState("");
@@ -80,14 +76,8 @@ function getAllVisibleParams() {
 }
 
 function getParamsAndAddToSearchResults(sectionId, state, output) {
-  const { selectedItem } = getSectionVariant(sectionId, state);
-  const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
-  const { ids: paramIds } = findAllParameters({
-    allCodeInfo: state.codeInfo,
-    codeInfoChildren,
-    startingId: selectedItem,
-  });
-  for (const p of paramIds) {
+  const ids = getAllDisplayedParamsInSection(sectionId, state);
+  for (const p of ids) {
     output.push({
       sectionId,
       paramInfoId: p,
