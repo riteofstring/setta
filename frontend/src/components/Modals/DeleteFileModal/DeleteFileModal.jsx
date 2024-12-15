@@ -32,7 +32,9 @@ export function DeleteFileModal() {
     <div className="mx-auto flex w-full flex-col items-center">
       <header className="flex flex-col gap-2 self-start">
         <div className="flex items-center gap-2">
-          <i className="gg-trash h-6 w-6 rounded-full bg-red-100 p-0.5 text-red-600 dark:bg-red-700 dark:text-red-200" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
+            <i className="gg-trash h-6 w-6 rounded-full bg-red-100 p-0.5 text-red-600 dark:bg-red-900 dark:text-red-400" />
+          </div>
 
           <Dialog.Title className="text-xl font-semibold text-setta-800 dark:text-setta-200">
             Confirm File Deletion
