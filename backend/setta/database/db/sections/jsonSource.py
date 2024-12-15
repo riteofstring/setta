@@ -1,10 +1,11 @@
 import json
 from collections import defaultdict
+from pprint import pprint
 
 from setta.utils.constants import BASE_UI_TYPE_IDS, C, is_from_json_source
 from setta.utils.utils import try_json
 
-from pprint import pprint
+
 def save_json_source_data(p, section_ids=None):
     sections = {
         k: v
@@ -39,7 +40,6 @@ def save_json_source_data(p, section_ids=None):
                     # Set the value at the final position
                     if key_path:  # Only set if we have a path
                         current_dict[key_path[-1]] = value
-
 
     pprint(to_be_saved)
     # Save each file
