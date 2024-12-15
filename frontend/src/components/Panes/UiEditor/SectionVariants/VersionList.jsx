@@ -9,6 +9,7 @@ import {
   onMouseOverSetPreviewVariantId,
 } from "state/actions/previewOnMouseOver";
 import {
+  deleteSectionVariantAndMaybeJsonFile,
   setDefaultSectionVariant,
   toggleVariantFrozenState,
 } from "state/actions/sectionInfos";
@@ -175,20 +176,7 @@ function OneItemEditing({ sectionId, id, isCurr, deletable }) {
 
   function onClickDelete(e) {
     e.stopPropagation();
-    useSectionInfos.setState((state) => {
-      const section = state.x[sectionId];
-      section.variantIds = section.variantIds.filter((v) => v !== id);
-
-      if (section.defaultVariantId === id) {
-        section.defaultVariantId = section.variantIds[0];
-      }
-
-      if (isCurr) {
-        section.variantId = section.variantIds[0];
-      }
-
-      delete state.variants[id];
-    });
+    deleteSectionVariantAndMaybeJsonFile(sectionId, id, isCurr);
   }
 
   return (
