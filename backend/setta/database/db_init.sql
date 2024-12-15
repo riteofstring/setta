@@ -1,22 +1,22 @@
 -- TABLES --
 CREATE TABLE IF NOT EXISTS Metadata (
     id INTEGER PRIMARY KEY CHECK (id = 1),
-    defaultProject TEXT,
+    defaultProject BLOB(16),
     FOREIGN KEY (defaultProject) REFERENCES ProjectConfig(id)
 );
 CREATE TABLE IF NOT EXISTS CodeInfo (
-    id TEXT PRIMARY KEY,
+    id BLOB(16) PRIMARY KEY,
     name TEXT,
     data TEXT
 );
 CREATE TABLE IF NOT EXISTS CodeInfoColId (
-    id TEXT,
+    id BLOB(16),
     PRIMARY KEY (id)
 );
 CREATE TABLE IF NOT EXISTS CodeInfoCol (
-    idid TEXT,
-    parentId TEXT,
-    childId TEXT,
+    idid BLOB(16),
+    parentId BLOB(16),
+    childId BLOB(16),
     "order" INTEGER,
     PRIMARY KEY (idid, parentId, childId),
     FOREIGN KEY (idid) REFERENCES CodeInfoColId(id) ON DELETE CASCADE,
@@ -24,68 +24,68 @@ CREATE TABLE IF NOT EXISTS CodeInfoCol (
     FOREIGN KEY (childId) REFERENCES CodeInfo(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS Section (
-    id TEXT PRIMARY KEY,
+    id BLOB(16) PRIMARY KEY,
     name TEXT,
     data TEXT,
-    paramSweepSectionId TEXT,
-    uiTypeId TEXT,
-    uiTypeColId TEXT,
+    paramSweepSectionId BLOB(16),
+    uiTypeId BLOB(16),
+    uiTypeColId BLOB(16),
     FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE SET NULL,
     FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
     FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE SET NULL
 );
 CREATE TABLE IF NOT EXISTS SectionConfig (
-    projectConfigId TEXT,
+    projectConfigId BLOB(16),
     data TEXT,
-    sectionId TEXT,
-    variantId TEXT,
+    sectionId BLOB(16),
+    variantId BLOB(16),
     PRIMARY KEY (projectConfigId, sectionId),
     FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
     FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
     FOREIGN KEY (variantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS SectionConfigSelectedVariants (
-    projectConfigId TEXT,
-    sectionId TEXT,
-    variantId TEXT,
+    projectConfigId BLOB(16),
+    sectionId BLOB(16),
+    variantId BLOB(16),
     PRIMARY KEY (projectConfigId, sectionId, variantId),
     FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
     FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
     FOREIGN KEY (variantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
 ); 
 CREATE TABLE IF NOT EXISTS SectionVariantId (
-    id TEXT PRIMARY KEY,
+    id BLOB(16) PRIMARY KEY,
     name TEXT,
     data TEXT,
-    selectedItem TEXT,
-    codeInfoColId TEXT,
-    originSectionId TEXT,
+    selectedItem BLOB(16),
+    codeInfoColId BLOB(16),
+    originSectionId BLOB(16),
     FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE SET NULL,
     FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE,
     FOREIGN KEY (codeInfoColId) REFERENCES CodeInfoColId(id) ON DELETE SET NULL
 );
 CREATE TABLE IF NOT EXISTS SectionVariantEV (
-    idid TEXT,
-    codeInfoId TEXT,
+    idid BLOB(16),
+    codeInfoId BLOB(16),
     data TEXT,
     PRIMARY KEY (idid, codeInfoId),
     FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
     FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS SectionVariantChildren (
-    idid TEXT,
-    childId TEXT,
+    idid BLOB(16),
+    childId BLOB(16),
     "order" INTEGER,
     PRIMARY KEY (idid, childId),
     FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
     FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS SectionVariantParamSweep (
-    idid TEXT,
+    idid BLOB(16),
     selectedItemGroupNum INTEGER,
     paramInfoGroupNum INTEGER,
-    selectedItem TEXT,
-    paramInfoId TEXT,
+    selectedItem BLOB(16),
+    paramInfoId BLOB(16),
     "order" INTEGER,
     value TEXT,
     PRIMARY KEY (idid, "order"),
@@ -94,9 +94,9 @@ CREATE TABLE IF NOT EXISTS SectionVariantParamSweep (
     FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS SectionVariantRunGroup (
-    idid TEXT,
-    sectionId TEXT,
-    parentVariantId TEXT,
+    idid BLOB(16),
+    sectionId BLOB(16),
+    parentVariantId BLOB(16),
     selected BOOLEAN,
     PRIMARY KEY (idid, sectionId, parentVariantId),
     FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
@@ -104,10 +104,10 @@ CREATE TABLE IF NOT EXISTS SectionVariantRunGroup (
     FOREIGN KEY (parentVariantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS SectionVariantRunGroupVersions (
-    idid TEXT,
-    sectionId TEXT,
-    parentVariantId TEXT,
-    versionId TEXT,
+    idid BLOB(16),
+    sectionId BLOB(16),
+    parentVariantId BLOB(16),
+    versionId BLOB(16),
     selected BOOLEAN,
     PRIMARY KEY (idid, sectionId, parentVariantId, versionId),
     FOREIGN KEY (idid, sectionId, parentVariantId) 
@@ -116,10 +116,10 @@ CREATE TABLE IF NOT EXISTS SectionVariantRunGroupVersions (
     FOREIGN KEY (versionId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS SectionVariantRunGroupParamSweeps (
-    idid TEXT,
-    sectionId TEXT,
-    parentVariantId TEXT,
-    sweepId TEXT,
+    idid BLOB(16),
+    sectionId BLOB(16),
+    parentVariantId BLOB(16),
+    sweepId BLOB(16),
     selected BOOLEAN,
     PRIMARY KEY (idid, sectionId, parentVariantId, sweepId),
     FOREIGN KEY (idid, sectionId, parentVariantId) 
@@ -128,43 +128,43 @@ CREATE TABLE IF NOT EXISTS SectionVariantRunGroupParamSweeps (
     FOREIGN KEY (sweepId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS UIType (
-    id TEXT PRIMARY KEY,
+    id BLOB(16) PRIMARY KEY,
     type TEXT,
     data TEXT,
-    asNonPresetForSectionId TEXT,
-    asNonPresetForUITypeColId TEXT,
-    asNonPresetForCodeInfoId TEXT,
+    asNonPresetForSectionId BLOB(16),
+    asNonPresetForUITypeColId BLOB(16),
+    asNonPresetForCodeInfoId BLOB(16),
     FOREIGN KEY (asNonPresetForSectionId) REFERENCES Section(id) ON DELETE CASCADE,
     FOREIGN KEY (asNonPresetForUITypeColId, asNonPresetForCodeInfoId) REFERENCES UITypeCol(idid, codeInfoId) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS UITypeColId (
-    id TEXT PRIMARY KEY
+    id BLOB(16) PRIMARY KEY
 );
 CREATE TABLE IF NOT EXISTS UITypeCol (
-    idid TEXT,
-    codeInfoId TEXT,
-    uiTypeId TEXT,
+    idid BLOB(16),
+    codeInfoId BLOB(16),
+    uiTypeId BLOB(16),
     PRIMARY KEY (idid, codeInfoId),
     FOREIGN KEY (idid) REFERENCES UITypeColId(id) ON DELETE CASCADE,
     FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
     FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS ProjectConfig (
-    id TEXT PRIMARY KEY,
+    id BLOB(16) PRIMARY KEY,
     name TEXT,
     data TEXT,
     UNIQUE (name)
 );
 CREATE TABLE IF NOT EXISTS ProjectConfigChildren (
-    parentId TEXT,
-    childId TEXT,
+    parentId BLOB(16),
+    childId BLOB(16),
     data TEXT,
     PRIMARY KEY (parentId, childId),
     FOREIGN KEY (parentId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
     FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS SectionArtifacts (
-    sectionId TEXT,
+    sectionId BLOB(16),
     artifactPath TEXT,
     data TEXT,
     PRIMARY KEY (sectionId, artifactPath),

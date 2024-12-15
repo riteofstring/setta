@@ -1,10 +1,19 @@
 import json
 
+from setta.database.utils import uuid_str_to_blob
 from setta.utils.constants import CODE_INFO_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES
 from setta.utils.utils import filter_dict, replace_null_keys_with_none
 
 
+def prepare_code_info(code_info):
+    return {
+        uuid_str_to_blob(key): {**value, "id": uuid_str_to_blob(value["id"])}
+        for key, value in code_info.items()
+    }
+
+
 def save_code_info(db, codeInfo):
+    codeInfo = prepare_code_info(codeInfo)
     query = """
         INSERT INTO CodeInfo (id, name, data)
         VALUES (:id, :name, :data)
@@ -32,8 +41,23 @@ def save_code_info(db, codeInfo):
     db.executemany(query, query_params)
 
 
+def prepare_code_info_cols(code_info_cols):
+    return {
+        uuid_str_to_blob(codeInfoColId): {
+            "children": {
+                uuid_str_to_blob(paramInfoId): [
+                    uuid_str_to_blob(childId) for childId in child_list
+                ]
+                for paramInfoId, child_list in data["children"].items()
+            }
+        }
+        for codeInfoColId, data in code_info_cols.items()
+    }
+
+
 def save_code_info_col(db, codeInfoCols):
     codeInfoCols = replace_null_keys_with_none(codeInfoCols)
+    codeInfoCols = prepare_code_info_cols(codeInfoCols)
 
     query = """
         INSERT INTO CodeInfoColId (id)

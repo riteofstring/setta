@@ -1,5 +1,7 @@
 import json
 
+from setta.database.db.sectionVariants.save import prepare_section_variants
+from setta.database.utils import uuid_str_to_blob
 from setta.utils.constants import (
     DEFAULT_VALUES,
     SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS,
@@ -8,7 +10,33 @@ from setta.utils.constants import (
 from setta.utils.utils import filter_dict, replace_null_keys_with_none
 
 
+def prepare_sections(sections):
+    return {
+        uuid_str_to_blob(key): {
+            **value,
+            "id": uuid_str_to_blob(value["id"]),
+            "uiTypeId": uuid_str_to_blob(value["uiTypeId"]),
+            "uiTypeColId": uuid_str_to_blob(value["uiTypeColId"]),
+            "parentId": uuid_str_to_blob(value["parentId"]),
+            "variantId": uuid_str_to_blob(value["variantId"]),
+            "variantIds": [uuid_str_to_blob(v) for v in value["variantIds"]],
+            "paramSweepSectionId": uuid_str_to_blob(value["paramSweepSectionId"]),
+            "nonPresetUITypeIds": [
+                uuid_str_to_blob(v) for v in value["nonPresetUITypeIds"]
+            ],
+            "selectedVariantIds": {
+                uuid_str_to_blob(k): v for k, v in value["selectedVariantIds"].items()
+            },
+        }
+        for key, value in sections.items()
+    }
+
+
 def save_sections(db, sections, section_variants):
+    section_variants = replace_null_keys_with_none(section_variants)
+    sections = prepare_sections(sections)
+    section_variants = prepare_section_variants(section_variants)
+
     query = """
         INSERT INTO Section (
             id,
@@ -161,7 +189,6 @@ def save_sections(db, sections, section_variants):
     run_group_versions_query_params = []
     run_group_param_sweeps_query_params = []
     for idid, variant in section_variants.items():
-        variant = replace_null_keys_with_none(variant)
         for sectionId, detailsForSection in variant["runGroup"].items():
             for parentVariantId, detailsForParentVariant in detailsForSection.items():
                 base_query_params = {
