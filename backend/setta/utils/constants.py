@@ -87,7 +87,6 @@ CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
 
 SECTION_TABLE_DATA_JSON_FIELDS = set(
     (
-        "name",
         "social",
         "codeLanguage",
         "configLanguage",

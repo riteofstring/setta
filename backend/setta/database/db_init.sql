@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS CodeInfoCol (
 );
 CREATE TABLE IF NOT EXISTS Section (
     id TEXT PRIMARY KEY,
+    name TEXT,
     data TEXT,
     paramSweepSectionId TEXT,
     uiTypeId TEXT,
