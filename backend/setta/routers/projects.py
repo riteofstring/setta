@@ -26,7 +26,6 @@ from setta.database.db.projects.saveAs import (
 )
 from setta.database.db.projects.utils import (
     add_defaults_to_project,
-    add_defaults_to_project_and_load_json_sources,
     filter_data_for_json_export,
 )
 from setta.database.export_db.export_db import maybe_export_database
