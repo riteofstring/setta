@@ -20,6 +20,7 @@ export function TextInputCodeMirror({
   defaultVal,
   onChange,
   onBlur,
+  onMouseDown,
   dummyCodeClassName,
   realCodeClassName,
   singleLine,
@@ -55,6 +56,7 @@ export function TextInputCodeMirror({
   // when section is locked.
   function localOnMouseDownCapture(event) {
     if (isDisabled) {
+      onMouseDown?.(event);
       return;
     }
     // if (!variableClick(event)) {
@@ -62,6 +64,7 @@ export function TextInputCodeMirror({
       setActivationEvent(event);
       setActiveSectionIdAndUpdateZIndex(visualSectionId);
     }
+    onMouseDown?.(event);
   }
 
   // focused via tab key

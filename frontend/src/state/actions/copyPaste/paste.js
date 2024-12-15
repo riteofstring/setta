@@ -6,7 +6,7 @@ import { useActiveSection, useMisc, useSectionInfos } from "state/definitions";
 import { setNotificationMessage } from "../notification";
 import { loadSectionIntoState } from "../sections/loadSections";
 
-export async function paste() {
+export async function paste(props) {
   let x;
   try {
     x = JSON.parse(await navigator.clipboard.readText());
@@ -14,31 +14,30 @@ export async function paste() {
     return;
   }
   if (x.copyType === "sections") {
-    // const activeSectionIds = useActiveSection.getState().ids
-    // if (activeSectionIds.length > 1 && Object.values(x.data.sections).length === 1) {
-    //     for (const id of activeSectionIds){
-
-    //     }
-
-    // } else {
-
-    pasteSections(x.data);
-    // }
+    pasteSections({ data: x.data, ...props });
   }
 }
 
-async function pasteSections(data) {
-  const res = await dbCreateCopyOfSections(data);
-  console.log("res.data", res.data);
-  if (res.status === 200) {
-    res.data.sections = removeSingletonSectionsIfAlreadyPresent(res.data);
+async function pasteSections({ data, asRef = false }) {
+  let dataToPaste;
+  if (asRef) {
+    dataToPaste = data;
+  } else {
+    const res = await dbCreateCopyOfSections(data);
+    console.log("res.data", res.data);
+    if (res.status === 200) {
+      dataToPaste = res.data;
+    }
+  }
+  if (dataToPaste) {
+    dataToPaste.sections = removeSingletonSectionsIfAlreadyPresent(dataToPaste);
     const topLevelIds = findTopLevelSections(
-      res.data.sections,
-      res.data.sectionVariants,
+      dataToPaste.sections,
+      dataToPaste.sectionVariants,
     );
 
     loadSectionIntoState({
-      ...res.data,
+      ...dataToPaste,
       topLevelIds,
       ...getPasteLocation(),
       incrementVersion: true,
