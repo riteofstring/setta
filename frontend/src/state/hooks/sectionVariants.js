@@ -6,16 +6,13 @@ import {
 import { useSectionInfos } from "state/definitions";
 import { newEVEntry } from "utils/objs/ev";
 
-export function useGetParamEnteredValueAndKeywordPositions(
-  sectionId,
-  paramInfoId,
-) {
+export function useGetParamEnteredValueAndEVRefs(sectionId, paramInfoId) {
   return useSectionInfos((x) => {
     const vals = getDisplayedSectionVariant(sectionId, x).values;
     if (paramInfoId in vals) {
       return {
         value: vals[paramInfoId].value,
-        keywordPositions: vals[paramInfoId].keywordPositions,
+        evRefs: vals[paramInfoId].evRefs,
       };
     }
     return newEVEntry();
