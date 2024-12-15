@@ -82,7 +82,7 @@ CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
         "positionalOnly",
         "isPinned",
         "isFrozen",
-        "evRefs",
+        "keywordPositions",
     )
 )
 
@@ -114,10 +114,10 @@ SECTION_CONFIG_TABLE_DATA_JSON_FIELDS = set(
 )
 
 SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS = set(
-    ["name", "code", "evRefs", "description", "isFrozen", "isDefault"]
+    ["name", "code", "keywordPositions", "description", "isFrozen", "isDefault"]
 )
 
-SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS = set(["value", "evRefs"])
+SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS = set(["value", "keywordPositions"])
 
 
 UI_TYPE_TABLE_DATA_JSON_FIELDS = set(

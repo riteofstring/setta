@@ -1,6 +1,5 @@
 from .artifact import router as artifact_router
 from .code_info import router as code_info_router
-from .infoToEVReferrer import router as info_to_ev_referrer_router
 from .interactive import router as interactive_code_router
 from .projects import router as projects_router
 from .sections import router as sections_router

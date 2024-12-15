@@ -2,7 +2,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { getEVRefs } from "requests/sections";
+import { getKeywordPositionsAndEVRefs } from "requests/sections";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
 import { useSectionInfos } from "state/definitions";
@@ -113,16 +113,16 @@ function SectionSearchCore({
 }) {
   const {
     name: codeInfoName,
-    evRefs,
+    keywordPositions,
     description,
     configLanguage,
   } = useSectionInfos((x) => {
     const configLanguage = x.x[dataSectionId].configLanguage;
     if (selectedItem) {
-      const { name, evRefs, description } = x.codeInfo[selectedItem];
-      return { name, evRefs, description, configLanguage };
+      const { name, keywordPositions, description } = x.codeInfo[selectedItem];
+      return { name, keywordPositions, description, configLanguage };
     }
-    return { name: "", evRefs: [], description: "", configLanguage };
+    return { name: "", keywordPositions: [], description: "", configLanguage };
   }, _.isEqual);
 
   const [value, setValue] = useState(codeInfoName);
@@ -132,10 +132,11 @@ function SectionSearchCore({
   }, [codeInfoName]);
 
   useDeepCompareEffect(() => {
-    setLocalEVRefs(evRefs);
-  }, [evRefs]);
+    setLocalKeywordPositions(keywordPositions);
+  }, [keywordPositions]);
 
-  const [localEVRefs, setLocalEVRefs] = useState(evRefs);
+  const [localKeywordPositions, setLocalKeywordPositions] =
+    useState(keywordPositions);
 
   function onEscape(expectingCompletions) {
     if (!expectingCompletions) {
@@ -152,7 +153,11 @@ function SectionSearchCore({
 
   function onChange(value) {
     setValue(value);
-    debouncedSetEVRefs(dataSectionId, value, setLocalEVRefs);
+    debouncedSetKeywordPositions(
+      dataSectionId,
+      value,
+      setLocalKeywordPositions,
+    );
   }
 
   function _onEnter() {
@@ -178,8 +183,8 @@ function SectionSearchCore({
         onTab={onTab}
         onEscape={onEscape}
         language={configLanguage}
-        evRefs={localEVRefs}
-        setEVRefs={setLocalEVRefs}
+        keywordPositions={localKeywordPositions}
+        setKeywordPositions={setLocalKeywordPositions}
         isDisabled={isDisabled}
       />
       <LoadingSpinner sectionId={dataSectionId} />
@@ -200,14 +205,14 @@ function LoadingSpinner({ sectionId }) {
   );
 }
 
-const debouncedSetEVRefs = asyncDebounce(
-  async (sectionId, value, setLocalEVRefs) => {
-    const evRefs = await getEVRefs({
+const debouncedSetKeywordPositions = asyncDebounce(
+  async (sectionId, value, setLocalKeywordPositions) => {
+    const { keywordPositions } = await getKeywordPositionsAndEVRefs({
       sectionId,
       paramInfoId: null,
       fullText: value,
     });
-    setLocalEVRefs(evRefs);
+    setLocalKeywordPositions(keywordPositions);
   },
   500,
 );
