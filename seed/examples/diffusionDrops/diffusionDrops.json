@@ -300,13 +300,7 @@
       "canvasSettings": {
         "color": "#00ff00"
       },
-      "artifacts": [
-        {
-          "path": "seed/examples/diffusionDrops/kevin-musgrave2.png",
-          "type": "img",
-          "displayName": "profile pic"
-        }
-      ],
+      "artifactIds": ["710c9942-e271-44a2-8eb7-961c21179ee5"],
       "variantIds": ["380a6d0c-a96e-48f1-b431-074c7e98eed9"],
       "aspectRatioExtraHeight": 120,
       "aspectRatio": 1,
@@ -848,6 +842,13 @@
         "bbb754a2-06e5-4b57-8e5d-308865f81a94": [],
         "62bd6021-0834-4317-87f4-3961d8f2e890": []
       }
+    }
+  },
+  "artifacts": {
+    "710c9942-e271-44a2-8eb7-961c21179ee5": {
+      "value": "seed/examples/diffusionDrops/kevin-musgrave2.png",
+      "type": "img",
+      "displayName": "profile pic"
     }
   }
 }

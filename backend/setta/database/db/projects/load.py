@@ -118,6 +118,7 @@ def load_project_config(db, project_config_name):
         sections_data["sections"], sectionConfigs, strict_top_level_keys=True
     )
     sectionVariants = sections_data["sectionVariants"]
+    artifacts = sections_data["artifacts"]
     uiTypeCols = sections_data["uiTypeCols"]
     uiTypes = sections_data["nonPresetUITypes"]
     codeInfo, codeInfoCols = load_code_info_cols(db, sectionVariants)
@@ -130,6 +131,7 @@ def load_project_config(db, project_config_name):
         "projectConfig": projectConfig,
         "sections": sections,
         "sectionVariants": sectionVariants,
+        "artifacts": artifacts,
         "uiTypes": uiTypes,
         "uiTypeCols": uiTypeCols,
         "codeInfo": codeInfo,
