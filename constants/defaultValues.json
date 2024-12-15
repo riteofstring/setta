@@ -100,5 +100,11 @@
     "isArgsObj": false,
     "startPos": 0,
     "keyword": ""
+  },
+  "artifact":{
+    "name": "",
+    "path": null,
+    "value": null,
+    "type": ""
   }
 }

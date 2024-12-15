@@ -87,11 +87,6 @@ def load_sections(db, ids):
     )
     sectionVariants = load_section_variants(db, variantIds)
 
-    artifactIds = list(
-        itertools.chain.from_iterable([s["artifactIds"] for s in sections.values()])
-    )
-    artifacts = load_artifacts(db, artifactIds)
-
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
 
     nonPresetUITypeIds = []
@@ -106,7 +101,6 @@ def load_sections(db, ids):
     return {
         "sections": sections,
         "sectionVariants": sectionVariants,
-        "artifacts": artifacts,
         "uiTypeCols": uiTypeCols,
         "nonPresetUITypes": nonPresetUITypes,
     }
@@ -187,24 +181,6 @@ def num_projects_each_section_exists_in(db, section_ids):
     for row in db.fetchall():
         output[row[0]] = row[1]
 
-    return output
-
-
-def load_artifact_metadata(db, section_id, artifact_paths):
-    query_params = []
-    for a in artifact_paths:
-        query_params.extend([section_id, a])
-    placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
-    query = f"""
-        SELECT artifactPath as path, data
-        FROM SectionArtifacts
-        WHERE (sectionId, artifactPath) IN ({placeholders})
-    """
-    db.execute(query, query_params)
-
-    output = []
-    for row in db.fetchall():
-        output.append({"path": row["path"], **json.loads(row["data"])})
     return output
 
 

@@ -677,7 +677,7 @@ const debouncedSetBrushStrokesArtifact = _.debounce((sectionId, strokes) => {
     } else {
       x.x[path] = {
         type: "brushStrokes",
-        displayName: createRandomName(),
+        name: createRandomName(),
         value: _.cloneDeep(strokes),
         isSaved: true,
       };

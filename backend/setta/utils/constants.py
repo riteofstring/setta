@@ -125,10 +125,4 @@ UI_TYPE_TABLE_DATA_JSON_FIELDS = set(
 
 PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(["viewport", "previewImgColor"])
 
-ARTIFACTS_TABLE_DATA_JSON_FIELDS = set(
-    [
-        "value",
-        "type",
-        "displayName",
-    ]
-)
+ARTIFACTS_TABLE_DATA_JSON_FIELDS = set(["name", "path", "value", "type"])
