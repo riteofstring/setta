@@ -248,16 +248,16 @@ function ArgItem({
 
         <div className="flex items-center pl-0.5">
           <button
-            className="h-[22px] cursor-pointer
-            text-setta-300 hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400"
+            className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
             onClick={onMinus}
             disabled={isDisabled}
           >
             <i className="gg-remove" />
           </button>
           <button
-            className="h-[22px] cursor-pointer  rounded-full text-setta-300
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 "
+            className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
             onClick={onPlus}
             disabled={isDisabled}
           >
@@ -375,7 +375,7 @@ function AddRemoveButtonsForNoCallableSection({
       </p>
       <button
         className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 "
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
         onClick={onClickRemoveParam}
         disabled={isDisabled}
       >
@@ -383,7 +383,7 @@ function AddRemoveButtonsForNoCallableSection({
       </button>
       <button
         className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 "
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
         onClick={onClickAddParam}
         disabled={disablePlusButton || isDisabled}
       >

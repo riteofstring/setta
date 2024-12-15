@@ -4,6 +4,7 @@ import itertools
 import json
 from collections import defaultdict
 
+from setta.database.db.artifacts.load import load_artifacts
 from setta.database.db.codeInfo.utils import new_code_info_col, with_code_info_defaults
 from setta.database.db.sections.utils import with_section_defaults
 from setta.database.db.sectionVariants.utils import new_ev_entry, new_section_variant
@@ -25,7 +26,7 @@ def load_sections(db, ids):
             S.*,
             U.nonPresetUITypeIds,
             E.variantIds,
-            A.artifacts
+            A.artifactIds
         FROM
             Section S
         LEFT JOIN
@@ -52,7 +53,7 @@ def load_sections(db, ids):
             (
                 SELECT
                     sectionId,
-                    GROUP_CONCAT(artifactPath) AS artifacts
+                    GROUP_CONCAT(artifactId) AS artifactIds
                 FROM
                     SectionArtifacts
                 GROUP BY
@@ -72,7 +73,7 @@ def load_sections(db, ids):
         v["isInOtherProjectConfigs"] = section_id_to_config_count[v["id"]] > 1
         v["parentId"] = child_to_parent_id.get(v["id"], None)
         v["variantIds"] = v["variantIds"].split(",") if v["variantIds"] else []
-        v["artifacts"] = v["artifacts"].split(",") if v["artifacts"] else []
+        v["artifactIds"] = v["artifactIds"].split(",") if v["artifactIds"] else []
         v["nonPresetUITypeIds"] = (
             v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
         )
@@ -85,6 +86,11 @@ def load_sections(db, ids):
         itertools.chain.from_iterable([s["variantIds"] for s in sections.values()])
     )
     sectionVariants = load_section_variants(db, variantIds)
+
+    artifactIds = list(
+        itertools.chain.from_iterable([s["artifactIds"] for s in sections.values()])
+    )
+    artifacts = load_artifacts(db, artifactIds)
 
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
 
@@ -100,6 +106,7 @@ def load_sections(db, ids):
     return {
         "sections": sections,
         "sectionVariants": sectionVariants,
+        "artifacts": artifacts,
         "uiTypeCols": uiTypeCols,
         "nonPresetUITypes": nonPresetUITypes,
     }
