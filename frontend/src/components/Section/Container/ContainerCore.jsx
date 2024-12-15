@@ -136,7 +136,7 @@ function ContainerGroup({
 function GroupSectionTitle({ sectionId }) {
   const titleProps = {
     editing:
-      "nodrag inset-0 w-full cursor-auto bg-[#64748b83] dark:bg-setta-900  text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-500",
+      "absolute cursor-pointer w-full text-xl font-bold tracking-tighter text-setta-100 dark:text-setta-600 cursor-pointer flex-shrink",
 
     notEditing:
       "absolute cursor-pointer w-full truncate text-xl font-bold tracking-tighter text-setta-100 dark:text-setta-600 cursor-pointer flex-shrink",
