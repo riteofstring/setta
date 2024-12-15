@@ -104,7 +104,7 @@ function ContainerGroup({
       />
       <div className="flex min-h-8 w-full items-center">
         <button className={triggerClass}>
-          <FaLayerGroup className="text-setta-500 transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500  dark:group-hover/group-section:text-[#0084ff]" />
+          <FaLayerGroup className="text-setta-100 transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500  dark:group-hover/group-section:text-[#0084ff]" />
         </button>
         <div
           className={`${pointerSelectCSS}relative min-h-8 w-full overflow-hidden`}
@@ -114,7 +114,7 @@ function ContainerGroup({
         <div className="z-10 ml-auto flex items-center">
           <IconButton
             icon={<i className="gg-lock mt-4 !scale-[.4]" />}
-            color="text-setta-600 hover:text-orange-500 dark:hover:text-orange-700"
+            color="text-setta-200 hover:text-orange-400 dark:hover:text-orange-700"
             bg="bg-transparent justify-content-center mr-1"
             size="w-4 h-4"
             padding="p-0"
