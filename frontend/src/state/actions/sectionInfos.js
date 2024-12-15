@@ -142,12 +142,21 @@ function getDisplayedSectionIdToChildrenHelper(sectionId, state, output) {
   }
 }
 
-export function getDisplayedSectionIdToChildren(state) {
+export function getDisplayedSectionIdToChildren(
+  state,
+  includeNullAsRoot = false,
+) {
   const output = {};
   const s = state ?? useSectionInfos.getState();
   for (const section of Object.values(s.x)) {
     if (!section.parentId) {
       getDisplayedSectionIdToChildrenHelper(section.id, s, output);
+      if (includeNullAsRoot) {
+        if (!(null in output)) {
+          output[null] = [];
+        }
+        output[null].push(section.id);
+      }
     }
   }
   return output;
