@@ -157,7 +157,7 @@ function OneItemEditing({ sectionId, id, isCurr, deletable }) {
     });
   }
 
-  function condition(v) {
+  function conditionToSetName(v) {
     const state = useSectionInfos.getState();
     for (const variantId of state.x[sectionId].variantIds) {
       if (state.variants[variantId].name === v) {
@@ -170,8 +170,26 @@ function OneItemEditing({ sectionId, id, isCurr, deletable }) {
   const [inputValue, onChange, onBlur, onKeyDown] = useEditableOnSubmit(
     name,
     onSetName,
-    condition,
+    conditionToSetName,
   );
+
+  function onClickDelete(e) {
+    e.stopPropagation();
+    useSectionInfos.setState((state) => {
+      const section = state.x[sectionId];
+      section.variantIds = section.variantIds.filter((v) => v !== id);
+
+      if (section.defaultVariantId === id) {
+        section.defaultVariantId = section.variantIds[0];
+      }
+
+      if (isCurr) {
+        section.variantId = section.variantIds[0];
+      }
+
+      delete state.variants[id];
+    });
+  }
 
   return (
     <li className="section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between border-b border-setta-200 px-1 py-[0.125rem] text-xs focus-within:!border-blue-500  hover:border-setta-500 dark:border-setta-700 dark:hover:border-setta-500 ">
@@ -188,21 +206,7 @@ function OneItemEditing({ sectionId, id, isCurr, deletable }) {
           className={
             "cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/versionitem:text-setta-400/50"
           }
-          onClick={(e) => {
-            e.stopPropagation();
-            useSectionInfos.setState((state) => {
-              const section = state.x[sectionId];
-              section.variantIds = section.variantIds.filter((v) => v !== id);
-              const { isDefault } = state.variants[id];
-
-              if (isCurr) {
-                section.variantId = section.variantIds[0];
-              }
-              if (isDefault) {
-                state.variants[section.variantIds[0]].isDefault = true;
-              }
-            });
-          }}
+          onClick={onClickDelete}
         >
           <i className="gg-trash" />
         </button>
