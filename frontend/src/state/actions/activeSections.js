@@ -5,7 +5,13 @@ import {
   useNodeInternals,
   useSectionInfos,
 } from "state/definitions";
-import { getHighestAncestor, getSectionType } from "./sectionInfos";
+import {
+  getCodeInfoCol,
+  getHighestAncestor,
+  getSectionType,
+  getSectionVariant,
+} from "./sectionInfos";
+import { getParamIdsToShowInArea } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";
 
 export function setActiveSectionIds(ids) {
@@ -32,8 +38,30 @@ export function setActiveSectionIdAndUpdateZIndex(id) {
   setZIndices([highestAncestor], false);
 }
 
-export function setAllSectionsAsActive() {
-  setActiveSectionIds(Object.keys(useSectionInfos.getState().x));
+export function selectAll() {
+  const currActiveSections = useActiveSection.getState().ids;
+
+  // select all params within single active section
+  if (currActiveSections.length === 1) {
+    useSectionInfos.setState((state) => {
+      const sectionId = currActiveSections[0];
+      // only select the top level params
+      const {topLevelParamIds} = getParamIdsToShowInArea(
+        false,
+        state.codeInfo,
+        getCodeInfoCol(sectionId, state).children,
+        getSectionVariant(sectionId, state).selectedItem,
+      );
+      console.log("paramIds", topLevelParamIds);
+      for (const p of topLevelParamIds) {
+        state.codeInfo[p].isSelected = true;
+        console.log("set to true");
+      }
+    });
+  } else {
+    // select all sections
+    setActiveSectionIds(Object.keys(useSectionInfos.getState().x));
+  }
 }
 
 export function setTopLevelNonGroupSectionsAsActive() {
