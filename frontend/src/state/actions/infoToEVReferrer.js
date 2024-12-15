@@ -98,7 +98,7 @@ export function getRequiredReplacements() {
       }
     }
   }
-  
+
   return [codeAreaReplacements, codeInfoReplacements, paramEVReplacements];
 }
 

@@ -1,7 +1,6 @@
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useRef } from "react";
-import { maybeOpenRenameReferencesModal } from "state/actions/infoToEVReferrer";
 import { justMoveANode } from "state/actions/nodeInternals";
 import {
   getSectionParentId,
@@ -100,9 +99,9 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
       position,
       state,
     });
-  });
 
-  await maybeOpenRenameReferencesModal();
+    state.shouldRenameReferences = true;
+  });
 }
 
 export function useOnDragEnd() {

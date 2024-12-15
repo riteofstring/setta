@@ -38,6 +38,7 @@ export const useSectionInfos = createProjectState(
               [C.GLOBAL_VARIABLES]: null,
               [C.GLOBAL_PARAM_SWEEP]: null,
             },
+            shouldRenameReferences: false,
           }),
         ),
       ),

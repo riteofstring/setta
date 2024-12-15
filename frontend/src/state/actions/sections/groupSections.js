@@ -7,7 +7,6 @@ import {
   useNodeInternals,
   useSectionInfos,
 } from "state/definitions";
-import { maybeOpenRenameReferencesModal } from "../infoToEVReferrer";
 import { getSectionVariant } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { addSectionAtPosition } from "./createSections";
@@ -27,9 +26,9 @@ export async function createGroup({ nodeIds, x, y }) {
       sectionIds: nodeIds,
       state,
     });
-  });
 
-  await maybeOpenRenameReferencesModal();
+    state.shouldRenameReferences = true;
+  });
 
   maybeIncrementProjectStateVersion(true);
 }
@@ -65,8 +64,9 @@ export async function ungroup(groupId) {
       positions,
       state,
     });
-    deleteSections([groupId], state);
-  });
 
-  await maybeOpenRenameReferencesModal();
+    deleteSections([groupId], state);
+
+    state.shouldRenameReferences = true;
+  });
 }

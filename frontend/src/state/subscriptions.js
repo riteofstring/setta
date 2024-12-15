@@ -9,7 +9,10 @@ import {
   useNodeInternals,
   useSectionInfos,
 } from "state/definitions";
-import { getInfoToEVReferrers } from "./actions/infoToEVReferrer";
+import {
+  getInfoToEVReferrers,
+  maybeOpenRenameReferencesModal,
+} from "./actions/infoToEVReferrer";
 import { getRegexAndColorMap } from "./actions/keywordRegex";
 import {
   getNodeUpdateInformation,
@@ -40,6 +43,11 @@ export function subscribe() {
     (x) => {
       console.log("keywordRegexSubscription triggered");
       useKeywordRegex.setState(getRegexAndColorMap(x));
+      if (useSectionInfos.getState().shouldRenameReferences) {
+        // reset the flag used by subscriptions
+        useSectionInfos.setState({ shouldRenameReferences: false });
+        maybeOpenRenameReferencesModal();
+      }
     },
     { equalityFn: _.isEqual },
   );
