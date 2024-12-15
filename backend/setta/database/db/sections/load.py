@@ -283,22 +283,22 @@ def load_json_source(filename_glob, jsonSourceKeys):
         }
 
         try:
-            current_path = []
             for k in jsonSourceKeys:
-                current_path.append(k)
                 jsonSourceData = jsonSourceData[k]
-                create_json_code_info(
-                    filename, filename_glob, current_path, k, {}, new_data
-                )
-            child_id = create_json_code_info_key(filename_glob, current_path)
-            new_data[filename]["codeInfoColChildren"][None] = [child_id]
         except:
             # TODO print warning or something
             pass
 
         process_json_object(
-            new_data, jsonSourceData, filename, filename_glob, current_path
+            new_data, jsonSourceData, filename, filename_glob, jsonSourceKeys
         )
+
+        if len(jsonSourceKeys) > 0:
+            # point directly from None (the root) to the children
+            highest_key = create_json_code_info_key(filename_glob, jsonSourceKeys)
+            codeInfoChildren = new_data[filename]["codeInfoColChildren"]
+            codeInfoChildren[None] = codeInfoChildren[highest_key]
+            del codeInfoChildren[highest_key]
 
     return new_data
 
