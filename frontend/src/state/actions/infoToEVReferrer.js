@@ -67,6 +67,12 @@ export function getRequiredReplacements() {
       for (const oneReferrer of details) {
         const { variantId, codeInfoId, referringParamInfoId, originalEVRef } =
           oneReferrer;
+
+        const newName = infoToFullName[keyForInfoToFullName(originalEVRef)];
+        if (originalEVRef.keyword === newName) {
+          continue;
+        }
+
         if (referringParamInfoId) {
           curr = getParamEVReplacementObj(
             paramEVReplacements,
@@ -88,11 +94,11 @@ export function getRequiredReplacements() {
           );
         }
 
-        const newName = infoToFullName[keyForInfoToFullName(originalEVRef)];
         curr.replacements.push({ originalEVRef, newName });
       }
     }
   }
+  
   return [codeAreaReplacements, codeInfoReplacements, paramEVReplacements];
 }
 
