@@ -13,8 +13,9 @@ import { getChangedSize, SIZE_MODE } from "./utils";
 export function CustomResizable({
   sectionId,
   bgColor,
-  isActiveSection,
   isYouTube,
+  isActiveSection,
+  positionAndSizeLocked,
   children,
   as,
 }) {
@@ -26,6 +27,7 @@ export function CustomResizable({
       bgColor={bgColor}
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
+      positionAndSizeLocked={positionAndSizeLocked}
       minHeight={minHeight}
       maxHeight={maxHeight}
       minWidth={minWidth}
@@ -43,6 +45,7 @@ function CustomResizableCore({
   bgColor,
   isYouTube,
   isActiveSection,
+  positionAndSizeLocked,
   minHeight,
   maxHeight,
   minWidth,
@@ -66,13 +69,8 @@ function CustomResizableCore({
     }
   }, [sizeMode.height, sizeMode.width]);
 
-  const {
-    size,
-    positionAndSizeLocked,
-    aspectRatio,
-    aspectRatioExtraHeight,
-    aspectRatioExtraWidth,
-  } = useAspectRatio(sectionId);
+  const { size, aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
+    useAspectRatio(sectionId);
 
   function onResizeStart() {
     useSectionInfos.setState((state) => {
@@ -210,7 +208,6 @@ function useAspectRatio(sectionId) {
     if (s.isMinimized) {
       return {
         size: s.size,
-        positionAndSizeLocked: s.positionAndSizeLocked,
         aspectRatio: false,
         aspectRatioExtraHeight: 0,
         aspectRatioExtraWidth: 0,
@@ -218,7 +215,6 @@ function useAspectRatio(sectionId) {
     }
     return {
       size: s.size,
-      positionAndSizeLocked: s.positionAndSizeLocked,
       aspectRatio: s.aspectRatio ?? false,
       aspectRatioExtraHeight: s.aspectRatioExtraHeight ?? 0,
       aspectRatioExtraWidth: s.aspectRatioExtraWidth ?? 0,

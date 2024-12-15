@@ -26,17 +26,14 @@ export function SectionContainerCoreResizable({
   sectionTypeName,
   isActiveSection,
   isInOtherProjectConfigs,
+  positionAndSizeLocked,
 }) {
-  const { isMinimized, isYouTube, positionAndSizeLocked } = useSectionInfos(
-    (x) => {
-      return {
-        isMinimized: x.x[sectionId].isMinimized,
-        isYouTube: getIsYouTubeSection(sectionId, x),
-        positionAndSizeLocked: x.x[sectionId].positionAndSizeLocked,
-      };
-    },
-    _.isEqual,
-  );
+  const { isMinimized, isYouTube } = useSectionInfos((x) => {
+    return {
+      isMinimized: x.x[sectionId].isMinimized,
+      isYouTube: getIsYouTubeSection(sectionId, x),
+    };
+  }, _.isEqual);
 
   const isRoot = getIsRoot(sectionTypeName);
   const bgColor = getBgColor(sectionTypeName);

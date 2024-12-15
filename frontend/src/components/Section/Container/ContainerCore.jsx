@@ -69,15 +69,15 @@ function ContainerGroup({
 }) {
   const hasNested = useHasTempNested(sectionId);
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
-  const isInOtherProjectConfigs = useSectionInfos(
-    (x) => x.x[sectionId].isInOtherProjectConfigs,
+  const { positionAndSizeLocked, isInOtherProjectConfigs } = useSectionInfos(
+    (x) => {
+      return {
+        positionAndSizeLocked: x.x[sectionId].positionAndSizeLocked,
+        isInOtherProjectConfigs: x.x[sectionId].isInOtherProjectConfigs,
+      };
+    },
+    _.isEqual,
   );
-
-  const { positionAndSizeLocked } = useSectionInfos((x) => {
-    return {
-      positionAndSizeLocked: x.x[sectionId].positionAndSizeLocked,
-    };
-  }, _.isEqual);
 
   const disablePointerEvents = useShouldDisablePointerEvents();
 

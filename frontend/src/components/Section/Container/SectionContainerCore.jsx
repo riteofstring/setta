@@ -51,6 +51,7 @@ function _SectionContainerCore({ sectionId }) {
         sectionTypeName={sectionTypeName}
         isActiveSection={isActiveSection}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
+        positionAndSizeLocked={positionAndSizeLocked}
       />
     </section>
   );
