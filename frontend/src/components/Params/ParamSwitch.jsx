@@ -10,10 +10,9 @@ import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 function _ParamSwitch(props) {
   const { sectionId, paramInfoId, ancestorIsSelected } = props;
 
-  const { paramIsSelected, isKwarg, paramChildren } = useSectionInfos((x) => {
+  const { isKwarg, paramChildren } = useSectionInfos((x) => {
     const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, x).children;
     return {
-      paramIsSelected: x.codeInfo[paramInfoId].isSelected,
       isKwarg: x.codeInfo[paramInfoId].editable,
       paramChildren: codeInfoChildren[paramInfoId] ?? [],
     };
@@ -23,7 +22,7 @@ function _ParamSwitch(props) {
   const handleParamSelection = useCallback(
     (e) => {
       console.log("onMouseDownSelect", sectionId, paramInfoId);
-      if (useMisc.getState().isSelectingParams) {
+      if (!ancestorIsSelected && useMisc.getState().isSelectingParams) {
         e.stopPropagation();
         toggleParamSelected(sectionId, paramInfoId);
       }
@@ -35,10 +34,6 @@ function _ParamSwitch(props) {
   const onMouseDownConditional = hasChildren ? handleParamSelection : undefined;
   const onMouseDownAlways = handleParamSelection;
 
-  const bg = paramIsSelected
-    ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white"
-    : "transition-colors";
-
   return (
     <ParamContainer
       {...props}
@@ -48,7 +43,6 @@ function _ParamSwitch(props) {
     >
       {isKwarg ? (
         <ParamNameInput
-          bg={bg}
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           hasChildren={hasChildren}
