@@ -1,6 +1,5 @@
 import json
 from collections import defaultdict
-from pprint import pprint
 
 from setta.utils.constants import BASE_UI_TYPE_IDS, C, is_from_json_source
 from setta.utils.utils import try_json
@@ -41,7 +40,6 @@ def save_json_source_data(p, section_ids=None):
             # (They might not be because they are completely empty)
             add_key_path_to_dict(to_be_saved[filename], s["jsonSourceKeys"])
 
-    pprint(to_be_saved)
     # Save each file
     for filename, data in to_be_saved.items():
         with open(filename, "w") as f:
