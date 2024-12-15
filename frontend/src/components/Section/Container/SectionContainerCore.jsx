@@ -42,7 +42,7 @@ function _SectionContainerCore({ sectionId }) {
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   return (
     <section
-      className={`group/card-section shadow-setta transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-100 dark:border-setta-875"} border  bg-white  dark:bg-setta-925 ${boxShadow} dndline w-min outline outline-4  ${outlineColor} `}
+      className={`group/card-section shadow-setta transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} border  bg-white  dark:bg-setta-925 ${boxShadow} dndline w-min outline outline-4  ${outlineColor} `}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
       ref={refForPosition}
     >

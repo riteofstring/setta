@@ -27,8 +27,8 @@ export function LockPositionButton({ sectionId }) {
   return (
     <IconButton
       icon={<i className={iconClassName} />}
-      color={`${positionAndSizeLocked ? "dark:text-orange-500 text-orange-800 hover:!text-orange-100 dark:hover:!text-orange-100" : isGroup ? "text-setta-400 dark:text-setta-600" : "text-setta-600"} hover:text-orange-500 dark:hover:text-orange-700`}
-      bg={`${positionAndSizeLocked ? "bg-orange-200 dark:bg-orange-950  hover:bg-orange-400 dark:hover:bg-orange-500" : "bg-transparent"} ${iconSize}`}
+      color={`${positionAndSizeLocked ? "dark:text-orange-500 text-orange-500 hover:!text-orange-100 dark:hover:!text-orange-100" : isGroup ? "text-setta-400 dark:text-setta-600" : "text-setta-600"} hover:text-orange-500 dark:hover:text-orange-700`}
+      bg={`${positionAndSizeLocked ? "bg-white/50 shadow-sm dark:shadow-none dark:bg-transparent  hover:bg-orange-500 dark:hover:bg-orange-500" : "bg-transparent"} ${iconSize}`}
       size={isGroup ? "w-5 h-5" : "w-4 h-4"}
       padding="p-0 mr-1"
       onClick={onClick}
