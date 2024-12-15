@@ -126,38 +126,20 @@ function ParamFilter({ sectionId }) {
 function onClickAddKwargFn(sectionId, objInfoId) {
   return () => {
     useSectionInfos.setState((state) => {
-      const { ids: selectedParamIds, pathMap } = getAllSelectedParamIds(
+      function callbackFn({ sectionId, parentId, idx, state }) {
+        addKwarg({ sectionId, parentId, insertIdx: idx + 1, state });
+      }
+
+      const paramsAreSelected = helperForAddDeleteKwarg(
         sectionId,
         state,
+        callbackFn,
       );
-      if (selectedParamIds.length > 0) {
-        const { codeInfoColId } = getSectionVariant(sectionId, state);
-        const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
-        const addedKwargNextToThese = new Set();
-        for (const p of selectedParamIds) {
-          const highest = getHighestContiguousSelectedAncestor(
-            state.codeInfo,
-            pathMap,
-            p,
-          );
-          if (addedKwargNextToThese.has(highest)) {
-            continue;
-          }
-          let parentId, insertIdx;
-          for (const [id, children] of Object.entries(codeInfoChildren)) {
-            if (children.includes(highest)) {
-              parentId = id;
-              insertIdx = children.indexOf(highest) + 1;
-              break;
-            }
-          }
-          addKwarg({ sectionId, parentId, insertIdx, state });
-          addedKwargNextToThese.add(highest);
-        }
-      } else {
+      if (!paramsAreSelected) {
         addKwarg({ sectionId, parentId: objInfoId, state });
       }
     });
+
     maybeIncrementProjectStateVersion(true);
   };
 }
@@ -165,38 +147,20 @@ function onClickAddKwargFn(sectionId, objInfoId) {
 function onClickDeleteKwargFn(sectionId, objInfoId) {
   return () => {
     useSectionInfos.setState((state) => {
-      const { ids: selectedParamIds, pathMap } = getAllSelectedParamIds(
+      let kwargIds = [];
+
+      function callbackFn({ codeInfoChildren, parentId, idx }) {
+        if (parentId) {
+          kwargIds.push(codeInfoChildren[parentId][idx + 1]);
+        }
+      }
+
+      const paramsAreSelected = helperForAddDeleteKwarg(
         sectionId,
         state,
+        callbackFn,
       );
-      if (selectedParamIds.length > 0) {
-        const { codeInfoColId } = getSectionVariant(sectionId, state);
-        const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
-        const kwargIds = [];
-        const deletedKwargNextToThese = new Set();
-        for (const p of selectedParamIds) {
-          const highest = getHighestContiguousSelectedAncestor(
-            state.codeInfo,
-            pathMap,
-            p,
-          );
-          if (deletedKwargNextToThese.has(highest)) {
-            continue;
-          }
-
-          let parentId, idx;
-          for (const [id, children] of Object.entries(codeInfoChildren)) {
-            if (children.includes(p)) {
-              parentId = id;
-              idx = children.indexOf(p);
-              break;
-            }
-          }
-          if (parentId) {
-            kwargIds.push(codeInfoChildren[parentId][idx + 1]);
-          }
-          deletedKwargNextToThese.add(highest);
-        }
+      if (paramsAreSelected) {
         deleteCodeInfo(sectionId, kwargIds, state);
       } else {
         deleteLastKwarg({
@@ -206,6 +170,41 @@ function onClickDeleteKwargFn(sectionId, objInfoId) {
         });
       }
     });
+
     maybeIncrementProjectStateVersion(true);
   };
+}
+
+function helperForAddDeleteKwarg(sectionId, state, callbackFn) {
+  const { ids: selectedParamIds, pathMap } = getAllSelectedParamIds(
+    sectionId,
+    state,
+  );
+  if (selectedParamIds.length > 0) {
+    const { codeInfoColId } = getSectionVariant(sectionId, state);
+    const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+    const kwargsOfInterest = new Set();
+    for (const p of selectedParamIds) {
+      const highest = getHighestContiguousSelectedAncestor(
+        state.codeInfo,
+        pathMap,
+        p,
+      );
+      if (kwargsOfInterest.has(highest)) {
+        continue;
+      }
+      let parentId, idx;
+      for (const [id, children] of Object.entries(codeInfoChildren)) {
+        if (children.includes(highest)) {
+          parentId = id;
+          idx = children.indexOf(highest);
+          break;
+        }
+      }
+      callbackFn({ codeInfoChildren, sectionId, parentId, idx, state });
+      kwargsOfInterest.add(highest);
+    }
+    return true;
+  }
+  return false;
 }
