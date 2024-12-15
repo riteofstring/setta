@@ -114,19 +114,12 @@ function getTitleStyles({
 
   const isGlobalVariables = sectionTypeName === C.GLOBAL_VARIABLES;
 
-  const notEditing = `transition-colors  leading-5 tracking-tight cursor-pointer max-w-full text-[.7rem] truncate ${
-    isActiveSection
-      ? isInOtherProjectConfigs
-        ? "text-purple-800 dark:text-purple-200"
-        : isGlobalVariables
-          ? "text-green-800 dark:text-green-200"
-          : sectionTypeName === C.TERMINAL
-            ? "text-blue-400"
-            : "text-blue-600 dark:text-blue-400"
-      : sectionTypeName === C.TERMINAL
-        ? "text-setta-300"
-        : "text-setta-700 dark:text-setta-300"
-  } ${isGlobalVariables ? "uppercase font-bold" : "font-bold"}`;
+  const notEditing = getNotEditingStyle({
+    isActiveSection,
+    isInOtherProjectConfigs,
+    isGlobalVariables,
+    sectionTypeName,
+  });
 
   if (isGlobalVariables) {
     return { fixed: notEditing };
@@ -136,4 +129,44 @@ function getTitleStyles({
     "select-none italic  tracking-tighter text-xs text-setta-400 max-w-full truncate pr-0.5";
 
   return { editing, notEditing, fixed };
+}
+
+function getNotEditingStyle({
+  isActiveSection,
+  isInOtherProjectConfigs,
+  isGlobalVariables,
+  sectionTypeName,
+}) {
+  let textColorClass = "";
+  let fontClass = "font-bold";
+
+  // Handle text color based on conditions
+  if (isActiveSection) {
+    if (isInOtherProjectConfigs) {
+      textColorClass = "text-purple-800 dark:text-purple-200";
+    } else if (isGlobalVariables) {
+      textColorClass = "text-green-800 dark:text-green-200";
+    } else if (sectionTypeName === C.TERMINAL) {
+      textColorClass = "text-blue-400";
+    } else {
+      textColorClass = "text-blue-600 dark:text-blue-400";
+    }
+  } else {
+    if (sectionTypeName === C.TERMINAL) {
+      textColorClass = "text-setta-300";
+    } else {
+      textColorClass = "text-setta-700 dark:text-setta-300";
+    }
+  }
+
+  // Handle text case for global variables
+  if (isGlobalVariables) {
+    fontClass = "uppercase font-bold";
+  }
+
+  // Combine all the classes
+  const baseClasses =
+    "transition-colors leading-5 tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
+
+  return `${baseClasses} ${textColorClass} ${fontClass}`;
 }
