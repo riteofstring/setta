@@ -7,7 +7,7 @@ from setta.utils.utils import filter_dict
 def save_ui_types(db, uiTypes):
     query = """
         INSERT INTO UIType (id, type, data)
-        VALUES (:id, :type, :data)
+        VALUES (CAST(:id AS BLOB), :type, :data)
         ON CONFLICT (id)
         DO UPDATE SET
             type = :type,
@@ -28,7 +28,7 @@ def save_ui_types(db, uiTypes):
 def save_ui_type_cols(db, uitype_cols):
     query = """
         INSERT INTO UITypeColId (id)
-        VALUES (:id)
+        VALUES (CAST(:id AS BLOB))
         ON CONFLICT (id)
         DO NOTHING
     """
@@ -49,7 +49,7 @@ def save_ui_type_cols(db, uitype_cols):
     """
     db.execute(query, query_params)
 
-    placeholders = ", ".join(["?"] * len(uitype_cols))
+    placeholders = ", ".join([f"CAST(? AS BLOB)"] * len(uitype_cols))
     query = f"""
         DELETE FROM UITypeCol
         WHERE idid IN ({placeholders})
@@ -59,7 +59,7 @@ def save_ui_type_cols(db, uitype_cols):
 
     query = """
         INSERT INTO UITypeCol (idid, codeInfoId, uiTypeId)
-        VALUES (:idid, :codeInfoId, :uiTypeId)
+        VALUES (CAST(:idid AS BLOB), CAST(:codeInfoId AS BLOB), CAST(:uiTypeId AS BLOB))
     """
     query_params = []
     for idid in uitype_cols.keys():
@@ -76,9 +76,9 @@ def save_ui_type_cols(db, uitype_cols):
 
     query = """
         UPDATE UIType
-        SET asNonPresetForUITypeColId = :uiTypeColId,
-            asNonPresetForCodeInfoId = :codeInfoId
-        WHERE id = :nonPresetUITypeId
+        SET asNonPresetForUITypeColId = CAST(:uiTypeColId AS BLOB),
+            asNonPresetForCodeInfoId = CAST(:codeInfoId AS BLOB)
+        WHERE id = CAST(:nonPresetUITypeId AS BLOB)
     """
     query_params = []
     for idid in uitype_cols.keys():

@@ -11,13 +11,13 @@ from setta.utils.utils import filter_dict
 def save_section_variants(db, section_variants):
     query = """
         INSERT INTO SectionVariantId (id, name, data, selectedItem, codeInfoColId)
-        VALUES (:id, :name, :data, :selectedItem, :codeInfoColId)
+        VALUES (CAST(:id AS BLOB), :name, :data, CAST(:selectedItem AS BLOB), CAST(:codeInfoColId AS BLOB))
         ON CONFLICT (id)
         DO UPDATE SET
         name = :name,
         data = :data,
-        selectedItem = :selectedItem,
-        codeInfoColId = :codeInfoColId
+        selectedItem = CAST(:selectedItem AS BLOB),
+        codeInfoColId = CAST(:codeInfoColId AS BLOB)
     """
 
     query_params = [
@@ -39,7 +39,7 @@ def save_section_variants(db, section_variants):
     db.executemany(query, query_params)
 
     # delete entered values
-    placeholders = ", ".join(["?"] * len(section_variants))
+    placeholders = ", ".join([f"CAST(? AS BLOB)"] * len(section_variants))
     query = f"""
         DELETE FROM SectionVariantEV
         WHERE idid IN ({placeholders})
@@ -50,7 +50,7 @@ def save_section_variants(db, section_variants):
     # add entered values
     query = """
         INSERT INTO SectionVariantEV (idid, codeInfoId, data)
-        VALUES (:idid, :codeInfoId, :data)
+        VALUES (CAST(:idid AS BLOB), CAST(:codeInfoId AS BLOB), :data)
     """
     query_params = []
     for idid, variant in section_variants.items():
@@ -79,7 +79,7 @@ def save_section_variants(db, section_variants):
 
     query = """
         INSERT INTO SectionVariantParamSweep (idid, selectedItemGroupNum, paramInfoGroupNum, selectedItem, paramInfoId, "order", value)
-        VALUES (:idid, :selectedItemGroupNum, :paramInfoGroupNum, :selectedItem, :paramInfoId, :order, :value)
+        VALUES (CAST(:idid AS BLOB), :selectedItemGroupNum, :paramInfoGroupNum, CAST(:selectedItem AS BLOB), CAST(:paramInfoId AS BLOB), :order, :value)
     """
 
     query_params = []

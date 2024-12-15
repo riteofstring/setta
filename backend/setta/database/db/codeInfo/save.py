@@ -7,7 +7,7 @@ from setta.utils.utils import filter_dict, replace_null_keys_with_none
 def save_code_info(db, codeInfo):
     query = """
         INSERT INTO CodeInfo (id, name, data)
-        VALUES (:id, :name, :data)
+        VALUES (CAST(:id AS BLOB), :name, :data)
         ON CONFLICT (id)
         DO UPDATE SET
             name = :name,
@@ -37,7 +37,7 @@ def save_code_info_col(db, codeInfoCols):
 
     query = """
         INSERT INTO CodeInfoColId (id)
-        VALUES (:id)
+        VALUES (CAST(:id AS BLOB))
         ON CONFLICT (id)
         DO NOTHING
     """
@@ -45,7 +45,7 @@ def save_code_info_col(db, codeInfoCols):
     query_params = [{"id": k} for k in codeInfoCols.keys()]
     db.executemany(query, query_params)
 
-    placeholders = ", ".join(["?"] * len(codeInfoCols))
+    placeholders = ", ".join([f"CAST(? AS BLOB)"] * len(codeInfoCols))
     query = f"""
         DELETE FROM CodeInfoCol
         WHERE idid IN ({placeholders})
@@ -56,7 +56,7 @@ def save_code_info_col(db, codeInfoCols):
     # add children
     query = """
         INSERT INTO CodeInfoCol (idid, parentId, childId, "order")
-        VALUES (:idid, :parentId, :childId, :order)
+        VALUES (CAST(:idid AS BLOB), CAST(:parentId AS BLOB), CAST(:childId AS BLOB), :order)
     """
     query_params = []
     for idid, c in codeInfoCols.items():
