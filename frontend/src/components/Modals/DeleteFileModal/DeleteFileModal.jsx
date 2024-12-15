@@ -1,5 +1,4 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { BiErrorCircle } from "react-icons/bi";
 import { dbDeleteFile } from "requests/jsonSource";
 import { setModalOpen } from "state/actions/modal";
 import { setNotificationMessage } from "state/actions/notification";
@@ -30,18 +29,23 @@ export function DeleteFileModal() {
   };
 
   return (
-    <div className="mx-auto flex h-full w-full flex-col items-center">
+    <div className="mx-auto flex w-full flex-col items-center">
       <header className="flex flex-col gap-2 self-start">
         <div className="flex items-center gap-2">
-          <BiErrorCircle className="h-6 w-6 rounded-full bg-red-100 p-0.5 text-red-600 dark:bg-red-700 dark:text-red-200" />
+          <i className="gg-trash h-6 w-6 rounded-full bg-red-100 p-0.5 text-red-600 dark:bg-red-700 dark:text-red-200" />
+
           <Dialog.Title className="text-xl font-semibold text-setta-800 dark:text-setta-200">
             Confirm File Deletion
           </Dialog.Title>
         </div>
-        <Dialog.Description className="mb-4 text-sm text-setta-600 dark:text-setta-300">
-          Are you sure you want to delete the following file? {filepath}
-        </Dialog.Description>
       </header>
+      <Dialog.Description className="mb-4 mt-8 w-full flex-1 text-sm text-setta-600 dark:text-setta-300">
+        <p className="">Are you sure you want to delete the following file?</p>
+        <div className="mt-2 flex items-center gap-2">
+          {/* <i className="gg-folder text-setta-500" /> */}
+          <p className="text-lg">{filepath}</p>
+        </div>
+      </Dialog.Description>
       {/* Fixed footer section */}
       <div className="flex w-full justify-end space-x-3 border-t border-setta-200 pt-4 dark:border-setta-700">
         <button
