@@ -12,7 +12,11 @@ def load_uitypes(db, ids):
     db.execute(query, ids)
     output = {}
     for row in db.fetchall():
-        output[row["id"]] = {"id": row["id"], "type": row["type"], **json.loads(row["data"])}
+        output[row["id"]] = {
+            "id": row["id"],
+            "type": row["type"],
+            **json.loads(row["data"]),
+        }
     return output
 
 

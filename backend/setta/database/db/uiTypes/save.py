@@ -18,7 +18,9 @@ def save_ui_types(db, uiTypes):
         {
             "id": v["id"],
             "type": v["type"],
-            "data": json.dumps(filter_dict(v, UI_TYPE_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["uiType"])),
+            "data": json.dumps(
+                filter_dict(v, UI_TYPE_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["uiType"])
+            ),
         }
         for v in uiTypes.values()
     ]
