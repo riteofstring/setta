@@ -9,3 +9,11 @@ export function newArtifact({ name, ...props }) {
     props,
   );
 }
+
+export function newDrawAreaLayer(type) {
+  if (type === "img") {
+    return { type, opacity: 0.5, image: new Image() };
+  } else if (type === "brushStrokes") {
+    return { type, opacity: 0.5, strokes: [] };
+  }
+}

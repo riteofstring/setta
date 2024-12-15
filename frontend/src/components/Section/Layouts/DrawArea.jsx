@@ -22,7 +22,7 @@ import { useArtifactData } from "state/hooks/artifacts";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createNewId } from "utils/idNameCreation";
-import { newArtifact } from "utils/objs/artifact";
+import { newArtifact, newDrawAreaLayer } from "utils/objs/artifact";
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -42,15 +42,14 @@ export function DrawOnImage({ sectionId }) {
       canvasSettings: x.x[sectionId].canvasSettings,
     };
   }, _.isEqual);
-  const backgroundCanvasRef = useRef(null);
+  const [layers, setLayers] = useState({});
+  const [activeLayerId, setActiveLayerId] = useState(null);
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
-  const imageRef = useRef(null);
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
   const strokesRef = useRef([]);
-  const [strokesArtifactId, setStrokesArtifactId] = useState();
 
   function setColor(v) {
     setCanvasSettings(sectionId, "color", v);
@@ -92,51 +91,41 @@ export function DrawOnImage({ sectionId }) {
     }
   }
 
-  function setCanvasProperties({ doDrawStrokes, isNewImg }) {
-    const [canvas] = getCanvasAndCtx(canvasRef);
-    const [backgroundCanvas, backgroundCtx] =
-      getCanvasAndCtx(backgroundCanvasRef);
-
-    const image = imageRef.current;
-    const imgSize = image?.complete
-      ? {
-          width: image.width,
-          height: image.height,
-        }
-      : null;
-    const canvasSize = setDrawAreaSectionSize({
-      sectionId,
-      imgSize,
-      isNewImg,
-    });
-    backgroundCanvas.width = canvasSize.width;
-    backgroundCanvas.height = canvasSize.height;
-    canvas.width = canvasSize.width;
-    canvas.height = canvasSize.height;
-
-    if (image?.complete) {
-      const scale = Math.min(
-        canvasSize.width / image.width,
-        canvasSize.height / image.height,
-      );
-      const x = canvasSize.width / 2 - (image.width / 2) * scale;
-      const y = canvasSize.height / 2 - (image.height / 2) * scale;
-      clearCanvas(backgroundCanvasRef);
-      backgroundCtx.globalAlpha = 1;
-      backgroundCtx.drawImage(
-        image,
-        x,
-        y,
-        image.width * scale,
-        image.height * scale,
-      );
-    } else {
-      clearCanvas(backgroundCanvasRef);
-    }
-
+  function setCanvasProperties({ newLayerState, doDrawStrokes, isNewImg }) {
+    const [canvas, ctx] = getCanvasAndCtx(canvasRef);
     clearCanvas(canvasRef);
-    if (doDrawStrokes) {
-      drawStrokesAndKeepOriginalProps(canvasRef, strokesRef.current);
+
+    const layersToDraw = newLayerState ?? layers;
+
+    let canvasSize = null;
+    for (const [id, layer] of Object.entries(layersToDraw)) {
+      const { type, opacity } = layer;
+      if (type === "img") {
+        const image = layer.image;
+        if (!canvasSize) {
+          canvasSize = setDrawAreaSectionSize({
+            sectionId,
+            imgSize: { width: image.width, height: image.height },
+            isNewImg,
+          });
+
+          canvas.width = canvasSize.width;
+          canvas.height = canvasSize.height;
+        }
+
+        const scale = Math.min(
+          canvasSize.width / image.width,
+          canvasSize.height / image.height,
+        );
+        const x = canvasSize.width / 2 - (image.width / 2) * scale;
+        const y = canvasSize.height / 2 - (image.height / 2) * scale;
+
+        ctx.globalAlpha = opacity;
+        console.log("drawing image");
+        ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
+      } else if (type === "brushStrokes" && doDrawStrokes) {
+        drawStrokesAndKeepOriginalProps(canvasRef, layer.strokes);
+      }
     }
   }
 
@@ -145,22 +134,26 @@ export function DrawOnImage({ sectionId }) {
       return;
     }
     let isNewImg = false;
+    const newLayerState = _.cloneDeep(layers);
     for (const [artifactId, v] of Object.entries(artifacts)) {
+      if (!(artifactId in newLayerState)) {
+        newLayerState[artifactId] = newDrawAreaLayer(v.type);
+      }
       if (v.type === "img") {
         const base64String = `data:image/png;base64,${v.value}`;
-        if (imageRef.current?.src !== base64String) {
-          const image = new Image();
-          image.src = base64String;
-          await image.decode();
-          imageRef.current = image;
+        const storedImage = newLayerState[artifactId].image;
+        if (storedImage.src !== base64String) {
+          storedImage.src = base64String;
+          await storedImage.decode();
           isNewImg = true;
         }
       } else if (v.type === "brushStrokes") {
-        strokesRef.current = _.cloneDeep(v.value);
-        setStrokesArtifactId(artifactId);
+        newLayerState[artifactId].strokes = _.cloneDeep(v.value);
       }
     }
-    setCanvasProperties({ doDrawStrokes: true, isNewImg });
+
+    setLayers(newLayerState);
+    setCanvasProperties({ newLayerState, doDrawStrokes: true, isNewImg });
     setDraftCanvasProperties();
   }
 
@@ -449,7 +442,6 @@ export function DrawOnImage({ sectionId }) {
         className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0"
         {...getRootProps()}
       >
-        <canvas ref={backgroundCanvasRef} className={canvasClassName} />
         <div
           className="single-cell-child single-cell-container"
           style={{ opacity: canvasOpacity }}
