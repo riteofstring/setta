@@ -50,6 +50,11 @@ def filter_data_for_json_export(p):
         )
     p["codeInfoCols"] = remove_empty(p["codeInfoCols"])
 
+    for k, v in p["uiTypes"].items():
+        p["uiTypes"][k] = filter_dict(
+            v, DEFAULT_VALUES["uiType"].keys(), DEFAULT_VALUES["uiType"]
+        )
+
     for k, v in p["uiTypeCols"].items():
         for paramId, uiTypeColInfo in v.items():
             p["uiTypeCols"][k][paramId] = filter_dict(
