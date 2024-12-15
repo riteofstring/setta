@@ -1,16 +1,16 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import C from "constants/constants.json";
+import _ from "lodash";
 import { getSectionType, toggleSectionLock } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 export function LockPositionButton({ sectionId }) {
-  const positionAndSizeLocked = useSectionInfos(
-    (x) => x.x[sectionId].positionAndSizeLocked,
-  );
-
-  const isGroup = useSectionInfos(
-    (x) => getSectionType(sectionId, x) === C.GROUP,
-  );
+  const { isGroup, positionAndSizeLocked } = useSectionInfos((x) => {
+    return {
+      isGroup: getSectionType(sectionId, x) === C.GROUP,
+      positionAndSizeLocked: x.x[sectionId].positionAndSizeLocked,
+    };
+  }, _.isEqual);
 
   const iconClassName = positionAndSizeLocked ? "gg-lock" : "gg-lock-unlock";
 

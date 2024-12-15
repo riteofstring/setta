@@ -20,20 +20,12 @@ export function HeaderIcon({
   isInOtherProjectConfigs,
   isListElement,
 }) {
-  const isGroup = useSectionInfos(
-    (x) => getSectionType(sectionId, x) === C.GROUP,
-  );
-
   if (isListElement) {
     return <ListElementIcon sectionId={sectionId} />;
   }
 
   if (isInOtherProjectConfigs) {
-    return (
-      <i
-        className={`gg-link group/card-section:hover:bg  transition-colors group-hover/card-section:text-pink-500  dark:group-hover/card-section:text-[#ff00ff] ${isGroup ? "-rotate-45 !scale-75 text-purple-600 dark:text-purple-700" : "text-purple-500 dark:text-purple-500"}`}
-      />
-    );
+    return <IsInOtherProjectConfigsIcon sectionId={sectionId} />;
   }
 
   switch (sectionTypeName) {
@@ -83,6 +75,18 @@ export function HeaderIcon({
         <i className="gg-menu group/card-section:hover:bg !scale-110 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
   }
+}
+
+function IsInOtherProjectConfigsIcon({ sectionId }) {
+  const isGroup = useSectionInfos(
+    (x) => getSectionType(sectionId, x) === C.GROUP,
+  );
+
+  return (
+    <i
+      className={`gg-link group/card-section:hover:bg  transition-colors group-hover/card-section:text-pink-500  dark:group-hover/card-section:text-[#ff00ff] ${isGroup ? "-rotate-45 !scale-75 text-purple-600 dark:text-purple-700" : "text-purple-500 dark:text-purple-500"}`}
+    />
+  );
 }
 
 function SocialIcon({ sectionId }) {
