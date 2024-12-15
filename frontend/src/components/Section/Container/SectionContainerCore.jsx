@@ -28,8 +28,8 @@ function _SectionContainerCore({ sectionId }) {
 
   const boxShadow = !positionAndSizeLocked
     ? isActiveSection
-      ? "shadow-2xl"
-      : "shadow-md active:shadow-2xl"
+      ? "shadow-2xl dark:shadow-setta-925"
+      : "shadow-md dark:shadow-setta-900/30 active:shadow-2xl dark:active:shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)]"
     : "";
 
   const outlineColor = getOutlineColor({
@@ -39,9 +39,10 @@ function _SectionContainerCore({ sectionId }) {
     jsonSourceMissing,
   });
 
+  // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   return (
     <section
-      className={`group/card-section ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-100 dark:border-setta-900"} border  bg-white  dark:bg-setta-925 ${boxShadow} dndline w-min outline outline-4 [transition:_box-shadow_500ms_ease] ${outlineColor} [transition:_outline-color_200ms_ease]`}
+      className={`group/card-section shadow-setta transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-100 dark:border-setta-875"} border  bg-white  dark:bg-setta-925 ${boxShadow} dndline w-min outline outline-4  ${outlineColor} `}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
       ref={refForPosition}
     >
