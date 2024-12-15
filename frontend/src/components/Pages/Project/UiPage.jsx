@@ -1,4 +1,3 @@
-import { GroupContextMenu } from "components/Utils/ContextMenus/GroupContextMenu";
 import { PaneContextMenu } from "components/Utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "components/Utils/ContextMenus/SelectionContextMenu";
 import { GlobalDndContext } from "forks/dnd-kit/GlobalDndContext";
@@ -20,7 +19,6 @@ export function UIPage() {
       <ReactFlow />
       <PaneContextMenu />
       <SelectionContextMenu />
-      <GroupContextMenu />
       {showMiniMap && <ResponsiveMiniMap />}
       <Controls />
     </GlobalDndContext>

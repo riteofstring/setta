@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { BiPaint } from "react-icons/bi";
 import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
-import { FaSquareXTwitter } from "react-icons/fa6";
+import { FaLayerGroup, FaSquareXTwitter } from "react-icons/fa6";
 import { GoDotFill } from "react-icons/go";
 import { IoLogoJavascript } from "react-icons/io";
 import { PiTextTFill } from "react-icons/pi";
@@ -19,8 +19,6 @@ export function HeaderIcon({
   isInOtherProjectConfigs,
   isListElement,
 }) {
-  const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
-
   if (isListElement) {
     return <ListElementIcon sectionId={sectionId} />;
   }
@@ -54,12 +52,7 @@ export function HeaderIcon({
         <TbArrowIteration className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
     case C.INFO:
-      return renderMarkdown ? (
-        <FaMarkdown className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
-      ) : (
-        <PiTextTFill className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
-      );
-    // <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
+      return <InfoIcon sectionId={sectionId} />;
     case C.IMAGE:
     case C.LINE_PLOT:
       return (
@@ -71,6 +64,10 @@ export function HeaderIcon({
       );
     case C.SOCIAL:
       return <SocialIcon sectionId={sectionId} />;
+    case C.GROUP:
+      return (
+        <FaLayerGroup className="text-setta-100 transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500  dark:group-hover/group-section:text-[#0084ff]" />
+      );
     default:
       return (
         <i className="gg-menu group/card-section:hover:bg !scale-110 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
@@ -122,4 +119,15 @@ function ListElementIcon({ sectionId }) {
       [{idx}]
     </p>
   );
+}
+
+function InfoIcon({ sectionId }) {
+  const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
+
+  return renderMarkdown ? (
+    <FaMarkdown className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
+  ) : (
+    <PiTextTFill className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
+  );
+  // <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
 }

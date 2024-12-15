@@ -13,6 +13,7 @@ import { ResetToDefaultVersion } from "./ResetToDefaultVersion";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
 import { ConvertFormat, RenderInfo } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
+import { UngroupButton } from "./UngroupButton";
 
 function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
   const menuItems = getMenuItems(sectionTypeName);
@@ -113,6 +114,8 @@ export function getMenuItems(uiTypeName) {
     case C.CODE:
     case C.INTERACTIVE_CODE:
       return [CreateNewVersionButton, ResetToDefaultVersion];
+    case C.GROUP:
+      return [UngroupButton];
     default:
       return [];
   }
