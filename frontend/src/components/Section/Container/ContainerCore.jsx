@@ -98,7 +98,7 @@ function ContainerGroup({
       style={style}
     >
       <div
-        className={`outline outline-4 ${outlineColor} absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-setta-100/50 outline outline-2 outline-transparent  dark:border-setta-700 dark:bg-setta-800/50`}
+        className={`outline outline-4 ${outlineColor} absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-setta-50/50 bg-setta-200/70 outline outline-2 outline-transparent  dark:border-setta-700 dark:bg-setta-950/70`}
       />
       <div className="z-10 flex min-h-8 w-full items-center">
         <MenuButton
