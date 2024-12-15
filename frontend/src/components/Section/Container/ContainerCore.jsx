@@ -1,12 +1,13 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
 import React from "react";
-import { FaLayerGroup } from "react-icons/fa6";
-import { openGroupContextMenu } from "state/actions/contextMenus";
+
+import C from "constants/constants.json";
 import { useActiveSection, useSectionInfos } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { sectionContainerCoreOnKeyDown } from "utils/tabbingLogic";
+import MenuButton from "../Header/MenuButton/MenuButton";
 import { SectionTitle } from "../Header/SectionTitle";
 import { getOnSectionClick, getOutlineColor, useHasTempNested } from "./utils";
 
@@ -102,12 +103,14 @@ function ContainerGroup({
       <div
         className={`outline outline-4 ${outlineColor} absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline  outline-2 outline-transparent  dark:border-setta-700 dark:bg-setta-950/30`}
       />
-      <div className="flex min-h-8 w-full items-center">
-        <button className={triggerClass}>
-          <FaLayerGroup className="text-setta-100 transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500  dark:group-hover/group-section:text-[#0084ff]" />
-        </button>
+      <div className="z-10 flex min-h-8 w-full items-center">
+        <MenuButton
+          sectionId={sectionId}
+          sectionTypeName={C.GROUP}
+          isInOtherProjectConfigs={isInOtherProjectConfigs}
+        />
         <div
-          className={`${pointerSelectCSS}relative min-h-8 w-full overflow-hidden`}
+          className={`${pointerSelectCSS} relative min-h-8 w-full overflow-hidden`}
         >
           <GroupSectionTitle sectionId={sectionId} />
         </div>
