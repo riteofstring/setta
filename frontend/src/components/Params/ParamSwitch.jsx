@@ -59,7 +59,7 @@ function _ParamSwitch(props) {
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           onMouseDown={onMouseDownConditional}
-          bg={bg}
+          bg={hasChildren ? bg : ""}
         />
       )}
     </ParamContainer>

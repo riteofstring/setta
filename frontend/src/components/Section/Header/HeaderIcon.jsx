@@ -9,6 +9,7 @@ import { PiTextTFill } from "react-icons/pi";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbArrowIteration } from "react-icons/tb";
+import { getSectionType } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useListElementIdx } from "state/hooks/sectionVariants";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
@@ -19,13 +20,19 @@ export function HeaderIcon({
   isInOtherProjectConfigs,
   isListElement,
 }) {
+  const isGroup = useSectionInfos(
+    (x) => getSectionType(sectionId, x) === C.GROUP,
+  );
+
   if (isListElement) {
     return <ListElementIcon sectionId={sectionId} />;
   }
 
   if (isInOtherProjectConfigs) {
     return (
-      <i className="gg-link group/card-section:hover:bg text-purple-500 transition-colors group-hover/card-section:text-pink-500 dark:text-purple-500 dark:group-hover/card-section:text-[#ff00ff]" />
+      <i
+        className={`gg-link group/card-section:hover:bg  transition-colors group-hover/card-section:text-pink-500  dark:group-hover/card-section:text-[#ff00ff] ${isGroup ? "-rotate-45 !scale-75 text-purple-600 dark:text-purple-700" : "text-purple-500 dark:text-purple-500"}`}
+      />
     );
   }
 
@@ -66,7 +73,10 @@ export function HeaderIcon({
       return <SocialIcon sectionId={sectionId} />;
     case C.GROUP:
       return (
-        <FaLayerGroup className="text-setta-100 transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500  dark:group-hover/group-section:text-[#0084ff]" />
+        <FaLayerGroup
+          className="[&_*]:!scale-120 text-setta-400 transition-colors group-hover/group-section:text-blue-600  dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]
+          "
+        />
       );
     default:
       return (
