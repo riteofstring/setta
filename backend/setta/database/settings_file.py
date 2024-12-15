@@ -11,7 +11,6 @@ from setta.database.db.sections.jsonSource import (
     save_json_source_data,
 )
 from setta.database.db.sections.load import load_json_sources_into_data_structures
-from setta.database.db.sectionVariants.utils import new_section_variant
 from setta.utils.constants import CONSTANTS_FOLDER, SEED_FOLDER, USER_SETTINGS
 from setta.utils.utils import get_absolute_path, save_json_to_file
 
@@ -37,9 +36,6 @@ class SettingsFile:
     def save_settings_project(self, p):
         self.meta_settings_file.save_settings_project(p)
         return self.load_settings()
-
-
-from pprint import pprint
 
 
 class MetaSettingsFile:
@@ -118,7 +114,6 @@ class MetaSettingsFile:
             self.obj_seed_meta_settings = json.load(f)
 
     def save_settings_project(self, p):
-        pprint(p)
         save_json_source_data(p)
         remove_json_source_data(p, keepCodeInfoThatHaveUITypes=False)
         filter_data_for_json_export(p)
