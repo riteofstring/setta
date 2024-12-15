@@ -70,7 +70,6 @@ export function pinSelectedKwargs(sectionId) {
   useSectionInfos.setState((x) => {
     const selectedParamIds = getAllSelectedParamIds(sectionId, x);
     const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
-    const visited = new Set();
     for (const p of selectedParamIds) {
       setAttrOfSelfAndDescendants(
         x.codeInfo,
@@ -78,23 +77,27 @@ export function pinSelectedKwargs(sectionId) {
         p,
         "isPinned",
         !x.codeInfo[p].isPinned,
-        visited,
       );
     }
   });
 }
 
 export function toggleParamSelected(sectionId, paramInfoId) {
-  useSectionInfos.setState((state) => {
-    const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
-    const visited = new Set();
+  useSectionInfos.setState((x) => {
+    const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
+    const newVal = !x.codeInfo[paramInfoId].isSelected;
+    console.log("toggleParamSelected", newVal);
+    x.codeInfo[paramInfoId].isSelected = newVal;
+    // We want only the parent to be true
+    // just because of the way other states interpret isSelected
+    const childrenNewVal = false;
     setAttrOfSelfAndDescendants(
-      state.codeInfo,
+      x.codeInfo,
       codeInfoChildren,
       paramInfoId,
       "isSelected",
-      !state.codeInfo[paramInfoId].isSelected,
-      visited,
+      childrenNewVal,
+      false,
     );
   });
 }
@@ -118,12 +121,11 @@ function setAttrOfSelfAndDescendants(
   id,
   attr,
   value,
-  visited,
+  setSelf = true,
 ) {
-  if (visited.has(id)) {
-    return;
+  if (setSelf) {
+    state[id][attr] = value;
   }
-  state[id][attr] = value;
   for (const paramId of codeInfoChildren[id]) {
     state[paramId][attr] = value;
     setAttrOfSelfAndDescendants(
@@ -132,10 +134,9 @@ function setAttrOfSelfAndDescendants(
       paramId,
       attr,
       value,
-      visited,
+      true,
     );
   }
-  visited.add(id);
 }
 
 function getKwargIds(sectionId, codeInfoId, _state) {
