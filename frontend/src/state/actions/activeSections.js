@@ -5,7 +5,6 @@ import {
   useNodeInternals,
   useSectionInfos,
 } from "state/definitions";
-import { focusOnSection } from "utils/tabbingLogic";
 import { getHighestAncestor, getSectionType } from "./sectionInfos";
 import { getAllDisplayedParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";
@@ -25,24 +24,6 @@ export function removeActiveSectionIds(ids) {
 }
 
 export function clearActiveSectionIds() {
-  // for (const x of useActiveSection.getState().ids) {
-  //   const el = useSectionRefs.getState().withNested[x];
-
-  //   // Get all focusable elements within the container
-  //   const focusableElements = el.querySelectorAll(
-  //     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-  //   );
-
-  //   // Remove focus from all focusable elements
-  //   focusableElements.forEach((element) => {
-  //     element.blur();
-  //   });
-  // }
-  const currActiveSections = useActiveSection.getState().ids;
-  if (currActiveSections.length > 0) {
-    // keep focus on section[0], so that tab will still move to it
-    focusOnSection(null, currActiveSections[0], false);
-  }
   useActiveSection.setState({ ids: [] });
 }
 
