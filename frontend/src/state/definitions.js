@@ -103,7 +103,7 @@ export const useNotification = create(
   })),
 );
 
-export const useAllProjectConfigs = createProjectState(
+export const useAllProjectConfigs = create(
   withResetFn(() => ({
     x: {},
     names: [],

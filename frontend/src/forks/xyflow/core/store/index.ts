@@ -1,11 +1,11 @@
 import { zoomIdentity } from "d3-zoom";
-import { createProjectState } from "state/utils";
+import { create } from "state/utils";
 import { subscribeWithSelector } from "zustand/middleware";
 import type { CoordinateExtent, ReactFlowState, XYPosition } from "../types";
 import { getActiveSectionsBounds } from "../utils/graph";
 import initialState from "./initialState";
 
-export const useReactFlow = createProjectState<ReactFlowState>(
+export const useReactFlow = create<ReactFlowState>(
   subscribeWithSelector((set, get) => ({
     ...initialState,
     setNodesSelection: (selectedNodesCount, ignoreGrid = false) => {
@@ -57,11 +57,6 @@ export const useReactFlow = createProjectState<ReactFlowState>(
         transform[2] !== constrainedTransform.k;
 
       return transformChanged;
-    },
-    reset: () => {
-      const { d3Zoom, d3Selection, d3ZoomHandler, domNode } = get();
-      // don't reset d3 or dom stuff
-      set({ ...initialState, d3Zoom, d3Selection, d3ZoomHandler, domNode });
     },
   })),
 );

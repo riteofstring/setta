@@ -1,5 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Footer } from "components/Modals/SaveLoadModal/SaveLoadModal";
+import { setViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { dbAddDefaultDataForJSONImport } from "requests/projects";
@@ -41,6 +42,14 @@ export function ImportJSONModal({ modalType }) {
     if (res.status === 200) {
       resetProjectStores();
       loadProjectState(res.data);
+      const { viewport } = res.data.projectConfig;
+      if (viewport) {
+        // we have to set transform using the existing d3Zoom
+        // because the page isn't reloading so the d3Zoom isn't getting re-initialized.
+        // If we don't do this, then the d3Zoom will still be in its previous state
+        // so the x,y,zoom will reset to where it was as soon as there is any interaction.
+        setViewport(viewport);
+      }
     }
   }
 
