@@ -74,6 +74,7 @@ export async function loadProjectState({
   });
   await maybeRunGuiToYamlOnAllSections();
   maybeIncrementProjectStateVersion(true, false);
+  console.log("useReactFlow.getState()", useReactFlow.getState())
   return true;
 }
 

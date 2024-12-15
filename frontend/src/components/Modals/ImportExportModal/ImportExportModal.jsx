@@ -40,6 +40,7 @@ export function ImportJSONModal({ modalType }) {
     const res = await dbAddDefaultDataForJSONImport(project);
     if (res.status === 200) {
       resetProjectStores();
+      console.log("res.data", res.data)
       loadProjectState(res.data);
     }
   }
