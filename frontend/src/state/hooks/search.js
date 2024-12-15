@@ -5,7 +5,7 @@ import {
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";
-import { getCodeInfoCol, getDisplayedSectionIdToChildren, getSectionVariant } from "state/actions/sectionInfos";
+import { getCodeInfoCol, getSectionVariant } from "state/actions/sectionInfos";
 import {
   useProjectSearch,
   useSectionInfos,
@@ -58,16 +58,14 @@ export function useUpdateProjectSearch() {
 function getAllVisibleParams() {
   const x = useSectionInfos.getState();
   const output = [];
-  const sectionIdToChildren = getDisplayedSectionIdToChildren(x)
-  console.log("sectionIdToChildren", sectionIdToChildren)
-  // const visitedSections = new Set();
-  // for (const sectionId of Object.keys(x.x)) {
-  //   getParamsAndAddToSearchResults(visitedSections, sectionId, x, output);
-  //   const sectionChildren = getSectionVariant(sectionId, x).children;
-  //   for (const id of sectionChildren) {
-  //     getParamsAndAddToSearchResults(visitedSections, id, x, output);
-  //   }
-  // }
+  const visitedSections = new Set();
+  for (const sectionId of Object.keys(x.x)) {
+    getParamsAndAddToSearchResults(visitedSections, sectionId, x, output);
+    const sectionChildren = getSectionVariant(sectionId, x).children;
+    for (const id of sectionChildren) {
+      getParamsAndAddToSearchResults(visitedSections, id, x, output);
+    }
+  }
   return output;
 }
 

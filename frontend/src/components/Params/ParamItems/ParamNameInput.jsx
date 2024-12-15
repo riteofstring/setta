@@ -1,22 +1,22 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
-import { getSectionVariant } from "state/actions/sectionInfos";
+import {
+  getDisplayedCodeInfoCol,
+  getSectionVariant,
+} from "state/actions/sectionInfos";
 import { useMisc, useSectionInfos } from "state/definitions";
 
-export function ParamNameInput({
-  bg,
-  sectionId,
-  paramInfoId,
-  hasChildren,
-  onMouseDown,
-}) {
+export function ParamNameInput({ sectionId, paramInfoId }) {
   const {
+    hasChildren,
     configLanguage,
     name: value,
     variantIsFrozen,
   } = useSectionInfos((x) => {
+    const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, x).children;
     return {
       variantIsFrozen: getSectionVariant(sectionId, x).isFrozen,
+      hasChildren: (codeInfoChildren[paramInfoId] ?? []).length > 0,
       configLanguage: x.x[sectionId].configLanguage,
       name: x.codeInfo[paramInfoId].name,
     };
@@ -40,7 +40,7 @@ export function ParamNameInput({
         value={value}
         defaultVal={"Please Enter Key"}
         onChange={onChange}
-        dummyCodeClassName={`${bg} min-w-0 self-end truncate placeholder:text-setta-300 dark:placeholder:text-setta-600 ${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} nodrag peer/nameinput ${!isDisabled ? "cursor-text select-text" : ""} break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] dark:focus-visible:border-blue-400`}
+        dummyCodeClassName={`min-w-0 self-end truncate placeholder:text-setta-300 dark:placeholder:text-setta-600 ${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} nodrag peer/nameinput ${!isDisabled ? "cursor-text select-text" : ""} break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] dark:focus-visible:border-blue-400`}
         realCodeClassName={`nodrag cursor-text self-end select-text [&_*]:!outline-0 [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs min-w-0 truncate placeholder:text-setta-300 dark:placeholder:text-setta-600 py-[.125rem] ${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} peer/nameinput font-mono dark:focus-visible:border-blue-400`}
         color="green"
         language={configLanguage}
@@ -50,7 +50,6 @@ export function ParamNameInput({
         autocomplete={false}
         isKeyName={true}
         isDisabled={isDisabled}
-        onMouseDown={onMouseDown}
       />
       <span
         className={`${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} border-box self-end border-b border-setta-200/50 peer-focus-within/nameinput:border-blue-400 dark:border-setta-600/30`}

@@ -6,7 +6,10 @@ import _ from "lodash";
 import React, { useEffect, useRef } from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
+import { toggleParamSelected } from "state/actions/kwargs";
+import { getDisplayedCodeInfoCol } from "state/actions/sectionInfos";
 import {
+  useMisc,
   useProjectSearch,
   useSectionColumnWidth,
   useSectionInfos,
@@ -20,13 +23,11 @@ function _ParamContainer({
   sectionId,
   paramInfoId,
   requiredParamIdsToPaths,
+  ancestorIsSelected,
   children,
   onResizeStart,
   isKwarg = false,
   isTopLevelWithPad,
-  paramChildren,
-  onMouseDown,
-  bg,
 }) {
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -53,15 +54,31 @@ function _ParamContainer({
         ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
         : "";
 
-  const { description: paramDescription, name: paramName } = useSectionInfos(
-    (x) => {
-      return {
-        description: x.codeInfo[paramInfoId].description,
-        name: x.codeInfo[paramInfoId].name,
-      };
-    },
-    _.isEqual,
-  );
+  const {
+    isSelected: paramIsSelected,
+    description: paramDescription,
+    name: paramName,
+    codeInfoChildren: paramChildren,
+  } = useSectionInfos((x) => {
+    const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, x).children;
+    return {
+      isSelected: x.codeInfo[paramInfoId].isSelected,
+      description: x.codeInfo[paramInfoId].description,
+      name: x.codeInfo[paramInfoId].name,
+      codeInfoChildren: codeInfoChildren[paramInfoId] ?? [],
+    };
+  }, _.isEqual);
+
+  const bg = paramIsSelected
+    ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white"
+    : "transition-colors";
+
+  function onMouseDownSelect(e) {
+    if (!ancestorIsSelected && useMisc.getState().isSelectingParams) {
+      e.stopPropagation();
+      toggleParamSelected(sectionId, paramInfoId);
+    }
+  }
 
   const { childlessRef, childlessNameRef, parentRef } = useColumnWidth(
     sectionId,
@@ -72,9 +89,9 @@ function _ParamContainer({
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows -ml-[2px] grid grid-cols-subgrid items-center justify-between rounded-sm pl-[2px] hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
+        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
         {...getFloatingBoxHandlers(paramDescription, paramName)}
-        onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
+        onMouseDownCapture={onMouseDownSelect} // has to be on capture for selection to work
         ref={childlessRef}
       >
         {!isKwarg ? (
@@ -97,8 +114,9 @@ function _ParamContainer({
     </>
   ) : (
     <article
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${border} [&>p]:section-key-value ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`}
+      className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${bg} ${border} [&>p]:section-key-value ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
+      onMouseDown={onMouseDownSelect}
       ref={parentRef}
     >
       {children}
@@ -108,6 +126,7 @@ function _ParamContainer({
           sectionId={sectionId}
           paramIds={paramChildren}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
+          ancestorIsSelected={ancestorIsSelected || paramIsSelected}
           onResizeStart={onResizeStart}
         />
       </div>
@@ -146,7 +165,7 @@ function useColumnWidth(sectionId, paramChildren) {
 function ErrorSection({ maybeErrorMessage }) {
   return (
     <Accordion.Root
-      className="section-key-value group/arg-group -ml-[2px] rounded-b-lg"
+      className="section-key-value group/arg-group rounded-b-lg"
       type="single"
       // defaultValue="item-1"
       collapsible
