@@ -14,11 +14,11 @@ class SettingsSaveRequest(BaseModel):
 
 @router.post(C.ROUTE_LOAD_SETTINGS)
 def route_load_settings(settings_file=Depends(get_settings_file)):
-    return settings_file.load()
+    return settings_file.load_settings()
 
 
-@router.post(C.ROUTE_SAVE_SETTINGS)
-def route_save_settings(
+@router.post(C.ROUTE_SAVE_SETTINGS_PROJECT)
+def route_save_settings_project(
     x: SettingsSaveRequest, settings_file=Depends(get_settings_file)
 ):
     return settings_file.save_settings_project(x.settingsProject)

@@ -44,7 +44,7 @@
   "ROUTE_SAVE_AS_NEW_PROJECT_CONFIG": "/projects/saveAsNewProjectConfig",
   "ROUTE_SAVE_AS_EXISTING_PROJECT_CONFIG": "/projects/saveAsExistingProjectConfig",
   "ROUTE_SET_PROJECT_CONFIG_NAME": "/setProjectConfigName",
-  "ROUTE_SAVE_SETTINGS": "/saveSettings",
+  "ROUTE_SAVE_SETTINGS_PROJECT": "/saveSettingsProject",
   "ROUTE_LOAD_SETTINGS": "/loadSettings",
   "ROUTE_TERMINAL": "/terminal/{projectConfigId}/{sectionId}/{id}/{isTemporary}",
   "ROUTE_DELETE_TERMINALS": "/terminal/deleteTerminals",

@@ -40,7 +40,7 @@ from setta.utils.websocket_manager import WebsocketManager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
-    app.state.settings_file = SettingsFile(C.SETTINGS_PATH)
+    app.state.settings_file = SettingsFile()
     app.state.lsps = create_lsps(
         workspace_folder=Path(os.getcwd()),
         code_folder=Path(os.getcwd()) / CODE_FOLDER / "timestamped_folder",

@@ -213,6 +213,7 @@ def load_json_sources_into_data_structures(
     for s in sections.values():
         new_data = load_json_source(s["jsonSource"])
         for filename, data in new_data.items():
+            print("filename", filename, flush=True)
             codeInfo.update(data["codeInfo"])
             variantId = None
             for vid in s["variantIds"]:
@@ -226,9 +227,12 @@ def load_json_sources_into_data_structures(
                 s["variantIds"].append(variantId)
                 sectionVariants[variantId] = section_variant
 
+            print("variantId", variantId, flush=True)
             curr_section_variant = sectionVariants[variantId]
             curr_section_variant["values"] = data["sectionVariantValues"]
             codeInfoColId = sectionVariants[variantId].get("codeInfoColId")
+
+            print("codeInfoColId", codeInfoColId, flush=True)
 
             if not codeInfoColId:
                 codeInfoColId = create_new_id()
@@ -316,6 +320,7 @@ def load_json_source(filename_glob):
             with open(filename, "r") as f:
                 jsonSourceData = json.load(f)
         except:
+            print("couldn't find", filename)
             continue
 
         new_data[filename] = {

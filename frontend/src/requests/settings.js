@@ -8,9 +8,9 @@ export async function dbLoadSettings() {
   });
 }
 
-export async function dbSaveSettings(settingsProject) {
+export async function dbSaveSettingsProject(settingsProject) {
   return await post({
-    address: C.ROUTE_SAVE_SETTINGS,
+    address: C.ROUTE_SAVE_SETTINGS_PROJECT,
     body: { settingsProject },
   });
 }
