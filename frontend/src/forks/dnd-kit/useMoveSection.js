@@ -3,7 +3,6 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
 import {
-  getDisplayedSectionVariant,
   getSectionParentId,
   manualDndChildrenReset,
   setSectionVariantChildren,
@@ -73,11 +72,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
 
   // If dropping the section into where it already was,
   // then just do manualDndChildrenReset
-  if (
-    oldParentId === newParentId &&
-    getDisplayedSectionVariant(oldParentId).children.indexOf(sectionId) ===
-      newIndex
-  ) {
+  if (oldParentId === newParentId && activeIdx === newIndex) {
     manualDndChildrenReset();
     return;
   }

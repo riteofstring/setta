@@ -22,6 +22,10 @@ export function DeleteProjectWarningModal() {
     setModalOpen(false);
   };
 
+  if (!selectedProjects?.length) {
+    return null;
+  }
+
   return (
     <div className="mx-auto flex h-full w-full flex-col items-center">
       <header className="flex flex-col gap-2 self-start">
