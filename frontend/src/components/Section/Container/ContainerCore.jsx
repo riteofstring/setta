@@ -89,7 +89,7 @@ function ContainerGroup({
 
   return (
     <div
-      className={`flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3 focus-visible:outline-none ${className}`}
+      className={`group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3 focus-visible:outline-none ${className}`}
       {...commonProps}
       onContextMenu={(e) => openGroupContextMenu(e, sectionId)}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
@@ -104,23 +104,27 @@ function ContainerGroup({
       />
       <div className="flex min-h-8 w-full items-center">
         <button className={triggerClass}>
-          <FaLayerGroup />
+          <FaLayerGroup className="text-setta-500 transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500  dark:group-hover/group-section:text-[#0084ff]" />
         </button>
-        <div className={`${pointerSelectCSS} overflow-hidden`}>
+        <div
+          className={`${pointerSelectCSS}relative min-h-8 w-full overflow-hidden`}
+        >
           <GroupSectionTitle sectionId={sectionId} />
         </div>
-        <IconButton
-          icon={<i className="gg-lock mt-4 !scale-[.4]" />}
-          color="text-setta-600 hover:text-orange-500 dark:hover:text-orange-700"
-          bg="bg-transparent justify-content-center mr-1"
-          size="w-4 h-4"
-          padding="p-0"
-        />
+        <div className="z-10 ml-auto flex items-center">
+          <IconButton
+            icon={<i className="gg-lock mt-4 !scale-[.4]" />}
+            color="text-setta-600 hover:text-orange-500 dark:hover:text-orange-700"
+            bg="bg-transparent justify-content-center mr-1"
+            size="w-4 h-4"
+            padding="p-0"
+          />
+        </div>
       </div>
 
       {!hasNested && (
         <div className="z-10 -mx-4 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-setta-300 dark:border-setta-800 dark:text-white">
-          Drop A Card Here.
+          Drop A Section Here.
         </div>
       )}
 
@@ -130,13 +134,12 @@ function ContainerGroup({
 }
 
 function GroupSectionTitle({ sectionId }) {
-  const className = "max-w-";
   const titleProps = {
     editing:
-      "nodrag w-full cursor-auto bg-[#64748b83] dark:bg-setta-900  text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-500",
+      "nodrag inset-0 w-full cursor-auto bg-[#64748b83] dark:bg-setta-900  text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-500",
 
     notEditing:
-      "cursor-pointer truncate  text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-600 cursor-pointer",
+      "absolute cursor-pointer w-full truncate text-xl font-bold tracking-tighter text-setta-100 dark:text-setta-600 cursor-pointer flex-shrink",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
