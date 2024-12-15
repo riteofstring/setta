@@ -6,7 +6,7 @@ from setta.database.db.artifacts.utils import with_artifact_defaults
 def load_artifacts(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT id, data
+        SELECT id, name, path, value, type
         FROM Artifact
         WHERE id IN ({placeholders})
     """
@@ -15,6 +15,11 @@ def load_artifacts(db, ids):
 
     output = {}
     for row in db.fetchall():
-        output[row["id"]] = with_artifact_defaults(**json.loads(row["data"]))
+        output[row["id"]] =  {
+                "name": row["name"],
+                "path": row["path"],
+                "value": json.loads(row["value"]),
+                "type": row["type"],
+            }
 
     return output

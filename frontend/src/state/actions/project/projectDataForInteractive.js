@@ -12,7 +12,9 @@ export async function getProjectDataForInteractive() {
   const sections = {};
   for (const x of Object.values(sectionInfosState)) {
     const currSection = _.omit(x, ["parentId"]);
-    currSection.artifacts = currSection.artifactIds.map((a) => artifactState[a]);
+    currSection.artifacts = currSection.artifactIds.map(
+      (a) => artifactState[a],
+    );
     if (getSectionType(x.id) === C.DRAW) {
       currSection.drawings = await requestBase64FromDrawArea(x.id);
     }

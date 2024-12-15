@@ -187,7 +187,10 @@ CREATE TABLE IF NOT EXISTS ProjectConfigChildren (
 );
 CREATE TABLE IF NOT EXISTS Artifact (
     id TEXT PRIMARY KEY,
-    data TEXT
+    name TEXT,
+    path TEXT,
+    value TEXT,
+    type TEXT
 );
 CREATE TABLE IF NOT EXISTS SectionArtifacts (
     sectionId TEXT,

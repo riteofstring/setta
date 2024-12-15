@@ -1,16 +1,18 @@
 import json
 
-from setta.utils.constants import ARTIFACTS_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES
-from setta.utils.utils import filter_dict
+from setta.utils.constants import DEFAULT_VALUES
 
 
 def save_artifacts(db, artifacts):
     query = """
-        INSERT INTO Artifact (id, data)
-        VALUES (:id, :data)
+        INSERT INTO Artifact (id, name, path, value, type)
+        VALUES (:id, :name, :path, :value, :type)
         ON CONFLICT (id)
         DO UPDATE SET
-        data = :data
+        name = :name,
+        path = :path,
+        value = :value,
+        type = :type
     """
 
     query_params = []
@@ -19,11 +21,14 @@ def save_artifacts(db, artifacts):
         if data["path"]:
             # set value to null if path is specified
             data["value"] = DEFAULT_VALUES["artifact"]["value"]
-        data = json.dumps(
-            filter_dict(
-                data, ARTIFACTS_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["artifact"]
-            )
+        query_params.append(
+            {
+                "id": id,
+                "name": data["name"],
+                "path": data["path"],
+                "value": json.dumps(data["value"]),
+                "type": data["type"],
+            }
         )
-        query_params.append({"id": id, "data": data})
 
     db.executemany(query, query_params)
