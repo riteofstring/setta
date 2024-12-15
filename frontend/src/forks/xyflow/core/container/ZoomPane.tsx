@@ -13,7 +13,11 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { useEffect, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { useMisc, useSettings } from "state/definitions";
-import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
+import {
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+  SETTA_SECTION_RESIZER,
+} from "utils/constants";
 import { clamp, isMacOs } from "utils/utils";
 import { shallow } from "zustand/shallow";
 import useResizeHandler from "../hooks/useResizeHandler";
@@ -347,6 +351,7 @@ const ZoomPane = ({
         }
 
         if (
+          event.target.className === SETTA_SECTION_RESIZER ||
           useDndState.getState().isSorting ||
           useDndState.getState().isMovingFree
         ) {

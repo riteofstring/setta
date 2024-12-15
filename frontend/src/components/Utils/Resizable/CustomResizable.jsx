@@ -6,6 +6,7 @@ import { useSectionInfos, useSettings } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
+import { SETTA_SECTION_RESIZER } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "./utils";
 
@@ -190,6 +191,11 @@ function CustomResizableSuperCore({
       enable={enable}
       className={inputClasses}
       handleStyles={{ right: { right: "-8px" }, bottom: { bottom: "-8px" } }}
+      handleClasses={{
+        // used in ZoomPane to allow resizing of sections that are inside a position-locked section
+        right: SETTA_SECTION_RESIZER,
+        bottom: SETTA_SECTION_RESIZER,
+      }}
       grid={snapToGrid ? snapGrid : null}
       // handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
