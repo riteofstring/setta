@@ -146,7 +146,7 @@ function useColumnWidth(sectionId, paramChildren) {
 function ErrorSection({ maybeErrorMessage }) {
   return (
     <Accordion.Root
-      className="section-key-value group/arg-group rounded-b-lg"
+      className="section-key-value group/arg-group mb-[2px] overflow-y-clip rounded-b-sm"
       type="single"
       // defaultValue="item-1"
       collapsible
@@ -177,7 +177,7 @@ const AccordionTrigger = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Header className="flex">
       <Accordion.Trigger
-        className="group mt-1 flex h-6 flex-1 cursor-default items-center justify-between overflow-hidden bg-red-500 pl-[2px] pr-1 font-mono text-xs font-bold text-red-50 outline-none transition-all hover:cursor-pointer dark:bg-red-800"
+        className="group -mx-[2px] mt-1 flex h-6 flex-1 cursor-default items-center justify-between overflow-hidden rounded-sm bg-red-500 pl-[2px] pr-1 font-mono text-xs font-bold text-red-50 outline-none transition-all hover:cursor-pointer dark:bg-red-800"
         {...props}
         ref={forwardedRef}
       >
@@ -192,11 +192,11 @@ const AccordionTrigger = React.forwardRef(
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
-      className="nowheel nodrag relative -mb-1 overflow-hidden bg-white px-1 text-xs dark:bg-setta-950"
+      className="nowheel nodrag relative -mb-1 overflow-hidden rounded-b-sm bg-white px-1 text-xs dark:bg-setta-950"
       {...props}
       ref={forwardedRef}
     >
-      <aside className=" mt-1 h-full cursor-text select-text overflow-y-scroll pb-2 pt-[.15rem] font-mono dark:text-setta-100">
+      <aside className="mt-1 h-full cursor-text select-text overflow-y-scroll pb-2 pt-[.15rem] font-mono dark:text-setta-100">
         {children}
       </aside>
       <IconButton
