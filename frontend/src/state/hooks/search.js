@@ -5,13 +5,13 @@ import {
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";
-import { getCodeInfoCol, getSectionVariant } from "state/actions/sectionInfos";
+import { getDisplayedSectionIdToChildren } from "state/actions/sectionInfos";
+import { getAllDisplayedParamsInSection } from "state/actions/sections/sectionContents";
 import {
   useProjectSearch,
   useSectionInfos,
   useSettings,
 } from "state/definitions";
-import { findAllParameters } from "utils/getDescendants";
 
 export function useUpdateProjectSearch() {
   const [value, setValue] = useState("");
@@ -54,43 +54,35 @@ export function useUpdateProjectSearch() {
   return { value, onChange, onBlur, onFocus, onKeyDown };
 }
 
-// TODO: this doesn't look correct, it's not recursive
 function getAllVisibleParams() {
-  const x = useSectionInfos.getState();
+  const state = useSectionInfos.getState();
   const output = [];
-  const visitedSections = new Set();
-  for (const sectionId of Object.keys(x.x)) {
-    getParamsAndAddToSearchResults(visitedSections, sectionId, x, output);
-    const sectionChildren = getSectionVariant(sectionId, x).children;
-    for (const id of sectionChildren) {
-      getParamsAndAddToSearchResults(visitedSections, id, x, output);
+  const sectionIdToChildren = getDisplayedSectionIdToChildren(state, true);
+
+  function dfs(sectionId) {
+    if (sectionId) {
+      getParamsAndAddToSearchResults(sectionId, state, output);
+    }
+
+    const children = sectionIdToChildren[sectionId] || [];
+    for (const childId of children) {
+      dfs(childId);
     }
   }
+
+  dfs(null);
+
   return output;
 }
 
-function getParamsAndAddToSearchResults(
-  visitedSections,
-  sectionId,
-  state,
-  output,
-) {
-  if (!visitedSections.has(sectionId)) {
-    const { selectedItem } = getSectionVariant(sectionId, state);
-    const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
-    const { ids: paramIds } = findAllParameters({
-      allCodeInfo: state.codeInfo,
-      codeInfoChildren,
-      startingId: selectedItem,
+function getParamsAndAddToSearchResults(sectionId, state, output) {
+  const ids = getAllDisplayedParamsInSection(sectionId, state);
+  for (const p of ids) {
+    output.push({
+      sectionId,
+      paramInfoId: p,
+      name: state.codeInfo[p].name,
     });
-    for (const p of paramIds) {
-      output.push({
-        sectionId,
-        paramInfoId: p,
-        name: state.codeInfo[p].name,
-      });
-    }
-    visitedSections.add(sectionId);
   }
 }
 
