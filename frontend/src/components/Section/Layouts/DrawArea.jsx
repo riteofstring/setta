@@ -7,7 +7,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { BiPaint } from "react-icons/bi";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
-import { updateArtifacts } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import {
   base64RequestId,
@@ -22,7 +21,8 @@ import {
 import { useArtifactData } from "state/hooks/artifacts";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { createRandomName } from "utils/idNameCreation";
+import { createNewId } from "utils/idNameCreation";
+import { newArtifact } from "utils/objs/artifact";
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -50,6 +50,7 @@ export function DrawOnImage({ sectionId }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
   const strokesRef = useRef([]);
+  const [strokesArtifactId, setStrokesArtifactId] = useState();
 
   function setColor(v) {
     setCanvasSettings(sectionId, "color", v);
@@ -145,7 +146,7 @@ export function DrawOnImage({ sectionId }) {
     }
     console.log(artifacts);
     let isNewImg = false;
-    for (const v of Object.values(artifacts)) {
+    for (const [artifactId, v] of Object.entries(artifacts)) {
       console.log("v", v);
       if (v.type === "img") {
         const base64String = `data:image/png;base64,${v.value}`;
@@ -158,6 +159,7 @@ export function DrawOnImage({ sectionId }) {
         }
       } else if (v.type === "brushStrokes") {
         strokesRef.current = _.cloneDeep(v.value);
+        setStrokesArtifactId(artifactId);
       }
     }
     setCanvasProperties({ doDrawStrokes: true, isNewImg });
@@ -276,7 +278,11 @@ export function DrawOnImage({ sectionId }) {
       drawLatestStroke(canvasRef, strokesRef.current);
       clearCanvas(draftCanvasRef);
     }
-    debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
+    debouncedSetBrushStrokesArtifact(
+      sectionId,
+      strokesArtifactId,
+      strokesRef.current,
+    );
     debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   }
 
@@ -296,7 +302,11 @@ export function DrawOnImage({ sectionId }) {
     strokesRef.current = [];
     clearCanvas(canvasRef);
     clearCanvas(draftCanvasRef);
-    debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
+    debouncedSetBrushStrokesArtifact(
+      sectionId,
+      strokesArtifactId,
+      strokesRef.current,
+    );
   }
 
   function toBase64() {
@@ -325,17 +335,15 @@ export function DrawOnImage({ sectionId }) {
           /^data:image\/[a-z]+;base64,/,
           "",
         );
-        const artifactPath = `data:${sectionId}-${file.name}`;
-        updateArtifacts({
-          artifacts: {
-            [artifactPath]: {
-              value: base64String,
-              type: "img",
-            },
-          },
+        const artifactId = createNewId();
+        useArtifacts.setState((x) => {
+          x.x[artifactId] = newArtifact({
+            value: base64String,
+            type: "img",
+          });
         });
         useSectionInfos.setState((state) => {
-          state.x[sectionId].artifacts.push(artifactPath);
+          state.x[sectionId].artifactIds.push(artifactId);
         });
       };
 
@@ -347,7 +355,7 @@ export function DrawOnImage({ sectionId }) {
       reader.readAsDataURL(file);
     });
   }, []);
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+  const { getRootProps, isDragActive } = useDropzone({ onDrop });
 
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
   const cursorIcon = isEraser
@@ -669,30 +677,33 @@ function getCtx(canvasRef) {
   return canvasRef.current.getContext("2d");
 }
 
-const debouncedSetBrushStrokesArtifact = _.debounce((sectionId, strokes) => {
-  const path = `data:${sectionId}-brushStrokes`;
-  useArtifacts.setState((x) => {
-    if (path in x.x) {
-      x.x[path].value = _.cloneDeep(strokes);
-    } else {
-      x.x[path] = {
-        type: "brushStrokes",
-        name: createRandomName(),
-        value: _.cloneDeep(strokes),
-        isSaved: true,
-      };
-    }
-  });
+const debouncedSetBrushStrokesArtifact = _.debounce(
+  (sectionId, _artifactId, strokes) => {
+    const artifactId = _artifactId ?? createNewId();
+    const isNewArtifact = !_artifactId;
 
-  useSectionInfos.setState((x) => {
-    const paths = x.x[sectionId].artifacts;
-    if (!paths.includes(path)) {
-      paths.push(path);
-    }
-  });
+    useArtifacts.setState((x) => {
+      if (isNewArtifact) {
+        x.x[artifactId] = newArtifact({
+          type: "brushStrokes",
+          value: _.cloneDeep(strokes),
+        });
+      } else {
+        x.x[artifactId].value = _.cloneDeep(strokes);
+      }
+    });
 
-  console.log("useArtifacts", useArtifacts.getState().x);
-}, 500);
+    useSectionInfos.setState((x) => {
+      const artifactIds = x.x[sectionId].artifactIds;
+      if (!artifactIds.includes(artifactId)) {
+        artifactIds.push(artifactId);
+      }
+    });
+
+    console.log("useArtifacts", useArtifacts.getState().x);
+  },
+  500,
+);
 
 function exportStrokesToBase64(strokes, width, height) {
   // Create a temporary canvas

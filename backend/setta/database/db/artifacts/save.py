@@ -13,16 +13,17 @@ def save_artifacts(db, artifacts):
         data = :data
     """
 
-    query_params = [
-        {
-            "id": id,
-            "data": json.dumps(
-                filter_dict(
-                    data, ARTIFACTS_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["artifact"]
-                )
-            ),
-        }
-        for id, data in artifacts.items()
-    ]
+    query_params = []
+
+    for id, data in artifacts.items():
+        if data["path"]:
+            # set value to null if path is specified
+            data["value"] = DEFAULT_VALUES["artifact"]["value"]
+        data = json.dumps(
+            filter_dict(
+                data, ARTIFACTS_TABLE_DATA_JSON_FIELDS, DEFAULT_VALUES["artifact"]
+            )
+        )
+        query_params.append({"id": id, "data": data})
 
     db.executemany(query, query_params)
