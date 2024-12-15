@@ -41,24 +41,34 @@ def filter_data_for_json_export(p):
 
     for k, v in p["codeInfo"].items():
         p["codeInfo"][k] = filter_dict(
-            v, DEFAULT_VALUES["codeInfo"].keys(), DEFAULT_VALUES["codeInfo"]
+            p["codeInfo"][k],
+            DEFAULT_VALUES["codeInfo"].keys(),
+            DEFAULT_VALUES["codeInfo"],
         )
+        for idx in range(len(v["evRefs"])):
+            v["evRefs"][idx] = filter_dict(
+                v["evRefs"][idx],
+                DEFAULT_VALUES["evRefEntry"].keys(),
+                DEFAULT_VALUES["evRefEntry"],
+            )
 
     for k, v in p["codeInfoCols"].items():
         p["codeInfoCols"][k] = filter_dict(
-            v, DEFAULT_VALUES["codeInfoCol"].keys(), DEFAULT_VALUES["codeInfoCol"]
+            p["codeInfoCols"][k],
+            DEFAULT_VALUES["codeInfoCol"].keys(),
+            DEFAULT_VALUES["codeInfoCol"],
         )
     p["codeInfoCols"] = remove_empty(p["codeInfoCols"])
 
     for k, v in p["uiTypes"].items():
         p["uiTypes"][k] = filter_dict(
-            v, DEFAULT_VALUES["uiType"].keys(), DEFAULT_VALUES["uiType"]
+            p["uiTypes"][k], DEFAULT_VALUES["uiType"].keys(), DEFAULT_VALUES["uiType"]
         )
 
     for k, v in p["uiTypeCols"].items():
         for paramId, uiTypeColInfo in v.items():
             p["uiTypeCols"][k][paramId] = filter_dict(
-                uiTypeColInfo,
+                p["uiTypeCols"][k][paramId],
                 DEFAULT_VALUES["uiTypeColEntry"].keys(),
                 DEFAULT_VALUES["uiTypeColEntry"],
             )
@@ -71,7 +81,9 @@ def filter_data_for_json_export(p):
             v["uiTypeColId"] = None
 
         p["sections"][k] = filter_dict(
-            v, DEFAULT_VALUES["section"].keys(), DEFAULT_VALUES["section"]
+            p["sections"][k],
+            DEFAULT_VALUES["section"].keys(),
+            DEFAULT_VALUES["section"],
         )
 
     for k, v in p["sectionVariants"].items():
@@ -80,8 +92,20 @@ def filter_data_for_json_export(p):
 
         curr = p["sectionVariants"]
         curr[k] = filter_dict(
-            v, DEFAULT_VALUES["sectionVariant"].keys(), DEFAULT_VALUES["sectionVariant"]
+            curr[k],
+            DEFAULT_VALUES["sectionVariant"].keys(),
+            DEFAULT_VALUES["sectionVariant"],
         )
+
+        if "evRefs" in curr[k]:
+            evRefs = curr[k]["evRefs"]
+            for idx in range(len(evRefs)):
+                evRefs[idx] = filter_dict(
+                    evRefs[idx],
+                    DEFAULT_VALUES["evRefEntry"].keys(),
+                    DEFAULT_VALUES["evRefEntry"],
+                )
+
         if "values" in curr[k]:
             for paramId in curr[k]["values"].keys():
                 evRefs = curr[k]["values"][paramId]["evRefs"]

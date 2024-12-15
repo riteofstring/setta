@@ -103,7 +103,7 @@ def load_project_config_metadata(db, config_name):
             }
 
     if len(output) > 1:
-        raise ValueError(f"output should be of length 1 but has length {len(out)}")
+        raise ValueError(f"output should be of length 1 but has length {len(output)}")
     if len(output) == 0:
         raise ProjectNotFound(f"{config_name} not found")
 

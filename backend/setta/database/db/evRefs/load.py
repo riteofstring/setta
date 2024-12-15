@@ -14,6 +14,7 @@ def load_ev_refs_into_data_structures(db, section_variants, code_info):
 
     for row in db.fetchall():
         row = dict(row)
+        row["isArgsObj"] = bool(row["isArgsObj"])
         variantId = row.pop("variantId")
         codeInfoId = row.pop("codeInfoId")
         referringParamInfoId = row.pop("referringParamInfoId")

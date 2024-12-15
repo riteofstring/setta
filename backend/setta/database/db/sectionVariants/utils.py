@@ -21,11 +21,16 @@ def with_section_variant_defaults(**kwargs):
 def add_defaults_to_section_variants(section_variants):
     for k, v in section_variants.items():
         section_variants[k] = with_section_variant_defaults(**v)
+
         for paramId, valueInfo in section_variants[k]["values"].items():
             section_variants[k]["values"][paramId] = with_ev_entry_defaults(**valueInfo)
-            curr = section_variants[k]["values"][paramId]
-            for idx in range(len(curr["evRefs"])):
-                curr["evRefs"][idx] = with_ev_ref_entry_defaults(**curr["evRefs"][idx])
+            evRefs = section_variants[k]["values"][paramId]["evRefs"]
+            for idx in range(len(evRefs)):
+                evRefs[idx] = with_ev_ref_entry_defaults(**evRefs[idx])
+
+        evRefs = section_variants[k]["evRefs"]
+        for idx in range(len(evRefs)):
+            evRefs[idx] = with_ev_ref_entry_defaults(**evRefs[idx])
 
 
 def with_ev_entry_defaults(**kwargs):
