@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS SectionConfigSelectedVariants (
 ); 
 CREATE TABLE IF NOT EXISTS SectionVariantId (
     id TEXT PRIMARY KEY,
+    name TEXT,
     data TEXT,
     selectedItem TEXT,
     codeInfoColId TEXT,
@@ -128,6 +129,7 @@ CREATE TABLE IF NOT EXISTS SectionVariantRunGroupParamSweeps (
 );
 CREATE TABLE IF NOT EXISTS UIType (
     id TEXT PRIMARY KEY,
+    type TEXT,
     data TEXT,
     asNonPresetForSectionId TEXT,
     asNonPresetForUITypeColId TEXT,

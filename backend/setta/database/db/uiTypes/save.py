@@ -6,16 +6,18 @@ from setta.utils.utils import filter_dict
 
 def save_ui_types(db, uiTypes):
     query = """
-        INSERT INTO UIType (id, data)
-        VALUES (:id, :data)
+        INSERT INTO UIType (id, type, data)
+        VALUES (:id, :type, :data)
         ON CONFLICT (id)
         DO UPDATE SET
+            type = :type,
             data = :data
     """
 
     query_parameters = [
         {
             "id": v["id"],
+            "type": v["type"],
             "data": json.dumps(filter_dict(v, UI_TYPE_TABLE_DATA_JSON_FIELDS)),
         }
         for v in uiTypes.values()
