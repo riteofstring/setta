@@ -39,7 +39,7 @@ export function DeleteFileModal() {
           </Dialog.Title>
         </div>
       </header>
-      <Dialog.Description className="mb-4 mt-8 w-full flex-1 text-sm text-setta-600 dark:text-setta-300">
+      <Dialog.Description className="mb-4 mt-4 w-full flex-1 text-sm text-setta-600 dark:text-setta-300">
         <p className="">Are you sure you want to delete the following file?</p>
         <div className="mt-2 flex items-center gap-2">
           {/* <i className="gg-folder text-setta-500" /> */}
