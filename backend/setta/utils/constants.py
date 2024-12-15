@@ -74,7 +74,6 @@ def is_from_json_source(id):
 
 CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
     (
-        "name",
         "editable",
         "rcType",
         "defaultVal",

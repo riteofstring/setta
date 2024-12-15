@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS Metadata (
 );
 CREATE TABLE IF NOT EXISTS CodeInfo (
     id TEXT PRIMARY KEY,
+    name TEXT,
     data TEXT
 );
 CREATE TABLE IF NOT EXISTS CodeInfoColId (
