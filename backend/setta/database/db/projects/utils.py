@@ -28,6 +28,14 @@ def add_defaults_to_project(p):
     add_defaults_to_ui_type_cols(p["uiTypeCols"])
 
 
+def add_defaults_to_project_and_load_json_sources(p):
+    add_defaults_to_project(p)
+    load_json_sources_into_data_structures(
+        p["sections"], p["codeInfo"], p["codeInfoCols"], p["sectionVariants"]
+    )
+
+
+
 def remove_empty(x):
     return {k: v for k, v in x.items() if len(v) > 0}
 
