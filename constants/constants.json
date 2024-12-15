@@ -67,6 +67,7 @@
   "ROUTE_PARAM_SWEEP_SECTION_TO_YAML": "/paramSweepSectionToYaml",
   "ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML": "/globalParamSweepSectionToYaml",
   "ROUTE_LOAD_SECTION_JSON_SOURCE": "/loadSectionJSONSource",
+  "ROUTE_SAVE_SETTINGS": "/saveSettingsProject",
   "ROUTE_LOAD_SETTINGS_PROJECT": "/loadSettingsProject",
   "ROUTE_DOCSTRING_TO_MARKDOWN": "/docstringToMarkdown",
   "ROUTE_NEW_JSON_VERSION_NAME": "/newJsonVersionName",

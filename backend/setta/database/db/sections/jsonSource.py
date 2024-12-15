@@ -2,7 +2,7 @@ import json
 from collections import defaultdict
 
 from setta.utils.constants import BASE_UI_TYPE_IDS, C, is_from_json_source
-from setta.utils.utils import try_json
+from setta.utils.utils import save_json_to_file, try_json
 
 
 def save_json_source_data(p, section_ids=None):
@@ -42,8 +42,7 @@ def save_json_source_data(p, section_ids=None):
 
     # Save each file
     for filename, data in to_be_saved.items():
-        with open(filename, "w") as f:
-            json.dump(data, f, indent=2)
+        save_json_to_file(filename, data)
 
     return to_be_saved
 

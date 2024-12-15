@@ -20,6 +20,19 @@ class SettingsFile:
         self.meta_settings_file = MetaSettingsFile()
         self.load_settings()
 
+    def save_settings(self, settings):
+        paths = self.meta_settings_file.get_settings_paths()
+        to_be_saved = {}
+        for settings_slice, path in paths.items():
+            if path not in to_be_saved:
+                to_be_saved[path] = {}
+            to_be_saved[path].update({settings_slice: settings[settings_slice]})
+
+        for filename, data in to_be_saved.items():
+            save_json_to_file(filename, data)
+
+        USER_SETTINGS.update(settings)
+
     def load_settings(self):
         paths = self.meta_settings_file.get_settings_paths()
         output = {}
