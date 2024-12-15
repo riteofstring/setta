@@ -3,13 +3,11 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
-  useInfoToEVReferrer,
   useKeywordRegex,
   useMisc,
   useNodeInternals,
   useSectionInfos,
 } from "state/definitions";
-import { getInfoToEVReferrers } from "./actions/infoToEVReferrer";
 import { getRegexAndColorMap } from "./actions/keywordRegex";
 import {
   getNodeUpdateInformation,
@@ -90,14 +88,6 @@ export function subscribe() {
           requestUpdateNodeDimensions: false,
         });
       }
-    },
-    { equalityFn: _.isEqual },
-  );
-
-  useSectionInfos.subscribe(
-    getInfoToEVReferrers,
-    (infoToEVReferrers) => {
-      useInfoToEVReferrer.setState(infoToEVReferrers);
     },
     { equalityFn: _.isEqual },
   );

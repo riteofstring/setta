@@ -1,6 +1,5 @@
 import { Editable } from "components/Utils/Editable";
 import C from "constants/constants.json";
-import { maybeOpenRenameReferencesModal } from "state/actions/infoToEVReferrer";
 import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
 import { createParamSweepSectionName } from "state/actions/uiTypes/utils";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
@@ -30,7 +29,6 @@ function FixedTitle({ sectionName, className }) {
 function EditableTitle({ sectionId, sectionName, titleProps }) {
   function onTitleInputChange(value) {
     setSectionName(sectionId, value);
-    maybeOpenRenameReferencesModal();
   }
 
   function condition(value) {

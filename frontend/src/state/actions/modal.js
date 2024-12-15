@@ -9,38 +9,34 @@ export function setModalOpen(open) {
   }
 }
 
-function openModal(modalType, modalData) {
+function openFileMenuModal(modalType, modalData) {
   useModal.setState({ modalType, modalData, open: true });
 }
 
 export function openLoadModal() {
-  openModal(MODAL_TYPE.LOAD_PROJECT_CONFIG);
+  openFileMenuModal(MODAL_TYPE.LOAD_PROJECT_CONFIG);
 }
 
 export function openSaveAsModal() {
-  openModal(MODAL_TYPE.SAVE_PROJECT_CONFIG_AS);
+  openFileMenuModal(MODAL_TYPE.SAVE_PROJECT_CONFIG_AS);
 }
 
 export function openSaveAsWithRefsModal() {
-  openModal(MODAL_TYPE.SAVE_PROJECT_CONFIG_AS_WITH_REFS);
+  openFileMenuModal(MODAL_TYPE.SAVE_PROJECT_CONFIG_AS_WITH_REFS);
 }
 
 export function openExportJSONModal() {
-  openModal(MODAL_TYPE.EXPORT_JSON);
+  openFileMenuModal(MODAL_TYPE.EXPORT_JSON);
 }
 
 export function openExportFullJSONModal() {
-  openModal(MODAL_TYPE.EXPORT_FULL_JSON);
+  openFileMenuModal(MODAL_TYPE.EXPORT_FULL_JSON);
 }
 
 export function openImportJSONModal() {
-  openModal(MODAL_TYPE.IMPORT_JSON);
+  openFileMenuModal(MODAL_TYPE.IMPORT_JSON);
 }
 
 export function openDeleteProjectWarningModal(selectedProjects) {
-  openModal(MODAL_TYPE.DELETE_PROJECT_WARNING, selectedProjects);
-}
-
-export function openRenameReferencesModal(...data) {
-  openModal(MODAL_TYPE.RENAME_REFERENCES, data);
+  openFileMenuModal(MODAL_TYPE.DELETE_PROJECT_WARNING, selectedProjects);
 }

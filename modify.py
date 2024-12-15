@@ -32,6 +32,7 @@ def load_and_modify_json(file_path):
                             'selectedItem': None,
                             'code': "",
                             'codeInfoColId': create_new_id(),
+                            'keywordPositions': [],
                             'children': [],
                             'values': {},
                             'isFrozen': False,

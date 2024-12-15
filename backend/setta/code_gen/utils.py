@@ -31,7 +31,7 @@ def process_refs(value, refs, get_var_name, cursor_position=None):
         ref_is_args_obj = ref["isArgsObj"]
         ref_var_name = get_var_name(ref_section_id, ref_param_info_id, ref_is_args_obj)
         startPos = ref["startPos"]
-        endPos = startPos + len(ref["keyword"])
+        endPos = ref["endPos"]
 
         positions.append((startPos, 0, ref_var_name))
         set_new_positions_and_shifts(positions, ref_var_name, startPos, endPos)

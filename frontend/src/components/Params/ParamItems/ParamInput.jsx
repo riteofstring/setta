@@ -1,23 +1,25 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { debouncedTypeCheckRequest, getEVRefs } from "requests/sections";
+import {
+  debouncedTypeCheckRequest,
+  getKeywordPositionsAndEVRefs,
+} from "requests/sections";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setParamEnteredValue } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
-import { useGetParamEnteredValueAndEVRefs } from "state/hooks/sectionVariants";
+import { useGetParamEnteredValueAndKeywordPositions } from "state/hooks/sectionVariants";
 import { getParamUIType } from "state/hooks/uiTypes";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
-  const { value: enteredValue, evRefs } = useGetParamEnteredValueAndEVRefs(
-    sectionId,
-    paramInfoId,
-  );
+  const { value: enteredValue, keywordPositions } =
+    useGetParamEnteredValueAndKeywordPositions(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
-  const [localEVRefs, setLocalEVRefs] = useState(evRefs);
+  const [localKeywordPositions, setLocalKeywordPositions] =
+    useState(keywordPositions);
 
   // value and enteredValue should always be string
   function onChange(v) {
@@ -35,8 +37,8 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   }, [enteredValue]);
 
   useDeepCompareEffect(() => {
-    setLocalEVRefs(evRefs);
-  }, [evRefs]);
+    setLocalKeywordPositions(keywordPositions);
+  }, [keywordPositions]);
 
   return (
     <ParamUI
@@ -45,8 +47,8 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       value={value}
       onChange={onChange}
       maybeErrorMessage={maybeErrorMessage}
-      evRefs={localEVRefs}
-      setEVRefs={setLocalEVRefs}
+      keywordPositions={localKeywordPositions}
+      setKeywordPositions={setLocalKeywordPositions}
     />
   );
 }
@@ -63,16 +65,17 @@ const debouncedSetParamEnteredValue = asyncDebounce(
       });
 
       if (getParamUIType(sectionId, paramInfoId).type === C.TEXT) {
-        const evRefs = await getEVRefs({
+        const { keywordPositions } = await getKeywordPositionsAndEVRefs({
           sectionId,
           paramInfoId,
           fullText: vStr,
         });
-        console.log("debouncedSetParamEnteredValue", evRefs);
+        console.log("debouncedSetParamEnteredValue", keywordPositions);
 
         useSectionInfos.setState((state) => {
           const { variantId } = state.x[sectionId];
-          state.variants[variantId].values[paramInfoId].evRefs = evRefs;
+          state.variants[variantId].values[paramInfoId].keywordPositions =
+            keywordPositions;
         });
       }
     }

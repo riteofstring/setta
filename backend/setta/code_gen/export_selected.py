@@ -58,13 +58,6 @@ def get_selected_item_id(p, id):
     return None
 
 
-def get_selected_item_ev_refs(p, id):
-    selected_item = get_selected_item(p, id)
-    if selected_item:
-        return selected_item["evRefs"]
-    return None
-
-
 def get_code_info_children(p, section_id, id):
     codeInfoChildren = get_section_code_info_children(p, section_id)
     return codeInfoChildren.get(id, [])
@@ -285,11 +278,10 @@ class Exporter:
                     positionalOnlyParams,
                 ) = self.export_section_params(id)
 
-                selected_item_ev_refs = get_selected_item_ev_refs(self.p, id)
-                if selected_item_ev_refs:
+                if id in self.p["selectedItemEVRefs"]:
                     callable, used_ref_var_names, ref_var_name_positions = process_refs(
                         get_selected_item_name(self.p, id),
-                        selected_item_ev_refs,
+                        self.p["selectedItemEVRefs"][id],
                         self.maybe_create_ref_var_name,
                     )
                 else:
@@ -314,14 +306,16 @@ class Exporter:
                 ] = []  # has to be populated when the code is generated
                 self.output[var_name] = info
             elif type in [C.CODE, C.INTERACTIVE_CODE]:
-                variant = get_selected_section_variant(self.p, id)
-                if code_section_needs_generated_python(self.p, id):
+                if (
+                    code_section_needs_generated_python(self.p, id)
+                    and id in self.p["codeEVRefs"]
+                ):
                     # Make sure any necessary variables get created.
                     # We don't do any replacements here, because that's done later
                     # when the code is actually run.
                     process_refs(
                         get_section_code(self.p, id),
-                        variant["evRefs"],
+                        self.p["codeEVRefs"][id],
                         self.maybe_create_ref_var_name,
                     )
             elif type == C.GLOBAL_VARIABLES:
@@ -350,7 +344,6 @@ class Exporter:
                     "positionalOnlyParams": positionalOnlyParams,
                 },
                 "dependencies": params,
-                "ref_var_name_positions": [],  # has to be populated when the code is generated
             }
             self.output[var_name] = info
         return var_name
@@ -425,7 +418,7 @@ class Exporter:
         variant = get_selected_section_variant(self.p, section_id)
         if id in variant["values"]:
             value = variant["values"][id]["value"]
-            refs = variant["values"][id]["evRefs"]
+            refs = self.p["paramEVRefs"][section_id][id]
             value, used_ref_var_names, ref_var_name_positions = process_refs(
                 value, refs, self.maybe_create_ref_var_name
             )
