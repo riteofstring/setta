@@ -40,3 +40,7 @@ export function openDeleteProjectWarningModal(selectedProjects) {
 export function openRenameReferencesModal(...data) {
   openModal(MODAL_TYPE.RENAME_REFERENCES, data);
 }
+
+export function openDeleteJSONSourceFileModal(filepath) {
+  openModal(MODAL_TYPE.DELETE_JSON_SOURCE_FILE, filepath);
+}

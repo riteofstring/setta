@@ -2,6 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
+import { DeleteFileModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
 import { FileMenuSaveAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
@@ -55,6 +56,8 @@ function ModalContent({ open }) {
       return <DeleteProjectWarningModal open={open} />;
     case MODAL_TYPE.RENAME_REFERENCES.title:
       return <RenameReferencesModal open={open} />;
+    case MODAL_TYPE.DELETE_JSON_SOURCE_FILE.title:
+      return <DeleteFileModal open={open} />;
     default:
       return null;
   }
