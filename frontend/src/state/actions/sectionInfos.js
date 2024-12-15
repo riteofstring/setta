@@ -284,6 +284,8 @@ export async function deleteSectionVariantAndMaybeJsonFile(
         deleteSectionVariant(sectionId, variantId, isCurr);
       }
     }
+  } else {
+    deleteSectionVariant(sectionId, variantId, isCurr);
   }
 }
 
