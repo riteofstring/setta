@@ -23,6 +23,9 @@ def add_defaults_to_section_variants(section_variants):
         section_variants[k] = with_section_variant_defaults(**v)
         for paramId, valueInfo in section_variants[k]["values"].items():
             section_variants[k]["values"][paramId] = with_ev_entry_defaults(**valueInfo)
+            curr = section_variants[k]["values"][paramId]
+            for idx in range(len(curr["evRefs"])):
+                curr["evRefs"][idx] = with_ev_ref_entry_defaults(**curr["evRefs"][idx])
 
 
 def with_ev_entry_defaults(**kwargs):
@@ -31,3 +34,7 @@ def with_ev_entry_defaults(**kwargs):
 
 def new_ev_entry(**kwargs):
     return with_ev_entry_defaults(**kwargs)
+
+
+def with_ev_ref_entry_defaults(**kwargs):
+    return recursive_dict_merge(copy.deepcopy(DEFAULT_VALUES["evRefEntry"]), kwargs)

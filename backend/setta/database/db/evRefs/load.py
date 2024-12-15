@@ -20,8 +20,8 @@ def load_ev_refs_into_data_structures(db, section_variants, code_info):
         if codeInfoId:
             code_info[codeInfoId]["evRefs"].append(row)
         elif referringParamInfoId:
-            section_variants[variantId]["values"][referringParamInfoId]["evRefs"].append(
-                row
-            )
+            section_variants[variantId]["values"][referringParamInfoId][
+                "evRefs"
+            ].append(row)
         else:
             section_variants[variantId]["evRefs"].append(row)
