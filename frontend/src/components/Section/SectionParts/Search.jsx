@@ -2,7 +2,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { getKeywordPositionsAndEVRefs } from "requests/sections";
+import { getEVRefs } from "requests/sections";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
 import { useSectionInfos } from "state/definitions";
@@ -113,16 +113,16 @@ function SectionSearchCore({
 }) {
   const {
     name: codeInfoName,
-    keywordPositions,
+    evRefs,
     description,
     configLanguage,
   } = useSectionInfos((x) => {
     const configLanguage = x.x[dataSectionId].configLanguage;
     if (selectedItem) {
-      const { name, keywordPositions, description } = x.codeInfo[selectedItem];
-      return { name, keywordPositions, description, configLanguage };
+      const { name, evRefs, description } = x.codeInfo[selectedItem];
+      return { name, evRefs, description, configLanguage };
     }
-    return { name: "", keywordPositions: [], description: "", configLanguage };
+    return { name: "", evRefs: [], description: "", configLanguage };
   }, _.isEqual);
 
   const [value, setValue] = useState(codeInfoName);
@@ -132,11 +132,10 @@ function SectionSearchCore({
   }, [codeInfoName]);
 
   useDeepCompareEffect(() => {
-    setLocalKeywordPositions(keywordPositions);
-  }, [keywordPositions]);
+    setLocalEVRefs(evRefs);
+  }, [evRefs]);
 
-  const [localKeywordPositions, setLocalKeywordPositions] =
-    useState(keywordPositions);
+  const [localEVRefs, setLocalEVRefs] = useState(evRefs);
 
   function onEscape(expectingCompletions) {
     if (!expectingCompletions) {
@@ -153,11 +152,7 @@ function SectionSearchCore({
 
   function onChange(value) {
     setValue(value);
-    debouncedSetKeywordPositions(
-      dataSectionId,
-      value,
-      setLocalKeywordPositions,
-    );
+    debouncedSetEVRefs(dataSectionId, value, setLocalEVRefs);
   }
 
   function _onEnter() {
@@ -183,8 +178,8 @@ function SectionSearchCore({
         onTab={onTab}
         onEscape={onEscape}
         language={configLanguage}
-        keywordPositions={localKeywordPositions}
-        setKeywordPositions={setLocalKeywordPositions}
+        evRefs={localEVRefs}
+        setEVRefs={setLocalEVRefs}
         isDisabled={isDisabled}
       />
       <LoadingSpinner sectionId={dataSectionId} />
@@ -205,14 +200,14 @@ function LoadingSpinner({ sectionId }) {
   );
 }
 
-const debouncedSetKeywordPositions = asyncDebounce(
-  async (sectionId, value, setLocalKeywordPositions) => {
-    const { keywordPositions } = await getKeywordPositionsAndEVRefs({
+const debouncedSetEVRefs = asyncDebounce(
+  async (sectionId, value, setLocalEVRefs) => {
+    const evRefs = await getEVRefs({
       sectionId,
       paramInfoId: null,
       fullText: value,
     });
-    setLocalKeywordPositions(keywordPositions);
+    setLocalEVRefs(evRefs);
   },
   500,
 );

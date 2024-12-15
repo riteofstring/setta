@@ -1,8 +1,5 @@
 import C from "constants/constants.json";
-import {
-  dbParametersRequest,
-  getKeywordPositionsAndEVRefs,
-} from "requests/sections";
+import { dbParametersRequest, getEVRefs } from "requests/sections";
 import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
@@ -36,7 +33,7 @@ export async function setSelectedItem(
     return;
   }
 
-  const { evRefs, keywordPositions } = await getKeywordPositionsAndEVRefs({
+  const evRefs = await getEVRefs({
     sectionId: dataSectionId,
     paramInfoId: null,
     fullText: selectedItemName,
@@ -57,7 +54,7 @@ export async function setSelectedItem(
       name: selectedItemName,
       editable: false,
       rcType: C.CALLABLE,
-      keywordPositions,
+      evRefs,
     });
     addCodeInfo({ sectionId: dataSectionId, info, parent: null, state });
 

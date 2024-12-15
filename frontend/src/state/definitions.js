@@ -210,3 +210,5 @@ export const useResizerStore = createProjectState(
     globalEventListenersInitialized: false,
   })),
 );
+
+export const useInfoToEVReferrer = createProjectState(withResetFn(() => ({})));

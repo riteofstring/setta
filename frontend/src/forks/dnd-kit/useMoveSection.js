@@ -1,6 +1,7 @@
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useRef } from "react";
+import { maybeOpenRenameReferencesModal } from "state/actions/infoToEVReferrer";
 import { justMoveANode } from "state/actions/nodeInternals";
 import {
   getSectionParentId,
@@ -81,8 +82,8 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
     newParentId,
   });
 
+  let newSectionId;
   useSectionInfos.setState((state) => {
-    let newSectionId;
     if (maybeNewSectionData.sections) {
       updateSectionInfos({ ...maybeNewSectionData, state });
       newSectionId = Object.keys(maybeNewSectionData.sections)[0];
@@ -100,6 +101,8 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
       state,
     });
   });
+
+  await maybeOpenRenameReferencesModal();
 }
 
 export function useOnDragEnd() {

@@ -28,8 +28,8 @@ export function TextInputCodeMirror({
   onTab,
   color,
   language,
-  keywordPositions,
-  setKeywordPositions,
+  evRefs,
+  setEVRefs,
   dummyDivId,
   autocomplete = true,
   initializeGenCode = true,
@@ -87,7 +87,7 @@ export function TextInputCodeMirror({
           onFocus={onFocus}
           className={dummyCodeClassName}
           theme={theme}
-          keywordPositions={keywordPositions}
+          evRefs={evRefs}
           placeholder={defaultVal}
           language={language}
         />
@@ -110,8 +110,8 @@ export function TextInputCodeMirror({
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}
           theme={theme}
-          keywordPositions={keywordPositions}
-          setKeywordPositions={setKeywordPositions}
+          evRefs={evRefs}
+          setEVRefs={setEVRefs}
           language={language}
           autocomplete={autocomplete}
           isKeyName={isKeyName}
@@ -138,8 +138,8 @@ function CoreCodeMirror({
   realIsInitialized,
   setRealIsInitialized,
   theme,
-  keywordPositions,
-  setKeywordPositions,
+  evRefs,
+  setEVRefs,
   language,
   autocomplete,
   isKeyName,
@@ -147,8 +147,8 @@ function CoreCodeMirror({
   const divId = `CodeMirror-${visualSectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
 
   const keywordStylizer = useMemo(
-    () => getKeywordStylizer(keywordPositions),
-    [JSON.stringify(keywordPositions)],
+    () => getKeywordStylizer(evRefs),
+    [JSON.stringify(evRefs)],
   );
 
   const completionsFn = useCallback(
@@ -157,7 +157,7 @@ function CoreCodeMirror({
           dataSectionId,
           paramInfoId,
           dbTextFieldCompletion,
-          setKeywordPositions,
+          setEVRefs,
           language,
         )
       : () => null,
@@ -178,7 +178,7 @@ function CoreCodeMirror({
   });
 
   const onCreateEditor = getOnCreateEditor({
-    keywordPositions,
+    evRefs,
     initialEvent,
     setRealIsInitialized,
     divId,

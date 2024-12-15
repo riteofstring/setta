@@ -9,6 +9,7 @@ import {
   ExportJSONModal,
   ImportJSONModal,
 } from "./ImportExportModal/ImportExportModal";
+import { RenameReferencesModal } from "./RenameReferencesModal/RenameReferencesModal";
 import { SaveUITypeConfigModal } from "./SaveUITypeConfigModal/SaveUITypeConfigModal";
 import { SaveCustomArgumentsModal } from "./SectionSaveButtonModal/SaveCustomArgumentsModal";
 import "./styles.css";
@@ -53,6 +54,8 @@ function ModalContent({ open }) {
       return <SaveCustomArgumentsModal open={open} modalType={modalType} />;
     case MODAL_TYPE.DELETE_PROJECT_WARNING.title:
       return <DeleteProjectWarningModal open={open} />;
+    case MODAL_TYPE.RENAME_REFERENCES.title:
+      return <RenameReferencesModal open={open} />;
     default:
       return null;
   }
