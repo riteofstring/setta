@@ -1,7 +1,7 @@
 import json
 
+from setta.database.db.evRefs.load import load_ev_refs_into_data_structures
 from setta.database.db.projects.utils import with_project_config_defaults
-from setta.database.utils import aggregate_results
 from setta.utils.utils import recursive_dict_merge
 
 from ..codeInfo.load import load_code_info_cols
@@ -66,37 +66,48 @@ def load_project_config_metadata(db, config_name):
             ProjectConfig.id,
             ProjectConfig.name,
             ProjectConfig.data,
-            ProjectConfigChildren.childId as childId,
-            ProjectConfigChildren.data as childData
+            pcc.childId as childId,
+            pcc.x,
+            pcc.y,
+            pcc.zIndex,
+            pcc.w,
+            pcc.h
         FROM
             ProjectConfig
         LEFT JOIN
-            ProjectConfigChildren
+            ProjectConfigChildren pcc
         ON
-            ProjectConfig.id = ProjectConfigChildren.parentId
+            ProjectConfig.id = pcc.parentId
         WHERE
             name = :name
     """
 
     query_params = {"name": config_name}
     db.execute(query, query_params)
-    out = aggregate_results(db.fetchall(), "id", ["childId", "childData"])
-    if len(out) > 1:
-        raise ValueError(f"output should be of length 1 but has length {len(out)}")
-    if len(out) == 0:
-        raise ProjectNotFound(f"{config_name} not found")
-    out = list(out.values())[0]
-    children = {}
-    for i, c in enumerate(out["childId"]):
-        if c:
-            children[c] = json.loads(out["childData"][i])
+    output = {}
+    for row in db.fetchall():
+        id = row["id"]
+        if id not in output:
+            output[id] = with_project_config_defaults(
+                id=row["id"],
+                name=row["name"],
+                **json.loads(row["data"]),
+            )
+        if row["childId"]:
+            output[id]["children"][row["childId"]] = {
+                "x": row["x"],
+                "y": row["y"],
+                "zIndex": row["zIndex"],
+                "w": row["w"],
+                "h": row["h"],
+            }
 
-    return {
-        "id": out["id"],
-        "name": out["name"],
-        "children": children,
-        **json.loads(out["data"]),
-    }
+    if len(output) > 1:
+        raise ValueError(f"output should be of length 1 but has length {len(out)}")
+    if len(output) == 0:
+        raise ProjectNotFound(f"{config_name} not found")
+
+    return list(output.values())[0]
 
 
 def load_project_config(db, project_config_name):
@@ -110,6 +121,7 @@ def load_project_config(db, project_config_name):
     uiTypeCols = sections_data["uiTypeCols"]
     uiTypes = sections_data["nonPresetUITypes"]
     codeInfo, codeInfoCols = load_code_info_cols(db, sectionVariants)
+    load_ev_refs_into_data_structures(db, sectionVariants, codeInfo)
     load_json_sources_into_data_structures(
         sections, codeInfo, codeInfoCols, sectionVariants
     )

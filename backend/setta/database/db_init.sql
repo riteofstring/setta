@@ -127,6 +127,22 @@ CREATE TABLE IF NOT EXISTS SectionVariantRunGroupParamSweeps (
         ON DELETE CASCADE,
     FOREIGN KEY (sweepId) REFERENCES SectionVariantId(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS EVRefs (
+    variantId TEXT,
+    codeInfoId TEXT,
+    referringParamInfoId TEXT,
+    sectionId TEXT,
+    paramInfoId TEXT,
+    isArgsObj BOOLEAN,
+    startPos INTEGER,
+    keyword TEXT,
+    PRIMARY KEY (variantId, codeInfoId, referringParamInfoId, startPos),
+    FOREIGN KEY (variantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
+    FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
+    FOREIGN KEY (referringParamInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
+    FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
+    FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
+);
 CREATE TABLE IF NOT EXISTS UIType (
     id TEXT PRIMARY KEY,
     type TEXT,

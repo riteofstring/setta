@@ -22,7 +22,7 @@ def add_defaults_to_section_variants(section_variants):
     for k, v in section_variants.items():
         section_variants[k] = with_section_variant_defaults(**v)
         for paramId, valueInfo in section_variants[k]["values"].items():
-            section_variants[k][paramId] = with_ev_entry_defaults(**valueInfo)
+            section_variants[k]["values"][paramId] = with_ev_entry_defaults(**valueInfo)
 
 
 def with_ev_entry_defaults(**kwargs):

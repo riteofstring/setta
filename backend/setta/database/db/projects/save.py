@@ -2,6 +2,7 @@ import json
 from collections import defaultdict
 
 from setta.code_gen.export_selected import get_section_variants
+from setta.database.db.evRefs.save import save_ev_refs
 from setta.database.utils import create_new_id
 from setta.utils.constants import (
     DEFAULT_VALUES,
@@ -28,6 +29,7 @@ def save_project_details(db, p):
     save_ui_type_cols(db, p["uiTypeCols"])
     save_section_variants(db, p["sectionVariants"])
     save_sections(db, p["sections"], p["sectionVariants"])
+    save_ev_refs(db, p["sectionVariants"], p["codeInfo"])
     save_project(db, p["projectConfig"])
     save_section_configs(db, p["projectConfig"]["id"], p["sections"])
     update_linked_project_configs(db, p)
