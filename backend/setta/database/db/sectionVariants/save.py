@@ -10,10 +10,11 @@ from setta.utils.utils import filter_dict
 
 def save_section_variants(db, section_variants):
     query = """
-        INSERT INTO SectionVariantId (id, data, selectedItem, codeInfoColId)
-        VALUES (:id, :data, :selectedItem, :codeInfoColId)
+        INSERT INTO SectionVariantId (id, name, data, selectedItem, codeInfoColId)
+        VALUES (:id, :name, :data, :selectedItem, :codeInfoColId)
         ON CONFLICT (id)
         DO UPDATE SET
+        name = :name,
         data = :data,
         selectedItem = :selectedItem,
         codeInfoColId = :codeInfoColId
@@ -22,6 +23,7 @@ def save_section_variants(db, section_variants):
     query_params = [
         {
             "id": k,
+            "name": v["name"],
             "selectedItem": v["selectedItem"],
             "codeInfoColId": v["codeInfoColId"],
             "data": json.dumps(

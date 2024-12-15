@@ -37,7 +37,7 @@ export const SECTION_VARIANTS_TAB = "SectionVariantsConfig";
 
 export const tabNameToPretty = {
   [UI_CONFIG_TAB]: "Params",
-  [SECTION_CONFIG_TAB]: "Section",
+  [SECTION_CONFIG_TAB]: "Card",
   [QUICKINFO_CONFIG_TAB]: "Quick Info",
   [INFO_CONFIG_TAB]: "Text Editor",
   [SECTION_VARIANTS_TAB]: "Version",

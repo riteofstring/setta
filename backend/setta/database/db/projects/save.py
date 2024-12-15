@@ -2,7 +2,6 @@ import json
 from collections import defaultdict
 
 from setta.code_gen.export_selected import get_section_variants
-from setta.database.db.projects.utils import add_defaults_to_project
 from setta.database.utils import create_new_id
 from setta.utils.constants import (
     DEFAULT_VALUES,
@@ -22,7 +21,6 @@ from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
 def save_project_details(db, p):
-    add_defaults_to_project(p)
     save_json_source_data(p)
     remove_json_source_data(p)
     save_code_info(db, p["codeInfo"])
