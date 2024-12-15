@@ -3,7 +3,6 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
 import {
-  getDisplayedSectionVariant,
   getSectionParentId,
   manualDndChildrenReset,
   setSectionVariantChildren,
@@ -41,13 +40,14 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   const overId = over?.id;
   const oldParentId = getSectionParentId(sectionId);
   let newParentId = dndChildrenState.y[dndSectionId] ?? null;
+  let activeIdx = null;
   let newIndex = null;
   let position = null;
   const behaviorDropType = useDndState.getState().behaviorDropType;
 
   if (newParentId) {
     const children = dndChildrenState.x[newParentId];
-    const activeIdx = children.indexOf(dndSectionId);
+    activeIdx = children.indexOf(dndSectionId);
     const overIdx = children.indexOf(overId);
     const pastHalfway = collisions[0].pastHalfway;
     const maxIdx = children.length;
@@ -72,11 +72,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
 
   // If dropping the section into where it already was,
   // then just do manualDndChildrenReset
-  if (
-    oldParentId === newParentId &&
-    getDisplayedSectionVariant(oldParentId).children.indexOf(sectionId) ===
-      newIndex
-  ) {
+  if (oldParentId === newParentId && activeIdx === newIndex) {
     manualDndChildrenReset();
     return;
   }
