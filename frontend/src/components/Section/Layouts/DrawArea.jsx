@@ -49,13 +49,12 @@ export function DrawOnImage({ sectionId }) {
   const [activeLayerId, setActiveLayerId] = useState(null);
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
+  const tempCanvasRef = useRef(null);
   const strokesRef = useRef([]);
   const prevPointRef = useRef(null);
   const anImageHasBeenDrawn = useRef(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
-
-  console.log("layers", layers);
 
   function setColor(v) {
     setCanvasSettings(sectionId, "color", v);
@@ -76,13 +75,6 @@ export function DrawOnImage({ sectionId }) {
     setCanvasSettings(sectionId, "eraserBrushSize", v);
   }
 
-  function addLayer() {
-    const id = createNewId();
-    const newLayer = newDrawAreaLocalLayerState();
-    setLayers((state) => ({ ...state, [id]: newLayer }));
-    setActiveLayerId(id);
-  }
-
   function setDraftCanvasProperties() {
     if (!activeLayerId) {
       return;
@@ -96,14 +88,17 @@ export function DrawOnImage({ sectionId }) {
       dCtx.lineWidth = eraserBrushSize;
       dCtx.lineCap = brushShape;
       dCtx.globalAlpha = 1;
-      draftCanvas.style.opacity = 1;
     } else {
       dCtx.globalCompositeOperation = "source-over";
-      dCtx.strokeStyle = color;
+      dCtx.strokeStyle = hexToRGBA(
+        color,
+        layerSettings[activeLayerId].brushOpacity,
+      );
       dCtx.lineWidth = brushSize;
       dCtx.lineCap = brushShape;
-      dCtx.globalAlpha = layerSettings[activeLayerId].opacity;
-      draftCanvas.style.opacity = layerSettings[activeLayerId].brushOpacity;
+      dCtx.globalAlpha = 1;
+      draftCanvas.style.opacity = layerSettings[activeLayerId].opacity;
+      console.log("setDraftCanvasProperties", dCtx);
     }
   }
 
@@ -113,11 +108,12 @@ export function DrawOnImage({ sectionId }) {
     }
 
     const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+    const [tempCanvas] = getCanvasAndCtx(tempCanvasRef);
     clearCanvas(canvasRef);
 
     let canvasSize = null;
     for (const [id, layer] of Object.entries(layers)) {
-      const { opacity } = layerSettings[id];
+      const { opacity: layerOpacity } = layerSettings[id];
       if (layer.image.complete) {
         const image = layer.image;
         if (!canvasSize) {
@@ -129,6 +125,9 @@ export function DrawOnImage({ sectionId }) {
 
           canvas.width = canvasSize.width;
           canvas.height = canvasSize.height;
+
+          tempCanvas.width = canvasSize.width;
+          tempCanvas.height = canvasSize.height;
         }
 
         const scale = Math.min(
@@ -138,11 +137,16 @@ export function DrawOnImage({ sectionId }) {
         const x = canvasSize.width / 2 - (image.width / 2) * scale;
         const y = canvasSize.height / 2 - (image.height / 2) * scale;
 
-        ctx.globalAlpha = opacity;
+        ctx.globalAlpha = layerOpacity;
         ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
         anImageHasBeenDrawn.current = true;
       } else if (layer.strokes.length > 0 && doDrawStrokes) {
-        drawStrokesAndKeepOriginalProps(canvasRef, layer.strokes);
+        drawStrokesAndKeepOriginalProps(
+          canvasRef,
+          tempCanvasRef,
+          layer.strokes,
+          layerOpacity,
+        );
       }
     }
   }
@@ -201,10 +205,14 @@ export function DrawOnImage({ sectionId }) {
 
   useEffect(() => {
     if (isEraser) {
-      setCanvasProperties({ doDrawStrokes: false });
-      setDraftCanvasProperties();
-      clearCanvas(draftCanvasRef);
-      drawStrokesAndKeepOriginalProps(draftCanvasRef, strokesRef.current);
+      // setCanvasProperties({ doDrawStrokes: false });
+      // setDraftCanvasProperties();
+      // clearCanvas(draftCanvasRef);
+      // drawStrokesAndKeepOriginalProps(
+      //   draftCanvasRef,
+      //   tempCanvasRef,
+      //   strokesRef.current,
+      // );
     } else {
       setCanvasProperties({ doDrawStrokes: true });
       setDraftCanvasProperties();
@@ -213,6 +221,8 @@ export function DrawOnImage({ sectionId }) {
   }, [isEraser, color, brushSize, eraserBrushSize, brushShape]);
 
   useEffect(() => {
+    tempCanvasRef.current = document.createElement("canvas");
+
     const id = base64RequestId(sectionId);
     const unsub = useTemporaryMiscState.subscribe(
       (x) => x[id],
@@ -228,8 +238,9 @@ export function DrawOnImage({ sectionId }) {
   function startNewStroke(firstPoint) {
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     strokesRef.current.push({
-      color: isEraser ? dCtx.strokeStyle : color,
-      opacity: isEraser ? 1 : layerSettings[activeLayerId].opacity,
+      strokeStyle: isEraser
+        ? dCtx.strokeStyle
+        : hexToRGBA(color, layerSettings[activeLayerId].brushOpacity),
       lineWidth: dCtx.lineWidth,
       lineCap: dCtx.lineCap,
       points: [firstPoint],
@@ -241,6 +252,7 @@ export function DrawOnImage({ sectionId }) {
 
   function drawDraftStroke(from, to) {
     const ctx = getCtx(draftCanvasRef);
+    console.log("drawDraftStroke globalAlpha:", ctx.globalAlpha);
     ctx.beginPath();
     ctx.moveTo(from[0], from[1]);
     ctx.lineTo(to[0], to[1]);
@@ -280,8 +292,14 @@ export function DrawOnImage({ sectionId }) {
     }
     const point = getXY(e);
     const currStroke = strokesRef.current[strokesRef.current.length - 1];
-    if (!isEraser && currStroke.points.length >= 50) {
-      drawLatestStroke(canvasRef, strokesRef.current);
+    if (!isEraser && currStroke.points.length >= 10000) {
+      console.log("strokesRef.current)", strokesRef.current);
+      drawLatestStroke(
+        canvasRef,
+        tempCanvasRef,
+        strokesRef.current,
+        layerSettings[activeLayerId].opacity,
+      );
       clearCanvas(draftCanvasRef);
       startNewStroke(point);
       prevPointRef.current = point;
@@ -298,7 +316,12 @@ export function DrawOnImage({ sectionId }) {
     }
     setIsDrawing(false);
     if (!isEraser) {
-      drawLatestStroke(canvasRef, strokesRef.current);
+      drawLatestStroke(
+        canvasRef,
+        tempCanvasRef,
+        strokesRef.current,
+        layerSettings[activeLayerId].opacity,
+      );
       clearCanvas(draftCanvasRef);
     }
     debouncedSetBrushStrokesArtifact(
@@ -392,90 +415,89 @@ export function DrawOnImage({ sectionId }) {
           color={color}
           setColor={setColor}
         />
-        <div className="flex self-stretch">
-          <button
-            className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${!isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-            onClick={() => {
-              setIsEraser(false);
-            }}
-          >
-            <BiPaint />
-          </button>
-          <StandardPopover
-            arrowClasses="fill-white dark:fill-setta-800"
-            contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
-            trigger={
-              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-200 py-1  text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800  dark:text-setta-400 dark:hover:bg-setta-900">
-                <i className="gg-chevron-down" />
-              </button>
-            }
-            header={"Brush Settings"}
-          >
-            <BrushSettings
-              opacity={layerSettings[activeLayerId]?.opacity ?? 1}
-              setOpacity={setBrushOpacity}
-              brushSize={brushSize}
-              setBrushSize={setBrushSize}
-              brushShape={brushShape}
-              setBrushShape={setBrushShape}
-            />
-          </StandardPopover>
-        </div>
-        <div className="flex self-stretch">
-          <button
-            className={`flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-            onClick={() => {
-              setIsEraser(true);
-            }}
-          >
-            <i className="gg-erase" />
-          </button>
-          <StandardPopover
-            arrowClasses="fill-white dark:fill-setta-800"
-            contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
-            trigger={
-              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-200 py-1  text-xs text-setta-700 hover:bg-setta-300 dark:bg-setta-800  dark:text-setta-400 dark:hover:bg-setta-900">
-                <i className="gg-chevron-down" />
-              </button>
-            }
-            header={"Brush Settings"}
-          >
-            <EraserSettings
-              brushSize={eraserBrushSize}
-              setBrushSize={setEraserBrushSize}
-            />
-          </StandardPopover>
-        </div>
-
-        <StandardPopover
-          arrowClasses="fill-white dark:fill-setta-800"
-          contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
-          trigger={
-            <button className="flex w-12 cursor-pointer items-center justify-center gap-0 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
-              <i className="gg-image" />
-              <i className="gg-chevron-down" />
+        {!!activeLayerId && (
+          <div className="flex self-stretch">
+            <button
+              className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${!isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+              onClick={() => {
+                setIsEraser(false);
+              }}
+            >
+              <BiPaint />
             </button>
-          }
-          header={"Layer Opacity"}
-        >
-          <LayerSettings
-            opacity={layerSettings[activeLayerId]?.opacity ?? 1}
-            setOpacity={setLayerOpacity}
-          />
-        </StandardPopover>
+            <StandardPopover
+              arrowClasses="fill-white dark:fill-setta-800"
+              contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
+              trigger={
+                <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-200 py-1  text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800  dark:text-setta-400 dark:hover:bg-setta-900">
+                  <i className="gg-chevron-down" />
+                </button>
+              }
+              header={"Brush Settings"}
+            >
+              <BrushSettings
+                opacity={layerSettings[activeLayerId].brushOpacity}
+                setOpacity={setBrushOpacity}
+                brushSize={brushSize}
+                setBrushSize={setBrushSize}
+                brushShape={brushShape}
+                setBrushShape={setBrushShape}
+              />
+            </StandardPopover>
+          </div>
+        )}
+        {!!activeLayerId && (
+          <div className="flex self-stretch">
+            <button
+              className={`flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+              onClick={() => {
+                setIsEraser(true);
+              }}
+            >
+              <i className="gg-erase" />
+            </button>
+            <StandardPopover
+              arrowClasses="fill-white dark:fill-setta-800"
+              contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
+              trigger={
+                <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-200 py-1  text-xs text-setta-700 hover:bg-setta-300 dark:bg-setta-800  dark:text-setta-400 dark:hover:bg-setta-900">
+                  <i className="gg-chevron-down" />
+                </button>
+              }
+              header={"Brush Settings"}
+            >
+              <EraserSettings
+                brushSize={eraserBrushSize}
+                setBrushSize={setEraserBrushSize}
+              />
+            </StandardPopover>
+          </div>
+        )}
+
+        {!!activeLayerId && (
+          <StandardPopover
+            arrowClasses="fill-white dark:fill-setta-800"
+            contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
+            trigger={
+              <button className="flex w-12 cursor-pointer items-center justify-center gap-0 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
+                <i className="gg-image" />
+                <i className="gg-chevron-down" />
+              </button>
+            }
+            header={"Layer Opacity"}
+          >
+            <LayerSettings
+              opacity={layerSettings[activeLayerId].opacity}
+              setOpacity={setLayerOpacity}
+            />
+          </StandardPopover>
+        )}
 
         <button
           className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
           onClick={clearStrokes}
         >
           <i className="gg-trash" />
-        </button>
-
-        <button
-          className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
-          onClick={addLayer}
-        >
-          <i className="gg-add" />
         </button>
       </div>
       <section
@@ -752,27 +774,43 @@ function exportImageToBase64(image, width, height) {
   return canvasToBase64(tempCanvas);
 }
 
-function drawStrokesAndKeepOriginalProps(canvasRef, strokes) {
-  const [canvas, ctx] = getCanvasAndCtx(canvasRef);
-  const startingProps = {
-    globalCompositeOperation: ctx.globalCompositeOperation,
-    strokeStyle: ctx.strokeStyle,
-    globalAlpha: ctx.globalAlpha,
-    lineWidth: ctx.lineWidth,
-    lineCap: ctx.lineCap,
-  };
+function drawStrokesAndKeepOriginalProps(
+  canvasRef,
+  tempCanvasRef,
+  strokes,
+  layerOpacity,
+) {
+  const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
   strokes.forEach((stroke) => {
-    drawStroke(canvas, ctx, stroke);
+    drawStroke(tempCanvas, tempCtx, stroke);
   });
-  for (const [k, v] of Object.entries(startingProps)) {
-    ctx[k] = v;
-  }
+
+  const ctx = getCanvasAndCtx(canvasRef)[1];
+  // const startingProps = {
+  //   globalCompositeOperation: ctx.globalCompositeOperation,
+  //   strokeStyle: ctx.strokeStyle,
+  //   lineWidth: ctx.lineWidth,
+  //   lineCap: ctx.lineCap,
+  // };
+
+  ctx.globalAlpha = layerOpacity;
+  ctx.drawImage(tempCanvas, 0, 0);
+
+  clearCanvas(tempCanvasRef);
+
+  // for (const [k, v] of Object.entries(startingProps)) {
+  //   ctx[k] = v;
+  // }
 }
 
-function drawLatestStroke(canvasRef, strokes) {
-  const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+function drawLatestStroke(canvasRef, tempCanvasRef, strokes, layerOpacity) {
   const currStroke = strokes[strokes.length - 1];
-  drawStroke(canvas, ctx, currStroke);
+  drawStrokesAndKeepOriginalProps(
+    canvasRef,
+    tempCanvasRef,
+    [currStroke],
+    layerOpacity,
+  );
 }
 
 function drawStroke(canvas, ctx, stroke) {
@@ -783,11 +821,12 @@ function drawStroke(canvas, ctx, stroke) {
   ctx.scale(scale, scale);
   ctx.beginPath();
   ctx.globalCompositeOperation = stroke.globalCompositeOperation;
-  ctx.strokeStyle = stroke.color;
-  // ctx.globalAlpha = stroke.opacity;
+  ctx.strokeStyle = stroke.strokeStyle;
+  ctx.globalAlpha = 1;
   ctx.lineWidth = stroke.lineWidth;
   ctx.lineCap = stroke.lineCap;
   let prevPoint = stroke.points[0];
+  console.log("drawing to ctx:", ctx);
   stroke.points.forEach((point) => {
     ctx.moveTo(prevPoint[0], prevPoint[1]);
     ctx.lineTo(point[0], point[1]);
@@ -822,4 +861,18 @@ function setLayerSettings(sectionId, activeLayerId, attr, value) {
   useSectionInfos.setState((x) => {
     x.x[sectionId].canvasSettings.layerSettings[activeLayerId][attr] = value;
   });
+}
+
+function hexToRGBA(_hex, opacity) {
+  // Remove # if present
+  const hex = _hex.replace("#", "");
+
+  // Parse r, g, b values
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  const output = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+  console.log("output", output);
+  return output;
 }
