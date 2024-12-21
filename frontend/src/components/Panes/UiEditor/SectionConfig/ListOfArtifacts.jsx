@@ -1,6 +1,8 @@
 import * as Accordion from "@radix-ui/react-accordion";
+import _ from "lodash";
 import { useState } from "react";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
+import { useSectionInfos } from "state/definitions";
 
 // Initial data remains the same
 const INITIAL_ARTIFACTS = {
@@ -25,21 +27,6 @@ const INITIAL_ARTIFACTS = {
     path: "/styles/generator.css",
   },
 };
-
-const INITIAL_LAYERS = [
-  {
-    name: "Data Layer",
-    artifactIds: ["artifact1", "artifact2"],
-  },
-  {
-    name: "Processing Layer",
-    artifactIds: ["artifact2", "artifact3"],
-  },
-  {
-    name: "Presentation Layer",
-    artifactIds: ["artifact3", "artifact4"],
-  },
-];
 
 const LayersList = ({ layers, onDrop, draggedId, onDeleteArtifact }) => {
   const [hoveredLayer, setHoveredLayer] = useState(null);
@@ -134,8 +121,14 @@ const DUMMY_DETAILS = {
   },
 };
 
-export function ListOfArtifacts() {
-  const [layers, setLayers] = useState(INITIAL_LAYERS);
+export function ListOfArtifacts({ sectionId }) {
+  const layers = useSectionInfos(
+    (x) => x.x[sectionId].canvasSettings.layers,
+    _.isEqual,
+  );
+
+  console.log("layers", layers);
+
   const [draggedId, setDraggedId] = useState(null);
 
   const handleDragEnd = () => {
@@ -148,34 +141,23 @@ export function ListOfArtifacts() {
   };
 
   const handleLayerDrop = (artifactId, targetLayerName) => {
-    setLayers((prevLayers) => {
-      return prevLayers.map((layer) => {
-        if (
-          layer.name === targetLayerName &&
-          !layer.artifactIds.includes(artifactId)
-        ) {
-          return {
-            ...layer,
-            artifactIds: [...layer.artifactIds, artifactId],
-          };
-        }
-        return layer;
-      });
+    useSectionInfos.setState((x) => {
+      const targetLayer = x.x[sectionId].canvasSettings.layers.find(
+        (l) => l.name === targetLayerName,
+      );
+      targetLayer.artifactIds.push(artifactId);
     });
   };
 
   const handleDeleteArtifact = (layerName, artifactId) => {
-    setLayers((prevLayers) =>
-      prevLayers.map((layer) => {
-        if (layer.name === layerName) {
-          return {
-            ...layer,
-            artifactIds: layer.artifactIds.filter((id) => id !== artifactId),
-          };
-        }
-        return layer;
-      }),
-    );
+    useSectionInfos.setState((x) => {
+      const targetLayer = x.x[sectionId].canvasSettings.layers.find(
+        (l) => l.name === layerName,
+      );
+      targetLayer.artifactIds = targetLayer.artifactIds.filter(
+        (id) => id !== artifactId,
+      );
+    });
   };
 
   return (
