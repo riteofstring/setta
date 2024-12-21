@@ -14,6 +14,11 @@ import {
 import { useArtifactData } from "state/hooks/artifacts";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { createNewId } from "utils/idNameCreation";
+import {
+  newDrawAreaLocalLayerState,
+  newLayerSettings,
+} from "utils/objs/artifact";
 import { DrawAreaControls } from "./DrawAreaControls";
 import { useImageLoadViaDropzone } from "./utils";
 
@@ -22,8 +27,8 @@ export function DrawOnImage({ sectionId }) {
   const {
     size: { width, height },
     canvasSettings: {
-      layers,
-      activeLayerIndex,
+      layerSettings,
+      activeLayerId,
       color,
       brushSize,
       brushShape,
@@ -35,17 +40,75 @@ export function DrawOnImage({ sectionId }) {
       canvasSettings: x.x[sectionId].canvasSettings,
     };
   }, _.isEqual);
+  const layers = useRef({});
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
   const tempCanvasRef = useRef(null);
-  const layerStrokesRef = useRef([]);
+  const strokesRef = useRef([]);
   const prevPointRef = useRef(null);
   const artifactIdUsedToSetCanvasSize = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
 
-  const layerOpacity = layers[activeLayerIndex]?.layerOpacity ?? 1;
-  const brushOpacity = layers[activeLayerIndex]?.brushOpacity ?? 1;
+  const layerOpacity = layerSettings[activeLayerId]?.layerOpacity ?? 1;
+  const brushOpacity = layerSettings[activeLayerId]?.brushOpacity ?? 1;
+
+  async function processLoadedArtifacts() {
+    if (!isLoaded) {
+      return;
+    }
+    let firstBrushStrokeLayerId = null;
+    for (const [artifactId, v] of Object.entries(artifacts)) {
+      if (!(artifactId in layers.current)) {
+        layers.current[artifactId] = newDrawAreaLocalLayerState({
+          name: v.name,
+          type: v.type,
+        });
+      }
+      if (v.type === "img") {
+        const base64String = `data:image/png;base64,${v.value}`;
+        const storedImage = layers.current[artifactId].image;
+        if (storedImage.src !== base64String) {
+          storedImage.src = base64String;
+          await storedImage.decode();
+        }
+      } else if (v.type === "brushStrokes") {
+        layers.current[artifactId].strokes = _.cloneDeep(v.value);
+        if (!firstBrushStrokeLayerId) {
+          firstBrushStrokeLayerId = artifactId;
+        }
+      }
+    }
+
+    if (!firstBrushStrokeLayerId) {
+      firstBrushStrokeLayerId = createNewId();
+      layers.current[firstBrushStrokeLayerId] = newDrawAreaLocalLayerState({
+        type: "brushStrokes",
+      });
+    }
+
+    useSectionInfos.setState((x) => {
+      const latestLayerSettings = x.x[sectionId].canvasSettings.layerSettings;
+      for (const id of Object.keys(layers.current)) {
+        if (!(id in latestLayerSettings)) {
+          latestLayerSettings[id] = newLayerSettings();
+        }
+      }
+      setCanvasSize({
+        sectionId,
+        canvasRef,
+        tempCanvasRef,
+        draftCanvasRef,
+        layers,
+        layerSettings: latestLayerSettings,
+        artifactIdUsedToSetCanvasSize,
+      });
+
+      if (!activeLayerId) {
+        x.x[sectionId].canvasSettings.activeLayerId = firstBrushStrokeLayerId;
+      }
+    });
+  }
 
   useEffect(() => {
     tempCanvasRef.current = document.createElement("canvas");
@@ -73,6 +136,7 @@ export function DrawOnImage({ sectionId }) {
       tempCanvasRef,
       draftCanvasRef,
       layers,
+      layerSettings,
       artifactIdUsedToSetCanvasSize,
     });
   }, [height, width]);
@@ -88,7 +152,7 @@ export function DrawOnImage({ sectionId }) {
       isEraser,
       layerOpacity,
     });
-    drawAllLayers({ canvasRef, tempCanvasRef, layers });
+    drawAllLayers({ canvasRef, tempCanvasRef, layers, layerSettings });
   }, [
     isEraser,
     color,
@@ -97,7 +161,7 @@ export function DrawOnImage({ sectionId }) {
     brushShape,
     layerOpacity,
     brushOpacity,
-    layers.map((v) => v.visible),
+    Object.values(layerSettings).map((v) => v.visible),
   ]);
 
   function onMouseDown(e, offsetX, offsetY) {
@@ -173,12 +237,8 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function transferEverythingToRealCanvas() {
-    drawAllLayers({
-      canvasRef,
-      tempCanvasRef,
-      layers,
-      layerStrokesRef,
-    });
+    layers.current[activeLayerId].strokes = strokesRef.current;
+    drawAllLayers({ canvasRef, tempCanvasRef, layers, layerSettings });
     clearCanvas(draftCanvasRef);
   }
 
@@ -188,13 +248,15 @@ export function DrawOnImage({ sectionId }) {
       canvasRef,
       tempCanvasRef,
       layers,
-      excludeLayer: activeLayerIndex,
+      layerSettings,
+      excludeLayer: activeLayerId,
     });
     drawAllLayers({
       canvasRef: draftCanvasRef,
       tempCanvasRef,
       layers,
-      includeLayer: activeLayerIndex,
+      layerSettings,
+      includeLayer: activeLayerId,
       applyLayerOpacityToGlobalAlpha: false,
     });
   }
@@ -202,11 +264,11 @@ export function DrawOnImage({ sectionId }) {
   function clearStrokes() {
     strokesRef.current = [];
     clearAllCanvases();
-    // debouncedSetBrushStrokesArtifact(
-    //   sectionId,
-    //   strokesArtifactId,
-    //   strokesRef.current,
-    // );
+    debouncedSetBrushStrokesArtifact(
+      sectionId,
+      strokesArtifactId,
+      strokesRef.current,
+    );
   }
 
   function clearAllCanvases() {
@@ -226,8 +288,9 @@ export function DrawOnImage({ sectionId }) {
     <>
       <DrawAreaControls
         sectionId={sectionId}
-        layers={layers}
-        activeLayerIndex={activeLayerIndex}
+        layers={layers.current}
+        layerSettings={layerSettings}
+        activeLayerId={activeLayerId}
         color={color}
         brushOpacity={brushOpacity}
         brushSize={brushSize}
@@ -295,6 +358,7 @@ function setCanvasSize({
   tempCanvasRef,
   draftCanvasRef,
   layers,
+  layerSettings,
   artifactIdUsedToSetCanvasSize,
 }) {
   const [canvas] = getCanvasAndCtx(canvasRef);
@@ -328,7 +392,7 @@ function setCanvasSize({
   draftCanvas.width = canvasSize.width;
   draftCanvas.height = canvasSize.height;
 
-  drawAllLayers({ canvasRef, tempCanvasRef, layers });
+  drawAllLayers({ canvasRef, tempCanvasRef, layers, layerSettings });
 }
 
 function getXY(e) {
@@ -355,6 +419,7 @@ function drawAllLayers({
   canvasRef,
   tempCanvasRef,
   layers,
+  layerSettings,
   excludeLayer = null,
   includeLayer = null,
   applyLayerOpacityToGlobalAlpha = true,
@@ -362,15 +427,16 @@ function drawAllLayers({
   const [canvas, ctx] = getCanvasAndCtx(canvasRef);
   clearCanvas(canvasRef);
 
-  for (const [idx, layer] of layers.entries()) {
+  for (const [id, layer] of Object.entries(layers.current)) {
     if (
-      !layers[idx].visible ||
-      (excludeLayer && idx === excludeLayer) ||
-      (includeLayer && idx !== includeLayer)
+      !(id in layerSettings) ||
+      !layerSettings[id].visible ||
+      (excludeLayer && id === excludeLayer) ||
+      (includeLayer && id !== includeLayer)
     ) {
       continue;
     }
-    const { layerOpacity } = layer;
+    const { layerOpacity } = layerSettings[id];
     if (layer.image?.complete) {
       const image = layer.image;
 
