@@ -68,6 +68,35 @@ export function useDrawModeMouseHandlers({
     });
 
     onMouseEnter = drawingOnMouseEnter({ draftCanvasRef, onMouseDown });
+  } else {
+    onMouseDown = editingOnMouseDown({
+      canvasRef,
+      selectedIndex,
+      elements,
+      setSelectedIndex,
+      setResizeHandle,
+      setLastPos,
+      setDraggedIndex,
+      setIsDragging,
+    });
+
+    onMouseMove = editingOnMouseMove({
+      canvasRef,
+      isDragging,
+      resizeHandle,
+      draggedIndex,
+      elements,
+      setElements,
+      setLastPos,
+    });
+
+    onMouseUp = editingOnMouseUp({
+      setIsDragging,
+      setDraggedIndex,
+      setResizeHandle,
+    });
+
+    onMouseEnter = () => {};
   }
 
   // useCallback so that throttle function doesn't get recreated and reset timer
@@ -199,5 +228,196 @@ function drawingOnMouseEnter({ draftCanvasRef, onMouseDown }) {
       const offsetY = (e.clientY - rect.top) / zoom;
       onMouseDown(e, offsetX, offsetY);
     }
+  };
+}
+
+function editingOnMouseDown({
+  canvasRef,
+  selectedIndex,
+  elements,
+  setSelectedIndex,
+  setResizeHandle,
+  setLastPos,
+  setDraggedIndex,
+  setIsDragging,
+}) {
+  return (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Check if clicking on resize handle of selected element
+    if (selectedIndex !== null) {
+      const element = elements[selectedIndex];
+      if (element.type === "image") {
+        const handleSize = 8;
+        const corners = [
+          { x: element.x, y: element.y, cursor: "nw-resize" }, // Top-left
+          { x: element.x + element.width, y: element.y, cursor: "ne-resize" }, // Top-right
+          { x: element.x, y: element.y + element.height, cursor: "sw-resize" }, // Bottom-left
+          {
+            x: element.x + element.width,
+            y: element.y + element.height,
+            cursor: "se-resize",
+          }, // Bottom-right
+        ];
+
+        for (let i = 0; i < corners.length; i++) {
+          const corner = corners[i];
+          if (
+            Math.abs(x - corner.x) <= handleSize / 2 &&
+            Math.abs(y - corner.y) <= handleSize / 2
+          ) {
+            setResizeHandle(i);
+            setLastPos({ x, y });
+            return;
+          }
+        }
+      }
+    }
+
+    // Check if clicking on an existing element
+    for (let i = elements.length - 1; i >= 0; i--) {
+      const element = elements[i];
+      if (
+        element.type === "img" &&
+        x >= element.x &&
+        x <= element.x + element.width &&
+        y >= element.y &&
+        y <= element.y + element.height
+      ) {
+        setIsDragging(true);
+        setDraggedIndex(i);
+        setSelectedIndex(i);
+        setLastPos({ x, y });
+        return;
+      } else if (element.type === "brushStrokes") {
+        // Check if clicking near any point in the path
+        const hitRadius = 5;
+        for (const point of element.points) {
+          if (
+            Math.abs(x - point.x) <= hitRadius &&
+            Math.abs(y - point.y) <= hitRadius
+          ) {
+            setIsDragging(true);
+            setDraggedIndex(i);
+            setSelectedIndex(i);
+            setLastPos({ x, y });
+            return;
+          }
+        }
+      }
+    }
+
+    // If clicked outside any element, clear selection
+    setSelectedIndex(null);
+  };
+}
+
+function editingOnMouseMove({
+  canvasRef,
+  isDragging,
+  resizeHandle,
+  draggedIndex,
+  elements,
+  setElements,
+  setLastPos,
+}) {
+  return (e) => {
+    if (!isDragging && resizeHandle === null) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (isDragging && draggedIndex !== null) {
+      const dx = x - lastPos.x;
+      const dy = y - lastPos.y;
+
+      setElements(
+        elements.map((element, index) => {
+          if (index === draggedIndex) {
+            if (element.type === "img") {
+              return {
+                ...element,
+                x: element.x + dx,
+                y: element.y + dy,
+              };
+            } else if (element.type === "brushStrokes") {
+              // Move all points in the path
+              return {
+                ...element,
+                points: element.points.map((point) => ({
+                  x: point.x + dx,
+                  y: point.y + dy,
+                })),
+              };
+            }
+          }
+          return element;
+        }),
+      );
+
+      setLastPos({ x, y });
+    } else if (resizeHandle !== null && selectedIndex !== null) {
+      const dx = x - lastPos.x;
+      const dy = y - lastPos.y;
+
+      setElements(
+        elements.map((element, index) => {
+          if (index === selectedIndex && element.type === "img") {
+            let newElement = { ...element };
+
+            switch (resizeHandle) {
+              case 0: // Top-left
+                newElement.width -= dx;
+                newElement.height -= dy;
+                newElement.x += dx;
+                newElement.y += dy;
+                break;
+              case 1: // Top-right
+                newElement.width += dx;
+                newElement.height -= dy;
+                newElement.y += dy;
+                break;
+              case 2: // Bottom-left
+                newElement.width -= dx;
+                newElement.height += dy;
+                newElement.x += dx;
+                break;
+              case 3: // Bottom-right
+                newElement.width += dx;
+                newElement.height += dy;
+                break;
+            }
+
+            // Ensure minimum size
+            if (newElement.width < 20) {
+              newElement.width = 20;
+              newElement.x = element.x;
+            }
+            if (newElement.height < 20) {
+              newElement.height = 20;
+              newElement.y = element.y;
+            }
+
+            return newElement;
+          }
+          return element;
+        }),
+      );
+
+      setLastPos({ x, y });
+    }
+  };
+}
+
+function editingOnMouseUp({ setIsDragging, setDraggedIndex, setResizeHandle }) {
+  return () => {
+    setIsDragging(false);
+    setDraggedIndex(null);
+    setResizeHandle(null);
   };
 }
