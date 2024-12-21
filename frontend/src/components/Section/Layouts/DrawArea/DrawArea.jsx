@@ -50,6 +50,9 @@ export function DrawOnImage({ sectionId }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
 
+  const layerOpacity = layerSettings[activeLayerId]?.layerOpacity ?? 1;
+  const brushOpacity = layerSettings[activeLayerId]?.brushOpacity ?? 1;
+
   async function processLoadedArtifacts() {
     if (!isLoaded) {
       return;
@@ -135,10 +138,6 @@ export function DrawOnImage({ sectionId }) {
   }, [height, width]);
 
   useEffect(() => {
-    if (!activeLayerId) {
-      return;
-    }
-    const { layerOpacity, brushOpacity } = layerSettings[activeLayerId];
     setDraftCanvasProperties({
       draftCanvasRef,
       color,
@@ -149,7 +148,15 @@ export function DrawOnImage({ sectionId }) {
       isEraser,
       layerOpacity,
     });
-  }, [isEraser, color, brushSize, eraserBrushSize, brushShape, activeLayerId]);
+  }, [
+    isEraser,
+    color,
+    brushSize,
+    eraserBrushSize,
+    brushShape,
+    layerOpacity,
+    brushOpacity,
+  ]);
 
   function onMouseDown(e, offsetX, offsetY) {
     if (useMisc.getState().mouseDownDraggingSection) {
@@ -262,13 +269,13 @@ export function DrawOnImage({ sectionId }) {
         sectionId={sectionId}
         activeLayerId={activeLayerId}
         color={color}
-        brushOpacity={layerSettings[activeLayerId]?.brushOpacity ?? 1}
+        brushOpacity={brushOpacity}
         brushSize={brushSize}
         brushShape={brushShape}
         eraserBrushSize={eraserBrushSize}
         isEraser={isEraser}
         setIsEraser={setIsEraser}
-        layerOpacity={layerSettings[activeLayerId]?.layerOpacity ?? 1}
+        layerOpacity={layerOpacity}
         clearStrokes={clearStrokes}
       />
       <section
