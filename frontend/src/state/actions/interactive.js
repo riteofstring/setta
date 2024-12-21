@@ -31,7 +31,7 @@ export async function updateInteractiveData(data) {
     if (d.type === "runGroupControl") {
       setAllRunGroupsAndMaybeCreateSection(d.value);
     } else if (["list", "img"].includes(d.type)) {
-      dataInArtifactForm[`interactive:${d.displayName}`] = d;
+      dataInArtifactForm[`interactive:${d.name}`] = d;
     } else {
       console.error("incorrect interactive type", d);
     }
