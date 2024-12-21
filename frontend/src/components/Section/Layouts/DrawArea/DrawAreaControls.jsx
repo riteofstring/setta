@@ -4,7 +4,7 @@ import { StandardPopover } from "components/Utils/atoms/popover/standardpopover"
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
-import { FaEye, FaEyeSlash, FaPencilAlt } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaPencilAlt, FaBars } from "react-icons/fa";
 import { TfiLayersAlt } from "react-icons/tfi";
 import { useSectionInfos } from "state/definitions";
 
@@ -341,9 +341,11 @@ function LayerList({
   setActiveLayerId,
   setLayerVisibility,
   onNameChange,
+  onReorder,
 }) {
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState("");
+  const [draggedOverId, setDraggedOverId] = useState(null);
 
   if (!layers || typeof layers !== "object") {
     return <div>No layers provided</div>;
@@ -356,7 +358,7 @@ function LayerList({
 
   const handleKeyDown = (e, id) => {
     if (e.key === "Enter") {
-    //   onNameChange(id, editValue);
+      onNameChange(id, editValue);
       setEditingId(null);
     } else if (e.key === "Escape") {
       setEditingId(null);
@@ -364,8 +366,35 @@ function LayerList({
   };
 
   const handleBlur = (id) => {
-    // onNameChange(id, editValue);
+    onNameChange(id, editValue);
     setEditingId(null);
+  };
+
+  const handleDragStart = (e, id) => {
+    e.dataTransfer.setData("text/plain", id);
+  };
+
+  const handleDragOver = (e, id) => {
+    e.preventDefault();
+    setDraggedOverId(id);
+  };
+
+  const handleDragLeave = () => {
+    setDraggedOverId(null);
+  };
+
+  const handleDrop = (e, targetId) => {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData("text/plain");
+    setDraggedOverId(null);
+
+    if (draggedId === targetId) return;
+
+    const layerIds = Object.keys(layers);
+    const fromIndex = layerIds.indexOf(draggedId);
+    const toIndex = layerIds.indexOf(targetId);
+
+    onReorder(fromIndex, toIndex);
   };
 
   return (
@@ -373,26 +402,38 @@ function LayerList({
       {Object.entries(layers).map(([id, layer]) => (
         <li
           key={id}
-          className="flex items-center justify-between rounded bg-gray-50 p-2 hover:bg-gray-100"
+          draggable={true}
+          onDragStart={(e) => handleDragStart(e, id)}
+          onDragOver={(e) => handleDragOver(e, id)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, id)}
+          className={`flex items-center justify-between rounded bg-gray-50 p-2 hover:bg-gray-100 ${
+            draggedOverId === id ? "border-t-2 border-blue-500" : ""
+          }`}
         >
-          {editingId === id ? (
-            <input
-              type="text"
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onKeyDown={(e) => handleKeyDown(e, id)}
-              onBlur={() => handleBlur(id)}
-              className="rounded border px-1 text-sm focus:border-blue-500 focus:outline-none"
-              autoFocus
-            />
-          ) : (
-            <span
-              className="text-sm"
-              onDoubleClick={() => handleDoubleClick(id, layer.name)}
-            >
-              {layer.name}
-            </span>
-          )}
+          <div className="flex flex-1 items-center">
+            <div className="mr-2 cursor-move text-gray-400 hover:text-gray-600">
+              <FaBars className="h-4 w-4" />
+            </div>
+            {editingId === id ? (
+              <input
+                type="text"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, id)}
+                onBlur={() => handleBlur(id)}
+                className="rounded border px-1 text-sm focus:border-blue-500 focus:outline-none"
+                autoFocus
+              />
+            ) : (
+              <span
+                className="text-sm"
+                onDoubleClick={() => handleDoubleClick(id, layer.name)}
+              >
+                {layer.name}
+              </span>
+            )}
+          </div>
           <div className="flex items-center space-x-2">
             <div
               onClick={() => setLayerVisibility(id, !layerSettings[id].visible)}
