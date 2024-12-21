@@ -108,16 +108,17 @@ def save_sections(db, sections, section_variants):
 
     # add children
     query = """
-        INSERT INTO SectionArtifacts (sectionId, artifactId)
-        VALUES (:sectionId, :artifactId)
+        INSERT INTO SectionArtifacts (sectionId, artifactId, "order")
+        VALUES (:sectionId, :artifactId, :order)
     """
     query_params = []
     for s in sections.values():
-        for a in s["artifactIds"]:
+        for order, a in enumerate(s["artifactIds"]):
             query_params.append(
                 {
                     "sectionId": s["id"],
                     "artifactId": a,
+                    "order": order,
                 }
             )
     db.executemany(query, query_params)

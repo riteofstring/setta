@@ -41,6 +41,7 @@ export function DrawOnImage({ sectionId }) {
       canvasSettings: x.x[sectionId].canvasSettings,
     };
   }, _.isEqual);
+  const [forceRerenderCounter, setForceRerenderCounter] = useState(0);
   const layers = useRef({});
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
@@ -117,6 +118,7 @@ export function DrawOnImage({ sectionId }) {
           firstBrushStrokeLayerId;
       }
     });
+    setForceRerenderCounter((c) => c + 1);
   }
 
   useEffect(() => {
@@ -174,6 +176,7 @@ export function DrawOnImage({ sectionId }) {
     layerOpacity,
     brushOpacity,
     Object.values(layerSettings).map((v) => v.visible),
+    forceRerenderCounter,
   ]);
 
   function onMouseDown(e, offsetX, offsetY) {

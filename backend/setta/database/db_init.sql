@@ -195,6 +195,7 @@ CREATE TABLE IF NOT EXISTS Artifact (
 CREATE TABLE IF NOT EXISTS SectionArtifacts (
     sectionId TEXT,
     artifactId TEXT,
+    "order" INTEGER,
     PRIMARY KEY (sectionId, artifactId),
     FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
     FOREIGN KEY (artifactId) REFERENCES Artifact(id) ON DELETE CASCADE
