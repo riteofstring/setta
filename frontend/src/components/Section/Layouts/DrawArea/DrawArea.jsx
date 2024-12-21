@@ -180,22 +180,7 @@ export function DrawOnImage({ sectionId }) {
     } else {
       point = getXY(e);
     }
-    clearAllCanvases();
-    drawAllLayers({
-      canvasRef,
-      tempCanvasRef,
-      layers,
-      layerSettings,
-      excludeLayer: activeLayerId,
-    });
-    drawAllLayers({
-      canvasRef: draftCanvasRef,
-      tempCanvasRef,
-      layers,
-      layerSettings,
-      includeLayer: activeLayerId,
-      applyLayerOpacityToGlobalAlpha: false,
-    });
+    transferActiveLayerToDraft();
     startNewStroke(draftCanvasRef, strokesRef, point);
     drawStroke(draftCanvasRef, point, point);
     prevPointRef.current = point;
@@ -207,9 +192,17 @@ export function DrawOnImage({ sectionId }) {
     }
     const point = getXY(e);
     const currStroke = strokesRef.current[strokesRef.current.length - 1];
-    drawStroke(draftCanvasRef, prevPointRef.current, point);
-    currStroke.points.push(point);
-    prevPointRef.current = point;
+    if (!isEraser && currStroke.points.length >= 50) {
+      transferEverythingToRealCanvas();
+      transferActiveLayerToDraft();
+      startNewStroke(draftCanvasRef, strokesRef, point);
+      drawStroke(draftCanvasRef, point, point);
+      prevPointRef.current = point;
+    } else {
+      drawStroke(draftCanvasRef, prevPointRef.current, point);
+      currStroke.points.push(point);
+      prevPointRef.current = point;
+    }
   }
 
   function onMouseUp() {
