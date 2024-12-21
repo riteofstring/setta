@@ -48,7 +48,7 @@ export const debouncedSetBrushStrokesArtifact = _.debounce(
       x.x[artifactId].value = _.cloneDeep(strokes);
     });
   },
-  100,
+  50,
 );
 
 export const debouncedSendDrawingToInteractiveTasks = _.debounce(
