@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { maybeCreateArtifactAndUpdateSection } from "state/actions/artifacts";
+import { createArtifactAndUpdateSection } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
@@ -19,7 +19,7 @@ export function useImageLoadViaDropzone(sectionId) {
         );
         const artifactId = createNewId();
         useSectionInfos.setState((state) =>
-          maybeCreateArtifactAndUpdateSection(
+          createArtifactAndUpdateSection(
             sectionId,
             artifactId,
             {

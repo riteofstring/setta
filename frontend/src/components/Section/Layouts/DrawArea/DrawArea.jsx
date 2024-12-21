@@ -1,4 +1,3 @@
-import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -130,7 +129,7 @@ function DrawAreaCore({ sectionId, artifacts }) {
     brushShape,
     layerOpacity,
     brushOpacity,
-    Object.values(layers).map((v) => v.visible),
+    Object.values(layers).map((v) => ({ name: v.name, visible: v.visible })), // this also tracks layer ordering because it's tracking "name"
   ]);
 
   useEffect(() => {
@@ -139,7 +138,7 @@ function DrawAreaCore({ sectionId, artifacts }) {
     if (storedStrokes) {
       strokesRef.current = _.cloneDeep(storedStrokes);
     }
-  }, [activeLayerIdx, currBrushStrokeArtifactId]);
+  }, [currBrushStrokeArtifactId]);
 
   function onMouseDown(e, offsetX, offsetY) {
     if (useMisc.getState().mouseDownDraggingSection) {
@@ -237,21 +236,6 @@ function DrawAreaCore({ sectionId, artifacts }) {
     );
   }
 
-  function reorderLayers(draggedIdx, targetIdx) {
-    useSectionInfos.setState((state) => {
-      const canvasSettings = state.x[sectionId].canvasSettings;
-      const currActiveLayerName = canvasSettings.layers[activeLayerIdx].name;
-      canvasSettings.layers = arrayMove(
-        canvasSettings.layers,
-        draggedIdx,
-        targetIdx,
-      );
-      canvasSettings.activeLayerIdx = canvasSettings.layers.findIndex(
-        (x) => x.name === currActiveLayerName,
-      );
-    });
-  }
-
   const { getRootProps, isDragActive } = useImageLoadViaDropzone(sectionId);
 
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
@@ -274,7 +258,6 @@ function DrawAreaCore({ sectionId, artifacts }) {
         setIsEraser={setIsEraser}
         layerOpacity={layerOpacity}
         clearStrokes={clearStrokes}
-        reorderLayers={reorderLayers}
       />
       <section
         className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0"
@@ -408,7 +391,6 @@ function drawAllLayers({
   const [canvas, ctx] = getCanvasAndCtx(canvasRef);
   const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
   clearCanvas(canvasRef);
-  clearCanvas(tempCanvasRef);
 
   const artifactState = useArtifacts.getState();
   for (const [idx, layer] of layers.entries()) {
@@ -454,6 +436,7 @@ function drawAllLayers({
     ctx.globalAlpha = layerOpacity;
     ctx.drawImage(tempCanvas, 0, 0);
     ctx.globalCompositeOperation = originalGlobalCompositeOperation;
+    clearCanvas(tempCanvasRef);
   }
 }
 

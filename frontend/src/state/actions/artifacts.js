@@ -47,22 +47,15 @@ async function prepareArtifactsForRendering(artifactsFromBackend) {
   }
 }
 
-export function maybeCreateArtifactAndUpdateSection(
+export function createArtifactAndUpdateSection(
   sectionId,
   artifactId,
   artifactProps,
   sectionInfoState,
 ) {
-  useArtifacts.setState((x) => {
-    if (!(artifactId in x.x)) {
-      x.x[artifactId] = newArtifact(artifactProps);
-    } else {
-      x.x[artifactId].value = artifactProps.value;
-    }
+  useArtifacts.setState({
+    [artifactId]: newArtifact(artifactProps),
   });
 
-  const artifactIds = sectionInfoState.x[sectionId].artifactIds;
-  if (!artifactIds.includes(artifactId)) {
-    artifactIds.push(artifactId);
-  }
+  sectionInfoState.x[sectionId].artifactIds.push(artifactId);
 }

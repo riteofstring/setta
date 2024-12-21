@@ -1,12 +1,13 @@
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
 import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
 import { FaBars, FaEye, FaEyeSlash, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { TfiLayersAlt } from "react-icons/tfi";
-import { maybeCreateArtifactAndUpdateSection } from "state/actions/artifacts";
+import { createArtifactAndUpdateSection } from "state/actions/artifacts";
 import { useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { newLayer } from "utils/objs/artifact";
@@ -24,7 +25,6 @@ export function DrawAreaControls({
   setIsEraser,
   layerOpacity,
   clearStrokes,
-  reorderLayers,
 }) {
   function setColor(v) {
     setCanvasSettings(sectionId, "color", v);
@@ -55,13 +55,28 @@ export function DrawAreaControls({
       const canvasSettings = state.x[sectionId].canvasSettings;
       const artifactId = createNewId();
       canvasSettings.layers.push(newLayer({ artifactIds: [artifactId] }));
-      maybeCreateArtifactAndUpdateSection(
+      createArtifactAndUpdateSection(
         sectionId,
         artifactId,
         { type: "brushStrokes", value: [] },
         state,
       );
       canvasSettings.activeLayerIdx = canvasSettings.layers.length - 1;
+    });
+  }
+
+  function reorderLayers(draggedIdx, targetIdx) {
+    useSectionInfos.setState((state) => {
+      const canvasSettings = state.x[sectionId].canvasSettings;
+      const currActiveLayerName = canvasSettings.layers[activeLayerIdx].name;
+      canvasSettings.layers = arrayMove(
+        canvasSettings.layers,
+        draggedIdx,
+        targetIdx,
+      );
+      canvasSettings.activeLayerIdx = canvasSettings.layers.findIndex(
+        (x) => x.name === currActiveLayerName,
+      );
     });
   }
 
