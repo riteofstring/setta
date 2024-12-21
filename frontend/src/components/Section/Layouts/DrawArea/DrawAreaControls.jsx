@@ -240,16 +240,16 @@ function BrushSettings({
       </p>
       <div className="flex gap-1">
         <button
-          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50  focus-visible:ring-1 dark:hover:bg-setta-900/50`}
-          onClick={() => setBrushShape("round")}
-        >
-          <i className="gg-shape-circle" />
-        </button>
-        <button
           className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "butt" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
           onClick={() => setBrushShape("butt")}
         >
           <i className="gg-shape-square" />
+        </button>
+        <button
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50  focus-visible:ring-1 dark:hover:bg-setta-900/50`}
+          onClick={() => setBrushShape("round")}
+        >
+          <i className="gg-shape-circle" />
         </button>
       </div>
     </div>

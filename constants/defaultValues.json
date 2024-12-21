@@ -35,8 +35,10 @@
       "activeLayerIdx": null,
       "color": "#ff0000",
       "brushSize": 16,
-      "brushShape": "round",
-      "eraserBrushSize": 16
+      "brushShape": "butt",
+      "eraserBrushSize": 16,
+      "drawThrottleDelay": 0,
+      "canvasTransferQueueLength": 50
     },
     "isTemporary": false,
     "renderMarkdown": false,

@@ -1,6 +1,6 @@
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { maybeCreateArtifactAndUpdateSection } from "state/actions/artifacts";
 import {
@@ -35,6 +35,8 @@ export function DrawOnImage({ sectionId }) {
       brushSize,
       brushShape,
       eraserBrushSize,
+      drawThrottleDelay,
+      canvasTransferQueueLength,
     },
   } = useSectionInfos((x) => {
     return {
@@ -240,7 +242,7 @@ export function DrawOnImage({ sectionId }) {
     }
     const point = getXY(e);
     const currStroke = strokesRef.current[strokesRef.current.length - 1];
-    if (!isEraser && currStroke.points.length >= 50) {
+    if (!isEraser && currStroke.points.length >= canvasTransferQueueLength) {
       // simulate mouseup->mousedown
       transferEverythingToRealCanvas();
       transferActiveLayerToDraft();
@@ -252,6 +254,14 @@ export function DrawOnImage({ sectionId }) {
       prevPointRef.current = point;
     }
   }
+
+  // useCallback so that throttle function doesn't get recreated and reset timer
+  const throttledOnMouseMove = useCallback(
+    drawThrottleDelay > 0
+      ? _.throttle(onMouseMove, drawThrottleDelay)
+      : onMouseMove,
+    [onMouseMove, drawThrottleDelay],
+  );
 
   function onMouseUp() {
     if (!isDrawing) {
@@ -353,7 +363,7 @@ export function DrawOnImage({ sectionId }) {
           <canvas
             ref={canvasRef}
             onMouseDown={onMouseDown}
-            onMouseMove={onMouseMove}
+            onMouseMove={throttledOnMouseMove}
             onMouseUp={onMouseUp}
             onMouseLeave={onMouseUp}
             onMouseEnter={onMouseEnter}
