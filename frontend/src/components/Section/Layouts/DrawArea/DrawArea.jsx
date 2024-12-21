@@ -77,6 +77,7 @@ export function DrawOnImage({ sectionId }) {
   // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
 
   async function processLoadedArtifacts() {
+    console.log("processLoadedArtifacts")
     if (!isLoaded) {
       return;
     }
@@ -112,7 +113,10 @@ export function DrawOnImage({ sectionId }) {
           await storedImage.decode();
         }
       } else if (v.type === "brushStrokes") {
-        matchingLocalLayer[artifactId].value = _.cloneDeep(v.value);
+        const strokesObj = matchingLocalLayer[artifactId];
+        if (strokesObj.value != v.value) {
+          strokesObj.value = _.cloneDeep(v.value);
+        }
       }
     }
 
@@ -167,7 +171,18 @@ export function DrawOnImage({ sectionId }) {
 
   useDeepCompareEffect(() => {
     processLoadedArtifacts();
-  }, [Object.keys(artifacts), isLoaded]);
+  }, [artifacts, isLoaded]);
+
+  // useDeepCompareEffect(() => {
+  //   console.log("useDeepCompareEffect", )
+  //   for (const [artifactId, v] of Object.entries(artifacts)) {
+  //     for (const localLayer of localLayers.current) {
+  //       if (artifactId in localLayer && localLayer[artifactId].value !== v.value) {
+  //         localLayer[artifactId].value = v;
+  //       }
+  //     }
+  //   }
+  // }, [Object.values(artifacts)]);
 
   useEffect(() => {
     useSectionInfos.setState((state) => {
@@ -305,12 +320,7 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function clearStrokes() {
-    strokesRef.current = [];
-    transferEverythingToRealCanvas();
-    debouncedSetBrushStrokesArtifact(
-      currBrushStrokeArtifactId,
-      strokesRef.current,
-    );
+    debouncedSetBrushStrokesArtifact(currBrushStrokeArtifactId, []);
   }
 
   function reorderLayers(draggedIdx, targetIdx) {
