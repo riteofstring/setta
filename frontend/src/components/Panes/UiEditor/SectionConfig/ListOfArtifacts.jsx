@@ -1,34 +1,17 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import _ from "lodash";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
+import { dbLoadAvailableArtifacts } from "requests/artifacts";
 import { useSectionInfos } from "state/definitions";
 
-// Initial data remains the same
-const INITIAL_ARTIFACTS = {
-  artifact1: {
-    name: "Configuration Parser",
-    type: "Python Script",
-    path: "/scripts/config_parser.py",
-  },
-  artifact2: {
-    name: "Data Processor",
-    type: "JavaScript Module",
-    path: "/src/data/processor.js",
-  },
-  artifact3: {
-    name: "Visualization Component",
-    type: "React Component",
-    path: "/components/DataViz.tsx",
-  },
-  artifact4: {
-    name: "Style Generator",
-    type: "CSS Module",
-    path: "/styles/generator.css",
-  },
-};
-
-const LayersList = ({ layers, onDrop, draggedId, onDeleteArtifact }) => {
+const LayersList = ({
+  layers,
+  availableArtifacts,
+  onDrop,
+  draggedId,
+  onDeleteArtifact,
+}) => {
   const [hoveredLayer, setHoveredLayer] = useState(null);
 
   const handleDragOver = (e, layerName) => {
@@ -91,7 +74,7 @@ const LayersList = ({ layers, onDrop, draggedId, onDeleteArtifact }) => {
                 key={id}
                 className="group flex items-center justify-between text-sm text-gray-600 dark:text-gray-400"
               >
-                <span>{INITIAL_ARTIFACTS[id]?.name || id}</span>
+                <span>{availableArtifacts[id]?.name}</span>
                 <button
                   onClick={() => onDeleteArtifact(layerName, id)}
                   className="cursor-pointer p-1 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
@@ -107,27 +90,24 @@ const LayersList = ({ layers, onDrop, draggedId, onDeleteArtifact }) => {
   );
 };
 
-// DUMMY_DETAILS remains the same
-const DUMMY_DETAILS = {
-  "Configuration Parser": {
-    description: "Parses configuration files in YAML format",
-    lastModified: "2024-03-15",
-    author: "Jane Doe",
-  },
-  "Data Processor": {
-    description: "Processes raw data into normalized format",
-    lastModified: "2024-03-16",
-    author: "John Smith",
-  },
-};
-
-export function ListOfArtifacts({ sectionId }) {
+export function ListOfArtifacts({ sectionId, sectionTypeName }) {
   const layers = useSectionInfos(
     (x) => x.x[sectionId].canvasSettings.layers,
     _.isEqual,
   );
+  const [availableArtifacts, setAvailableArtifacts] = useState({});
+  const [loadedDetails, setLoadedDetails] = useState({});
 
-  console.log("layers", layers);
+  useEffect(() => {
+    async function fn() {
+      const res = await dbLoadAvailableArtifacts(sectionTypeName);
+      if (res.status == 200) {
+        setAvailableArtifacts(res.data);
+      }
+    }
+
+    fn();
+  }, []);
 
   const [draggedId, setDraggedId] = useState(null);
 
@@ -164,6 +144,7 @@ export function ListOfArtifacts({ sectionId }) {
     <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
       <LayersList
         layers={layers}
+        availableArtifacts={availableArtifacts}
         onDrop={handleLayerDrop}
         draggedId={draggedId}
         onDeleteArtifact={handleDeleteArtifact}
@@ -174,7 +155,7 @@ export function ListOfArtifacts({ sectionId }) {
       </h2>
 
       <Accordion.Root type="multiple" className="w-full">
-        {Object.entries(INITIAL_ARTIFACTS).map(([id, item]) => (
+        {Object.entries(availableArtifacts).map(([id, item]) => (
           <Accordion.Item
             key={id}
             value={item.name}
@@ -208,9 +189,9 @@ export function ListOfArtifacts({ sectionId }) {
 
             <Accordion.Content className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
               <div className="bg-gray-50 p-4 dark:bg-gray-800">
-                {DUMMY_DETAILS[item.name] ? (
+                {loadedDetails[item.id] ? (
                   <pre className="text-gray-900 dark:text-gray-100">
-                    {JSON.stringify(DUMMY_DETAILS[item.name], null, 2)}
+                    {JSON.stringify(loadedDetails[item.id], null, 2)}
                   </pre>
                 ) : (
                   <div className="text-gray-500 dark:text-gray-400">
