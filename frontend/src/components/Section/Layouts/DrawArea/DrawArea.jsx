@@ -50,7 +50,6 @@ export function DrawArea({ sectionId }) {
   const tempCanvasRef = useRef(null);
   const strokesRef = useRef([]);
   const prevPointRef = useRef(null);
-  const artifactIdUsedToSetCanvasSize = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
 
@@ -87,7 +86,6 @@ export function DrawArea({ sectionId }) {
         tempCanvasRef,
         draftCanvasRef,
         layers,
-        artifactIdUsedToSetCanvasSize,
         state,
       });
     });
@@ -302,33 +300,38 @@ function setCanvasSize({
   tempCanvasRef,
   draftCanvasRef,
   layers,
-  artifactIdUsedToSetCanvasSize,
   state,
 }) {
   const [canvas] = getCanvasAndCtx(canvasRef);
   const [tempCanvas] = getCanvasAndCtx(tempCanvasRef);
   const [draftCanvas] = getCanvasAndCtx(draftCanvasRef);
 
-  let imgSize = null;
-  let isNewImg = false;
+  const artifactIdUsedToSetCanvasSize =
+    state.x[sectionId].canvasSettings.artifactIdUsedToSetCanvasSize;
   const artifactState = useArtifacts.getState();
-  for (const layer of layers) {
-    for (const id of layer.artifactIds) {
-      if (!(id in artifactState)) {
-        continue;
+  let imgSize = maybeGetImgSizeFromArtifact(
+    artifactState[artifactIdUsedToSetCanvasSize],
+  );
+  let isNewImg = false;
+
+  if (!imgSize) {
+    for (const layer of layers) {
+      for (const id of layer.artifactIds) {
+        if (!(id in artifactState)) {
+          continue;
+        }
+        const artifact = artifactState[id];
+        imgSize = maybeGetImgSizeFromArtifact(artifact);
+        if (imgSize) {
+          state.x[sectionId].canvasSettings.artifactIdUsedToSetCanvasSize = id;
+          isNewImg = true;
+          break;
+        }
       }
-      const artifact = artifactState[id];
-      if (artifact.type === "img" && artifact.value.complete) {
-        const image = artifact.value;
-        imgSize = { width: image.width, height: image.height };
-        isNewImg = id !== artifactIdUsedToSetCanvasSize.current;
-        artifactIdUsedToSetCanvasSize.current = id;
+
+      if (imgSize) {
         break;
       }
-    }
-
-    if (imgSize) {
-      break;
     }
   }
 
@@ -511,4 +514,12 @@ function reorderIdsWithBrushStrokesLast(artifactIds, artifactState) {
 
   // Combine arrays using spread operator
   return [...otherIds, ...brushStrokeIds];
+}
+
+function maybeGetImgSizeFromArtifact(artifact) {
+  if (artifact?.type === "img" && artifact?.value?.complete) {
+    const image = artifact.value;
+    return { width: image.width, height: image.height };
+  }
+  return null;
 }
