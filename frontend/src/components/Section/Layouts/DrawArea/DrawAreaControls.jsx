@@ -7,10 +7,9 @@ import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
 import { FaBars, FaEye, FaEyeSlash, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { TfiLayersAlt } from "react-icons/tfi";
-import { useArtifacts, useSectionInfos } from "state/definitions";
+import { addDrawAreaLayer } from "state/actions/artifacts";
+import { useSectionInfos } from "state/definitions";
 import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
-import { createNewId } from "utils/idNameCreation";
-import { newArtifact, newLayer } from "utils/objs/artifact";
 
 export function DrawAreaControls({
   sectionId,
@@ -51,22 +50,8 @@ export function DrawAreaControls({
     setCanvasSettings(sectionId, "activeLayerIdx", v);
   }
   function addLayer() {
-    useSectionInfos.setState((state) => {
-      const artifactId = createNewId();
-      useArtifacts.setState({
-        [artifactId]: newArtifact({ type: "brushStrokes", value: [] }),
-      });
-
-      const artifactGroupId = createNewId();
-      state.artifactGroups[artifactGroupId] = newLayer({
-        artifactIds: [artifactId],
-      });
-
-      const artifactGroupIds = state.x[sectionId].artifactGroupIds;
-      artifactGroupIds.push(artifactGroupId);
-
-      state.x[sectionId].canvasSettings.activeLayerIdx =
-        artifactGroupIds.length - 1;
+    useSectionInfos((state) => {
+      addDrawAreaLayer(sectionId, state);
     });
   }
 

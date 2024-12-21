@@ -1,7 +1,8 @@
 import _ from "lodash";
 import { dbLoadArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
-import { newArtifact } from "utils/objs/artifact";
+import { createNewId } from "utils/idNameCreation";
+import { newArtifact, newLayer } from "utils/objs/artifact";
 import { addSectionInEmptySpace } from "./sections/createSections";
 
 export function updateArtifacts({ artifacts, addSection = false }) {
@@ -75,4 +76,22 @@ export function getArtifactStateForSaving() {
   }
 
   return result;
+}
+
+export function addDrawAreaLayer(sectionId, state) {
+  const artifactId = createNewId();
+  useArtifacts.setState({
+    [artifactId]: newArtifact({ type: "brushStrokes", value: [] }),
+  });
+
+  const artifactGroupId = createNewId();
+  state.artifactGroups[artifactGroupId] = newLayer({
+    artifactIds: [artifactId],
+  });
+
+  const artifactGroupIds = state.x[sectionId].artifactGroupIds;
+  artifactGroupIds.push(artifactGroupId);
+
+  state.x[sectionId].canvasSettings.activeLayerIdx =
+    artifactGroupIds.length - 1;
 }
