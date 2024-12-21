@@ -1,4 +1,7 @@
-import { dataURLToBase64 } from "components/Section/Layouts/DrawArea/base64Conversion";
+import {
+  base64StrToImgSrc,
+  dataURLToBase64,
+} from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
 import { dbLoadArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
@@ -41,30 +44,12 @@ export async function loadArtifacts(artifactIds) {
 async function prepareArtifactsForRendering(artifactsFromBackend) {
   for (const data of Object.values(artifactsFromBackend)) {
     if (data.type === "img") {
-      const base64Str = `data:image/png;base64,${data.value}`;
+      const imgSrc = base64StrToImgSrc(data.value);
       data.value = new Image();
-      data.value.src = base64Str;
+      data.value.src = imgSrc;
       await data.value.decode();
     }
   }
-}
-
-export function createArtifactAndUpdateSection(
-  sectionId,
-  artifactId,
-  artifactProps,
-  sectionInfoState,
-) {
-  useArtifacts.setState({
-    [artifactId]: newArtifact(artifactProps),
-  });
-
-  // const artifactGroupId = createNewId();
-  // sectionInfoState.artifactGroups[artifactGroupId] = newLayer({
-  //   artifactIds: [artifactId],
-  // });
-
-  // sectionInfoState.x[sectionId].artifactGroupIds.push(artifactGroupId);
 }
 
 export function getArtifactStateForSaving() {
@@ -100,4 +85,32 @@ export function addDrawAreaLayer(sectionId, state) {
   artifactGroupIds.push(artifactGroupId);
 
   state.x[sectionId].canvasSettings.activeLayerId = artifactGroupId;
+}
+
+export async function addImageArtifactAndMaybeCreateNewLayer(
+  sectionId,
+  activeLayerId,
+  imgSrc,
+  path = null,
+) {
+  const artifactId = createNewId();
+  const value = new Image();
+  value.src = imgSrc;
+  await value.decode();
+  useArtifacts.setState({
+    [artifactId]: newArtifact({
+      value,
+      path,
+      type: "img",
+    }),
+  });
+  useSectionInfos.setState((state) => {
+    let layerId = activeLayerId;
+    if (!layerId) {
+      layerId = createNewId();
+      state.artifactGroups[layerId] = newLayer({});
+      state.x[sectionId].artifactGroupIds.push(layerId);
+    }
+    state.artifactGroups[layerId].artifactIds.push(artifactId);
+  });
 }

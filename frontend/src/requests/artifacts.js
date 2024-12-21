@@ -14,3 +14,17 @@ export async function dbLoadAvailableArtifacts(sectionType) {
     address: C.ROUTE_LOAD_AVAILABLE_ARTIFACTS,
   });
 }
+
+export async function dbCheckIfFileExists(filepath) {
+  return await post({
+    body: { filepath },
+    address: C.ROUTE_CHECK_IF_FILE_EXISTS,
+  });
+}
+
+export async function dbLoadArtifactFromDisk(filepath, type) {
+  return await post({
+    body: { filepath, type },
+    address: C.ROUTE_LOAD_ARTIFACT_FROM_DISK,
+  });
+}

@@ -41,3 +41,7 @@ export function allPartsToBase64(canvasRef) {
   }
   return base64;
 }
+
+export function base64StrToImgSrc(base64Str){
+  return `data:image/png;base64,${base64Str}`
+}

@@ -79,6 +79,8 @@
   "ROUTE_GET_JSON_SOURCE_PATH_TO_BE_DELETED": "/getJsonSourcePathToBeDeleted",
   "ROUTE_MAKE_EV_REF_REPLACEMENTS": "/makeEVRefReplacements",
   "ROUTE_DELETE_FILE": "/deleteFile",
+  "ROUTE_CHECK_IF_FILE_EXISTS": "/checkIfFileExists",
+  "ROUTE_LOAD_ARTIFACT_FROM_DISK": "/loadArtifactFromDisk",
   "JSON_SOURCE_PREFIX": "JSON-",
   "NESTED_PARAM": "NESTED_PARAM",
   "ARGS_PREFIX": "__",

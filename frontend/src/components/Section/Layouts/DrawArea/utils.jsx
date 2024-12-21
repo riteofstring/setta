@@ -1,10 +1,9 @@
 import _ from "lodash";
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
+import { addImageArtifactAndMaybeCreateNewLayer } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
-import { useArtifacts, useSectionInfos } from "state/definitions";
-import { createNewId } from "utils/idNameCreation";
-import { newArtifact, newLayer } from "utils/objs/artifact";
+import { useArtifacts } from "state/definitions";
 
 export function useImageLoadViaDropzone(sectionId, activeLayerId) {
   const onDrop = useCallback(
@@ -13,25 +12,11 @@ export function useImageLoadViaDropzone(sectionId, activeLayerId) {
         const reader = new FileReader();
 
         reader.onload = async () => {
-          const artifactId = createNewId();
-          const image = new Image();
-          image.src = reader.result;
-          await image.decode();
-          useArtifacts.setState({
-            [artifactId]: newArtifact({
-              value: image,
-              type: "img",
-            }),
-          });
-          useSectionInfos.setState((state) => {
-            let layerId = activeLayerId;
-            if (!layerId) {
-              layerId = createNewId();
-              state.artifactGroups[layerId] = newLayer({});
-              state.x[sectionId].artifactGroupIds.push(layerId);
-            }
-            state.artifactGroups[layerId].artifactIds.push(artifactId);
-          });
+          await addImageArtifactAndMaybeCreateNewLayer(
+            sectionId,
+            activeLayerId,
+            reader.result,
+          );
         };
 
         reader.onerror = (error) => {

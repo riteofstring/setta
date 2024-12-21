@@ -8,7 +8,7 @@ export function useSectionArtifactGroups(sectionId) {
   const loadedArtifactTypes = useArtifacts((x) => {
     const output = {};
     for (const id of artifactIds) {
-      if (x[id]) {
+      if (x[id]?.value) {
         output[id] = x[id].type;
       }
     }
@@ -18,7 +18,7 @@ export function useSectionArtifactGroups(sectionId) {
   useDeepCompareEffect(() => {
     const notLoaded = [];
     for (const id of artifactIds) {
-      if (!(id in useArtifacts.getState())) {
+      if (!(id in loadedArtifactTypes)) {
         notLoaded.push(id);
       }
     }

@@ -408,7 +408,11 @@ function drawAllLayers({
         return;
       }
       const artifact = artifactState[id];
-      if (artifact.type === "img" && artifact.value.complete) {
+      if (
+        artifact.type === "img" &&
+        artifact.value instanceof Image &&
+        artifact.value.complete
+      ) {
         const image = artifact.value;
         const scale = Math.min(
           canvas.width / image.width,
