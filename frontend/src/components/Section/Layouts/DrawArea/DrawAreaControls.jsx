@@ -32,7 +32,7 @@ export function DrawAreaControls({
     setCanvasSettings(sectionId, "brushShape", v);
   }
   function setLayerOpacity(v) {
-    setLayerSettings(sectionId, activeLayerId, "opacity", v);
+    setLayerSettings(sectionId, activeLayerId, "layerOpacity", v);
   }
   function setEraserBrushSize(v) {
     setCanvasSettings(sectionId, "eraserBrushSize", v);
@@ -311,6 +311,7 @@ function setCanvasSettings(sectionId, attr, value) {
 }
 
 function setLayerSettings(sectionId, activeLayerId, attr, value) {
+    console.log("setLayerSettings", attr, value)
   useSectionInfos.setState((x) => {
     x.x[sectionId].canvasSettings.layerSettings[activeLayerId][attr] = value;
   });

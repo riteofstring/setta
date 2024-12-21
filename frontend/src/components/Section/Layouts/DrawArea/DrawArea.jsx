@@ -148,6 +148,7 @@ export function DrawOnImage({ sectionId }) {
       isEraser,
       layerOpacity,
     });
+    drawAllLayers({ canvasRef, tempCanvasRef, layers, layerSettings });
   }, [
     isEraser,
     color,
