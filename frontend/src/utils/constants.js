@@ -126,7 +126,7 @@ export const PAGE_LOAD_TYPES = {
 export const NO_DRAG_CLASS_NAME = "nodrag";
 export const NO_WHEEL_CLASS_NAME = "nowheel";
 export const NO_PAN_CLASS_NAME = "nopan";
-export const SETTA_SECTION_RESIZER = "SETTA_SECTION_RESIZER";
+export const SETTA_SECTION_RESIZER = "SETTA_SECTION_RESIZER"
 
 export const SECTION_DISPLAY_MODES = {
   RENDER: "RENDER",
