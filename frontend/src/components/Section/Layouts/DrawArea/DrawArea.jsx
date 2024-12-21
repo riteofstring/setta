@@ -7,6 +7,7 @@ import {
   setTemporaryMiscState,
 } from "state/actions/temporaryMiscState";
 import {
+  useArtifacts,
   useMisc,
   useSectionInfos,
   useTemporaryMiscState,
@@ -16,6 +17,7 @@ import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createNewId } from "utils/idNameCreation";
 import {
+  newArtifact,
   newDrawAreaLocalLayerState,
   newLayerSettings,
 } from "utils/objs/artifact";
@@ -60,10 +62,7 @@ export function DrawOnImage({ sectionId }) {
     let firstBrushStrokeLayerId = null;
     for (const [artifactId, v] of Object.entries(artifacts)) {
       if (!(artifactId in layers.current)) {
-        layers.current[artifactId] = newDrawAreaLocalLayerState({
-          name: v.name,
-          type: v.type,
-        });
+        layers.current[artifactId] = newDrawAreaLocalLayerState(v.type);
       }
       if (v.type === "img") {
         const base64String = `data:image/png;base64,${v.value}`;
@@ -82,8 +81,10 @@ export function DrawOnImage({ sectionId }) {
 
     if (!firstBrushStrokeLayerId) {
       firstBrushStrokeLayerId = createNewId();
-      layers.current[firstBrushStrokeLayerId] = newDrawAreaLocalLayerState({
-        type: "brushStrokes",
+      layers.current[firstBrushStrokeLayerId] =
+        newDrawAreaLocalLayerState("brushStrokes");
+      useArtifacts.setState((x) => {
+        x.x[firstBrushStrokeLayerId] = newArtifact({});
       });
     }
 

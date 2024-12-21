@@ -4,9 +4,9 @@ import { StandardPopover } from "components/Utils/atoms/popover/standardpopover"
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
-import { FaEye, FaEyeSlash, FaPencilAlt, FaBars } from "react-icons/fa";
+import { FaBars, FaEye, FaEyeSlash, FaPencilAlt } from "react-icons/fa";
 import { TfiLayersAlt } from "react-icons/tfi";
-import { useSectionInfos } from "state/definitions";
+import { useArtifacts, useSectionInfos } from "state/definitions";
 
 export function DrawAreaControls({
   sectionId,
@@ -343,6 +343,10 @@ function LayerList({
   onNameChange,
   onReorder,
 }) {
+  const artifactIdsToNames = useArtifacts(
+    (x) => _.mapValues(x.x, (a) => a.name),
+    _.isEqual,
+  );
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState("");
   const [draggedOverId, setDraggedOverId] = useState(null);
@@ -428,9 +432,11 @@ function LayerList({
             ) : (
               <span
                 className="text-sm"
-                onDoubleClick={() => handleDoubleClick(id, layer.name)}
+                onDoubleClick={() =>
+                  handleDoubleClick(id, artifactIdsToNames[id])
+                }
               >
-                {layer.name}
+                {artifactIdsToNames[id]}
               </span>
             )}
           </div>
