@@ -174,6 +174,22 @@ export function DrawOnImage({ sectionId }) {
     } else {
       point = getXY(e);
     }
+    clearAllCanvases();
+    drawAllLayers({
+      canvasRef,
+      tempCanvasRef,
+      layers,
+      layerSettings,
+      excludeLayer: activeLayerId,
+    });
+    drawAllLayers({
+      canvasRef: draftCanvasRef,
+      tempCanvasRef,
+      layers,
+      layerSettings,
+      includeLayer: activeLayerId,
+      applyLayerOpacityToGlobalAlpha: false,
+    });
     startNewStroke(draftCanvasRef, strokesRef, point);
     drawStroke(draftCanvasRef, point, point);
     prevPointRef.current = point;
@@ -197,7 +213,7 @@ export function DrawOnImage({ sectionId }) {
     setIsDrawing(false);
     if (!isEraser) {
       layers.current[activeLayerId].strokes = strokesRef.current;
-      drawAllLayers(canvasRef, tempCanvasRef, layers, layerSettings);
+      drawAllLayers({ canvasRef, tempCanvasRef, layers, layerSettings });
       clearCanvas(draftCanvasRef);
     }
     // debouncedSetBrushStrokesArtifact(
@@ -349,7 +365,7 @@ function setCanvasSize({
   draftCanvas.width = canvasSize.width;
   draftCanvas.height = canvasSize.height;
 
-  drawAllLayers(canvasRef, tempCanvasRef, layers, layerSettings);
+  drawAllLayers({ canvasRef, tempCanvasRef, layers, layerSettings });
 }
 
 function getXY(e) {
@@ -372,15 +388,27 @@ function getCtx(canvasRef) {
   return canvasRef.current.getContext("2d");
 }
 
-function drawAllLayers(canvasRef, tempCanvasRef, layers, latestLayerSettings) {
+function drawAllLayers({
+  canvasRef,
+  tempCanvasRef,
+  layers,
+  layerSettings,
+  excludeLayer = null,
+  includeLayer = null,
+  applyLayerOpacityToGlobalAlpha = true,
+}) {
   const [canvas, ctx] = getCanvasAndCtx(canvasRef);
   clearCanvas(canvasRef);
 
   for (const [id, layer] of Object.entries(layers.current)) {
-    if (!(id in latestLayerSettings)) {
+    if (
+      !(id in layerSettings) ||
+      (excludeLayer && id === excludeLayer) ||
+      (includeLayer && id !== includeLayer)
+    ) {
       continue;
     }
-    const { opacity: layerOpacity } = latestLayerSettings[id];
+    const { opacity: layerOpacity } = layerSettings[id];
     if (layer.image?.complete) {
       const image = layer.image;
 
@@ -391,10 +419,18 @@ function drawAllLayers(canvasRef, tempCanvasRef, layers, latestLayerSettings) {
       const x = canvas.width / 2 - (image.width / 2) * scale;
       const y = canvas.height / 2 - (image.height / 2) * scale;
 
-      ctx.globalAlpha = layerOpacity;
+      if (applyLayerOpacityToGlobalAlpha) {
+        ctx.globalAlpha = layerOpacity;
+      }
       ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
     } else if (layer.strokes?.length > 0) {
-      drawStrokes(canvasRef, tempCanvasRef, layer.strokes, layerOpacity);
+      drawStrokes(
+        canvasRef,
+        tempCanvasRef,
+        layer.strokes,
+        layerOpacity,
+        applyLayerOpacityToGlobalAlpha,
+      );
     }
   }
 }
@@ -412,14 +448,22 @@ function startNewStroke(draftCanvasRef, strokesRef, firstPoint) {
   });
 }
 
-function drawStrokes(canvasRef, tempCanvasRef, strokes, layerOpacity) {
+function drawStrokes(
+  canvasRef,
+  tempCanvasRef,
+  strokes,
+  layerOpacity,
+  applyLayerOpacityToGlobalAlpha = true,
+) {
   const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
   strokes.forEach((stroke) => {
     drawSavedStrokeOntoTempCanvas(tempCanvas, tempCtx, stroke);
   });
 
   const ctx = getCanvasAndCtx(canvasRef)[1];
-  ctx.globalAlpha = layerOpacity;
+  if (applyLayerOpacityToGlobalAlpha) {
+    ctx.globalAlpha = layerOpacity;
+  }
   ctx.drawImage(tempCanvas, 0, 0);
 
   clearCanvas(tempCanvasRef);
