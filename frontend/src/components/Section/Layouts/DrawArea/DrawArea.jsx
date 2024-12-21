@@ -28,6 +28,7 @@ export function DrawOnImage({ sectionId }) {
     size: { width, height },
     canvasSettings: {
       layerSettings,
+      activeLayerId,
       color,
       brushSize,
       brushShape,
@@ -40,7 +41,6 @@ export function DrawOnImage({ sectionId }) {
     };
   }, _.isEqual);
   const layers = useRef({});
-  const [activeLayerId, setActiveLayerId] = useState(null);
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
   const tempCanvasRef = useRef(null);
@@ -60,7 +60,10 @@ export function DrawOnImage({ sectionId }) {
     let firstBrushStrokeLayerId = null;
     for (const [artifactId, v] of Object.entries(artifacts)) {
       if (!(artifactId in layers.current)) {
-        layers.current[artifactId] = newDrawAreaLocalLayerState(v.type);
+        layers.current[artifactId] = newDrawAreaLocalLayerState({
+          name: v.name,
+          type: v.type,
+        });
       }
       if (v.type === "img") {
         const base64String = `data:image/png;base64,${v.value}`;
@@ -79,8 +82,9 @@ export function DrawOnImage({ sectionId }) {
 
     if (!firstBrushStrokeLayerId) {
       firstBrushStrokeLayerId = createNewId();
-      layers.current[firstBrushStrokeLayerId] =
-        newDrawAreaLocalLayerState("brushStrokes");
+      layers.current[firstBrushStrokeLayerId] = newDrawAreaLocalLayerState({
+        type: "brushStrokes",
+      });
     }
 
     useSectionInfos.setState((x) => {
@@ -99,11 +103,11 @@ export function DrawOnImage({ sectionId }) {
         layerSettings: latestLayerSettings,
         artifactIdUsedToSetCanvasSize,
       });
-    });
 
-    if (!activeLayerId) {
-      setActiveLayerId(firstBrushStrokeLayerId);
-    }
+      if (!activeLayerId) {
+        x.x[sectionId].canvasSettings.activeLayerId = firstBrushStrokeLayerId;
+      }
+    });
   }
 
   useEffect(() => {
@@ -137,7 +141,7 @@ export function DrawOnImage({ sectionId }) {
     });
   }, [height, width]);
 
-  useEffect(() => {
+  useDeepCompareEffect(() => {
     setDraftCanvasProperties({
       draftCanvasRef,
       color,
@@ -157,6 +161,7 @@ export function DrawOnImage({ sectionId }) {
     brushShape,
     layerOpacity,
     brushOpacity,
+    Object.values(layerSettings).map((v) => v.visible),
   ]);
 
   function onMouseDown(e, offsetX, offsetY) {
@@ -283,6 +288,8 @@ export function DrawOnImage({ sectionId }) {
     <>
       <DrawAreaControls
         sectionId={sectionId}
+        layers={layers.current}
+        layerSettings={layerSettings}
         activeLayerId={activeLayerId}
         color={color}
         brushOpacity={brushOpacity}
@@ -423,6 +430,7 @@ function drawAllLayers({
   for (const [id, layer] of Object.entries(layers.current)) {
     if (
       !(id in layerSettings) ||
+      !layerSettings[id].visible ||
       (excludeLayer && id === excludeLayer) ||
       (includeLayer && id !== includeLayer)
     ) {

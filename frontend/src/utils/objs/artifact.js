@@ -10,14 +10,17 @@ export function newArtifact({ name, ...props }) {
   );
 }
 
-export function newDrawAreaLocalLayerState(type) {
+export function newDrawAreaLocalLayerState({ name, type, ...props }) {
+  let output;
   if (type === "img") {
-    return { image: new Image() };
+    output = { image: new Image(), ...props };
   } else if (type === "brushStrokes") {
-    return { strokes: [] };
+    output = { strokes: [], ...props };
   }
+
+  return { name: name ?? createRandomName(), ...output };
 }
 
 export function newLayerSettings() {
-  return { layerOpacity: 0.5, brushOpacity: 1 };
+  return { visible: true, layerOpacity: 0.5, brushOpacity: 1 };
 }

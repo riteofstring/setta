@@ -32,6 +32,7 @@
     "isMinimized": false,
     "canvasSettings": {
       "layerSettings": {},
+      "activeLayerId": null,
       "color": "#ff0000",
       "brushSize": 16,
       "brushShape": "round",

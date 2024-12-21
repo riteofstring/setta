@@ -4,10 +4,14 @@ import { StandardPopover } from "components/Utils/atoms/popover/standardpopover"
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
+import { FaEye, FaEyeSlash, FaPencilAlt } from "react-icons/fa";
+import { TfiLayersAlt } from "react-icons/tfi";
 import { useSectionInfos } from "state/definitions";
 
 export function DrawAreaControls({
   sectionId,
+  layers,
+  layerSettings,
   activeLayerId,
   color,
   brushOpacity,
@@ -36,6 +40,12 @@ export function DrawAreaControls({
   }
   function setEraserBrushSize(v) {
     setCanvasSettings(sectionId, "eraserBrushSize", v);
+  }
+  function setLayerVisibility(layerId, v) {
+    setLayerSettings(sectionId, layerId, "visible", v);
+  }
+  function setActiveLayerId(v) {
+    setCanvasSettings(sectionId, "activeLayerId", v);
   }
 
   return (
@@ -112,6 +122,26 @@ export function DrawAreaControls({
         header={"Layer Opacity"}
       >
         <LayerSettings opacity={layerOpacity} setOpacity={setLayerOpacity} />
+      </StandardPopover>
+
+      <StandardPopover
+        arrowClasses="fill-white dark:fill-setta-800"
+        contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
+        trigger={
+          <button className="flex w-12 cursor-pointer items-center justify-center gap-0 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
+            <TfiLayersAlt />
+            <i className="gg-chevron-down" />
+          </button>
+        }
+        header={"Layer Selection"}
+      >
+        <LayerList
+          layers={layers}
+          layerSettings={layerSettings}
+          activeLayerId={activeLayerId}
+          setActiveLayerId={setActiveLayerId}
+          setLayerVisibility={setLayerVisibility}
+        />
       </StandardPopover>
 
       <button
@@ -304,6 +334,50 @@ function LayerSettings({ opacity, setOpacity }) {
   );
 }
 
+function LayerList({
+  layers,
+  layerSettings,
+  activeLayerId,
+  setActiveLayerId,
+  setLayerVisibility,
+}) {
+  if (!layers || typeof layers !== "object") {
+    return <div>No layers provided</div>;
+  }
+
+  return (
+    <ul className="space-y-2">
+      {Object.entries(layers).map(([id, layer]) => (
+        <li
+          key={id}
+          className="flex cursor-pointer items-center justify-between rounded bg-gray-50 p-2 hover:bg-gray-100"
+          onClick={() => setActiveLayerId(id)}
+        >
+          <span className="text-sm">{layer.name}</span>
+          <div className="flex items-center space-x-2">
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                setLayerVisibility(id, !layerSettings[id].visible);
+              }}
+              className="cursor-pointer"
+            >
+              {layerSettings[id].visible ? (
+                <FaEye className="h-4 w-4 text-blue-500" />
+              ) : (
+                <FaEyeSlash className="h-4 w-4 text-gray-400" />
+              )}
+            </div>
+            {activeLayerId === id && (
+              <FaPencilAlt className="h-4 w-4 text-green-500" />
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function setCanvasSettings(sectionId, attr, value) {
   useSectionInfos.setState((x) => {
     x.x[sectionId].canvasSettings[attr] = value;
@@ -311,7 +385,6 @@ function setCanvasSettings(sectionId, attr, value) {
 }
 
 function setLayerSettings(sectionId, activeLayerId, attr, value) {
-    console.log("setLayerSettings", attr, value)
   useSectionInfos.setState((x) => {
     x.x[sectionId].canvasSettings.layerSettings[activeLayerId][attr] = value;
   });
