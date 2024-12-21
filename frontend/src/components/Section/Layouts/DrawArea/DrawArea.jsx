@@ -22,8 +22,10 @@ import {
 } from "./utils";
 
 export function DrawArea({ sectionId }) {
-  const { artifactGroups: layers, loadedArtifactTypes } =
-    useSectionArtifactGroups(sectionId);
+  const { artifactGroups: layers, loadedArtifacts } = useSectionArtifactGroups(
+    sectionId,
+    ["type"],
+  );
 
   // console.log("layers", layers);
   // console.log("loadedArtifactTypes", loadedArtifactTypes);
@@ -57,7 +59,7 @@ export function DrawArea({ sectionId }) {
   const layerOpacity = activeLayer?.layerOpacity ?? 1;
   const brushOpacity = activeLayer?.brushOpacity ?? 1;
   const currBrushStrokeArtifactId = activeLayer?.artifactIds?.find(
-    (a) => loadedArtifactTypes[a] === "brushStrokes",
+    (a) => loadedArtifacts[a]?.type === "brushStrokes",
   );
 
   // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
@@ -111,7 +113,7 @@ export function DrawArea({ sectionId }) {
     layerOpacity,
     brushOpacity,
     layers,
-    loadedArtifactTypes,
+    loadedArtifacts,
   ]);
 
   useEffect(() => {

@@ -4,12 +4,16 @@ import React from "react";
 import { useSectionArtifactGroups } from "state/hooks/artifacts";
 
 function _LinePlotArea({ sectionId }) {
-  const { artifactGroups } = useSectionArtifactGroups(sectionId);
-  // const data = Object.values(artifacts)[0];
+  const { artifactGroups, loadedArtifacts } = useSectionArtifactGroups(
+    sectionId,
+    ["name", "value"],
+  );
+  const artifact = loadedArtifacts[artifactGroups[0]?.artifactIds?.[0]];
+  if (!artifact || !artifact.value) {
+    return null;
+  }
 
-  // return (
-  //   !!data && <LinePlotAreaCore series={{ [data.displayName]: data.value }} />
-  // );
+  return <LinePlotAreaCore series={{ [artifact.name]: artifact.value }} />;
 }
 
 export const LinePlotArea = React.memo(_LinePlotArea);

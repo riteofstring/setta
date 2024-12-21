@@ -3,13 +3,13 @@ import { loadArtifacts } from "state/actions/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
-export function useSectionArtifactGroups(sectionId) {
+export function useSectionArtifactGroups(sectionId, artifactAttrsToPick) {
   const { artifactIds, artifactGroups } = useSectionArtifactIds(sectionId);
-  const loadedArtifactTypes = useArtifacts((x) => {
+  const loadedArtifacts = useArtifacts((x) => {
     const output = {};
     for (const id of artifactIds) {
       if (x[id]?.value) {
-        output[id] = x[id].type;
+        output[id] = _.pick(x[id], artifactAttrsToPick);
       }
     }
     return output;
@@ -18,14 +18,14 @@ export function useSectionArtifactGroups(sectionId) {
   useDeepCompareEffect(() => {
     const notLoaded = [];
     for (const id of artifactIds) {
-      if (!(id in loadedArtifactTypes)) {
+      if (!(id in loadedArtifacts)) {
         notLoaded.push(id);
       }
     }
     loadArtifacts(notLoaded);
   }, [artifactIds]);
 
-  return { artifactGroups, loadedArtifactTypes };
+  return { artifactGroups, loadedArtifacts };
 }
 
 export function getSectionArtifactGroupMetadata(sectionId, state) {
