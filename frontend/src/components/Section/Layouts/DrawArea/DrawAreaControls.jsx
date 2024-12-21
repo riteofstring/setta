@@ -14,7 +14,7 @@ import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 export function DrawAreaControls({
   sectionId,
   layers,
-  activeLayerIdx,
+  activeLayerId,
   color,
   brushOpacity,
   brushSize,
@@ -29,7 +29,7 @@ export function DrawAreaControls({
     setCanvasSettings(sectionId, "color", v);
   }
   function setBrushOpacity(v) {
-    setLayerSettings(sectionId, activeLayerIdx, "brushOpacity", v);
+    setLayerSettings(activeLayerId, "brushOpacity", v);
   }
   function setBrushSize(v) {
     setCanvasSettings(sectionId, "brushSize", v);
@@ -38,13 +38,13 @@ export function DrawAreaControls({
     setCanvasSettings(sectionId, "brushShape", v);
   }
   function setLayerOpacity(v) {
-    setLayerSettings(sectionId, activeLayerIdx, "layerOpacity", v);
+    setLayerSettings(activeLayerId, "layerOpacity", v);
   }
   function setEraserBrushSize(v) {
     setCanvasSettings(sectionId, "eraserBrushSize", v);
   }
   function setLayerVisibility(layerId, v) {
-    setLayerSettings(sectionId, layerId, "visible", v);
+    setLayerSettings(layerId, "visible", v);
   }
   function setActiveLayerIdx(v) {
     setCanvasSettings(sectionId, "activeLayerIdx", v);
@@ -65,7 +65,7 @@ export function DrawAreaControls({
       const layers = getSectionArtifactGroupMetadata(sectionId, state);
       const canvasSettings = state.x[sectionId].canvasSettings;
       canvasSettings.activeLayerIdx = layers.findIndex(
-        (x) => x.id === layers[canvasSettings.activeLayerIdx].id,
+        (x) => x.id === activeLayerId,
       );
     });
   }
@@ -159,7 +159,7 @@ export function DrawAreaControls({
       >
         <LayerList
           layers={layers}
-          activeLayerIdx={activeLayerIdx}
+          activeLayerId={activeLayerId}
           setActiveLayerIdx={setActiveLayerIdx}
           setLayerVisibility={setLayerVisibility}
           addLayer={addLayer}
@@ -359,7 +359,7 @@ function LayerSettings({ opacity, setOpacity }) {
 
 function LayerList({
   layers,
-  activeLayerIdx,
+  activeLayerId,
   setActiveLayerIdx,
   setLayerVisibility,
   onNameChange,
@@ -416,7 +416,7 @@ function LayerList({
     <ul className="space-y-2">
       {layers.map((layer, idx) => (
         <li
-          key={layer.name}
+          key={layer.id}
           draggable={true}
           onDragStart={(e) => handleDragStart(e, idx)}
           onDragOver={(e) => handleDragOver(e, idx)}
@@ -453,7 +453,7 @@ function LayerList({
           </div>
           <div className="flex items-center space-x-2">
             <div
-              onClick={() => setLayerVisibility(idx, !layers[idx].visible)}
+              onClick={() => setLayerVisibility(layer.id, !layer.visible)}
               className="cursor-pointer"
             >
               {layers[idx].visible ? (
@@ -468,7 +468,7 @@ function LayerList({
             >
               <FaPencilAlt
                 className={`h-4 w-4 ${
-                  activeLayerIdx === idx
+                  activeLayerId === layer.id
                     ? "text-green-500"
                     : "text-gray-300 hover:text-gray-400"
                 }`}
@@ -496,9 +496,8 @@ function setCanvasSettings(sectionId, attr, value) {
   });
 }
 
-function setLayerSettings(sectionId, activeLayerIdx, attr, value) {
+function setLayerSettings(layerId, attr, value) {
   useSectionInfos.setState((x) => {
-    const layerId = x.x[sectionId].artifactGroupIds[activeLayerIdx];
     x.artifactGroups[layerId][attr] = value;
   });
 }

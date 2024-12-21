@@ -1,44 +1,52 @@
 import _ from "lodash";
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { createArtifactAndUpdateSection } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
+import { newArtifact, newLayer } from "utils/objs/artifact";
 
-export function useImageLoadViaDropzone(sectionId) {
-  const onDrop = useCallback((acceptedFiles) => {
-    acceptedFiles.forEach((file) => {
-      const reader = new FileReader();
+export function useImageLoadViaDropzone(sectionId, activeLayerId) {
+  console.log("useImageLoadViaDropzone", activeLayerId);
+  const onDrop = useCallback(
+    (acceptedFiles) => {
+      acceptedFiles.forEach((file) => {
+        const reader = new FileReader();
 
-      reader.onload = () => {
-        // The base64 string is in reader.result
-        const base64String = reader.result.replace(
-          /^data:image\/[a-z]+;base64,/,
-          "",
-        );
-        const artifactId = createNewId();
-        useSectionInfos.setState((state) =>
-          createArtifactAndUpdateSection(
-            sectionId,
-            artifactId,
-            {
-              value: base64String,
+        reader.onload = async () => {
+          const artifactId = createNewId();
+          const image = new Image();
+          image.src = reader.result;
+          await image.decode();
+          useArtifacts.setState({
+            [artifactId]: newArtifact({
+              value: image,
               type: "img",
-            },
-            state,
-          ),
-        );
-      };
+            }),
+          });
+          useSectionInfos.setState((state) => {
+            let layerId = activeLayerId;
+            console.log("layerId", layerId);
+            if (!layerId) {
+              layerId = createNewId();
+              state.artifactGroups[layerId] = newLayer({});
+              state.x[sectionId].artifactGroupIds.push(layerId);
+            }
+            state.artifactGroups[layerId].artifactIds.push(artifactId);
+          });
+        };
 
-      reader.onerror = (error) => {
-        console.error("Error reading file:", error);
-      };
+        reader.onerror = (error) => {
+          console.error("Error reading file:", error);
+        };
 
-      // Read the file as a Data URL (base64)
-      reader.readAsDataURL(file);
-    });
-  }, []);
+        // Read the file as a Data URL (base64)
+        reader.readAsDataURL(file);
+      });
+    },
+    [sectionId, activeLayerId],
+  );
+
   return useDropzone({ onDrop });
 }
 

@@ -58,6 +58,7 @@ export function DrawArea({ sectionId }) {
   const currBrushStrokeArtifactId = layers[activeLayerIdx]?.artifactIds?.find(
     (a) => loadedArtifactTypes[a] === "brushStrokes",
   );
+  const activeLayerId = layers[activeLayerIdx]?.id ?? null;
 
   // console.log("activeLayerIdx", activeLayerIdx);
   // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
@@ -221,7 +222,10 @@ export function DrawArea({ sectionId }) {
     );
   }
 
-  const { getRootProps, isDragActive } = useImageLoadViaDropzone(sectionId);
+  const { getRootProps, isDragActive } = useImageLoadViaDropzone(
+    sectionId,
+    activeLayerId,
+  );
 
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
   const cursorIcon = isEraser
@@ -233,7 +237,7 @@ export function DrawArea({ sectionId }) {
       <DrawAreaControls
         sectionId={sectionId}
         layers={layers}
-        activeLayerIdx={activeLayerIdx}
+        activeLayerId={activeLayerId}
         color={color}
         brushOpacity={brushOpacity}
         brushSize={brushSize}
