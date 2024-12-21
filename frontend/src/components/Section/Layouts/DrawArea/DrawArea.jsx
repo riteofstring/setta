@@ -472,8 +472,8 @@ function drawAllLayers({
   for (const [idx, localLayer] of localLayers.current.entries()) {
     if (
       !layers[idx].visible ||
-      (excludeLayer && idx === excludeLayer) ||
-      (includeLayer && idx !== includeLayer)
+      (excludeLayer !== null && idx === excludeLayer) ||
+      (includeLayer !== null && idx !== includeLayer)
     ) {
       continue;
     }
