@@ -12,7 +12,7 @@ export function DrawAreaControls({
   sectionId,
   localLayers,
   layers,
-  activeLayerId,
+  activeLayerIdx,
   color,
   brushOpacity,
   brushSize,
@@ -27,7 +27,7 @@ export function DrawAreaControls({
     setCanvasSettings(sectionId, "color", v);
   }
   function setBrushOpacity(v) {
-    setLayerSettings(sectionId, activeLayerId, "brushOpacity", v);
+    setLayerSettings(sectionId, activeLayerIdx, "brushOpacity", v);
   }
   function setBrushSize(v) {
     setCanvasSettings(sectionId, "brushSize", v);
@@ -36,7 +36,7 @@ export function DrawAreaControls({
     setCanvasSettings(sectionId, "brushShape", v);
   }
   function setLayerOpacity(v) {
-    setLayerSettings(sectionId, activeLayerId, "layerOpacity", v);
+    setLayerSettings(sectionId, activeLayerIdx, "layerOpacity", v);
   }
   function setEraserBrushSize(v) {
     setCanvasSettings(sectionId, "eraserBrushSize", v);
@@ -45,7 +45,7 @@ export function DrawAreaControls({
     setLayerSettings(sectionId, layerId, "visible", v);
   }
   function setActiveLayerId(v) {
-    setCanvasSettings(sectionId, "activeLayerId", v);
+    setCanvasSettings(sectionId, "activeLayerIdx", v);
   }
 
   return (
@@ -135,13 +135,13 @@ export function DrawAreaControls({
         }
         header={"Layer Selection"}
       >
-        <LayerList
+        {/* <LayerList
           localLayers={localLayers}
           layers={layers}
-          activeLayerId={activeLayerId}
+          activeLayerIdx={activeLayerIdx}
           setActiveLayerId={setActiveLayerId}
           setLayerVisibility={setLayerVisibility}
-        />
+        /> */}
       </StandardPopover>
 
       <button
@@ -337,7 +337,7 @@ function LayerSettings({ opacity, setOpacity }) {
 function LayerList({
   localLayers,
   layers,
-  activeLayerId,
+  activeLayerIdx,
   setActiveLayerId,
   setLayerVisibility,
   onNameChange,
@@ -457,7 +457,7 @@ function LayerList({
             >
               <FaPencilAlt
                 className={`h-4 w-4 ${
-                  activeLayerId === id
+                  activeLayerIdx === id
                     ? "text-green-500"
                     : "text-gray-300 hover:text-gray-400"
                 }`}
@@ -476,8 +476,8 @@ function setCanvasSettings(sectionId, attr, value) {
   });
 }
 
-function setLayerSettings(sectionId, activeLayerId, attr, value) {
+function setLayerSettings(sectionId, activeLayerIdx, attr, value) {
   useSectionInfos.setState((x) => {
-    x.x[sectionId].canvasSettings.layers[activeLayerId][attr] = value;
+    x.x[sectionId].canvasSettings.layers[activeLayerIdx][attr] = value;
   });
 }

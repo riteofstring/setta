@@ -43,11 +43,11 @@ export function useImageLoadViaDropzone(sectionId) {
 }
 
 export const debouncedSetBrushStrokesArtifact = _.debounce(
-  (sectionId, activeLayerId, strokes) => {
+  (sectionId, activeLayerIdx, strokes) => {
     useSectionInfos.setState((state) => {
       maybeCreateArtifactAndUpdateSection(
         sectionId,
-        activeLayerId,
+        activeLayerIdx,
         {
           type: "brushStrokes",
           value: _.cloneDeep(strokes),

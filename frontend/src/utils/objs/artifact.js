@@ -10,14 +10,28 @@ export function newArtifact({ name, ...props }) {
   );
 }
 
-export function newDrawAreaLocalLayerState(type) {
+export function newDrawAreaLocalLayer(artifactIdToType) {
+  const output = {};
+  for (const [artifactId, type] of Object.entries(artifactIdToType)) {
+    output[artifactId] = newDrawAreaLocalLayerArtifactData(type);
+  }
+  return output;
+}
+
+function newDrawAreaLocalLayerArtifactData(type) {
   if (type === "img") {
-    return { image: new Image() };
+    return new Image();
   } else if (type === "brushStrokes") {
-    return { strokes: [] };
+    return [];
   }
 }
 
-export function newLayerSettings() {
-  return { artifactIds: [], visible: true, layerOpacity: 0.5, brushOpacity: 1 };
+export function newLayerSettings(props) {
+  return {
+    artifactIds: [],
+    visible: true,
+    layerOpacity: 0.5,
+    brushOpacity: 1,
+    ...props,
+  };
 }
