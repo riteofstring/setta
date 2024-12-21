@@ -1,95 +1,187 @@
 import * as Accordion from "@radix-ui/react-accordion";
-import _ from "lodash";
-import { useEffect, useState } from "react";
-import { FiChevronDown } from "react-icons/fi";
-import { dbLoadAvailableArtifacts } from "requests/artifacts";
-import { useArtifacts, useSectionInfos } from "state/definitions";
-import useDeepCompareEffect from "use-deep-compare-effect";
+import { useState } from "react";
+import { FiChevronDown, FiTrash2 } from "react-icons/fi";
 
-export function ListOfArtifacts({ sectionId, sectionTypeName }) {
-  const [availableArtifacts, setAvailableArtifacts] = useState({});
-  const selectedArtifactIds = useSectionInfos(
-    (x) => x.x[sectionId].artifactIds,
-    _.isEqual,
+// Initial data remains the same
+const INITIAL_ARTIFACTS = {
+  artifact1: {
+    name: "Configuration Parser",
+    type: "Python Script",
+    path: "/scripts/config_parser.py",
+  },
+  artifact2: {
+    name: "Data Processor",
+    type: "JavaScript Module",
+    path: "/src/data/processor.js",
+  },
+  artifact3: {
+    name: "Visualization Component",
+    type: "React Component",
+    path: "/components/DataViz.tsx",
+  },
+  artifact4: {
+    name: "Style Generator",
+    type: "CSS Module",
+    path: "/styles/generator.css",
+  },
+};
+
+const INITIAL_LAYERS = {
+  "Data Layer": ["artifact1", "artifact2"],
+  "Processing Layer": ["artifact2", "artifact3"],
+  "Presentation Layer": ["artifact3", "artifact4"],
+};
+
+const LayersList = ({ layers, onDrop, draggedId, onDeleteArtifact }) => {
+  const [hoveredLayer, setHoveredLayer] = useState(null);
+
+  const handleDragOver = (e, layerName) => {
+    const hasArtifact = layers[layerName].includes(draggedId);
+    setHoveredLayer(layerName);
+    if (hasArtifact) {
+      return; // Don't prevent default - this prevents dropping
+    }
+    e.preventDefault(); // Necessary to allow dropping
+  };
+
+  const handleDragLeave = () => {
+    setHoveredLayer(null);
+  };
+
+  const handleDrop = (e, layerName) => {
+    e.preventDefault();
+    setHoveredLayer(null);
+    const artifactId = e.dataTransfer.getData("text/plain");
+    onDrop(artifactId, layerName);
+  };
+
+  const getLayerStyle = (layerName) => {
+    if (!draggedId || hoveredLayer !== layerName) {
+      return "border-gray-300";
+    }
+
+    const hasArtifact = layers[layerName].includes(draggedId);
+    return hasArtifact
+      ? "border-red-500 bg-red-50"
+      : "border-green-500 bg-green-50";
+  };
+
+  return (
+    <div className="mb-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
+      <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+        Layers
+      </h2>
+      {Object.entries(layers).map(([layerName, artifactIds]) => (
+        <div
+          key={layerName}
+          className={`mb-2 rounded border-2 border-dashed p-2 transition-colors ${getLayerStyle(layerName)} ${
+            draggedId && layers[layerName].includes(draggedId)
+              ? "cursor-not-allowed"
+              : draggedId
+                ? "cursor-copy"
+                : ""
+          }`}
+          onDragOver={(e) => handleDragOver(e, layerName)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, layerName)}
+        >
+          <h3 className="font-medium text-gray-900 dark:text-gray-100">
+            {layerName}
+          </h3>
+          <div className="ml-4">
+            {artifactIds.map((id) => (
+              <div
+                key={id}
+                className="group flex items-center justify-between text-sm text-gray-600 dark:text-gray-400"
+              >
+                <span>{INITIAL_ARTIFACTS[id]?.name || id}</span>
+                <button
+                  onClick={() => onDeleteArtifact(layerName, id)}
+                  className="cursor-pointer p-1 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+                >
+                  <FiTrash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
-  const [loadedDetails, setLoadedDetails] = useState({});
+};
 
-  useEffect(() => {
-    async function fn() {
-      const res = await dbLoadAvailableArtifacts(sectionTypeName);
-      if (res.status == 200) {
-        // the selectedArtifactIds hook below finishes before this,
-        // so we merge with the existing state rather than replace
-        setAvailableArtifacts((state) => ({ ...state, ...res.data }));
+// DUMMY_DETAILS remains the same
+const DUMMY_DETAILS = {
+  "Configuration Parser": {
+    description: "Parses configuration files in YAML format",
+    lastModified: "2024-03-15",
+    author: "Jane Doe",
+  },
+  "Data Processor": {
+    description: "Processes raw data into normalized format",
+    lastModified: "2024-03-16",
+    author: "John Smith",
+  },
+};
+
+export function ListOfArtifacts() {
+  const [layers, setLayers] = useState(INITIAL_LAYERS);
+  const [draggedId, setDraggedId] = useState(null);
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+  };
+
+  const handleDragStart = (e, artifactId) => {
+    e.dataTransfer.setData("text/plain", artifactId);
+    setDraggedId(artifactId);
+  };
+
+  const handleLayerDrop = (artifactId, targetLayer) => {
+    setLayers((prevLayers) => {
+      // Create a new copy of the layers
+      const newLayers = { ...prevLayers };
+
+      // Add the artifact to the target layer if it's not already there
+      if (!newLayers[targetLayer].includes(artifactId)) {
+        newLayers[targetLayer] = [...newLayers[targetLayer], artifactId];
       }
-    }
 
-    fn();
-  }, []);
-
-  useDeepCompareEffect(() => {
-    const newState = _.cloneDeep(availableArtifacts);
-    for (const id of selectedArtifactIds) {
-      if (!(id in availableArtifacts)) {
-        const { name, type, path } = useArtifacts.getState()[id];
-        newState[id] = { name, type, path };
-      }
-    }
-    setAvailableArtifacts(newState);
-  }, [selectedArtifactIds]);
-
-  const handleCheckboxChange = (e, artifactId) => {
-    console.log("e.target.checked", e.target.checked);
-    useSectionInfos.setState((x) => {
-      if (e.target.checked && !selectedArtifactIds.includes(artifactId)) {
-        x.x[sectionId].artifactIds.push(artifactId);
-      } else if (
-        !e.target.checked &&
-        selectedArtifactIds.includes(artifactId)
-      ) {
-        x.x[sectionId].artifactIds = x.x[sectionId].artifactIds.filter(
-          (id) => id !== artifactId,
-        );
-      }
+      return newLayers;
     });
   };
 
-  const loadItemDetails = async (itemName) => {
-    try {
-      // This would be replaced with actual API call
-      const response = await fetch(`/api/items/${itemName}`);
-      const data = await response.json();
-      setLoadedDetails((prev) => ({
-        ...prev,
-        [itemName]: data,
-      }));
-    } catch (error) {
-      console.error("Failed to load item details:", error);
-    }
+  const handleDeleteArtifact = (layerName, artifactId) => {
+    setLayers((prevLayers) => ({
+      ...prevLayers,
+      [layerName]: prevLayers[layerName].filter((id) => id !== artifactId),
+    }));
   };
-
-  console.log(
-    "Object.entries(availableArtifacts)",
-    Object.entries(availableArtifacts),
-  );
 
   return (
     <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
+      <LayersList
+        layers={layers}
+        onDrop={handleLayerDrop}
+        draggedId={draggedId}
+        onDeleteArtifact={handleDeleteArtifact}
+      />
+
+      <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+        Available Artifacts
+      </h2>
+
       <Accordion.Root type="multiple" className="w-full">
-        {Object.entries(availableArtifacts).map(([id, item]) => (
+        {Object.entries(INITIAL_ARTIFACTS).map(([id, item]) => (
           <Accordion.Item
             key={id}
             value={item.name}
             className="border-b border-gray-200 last:border-0 dark:border-gray-700"
+            draggable
+            onDragStart={(e) => handleDragStart(e, id)}
+            onDragEnd={handleDragEnd}
           >
-            <div className="flex items-center gap-2 p-2">
-              <input
-                type="checkbox"
-                className="h-4 w-4 cursor-pointer rounded border-gray-300 bg-white text-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                checked={selectedArtifactIds.includes(id)}
-                onChange={(e) => handleCheckboxChange(e, id)}
-              />
-
+            <div className="flex cursor-move items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-800">
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <div>
@@ -114,13 +206,13 @@ export function ListOfArtifacts({ sectionId, sectionTypeName }) {
 
             <Accordion.Content className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
               <div className="bg-gray-50 p-4 dark:bg-gray-800">
-                {loadedDetails[item.name] ? (
+                {DUMMY_DETAILS[item.name] ? (
                   <pre className="text-gray-900 dark:text-gray-100">
-                    {JSON.stringify(loadedDetails[item.name], null, 2)}
+                    {JSON.stringify(DUMMY_DETAILS[item.name], null, 2)}
                   </pre>
                 ) : (
                   <div className="text-gray-500 dark:text-gray-400">
-                    Loading details...
+                    No additional details available
                   </div>
                 )}
               </div>
