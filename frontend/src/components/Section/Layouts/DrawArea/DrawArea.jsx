@@ -211,11 +211,9 @@ export function DrawOnImage({ sectionId }) {
       return;
     }
     setIsDrawing(false);
-    if (!isEraser) {
-      layers.current[activeLayerId].strokes = strokesRef.current;
-      drawAllLayers({ canvasRef, tempCanvasRef, layers, layerSettings });
-      clearCanvas(draftCanvasRef);
-    }
+    layers.current[activeLayerId].strokes = strokesRef.current;
+    drawAllLayers({ canvasRef, tempCanvasRef, layers, layerSettings });
+    clearCanvas(draftCanvasRef);
     // debouncedSetBrushStrokesArtifact(
     //   sectionId,
     //   activeLayerId,
@@ -308,7 +306,6 @@ function setDraftCanvasProperties({
   layerOpacity,
 }) {
   const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
-  clearCanvas(draftCanvasRef);
   if (isEraser) {
     dCtx.globalCompositeOperation = "destination-out";
     dCtx.strokeStyle = "rgba(0,0,0,1)";
@@ -461,10 +458,13 @@ function drawStrokes(
   });
 
   const ctx = getCtx(canvasRef);
+  const originalGlobalCompositeOperation = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = "source-over";
   if (applyLayerOpacityToGlobalAlpha) {
     ctx.globalAlpha = layerOpacity;
   }
   ctx.drawImage(tempCanvas, 0, 0);
+  ctx.globalCompositeOperation = originalGlobalCompositeOperation;
 
   clearCanvas(tempCanvasRef);
 }
