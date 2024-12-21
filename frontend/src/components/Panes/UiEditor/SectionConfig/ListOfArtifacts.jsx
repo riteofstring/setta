@@ -129,14 +129,14 @@ export function ListOfArtifacts({ sectionId, sectionTypeName }) {
 
   const handleLayerDrop = (artifactId, targetLayerId) => {
     useSectionInfos.setState((x) => {
-      const targetLayer = layers.find((l) => l.id === targetLayerId);
+      const targetLayer = x.artifactGroups[targetLayerId];
       targetLayer.artifactIds.push(artifactId);
     });
   };
 
   const handleDeleteArtifact = (layerId, artifactId) => {
     useSectionInfos.setState((x) => {
-      const targetLayer = layers.find((l) => l.id === layerId);
+      const targetLayer = x.artifactGroups[layerId];
       targetLayer.artifactIds = targetLayer.artifactIds.filter(
         (id) => id !== artifactId,
       );
