@@ -12,7 +12,7 @@ import {
   useSectionInfos,
   useTemporaryMiscState,
 } from "state/definitions";
-import { useArtifactData } from "state/hooks/artifacts";
+import { useSectionArtifactGroups } from "state/hooks/artifacts";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { DrawAreaControls } from "./DrawAreaControls";
@@ -22,17 +22,15 @@ import {
 } from "./utils";
 
 export function DrawArea({ sectionId }) {
-  const { artifacts, isLoaded } = useArtifactData(sectionId);
-  return (
-    isLoaded && <DrawAreaCore sectionId={sectionId} artifacts={artifacts} />
-  );
-}
+  const { artifactGroups: layers, loadedArtifactTypes } =
+    useSectionArtifactGroups(sectionId);
 
-function DrawAreaCore({ sectionId, artifacts }) {
+  console.log("layers", layers);
+  console.log("loadedArtifactTypes", loadedArtifactTypes);
+
   const {
     size: { width, height },
     canvasSettings: {
-      layers,
       activeLayerIdx,
       color,
       brushSize,
@@ -59,36 +57,12 @@ function DrawAreaCore({ sectionId, artifacts }) {
   const layerOpacity = layers[activeLayerIdx]?.layerOpacity ?? 1;
   const brushOpacity = layers[activeLayerIdx]?.brushOpacity ?? 1;
   const currBrushStrokeArtifactId = layers[activeLayerIdx]?.artifactIds?.find(
-    (a) => artifacts[a]?.type === "brushStrokes",
+    (a) => loadedArtifactTypes[a] === "brushStrokes",
   );
 
-  // console.log("artifacts", artifacts);
   // console.log("layers", layers);
   // console.log("activeLayerIdx", activeLayerIdx);
   // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
-
-  async function processLoadedArtifacts() {
-    useSectionInfos.setState((state) => {
-      const layers = state.x[sectionId].canvasSettings.layers;
-      for (const [artifactId, v] of Object.entries(artifacts)) {
-        const layerWithThisArtifact = layers.find((layer) =>
-          layer.artifactIds.includes(artifactId),
-        );
-        if (!layerWithThisArtifact) {
-          layers[layers.length - 1].artifactIds.push(artifactId);
-        }
-      }
-      setCanvasSize({
-        sectionId,
-        canvasRef,
-        tempCanvasRef,
-        draftCanvasRef,
-        layers,
-        artifactIdUsedToSetCanvasSize,
-        state,
-      });
-    });
-  }
 
   useEffect(() => {
     tempCanvasRef.current = document.createElement("canvas");
@@ -106,10 +80,6 @@ function DrawAreaCore({ sectionId, artifacts }) {
   }, []);
 
   useDeepCompareEffect(() => {
-    processLoadedArtifacts();
-  }, [Object.keys(artifacts), height, width]);
-
-  useDeepCompareEffect(() => {
     setDraftCanvasProperties({
       draftCanvasRef,
       color,
@@ -122,6 +92,8 @@ function DrawAreaCore({ sectionId, artifacts }) {
     });
     drawAllLayers({ canvasRef, tempCanvasRef, layers });
   }, [
+    height,
+    width,
     isEraser,
     color,
     brushSize,
@@ -129,10 +101,14 @@ function DrawAreaCore({ sectionId, artifacts }) {
     brushShape,
     layerOpacity,
     brushOpacity,
-    Object.values(layers).map((v) => ({ name: v.name, visible: v.visible })), // this also tracks layer ordering because it's tracking "name"
+    layers,
+    loadedArtifactTypes,
   ]);
 
   useEffect(() => {
+    if (!currBrushStrokeArtifactId) {
+      return;
+    }
     const storedStrokes =
       useArtifacts.getState()[currBrushStrokeArtifactId]?.value;
     if (storedStrokes) {
@@ -327,6 +303,9 @@ function setCanvasSize({
   const artifactState = useArtifacts.getState();
   for (const layer of layers) {
     for (const id of layer.artifactIds) {
+      if (!(id in artifactState)) {
+        continue;
+      }
       const artifact = artifactState[id];
       if (artifact.type === "img" && artifact.value.complete) {
         const image = artifact.value;
@@ -404,6 +383,9 @@ function drawAllLayers({
     const { layerOpacity } = layers[idx];
 
     for (const id of layer.artifactIds) {
+      if (!(id in artifactState)) {
+        return;
+      }
       const artifact = artifactState[id];
       if (artifact.type === "img" && artifact.value.complete) {
         const image = artifact.value;

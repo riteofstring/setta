@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
 import { dbLoadAvailableArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
+import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 
 const LayersList = ({
   layers,
@@ -20,10 +21,10 @@ const LayersList = ({
 
   const allArtifacts = { ...availableArtifacts, ...artifactsAlreadyInMemory };
 
-  const handleDragOver = (e, layerName) => {
-    const layer = layers.find((l) => l.name === layerName);
+  const handleDragOver = (e, layerId) => {
+    const layer = layers.find((l) => l.id === layerId);
     const hasArtifact = layer.artifactIds.includes(draggedId);
-    setHoveredLayer(layerName);
+    setHoveredLayer(layerId);
     if (hasArtifact) {
       return; // Don't prevent default - this prevents dropping
     }
@@ -34,15 +35,15 @@ const LayersList = ({
     setHoveredLayer(null);
   };
 
-  const handleDrop = (e, layerName) => {
+  const handleDrop = (e, layerId) => {
     e.preventDefault();
     setHoveredLayer(null);
     const artifactId = e.dataTransfer.getData("text/plain");
-    onDrop(artifactId, layerName);
+    onDrop(artifactId, layerId);
   };
 
   const getLayerStyle = (layer) => {
-    if (!draggedId || hoveredLayer !== layer.name) {
+    if (!draggedId || hoveredLayer !== layer.id) {
       return "border-gray-300";
     }
 
@@ -59,7 +60,7 @@ const LayersList = ({
       </h2>
       {layers.map((layer) => (
         <div
-          key={layer.name}
+          key={layer.id}
           className={`mb-2 rounded border-2 border-dashed p-2 transition-colors ${getLayerStyle(layer)} ${
             draggedId && layer.artifactIds.includes(draggedId)
               ? "cursor-not-allowed"
@@ -67,9 +68,9 @@ const LayersList = ({
                 ? "cursor-copy"
                 : ""
           }`}
-          onDragOver={(e) => handleDragOver(e, layer.name)}
+          onDragOver={(e) => handleDragOver(e, layer.id)}
           onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, layer.name)}
+          onDrop={(e) => handleDrop(e, layer.id)}
         >
           <h3 className="font-medium text-gray-900 dark:text-gray-100">
             {layer.name}
@@ -82,7 +83,7 @@ const LayersList = ({
               >
                 <span>{allArtifacts[id]?.name}</span>
                 <button
-                  onClick={() => onDeleteArtifact(layerName, id)}
+                  onClick={() => onDeleteArtifact(layer.id, id)}
                   className="cursor-pointer p-1 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
                 >
                   <FiTrash2 size={14} />
@@ -98,7 +99,7 @@ const LayersList = ({
 
 export function ListOfArtifacts({ sectionId, sectionTypeName }) {
   const layers = useSectionInfos(
-    (x) => x.x[sectionId].canvasSettings.layers,
+    (state) => getSectionArtifactGroupMetadata(sectionId, state),
     _.isEqual,
   );
   const [availableArtifacts, setAvailableArtifacts] = useState({});
@@ -126,19 +127,17 @@ export function ListOfArtifacts({ sectionId, sectionTypeName }) {
     setDraggedId(artifactId);
   };
 
-  const handleLayerDrop = (artifactId, targetLayerName) => {
+  const handleLayerDrop = (artifactId, targetLayerId) => {
     useSectionInfos.setState((x) => {
-      const targetLayer = x.x[sectionId].canvasSettings.layers.find(
-        (l) => l.name === targetLayerName,
-      );
+      const targetLayer = layers.find((l) => l.id === targetLayerId);
       targetLayer.artifactIds.push(artifactId);
     });
   };
 
-  const handleDeleteArtifact = (layerName, artifactId) => {
+  const handleDeleteArtifact = (layerId, artifactId) => {
     useSectionInfos.setState((x) => {
       const targetLayer = x.x[sectionId].canvasSettings.layers.find(
-        (l) => l.name === layerName,
+        (l) => l.id === layerId,
       );
       targetLayer.artifactIds = targetLayer.artifactIds.filter(
         (id) => id !== artifactId,

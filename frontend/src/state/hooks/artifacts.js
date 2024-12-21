@@ -1,25 +1,47 @@
 import _ from "lodash";
-import { useState } from "react";
 import { loadArtifacts } from "state/actions/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
-export function useArtifactData(sectionId) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const artifactIds = useSectionInfos(
-    (x) => x.x[sectionId].artifactIds,
-    _.isEqual,
-  );
-  const artifacts = useArtifacts((x) => _.pick(x, artifactIds), _.isEqual);
+export function useSectionArtifactGroups(sectionId) {
+  const { artifactIds, artifactGroups } = useSectionArtifactIds(sectionId);
+  const loadedArtifactTypes = useArtifacts((x) => {
+    const output = {};
+    for (const id of artifactIds) {
+      if (x[id]) {
+        output[id] = x[id].type;
+      }
+    }
+    return output;
+  }, _.isEqual);
 
   useDeepCompareEffect(() => {
-    if (artifactIds.length !== _.size(artifacts)) {
-      setIsLoaded(false);
-      loadArtifacts(artifactIds);
-    } else {
-      setIsLoaded(true);
+    const notLoaded = [];
+    for (const id of artifactIds) {
+      if (!(id in useArtifacts.getState())) {
+        notLoaded.push(id);
+      }
     }
-  }, [artifactIds, Object.keys(artifacts)]);
+    loadArtifacts(notLoaded);
+  }, [artifactIds]);
 
-  return { artifacts, isLoaded };
+  return { artifactGroups, loadedArtifactTypes };
+}
+
+export function getSectionArtifactGroupMetadata(sectionId, state) {
+  const { artifactGroupIds } = state.x[sectionId];
+  return artifactGroupIds.map((a) => ({ id: a, ...state.artifactGroups[a] }));
+}
+
+function useSectionArtifactIds(sectionId) {
+  return useSectionInfos((state) => {
+    const artifactGroups = getSectionArtifactGroupMetadata(sectionId, state);
+    const artifactIds = new Set();
+    for (const group of artifactGroups) {
+      for (const artifactId of group.artifactIds) {
+        artifactIds.add(artifactId);
+      }
+    }
+    return { artifactIds, artifactGroups };
+  }, _.isEqual);
 }
