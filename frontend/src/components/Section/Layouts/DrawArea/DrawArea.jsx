@@ -48,6 +48,7 @@ export function DrawArea({ sectionId }) {
     };
   }, _.isEqual);
   const canvasRef = useRef(null);
+  const draftCanvasRef = useRef(null);
   const tempCanvasRef = useRef(null);
   const strokesRef = useRef([]);
   const prevPointRef = useRef(null);
@@ -85,12 +86,13 @@ export function DrawArea({ sectionId }) {
         sectionId,
         canvasRef,
         tempCanvasRef,
+        draftCanvasRef,
         layers,
         state,
       });
     });
-    setCanvasProperties({
-      canvasRef,
+    setDraftCanvasProperties({
+      draftCanvasRef,
       color,
       brushSize,
       brushShape,
@@ -147,7 +149,7 @@ export function DrawArea({ sectionId }) {
     } else {
       point = getXY(e);
     }
-    startNewStroke(canvasRef, strokesRef, point);
+    startNewStroke(draftCanvasRef, strokesRef, point);
     prevPointRef.current = point;
   }
 
@@ -157,12 +159,12 @@ export function DrawArea({ sectionId }) {
     }
     const point = getXY(e);
     const currStroke = strokesRef.current[strokesRef.current.length - 1];
-    if (!isEraser && currStroke.points.length >= 10000) {
+    if (!isEraser && currStroke.points.length >= canvasTransferQueueLength) {
       transferEverythingToRealCanvas();
-      startNewStroke(canvasRef, strokesRef, point);
+      startNewStroke(draftCanvasRef, strokesRef, point);
       prevPointRef.current = point;
     } else {
-      drawStroke(canvasRef, prevPointRef.current, point);
+      drawStroke(draftCanvasRef, prevPointRef.current, point);
       currStroke.points.push(point);
       prevPointRef.current = point;
     }
@@ -194,7 +196,7 @@ export function DrawArea({ sectionId }) {
       // have to compute offset this way for some reason
       // otherwise it's inaccurate
       const zoom = getZoom();
-      const rect = canvasRef.current.getBoundingClientRect();
+      const rect = draftCanvasRef.current.getBoundingClientRect();
       const offsetX = (e.clientX - rect.left) / zoom;
       const offsetY = (e.clientY - rect.top) / zoom;
       onMouseDown(e, offsetX, offsetY);
@@ -208,8 +210,8 @@ export function DrawArea({ sectionId }) {
         value: _.cloneDeep(strokesRef.current),
       },
     }));
-    // drawAllLayers({ canvasRef, tempCanvasRef, layers });
-    // clearCanvas(canvasRef);
+    drawAllLayers({ canvasRef, tempCanvasRef, layers });
+    clearCanvas(draftCanvasRef);
   }
 
   function clearStrokes() {
@@ -261,18 +263,18 @@ export function DrawArea({ sectionId }) {
             onMouseEnter={onMouseEnter}
             className={`${cursorIcon} ${canvasClassName}`}
           />
-          {/* <canvas
-            ref={canvasRef}
+          <canvas
+            ref={draftCanvasRef}
             className={`pointer-events-none ${canvasClassName}`}
-          /> */}
+          />
         </div>
       </section>
     </>
   );
 }
 
-function setCanvasProperties({
-  canvasRef,
+function setDraftCanvasProperties({
+  draftCanvasRef,
   color,
   brushSize,
   brushShape,
@@ -281,7 +283,7 @@ function setCanvasProperties({
   isEraser,
   layerOpacity,
 }) {
-  const dCtx = getCtx(canvasRef);
+  const dCtx = getCtx(draftCanvasRef);
   if (isEraser) {
     dCtx.globalCompositeOperation = "destination-out";
     dCtx.strokeStyle = "rgba(0,0,0,1)";
@@ -297,9 +299,17 @@ function setCanvasProperties({
   }
 }
 
-function setCanvasSize({ sectionId, canvasRef, tempCanvasRef, layers, state }) {
+function setCanvasSize({
+  sectionId,
+  canvasRef,
+  tempCanvasRef,
+  draftCanvasRef,
+  layers,
+  state,
+}) {
   const [canvas] = getCanvasAndCtx(canvasRef);
   const [tempCanvas] = getCanvasAndCtx(tempCanvasRef);
+  const [draftCanvas] = getCanvasAndCtx(draftCanvasRef);
 
   const artifactIdUsedToSetCanvasSize =
     state.x[sectionId].canvasSettings.artifactIdUsedToSetCanvasSize;
@@ -342,6 +352,9 @@ function setCanvasSize({ sectionId, canvasRef, tempCanvasRef, layers, state }) {
 
   tempCanvas.width = canvasSize.width;
   tempCanvas.height = canvasSize.height;
+
+  draftCanvas.width = canvasSize.width;
+  draftCanvas.height = canvasSize.height;
 
   drawAllLayers({ canvasRef, tempCanvasRef, layers });
 }
@@ -436,8 +449,8 @@ function drawAllLayers({
   }
 }
 
-function startNewStroke(canvasRef, strokesRef, firstPoint) {
-  const [draftCanvas, dCtx] = getCanvasAndCtx(canvasRef);
+function startNewStroke(draftCanvasRef, strokesRef, firstPoint) {
+  const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
   strokesRef.current.push({
     strokeStyle: dCtx.strokeStyle,
     lineWidth: dCtx.lineWidth,
@@ -447,7 +460,7 @@ function startNewStroke(canvasRef, strokesRef, firstPoint) {
     canvasWidth: draftCanvas.width,
     globalCompositeOperation: dCtx.globalCompositeOperation,
   });
-  drawStroke(canvasRef, firstPoint, firstPoint);
+  drawStroke(draftCanvasRef, firstPoint, firstPoint);
 }
 
 function drawSavedStrokeOntoTempCanvas(canvas, ctx, stroke) {
@@ -466,16 +479,14 @@ function drawSavedStrokeOntoTempCanvas(canvas, ctx, stroke) {
   stroke.points.forEach((point) => {
     ctx.moveTo(prevPoint[0], prevPoint[1]);
     ctx.lineTo(point[0], point[1]);
-    ctx.stroke();
     prevPoint = point;
   });
-
+  ctx.stroke();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
 function drawStroke(canvasRef, from, to) {
   const ctx = getCtx(canvasRef);
-  console.log("drawStroke", ctx)
   ctx.beginPath();
   ctx.moveTo(from[0], from[1]);
   ctx.lineTo(to[0], to[1]);
