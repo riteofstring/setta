@@ -26,17 +26,27 @@ const INITIAL_ARTIFACTS = {
   },
 };
 
-const INITIAL_LAYERS = {
-  "Data Layer": ["artifact1", "artifact2"],
-  "Processing Layer": ["artifact2", "artifact3"],
-  "Presentation Layer": ["artifact3", "artifact4"],
-};
+const INITIAL_LAYERS = [
+  {
+    name: "Data Layer",
+    artifactIds: ["artifact1", "artifact2"],
+  },
+  {
+    name: "Processing Layer",
+    artifactIds: ["artifact2", "artifact3"],
+  },
+  {
+    name: "Presentation Layer",
+    artifactIds: ["artifact3", "artifact4"],
+  },
+];
 
 const LayersList = ({ layers, onDrop, draggedId, onDeleteArtifact }) => {
   const [hoveredLayer, setHoveredLayer] = useState(null);
 
   const handleDragOver = (e, layerName) => {
-    const hasArtifact = layers[layerName].includes(draggedId);
+    const layer = layers.find((l) => l.name === layerName);
+    const hasArtifact = layer.artifactIds.includes(draggedId);
     setHoveredLayer(layerName);
     if (hasArtifact) {
       return; // Don't prevent default - this prevents dropping
@@ -55,12 +65,12 @@ const LayersList = ({ layers, onDrop, draggedId, onDeleteArtifact }) => {
     onDrop(artifactId, layerName);
   };
 
-  const getLayerStyle = (layerName) => {
-    if (!draggedId || hoveredLayer !== layerName) {
+  const getLayerStyle = (layer) => {
+    if (!draggedId || hoveredLayer !== layer.name) {
       return "border-gray-300";
     }
 
-    const hasArtifact = layers[layerName].includes(draggedId);
+    const hasArtifact = layer.artifactIds.includes(draggedId);
     return hasArtifact
       ? "border-red-500 bg-red-50"
       : "border-green-500 bg-green-50";
@@ -71,25 +81,25 @@ const LayersList = ({ layers, onDrop, draggedId, onDeleteArtifact }) => {
       <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
         Layers
       </h2>
-      {Object.entries(layers).map(([layerName, artifactIds]) => (
+      {layers.map((layer) => (
         <div
-          key={layerName}
-          className={`mb-2 rounded border-2 border-dashed p-2 transition-colors ${getLayerStyle(layerName)} ${
-            draggedId && layers[layerName].includes(draggedId)
+          key={layer.name}
+          className={`mb-2 rounded border-2 border-dashed p-2 transition-colors ${getLayerStyle(layer)} ${
+            draggedId && layer.artifactIds.includes(draggedId)
               ? "cursor-not-allowed"
               : draggedId
                 ? "cursor-copy"
                 : ""
           }`}
-          onDragOver={(e) => handleDragOver(e, layerName)}
+          onDragOver={(e) => handleDragOver(e, layer.name)}
           onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, layerName)}
+          onDrop={(e) => handleDrop(e, layer.name)}
         >
           <h3 className="font-medium text-gray-900 dark:text-gray-100">
-            {layerName}
+            {layer.name}
           </h3>
           <div className="ml-4">
-            {artifactIds.map((id) => (
+            {layer.artifactIds.map((id) => (
               <div
                 key={id}
                 className="group flex items-center justify-between text-sm text-gray-600 dark:text-gray-400"
@@ -137,25 +147,35 @@ export function ListOfArtifacts() {
     setDraggedId(artifactId);
   };
 
-  const handleLayerDrop = (artifactId, targetLayer) => {
+  const handleLayerDrop = (artifactId, targetLayerName) => {
     setLayers((prevLayers) => {
-      // Create a new copy of the layers
-      const newLayers = { ...prevLayers };
-
-      // Add the artifact to the target layer if it's not already there
-      if (!newLayers[targetLayer].includes(artifactId)) {
-        newLayers[targetLayer] = [...newLayers[targetLayer], artifactId];
-      }
-
-      return newLayers;
+      return prevLayers.map((layer) => {
+        if (
+          layer.name === targetLayerName &&
+          !layer.artifactIds.includes(artifactId)
+        ) {
+          return {
+            ...layer,
+            artifactIds: [...layer.artifactIds, artifactId],
+          };
+        }
+        return layer;
+      });
     });
   };
 
   const handleDeleteArtifact = (layerName, artifactId) => {
-    setLayers((prevLayers) => ({
-      ...prevLayers,
-      [layerName]: prevLayers[layerName].filter((id) => id !== artifactId),
-    }));
+    setLayers((prevLayers) =>
+      prevLayers.map((layer) => {
+        if (layer.name === layerName) {
+          return {
+            ...layer,
+            artifactIds: layer.artifactIds.filter((id) => id !== artifactId),
+          };
+        }
+        return layer;
+      }),
+    );
   };
 
   return (
