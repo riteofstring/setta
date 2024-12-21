@@ -424,6 +424,7 @@ function drawAllLayers({
         const y = canvas.height / 2 - (image.height / 2) * scale;
 
         tempCtx.globalAlpha = 1;
+        tempCtx.globalCompositeOperation = "source-over";
         tempCtx.drawImage(
           image,
           x,
@@ -440,11 +441,9 @@ function drawAllLayers({
         });
       }
     }
-    const originalGlobalCompositeOperation = ctx.globalCompositeOperation;
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = layerOpacity;
     ctx.drawImage(tempCanvas, 0, 0);
-    ctx.globalCompositeOperation = originalGlobalCompositeOperation;
     clearCanvas(tempCanvasRef);
   }
 }
