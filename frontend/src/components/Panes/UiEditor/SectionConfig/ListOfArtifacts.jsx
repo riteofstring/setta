@@ -136,9 +136,7 @@ export function ListOfArtifacts({ sectionId, sectionTypeName }) {
 
   const handleDeleteArtifact = (layerId, artifactId) => {
     useSectionInfos.setState((x) => {
-      const targetLayer = x.x[sectionId].canvasSettings.layers.find(
-        (l) => l.id === layerId,
-      );
+      const targetLayer = layers.find((l) => l.id === layerId);
       targetLayer.artifactIds = targetLayer.artifactIds.filter(
         (id) => id !== artifactId,
       );

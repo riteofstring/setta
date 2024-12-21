@@ -7,10 +7,10 @@ import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
 import { FaBars, FaEye, FaEyeSlash, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { TfiLayersAlt } from "react-icons/tfi";
-import { createArtifactAndUpdateSection } from "state/actions/artifacts";
-import { useSectionInfos } from "state/definitions";
+import { useArtifacts, useSectionInfos } from "state/definitions";
+import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 import { createNewId } from "utils/idNameCreation";
-import { newLayer } from "utils/objs/artifact";
+import { newArtifact, newLayer } from "utils/objs/artifact";
 
 export function DrawAreaControls({
   sectionId,
@@ -52,30 +52,35 @@ export function DrawAreaControls({
   }
   function addLayer() {
     useSectionInfos.setState((state) => {
-      const canvasSettings = state.x[sectionId].canvasSettings;
       const artifactId = createNewId();
-      canvasSettings.layers.push(newLayer({ artifactIds: [artifactId] }));
-      createArtifactAndUpdateSection(
-        sectionId,
-        artifactId,
-        { type: "brushStrokes", value: [] },
-        state,
-      );
-      canvasSettings.activeLayerIdx = canvasSettings.layers.length - 1;
+      useArtifacts.setState({
+        [artifactId]: newArtifact({ type: "brushStrokes", value: [] }),
+      });
+
+      const artifactGroupId = createNewId();
+      state.artifactGroups[artifactGroupId] = newLayer({
+        artifactIds: [artifactId],
+      });
+
+      const artifactGroupIds = state.x[sectionId].artifactGroupIds;
+      artifactGroupIds.push(artifactGroupId);
+
+      state.x[sectionId].canvasSettings.activeLayerIdx =
+        artifactGroupIds.length - 1;
     });
   }
 
   function reorderLayers(draggedIdx, targetIdx) {
     useSectionInfos.setState((state) => {
-      const canvasSettings = state.x[sectionId].canvasSettings;
-      const currActiveLayerName = canvasSettings.layers[activeLayerIdx].name;
-      canvasSettings.layers = arrayMove(
-        canvasSettings.layers,
+      state.x[sectionId].artifactGroupIds = arrayMove(
+        state.x[sectionId].artifactGroupIds,
         draggedIdx,
         targetIdx,
       );
-      canvasSettings.activeLayerIdx = canvasSettings.layers.findIndex(
-        (x) => x.name === currActiveLayerName,
+      const layers = getSectionArtifactGroupMetadata(sectionId, state);
+      const canvasSettings = state.x[sectionId].canvasSettings;
+      canvasSettings.activeLayerIdx = layers.findIndex(
+        (x) => x.id === layers[canvasSettings.activeLayerIdx].id,
       );
     });
   }
@@ -508,6 +513,7 @@ function setCanvasSettings(sectionId, attr, value) {
 
 function setLayerSettings(sectionId, activeLayerIdx, attr, value) {
   useSectionInfos.setState((x) => {
-    x.x[sectionId].canvasSettings.layers[activeLayerIdx][attr] = value;
+    const layerId = x.x[sectionId].artifactGroupIds[activeLayerIdx];
+    x.artifactGroups[layerId][attr] = value;
   });
 }

@@ -25,8 +25,8 @@ export function DrawArea({ sectionId }) {
   const { artifactGroups: layers, loadedArtifactTypes } =
     useSectionArtifactGroups(sectionId);
 
-  console.log("layers", layers);
-  console.log("loadedArtifactTypes", loadedArtifactTypes);
+  // console.log("layers", layers);
+  // console.log("loadedArtifactTypes", loadedArtifactTypes);
 
   const {
     size: { width, height },
@@ -60,7 +60,6 @@ export function DrawArea({ sectionId }) {
     (a) => loadedArtifactTypes[a] === "brushStrokes",
   );
 
-  // console.log("layers", layers);
   // console.log("activeLayerIdx", activeLayerIdx);
   // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
 
@@ -80,6 +79,18 @@ export function DrawArea({ sectionId }) {
   }, []);
 
   useDeepCompareEffect(() => {
+    useSectionInfos.setState((state) => {
+      console.log("setting canvas size");
+      setCanvasSize({
+        sectionId,
+        canvasRef,
+        tempCanvasRef,
+        draftCanvasRef,
+        layers,
+        artifactIdUsedToSetCanvasSize,
+        state,
+      });
+    });
     setDraftCanvasProperties({
       draftCanvasRef,
       color,
