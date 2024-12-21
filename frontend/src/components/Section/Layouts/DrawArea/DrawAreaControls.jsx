@@ -4,15 +4,14 @@ import { StandardPopover } from "components/Utils/atoms/popover/standardpopover"
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
-import { FaEye, FaEyeSlash, FaPencilAlt, FaBars } from "react-icons/fa";
+import { FaBars, FaEye, FaEyeSlash, FaPencilAlt } from "react-icons/fa";
 import { TfiLayersAlt } from "react-icons/tfi";
 import { useSectionInfos } from "state/definitions";
 
 export function DrawAreaControls({
   sectionId,
   layers,
-  layerSettings,
-  activeLayerId,
+  activeLayerIndex,
   color,
   brushOpacity,
   brushSize,
@@ -27,7 +26,7 @@ export function DrawAreaControls({
     setCanvasSettings(sectionId, "color", v);
   }
   function setBrushOpacity(v) {
-    setLayerSettings(sectionId, activeLayerId, "brushOpacity", v);
+    setLayerSettings(sectionId, activeLayerIndex, "brushOpacity", v);
   }
   function setBrushSize(v) {
     setCanvasSettings(sectionId, "brushSize", v);
@@ -36,7 +35,7 @@ export function DrawAreaControls({
     setCanvasSettings(sectionId, "brushShape", v);
   }
   function setLayerOpacity(v) {
-    setLayerSettings(sectionId, activeLayerId, "layerOpacity", v);
+    setLayerSettings(sectionId, activeLayerIndex, "layerOpacity", v);
   }
   function setEraserBrushSize(v) {
     setCanvasSettings(sectionId, "eraserBrushSize", v);
@@ -44,8 +43,8 @@ export function DrawAreaControls({
   function setLayerVisibility(layerId, v) {
     setLayerSettings(sectionId, layerId, "visible", v);
   }
-  function setActiveLayerId(v) {
-    setCanvasSettings(sectionId, "activeLayerId", v);
+  function setActiveLayerIndex(v) {
+    setCanvasSettings(sectionId, "activeLayerIndex", v);
   }
 
   return (
@@ -137,9 +136,8 @@ export function DrawAreaControls({
       >
         <LayerList
           layers={layers}
-          layerSettings={layerSettings}
-          activeLayerId={activeLayerId}
-          setActiveLayerId={setActiveLayerId}
+          activeLayerIndex={activeLayerIndex}
+          setActiveLayerIndex={setActiveLayerIndex}
           setLayerVisibility={setLayerVisibility}
         />
       </StandardPopover>
@@ -336,9 +334,8 @@ function LayerSettings({ opacity, setOpacity }) {
 
 function LayerList({
   layers,
-  layerSettings,
-  activeLayerId,
-  setActiveLayerId,
+  activeLayerIndex,
+  setActiveLayerIndex,
   setLayerVisibility,
   onNameChange,
   onReorder,
@@ -399,9 +396,9 @@ function LayerList({
 
   return (
     <ul className="space-y-2">
-      {Object.entries(layers).map(([id, layer]) => (
+      {layers.map((layer, idx) => (
         <li
-          key={id}
+          key={layer.artifactId}
           draggable={true}
           onDragStart={(e) => handleDragStart(e, id)}
           onDragOver={(e) => handleDragOver(e, id)}
@@ -436,22 +433,22 @@ function LayerList({
           </div>
           <div className="flex items-center space-x-2">
             <div
-              onClick={() => setLayerVisibility(id, !layerSettings[id].visible)}
+              onClick={() => setLayerVisibility(id, !layer.visible)}
               className="cursor-pointer"
             >
-              {layerSettings[id].visible ? (
+              {layer.visible ? (
                 <FaEye className="h-4 w-4 text-blue-500" />
               ) : (
                 <FaEyeSlash className="h-4 w-4 text-gray-400" />
               )}
             </div>
             <div
-              onClick={() => setActiveLayerId(id)}
+              onClick={() => setActiveLayerIndex(id)}
               className="cursor-pointer"
             >
               <FaPencilAlt
                 className={`h-4 w-4 ${
-                  activeLayerId === id
+                  activeLayerIndex === id
                     ? "text-green-500"
                     : "text-gray-300 hover:text-gray-400"
                 }`}
@@ -470,8 +467,8 @@ function setCanvasSettings(sectionId, attr, value) {
   });
 }
 
-function setLayerSettings(sectionId, activeLayerId, attr, value) {
+function setLayerSettings(sectionId, activeLayerIndex, attr, value) {
   useSectionInfos.setState((x) => {
-    x.x[sectionId].canvasSettings.layerSettings[activeLayerId][attr] = value;
+    x.x[sectionId].canvasSettings.layers[activeLayerIndex][attr] = value;
   });
 }
