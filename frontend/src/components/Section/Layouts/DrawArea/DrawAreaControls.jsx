@@ -4,9 +4,12 @@ import { StandardPopover } from "components/Utils/atoms/popover/standardpopover"
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
-import { FaBars, FaEye, FaEyeSlash, FaPencilAlt } from "react-icons/fa";
+import { FaBars, FaEye, FaEyeSlash, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { TfiLayersAlt } from "react-icons/tfi";
+import { maybeCreateArtifactAndUpdateSection } from "state/actions/artifacts";
 import { useSectionInfos } from "state/definitions";
+import { createNewId } from "utils/idNameCreation";
+import { newLayerSettings } from "utils/objs/artifact";
 
 export function DrawAreaControls({
   sectionId,
@@ -45,6 +48,19 @@ export function DrawAreaControls({
   }
   function setActiveLayerIdx(v) {
     setCanvasSettings(sectionId, "activeLayerIdx", v);
+  }
+  function addLayer() {
+    useSectionInfos.setState((state) => {
+      const currLayers = state.x[sectionId].canvasSettings.layers;
+      const artifactId = createNewId();
+      currLayers.push(newLayerSettings({ artifactIds: [artifactId] }));
+      maybeCreateArtifactAndUpdateSection(
+        sectionId,
+        artifactId,
+        { type: "brushStrokes", value: [] },
+        state,
+      );
+    });
   }
 
   return (
@@ -139,6 +155,7 @@ export function DrawAreaControls({
           activeLayerIdx={activeLayerIdx}
           setActiveLayerIdx={setActiveLayerIdx}
           setLayerVisibility={setLayerVisibility}
+          addLayer={addLayer}
         />
       </StandardPopover>
 
@@ -335,10 +352,11 @@ function LayerSettings({ opacity, setOpacity }) {
 function LayerList({
   layers,
   activeLayerIdx,
-  setActiveLayerId,
+  setActiveLayerIdx,
   setLayerVisibility,
   onNameChange,
   onReorder,
+  addLayer,
 }) {
   const [editingIdx, setEditingIdx] = useState(null);
   const [editValue, setEditValue] = useState("");
@@ -437,7 +455,7 @@ function LayerList({
               )}
             </div>
             <div
-              onClick={() => setActiveLayerId(idx)}
+              onClick={() => setActiveLayerIdx(idx)}
               className="cursor-pointer"
             >
               <FaPencilAlt
@@ -451,6 +469,15 @@ function LayerList({
           </div>
         </li>
       ))}
+      <li className="mt-2">
+        <button
+          onClick={addLayer}
+          className="flex w-full items-center justify-center rounded bg-gray-50 p-2 text-sm text-gray-600 hover:bg-gray-100"
+        >
+          <FaPlus className="mr-2 h-3 w-3" />
+          Add Layer
+        </button>
+      </li>
     </ul>
   );
 }
