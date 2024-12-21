@@ -243,7 +243,6 @@ export function DrawOnImage({ sectionId }) {
     } else {
       point = getXY(e);
     }
-    transferActiveLayerToDraft();
     startNewStroke(draftCanvasRef, strokesRef, point);
     prevPointRef.current = point;
   }
@@ -255,9 +254,7 @@ export function DrawOnImage({ sectionId }) {
     const point = getXY(e);
     const currStroke = strokesRef.current[strokesRef.current.length - 1];
     if (!isEraser && currStroke.points.length >= canvasTransferQueueLength) {
-      // simulate mouseup->mousedown
       transferEverythingToRealCanvas();
-      transferActiveLayerToDraft();
       startNewStroke(draftCanvasRef, strokesRef, point);
       prevPointRef.current = point;
     } else {
@@ -305,24 +302,6 @@ export function DrawOnImage({ sectionId }) {
       _.cloneDeep(strokesRef.current);
     drawAllLayers({ canvasRef, tempCanvasRef, localLayers, layers });
     clearCanvas(draftCanvasRef);
-  }
-
-  function transferActiveLayerToDraft() {
-    clearAllCanvases();
-    drawAllLayers({
-      canvasRef,
-      tempCanvasRef,
-      localLayers,
-      layers,
-      excludeLayer: activeLayerIdx,
-    });
-    drawAllLayers({
-      canvasRef: draftCanvasRef,
-      tempCanvasRef,
-      localLayers,
-      layers,
-      includeLayer: activeLayerIdx,
-    });
   }
 
   function clearStrokes() {
@@ -402,7 +381,7 @@ export function DrawOnImage({ sectionId }) {
           />
           <canvas
             ref={draftCanvasRef}
-            className={`pointer-events-none z-10 ${canvasClassName}`}
+            className={`pointer-events-none ${canvasClassName}`}
           />
         </div>
       </section>
