@@ -3,7 +3,7 @@ import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { maybeCreateArtifactAndUpdateSection } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
-import { useSectionInfos } from "state/definitions";
+import { useArtifacts, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
 export function useImageLoadViaDropzone(sectionId) {
@@ -43,20 +43,12 @@ export function useImageLoadViaDropzone(sectionId) {
 }
 
 export const debouncedSetBrushStrokesArtifact = _.debounce(
-  (sectionId, activeLayerIdx, strokes) => {
-    useSectionInfos.setState((state) => {
-      maybeCreateArtifactAndUpdateSection(
-        sectionId,
-        activeLayerIdx,
-        {
-          type: "brushStrokes",
-          value: _.cloneDeep(strokes),
-        },
-        state,
-      );
+  (artifactId, strokes) => {
+    useArtifacts.setState((x) => {
+      x.x[artifactId].value = _.cloneDeep(strokes);
     });
   },
-  500,
+  50,
 );
 
 export const debouncedSendDrawingToInteractiveTasks = _.debounce(

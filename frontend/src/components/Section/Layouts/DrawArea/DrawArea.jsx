@@ -22,7 +22,10 @@ import {
 } from "utils/objs/artifact";
 import { dataURLToBase64 } from "./base64Conversion";
 import { DrawAreaControls } from "./DrawAreaControls";
-import { useImageLoadViaDropzone } from "./utils";
+import {
+  debouncedSetBrushStrokesArtifact,
+  useImageLoadViaDropzone,
+} from "./utils";
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -206,8 +209,16 @@ export function DrawOnImage({ sectionId }) {
   ]);
 
   useEffect(() => {
-    strokesRef.current = [];
-  }, [activeLayerIdx]);
+    const storedStrokes =
+      localLayers.current[activeLayerIdx]?.[currBrushStrokeArtifactId]?.value;
+    if (storedStrokes) {
+      strokesRef.current = storedStrokes;
+    }
+  }, [
+    activeLayerIdx,
+    currBrushStrokeArtifactId,
+    localLayers.current.length === 0,
+  ]);
 
   function onMouseDown(e, offsetX, offsetY) {
     if (useMisc.getState().mouseDownDraggingSection) {
@@ -269,11 +280,10 @@ export function DrawOnImage({ sectionId }) {
     }
     setIsDrawing(false);
     transferEverythingToRealCanvas();
-    // debouncedSetBrushStrokesArtifact(
-    //   sectionId,
-    //   activeLayerIdx,
-    //   strokesRef.current,
-    // );
+    debouncedSetBrushStrokesArtifact(
+      currBrushStrokeArtifactId,
+      strokesRef.current,
+    );
     // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   }
 
