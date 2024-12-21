@@ -2,12 +2,12 @@ import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
+import { maybeCreateArtifactAndUpdateSection } from "state/actions/artifacts";
 import {
   base64RequestId,
   setTemporaryMiscState,
 } from "state/actions/temporaryMiscState";
 import {
-  useArtifacts,
   useMisc,
   useSectionInfos,
   useTemporaryMiscState,
@@ -17,7 +17,6 @@ import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createNewId } from "utils/idNameCreation";
 import {
-  newArtifact,
   newDrawAreaLocalLayerState,
   newLayerSettings,
 } from "utils/objs/artifact";
@@ -83,8 +82,9 @@ export function DrawOnImage({ sectionId }) {
       firstBrushStrokeLayerId = createNewId();
       layers.current[firstBrushStrokeLayerId] =
         newDrawAreaLocalLayerState("brushStrokes");
-      useArtifacts.setState((x) => {
-        x.x[firstBrushStrokeLayerId] = newArtifact({});
+      maybeCreateArtifactAndUpdateSection(sectionId, firstBrushStrokeLayerId, {
+        type: "brushStrokes",
+        value: [],
       });
     }
 

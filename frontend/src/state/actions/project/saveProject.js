@@ -41,7 +41,7 @@ export function getProjectData({
 
   const artifacts = withArtifacts ? useArtifacts.getState().x : {};
 
-  console.log("sections", sections);
+  console.log("saveProject artifacts", artifacts);
 
   const sectionVariants = _.mapValues(
     useSectionInfos.getState().variants,

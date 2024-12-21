@@ -1,10 +1,9 @@
 import _ from "lodash";
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
+import { maybeCreateArtifactAndUpdateSection } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
-import { useArtifacts, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
-import { newArtifact } from "utils/objs/artifact";
 
 export function useImageLoadViaDropzone(sectionId) {
   const onDrop = useCallback((acceptedFiles) => {
@@ -18,14 +17,9 @@ export function useImageLoadViaDropzone(sectionId) {
           "",
         );
         const artifactId = createNewId();
-        useArtifacts.setState((x) => {
-          x.x[artifactId] = newArtifact({
-            value: base64String,
-            type: "img",
-          });
-        });
-        useSectionInfos.setState((state) => {
-          state.x[sectionId].artifactIds.push(artifactId);
+        maybeCreateArtifactAndUpdateSection(sectionId, artifactId, {
+          value: base64String,
+          type: "img",
         });
       };
 
@@ -42,24 +36,9 @@ export function useImageLoadViaDropzone(sectionId) {
 
 export const debouncedSetBrushStrokesArtifact = _.debounce(
   (sectionId, activeLayerId, strokes) => {
-    // layer ids are the same as artifact ids
-    // because we assume each artifact gets its own layer
-    useArtifacts.setState((x) => {
-      if (!(activeLayerId in x.x)) {
-        x.x[activeLayerId] = newArtifact({
-          type: "brushStrokes",
-          value: _.cloneDeep(strokes),
-        });
-      } else {
-        x.x[activeLayerId].value = _.cloneDeep(strokes);
-      }
-    });
-
-    useSectionInfos.setState((x) => {
-      const artifactIds = x.x[sectionId].artifactIds;
-      if (!artifactIds.includes(activeLayerId)) {
-        artifactIds.push(activeLayerId);
-      }
+    maybeCreateArtifactAndUpdateSection(sectionId, activeLayerId, {
+      type: "brushStrokes",
+      value: _.cloneDeep(strokes),
     });
   },
   500,
