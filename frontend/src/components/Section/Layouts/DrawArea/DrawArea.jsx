@@ -55,7 +55,7 @@ export function DrawOnImage({ sectionId }) {
   const layerOpacity = layers[activeLayerIdx]?.layerOpacity ?? 1;
   const brushOpacity = layers[activeLayerIdx]?.brushOpacity ?? 1;
   const currBrushStrokeArtifactId = layers[activeLayerIdx]?.artifactIds?.find(
-    (a) => artifacts[a].type === "brushStrokes",
+    (a) => artifacts[a]?.type === "brushStrokes",
   );
 
   // console.log("artifacts", artifacts);
