@@ -249,7 +249,7 @@ function ArgItem({
         <div className="flex items-center pl-0.5">
           <button
             className="h-[22px] cursor-pointer
-            text-setta-300 hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400"
+            text-setta-300 hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 focus-visible:[&>i]:!border-blue-500"
             onClick={onMinus}
             disabled={isDisabled}
           >
