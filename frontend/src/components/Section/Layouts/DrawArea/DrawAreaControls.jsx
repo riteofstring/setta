@@ -10,8 +10,8 @@ import { useArtifacts, useSectionInfos } from "state/definitions";
 
 export function DrawAreaControls({
   sectionId,
+  localLayers,
   layers,
-  layerSettings,
   activeLayerId,
   color,
   brushOpacity,
@@ -136,8 +136,8 @@ export function DrawAreaControls({
         header={"Layer Selection"}
       >
         <LayerList
+          localLayers={localLayers}
           layers={layers}
-          layerSettings={layerSettings}
           activeLayerId={activeLayerId}
           setActiveLayerId={setActiveLayerId}
           setLayerVisibility={setLayerVisibility}
@@ -335,8 +335,8 @@ function LayerSettings({ opacity, setOpacity }) {
 }
 
 function LayerList({
+  localLayers,
   layers,
-  layerSettings,
   activeLayerId,
   setActiveLayerId,
   setLayerVisibility,
@@ -351,8 +351,8 @@ function LayerList({
   const [editValue, setEditValue] = useState("");
   const [draggedOverId, setDraggedOverId] = useState(null);
 
-  if (!layers || typeof layers !== "object") {
-    return <div>No layers provided</div>;
+  if (!localLayers || typeof localLayers !== "object") {
+    return <div>No localLayers provided</div>;
   }
 
   const handleDoubleClick = (id, name) => {
@@ -394,7 +394,7 @@ function LayerList({
 
     if (draggedId === targetId) return;
 
-    const layerIds = Object.keys(layers);
+    const layerIds = Object.keys(localLayers);
     const fromIndex = layerIds.indexOf(draggedId);
     const toIndex = layerIds.indexOf(targetId);
 
@@ -403,7 +403,7 @@ function LayerList({
 
   return (
     <ul className="space-y-2">
-      {Object.entries(layers).map(([id, layer]) => (
+      {Object.entries(localLayers).map(([id, layer]) => (
         <li
           key={id}
           draggable={true}
@@ -442,10 +442,10 @@ function LayerList({
           </div>
           <div className="flex items-center space-x-2">
             <div
-              onClick={() => setLayerVisibility(id, !layerSettings[id].visible)}
+              onClick={() => setLayerVisibility(id, !layers[id].visible)}
               className="cursor-pointer"
             >
-              {layerSettings[id].visible ? (
+              {layers[id].visible ? (
                 <FaEye className="h-4 w-4 text-blue-500" />
               ) : (
                 <FaEyeSlash className="h-4 w-4 text-gray-400" />
@@ -478,6 +478,6 @@ function setCanvasSettings(sectionId, attr, value) {
 
 function setLayerSettings(sectionId, activeLayerId, attr, value) {
   useSectionInfos.setState((x) => {
-    x.x[sectionId].canvasSettings.layerSettings[activeLayerId][attr] = value;
+    x.x[sectionId].canvasSettings.layers[activeLayerId][attr] = value;
   });
 }

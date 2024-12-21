@@ -19,5 +19,5 @@ export function newDrawAreaLocalLayerState(type) {
 }
 
 export function newLayerSettings() {
-  return { visible: true, layerOpacity: 0.5, brushOpacity: 1 };
+  return { artifactIds: [], visible: true, layerOpacity: 0.5, brushOpacity: 1 };
 }

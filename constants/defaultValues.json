@@ -31,7 +31,7 @@
     "pinnedAreaHeight": "auto",
     "isMinimized": false,
     "canvasSettings": {
-      "layerSettings": {},
+      "layers": {},
       "activeLayerId": null,
       "color": "#ff0000",
       "brushSize": 16,
