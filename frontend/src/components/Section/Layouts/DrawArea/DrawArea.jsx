@@ -55,6 +55,7 @@ export function DrawOnImage({ sectionId }) {
   const strokesRef = useRef([]);
   const prevPointRef = useRef(null);
   const artifactIdUsedToSetCanvasSize = useRef(null);
+  const processedArtifacteKeys = useRef([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
 
@@ -89,33 +90,11 @@ export function DrawOnImage({ sectionId }) {
       }
     }
 
-    for (const [artifactId, v] of Object.entries(artifacts)) {
-      let matchingLocalLayer = null;
-      for (const [idx, layer] of layers.entries()) {
-        if (layer.artifactIds.includes(artifactId)) {
-          matchingLocalLayer = localLayers.current[idx];
-          break;
-        }
-      }
-      if (!matchingLocalLayer) {
-        localLayers.current.push(
-          newDrawAreaLocalLayer({ [artifactId]: v.type }),
-        );
-        matchingLocalLayer =
-          localLayers.current[localLayers.current.length - 1];
-      }
-      if (v.type === "img") {
-        const base64String = `data:image/png;base64,${v.value}`;
-        const storedImage = matchingLocalLayer[artifactId].value;
-        if (storedImage.src !== base64String || !storedImage.complete) {
-          storedImage.src = base64String;
-          await storedImage.decode();
-        }
-      } else if (v.type === "brushStrokes") {
-        matchingLocalLayer[artifactId].value = _.cloneDeep(v.value);
-      }
-    }
+    await syncArtifactValuesWithLocalLayers(artifacts, layers, localLayers);
 
+    if (_.isEqual(Object.keys(artifacts), processedArtifacteKeys)) {
+      return;
+    }
     // We want to make sure every layer has a brushStrokes artifact
     for (const localLayer of localLayers.current) {
       if (!Object.values(localLayer).some((v) => v.type === "brushStrokes")) {
@@ -148,6 +127,7 @@ export function DrawOnImage({ sectionId }) {
     });
 
     setForceRerender(true);
+    processedArtifacteKeys.current = Object.keys(artifacts);
   }
 
   useEffect(() => {
@@ -631,4 +611,37 @@ function syncDrawAreaLocalLayersWithGlobalState(
     }
   }
   return currGlobalLayers;
+}
+
+async function syncArtifactValuesWithLocalLayers(
+  artifacts,
+  layers,
+  localLayers,
+) {
+  for (const [artifactId, v] of Object.entries(artifacts)) {
+    let matchingLocalLayer = null;
+    for (const [idx, layer] of layers.entries()) {
+      if (layer.artifactIds.includes(artifactId)) {
+        matchingLocalLayer = localLayers.current[idx];
+        break;
+      }
+    }
+    if (!matchingLocalLayer) {
+      localLayers.current.push(newDrawAreaLocalLayer({ [artifactId]: v.type }));
+      matchingLocalLayer = localLayers.current[localLayers.current.length - 1];
+    }
+    if (v.type === "img") {
+      const base64String = `data:image/png;base64,${v.value}`;
+      const storedImage = matchingLocalLayer[artifactId].value;
+      if (storedImage.src !== base64String || !storedImage.complete) {
+        storedImage.src = base64String;
+        await storedImage.decode();
+      }
+    } else if (v.type === "brushStrokes") {
+      const strokesObj = matchingLocalLayer[artifactId];
+      if (!_.isEqual(strokesObj.value, v.value)) {
+        strokesObj.value = _.cloneDeep(v.value);
+      }
+    }
+  }
 }
