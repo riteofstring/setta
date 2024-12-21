@@ -82,7 +82,7 @@ export function ParamSweepSectionSearch({
       <div className="flex">
         <button
           className="flex h-[22px] cursor-pointer rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400"
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>i]:focus-visible:!border-blue-500"
           onClick={onMinusClick}
           disabled={isDisabled}
         >
@@ -90,7 +90,7 @@ export function ParamSweepSectionSearch({
         </button>
         <button
           className="flex h-[22px] cursor-pointer rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400"
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>i]:focus-visible:!border-blue-500"
           onClick={onPlusClick}
           disabled={disablePlusButton || isDisabled}
         >
