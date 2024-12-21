@@ -306,18 +306,11 @@ export function DrawOnImage({ sectionId }) {
 
   function clearStrokes() {
     strokesRef.current = [];
-    clearAllCanvases();
+    transferEverythingToRealCanvas();
     debouncedSetBrushStrokesArtifact(
-      sectionId,
-      strokesArtifactId,
+      currBrushStrokeArtifactId,
       strokesRef.current,
     );
-  }
-
-  function clearAllCanvases() {
-    clearCanvas(canvasRef);
-    clearCanvas(tempCanvasRef);
-    clearCanvas(draftCanvasRef);
   }
 
   function reorderLayers(draggedIdx, targetIdx) {
