@@ -20,7 +20,10 @@ import {
   newLayerSettings,
 } from "utils/objs/artifact";
 import { DrawAreaControls } from "./DrawAreaControls";
-import { useImageLoadViaDropzone } from "./utils";
+import {
+  debouncedSetBrushStrokesArtifact,
+  useImageLoadViaDropzone,
+} from "./utils";
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -54,6 +57,7 @@ export function DrawOnImage({ sectionId }) {
   const brushOpacity = layerSettings[activeLayerId]?.brushOpacity ?? 1;
 
   async function processLoadedArtifacts() {
+    console.log("processLoadedArtifacts", artifacts);
     if (!isLoaded) {
       return;
     }
@@ -82,9 +86,14 @@ export function DrawOnImage({ sectionId }) {
 
     if (!firstBrushStrokeLayerId) {
       firstBrushStrokeLayerId = createNewId();
+
       layers.current[firstBrushStrokeLayerId] = newDrawAreaLocalLayerState({
         type: "brushStrokes",
       });
+      console.log(
+        "adding a brush stroke layer:",
+        layers.current[firstBrushStrokeLayerId],
+      );
     }
 
     useSectionInfos.setState((x) => {
@@ -104,6 +113,9 @@ export function DrawOnImage({ sectionId }) {
         artifactIdUsedToSetCanvasSize,
       });
 
+      if (activeLayerId) {
+        console.log("activeLayer", layers.current[activeLayerId]);
+      }
       if (!activeLayerId) {
         x.x[sectionId].canvasSettings.activeLayerId = firstBrushStrokeLayerId;
       }
@@ -142,6 +154,7 @@ export function DrawOnImage({ sectionId }) {
   }, [height, width]);
 
   useDeepCompareEffect(() => {
+    console.log("setting draft canvas properties");
     setDraftCanvasProperties({
       draftCanvasRef,
       color,
@@ -216,11 +229,11 @@ export function DrawOnImage({ sectionId }) {
     }
     setIsDrawing(false);
     transferEverythingToRealCanvas();
-    // debouncedSetBrushStrokesArtifact(
-    //   sectionId,
-    //   activeLayerId,
-    //   strokesRef.current,
-    // );
+    debouncedSetBrushStrokesArtifact(
+      sectionId,
+      activeLayerId,
+      strokesRef.current,
+    );
     // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   }
 
@@ -259,6 +272,7 @@ export function DrawOnImage({ sectionId }) {
       includeLayer: activeLayerId,
       applyLayerOpacityToGlobalAlpha: false,
     });
+    console.log("draft ctx", getCtx(draftCanvasRef));
   }
 
   function clearStrokes() {
