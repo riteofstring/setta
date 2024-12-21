@@ -1,3 +1,4 @@
+import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -212,7 +213,7 @@ export function DrawOnImage({ sectionId }) {
     const storedStrokes =
       localLayers.current[activeLayerIdx]?.[currBrushStrokeArtifactId]?.value;
     if (storedStrokes) {
-      strokesRef.current = storedStrokes;
+      strokesRef.current = _.cloneDeep(storedStrokes);
     }
   }, [
     activeLayerIdx,
@@ -301,7 +302,7 @@ export function DrawOnImage({ sectionId }) {
 
   function transferEverythingToRealCanvas() {
     localLayers.current[activeLayerIdx][currBrushStrokeArtifactId].value =
-      strokesRef.current;
+      _.cloneDeep(strokesRef.current);
     drawAllLayers({ canvasRef, tempCanvasRef, localLayers, layers });
     clearCanvas(draftCanvasRef);
   }
@@ -340,6 +341,27 @@ export function DrawOnImage({ sectionId }) {
     clearCanvas(draftCanvasRef);
   }
 
+  function reorderLayers(draggedIdx, targetIdx) {
+    useSectionInfos.setState((state) => {
+      const canvasSettings = state.x[sectionId].canvasSettings;
+      const currActiveLayerName = canvasSettings.layers[activeLayerIdx].name;
+      canvasSettings.layers = arrayMove(
+        canvasSettings.layers,
+        draggedIdx,
+        targetIdx,
+      );
+      localLayers.current = arrayMove(
+        localLayers.current,
+        draggedIdx,
+        targetIdx,
+      );
+      canvasSettings.activeLayerIdx = canvasSettings.layers.findIndex(
+        (x) => x.name === currActiveLayerName,
+      );
+    });
+    setForceRerender(true);
+  }
+
   const { getRootProps, isDragActive } = useImageLoadViaDropzone(sectionId);
 
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
@@ -362,6 +384,7 @@ export function DrawOnImage({ sectionId }) {
         setIsEraser={setIsEraser}
         layerOpacity={layerOpacity}
         clearStrokes={clearStrokes}
+        reorderLayers={reorderLayers}
       />
       <section
         className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0"

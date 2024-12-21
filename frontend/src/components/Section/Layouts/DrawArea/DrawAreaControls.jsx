@@ -24,6 +24,7 @@ export function DrawAreaControls({
   setIsEraser,
   layerOpacity,
   clearStrokes,
+  reorderLayers,
 }) {
   function setColor(v) {
     setCanvasSettings(sectionId, "color", v);
@@ -157,6 +158,7 @@ export function DrawAreaControls({
           setActiveLayerIdx={setActiveLayerIdx}
           setLayerVisibility={setLayerVisibility}
           addLayer={addLayer}
+          reorderLayers={reorderLayers}
         />
       </StandardPopover>
 
@@ -356,8 +358,8 @@ function LayerList({
   setActiveLayerIdx,
   setLayerVisibility,
   onNameChange,
-  onReorder,
   addLayer,
+  reorderLayers,
 }) {
   const [editingIdx, setEditingIdx] = useState(null);
   const [editValue, setEditValue] = useState("");
@@ -401,7 +403,7 @@ function LayerList({
     setDraggedOverIdx(null);
 
     if (draggedIdx !== targetIdx) {
-      onReorder(draggedIdx, targetIdx);
+      reorderLayers(draggedIdx, targetIdx);
     }
   };
 
