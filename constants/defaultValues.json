@@ -15,7 +15,7 @@
     "uiTypeId": null,
     "uiTypeColId": null,
     "social": "",
-    "artifacts": [],
+    "artifactIds": [],
     "defaultVariantId": null,
     "variantIds": [],
     "paramSweepSectionId": null,
@@ -31,11 +31,10 @@
     "pinnedAreaHeight": "auto",
     "isMinimized": false,
     "canvasSettings": {
+      "layerSettings": {},
       "color": "#ff0000",
-      "opacity": 1,
       "brushSize": 16,
       "brushShape": "round",
-      "canvasOpacity": 0.5,
       "eraserBrushSize": 16
     },
     "isTemporary": false,
@@ -100,5 +99,11 @@
     "isArgsObj": false,
     "startPos": 0,
     "keyword": ""
+  },
+  "artifact": {
+    "name": "",
+    "path": null,
+    "value": null,
+    "type": ""
   }
 }

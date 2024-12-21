@@ -185,12 +185,19 @@ CREATE TABLE IF NOT EXISTS ProjectConfigChildren (
     FOREIGN KEY (parentId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
     FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS Artifact (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    path TEXT,
+    value TEXT,
+    type TEXT
+);
 CREATE TABLE IF NOT EXISTS SectionArtifacts (
     sectionId TEXT,
-    artifactPath TEXT,
-    data TEXT,
-    PRIMARY KEY (sectionId, artifactPath),
-    FOREIGN KEY (sectionId) REFERENCES Section(id)
+    artifactId TEXT,
+    PRIMARY KEY (sectionId, artifactId),
+    FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
+    FOREIGN KEY (artifactId) REFERENCES Artifact(id) ON DELETE CASCADE
 );
 
 -- INSERTS ---

@@ -21,7 +21,7 @@ import { yamlToGUI } from "../guiToYaml";
 import { setNotificationMessage } from "../notification";
 
 export function getProjectData({
-  withArtifactMetadata = false,
+  withArtifacts = false,
   convertYamlToGUI = true,
 }) {
   // remove temporary sections
@@ -34,24 +34,12 @@ export function getProjectData({
       }
     }
   }
-
   sections = _.mapValues(sections, (x) => {
     x.columnWidth = useSectionColumnWidth.getState()[x.id];
-
-    const artifactState = useArtifacts.getState().x;
-    if (!withArtifactMetadata) {
-      return _.omit(x, ["artifacts"]);
-    }
-    // keep only artifact paths that are actually saved to disk
-    x.artifacts = x.artifacts.filter((a) => artifactState[a].isSaved);
-    x.artifacts = x.artifacts.map((a) => ({
-      path: a,
-      value: a.startsWith("data:") ? artifactState[a].value : undefined,
-      type: artifactState[a].type,
-      displayName: artifactState[a].displayName,
-    }));
     return x;
   });
+
+  const artifacts = withArtifacts ? useArtifacts.getState().x : {};
 
   console.log("sections", sections);
 
@@ -92,6 +80,7 @@ export function getProjectData({
   const output = {
     projectConfig,
     sectionVariants,
+    artifacts,
     uiTypes,
     uiTypeCols,
     sections,
@@ -161,7 +150,7 @@ function getProjectConfigMetadata() {
 
 export function getProjectDataForSaving() {
   return getProjectData({
-    withArtifactMetadata: true,
+    withArtifacts: true,
     convertYamlToGUI: true,
   });
 }

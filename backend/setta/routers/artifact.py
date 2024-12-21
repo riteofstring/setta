@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from setta.cli.logger import get_wrapper_for_loading
-from setta.database.db.sections.load import load_artifact_metadata
+from setta.database.db.artifacts.load import load_artifacts, load_available_artifacts
 from setta.utils.constants import C
 
 from .dependencies import get_dbq, get_websocket_manager
@@ -19,8 +19,10 @@ class SendArtifactRequest(BaseModel):
 
 
 class LoadArtifactsRequest(BaseModel):
-    sectionId: str
-    artifactPaths: List[str]
+    artifactIds: List[str]
+
+class LoadAvailableArtifactsRequest(BaseModel):
+    sectionType: str
 
 
 @router.post(C.ROUTE_SEND_ARTIFACT)
@@ -36,20 +38,16 @@ async def route_send_artifact(
 @router.post(C.ROUTE_LOAD_ARTIFACTS)
 def route_load_artifacts(x: LoadArtifactsRequest, dbq=Depends(get_dbq)):
     with dbq as db:
-        artifactMetadata = load_artifact_metadata(db, x.sectionId, x.artifactPaths)
-    artifacts = {}
-    for p in artifactMetadata:
-        if p.get("value") is not None:
-            data = {"value": p["value"], "type": p["type"]}
-        else:
-            wrapper = get_wrapper_for_loading(p["type"])
-            wrapper.load(p["path"])
-            data = wrapper.serialize()
-
-        artifacts[p["path"]] = {
-            **data,
-            "displayName": p["displayName"],
-            "isSaved": True,
-        }
-
+        artifacts = load_artifacts(db, x.artifactIds)
+    for a in artifacts.values():
+        if a["path"]:
+            wrapper = get_wrapper_for_loading(a["type"])
+            wrapper.load(a["path"])
+            a.update(wrapper.serialize())
     return artifacts
+
+
+@router.post(C.ROUTE_LOAD_AVAILABLE_ARTIFACTS)
+def route_load_available_artifacts(x: LoadAvailableArtifactsRequest, dbq=Depends(get_dbq)):
+    with dbq as db:
+        return load_available_artifacts(db, x.sectionType)
