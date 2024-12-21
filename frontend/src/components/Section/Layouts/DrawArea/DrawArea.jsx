@@ -58,11 +58,11 @@ export function DrawOnImage({ sectionId }) {
     (a) => artifacts[a].type === "brushStrokes",
   );
 
-  console.log("artifacts", artifacts);
-  console.log("layers", layers);
-  console.log("activeLayerIdx", activeLayerIdx);
-  console.log("localLayers", localLayers.current);
-  console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
+  // console.log("artifacts", artifacts);
+  // console.log("layers", layers);
+  // console.log("activeLayerIdx", activeLayerIdx);
+  // console.log("localLayers", localLayers.current);
+  // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
 
   async function processLoadedArtifacts() {
     if (!isLoaded) {
@@ -270,7 +270,7 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function transferEverythingToRealCanvas() {
-    localLayers.current[activeLayerIdx][currBrushStrokeArtifactId].strokes =
+    localLayers.current[activeLayerIdx][currBrushStrokeArtifactId].value =
       strokesRef.current;
     drawAllLayers({ canvasRef, tempCanvasRef, localLayers, layers });
     clearCanvas(draftCanvasRef);
@@ -494,7 +494,7 @@ function drawAllLayers({
         }
         ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
       } else if (
-        valueInfo.value === "brushStrokes" &&
+        valueInfo.type === "brushStrokes" &&
         valueInfo.value.length > 0
       ) {
         drawStrokes(
