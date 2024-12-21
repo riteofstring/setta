@@ -1,14 +1,11 @@
+import _ from "lodash";
 import { dbLoadArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { newArtifact } from "utils/objs/artifact";
 import { addSectionInEmptySpace } from "./sections/createSections";
 
 export function updateArtifacts({ artifacts, addSection = false }) {
-  useArtifacts.setState((x) => {
-    for (const [id, data] of Object.entries(artifacts)) {
-      x.x[id] = data;
-    }
-  });
+  useArtifacts.setState(artifacts);
 
   if (addSection) {
     for (const [id, data] of Object.entries(artifacts)) {
@@ -33,8 +30,9 @@ function maybeAddArtifactSection(artifactId, sectionType) {
 export async function loadArtifacts(artifactIds) {
   const res = await dbLoadArtifacts(artifactIds);
   if (res.status === 200) {
-    prepareArtifactsForRendering(res.data);
-    updateArtifacts({ artifacts: res.data });
+    const artifactsFromBackend = _.cloneDeep(res.data);
+    await prepareArtifactsForRendering(artifactsFromBackend);
+    updateArtifacts({ artifacts: artifactsFromBackend });
   }
 }
 

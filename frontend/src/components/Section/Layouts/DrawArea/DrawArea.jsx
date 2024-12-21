@@ -22,8 +22,14 @@ import {
   useImageLoadViaDropzone,
 } from "./utils";
 
-export function DrawOnImage({ sectionId }) {
+export function DrawArea({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
+  return (
+    isLoaded && <DrawAreaCore sectionId={sectionId} artifacts={artifacts} />
+  );
+}
+
+function DrawAreaCore({ sectionId, artifacts }) {
   const {
     size: { width, height },
     canvasSettings: {
@@ -69,9 +75,6 @@ export function DrawOnImage({ sectionId }) {
   // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
 
   async function processLoadedArtifacts() {
-    if (!isLoaded) {
-      return;
-    }
     useSectionInfos.setState((state) => {
       const layers = state.x[sectionId].canvasSettings.layers;
       for (const [artifactId, v] of Object.entries(artifacts)) {
@@ -113,7 +116,7 @@ export function DrawOnImage({ sectionId }) {
 
   useDeepCompareEffect(() => {
     processLoadedArtifacts();
-  }, [Object.keys(artifacts), isLoaded]);
+  }, [Object.keys(artifacts)]);
 
   useEffect(() => {
     useSectionInfos.setState((state) => {
@@ -156,7 +159,7 @@ export function DrawOnImage({ sectionId }) {
 
   useEffect(() => {
     const storedStrokes =
-      useArtifacts.getState().x[currBrushStrokeArtifactId]?.value;
+      useArtifacts.getState()[currBrushStrokeArtifactId]?.value;
     if (storedStrokes) {
       strokesRef.current = _.cloneDeep(storedStrokes);
     }
@@ -239,11 +242,13 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function transferEverythingToRealCanvas() {
-    useArtifacts.setState((state) => {
-      state.x[currBrushStrokeArtifactId].value = _.cloneDeep(
-        strokesRef.current,
-      );
-    });
+    useArtifacts.setState((state) => ({
+      ...state,
+      [currBrushStrokeArtifactId]: {
+        ...state[currBrushStrokeArtifactId],
+        value: _.cloneDeep(strokesRef.current),
+      },
+    }));
     drawAllLayers({ canvasRef, tempCanvasRef, layers });
     clearCanvas(draftCanvasRef);
   }
@@ -365,7 +370,7 @@ function setCanvasSize({
   const artifactState = useArtifacts.getState();
   for (const layer of layers) {
     for (const id of layer.artifactIds) {
-      const artifact = artifactState.x[id];
+      const artifact = artifactState[id];
       if (artifact.type === "img" && artifact.value.complete) {
         const image = artifact.value;
         imgSize = { width: image.width, height: image.height };
@@ -441,7 +446,7 @@ function drawAllLayers({
     const { layerOpacity } = layers[idx];
 
     for (const id of layer.artifactIds) {
-      const artifact = artifactState.x[id];
+      const artifact = artifactState[id];
       if (artifact.type === "img" && artifact.value.complete) {
         const image = artifact.value;
         const scale = Math.min(

@@ -39,7 +39,7 @@ export function getProjectData({
     return x;
   });
 
-  const artifacts = withArtifacts ? useArtifacts.getState().x : {};
+  const artifacts = withArtifacts ? useArtifacts.getState() : {};
 
   console.log("saveProject artifacts", artifacts);
 

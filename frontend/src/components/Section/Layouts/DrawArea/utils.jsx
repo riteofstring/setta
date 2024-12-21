@@ -44,9 +44,10 @@ export function useImageLoadViaDropzone(sectionId) {
 
 export const debouncedSetBrushStrokesArtifact = _.debounce(
   (artifactId, strokes) => {
-    useArtifacts.setState((x) => {
-      x.x[artifactId].value = _.cloneDeep(strokes);
-    });
+    useArtifacts.setState((state) => ({
+      ...state,
+      [artifactId]: { ...state[artifactId], value: _.cloneDeep(strokes) },
+    }));
   },
   50,
 );

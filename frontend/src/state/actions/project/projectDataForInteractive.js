@@ -8,7 +8,7 @@ import { getProjectData } from "./saveProject";
 export async function getProjectDataForInteractive() {
   const project = getProjectData({});
   const sectionInfosState = useSectionInfos.getState().x;
-  const artifactState = useArtifacts.getState().x;
+  const artifactState = useArtifacts.getState();
   const sections = {};
   for (const x of Object.values(sectionInfosState)) {
     const currSection = _.omit(x, ["parentId"]);

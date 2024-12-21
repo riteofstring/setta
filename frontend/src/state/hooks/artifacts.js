@@ -10,7 +10,7 @@ export function useArtifactData(sectionId) {
     (x) => x.x[sectionId].artifactIds,
     _.isEqual,
   );
-  const artifacts = useArtifacts((x) => _.pick(x.x, artifactIds), _.isEqual);
+  const artifacts = useArtifacts((x) => _.pick(x, artifactIds), _.isEqual);
 
   useDeepCompareEffect(() => {
     if (artifactIds.length !== _.size(artifacts)) {
@@ -19,7 +19,7 @@ export function useArtifactData(sectionId) {
     } else {
       setIsLoaded(true);
     }
-  }, [artifactIds, artifacts]);
+  }, [artifactIds, Object.keys(artifacts)]);
 
   return { artifacts, isLoaded };
 }

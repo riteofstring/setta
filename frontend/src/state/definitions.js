@@ -110,13 +110,7 @@ export const useAllProjectConfigs = create(
   })),
 );
 
-export const useArtifacts = createProjectState(
-  immer(
-    withResetFn(() => ({
-      x: {},
-    })),
-  ),
-);
+export const useArtifacts = createProjectState(withResetFn(() => ({})));
 
 export const useProjectConfig = createProjectState(
   temporal(

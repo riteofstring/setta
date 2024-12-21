@@ -31,7 +31,7 @@ export function ListOfArtifacts({ sectionId, sectionTypeName }) {
     const newState = _.cloneDeep(availableArtifacts);
     for (const id of selectedArtifactIds) {
       if (!(id in availableArtifacts)) {
-        const { name, type, path } = useArtifacts.getState().x[id];
+        const { name, type, path } = useArtifacts.getState()[id];
         newState[id] = { name, type, path };
       }
     }
