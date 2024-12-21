@@ -311,7 +311,6 @@ export function DrawOnImage({ sectionId }) {
       localLayers,
       layers,
       includeLayer: activeLayerIdx,
-      applyLayerOpacityToGlobalAlpha: false,
     });
   }
 
@@ -401,8 +400,7 @@ function setDraftCanvasProperties({
     dCtx.strokeStyle = hexToRGBA(color, brushOpacity);
     dCtx.lineWidth = brushSize;
     dCtx.lineCap = brushShape;
-    dCtx.globalAlpha = 1;
-    draftCanvas.style.opacity = layerOpacity;
+    dCtx.globalAlpha = layerOpacity;
   }
 }
 
@@ -484,7 +482,6 @@ function drawAllLayers({
   layers,
   excludeLayer = null,
   includeLayer = null,
-  applyLayerOpacityToGlobalAlpha = true,
 }) {
   const [canvas, ctx] = getCanvasAndCtx(canvasRef);
   clearCanvas(canvasRef);
@@ -509,21 +506,13 @@ function drawAllLayers({
         const x = canvas.width / 2 - (image.width / 2) * scale;
         const y = canvas.height / 2 - (image.height / 2) * scale;
 
-        if (applyLayerOpacityToGlobalAlpha) {
-          ctx.globalAlpha = layerOpacity;
-        }
+        ctx.globalAlpha = layerOpacity;
         ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
       } else if (
         valueInfo.type === "brushStrokes" &&
         valueInfo.value.length > 0
       ) {
-        drawStrokes(
-          canvasRef,
-          tempCanvasRef,
-          valueInfo.value,
-          layerOpacity,
-          applyLayerOpacityToGlobalAlpha,
-        );
+        drawStrokes(canvasRef, tempCanvasRef, valueInfo.value, layerOpacity);
       }
     }
   }
@@ -543,13 +532,7 @@ function startNewStroke(draftCanvasRef, strokesRef, firstPoint) {
   drawStroke(draftCanvasRef, firstPoint, firstPoint);
 }
 
-function drawStrokes(
-  canvasRef,
-  tempCanvasRef,
-  strokes,
-  layerOpacity,
-  applyLayerOpacityToGlobalAlpha = true,
-) {
+function drawStrokes(canvasRef, tempCanvasRef, strokes, layerOpacity) {
   const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
   strokes.forEach((stroke) => {
     drawSavedStrokeOntoTempCanvas(tempCanvas, tempCtx, stroke);
@@ -558,9 +541,7 @@ function drawStrokes(
   const ctx = getCtx(canvasRef);
   const originalGlobalCompositeOperation = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = "source-over";
-  if (applyLayerOpacityToGlobalAlpha) {
-    ctx.globalAlpha = layerOpacity;
-  }
+  ctx.globalAlpha = layerOpacity;
   ctx.drawImage(tempCanvas, 0, 0);
   ctx.globalCompositeOperation = originalGlobalCompositeOperation;
 
