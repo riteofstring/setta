@@ -11,7 +11,7 @@ import {
   startNewStroke,
 } from "./utils";
 
-export function getDrawModeMouseHandlers({
+export function useDrawModeMouseHandlers({
   sectionId,
   isEraser,
   strokesRef,
@@ -26,9 +26,79 @@ export function getDrawModeMouseHandlers({
   canvasTransferQueueLength,
   currBrushStrokeArtifactId,
   layers,
-  activeLayerId
+  activeLayerId,
+  mode,
 }) {
-  function onMouseDown(e, offsetX, offsetY) {
+  let onMouseDown, onMouseMove, onMouseUp, onMouseEnter;
+
+  if (mode === "draw") {
+    onMouseDown = drawingOnMouseDown({
+      sectionId,
+      isEraser,
+      strokesRef,
+      prevPointRef,
+      setIsDrawing,
+      canvasRef,
+      tempCanvasRef,
+      draftCanvasRef,
+      layers,
+      activeLayerId,
+    });
+
+    onMouseMove = drawingOnMouseMove({
+      isEraser,
+      strokesRef,
+      prevPointRef,
+      isDrawing,
+      transferEverythingToRealCanvas,
+      canvasRef,
+      tempCanvasRef,
+      draftCanvasRef,
+      canvasTransferQueueLength,
+      layers,
+      activeLayerId,
+    });
+
+    onMouseUp = drawingOnMouseUp({
+      strokesRef,
+      isDrawing,
+      setIsDrawing,
+      transferEverythingToRealCanvas,
+      currBrushStrokeArtifactId,
+    });
+
+    onMouseEnter = drawingOnMouseEnter({ draftCanvasRef, onMouseDown });
+  }
+
+  // useCallback so that throttle function doesn't get recreated and reset timer
+  const throttledOnMouseMove = useCallback(
+    mode === "draw" && drawThrottleDelay > 0
+      ? _.throttle(onMouseMove, drawThrottleDelay)
+      : onMouseMove,
+    [onMouseMove, drawThrottleDelay],
+  );
+
+  return {
+    onMouseDown,
+    onMouseMove: throttledOnMouseMove,
+    onMouseUp,
+    onMouseEnter,
+  };
+}
+
+function drawingOnMouseDown({
+  sectionId,
+  isEraser,
+  strokesRef,
+  prevPointRef,
+  setIsDrawing,
+  canvasRef,
+  tempCanvasRef,
+  draftCanvasRef,
+  layers,
+  activeLayerId,
+}) {
+  return (e, offsetX, offsetY) => {
     if (useMisc.getState().mouseDownDraggingSection) {
       return;
     }
@@ -57,9 +127,23 @@ export function getDrawModeMouseHandlers({
       });
     }
     prevPointRef.current = point;
-  }
+  };
+}
 
-  function onMouseMove(e) {
+function drawingOnMouseMove({
+  isEraser,
+  strokesRef,
+  prevPointRef,
+  isDrawing,
+  transferEverythingToRealCanvas,
+  canvasRef,
+  tempCanvasRef,
+  draftCanvasRef,
+  canvasTransferQueueLength,
+  layers,
+  activeLayerId,
+}) {
+  return (e) => {
     if (!isDrawing) {
       return;
     }
@@ -80,17 +164,17 @@ export function getDrawModeMouseHandlers({
       currStroke.points.push(point);
       prevPointRef.current = point;
     }
-  }
+  };
+}
 
-  // useCallback so that throttle function doesn't get recreated and reset timer
-  const throttledOnMouseMove = useCallback(
-    drawThrottleDelay > 0
-      ? _.throttle(onMouseMove, drawThrottleDelay)
-      : onMouseMove,
-    [onMouseMove, drawThrottleDelay],
-  );
-
-  function onMouseUp() {
+function drawingOnMouseUp({
+  strokesRef,
+  isDrawing,
+  setIsDrawing,
+  transferEverythingToRealCanvas,
+  currBrushStrokeArtifactId,
+}) {
+  return () => {
     if (!isDrawing) {
       return;
     }
@@ -101,9 +185,11 @@ export function getDrawModeMouseHandlers({
       strokesRef.current,
     );
     // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
-  }
+  };
+}
 
-  function onMouseEnter(e) {
+function drawingOnMouseEnter({ draftCanvasRef, onMouseDown }) {
+  return (e) => {
     if (e.buttons === 1) {
       // have to compute offset this way for some reason
       // otherwise it's inaccurate
@@ -113,12 +199,5 @@ export function getDrawModeMouseHandlers({
       const offsetY = (e.clientY - rect.top) / zoom;
       onMouseDown(e, offsetX, offsetY);
     }
-  }
-
-  return {
-    onMouseDown,
-    onMouseMove: throttledOnMouseMove,
-    onMouseUp,
-    onMouseEnter,
   };
 }

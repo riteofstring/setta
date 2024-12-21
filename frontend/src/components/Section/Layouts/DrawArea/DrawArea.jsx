@@ -12,7 +12,7 @@ import {
 import { useSectionArtifactGroups } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { DrawAreaControls } from "./DrawAreaControls";
-import { getDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
+import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
 import { useImageLoadViaDropzone } from "./useImageLoadViaDropzone";
 import {
   clearCanvas,
@@ -150,7 +150,7 @@ export function DrawArea({ sectionId }) {
   }
 
   const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
-    getDrawModeMouseHandlers({
+    useDrawModeMouseHandlers({
       sectionId,
       isEraser,
       strokesRef,
@@ -166,6 +166,7 @@ export function DrawArea({ sectionId }) {
       currBrushStrokeArtifactId,
       layers,
       activeLayerId,
+      mode,
     });
 
   const { getRootProps, isDragActive } = useImageLoadViaDropzone(
