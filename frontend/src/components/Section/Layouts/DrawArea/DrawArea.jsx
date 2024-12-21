@@ -392,8 +392,12 @@ function drawAllLayers({
       continue;
     }
     const { layerOpacity } = layers[idx];
+    const artifactIdsToDraw = reorderIdsWithBrushStrokesLast(
+      layer.artifactIds,
+      artifactState,
+    );
 
-    for (const id of layer.artifactIds) {
+    for (const id of artifactIdsToDraw) {
       if (!(id in artifactState)) {
         return;
       }
@@ -487,4 +491,24 @@ function hexToRGBA(_hex, opacity) {
   const b = parseInt(hex.substring(4, 6), 16);
 
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
+function reorderIdsWithBrushStrokesLast(artifactIds, artifactState) {
+  const brushStrokeIds = [];
+  const otherIds = [];
+
+  // Sort ids into two arrays using a for loop
+  for (let i = 0; i < artifactIds.length; i++) {
+    const id = artifactIds[i];
+    const obj = artifactState[id];
+
+    if (obj && obj.type === "brushStrokes") {
+      brushStrokeIds.push(id);
+    } else {
+      otherIds.push(id);
+    }
+  }
+
+  // Combine arrays using spread operator
+  return [...otherIds, ...brushStrokeIds];
 }
