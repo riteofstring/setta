@@ -301,7 +301,10 @@
         "layers": [
           {
             "name": "kevin's face",
-            "artifactIds": ["710c9942-e271-44a2-8eb7-961c21179ee5"],
+            "artifactIds": [
+              "710c9942-e271-44a2-8eb7-961c21179ee5",
+              "68da2499-10b8-4dd7-9375-a37b8f5f56ed"
+            ],
             "visible": true,
             "layerOpacity": 0.5,
             "brushOpacity": 0.5
@@ -309,7 +312,10 @@
         ],
         "color": "#00ff00"
       },
-      "artifactIds": ["710c9942-e271-44a2-8eb7-961c21179ee5"],
+      "artifactIds": [
+        "710c9942-e271-44a2-8eb7-961c21179ee5",
+        "68da2499-10b8-4dd7-9375-a37b8f5f56ed"
+      ],
       "variantIds": ["380a6d0c-a96e-48f1-b431-074c7e98eed9"],
       "aspectRatioExtraHeight": 120,
       "aspectRatio": 1,
@@ -858,6 +864,11 @@
       "name": "profile pic",
       "path": "seed/examples/diffusionDrops/kevin-musgrave2.png",
       "type": "img"
+    },
+    "68da2499-10b8-4dd7-9375-a37b8f5f56ed": {
+      "name": "beautiful painting",
+      "type": "brushStrokes",
+      "value": []
     }
   }
 }

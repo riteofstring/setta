@@ -57,12 +57,6 @@ function DrawAreaCore({ sectionId, artifacts }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
 
-  // This is hack for getting setDraftCanvasProperties to run again
-  // after processLoadedArtifacts runs.
-  // For some reason, setDraftCanvasProperties needs to run after processLoadedArtifacts,
-  // otherwise the draftCanvas doesn't get the correct strokeStyle. I don't know why though.
-  const [forceRerender, setForceRerender] = useState(false);
-
   const layerOpacity = layers[activeLayerIdx]?.layerOpacity ?? 1;
   const brushOpacity = layers[activeLayerIdx]?.brushOpacity ?? 1;
   const currBrushStrokeArtifactId = layers[activeLayerIdx]?.artifactIds?.find(
@@ -95,8 +89,6 @@ function DrawAreaCore({ sectionId, artifacts }) {
         state,
       });
     });
-
-    setForceRerender(true);
   }
 
   useEffect(() => {
@@ -116,21 +108,7 @@ function DrawAreaCore({ sectionId, artifacts }) {
 
   useDeepCompareEffect(() => {
     processLoadedArtifacts();
-  }, [Object.keys(artifacts)]);
-
-  useEffect(() => {
-    useSectionInfos.setState((state) => {
-      setCanvasSize({
-        sectionId,
-        canvasRef,
-        tempCanvasRef,
-        draftCanvasRef,
-        layers,
-        artifactIdUsedToSetCanvasSize,
-        state,
-      });
-    });
-  }, [height, width]);
+  }, [Object.keys(artifacts), height, width]);
 
   useDeepCompareEffect(() => {
     setDraftCanvasProperties({
@@ -144,7 +122,6 @@ function DrawAreaCore({ sectionId, artifacts }) {
       layerOpacity,
     });
     drawAllLayers({ canvasRef, tempCanvasRef, layers });
-    setForceRerender(false);
   }, [
     isEraser,
     color,
@@ -154,7 +131,6 @@ function DrawAreaCore({ sectionId, artifacts }) {
     layerOpacity,
     brushOpacity,
     Object.values(layers).map((v) => v.visible),
-    forceRerender,
   ]);
 
   useEffect(() => {
@@ -243,7 +219,6 @@ function DrawAreaCore({ sectionId, artifacts }) {
 
   function transferEverythingToRealCanvas() {
     useArtifacts.setState((state) => ({
-      ...state,
       [currBrushStrokeArtifactId]: {
         ...state[currBrushStrokeArtifactId],
         value: _.cloneDeep(strokesRef.current),
@@ -275,7 +250,6 @@ function DrawAreaCore({ sectionId, artifacts }) {
         (x) => x.name === currActiveLayerName,
       );
     });
-    setForceRerender(true);
   }
 
   const { getRootProps, isDragActive } = useImageLoadViaDropzone(sectionId);
