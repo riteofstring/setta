@@ -2,6 +2,7 @@ import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
+import { maybeCreateArtifactAndUpdateSection } from "state/actions/artifacts";
 import {
   base64RequestId,
   setTemporaryMiscState,
@@ -14,7 +15,12 @@ import {
 import { useArtifactData } from "state/hooks/artifacts";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { newDrawAreaLocalLayer, newLayerSettings } from "utils/objs/artifact";
+import { createNewId } from "utils/idNameCreation";
+import {
+  newDrawAreaLocalLayer,
+  newDrawAreaLocalLayerArtifactData,
+} from "utils/objs/artifact";
+import { dataURLToBase64 } from "./base64Conversion";
 import { DrawAreaControls } from "./DrawAreaControls";
 import { useImageLoadViaDropzone } from "./utils";
 
@@ -49,6 +55,10 @@ export function DrawOnImage({ sectionId }) {
   const layerOpacity = layers[activeLayerIdx]?.layerOpacity ?? 1;
   const brushOpacity = layers[activeLayerIdx]?.brushOpacity ?? 1;
 
+  console.log("layers", layers);
+  console.log("activeLayerIdx", activeLayerIdx);
+  console.log("localLayers", localLayers.current);
+
   async function processLoadedArtifacts() {
     if (!isLoaded) {
       return;
@@ -79,32 +89,37 @@ export function DrawOnImage({ sectionId }) {
       }
       if (v.type === "img") {
         const base64String = `data:image/png;base64,${v.value}`;
-        const storedImage = matchingLocalLayer[artifactId];
+        const storedImage = matchingLocalLayer[artifactId].value;
         if (storedImage.src !== base64String || !storedImage.complete) {
           storedImage.src = base64String;
           await storedImage.decode();
         }
       } else if (v.type === "brushStrokes") {
-        matchingLocalLayer[artifactId] = _.cloneDeep(v.value);
+        matchingLocalLayer[artifactId].value = _.cloneDeep(v.value);
+      }
+    }
+
+    // We want to make sure every layer has a brushStrokes artifact
+    for (const localLayer of localLayers.current) {
+      if (!Object.values(localLayer).some((v) => v.type === "brushStrokes")) {
+        localLayer[createNewId()] =
+          newDrawAreaLocalLayerArtifactData("brushStrokes");
       }
     }
 
     useSectionInfos.setState((state) => {
-      const currLayerInfo = state.x[sectionId].canvasSettings.layers;
-      for (const [idx, localLayer] of localLayers.current.entries()) {
-        if (idx > currLayerInfo.length - 1) {
-          currLayerInfo.push(
-            newLayerSettings({ artifactIds: Object.keys(localLayer) }),
-          );
-        }
-      }
+      const currGlobalLayers = syncDrawAreaLocalLayersWithGlobalState(
+        sectionId,
+        localLayers,
+        state,
+      );
       setCanvasSize({
         sectionId,
         canvasRef,
         tempCanvasRef,
         draftCanvasRef,
         localLayers,
-        layers: currLayerInfo,
+        layers: currGlobalLayers,
         artifactIdUsedToSetCanvasSize,
         state,
       });
@@ -382,9 +397,10 @@ function setCanvasSize({
   let imgSize = null;
   let isNewImg = false;
   for (const localLayer of localLayers.current) {
-    for (const [artifactId, value] of Object.entries(localLayer)) {
-      if (value instanceof Image && value.complete) {
-        imgSize = { width: value.width, height: value.height };
+    for (const [artifactId, valueInfo] of Object.entries(localLayer)) {
+      if (valueInfo.type === "img" && valueInfo.value.complete) {
+        const image = valueInfo.value;
+        imgSize = { width: image.width, height: image.height };
         isNewImg = artifactId !== artifactIdUsedToSetCanvasSize.current;
         artifactIdUsedToSetCanvasSize.current = artifactId;
         break;
@@ -457,24 +473,28 @@ function drawAllLayers({
     }
     const { layerOpacity } = layers[idx];
 
-    for (const value of Object.values(localLayer)) {
-      if (value instanceof Image && value.complete) {
+    for (const valueInfo of Object.values(localLayer)) {
+      if (valueInfo.type === "img" && valueInfo.value.complete) {
+        const image = valueInfo.value;
         const scale = Math.min(
-          canvas.width / value.width,
-          canvas.height / value.height,
+          canvas.width / image.width,
+          canvas.height / image.height,
         );
-        const x = canvas.width / 2 - (value.width / 2) * scale;
-        const y = canvas.height / 2 - (value.height / 2) * scale;
+        const x = canvas.width / 2 - (image.width / 2) * scale;
+        const y = canvas.height / 2 - (image.height / 2) * scale;
 
         if (applyLayerOpacityToGlobalAlpha) {
           ctx.globalAlpha = layerOpacity;
         }
-        ctx.drawImage(value, x, y, value.width * scale, value.height * scale);
-      } else if (value.length > 0) {
+        ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
+      } else if (
+        valueInfo.value === "brushStrokes" &&
+        valueInfo.value.length > 0
+      ) {
         drawStrokes(
           canvasRef,
           tempCanvasRef,
-          value,
+          valueInfo.value,
           layerOpacity,
           applyLayerOpacityToGlobalAlpha,
         );
@@ -561,4 +581,43 @@ function hexToRGBA(_hex, opacity) {
   const b = parseInt(hex.substring(4, 6), 16);
 
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
+function syncDrawAreaLocalLayersWithGlobalState(
+  sectionId,
+  localLayers,
+  sectionState,
+) {
+  const currGlobalLayers = sectionState.x[sectionId].canvasSettings.layers;
+  for (const [idx, localLayer] of localLayers.current.entries()) {
+    const localLayerArtifactIds = Object.keys(localLayer);
+    // add missing layer
+    if (idx > currGlobalLayers.length - 1) {
+      currGlobalLayers.push(
+        newLayerSettings({ artifactIds: localLayerArtifactIds }),
+      );
+    } else {
+      // sync artifactIds
+      currGlobalLayers[idx].artifactIds = localLayerArtifactIds;
+    }
+
+    for (const artifactId of localLayerArtifactIds) {
+      const layerArtifactInfo = localLayer[artifactId];
+      const type = layerArtifactInfo.type;
+      const value =
+        type === "img"
+          ? dataURLToBase64(layerArtifactInfo.value.src)
+          : layerArtifactInfo.value;
+      maybeCreateArtifactAndUpdateSection(
+        sectionId,
+        artifactId,
+        {
+          type,
+          value,
+        },
+        sectionState,
+      );
+    }
+  }
+  return currGlobalLayers;
 }

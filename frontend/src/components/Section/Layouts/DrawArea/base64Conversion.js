@@ -1,4 +1,4 @@
-function dataURLToBase64(dataURL) {
+export function dataURLToBase64(dataURL) {
   return dataURL.split(";base64,")[1];
 }
 

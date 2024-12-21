@@ -18,11 +18,11 @@ export function newDrawAreaLocalLayer(artifactIdToType) {
   return output;
 }
 
-function newDrawAreaLocalLayerArtifactData(type) {
+export function newDrawAreaLocalLayerArtifactData(type) {
   if (type === "img") {
-    return new Image();
+    return { type, value: new Image() };
   } else if (type === "brushStrokes") {
-    return [];
+    return { type, value: [] };
   }
 }
 
