@@ -31,7 +31,7 @@
     "pinnedAreaHeight": "auto",
     "isMinimized": false,
     "canvasSettings": {
-      "activeLayerIdx": 0,
+      "activeLayerId": null,
       "color": "#ff0000",
       "brushSize": 16,
       "brushShape": "butt",

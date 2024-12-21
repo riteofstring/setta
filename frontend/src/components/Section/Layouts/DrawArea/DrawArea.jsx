@@ -31,7 +31,7 @@ export function DrawArea({ sectionId }) {
   const {
     size: { width, height },
     canvasSettings: {
-      activeLayerIdx,
+      activeLayerId,
       color,
       brushSize,
       brushShape,
@@ -53,14 +53,13 @@ export function DrawArea({ sectionId }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
 
-  const layerOpacity = layers[activeLayerIdx]?.layerOpacity ?? 1;
-  const brushOpacity = layers[activeLayerIdx]?.brushOpacity ?? 1;
-  const currBrushStrokeArtifactId = layers[activeLayerIdx]?.artifactIds?.find(
+  const activeLayer = layers.find((x) => x.id === activeLayerId);
+  const layerOpacity = activeLayer?.layerOpacity ?? 1;
+  const brushOpacity = activeLayer?.brushOpacity ?? 1;
+  const currBrushStrokeArtifactId = activeLayer?.artifactIds?.find(
     (a) => loadedArtifactTypes[a] === "brushStrokes",
   );
-  const activeLayerId = layers[activeLayerIdx]?.id ?? null;
 
-  // console.log("activeLayerIdx", activeLayerIdx);
   // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
 
   useEffect(() => {

@@ -9,7 +9,6 @@ import { FaBars, FaEye, FaEyeSlash, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { TfiLayersAlt } from "react-icons/tfi";
 import { addDrawAreaLayer } from "state/actions/artifacts";
 import { useSectionInfos } from "state/definitions";
-import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 
 export function DrawAreaControls({
   sectionId,
@@ -46,11 +45,11 @@ export function DrawAreaControls({
   function setLayerVisibility(layerId, v) {
     setLayerSettings(layerId, "visible", v);
   }
-  function setActiveLayerIdx(v) {
-    setCanvasSettings(sectionId, "activeLayerIdx", v);
+  function setActiveLayerId(v) {
+    setCanvasSettings(sectionId, "activeLayerId", v);
   }
   function addLayer() {
-    useSectionInfos((state) => {
+    useSectionInfos.setState((state) => {
       addDrawAreaLayer(sectionId, state);
     });
   }
@@ -61,11 +60,6 @@ export function DrawAreaControls({
         state.x[sectionId].artifactGroupIds,
         draggedIdx,
         targetIdx,
-      );
-      const layers = getSectionArtifactGroupMetadata(sectionId, state);
-      const canvasSettings = state.x[sectionId].canvasSettings;
-      canvasSettings.activeLayerIdx = layers.findIndex(
-        (x) => x.id === activeLayerId,
       );
     });
   }
@@ -160,7 +154,7 @@ export function DrawAreaControls({
         <LayerList
           layers={layers}
           activeLayerId={activeLayerId}
-          setActiveLayerIdx={setActiveLayerIdx}
+          setActiveLayerId={setActiveLayerId}
           setLayerVisibility={setLayerVisibility}
           addLayer={addLayer}
           reorderLayers={reorderLayers}
@@ -360,7 +354,7 @@ function LayerSettings({ opacity, setOpacity }) {
 function LayerList({
   layers,
   activeLayerId,
-  setActiveLayerIdx,
+  setActiveLayerId,
   setLayerVisibility,
   onNameChange,
   addLayer,
@@ -456,14 +450,14 @@ function LayerList({
               onClick={() => setLayerVisibility(layer.id, !layer.visible)}
               className="cursor-pointer"
             >
-              {layers[idx].visible ? (
+              {layer.visible ? (
                 <FaEye className="h-4 w-4 text-blue-500" />
               ) : (
                 <FaEyeSlash className="h-4 w-4 text-gray-400" />
               )}
             </div>
             <div
-              onClick={() => setActiveLayerIdx(idx)}
+              onClick={() => setActiveLayerId(layer.id)}
               className="cursor-pointer"
             >
               <FaPencilAlt

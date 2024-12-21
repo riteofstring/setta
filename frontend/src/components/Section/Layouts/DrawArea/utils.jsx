@@ -7,7 +7,6 @@ import { createNewId } from "utils/idNameCreation";
 import { newArtifact, newLayer } from "utils/objs/artifact";
 
 export function useImageLoadViaDropzone(sectionId, activeLayerId) {
-  console.log("useImageLoadViaDropzone", activeLayerId);
   const onDrop = useCallback(
     (acceptedFiles) => {
       acceptedFiles.forEach((file) => {
@@ -26,7 +25,6 @@ export function useImageLoadViaDropzone(sectionId, activeLayerId) {
           });
           useSectionInfos.setState((state) => {
             let layerId = activeLayerId;
-            console.log("layerId", layerId);
             if (!layerId) {
               layerId = createNewId();
               state.artifactGroups[layerId] = newLayer({});

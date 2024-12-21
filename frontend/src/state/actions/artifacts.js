@@ -92,6 +92,5 @@ export function addDrawAreaLayer(sectionId, state) {
   const artifactGroupIds = state.x[sectionId].artifactGroupIds;
   artifactGroupIds.push(artifactGroupId);
 
-  state.x[sectionId].canvasSettings.activeLayerIdx =
-    artifactGroupIds.length - 1;
+  state.x[sectionId].canvasSettings.activeLayerId = artifactGroupId;
 }
