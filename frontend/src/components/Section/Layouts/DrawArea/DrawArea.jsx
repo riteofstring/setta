@@ -1,15 +1,12 @@
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useEffect, useRef, useState } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
-import { sendToInteractiveTasks } from "state/actions/interactive";
 import {
   base64RequestId,
   setTemporaryMiscState,
 } from "state/actions/temporaryMiscState";
 import {
-  useArtifacts,
   useMisc,
   useSectionInfos,
   useTemporaryMiscState,
@@ -19,11 +16,11 @@ import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createNewId } from "utils/idNameCreation";
 import {
-  newArtifact,
   newDrawAreaLocalLayerState,
   newLayerSettings,
 } from "utils/objs/artifact";
 import { DrawAreaControls } from "./DrawAreaControls";
+import { useImageLoadViaDropzone } from "./utils";
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -52,66 +49,6 @@ export function DrawOnImage({ sectionId }) {
   const artifactIdUsedToSetCanvasSize = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
-
-  function setDraftCanvasProperties() {
-    if (!activeLayerId) {
-      return;
-    }
-    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
-    clearCanvas(draftCanvasRef);
-    if (isEraser) {
-      dCtx.globalCompositeOperation = "destination-out";
-      dCtx.strokeStyle = "rgba(0,0,0,1)";
-      dCtx.lineWidth = eraserBrushSize;
-      dCtx.lineCap = brushShape;
-      dCtx.globalAlpha = 1;
-    } else {
-      dCtx.globalCompositeOperation = "source-over";
-      dCtx.strokeStyle = hexToRGBA(
-        color,
-        layerSettings[activeLayerId].brushOpacity,
-      );
-      dCtx.lineWidth = brushSize;
-      dCtx.lineCap = brushShape;
-      dCtx.globalAlpha = 1;
-      draftCanvas.style.opacity = layerSettings[activeLayerId].opacity;
-    }
-  }
-
-  function setCanvasSize(latestLayerSettings = layerSettings) {
-    const [canvas] = getCanvasAndCtx(canvasRef);
-    const [tempCanvas] = getCanvasAndCtx(tempCanvasRef);
-    const [draftCanvas] = getCanvasAndCtx(draftCanvasRef);
-
-    let imgSize = null;
-    let isNewImg = false;
-    for (const [id, layer] of Object.entries(layers.current)) {
-      if (layer.image?.complete) {
-        const image = layer.image;
-        imgSize = { width: image.width, height: image.height };
-        isNewImg = id !== artifactIdUsedToSetCanvasSize.current;
-        artifactIdUsedToSetCanvasSize.current = id;
-        break;
-      }
-    }
-
-    const canvasSize = setDrawAreaSectionSize({
-      sectionId,
-      imgSize,
-      isNewImg,
-    });
-
-    canvas.width = canvasSize.width;
-    canvas.height = canvasSize.height;
-
-    tempCanvas.width = canvasSize.width;
-    tempCanvas.height = canvasSize.height;
-
-    draftCanvas.width = canvasSize.width;
-    draftCanvas.height = canvasSize.height;
-
-    drawAllLayers(canvasRef, tempCanvasRef, layers, latestLayerSettings);
-  }
 
   async function processLoadedArtifacts() {
     if (!isLoaded) {
@@ -150,7 +87,15 @@ export function DrawOnImage({ sectionId }) {
           latestLayerSettings[id] = newLayerSettings();
         }
       }
-      setCanvasSize(latestLayerSettings);
+      setCanvasSize({
+        sectionId,
+        canvasRef,
+        tempCanvasRef,
+        draftCanvasRef,
+        layers,
+        layerSettings: latestLayerSettings,
+        artifactIdUsedToSetCanvasSize,
+      });
     });
 
     if (!activeLayerId) {
@@ -166,7 +111,7 @@ export function DrawOnImage({ sectionId }) {
       (x) => x[id],
       (x) => {
         if (x === true) {
-          setTemporaryMiscState(id, toBase64());
+          setTemporaryMiscState(id, allPartsToBase64(canvasRef));
         }
       },
     );
@@ -178,11 +123,33 @@ export function DrawOnImage({ sectionId }) {
   }, [Object.keys(artifacts), isLoaded]);
 
   useEffect(() => {
-    setCanvasSize();
+    setCanvasSize({
+      sectionId,
+      canvasRef,
+      tempCanvasRef,
+      draftCanvasRef,
+      layers,
+      layerSettings,
+      artifactIdUsedToSetCanvasSize,
+    });
   }, [height, width]);
 
   useEffect(() => {
-    setDraftCanvasProperties();
+    if (!activeLayerId) {
+      return;
+    }
+    const { opacity: layerOpacity, brushOpacity } =
+      layerSettings[activeLayerId];
+    setDraftCanvasProperties({
+      draftCanvasRef,
+      color,
+      brushSize,
+      brushShape,
+      brushOpacity,
+      eraserBrushSize,
+      isEraser,
+      layerOpacity,
+    });
   }, [isEraser, color, brushSize, eraserBrushSize, brushShape, activeLayerId]);
 
   function startNewStroke(firstPoint) {
@@ -298,52 +265,7 @@ export function DrawOnImage({ sectionId }) {
     );
   }
 
-  function toBase64() {
-    const [width, height] = [canvasRef.current.width, canvasRef.current.height];
-    const base64 = {};
-    base64["completeCanvas"] = canvasToBase64(canvasRef.current);
-    base64["strokes"] = exportStrokesToBase64(
-      strokesRef.current,
-      width,
-      height,
-    );
-    if (imageRef.current) {
-      base64["image"] = exportImageToBase64(imageRef.current, width, height);
-    }
-    return base64;
-  }
-
-  const onDrop = useCallback((acceptedFiles) => {
-    acceptedFiles.forEach((file) => {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        // The base64 string is in reader.result
-        const base64String = reader.result.replace(
-          /^data:image\/[a-z]+;base64,/,
-          "",
-        );
-        const artifactId = createNewId();
-        useArtifacts.setState((x) => {
-          x.x[artifactId] = newArtifact({
-            value: base64String,
-            type: "img",
-          });
-        });
-        useSectionInfos.setState((state) => {
-          state.x[sectionId].artifactIds.push(artifactId);
-        });
-      };
-
-      reader.onerror = (error) => {
-        console.error("Error reading file:", error);
-      };
-
-      // Read the file as a Data URL (base64)
-      reader.readAsDataURL(file);
-    });
-  }, []);
-  const { getRootProps, isDragActive } = useDropzone({ onDrop });
+  const { getRootProps, isDragActive } = useImageLoadViaDropzone(sectionId);
 
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
   const cursorIcon = isEraser
@@ -388,6 +310,77 @@ export function DrawOnImage({ sectionId }) {
   );
 }
 
+function setDraftCanvasProperties({
+  draftCanvasRef,
+  color,
+  brushSize,
+  brushShape,
+  brushOpacity,
+  eraserBrushSize,
+  isEraser,
+  layerOpacity,
+}) {
+  const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
+  clearCanvas(draftCanvasRef);
+  if (isEraser) {
+    dCtx.globalCompositeOperation = "destination-out";
+    dCtx.strokeStyle = "rgba(0,0,0,1)";
+    dCtx.lineWidth = eraserBrushSize;
+    dCtx.lineCap = brushShape;
+    dCtx.globalAlpha = 1;
+  } else {
+    dCtx.globalCompositeOperation = "source-over";
+    dCtx.strokeStyle = hexToRGBA(color, brushOpacity);
+    dCtx.lineWidth = brushSize;
+    dCtx.lineCap = brushShape;
+    dCtx.globalAlpha = 1;
+    draftCanvas.style.opacity = layerOpacity;
+  }
+}
+
+function setCanvasSize({
+  sectionId,
+  canvasRef,
+  tempCanvasRef,
+  draftCanvasRef,
+  layers,
+  layerSettings,
+  artifactIdUsedToSetCanvasSize,
+}) {
+  const [canvas] = getCanvasAndCtx(canvasRef);
+  const [tempCanvas] = getCanvasAndCtx(tempCanvasRef);
+  const [draftCanvas] = getCanvasAndCtx(draftCanvasRef);
+
+  let imgSize = null;
+  let isNewImg = false;
+  for (const [id, layer] of Object.entries(layers.current)) {
+    if (layer.image?.complete) {
+      const image = layer.image;
+      imgSize = { width: image.width, height: image.height };
+      isNewImg = id !== artifactIdUsedToSetCanvasSize.current;
+      artifactIdUsedToSetCanvasSize.current = id;
+      break;
+    }
+  }
+
+  const canvasSize = setDrawAreaSectionSize({
+    sectionId,
+    imgSize,
+    isNewImg,
+  });
+
+  canvas.width = canvasSize.width;
+  canvas.height = canvasSize.height;
+
+  tempCanvas.width = canvasSize.width;
+  tempCanvas.height = canvasSize.height;
+
+  draftCanvas.width = canvasSize.width;
+  draftCanvas.height = canvasSize.height;
+
+  drawAllLayers(canvasRef, tempCanvasRef, layers, layerSettings);
+}
+
 function getXY(e) {
   const { offsetX, offsetY } = e.nativeEvent;
   return [offsetX, offsetY];
@@ -406,56 +399,6 @@ function getCanvasAndCtx(canvasRef) {
 
 function getCtx(canvasRef) {
   return canvasRef.current.getContext("2d");
-}
-
-const debouncedSetBrushStrokesArtifact = _.debounce(
-  (sectionId, activeLayerId, strokes) => {
-    // layer ids are the same as artifact ids
-    // because we assume each artifact gets its own layer
-    useArtifacts.setState((x) => {
-      if (!(activeLayerId in x.x)) {
-        x.x[activeLayerId] = newArtifact({
-          type: "brushStrokes",
-          value: _.cloneDeep(strokes),
-        });
-      } else {
-        x.x[activeLayerId].value = _.cloneDeep(strokes);
-      }
-    });
-
-    useSectionInfos.setState((x) => {
-      const artifactIds = x.x[sectionId].artifactIds;
-      if (!artifactIds.includes(activeLayerId)) {
-        artifactIds.push(activeLayerId);
-      }
-    });
-  },
-  500,
-);
-
-function exportStrokesToBase64(strokes, width, height) {
-  // Create a temporary canvas
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = width;
-  tempCanvas.height = height;
-  const tempCtx = tempCanvas.getContext("2d");
-
-  // Draw strokes on the temporary canvas
-  strokes.forEach((stroke) => {
-    drawStrokeOnTempCanvas(tempCanvas, tempCtx, stroke);
-  });
-
-  return canvasToBase64(tempCanvas);
-}
-
-function exportImageToBase64(image, width, height) {
-  // Create a temporary canvas
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = width;
-  tempCanvas.height = height;
-  const tempCtx = tempCanvas.getContext("2d");
-  tempCtx.drawImage(image, 0, 0);
-  return canvasToBase64(tempCanvas);
 }
 
 function drawAllLayers(canvasRef, tempCanvasRef, layers, latestLayerSettings) {
@@ -520,21 +463,6 @@ function drawStrokeOnTempCanvas(canvas, ctx, stroke) {
   ctx.stroke();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
-
-function dataURLToBase64(dataURL) {
-  return dataURL.split(";base64,")[1];
-}
-
-function canvasToBase64(canvas) {
-  return dataURLToBase64(canvas.toDataURL("image/png"));
-}
-
-const debouncedSendDrawingToInteractiveTasks = _.debounce(
-  (sectionId, fnToBase64) => {
-    sendToInteractiveTasks([sectionId, "drawing"], fnToBase64());
-  },
-  500,
-);
 
 function hexToRGBA(_hex, opacity) {
   // Remove # if present
