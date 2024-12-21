@@ -5,7 +5,14 @@ import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
-import { FaBars, FaEye, FaEyeSlash, FaPencilAlt, FaPlus } from "react-icons/fa";
+import {
+  FaBars,
+  FaEye,
+  FaEyeSlash,
+  FaPencilAlt,
+  FaPlus,
+  FaTrash,
+} from "react-icons/fa";
 import { TfiLayersAlt } from "react-icons/tfi";
 import { addDrawAreaLayer } from "state/actions/artifacts";
 import { useSectionInfos } from "state/definitions";
@@ -51,6 +58,15 @@ export function DrawAreaControls({
   function addLayer() {
     useSectionInfos.setState((state) => {
       addDrawAreaLayer(sectionId, state);
+    });
+  }
+
+  function deleteLayer(layerId) {
+    useSectionInfos.setState((state) => {
+      delete state.artifactGroups[layerId];
+      state.x[sectionId].artifactGroupIds = state.x[
+        sectionId
+      ].artifactGroupIds.filter((x) => x !== layerId);
     });
   }
 
@@ -158,6 +174,7 @@ export function DrawAreaControls({
           setLayerVisibility={setLayerVisibility}
           addLayer={addLayer}
           reorderLayers={reorderLayers}
+          deleteLayer={deleteLayer}
         />
       </StandardPopover>
 
@@ -359,6 +376,7 @@ function LayerList({
   onNameChange,
   addLayer,
   reorderLayers,
+  deleteLayer,
 }) {
   const [editingIdx, setEditingIdx] = useState(null);
   const [editValue, setEditValue] = useState("");
@@ -467,6 +485,12 @@ function LayerList({
                     : "text-gray-300 hover:text-gray-400"
                 }`}
               />
+            </div>
+            <div
+              onClick={() => deleteLayer(layer.id)}
+              className="cursor-pointer"
+            >
+              <FaTrash className="h-4 w-4 text-red-500" />
             </div>
           </div>
         </li>
