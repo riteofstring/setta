@@ -340,26 +340,62 @@ function LayerList({
   activeLayerId,
   setActiveLayerId,
   setLayerVisibility,
+  onNameChange,
 }) {
+  const [editingId, setEditingId] = useState(null);
+  const [editValue, setEditValue] = useState("");
+
   if (!layers || typeof layers !== "object") {
     return <div>No layers provided</div>;
   }
+
+  const handleDoubleClick = (id, name) => {
+    setEditingId(id);
+    setEditValue(name);
+  };
+
+  const handleKeyDown = (e, id) => {
+    if (e.key === "Enter") {
+    //   onNameChange(id, editValue);
+      setEditingId(null);
+    } else if (e.key === "Escape") {
+      setEditingId(null);
+    }
+  };
+
+  const handleBlur = (id) => {
+    // onNameChange(id, editValue);
+    setEditingId(null);
+  };
 
   return (
     <ul className="space-y-2">
       {Object.entries(layers).map(([id, layer]) => (
         <li
           key={id}
-          className="flex cursor-pointer items-center justify-between rounded bg-gray-50 p-2 hover:bg-gray-100"
-          onClick={() => setActiveLayerId(id)}
+          className="flex items-center justify-between rounded bg-gray-50 p-2 hover:bg-gray-100"
         >
-          <span className="text-sm">{layer.name}</span>
+          {editingId === id ? (
+            <input
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, id)}
+              onBlur={() => handleBlur(id)}
+              className="rounded border px-1 text-sm focus:border-blue-500 focus:outline-none"
+              autoFocus
+            />
+          ) : (
+            <span
+              className="text-sm"
+              onDoubleClick={() => handleDoubleClick(id, layer.name)}
+            >
+              {layer.name}
+            </span>
+          )}
           <div className="flex items-center space-x-2">
             <div
-              onClick={(e) => {
-                e.stopPropagation();
-                setLayerVisibility(id, !layerSettings[id].visible);
-              }}
+              onClick={() => setLayerVisibility(id, !layerSettings[id].visible)}
               className="cursor-pointer"
             >
               {layerSettings[id].visible ? (
@@ -368,9 +404,18 @@ function LayerList({
                 <FaEyeSlash className="h-4 w-4 text-gray-400" />
               )}
             </div>
-            {activeLayerId === id && (
-              <FaPencilAlt className="h-4 w-4 text-green-500" />
-            )}
+            <div
+              onClick={() => setActiveLayerId(id)}
+              className="cursor-pointer"
+            >
+              <FaPencilAlt
+                className={`h-4 w-4 ${
+                  activeLayerId === id
+                    ? "text-green-500"
+                    : "text-gray-300 hover:text-gray-400"
+                }`}
+              />
+            </div>
           </div>
         </li>
       ))}
