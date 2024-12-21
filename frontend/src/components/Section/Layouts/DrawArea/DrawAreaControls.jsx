@@ -51,15 +51,18 @@ export function DrawAreaControls({
   }
   function addLayer() {
     useSectionInfos.setState((state) => {
-      const currLayers = state.x[sectionId].canvasSettings.layers;
+      const canvasSettings = state.x[sectionId].canvasSettings;
       const artifactId = createNewId();
-      currLayers.push(newLayerSettings({ artifactIds: [artifactId] }));
+      canvasSettings.layers.push(
+        newLayerSettings({ artifactIds: [artifactId] }),
+      );
       maybeCreateArtifactAndUpdateSection(
         sectionId,
         artifactId,
         { type: "brushStrokes", value: [] },
         state,
       );
+      canvasSettings.activeLayerIdx = canvasSettings.layers.length - 1;
     });
   }
 
