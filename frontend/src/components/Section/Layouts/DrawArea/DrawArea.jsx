@@ -78,18 +78,24 @@ export function DrawOnImage({ sectionId }) {
       }
     }
 
-    if (!firstBrushStrokeLayerId) {
-      firstBrushStrokeLayerId = createNewId();
-      layers.current[firstBrushStrokeLayerId] =
-        newDrawAreaLocalLayerState("brushStrokes");
-      maybeCreateArtifactAndUpdateSection(sectionId, firstBrushStrokeLayerId, {
-        type: "brushStrokes",
-        value: [],
-      });
-    }
+    useSectionInfos.setState((state) => {
+      if (!firstBrushStrokeLayerId) {
+        firstBrushStrokeLayerId = createNewId();
+        layers.current[firstBrushStrokeLayerId] =
+          newDrawAreaLocalLayerState("brushStrokes");
+        maybeCreateArtifactAndUpdateSection(
+          sectionId,
+          firstBrushStrokeLayerId,
+          {
+            type: "brushStrokes",
+            value: [],
+          },
+          state,
+        );
+      }
 
-    useSectionInfos.setState((x) => {
-      const latestLayerSettings = x.x[sectionId].canvasSettings.layerSettings;
+      const latestLayerSettings =
+        state.x[sectionId].canvasSettings.layerSettings;
       for (const id of Object.keys(layers.current)) {
         if (!(id in latestLayerSettings)) {
           latestLayerSettings[id] = newLayerSettings();
@@ -103,10 +109,12 @@ export function DrawOnImage({ sectionId }) {
         layers,
         layerSettings: latestLayerSettings,
         artifactIdUsedToSetCanvasSize,
+        state,
       });
 
       if (!activeLayerId) {
-        x.x[sectionId].canvasSettings.activeLayerId = firstBrushStrokeLayerId;
+        state.x[sectionId].canvasSettings.activeLayerId =
+          firstBrushStrokeLayerId;
       }
     });
   }
@@ -131,14 +139,17 @@ export function DrawOnImage({ sectionId }) {
   }, [Object.keys(artifacts), isLoaded]);
 
   useEffect(() => {
-    setCanvasSize({
-      sectionId,
-      canvasRef,
-      tempCanvasRef,
-      draftCanvasRef,
-      layers,
-      layerSettings,
-      artifactIdUsedToSetCanvasSize,
+    useSectionInfos.setState((state) => {
+      setCanvasSize({
+        sectionId,
+        canvasRef,
+        tempCanvasRef,
+        draftCanvasRef,
+        layers,
+        layerSettings,
+        artifactIdUsedToSetCanvasSize,
+        state,
+      });
     });
   }, [height, width]);
 
@@ -361,6 +372,7 @@ function setCanvasSize({
   layers,
   layerSettings,
   artifactIdUsedToSetCanvasSize,
+  state,
 }) {
   const [canvas] = getCanvasAndCtx(canvasRef);
   const [tempCanvas] = getCanvasAndCtx(tempCanvasRef);
@@ -382,6 +394,7 @@ function setCanvasSize({
     sectionId,
     imgSize,
     isNewImg,
+    state,
   });
 
   canvas.width = canvasSize.width;

@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { maybeCreateArtifactAndUpdateSection } from "state/actions/artifacts";
 import { sendToInteractiveTasks } from "state/actions/interactive";
+import { useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
 export function useImageLoadViaDropzone(sectionId) {
@@ -17,10 +18,17 @@ export function useImageLoadViaDropzone(sectionId) {
           "",
         );
         const artifactId = createNewId();
-        maybeCreateArtifactAndUpdateSection(sectionId, artifactId, {
-          value: base64String,
-          type: "img",
-        });
+        useSectionInfos.setState((state) =>
+          maybeCreateArtifactAndUpdateSection(
+            sectionId,
+            artifactId,
+            {
+              value: base64String,
+              type: "img",
+            },
+            state,
+          ),
+        );
       };
 
       reader.onerror = (error) => {
@@ -36,9 +44,16 @@ export function useImageLoadViaDropzone(sectionId) {
 
 export const debouncedSetBrushStrokesArtifact = _.debounce(
   (sectionId, activeLayerId, strokes) => {
-    maybeCreateArtifactAndUpdateSection(sectionId, activeLayerId, {
-      type: "brushStrokes",
-      value: _.cloneDeep(strokes),
+    useSectionInfos.setState((state) => {
+      maybeCreateArtifactAndUpdateSection(
+        sectionId,
+        activeLayerId,
+        {
+          type: "brushStrokes",
+          value: _.cloneDeep(strokes),
+        },
+        state,
+      );
     });
   },
   500,

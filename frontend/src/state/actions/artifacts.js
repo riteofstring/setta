@@ -41,6 +41,7 @@ export function maybeCreateArtifactAndUpdateSection(
   sectionId,
   artifactId,
   artifactProps,
+  sectionInfoState,
 ) {
   useArtifacts.setState((x) => {
     if (!(artifactId in x.x)) {
@@ -50,10 +51,8 @@ export function maybeCreateArtifactAndUpdateSection(
     }
   });
 
-  useSectionInfos.setState((x) => {
-    const artifactIds = x.x[sectionId].artifactIds;
-    if (!artifactIds.includes(artifactId)) {
-      artifactIds.push(artifactId);
-    }
-  });
+  const artifactIds = sectionInfoState.x[sectionId].artifactIds;
+  if (!artifactIds.includes(artifactId)) {
+    artifactIds.push(artifactId);
+  }
 }
