@@ -10,8 +10,12 @@ export function newArtifact({ name, ...props }) {
   );
 }
 
-export function newDrawAreaLocalLayerState() {
-  return { image: new Image(), strokes: [] };
+export function newDrawAreaLocalLayerState(type) {
+  if (type === "img") {
+    return { image: new Image() };
+  } else if (type === "brushStrokes") {
+    return { strokes: [] };
+  }
 }
 
 export function newLayerSettings() {

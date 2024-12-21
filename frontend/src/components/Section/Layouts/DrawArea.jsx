@@ -45,7 +45,7 @@ export function DrawOnImage({ sectionId }) {
       canvasSettings: x.x[sectionId].canvasSettings,
     };
   }, _.isEqual);
-  const [layers, setLayers] = useState({});
+  const layers = useRef({});
   const [activeLayerId, setActiveLayerId] = useState(null);
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
@@ -98,18 +98,17 @@ export function DrawOnImage({ sectionId }) {
       dCtx.globalAlpha = 1;
       draftCanvas.style.opacity = layerSettings[activeLayerId].opacity;
     }
-    console.log("setDraftCanvasProperties", dCtx);
   }
 
-  function setCanvasSize() {
+  function setCanvasSize(latestLayerSettings = layerSettings) {
     const [canvas] = getCanvasAndCtx(canvasRef);
     const [tempCanvas] = getCanvasAndCtx(tempCanvasRef);
     const [draftCanvas] = getCanvasAndCtx(draftCanvasRef);
 
     let imgSize = null;
     let isNewImg = false;
-    for (const [id, layer] of Object.entries(layers)) {
-      if (layer.image.complete) {
+    for (const [id, layer] of Object.entries(layers.current)) {
+      if (layer.image?.complete) {
         const image = layer.image;
         imgSize = { width: image.width, height: image.height };
         isNewImg = id !== artifactIdUsedToSetCanvasSize.current;
@@ -124,8 +123,6 @@ export function DrawOnImage({ sectionId }) {
       isNewImg,
     });
 
-    console.log("canvasSize:", canvasSize);
-
     canvas.width = canvasSize.width;
     canvas.height = canvasSize.height;
 
@@ -134,16 +131,20 @@ export function DrawOnImage({ sectionId }) {
 
     draftCanvas.width = canvasSize.width;
     draftCanvas.height = canvasSize.height;
-    console.log("setCanvasSize");
+
+    drawAllLayers(latestLayerSettings);
   }
 
-  function drawAllLayers() {
+  function drawAllLayers(latestLayerSettings = layerSettings) {
     const [canvas, ctx] = getCanvasAndCtx(canvasRef);
     clearCanvas(canvasRef);
 
-    for (const [id, layer] of Object.entries(layers)) {
-      const { opacity: layerOpacity } = layerSettings[id];
-      if (layer.image.complete) {
+    for (const [id, layer] of Object.entries(layers.current)) {
+      if (!(id in latestLayerSettings)) {
+        continue;
+      }
+      const { opacity: layerOpacity } = latestLayerSettings[id];
+      if (layer.image?.complete) {
         const image = layer.image;
 
         const scale = Math.min(
@@ -155,12 +156,10 @@ export function DrawOnImage({ sectionId }) {
 
         ctx.globalAlpha = layerOpacity;
         ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
-      } else if (layer.strokes.length > 0) {
+      } else if (layer.strokes?.length > 0) {
         drawStrokes(canvasRef, tempCanvasRef, layer.strokes, layerOpacity);
       }
     }
-
-    console.log("drawAllLayers");
   }
 
   async function processLoadedArtifacts() {
@@ -168,20 +167,19 @@ export function DrawOnImage({ sectionId }) {
       return;
     }
     let firstBrushStrokeLayerId = null;
-    const newLayerState = _.cloneDeep(layers);
     for (const [artifactId, v] of Object.entries(artifacts)) {
-      if (!(artifactId in newLayerState)) {
-        newLayerState[artifactId] = newDrawAreaLocalLayerState();
+      if (!(artifactId in layers.current)) {
+        layers.current[artifactId] = newDrawAreaLocalLayerState(v.type);
       }
       if (v.type === "img") {
         const base64String = `data:image/png;base64,${v.value}`;
-        const storedImage = newLayerState[artifactId].image;
+        const storedImage = layers.current[artifactId].image;
         if (storedImage.src !== base64String) {
           storedImage.src = base64String;
           await storedImage.decode();
         }
       } else if (v.type === "brushStrokes") {
-        newLayerState[artifactId].strokes = _.cloneDeep(v.value);
+        layers.current[artifactId].strokes = _.cloneDeep(v.value);
         if (!firstBrushStrokeLayerId) {
           firstBrushStrokeLayerId = artifactId;
         }
@@ -190,19 +188,20 @@ export function DrawOnImage({ sectionId }) {
 
     if (!firstBrushStrokeLayerId) {
       firstBrushStrokeLayerId = createNewId();
-      newLayerState[firstBrushStrokeLayerId] = newDrawAreaLocalLayerState();
+      layers.current[firstBrushStrokeLayerId] =
+        newDrawAreaLocalLayerState("brushStrokes");
     }
 
     useSectionInfos.setState((x) => {
-      const currLayerSettings = x.x[sectionId].canvasSettings.layerSettings;
-      for (const id of Object.keys(newLayerState)) {
-        if (!(id in currLayerSettings)) {
-          currLayerSettings[id] = newLayerSettings();
+      const latestLayerSettings = x.x[sectionId].canvasSettings.layerSettings;
+      for (const id of Object.keys(layers.current)) {
+        if (!(id in latestLayerSettings)) {
+          latestLayerSettings[id] = newLayerSettings();
         }
       }
+      setCanvasSize(latestLayerSettings);
     });
 
-    setLayers(newLayerState);
     if (!activeLayerId) {
       setActiveLayerId(firstBrushStrokeLayerId);
     }
@@ -227,10 +226,9 @@ export function DrawOnImage({ sectionId }) {
     processLoadedArtifacts();
   }, [Object.keys(artifacts), isLoaded]);
 
-  useDeepCompareEffect(() => {
+  useEffect(() => {
     setCanvasSize();
-    drawAllLayers();
-  }, [height, width, Object.keys(layers)]);
+  }, [height, width]);
 
   useEffect(() => {
     setDraftCanvasProperties();
@@ -314,6 +312,7 @@ export function DrawOnImage({ sectionId }) {
     }
     setIsDrawing(false);
     if (!isEraser) {
+      layers.current[activeLayerId].strokes = strokesRef.current;
       drawAllLayers();
       clearCanvas(draftCanvasRef);
     }
@@ -768,6 +767,7 @@ function exportImageToBase64(image, width, height) {
 }
 
 function drawStrokes(canvasRef, tempCanvasRef, strokes, layerOpacity) {
+  console.log("drawStrokes", strokes);
   const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
   strokes.forEach((stroke) => {
     drawStrokeOnTempCanvas(tempCanvas, tempCtx, stroke);
@@ -793,7 +793,6 @@ function drawStrokeOnTempCanvas(canvas, ctx, stroke) {
   ctx.lineWidth = stroke.lineWidth;
   ctx.lineCap = stroke.lineCap;
   let prevPoint = stroke.points[0];
-  console.log("drawing to ctx:", ctx);
   stroke.points.forEach((point) => {
     ctx.moveTo(prevPoint[0], prevPoint[1]);
     ctx.lineTo(point[0], point[1]);
