@@ -142,7 +142,6 @@ export function DrawOnImage({ sectionId }) {
       layerSettings[activeLayerId];
     setDraftCanvasProperties({
       draftCanvasRef,
-      tempCanvasRef,
       color,
       brushSize,
       brushShape,
@@ -175,24 +174,24 @@ export function DrawOnImage({ sectionId }) {
     } else {
       point = getXY(e);
     }
-    // clearAllCanvases();
-    // drawAllLayers({
-    //   canvasRef,
-    //   tempCanvasRef,
-    //   layers,
-    //   layerSettings,
-    //   excludeLayer: activeLayerId,
-    // });
-    // drawAllLayers({
-    //   canvasRef: draftCanvasRef,
-    //   tempCanvasRef,
-    //   layers,
-    //   layerSettings,
-    //   includeLayer: activeLayerId,
-    //   applyLayerOpacityToGlobalAlpha: false,
-    // });
-    startNewStroke(tempCanvasRef, strokesRef, point);
-    drawStroke(tempCanvasRef, point, point);
+    clearAllCanvases();
+    drawAllLayers({
+      canvasRef,
+      tempCanvasRef,
+      layers,
+      layerSettings,
+      excludeLayer: activeLayerId,
+    });
+    drawAllLayers({
+      canvasRef: draftCanvasRef,
+      tempCanvasRef,
+      layers,
+      layerSettings,
+      includeLayer: activeLayerId,
+      applyLayerOpacityToGlobalAlpha: false,
+    });
+    startNewStroke(draftCanvasRef, strokesRef, point);
+    drawStroke(draftCanvasRef, point, point);
     prevPointRef.current = point;
   }
 
@@ -202,12 +201,7 @@ export function DrawOnImage({ sectionId }) {
     }
     const point = getXY(e);
     const currStroke = strokesRef.current[strokesRef.current.length - 1];
-    clearCanvas(tempCanvasRef);
-    drawStroke(tempCanvasRef, prevPointRef.current, point);
-    const dCtx = getCtx(draftCanvasRef);
-    const [tempCanvas] = getCanvasAndCtx(tempCanvasRef);
-    console.log("drawing onto draft canvas", dCtx)
-    dCtx.drawImage(tempCanvas, 0, 0);
+    drawStroke(draftCanvasRef, prevPointRef.current, point);
     currStroke.points.push(point);
     prevPointRef.current = point;
   }
@@ -305,7 +299,6 @@ export function DrawOnImage({ sectionId }) {
 
 function setDraftCanvasProperties({
   draftCanvasRef,
-  tempCanvasRef,
   color,
   brushSize,
   brushShape,
@@ -314,7 +307,7 @@ function setDraftCanvasProperties({
   isEraser,
   layerOpacity,
 }) {
-  const dCtx = getCtx(draftCanvasRef);
+  const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
   clearCanvas(draftCanvasRef);
   if (isEraser) {
     dCtx.globalCompositeOperation = "destination-out";
@@ -327,15 +320,9 @@ function setDraftCanvasProperties({
     dCtx.strokeStyle = hexToRGBA(color, brushOpacity);
     dCtx.lineWidth = brushSize;
     dCtx.lineCap = brushShape;
-    dCtx.globalAlpha = layerOpacity;
+    dCtx.globalAlpha = 1;
+    draftCanvas.style.opacity = layerOpacity;
   }
-
-  const tempCtx = getCtx(tempCanvasRef);
-  tempCtx.globalCompositeOperation = "source-over";
-  tempCtx.strokeStyle = hexToRGBA(color, brushOpacity);
-  tempCtx.lineWidth = brushSize;
-  tempCtx.lineCap = brushShape;
-  tempCtx.globalAlpha = 1;
 }
 
 function setCanvasSize({
