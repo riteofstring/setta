@@ -310,7 +310,7 @@ function setDraftCanvasProperties({
   isEraser,
   layerOpacity,
 }) {
-  const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
+  const dCtx = getCtx(draftCanvasRef);
   if (isEraser) {
     dCtx.globalCompositeOperation = "destination-out";
     dCtx.strokeStyle = "rgba(0,0,0,1)";
@@ -406,7 +406,9 @@ function drawAllLayers({
   includeLayer = null,
 }) {
   const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+  const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
   clearCanvas(canvasRef);
+  clearCanvas(tempCanvasRef);
 
   const artifactState = useArtifacts.getState();
   for (const [idx, layer] of layers.entries()) {
@@ -430,15 +432,28 @@ function drawAllLayers({
         const x = canvas.width / 2 - (image.width / 2) * scale;
         const y = canvas.height / 2 - (image.height / 2) * scale;
 
-        ctx.globalAlpha = layerOpacity;
-        ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
+        tempCtx.globalAlpha = 1;
+        tempCtx.drawImage(
+          image,
+          x,
+          y,
+          image.width * scale,
+          image.height * scale,
+        );
       } else if (
         artifact.type === "brushStrokes" &&
         artifact.value.length > 0
       ) {
-        drawStrokes(canvasRef, tempCanvasRef, artifact.value, layerOpacity);
+        artifact.value.forEach((stroke) => {
+          drawSavedStrokeOntoTempCanvas(tempCanvas, tempCtx, stroke);
+        });
       }
     }
+    const originalGlobalCompositeOperation = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = layerOpacity;
+    ctx.drawImage(tempCanvas, 0, 0);
+    ctx.globalCompositeOperation = originalGlobalCompositeOperation;
   }
 }
 
@@ -454,22 +469,6 @@ function startNewStroke(draftCanvasRef, strokesRef, firstPoint) {
     globalCompositeOperation: dCtx.globalCompositeOperation,
   });
   drawStroke(draftCanvasRef, firstPoint, firstPoint);
-}
-
-function drawStrokes(canvasRef, tempCanvasRef, strokes, layerOpacity) {
-  const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
-  strokes.forEach((stroke) => {
-    drawSavedStrokeOntoTempCanvas(tempCanvas, tempCtx, stroke);
-  });
-
-  const ctx = getCtx(canvasRef);
-  const originalGlobalCompositeOperation = ctx.globalCompositeOperation;
-  ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = layerOpacity;
-  ctx.drawImage(tempCanvas, 0, 0);
-  ctx.globalCompositeOperation = originalGlobalCompositeOperation;
-
-  clearCanvas(tempCanvasRef);
 }
 
 function drawSavedStrokeOntoTempCanvas(canvas, ctx, stroke) {
