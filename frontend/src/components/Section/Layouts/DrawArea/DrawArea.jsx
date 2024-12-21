@@ -40,6 +40,7 @@ export function DrawArea({ sectionId }) {
       eraserBrushSize,
       drawThrottleDelay,
       canvasTransferQueueLength,
+      mode,
     },
   } = useSectionInfos((x) => {
     return {
@@ -258,6 +259,7 @@ export function DrawArea({ sectionId }) {
         isEraser={isEraser}
         setIsEraser={setIsEraser}
         layerOpacity={layerOpacity}
+        mode={mode}
         clearStrokes={clearStrokes}
       />
       <section
