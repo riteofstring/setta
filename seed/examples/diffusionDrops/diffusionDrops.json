@@ -300,7 +300,7 @@
       "canvasSettings": {
         "layerSettings": {
           "710c9942-e271-44a2-8eb7-961c21179ee5": {
-            "opacity": 0.5,
+            "layerOpacity": 0.5,
             "brushOpacity": 0.5
           }
         },

@@ -19,5 +19,5 @@ export function newDrawAreaLocalLayerState(type) {
 }
 
 export function newLayerSettings() {
-  return { opacity: 0.5, brushOpacity: 1 };
+  return { layerOpacity: 0.5, brushOpacity: 1 };
 }

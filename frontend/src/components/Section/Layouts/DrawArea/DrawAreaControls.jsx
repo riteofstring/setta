@@ -8,6 +8,7 @@ import { useSectionInfos } from "state/definitions";
 
 export function DrawAreaControls({
   sectionId,
+  activeLayerId,
   color,
   brushOpacity,
   brushSize,

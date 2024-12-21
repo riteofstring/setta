@@ -138,8 +138,7 @@ export function DrawOnImage({ sectionId }) {
     if (!activeLayerId) {
       return;
     }
-    const { opacity: layerOpacity, brushOpacity } =
-      layerSettings[activeLayerId];
+    const { layerOpacity, brushOpacity } = layerSettings[activeLayerId];
     setDraftCanvasProperties({
       draftCanvasRef,
       color,
@@ -261,6 +260,7 @@ export function DrawOnImage({ sectionId }) {
     <>
       <DrawAreaControls
         sectionId={sectionId}
+        activeLayerId={activeLayerId}
         color={color}
         brushOpacity={layerSettings[activeLayerId]?.brushOpacity ?? 1}
         brushSize={brushSize}
@@ -268,7 +268,7 @@ export function DrawOnImage({ sectionId }) {
         eraserBrushSize={eraserBrushSize}
         isEraser={isEraser}
         setIsEraser={setIsEraser}
-        layerOpacity={layerSettings[activeLayerId]?.opacity ?? 1}
+        layerOpacity={layerSettings[activeLayerId]?.layerOpacity ?? 1}
         clearStrokes={clearStrokes}
       />
       <section
@@ -405,7 +405,7 @@ function drawAllLayers({
     ) {
       continue;
     }
-    const { opacity: layerOpacity } = layerSettings[id];
+    const { layerOpacity } = layerSettings[id];
     if (layer.image?.complete) {
       const image = layer.image;
 
