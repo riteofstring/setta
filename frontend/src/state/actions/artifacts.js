@@ -1,3 +1,4 @@
+import { dataURLToBase64 } from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
 import { dbLoadArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
@@ -72,6 +73,12 @@ export function getArtifactStateForSaving() {
   for (const [key, value] of Object.entries(useArtifacts.getState())) {
     if (typeof value !== "function") {
       result[key] = value;
+    }
+  }
+
+  for (const artifact of Object.values(result)) {
+    if (artifact.type === "img" && artifact.value instanceof Image) {
+      artifact.value = dataURLToBase64(artifact.value.src);
     }
   }
 
