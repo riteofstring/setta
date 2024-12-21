@@ -54,10 +54,15 @@ export function DrawOnImage({ sectionId }) {
 
   const layerOpacity = layers[activeLayerIdx]?.layerOpacity ?? 1;
   const brushOpacity = layers[activeLayerIdx]?.brushOpacity ?? 1;
+  const currBrushStrokeArtifactId = layers[activeLayerIdx]?.artifactIds?.find(
+    (a) => artifacts[a].type === "brushStrokes",
+  );
 
+  console.log("artifacts", artifacts);
   console.log("layers", layers);
   console.log("activeLayerIdx", activeLayerIdx);
   console.log("localLayers", localLayers.current);
+  console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
 
   async function processLoadedArtifacts() {
     if (!isLoaded) {
@@ -126,7 +131,7 @@ export function DrawOnImage({ sectionId }) {
 
       if (activeLayerIdx === null) {
         state.x[sectionId].canvasSettings.activeLayerIdx =
-          localLayers.current.length;
+          localLayers.current.length - 1;
       }
     });
   }
@@ -265,7 +270,8 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function transferEverythingToRealCanvas() {
-    localLayers.current[activeLayerIdx].strokes = strokesRef.current;
+    localLayers.current[activeLayerIdx][currBrushStrokeArtifactId].strokes =
+      strokesRef.current;
     drawAllLayers({ canvasRef, tempCanvasRef, localLayers, layers });
     clearCanvas(draftCanvasRef);
   }
