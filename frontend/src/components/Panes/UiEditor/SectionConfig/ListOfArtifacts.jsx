@@ -3,7 +3,7 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
 import { dbLoadAvailableArtifacts } from "requests/artifacts";
-import { useSectionInfos } from "state/definitions";
+import { useArtifacts, useSectionInfos } from "state/definitions";
 
 const LayersList = ({
   layers,
@@ -13,6 +13,12 @@ const LayersList = ({
   onDeleteArtifact,
 }) => {
   const [hoveredLayer, setHoveredLayer] = useState(null);
+  const artifactsAlreadyInMemory = useArtifacts(
+    (x) => _.mapValues(x, (a) => ({ name: a.name })),
+    _.isEqual,
+  );
+
+  const allArtifacts = { ...availableArtifacts, ...artifactsAlreadyInMemory };
 
   const handleDragOver = (e, layerName) => {
     const layer = layers.find((l) => l.name === layerName);
@@ -74,7 +80,7 @@ const LayersList = ({
                 key={id}
                 className="group flex items-center justify-between text-sm text-gray-600 dark:text-gray-400"
               >
-                <span>{availableArtifacts[id]?.name}</span>
+                <span>{allArtifacts[id]?.name}</span>
                 <button
                   onClick={() => onDeleteArtifact(layerName, id)}
                   className="cursor-pointer p-1 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
