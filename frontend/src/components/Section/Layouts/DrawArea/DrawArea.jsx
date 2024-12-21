@@ -52,6 +52,12 @@ export function DrawOnImage({ sectionId }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
 
+  // This is hack for getting setDraftCanvasProperties to run again
+  // after processLoadedArtifacts runs.
+  // For some reason, setDraftCanvasProperties needs to run after processLoadedArtifacts,
+  // otherwise the draftCanvas doesn't get the correct strokeStyle. I don't know why though.
+  const [forceRerender, setForceRerender] = useState(false);
+
   const layerOpacity = layers[activeLayerIdx]?.layerOpacity ?? 1;
   const brushOpacity = layers[activeLayerIdx]?.brushOpacity ?? 1;
   const currBrushStrokeArtifactId = layers[activeLayerIdx]?.artifactIds?.find(
@@ -134,6 +140,8 @@ export function DrawOnImage({ sectionId }) {
           localLayers.current.length - 1;
       }
     });
+
+    setForceRerender(true);
   }
 
   useEffect(() => {
@@ -182,6 +190,7 @@ export function DrawOnImage({ sectionId }) {
       layerOpacity,
     });
     drawAllLayers({ canvasRef, tempCanvasRef, localLayers, layers });
+    setForceRerender(false);
   }, [
     isEraser,
     color,
@@ -191,6 +200,7 @@ export function DrawOnImage({ sectionId }) {
     layerOpacity,
     brushOpacity,
     Object.values(layers).map((v) => v.visible),
+    forceRerender,
   ]);
 
   useEffect(() => {
