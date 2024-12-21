@@ -391,15 +391,15 @@ function drawAllLayers({
   clearCanvas(canvasRef);
 
   const artifactState = useArtifacts.getState();
-  for (const [idx, layer] of layers.entries()) {
+  for (const layer of layers) {
     if (
       !layer.visible ||
-      (excludeLayer !== null && idx === excludeLayer) ||
-      (includeLayer !== null && idx !== includeLayer)
+      (excludeLayer !== null && layer.id === excludeLayer) ||
+      (includeLayer !== null && layer.id !== includeLayer)
     ) {
       continue;
     }
-    const { layerOpacity } = layers[idx];
+    const { layerOpacity } = layer;
     const artifactIdsToDraw = reorderIdsWithBrushStrokesLast(
       layer.artifactIds,
       artifactState,
