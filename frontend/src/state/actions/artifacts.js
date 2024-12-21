@@ -1,8 +1,7 @@
 import _ from "lodash";
 import { dbLoadArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
-import { createNewId } from "utils/idNameCreation";
-import { newArtifact, newLayer } from "utils/objs/artifact";
+import { newArtifact } from "utils/objs/artifact";
 import { addSectionInEmptySpace } from "./sections/createSections";
 
 export function updateArtifacts({ artifacts, addSection = false }) {
@@ -64,4 +63,16 @@ export function createArtifactAndUpdateSection(
   // });
 
   // sectionInfoState.x[sectionId].artifactGroupIds.push(artifactGroupId);
+}
+
+export function getArtifactStateForSaving() {
+  const result = {};
+
+  for (const [key, value] of Object.entries(useArtifacts.getState())) {
+    if (typeof value !== "function") {
+      result[key] = value;
+    }
+  }
+
+  return result;
 }

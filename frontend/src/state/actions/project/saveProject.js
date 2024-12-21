@@ -9,7 +9,6 @@ import {
 } from "requests/projects";
 import { dbSaveSettingsProject } from "requests/settings";
 import {
-  useArtifacts,
   useNodeInternals,
   useProjectConfig,
   useSectionColumnWidth,
@@ -17,6 +16,7 @@ import {
   useSettings,
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
+import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";
 import { setNotificationMessage } from "../notification";
 
@@ -39,7 +39,7 @@ export function getProjectData({
     return x;
   });
 
-  const artifacts = withArtifacts ? useArtifacts.getState() : {};
+  const artifacts = withArtifacts ? getArtifactStateForSaving() : {};
 
   console.log("saveProject artifacts", artifacts);
 
@@ -51,6 +51,7 @@ export function getProjectData({
       children: x.children.filter((c) => c in sections),
     }),
   );
+  const artifactGroups = useSectionInfos.getState().artifactGroups;
   const uiTypes = _.pickBy(
     useSectionInfos.getState().uiTypes,
     (u) => u.presetType !== C.PRESET_UI_TYPE_BASE,
@@ -81,6 +82,7 @@ export function getProjectData({
     projectConfig,
     sectionVariants,
     artifacts,
+    artifactGroups,
     uiTypes,
     uiTypeCols,
     sections,
