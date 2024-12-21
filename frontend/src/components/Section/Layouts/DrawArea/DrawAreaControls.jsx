@@ -9,7 +9,7 @@ import { TfiLayersAlt } from "react-icons/tfi";
 import { maybeCreateArtifactAndUpdateSection } from "state/actions/artifacts";
 import { useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
-import { newLayerSettings } from "utils/objs/artifact";
+import { newLayer } from "utils/objs/artifact";
 
 export function DrawAreaControls({
   sectionId,
@@ -53,9 +53,7 @@ export function DrawAreaControls({
     useSectionInfos.setState((state) => {
       const canvasSettings = state.x[sectionId].canvasSettings;
       const artifactId = createNewId();
-      canvasSettings.layers.push(
-        newLayerSettings({ artifactIds: [artifactId] }),
-      );
+      canvasSettings.layers.push(newLayer({ artifactIds: [artifactId] }));
       maybeCreateArtifactAndUpdateSection(
         sectionId,
         artifactId,
@@ -411,7 +409,7 @@ function LayerList({
     <ul className="space-y-2">
       {layers.map((layer, idx) => (
         <li
-          key={idx}
+          key={layer.name}
           draggable={true}
           onDragStart={(e) => handleDragStart(e, idx)}
           onDragOver={(e) => handleDragOver(e, idx)}
@@ -442,7 +440,7 @@ function LayerList({
                 //   handleDoubleClick(id, artifactIdsToNames[id])
                 // }
               >
-                {`Layer ${idx}`}
+                {layer.name}
               </span>
             )}
           </div>

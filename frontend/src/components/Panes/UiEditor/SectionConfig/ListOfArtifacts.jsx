@@ -1,13 +1,16 @@
 import * as Accordion from "@radix-ui/react-accordion";
+import _ from "lodash";
 import { useEffect, useState } from "react";
 import { FiChevronDown } from "react-icons/fi";
 import { dbLoadAvailableArtifacts } from "requests/artifacts";
-import { useSectionInfos } from "state/definitions";
+import { useArtifacts, useSectionInfos } from "state/definitions";
+import useDeepCompareEffect from "use-deep-compare-effect";
 
 export function ListOfArtifacts({ sectionId, sectionTypeName }) {
   const [availableArtifacts, setAvailableArtifacts] = useState({});
   const selectedArtifactIds = useSectionInfos(
     (x) => x.x[sectionId].artifactIds,
+    _.isEqual,
   );
   const [loadedDetails, setLoadedDetails] = useState({});
 
@@ -15,12 +18,25 @@ export function ListOfArtifacts({ sectionId, sectionTypeName }) {
     async function fn() {
       const res = await dbLoadAvailableArtifacts(sectionTypeName);
       if (res.status == 200) {
-        setAvailableArtifacts(res.data);
+        // the selectedArtifactIds hook below finishes before this,
+        // so we merge with the existing state rather than replace
+        setAvailableArtifacts((state) => ({ ...state, ...res.data }));
       }
     }
 
     fn();
   }, []);
+
+  useDeepCompareEffect(() => {
+    const newState = _.cloneDeep(availableArtifacts);
+    for (const id of selectedArtifactIds) {
+      if (!(id in availableArtifacts)) {
+        const { name, type, path } = useArtifacts.getState().x[id];
+        newState[id] = { name, type, path };
+      }
+    }
+    setAvailableArtifacts(newState);
+  }, [selectedArtifactIds]);
 
   const handleCheckboxChange = (e, artifactId) => {
     console.log("e.target.checked", e.target.checked);

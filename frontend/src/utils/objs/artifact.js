@@ -26,8 +26,9 @@ export function newDrawAreaLocalLayerArtifactData(type) {
   }
 }
 
-export function newLayerSettings(props) {
+export function newLayer({ name, ...props }) {
   return {
+    name: name ?? createRandomName(),
     artifactIds: [],
     visible: true,
     layerOpacity: 0.5,
