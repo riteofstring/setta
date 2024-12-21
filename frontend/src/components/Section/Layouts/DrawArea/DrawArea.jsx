@@ -53,25 +53,6 @@ export function DrawOnImage({ sectionId }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
 
-  function setColor(v) {
-    setCanvasSettings(sectionId, "color", v);
-  }
-  function setBrushOpacity(v) {
-    setLayerSettings(sectionId, activeLayerId, "brushOpacity", v);
-  }
-  function setBrushSize(v) {
-    setCanvasSettings(sectionId, "brushSize", v);
-  }
-  function setBrushShape(v) {
-    setCanvasSettings(sectionId, "brushShape", v);
-  }
-  function setLayerOpacity(v) {
-    setLayerSettings(sectionId, activeLayerId, "opacity", v);
-  }
-  function setEraserBrushSize(v) {
-    setCanvasSettings(sectionId, "eraserBrushSize", v);
-  }
-
   function setDraftCanvasProperties() {
     if (!activeLayerId) {
       return;
@@ -129,34 +110,7 @@ export function DrawOnImage({ sectionId }) {
     draftCanvas.width = canvasSize.width;
     draftCanvas.height = canvasSize.height;
 
-    drawAllLayers(latestLayerSettings);
-  }
-
-  function drawAllLayers(latestLayerSettings = layerSettings) {
-    const [canvas, ctx] = getCanvasAndCtx(canvasRef);
-    clearCanvas(canvasRef);
-
-    for (const [id, layer] of Object.entries(layers.current)) {
-      if (!(id in latestLayerSettings)) {
-        continue;
-      }
-      const { opacity: layerOpacity } = latestLayerSettings[id];
-      if (layer.image?.complete) {
-        const image = layer.image;
-
-        const scale = Math.min(
-          canvas.width / image.width,
-          canvas.height / image.height,
-        );
-        const x = canvas.width / 2 - (image.width / 2) * scale;
-        const y = canvas.height / 2 - (image.height / 2) * scale;
-
-        ctx.globalAlpha = layerOpacity;
-        ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
-      } else if (layer.strokes?.length > 0) {
-        drawStrokes(canvasRef, tempCanvasRef, layer.strokes, layerOpacity);
-      }
-    }
+    drawAllLayers(canvasRef, tempCanvasRef, layers, latestLayerSettings);
   }
 
   async function processLoadedArtifacts() {
@@ -310,7 +264,7 @@ export function DrawOnImage({ sectionId }) {
     setIsDrawing(false);
     if (!isEraser) {
       layers.current[activeLayerId].strokes = strokesRef.current;
-      drawAllLayers();
+      drawAllLayers(canvasRef, tempCanvasRef, layers, layerSettings);
       clearCanvas(draftCanvasRef);
     }
     // debouncedSetBrushStrokesArtifact(
@@ -401,19 +355,13 @@ export function DrawOnImage({ sectionId }) {
       <DrawAreaControls
         sectionId={sectionId}
         color={color}
-        setColor={setColor}
         brushOpacity={layerSettings[activeLayerId]?.brushOpacity ?? 1}
-        setBrushOpacity={setBrushOpacity}
         brushSize={brushSize}
-        setBrushSize={setBrushSize}
         brushShape={brushShape}
-        setBrushShape={setBrushShape}
         eraserBrushSize={eraserBrushSize}
-        setEraserBrushSize={setEraserBrushSize}
         isEraser={isEraser}
         setIsEraser={setIsEraser}
         layerOpacity={layerSettings[activeLayerId]?.opacity ?? 1}
-        setLayerOpacity={setLayerOpacity}
         clearStrokes={clearStrokes}
       />
       <section
@@ -510,6 +458,33 @@ function exportImageToBase64(image, width, height) {
   return canvasToBase64(tempCanvas);
 }
 
+function drawAllLayers(canvasRef, tempCanvasRef, layers, latestLayerSettings) {
+  const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+  clearCanvas(canvasRef);
+
+  for (const [id, layer] of Object.entries(layers.current)) {
+    if (!(id in latestLayerSettings)) {
+      continue;
+    }
+    const { opacity: layerOpacity } = latestLayerSettings[id];
+    if (layer.image?.complete) {
+      const image = layer.image;
+
+      const scale = Math.min(
+        canvas.width / image.width,
+        canvas.height / image.height,
+      );
+      const x = canvas.width / 2 - (image.width / 2) * scale;
+      const y = canvas.height / 2 - (image.height / 2) * scale;
+
+      ctx.globalAlpha = layerOpacity;
+      ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
+    } else if (layer.strokes?.length > 0) {
+      drawStrokes(canvasRef, tempCanvasRef, layer.strokes, layerOpacity);
+    }
+  }
+}
+
 function drawStrokes(canvasRef, tempCanvasRef, strokes, layerOpacity) {
   console.log("drawStrokes", strokes);
   const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
@@ -560,18 +535,6 @@ const debouncedSendDrawingToInteractiveTasks = _.debounce(
   },
   500,
 );
-
-function setCanvasSettings(sectionId, attr, value) {
-  useSectionInfos.setState((x) => {
-    x.x[sectionId].canvasSettings[attr] = value;
-  });
-}
-
-function setLayerSettings(sectionId, activeLayerId, attr, value) {
-  useSectionInfos.setState((x) => {
-    x.x[sectionId].canvasSettings.layerSettings[activeLayerId][attr] = value;
-  });
-}
 
 function hexToRGBA(_hex, opacity) {
   // Remove # if present

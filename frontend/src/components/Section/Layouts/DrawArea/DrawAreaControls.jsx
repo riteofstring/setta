@@ -9,21 +9,34 @@ import { useSectionInfos } from "state/definitions";
 export function DrawAreaControls({
   sectionId,
   color,
-  setColor,
   brushOpacity,
-  setBrushOpacity,
   brushSize,
-  setBrushSize,
   brushShape,
-  setBrushShape,
   eraserBrushSize,
-  setEraserBrushSize,
   isEraser,
   setIsEraser,
   layerOpacity,
-  setLayerOpacity,
   clearStrokes,
 }) {
+  function setColor(v) {
+    setCanvasSettings(sectionId, "color", v);
+  }
+  function setBrushOpacity(v) {
+    setLayerSettings(sectionId, activeLayerId, "brushOpacity", v);
+  }
+  function setBrushSize(v) {
+    setCanvasSettings(sectionId, "brushSize", v);
+  }
+  function setBrushShape(v) {
+    setCanvasSettings(sectionId, "brushShape", v);
+  }
+  function setLayerOpacity(v) {
+    setLayerSettings(sectionId, activeLayerId, "opacity", v);
+  }
+  function setEraserBrushSize(v) {
+    setCanvasSettings(sectionId, "eraserBrushSize", v);
+  }
+
   return (
     <div className="section-search section-w-full z-10 flex  flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 [&_.colorpicker]:!max-h-6 [&_.colorpicker]:max-w-24 ">
       <DrawAreaColorPicker
@@ -288,4 +301,16 @@ function LayerSettings({ opacity, setOpacity }) {
       />
     </div>
   );
+}
+
+function setCanvasSettings(sectionId, attr, value) {
+  useSectionInfos.setState((x) => {
+    x.x[sectionId].canvasSettings[attr] = value;
+  });
+}
+
+function setLayerSettings(sectionId, activeLayerId, attr, value) {
+  useSectionInfos.setState((x) => {
+    x.x[sectionId].canvasSettings.layerSettings[activeLayerId][attr] = value;
+  });
 }
