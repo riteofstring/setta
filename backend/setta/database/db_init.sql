@@ -192,11 +192,20 @@ CREATE TABLE IF NOT EXISTS Artifact (
     value TEXT,
     type TEXT
 );
-CREATE TABLE IF NOT EXISTS SectionArtifacts (
-    sectionId TEXT,
+CREATE TABLE IF NOT EXISTS ArtifactGroupId (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    data TEXT,
+    originSectionId TEXT,
+    FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
+
+);
+CREATE TABLE IF NOT EXISTS ArtifactGroup (
+    idid TEXT,
     artifactId TEXT,
-    PRIMARY KEY (sectionId, artifactId),
-    FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
+    "order", INTEGER,
+    PRIMARY KEY (idid, artifactId),
+    FOREIGN KEY (idid) REFERENCES ArtifactGroupId(id) ON DELETE CASCADE,
     FOREIGN KEY (artifactId) REFERENCES Artifact(id) ON DELETE CASCADE
 );
 

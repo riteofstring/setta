@@ -101,19 +101,19 @@ def save_sections(db, sections, section_variants):
     )
 
     query = f"""
-        DELETE FROM SectionArtifacts
-        WHERE sectionId IN ({placeholders});
+        UPDATE ArtifactGroupId
+        SET originSectionId = null
+        WHERE originSectionId IN ({placeholders})
     """
     db.execute(query, ids)
 
-    # add children
     query = """
-        INSERT INTO SectionArtifacts (sectionId, artifactId)
-        VALUES (:sectionId, :artifactId)
+        UPDATE ArtifactGroupId
+        SET originSectionId = :sectionId
+        WHERE id = :artifactId
     """
-    query_params = []
     for s in sections.values():
-        for a in s["artifactIds"]:
+        for a in s["artifactGroupIds"]:
             query_params.append(
                 {
                     "sectionId": s["id"],

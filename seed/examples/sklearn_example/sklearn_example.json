@@ -585,5 +585,6 @@
       }
     }
   },
-  "artifacts": {}
+  "artifacts": {},
+  "artifactGroups": {}
 }

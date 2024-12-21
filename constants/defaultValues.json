@@ -15,7 +15,7 @@
     "uiTypeId": null,
     "uiTypeColId": null,
     "social": "",
-    "artifactIds": [],
+    "artifactGroupIds": [],
     "defaultVariantId": null,
     "variantIds": [],
     "paramSweepSectionId": null,
@@ -31,7 +31,6 @@
     "pinnedAreaHeight": "auto",
     "isMinimized": false,
     "canvasSettings": {
-      "layers": [],
       "activeLayerIdx": 0,
       "color": "#ff0000",
       "brushSize": 16,

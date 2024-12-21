@@ -1,6 +1,7 @@
 import json
 
 from setta.utils.constants import DEFAULT_VALUES
+from setta.utils.utils import filter_dict
 
 
 def save_artifacts(db, artifacts):
@@ -30,5 +31,53 @@ def save_artifacts(db, artifacts):
                 "type": data["type"],
             }
         )
+
+    db.executemany(query, query_params)
+
+
+def save_artifact_groups(db, artifact_groups):
+    query = """
+        INSERT INTO ArtifactGroupId (id, name, data)
+        VALUES (:id, :name, :data)
+        ON CONFLICT (id)
+        DO UPDATE SET
+        name = :name,
+        data = :data
+    """
+    query_params = []
+    for k, group in artifact_groups.items():
+        data_keys = group.keys() - {"name", "artifactIds"}
+        query_params.append(
+            {
+                "id": k,
+                "name": group["name"],
+                "data": json.dumps(filter_dict(group, data_keys)),
+            }
+        )
+    db.executemany(query, query_params)
+
+    placeholders = ", ".join(["?"] * len(artifact_groups))
+    query = f"""
+        DELETE FROM ArtifactGroup
+        WHERE idid IN ({placeholders})
+    """
+    query_params = list(artifact_groups.keys())
+    db.execute(query, query_params)
+
+    query = """
+        INSERT INTO ArtifactGroup (idid, artifactId, "order")
+        VALUES (:idid, :artifactId, :order)
+    """
+
+    query_params = []
+    for id, group in artifact_groups.items():
+        for order, artifactId in enumerate(group["artifactIds"]):
+            query_params.append(
+                {
+                    "idid": id,
+                    "artifactId": artifactId,
+                    "order": order,
+                }
+            )
 
     db.executemany(query, query_params)

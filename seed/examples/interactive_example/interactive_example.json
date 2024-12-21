@@ -168,7 +168,7 @@
         "height": 224
       },
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
-      "artifactIds": ["a3fd9568-30c4-405e-b5a2-0688754a7725"],
+      "artifactGroupIds": ["de152d3f-fcd2-4ca2-8a45-63e88f3297ec"],
       "variantIds": ["61ce0033-a59e-4c8e-8a52-d658feb18017"],
       "aspectRatioExtraHeight": 24,
       "aspectRatio": 1,
@@ -192,7 +192,7 @@
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
-      "artifactIds": ["c2d2ec99-e524-4f39-952a-9ac3713339b6"],
+      "artifactGroupIds": ["5698c0e0-26be-4aef-b971-281e09933b3d"],
       "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
       "name": "institutional_fuchsia",
       "variantId": "efbf1e64-8932-4fa6-928a-e930314db45c",
@@ -241,6 +241,16 @@
       "name": "fancy graph",
       "path": "seed/examples/interactive_example/losses.csv",
       "type": "list"
+    }
+  },
+  "artifactGroups": {
+    "de152d3f-fcd2-4ca2-8a45-63e88f3297ec": {
+      "name": "blah",
+      "artifactIds": ["a3fd9568-30c4-405e-b5a2-0688754a7725"]
+    },
+    "5698c0e0-26be-4aef-b971-281e09933b3d": {
+      "name": "blah2",
+      "artifactIds": ["c2d2ec99-e524-4f39-952a-9ac3713339b6"]
     }
   }
 }

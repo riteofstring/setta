@@ -2,7 +2,7 @@ import json
 from collections import defaultdict
 
 from setta.code_gen.export_selected import get_section_variants
-from setta.database.db.artifacts.save import save_artifacts
+from setta.database.db.artifacts.save import save_artifact_groups, save_artifacts
 from setta.database.db.evRefs.save import save_ev_refs
 from setta.database.utils import create_new_id
 from setta.utils.constants import (
@@ -25,6 +25,7 @@ def save_project_details(db, p):
     save_json_source_data(p)
     remove_json_source_data(p)
     save_artifacts(db, p["artifacts"])
+    save_artifact_groups(db, p["artifactGroups"])
     save_code_info(db, p["codeInfo"])
     save_code_info_col(db, p["codeInfoCols"])
     save_ui_types(db, p["uiTypes"])

@@ -21,6 +21,7 @@ class SendArtifactRequest(BaseModel):
 class LoadArtifactsRequest(BaseModel):
     artifactIds: List[str]
 
+
 class LoadAvailableArtifactsRequest(BaseModel):
     sectionType: str
 
@@ -48,6 +49,8 @@ def route_load_artifacts(x: LoadArtifactsRequest, dbq=Depends(get_dbq)):
 
 
 @router.post(C.ROUTE_LOAD_AVAILABLE_ARTIFACTS)
-def route_load_available_artifacts(x: LoadAvailableArtifactsRequest, dbq=Depends(get_dbq)):
+def route_load_available_artifacts(
+    x: LoadAvailableArtifactsRequest, dbq=Depends(get_dbq)
+):
     with dbq as db:
         return load_available_artifacts(db, x.sectionType)

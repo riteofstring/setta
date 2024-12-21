@@ -518,5 +518,6 @@
       }
     }
   },
-  "artifacts": {}
+  "artifacts": {},
+  "artifactGroups": {}
 }

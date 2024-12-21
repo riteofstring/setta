@@ -298,24 +298,9 @@
       },
       "id": "56f3ff00-5aa3-4251-9720-d210908bc0b8",
       "canvasSettings": {
-        "layers": [
-          {
-            "name": "kevin's face",
-            "artifactIds": [
-              "710c9942-e271-44a2-8eb7-961c21179ee5",
-              "68da2499-10b8-4dd7-9375-a37b8f5f56ed"
-            ],
-            "visible": true,
-            "layerOpacity": 0.5,
-            "brushOpacity": 0.5
-          }
-        ],
         "color": "#00ff00"
       },
-      "artifactIds": [
-        "710c9942-e271-44a2-8eb7-961c21179ee5",
-        "68da2499-10b8-4dd7-9375-a37b8f5f56ed"
-      ],
+      "artifactGroupIds": ["b377ed92-f168-43dd-8b7d-2f8c3c38316d"],
       "variantIds": ["380a6d0c-a96e-48f1-b431-074c7e98eed9"],
       "aspectRatioExtraHeight": 120,
       "aspectRatio": 1,
@@ -869,6 +854,18 @@
       "name": "beautiful painting",
       "type": "brushStrokes",
       "value": []
+    }
+  },
+  "artifactGroups": {
+    "b377ed92-f168-43dd-8b7d-2f8c3c38316d": {
+      "name": "kevin's face",
+      "artifactIds": [
+        "710c9942-e271-44a2-8eb7-961c21179ee5",
+        "68da2499-10b8-4dd7-9375-a37b8f5f56ed"
+      ],
+      "visible": true,
+      "layerOpacity": 0.5,
+      "brushOpacity": 0.5
     }
   }
 }
