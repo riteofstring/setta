@@ -6,11 +6,10 @@ import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
 import { FaBars, FaEye, FaEyeSlash, FaPencilAlt } from "react-icons/fa";
 import { TfiLayersAlt } from "react-icons/tfi";
-import { useArtifacts, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 
 export function DrawAreaControls({
   sectionId,
-  localLayers,
   layers,
   activeLayerIdx,
   color,
@@ -44,7 +43,7 @@ export function DrawAreaControls({
   function setLayerVisibility(layerId, v) {
     setLayerSettings(sectionId, layerId, "visible", v);
   }
-  function setActiveLayerId(v) {
+  function setActiveLayerIdx(v) {
     setCanvasSettings(sectionId, "activeLayerIdx", v);
   }
 
@@ -135,13 +134,12 @@ export function DrawAreaControls({
         }
         header={"Layer Selection"}
       >
-        {/* <LayerList
-          localLayers={localLayers}
+        <LayerList
           layers={layers}
           activeLayerIdx={activeLayerIdx}
-          setActiveLayerId={setActiveLayerId}
+          setActiveLayerIdx={setActiveLayerIdx}
           setLayerVisibility={setLayerVisibility}
-        /> */}
+        />
       </StandardPopover>
 
       <button
@@ -335,7 +333,6 @@ function LayerSettings({ opacity, setOpacity }) {
 }
 
 function LayerList({
-  localLayers,
   layers,
   activeLayerIdx,
   setActiveLayerId,
@@ -343,121 +340,109 @@ function LayerList({
   onNameChange,
   onReorder,
 }) {
-  const artifactIdsToNames = useArtifacts(
-    (x) => _.mapValues(x.x, (a) => a.name),
-    _.isEqual,
-  );
-  const [editingId, setEditingId] = useState(null);
+  const [editingIdx, setEditingIdx] = useState(null);
   const [editValue, setEditValue] = useState("");
-  const [draggedOverId, setDraggedOverId] = useState(null);
+  const [draggedOverIdx, setDraggedOverIdx] = useState(null);
 
-  if (!localLayers || typeof localLayers !== "object") {
-    return <div>No localLayers provided</div>;
-  }
-
-  const handleDoubleClick = (id, name) => {
-    setEditingId(id);
+  const handleDoubleClick = (idx, name) => {
+    setEditingIdx(idx);
     setEditValue(name);
   };
 
-  const handleKeyDown = (e, id) => {
+  const handleKeyDown = (e, idx) => {
     if (e.key === "Enter") {
-      onNameChange(id, editValue);
-      setEditingId(null);
+      onNameChange(idx, editValue);
+      setEditingIdx(null);
     } else if (e.key === "Escape") {
-      setEditingId(null);
+      setEditingIdx(null);
     }
   };
 
-  const handleBlur = (id) => {
-    onNameChange(id, editValue);
-    setEditingId(null);
+  const handleBlur = (idx) => {
+    onNameChange(idx, editValue);
+    setEditingIdx(null);
   };
 
-  const handleDragStart = (e, id) => {
-    e.dataTransfer.setData("text/plain", id);
+  const handleDragStart = (e, idx) => {
+    e.dataTransfer.setData("text/plain", idx);
   };
 
-  const handleDragOver = (e, id) => {
+  const handleDragOver = (e, idx) => {
     e.preventDefault();
-    setDraggedOverId(id);
+    setDraggedOverIdx(idx);
   };
 
   const handleDragLeave = () => {
-    setDraggedOverId(null);
+    setDraggedOverIdx(null);
   };
 
-  const handleDrop = (e, targetId) => {
+  const handleDrop = (e, targetIdx) => {
     e.preventDefault();
-    const draggedId = e.dataTransfer.getData("text/plain");
-    setDraggedOverId(null);
+    const draggedIdx = e.dataTransfer.getData("text/plain");
+    setDraggedOverIdx(null);
 
-    if (draggedId === targetId) return;
-
-    const layerIds = Object.keys(localLayers);
-    const fromIndex = layerIds.indexOf(draggedId);
-    const toIndex = layerIds.indexOf(targetId);
-
-    onReorder(fromIndex, toIndex);
+    if (draggedIdx !== targetIdx) {
+      onReorder(draggedIdx, targetIdx);
+    }
   };
 
   return (
     <ul className="space-y-2">
-      {Object.entries(localLayers).map(([id, layer]) => (
+      {layers.map((layer, idx) => (
         <li
-          key={id}
+          key={idx}
           draggable={true}
-          onDragStart={(e) => handleDragStart(e, id)}
-          onDragOver={(e) => handleDragOver(e, id)}
+          onDragStart={(e) => handleDragStart(e, idx)}
+          onDragOver={(e) => handleDragOver(e, idx)}
           onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, id)}
+          onDrop={(e) => handleDrop(e, idx)}
           className={`flex items-center justify-between rounded bg-gray-50 p-2 hover:bg-gray-100 ${
-            draggedOverId === id ? "border-t-2 border-blue-500" : ""
+            draggedOverIdx === idx ? "border-t-2 border-blue-500" : ""
           }`}
         >
           <div className="flex flex-1 items-center">
             <div className="mr-2 cursor-move text-gray-400 hover:text-gray-600">
               <FaBars className="h-4 w-4" />
             </div>
-            {editingId === id ? (
+            {editingIdx === idx ? (
               <input
                 type="text"
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, id)}
-                onBlur={() => handleBlur(id)}
+                onKeyDown={(e) => handleKeyDown(e, idx)}
+                onBlur={() => handleBlur(idx)}
                 className="rounded border px-1 text-sm focus:border-blue-500 focus:outline-none"
                 autoFocus
               />
             ) : (
               <span
                 className="text-sm"
-                onDoubleClick={() =>
-                  handleDoubleClick(id, artifactIdsToNames[id])
-                }
+                // onDoubleClick={() =>
+                //   handleDoubleClick(id, artifactIdsToNames[id])
+                // }
               >
-                {artifactIdsToNames[id]}
+                {`Layer ${idx}`}
               </span>
             )}
           </div>
           <div className="flex items-center space-x-2">
             <div
-              onClick={() => setLayerVisibility(id, !layers[id].visible)}
+              onClick={() => setLayerVisibility(idx, !layers[idx].visible)}
               className="cursor-pointer"
             >
-              {layers[id].visible ? (
+              {layers[idx].visible ? (
                 <FaEye className="h-4 w-4 text-blue-500" />
               ) : (
                 <FaEyeSlash className="h-4 w-4 text-gray-400" />
               )}
             </div>
             <div
-              onClick={() => setActiveLayerId(id)}
+              onClick={() => setActiveLayerId(idx)}
               className="cursor-pointer"
             >
               <FaPencilAlt
                 className={`h-4 w-4 ${
-                  activeLayerIdx === id
+                  activeLayerIdx === idx
                     ? "text-green-500"
                     : "text-gray-300 hover:text-gray-400"
                 }`}

@@ -341,7 +341,6 @@ export function DrawOnImage({ sectionId }) {
     <>
       <DrawAreaControls
         sectionId={sectionId}
-        localLayers={localLayers.current}
         layers={layers}
         activeLayerIdx={activeLayerIdx}
         color={color}
