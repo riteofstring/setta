@@ -6,7 +6,7 @@ import { useSectionInfos } from "state/definitions";
 import { getIsYouTubeSection } from "state/hooks/social";
 import { SectionHeader } from "../Header/SectionHeader";
 import { CodeArea } from "../Layouts/CodeArea";
-import { DrawOnImage } from "../Layouts/DrawArea";
+import { DrawOnImage } from "../Layouts/DrawArea/DrawArea";
 import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { IframeArea } from "../Layouts/IframeArea";
