@@ -132,12 +132,12 @@ export function DrawOnImage({ sectionId }) {
     draftCanvas.width = canvasSize.width;
     draftCanvas.height = canvasSize.height;
 
-    drawAllLayers(latestLayerSettings);
+    drawAllLayers(canvasRef, latestLayerSettings);
   }
 
-  function drawAllLayers(latestLayerSettings = layerSettings) {
+  function drawAllLayers(canvasRef, latestLayerSettings = layerSettings) {
     const [canvas, ctx] = getCanvasAndCtx(canvasRef);
-    clearCanvas(canvasRef);
+    clearAllCanvases();
 
     for (const [id, layer] of Object.entries(layers.current)) {
       if (!(id in latestLayerSettings)) {
@@ -236,6 +236,7 @@ export function DrawOnImage({ sectionId }) {
 
   function startNewStroke(firstPoint) {
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
+    drawAllLayers(draftCanvasRef);
     strokesRef.current.push({
       strokeStyle: dCtx.strokeStyle,
       lineWidth: dCtx.lineWidth,
@@ -313,7 +314,7 @@ export function DrawOnImage({ sectionId }) {
     setIsDrawing(false);
     if (!isEraser) {
       layers.current[activeLayerId].strokes = strokesRef.current;
-      drawAllLayers();
+      drawAllLayers(canvasRef);
       clearCanvas(draftCanvasRef);
     }
     // debouncedSetBrushStrokesArtifact(
@@ -334,6 +335,12 @@ export function DrawOnImage({ sectionId }) {
       const offsetY = (e.clientY - rect.top) / zoom;
       onMouseDown(e, offsetX, offsetY);
     }
+  }
+
+  function clearAllCanvases(){
+    clearCanvas(canvasRef)
+    clearCanvas(draftCanvasRef)
+    clearCanvas(tempCanvasRef)
   }
 
   function clearStrokes() {
