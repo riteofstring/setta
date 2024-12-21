@@ -242,66 +242,63 @@ export function useImgArtifactAreaSize(sectionId, base64String) {
   return imgSize !== null;
 }
 
-export function setDrawAreaSectionSize({
-  sectionId,
-  imgSize,
-  isNewImg,
-  state,
-}) {
+export function setDrawAreaSectionSize({ sectionId, imgSize, isNewImg }) {
   let canvasSize = {};
   const extraHeight = 120;
   const extraWidth = 24;
 
-  const { width, height } = state.x[sectionId].size;
-  if (imgSize) {
-    if (width === "auto" || height === "auto" || isNewImg) {
-      const sectionType = C.DRAW;
-      const minHeight = getMinSectionHeight({ sectionType });
-      const minWidth = getMinSectionWidth({ sectionType });
-      canvasSize = adjustSizeToBeAtLeastMin(
-        imgSize.height,
-        imgSize.width,
-        minHeight - extraHeight,
-        minWidth - extraWidth,
-      );
-      setSectionSize(
-        sectionId,
-        {
-          width: canvasSize.width + extraWidth,
-          height: canvasSize.height + extraHeight,
-        },
-        state,
-      );
-    } else {
-      canvasSize.width = width - extraWidth;
-      canvasSize.height = height - extraHeight;
-    }
+  useSectionInfos.setState((state) => {
+    const { width, height } = state.x[sectionId].size;
+    if (imgSize) {
+      if (width === "auto" || height === "auto" || isNewImg) {
+        const sectionType = C.DRAW;
+        const minHeight = getMinSectionHeight({ sectionType });
+        const minWidth = getMinSectionWidth({ sectionType });
+        canvasSize = adjustSizeToBeAtLeastMin(
+          imgSize.height,
+          imgSize.width,
+          minHeight - extraHeight,
+          minWidth - extraWidth,
+        );
+        setSectionSize(
+          sectionId,
+          {
+            width: canvasSize.width + extraWidth,
+            height: canvasSize.height + extraHeight,
+          },
+          state,
+        );
+      } else {
+        canvasSize.width = width - extraWidth;
+        canvasSize.height = height - extraHeight;
+      }
 
-    if (isNewImg) {
-      setAspectRatioInfo({
-        sectionId,
-        aspectRatio: imgSize.width / imgSize.height,
-        aspectRatioExtraHeight: extraHeight,
-        aspectRatioExtraWidth: extraWidth,
-        state,
-      });
+      if (isNewImg) {
+        setAspectRatioInfo({
+          sectionId,
+          aspectRatio: imgSize.width / imgSize.height,
+          aspectRatioExtraHeight: extraHeight,
+          aspectRatioExtraWidth: extraWidth,
+          state,
+        });
+      }
+    } else {
+      const [defaultWidth, defaultHeight] = [500, 500];
+      canvasSize.width = width === "auto" ? defaultWidth : width - extraWidth;
+      canvasSize.height =
+        height === "auto" ? defaultHeight : height - extraHeight;
+      if (width === "auto" || height === "auto") {
+        setSectionSize(
+          sectionId,
+          {
+            width: canvasSize.width + extraWidth,
+            height: canvasSize.height + extraHeight,
+          },
+          state,
+        );
+      }
     }
-  } else {
-    const [defaultWidth, defaultHeight] = [500, 500];
-    canvasSize.width = width === "auto" ? defaultWidth : width - extraWidth;
-    canvasSize.height =
-      height === "auto" ? defaultHeight : height - extraHeight;
-    if (width === "auto" || height === "auto") {
-      setSectionSize(
-        sectionId,
-        {
-          width: canvasSize.width + extraWidth,
-          height: canvasSize.height + extraHeight,
-        },
-        state,
-      );
-    }
-  }
+  });
 
   return canvasSize;
 }
