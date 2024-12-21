@@ -152,27 +152,6 @@ export function DrawOnImage({ sectionId }) {
     });
   }, [isEraser, color, brushSize, eraserBrushSize, brushShape, activeLayerId]);
 
-  function startNewStroke(firstPoint) {
-    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
-    strokesRef.current.push({
-      strokeStyle: dCtx.strokeStyle,
-      lineWidth: dCtx.lineWidth,
-      lineCap: dCtx.lineCap,
-      points: [firstPoint],
-      canvasHeight: draftCanvas.height,
-      canvasWidth: draftCanvas.width,
-      globalCompositeOperation: dCtx.globalCompositeOperation,
-    });
-  }
-
-  function drawDraftStroke(from, to) {
-    const ctx = getCtx(draftCanvasRef);
-    ctx.beginPath();
-    ctx.moveTo(from[0], from[1]);
-    ctx.lineTo(to[0], to[1]);
-    ctx.stroke();
-  }
-
   function onMouseDown(e, offsetX, offsetY) {
     if (useMisc.getState().mouseDownDraggingSection) {
       return;
@@ -195,8 +174,8 @@ export function DrawOnImage({ sectionId }) {
     } else {
       point = getXY(e);
     }
-    startNewStroke(point);
-    drawDraftStroke(point, point);
+    startNewStroke(draftCanvasRef, strokesRef, point);
+    drawStroke(draftCanvasRef, point, point);
     prevPointRef.current = point;
   }
 
@@ -206,22 +185,9 @@ export function DrawOnImage({ sectionId }) {
     }
     const point = getXY(e);
     const currStroke = strokesRef.current[strokesRef.current.length - 1];
-    // if (!isEraser && currStroke.points.length >= 10000) {
-    //   console.log("strokesRef.current)", strokesRef.current);
-    //   drawStrokes(
-    //     canvasRef,
-    //     tempCanvasRef,
-    //     strokesRef.current,
-    //     layerSettings[activeLayerId].opacity,
-    //   );
-    //   clearCanvas(draftCanvasRef);
-    //   startNewStroke(point);
-    //   prevPointRef.current = point;
-    // } else {
-    drawDraftStroke(prevPointRef.current, point);
+    drawStroke(draftCanvasRef, prevPointRef.current, point);
     currStroke.points.push(point);
     prevPointRef.current = point;
-    // }
   }
 
   function onMouseUp() {
@@ -256,13 +222,18 @@ export function DrawOnImage({ sectionId }) {
 
   function clearStrokes() {
     strokesRef.current = [];
-    clearCanvas(canvasRef);
-    clearCanvas(draftCanvasRef);
+    clearAllCanvases();
     debouncedSetBrushStrokesArtifact(
       sectionId,
       strokesArtifactId,
       strokesRef.current,
     );
+  }
+
+  function clearAllCanvases() {
+    clearCanvas(canvasRef);
+    clearCanvas(tempCanvasRef);
+    clearCanvas(draftCanvasRef);
   }
 
   const { getRootProps, isDragActive } = useImageLoadViaDropzone(sectionId);
@@ -428,11 +399,23 @@ function drawAllLayers(canvasRef, tempCanvasRef, layers, latestLayerSettings) {
   }
 }
 
+function startNewStroke(draftCanvasRef, strokesRef, firstPoint) {
+  const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
+  strokesRef.current.push({
+    strokeStyle: dCtx.strokeStyle,
+    lineWidth: dCtx.lineWidth,
+    lineCap: dCtx.lineCap,
+    points: [firstPoint],
+    canvasHeight: draftCanvas.height,
+    canvasWidth: draftCanvas.width,
+    globalCompositeOperation: dCtx.globalCompositeOperation,
+  });
+}
+
 function drawStrokes(canvasRef, tempCanvasRef, strokes, layerOpacity) {
-  console.log("drawStrokes", strokes);
   const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
   strokes.forEach((stroke) => {
-    drawStrokeOnTempCanvas(tempCanvas, tempCtx, stroke);
+    drawSavedStrokeOntoTempCanvas(tempCanvas, tempCtx, stroke);
   });
 
   const ctx = getCanvasAndCtx(canvasRef)[1];
@@ -442,7 +425,7 @@ function drawStrokes(canvasRef, tempCanvasRef, strokes, layerOpacity) {
   clearCanvas(tempCanvasRef);
 }
 
-function drawStrokeOnTempCanvas(canvas, ctx, stroke) {
+function drawSavedStrokeOntoTempCanvas(canvas, ctx, stroke) {
   const scale = Math.min(
     canvas.width / stroke.canvasWidth,
     canvas.height / stroke.canvasHeight,
@@ -462,6 +445,14 @@ function drawStrokeOnTempCanvas(canvas, ctx, stroke) {
   });
   ctx.stroke();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function drawStroke(canvasRef, from, to) {
+  const ctx = getCtx(canvasRef);
+  ctx.beginPath();
+  ctx.moveTo(from[0], from[1]);
+  ctx.lineTo(to[0], to[1]);
+  ctx.stroke();
 }
 
 function hexToRGBA(_hex, opacity) {
