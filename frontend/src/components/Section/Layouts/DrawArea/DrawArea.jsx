@@ -460,7 +460,7 @@ function drawStrokes(
     drawSavedStrokeOntoTempCanvas(tempCanvas, tempCtx, stroke);
   });
 
-  const ctx = getCanvasAndCtx(canvasRef)[1];
+  const ctx = getCtx(canvasRef);
   if (applyLayerOpacityToGlobalAlpha) {
     ctx.globalAlpha = layerOpacity;
   }
