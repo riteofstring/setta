@@ -6,20 +6,20 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 
 export function useArtifactData(sectionId) {
   const [isLoaded, setIsLoaded] = useState(false);
-  const artifactIds = useSectionInfos(
-    (x) => x.x[sectionId].artifactIds,
+  const artifactPaths = useSectionInfos(
+    (x) => x.x[sectionId].artifacts,
     _.isEqual,
   );
-  const artifacts = useArtifacts((x) => _.pick(x.x, artifactIds), _.isEqual);
+  const artifacts = useArtifacts((x) => _.pick(x.x, artifactPaths));
 
   useDeepCompareEffect(() => {
-    if (artifactIds.length !== _.size(artifacts)) {
+    if (artifactPaths.length !== _.size(artifacts)) {
       setIsLoaded(false);
-      loadArtifacts(artifactIds);
+      loadArtifacts(sectionId, artifactPaths);
     } else {
       setIsLoaded(true);
     }
-  }, [artifactIds, artifacts]);
+  }, [artifactPaths, artifacts]);
 
   return { artifacts, isLoaded };
 }

@@ -169,14 +169,6 @@ def export_global_param_sweep_section(folder, config, section_id, *_, **__):
             file.write(yamlValue)
 
 
-def export_social_section(folder, config, section_id, *_, **__):
-    section = config["sections"][section_id]
-    url = section["social"]
-    base = get_section_name(config, section_id)
-    with open(folder / f"{base}.txt", "w") as file:
-        file.write(url)
-
-
 def maybe_with_variant_in_filename(config, section_id, variant_id, with_variants):
     section_name = get_section_name(config, section_id)
     variant_name = get_variant_name(config, variant_id)
@@ -199,11 +191,3 @@ def get_exporter_fn(config, section_id):
         return export_param_sweep_section
     elif stype == C.GLOBAL_PARAM_SWEEP:
         return export_global_param_sweep_section
-    elif stype == C.DRAW:
-        pass
-    elif stype == C.IMAGE:
-        pass
-    elif stype == C.SOCIAL:
-        return export_social_section
-    elif stype == C.LINE_PLOT:
-        pass
