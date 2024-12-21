@@ -9,7 +9,6 @@ import {
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
-import { getImageDimensionsFromBase64 } from "utils/utils";
 import { getIsTwitterSection } from "./social";
 
 export const INFINITE_MAX_HEIGHT = 100000;
@@ -214,7 +213,7 @@ export async function setSectionToHaveAspectRatioAndMinSize(
   });
 }
 
-export function useImgArtifactAreaSize(sectionId, base64String) {
+export function useImgArtifactAreaSize(sectionId, image) {
   const [imgSize, setImgSize] = useState(null);
 
   const widthOrHeightIsAuto = useSectionInfos((x) => {
@@ -223,15 +222,12 @@ export function useImgArtifactAreaSize(sectionId, base64String) {
   });
 
   useEffect(() => {
-    async function fn() {
-      const x = await getImageDimensionsFromBase64(base64String);
-      if (!_.isEqual(x, imgSize)) {
-        setSectionToHaveAspectRatioAndMinSize(sectionId, x);
-      }
-      setImgSize(x);
+    const x = { width: image.width, height: image.height };
+    if (!_.isEqual(x, imgSize)) {
+      setSectionToHaveAspectRatioAndMinSize(sectionId, x);
     }
-    fn();
-  }, [base64String]);
+    setImgSize(x);
+  }, [image.src]);
 
   useEffect(() => {
     if (imgSize) {
