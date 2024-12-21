@@ -33,7 +33,19 @@ function maybeAddArtifactSection(artifactId, sectionType) {
 export async function loadArtifacts(artifactIds) {
   const res = await dbLoadArtifacts(artifactIds);
   if (res.status === 200) {
+    prepareArtifactsForRendering(res.data);
     updateArtifacts({ artifacts: res.data });
+  }
+}
+
+async function prepareArtifactsForRendering(artifactsFromBackend) {
+  for (const data of Object.values(artifactsFromBackend)) {
+    if (data.type === "img") {
+      const base64Str = `data:image/png;base64,${data.value}`;
+      data.value = new Image();
+      data.value.src = base64Str;
+      await data.value.decode();
+    }
   }
 }
 

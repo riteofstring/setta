@@ -3,12 +3,12 @@ import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
-import { maybeCreateArtifactAndUpdateSection } from "state/actions/artifacts";
 import {
   base64RequestId,
   setTemporaryMiscState,
 } from "state/actions/temporaryMiscState";
 import {
+  useArtifacts,
   useMisc,
   useSectionInfos,
   useTemporaryMiscState,
@@ -16,12 +16,6 @@ import {
 import { useArtifactData } from "state/hooks/artifacts";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { createNewId } from "utils/idNameCreation";
-import {
-  newDrawAreaLocalLayer,
-  newDrawAreaLocalLayerArtifactData,
-} from "utils/objs/artifact";
-import { dataURLToBase64 } from "./base64Conversion";
 import { DrawAreaControls } from "./DrawAreaControls";
 import {
   debouncedSetBrushStrokesArtifact,
@@ -48,7 +42,6 @@ export function DrawOnImage({ sectionId }) {
       canvasSettings: x.x[sectionId].canvasSettings,
     };
   }, _.isEqual);
-  const localLayers = useRef([]);
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
   const tempCanvasRef = useRef(null);
@@ -73,78 +66,31 @@ export function DrawOnImage({ sectionId }) {
   // console.log("artifacts", artifacts);
   // console.log("layers", layers);
   // console.log("activeLayerIdx", activeLayerIdx);
-  // console.log("localLayers", localLayers.current);
   // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
 
   async function processLoadedArtifacts() {
     if (!isLoaded) {
       return;
     }
-    if (localLayers.current.length === 0) {
-      for (const layer of layers) {
-        const artifactIdToType = Object.fromEntries(
-          layer.artifactIds.map((a) => [a, artifacts[a].type]),
-        );
-        localLayers.current.push(newDrawAreaLocalLayer(artifactIdToType));
-      }
-    }
-
-    for (const [artifactId, v] of Object.entries(artifacts)) {
-      let matchingLocalLayer = null;
-      for (const [idx, layer] of layers.entries()) {
-        if (layer.artifactIds.includes(artifactId)) {
-          matchingLocalLayer = localLayers.current[idx];
-          break;
-        }
-      }
-      if (!matchingLocalLayer) {
-        localLayers.current.push(
-          newDrawAreaLocalLayer({ [artifactId]: v.type }),
-        );
-        matchingLocalLayer =
-          localLayers.current[localLayers.current.length - 1];
-      }
-      if (v.type === "img") {
-        const base64String = `data:image/png;base64,${v.value}`;
-        const storedImage = matchingLocalLayer[artifactId].value;
-        if (storedImage.src !== base64String || !storedImage.complete) {
-          storedImage.src = base64String;
-          await storedImage.decode();
-        }
-      } else if (v.type === "brushStrokes") {
-        matchingLocalLayer[artifactId].value = _.cloneDeep(v.value);
-      }
-    }
-
-    // We want to make sure every layer has a brushStrokes artifact
-    for (const localLayer of localLayers.current) {
-      if (!Object.values(localLayer).some((v) => v.type === "brushStrokes")) {
-        localLayer[createNewId()] =
-          newDrawAreaLocalLayerArtifactData("brushStrokes");
-      }
-    }
-
     useSectionInfos.setState((state) => {
-      const currGlobalLayers = syncDrawAreaLocalLayersWithGlobalState(
-        sectionId,
-        localLayers,
-        state,
-      );
+      const layers = state.x[sectionId].canvasSettings.layers;
+      for (const [artifactId, v] of Object.entries(artifacts)) {
+        const layerWithThisArtifact = layers.find((layer) =>
+          layer.artifactIds.includes(artifactId),
+        );
+        if (!layerWithThisArtifact) {
+          layers[layers.length - 1].artifactIds.push(artifactId);
+        }
+      }
       setCanvasSize({
         sectionId,
         canvasRef,
         tempCanvasRef,
         draftCanvasRef,
-        localLayers,
-        layers: currGlobalLayers,
+        layers,
         artifactIdUsedToSetCanvasSize,
         state,
       });
-
-      if (activeLayerIdx === null) {
-        state.x[sectionId].canvasSettings.activeLayerIdx =
-          localLayers.current.length - 1;
-      }
     });
 
     setForceRerender(true);
@@ -176,7 +122,6 @@ export function DrawOnImage({ sectionId }) {
         canvasRef,
         tempCanvasRef,
         draftCanvasRef,
-        localLayers,
         layers,
         artifactIdUsedToSetCanvasSize,
         state,
@@ -195,7 +140,7 @@ export function DrawOnImage({ sectionId }) {
       isEraser,
       layerOpacity,
     });
-    drawAllLayers({ canvasRef, tempCanvasRef, localLayers, layers });
+    drawAllLayers({ canvasRef, tempCanvasRef, layers });
     setForceRerender(false);
   }, [
     isEraser,
@@ -211,15 +156,11 @@ export function DrawOnImage({ sectionId }) {
 
   useEffect(() => {
     const storedStrokes =
-      localLayers.current[activeLayerIdx]?.[currBrushStrokeArtifactId]?.value;
+      useArtifacts.getState().x[currBrushStrokeArtifactId]?.value;
     if (storedStrokes) {
       strokesRef.current = _.cloneDeep(storedStrokes);
     }
-  }, [
-    activeLayerIdx,
-    currBrushStrokeArtifactId,
-    localLayers.current.length === 0,
-  ]);
+  }, [activeLayerIdx, currBrushStrokeArtifactId]);
 
   function onMouseDown(e, offsetX, offsetY) {
     if (useMisc.getState().mouseDownDraggingSection) {
@@ -298,9 +239,12 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function transferEverythingToRealCanvas() {
-    localLayers.current[activeLayerIdx][currBrushStrokeArtifactId].value =
-      _.cloneDeep(strokesRef.current);
-    drawAllLayers({ canvasRef, tempCanvasRef, localLayers, layers });
+    useArtifacts.setState((state) => {
+      state.x[currBrushStrokeArtifactId].value = _.cloneDeep(
+        strokesRef.current,
+      );
+    });
+    drawAllLayers({ canvasRef, tempCanvasRef, layers });
     clearCanvas(draftCanvasRef);
   }
 
@@ -319,11 +263,6 @@ export function DrawOnImage({ sectionId }) {
       const currActiveLayerName = canvasSettings.layers[activeLayerIdx].name;
       canvasSettings.layers = arrayMove(
         canvasSettings.layers,
-        draggedIdx,
-        targetIdx,
-      );
-      localLayers.current = arrayMove(
-        localLayers.current,
         draggedIdx,
         targetIdx,
       );
@@ -413,7 +352,6 @@ function setCanvasSize({
   canvasRef,
   tempCanvasRef,
   draftCanvasRef,
-  localLayers,
   layers,
   artifactIdUsedToSetCanvasSize,
   state,
@@ -424,13 +362,15 @@ function setCanvasSize({
 
   let imgSize = null;
   let isNewImg = false;
-  for (const localLayer of localLayers.current) {
-    for (const [artifactId, valueInfo] of Object.entries(localLayer)) {
-      if (valueInfo.type === "img" && valueInfo.value.complete) {
-        const image = valueInfo.value;
+  const artifactState = useArtifacts.getState();
+  for (const layer of layers) {
+    for (const id of layer.artifactIds) {
+      const artifact = artifactState.x[id];
+      if (artifact.type === "img" && artifact.value.complete) {
+        const image = artifact.value;
         imgSize = { width: image.width, height: image.height };
-        isNewImg = artifactId !== artifactIdUsedToSetCanvasSize.current;
-        artifactIdUsedToSetCanvasSize.current = artifactId;
+        isNewImg = id !== artifactIdUsedToSetCanvasSize.current;
+        artifactIdUsedToSetCanvasSize.current = id;
         break;
       }
     }
@@ -456,7 +396,7 @@ function setCanvasSize({
   draftCanvas.width = canvasSize.width;
   draftCanvas.height = canvasSize.height;
 
-  drawAllLayers({ canvasRef, tempCanvasRef, localLayers, layers });
+  drawAllLayers({ canvasRef, tempCanvasRef, layers });
 }
 
 function getXY(e) {
@@ -482,7 +422,6 @@ function getCtx(canvasRef) {
 function drawAllLayers({
   canvasRef,
   tempCanvasRef,
-  localLayers,
   layers,
   excludeLayer = null,
   includeLayer = null,
@@ -490,9 +429,10 @@ function drawAllLayers({
   const [canvas, ctx] = getCanvasAndCtx(canvasRef);
   clearCanvas(canvasRef);
 
-  for (const [idx, localLayer] of localLayers.current.entries()) {
+  const artifactState = useArtifacts.getState();
+  for (const [idx, layer] of layers.entries()) {
     if (
-      !layers[idx].visible ||
+      !layer.visible ||
       (excludeLayer !== null && idx === excludeLayer) ||
       (includeLayer !== null && idx !== includeLayer)
     ) {
@@ -500,9 +440,10 @@ function drawAllLayers({
     }
     const { layerOpacity } = layers[idx];
 
-    for (const valueInfo of Object.values(localLayer)) {
-      if (valueInfo.type === "img" && valueInfo.value.complete) {
-        const image = valueInfo.value;
+    for (const id of layer.artifactIds) {
+      const artifact = artifactState.x[id];
+      if (artifact.type === "img" && artifact.value.complete) {
+        const image = artifact.value;
         const scale = Math.min(
           canvas.width / image.width,
           canvas.height / image.height,
@@ -513,10 +454,10 @@ function drawAllLayers({
         ctx.globalAlpha = layerOpacity;
         ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
       } else if (
-        valueInfo.type === "brushStrokes" &&
-        valueInfo.value.length > 0
+        artifact.type === "brushStrokes" &&
+        artifact.value.length > 0
       ) {
-        drawStrokes(canvasRef, tempCanvasRef, valueInfo.value, layerOpacity);
+        drawStrokes(canvasRef, tempCanvasRef, artifact.value, layerOpacity);
       }
     }
   }
@@ -592,43 +533,4 @@ function hexToRGBA(_hex, opacity) {
   const b = parseInt(hex.substring(4, 6), 16);
 
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-}
-
-function syncDrawAreaLocalLayersWithGlobalState(
-  sectionId,
-  localLayers,
-  sectionState,
-) {
-  const currGlobalLayers = sectionState.x[sectionId].canvasSettings.layers;
-  for (const [idx, localLayer] of localLayers.current.entries()) {
-    const localLayerArtifactIds = Object.keys(localLayer);
-    // add missing layer
-    if (idx > currGlobalLayers.length - 1) {
-      currGlobalLayers.push(
-        newLayerSettings({ artifactIds: localLayerArtifactIds }),
-      );
-    } else {
-      // sync artifactIds
-      currGlobalLayers[idx].artifactIds = localLayerArtifactIds;
-    }
-
-    for (const artifactId of localLayerArtifactIds) {
-      const layerArtifactInfo = localLayer[artifactId];
-      const type = layerArtifactInfo.type;
-      const value =
-        type === "img"
-          ? dataURLToBase64(layerArtifactInfo.value.src)
-          : layerArtifactInfo.value;
-      maybeCreateArtifactAndUpdateSection(
-        sectionId,
-        artifactId,
-        {
-          type,
-          value,
-        },
-        sectionState,
-      );
-    }
-  }
-  return currGlobalLayers;
 }

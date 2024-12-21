@@ -10,22 +10,6 @@ export function newArtifact({ name, ...props }) {
   );
 }
 
-export function newDrawAreaLocalLayer(artifactIdToType) {
-  const output = {};
-  for (const [artifactId, type] of Object.entries(artifactIdToType)) {
-    output[artifactId] = newDrawAreaLocalLayerArtifactData(type);
-  }
-  return output;
-}
-
-export function newDrawAreaLocalLayerArtifactData(type) {
-  if (type === "img") {
-    return { type, value: new Image() };
-  } else if (type === "brushStrokes") {
-    return { type, value: [] };
-  }
-}
-
 export function newLayer({ name, ...props }) {
   return {
     name: name ?? createRandomName(),

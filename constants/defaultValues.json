@@ -32,7 +32,7 @@
     "isMinimized": false,
     "canvasSettings": {
       "layers": [],
-      "activeLayerIdx": null,
+      "activeLayerIdx": 0,
       "color": "#ff0000",
       "brushSize": 16,
       "brushShape": "butt",
