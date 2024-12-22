@@ -214,7 +214,7 @@ export function drawAllLayers(
           tempCtx,
           transformInfo.eraserStrokes,
         );
-        tempCtx.setTransform(1, 0, 0, 1, 0, 0); // MUST reset here, otherwise get smudging when moving images around. No idea why
+        tempCtx.resetTransform(); // MUST reset here, otherwise get smudging when moving images around. No idea why
       } else if (
         artifact.type === "brushStrokes" &&
         artifact.value.length > 0
@@ -227,7 +227,7 @@ export function drawAllLayers(
           strokes,
           artifactTransformInfo.transform,
         );
-        tempCtx.setTransform(1, 0, 0, 1, 0, 0); // reset for superstitious reasons
+        tempCtx.resetTransform(); // reset for superstitious reasons
       }
     }
 
