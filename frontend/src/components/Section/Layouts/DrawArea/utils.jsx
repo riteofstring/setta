@@ -288,13 +288,21 @@ export function reorderArtifactsWithBrushStrokesLast(
   return [...other, ...brushStrokes];
 }
 
-function filterPathForImage(
+export function filterPathForImage(
   pathPoints,
   imageX,
   imageY,
   imageWidth,
   imageHeight,
 ) {
+  console.log(
+    "filterPathForImage",
+    pathPoints,
+    imageX,
+    imageY,
+    imageWidth,
+    imageHeight,
+  );
   if (!pathPoints || pathPoints.length === 0) {
     return [];
   }
@@ -305,10 +313,10 @@ function filterPathForImage(
   for (let i = 0; i < pathPoints.length; i++) {
     const point = pathPoints[i];
     const isInBounds =
-      point.x >= imageX &&
-      point.x <= imageX + imageWidth &&
-      point.y >= imageY &&
-      point.y <= imageY + imageHeight;
+      point[0] >= imageX &&
+      point[0] <= imageX + imageWidth &&
+      point[1] >= imageY &&
+      point[1] <= imageY + imageHeight;
 
     if (isInBounds) {
       if (i > 0 && result.length === 0) {

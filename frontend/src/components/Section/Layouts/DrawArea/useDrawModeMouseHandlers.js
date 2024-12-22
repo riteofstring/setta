@@ -8,6 +8,7 @@ import {
   clearCanvas,
   drawAllLayers,
   drawStroke,
+  filterPathForImage,
   getXY,
   startNewStroke,
 } from "./utils";
@@ -85,11 +86,12 @@ export function useDrawModeMouseHandlers({
     });
 
     onMouseUp = drawingOnMouseUp({
-      strokesRef,
+      isEraser,
+      eraserStrokesRef,
       isDrawing,
       setIsDrawing,
       transferEverythingToRealCanvas,
-      currBrushStrokeArtifactId,
+      activeLayerId,
     });
 
     onMouseEnter = drawingOnMouseEnter({ draftCanvasRef, onMouseDown });
@@ -287,15 +289,46 @@ function drawingOnMouseMove({
 }
 
 function drawingOnMouseUp({
-  strokesRef,
+  isEraser,
+  eraserStrokesRef,
   isDrawing,
   setIsDrawing,
   transferEverythingToRealCanvas,
-  currBrushStrokeArtifactId,
+  activeLayerId,
 }) {
   return () => {
     if (!isDrawing) {
       return;
+    }
+    if (isEraser) {
+      const artifactState = useArtifacts.getState();
+      const eraserPath = _.cloneDeep(
+        eraserStrokesRef.current[eraserStrokesRef.current.length - 1],
+      );
+      // console.log("eraserPath", eraserPath);
+      useSectionInfos.setState((state) => {
+        const layer = state.artifactGroups[activeLayerId];
+        for (const t of layer.artifactTransforms) {
+          const artifact = artifactState[t.artifactId];
+          console.log("t.transform", _.cloneDeep(t.transform));
+          eraserPath.points = filterPathForImage(
+            eraserPath.points,
+            t.transform[4],
+            t.transform[5],
+            720,
+            720,
+            // getScaledWidth(artifact, t.transform),
+            // getScaledHeight(artifact, t.transform),
+          );
+
+          // console.log("intersecting eraserPath.points", eraserPath.points)
+          if (eraserPath.points.length > 0) {
+            t.eraserStrokes.push(eraserPath);
+          }
+        }
+      });
+
+      eraserStrokesRef.current = [];
     }
     setIsDrawing(false);
     transferEverythingToRealCanvas();
@@ -351,7 +384,7 @@ function editingOnMouseDown({
       }
     }
 
-    for (const [artifactId, transform] of Object.entries(
+    for (const [artifactId, { transform }] of Object.entries(
       localArtifactTransformsRef.current,
     )) {
       const artifact = artifactState[artifactId];
@@ -430,7 +463,8 @@ function editingOnMouseMove({
     const dy = y - lastPos.current.y;
 
     if (isDragging.current && draggedId.current !== null) {
-      const transform = localArtifactTransformsRef.current[draggedId.current];
+      const { transform } =
+        localArtifactTransformsRef.current[draggedId.current];
       transform[4] += dx;
       transform[5] += dy;
       lastPos.current = { x, y };
@@ -439,7 +473,8 @@ function editingOnMouseMove({
         y: c.y + dy,
       }));
     } else if (resizeHandle.current !== null && selectedId.current !== null) {
-      const transform = localArtifactTransformsRef.current[selectedId.current];
+      const { transform } =
+        localArtifactTransformsRef.current[selectedId.current];
       const artifact = artifactState[selectedId.current];
       const scaledWidth = getScaledWidth(artifact, transform);
       const scaledHeight = getScaledHeight(artifact, transform);
