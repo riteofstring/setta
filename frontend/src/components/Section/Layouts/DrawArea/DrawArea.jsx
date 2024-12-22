@@ -15,8 +15,6 @@ import { DrawAreaControls } from "./DrawAreaControls";
 import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
 import { useImageLoadViaDropzone } from "./useImageLoadViaDropzone";
 import {
-  clearCanvas,
-  debouncedSetBrushStrokesArtifact,
   drawAllLayers,
   setCanvasSize,
   setDraftCanvasProperties,
@@ -146,52 +144,41 @@ export function DrawArea({ sectionId }) {
     }
   }, [activeLayer]);
 
-  function transferEverythingToRealCanvas() {
-    useArtifacts.setState((state) => ({
-      [currBrushStrokeArtifactId]: {
-        ...state[currBrushStrokeArtifactId],
-        value: _.cloneDeep(strokesRef.current),
-      },
-    }));
-    drawAllLayers(canvasRef, tempCanvasRef, layers);
-    clearCanvas(draftCanvasRef);
-  }
+  const {
+    onMouseDown,
+    onMouseMove,
+    onMouseUp,
+    onMouseEnter,
+    transferEverythingToRealCanvas,
+  } = useDrawModeMouseHandlers({
+    sectionId,
+    isEraser,
+    strokesRef,
+    prevPointRef,
+    isDrawing,
+    setIsDrawing,
+    isDragging,
+    draggedId,
+    lastPos,
+    selectedId,
+    resizeHandle,
+    resizeHandleCorners,
+    drawThrottleDelay,
+    canvasRef,
+    tempCanvasRef,
+    draftCanvasRef,
+    canvasTransferQueueLength,
+    currBrushStrokeArtifactId,
+    layers,
+    activeLayerId,
+    localArtifactTransformsRef,
+    mode,
+  });
 
   function clearStrokes() {
     strokesRef.current = [];
     transferEverythingToRealCanvas();
-    debouncedSetBrushStrokesArtifact(
-      currBrushStrokeArtifactId,
-      strokesRef.current,
-    );
   }
-
-  const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
-    useDrawModeMouseHandlers({
-      sectionId,
-      isEraser,
-      strokesRef,
-      prevPointRef,
-      isDrawing,
-      setIsDrawing,
-      isDragging,
-      draggedId,
-      lastPos,
-      selectedId,
-      resizeHandle,
-      resizeHandleCorners,
-      transferEverythingToRealCanvas,
-      drawThrottleDelay,
-      canvasRef,
-      tempCanvasRef,
-      draftCanvasRef,
-      canvasTransferQueueLength,
-      currBrushStrokeArtifactId,
-      layers,
-      activeLayerId,
-      localArtifactTransformsRef,
-      mode,
-    });
 
   const { getRootProps, isDragActive } = useImageLoadViaDropzone(
     sectionId,

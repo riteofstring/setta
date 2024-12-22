@@ -2,8 +2,9 @@ import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
-import { useArtifacts, useMisc } from "state/definitions";
+import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
 import {
+  clearCanvas,
   debouncedSetBrushStrokesArtifact,
   drawAllLayers,
   drawStroke,
@@ -24,7 +25,6 @@ export function useDrawModeMouseHandlers({
   selectedId,
   resizeHandle,
   resizeHandleCorners,
-  transferEverythingToRealCanvas,
   drawThrottleDelay,
   canvasRef,
   tempCanvasRef,
@@ -36,9 +36,24 @@ export function useDrawModeMouseHandlers({
   localArtifactTransformsRef,
   mode,
 }) {
-  let onMouseDown, onMouseMove, onMouseUp, onMouseEnter;
+  let onMouseDown,
+    onMouseMove,
+    onMouseUp,
+    onMouseEnter,
+    transferEverythingToRealCanvas;
 
   if (mode === "draw") {
+    transferEverythingToRealCanvas = () => {
+      useArtifacts.setState((state) => ({
+        [currBrushStrokeArtifactId]: {
+          ...state[currBrushStrokeArtifactId],
+          value: _.cloneDeep(strokesRef.current),
+        },
+      }));
+      drawAllLayers(canvasRef, tempCanvasRef, layers);
+      clearCanvas(draftCanvasRef);
+    };
+
     onMouseDown = drawingOnMouseDown({
       sectionId,
       isEraser,
@@ -78,6 +93,15 @@ export function useDrawModeMouseHandlers({
 
     onMouseEnter = drawingOnMouseEnter({ draftCanvasRef, onMouseDown });
   } else {
+    transferEverythingToRealCanvas = () => {
+      useSectionInfos.setState((state) => {
+        state.artifactGroups[activeLayerId].artifactTransforms = Object.entries(
+          localArtifactTransformsRef.current,
+        ).map(([artifactId, transform]) => ({ artifactId, transform }));
+      });
+      drawAllLayers(canvasRef, tempCanvasRef, layers);
+    };
+
     const onMouseDownCore = editingOnMouseDown({
       canvasRef,
       selectedId,
@@ -129,6 +153,7 @@ export function useDrawModeMouseHandlers({
     };
 
     onMouseUp = editingOnMouseUp({
+      transferEverythingToRealCanvas,
       isDragging,
       draggedId,
       resizeHandle,
@@ -150,6 +175,7 @@ export function useDrawModeMouseHandlers({
     onMouseMove: throttledOnMouseMove,
     onMouseUp,
     onMouseEnter,
+    transferEverythingToRealCanvas,
   };
 }
 
@@ -374,11 +400,6 @@ function editingOnMouseMove({
   return (e) => {
     if (!isDragging.current && resizeHandle.current === null) return false;
 
-    console.log(
-      "localArtifactTransformsRef",
-      localArtifactTransformsRef.current,
-    );
-
     const artifactState = useArtifacts.getState();
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -469,8 +490,14 @@ function editingOnMouseMove({
   };
 }
 
-function editingOnMouseUp({ isDragging, draggedId, resizeHandle }) {
+function editingOnMouseUp({
+  transferEverythingToRealCanvas,
+  isDragging,
+  draggedId,
+  resizeHandle,
+}) {
   return () => {
+    transferEverythingToRealCanvas();
     isDragging.current = false;
     draggedId.current = null;
     resizeHandle.current = null;
