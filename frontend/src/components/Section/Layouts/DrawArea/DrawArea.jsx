@@ -45,7 +45,7 @@ export function DrawArea({ sectionId }) {
   const tempCanvasRef = useRef(null);
   const strokesRef = useRef([]);
   const eraserStrokesRef = useRef([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
-  const localArtifactTransformsRef = useRef({});
+  const localArtifactTransformsRef = useRef([]);
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
@@ -61,8 +61,10 @@ export function DrawArea({ sectionId }) {
   const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
     (a) => loadedArtifacts[a.artifactId]?.type === "brushStrokes",
   )?.artifactId;
-
-  // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
+  const currentBrushStrokeTransformInfo =
+    localArtifactTransformsRef.current.find(
+      (l) => l.artifactId === currBrushStrokeArtifactId,
+    );
 
   useEffect(() => {
     tempCanvasRef.current = document.createElement("canvas");
@@ -114,7 +116,7 @@ export function DrawArea({ sectionId }) {
     drawAllLayers(sectionId, canvasRef, tempCanvasRef);
   }, [layerOpacity, loadedArtifactIdsWithDuplicates]);
   // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
-  // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers) 
+  // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
 
   useEffect(() => {
     if (!currBrushStrokeArtifactId) {
@@ -160,6 +162,7 @@ export function DrawArea({ sectionId }) {
       draftCanvasRef,
       canvasTransferQueueLength,
       currBrushStrokeArtifactId,
+      currentBrushStrokeTransformInfo,
       activeLayerId,
       localArtifactTransformsRef,
       mode,

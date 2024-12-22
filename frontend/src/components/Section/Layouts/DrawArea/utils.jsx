@@ -220,7 +220,15 @@ export function drawAllLayers(
         artifact.value.length > 0
       ) {
         const strokes = realTimeValues[layerId]?.[id] ?? artifact.value;
-        drawSavedStrokesOntoTempCanvas(tempCanvas, tempCtx, strokes);
+        const artifactTransformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
+        console.log("drawAllLayers", strokes, artifactTransformInfo.transform);
+        drawSavedStrokesOntoTempCanvas(
+          tempCanvas,
+          tempCtx,
+          strokes,
+          artifactTransformInfo.transform,
+        );
+        tempCtx.setTransform(1, 0, 0, 1, 0, 0); // reset for superstitious reasons
       }
     }
 
@@ -244,7 +252,13 @@ export function drawAllLayers(
   }
 }
 
-export function startNewStroke(draftCanvasRef, strokesRef, firstPoint) {
+export function startNewStroke(
+  draftCanvasRef,
+  strokesRef,
+  firstPoint,
+  currentTransform,
+) {
+  console.log("new stroke transform", currentTransform);
   const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
   strokesRef.current.push({
     strokeStyle: dCtx.strokeStyle,
@@ -254,6 +268,7 @@ export function startNewStroke(draftCanvasRef, strokesRef, firstPoint) {
     // canvasHeight: draftCanvas.height,
     // canvasWidth: draftCanvas.width,
     globalCompositeOperation: dCtx.globalCompositeOperation,
+    transform: currentTransform,
   });
   drawStroke(draftCanvasRef, firstPoint, firstPoint);
 }
@@ -275,27 +290,40 @@ export function startNewEraserStroke(
   });
 }
 
-export function drawSavedStrokesOntoTempCanvas(canvas, ctx, strokes) {
+export function drawSavedStrokesOntoTempCanvas(
+  canvas,
+  ctx,
+  strokes,
+  artifactTransform = null,
+) {
+  let transform;
+  let prevPoint;
   for (const stroke of strokes) {
     // const scale = Math.min(
     //   canvas.width / stroke.canvasWidth,
     //   canvas.height / stroke.canvasHeight,
     // );
     // ctx.scale(scale, scale);
+    transform = getCombinedTransformForStroke(
+      artifactTransform,
+      stroke.transform,
+    );
+    if (transform) {
+      ctx.setTransform(...transform);
+    }
     ctx.beginPath();
     ctx.globalCompositeOperation = stroke.globalCompositeOperation;
     ctx.strokeStyle = stroke.strokeStyle;
     ctx.globalAlpha = 1;
     ctx.lineWidth = stroke.lineWidth;
     ctx.lineCap = stroke.lineCap;
-    let prevPoint = stroke.points[0];
+    prevPoint = stroke.points[0];
     stroke.points.forEach((point) => {
       ctx.moveTo(prevPoint[0], prevPoint[1]);
       ctx.lineTo(point[0], point[1]);
       prevPoint = point;
     });
     ctx.stroke();
-    // ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 }
 
@@ -320,6 +348,30 @@ function drawResizeHandles(ctx, resizeHandles) {
       handleSize,
     );
   });
+}
+
+export function getCombinedTransformForStroke(
+  artifactTransform,
+  strokeTransform,
+) {
+  if (!artifactTransform && !strokeTransform) {
+    return null;
+  }
+  if (!strokeTransform) {
+    return artifactTransform;
+  }
+  if (!artifactTransform) {
+    return strokeTransform;
+  }
+
+  return [
+    artifactTransform[0] / strokeTransform[0],
+    0,
+    0,
+    artifactTransform[3] / strokeTransform[3],
+    artifactTransform[4] - strokeTransform[4],
+    artifactTransform[5] - strokeTransform[5],
+  ];
 }
 
 export function hexToRGBA(_hex, opacity) {

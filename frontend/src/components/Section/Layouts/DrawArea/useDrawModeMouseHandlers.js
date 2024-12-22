@@ -7,6 +7,7 @@ import {
   drawAllLayers,
   drawStroke,
   filterPathForImage,
+  getCombinedTransformForStroke,
   getXY,
   setGlobalArtifactTransformsAndDrawAllLayers,
   setGlobalBrushStrokesAndDrawAllLayers,
@@ -36,6 +37,7 @@ export function useDrawModeMouseHandlers({
   draftCanvasRef,
   canvasTransferQueueLength,
   currBrushStrokeArtifactId,
+  currentBrushStrokeTransformInfo,
   activeLayerId,
   localArtifactTransformsRef,
   mode,
@@ -56,6 +58,7 @@ export function useDrawModeMouseHandlers({
       tempCanvasRef,
       draftCanvasRef,
       activeLayerId,
+      currentBrushStrokeTransformInfo,
     });
 
     onMouseMove = drawingOnMouseMove({
@@ -71,6 +74,7 @@ export function useDrawModeMouseHandlers({
       canvasTransferQueueLength,
       activeLayerId,
       currBrushStrokeArtifactId,
+      currentBrushStrokeTransformInfo,
     });
 
     onMouseUp = drawingOnMouseUp({
@@ -183,6 +187,7 @@ function drawingOnMouseDown({
   tempCanvasRef,
   draftCanvasRef,
   activeLayerId,
+  currentBrushStrokeTransformInfo,
 }) {
   return (e, offsetX, offsetY) => {
     if (useMisc.getState().mouseDownDraggingSection) {
@@ -219,7 +224,12 @@ function drawingOnMouseDown({
         { [activeLayerId]: eraserStrokesRef.current },
       );
     } else {
-      startNewStroke(draftCanvasRef, strokesRef, point);
+      startNewStroke(
+        draftCanvasRef,
+        strokesRef,
+        point,
+        currentBrushStrokeTransformInfo.transform,
+      );
     }
 
     prevPointRef.current = point;
@@ -239,6 +249,7 @@ function drawingOnMouseMove({
   canvasTransferQueueLength,
   activeLayerId,
   currBrushStrokeArtifactId,
+  currentBrushStrokeTransformInfo,
 }) {
   return (e) => {
     if (!isDrawing) {
@@ -269,7 +280,12 @@ function drawingOnMouseMove({
         tempCanvasRef,
         draftCanvasRef,
       );
-      startNewStroke(draftCanvasRef, currStrokesRef, point);
+      startNewStroke(
+        draftCanvasRef,
+        currStrokesRef,
+        point,
+        currentBrushStrokeTransformInfo.transform,
+      );
       prevPointRef.current = point;
     } else {
       drawStroke(draftCanvasRef, prevPointRef.current, point);
@@ -303,7 +319,6 @@ function drawingOnMouseUp({
 
       let intersectingPath;
 
-      // console.log("eraserPath", eraserPath);
       useSectionInfos.setState((state) => {
         const layer = state.artifactGroups[activeLayerId];
         for (const t of layer.artifactTransforms) {
@@ -414,28 +429,36 @@ function editingOnMouseDown({
         lastPos.current = { x, y };
         return true;
       } else if (artifact.type === "brushStrokes") {
-        // const hitRadius = 5;
-        // for (const stroke of artifact.value) {
-        //   for (const point of stroke) {
-        //     if (
-        //       Math.abs(x - point[0]) <= hitRadius &&
-        //       Math.abs(y - point[1]) <= hitRadius
-        //     ) {
-        //       const bounds = getBrushStrokeBounds(stroke);
-        //       resizeHandleCorners.current = [
-        //         { x: bounds.minX, y: bounds.minY }, // Top-left
-        //         { x: bounds.maxX, y: bounds.minY }, // Top-right
-        //         { x: bounds.minX, y: bounds.maxY }, // Bottom-left
-        //         { x: bounds.maxX, y: bounds.maxY }, // Bottom-right
-        //       ];
-        //       isDragging.current = true;
-        //       draggedIdx.current = artifactId;
-        //       selectedIdx.current = artifactId;
-        //       lastPos.current = { x, y };
-        //       return true;
-        //     }
-        //   }
-        // }
+        const hitRadius = 5;
+
+        for (const stroke of artifact.value) {
+          const combinedTransform = getCombinedTransformForStroke(
+            transform,
+            stroke.transform,
+          );
+          for (const point of getTransformedPoints(
+            stroke.points,
+            combinedTransform,
+          )) {
+            if (
+              Math.abs(x - point[0]) <= hitRadius &&
+              Math.abs(y - point[1]) <= hitRadius
+            ) {
+              const bounds = getBrushStrokesBounds(artifact.value, transform);
+              resizeHandleCorners.current = [
+                { x: bounds.minX, y: bounds.minY }, // Top-left
+                { x: bounds.maxX, y: bounds.minY }, // Top-right
+                { x: bounds.minX, y: bounds.maxY }, // Bottom-left
+                { x: bounds.maxX, y: bounds.maxY }, // Bottom-right
+              ];
+              isDragging.current = true;
+              draggedIdx.current = i;
+              selectedIdx.current = i;
+              lastPos.current = { x, y };
+              return true;
+            }
+          }
+        }
       }
     }
     selectedIdx.current = null;
@@ -576,13 +599,20 @@ function editingOnMouseUp({
   };
 }
 
-const getBrushStrokeBounds = (strokes) => {
+const getBrushStrokesBounds = (strokes, artifactTransform) => {
   let minX = Infinity,
     maxX = -Infinity,
     minY = Infinity,
     maxY = -Infinity;
   for (const stroke of strokes) {
-    for (const point of stroke.points) {
+    const combinedTransform = getCombinedTransformForStroke(
+      artifactTransform,
+      stroke.transform,
+    );
+    for (const point of getTransformedPoints(
+      stroke.points,
+      combinedTransform,
+    )) {
       if (point[0] < minX) minX = point[0];
       if (point[1] < minY) minY = point[1];
       if (point[0] > maxX) maxX = point[0];
@@ -661,4 +691,14 @@ function getScaledWidth(artifact, transform) {
 
 function getScaledHeight(artifact, transform) {
   return artifact.value.height * transform[3];
+}
+
+function getTransformedPoints(points, transform) {
+  if (!transform) {
+    return points;
+  }
+  return points.map((point) => [
+    point[0] * transform[0] + transform[4],
+    point[1] * transform[3] + transform[5],
+  ]);
 }
