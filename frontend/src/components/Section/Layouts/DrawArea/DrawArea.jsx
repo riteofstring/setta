@@ -197,7 +197,6 @@ export function DrawArea({ sectionId }) {
     <>
       <DrawAreaControls
         sectionId={sectionId}
-        layers={layers}
         activeLayerId={activeLayerId}
         color={color}
         brushOpacity={brushOpacity}

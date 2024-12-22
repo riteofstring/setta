@@ -17,10 +17,10 @@ import { IoMove } from "react-icons/io5";
 import { TfiLayersAlt } from "react-icons/tfi";
 import { addDrawAreaLayer } from "state/actions/artifacts";
 import { useSectionInfos } from "state/definitions";
+import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 
 export function DrawAreaControls({
   sectionId,
-  layers,
   activeLayerId,
   color,
   brushOpacity,
@@ -173,7 +173,7 @@ export function DrawAreaControls({
         header={"Layer Selection"}
       >
         <LayerList
-          layers={layers}
+          sectionId={sectionId}
           activeLayerId={activeLayerId}
           setActiveLayerId={setActiveLayerId}
           setLayerVisibility={setLayerVisibility}
@@ -380,7 +380,7 @@ function LayerSettings({ opacity, setOpacity }) {
 }
 
 function LayerList({
-  layers,
+  sectionId,
   activeLayerId,
   setActiveLayerId,
   setLayerVisibility,
@@ -389,6 +389,10 @@ function LayerList({
   reorderLayers,
   deleteLayer,
 }) {
+  const layers = useSectionInfos(
+    (x) => getSectionArtifactGroupMetadata(sectionId, x),
+    _.isEqual,
+  );
   const [editingIdx, setEditingIdx] = useState(null);
   const [editValue, setEditValue] = useState("");
   const [draggedOverIdx, setDraggedOverIdx] = useState(null);
