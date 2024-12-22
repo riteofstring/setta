@@ -1,13 +1,18 @@
 import C from "constants/constants.json";
+import { maybeAddArtifactGroupAndSetArtifactId } from "state/actions/artifacts";
 import { useSectionInfos } from "state/definitions";
 import { JustListOfArtifacts } from "./ListOfArtifacts";
 
 export function LinePlotSettings({ sectionId }) {
-  function onClick(artifactId) {
+  function onClick(artifactId, artifactType) {
     useSectionInfos.setState((state) => {
-      const artifactGroupId = state.x[sectionId].artifactGroupIds[0];
-      state.artifactGroups[artifactGroupId].artifactTransforms[0].artifactId =
-        artifactId;
+      maybeAddArtifactGroupAndSetArtifactId(
+        sectionId,
+        C.LINE_PLOT,
+        artifactId,
+        artifactType,
+        state,
+      );
     });
   }
 
