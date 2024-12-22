@@ -8,6 +8,15 @@ function createBounds(x, y, width, height, padding) {
   };
 }
 
+function addPaddingToBounds(bounds, padding) {
+  return {
+    minX: bounds.minX - padding,
+    maxX: bounds.maxX + padding,
+    minY: bounds.minY - padding,
+    maxY: bounds.maxY + padding,
+  };
+}
+
 function isPointInBounds(point, bounds) {
   return (
     point[0] >= bounds.minX &&
@@ -118,25 +127,21 @@ export function filterPathForImage(
   pathPoints,
   lineWidth,
   lineCap,
-  imageX,
-  imageY,
-  imageWidth,
-  imageHeight,
+  imageBounds,
 ) {
   if (!pathPoints || pathPoints.length === 0) {
     return [];
   }
 
   const halfWidth = lineWidth / 2;
-  const bounds = createBounds(
-    imageX,
-    imageY,
-    imageWidth,
-    imageHeight,
-    halfWidth,
-  );
+  const paddedImagedBounds = addPaddingToBounds(imageBounds, halfWidth);
 
-  return filterPointsWithBounds(pathPoints, bounds, lineCap, lineWidth);
+  return filterPointsWithBounds(
+    pathPoints,
+    paddedImagedBounds,
+    lineCap,
+    lineWidth,
+  );
 }
 
 function getTransformedWidth(width, angle, scaleX, scaleY) {

@@ -341,10 +341,7 @@ function drawingOnMouseUp({
               eraserPath.points,
               eraserPath.lineWidth,
               eraserPath.lineCap,
-              t.transform[4],
-              t.transform[5],
-              getScaledWidth(artifact, t.transform),
-              getScaledHeight(artifact, t.transform),
+              getImageBounds(artifact.value, t.transform),
             );
 
             if (intersectingPath.length > 0) {
@@ -436,7 +433,15 @@ function editingOnMouseDown({
           Math.abs(x - corner.x) <= RESIZE_HANDLE_SIZE / 2 &&
           Math.abs(y - corner.y) <= RESIZE_HANDLE_SIZE / 2
         ) {
-          resizeHandle.current = i;
+          const currTransform =
+            localArtifactTransformsRef.current[selectedIdx.current].transform;
+          resizeHandle.current = {
+            idx: i,
+            wasPositive: {
+              xScale: currTransform[0] >= 0,
+              yScale: currTransform[3] >= 0,
+            },
+          };
           lastPos.current = { x, y };
           return true;
         }
@@ -446,21 +451,20 @@ function editingOnMouseDown({
     for (let i = localArtifactTransformsRef.current.length - 1; i >= 0; i--) {
       const { transform, artifactId } = localArtifactTransformsRef.current[i];
       const artifact = artifactState[artifactId];
-      const xPlusWidth = transform[4] + getScaledWidth(artifact, transform);
-      const yPlusHeight = transform[5] + getScaledHeight(artifact, transform);
-      if (
-        artifact.type === "img" &&
-        x >= transform[4] &&
-        x <= xPlusWidth &&
-        y >= transform[5] &&
-        y <= yPlusHeight
-      ) {
-        resizeHandleCorners.current = [
-          { x: transform[4], y: transform[5] }, // Top-left
-          { x: xPlusWidth, y: transform[5] }, // Top-right
-          { x: transform[4], y: yPlusHeight }, // Bottom-left
-          { x: xPlusWidth, y: yPlusHeight }, // Bottom-right
-        ];
+      if (artifact.type === "img") {
+        const bounds = getImageBounds(artifact.value, transform);
+        if (
+          x >= bounds.minX &&
+          x <= bounds.maxX &&
+          y >= bounds.minY &&
+          y <= bounds.maxY
+        )
+          resizeHandleCorners.current = [
+            { x: bounds.minX, y: bounds.minY }, // Top-left
+            { x: bounds.maxX, y: bounds.minY }, // Top-right
+            { x: bounds.minX, y: bounds.maxY }, // Bottom-left
+            { x: bounds.maxX, y: bounds.maxY }, // Bottom-right
+          ];
         isDragging.current = true;
         draggedIdx.current = i;
         selectedIdx.current = i;
@@ -544,36 +548,27 @@ function editingOnMouseMove({
       const artifact = artifactState[artifactId];
 
       if (artifact.type === "img") {
-        const scaledWidth = getScaledWidth(artifact, transform);
-        const scaledHeight = getScaledHeight(artifact, transform);
-        switch (resizeHandle.current) {
-          case 0: // Top-left
-            transform[0] = (scaledWidth - dx) / artifact.value.width;
-            transform[3] = (scaledHeight - dy) / artifact.value.height;
-            transform[4] += dx;
-            transform[5] += dy;
-            break;
-          case 1: // Top-right
-            transform[0] = (scaledWidth + dx) / artifact.value.width;
-            transform[3] = (scaledHeight - dy) / artifact.value.height;
-            transform[5] += dy;
-            break;
-          case 2: // Bottom-left
-            transform[0] = (scaledWidth - dx) / artifact.value.width;
-            transform[3] = (scaledHeight + dy) / artifact.value.height;
-            transform[4] += dx;
-            break;
-          case 3: // Bottom-right
-            transform[0] = (scaledWidth + dx) / artifact.value.width;
-            transform[3] = (scaledHeight + dy) / artifact.value.height;
-            break;
-        }
+        const scaledWidth = getScaledWidth(artifact.value, transform);
+        const scaledHeight = getScaledHeight(artifact.value, transform);
+        const handleBehaviorFn = getImageHandleBehaviorFn(
+          resizeHandle.current.idx,
+          resizeHandle.current.wasPositive.xScale,
+          resizeHandle.current.wasPositive.yScale,
+        );
+        handleBehaviorFn(
+          transform,
+          scaledWidth,
+          scaledHeight,
+          dx,
+          dy,
+          artifact,
+        );
       } else if (artifact.type === "brushStrokes") {
         const bounds = getBrushStrokesBounds(artifact.value, transform);
         const width = bounds.maxX - bounds.minX;
         const height = bounds.maxY - bounds.minY;
 
-        switch (resizeHandle.current) {
+        switch (resizeHandle.current.idx) {
           case 0: {
             // Top-left
             const scaleX = (width - dx) / width;
@@ -640,7 +635,13 @@ function editingOnMouseMove({
         }
       }
 
-      setNewResizeHandleCorners(resizeHandle, resizeHandleCorners, dx, dy);
+      setNewResizeHandleCorners(
+        resizeHandle,
+        resizeHandleCorners,
+        dx,
+        dy,
+        transform,
+      );
 
       //   if (newElement.w < 20) {
       //     newElement.w = 20;
@@ -713,7 +714,7 @@ const getBrushStrokesBounds = (strokes, artifactTransform) => {
 };
 
 function setNewResizeHandleCorners(resizeHandle, resizeHandleCorners, dx, dy) {
-  switch (resizeHandle.current) {
+  switch (resizeHandle.current.idx) {
     case 0: // Top-left
       // Top-left handle
       resizeHandleCorners.current[0].x += dx;
@@ -753,12 +754,12 @@ function setNewResizeHandleCorners(resizeHandle, resizeHandleCorners, dx, dy) {
   }
 }
 
-function getScaledWidth(artifact, transform) {
-  return artifact.value.width * transform[0];
+function getScaledWidth(image, transform) {
+  return image.width * transform[0];
 }
 
-function getScaledHeight(artifact, transform) {
-  return artifact.value.height * transform[3];
+function getScaledHeight(image, transform) {
+  return image.height * transform[3];
 }
 
 function getTransformedPoints(points, transform) {
@@ -769,4 +770,117 @@ function getTransformedPoints(points, transform) {
     point[0] * transform[0] + transform[4],
     point[1] * transform[3] + transform[5],
   ]);
+}
+
+function getImageBounds(image, transform) {
+  const xs = [transform[4], transform[4] + getScaledWidth(image, transform)];
+  const ys = [transform[5], transform[5] + getScaledHeight(image, transform)];
+
+  return {
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minY: Math.min(...ys),
+    maxY: Math.max(...ys),
+  };
+}
+
+function getImageHandleBehaviorFn(
+  resizeHandleIdx,
+  xScaleWasPositive,
+  yScaleWasPositive,
+) {
+  switch (resizeHandleIdx) {
+    case 0:
+      if (xScaleWasPositive && yScaleWasPositive) {
+        return imageTopLeftHandleBehavior;
+      } else if (xScaleWasPositive && !yScaleWasPositive) {
+        return imageBottomLeftHandleBehavior;
+      } else if (!xScaleWasPositive && yScaleWasPositive) {
+        return imageTopRightHandleBehavior;
+      } else if (!xScaleWasPositive && !yScaleWasPositive) {
+        return imageBottomRightHandleBehavior;
+      }
+    case 1:
+      if (xScaleWasPositive && yScaleWasPositive) {
+        return imageTopRightHandleBehavior;
+      } else if (xScaleWasPositive && !yScaleWasPositive) {
+        return imageBottomRightHandleBehavior;
+      } else if (!xScaleWasPositive && yScaleWasPositive) {
+        return imageTopLeftHandleBehavior;
+      } else if (!xScaleWasPositive && !yScaleWasPositive) {
+        return imageBottomLeftHandleBehavior;
+      }
+    case 2:
+      if (xScaleWasPositive && yScaleWasPositive) {
+        return imageBottomLeftHandleBehavior;
+      } else if (xScaleWasPositive && !yScaleWasPositive) {
+        return imageTopLeftHandleBehavior;
+      } else if (!xScaleWasPositive && yScaleWasPositive) {
+        return imageBottomRightHandleBehavior;
+      } else if (!xScaleWasPositive && !yScaleWasPositive) {
+        return imageTopRightHandleBehavior;
+      }
+    case 3:
+      if (xScaleWasPositive && yScaleWasPositive) {
+        return imageBottomLeftHandleBehavior;
+      } else if (xScaleWasPositive && !yScaleWasPositive) {
+        return imageTopLeftHandleBehavior;
+      } else if (!xScaleWasPositive && yScaleWasPositive) {
+        return imageBottomRightHandleBehavior;
+      } else if (!xScaleWasPositive && !yScaleWasPositive) {
+        return imageTopRightHandleBehavior;
+      }
+  }
+}
+
+function imageTopLeftHandleBehavior(
+  transform,
+  scaledWidth,
+  scaledHeight,
+  dx,
+  dy,
+  artifact,
+) {
+  transform[0] = (scaledWidth - dx) / artifact.value.width;
+  transform[3] = (scaledHeight - dy) / artifact.value.height;
+  transform[4] += dx;
+  transform[5] += dy;
+}
+
+function imageTopRightHandleBehavior(
+  transform,
+  scaledWidth,
+  scaledHeight,
+  dx,
+  dy,
+  artifact,
+) {
+  transform[0] = (scaledWidth + dx) / artifact.value.width;
+  transform[3] = (scaledHeight - dy) / artifact.value.height;
+  transform[5] += dy;
+}
+
+function imageBottomLeftHandleBehavior(
+  transform,
+  scaledWidth,
+  scaledHeight,
+  dx,
+  dy,
+  artifact,
+) {
+  transform[0] = (scaledWidth - dx) / artifact.value.width;
+  transform[3] = (scaledHeight + dy) / artifact.value.height;
+  transform[4] += dx;
+}
+
+function imageBottomRightHandleBehavior(
+  transform,
+  scaledWidth,
+  scaledHeight,
+  dx,
+  dy,
+  artifact,
+) {
+  transform[0] = (scaledWidth + dx) / artifact.value.width;
+  transform[3] = (scaledHeight + dy) / artifact.value.height;
 }
