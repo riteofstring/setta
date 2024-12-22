@@ -54,6 +54,7 @@ export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
     loadedArtifactIdsWithDuplicates.push(
       ...x.artifactIdsUsed.filter((a) => a in loadedArtifacts),
     );
+    delete x.artifactIdsUsed;
   }
 
   return {
