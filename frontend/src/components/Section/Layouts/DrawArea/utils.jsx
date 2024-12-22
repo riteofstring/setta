@@ -145,18 +145,12 @@ export function drawAllLayers(
         artifact.value.complete
       ) {
         const image = realTimeValues[layer.id]?.[id] ?? artifact.value;
-        // const scale = Math.min(
-        //   canvas.width / image.width,
-        //   canvas.height / image.height,
-        // );
-        // const x = canvas.width / 2 - (image.width / 2) * scale;
-        // const y = canvas.height / 2 - (image.height / 2) * scale;
         const transform = realTimeTransforms[layer.id]?.[id] ?? t.transform;
-        // console.log(image.width, image.height, transform)
         tempCtx.globalAlpha = 1;
         tempCtx.globalCompositeOperation = "source-over";
         tempCtx.setTransform(...transform);
         tempCtx.drawImage(image, 0, 0, image.width, image.height);
+        tempCtx.setTransform(1, 0, 0, 1, 0, 0); // MUST reset here, otherwise get smudging when moving images around. No idea why
       } else if (
         artifact.type === "brushStrokes" &&
         artifact.value.length > 0
