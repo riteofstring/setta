@@ -145,7 +145,7 @@ export function DrawArea({ sectionId }) {
         eraserStrokes: t.eraserStrokes,
       });
     }
-  }, [activeLayer]);
+  }, [activeLayer?.artifactTransforms]);
 
   const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
     useDrawModeMouseHandlers({
@@ -154,6 +154,8 @@ export function DrawArea({ sectionId }) {
       strokesRef,
       eraserStrokesRef,
       prevPointRef,
+      eraserBrushSize,
+      brushShape,
       isDrawing,
       setIsDrawing,
       isDragging,

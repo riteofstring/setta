@@ -10,6 +10,7 @@ import {
   getXY,
   setGlobalArtifactTransformsAndDrawAllLayers,
   setGlobalBrushStrokesAndDrawAllLayers,
+  startNewEraserStroke,
   startNewStroke,
 } from "./utils";
 
@@ -19,6 +20,8 @@ export function useDrawModeMouseHandlers({
   strokesRef,
   eraserStrokesRef,
   prevPointRef,
+  eraserBrushSize,
+  brushShape,
   isDrawing,
   setIsDrawing,
   isDragging,
@@ -46,6 +49,8 @@ export function useDrawModeMouseHandlers({
       isEraser,
       strokesRef,
       eraserStrokesRef,
+      eraserBrushSize,
+      brushShape,
       prevPointRef,
       setIsDrawing,
       canvasRef,
@@ -140,6 +145,7 @@ export function useDrawModeMouseHandlers({
       isDragging,
       draggedId,
       resizeHandle,
+      resizeHandleCorners,
       sectionId,
       activeLayerId,
       localArtifactTransformsRef,
@@ -171,6 +177,8 @@ function drawingOnMouseDown({
   isEraser,
   strokesRef,
   eraserStrokesRef,
+  eraserBrushSize,
+  brushShape,
   prevPointRef,
   setIsDrawing,
   canvasRef,
@@ -197,13 +205,13 @@ function drawingOnMouseDown({
     } else {
       point = getXY(e);
     }
-    startNewStroke(
-      draftCanvasRef,
-      isEraser ? eraserStrokesRef : strokesRef,
-      point,
-      isEraser,
-    );
     if (isEraser) {
+      startNewEraserStroke(
+        eraserStrokesRef,
+        eraserBrushSize,
+        brushShape,
+        point,
+      );
       drawAllLayers(
         canvasRef,
         tempCanvasRef,
@@ -213,7 +221,10 @@ function drawingOnMouseDown({
         {},
         { [activeLayerId]: eraserStrokesRef.current },
       );
+    } else {
+      startNewStroke(draftCanvasRef, strokesRef, point);
     }
+
     prevPointRef.current = point;
   };
 }
@@ -544,6 +555,7 @@ function editingOnMouseUp({
   isDragging,
   draggedId,
   resizeHandle,
+  resizeHandleCorners,
   sectionId,
   activeLayerId,
   localArtifactTransformsRef,
@@ -555,6 +567,7 @@ function editingOnMouseUp({
       sectionId,
       activeLayerId,
       localArtifactTransformsRef,
+      resizeHandleCorners,
       canvasRef,
       tempCanvasRef,
     );

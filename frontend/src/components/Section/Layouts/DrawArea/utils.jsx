@@ -10,24 +10,14 @@ export function setDraftCanvasProperties({
   brushSize,
   brushShape,
   brushOpacity,
-  eraserBrushSize,
-  isEraser,
   layerOpacity,
 }) {
   const dCtx = getCtx(draftCanvasRef);
-  if (isEraser) {
-    dCtx.globalCompositeOperation = "destination-out";
-    dCtx.strokeStyle = "rgba(0,0,0,1)";
-    dCtx.lineWidth = eraserBrushSize;
-    dCtx.lineCap = brushShape;
-    dCtx.globalAlpha = 1;
-  } else {
-    dCtx.globalCompositeOperation = "source-over";
-    dCtx.strokeStyle = hexToRGBA(color, brushOpacity);
-    dCtx.lineWidth = brushSize;
-    dCtx.lineCap = brushShape;
-    dCtx.globalAlpha = layerOpacity;
-  }
+  dCtx.globalCompositeOperation = "source-over";
+  dCtx.strokeStyle = hexToRGBA(color, brushOpacity);
+  dCtx.lineWidth = brushSize;
+  dCtx.lineCap = brushShape;
+  dCtx.globalAlpha = layerOpacity;
 }
 
 export function setCanvasSize({
@@ -133,6 +123,7 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
   sectionId,
   activeLayerId,
   localArtifactTransformsRef,
+  resizeHandleCorners,
   canvasRef,
   tempCanvasRef,
 ) {
@@ -149,6 +140,9 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
     canvasRef,
     tempCanvasRef,
     getSectionArtifactGroupMetadata(sectionId, useSectionInfos.getState()),
+    {},
+    {},
+    { [activeLayerId]: resizeHandleCorners.current },
   );
 }
 
@@ -228,25 +222,36 @@ export function drawAllLayers(
   }
 }
 
-export function startNewStroke(
-  draftCanvasRef,
-  strokesRef,
-  firstPoint,
-  isEraser,
-) {
+export function startNewStroke(draftCanvasRef, strokesRef, firstPoint) {
   const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
   strokesRef.current.push({
     strokeStyle: dCtx.strokeStyle,
     lineWidth: dCtx.lineWidth,
     lineCap: dCtx.lineCap,
     points: [firstPoint],
-    canvasHeight: draftCanvas.height,
-    canvasWidth: draftCanvas.width,
+    // canvasHeight: draftCanvas.height,
+    // canvasWidth: draftCanvas.width,
     globalCompositeOperation: dCtx.globalCompositeOperation,
   });
-  if (!isEraser) {
-    drawStroke(draftCanvasRef, firstPoint, firstPoint);
-  }
+  drawStroke(draftCanvasRef, firstPoint, firstPoint);
+}
+
+export function startNewEraserStroke(
+  eraserStrokesRef,
+  eraserBrushSize,
+  brushShape,
+  firstPoint,
+) {
+  eraserStrokesRef.current.push({
+    strokeStyle: "rgba(0,0,0,1)",
+    lineWidth: eraserBrushSize,
+    lineCap: brushShape,
+    points: [firstPoint],
+    // canvasHeight: draftCanvas.height,
+    // canvasWidth: draftCanvas.width,
+    globalAlpha: 1,
+    globalCompositeOperation: "destination-out",
+  });
 }
 
 export function drawSavedStrokesOntoTempCanvas(canvas, ctx, strokes) {
