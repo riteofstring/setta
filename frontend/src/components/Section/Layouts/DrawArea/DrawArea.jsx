@@ -27,7 +27,6 @@ export function DrawArea({ sectionId }) {
     ["type"],
   );
 
-  // console.log("layers", layers);
   // console.log("loadedArtifactTypes", loadedArtifactTypes);
 
   const {
@@ -96,7 +95,6 @@ export function DrawArea({ sectionId }) {
         canvasRef,
         tempCanvasRef,
         draftCanvasRef,
-        layers,
         state,
       });
     });

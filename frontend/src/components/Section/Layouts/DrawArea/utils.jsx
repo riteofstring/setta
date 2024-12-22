@@ -42,12 +42,12 @@ export function setCanvasSize({
   canvasRef,
   tempCanvasRef,
   draftCanvasRef,
-  layers,
   state,
 }) {
   const [canvas] = getCanvasAndCtx(canvasRef);
   const [tempCanvas] = getCanvasAndCtx(tempCanvasRef);
 
+  const sectionState = useSectionInfos.getState();
   const artifactIdUsedToSetCanvasSize =
     state.x[sectionId].canvasSettings.artifactIdUsedToSetCanvasSize;
   const artifactState = useArtifacts.getState();
@@ -57,7 +57,9 @@ export function setCanvasSize({
   let isNewImg = false;
 
   if (!imgSize) {
-    for (const layer of layers) {
+    for (const layerId of sectionState.x[sectionId].artifactGroupIds) {
+      const layer = sectionState.artifactGroups[layerId];
+
       for (const t of layer.artifactTransforms) {
         const id = t.artifactId;
         if (!(id in artifactState)) {
