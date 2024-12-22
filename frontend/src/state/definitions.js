@@ -34,6 +34,7 @@ export const useSectionInfos = createProjectState(
             uiTypes: {},
             codeInfoCols: {},
             codeInfo: {},
+            artifactGroups: {},
             singletonSections: {
               [C.GLOBAL_VARIABLES]: null,
               [C.GLOBAL_PARAM_SWEEP]: null,
@@ -110,13 +111,7 @@ export const useAllProjectConfigs = create(
   })),
 );
 
-export const useArtifacts = createProjectState(
-  immer(
-    withResetFn(() => ({
-      x: {},
-    })),
-  ),
-);
+export const useArtifacts = createProjectState(withResetFn(() => ({})));
 
 export const useProjectConfig = createProjectState(
   temporal(

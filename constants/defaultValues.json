@@ -15,7 +15,7 @@
     "uiTypeId": null,
     "uiTypeColId": null,
     "social": "",
-    "artifacts": [],
+    "artifactGroupIds": [],
     "defaultVariantId": null,
     "variantIds": [],
     "paramSweepSectionId": null,
@@ -31,12 +31,15 @@
     "pinnedAreaHeight": "auto",
     "isMinimized": false,
     "canvasSettings": {
+      "activeLayerId": null,
       "color": "#ff0000",
-      "opacity": 1,
       "brushSize": 16,
-      "brushShape": "round",
-      "canvasOpacity": 0.5,
-      "eraserBrushSize": 16
+      "brushShape": "butt",
+      "eraserBrushSize": 16,
+      "drawThrottleDelay": 0,
+      "canvasTransferQueueLength": 50,
+      "artifactIdUsedToSetCanvasSize": null,
+      "mode": "draw"
     },
     "isTemporary": false,
     "renderMarkdown": false,
@@ -100,5 +103,11 @@
     "isArgsObj": false,
     "startPos": 0,
     "keyword": ""
+  },
+  "artifact": {
+    "name": "",
+    "path": null,
+    "value": null,
+    "type": ""
   }
 }

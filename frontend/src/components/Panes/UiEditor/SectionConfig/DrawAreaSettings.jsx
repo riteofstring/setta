@@ -1,9 +1,16 @@
 import { AvailableColors } from "components/Params/ParamUIs/ColorPickerInput";
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
+import { ListOfArtifacts } from "./ListOfArtifacts";
 
 export function DrawAreaSettings({ sectionId }) {
-  return <DrawAreaAvailableColors sectionId={sectionId} />;
+  return (
+    <>
+      <DrawAreaAvailableColors sectionId={sectionId} />
+      <ListOfArtifacts sectionId={sectionId} sectionTypeName={C.DRAW} />
+    </>
+  );
 }
 
 function DrawAreaAvailableColors({ sectionId }) {

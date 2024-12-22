@@ -1,8 +1,5 @@
 import CodeMirror from "@uiw/react-codemirror";
-import {
-  codeAreaTabOnEnterKeyHandlers,
-  useCodeAreaHeight,
-} from "components/Section/Layouts/CodeArea";
+import { useCodeAreaHeight } from "components/Section/Layouts/CodeArea";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { getSectionVariant } from "state/actions/sectionInfos";
@@ -16,21 +13,16 @@ export function SectionYamlView({ sectionId }) {
 }
 
 export function YamlView({ sectionId, isDisabled }) {
-  const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
-    useCodeAreaHeight({ sectionId });
-
-  const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
-    codeAreaTabOnEnterKeyHandlers(wrapperRef);
-
   const theme = useCodeMirrorStyle();
   const extensions = getExtensions({
     sectionId,
     language: "yaml",
     indentWithTab: true,
     escapeToBlur: true,
-    onEscape: onEscapeFocusOnArticleDiv,
     isDisabled,
   });
+  const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
+    useCodeAreaHeight({ sectionId });
 
   const yamlValue = useYamlValue((x) => x[sectionId] ?? "");
   function setYamlValue(v) {
@@ -47,8 +39,6 @@ export function YamlView({ sectionId, isDisabled }) {
     <article
       ref={wrapperRef}
       className={`nodrag section-full-no-title min-h-0 cursor-auto [&_*]:!outline-0 [&_.cm-theme]:h-full ${cmEditorClass} ${overflow} ${nowheel}`}
-      onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
-      tabIndex="0"
     >
       <CodeMirror
         maxHeight={maxHeight}

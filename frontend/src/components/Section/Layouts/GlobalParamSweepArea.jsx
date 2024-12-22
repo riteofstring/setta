@@ -42,49 +42,35 @@ function GlobalParamSweepGUI({ sectionId, width }) {
   return (
     <>
       <section
-        className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main -mr-3 mb-2 flex min-w-0 flex-col gap-2 overflow-y-scroll pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible`}
+        className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main -mr-3 mb-2 flex min-w-0 flex-col gap-2 overflow-y-scroll pr-2 @sm/multipane:flex-row @sm/multipane:gap-6  @sm/multipane:overflow-visible`}
         ref={ref}
       >
-        <ResizablePane width={width}>
-          <LeftSide sectionId={sectionId} />
-        </ResizablePane>
-
+        <LeftSide sectionId={sectionId} />
         <RightSide sectionId={sectionId} />
       </section>
     </>
   );
 }
 
-function ResizablePane({ width, children }) {
-  if (width > 384) {
-    return (
-      <ResizableWithScale
-        className="nodrag relative -mr-2 flex flex-col pr-2"
-        enable={{ right: true }}
-        minWidth={100}
-        maxWidth="70%"
-        handleClasses={{
-          right:
-            "before:bg-transparent before:absolute before:top-0 before:h-3/4 before:bottom-0 before:left-0 before:right-0 before: before:m-auto before:w-1/2 hover:before:bg-setta-500/10 before:rounded-full",
-        }}
-      >
-        {children}
-      </ResizableWithScale>
-    );
-  }
-  return <article className="-mr-2 flex flex-col pr-2">{children}</article>;
-}
-
 function LeftSide({ sectionId }) {
   return (
-    <>
-      <h3 className="mb-[0.55rem] ml-0.5 mt-2 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+    <ResizableWithScale
+      className="nodrag relative -mr-2 flex flex-col gap-2 pr-2"
+      enable={{ right: true }}
+      minWidth={100}
+      maxWidth="70%"
+      handleClasses={{
+        right:
+          "before:bg-transparent before:absolute before:top-0 before:h-3/4 before:bottom-0 before:left-0 before:right-0 before: before:m-auto before:w-1/2 hover:before:bg-setta-500/10 before:rounded-full",
+      }}
+    >
+      <h3 className="ml-0.5 mt-2 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
         Run Groups
       </h3>
 
       <RunGroupList sectionId={sectionId} />
       <CreateNewRunGroupButton sectionId={sectionId} />
-    </>
+    </ResizableWithScale>
   );
 }
 
@@ -100,7 +86,7 @@ function RightSide({ sectionId }) {
   // -mr-[14px]
   return (
     <article
-      className={`${showYaml ? "-mr-2 overflow-visible @sm/multipane:-mr-[14px] @sm/multipane:overflow-y-scroll" : "h-full min-h-0 min-w-0 max-w-full overflow-x-clip"} mt-2 flex flex-1 flex-col pb-2 `}
+      className={`${showYaml ? "-mr-2 overflow-visible @sm/multipane:-mr-[14px] @sm/multipane:overflow-y-scroll" : "h-full min-h-0 min-w-0 max-w-full overflow-x-clip"} mt-2 flex flex-1 flex-col gap-2  pb-2 `}
     >
       {!showYaml ? (
         <>
@@ -138,7 +124,7 @@ function RunGroupList({ sectionId }) {
 
   return (
     <ul
-      className={`${isScrollable ? "nowheel" : ""} flex flex-grow flex-col overflow-visible py-[2px] @sm/multipane:overflow-y-scroll`}
+      className={`${isScrollable ? "nowheel" : ""} flex flex-grow flex-col overflow-visible @sm/multipane:overflow-y-scroll`}
       ref={ref}
     >
       {runGroupsDetails.map(({ id, name }) => (
@@ -373,22 +359,22 @@ function _GenericList({
 }) {
   return (
     <StandardAccordion
-      rootStyles={`${accordionRootStyles ?? "hover:bg-white hover:dark:bg-setta-700/10 hover:border-setta-50 dark:hover:border-setta-700"} border border-transparent rounded-lg px-2 ml-7 -mr-2 -mt-0.5`}
+      rootStyles={`${accordionRootStyles ?? "hover:bg-white hover:dark:bg-setta-700/10 hover:border-setta-50 dark:hover:border-setta-700"} border border-transparent rounded-lg px-2 ml-8 -mr-2 -mt-0.5`}
       itemStyles="focus-within:relative focus-within:z-10"
-      headerStyles="flex flex-1 cursor-default items-center justify-between my-0.5 ml-1"
-      triggerStyles="flex justify-between px-2 -mx-2 w-full items-center hover:cursor-pointer rounded-md italic text-xs font-semibold opacity-60 group-hover:opacity-100 text-setta-500 dark:text-setta-300 focus-visible:outline outline-blue-500"
-      contentStyles="text-xs overflow-hidden mb-1 "
+      headerStyles="flex flex-1 cursor-default items-center justify-between my-0.5"
+      triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md italic text-xs font-semibold opacity-60 group-hover:opacity-100 text-setta-500 dark:text-setta-300"
+      contentStyles="text-xs overflow-hidden mb-1"
       heading={heading}
       value={heading}
       internalWrapper={false}
       // defaultValue={defaultValue}
       data-state={open}
     >
-      <ul>
+      <ul className="">
         {inputList.map((e, idx) => (
           <li
             key={idx}
-            className="ml-[4px] flex min-h-6 cursor-pointer flex-col rounded"
+            className="flex min-h-6 cursor-pointer flex-col rounded"
           >
             <ChildComponent
               id={e.id}
@@ -490,7 +476,7 @@ function CheckboxGroup({ children, checked, onChange }) {
     <label className="flex min-h-6 cursor-pointer items-center gap-2 text-xs text-setta-700 dark:text-setta-300">
       <input
         type="checkbox"
-        className="h-4 w-4 min-w-4 rounded-md bg-setta-500/10 outline-offset-2 outline-blue-500 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500 focus-visible:outline"
+        className="h-4 w-4 min-w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
         checked={checked}
         onChange={onChange}
       />
@@ -515,11 +501,11 @@ function CheckboxNextToLabel({
       onMouseLeave={onMouseLeave}
     >
       <label
-        className={`flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-700  group-hover/runitem:!text-blue-500 dark:text-setta-200 ${shown ? "font-bold !text-blue-500" : ""}`}
+        className={`flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-700 group-hover/runitem:!text-blue-500 dark:text-setta-200 ${shown ? "font-bold !text-blue-500" : ""}`}
       >
         <input
           type="checkbox"
-          className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/15 outline-offset-2 outline-blue-500 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500 focus-visible:outline"
+          className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/15 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
           checked={checked}
           onChange={onChange}
         />
@@ -527,7 +513,7 @@ function CheckboxNextToLabel({
         <p className="truncate">{children}</p>
       </label>
       <button
-        className={`mr-0.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-transparent outline-blue-500 hover:!text-setta-500  focus-visible:outline group-hover/runitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/runitem:text-setta-600 ${shown ? "!text-blue-500" : ""}`}
+        className={`mr-0.5 cursor-pointer text-transparent hover:!text-setta-500 group-hover/runitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/runitem:text-setta-600 ${shown ? "!text-blue-500" : ""}`}
         onClick={onClick}
       >
         <i className="gg-pen  " />
@@ -561,7 +547,7 @@ function CreateNewRunGroupButton({ sectionId }) {
 
   return (
     <button
-      className="nodrag mt-2 flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-1 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:!border-blue-500 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
+      className="nodrag mb-1 flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-1 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
       onClick={onClick}
     >
       <span className="relative">
