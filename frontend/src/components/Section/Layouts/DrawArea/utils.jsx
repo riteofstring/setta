@@ -209,11 +209,11 @@ export function startNewStroke(
 
 export function drawSavedStrokesOntoTempCanvas(canvas, ctx, strokes) {
   for (const stroke of strokes) {
-    const scale = Math.min(
-      canvas.width / stroke.canvasWidth,
-      canvas.height / stroke.canvasHeight,
-    );
-    ctx.scale(scale, scale);
+    // const scale = Math.min(
+    //   canvas.width / stroke.canvasWidth,
+    //   canvas.height / stroke.canvasHeight,
+    // );
+    // ctx.scale(scale, scale);
     ctx.beginPath();
     ctx.globalCompositeOperation = stroke.globalCompositeOperation;
     ctx.strokeStyle = stroke.strokeStyle;
@@ -227,7 +227,7 @@ export function drawSavedStrokesOntoTempCanvas(canvas, ctx, strokes) {
       prevPoint = point;
     });
     ctx.stroke();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 }
 
@@ -295,14 +295,6 @@ export function filterPathForImage(
   imageWidth,
   imageHeight,
 ) {
-  console.log(
-    "filterPathForImage",
-    pathPoints,
-    imageX,
-    imageY,
-    imageWidth,
-    imageHeight,
-  );
   if (!pathPoints || pathPoints.length === 0) {
     return [];
   }
