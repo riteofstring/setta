@@ -1,7 +1,36 @@
-import { getSegmentAngle, getTransformedWidth } from "./eraserIntersection";
-import { getCombinedTransformForStroke, getTransformedPoints } from "./utils";
+export function getTransformedPoints(points, transform) {
+  if (!transform) {
+    return points;
+  }
+  return points.map((point) => [
+    point[0] * transform[0] + transform[4],
+    point[1] * transform[3] + transform[5],
+  ]);
+}
 
-function getSamplePoints(points, minDistance) {
+export function getSegmentAngle(p1, p2) {
+  return Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
+}
+
+export function getTransformedWidth(width, angle, scaleX, scaleY) {
+  // Get the direction perpendicular to the line
+  const perpAngle = angle + Math.PI / 2;
+
+  // Calculate how much the width is scaled in the perpendicular direction
+  const perpX = Math.cos(perpAngle);
+  const perpY = Math.sin(perpAngle);
+
+  // Scale the perpendicular vector
+  const scaledPerpX = perpX * scaleX;
+  const scaledPerpY = perpY * scaleY;
+
+  // The new width is the length of the scaled perpendicular vector
+  return (
+    width * Math.sqrt(scaledPerpX * scaledPerpX + scaledPerpY * scaledPerpY)
+  );
+}
+
+export function getSamplePoints(points, minDistance) {
   if (points.length <= 2) return points;
 
   const samples = [points[0]];
@@ -32,7 +61,7 @@ function getSamplePoints(points, minDistance) {
   return samples;
 }
 
-function isPointOnStroke(x, y, stroke, transform) {
+export function isPointOnStroke(x, y, stroke, transform) {
   const point = [x, y];
   const allPoints = getTransformedPoints(stroke.points, transform);
   const strokePoints = getSamplePoints(allPoints, 5);
@@ -84,22 +113,6 @@ function isPointOnStroke(x, y, stroke, transform) {
     const distance = Math.hypot(point[0] - projX, point[1] - projY);
 
     if (distance <= segmentWidth / 2) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-export function detectHit(x, y, artifact, transform) {
-  for (let i = 0; i < artifact.value.length; i++) {
-    const stroke = artifact.value[i];
-    const combinedTransform = getCombinedTransformForStroke(
-      transform,
-      stroke.transform,
-    );
-
-    if (isPointOnStroke(x, y, stroke, combinedTransform)) {
       return true;
     }
   }

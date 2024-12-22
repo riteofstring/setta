@@ -1,5 +1,7 @@
+import { getSegmentAngle, getTransformedWidth } from "./lowLevelStrokeUtils";
+
 // Shared utility functions
-export function createBounds(x, y, width, height, padding) {
+function createBounds(x, y, width, height, padding) {
   return {
     minX: x - padding,
     maxX: x + width + padding,
@@ -17,7 +19,7 @@ function addPaddingToBounds(bounds, padding) {
   };
 }
 
-export function isPointInBounds(point, bounds) {
+function isPointInBounds(point, bounds) {
   return (
     point[0] >= bounds.minX &&
     point[0] <= bounds.maxX &&
@@ -37,7 +39,7 @@ function calculateCapPoint(point, referencePoint, halfWidth, capExtra) {
   ];
 }
 
-export function isPointInBoundsWithLineCap(
+function isPointInBoundsWithLineCap(
   point,
   prevPoint,
   nextPoint,
@@ -142,28 +144,6 @@ export function filterPathForImage(
     lineCap,
     lineWidth,
   );
-}
-
-export function getTransformedWidth(width, angle, scaleX, scaleY) {
-  // Get the direction perpendicular to the line
-  const perpAngle = angle + Math.PI / 2;
-
-  // Calculate how much the width is scaled in the perpendicular direction
-  const perpX = Math.cos(perpAngle);
-  const perpY = Math.sin(perpAngle);
-
-  // Scale the perpendicular vector
-  const scaledPerpX = perpX * scaleX;
-  const scaledPerpY = perpY * scaleY;
-
-  // The new width is the length of the scaled perpendicular vector
-  return (
-    width * Math.sqrt(scaledPerpX * scaledPerpX + scaledPerpY * scaledPerpY)
-  );
-}
-
-export function getSegmentAngle(p1, p2) {
-  return Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
 }
 
 export function filterPathForBrushStroke(

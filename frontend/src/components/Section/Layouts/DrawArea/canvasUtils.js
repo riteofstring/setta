@@ -414,28 +414,6 @@ export function hexToRGBA(_hex, opacity) {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
-export function reorderArtifactsWithBrushStrokesLast(
-  artifactTransforms,
-  artifactState,
-) {
-  const brushStrokes = [];
-  const other = [];
-
-  // Sort ids into two arrays using a for loop
-  for (let i = 0; i < artifactTransforms.length; i++) {
-    const obj = artifactState[artifactTransforms[i].artifactId];
-
-    if (obj && obj.type === "brushStrokes") {
-      brushStrokes.push(artifactTransforms[i]);
-    } else {
-      other.push(artifactTransforms[i]);
-    }
-  }
-
-  // Combine arrays using spread operator
-  return [...other, ...brushStrokes];
-}
-
 export function maybeGetImgSizeFromArtifact(artifact) {
   if (artifact?.type === "img" && artifact?.value?.complete) {
     const image = artifact.value;
@@ -450,13 +428,3 @@ export const debouncedSendDrawingToInteractiveTasks = _.debounce(
   },
   500,
 );
-
-export function getTransformedPoints(points, transform) {
-  if (!transform) {
-    return points;
-  }
-  return points.map((point) => [
-    point[0] * transform[0] + transform[4],
-    point[1] * transform[3] + transform[5],
-  ]);
-}

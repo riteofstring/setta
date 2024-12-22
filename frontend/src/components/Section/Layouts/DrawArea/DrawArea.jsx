@@ -11,15 +11,15 @@ import {
 } from "state/definitions";
 import { useDrawAreaActiveLayerAndLoadedArtifacts } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { DrawAreaControls } from "./DrawAreaControls";
-import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
-import { useImageLoadViaDropzone } from "./useImageLoadViaDropzone";
 import {
   drawAllLayers,
   setCanvasSize,
   setDraftCanvasProperties,
   setGlobalBrushStrokesAndDrawAllLayers,
-} from "./utils";
+} from "./canvasUtils";
+import { DrawAreaControls } from "./DrawAreaControls";
+import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
+import { useImageLoadViaDropzone } from "./useImageLoadViaDropzone";
 
 export function DrawArea({ sectionId }) {
   const {
