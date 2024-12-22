@@ -147,14 +147,14 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
   tempCanvasRef,
 ) {
   useSectionInfos.setState((state) => {
-    state.artifactGroups[activeLayerId].artifactTransforms = Object.entries(
-      localArtifactTransformsRef.current,
-    ).map(([artifactId, { transform, eraserStrokes }]) => ({
-      artifactId,
-      transform,
-      eraserStrokes,
-    }));
+    for (const t of state.artifactGroups[activeLayerId].artifactTransforms) {
+      const { transform, eraserStrokes } =
+        localArtifactTransformsRef.current[t.artifactId];
+      t.transform = _.cloneDeep(transform);
+      t.eraserStrokes = _.cloneDeep(eraserStrokes);
+    }
   });
+
   drawAllLayers(
     sectionId,
     canvasRef,
