@@ -114,9 +114,17 @@ export function drawAllLayers(
   canvasRef,
   tempCanvasRef,
   layers,
-  layerIdToStrokes = {},
+  realTimeValues = {}, // layerId -> artifactId -> value
+  realTimeTransforms = {}, // layerId -> index -> value
+  realTimeResizeHandles = {}, // layerId -> handles
 ) {
-  const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+  console.log(
+    "drawAllLayers",
+    realTimeValues,
+    realTimeTransforms,
+    realTimeResizeHandles,
+  );
+  const ctx = getCtx(canvasRef);
   const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
   clearCanvas(canvasRef);
 
@@ -131,7 +139,7 @@ export function drawAllLayers(
       artifactState,
     );
 
-    for (const t of artifactsToDraw) {
+    for (const [idx, t] of artifactsToDraw.entries()) {
       const id = t.artifactId;
       if (!(id in artifactState)) {
         return;
@@ -142,7 +150,7 @@ export function drawAllLayers(
         artifact.value instanceof Image &&
         artifact.value.complete
       ) {
-        const image = artifact.value;
+        const image = realTimeValues[layer.id]?.[id] ?? artifact.value;
         // const scale = Math.min(
         //   canvas.width / image.width,
         //   canvas.height / image.height,
@@ -150,22 +158,23 @@ export function drawAllLayers(
         // const x = canvas.width / 2 - (image.width / 2) * scale;
         // const y = canvas.height / 2 - (image.height / 2) * scale;
 
+        const transform = realTimeTransforms[layer.id]?.[idx] ?? t;
         tempCtx.globalAlpha = 1;
         tempCtx.globalCompositeOperation = "source-over";
         tempCtx.drawImage(
           image,
-          t.x,
-          t.y,
+          transform.x,
+          transform.y,
           // image.width * scale,
           // image.height * scale,
-          t.w,
-          t.h,
+          transform.w,
+          transform.h,
         );
       } else if (
         artifact.type === "brushStrokes" &&
         artifact.value.length > 0
       ) {
-        const strokes = layerIdToStrokes[layer.id] ?? artifact.value;
+        const strokes = realTimeValues[layer.id]?.[id] ?? artifact.value;
         strokes.forEach((stroke) => {
           drawSavedStrokeOntoTempCanvas(tempCanvas, tempCtx, stroke);
         });
@@ -174,6 +183,11 @@ export function drawAllLayers(
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = layerOpacity;
     ctx.drawImage(tempCanvas, 0, 0);
+
+    if (realTimeResizeHandles[layer.id]) {
+      drawResizeHandles(ctx, realTimeResizeHandles[layer.id]);
+    }
+
     clearCanvas(tempCanvasRef);
   }
 }
@@ -227,6 +241,21 @@ export function drawStroke(canvasRef, from, to) {
   ctx.moveTo(from[0], from[1]);
   ctx.lineTo(to[0], to[1]);
   ctx.stroke();
+}
+
+function drawResizeHandles(ctx, resizeHandles) {
+  const handleSize = 8;
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#4299e1"; // blue-500
+
+  resizeHandles.forEach((corner) => {
+    ctx.fillRect(
+      corner.x - handleSize / 2,
+      corner.y - handleSize / 2,
+      handleSize,
+      handleSize,
+    );
+  });
 }
 
 export function hexToRGBA(_hex, opacity) {

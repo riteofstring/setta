@@ -57,11 +57,12 @@ export function DrawArea({ sectionId }) {
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [draggedIndex, setDraggedIndex] = useState(null);
-  const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
-  const [selectedIndex, setSelectedIndex] = useState(null);
-  const [resizeHandle, setResizeHandle] = useState(null);
+  const isDragging = useRef(false);
+  const draggedIndex = useRef(null);
+  const lastPos = useRef({ x: 0, y: 0 });
+  const selectedIndex = useRef(null);
+  const resizeHandle = useRef(null);
+  const resizeHandleCorners = useRef(null);
 
   const activeLayer = layers.find((x) => x.id === activeLayerId);
   const layerOpacity = activeLayer?.layerOpacity ?? 1;
@@ -69,8 +70,6 @@ export function DrawArea({ sectionId }) {
   const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
     (a) => loadedArtifacts[a.artifactId]?.type === "brushStrokes",
   )?.artifactId;
-
-  console.log("selectedIndex", selectedIndex)
 
   // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
 
@@ -172,15 +171,11 @@ export function DrawArea({ sectionId }) {
       isDrawing,
       setIsDrawing,
       isDragging,
-      setIsDragging,
       draggedIndex,
-      setDraggedIndex,
       lastPos,
-      setLastPos,
       selectedIndex,
-      setSelectedIndex,
       resizeHandle,
-      setResizeHandle,
+      resizeHandleCorners,
       transferEverythingToRealCanvas,
       drawThrottleDelay,
       canvasRef,
