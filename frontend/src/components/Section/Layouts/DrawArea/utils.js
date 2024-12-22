@@ -49,7 +49,8 @@ export function setCanvasSize({
   state,
 }) {
   const [canvas] = getCanvasAndCtx(canvasRef);
-  const [tempCanvas] = getCanvasAndCtx(tempCanvasRef);
+  const [tempCanvas1] = getCanvasAndCtx(tempCanvasRef[0]);
+  const [tempCanvas2] = getCanvasAndCtx(tempCanvasRef[1]);
 
   const sectionState = useSectionInfos.getState();
   const artifactState = useArtifacts.getState();
@@ -94,8 +95,11 @@ export function setCanvasSize({
   canvas.width = canvasSize.width;
   canvas.height = canvasSize.height;
 
-  tempCanvas.width = canvasSize.width;
-  tempCanvas.height = canvasSize.height;
+  tempCanvas1.width = canvasSize.width;
+  tempCanvas1.height = canvasSize.height;
+
+  tempCanvas2.width = canvasSize.width;
+  tempCanvas2.height = canvasSize.height;
 
   resizeDraftCanvasAndKeepProperties(
     draftCanvasRef,
@@ -181,7 +185,8 @@ export function drawAllLayers(
   realTimeEraserStrokes = {}, // layerId -> eraserStrokes array
 ) {
   const ctx = getCtx(canvasRef);
-  const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
+  const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef[0]);
+  const [layerTempCanvas, layerTempCtx] = getCanvasAndCtx(tempCanvasRef[1]);
   clearCanvas(canvasRef);
 
   const sectionState = useSectionInfos.getState();
@@ -199,6 +204,10 @@ export function drawAllLayers(
         return;
       }
       const artifact = artifactState[id];
+
+      layerTempCtx.globalAlpha = 1;
+      layerTempCtx.globalCompositeOperation = "source-over";
+
       if (
         artifact.type === "img" &&
         artifact.value instanceof Image &&
@@ -206,32 +215,15 @@ export function drawAllLayers(
       ) {
         const image = realTimeValues[layerId]?.[id] ?? artifact.value;
         const transformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
-        tempCtx.globalAlpha = 1;
-        tempCtx.globalCompositeOperation = "source-over";
-        if (transformInfo.eraserStrokes.length > 0) {
-          tempCtx.save();
-          tempCtx.beginPath();
-          tempCtx.setTransform(...transformInfo.transform);
-          tempCtx.rect(0, 0, image.width, image.height);
-          tempCtx.clip();
-          tempCtx.drawImage(image, 0, 0, image.width, image.height);
-          drawSavedStrokesOntoTempCanvas(
-            tempCanvas,
-            tempCtx,
-            transformInfo.eraserStrokes,
-            transformInfo.transform,
-          );
-          tempCtx.restore();
-        } else {
-          tempCtx.setTransform(...transformInfo.transform);
-          tempCtx.drawImage(image, 0, 0, image.width, image.height);
-          drawSavedStrokesOntoTempCanvas(
-            tempCanvas,
-            tempCtx,
-            transformInfo.eraserStrokes,
-            transformInfo.transform,
-          );
-        }
+        layerTempCtx.setTransform(...transformInfo.transform);
+        layerTempCtx.drawImage(image, 0, 0, image.width, image.height);
+        drawSavedStrokesOntoTempCanvas(
+          true,
+          layerTempCanvas,
+          layerTempCtx,
+          transformInfo.eraserStrokes,
+          transformInfo.transform,
+        );
       } else if (
         artifact.type === "brushStrokes" &&
         artifact.value.length > 0
@@ -239,18 +231,33 @@ export function drawAllLayers(
         const strokes = realTimeValues[layerId]?.[id] ?? artifact.value;
         const artifactTransformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
         drawSavedStrokesOntoTempCanvas(
-          tempCanvas,
-          tempCtx,
+          false,
+          layerTempCanvas,
+          layerTempCtx,
           strokes,
+          artifactTransformInfo.transform,
+        );
+        drawSavedStrokesOntoTempCanvas(
+          true,
+          layerTempCanvas,
+          layerTempCtx,
+          artifactTransformInfo.eraserStrokes,
           artifactTransformInfo.transform,
         );
       }
 
-      tempCtx.resetTransform(); // MUST reset, otherwise get smudging when moving images around. No idea why
+      layerTempCtx.resetTransform(); // MUST reset, otherwise get smudging when moving images around. No idea why
+
+      tempCtx.globalAlpha = 1;
+      tempCtx.globalCompositeOperation = "source-over";
+      tempCtx.drawImage(layerTempCanvas, 0, 0);
+
+      clearCanvas(tempCanvasRef[1]);
     }
 
     if (realTimeEraserStrokes[layerId]) {
       drawSavedStrokesOntoTempCanvas(
+        true,
         tempCanvas,
         tempCtx,
         realTimeEraserStrokes[layerId],
@@ -265,7 +272,8 @@ export function drawAllLayers(
       drawResizeHandles(ctx, realTimeResizeHandles[layerId]);
     }
 
-    clearCanvas(tempCanvasRef);
+    clearCanvas(tempCanvasRef[0]);
+    clearCanvas(tempCanvasRef[1]);
   }
 }
 
@@ -307,6 +315,7 @@ export function startNewEraserStroke(
 }
 
 export function drawSavedStrokesOntoTempCanvas(
+  isEraser,
   canvas,
   ctx,
   strokes,
@@ -328,8 +337,8 @@ export function drawSavedStrokesOntoTempCanvas(
       ctx.setTransform(...transform);
     }
     ctx.beginPath();
-    ctx.globalCompositeOperation = "source-over";
-    ctx.strokeStyle = "#ff0000";
+    ctx.globalCompositeOperation = stroke.globalCompositeOperation;
+    ctx.strokeStyle = stroke.strokeStyle;
     ctx.globalAlpha = 1;
     ctx.lineWidth = stroke.lineWidth;
     ctx.lineCap = stroke.lineCap;
@@ -436,107 +445,6 @@ export function reorderArtifactsWithBrushStrokesLast(
 
   // Combine arrays using spread operator
   return [...other, ...brushStrokes];
-}
-
-export function filterPathForImage(
-  pathPoints,
-  lineWidth,
-  lineCap,
-  imageX,
-  imageY,
-  imageWidth,
-  imageHeight,
-) {
-  if (!pathPoints || pathPoints.length === 0) {
-    return [];
-  }
-
-  // Half of the line width is the maximum distance a point can be from the path
-  const halfWidth = lineWidth / 2;
-
-  // Adjust bounds based on line width
-  const adjustedBounds = {
-    minX: imageX - halfWidth,
-    maxX: imageX + imageWidth + halfWidth,
-    minY: imageY - halfWidth,
-    maxY: imageY + imageHeight + halfWidth,
-  };
-
-  const result = [];
-  let includeNext = false;
-
-  // Helper function to check if a point is in bounds
-  const isPointInBounds = (x, y) => {
-    return (
-      x >= adjustedBounds.minX &&
-      x <= adjustedBounds.maxX &&
-      y >= adjustedBounds.minY &&
-      y <= adjustedBounds.maxY
-    );
-  };
-
-  // Helper function to handle line caps
-  const isPointInBoundsWithLineCap = (point, prevPoint, nextPoint) => {
-    // Basic bounds check
-    if (isPointInBounds(point[0], point[1])) {
-      return true;
-    }
-
-    // For 'butt' cap, no additional checks needed
-    if (lineCap === "butt") {
-      return false;
-    }
-
-    // For 'round' or 'square' caps, check additional area
-    const capExtra = lineCap === "square" ? halfWidth : 0;
-
-    // If this is the start point and we have a next point
-    if (!prevPoint && nextPoint) {
-      const angle = Math.atan2(
-        nextPoint[1] - point[1],
-        nextPoint[0] - point[0],
-      );
-      const capX = point[0] - (halfWidth + capExtra) * Math.cos(angle);
-      const capY = point[1] - (halfWidth + capExtra) * Math.sin(angle);
-      return isPointInBounds(capX, capY);
-    }
-
-    // If this is the end point and we have a previous point
-    if (!nextPoint && prevPoint) {
-      const angle = Math.atan2(
-        point[1] - prevPoint[1],
-        point[0] - prevPoint[0],
-      );
-      const capX = point[0] + (halfWidth + capExtra) * Math.cos(angle);
-      const capY = point[1] + (halfWidth + capExtra) * Math.sin(angle);
-      return isPointInBounds(capX, capY);
-    }
-
-    return false;
-  };
-
-  for (let i = 0; i < pathPoints.length; i++) {
-    const point = pathPoints[i];
-    const prevPoint = i > 0 ? pathPoints[i - 1] : null;
-    const nextPoint = i < pathPoints.length - 1 ? pathPoints[i + 1] : null;
-
-    const isInBounds = isPointInBoundsWithLineCap(point, prevPoint, nextPoint);
-
-    if (isInBounds) {
-      if (i > 0 && result.length === 0) {
-        // Include the previous point when entering bounds
-        result.push(pathPoints[i - 1]);
-      }
-      result.push(point);
-      includeNext = true;
-    } else if (includeNext) {
-      // Include one point after exiting bounds
-      result.push(point);
-      includeNext = false;
-    }
-  }
-
-  return result;
 }
 
 export function maybeGetImgSizeFromArtifact(artifact) {

@@ -3,10 +3,10 @@ import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
+import { filterPathForImage } from "./eraserIntersection";
 import {
   drawAllLayers,
   drawStroke,
-  filterPathForImage,
   getCombinedTransformForStroke,
   getInverseTransform,
   getXY,
@@ -344,8 +344,24 @@ function drawingOnMouseUp({
               getScaledHeight(artifact, t.transform),
             );
           } else {
-            intersectingPath = [];
+            // for (const stroke of artifact.value) {
+            //   intersectingPath.push(
+            //     ...filterPathForBrushStroke(
+            //       eraserPath.points,
+            //       eraserPath.lineWidth,
+            //       eraserPath.lineCap,
+            //       getTransformedPoints(stroke.points, t.transform),
+            //       stroke.lineWidth,
+            //       stroke.lineCap,
+            //       t.transform[0],
+            //       t.transform[3],
+            //     ),
+            //   );
+            // }
+            intersectingPath = eraserPath.points;
           }
+
+          console.log("intersectingPath", intersectingPath);
 
           if (intersectingPath.length > 0) {
             t.eraserStrokes.push({

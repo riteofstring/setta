@@ -42,7 +42,9 @@ export function DrawArea({ sectionId }) {
 
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
-  const tempCanvasRef = useRef(null);
+  const tempCanvasRef1 = useRef(null);
+  const tempCanvasRef2 = useRef(null);
+  const tempCanvasRef = [tempCanvasRef1, tempCanvasRef2];
   const strokesRef = useRef([]);
   const eraserStrokesRef = useRef([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
   const localArtifactTransformsRef = useRef([]);
@@ -63,7 +65,8 @@ export function DrawArea({ sectionId }) {
   )?.artifactId;
 
   useEffect(() => {
-    tempCanvasRef.current = document.createElement("canvas");
+    tempCanvasRef[0].current = document.createElement("canvas");
+    tempCanvasRef[1].current = document.createElement("canvas");
 
     const id = base64RequestId(sectionId);
     const unsub = useTemporaryMiscState.subscribe(
