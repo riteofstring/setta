@@ -75,13 +75,14 @@ export function getArtifactStateForSaving() {
 
 export function addDrawAreaLayer(sectionId, state) {
   const artifactId = createNewId();
+  const artifactType = "brushStrokes";
   useArtifacts.setState({
-    [artifactId]: newArtifact({ type: "brushStrokes", value: [] }),
+    [artifactId]: newArtifact({ type: artifactType, value: [] }),
   });
 
   const artifactGroupId = createNewId();
   state.artifactGroups[artifactGroupId] = newLayer({
-    artifactTransforms: [newArtifactTransform(artifactId)],
+    artifactTransforms: [newArtifactTransform(artifactId, artifactType)],
   });
 
   const artifactGroupIds = state.x[sectionId].artifactGroupIds;
@@ -97,6 +98,7 @@ export async function addImageArtifactAndMaybeCreateNewLayer(
   path = null,
 ) {
   const artifactId = createNewId();
+  const artifactType = "img";
   const value = new Image();
   value.src = imgSrc;
   await value.decode();
@@ -104,7 +106,7 @@ export async function addImageArtifactAndMaybeCreateNewLayer(
     [artifactId]: newArtifact({
       value,
       path,
-      type: "img",
+      type: artifactType,
     }),
   });
   useSectionInfos.setState((state) => {
@@ -115,7 +117,7 @@ export async function addImageArtifactAndMaybeCreateNewLayer(
       state.x[sectionId].artifactGroupIds.push(layerId);
     }
     state.artifactGroups[layerId].artifactTransforms.push(
-      newArtifactTransform(artifactId),
+      newArtifactTransform(artifactId, artifactType),
     );
   });
 }

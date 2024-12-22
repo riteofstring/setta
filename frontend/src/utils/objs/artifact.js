@@ -21,6 +21,10 @@ export function newLayer({ name, ...props }) {
   };
 }
 
-export function newArtifactTransform(artifactId) {
-  return { artifactId, transform: [1, 0, 0, 1, 0, 0], eraserStrokes: [] };
+export function newArtifactTransform(artifactId, type) {
+  return {
+    artifactId,
+    transform: [1, 0, 0, 1, 0, 0],
+    eraserStrokes: type === "img" ? [] : {},
+  };
 }

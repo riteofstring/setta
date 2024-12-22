@@ -117,7 +117,10 @@ export function ListOfArtifacts({ sectionId, sectionTypeName }) {
   const handleLayerDrop = (artifactId, targetLayerId) => {
     useSectionInfos.setState((x) => {
       const targetLayer = x.artifactGroups[targetLayerId];
-      targetLayer.artifactTransforms.push(newArtifactTransform(artifactId));
+      const artifactType = x.artifacts[artifactId].type;
+      targetLayer.artifactTransforms.push(
+        newArtifactTransform(artifactId, artifactType),
+      );
     });
   };
 

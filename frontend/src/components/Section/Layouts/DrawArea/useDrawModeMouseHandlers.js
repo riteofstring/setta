@@ -333,45 +333,45 @@ function drawingOnMouseUp({
       useSectionInfos.setState((state) => {
         const layer = state.artifactGroups[activeLayerId];
         for (const t of layer.artifactTransforms) {
-          const intersectingPaths = [];
           const artifact = artifactState[t.artifactId];
+          const inverseTransform = getInverseTransform(t.transform);
           if (artifact.type === "img") {
-            intersectingPaths.push(
-              filterPathForImage(
-                eraserPath.points,
-                eraserPath.lineWidth,
-                eraserPath.lineCap,
-                t.transform[4],
-                t.transform[5],
-                getScaledWidth(artifact, t.transform),
-                getScaledHeight(artifact, t.transform),
-              ),
+            const intersectingPath = filterPathForImage(
+              eraserPath.points,
+              eraserPath.lineWidth,
+              eraserPath.lineCap,
+              t.transform[4],
+              t.transform[5],
+              getScaledWidth(artifact, t.transform),
+              getScaledHeight(artifact, t.transform),
             );
-          } else {
-            for (const stroke of artifact.value) {
-              intersectingPaths.push(
-                filterPathForBrushStroke(
-                  eraserPath.points,
-                  eraserPath.lineWidth,
-                  eraserPath.lineCap,
-                  getTransformedPoints(stroke.points, t.transform),
-                  stroke.lineWidth,
-                  stroke.lineCap,
-                  t.transform[0],
-                  t.transform[3],
-                ),
-              );
-            }
-          }
 
-          for (const intersectingPath of intersectingPaths) {
-            const inverseTransform = getInverseTransform(t.transform);
             if (intersectingPath.length > 0) {
               t.eraserStrokes.push({
                 ...eraserPath,
                 points: intersectingPath,
                 transform: inverseTransform,
               });
+            }
+          } else {
+            for (const [idx, stroke] of artifact.value.entries()) {
+              const intersectingPath = filterPathForBrushStroke(
+                eraserPath.points,
+                eraserPath.lineWidth,
+                eraserPath.lineCap,
+                getTransformedPoints(stroke.points, t.transform),
+                stroke.lineWidth,
+                stroke.lineCap,
+                t.transform[0],
+                t.transform[3],
+              );
+              if (intersectingPath.length > 0) {
+                t.eraserStrokes[idx] = {
+                  ...eraserPath,
+                  points: intersectingPath,
+                  transform: inverseTransform,
+                };
+              }
             }
           }
         }

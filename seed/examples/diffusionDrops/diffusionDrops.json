@@ -870,7 +870,7 @@
         {
           "artifactId": "68da2499-10b8-4dd7-9375-a37b8f5f56ed",
           "transform": [1, 0, 0, 1, 0, 0],
-          "eraserStrokes": []
+          "eraserStrokes": {}
         }
       ],
       "visible": true,

@@ -215,9 +215,7 @@ export function drawAllLayers(
         const transformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
         artifactTempCtx.setTransform(...transformInfo.transform);
         artifactTempCtx.drawImage(image, 0, 0, image.width, image.height);
-        drawSavedStrokesOntoTempCanvas(
-          true,
-          artifactTempCanvas,
+        drawStrokesOntoTempCanvas(
           artifactTempCtx,
           transformInfo.eraserStrokes,
           transformInfo.transform,
@@ -228,19 +226,11 @@ export function drawAllLayers(
       ) {
         const strokes = realTimeValues[layerId]?.[id] ?? artifact.value;
         const artifactTransformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
-        drawSavedStrokesOntoTempCanvas(
-          false,
-          artifactTempCanvas,
+        drawStrokesOntoTempCanvas(
           artifactTempCtx,
           strokes,
           artifactTransformInfo.transform,
-        );
-        drawSavedStrokesOntoTempCanvas(
-          true,
-          artifactTempCanvas,
-          artifactTempCtx,
           artifactTransformInfo.eraserStrokes,
-          artifactTransformInfo.transform,
         );
       }
 
@@ -254,12 +244,7 @@ export function drawAllLayers(
     }
 
     if (realTimeEraserStrokes[layerId]) {
-      drawSavedStrokesOntoTempCanvas(
-        true,
-        layerTempCanvas,
-        layerTempCtx,
-        realTimeEraserStrokes[layerId],
-      );
+      drawStrokesOntoTempCanvas(layerTempCtx, realTimeEraserStrokes[layerId]);
     }
 
     ctx.globalCompositeOperation = "source-over";
@@ -311,42 +296,46 @@ export function startNewEraserStroke(
   });
 }
 
-export function drawSavedStrokesOntoTempCanvas(
-  isEraser,
-  canvas,
+export function drawStrokesOntoTempCanvas(
   ctx,
   strokes,
   artifactTransform = null,
+  pairedStrokes = {},
 ) {
-  let transform;
-  let prevPoint;
-  for (const stroke of strokes) {
+  for (const [idx, stroke] of strokes.entries()) {
     // const scale = Math.min(
     //   canvas.width / stroke.canvasWidth,
     //   canvas.height / stroke.canvasHeight,
     // );
     // ctx.scale(scale, scale);
-    transform = getCombinedTransformForStroke(
-      artifactTransform,
-      stroke.transform,
-    );
-    if (transform) {
-      ctx.setTransform(...transform);
+    drawStrokeOntoTempCanvas(ctx, stroke, artifactTransform);
+    if (pairedStrokes[idx]) {
+      drawStrokeOntoTempCanvas(ctx, pairedStrokes[idx], artifactTransform);
     }
-    ctx.beginPath();
-    ctx.globalCompositeOperation = stroke.globalCompositeOperation;
-    ctx.strokeStyle = stroke.strokeStyle;
-    ctx.globalAlpha = 1;
-    ctx.lineWidth = stroke.lineWidth;
-    ctx.lineCap = stroke.lineCap;
-    prevPoint = stroke.points[0];
-    stroke.points.forEach((point) => {
-      ctx.moveTo(prevPoint[0], prevPoint[1]);
-      ctx.lineTo(point[0], point[1]);
-      prevPoint = point;
-    });
-    ctx.stroke();
   }
+}
+
+export function drawStrokeOntoTempCanvas(ctx, stroke, artifactTransform) {
+  const transform = getCombinedTransformForStroke(
+    artifactTransform,
+    stroke.transform,
+  );
+  if (transform) {
+    ctx.setTransform(...transform);
+  }
+  ctx.beginPath();
+  ctx.globalCompositeOperation = stroke.globalCompositeOperation;
+  ctx.strokeStyle = stroke.strokeStyle;
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = stroke.lineWidth;
+  ctx.lineCap = stroke.lineCap;
+  let prevPoint = stroke.points[0];
+  stroke.points.forEach((point) => {
+    ctx.moveTo(prevPoint[0], prevPoint[1]);
+    ctx.lineTo(point[0], point[1]);
+    prevPoint = point;
+  });
+  ctx.stroke();
 }
 
 export function drawStroke(canvasRef, from, to) {
