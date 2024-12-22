@@ -108,7 +108,7 @@
     },
     "56758b16-1bb1-4167-852c-321b23cfce38": {
       "name": "ultimate_tomato",
-      "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    img = data[\"mid_peach\"][\"strokes\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=5))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"name\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)"
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    img = data[\"mid_peach\"][\"strokes\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=5))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"displayName\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)"
     },
     "645069e7-0657-4c2e-9128-88c701bbd069": {
       "name": "sparkling_brown"
@@ -298,11 +298,15 @@
       },
       "id": "56f3ff00-5aa3-4251-9720-d210908bc0b8",
       "canvasSettings": {
-        "color": "#00ff00",
-        "activeLayerId": "b377ed92-f168-43dd-8b7d-2f8c3c38316d",
-        "artifactIdUsedToSetCanvasSize": "710c9942-e271-44a2-8eb7-961c21179ee5"
+        "color": "#00ff00"
       },
-      "artifactGroupIds": ["b377ed92-f168-43dd-8b7d-2f8c3c38316d"],
+      "artifacts": [
+        {
+          "path": "seed/examples/diffusionDrops/kevin-musgrave2.png",
+          "type": "img",
+          "displayName": "profile pic"
+        }
+      ],
       "variantIds": ["380a6d0c-a96e-48f1-b431-074c7e98eed9"],
       "aspectRatioExtraHeight": 120,
       "aspectRatio": 1,
@@ -844,38 +848,6 @@
         "bbb754a2-06e5-4b57-8e5d-308865f81a94": [],
         "62bd6021-0834-4317-87f4-3961d8f2e890": []
       }
-    }
-  },
-  "artifacts": {
-    "710c9942-e271-44a2-8eb7-961c21179ee5": {
-      "name": "profile pic",
-      "path": "seed/examples/diffusionDrops/kevin-musgrave2.png",
-      "type": "img"
-    },
-    "68da2499-10b8-4dd7-9375-a37b8f5f56ed": {
-      "name": "beautiful painting",
-      "type": "brushStrokes",
-      "value": []
-    }
-  },
-  "artifactGroups": {
-    "b377ed92-f168-43dd-8b7d-2f8c3c38316d": {
-      "name": "kevin's face",
-      "artifactTransforms": [
-        {
-          "artifactId": "710c9942-e271-44a2-8eb7-961c21179ee5",
-          "transform": [1, 0, 0, 1, 0, 0],
-          "eraserStrokes": []
-        },
-        {
-          "artifactId": "68da2499-10b8-4dd7-9375-a37b8f5f56ed",
-          "transform": [1, 0, 0, 1, 0, 0],
-          "eraserStrokes": []
-        }
-      ],
-      "visible": true,
-      "layerOpacity": 0.5,
-      "brushOpacity": 0.5
     }
   }
 }

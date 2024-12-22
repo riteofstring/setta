@@ -2,7 +2,6 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
-import { AddImageByFilepathModal } from "./AddImageByFilepathModal/AddImageByFilepathModal";
 import { DeleteFileModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
@@ -24,7 +23,7 @@ export function ModalContainer({ children }) {
       {children}
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-20 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm " />
-        <Dialog.Content className="animate-[contentShow_150ms_cubic-bezier(0.16,_1,_ 0.3,_ 1) fixed left-1/2 top-1/2 z-[100] flex h-[clamp(14rem,_85vh,_30rem)] w-[90vw] max-w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white px-7 pb-3 pt-7 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800">
+        <Dialog.Content className="animate-[contentShow_150ms_cubic-bezier(0.16,_1,_ 0.3,_ 1) fixed left-1/2 top-1/2 z-[100] flex h-min max-h-[clamp(10rem,85vh,30rem)] min-h-0 w-[90vw] max-w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white px-7 pb-3 pt-7 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800">
           <ModalContent open={open} />
         </Dialog.Content>
       </Dialog.Portal>
@@ -59,8 +58,6 @@ function ModalContent({ open }) {
       return <RenameReferencesModal open={open} />;
     case MODAL_TYPE.DELETE_JSON_SOURCE_FILE.title:
       return <DeleteFileModal open={open} />;
-    case MODAL_TYPE.ADD_IMAGE_BY_FILEPATH.title:
-      return <AddImageByFilepathModal open={open} />;
     default:
       return null;
   }

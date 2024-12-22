@@ -80,7 +80,7 @@ function _ParamSweepAreaGUI({ sectionId }) {
         )}
         {showParamSweepSectionSearch && (
           <button
-            className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500/30 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
+            className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500/30 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  focus-visible:border-blue-500 dark:text-setta-400 dark:hover:bg-setta-900"
             onClick={onAddCallableClick}
             disabled={variantIsFrozen}
           >
@@ -248,16 +248,16 @@ function ArgItem({
 
         <div className="flex items-center pl-0.5">
           <button
-            className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
+            className="h-[22px] cursor-pointer
+            text-setta-300 hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>i]:focus-visible:!border-blue-500"
             onClick={onMinus}
             disabled={isDisabled}
           >
             <i className="gg-remove" />
           </button>
           <button
-            className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
+            className="&>i]:focus-visible:!border-blue-500 h-[22px]  cursor-pointer rounded-full
+            text-setta-300 hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>i]:focus-visible:!border-blue-500"
             onClick={onPlus}
             disabled={isDisabled}
           >
@@ -324,7 +324,7 @@ function Input({
   return (
     <div className="group contents">
       <button
-        className="section-left-gutter ml-2 flex h-[0.66rem] w-[0.66rem] cursor-pointer items-center justify-center place-self-center bg-transparent text-transparent opacity-75 hover:!text-setta-600 group-hover:text-setta-300 dark:hover:!text-setta-200 group-hover:dark:text-setta-600"
+        className="section-left-gutter ml-2 flex h-[0.66rem] w-[0.66rem] cursor-pointer items-center justify-center place-self-center rounded-full bg-transparent text-transparent opacity-75 outline-blue-500 hover:!text-setta-600 focus-visible:text-blue-500 focus-visible:outline group-hover:text-setta-300 dark:hover:!text-setta-200 group-hover:dark:text-setta-600"
         onClick={onDelete}
         tabIndex="-1"
         disabled={isDisabled}
@@ -375,7 +375,7 @@ function AddRemoveButtonsForNoCallableSection({
       </p>
       <button
         className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>i]:focus-visible:!border-blue-500"
         onClick={onClickRemoveParam}
         disabled={isDisabled}
       >
@@ -383,7 +383,7 @@ function AddRemoveButtonsForNoCallableSection({
       </button>
       <button
         className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>i]:focus-visible:!border-blue-500"
         onClick={onClickAddParam}
         disabled={disablePlusButton || isDisabled}
       >

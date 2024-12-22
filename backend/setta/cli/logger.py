@@ -49,7 +49,7 @@ class Setta:
 
             data_to_send[data.path_with_extension(full_path)] = {
                 **data.serialize(),
-                "name": rel_path,
+                "displayName": rel_path,
                 "isSaved": save,
             }
 

@@ -44,7 +44,3 @@ export function openRenameReferencesModal(...data) {
 export function openDeleteJSONSourceFileModal(filepath) {
   openModal(MODAL_TYPE.DELETE_JSON_SOURCE_FILE, filepath);
 }
-
-export function openAddImageByFilepathModal(sectionId) {
-  openModal(MODAL_TYPE.ADD_IMAGE_BY_FILEPATH, sectionId);
-}
