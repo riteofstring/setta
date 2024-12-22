@@ -459,17 +459,11 @@ function editingOnMouseDown({
           y >= bounds.minY &&
           y <= bounds.maxY
         ) {
-          resizeHandleCorners.current = [
-            { x: bounds.minX, y: bounds.minY }, // Top-left
-            { x: bounds.maxX, y: bounds.minY }, // Top-right
-            { x: bounds.minX, y: bounds.maxY }, // Bottom-left
-            { x: bounds.maxX, y: bounds.maxY }, // Bottom-right
-          ];
+          setResizeHandleCorners(resizeHandleCorners, bounds);
           isDragging.current = true;
           draggedIdx.current = i;
           selectedIdx.current = i;
           lastPos.current = { x, y };
-
           return true;
         }
       } else if (artifact.type === "brushStrokes") {
@@ -489,12 +483,7 @@ function editingOnMouseDown({
               Math.abs(y - point[1]) <= hitRadius
             ) {
               const bounds = getBrushStrokesBounds(artifact.value, transform);
-              resizeHandleCorners.current = [
-                { x: bounds.minX, y: bounds.minY }, // Top-left
-                { x: bounds.maxX, y: bounds.minY }, // Top-right
-                { x: bounds.minX, y: bounds.maxY }, // Bottom-left
-                { x: bounds.maxX, y: bounds.maxY }, // Bottom-right
-              ];
+              setResizeHandleCorners(resizeHandleCorners, bounds);
               isDragging.current = true;
               draggedIdx.current = i;
               selectedIdx.current = i;
@@ -637,7 +626,7 @@ function editingOnMouseMove({
         }
       }
 
-      setNewResizeHandleCorners(
+      incrementResizeHandleCorners(
         resizeHandle,
         resizeHandleCorners,
         dx,
@@ -673,6 +662,14 @@ function editingOnMouseUp({
   tempCanvasRefs,
 }) {
   return () => {
+    // have to update the corners
+    // in case the x or y scaling went from positive to negative or vice versa
+    if (resizeHandleCorners.current) {
+      setResizeHandleCorners(
+        resizeHandleCorners,
+        getBoundsFromResizeHandleCorners(resizeHandleCorners),
+      );
+    }
     setGlobalArtifactTransformsAndDrawAllLayers(
       sectionId,
       activeLayerId,
@@ -715,7 +712,12 @@ const getBrushStrokesBounds = (strokes, artifactTransform) => {
   };
 };
 
-function setNewResizeHandleCorners(resizeHandle, resizeHandleCorners, dx, dy) {
+function incrementResizeHandleCorners(
+  resizeHandle,
+  resizeHandleCorners,
+  dx,
+  dy,
+) {
   switch (resizeHandle.current.idx) {
     case 0: // Top-left
       // Top-left handle
@@ -754,6 +756,27 @@ function setNewResizeHandleCorners(resizeHandle, resizeHandleCorners, dx, dy) {
       resizeHandleCorners.current[3].y += dy;
       break;
   }
+}
+
+function setResizeHandleCorners(resizeHandleCorners, bounds) {
+  resizeHandleCorners.current = [
+    { x: bounds.minX, y: bounds.minY }, // Top-left
+    { x: bounds.maxX, y: bounds.minY }, // Top-right
+    { x: bounds.minX, y: bounds.maxY }, // Bottom-left
+    { x: bounds.maxX, y: bounds.maxY }, // Bottom-right
+  ];
+}
+
+function getBoundsFromResizeHandleCorners(resizeHandleCorners) {
+  const xs = resizeHandleCorners.current.map((r) => r.x);
+  const ys = resizeHandleCorners.current.map((r) => r.y);
+
+  return {
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minY: Math.min(...ys),
+    maxY: Math.max(...ys),
+  };
 }
 
 function getScaledWidth(image, transform) {
@@ -824,13 +847,13 @@ function getImageHandleBehaviorFn(
       }
     case 3:
       if (xScaleWasPositive && yScaleWasPositive) {
-        return imageBottomLeftHandleBehavior;
-      } else if (xScaleWasPositive && !yScaleWasPositive) {
-        return imageTopLeftHandleBehavior;
-      } else if (!xScaleWasPositive && yScaleWasPositive) {
         return imageBottomRightHandleBehavior;
-      } else if (!xScaleWasPositive && !yScaleWasPositive) {
+      } else if (xScaleWasPositive && !yScaleWasPositive) {
         return imageTopRightHandleBehavior;
+      } else if (!xScaleWasPositive && yScaleWasPositive) {
+        return imageBottomLeftHandleBehavior;
+      } else if (!xScaleWasPositive && !yScaleWasPositive) {
+        return imageTopLeftHandleBehavior;
       }
   }
 }
