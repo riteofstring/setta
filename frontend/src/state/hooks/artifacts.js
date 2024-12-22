@@ -38,8 +38,8 @@ function useSectionArtifactIds(sectionId) {
     const artifactGroups = getSectionArtifactGroupMetadata(sectionId, state);
     const artifactIds = new Set();
     for (const group of artifactGroups) {
-      for (const artifactId of group.artifactIds) {
-        artifactIds.add(artifactId);
+      for (const t of group.artifactTransforms) {
+        artifactIds.add(t.artifactId);
       }
     }
     return { artifactIds, artifactGroups };

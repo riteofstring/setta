@@ -246,11 +246,15 @@
   "artifactGroups": {
     "de152d3f-fcd2-4ca2-8a45-63e88f3297ec": {
       "name": "blah",
-      "artifactIds": ["a3fd9568-30c4-405e-b5a2-0688754a7725"]
+      "artifactTransforms": [
+        { "artifactId": "a3fd9568-30c4-405e-b5a2-0688754a7725" }
+      ]
     },
     "5698c0e0-26be-4aef-b971-281e09933b3d": {
       "name": "blah2",
-      "artifactIds": ["c2d2ec99-e524-4f39-952a-9ac3713339b6"]
+      "artifactTransforms": [
+        { "artifactId": "c2d2ec99-e524-4f39-952a-9ac3713339b6" }
+      ]
     }
   }
 }

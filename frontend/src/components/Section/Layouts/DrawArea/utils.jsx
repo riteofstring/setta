@@ -51,7 +51,8 @@ export function setCanvasSize({
 
   if (!imgSize) {
     for (const layer of layers) {
-      for (const id of layer.artifactIds) {
+      for (const t of layer.artifactTransforms) {
+        const id = t.artifactId;
         if (!(id in artifactState)) {
           continue;
         }
@@ -125,12 +126,13 @@ export function drawAllLayers(
       continue;
     }
     const { layerOpacity } = layer;
-    const artifactIdsToDraw = reorderIdsWithBrushStrokesLast(
-      layer.artifactIds,
+    const artifactsToDraw = reorderArtifactsWithBrushStrokesLast(
+      layer.artifactTransforms,
       artifactState,
     );
 
-    for (const id of artifactIdsToDraw) {
+    for (const t of artifactsToDraw) {
+      const id = t.artifactId;
       if (!(id in artifactState)) {
         return;
       }
@@ -237,24 +239,26 @@ export function hexToRGBA(_hex, opacity) {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
-export function reorderIdsWithBrushStrokesLast(artifactIds, artifactState) {
-  const brushStrokeIds = [];
-  const otherIds = [];
+export function reorderArtifactsWithBrushStrokesLast(
+  artifactTransforms,
+  artifactState,
+) {
+  const brushStrokes = [];
+  const other = [];
 
   // Sort ids into two arrays using a for loop
-  for (let i = 0; i < artifactIds.length; i++) {
-    const id = artifactIds[i];
-    const obj = artifactState[id];
+  for (let i = 0; i < artifactTransforms.length; i++) {
+    const obj = artifactState[artifactTransforms[i].artifactId];
 
     if (obj && obj.type === "brushStrokes") {
-      brushStrokeIds.push(id);
+      brushStrokes.push(artifactTransforms[i]);
     } else {
-      otherIds.push(id);
+      other.push(artifactTransforms[i]);
     }
   }
 
   // Combine arrays using spread operator
-  return [...otherIds, ...brushStrokeIds];
+  return [...other, ...brushStrokes];
 }
 
 export function maybeGetImgSizeFromArtifact(artifact) {

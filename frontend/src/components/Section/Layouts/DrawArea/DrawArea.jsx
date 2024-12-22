@@ -53,6 +53,7 @@ export function DrawArea({ sectionId }) {
   const draftCanvasRef = useRef(null);
   const tempCanvasRef = useRef(null);
   const strokesRef = useRef([]);
+  const localLayerTransformRef = useRef([]);
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
@@ -65,9 +66,9 @@ export function DrawArea({ sectionId }) {
   const activeLayer = layers.find((x) => x.id === activeLayerId);
   const layerOpacity = activeLayer?.layerOpacity ?? 1;
   const brushOpacity = activeLayer?.brushOpacity ?? 1;
-  const currBrushStrokeArtifactId = activeLayer?.artifactIds?.find(
-    (a) => loadedArtifacts[a]?.type === "brushStrokes",
-  );
+  const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
+    (a) => loadedArtifacts[a.artifactId]?.type === "brushStrokes",
+  )?.artifactId;
 
   // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
 
