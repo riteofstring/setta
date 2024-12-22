@@ -357,6 +357,11 @@ input[type="color" i] {
   /* background: hsla(0, 100%, 50%, 0.1); */
 }
 
+/* *:focus {
+  outline: 2px solid red;
+  outline-offset: 2px;
+} */
+
 ::selection {
   background: rgb(29 78 216);
   color: white;

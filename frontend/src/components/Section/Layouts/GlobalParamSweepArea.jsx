@@ -138,7 +138,7 @@ function RunGroupList({ sectionId }) {
 
   return (
     <ul
-      className={`${isScrollable ? "nowheel" : ""} flex flex-grow flex-col overflow-visible @sm/multipane:overflow-y-scroll`}
+      className={`${isScrollable ? "nowheel" : ""} flex flex-grow flex-col overflow-visible py-[2px] @sm/multipane:overflow-y-scroll`}
       ref={ref}
     >
       {runGroupsDetails.map(({ id, name }) => (
@@ -515,11 +515,11 @@ function CheckboxNextToLabel({
       onMouseLeave={onMouseLeave}
     >
       <label
-        className={`flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-700 group-hover/runitem:!text-blue-500 dark:text-setta-200 ${shown ? "font-bold !text-blue-500" : ""}`}
+        className={`flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-700  group-hover/runitem:!text-blue-500 dark:text-setta-200 ${shown ? "font-bold !text-blue-500" : ""}`}
       >
         <input
           type="checkbox"
-          className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/15 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+          className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/15 outline-offset-2 outline-blue-500 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500 focus-visible:outline"
           checked={checked}
           onChange={onChange}
         />
@@ -527,7 +527,7 @@ function CheckboxNextToLabel({
         <p className="truncate">{children}</p>
       </label>
       <button
-        className={`mr-0.5 cursor-pointer text-transparent hover:!text-setta-500 group-hover/runitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/runitem:text-setta-600 ${shown ? "!text-blue-500" : ""}`}
+        className={`mr-0.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-transparent outline-blue-500 hover:!text-setta-500  focus-visible:outline group-hover/runitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/runitem:text-setta-600 ${shown ? "!text-blue-500" : ""}`}
         onClick={onClick}
       >
         <i className="gg-pen  " />
@@ -561,7 +561,7 @@ function CreateNewRunGroupButton({ sectionId }) {
 
   return (
     <button
-      className="nodrag mt-2 flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-1 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
+      className="nodrag mt-2 flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-1 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:!border-blue-500 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
       onClick={onClick}
     >
       <span className="relative">
