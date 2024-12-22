@@ -8,12 +8,17 @@ import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 import { newArtifactTransform } from "utils/objs/artifact";
 
 const LayersList = ({
-  layers,
+  sectionId,
   availableArtifacts,
   onDrop,
   draggedId,
   onDeleteArtifact,
 }) => {
+  const layers = useSectionInfos(
+    (state) => getSectionArtifactGroupMetadata(sectionId, state),
+    _.isEqual,
+  );
+
   const [hoveredLayer, setHoveredLayer] = useState(null);
   const artifactsAlreadyInMemory = useArtifacts(
     (x) => _.mapValues(x, (a) => ({ name: a.name })),
@@ -84,12 +89,15 @@ const LayersList = ({
   );
 };
 
-export function ListOfArtifacts({ sectionId, sectionTypeName }) {
-  const layers = useSectionInfos(
-    (state) => getSectionArtifactGroupMetadata(sectionId, state),
-    _.isEqual,
-  );
-  const [availableArtifacts, setAvailableArtifacts] = useState({});
+export function ListOfArtifacts({
+  sectionTypeName,
+  availableArtifacts,
+  setAvailableArtifacts,
+  onDragStart,
+  onDragEnd,
+  onClick,
+  getItemStyle,
+}) {
   const [loadedDetails, setLoadedDetails] = useState({});
 
   useEffect(() => {
@@ -103,46 +111,10 @@ export function ListOfArtifacts({ sectionId, sectionTypeName }) {
     fn();
   }, []);
 
-  const [draggedId, setDraggedId] = useState(null);
-
-  const handleDragEnd = () => {
-    setDraggedId(null);
-  };
-
-  const handleDragStart = (e, artifactId) => {
-    e.dataTransfer.setData("text/plain", artifactId);
-    setDraggedId(artifactId);
-  };
-
-  const handleLayerDrop = (artifactId, targetLayerId) => {
-    useSectionInfos.setState((x) => {
-      const targetLayer = x.artifactGroups[targetLayerId];
-      const artifactType = availableArtifacts[artifactId].type;
-      targetLayer.artifactTransforms.push(
-        newArtifactTransform(artifactId, artifactType),
-      );
-    });
-  };
-
-  const handleDeleteArtifact = (layerId, artifactId) => {
-    useSectionInfos.setState((x) => {
-      const targetLayer = x.artifactGroups[layerId];
-      targetLayer.artifactTransforms = targetLayer.artifactTransforms.filter(
-        (t) => t.artifactId !== artifactId,
-      );
-    });
-  };
+  const draggable = Boolean(onDragStart);
 
   return (
-    <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
-      <LayersList
-        layers={layers}
-        availableArtifacts={availableArtifacts}
-        onDrop={handleLayerDrop}
-        draggedId={draggedId}
-        onDeleteArtifact={handleDeleteArtifact}
-      />
-
+    <>
       <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
         Available Artifacts
       </h2>
@@ -152,12 +124,15 @@ export function ListOfArtifacts({ sectionId, sectionTypeName }) {
           <Accordion.Item
             key={id}
             value={item.name}
-            className="border-b border-gray-200 last:border-0 dark:border-gray-700"
-            draggable
-            onDragStart={(e) => handleDragStart(e, id)}
-            onDragEnd={handleDragEnd}
+            className={`border-b last:border-0 ${getItemStyle?.(id) ?? "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"}`}
+            draggable={draggable}
+            onDragStart={(e) => onDragStart?.(e, id)}
+            onDragEnd={onDragEnd}
+            onClick={() => onClick?.(id)}
           >
-            <div className="flex cursor-move items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-800">
+            <div
+              className={`flex ${draggable ? "cursor-move" : "cursor-pointer"} items-center gap-2 p-2`}
+            >
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <div>
@@ -196,6 +171,58 @@ export function ListOfArtifacts({ sectionId, sectionTypeName }) {
           </Accordion.Item>
         ))}
       </Accordion.Root>
+    </>
+  );
+}
+
+export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
+  const [availableArtifacts, setAvailableArtifacts] = useState({});
+  const [draggedId, setDraggedId] = useState(null);
+
+  const handleLayerDrop = (artifactId, targetLayerId) => {
+    useSectionInfos.setState((x) => {
+      const targetLayer = x.artifactGroups[targetLayerId];
+      const artifactType = availableArtifacts[artifactId].type;
+      targetLayer.artifactTransforms.push(
+        newArtifactTransform(artifactId, artifactType),
+      );
+    });
+  };
+
+  const handleDeleteArtifact = (layerId, artifactId) => {
+    useSectionInfos.setState((x) => {
+      const targetLayer = x.artifactGroups[layerId];
+      targetLayer.artifactTransforms = targetLayer.artifactTransforms.filter(
+        (t) => t.artifactId !== artifactId,
+      );
+    });
+  };
+
+  const onDragEnd = () => {
+    setDraggedId(null);
+  };
+
+  const onDragStart = (e, artifactId) => {
+    e.dataTransfer.setData("text/plain", artifactId);
+    setDraggedId(artifactId);
+  };
+
+  return (
+    <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
+      <LayersList
+        sectionId={sectionId}
+        availableArtifacts={availableArtifacts}
+        onDrop={handleLayerDrop}
+        draggedId={draggedId}
+        onDeleteArtifact={handleDeleteArtifact}
+      />
+      <ListOfArtifacts
+        sectionTypeName={sectionTypeName}
+        availableArtifacts={availableArtifacts}
+        setAvailableArtifacts={setAvailableArtifacts}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />
     </div>
   );
 }

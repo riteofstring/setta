@@ -1,6 +1,7 @@
 import json
 
 from setta.database.db.artifacts.utils import with_artifact_defaults
+from setta.utils.constants import C
 
 
 def load_artifacts(db, ids):
@@ -46,13 +47,16 @@ def load_artifact_groups(db, ids):
             }
         if row["artifactId"]:
             output[row["id"]]["artifactTransforms"].append(
-                {"artifactId": row["artifactId"], **json.loads(row["artifactTransformData"])}
+                {
+                    "artifactId": row["artifactId"],
+                    **json.loads(row["artifactTransformData"]),
+                }
             )
     return output
 
 
 def load_available_artifacts(db, sectionType):
-    allowed_types = SECTION_TYPE_TO_ALLOWED_ARTIFACT_TYPES.get(sectionType, [])
+    allowed_types = get_allow_artifact_types(sectionType)
 
     placeholders = ", ".join(["?"] * len(allowed_types))
     query = f"""
@@ -74,7 +78,9 @@ def load_available_artifacts(db, sectionType):
     return output
 
 
-SECTION_TYPE_TO_ALLOWED_ARTIFACT_TYPES = {
-    "DRAW": ["img", "brushStrokes"],
-    "LINE_PLOT": ["list"],
-}
+def get_allow_artifact_types(type):
+    return {
+        C.DRAW: ["img", "brushStrokes"],
+        C.IMAGE: ["img"],
+        C.LINE_PLOT: ["list"],
+    }.get(type, [])
