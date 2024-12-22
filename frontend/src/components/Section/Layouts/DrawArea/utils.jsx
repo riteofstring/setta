@@ -118,13 +118,6 @@ export function drawAllLayers(
   realTimeTransforms = {}, // layerId -> artifactId -> value
   realTimeResizeHandles = {}, // layerId -> handles
 ) {
-  // console.log(
-  //   "drawAllLayers",
-  //   layers,
-  //   realTimeValues,
-  //   realTimeTransforms,
-  //   realTimeResizeHandles,
-  // );
   const ctx = getCtx(canvasRef);
   const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
   clearCanvas(canvasRef);
@@ -159,6 +152,7 @@ export function drawAllLayers(
         // const x = canvas.width / 2 - (image.width / 2) * scale;
         // const y = canvas.height / 2 - (image.height / 2) * scale;
         const transform = realTimeTransforms[layer.id]?.[id] ?? t.transform;
+        // console.log(image.width, image.height, transform)
         tempCtx.globalAlpha = 1;
         tempCtx.globalCompositeOperation = "source-over";
         tempCtx.setTransform(...transform);

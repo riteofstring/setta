@@ -3,6 +3,7 @@ import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
+import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 import {
   clearCanvas,
   debouncedSetBrushStrokesArtifact,
@@ -99,7 +100,11 @@ export function useDrawModeMouseHandlers({
           localArtifactTransformsRef.current,
         ).map(([artifactId, transform]) => ({ artifactId, transform }));
       });
-      drawAllLayers(canvasRef, tempCanvasRef, layers);
+      drawAllLayers(
+        canvasRef,
+        tempCanvasRef,
+        getSectionArtifactGroupMetadata(sectionId, useSectionInfos.getState()),
+      );
     };
 
     const onMouseDownCore = editingOnMouseDown({
