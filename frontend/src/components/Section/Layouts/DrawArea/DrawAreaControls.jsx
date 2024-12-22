@@ -69,9 +69,17 @@ export function DrawAreaControls({
   function deleteLayer(layerId) {
     useSectionInfos.setState((state) => {
       delete state.artifactGroups[layerId];
-      state.x[sectionId].artifactGroupIds = state.x[
-        sectionId
-      ].artifactGroupIds.filter((x) => x !== layerId);
+      const s = state.x[sectionId];
+      const layerIndex = s.artifactGroupIds.findIndex((x) => x === layerId);
+
+      s.artifactGroupIds = s.artifactGroupIds.filter((x) => x !== layerId);
+
+      if (s.artifactGroupIds.length > 0) {
+        s.canvasSettings.activeLayerId =
+          s.artifactGroupIds[layerIndex !== -1 ? layerIndex - 1 : 0];
+      } else {
+        s.canvasSettings.activeLayerId = null;
+      }
     });
   }
 

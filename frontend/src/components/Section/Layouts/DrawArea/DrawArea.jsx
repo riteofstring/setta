@@ -10,7 +10,9 @@ import {
   useTemporaryMiscState,
 } from "state/definitions";
 import { useDrawAreaActiveLayerAndLoadedArtifacts } from "state/hooks/artifacts";
-import useDeepCompareEffect from "use-deep-compare-effect";
+import useDeepCompareEffect, {
+  useDeepCompareEffectNoCheck,
+} from "use-deep-compare-effect";
 import {
   drawAllLayers,
   setCanvasSize,
@@ -127,7 +129,7 @@ export function DrawArea({ sectionId }) {
     }
   }, [currBrushStrokeArtifactId]);
 
-  useDeepCompareEffect(() => {
+  useDeepCompareEffectNoCheck(() => {
     if (!activeLayer?.artifactTransforms) {
       localArtifactTransformsRef.current = [];
     } else {
