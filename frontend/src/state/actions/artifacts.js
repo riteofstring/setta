@@ -81,7 +81,7 @@ export function addDrawAreaLayer(sectionId, state) {
 
   const artifactGroupId = createNewId();
   state.artifactGroups[artifactGroupId] = newLayer({
-    artifactTransforms: [{ artifactId }],
+    artifactTransforms: [newArtifactTransform(artifactId)],
   });
 
   const artifactGroupIds = state.x[sectionId].artifactGroupIds;
