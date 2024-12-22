@@ -555,7 +555,8 @@ function editingOnMouseMove({
           artifact,
         );
       } else if (artifact.type === "brushStrokes") {
-        const bounds = getBrushStrokesBounds(artifact.value, transform);
+        const bounds =
+          getPseudoBoundsFromResizeHandleCorners(resizeHandleCorners);
         const width = bounds.maxX - bounds.minX;
         const height = bounds.maxY - bounds.minY;
 
@@ -667,7 +668,7 @@ function editingOnMouseUp({
     if (resizeHandleCorners.current) {
       setResizeHandleCorners(
         resizeHandleCorners,
-        getBoundsFromResizeHandleCorners(resizeHandleCorners),
+        getTrueBoundsFromResizeHandleCorners(resizeHandleCorners),
       );
     }
     setGlobalArtifactTransformsAndDrawAllLayers(
@@ -767,7 +768,7 @@ function setResizeHandleCorners(resizeHandleCorners, bounds) {
   ];
 }
 
-function getBoundsFromResizeHandleCorners(resizeHandleCorners) {
+function getTrueBoundsFromResizeHandleCorners(resizeHandleCorners) {
   const xs = resizeHandleCorners.current.map((r) => r.x);
   const ys = resizeHandleCorners.current.map((r) => r.y);
 
@@ -776,6 +777,15 @@ function getBoundsFromResizeHandleCorners(resizeHandleCorners) {
     maxX: Math.max(...xs),
     minY: Math.min(...ys),
     maxY: Math.max(...ys),
+  };
+}
+
+function getPseudoBoundsFromResizeHandleCorners(resizeHandleCorners) {
+  return {
+    minX: resizeHandleCorners.current[0].x,
+    maxX: resizeHandleCorners.current[1].x,
+    minY: resizeHandleCorners.current[0].y,
+    maxY: resizeHandleCorners.current[2].y,
   };
 }
 
