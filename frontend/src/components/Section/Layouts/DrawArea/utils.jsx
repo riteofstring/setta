@@ -117,6 +117,7 @@ export function drawAllLayers(
   realTimeValues = {}, // layerId -> artifactId -> value
   realTimeTransforms = {}, // layerId -> artifactId -> {transform, eraserStrokes}
   realTimeResizeHandles = {}, // layerId -> array of corner coordinates
+  realTimeEraserStrokes = {}, // layerId -> eraserStrokes array
 ) {
   const ctx = getCtx(canvasRef);
   const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
@@ -164,6 +165,15 @@ export function drawAllLayers(
         drawSavedStrokesOntoTempCanvas(tempCanvas, tempCtx, strokes);
       }
     }
+
+    if (realTimeEraserStrokes[layer.id]) {
+      drawSavedStrokesOntoTempCanvas(
+        tempCanvas,
+        tempCtx,
+        realTimeEraserStrokes[layer.id],
+      );
+    }
+
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = layerOpacity;
     ctx.drawImage(tempCanvas, 0, 0);
@@ -199,11 +209,11 @@ export function startNewStroke(
 
 export function drawSavedStrokesOntoTempCanvas(canvas, ctx, strokes) {
   for (const stroke of strokes) {
-    // const scale = Math.min(
-    //   canvas.width / stroke.canvasWidth,
-    //   canvas.height / stroke.canvasHeight,
-    // );
-    // ctx.scale(scale, scale);
+    const scale = Math.min(
+      canvas.width / stroke.canvasWidth,
+      canvas.height / stroke.canvasHeight,
+    );
+    ctx.scale(scale, scale);
     ctx.beginPath();
     ctx.globalCompositeOperation = stroke.globalCompositeOperation;
     ctx.strokeStyle = stroke.strokeStyle;
@@ -217,7 +227,7 @@ export function drawSavedStrokesOntoTempCanvas(canvas, ctx, strokes) {
       prevPoint = point;
     });
     ctx.stroke();
-    // ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 }
 
@@ -276,6 +286,45 @@ export function reorderArtifactsWithBrushStrokesLast(
 
   // Combine arrays using spread operator
   return [...other, ...brushStrokes];
+}
+
+function filterPathForImage(
+  pathPoints,
+  imageX,
+  imageY,
+  imageWidth,
+  imageHeight,
+) {
+  if (!pathPoints || pathPoints.length === 0) {
+    return [];
+  }
+
+  const result = [];
+  let includeNext = false;
+
+  for (let i = 0; i < pathPoints.length; i++) {
+    const point = pathPoints[i];
+    const isInBounds =
+      point.x >= imageX &&
+      point.x <= imageX + imageWidth &&
+      point.y >= imageY &&
+      point.y <= imageY + imageHeight;
+
+    if (isInBounds) {
+      if (i > 0 && result.length === 0) {
+        // Include the previous point when entering bounds
+        result.push(pathPoints[i - 1]);
+      }
+      result.push(point);
+      includeNext = true;
+    } else if (includeNext) {
+      // Include one point after exiting bounds
+      result.push(point);
+      includeNext = false;
+    }
+  }
+
+  return result;
 }
 
 export function maybeGetImgSizeFromArtifact(artifact) {

@@ -68,12 +68,12 @@ export function useDrawModeMouseHandlers({
       draftCanvasRef,
       layers,
       activeLayerId,
-      currBrushStrokeArtifactId,
     });
 
     onMouseMove = drawingOnMouseMove({
       isEraser,
       strokesRef,
+      eraserStrokesRef,
       prevPointRef,
       isDrawing,
       transferEverythingToRealCanvas,
@@ -83,7 +83,6 @@ export function useDrawModeMouseHandlers({
       canvasTransferQueueLength,
       layers,
       activeLayerId,
-      currBrushStrokeArtifactId,
     });
 
     onMouseUp = drawingOnMouseUp({
@@ -202,7 +201,6 @@ function drawingOnMouseDown({
   draftCanvasRef,
   layers,
   activeLayerId,
-  currBrushStrokeArtifactId,
 }) {
   return (e, offsetX, offsetY) => {
     if (useMisc.getState().mouseDownDraggingSection) {
@@ -229,11 +227,15 @@ function drawingOnMouseDown({
       isEraser,
     );
     if (isEraser) {
-      drawAllLayers(canvasRef, tempCanvasRef, layers, {
-        [activeLayerId]: {
-          [currBrushStrokeArtifactId]: eraserStrokesRef.current,
-        },
-      });
+      drawAllLayers(
+        canvasRef,
+        tempCanvasRef,
+        layers,
+        {},
+        {},
+        {},
+        { [activeLayerId]: eraserStrokesRef.current },
+      );
     }
     prevPointRef.current = point;
   };
@@ -242,6 +244,7 @@ function drawingOnMouseDown({
 function drawingOnMouseMove({
   isEraser,
   strokesRef,
+  eraserStrokesRef,
   prevPointRef,
   isDrawing,
   transferEverythingToRealCanvas,
@@ -251,23 +254,30 @@ function drawingOnMouseMove({
   canvasTransferQueueLength,
   layers,
   activeLayerId,
-  currBrushStrokeArtifactId,
 }) {
   return (e) => {
     if (!isDrawing) {
       return;
     }
     const point = getXY(e);
-    const currStroke = strokesRef.current[strokesRef.current.length - 1];
+    const currStrokesRef = isEraser ? eraserStrokesRef : strokesRef;
+    const currStroke =
+      currStrokesRef.current[currStrokesRef.current.length - 1];
     if (isEraser) {
       currStroke.points.push(point);
       prevPointRef.current = point;
-      drawAllLayers(canvasRef, tempCanvasRef, layers, {
-        [activeLayerId]: { [currBrushStrokeArtifactId]: strokesRef.current },
-      });
+      drawAllLayers(
+        canvasRef,
+        tempCanvasRef,
+        layers,
+        {},
+        {},
+        {},
+        { [activeLayerId]: eraserStrokesRef.current },
+      );
     } else if (currStroke.points.length >= canvasTransferQueueLength) {
       transferEverythingToRealCanvas();
-      startNewStroke(draftCanvasRef, strokesRef, point);
+      startNewStroke(draftCanvasRef, currStrokesRef, point);
       prevPointRef.current = point;
     } else {
       drawStroke(draftCanvasRef, prevPointRef.current, point);
