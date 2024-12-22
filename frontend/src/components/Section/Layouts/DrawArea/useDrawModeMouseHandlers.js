@@ -6,7 +6,6 @@ import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
 import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 import {
   clearCanvas,
-  debouncedSetBrushStrokesArtifact,
   drawAllLayers,
   drawStroke,
   getXY,
@@ -300,10 +299,6 @@ function drawingOnMouseUp({
     }
     setIsDrawing(false);
     transferEverythingToRealCanvas();
-    debouncedSetBrushStrokesArtifact(
-      currBrushStrokeArtifactId,
-      strokesRef.current,
-    );
     // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   };
 }

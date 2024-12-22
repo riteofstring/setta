@@ -335,15 +335,6 @@ export function maybeGetImgSizeFromArtifact(artifact) {
   return null;
 }
 
-export const debouncedSetBrushStrokesArtifact = _.debounce(
-  (artifactId, strokes) => {
-    useArtifacts.setState((state) => ({
-      [artifactId]: { ...state[artifactId], value: _.cloneDeep(strokes) },
-    }));
-  },
-  50,
-);
-
 export const debouncedSendDrawingToInteractiveTasks = _.debounce(
   (sectionId, fnToBase64) => {
     sendToInteractiveTasks([sectionId, "drawing"], fnToBase64());
