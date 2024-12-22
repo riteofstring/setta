@@ -214,6 +214,7 @@ export function drawAllLayers(
           tempCanvas,
           tempCtx,
           transformInfo.eraserStrokes,
+          transformInfo.transform,
         );
         tempCtx.resetTransform(); // MUST reset here, otherwise get smudging when moving images around. No idea why
       } else if (

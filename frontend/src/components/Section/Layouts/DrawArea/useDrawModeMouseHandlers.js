@@ -348,7 +348,11 @@ function drawingOnMouseUp({
           }
 
           if (intersectingPath.length > 0) {
-            t.eraserStrokes.push({ ...eraserPath, points: intersectingPath });
+            t.eraserStrokes.push({
+              ...eraserPath,
+              points: intersectingPath,
+              transform: getInverseTransform(t.transform),
+            });
           }
         }
       });
