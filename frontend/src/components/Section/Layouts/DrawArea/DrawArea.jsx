@@ -56,6 +56,11 @@ export function DrawArea({ sectionId }) {
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
+  const [selectedIndex, setSelectedIndex] = useState(null);
+  const [resizeHandle, setResizeHandle] = useState(null);
 
   const activeLayer = layers.find((x) => x.id === activeLayerId);
   const layerOpacity = activeLayer?.layerOpacity ?? 1;
@@ -157,6 +162,16 @@ export function DrawArea({ sectionId }) {
       prevPointRef,
       isDrawing,
       setIsDrawing,
+      isDragging,
+      setIsDragging,
+      draggedIndex,
+      setDraggedIndex,
+      lastPos,
+      setLastPos,
+      selectedIndex,
+      setSelectedIndex,
+      resizeHandle,
+      setResizeHandle,
       transferEverythingToRealCanvas,
       drawThrottleDelay,
       canvasRef,
