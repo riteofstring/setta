@@ -306,20 +306,22 @@ function editingOnMouseDown({
     }
 
     for (let i = localArtifactTransformsRef.current.length - 1; i >= 0; i--) {
-      const element = localArtifactTransformsRef.current[i];
-      const artifact = artifactState[element.artifactId];
+      const { artifactId, transform } = localArtifactTransformsRef.current[i];
+      const artifact = artifactState[artifactId];
+      const xPlusWidth = transform[4] + getScaledWidth(artifact, transform);
+      const yPlusHeight = transform[5] + getScaledHeight(artifact, transform);
       if (
         artifact.type === "img" &&
-        x >= element.x &&
-        x <= element.x + element.w &&
-        y >= element.y &&
-        y <= element.y + element.h
+        x >= transform[4] &&
+        x <= xPlusWidth &&
+        y >= transform[5] &&
+        y <= yPlusHeight
       ) {
         resizeHandleCorners.current = [
-          { x: element.x, y: element.y }, // Top-left
-          { x: element.x + element.w, y: element.y }, // Top-right
-          { x: element.x, y: element.y + element.h }, // Bottom-left
-          { x: element.x + element.w, y: element.y + element.h }, // Bottom-right
+          { x: transform[4], y: transform[5] }, // Top-left
+          { x: xPlusWidth, y: transform[5] }, // Top-right
+          { x: transform[4], y: yPlusHeight }, // Bottom-left
+          { x: xPlusWidth, y: yPlusHeight }, // Bottom-right
         ];
         isDragging.current = true;
         draggedIndex.current = i;
@@ -371,6 +373,7 @@ function editingOnMouseMove({
   return (e) => {
     if (!isDragging.current && resizeHandle.current === null) return false;
 
+    const artifactState = useArtifacts.getState();
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const zoom = getZoom();
@@ -380,12 +383,10 @@ function editingOnMouseMove({
     const dy = y - lastPos.current.y;
 
     if (isDragging.current && draggedIndex.current !== null) {
-      const element = localArtifactTransformsRef.current[draggedIndex.current];
-      localArtifactTransformsRef.current[draggedIndex.current] = {
-        ...element,
-        x: element.x + dx,
-        y: element.y + dy,
-      };
+      const { transform } =
+        localArtifactTransformsRef.current[draggedIndex.current];
+      transform[4] += dx;
+      transform[5] += dy;
       lastPos.current = { x, y };
       resizeHandleCorners.current = resizeHandleCorners.current.map((c) => ({
         x: c.x + dx,
@@ -395,14 +396,17 @@ function editingOnMouseMove({
       resizeHandle.current !== null &&
       selectedIndex.current !== null
     ) {
-      const element = localArtifactTransformsRef.current[selectedIndex.current];
-      let newElement = { ...element };
+      const { artifactId, transform } =
+        localArtifactTransformsRef.current[selectedIndex.current];
+      const artifact = artifactState[artifactId];
+      const scaledWidth = getScaledWidth(artifact, transform);
+      const scaledHeight = getScaledHeight(artifact, transform);
       switch (resizeHandle.current) {
         case 0: // Top-left
-          newElement.w -= dx;
-          newElement.h -= dy;
-          newElement.x += dx;
-          newElement.y += dy;
+          transform[0] = (scaledWidth - dx) / artifact.value.width;
+          transform[3] = (scaledHeight - dy) / artifact.value.height;
+          transform[4] += dx;
+          transform[5] += dy;
           // Top-left handle
           resizeHandleCorners.current[0].x += dx;
           resizeHandleCorners.current[0].y += dy;
@@ -412,9 +416,9 @@ function editingOnMouseMove({
           resizeHandleCorners.current[2].x += dx;
           break;
         case 1: // Top-right
-          newElement.w += dx;
-          newElement.h -= dy;
-          newElement.y += dy;
+          transform[0] = (scaledWidth + dx) / artifact.value.width;
+          transform[3] = (scaledHeight - dy) / artifact.value.height;
+          transform[5] += dy;
           // Top-left handle
           resizeHandleCorners.current[0].y += dy;
           // Top-right handle
@@ -424,9 +428,9 @@ function editingOnMouseMove({
           resizeHandleCorners.current[3].x += dx;
           break;
         case 2: // Bottom-left
-          newElement.w -= dx;
-          newElement.h += dy;
-          newElement.x += dx;
+          transform[0] = (scaledWidth - dx) / artifact.value.width;
+          transform[3] = (scaledHeight + dy) / artifact.value.height;
+          transform[4] += dx;
           // Top-left handle
           resizeHandleCorners.current[0].x += dx;
           // Bottom-left handle
@@ -436,8 +440,8 @@ function editingOnMouseMove({
           resizeHandleCorners.current[3].y += dy;
           break;
         case 3: // Bottom-right
-          newElement.w += dx;
-          newElement.h += dy;
+          transform[0] = (scaledWidth + dx) / artifact.value.width;
+          transform[3] = (scaledHeight + dy) / artifact.value.height;
           // Top-right handle
           resizeHandleCorners.current[1].x += dx;
           // Bottom-left handle
@@ -448,16 +452,14 @@ function editingOnMouseMove({
           break;
       }
 
-      if (newElement.w < 20) {
-        newElement.w = 20;
-        newElement.x = element.x;
-      }
-      if (newElement.h < 20) {
-        newElement.h = 20;
-        newElement.y = element.y;
-      }
-
-      localArtifactTransformsRef.current[selectedIndex.current] = newElement;
+    //   if (newElement.w < 20) {
+    //     newElement.w = 20;
+    //     newElement.x = element.x;
+    //   }
+    //   if (newElement.h < 20) {
+    //     newElement.h = 20;
+    //     newElement.y = element.y;
+    //   }
 
       lastPos.current = { x, y };
     }
@@ -552,3 +554,11 @@ const resizeBrushStroke = (path, bounds, dx, dy, handle) => {
     y: translateY + (point.y - bounds.minY) * scaleY,
   }));
 };
+
+function getScaledWidth(artifact, transform) {
+  return artifact.value.width * transform[0];
+}
+
+function getScaledHeight(artifact, transform) {
+  return artifact.value.height * transform[3];
+}

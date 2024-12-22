@@ -161,15 +161,8 @@ export function drawAllLayers(
         const transform = realTimeTransforms[layer.id]?.[idx] ?? t;
         tempCtx.globalAlpha = 1;
         tempCtx.globalCompositeOperation = "source-over";
-        tempCtx.drawImage(
-          image,
-          transform.x,
-          transform.y,
-          // image.width * scale,
-          // image.height * scale,
-          transform.w,
-          transform.h,
-        );
+        tempCtx.setTransform(...transform.transform);
+        tempCtx.drawImage(image, 0, 0, image.width, image.height);
       } else if (
         artifact.type === "brushStrokes" &&
         artifact.value.length > 0
