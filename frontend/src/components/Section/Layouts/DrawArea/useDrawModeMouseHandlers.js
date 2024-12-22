@@ -458,18 +458,20 @@ function editingOnMouseDown({
           x <= bounds.maxX &&
           y >= bounds.minY &&
           y <= bounds.maxY
-        )
+        ) {
           resizeHandleCorners.current = [
             { x: bounds.minX, y: bounds.minY }, // Top-left
             { x: bounds.maxX, y: bounds.minY }, // Top-right
             { x: bounds.minX, y: bounds.maxY }, // Bottom-left
             { x: bounds.maxX, y: bounds.maxY }, // Bottom-right
           ];
-        isDragging.current = true;
-        draggedIdx.current = i;
-        selectedIdx.current = i;
-        lastPos.current = { x, y };
-        return true;
+          isDragging.current = true;
+          draggedIdx.current = i;
+          selectedIdx.current = i;
+          lastPos.current = { x, y };
+
+          return true;
+        }
       } else if (artifact.type === "brushStrokes") {
         const hitRadius = 5;
 
