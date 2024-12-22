@@ -4,7 +4,7 @@ export function PasswordInput({ className, value, onChange, isDisabled }) {
       className={className}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      isDisabled={isDisabled}
+      disabled={isDisabled}
       type="password"
     />
   );
