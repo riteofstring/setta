@@ -118,12 +118,12 @@ export function drawAllLayers(
   realTimeTransforms = {}, // layerId -> index -> value
   realTimeResizeHandles = {}, // layerId -> handles
 ) {
-  console.log(
-    "drawAllLayers",
-    realTimeValues,
-    realTimeTransforms,
-    realTimeResizeHandles,
-  );
+  // console.log(
+  //   "drawAllLayers",
+  //   realTimeValues,
+  //   realTimeTransforms,
+  //   realTimeResizeHandles,
+  // );
   const ctx = getCtx(canvasRef);
   const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
   clearCanvas(canvasRef);

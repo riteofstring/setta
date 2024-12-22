@@ -109,6 +109,7 @@ export function useDrawModeMouseHandlers({
       lastPos,
       resizeHandle,
       resizeHandleCorners,
+      selectedIndex,
       draggedIndex,
       localArtifactTransformsRef,
     });
@@ -285,10 +286,9 @@ function editingOnMouseDown({
     const artifactState = useArtifacts.getState();
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    console.log("editingOnMouseDown", localArtifactTransformsRef);
+    const zoom = getZoom();
+    const x = (e.clientX - rect.left) / zoom;
+    const y = (e.clientY - rect.top) / zoom;
 
     if (selectedIndex.current !== null) {
       const handleSize = 8;
@@ -308,7 +308,6 @@ function editingOnMouseDown({
     for (let i = localArtifactTransformsRef.current.length - 1; i >= 0; i--) {
       const element = localArtifactTransformsRef.current[i];
       const artifact = artifactState[element.artifactId];
-      console.log("x,y,element,artifact", x, y, element, artifact);
       if (
         artifact.type === "img" &&
         x >= element.x &&
@@ -364,6 +363,7 @@ function editingOnMouseMove({
   lastPos,
   resizeHandle,
   resizeHandleCorners,
+  selectedIndex,
   draggedIndex,
   localArtifactTransformsRef,
 }) {
@@ -371,11 +371,11 @@ function editingOnMouseMove({
   return (e) => {
     if (!isDragging.current && resizeHandle.current === null) return false;
 
-    console.log("onMouseMove");
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const zoom = getZoom();
+    const x = (e.clientX - rect.left) / zoom;
+    const y = (e.clientY - rect.top) / zoom;
     const dx = x - lastPos.current.x;
     const dy = y - lastPos.current.y;
 
