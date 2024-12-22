@@ -42,35 +42,49 @@ function GlobalParamSweepGUI({ sectionId, width }) {
   return (
     <>
       <section
-        className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main -mr-3 mb-2 flex min-w-0 flex-col gap-2 overflow-y-scroll pr-2 @sm/multipane:flex-row @sm/multipane:gap-6  @sm/multipane:overflow-visible`}
+        className={`${width && width < 386 && isScrollable ? "nowheel" : ""} section-main -mr-3 mb-2 flex min-w-0 flex-col gap-2 overflow-y-scroll pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible`}
         ref={ref}
       >
-        <LeftSide sectionId={sectionId} />
+        <ResizablePane width={width}>
+          <LeftSide sectionId={sectionId} />
+        </ResizablePane>
+
         <RightSide sectionId={sectionId} />
       </section>
     </>
   );
 }
 
+function ResizablePane({ width, children }) {
+  if (width > 384) {
+    return (
+      <ResizableWithScale
+        className="nodrag relative -mr-2 flex flex-col pr-2"
+        enable={{ right: true }}
+        minWidth={100}
+        maxWidth="70%"
+        handleClasses={{
+          right:
+            "before:bg-transparent before:absolute before:top-0 before:h-3/4 before:bottom-0 before:left-0 before:right-0 before: before:m-auto before:w-1/2 hover:before:bg-setta-500/10 before:rounded-full",
+        }}
+      >
+        {children}
+      </ResizableWithScale>
+    );
+  }
+  return <article className="-mr-2 flex flex-col pr-2">{children}</article>;
+}
+
 function LeftSide({ sectionId }) {
   return (
-    <ResizableWithScale
-      className="nodrag relative -mr-2 flex flex-col gap-2 pr-2"
-      enable={{ right: true }}
-      minWidth={100}
-      maxWidth="70%"
-      handleClasses={{
-        right:
-          "before:bg-transparent before:absolute before:top-0 before:h-3/4 before:bottom-0 before:left-0 before:right-0 before: before:m-auto before:w-1/2 hover:before:bg-setta-500/10 before:rounded-full",
-      }}
-    >
-      <h3 className="ml-0.5 mt-2 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+    <>
+      <h3 className="mb-[0.55rem] ml-0.5 mt-2 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
         Run Groups
       </h3>
 
       <RunGroupList sectionId={sectionId} />
       <CreateNewRunGroupButton sectionId={sectionId} />
-    </ResizableWithScale>
+    </>
   );
 }
 
@@ -86,7 +100,7 @@ function RightSide({ sectionId }) {
   // -mr-[14px]
   return (
     <article
-      className={`${showYaml ? "-mr-2 overflow-visible @sm/multipane:-mr-[14px] @sm/multipane:overflow-y-scroll" : "h-full min-h-0 min-w-0 max-w-full overflow-x-clip"} mt-2 flex flex-1 flex-col gap-2  pb-2 `}
+      className={`${showYaml ? "-mr-2 overflow-visible @sm/multipane:-mr-[14px] @sm/multipane:overflow-y-scroll" : "h-full min-h-0 min-w-0 max-w-full overflow-x-clip"} mt-2 flex flex-1 flex-col pb-2 `}
     >
       {!showYaml ? (
         <>
@@ -547,7 +561,7 @@ function CreateNewRunGroupButton({ sectionId }) {
 
   return (
     <button
-      className="nodrag mb-1 flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-1 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
+      className="nodrag mt-2 flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-1 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
       onClick={onClick}
     >
       <span className="relative">

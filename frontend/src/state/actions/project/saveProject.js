@@ -9,6 +9,7 @@ import {
 } from "requests/projects";
 import { dbSaveSettingsProject } from "requests/settings";
 import {
+  useArtifacts,
   useNodeInternals,
   useProjectConfig,
   useSectionColumnWidth,
@@ -16,12 +17,11 @@ import {
   useSettings,
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
-import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";
 import { setNotificationMessage } from "../notification";
 
 export function getProjectData({
-  withArtifacts = false,
+  withArtifactMetadata = false,
   convertYamlToGUI = true,
 }) {
   // remove temporary sections
@@ -34,14 +34,26 @@ export function getProjectData({
       }
     }
   }
+
   sections = _.mapValues(sections, (x) => {
     x.columnWidth = useSectionColumnWidth.getState()[x.id];
+
+    const artifactState = useArtifacts.getState().x;
+    if (!withArtifactMetadata) {
+      return _.omit(x, ["artifacts"]);
+    }
+    // keep only artifact paths that are actually saved to disk
+    x.artifacts = x.artifacts.filter((a) => artifactState[a].isSaved);
+    x.artifacts = x.artifacts.map((a) => ({
+      path: a,
+      value: a.startsWith("data:") ? artifactState[a].value : undefined,
+      type: artifactState[a].type,
+      displayName: artifactState[a].displayName,
+    }));
     return x;
   });
 
-  const artifacts = withArtifacts ? getArtifactStateForSaving() : {};
-
-  console.log("saveProject artifacts", artifacts);
+  console.log("sections", sections);
 
   const sectionVariants = _.mapValues(
     useSectionInfos.getState().variants,
@@ -51,7 +63,6 @@ export function getProjectData({
       children: x.children.filter((c) => c in sections),
     }),
   );
-  const artifactGroups = useSectionInfos.getState().artifactGroups;
   const uiTypes = _.pickBy(
     useSectionInfos.getState().uiTypes,
     (u) => u.presetType !== C.PRESET_UI_TYPE_BASE,
@@ -81,8 +92,6 @@ export function getProjectData({
   const output = {
     projectConfig,
     sectionVariants,
-    artifacts,
-    artifactGroups,
     uiTypes,
     uiTypeCols,
     sections,
@@ -152,7 +161,7 @@ function getProjectConfigMetadata() {
 
 export function getProjectDataForSaving() {
   return getProjectData({
-    withArtifacts: true,
+    withArtifactMetadata: true,
     convertYamlToGUI: true,
   });
 }

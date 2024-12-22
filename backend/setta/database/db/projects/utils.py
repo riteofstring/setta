@@ -1,6 +1,5 @@
 import copy
 
-from setta.database.db.artifacts.utils import add_defaults_to_artifacts
 from setta.database.db.codeInfo.utils import (
     add_defaults_to_code_info,
     add_defaults_to_code_info_cols,
@@ -22,7 +21,6 @@ def with_project_config_defaults(**kwargs):
 
 def add_defaults_to_project(p):
     p["projectConfig"] = with_project_config_defaults(**p["projectConfig"])
-    add_defaults_to_artifacts(p["artifacts"])
     add_defaults_to_sections(p["sections"])
     add_defaults_to_section_variants(p["sectionVariants"])
     add_defaults_to_code_info(p["codeInfo"])

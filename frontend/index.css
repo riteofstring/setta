@@ -356,3 +356,8 @@ input[type="color" i] {
   /* outline: 1px solid green; */
   /* background: hsla(0, 100%, 50%, 0.1); */
 }
+
+::selection {
+  background: rgb(29 78 216);
+  color: white;
+}

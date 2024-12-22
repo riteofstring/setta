@@ -95,7 +95,7 @@ function ContainerGroup({
 
   return (
     <div
-      className={`group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-3 focus-visible:outline-none ${className}`}
+      className={`group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${className}`}
       {...commonProps}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
       onKeyDown={(e) =>
@@ -107,14 +107,14 @@ function ContainerGroup({
       <div
         className={`outline outline-4 ${outlineColor} transition-radius absolute left-0 right-0 top-0 z-0 h-full w-full ${positionAndSizeLocked ? "rounded-sm border-setta-400/90 dark:border-setta-975" : "rounded-3xl border-setta-50/50 dark:border-setta-700"}  border border-solid  bg-setta-100/60 outline outline-2 outline-transparent   dark:bg-setta-950/70`}
       />
-      <div className="z-10 flex min-h-8 w-full items-center">
+      <div className="z-10 flex min-h-10 w-full items-center">
         <MenuButton
           sectionId={sectionId}
           sectionTypeName={C.GROUP}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
         />
         <div
-          className={`${pointerSelectCSS} relative min-h-8 w-full overflow-hidden`}
+          className={`${pointerSelectCSS}flex relative my-auto mr-2 min-h-10 w-full items-center overflow-hidden`}
         >
           <GroupSectionTitle sectionId={sectionId} />
         </div>
@@ -138,10 +138,10 @@ function ContainerGroup({
 function GroupSectionTitle({ sectionId }) {
   const titleProps = {
     editing:
-      "absolute cursor-pointer w-full text-2xl tracking-tighter text-setta-500 dark:text-setta-500 cursor-pointer flex-shrink",
+      "absolute nodrag cursor-text box-border px-3 focus-visible:ring-0 focus-visible:outline-none focus-visible:border-blue-500 rounded-full border border-solid border-transparent w-full text-2xl tracking-tighter text-setta-500 dark:text-setta-500 cursor-pointer flex-shrink",
 
     notEditing:
-      "absolute cursor-pointer w-full truncate text-2xl tracking-tighter text-setta-500 dark:text-setta-500 cursor-pointer flex-shrink",
+      "absolute cursor-pointer box-border px-3 focus-visible:ring-0 focus-visible:outline-none focus-visible:border-blue-500 rounded-full border border-solid border-transparent w-full truncate text-2xl tracking-tighter text-setta-500 dark:text-setta-500 cursor-pointer flex-shrink",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;

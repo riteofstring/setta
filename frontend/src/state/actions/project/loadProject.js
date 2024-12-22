@@ -44,7 +44,6 @@ export async function loadProjectState({
   codeInfoCols,
   sections,
   sectionVariants,
-  artifactGroups,
   uiTypes,
   uiTypeCols,
 }) {
@@ -68,7 +67,6 @@ export async function loadProjectState({
     uiTypeCols,
     codeInfo,
     codeInfoCols,
-    artifactGroups,
   });
   useSectionColumnWidth.setState(_.mapValues(sections, (x) => x.columnWidth));
   useNodeInternals.setState({
