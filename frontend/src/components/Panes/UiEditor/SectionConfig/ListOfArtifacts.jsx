@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
 import { dbLoadAvailableArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
-import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
+import {
+  getAllSectionArtifactIds,
+  getSectionArtifactGroupMetadata,
+} from "state/hooks/artifacts";
 import { newArtifactTransform } from "utils/objs/artifact";
 
 const LayersList = ({
@@ -224,5 +227,29 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
         onDragEnd={onDragEnd}
       />
     </div>
+  );
+}
+
+export function JustListOfArtifacts({ sectionId, sectionTypeName, onClick }) {
+  const [availableArtifacts, setAvailableArtifacts] = useState({});
+  const selectedArtifactIds = useSectionInfos(
+    (state) => getAllSectionArtifactIds(sectionId, state),
+    _.isEqual,
+  );
+
+  function getItemStyle(id) {
+    return selectedArtifactIds.has(id)
+      ? "border-gray-200 bg-blue-800 hover:bg-blue-50 dark:hover:bg-blue-500"
+      : null;
+  }
+
+  return (
+    <ListOfArtifacts
+      sectionTypeName={sectionTypeName}
+      availableArtifacts={availableArtifacts}
+      setAvailableArtifacts={setAvailableArtifacts}
+      getItemStyle={getItemStyle}
+      onClick={onClick}
+    />
   );
 }

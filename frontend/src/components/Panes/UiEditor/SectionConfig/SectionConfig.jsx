@@ -7,6 +7,7 @@ import { IframeSettings } from "./IframeSettings";
 import { ImageAreaSettings } from "./ImageAreaSettings";
 import { InfoAreaSettings } from "./InfoAreaSettings";
 import { InputAreaSettings } from "./InputAreaSettings";
+import { LinePlotSettings } from "./LinePlotSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 
 const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
@@ -37,6 +38,8 @@ function SpecializedConfiguration({ sectionId }) {
       return <DrawAreaSettings sectionId={sectionId} />;
     case C.IMAGE:
       return <ImageAreaSettings sectionId={sectionId} />;
+    case C.LINE_PLOT:
+      return <LinePlotSettings sectionId={sectionId} />;
     case C.SOCIAL:
       return <SocialAreaSettings sectionId={sectionId} />;
     case C.IFRAME:
