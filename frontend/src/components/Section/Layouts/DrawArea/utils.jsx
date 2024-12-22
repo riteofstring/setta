@@ -221,6 +221,7 @@ export function drawAllLayers(
       ) {
         const strokes = realTimeValues[layerId]?.[id] ?? artifact.value;
         const artifactTransformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
+        console.log("drawing strokes", strokes);
         drawSavedStrokesOntoTempCanvas(
           tempCanvas,
           tempCtx,
@@ -363,12 +364,26 @@ export function getCombinedTransformForStroke(
   }
 
   return [
-    artifactTransform[0] / strokeTransform[0],
+    artifactTransform[0] * strokeTransform[0], // multiply scales
     0,
     0,
-    artifactTransform[3] / strokeTransform[3],
-    artifactTransform[4] - strokeTransform[4],
-    artifactTransform[5] - strokeTransform[5],
+    artifactTransform[3] * strokeTransform[3], // multiply scales
+    artifactTransform[4] + strokeTransform[4] * artifactTransform[0], // transform the translation
+    artifactTransform[5] + strokeTransform[5] * artifactTransform[3], // transform the translation
+  ];
+}
+
+export function getInverseTransform(transform) {
+  // Inverse transform:
+  // - Divide by scale instead of multiply
+  // - Subtract translated position divided by scale
+  return [
+    1 / transform[0],
+    0,
+    0,
+    1 / transform[3],
+    -transform[4] / transform[0],
+    -transform[5] / transform[3],
   ];
 }
 

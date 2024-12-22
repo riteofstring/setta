@@ -8,6 +8,7 @@ import {
   drawStroke,
   filterPathForImage,
   getCombinedTransformForStroke,
+  getInverseTransform,
   getXY,
   setGlobalArtifactTransformsAndDrawAllLayers,
   setGlobalBrushStrokesAndDrawAllLayers,
@@ -233,7 +234,7 @@ function drawingOnMouseDown({
         draftCanvasRef,
         strokesRef,
         point,
-        currentBrushStrokeTransformInfo.transform,
+        getInverseTransform(currentBrushStrokeTransformInfo.transform),
       );
     }
 
@@ -289,15 +290,11 @@ function drawingOnMouseMove({
         localArtifactTransformsRef.current.find(
           (l) => l.artifactId === currBrushStrokeArtifactId,
         );
-      console.log(
-        "currentBrushStrokeTransformInfo",
-        currentBrushStrokeTransformInfo,
-      );
       startNewStroke(
         draftCanvasRef,
         currStrokesRef,
         point,
-        currentBrushStrokeTransformInfo.transform,
+        getInverseTransform(currentBrushStrokeTransformInfo.transform),
       );
       prevPointRef.current = point;
     } else {
@@ -348,7 +345,6 @@ function drawingOnMouseUp({
             intersectingPath = [];
           }
 
-          // console.log("intersecting eraserPath.points", eraserPath.points)
           if (intersectingPath.length > 0) {
             t.eraserStrokes.push({ ...eraserPath, points: intersectingPath });
           }
@@ -517,58 +513,125 @@ function editingOnMouseMove({
       const { transform, artifactId } =
         localArtifactTransformsRef.current[selectedIdx.current];
       const artifact = artifactState[artifactId];
-      const scaledWidth = getScaledWidth(artifact, transform);
-      const scaledHeight = getScaledHeight(artifact, transform);
-      switch (resizeHandle.current) {
-        case 0: // Top-left
-          transform[0] = (scaledWidth - dx) / artifact.value.width;
-          transform[3] = (scaledHeight - dy) / artifact.value.height;
-          transform[4] += dx;
-          transform[5] += dy;
-          // Top-left handle
-          resizeHandleCorners.current[0].x += dx;
-          resizeHandleCorners.current[0].y += dy;
-          // Top-right handle
-          resizeHandleCorners.current[1].y += dy;
-          // Bottom-left handle
-          resizeHandleCorners.current[2].x += dx;
-          break;
-        case 1: // Top-right
-          transform[0] = (scaledWidth + dx) / artifact.value.width;
-          transform[3] = (scaledHeight - dy) / artifact.value.height;
-          transform[5] += dy;
-          // Top-left handle
-          resizeHandleCorners.current[0].y += dy;
-          // Top-right handle
-          resizeHandleCorners.current[1].x += dx;
-          resizeHandleCorners.current[1].y += dy;
-          // Bottom-right handle
-          resizeHandleCorners.current[3].x += dx;
-          break;
-        case 2: // Bottom-left
-          transform[0] = (scaledWidth - dx) / artifact.value.width;
-          transform[3] = (scaledHeight + dy) / artifact.value.height;
-          transform[4] += dx;
-          // Top-left handle
-          resizeHandleCorners.current[0].x += dx;
-          // Bottom-left handle
-          resizeHandleCorners.current[2].x += dx;
-          resizeHandleCorners.current[2].y += dy;
-          // Bottom-right handle
-          resizeHandleCorners.current[3].y += dy;
-          break;
-        case 3: // Bottom-right
-          transform[0] = (scaledWidth + dx) / artifact.value.width;
-          transform[3] = (scaledHeight + dy) / artifact.value.height;
-          // Top-right handle
-          resizeHandleCorners.current[1].x += dx;
-          // Bottom-left handle
-          resizeHandleCorners.current[2].y += dy;
-          // Bottom-right handle
-          resizeHandleCorners.current[3].x += dx;
-          resizeHandleCorners.current[3].y += dy;
-          break;
+
+      if (artifact.type === "img") {
+        const scaledWidth = getScaledWidth(artifact, transform);
+        const scaledHeight = getScaledHeight(artifact, transform);
+        switch (resizeHandle.current) {
+          case 0: // Top-left
+            transform[0] = (scaledWidth - dx) / artifact.value.width;
+            transform[3] = (scaledHeight - dy) / artifact.value.height;
+            transform[4] += dx;
+            transform[5] += dy;
+            break;
+          case 1: // Top-right
+            transform[0] = (scaledWidth + dx) / artifact.value.width;
+            transform[3] = (scaledHeight - dy) / artifact.value.height;
+            transform[5] += dy;
+            break;
+          case 2: // Bottom-left
+            transform[0] = (scaledWidth - dx) / artifact.value.width;
+            transform[3] = (scaledHeight + dy) / artifact.value.height;
+            transform[4] += dx;
+            break;
+          case 3: // Bottom-right
+            transform[0] = (scaledWidth + dx) / artifact.value.width;
+            transform[3] = (scaledHeight + dy) / artifact.value.height;
+            break;
+        }
+      } else if (artifact.type === "brushStrokes") {
+        const bounds = getBrushStrokesBounds(artifact.value, transform);
+        const width = bounds.maxX - bounds.minX;
+        const height = bounds.maxY - bounds.minY;
+
+        const deltaX = dx;
+        const deltaY = dy;
+
+        switch (resizeHandle.current) {
+          case 0: {
+            // Top-left
+            const scaleX = (width - deltaX) / width;
+            const scaleY = (height - deltaY) / height;
+
+            // Anchor point is bottom-right
+            const anchorX = bounds.maxX;
+            const anchorY = bounds.maxY;
+
+            const newScaleX = transform[0] * scaleX;
+            const newScaleY = transform[3] * scaleY;
+            const newTranslateX = anchorX - (anchorX - transform[4]) * scaleX;
+            const newTranslateY = anchorY - (anchorY - transform[5]) * scaleY;
+
+            transform[0] = newScaleX;
+            transform[3] = newScaleY;
+            transform[4] = newTranslateX;
+            transform[5] = newTranslateY;
+            break;
+          }
+          case 1: {
+            // Top-right
+            const scaleX = (width + deltaX) / width;
+            const scaleY = (height - deltaY) / height;
+
+            // Anchor point is bottom-left
+            const anchorX = bounds.minX;
+            const anchorY = bounds.maxY;
+
+            const newScaleX = transform[0] * scaleX;
+            const newScaleY = transform[3] * scaleY;
+            const newTranslateX = anchorX - (anchorX - transform[4]) * scaleX;
+            const newTranslateY = anchorY - (anchorY - transform[5]) * scaleY;
+
+            transform[0] = newScaleX;
+            transform[3] = newScaleY;
+            transform[4] = newTranslateX;
+            transform[5] = newTranslateY;
+            break;
+          }
+          case 2: {
+            // Bottom-left
+            const scaleX = (width - deltaX) / width;
+            const scaleY = (height + deltaY) / height;
+
+            // Anchor point is top-right
+            const anchorX = bounds.maxX;
+            const anchorY = bounds.minY;
+
+            const newScaleX = transform[0] * scaleX;
+            const newScaleY = transform[3] * scaleY;
+            const newTranslateX = anchorX - (anchorX - transform[4]) * scaleX;
+            const newTranslateY = anchorY - (anchorY - transform[5]) * scaleY;
+
+            transform[0] = newScaleX;
+            transform[3] = newScaleY;
+            transform[4] = newTranslateX;
+            transform[5] = newTranslateY;
+            break;
+          }
+          case 3: {
+            // Bottom-right
+            const scaleX = (width + deltaX) / width;
+            const scaleY = (height + deltaY) / height;
+
+            // Anchor point is top-left
+            const anchorX = bounds.minX;
+            const anchorY = bounds.minY;
+
+            const newScaleX = transform[0] * scaleX;
+            const newScaleY = transform[3] * scaleY;
+            const newTranslateX = anchorX - (anchorX - transform[4]) * scaleX;
+            const newTranslateY = anchorY - (anchorY - transform[5]) * scaleY;
+
+            transform[0] = newScaleX;
+            transform[3] = newScaleY;
+            transform[4] = newTranslateX;
+            transform[5] = newTranslateY;
+            break;
+          }
+        }
       }
+
+      setNewResizeHandleCorners(resizeHandle, resizeHandleCorners, dx, dy);
 
       //   if (newElement.w < 20) {
       //     newElement.w = 20;
@@ -639,6 +702,47 @@ const getBrushStrokesBounds = (strokes, artifactTransform) => {
     maxY,
   };
 };
+
+function setNewResizeHandleCorners(resizeHandle, resizeHandleCorners, dx, dy) {
+  switch (resizeHandle.current) {
+    case 0: // Top-left
+      // Top-left handle
+      resizeHandleCorners.current[0].x += dx;
+      resizeHandleCorners.current[0].y += dy;
+      // Top-right handle
+      resizeHandleCorners.current[1].y += dy;
+      // Bottom-left handle
+      resizeHandleCorners.current[2].x += dx;
+      break;
+    case 1: // Top-right
+      // Top-left handle
+      resizeHandleCorners.current[0].y += dy;
+      // Top-right handle
+      resizeHandleCorners.current[1].x += dx;
+      resizeHandleCorners.current[1].y += dy;
+      // Bottom-right handle
+      resizeHandleCorners.current[3].x += dx;
+      break;
+    case 2: // Bottom-left
+      // Top-left handle
+      resizeHandleCorners.current[0].x += dx;
+      // Bottom-left handle
+      resizeHandleCorners.current[2].x += dx;
+      resizeHandleCorners.current[2].y += dy;
+      // Bottom-right handle
+      resizeHandleCorners.current[3].y += dy;
+      break;
+    case 3: // Bottom-right
+      // Top-right handle
+      resizeHandleCorners.current[1].x += dx;
+      // Bottom-left handle
+      resizeHandleCorners.current[2].y += dy;
+      // Bottom-right handle
+      resizeHandleCorners.current[3].x += dx;
+      resizeHandleCorners.current[3].y += dy;
+      break;
+  }
+}
 
 const resizeBrushStroke = (path, bounds, dx, dy, handle) => {
   const oldWidth = bounds.maxX - bounds.minX;
