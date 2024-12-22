@@ -205,7 +205,7 @@ CREATE TABLE IF NOT EXISTS ArtifactGroup (
     artifactId TEXT,
     data TEXT,
     "order", INTEGER,
-    PRIMARY KEY (idid, artifactId),
+    PRIMARY KEY (idid, "order"),
     FOREIGN KEY (idid) REFERENCES ArtifactGroupId(id) ON DELETE CASCADE,
     FOREIGN KEY (artifactId) REFERENCES Artifact(id) ON DELETE CASCADE
 );
