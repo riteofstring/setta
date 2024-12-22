@@ -221,7 +221,6 @@ export function drawAllLayers(
       ) {
         const strokes = realTimeValues[layerId]?.[id] ?? artifact.value;
         const artifactTransformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
-        console.log("drawAllLayers", strokes, artifactTransformInfo.transform);
         drawSavedStrokesOntoTempCanvas(
           tempCanvas,
           tempCtx,
@@ -258,7 +257,6 @@ export function startNewStroke(
   firstPoint,
   currentTransform,
 ) {
-  console.log("new stroke transform", currentTransform);
   const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
   strokesRef.current.push({
     strokeStyle: dCtx.strokeStyle,
@@ -268,7 +266,7 @@ export function startNewStroke(
     // canvasHeight: draftCanvas.height,
     // canvasWidth: draftCanvas.width,
     globalCompositeOperation: dCtx.globalCompositeOperation,
-    transform: currentTransform,
+    transform: _.cloneDeep(currentTransform),
   });
   drawStroke(draftCanvasRef, firstPoint, firstPoint);
 }

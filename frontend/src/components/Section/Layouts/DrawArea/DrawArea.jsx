@@ -61,10 +61,6 @@ export function DrawArea({ sectionId }) {
   const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
     (a) => loadedArtifacts[a.artifactId]?.type === "brushStrokes",
   )?.artifactId;
-  const currentBrushStrokeTransformInfo =
-    localArtifactTransformsRef.current.find(
-      (l) => l.artifactId === currBrushStrokeArtifactId,
-    );
 
   useEffect(() => {
     tempCanvasRef.current = document.createElement("canvas");
@@ -162,7 +158,6 @@ export function DrawArea({ sectionId }) {
       draftCanvasRef,
       canvasTransferQueueLength,
       currBrushStrokeArtifactId,
-      currentBrushStrokeTransformInfo,
       activeLayerId,
       localArtifactTransformsRef,
       mode,

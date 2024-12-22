@@ -37,7 +37,6 @@ export function useDrawModeMouseHandlers({
   draftCanvasRef,
   canvasTransferQueueLength,
   currBrushStrokeArtifactId,
-  currentBrushStrokeTransformInfo,
   activeLayerId,
   localArtifactTransformsRef,
   mode,
@@ -58,7 +57,8 @@ export function useDrawModeMouseHandlers({
       tempCanvasRef,
       draftCanvasRef,
       activeLayerId,
-      currentBrushStrokeTransformInfo,
+      currBrushStrokeArtifactId,
+      localArtifactTransformsRef,
     });
 
     onMouseMove = drawingOnMouseMove({
@@ -74,7 +74,7 @@ export function useDrawModeMouseHandlers({
       canvasTransferQueueLength,
       activeLayerId,
       currBrushStrokeArtifactId,
-      currentBrushStrokeTransformInfo,
+      localArtifactTransformsRef,
     });
 
     onMouseUp = drawingOnMouseUp({
@@ -187,7 +187,8 @@ function drawingOnMouseDown({
   tempCanvasRef,
   draftCanvasRef,
   activeLayerId,
-  currentBrushStrokeTransformInfo,
+  currBrushStrokeArtifactId,
+  localArtifactTransformsRef,
 }) {
   return (e, offsetX, offsetY) => {
     if (useMisc.getState().mouseDownDraggingSection) {
@@ -224,6 +225,10 @@ function drawingOnMouseDown({
         { [activeLayerId]: eraserStrokesRef.current },
       );
     } else {
+      const currentBrushStrokeTransformInfo =
+        localArtifactTransformsRef.current.find(
+          (l) => l.artifactId === currBrushStrokeArtifactId,
+        );
       startNewStroke(
         draftCanvasRef,
         strokesRef,
@@ -249,7 +254,7 @@ function drawingOnMouseMove({
   canvasTransferQueueLength,
   activeLayerId,
   currBrushStrokeArtifactId,
-  currentBrushStrokeTransformInfo,
+  localArtifactTransformsRef,
 }) {
   return (e) => {
     if (!isDrawing) {
@@ -279,6 +284,14 @@ function drawingOnMouseMove({
         canvasRef,
         tempCanvasRef,
         draftCanvasRef,
+      );
+      const currentBrushStrokeTransformInfo =
+        localArtifactTransformsRef.current.find(
+          (l) => l.artifactId === currBrushStrokeArtifactId,
+        );
+      console.log(
+        "currentBrushStrokeTransformInfo",
+        currentBrushStrokeTransformInfo,
       );
       startNewStroke(
         draftCanvasRef,
