@@ -362,6 +362,11 @@ input[type="color" i] {
   outline-offset: 2px;
 } */
 
+/* *:focus {
+  outline-color: #3b82f6;
+ 
+} */
+
 ::selection {
   background: rgb(29 78 216);
   color: white;
