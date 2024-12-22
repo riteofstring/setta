@@ -373,22 +373,22 @@ function _GenericList({
 }) {
   return (
     <StandardAccordion
-      rootStyles={`${accordionRootStyles ?? "hover:bg-white hover:dark:bg-setta-700/10 hover:border-setta-50 dark:hover:border-setta-700"} border border-transparent rounded-lg px-2 ml-8 -mr-2 -mt-0.5`}
+      rootStyles={`${accordionRootStyles ?? "hover:bg-white hover:dark:bg-setta-700/10 hover:border-setta-50 dark:hover:border-setta-700"} border border-transparent rounded-lg px-2 ml-7 -mr-2 -mt-0.5`}
       itemStyles="focus-within:relative focus-within:z-10"
-      headerStyles="flex flex-1 cursor-default items-center justify-between my-0.5"
-      triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md italic text-xs font-semibold opacity-60 group-hover:opacity-100 text-setta-500 dark:text-setta-300"
-      contentStyles="text-xs overflow-hidden mb-1"
+      headerStyles="flex flex-1 cursor-default items-center justify-between my-0.5 ml-1"
+      triggerStyles="flex justify-between px-2 -mx-2 w-full items-center hover:cursor-pointer rounded-md italic text-xs font-semibold opacity-60 group-hover:opacity-100 text-setta-500 dark:text-setta-300 focus-visible:outline outline-blue-500"
+      contentStyles="text-xs overflow-hidden mb-1 "
       heading={heading}
       value={heading}
       internalWrapper={false}
       // defaultValue={defaultValue}
       data-state={open}
     >
-      <ul className="">
+      <ul>
         {inputList.map((e, idx) => (
           <li
             key={idx}
-            className="flex min-h-6 cursor-pointer flex-col rounded"
+            className="ml-[4px] flex min-h-6 cursor-pointer flex-col rounded"
           >
             <ChildComponent
               id={e.id}
@@ -490,7 +490,7 @@ function CheckboxGroup({ children, checked, onChange }) {
     <label className="flex min-h-6 cursor-pointer items-center gap-2 text-xs text-setta-700 dark:text-setta-300">
       <input
         type="checkbox"
-        className="h-4 w-4 min-w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+        className="h-4 w-4 min-w-4 rounded-md bg-setta-500/10 outline-offset-2 outline-blue-500 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500 focus-visible:outline"
         checked={checked}
         onChange={onChange}
       />
