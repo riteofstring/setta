@@ -330,11 +330,10 @@ function drawingOnMouseUp({
       const eraserPath =
         eraserStrokesRef.current[eraserStrokesRef.current.length - 1];
 
-      let intersectingPaths = [];
-
       useSectionInfos.setState((state) => {
         const layer = state.artifactGroups[activeLayerId];
         for (const t of layer.artifactTransforms) {
+          const intersectingPaths = [];
           const artifact = artifactState[t.artifactId];
           if (artifact.type === "img") {
             intersectingPaths.push(
