@@ -258,37 +258,41 @@ function editingOnMouseDown({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Check if clicking on resize handle of selected element
     if (selectedIndex !== null) {
       const element = elements[selectedIndex];
-      if (element.type === "image") {
-        const handleSize = 8;
-        const corners = [
-          { x: element.x, y: element.y, cursor: "nw-resize" }, // Top-left
-          { x: element.x + element.width, y: element.y, cursor: "ne-resize" }, // Top-right
-          { x: element.x, y: element.y + element.height, cursor: "sw-resize" }, // Bottom-left
-          {
-            x: element.x + element.width,
-            y: element.y + element.height,
-            cursor: "se-resize",
-          }, // Bottom-right
-        ];
+      const handleSize = 8;
+      let corners;
 
-        for (let i = 0; i < corners.length; i++) {
-          const corner = corners[i];
-          if (
-            Math.abs(x - corner.x) <= handleSize / 2 &&
-            Math.abs(y - corner.y) <= handleSize / 2
-          ) {
-            setResizeHandle(i);
-            setLastPos({ x, y });
-            return;
-          }
+      if (element.type === "img") {
+        corners = [
+          { x: element.x, y: element.y }, // Top-left
+          { x: element.x + element.width, y: element.y }, // Top-right
+          { x: element.x, y: element.y + element.height }, // Bottom-left
+          { x: element.x + element.width, y: element.y + element.height }, // Bottom-right
+        ];
+      } else if (element.type === "brushStrokes") {
+        const bounds = getBrushStrokeBounds(element.points);
+        corners = [
+          { x: bounds.minX, y: bounds.minY }, // Top-left
+          { x: bounds.maxX, y: bounds.minY }, // Top-right
+          { x: bounds.minX, y: bounds.maxY }, // Bottom-left
+          { x: bounds.maxX, y: bounds.maxY }, // Bottom-right
+        ];
+      }
+
+      for (let i = 0; i < corners.length; i++) {
+        const corner = corners[i];
+        if (
+          Math.abs(x - corner.x) <= handleSize / 2 &&
+          Math.abs(y - corner.y) <= handleSize / 2
+        ) {
+          setResizeHandle(i);
+          setLastPos({ x, y });
+          return;
         }
       }
     }
 
-    // Check if clicking on an existing element
     for (let i = elements.length - 1; i >= 0; i--) {
       const element = elements[i];
       if (
@@ -304,7 +308,6 @@ function editingOnMouseDown({
         setLastPos({ x, y });
         return;
       } else if (element.type === "brushStrokes") {
-        // Check if clicking near any point in the path
         const hitRadius = 5;
         for (const point of element.points) {
           if (
@@ -320,8 +323,6 @@ function editingOnMouseDown({
         }
       }
     }
-
-    // If clicked outside any element, clear selection
     setSelectedIndex(null);
   };
 }
@@ -433,3 +434,14 @@ function editingOnMouseUp({ setIsDragging, setDraggedIndex, setResizeHandle }) {
     setResizeHandle(null);
   };
 }
+
+const getBrushStrokeBounds = (points) => {
+  const xCoords = points.map((p) => p.x);
+  const yCoords = points.map((p) => p.y);
+  return {
+    minX: Math.min(...xCoords),
+    maxX: Math.max(...xCoords),
+    minY: Math.min(...yCoords),
+    maxY: Math.max(...yCoords),
+  };
+};
