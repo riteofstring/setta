@@ -359,7 +359,6 @@ function editingOnMouseMove({
                 y: element.y + dy,
               };
             } else if (element.type === "brushStrokes") {
-              // Move all points in the path
               return {
                 ...element,
                 points: element.points.map((point) => ({
@@ -380,43 +379,56 @@ function editingOnMouseMove({
 
       setElements(
         elements.map((element, index) => {
-          if (index === selectedIndex && element.type === "img") {
-            let newElement = { ...element };
+          if (index === selectedIndex) {
+            if (element.type === "img") {
+              let newElement = { ...element };
+              switch (resizeHandle) {
+                case 0: // Top-left
+                  newElement.width -= dx;
+                  newElement.height -= dy;
+                  newElement.x += dx;
+                  newElement.y += dy;
+                  break;
+                case 1: // Top-right
+                  newElement.width += dx;
+                  newElement.height -= dy;
+                  newElement.y += dy;
+                  break;
+                case 2: // Bottom-left
+                  newElement.width -= dx;
+                  newElement.height += dy;
+                  newElement.x += dx;
+                  break;
+                case 3: // Bottom-right
+                  newElement.width += dx;
+                  newElement.height += dy;
+                  break;
+              }
 
-            switch (resizeHandle) {
-              case 0: // Top-left
-                newElement.width -= dx;
-                newElement.height -= dy;
-                newElement.x += dx;
-                newElement.y += dy;
-                break;
-              case 1: // Top-right
-                newElement.width += dx;
-                newElement.height -= dy;
-                newElement.y += dy;
-                break;
-              case 2: // Bottom-left
-                newElement.width -= dx;
-                newElement.height += dy;
-                newElement.x += dx;
-                break;
-              case 3: // Bottom-right
-                newElement.width += dx;
-                newElement.height += dy;
-                break;
-            }
+              if (newElement.width < 20) {
+                newElement.width = 20;
+                newElement.x = element.x;
+              }
+              if (newElement.height < 20) {
+                newElement.height = 20;
+                newElement.y = element.y;
+              }
 
-            // Ensure minimum size
-            if (newElement.width < 20) {
-              newElement.width = 20;
-              newElement.x = element.x;
+              return newElement;
+            } else if (element.type === "brushStrokes") {
+              const bounds = getPathBounds(element.points);
+              const newPoints = resizeBrushStroke(
+                element,
+                bounds,
+                dx,
+                dy,
+                resizeHandle,
+              );
+              return {
+                ...element,
+                points: newPoints,
+              };
             }
-            if (newElement.height < 20) {
-              newElement.height = 20;
-              newElement.y = element.y;
-            }
-
-            return newElement;
           }
           return element;
         }),
@@ -444,4 +456,62 @@ const getBrushStrokeBounds = (points) => {
     minY: Math.min(...yCoords),
     maxY: Math.max(...yCoords),
   };
+};
+
+const resizeBrushStroke = (path, bounds, dx, dy, handle) => {
+  const oldWidth = bounds.maxX - bounds.minX;
+  const oldHeight = bounds.maxY - bounds.minY;
+
+  let scaleX = 1;
+  let scaleY = 1;
+  let translateX = 0;
+  let translateY = 0;
+
+  switch (handle) {
+    case 0: // Top-left
+      scaleX = (oldWidth - dx) / oldWidth;
+      scaleY = (oldHeight - dy) / oldHeight;
+      translateX = bounds.minX + dx;
+      translateY = bounds.minY + dy;
+      break;
+    case 1: // Top-right
+      scaleX = (oldWidth + dx) / oldWidth;
+      scaleY = (oldHeight - dy) / oldHeight;
+      translateX = bounds.minX;
+      translateY = bounds.minY + dy;
+      break;
+    case 2: // Bottom-left
+      scaleX = (oldWidth - dx) / oldWidth;
+      scaleY = (oldHeight + dy) / oldHeight;
+      translateX = bounds.minX + dx;
+      translateY = bounds.minY;
+      break;
+    case 3: // Bottom-right
+      scaleX = (oldWidth + dx) / oldWidth;
+      scaleY = (oldHeight + dy) / oldHeight;
+      translateX = bounds.minX;
+      translateY = bounds.minY;
+      break;
+  }
+
+  if (scaleX * oldWidth < 20) {
+    scaleX = 20 / oldWidth;
+    // Reset translation in x direction if we hit minimum width
+    if (handle === 0 || handle === 2) {
+      translateX = bounds.minX + (bounds.maxX - bounds.minX) * (1 - scaleX);
+    }
+  }
+
+  if (scaleY * oldHeight < 20) {
+    scaleY = 20 / oldHeight;
+    // Reset translation in y direction if we hit minimum height
+    if (handle === 0 || handle === 1) {
+      translateY = bounds.minY + (bounds.maxY - bounds.minY) * (1 - scaleY);
+    }
+  }
+
+  return path.points.map((point) => ({
+    x: translateX + (point.x - bounds.minX) * scaleX,
+    y: translateY + (point.y - bounds.minY) * scaleY,
+  }));
 };
