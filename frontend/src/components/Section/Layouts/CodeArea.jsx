@@ -109,18 +109,8 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     dbCodeAreaInitializeCode({ sectionId });
   }
 
-  function onArticleDivEnterKeyFocusOnCodeMirror(e) {
-    if (e.code === "Enter") {
-      const el = e.target.querySelector("[contenteditable]");
-      if (el) {
-        el.focus({ preventScroll: true });
-      }
-    }
-  }
-
-  function onEscapeFocusOnArticleDiv() {
-    wrapperRef.current.focus({ preventScroll: true });
-  }
+  const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
+    codeAreaTabOnEnterKeyHandlers(wrapperRef);
 
   const extensions = getExtensions({
     sectionId,
@@ -259,6 +249,23 @@ export function useCodeAreaHeight({ sectionId }) {
     overflow,
     nowheel,
   };
+}
+
+export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
+  function onArticleDivEnterKeyFocusOnCodeMirror(e) {
+    if (e.code === "Enter") {
+      const el = e.target.querySelector("[contenteditable]");
+      if (el) {
+        el.focus({ preventScroll: true });
+      }
+    }
+  }
+
+  function onEscapeFocusOnArticleDiv() {
+    wrapperRef.current.focus({ preventScroll: true });
+  }
+
+  return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
 }
 
 const debouncedSetEVRefs = asyncDebounce(async (sectionId, value) => {
