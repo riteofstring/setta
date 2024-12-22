@@ -53,12 +53,7 @@ const LayersList = ({
         <div
           key={layer.id}
           className={`mb-2 rounded border-2 border-dashed p-2 transition-colors ${getLayerStyle(layer)} ${
-            draggedId &&
-            layer.artifactTransforms.find((l) => l.artifactId === draggedId)
-              ? "cursor-not-allowed"
-              : draggedId
-                ? "cursor-copy"
-                : ""
+            draggedId ? "cursor-copy" : ""
           }`}
           onDragOver={(e) => handleDragOver(e, layer.id)}
           onDragLeave={handleDragLeave}
@@ -68,16 +63,14 @@ const LayersList = ({
             {layer.name}
           </h3>
           <div className="ml-4">
-            {layer.artifactTransforms.map((transform, idx) => (
+            {layer.artifactIdsUsed.map((artifactId, idx) => (
               <div
                 key={idx}
                 className="group flex items-center justify-between text-sm text-gray-600 dark:text-gray-400"
               >
-                <span>{allArtifacts[transform.artifactId]?.name}</span>
+                <span>{allArtifacts[artifactId]?.name}</span>
                 <button
-                  onClick={() =>
-                    onDeleteArtifact(layer.id, transform.artifactId)
-                  }
+                  onClick={() => onDeleteArtifact(layer.id, artifactId)}
                   className="cursor-pointer p-1 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
                 >
                   <FiTrash2 size={14} />

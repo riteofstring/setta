@@ -28,41 +28,41 @@ export function useLoadedArtifacts(artifactIds, artifactAttrsToPick) {
 }
 
 export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
-  const {
-    artifactIds,
-    artifactIdsWithDuplicates,
-    activeLayer,
-    size,
-    canvasSettings,
-  } = useSectionInfos((state) => {
-    const artifactIds = getAllSectionArtifactIds(sectionId, state);
-    const artifactIdsWithDuplicates = getAllSectionArtifactIds(
-      sectionId,
-      state,
-      false,
-    );
-    const canvasSettings = state.x[sectionId].canvasSettings;
-    const activeLayer = state.artifactGroups[canvasSettings.activeLayerId];
+  const { artifactIds, activeLayer, allLayersMetadata, size, canvasSettings } =
+    useSectionInfos((state) => {
+      const artifactIds = getAllSectionArtifactIds(sectionId, state);
+      const canvasSettings = state.x[sectionId].canvasSettings;
+      const activeLayer = state.artifactGroups[canvasSettings.activeLayerId];
+      const allLayersMetadata = getSectionArtifactGroupMetadata(
+        sectionId,
+        state,
+      );
 
-    return {
-      artifactIds,
-      artifactIdsWithDuplicates,
-      activeLayer,
-      size: state.x[sectionId].size,
-      canvasSettings,
-    };
-  }, _.isEqual);
+      return {
+        activeLayer,
+        artifactIds,
+        allLayersMetadata,
+        size: state.x[sectionId].size,
+        canvasSettings,
+      };
+    }, _.isEqual);
 
   const loadedArtifacts = useLoadedArtifacts(artifactIds, ["type"]);
 
+  const loadedArtifactIdsWithDuplicates = [];
+  for (const x of allLayersMetadata) {
+    loadedArtifactIdsWithDuplicates.push(
+      ...x.artifactIdsUsed.filter((a) => a in loadedArtifacts),
+    );
+  }
+
   return {
     activeLayer,
-    loadedArtifactIdsWithDuplicates: artifactIdsWithDuplicates.filter(
-      (x) => x in loadedArtifacts,
-    ),
+    allLayersMetadata,
     size,
     canvasSettings,
     loadedArtifacts,
+    loadedArtifactIdsWithDuplicates,
   };
 }
 
@@ -77,18 +77,21 @@ export function useAllSectionArtifacts(sectionId, artifactAttrsToPick) {
 
 export function getSectionArtifactGroupMetadata(sectionId, state) {
   const { artifactGroupIds } = state.x[sectionId];
-  return artifactGroupIds.map((a) => ({ id: a, ...state.artifactGroups[a] }));
+  const output = [];
+  for (const id of artifactGroupIds) {
+    const info = { id, ...state.artifactGroups[id] };
+    info.artifactIdsUsed = info.artifactTransforms.map((x) => x.artifactId);
+    delete info.artifactTransforms;
+    output.push(info);
+  }
+  return output;
 }
 
-export function getAllSectionArtifactIds(sectionId, state, unique = true) {
-  const artifactIds = unique ? new Set() : [];
+export function getAllSectionArtifactIds(sectionId, state) {
+  const artifactIds = new Set();
   for (const artifactGroupId of state.x[sectionId].artifactGroupIds) {
     for (const t of state.artifactGroups[artifactGroupId].artifactTransforms) {
-      if (unique) {
-        artifactIds.add(t.artifactId);
-      } else {
-        artifactIds.push(t.artifactId);
-      }
+      artifactIds.add(t.artifactId);
     }
   }
   return artifactIds;

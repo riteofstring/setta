@@ -24,7 +24,7 @@ import {
 export function DrawArea({ sectionId }) {
   const {
     activeLayer,
-    loadedArtifactIdsWithDuplicates,
+    allLayersMetadata,
     size: { width, height },
     canvasSettings: {
       activeLayerId,
@@ -38,6 +38,7 @@ export function DrawArea({ sectionId }) {
       artifactIdUsedToSetCanvasSize,
     },
     loadedArtifacts,
+    loadedArtifactIdsWithDuplicates,
   } = useDrawAreaActiveLayerAndLoadedArtifacts(sectionId);
 
   const canvasRef = useRef(null);
@@ -112,7 +113,7 @@ export function DrawArea({ sectionId }) {
       resizeHandleCorners.current = null;
     }
     drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
-  }, [mode, layerOpacity, loadedArtifactIdsWithDuplicates]);
+  }, [mode, layerOpacity, allLayersMetadata, loadedArtifactIdsWithDuplicates]);
   // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
   // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
 
