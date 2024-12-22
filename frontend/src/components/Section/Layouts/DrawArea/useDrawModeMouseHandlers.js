@@ -343,8 +343,16 @@ function drawingOnMouseUp({
               getScaledWidth(artifact, t.transform),
               getScaledHeight(artifact, t.transform),
             );
-          } else {
+          } else if (artifact.type === "brushStrokes") {
             intersectingPath = [];
+            // intersectingPath = filterPathForBrushStroke(
+            //   eraserPath.points,
+            //   eraserPath.lineWidth,
+            //   eraserPath.lineCap,
+            //   brushPoints,
+            //   brushWidth,
+            //   brushCap,
+            // )
           }
 
           if (intersectingPath.length > 0) {
