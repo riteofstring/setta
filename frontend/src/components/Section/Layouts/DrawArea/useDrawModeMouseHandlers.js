@@ -51,7 +51,7 @@ export function useDrawModeMouseHandlers({
           value: _.cloneDeep(strokesRef.current),
         },
       }));
-      drawAllLayers(canvasRef, tempCanvasRef, draftCanvasRef, layers);
+      drawAllLayers(canvasRef, tempCanvasRef, layers);
       clearCanvas(draftCanvasRef);
     };
 
@@ -103,7 +103,6 @@ export function useDrawModeMouseHandlers({
       drawAllLayers(
         canvasRef,
         tempCanvasRef,
-        draftCanvasRef,
         getSectionArtifactGroupMetadata(sectionId, useSectionInfos.getState()),
       );
     };
@@ -125,7 +124,6 @@ export function useDrawModeMouseHandlers({
         drawAllLayers(
           canvasRef,
           tempCanvasRef,
-          draftCanvasRef,
           layers,
           {},
           { [activeLayerId]: localArtifactTransformsRef.current },
@@ -151,7 +149,6 @@ export function useDrawModeMouseHandlers({
         drawAllLayers(
           canvasRef,
           tempCanvasRef,
-          draftCanvasRef,
           layers,
           {},
           { [activeLayerId]: localArtifactTransformsRef.current },
@@ -224,7 +221,7 @@ function drawingOnMouseDown({
     }
     startNewStroke(draftCanvasRef, strokesRef, point, isEraser);
     if (isEraser) {
-      drawAllLayers(canvasRef, tempCanvasRef, draftCanvasRef, layers, {
+      drawAllLayers(canvasRef, tempCanvasRef, layers, {
         [activeLayerId]: { [currBrushStrokeArtifactId]: strokesRef.current },
       });
     }
@@ -255,7 +252,7 @@ function drawingOnMouseMove({
     if (isEraser) {
       currStroke.points.push(point);
       prevPointRef.current = point;
-      drawAllLayers(canvasRef, tempCanvasRef, draftCanvasRef, layers, {
+      drawAllLayers(canvasRef, tempCanvasRef, layers, {
         [activeLayerId]: { [currBrushStrokeArtifactId]: strokesRef.current },
       });
     } else if (currStroke.points.length >= canvasTransferQueueLength) {

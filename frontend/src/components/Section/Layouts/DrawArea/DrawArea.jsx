@@ -74,18 +74,6 @@ export function DrawArea({ sectionId }) {
   useEffect(() => {
     tempCanvasRef.current = document.createElement("canvas");
 
-    useSectionInfos.setState((state) => {
-      console.log("setting canvas size");
-      setCanvasSize({
-        sectionId,
-        canvasRef,
-        tempCanvasRef,
-        draftCanvasRef,
-        layers,
-        state,
-      });
-    });
-
     const id = base64RequestId(sectionId);
     const unsub = useTemporaryMiscState.subscribe(
       (x) => x[id],
@@ -99,6 +87,17 @@ export function DrawArea({ sectionId }) {
   }, []);
 
   useDeepCompareEffect(() => {
+    useSectionInfos.setState((state) => {
+      console.log("setting canvas size");
+      setCanvasSize({
+        sectionId,
+        canvasRef,
+        tempCanvasRef,
+        draftCanvasRef,
+        layers,
+        state,
+      });
+    });
     setDraftCanvasProperties({
       draftCanvasRef,
       color,
@@ -109,7 +108,7 @@ export function DrawArea({ sectionId }) {
       isEraser,
       layerOpacity,
     });
-    drawAllLayers(canvasRef, tempCanvasRef, draftCanvasRef, layers);
+    drawAllLayers(canvasRef, tempCanvasRef, layers);
   }, [
     height,
     width,
