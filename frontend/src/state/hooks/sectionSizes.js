@@ -9,7 +9,6 @@ import {
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
-import { getImageDimensionsFromBase64 } from "utils/utils";
 import { getIsTwitterSection } from "./social";
 
 export const INFINITE_MAX_HEIGHT = 100000;
@@ -214,7 +213,7 @@ export async function setSectionToHaveAspectRatioAndMinSize(
   });
 }
 
-export function useImgArtifactAreaSize(sectionId, base64String) {
+export function useImgArtifactAreaSize(sectionId, image) {
   const [imgSize, setImgSize] = useState(null);
 
   const widthOrHeightIsAuto = useSectionInfos((x) => {
@@ -223,15 +222,12 @@ export function useImgArtifactAreaSize(sectionId, base64String) {
   });
 
   useEffect(() => {
-    async function fn() {
-      const x = await getImageDimensionsFromBase64(base64String);
-      if (!_.isEqual(x, imgSize)) {
-        setSectionToHaveAspectRatioAndMinSize(sectionId, x);
-      }
-      setImgSize(x);
+    const x = { width: image.width, height: image.height };
+    if (!_.isEqual(x, imgSize)) {
+      setSectionToHaveAspectRatioAndMinSize(sectionId, x);
     }
-    fn();
-  }, [base64String]);
+    setImgSize(x);
+  }, [image.src]);
 
   useEffect(() => {
     if (imgSize) {
@@ -242,63 +238,68 @@ export function useImgArtifactAreaSize(sectionId, base64String) {
   return imgSize !== null;
 }
 
-export function setDrawAreaSectionSize({ sectionId, imgSize, isNewImg }) {
+export function setDrawAreaSectionSize({
+  sectionId,
+  imgSize,
+  isNewImg,
+  sectionWidth,
+  sectionHeight,
+  state,
+}) {
   let canvasSize = {};
   const extraHeight = 120;
   const extraWidth = 24;
 
-  useSectionInfos.setState((state) => {
-    const { width, height } = state.x[sectionId].size;
-    if (imgSize) {
-      if (width === "auto" || height === "auto" || isNewImg) {
-        const sectionType = C.DRAW;
-        const minHeight = getMinSectionHeight({ sectionType });
-        const minWidth = getMinSectionWidth({ sectionType });
-        canvasSize = adjustSizeToBeAtLeastMin(
-          imgSize.height,
-          imgSize.width,
-          minHeight - extraHeight,
-          minWidth - extraWidth,
-        );
-        setSectionSize(
-          sectionId,
-          {
-            width: canvasSize.width + extraWidth,
-            height: canvasSize.height + extraHeight,
-          },
-          state,
-        );
-      } else {
-        canvasSize.width = width - extraWidth;
-        canvasSize.height = height - extraHeight;
-      }
-
-      if (isNewImg) {
-        setAspectRatioInfo({
-          sectionId,
-          aspectRatio: imgSize.width / imgSize.height,
-          aspectRatioExtraHeight: extraHeight,
-          aspectRatioExtraWidth: extraWidth,
-          state,
-        });
-      }
+  if (imgSize) {
+    if (sectionWidth === "auto" || sectionHeight === "auto" || isNewImg) {
+      const sectionType = C.DRAW;
+      const minHeight = getMinSectionHeight({ sectionType });
+      const minWidth = getMinSectionWidth({ sectionType });
+      canvasSize = adjustSizeToBeAtLeastMin(
+        imgSize.height,
+        imgSize.width,
+        minHeight - extraHeight,
+        minWidth - extraWidth,
+      );
+      setSectionSize(
+        sectionId,
+        {
+          width: canvasSize.width + extraWidth,
+          height: canvasSize.height + extraHeight,
+        },
+        state,
+      );
     } else {
-      const [defaultWidth, defaultHeight] = [500, 500];
-      canvasSize.width = width === "auto" ? defaultWidth : width - extraWidth;
-      canvasSize.height =
-        height === "auto" ? defaultHeight : height - extraHeight;
-      if (width === "auto" || height === "auto") {
-        setSectionSize(
-          sectionId,
-          {
-            width: canvasSize.width + extraWidth,
-            height: canvasSize.height + extraHeight,
-          },
-          state,
-        );
-      }
+      canvasSize.width = sectionWidth - extraWidth;
+      canvasSize.height = sectionHeight - extraHeight;
     }
-  });
+
+    if (isNewImg) {
+      setAspectRatioInfo({
+        sectionId,
+        aspectRatio: imgSize.width / imgSize.height,
+        aspectRatioExtraHeight: extraHeight,
+        aspectRatioExtraWidth: extraWidth,
+        state,
+      });
+    }
+  } else {
+    const [defaultWidth, defaultHeight] = [500, 500];
+    canvasSize.width =
+      sectionWidth === "auto" ? defaultWidth : sectionWidth - extraWidth;
+    canvasSize.height =
+      sectionHeight === "auto" ? defaultHeight : sectionHeight - extraHeight;
+    if (sectionWidth === "auto" || sectionHeight === "auto") {
+      setSectionSize(
+        sectionId,
+        {
+          width: canvasSize.width + extraWidth,
+          height: canvasSize.height + extraHeight,
+        },
+        state,
+      );
+    }
+  }
 
   return canvasSize;
 }
