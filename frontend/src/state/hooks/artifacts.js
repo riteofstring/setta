@@ -4,7 +4,8 @@ import { useArtifacts, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
 export function useSectionArtifactGroups(sectionId, artifactAttrsToPick) {
-  const { artifactIds, artifactGroups } = useSectionArtifactIds(sectionId);
+  const { artifactIds, activeLayer, activeLayerId } =
+    useSectionArtifactIdsAndActiveLayer(sectionId);
   const loadedArtifacts = useArtifacts((x) => {
     const output = {};
     for (const id of artifactIds) {
@@ -25,7 +26,7 @@ export function useSectionArtifactGroups(sectionId, artifactAttrsToPick) {
     loadArtifacts(notLoaded);
   }, [artifactIds]);
 
-  return { artifactGroups, loadedArtifacts };
+  return { activeLayer, activeLayerId, loadedArtifacts };
 }
 
 export function getSectionArtifactGroupMetadata(sectionId, state) {
@@ -33,15 +34,19 @@ export function getSectionArtifactGroupMetadata(sectionId, state) {
   return artifactGroupIds.map((a) => ({ id: a, ...state.artifactGroups[a] }));
 }
 
-function useSectionArtifactIds(sectionId) {
+function useSectionArtifactIdsAndActiveLayer(sectionId) {
   return useSectionInfos((state) => {
-    const artifactGroups = getSectionArtifactGroupMetadata(sectionId, state);
     const artifactIds = new Set();
-    for (const group of artifactGroups) {
-      for (const t of group.artifactTransforms) {
+    for (const artifactGroupId of state.x[sectionId].artifactGroupIds) {
+      for (const t of state.artifactGroups[artifactGroupId]
+        .artifactTransforms) {
         artifactIds.add(t.artifactId);
       }
     }
-    return { artifactIds, artifactGroups };
+
+    const activeLayerId = state.x[sectionId].canvasSettings.activeLayerId;
+    const activeLayer = state.artifactGroups[activeLayerId];
+
+    return { artifactIds, activeLayer, activeLayerId };
   }, _.isEqual);
 }

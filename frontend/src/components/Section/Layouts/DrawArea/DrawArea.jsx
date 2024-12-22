@@ -22,17 +22,12 @@ import {
 } from "./utils";
 
 export function DrawArea({ sectionId }) {
-  const { artifactGroups: layers, loadedArtifacts } = useSectionArtifactGroups(
-    sectionId,
-    ["type"],
-  );
-
-  // console.log("loadedArtifactTypes", loadedArtifactTypes);
+  const { activeLayer, activeLayerId, loadedArtifacts } =
+    useSectionArtifactGroups(sectionId, ["type"]);
 
   const {
     size: { width, height },
     canvasSettings: {
-      activeLayerId,
       color,
       brushSize,
       brushShape,
@@ -63,7 +58,6 @@ export function DrawArea({ sectionId }) {
   const resizeHandle = useRef(null);
   const resizeHandleCorners = useRef(null);
 
-  const activeLayer = layers.find((x) => x.id === activeLayerId);
   const layerOpacity = activeLayer?.layerOpacity ?? 1;
   const brushOpacity = activeLayer?.brushOpacity ?? 1;
   const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
