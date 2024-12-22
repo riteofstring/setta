@@ -24,6 +24,7 @@ import {
 export function DrawArea({ sectionId }) {
   const {
     activeLayer,
+    artifactIdsWithDuplicates,
     size: { width, height },
     canvasSettings: {
       activeLayerId,
@@ -103,10 +104,10 @@ export function DrawArea({ sectionId }) {
     });
   }, [color, brushSize, brushShape, brushOpacity, layerOpacity]);
 
-  useEffect(() => {
+  useDeepCompareEffect(() => {
     console.log("layer opacity changed, drawing all layers again");
     drawAllLayers(sectionId, canvasRef, tempCanvasRef);
-  }, [layerOpacity]);
+  }, [layerOpacity, artifactIdsWithDuplicates]);
 
   useEffect(() => {
     if (!currBrushStrokeArtifactId) {
