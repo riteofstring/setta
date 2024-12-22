@@ -48,9 +48,9 @@ export function DrawArea({ sectionId }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
   const isDragging = useRef(false);
-  const draggedId = useRef(null);
+  const draggedIdx = useRef(null);
   const lastPos = useRef({ x: 0, y: 0 });
-  const selectedId = useRef(null);
+  const selectedIdx = useRef(null);
   const resizeHandle = useRef(null);
   const resizeHandleCorners = useRef(null);
 
@@ -110,24 +110,22 @@ export function DrawArea({ sectionId }) {
 
   useEffect(() => {
     if (!currBrushStrokeArtifactId) {
-      return;
-    }
-    const storedStrokes =
-      useArtifacts.getState()[currBrushStrokeArtifactId]?.value;
-    if (storedStrokes) {
-      strokesRef.current = _.cloneDeep(storedStrokes);
+      strokesRef.current = [];
+    } else {
+      strokesRef.current = _.cloneDeep(
+        useArtifacts.getState()[currBrushStrokeArtifactId].value,
+      );
     }
   }, [currBrushStrokeArtifactId]);
 
   useDeepCompareEffect(() => {
     console.log("activeLayer?.artifactTransforms changed");
-    localArtifactTransformsRef.current = {};
-    for (let i = activeLayer.artifactTransforms.length - 1; i >= 0; i--) {
-      const t = activeLayer.artifactTransforms[i];
-      localArtifactTransformsRef.current[t.artifactId] = _.cloneDeep({
-        transform: t.transform,
-        eraserStrokes: t.eraserStrokes,
-      });
+    if (!activeLayer?.artifactTransforms) {
+      localArtifactTransformsRef.current = [];
+    } else {
+      localArtifactTransformsRef.current = _.cloneDeep(
+        activeLayer.artifactTransforms,
+      );
     }
   }, [activeLayer?.artifactTransforms]);
 
@@ -143,9 +141,9 @@ export function DrawArea({ sectionId }) {
       isDrawing,
       setIsDrawing,
       isDragging,
-      draggedId,
+      draggedIdx,
       lastPos,
-      selectedId,
+      selectedIdx,
       resizeHandle,
       resizeHandleCorners,
       drawThrottleDelay,

@@ -68,9 +68,9 @@ const LayersList = ({
             {layer.name}
           </h3>
           <div className="ml-4">
-            {layer.artifactTransforms.map((transform) => (
+            {layer.artifactTransforms.map((transform, idx) => (
               <div
-                key={transform.artifactId}
+                key={idx}
                 className="group flex items-center justify-between text-sm text-gray-600 dark:text-gray-400"
               >
                 <span>{allArtifacts[transform.artifactId]?.name}</span>

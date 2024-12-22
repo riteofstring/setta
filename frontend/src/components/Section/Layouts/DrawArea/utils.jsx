@@ -147,9 +147,11 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
   tempCanvasRef,
 ) {
   useSectionInfos.setState((state) => {
-    for (const t of state.artifactGroups[activeLayerId].artifactTransforms) {
+    for (const [idx, t] of state.artifactGroups[
+      activeLayerId
+    ].artifactTransforms.entries()) {
       const { transform, eraserStrokes } =
-        localArtifactTransformsRef.current[t.artifactId];
+        localArtifactTransformsRef.current[idx];
       t.transform = _.cloneDeep(transform);
       t.eraserStrokes = _.cloneDeep(eraserStrokes);
     }
@@ -170,7 +172,7 @@ export function drawAllLayers(
   canvasRef,
   tempCanvasRef,
   realTimeValues = {}, // layerId -> artifactId -> value
-  realTimeTransforms = {}, // layerId -> artifactId -> {transform, eraserStrokes}
+  realTimeTransforms = {}, // layerId -> idx -> {transform, eraserStrokes}
   realTimeResizeHandles = {}, // layerId -> array of corner coordinates
   realTimeEraserStrokes = {}, // layerId -> eraserStrokes array
 ) {
@@ -186,12 +188,8 @@ export function drawAllLayers(
       continue;
     }
     const { layerOpacity } = layer;
-    const artifactsToDraw = reorderArtifactsWithBrushStrokesLast(
-      layer.artifactTransforms,
-      artifactState,
-    );
 
-    for (const t of artifactsToDraw) {
+    for (const [idx, t] of layer.artifactTransforms.entries()) {
       const id = t.artifactId;
       if (!(id in artifactState)) {
         return;
@@ -203,7 +201,7 @@ export function drawAllLayers(
         artifact.value.complete
       ) {
         const image = realTimeValues[layerId]?.[id] ?? artifact.value;
-        const transformInfo = realTimeTransforms[layerId]?.[id] ?? t;
+        const transformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
         tempCtx.globalAlpha = 1;
         tempCtx.globalCompositeOperation = "source-over";
         tempCtx.setTransform(...transformInfo.transform);
