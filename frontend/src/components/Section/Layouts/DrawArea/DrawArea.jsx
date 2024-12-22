@@ -106,8 +106,12 @@ export function DrawArea({ sectionId }) {
   }, [color, brushSize, brushShape, brushOpacity, layerOpacity]);
 
   useDeepCompareEffect(() => {
+    if (mode === "draw") {
+      selectedIdx.current = null;
+      resizeHandleCorners.current = null;
+    }
     drawAllLayers(sectionId, canvasRef, tempCanvasRef);
-  }, [layerOpacity, loadedArtifactIdsWithDuplicates]);
+  }, [mode, layerOpacity, loadedArtifactIdsWithDuplicates]);
   // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
   // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
 
