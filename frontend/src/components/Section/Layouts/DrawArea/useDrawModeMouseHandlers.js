@@ -14,11 +14,7 @@ import {
   startNewEraserStroke,
   startNewStroke,
 } from "./canvasUtils";
-import {
-  filterPathForBrushStroke,
-  filterPathForImage,
-} from "./eraserIntersection";
-import { getTransformedPoints } from "./lowLevelStrokeUtils";
+import { filterEraserPath } from "./eraserIntersection";
 import {
   detectHit,
   getBrushStrokesBounds,
@@ -349,14 +345,17 @@ function drawingOnMouseUp({
         for (const t of layer.artifactTransforms) {
           const artifact = artifactState[t.artifactId];
           const inverseTransform = getInverseTransform(t.transform);
-          if (artifact.type === "img") {
-            const intersectingPath = filterPathForImage(
-              eraserPath.points,
-              eraserPath.lineWidth,
-              eraserPath.lineCap,
-              getImageBounds(artifact.value, t.transform),
-            );
+          const boundsFn =
+            artifact.type === "img" ? getImageBounds : getBrushStrokesBounds;
 
+          const intersectingPath = filterEraserPath(
+            eraserPath.points,
+            eraserPath.lineWidth,
+            eraserPath.lineCap,
+            boundsFn(artifact.value, t.transform),
+          );
+
+          if (artifact.type === "img") {
             if (intersectingPath.length > 0) {
               t.eraserStrokes.push({
                 ...eraserPath,
@@ -365,17 +364,7 @@ function drawingOnMouseUp({
               });
             }
           } else {
-            for (const [idx, stroke] of artifact.value.entries()) {
-              const intersectingPath = filterPathForBrushStroke(
-                eraserPath.points,
-                eraserPath.lineWidth,
-                eraserPath.lineCap,
-                getTransformedPoints(stroke.points, t.transform),
-                stroke.lineWidth,
-                stroke.lineCap,
-                t.transform[0],
-                t.transform[3],
-              );
+            for (const [idx] of artifact.value.entries()) {
               if (intersectingPath.length > 0) {
                 if (!(idx in t.eraserStrokes)) {
                   t.eraserStrokes[idx] = [];

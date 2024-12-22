@@ -1,15 +1,3 @@
-import { getSegmentAngle, getTransformedWidth } from "./lowLevelStrokeUtils";
-
-// Shared utility functions
-function createBounds(x, y, width, height, padding) {
-  return {
-    minX: x - padding,
-    maxX: x + width + padding,
-    minY: y - padding,
-    maxY: y + height + padding,
-  };
-}
-
 function addPaddingToBounds(bounds, padding) {
   return {
     minX: bounds.minX - padding,
@@ -125,12 +113,7 @@ function filterPointsWithBounds(pathPoints, bounds, lineCap, lineWidth) {
   return result;
 }
 
-export function filterPathForImage(
-  pathPoints,
-  lineWidth,
-  lineCap,
-  imageBounds,
-) {
+export function filterEraserPath(pathPoints, lineWidth, lineCap, imageBounds) {
   if (!pathPoints || pathPoints.length === 0) {
     return [];
   }
@@ -143,122 +126,5 @@ export function filterPathForImage(
     paddedImagedBounds,
     lineCap,
     lineWidth,
-  );
-}
-
-export function filterPathForBrushStroke(
-  eraserPoints,
-  eraserWidth,
-  eraserCap,
-  brushPoints,
-  brushWidth,
-  brushCap,
-  scaleX,
-  scaleY,
-) {
-  if (
-    !eraserPoints ||
-    eraserPoints.length === 0 ||
-    !brushPoints ||
-    brushPoints.length === 0
-  ) {
-    return [];
-  }
-
-  // Calculate the maximum possible intersection area
-  const eraserHalfWidth = eraserWidth / 2;
-  // Calculate maximum transformed brush width
-  let maxBrushWidth = 0;
-
-  for (let i = 0; i < brushPoints.length - 1; i++) {
-    const angle = getSegmentAngle(brushPoints[i], brushPoints[i + 1]);
-    const transformedWidth = getTransformedWidth(
-      brushWidth,
-      angle,
-      scaleX,
-      scaleY,
-    );
-    maxBrushWidth = Math.max(maxBrushWidth, transformedWidth);
-  }
-
-  // If there's only one point or we need to handle caps
-  if (brushPoints.length === 1 || brushCap !== "butt") {
-    // For a single point or caps, we need to consider the maximum possible width
-    // in any direction
-    const maxScale = Math.max(scaleX, scaleY);
-    maxBrushWidth = Math.max(maxBrushWidth, brushWidth * maxScale);
-  }
-
-  const brushHalfWidth = maxBrushWidth / 2;
-  const totalWidth = eraserHalfWidth + brushHalfWidth;
-
-  // Find the bounds of the brush stroke, including caps
-  const brushBounds = brushPoints.reduce(
-    (bounds, point, i) => {
-      // Update bounds with the current point
-      bounds = {
-        minX: Math.min(bounds.minX, point[0]),
-        maxX: Math.max(bounds.maxX, point[0]),
-        minY: Math.min(bounds.minY, point[1]),
-        maxY: Math.max(bounds.maxY, point[1]),
-      };
-
-      // Add cap extensions if needed
-      if (brushCap !== "butt") {
-        const capExtra = brushCap === "square" ? brushHalfWidth : 0;
-
-        // Handle start cap
-        if (i === 0 && brushPoints.length > 1) {
-          const [capX, capY] = calculateCapPoint(
-            brushPoints[1],
-            point,
-            brushHalfWidth,
-            capExtra,
-          );
-          bounds.minX = Math.min(bounds.minX, capX);
-          bounds.maxX = Math.max(bounds.maxX, capX);
-          bounds.minY = Math.min(bounds.minY, capY);
-          bounds.maxY = Math.max(bounds.maxY, capY);
-        }
-
-        // Handle end cap
-        if (i === brushPoints.length - 1 && i > 0) {
-          const [capX, capY] = calculateCapPoint(
-            point,
-            brushPoints[i - 1],
-            brushHalfWidth,
-            capExtra,
-          );
-          bounds.minX = Math.min(bounds.minX, capX);
-          bounds.maxX = Math.max(bounds.maxX, capX);
-          bounds.minY = Math.min(bounds.minY, capY);
-          bounds.maxY = Math.max(bounds.maxY, capY);
-        }
-      }
-
-      return bounds;
-    },
-    {
-      minX: Infinity,
-      maxX: -Infinity,
-      minY: Infinity,
-      maxY: -Infinity,
-    },
-  );
-
-  // Add padding for the combined widths of both strokes
-  const intersectionBounds = createBounds(
-    brushBounds.minX,
-    brushBounds.minY,
-    brushBounds.maxX - brushBounds.minX,
-    brushBounds.maxY - brushBounds.minY,
-    totalWidth,
-  );
-
-  return filterPointsWithBounds(
-    eraserPoints,
-    intersectionBounds,
-    eraserCap,
-    eraserWidth,
   );
 }
