@@ -868,20 +868,6 @@ function getImageHandleBehaviorFn(
   }
 }
 
-const ZERO_THRESHOLD = 0.1;
-
-function preventZeroScale(scale) {
-  if (Math.abs(scale) < ZERO_THRESHOLD) {
-    // If we're crossing from positive to negative
-    if (scale < 0) {
-      return -ZERO_THRESHOLD;
-    }
-    // If we're crossing from negative to positive
-    return ZERO_THRESHOLD;
-  }
-  return scale;
-}
-
 function imageTopLeftHandleBehavior(
   transform,
   scaledWidth,
@@ -890,8 +876,8 @@ function imageTopLeftHandleBehavior(
   dy,
   artifact,
 ) {
-  transform[0] = preventZeroScale((scaledWidth - dx) / artifact.value.width);
-  transform[3] = preventZeroScale((scaledHeight - dy) / artifact.value.height);
+  transform[0] = (scaledWidth - dx) / artifact.value.width;
+  transform[3] = (scaledHeight - dy) / artifact.value.height;
   transform[4] += dx;
   transform[5] += dy;
 }
@@ -904,8 +890,8 @@ function imageTopRightHandleBehavior(
   dy,
   artifact,
 ) {
-  transform[0] = preventZeroScale((scaledWidth + dx) / artifact.value.width);
-  transform[3] = preventZeroScale((scaledHeight - dy) / artifact.value.height);
+  transform[0] = (scaledWidth + dx) / artifact.value.width;
+  transform[3] = (scaledHeight - dy) / artifact.value.height;
   transform[5] += dy;
 }
 
@@ -917,8 +903,8 @@ function imageBottomLeftHandleBehavior(
   dy,
   artifact,
 ) {
-  transform[0] = preventZeroScale((scaledWidth - dx) / artifact.value.width);
-  transform[3] = preventZeroScale((scaledHeight + dy) / artifact.value.height);
+  transform[0] = (scaledWidth - dx) / artifact.value.width;
+  transform[3] = (scaledHeight + dy) / artifact.value.height;
   transform[4] += dx;
 }
 
@@ -930,6 +916,6 @@ function imageBottomRightHandleBehavior(
   dy,
   artifact,
 ) {
-  transform[0] = preventZeroScale((scaledWidth + dx) / artifact.value.width);
-  transform[3] = preventZeroScale((scaledHeight + dy) / artifact.value.height);
+  transform[0] = (scaledWidth + dx) / artifact.value.width;
+  transform[3] = (scaledHeight + dy) / artifact.value.height;
 }
