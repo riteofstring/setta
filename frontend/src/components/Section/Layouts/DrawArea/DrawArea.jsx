@@ -42,9 +42,7 @@ export function DrawArea({ sectionId }) {
 
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
-  const tempCanvasRef1 = useRef(null);
-  const tempCanvasRef2 = useRef(null);
-  const tempCanvasRef = [tempCanvasRef1, tempCanvasRef2];
+  const tempCanvasRefs = useRef({ layer: null, artifact: null });
   const strokesRef = useRef([]);
   const eraserStrokesRef = useRef([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
   const localArtifactTransformsRef = useRef([]);
@@ -65,8 +63,8 @@ export function DrawArea({ sectionId }) {
   )?.artifactId;
 
   useEffect(() => {
-    tempCanvasRef[0].current = document.createElement("canvas");
-    tempCanvasRef[1].current = document.createElement("canvas");
+    tempCanvasRefs.current.layer = document.createElement("canvas");
+    tempCanvasRefs.current.artifact = document.createElement("canvas");
 
     const id = base64RequestId(sectionId);
     const unsub = useTemporaryMiscState.subscribe(
@@ -85,7 +83,7 @@ export function DrawArea({ sectionId }) {
       setCanvasSize({
         sectionId,
         canvasRef,
-        tempCanvasRef,
+        tempCanvasRefs,
         draftCanvasRef,
         height,
         width,
@@ -93,7 +91,7 @@ export function DrawArea({ sectionId }) {
         state,
       });
     });
-    drawAllLayers(sectionId, canvasRef, tempCanvasRef);
+    drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
   }, [height, width, Boolean(loadedArtifacts[artifactIdUsedToSetCanvasSize])]);
   // the Boolean dependency is checking whether or not the artifactIdUsedToSetCanvasSize has been loaded or not
 
@@ -113,7 +111,7 @@ export function DrawArea({ sectionId }) {
       selectedIdx.current = null;
       resizeHandleCorners.current = null;
     }
-    drawAllLayers(sectionId, canvasRef, tempCanvasRef);
+    drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
   }, [mode, layerOpacity, loadedArtifactIdsWithDuplicates]);
   // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
   // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
@@ -157,7 +155,7 @@ export function DrawArea({ sectionId }) {
       resizeHandleCorners,
       drawThrottleDelay,
       canvasRef,
-      tempCanvasRef,
+      tempCanvasRefs,
       draftCanvasRef,
       canvasTransferQueueLength,
       currBrushStrokeArtifactId,
@@ -173,7 +171,7 @@ export function DrawArea({ sectionId }) {
       currBrushStrokeArtifactId,
       strokesRef,
       canvasRef,
-      tempCanvasRef,
+      tempCanvasRefs,
       draftCanvasRef,
     );
   }

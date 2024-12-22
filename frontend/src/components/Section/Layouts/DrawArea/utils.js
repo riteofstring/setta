@@ -11,7 +11,7 @@ export function setDraftCanvasProperties({
   brushOpacity,
   layerOpacity,
 }) {
-  const dCtx = getCtx(draftCanvasRef);
+  const dCtx = getCtx(draftCanvasRef.current);
   dCtx.globalCompositeOperation = "source-over";
   dCtx.strokeStyle = hexToRGBA(color, brushOpacity);
   dCtx.lineWidth = brushSize;
@@ -21,7 +21,7 @@ export function setDraftCanvasProperties({
 
 // ctx.save() -> ctx.restore() doesn't work: https://stackoverflow.com/questions/48044951/canvas-state-lost-after-changing-size
 function resizeDraftCanvasAndKeepProperties(draftCanvasRef, width, height) {
-  const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
+  const dCtx = getCtx(draftCanvasRef.current);
   const {
     globalCompositeOperation,
     strokeStyle,
@@ -29,8 +29,8 @@ function resizeDraftCanvasAndKeepProperties(draftCanvasRef, width, height) {
     lineCap,
     globalAlpha,
   } = dCtx;
-  draftCanvas.width = width;
-  draftCanvas.height = height;
+  draftCanvasRef.current.width = width;
+  draftCanvasRef.current.height = height;
   dCtx.globalCompositeOperation = globalCompositeOperation;
   dCtx.strokeStyle = strokeStyle;
   dCtx.lineWidth = lineWidth;
@@ -41,17 +41,13 @@ function resizeDraftCanvasAndKeepProperties(draftCanvasRef, width, height) {
 export function setCanvasSize({
   sectionId,
   canvasRef,
-  tempCanvasRef,
+  tempCanvasRefs,
   draftCanvasRef,
   height,
   width,
   artifactIdUsedToSetCanvasSize,
   state,
 }) {
-  const [canvas] = getCanvasAndCtx(canvasRef);
-  const [tempCanvas1] = getCanvasAndCtx(tempCanvasRef[0]);
-  const [tempCanvas2] = getCanvasAndCtx(tempCanvasRef[1]);
-
   const sectionState = useSectionInfos.getState();
   const artifactState = useArtifacts.getState();
   let imgSize = maybeGetImgSizeFromArtifact(
@@ -92,14 +88,13 @@ export function setCanvasSize({
     state,
   });
 
-  canvas.width = canvasSize.width;
-  canvas.height = canvasSize.height;
+  canvasRef.current.width = canvasSize.width;
+  canvasRef.current.height = canvasSize.height;
 
-  tempCanvas1.width = canvasSize.width;
-  tempCanvas1.height = canvasSize.height;
-
-  tempCanvas2.width = canvasSize.width;
-  tempCanvas2.height = canvasSize.height;
+  for (const c of Object.values(tempCanvasRefs.current)) {
+    c.width = canvasSize.width;
+    c.height = canvasSize.height;
+  }
 
   resizeDraftCanvasAndKeepProperties(
     draftCanvasRef,
@@ -113,19 +108,20 @@ export function getXY(e) {
   return [offsetX, offsetY];
 }
 
-export function clearCanvas(canvasRef) {
-  const ctx = getCtx(canvasRef);
-  ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+export function clearCanvas(canvas) {
+  const ctx = getCtx(canvas);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-export function getCanvasAndCtx(canvasRef) {
-  const canvas = canvasRef.current;
-  const ctx = canvas.getContext("2d");
-  return [canvas, ctx];
+export function getCtx(canvas) {
+  return canvas.getContext("2d");
 }
 
-export function getCtx(canvasRef) {
-  return canvasRef.current.getContext("2d");
+export function getCtxForTempRefs(tempCanvasRefs) {
+  return {
+    layer: tempCanvasRefs.current.layer.getContext("2d"),
+    artifact: tempRefs.current.artifact.getContext("2d"),
+  };
 }
 
 export function setGlobalBrushStrokesAndDrawAllLayers(
@@ -133,7 +129,7 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
   currBrushStrokeArtifactId,
   strokesRef,
   canvasRef,
-  tempCanvasRef,
+  tempCanvasRefs,
   draftCanvasRef,
 ) {
   useArtifacts.setState((state) => ({
@@ -142,8 +138,8 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
       value: _.cloneDeep(strokesRef.current),
     },
   }));
-  drawAllLayers(sectionId, canvasRef, tempCanvasRef);
-  clearCanvas(draftCanvasRef);
+  drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
+  clearCanvas(draftCanvasRef.current);
 }
 
 export function setGlobalArtifactTransformsAndDrawAllLayers(
@@ -152,7 +148,7 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
   localArtifactTransformsRef,
   resizeHandleCorners,
   canvasRef,
-  tempCanvasRef,
+  tempCanvasRefs,
 ) {
   useSectionInfos.setState((state) => {
     for (const [idx, t] of state.artifactGroups[
@@ -168,7 +164,7 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
   drawAllLayers(
     sectionId,
     canvasRef,
-    tempCanvasRef,
+    tempCanvasRefs,
     {},
     {},
     { [activeLayerId]: resizeHandleCorners.current },
@@ -178,16 +174,18 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
 export function drawAllLayers(
   sectionId,
   canvasRef,
-  tempCanvasRef,
+  tempCanvasRefs,
   realTimeValues = {}, // layerId -> artifactId -> value
   realTimeTransforms = {}, // layerId -> idx -> {transform, eraserStrokes}
   realTimeResizeHandles = {}, // layerId -> array of corner coordinates
   realTimeEraserStrokes = {}, // layerId -> eraserStrokes array
 ) {
-  const ctx = getCtx(canvasRef);
-  const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef[0]);
-  const [layerTempCanvas, layerTempCtx] = getCanvasAndCtx(tempCanvasRef[1]);
-  clearCanvas(canvasRef);
+  const ctx = getCtx(canvasRef.current);
+  const layerTempCanvas = tempCanvasRefs.current.layer;
+  const layerTempCtx = getCtx(tempCanvasRefs.current.layer);
+  const artifactTempCanvas = tempCanvasRefs.current.artifact;
+  const artifactTempCtx = getCtx(tempCanvasRefs.current.artifact);
+  clearCanvas(canvasRef.current);
 
   const sectionState = useSectionInfos.getState();
   const artifactState = useArtifacts.getState();
@@ -205,8 +203,8 @@ export function drawAllLayers(
       }
       const artifact = artifactState[id];
 
-      layerTempCtx.globalAlpha = 1;
-      layerTempCtx.globalCompositeOperation = "source-over";
+      artifactTempCtx.globalAlpha = 1;
+      artifactTempCtx.globalCompositeOperation = "source-over";
 
       if (
         artifact.type === "img" &&
@@ -215,12 +213,12 @@ export function drawAllLayers(
       ) {
         const image = realTimeValues[layerId]?.[id] ?? artifact.value;
         const transformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
-        layerTempCtx.setTransform(...transformInfo.transform);
-        layerTempCtx.drawImage(image, 0, 0, image.width, image.height);
+        artifactTempCtx.setTransform(...transformInfo.transform);
+        artifactTempCtx.drawImage(image, 0, 0, image.width, image.height);
         drawSavedStrokesOntoTempCanvas(
           true,
-          layerTempCanvas,
-          layerTempCtx,
+          artifactTempCanvas,
+          artifactTempCtx,
           transformInfo.eraserStrokes,
           transformInfo.transform,
         );
@@ -232,48 +230,47 @@ export function drawAllLayers(
         const artifactTransformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
         drawSavedStrokesOntoTempCanvas(
           false,
-          layerTempCanvas,
-          layerTempCtx,
+          artifactTempCanvas,
+          artifactTempCtx,
           strokes,
           artifactTransformInfo.transform,
         );
         drawSavedStrokesOntoTempCanvas(
           true,
-          layerTempCanvas,
-          layerTempCtx,
+          artifactTempCanvas,
+          artifactTempCtx,
           artifactTransformInfo.eraserStrokes,
           artifactTransformInfo.transform,
         );
       }
 
-      layerTempCtx.resetTransform(); // MUST reset, otherwise get smudging when moving images around. No idea why
+      artifactTempCtx.resetTransform(); // MUST reset, otherwise get smudging when moving images around. No idea why
 
-      tempCtx.globalAlpha = 1;
-      tempCtx.globalCompositeOperation = "source-over";
-      tempCtx.drawImage(layerTempCanvas, 0, 0);
+      layerTempCtx.globalAlpha = 1;
+      layerTempCtx.globalCompositeOperation = "source-over";
+      layerTempCtx.drawImage(artifactTempCanvas, 0, 0);
 
-      clearCanvas(tempCanvasRef[1]);
+      clearCanvas(tempCanvasRefs.current.artifact);
     }
 
     if (realTimeEraserStrokes[layerId]) {
       drawSavedStrokesOntoTempCanvas(
         true,
-        tempCanvas,
-        tempCtx,
+        layerTempCanvas,
+        layerTempCtx,
         realTimeEraserStrokes[layerId],
       );
     }
 
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = layerOpacity;
-    ctx.drawImage(tempCanvas, 0, 0);
+    ctx.drawImage(layerTempCanvas, 0, 0);
 
     if (realTimeResizeHandles[layerId]) {
       drawResizeHandles(ctx, realTimeResizeHandles[layerId]);
     }
 
-    clearCanvas(tempCanvasRef[0]);
-    clearCanvas(tempCanvasRef[1]);
+    clearCanvas(tempCanvasRefs.current.layer);
   }
 }
 
@@ -283,7 +280,7 @@ export function startNewStroke(
   firstPoint,
   currentTransform,
 ) {
-  const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
+  const dCtx = getCtx(draftCanvasRef.current);
   strokesRef.current.push({
     strokeStyle: dCtx.strokeStyle,
     lineWidth: dCtx.lineWidth,
@@ -353,7 +350,7 @@ export function drawSavedStrokesOntoTempCanvas(
 }
 
 export function drawStroke(canvasRef, from, to) {
-  const ctx = getCtx(canvasRef);
+  const ctx = getCtx(canvasRef.current);
   ctx.beginPath();
   ctx.moveTo(from[0], from[1]);
   ctx.lineTo(to[0], to[1]);

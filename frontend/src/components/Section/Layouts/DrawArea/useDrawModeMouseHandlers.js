@@ -34,7 +34,7 @@ export function useDrawModeMouseHandlers({
   resizeHandleCorners,
   drawThrottleDelay,
   canvasRef,
-  tempCanvasRef,
+  tempCanvasRefs,
   draftCanvasRef,
   canvasTransferQueueLength,
   currBrushStrokeArtifactId,
@@ -55,7 +55,7 @@ export function useDrawModeMouseHandlers({
       prevPointRef,
       setIsDrawing,
       canvasRef,
-      tempCanvasRef,
+      tempCanvasRefs,
       draftCanvasRef,
       activeLayerId,
       currBrushStrokeArtifactId,
@@ -70,7 +70,7 @@ export function useDrawModeMouseHandlers({
       prevPointRef,
       isDrawing,
       canvasRef,
-      tempCanvasRef,
+      tempCanvasRefs,
       draftCanvasRef,
       canvasTransferQueueLength,
       activeLayerId,
@@ -88,7 +88,7 @@ export function useDrawModeMouseHandlers({
       currBrushStrokeArtifactId,
       strokesRef,
       canvasRef,
-      tempCanvasRef,
+      tempCanvasRefs,
       draftCanvasRef,
     });
 
@@ -111,7 +111,7 @@ export function useDrawModeMouseHandlers({
         drawAllLayers(
           sectionId,
           canvasRef,
-          tempCanvasRef,
+          tempCanvasRefs,
           {},
           { [activeLayerId]: localArtifactTransformsRef.current },
           { [activeLayerId]: resizeHandleCorners.current },
@@ -136,7 +136,7 @@ export function useDrawModeMouseHandlers({
         drawAllLayers(
           sectionId,
           canvasRef,
-          tempCanvasRef,
+          tempCanvasRefs,
           {},
           { [activeLayerId]: localArtifactTransformsRef.current },
           { [activeLayerId]: resizeHandleCorners.current },
@@ -153,7 +153,7 @@ export function useDrawModeMouseHandlers({
       activeLayerId,
       localArtifactTransformsRef,
       canvasRef,
-      tempCanvasRef,
+      tempCanvasRefs,
     });
 
     onMouseEnter = () => {};
@@ -185,7 +185,7 @@ function drawingOnMouseDown({
   prevPointRef,
   setIsDrawing,
   canvasRef,
-  tempCanvasRef,
+  tempCanvasRefs,
   draftCanvasRef,
   activeLayerId,
   currBrushStrokeArtifactId,
@@ -219,7 +219,7 @@ function drawingOnMouseDown({
       drawAllLayers(
         sectionId,
         canvasRef,
-        tempCanvasRef,
+        tempCanvasRefs,
         {},
         {},
         {},
@@ -250,7 +250,7 @@ function drawingOnMouseMove({
   prevPointRef,
   isDrawing,
   canvasRef,
-  tempCanvasRef,
+  tempCanvasRefs,
   draftCanvasRef,
   canvasTransferQueueLength,
   activeLayerId,
@@ -271,7 +271,7 @@ function drawingOnMouseMove({
       drawAllLayers(
         sectionId,
         canvasRef,
-        tempCanvasRef,
+        tempCanvasRefs,
         {},
         {},
         {},
@@ -283,7 +283,7 @@ function drawingOnMouseMove({
         currBrushStrokeArtifactId,
         strokesRef,
         canvasRef,
-        tempCanvasRef,
+        tempCanvasRefs,
         draftCanvasRef,
       );
       const currentBrushStrokeTransformInfo =
@@ -315,7 +315,7 @@ function drawingOnMouseUp({
   currBrushStrokeArtifactId,
   strokesRef,
   canvasRef,
-  tempCanvasRef,
+  tempCanvasRefs,
   draftCanvasRef,
 }) {
   return () => {
@@ -381,7 +381,7 @@ function drawingOnMouseUp({
       currBrushStrokeArtifactId,
       strokesRef,
       canvasRef,
-      tempCanvasRef,
+      tempCanvasRefs,
       draftCanvasRef,
     );
     // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
@@ -680,7 +680,7 @@ function editingOnMouseUp({
   activeLayerId,
   localArtifactTransformsRef,
   canvasRef,
-  tempCanvasRef,
+  tempCanvasRefs,
 }) {
   return () => {
     setGlobalArtifactTransformsAndDrawAllLayers(
@@ -689,7 +689,7 @@ function editingOnMouseUp({
       localArtifactTransformsRef,
       resizeHandleCorners,
       canvasRef,
-      tempCanvasRef,
+      tempCanvasRefs,
     );
     isDragging.current = false;
     draggedIdx.current = null;
