@@ -2,6 +2,7 @@ import {
   base64StrToImgSrc,
   dataURLToBase64,
 } from "components/Section/Layouts/DrawArea/base64Conversion";
+import C from "constants/constants.json";
 import _ from "lodash";
 import { dbLoadArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
@@ -82,13 +83,36 @@ export function addDrawAreaLayer(sectionId, state) {
 
   const artifactGroupId = createNewId();
   state.artifactGroups[artifactGroupId] = newLayer({
-    artifactTransforms: [newArtifactTransform(artifactId, artifactType)],
+    artifactTransforms: [
+      newArtifactTransform(artifactId, C.DRAW, artifactType),
+    ],
   });
 
-  const artifactGroupIds = state.x[sectionId].artifactGroupIds;
-  artifactGroupIds.push(artifactGroupId);
-
+  state.x[sectionId].artifactGroupIds.push(artifactGroupId);
   state.x[sectionId].canvasSettings.activeLayerId = artifactGroupId;
+}
+
+export function maybeAddArtifactGroupAndSetArtifactId(
+  sectionId,
+  sectionTypeName,
+  artifactId,
+  artifactType,
+  state,
+) {
+  let artifactGroupId = state.x[sectionId].artifactGroupIds[0];
+  if (!artifactGroupId) {
+    artifactGroupId = createNewId();
+    state.artifactGroups[artifactGroupId] = newLayer({
+      artifactTransforms: [
+        newArtifactTransform(artifactId, sectionTypeName, artifactType),
+      ],
+    });
+
+    state.x[sectionId].artifactGroupIds.push(artifactGroupId);
+  }
+
+  state.artifactGroups[artifactGroupId].artifactTransforms[0].artifactId =
+    artifactId;
 }
 
 export async function addImageArtifactAndMaybeCreateNewLayer(
@@ -117,7 +141,7 @@ export async function addImageArtifactAndMaybeCreateNewLayer(
       state.x[sectionId].artifactGroupIds.push(layerId);
     }
     state.artifactGroups[layerId].artifactTransforms.push(
-      newArtifactTransform(artifactId, artifactType),
+      newArtifactTransform(artifactId, C.DRAW, artifactType),
     );
   });
 }

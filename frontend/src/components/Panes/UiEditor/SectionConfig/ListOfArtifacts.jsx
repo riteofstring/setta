@@ -131,7 +131,7 @@ export function ListOfArtifacts({
             draggable={draggable}
             onDragStart={(e) => onDragStart?.(e, id)}
             onDragEnd={onDragEnd}
-            onClick={() => onClick?.(id)}
+            onClick={() => onClick?.(id, item.type)}
           >
             <div
               className={`flex ${draggable ? "cursor-move" : "cursor-pointer"} items-center gap-2 p-2`}
@@ -187,7 +187,7 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
       const targetLayer = x.artifactGroups[targetLayerId];
       const artifactType = availableArtifacts[artifactId].type;
       targetLayer.artifactTransforms.push(
-        newArtifactTransform(artifactId, artifactType),
+        newArtifactTransform(artifactId, sectionTypeName, artifactType),
       );
     });
   };
