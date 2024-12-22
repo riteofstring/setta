@@ -1,18 +1,13 @@
 import React from "react";
-import { useSectionArtifactGroups } from "state/hooks/artifacts";
+import { useAllSectionArtifacts } from "state/hooks/artifacts";
 import { useImgArtifactAreaSize } from "state/hooks/sectionSizes";
 
 export function _ImageArea({ sectionId }) {
-  const { artifactGroups, loadedArtifacts } = useSectionArtifactGroups(
-    sectionId,
-    ["value"],
+  const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
+  const artifact = Object.values(loadedArtifacts)[0];
+  return (
+    !!artifact && <ImageAreaCore sectionId={sectionId} image={artifact.value} />
   );
-  const artifact =
-    loadedArtifacts[artifactGroups[0]?.artifactTransforms?.[0]?.artifactId];
-  if (!artifact || !artifact.value) {
-    return null;
-  }
-  return <ImageAreaCore sectionId={sectionId} image={artifact.value} />;
 }
 
 function ImageAreaCore({ sectionId, image }) {

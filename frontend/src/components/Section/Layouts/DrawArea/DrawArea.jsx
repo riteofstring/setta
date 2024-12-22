@@ -9,7 +9,7 @@ import {
   useSectionInfos,
   useTemporaryMiscState,
 } from "state/definitions";
-import { useSectionArtifactGroups } from "state/hooks/artifacts";
+import { useDrawAreaActiveLayerAndLoadedArtifacts } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { DrawAreaControls } from "./DrawAreaControls";
 import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
@@ -22,12 +22,11 @@ import {
 } from "./utils";
 
 export function DrawArea({ sectionId }) {
-  const { activeLayer, activeLayerId, loadedArtifacts } =
-    useSectionArtifactGroups(sectionId, ["type"]);
-
   const {
+    activeLayer,
     size: { width, height },
     canvasSettings: {
+      activeLayerId,
       color,
       brushSize,
       brushShape,
@@ -36,12 +35,9 @@ export function DrawArea({ sectionId }) {
       canvasTransferQueueLength,
       mode,
     },
-  } = useSectionInfos((x) => {
-    return {
-      size: x.x[sectionId].size,
-      canvasSettings: x.x[sectionId].canvasSettings,
-    };
-  }, _.isEqual);
+    loadedArtifacts,
+  } = useDrawAreaActiveLayerAndLoadedArtifacts(sectionId);
+
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
   const tempCanvasRef = useRef(null);

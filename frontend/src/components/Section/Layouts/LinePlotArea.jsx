@@ -1,20 +1,16 @@
 import { ParentSize } from "@visx/responsive";
 import { LineChart } from "components/Utils/Charts/LineChart";
 import React from "react";
-import { useSectionArtifactGroups } from "state/hooks/artifacts";
+import { useAllSectionArtifacts } from "state/hooks/artifacts";
 
 function _LinePlotArea({ sectionId }) {
-  const { artifactGroups, loadedArtifacts } = useSectionArtifactGroups(
-    sectionId,
-    ["name", "value"],
+  const loadedArtifacts = useAllSectionArtifacts(sectionId, ["name", "value"]);
+  const artifact = Object.values(loadedArtifacts)[0];
+  return (
+    !!artifact && (
+      <LinePlotAreaCore series={{ [artifact.name]: artifact.value }} />
+    )
   );
-  const artifact =
-    loadedArtifacts[artifactGroups[0]?.artifactTransforms?.[0]?.artifactId];
-  if (!artifact || !artifact.value) {
-    return null;
-  }
-
-  return <LinePlotAreaCore series={{ [artifact.name]: artifact.value }} />;
 }
 
 export const LinePlotArea = React.memo(_LinePlotArea);
