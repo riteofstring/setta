@@ -3,7 +3,10 @@ import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
-import { filterPathForImage } from "./eraserIntersection";
+import {
+  filterPathForBrushStroke,
+  filterPathForImage,
+} from "./eraserIntersection";
 import {
   drawAllLayers,
   drawStroke,
@@ -327,48 +330,50 @@ function drawingOnMouseUp({
       const eraserPath =
         eraserStrokesRef.current[eraserStrokesRef.current.length - 1];
 
-      let intersectingPath;
+      let intersectingPaths = [];
 
       useSectionInfos.setState((state) => {
         const layer = state.artifactGroups[activeLayerId];
         for (const t of layer.artifactTransforms) {
           const artifact = artifactState[t.artifactId];
           if (artifact.type === "img") {
-            intersectingPath = filterPathForImage(
-              eraserPath.points,
-              eraserPath.lineWidth,
-              eraserPath.lineCap,
-              t.transform[4],
-              t.transform[5],
-              getScaledWidth(artifact, t.transform),
-              getScaledHeight(artifact, t.transform),
+            intersectingPaths.push(
+              filterPathForImage(
+                eraserPath.points,
+                eraserPath.lineWidth,
+                eraserPath.lineCap,
+                t.transform[4],
+                t.transform[5],
+                getScaledWidth(artifact, t.transform),
+                getScaledHeight(artifact, t.transform),
+              ),
             );
           } else {
-            // for (const stroke of artifact.value) {
-            //   intersectingPath.push(
-            //     ...filterPathForBrushStroke(
-            //       eraserPath.points,
-            //       eraserPath.lineWidth,
-            //       eraserPath.lineCap,
-            //       getTransformedPoints(stroke.points, t.transform),
-            //       stroke.lineWidth,
-            //       stroke.lineCap,
-            //       t.transform[0],
-            //       t.transform[3],
-            //     ),
-            //   );
-            // }
-            intersectingPath = eraserPath.points;
+            for (const stroke of artifact.value) {
+              intersectingPaths.push(
+                filterPathForBrushStroke(
+                  eraserPath.points,
+                  eraserPath.lineWidth,
+                  eraserPath.lineCap,
+                  getTransformedPoints(stroke.points, t.transform),
+                  stroke.lineWidth,
+                  stroke.lineCap,
+                  t.transform[0],
+                  t.transform[3],
+                ),
+              );
+            }
           }
 
-          console.log("intersectingPath", intersectingPath);
-
-          if (intersectingPath.length > 0) {
-            t.eraserStrokes.push({
-              ...eraserPath,
-              points: intersectingPath,
-              transform: getInverseTransform(t.transform),
-            });
+          for (const intersectingPath of intersectingPaths) {
+            const inverseTransform = getInverseTransform(t.transform);
+            if (intersectingPath.length > 0) {
+              t.eraserStrokes.push({
+                ...eraserPath,
+                points: intersectingPath,
+                transform: inverseTransform,
+              });
+            }
           }
         }
       });
