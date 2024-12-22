@@ -78,7 +78,6 @@ export function DrawArea({ sectionId }) {
   }, []);
 
   useEffect(() => {
-    console.log("setting canvas size");
     useSectionInfos.setState((state) => {
       setCanvasSize({
         sectionId,
@@ -96,7 +95,6 @@ export function DrawArea({ sectionId }) {
   // the Boolean dependency is checking whether or not the artifactIdUsedToSetCanvasSize has been loaded or not
 
   useEffect(() => {
-    console.log("set draft canvas properties");
     setDraftCanvasProperties({
       draftCanvasRef,
       color,
@@ -108,7 +106,6 @@ export function DrawArea({ sectionId }) {
   }, [color, brushSize, brushShape, brushOpacity, layerOpacity]);
 
   useDeepCompareEffect(() => {
-    console.log("layer opacity changed, drawing all layers again");
     drawAllLayers(sectionId, canvasRef, tempCanvasRef);
   }, [layerOpacity, loadedArtifactIdsWithDuplicates]);
   // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
@@ -125,7 +122,6 @@ export function DrawArea({ sectionId }) {
   }, [currBrushStrokeArtifactId]);
 
   useDeepCompareEffect(() => {
-    console.log("activeLayer?.artifactTransforms changed");
     if (!activeLayer?.artifactTransforms) {
       localArtifactTransformsRef.current = [];
     } else {

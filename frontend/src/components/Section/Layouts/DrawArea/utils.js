@@ -221,7 +221,6 @@ export function drawAllLayers(
       ) {
         const strokes = realTimeValues[layerId]?.[id] ?? artifact.value;
         const artifactTransformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
-        console.log("drawing strokes", strokes);
         drawSavedStrokesOntoTempCanvas(
           tempCanvas,
           tempCtx,
