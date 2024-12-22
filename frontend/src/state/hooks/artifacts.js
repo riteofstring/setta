@@ -57,7 +57,9 @@ export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
 
   return {
     activeLayer,
-    artifactIdsWithDuplicates,
+    loadedArtifactIdsWithDuplicates: artifactIdsWithDuplicates.filter(
+      (x) => x in loadedArtifacts,
+    ),
     size,
     canvasSettings,
     loadedArtifacts,

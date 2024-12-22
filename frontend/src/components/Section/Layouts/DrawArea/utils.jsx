@@ -42,14 +42,15 @@ export function setCanvasSize({
   canvasRef,
   tempCanvasRef,
   draftCanvasRef,
+  height,
+  width,
+  artifactIdUsedToSetCanvasSize,
   state,
 }) {
   const [canvas] = getCanvasAndCtx(canvasRef);
   const [tempCanvas] = getCanvasAndCtx(tempCanvasRef);
 
   const sectionState = useSectionInfos.getState();
-  const artifactIdUsedToSetCanvasSize =
-    state.x[sectionId].canvasSettings.artifactIdUsedToSetCanvasSize;
   const artifactState = useArtifacts.getState();
   let imgSize = maybeGetImgSizeFromArtifact(
     artifactState[artifactIdUsedToSetCanvasSize],
@@ -84,6 +85,8 @@ export function setCanvasSize({
     sectionId,
     imgSize,
     isNewImg,
+    sectionHeight: height,
+    sectionWidth: width,
     state,
   });
 

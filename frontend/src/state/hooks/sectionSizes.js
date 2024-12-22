@@ -242,15 +242,16 @@ export function setDrawAreaSectionSize({
   sectionId,
   imgSize,
   isNewImg,
+  sectionWidth,
+  sectionHeight,
   state,
 }) {
   let canvasSize = {};
   const extraHeight = 120;
   const extraWidth = 24;
 
-  const { width, height } = state.x[sectionId].size;
   if (imgSize) {
-    if (width === "auto" || height === "auto" || isNewImg) {
+    if (sectionWidth === "auto" || sectionHeight === "auto" || isNewImg) {
       const sectionType = C.DRAW;
       const minHeight = getMinSectionHeight({ sectionType });
       const minWidth = getMinSectionWidth({ sectionType });
@@ -269,8 +270,8 @@ export function setDrawAreaSectionSize({
         state,
       );
     } else {
-      canvasSize.width = width - extraWidth;
-      canvasSize.height = height - extraHeight;
+      canvasSize.width = sectionWidth - extraWidth;
+      canvasSize.height = sectionHeight - extraHeight;
     }
 
     if (isNewImg) {
@@ -284,10 +285,11 @@ export function setDrawAreaSectionSize({
     }
   } else {
     const [defaultWidth, defaultHeight] = [500, 500];
-    canvasSize.width = width === "auto" ? defaultWidth : width - extraWidth;
+    canvasSize.width =
+      sectionWidth === "auto" ? defaultWidth : sectionWidth - extraWidth;
     canvasSize.height =
-      height === "auto" ? defaultHeight : height - extraHeight;
-    if (width === "auto" || height === "auto") {
+      sectionHeight === "auto" ? defaultHeight : sectionHeight - extraHeight;
+    if (sectionWidth === "auto" || sectionHeight === "auto") {
       setSectionSize(
         sectionId,
         {
