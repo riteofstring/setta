@@ -19,6 +19,7 @@ export function setDraftCanvasProperties({
   dCtx.globalAlpha = layerOpacity;
 }
 
+// ctx.save() -> ctx.restore() doesn't work: https://stackoverflow.com/questions/48044951/canvas-state-lost-after-changing-size
 function resizeDraftCanvasAndKeepProperties(draftCanvasRef, width, height) {
   const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
   const {
