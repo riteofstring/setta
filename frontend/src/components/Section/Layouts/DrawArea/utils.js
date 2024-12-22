@@ -3,6 +3,8 @@ import { sendToInteractiveTasks } from "state/actions/interactive";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 
+export const RESIZE_HANDLE_SIZE = 16;
+
 export function setDraftCanvasProperties({
   draftCanvasRef,
   color,
@@ -349,16 +351,15 @@ export function drawStroke(canvasRef, from, to) {
 }
 
 function drawResizeHandles(ctx, resizeHandles) {
-  const handleSize = 8;
   ctx.globalAlpha = 1;
   ctx.fillStyle = "#4299e1"; // blue-500
 
   resizeHandles.forEach((corner) => {
     ctx.fillRect(
-      corner.x - handleSize / 2,
-      corner.y - handleSize / 2,
-      handleSize,
-      handleSize,
+      corner.x - RESIZE_HANDLE_SIZE / 2,
+      corner.y - RESIZE_HANDLE_SIZE / 2,
+      RESIZE_HANDLE_SIZE,
+      RESIZE_HANDLE_SIZE,
     );
   });
 }

@@ -13,6 +13,7 @@ import {
   getCombinedTransformForStroke,
   getInverseTransform,
   getXY,
+  RESIZE_HANDLE_SIZE,
   setGlobalArtifactTransformsAndDrawAllLayers,
   setGlobalBrushStrokesAndDrawAllLayers,
   startNewEraserStroke,
@@ -429,12 +430,11 @@ function editingOnMouseDown({
     const y = (e.clientY - rect.top) / zoom;
 
     if (selectedIdx.current !== null) {
-      const handleSize = 8;
       for (let i = 0; i < resizeHandleCorners.current.length; i++) {
         const corner = resizeHandleCorners.current[i];
         if (
-          Math.abs(x - corner.x) <= handleSize / 2 &&
-          Math.abs(y - corner.y) <= handleSize / 2
+          Math.abs(x - corner.x) <= RESIZE_HANDLE_SIZE / 2 &&
+          Math.abs(y - corner.y) <= RESIZE_HANDLE_SIZE / 2
         ) {
           resizeHandle.current = i;
           lastPos.current = { x, y };
