@@ -110,6 +110,13 @@ export async function addImageArtifactAndMaybeCreateNewLayer(
       state.artifactGroups[layerId] = newLayer({});
       state.x[sectionId].artifactGroupIds.push(layerId);
     }
-    state.artifactGroups[layerId].artifactTransforms.push({ artifactId });
+    state.artifactGroups[layerId].artifactTransforms.push({
+      artifactId,
+      transform: getInitialTransform(),
+    });
   });
+}
+
+export function getInitialTransform() {
+  return [1, 0, 0, 1, 0, 0];
 }

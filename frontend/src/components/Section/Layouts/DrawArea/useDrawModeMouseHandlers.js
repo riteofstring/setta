@@ -19,9 +19,9 @@ export function useDrawModeMouseHandlers({
   isDrawing,
   setIsDrawing,
   isDragging,
-  draggedIndex,
+  draggedId,
   lastPos,
-  selectedIndex,
+  selectedId,
   resizeHandle,
   resizeHandleCorners,
   transferEverythingToRealCanvas,
@@ -80,12 +80,12 @@ export function useDrawModeMouseHandlers({
   } else {
     const onMouseDownCore = editingOnMouseDown({
       canvasRef,
-      selectedIndex,
+      selectedId,
       localArtifactTransformsRef,
       resizeHandle,
       resizeHandleCorners,
       lastPos,
-      draggedIndex,
+      draggedId,
       isDragging,
     });
 
@@ -109,8 +109,8 @@ export function useDrawModeMouseHandlers({
       lastPos,
       resizeHandle,
       resizeHandleCorners,
-      selectedIndex,
-      draggedIndex,
+      selectedId,
+      draggedId,
       localArtifactTransformsRef,
     });
 
@@ -130,7 +130,7 @@ export function useDrawModeMouseHandlers({
 
     onMouseUp = editingOnMouseUp({
       isDragging,
-      draggedIndex,
+      draggedId,
       resizeHandle,
     });
 
@@ -273,12 +273,12 @@ function drawingOnMouseEnter({ draftCanvasRef, onMouseDown }) {
 
 function editingOnMouseDown({
   canvasRef,
-  selectedIndex,
+  selectedId,
   localArtifactTransformsRef,
   resizeHandle,
   resizeHandleCorners,
   lastPos,
-  draggedIndex,
+  draggedId,
   isDragging,
 }) {
   // returns true if layers should be redrawn
@@ -290,7 +290,7 @@ function editingOnMouseDown({
     const x = (e.clientX - rect.left) / zoom;
     const y = (e.clientY - rect.top) / zoom;
 
-    if (selectedIndex.current !== null) {
+    if (selectedId.current !== null) {
       const handleSize = 8;
       for (let i = 0; i < resizeHandleCorners.current.length; i++) {
         const corner = resizeHandleCorners.current[i];
@@ -305,8 +305,9 @@ function editingOnMouseDown({
       }
     }
 
-    for (let i = localArtifactTransformsRef.current.length - 1; i >= 0; i--) {
-      const { artifactId, transform } = localArtifactTransformsRef.current[i];
+    for (const [artifactId, transform] of Object.entries(
+      localArtifactTransformsRef.current,
+    )) {
       const artifact = artifactState[artifactId];
       const xPlusWidth = transform[4] + getScaledWidth(artifact, transform);
       const yPlusHeight = transform[5] + getScaledHeight(artifact, transform);
@@ -324,8 +325,8 @@ function editingOnMouseDown({
           { x: xPlusWidth, y: yPlusHeight }, // Bottom-right
         ];
         isDragging.current = true;
-        draggedIndex.current = i;
-        selectedIndex.current = i;
+        draggedId.current = artifactId;
+        selectedId.current = artifactId;
         lastPos.current = { x, y };
         return true;
       } else if (artifact.type === "brushStrokes") {
@@ -344,8 +345,8 @@ function editingOnMouseDown({
                 { x: bounds.maxX, y: bounds.maxY }, // Bottom-right
               ];
               isDragging.current = true;
-              draggedIndex.current = i;
-              selectedIndex.current = i;
+              draggedId.current = artifactId;
+              selectedId.current = artifactId;
               lastPos.current = { x, y };
               return true;
             }
@@ -353,7 +354,7 @@ function editingOnMouseDown({
         }
       }
     }
-    selectedIndex.current = null;
+    selectedId.current = null;
     resizeHandleCorners.current = null;
     return false;
   };
@@ -365,13 +366,18 @@ function editingOnMouseMove({
   lastPos,
   resizeHandle,
   resizeHandleCorners,
-  selectedIndex,
-  draggedIndex,
+  selectedId,
+  draggedId,
   localArtifactTransformsRef,
 }) {
   // returns true if layers should be redrawn
   return (e) => {
     if (!isDragging.current && resizeHandle.current === null) return false;
+
+    console.log(
+      "localArtifactTransformsRef",
+      localArtifactTransformsRef.current,
+    );
 
     const artifactState = useArtifacts.getState();
     const canvas = canvasRef.current;
@@ -382,9 +388,8 @@ function editingOnMouseMove({
     const dx = x - lastPos.current.x;
     const dy = y - lastPos.current.y;
 
-    if (isDragging.current && draggedIndex.current !== null) {
-      const { transform } =
-        localArtifactTransformsRef.current[draggedIndex.current];
+    if (isDragging.current && draggedId.current !== null) {
+      const transform = localArtifactTransformsRef.current[draggedId.current];
       transform[4] += dx;
       transform[5] += dy;
       lastPos.current = { x, y };
@@ -392,13 +397,9 @@ function editingOnMouseMove({
         x: c.x + dx,
         y: c.y + dy,
       }));
-    } else if (
-      resizeHandle.current !== null &&
-      selectedIndex.current !== null
-    ) {
-      const { artifactId, transform } =
-        localArtifactTransformsRef.current[selectedIndex.current];
-      const artifact = artifactState[artifactId];
+    } else if (resizeHandle.current !== null && selectedId.current !== null) {
+      const transform = localArtifactTransformsRef.current[selectedId.current];
+      const artifact = artifactState[selectedId.current];
       const scaledWidth = getScaledWidth(artifact, transform);
       const scaledHeight = getScaledHeight(artifact, transform);
       switch (resizeHandle.current) {
@@ -452,14 +453,14 @@ function editingOnMouseMove({
           break;
       }
 
-    //   if (newElement.w < 20) {
-    //     newElement.w = 20;
-    //     newElement.x = element.x;
-    //   }
-    //   if (newElement.h < 20) {
-    //     newElement.h = 20;
-    //     newElement.y = element.y;
-    //   }
+      //   if (newElement.w < 20) {
+      //     newElement.w = 20;
+      //     newElement.x = element.x;
+      //   }
+      //   if (newElement.h < 20) {
+      //     newElement.h = 20;
+      //     newElement.y = element.y;
+      //   }
 
       lastPos.current = { x, y };
     }
@@ -468,10 +469,10 @@ function editingOnMouseMove({
   };
 }
 
-function editingOnMouseUp({ isDragging, draggedIndex, resizeHandle }) {
+function editingOnMouseUp({ isDragging, draggedId, resizeHandle }) {
   return () => {
     isDragging.current = false;
-    draggedIndex.current = null;
+    draggedId.current = null;
     resizeHandle.current = null;
   };
 }

@@ -115,11 +115,12 @@ export function drawAllLayers(
   tempCanvasRef,
   layers,
   realTimeValues = {}, // layerId -> artifactId -> value
-  realTimeTransforms = {}, // layerId -> index -> value
+  realTimeTransforms = {}, // layerId -> artifactId -> value
   realTimeResizeHandles = {}, // layerId -> handles
 ) {
   // console.log(
   //   "drawAllLayers",
+  //   layers,
   //   realTimeValues,
   //   realTimeTransforms,
   //   realTimeResizeHandles,
@@ -139,7 +140,7 @@ export function drawAllLayers(
       artifactState,
     );
 
-    for (const [idx, t] of artifactsToDraw.entries()) {
+    for (const t of artifactsToDraw) {
       const id = t.artifactId;
       if (!(id in artifactState)) {
         return;
@@ -157,11 +158,10 @@ export function drawAllLayers(
         // );
         // const x = canvas.width / 2 - (image.width / 2) * scale;
         // const y = canvas.height / 2 - (image.height / 2) * scale;
-
-        const transform = realTimeTransforms[layer.id]?.[idx] ?? t;
+        const transform = realTimeTransforms[layer.id]?.[id] ?? t.transform;
         tempCtx.globalAlpha = 1;
         tempCtx.globalCompositeOperation = "source-over";
-        tempCtx.setTransform(...transform.transform);
+        tempCtx.setTransform(...transform);
         tempCtx.drawImage(image, 0, 0, image.width, image.height);
       } else if (
         artifact.type === "brushStrokes" &&

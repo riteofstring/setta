@@ -53,14 +53,14 @@ export function DrawArea({ sectionId }) {
   const draftCanvasRef = useRef(null);
   const tempCanvasRef = useRef(null);
   const strokesRef = useRef([]);
-  const localArtifactTransformsRef = useRef([]);
+  const localArtifactTransformsRef = useRef({});
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
   const isDragging = useRef(false);
-  const draggedIndex = useRef(null);
+  const draggedId = useRef(null);
   const lastPos = useRef({ x: 0, y: 0 });
-  const selectedIndex = useRef(null);
+  const selectedId = useRef(null);
   const resizeHandle = useRef(null);
   const resizeHandleCorners = useRef(null);
 
@@ -137,9 +137,13 @@ export function DrawArea({ sectionId }) {
   }, [currBrushStrokeArtifactId]);
 
   useDeepCompareEffect(() => {
-    localArtifactTransformsRef.current = _.cloneDeep(
-      activeLayer.artifactTransforms,
-    );
+    localArtifactTransformsRef.current = {};
+    for (let i = activeLayer.artifactTransforms.length - 1; i >= 0; i--) {
+      const t = activeLayer.artifactTransforms[i];
+      localArtifactTransformsRef.current[t.artifactId] = _.cloneDeep(
+        t.transform,
+      );
+    }
   }, [activeLayer]);
 
   function transferEverythingToRealCanvas() {
@@ -171,9 +175,9 @@ export function DrawArea({ sectionId }) {
       isDrawing,
       setIsDrawing,
       isDragging,
-      draggedIndex,
+      draggedId,
       lastPos,
-      selectedIndex,
+      selectedId,
       resizeHandle,
       resizeHandleCorners,
       transferEverythingToRealCanvas,
