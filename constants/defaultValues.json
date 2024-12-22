@@ -38,8 +38,7 @@
       "eraserBrushSize": 16,
       "drawThrottleDelay": 0,
       "canvasTransferQueueLength": 50,
-      "artifactIdUsedToSetCanvasSize": null,
-      "mode": "draw"
+      "artifactIdUsedToSetCanvasSize": null
     },
     "isTemporary": false,
     "renderMarkdown": false,

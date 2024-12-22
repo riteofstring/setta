@@ -46,7 +46,7 @@ def save_artifact_groups(db, artifact_groups):
     """
     query_params = []
     for k, group in artifact_groups.items():
-        data_keys = group.keys() - {"name", "artifactTransforms"}
+        data_keys = group.keys() - {"name", "artifactIds"}
         query_params.append(
             {
                 "id": k,
@@ -65,19 +65,17 @@ def save_artifact_groups(db, artifact_groups):
     db.execute(query, query_params)
 
     query = """
-        INSERT INTO ArtifactGroup (idid, artifactId, data, "order")
-        VALUES (:idid, :artifactId, :data, :order)
+        INSERT INTO ArtifactGroup (idid, artifactId, "order")
+        VALUES (:idid, :artifactId, :order)
     """
 
     query_params = []
     for id, group in artifact_groups.items():
-        for order, artifactTransform in enumerate(group["artifactTransforms"]):
-            data_keys = artifactTransform.keys() - {"artifactId"}
+        for order, artifactId in enumerate(group["artifactIds"]):
             query_params.append(
                 {
                     "idid": id,
-                    "artifactId": artifactTransform["artifactId"],
-                    "data": json.dumps(filter_dict(artifactTransform, data_keys)),
+                    "artifactId": artifactId,
                     "order": order,
                 }
             )

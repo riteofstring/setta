@@ -23,9 +23,7 @@ const LayersList = ({
 
   const handleDragOver = (e, layerId) => {
     const layer = layers.find((l) => l.id === layerId);
-    const hasArtifact = layer.artifactTransforms.find(
-      (l) => l.artifactId === draggedId,
-    );
+    const hasArtifact = layer.artifactIds.includes(draggedId);
     setHoveredLayer(layerId);
     if (hasArtifact) {
       return; // Don't prevent default - this prevents dropping
@@ -49,9 +47,7 @@ const LayersList = ({
       return "border-gray-300";
     }
 
-    const hasArtifact = layer.artifactTransforms.find(
-      (l) => l.artifactId === draggedId,
-    );
+    const hasArtifact = layer.artifactIds.includes(draggedId);
     return hasArtifact
       ? "border-red-500 bg-red-50"
       : "border-green-500 bg-green-50";
@@ -66,8 +62,7 @@ const LayersList = ({
         <div
           key={layer.id}
           className={`mb-2 rounded border-2 border-dashed p-2 transition-colors ${getLayerStyle(layer)} ${
-            draggedId &&
-            layer.artifactTransforms.find((l) => l.artifactId === draggedId)
+            draggedId && layer.artifactIds.includes(draggedId)
               ? "cursor-not-allowed"
               : draggedId
                 ? "cursor-copy"
@@ -81,16 +76,14 @@ const LayersList = ({
             {layer.name}
           </h3>
           <div className="ml-4">
-            {layer.artifactTransforms.map((transform) => (
+            {layer.artifactIds.map((id) => (
               <div
-                key={transform.artifactId}
+                key={id}
                 className="group flex items-center justify-between text-sm text-gray-600 dark:text-gray-400"
               >
-                <span>{allArtifacts[transform.artifactId]?.name}</span>
+                <span>{allArtifacts[id]?.name}</span>
                 <button
-                  onClick={() =>
-                    onDeleteArtifact(layer.id, transform.artifactId)
-                  }
+                  onClick={() => onDeleteArtifact(layer.id, id)}
                   className="cursor-pointer p-1 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
                 >
                   <FiTrash2 size={14} />
@@ -137,15 +130,15 @@ export function ListOfArtifacts({ sectionId, sectionTypeName }) {
   const handleLayerDrop = (artifactId, targetLayerId) => {
     useSectionInfos.setState((x) => {
       const targetLayer = x.artifactGroups[targetLayerId];
-      targetLayer.artifactTransforms.push({ artifactId });
+      targetLayer.artifactIds.push(artifactId);
     });
   };
 
   const handleDeleteArtifact = (layerId, artifactId) => {
     useSectionInfos.setState((x) => {
       const targetLayer = x.artifactGroups[layerId];
-      targetLayer.artifactTransforms = targetLayer.artifactTransforms.filter(
-        (t) => t.artifactId !== artifactId,
+      targetLayer.artifactIds = targetLayer.artifactIds.filter(
+        (id) => id !== artifactId,
       );
     });
   };

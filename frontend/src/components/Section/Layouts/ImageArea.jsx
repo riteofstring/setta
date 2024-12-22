@@ -7,8 +7,7 @@ export function _ImageArea({ sectionId }) {
     sectionId,
     ["value"],
   );
-  const artifact =
-    loadedArtifacts[artifactGroups[0]?.artifactTransforms?.[0]?.artifactId];
+  const artifact = loadedArtifacts[artifactGroups[0]?.artifactIds?.[0]];
   if (!artifact || !artifact.value) {
     return null;
   }

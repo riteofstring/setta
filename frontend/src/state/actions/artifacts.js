@@ -7,29 +7,30 @@ import { dbLoadArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { newArtifact, newLayer } from "utils/objs/artifact";
+import { addSectionInEmptySpace } from "./sections/createSections";
 
 export function updateArtifacts({ artifacts, addSection = false }) {
   useArtifacts.setState(artifacts);
 
-  // if (addSection) {
-  //   for (const [id, data] of Object.entries(artifacts)) {
-  //     maybeAddArtifactSection(id, data.sectionType);
-  //   }
-  // }
+  if (addSection) {
+    for (const [id, data] of Object.entries(artifacts)) {
+      maybeAddArtifactSection(id, data.sectionType);
+    }
+  }
 }
 
-// function maybeAddArtifactSection(artifactId, sectionType) {
-//   for (const s of Object.values(useSectionInfos.getState().x)) {
-//     if (s.artifactIds.includes(artifactId)) {
-//       return;
-//     }
-//   }
+function maybeAddArtifactSection(artifactId, sectionType) {
+  for (const s of Object.values(useSectionInfos.getState().x)) {
+    if (s.artifactIds.includes(artifactId)) {
+      return;
+    }
+  }
 
-//   addSectionInEmptySpace({
-//     type: sectionType,
-//     sectionProps: { artifactIds: [artifactId] },
-//   });
-// }
+  addSectionInEmptySpace({
+    type: sectionType,
+    sectionProps: { artifactIds: [artifactId] },
+  });
+}
 
 export async function loadArtifacts(artifactIds) {
   const res = await dbLoadArtifacts(artifactIds);
@@ -77,7 +78,7 @@ export function addDrawAreaLayer(sectionId, state) {
 
   const artifactGroupId = createNewId();
   state.artifactGroups[artifactGroupId] = newLayer({
-    artifactTransforms: [{ artifactId }],
+    artifactIds: [artifactId],
   });
 
   const artifactGroupIds = state.x[sectionId].artifactGroupIds;
@@ -110,6 +111,6 @@ export async function addImageArtifactAndMaybeCreateNewLayer(
       state.artifactGroups[layerId] = newLayer({});
       state.x[sectionId].artifactGroupIds.push(layerId);
     }
-    state.artifactGroups[layerId].artifactTransforms.push({ artifactId });
+    state.artifactGroups[layerId].artifactIds.push(artifactId);
   });
 }
