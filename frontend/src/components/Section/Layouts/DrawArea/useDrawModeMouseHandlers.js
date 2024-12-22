@@ -3,6 +3,7 @@ import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
+import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 import {
   drawAllLayers,
   drawStroke,
@@ -76,6 +77,7 @@ export function useDrawModeMouseHandlers({
     });
 
     onMouseUp = drawingOnMouseUp({
+      sectionId,
       isEraser,
       eraserStrokesRef,
       isDrawing,
@@ -86,7 +88,6 @@ export function useDrawModeMouseHandlers({
       canvasRef,
       tempCanvasRef,
       draftCanvasRef,
-      layers,
     });
 
     onMouseEnter = drawingOnMouseEnter({ draftCanvasRef, onMouseDown });
@@ -283,6 +284,7 @@ function drawingOnMouseMove({
 }
 
 function drawingOnMouseUp({
+  sectionId,
   isEraser,
   eraserStrokesRef,
   isDrawing,
@@ -293,7 +295,6 @@ function drawingOnMouseUp({
   canvasRef,
   tempCanvasRef,
   draftCanvasRef,
-  layers,
 }) {
   return () => {
     if (!isDrawing) {
@@ -336,7 +337,7 @@ function drawingOnMouseUp({
       canvasRef,
       tempCanvasRef,
       draftCanvasRef,
-      layers,
+      getSectionArtifactGroupMetadata(sectionId, useSectionInfos.getState()),
     );
     // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   };

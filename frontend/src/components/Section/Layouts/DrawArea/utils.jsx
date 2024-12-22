@@ -20,6 +20,24 @@ export function setDraftCanvasProperties({
   dCtx.globalAlpha = layerOpacity;
 }
 
+function resizeDraftCanvasAndKeepProperties(draftCanvasRef, width, height) {
+  const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
+  const {
+    globalCompositeOperation,
+    strokeStyle,
+    lineWidth,
+    lineCap,
+    globalAlpha,
+  } = dCtx;
+  draftCanvas.width = width;
+  draftCanvas.height = height;
+  dCtx.globalCompositeOperation = globalCompositeOperation;
+  dCtx.strokeStyle = strokeStyle;
+  dCtx.lineWidth = lineWidth;
+  dCtx.lineCap = lineCap;
+  dCtx.globalAlpha = globalAlpha;
+}
+
 export function setCanvasSize({
   sectionId,
   canvasRef,
@@ -30,7 +48,6 @@ export function setCanvasSize({
 }) {
   const [canvas] = getCanvasAndCtx(canvasRef);
   const [tempCanvas] = getCanvasAndCtx(tempCanvasRef);
-  const [draftCanvas] = getCanvasAndCtx(draftCanvasRef);
 
   const artifactIdUsedToSetCanvasSize =
     state.x[sectionId].canvasSettings.artifactIdUsedToSetCanvasSize;
@@ -75,10 +92,11 @@ export function setCanvasSize({
   tempCanvas.width = canvasSize.width;
   tempCanvas.height = canvasSize.height;
 
-  draftCanvas.width = canvasSize.width;
-  draftCanvas.height = canvasSize.height;
-
-  drawAllLayers(canvasRef, tempCanvasRef, layers);
+  resizeDraftCanvasAndKeepProperties(
+    draftCanvasRef,
+    canvasSize.width,
+    canvasSize.height,
+  );
 }
 
 export function getXY(e) {
@@ -249,7 +267,6 @@ export function startNewEraserStroke(
     points: [firstPoint],
     // canvasHeight: draftCanvas.height,
     // canvasWidth: draftCanvas.width,
-    globalAlpha: 1,
     globalCompositeOperation: "destination-out",
   });
 }
