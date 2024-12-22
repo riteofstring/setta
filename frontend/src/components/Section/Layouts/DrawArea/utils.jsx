@@ -143,21 +143,23 @@ export function drawAllLayers(
         artifact.value.complete
       ) {
         const image = artifact.value;
-        const scale = Math.min(
-          canvas.width / image.width,
-          canvas.height / image.height,
-        );
-        const x = canvas.width / 2 - (image.width / 2) * scale;
-        const y = canvas.height / 2 - (image.height / 2) * scale;
+        // const scale = Math.min(
+        //   canvas.width / image.width,
+        //   canvas.height / image.height,
+        // );
+        // const x = canvas.width / 2 - (image.width / 2) * scale;
+        // const y = canvas.height / 2 - (image.height / 2) * scale;
 
         tempCtx.globalAlpha = 1;
         tempCtx.globalCompositeOperation = "source-over";
         tempCtx.drawImage(
           image,
-          x,
-          y,
-          image.width * scale,
-          image.height * scale,
+          t.x,
+          t.y,
+          // image.width * scale,
+          // image.height * scale,
+          t.w,
+          t.h,
         );
       } else if (
         artifact.type === "brushStrokes" &&

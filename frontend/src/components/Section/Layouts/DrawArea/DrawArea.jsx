@@ -53,7 +53,7 @@ export function DrawArea({ sectionId }) {
   const draftCanvasRef = useRef(null);
   const tempCanvasRef = useRef(null);
   const strokesRef = useRef([]);
-  const localLayerTransformRef = useRef([]);
+  const localArtifactTransformsRef = useRef([]);
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
@@ -69,6 +69,8 @@ export function DrawArea({ sectionId }) {
   const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
     (a) => loadedArtifacts[a.artifactId]?.type === "brushStrokes",
   )?.artifactId;
+
+  console.log("selectedIndex", selectedIndex)
 
   // console.log("currBrushStrokeArtifactId", currBrushStrokeArtifactId);
 
@@ -135,6 +137,12 @@ export function DrawArea({ sectionId }) {
     }
   }, [currBrushStrokeArtifactId]);
 
+  useDeepCompareEffect(() => {
+    localArtifactTransformsRef.current = _.cloneDeep(
+      activeLayer.artifactTransforms,
+    );
+  }, [activeLayer]);
+
   function transferEverythingToRealCanvas() {
     useArtifacts.setState((state) => ({
       [currBrushStrokeArtifactId]: {
@@ -182,6 +190,7 @@ export function DrawArea({ sectionId }) {
       currBrushStrokeArtifactId,
       layers,
       activeLayerId,
+      localArtifactTransformsRef,
       mode,
     });
 

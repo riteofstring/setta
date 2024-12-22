@@ -2,7 +2,7 @@ import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
-import { useMisc } from "state/definitions";
+import { useArtifacts, useMisc } from "state/definitions";
 import {
   debouncedSetBrushStrokesArtifact,
   drawAllLayers,
@@ -37,6 +37,7 @@ export function useDrawModeMouseHandlers({
   currBrushStrokeArtifactId,
   layers,
   activeLayerId,
+  localArtifactTransformsRef,
   mode,
 }) {
   let onMouseDown, onMouseMove, onMouseUp, onMouseEnter;
@@ -82,7 +83,7 @@ export function useDrawModeMouseHandlers({
     onMouseDown = editingOnMouseDown({
       canvasRef,
       selectedIndex,
-      elements,
+      localArtifactTransformsRef,
       setSelectedIndex,
       setResizeHandle,
       setLastPos,
@@ -96,8 +97,7 @@ export function useDrawModeMouseHandlers({
       lastPos,
       resizeHandle,
       draggedIndex,
-      elements,
-      setElements,
+      localArtifactTransformsRef,
       setLastPos,
     });
 
@@ -245,7 +245,7 @@ function drawingOnMouseEnter({ draftCanvasRef, onMouseDown }) {
 function editingOnMouseDown({
   canvasRef,
   selectedIndex,
-  elements,
+  localArtifactTransformsRef,
   setSelectedIndex,
   setResizeHandle,
   setLastPos,
@@ -253,25 +253,28 @@ function editingOnMouseDown({
   setIsDragging,
 }) {
   return (e) => {
+    const artifactState = useArtifacts.getState();
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
+    console.log("editingOnMouseDown", localArtifactTransformsRef);
+
     if (selectedIndex !== null) {
-      const element = elements[selectedIndex];
+      const element = localArtifactTransformsRef.current[selectedIndex];
       const handleSize = 8;
       let corners;
-
-      if (element.type === "img") {
+      const artifact = artifactState[element.artifactId];
+      if (artifact.type === "img") {
         corners = [
           { x: element.x, y: element.y }, // Top-left
-          { x: element.x + element.width, y: element.y }, // Top-right
-          { x: element.x, y: element.y + element.height }, // Bottom-left
-          { x: element.x + element.width, y: element.y + element.height }, // Bottom-right
+          { x: element.x + element.w, y: element.y }, // Top-right
+          { x: element.x, y: element.y + element.h }, // Bottom-left
+          { x: element.x + element.w, y: element.y + element.h }, // Bottom-right
         ];
-      } else if (element.type === "brushStrokes") {
-        const bounds = getBrushStrokeBounds(element.points);
+      } else if (artifact.type === "brushStrokes") {
+        const bounds = getBrushStrokeBounds(artifact.value);
         corners = [
           { x: bounds.minX, y: bounds.minY }, // Top-left
           { x: bounds.maxX, y: bounds.minY }, // Top-right
@@ -293,32 +296,35 @@ function editingOnMouseDown({
       }
     }
 
-    for (let i = elements.length - 1; i >= 0; i--) {
-      const element = elements[i];
+    for (let i = localArtifactTransformsRef.current.length - 1; i >= 0; i--) {
+      const element = localArtifactTransformsRef.current[i];
+      const artifact = artifactState[element.artifactId];
       if (
-        element.type === "img" &&
+        artifact.type === "img" &&
         x >= element.x &&
-        x <= element.x + element.width &&
+        x <= element.x + element.w &&
         y >= element.y &&
-        y <= element.y + element.height
+        y <= element.y + element.h
       ) {
         setIsDragging(true);
         setDraggedIndex(i);
         setSelectedIndex(i);
         setLastPos({ x, y });
         return;
-      } else if (element.type === "brushStrokes") {
+      } else if (artifact.type === "brushStrokes") {
         const hitRadius = 5;
-        for (const point of element.points) {
-          if (
-            Math.abs(x - point.x) <= hitRadius &&
-            Math.abs(y - point.y) <= hitRadius
-          ) {
-            setIsDragging(true);
-            setDraggedIndex(i);
-            setSelectedIndex(i);
-            setLastPos({ x, y });
-            return;
+        for (const stroke of artifact.value) {
+          for (const point of stroke) {
+            if (
+              Math.abs(x - point[0]) <= hitRadius &&
+              Math.abs(y - point[1]) <= hitRadius
+            ) {
+              setIsDragging(true);
+              setDraggedIndex(i);
+              setSelectedIndex(i);
+              setLastPos({ x, y });
+              return;
+            }
           }
         }
       }
@@ -333,8 +339,7 @@ function editingOnMouseMove({
   lastPos,
   resizeHandle,
   draggedIndex,
-  elements,
-  setElements,
+  localArtifactTransformsRef,
   setLastPos,
 }) {
   return (e) => {
@@ -344,95 +349,53 @@ function editingOnMouseMove({
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    const dx = x - lastPos.x;
+    const dy = y - lastPos.y;
 
     if (isDragging && draggedIndex !== null) {
-      const dx = x - lastPos.x;
-      const dy = y - lastPos.y;
-
-      setElements(
-        elements.map((element, index) => {
-          if (index === draggedIndex) {
-            if (element.type === "img") {
-              return {
-                ...element,
-                x: element.x + dx,
-                y: element.y + dy,
-              };
-            } else if (element.type === "brushStrokes") {
-              return {
-                ...element,
-                points: element.points.map((point) => ({
-                  x: point.x + dx,
-                  y: point.y + dy,
-                })),
-              };
-            }
-          }
-          return element;
-        }),
-      );
-
+      const element = localArtifactTransformsRef.current[draggedIndex];
+      localArtifactTransformsRef.current[draggedIndex] = {
+        ...element,
+        x: element.x + dx,
+        y: element.y + dy,
+      };
       setLastPos({ x, y });
     } else if (resizeHandle !== null && selectedIndex !== null) {
-      const dx = x - lastPos.x;
-      const dy = y - lastPos.y;
+      const element = localArtifactTransformsRef.current[selectedIndex];
+      let newElement = { ...element };
+      switch (resizeHandle) {
+        case 0: // Top-left
+          newElement.w -= dx;
+          newElement.h -= dy;
+          newElement.x += dx;
+          newElement.y += dy;
+          break;
+        case 1: // Top-right
+          newElement.w += dx;
+          newElement.h -= dy;
+          newElement.y += dy;
+          break;
+        case 2: // Bottom-left
+          newElement.w -= dx;
+          newElement.h += dy;
+          newElement.x += dx;
+          break;
+        case 3: // Bottom-right
+          newElement.w += dx;
+          newElement.h += dy;
+          break;
+      }
 
-      setElements(
-        elements.map((element, index) => {
-          if (index === selectedIndex) {
-            if (element.type === "img") {
-              let newElement = { ...element };
-              switch (resizeHandle) {
-                case 0: // Top-left
-                  newElement.width -= dx;
-                  newElement.height -= dy;
-                  newElement.x += dx;
-                  newElement.y += dy;
-                  break;
-                case 1: // Top-right
-                  newElement.width += dx;
-                  newElement.height -= dy;
-                  newElement.y += dy;
-                  break;
-                case 2: // Bottom-left
-                  newElement.width -= dx;
-                  newElement.height += dy;
-                  newElement.x += dx;
-                  break;
-                case 3: // Bottom-right
-                  newElement.width += dx;
-                  newElement.height += dy;
-                  break;
-              }
+      if (newElement.w < 20) {
+        newElement.w = 20;
+        newElement.x = element.x;
+      }
+      if (newElement.h < 20) {
+        newElement.h = 20;
+        newElement.y = element.y;
+      }
 
-              if (newElement.width < 20) {
-                newElement.width = 20;
-                newElement.x = element.x;
-              }
-              if (newElement.height < 20) {
-                newElement.height = 20;
-                newElement.y = element.y;
-              }
-
-              return newElement;
-            } else if (element.type === "brushStrokes") {
-              const bounds = getPathBounds(element.points);
-              const newPoints = resizeBrushStroke(
-                element,
-                bounds,
-                dx,
-                dy,
-                resizeHandle,
-              );
-              return {
-                ...element,
-                points: newPoints,
-              };
-            }
-          }
-          return element;
-        }),
-      );
+      localArtifactTransformsRef.current[selectedIndex] = newElement;
 
       setLastPos({ x, y });
     }
@@ -447,14 +410,24 @@ function editingOnMouseUp({ setIsDragging, setDraggedIndex, setResizeHandle }) {
   };
 }
 
-const getBrushStrokeBounds = (points) => {
-  const xCoords = points.map((p) => p.x);
-  const yCoords = points.map((p) => p.y);
+const getBrushStrokeBounds = (strokes) => {
+  let minX = Infinity,
+    maxX = -Infinity,
+    minY = Infinity,
+    maxY = -Infinity;
+  for (const stroke of strokes) {
+    for (const point of stroke.points) {
+      if (point[0] < minX) minX = point[0];
+      if (point[1] < minY) minY = point[1];
+      if (point[0] > maxX) maxX = point[0];
+      if (point[1] > maxY) maxY = point[1];
+    }
+  }
   return {
-    minX: Math.min(...xCoords),
-    maxX: Math.max(...xCoords),
-    minY: Math.min(...yCoords),
-    maxY: Math.max(...yCoords),
+    minX,
+    maxX,
+    minY,
+    maxY,
   };
 };
 
