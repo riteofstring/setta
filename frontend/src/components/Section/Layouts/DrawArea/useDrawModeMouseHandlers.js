@@ -570,8 +570,8 @@ function editingOnMouseMove({
             const anchorX = bounds.maxX;
             const anchorY = bounds.maxY;
 
-            transform[0] *= scaleX;
-            transform[3] *= scaleY;
+            transform[0] = preventExactZero(transform[0] * scaleX);
+            transform[3] = preventExactZero(transform[3] * scaleY);
             transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
             transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
 
@@ -586,8 +586,8 @@ function editingOnMouseMove({
             const anchorX = bounds.minX;
             const anchorY = bounds.maxY;
 
-            transform[0] *= scaleX;
-            transform[3] *= scaleY;
+            transform[0] = preventExactZero(transform[0] * scaleX);
+            transform[3] = preventExactZero(transform[3] * scaleY);
             transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
             transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
 
@@ -602,8 +602,8 @@ function editingOnMouseMove({
             const anchorX = bounds.maxX;
             const anchorY = bounds.minY;
 
-            transform[0] *= scaleX;
-            transform[3] *= scaleY;
+            transform[0] = preventExactZero(transform[0] * scaleX);
+            transform[3] = preventExactZero(transform[3] * scaleY);
             transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
             transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
 
@@ -618,8 +618,8 @@ function editingOnMouseMove({
             const anchorX = bounds.minX;
             const anchorY = bounds.minY;
 
-            transform[0] *= scaleX;
-            transform[3] *= scaleY;
+            transform[0] = preventExactZero(transform[0] * scaleX);
+            transform[3] = preventExactZero(transform[3] * scaleY);
             transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
             transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
             break;
@@ -868,6 +868,13 @@ function getImageHandleBehaviorFn(
   }
 }
 
+function preventExactZero(scale) {
+  if (scale === 0) {
+    return 0.000001;
+  }
+  return scale;
+}
+
 function imageTopLeftHandleBehavior(
   transform,
   scaledWidth,
@@ -876,8 +883,8 @@ function imageTopLeftHandleBehavior(
   dy,
   artifact,
 ) {
-  transform[0] = (scaledWidth - dx) / artifact.value.width;
-  transform[3] = (scaledHeight - dy) / artifact.value.height;
+  transform[0] = preventExactZero((scaledWidth - dx) / artifact.value.width);
+  transform[3] = preventExactZero((scaledHeight - dy) / artifact.value.height);
   transform[4] += dx;
   transform[5] += dy;
 }
@@ -890,8 +897,8 @@ function imageTopRightHandleBehavior(
   dy,
   artifact,
 ) {
-  transform[0] = (scaledWidth + dx) / artifact.value.width;
-  transform[3] = (scaledHeight - dy) / artifact.value.height;
+  transform[0] = preventExactZero((scaledWidth + dx) / artifact.value.width);
+  transform[3] = preventExactZero((scaledHeight - dy) / artifact.value.height);
   transform[5] += dy;
 }
 
@@ -903,8 +910,8 @@ function imageBottomLeftHandleBehavior(
   dy,
   artifact,
 ) {
-  transform[0] = (scaledWidth - dx) / artifact.value.width;
-  transform[3] = (scaledHeight + dy) / artifact.value.height;
+  transform[0] = preventExactZero((scaledWidth - dx) / artifact.value.width);
+  transform[3] = preventExactZero((scaledHeight + dy) / artifact.value.height);
   transform[4] += dx;
 }
 
@@ -916,6 +923,6 @@ function imageBottomRightHandleBehavior(
   dy,
   artifact,
 ) {
-  transform[0] = (scaledWidth + dx) / artifact.value.width;
-  transform[3] = (scaledHeight + dy) / artifact.value.height;
+  transform[0] = preventExactZero((scaledWidth + dx) / artifact.value.width);
+  transform[3] = preventExactZero((scaledHeight + dy) / artifact.value.height);
 }
