@@ -181,9 +181,15 @@ export function DrawArea({ sectionId }) {
   );
 
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
-  const cursorIcon = isEraser
-    ? "cursor-[url(../../../erase.svg)_0_24,_pointer]"
-    : "cursor-[url(../../../pen.svg)_0_24,_pointer]";
+
+  let cursorIcon;
+  if (mode === "edit") {
+    cursorIcon = "cursor-pointer";
+  } else if (isEraser) {
+    cursorIcon = "cursor-[url(../../../erase.svg)_0_24,_pointer]";
+  } else {
+    cursorIcon = "cursor-[url(../../../pen.svg)_0_24,_pointer]";
+  }
 
   return (
     <>
