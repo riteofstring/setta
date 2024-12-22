@@ -100,7 +100,7 @@ export function DrawArea({ sectionId }) {
         state,
       });
     });
-    drawAllLayers(canvasRef, tempCanvasRef, layers);
+    drawAllLayers(sectionId, canvasRef, tempCanvasRef);
   }, [height, width, loadedArtifacts]);
 
   useEffect(() => {
@@ -117,7 +117,7 @@ export function DrawArea({ sectionId }) {
 
   useEffect(() => {
     console.log("layer opacity changed, drawing all layers again");
-    drawAllLayers(canvasRef, tempCanvasRef, layers);
+    drawAllLayers(sectionId, canvasRef, tempCanvasRef);
   }, [layerOpacity]);
 
   useEffect(() => {
@@ -166,7 +166,6 @@ export function DrawArea({ sectionId }) {
       draftCanvasRef,
       canvasTransferQueueLength,
       currBrushStrokeArtifactId,
-      layers,
       activeLayerId,
       localArtifactTransformsRef,
       mode,
@@ -175,12 +174,12 @@ export function DrawArea({ sectionId }) {
   function clearStrokes() {
     strokesRef.current = [];
     setGlobalBrushStrokesAndDrawAllLayers(
+      sectionId,
       currBrushStrokeArtifactId,
       strokesRef,
       canvasRef,
       tempCanvasRef,
       draftCanvasRef,
-      layers,
     );
   }
 

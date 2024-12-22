@@ -3,7 +3,6 @@ import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
-import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 import {
   drawAllLayers,
   drawStroke,
@@ -37,7 +36,6 @@ export function useDrawModeMouseHandlers({
   draftCanvasRef,
   canvasTransferQueueLength,
   currBrushStrokeArtifactId,
-  layers,
   activeLayerId,
   localArtifactTransformsRef,
   mode,
@@ -57,11 +55,11 @@ export function useDrawModeMouseHandlers({
       canvasRef,
       tempCanvasRef,
       draftCanvasRef,
-      layers,
       activeLayerId,
     });
 
     onMouseMove = drawingOnMouseMove({
+      sectionId,
       isEraser,
       strokesRef,
       eraserStrokesRef,
@@ -71,7 +69,6 @@ export function useDrawModeMouseHandlers({
       tempCanvasRef,
       draftCanvasRef,
       canvasTransferQueueLength,
-      layers,
       activeLayerId,
       currBrushStrokeArtifactId,
     });
@@ -107,9 +104,9 @@ export function useDrawModeMouseHandlers({
       const redrawLayers = onMouseDownCore(e);
       if (redrawLayers) {
         drawAllLayers(
+          sectionId,
           canvasRef,
           tempCanvasRef,
-          layers,
           {},
           { [activeLayerId]: localArtifactTransformsRef.current },
           { [activeLayerId]: resizeHandleCorners.current },
@@ -132,9 +129,9 @@ export function useDrawModeMouseHandlers({
       const redrawLayers = onMouseMoveCore(e);
       if (redrawLayers) {
         drawAllLayers(
+          sectionId,
           canvasRef,
           tempCanvasRef,
-          layers,
           {},
           { [activeLayerId]: localArtifactTransformsRef.current },
           { [activeLayerId]: resizeHandleCorners.current },
@@ -143,11 +140,11 @@ export function useDrawModeMouseHandlers({
     };
 
     onMouseUp = editingOnMouseUp({
+      sectionId,
       isDragging,
       draggedId,
       resizeHandle,
       resizeHandleCorners,
-      sectionId,
       activeLayerId,
       localArtifactTransformsRef,
       canvasRef,
@@ -185,7 +182,6 @@ function drawingOnMouseDown({
   canvasRef,
   tempCanvasRef,
   draftCanvasRef,
-  layers,
   activeLayerId,
 }) {
   return (e, offsetX, offsetY) => {
@@ -214,9 +210,9 @@ function drawingOnMouseDown({
         point,
       );
       drawAllLayers(
+        sectionId,
         canvasRef,
         tempCanvasRef,
-        layers,
         {},
         {},
         {},
@@ -231,6 +227,7 @@ function drawingOnMouseDown({
 }
 
 function drawingOnMouseMove({
+  sectionId,
   isEraser,
   strokesRef,
   eraserStrokesRef,
@@ -240,7 +237,6 @@ function drawingOnMouseMove({
   tempCanvasRef,
   draftCanvasRef,
   canvasTransferQueueLength,
-  layers,
   activeLayerId,
   currBrushStrokeArtifactId,
 }) {
@@ -256,9 +252,9 @@ function drawingOnMouseMove({
       currStroke.points.push(point);
       prevPointRef.current = point;
       drawAllLayers(
+        sectionId,
         canvasRef,
         tempCanvasRef,
-        layers,
         {},
         {},
         {},
@@ -266,12 +262,12 @@ function drawingOnMouseMove({
       );
     } else if (currStroke.points.length >= canvasTransferQueueLength) {
       setGlobalBrushStrokesAndDrawAllLayers(
+        sectionId,
         currBrushStrokeArtifactId,
         strokesRef,
         canvasRef,
         tempCanvasRef,
         draftCanvasRef,
-        layers,
       );
       startNewStroke(draftCanvasRef, currStrokesRef, point);
       prevPointRef.current = point;
@@ -332,12 +328,12 @@ function drawingOnMouseUp({
     }
     setIsDrawing(false);
     setGlobalBrushStrokesAndDrawAllLayers(
+      sectionId,
       currBrushStrokeArtifactId,
       strokesRef,
       canvasRef,
       tempCanvasRef,
       draftCanvasRef,
-      getSectionArtifactGroupMetadata(sectionId, useSectionInfos.getState()),
     );
     // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   };
@@ -553,11 +549,11 @@ function editingOnMouseMove({
 }
 
 function editingOnMouseUp({
+  sectionId,
   isDragging,
   draggedId,
   resizeHandle,
   resizeHandleCorners,
-  sectionId,
   activeLayerId,
   localArtifactTransformsRef,
   canvasRef,
