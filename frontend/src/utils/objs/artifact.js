@@ -13,7 +13,7 @@ export function newArtifact({ name, ...props }) {
 export function newLayer({ name, ...props }) {
   return {
     name: name ?? createRandomName(),
-    artifactIds: [],
+    artifactTransforms: [],
     visible: true,
     layerOpacity: 0.5,
     brushOpacity: 1,

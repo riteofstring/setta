@@ -28,7 +28,7 @@ def load_artifacts(db, ids):
 def load_artifact_groups(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT ArtifactGroupId.id, ArtifactGroupId.name, ArtifactGroupId.data, ArtifactGroup.artifactId, ArtifactGroup."order"
+        SELECT ArtifactGroupId.id, ArtifactGroupId.name, ArtifactGroupId.data, ArtifactGroup.artifactId, ArtifactGroup.data as transform, ArtifactGroup."order"
         FROM ArtifactGroupId
         LEFT JOIN ArtifactGroup
         ON ArtifactGroupId.id = ArtifactGroup.idid
@@ -41,11 +41,13 @@ def load_artifact_groups(db, ids):
         if row["id"] not in output:
             output[row["id"]] = {
                 "name": row["name"],
-                "artifactIds": [],
+                "artifactTransforms": [],
                 **json.loads(row["data"]),
             }
         if row["artifactId"]:
-            output[row["id"]]["artifactIds"].append(row["artifactId"])
+            output[row["id"]]["artifactTransforms"].append(
+                {"artifactId": row["artifactId"], **json.loads(row["transform"])}
+            )
     return output
 
 
