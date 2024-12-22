@@ -25,10 +25,8 @@ const LayersList = ({
     const layer = layers.find((l) => l.id === layerId);
     const hasArtifact = layer.artifactIds.includes(draggedId);
     setHoveredLayer(layerId);
-    if (hasArtifact) {
-      return; // Don't prevent default - this prevents dropping
-    }
     e.preventDefault(); // Necessary to allow dropping
+    e.dataTransfer.dropEffect = hasArtifact ? "none" : "copy";
   };
 
   const handleDragLeave = () => {
