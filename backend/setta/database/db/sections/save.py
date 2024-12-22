@@ -1,6 +1,10 @@
 import json
 
-from setta.utils.constants import DEFAULT_VALUES, SECTION_TABLE_DATA_JSON_FIELDS
+from setta.utils.constants import (
+    DEFAULT_VALUES,
+    SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS,
+    SECTION_TABLE_DATA_JSON_FIELDS,
+)
 from setta.utils.utils import filter_dict, replace_null_keys_with_none
 
 
@@ -101,23 +105,26 @@ def save_sections(db, sections, section_variants):
     )
 
     query = f"""
-        UPDATE ArtifactGroupId
-        SET originSectionId = null
-        WHERE originSectionId IN ({placeholders})
+        DELETE FROM SectionArtifacts
+        WHERE sectionId IN ({placeholders});
     """
     db.execute(query, ids)
 
+    # add children
     query = """
-        UPDATE ArtifactGroupId
-        SET originSectionId = :sectionId
-        WHERE id = :artifactId
+        INSERT INTO SectionArtifacts (sectionId, artifactPath, data)
+        VALUES (:sectionId, :artifactPath, :data)
     """
+    query_params = []
     for s in sections.values():
-        for a in s["artifactGroupIds"]:
+        for a in s["artifacts"]:
             query_params.append(
                 {
                     "sectionId": s["id"],
-                    "artifactId": a,
+                    "artifactPath": a["path"],
+                    "data": json.dumps(
+                        filter_dict(a, SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS)
+                    ),
                 }
             )
     db.executemany(query, query_params)

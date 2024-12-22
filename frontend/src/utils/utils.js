@@ -46,6 +46,13 @@ export function asyncDebounce(func, wait) {
     });
 }
 
+export async function getImageDimensionsFromBase64(base64String) {
+  const img = new Image();
+  img.src = base64String;
+  await img.decode();
+  return { width: img.width, height: img.height };
+}
+
 export function isFromJSONSource(id) {
   return id.startsWith(C.JSON_SOURCE_PREFIX);
 }
