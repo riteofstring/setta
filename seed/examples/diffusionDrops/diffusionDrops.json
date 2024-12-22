@@ -864,11 +864,13 @@
       "artifactTransforms": [
         {
           "artifactId": "710c9942-e271-44a2-8eb7-961c21179ee5",
-          "transform": [1,0,0,1,0,0]
+          "transform": [1, 0, 0, 1, 0, 0],
+          "eraserStrokes": []
         },
         {
           "artifactId": "68da2499-10b8-4dd7-9375-a37b8f5f56ed",
-          "transform": [1,0,0,1,0,0]
+          "transform": [1, 0, 0, 1, 0, 0],
+          "eraserStrokes": []
         }
       ],
       "visible": true,

@@ -51,6 +51,7 @@ export function DrawArea({ sectionId }) {
   const draftCanvasRef = useRef(null);
   const tempCanvasRef = useRef(null);
   const strokesRef = useRef([]);
+  const eraserStrokesRef = useRef([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
   const localArtifactTransformsRef = useRef({});
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -138,9 +139,10 @@ export function DrawArea({ sectionId }) {
     localArtifactTransformsRef.current = {};
     for (let i = activeLayer.artifactTransforms.length - 1; i >= 0; i--) {
       const t = activeLayer.artifactTransforms[i];
-      localArtifactTransformsRef.current[t.artifactId] = _.cloneDeep(
-        t.transform,
-      );
+      localArtifactTransformsRef.current[t.artifactId] = _.cloneDeep({
+        transform: t.transform,
+        eraserStrokes: t.eraserStrokes,
+      });
     }
   }, [activeLayer]);
 
@@ -154,6 +156,7 @@ export function DrawArea({ sectionId }) {
     sectionId,
     isEraser,
     strokesRef,
+    eraserStrokesRef,
     prevPointRef,
     isDrawing,
     setIsDrawing,

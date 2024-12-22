@@ -115,8 +115,8 @@ export function drawAllLayers(
   tempCanvasRef,
   layers,
   realTimeValues = {}, // layerId -> artifactId -> value
-  realTimeTransforms = {}, // layerId -> artifactId -> value
-  realTimeResizeHandles = {}, // layerId -> handles
+  realTimeTransforms = {}, // layerId -> artifactId -> {transform, eraserStrokes}
+  realTimeResizeHandles = {}, // layerId -> array of corner coordinates
 ) {
   const ctx = getCtx(canvasRef);
   const [tempCanvas, tempCtx] = getCanvasAndCtx(tempCanvasRef);
@@ -145,20 +145,23 @@ export function drawAllLayers(
         artifact.value.complete
       ) {
         const image = realTimeValues[layer.id]?.[id] ?? artifact.value;
-        const transform = realTimeTransforms[layer.id]?.[id] ?? t.transform;
+        const transformInfo = realTimeTransforms[layer.id]?.[id] ?? t;
         tempCtx.globalAlpha = 1;
         tempCtx.globalCompositeOperation = "source-over";
-        tempCtx.setTransform(...transform);
+        tempCtx.setTransform(...transformInfo.transform);
         tempCtx.drawImage(image, 0, 0, image.width, image.height);
+        drawSavedStrokesOntoTempCanvas(
+          tempCanvas,
+          tempCtx,
+          transformInfo.eraserStrokes,
+        );
         tempCtx.setTransform(1, 0, 0, 1, 0, 0); // MUST reset here, otherwise get smudging when moving images around. No idea why
       } else if (
         artifact.type === "brushStrokes" &&
         artifact.value.length > 0
       ) {
         const strokes = realTimeValues[layer.id]?.[id] ?? artifact.value;
-        strokes.forEach((stroke) => {
-          drawSavedStrokeOntoTempCanvas(tempCanvas, tempCtx, stroke);
-        });
+        drawSavedStrokesOntoTempCanvas(tempCanvas, tempCtx, strokes);
       }
     }
     ctx.globalCompositeOperation = "source-over";
@@ -194,26 +197,28 @@ export function startNewStroke(
   }
 }
 
-export function drawSavedStrokeOntoTempCanvas(canvas, ctx, stroke) {
-  const scale = Math.min(
-    canvas.width / stroke.canvasWidth,
-    canvas.height / stroke.canvasHeight,
-  );
-  ctx.scale(scale, scale);
-  ctx.beginPath();
-  ctx.globalCompositeOperation = stroke.globalCompositeOperation;
-  ctx.strokeStyle = stroke.strokeStyle;
-  ctx.globalAlpha = 1;
-  ctx.lineWidth = stroke.lineWidth;
-  ctx.lineCap = stroke.lineCap;
-  let prevPoint = stroke.points[0];
-  stroke.points.forEach((point) => {
-    ctx.moveTo(prevPoint[0], prevPoint[1]);
-    ctx.lineTo(point[0], point[1]);
-    prevPoint = point;
-  });
-  ctx.stroke();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+export function drawSavedStrokesOntoTempCanvas(canvas, ctx, strokes) {
+  for (const stroke of strokes) {
+    // const scale = Math.min(
+    //   canvas.width / stroke.canvasWidth,
+    //   canvas.height / stroke.canvasHeight,
+    // );
+    // ctx.scale(scale, scale);
+    ctx.beginPath();
+    ctx.globalCompositeOperation = stroke.globalCompositeOperation;
+    ctx.strokeStyle = stroke.strokeStyle;
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = stroke.lineWidth;
+    ctx.lineCap = stroke.lineCap;
+    let prevPoint = stroke.points[0];
+    stroke.points.forEach((point) => {
+      ctx.moveTo(prevPoint[0], prevPoint[1]);
+      ctx.lineTo(point[0], point[1]);
+      prevPoint = point;
+    });
+    ctx.stroke();
+    // ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
 }
 
 export function drawStroke(canvasRef, from, to) {

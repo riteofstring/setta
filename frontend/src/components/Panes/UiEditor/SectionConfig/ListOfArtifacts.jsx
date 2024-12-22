@@ -3,9 +3,9 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
 import { dbLoadAvailableArtifacts } from "requests/artifacts";
-import { getInitialTransform } from "state/actions/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
+import { newArtifactTransform } from "utils/objs/artifact";
 
 const LayersList = ({
   layers,
@@ -138,10 +138,7 @@ export function ListOfArtifacts({ sectionId, sectionTypeName }) {
   const handleLayerDrop = (artifactId, targetLayerId) => {
     useSectionInfos.setState((x) => {
       const targetLayer = x.artifactGroups[targetLayerId];
-      targetLayer.artifactTransforms.push({
-        artifactId,
-        transform: getInitialTransform(),
-      });
+      targetLayer.artifactTransforms.push(newArtifactTransform(artifactId));
     });
   };
 

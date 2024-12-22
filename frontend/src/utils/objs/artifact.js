@@ -20,3 +20,7 @@ export function newLayer({ name, ...props }) {
     ...props,
   };
 }
+
+export function newArtifactTransform(artifactId) {
+  return { artifactId, transform: [1, 0, 0, 1, 0, 0], eraserStrokes: [] };
+}

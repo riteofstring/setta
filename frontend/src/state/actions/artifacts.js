@@ -6,7 +6,11 @@ import _ from "lodash";
 import { dbLoadArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
-import { newArtifact, newLayer } from "utils/objs/artifact";
+import {
+  newArtifact,
+  newArtifactTransform,
+  newLayer,
+} from "utils/objs/artifact";
 
 export function updateArtifacts({ artifacts, addSection = false }) {
   useArtifacts.setState(artifacts);
@@ -110,13 +114,8 @@ export async function addImageArtifactAndMaybeCreateNewLayer(
       state.artifactGroups[layerId] = newLayer({});
       state.x[sectionId].artifactGroupIds.push(layerId);
     }
-    state.artifactGroups[layerId].artifactTransforms.push({
-      artifactId,
-      transform: getInitialTransform(),
-    });
+    state.artifactGroups[layerId].artifactTransforms.push(
+      newArtifactTransform(artifactId),
+    );
   });
-}
-
-export function getInitialTransform() {
-  return [1, 0, 0, 1, 0, 0];
 }

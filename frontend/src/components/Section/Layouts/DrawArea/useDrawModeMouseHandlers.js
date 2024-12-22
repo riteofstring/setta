@@ -17,6 +17,7 @@ export function useDrawModeMouseHandlers({
   sectionId,
   isEraser,
   strokesRef,
+  eraserStrokesRef,
   prevPointRef,
   isDrawing,
   setIsDrawing,
@@ -59,6 +60,7 @@ export function useDrawModeMouseHandlers({
       sectionId,
       isEraser,
       strokesRef,
+      eraserStrokesRef,
       prevPointRef,
       setIsDrawing,
       canvasRef,
@@ -98,7 +100,11 @@ export function useDrawModeMouseHandlers({
       useSectionInfos.setState((state) => {
         state.artifactGroups[activeLayerId].artifactTransforms = Object.entries(
           localArtifactTransformsRef.current,
-        ).map(([artifactId, transform]) => ({ artifactId, transform }));
+        ).map(([artifactId, { transform, eraserStrokes }]) => ({
+          artifactId,
+          transform,
+          eraserStrokes,
+        }));
       });
       drawAllLayers(
         canvasRef,
@@ -188,6 +194,7 @@ function drawingOnMouseDown({
   sectionId,
   isEraser,
   strokesRef,
+  eraserStrokesRef,
   prevPointRef,
   setIsDrawing,
   canvasRef,
@@ -208,10 +215,6 @@ function drawingOnMouseDown({
     }
     useMisc.setState({ mouseDownDrawArea: true });
 
-    // nothing to erase
-    if (isEraser && strokesRef.current.length === 0) {
-      return;
-    }
     setIsDrawing(true);
     let point;
     if (offsetX && offsetY) {
@@ -219,10 +222,17 @@ function drawingOnMouseDown({
     } else {
       point = getXY(e);
     }
-    startNewStroke(draftCanvasRef, strokesRef, point, isEraser);
+    startNewStroke(
+      draftCanvasRef,
+      isEraser ? eraserStrokesRef : strokesRef,
+      point,
+      isEraser,
+    );
     if (isEraser) {
       drawAllLayers(canvasRef, tempCanvasRef, layers, {
-        [activeLayerId]: { [currBrushStrokeArtifactId]: strokesRef.current },
+        [activeLayerId]: {
+          [currBrushStrokeArtifactId]: eraserStrokesRef.current,
+        },
       });
     }
     prevPointRef.current = point;
@@ -361,28 +371,28 @@ function editingOnMouseDown({
         lastPos.current = { x, y };
         return true;
       } else if (artifact.type === "brushStrokes") {
-        const hitRadius = 5;
-        for (const stroke of artifact.value) {
-          for (const point of stroke) {
-            if (
-              Math.abs(x - point[0]) <= hitRadius &&
-              Math.abs(y - point[1]) <= hitRadius
-            ) {
-              const bounds = getBrushStrokeBounds(stroke);
-              resizeHandleCorners.current = [
-                { x: bounds.minX, y: bounds.minY }, // Top-left
-                { x: bounds.maxX, y: bounds.minY }, // Top-right
-                { x: bounds.minX, y: bounds.maxY }, // Bottom-left
-                { x: bounds.maxX, y: bounds.maxY }, // Bottom-right
-              ];
-              isDragging.current = true;
-              draggedId.current = artifactId;
-              selectedId.current = artifactId;
-              lastPos.current = { x, y };
-              return true;
-            }
-          }
-        }
+        // const hitRadius = 5;
+        // for (const stroke of artifact.value) {
+        //   for (const point of stroke) {
+        //     if (
+        //       Math.abs(x - point[0]) <= hitRadius &&
+        //       Math.abs(y - point[1]) <= hitRadius
+        //     ) {
+        //       const bounds = getBrushStrokeBounds(stroke);
+        //       resizeHandleCorners.current = [
+        //         { x: bounds.minX, y: bounds.minY }, // Top-left
+        //         { x: bounds.maxX, y: bounds.minY }, // Top-right
+        //         { x: bounds.minX, y: bounds.maxY }, // Bottom-left
+        //         { x: bounds.maxX, y: bounds.maxY }, // Bottom-right
+        //       ];
+        //       isDragging.current = true;
+        //       draggedId.current = artifactId;
+        //       selectedId.current = artifactId;
+        //       lastPos.current = { x, y };
+        //       return true;
+        //     }
+        //   }
+        // }
       }
     }
     selectedId.current = null;
