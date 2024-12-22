@@ -61,10 +61,6 @@ export function HeaderIcon({
       return (
         <BiPaint className="p-0 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
-    case C.IFRAME:
-      return (
-        <i className="gg-code-slash !rotate-[14deg] !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
-      );
     case C.SOCIAL:
       return <SocialIcon sectionId={sectionId} />;
     case C.GROUP:
