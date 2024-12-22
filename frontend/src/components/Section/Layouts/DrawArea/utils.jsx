@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { sendToInteractiveTasks } from "state/actions/interactive";
-import { useArtifacts } from "state/definitions";
+import { useArtifacts, useSectionInfos } from "state/definitions";
+import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 
 export function setDraftCanvasProperties({
@@ -108,6 +109,47 @@ export function getCanvasAndCtx(canvasRef) {
 
 export function getCtx(canvasRef) {
   return canvasRef.current.getContext("2d");
+}
+
+export function setGlobalBrushStrokesAndDrawAllLayers(
+  currBrushStrokeArtifactId,
+  strokesRef,
+  canvasRef,
+  tempCanvasRef,
+  draftCanvasRef,
+  layers,
+) {
+  useArtifacts.setState((state) => ({
+    [currBrushStrokeArtifactId]: {
+      ...state[currBrushStrokeArtifactId],
+      value: _.cloneDeep(strokesRef.current),
+    },
+  }));
+  drawAllLayers(canvasRef, tempCanvasRef, layers);
+  clearCanvas(draftCanvasRef);
+}
+
+export function setGlobalArtifactTransformsAndDrawAllLayers(
+  sectionId,
+  activeLayerId,
+  localArtifactTransformsRef,
+  canvasRef,
+  tempCanvasRef,
+) {
+  useSectionInfos.setState((state) => {
+    state.artifactGroups[activeLayerId].artifactTransforms = Object.entries(
+      localArtifactTransformsRef.current,
+    ).map(([artifactId, { transform, eraserStrokes }]) => ({
+      artifactId,
+      transform,
+      eraserStrokes,
+    }));
+  });
+  drawAllLayers(
+    canvasRef,
+    tempCanvasRef,
+    getSectionArtifactGroupMetadata(sectionId, useSectionInfos.getState()),
+  );
 }
 
 export function drawAllLayers(

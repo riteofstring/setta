@@ -3,13 +3,13 @@ import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
-import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 import {
-  clearCanvas,
   drawAllLayers,
   drawStroke,
   filterPathForImage,
   getXY,
+  setGlobalArtifactTransformsAndDrawAllLayers,
+  setGlobalBrushStrokesAndDrawAllLayers,
   startNewStroke,
 } from "./utils";
 
@@ -38,24 +38,9 @@ export function useDrawModeMouseHandlers({
   localArtifactTransformsRef,
   mode,
 }) {
-  let onMouseDown,
-    onMouseMove,
-    onMouseUp,
-    onMouseEnter,
-    transferEverythingToRealCanvas;
+  let onMouseDown, onMouseMove, onMouseUp, onMouseEnter;
 
   if (mode === "draw") {
-    transferEverythingToRealCanvas = () => {
-      useArtifacts.setState((state) => ({
-        [currBrushStrokeArtifactId]: {
-          ...state[currBrushStrokeArtifactId],
-          value: _.cloneDeep(strokesRef.current),
-        },
-      }));
-      drawAllLayers(canvasRef, tempCanvasRef, layers);
-      clearCanvas(draftCanvasRef);
-    };
-
     onMouseDown = drawingOnMouseDown({
       sectionId,
       isEraser,
@@ -76,13 +61,13 @@ export function useDrawModeMouseHandlers({
       eraserStrokesRef,
       prevPointRef,
       isDrawing,
-      transferEverythingToRealCanvas,
       canvasRef,
       tempCanvasRef,
       draftCanvasRef,
       canvasTransferQueueLength,
       layers,
       activeLayerId,
+      currBrushStrokeArtifactId,
     });
 
     onMouseUp = drawingOnMouseUp({
@@ -90,29 +75,17 @@ export function useDrawModeMouseHandlers({
       eraserStrokesRef,
       isDrawing,
       setIsDrawing,
-      transferEverythingToRealCanvas,
       activeLayerId,
+      currBrushStrokeArtifactId,
+      strokesRef,
+      canvasRef,
+      tempCanvasRef,
+      draftCanvasRef,
+      layers,
     });
 
     onMouseEnter = drawingOnMouseEnter({ draftCanvasRef, onMouseDown });
   } else {
-    transferEverythingToRealCanvas = () => {
-      useSectionInfos.setState((state) => {
-        state.artifactGroups[activeLayerId].artifactTransforms = Object.entries(
-          localArtifactTransformsRef.current,
-        ).map(([artifactId, { transform, eraserStrokes }]) => ({
-          artifactId,
-          transform,
-          eraserStrokes,
-        }));
-      });
-      drawAllLayers(
-        canvasRef,
-        tempCanvasRef,
-        getSectionArtifactGroupMetadata(sectionId, useSectionInfos.getState()),
-      );
-    };
-
     const onMouseDownCore = editingOnMouseDown({
       canvasRef,
       selectedId,
@@ -164,10 +137,14 @@ export function useDrawModeMouseHandlers({
     };
 
     onMouseUp = editingOnMouseUp({
-      transferEverythingToRealCanvas,
       isDragging,
       draggedId,
       resizeHandle,
+      sectionId,
+      activeLayerId,
+      localArtifactTransformsRef,
+      canvasRef,
+      tempCanvasRef,
     });
 
     onMouseEnter = () => {};
@@ -186,7 +163,6 @@ export function useDrawModeMouseHandlers({
     onMouseMove: throttledOnMouseMove,
     onMouseUp,
     onMouseEnter,
-    transferEverythingToRealCanvas,
   };
 }
 
@@ -248,13 +224,13 @@ function drawingOnMouseMove({
   eraserStrokesRef,
   prevPointRef,
   isDrawing,
-  transferEverythingToRealCanvas,
   canvasRef,
   tempCanvasRef,
   draftCanvasRef,
   canvasTransferQueueLength,
   layers,
   activeLayerId,
+  currBrushStrokeArtifactId,
 }) {
   return (e) => {
     if (!isDrawing) {
@@ -277,7 +253,14 @@ function drawingOnMouseMove({
         { [activeLayerId]: eraserStrokesRef.current },
       );
     } else if (currStroke.points.length >= canvasTransferQueueLength) {
-      transferEverythingToRealCanvas();
+      setGlobalBrushStrokesAndDrawAllLayers(
+        currBrushStrokeArtifactId,
+        strokesRef,
+        canvasRef,
+        tempCanvasRef,
+        draftCanvasRef,
+        layers,
+      );
       startNewStroke(draftCanvasRef, currStrokesRef, point);
       prevPointRef.current = point;
     } else {
@@ -293,8 +276,13 @@ function drawingOnMouseUp({
   eraserStrokesRef,
   isDrawing,
   setIsDrawing,
-  transferEverythingToRealCanvas,
   activeLayerId,
+  currBrushStrokeArtifactId,
+  strokesRef,
+  canvasRef,
+  tempCanvasRef,
+  draftCanvasRef,
+  layers,
 }) {
   return () => {
     if (!isDrawing) {
@@ -331,7 +319,14 @@ function drawingOnMouseUp({
       eraserStrokesRef.current = [];
     }
     setIsDrawing(false);
-    transferEverythingToRealCanvas();
+    setGlobalBrushStrokesAndDrawAllLayers(
+      currBrushStrokeArtifactId,
+      strokesRef,
+      canvasRef,
+      tempCanvasRef,
+      draftCanvasRef,
+      layers,
+    );
     // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   };
 }
@@ -546,13 +541,23 @@ function editingOnMouseMove({
 }
 
 function editingOnMouseUp({
-  transferEverythingToRealCanvas,
   isDragging,
   draggedId,
   resizeHandle,
+  sectionId,
+  activeLayerId,
+  localArtifactTransformsRef,
+  canvasRef,
+  tempCanvasRef,
 }) {
   return () => {
-    transferEverythingToRealCanvas();
+    setGlobalArtifactTransformsAndDrawAllLayers(
+      sectionId,
+      activeLayerId,
+      localArtifactTransformsRef,
+      canvasRef,
+      tempCanvasRef,
+    );
     isDragging.current = false;
     draggedId.current = null;
     resizeHandle.current = null;

@@ -18,6 +18,7 @@ import {
   drawAllLayers,
   setCanvasSize,
   setDraftCanvasProperties,
+  setGlobalBrushStrokesAndDrawAllLayers,
 } from "./utils";
 
 export function DrawArea({ sectionId }) {
@@ -146,41 +147,43 @@ export function DrawArea({ sectionId }) {
     }
   }, [activeLayer]);
 
-  const {
-    onMouseDown,
-    onMouseMove,
-    onMouseUp,
-    onMouseEnter,
-    transferEverythingToRealCanvas,
-  } = useDrawModeMouseHandlers({
-    sectionId,
-    isEraser,
-    strokesRef,
-    eraserStrokesRef,
-    prevPointRef,
-    isDrawing,
-    setIsDrawing,
-    isDragging,
-    draggedId,
-    lastPos,
-    selectedId,
-    resizeHandle,
-    resizeHandleCorners,
-    drawThrottleDelay,
-    canvasRef,
-    tempCanvasRef,
-    draftCanvasRef,
-    canvasTransferQueueLength,
-    currBrushStrokeArtifactId,
-    layers,
-    activeLayerId,
-    localArtifactTransformsRef,
-    mode,
-  });
+  const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
+    useDrawModeMouseHandlers({
+      sectionId,
+      isEraser,
+      strokesRef,
+      eraserStrokesRef,
+      prevPointRef,
+      isDrawing,
+      setIsDrawing,
+      isDragging,
+      draggedId,
+      lastPos,
+      selectedId,
+      resizeHandle,
+      resizeHandleCorners,
+      drawThrottleDelay,
+      canvasRef,
+      tempCanvasRef,
+      draftCanvasRef,
+      canvasTransferQueueLength,
+      currBrushStrokeArtifactId,
+      layers,
+      activeLayerId,
+      localArtifactTransformsRef,
+      mode,
+    });
 
   function clearStrokes() {
     strokesRef.current = [];
-    transferEverythingToRealCanvas();
+    setGlobalBrushStrokesAndDrawAllLayers(
+      currBrushStrokeArtifactId,
+      strokesRef,
+      canvasRef,
+      tempCanvasRef,
+      draftCanvasRef,
+      layers,
+    );
   }
 
   const { getRootProps, isDragActive } = useImageLoadViaDropzone(
