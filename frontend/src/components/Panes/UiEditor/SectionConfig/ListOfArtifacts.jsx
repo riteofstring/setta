@@ -23,15 +23,7 @@ const LayersList = ({
   const allArtifacts = { ...availableArtifacts, ...artifactsAlreadyInMemory };
 
   const handleDragOver = (e, layerId) => {
-    const layer = layers.find((l) => l.id === layerId);
-    const hasArtifact = layer.artifactTransforms.find(
-      (l) => l.artifactId === draggedId,
-    );
     setHoveredLayer(layerId);
-    if (hasArtifact) {
-      return; // Don't prevent default - this prevents dropping
-    }
-    e.preventDefault(); // Necessary to allow dropping
   };
 
   const handleDragLeave = () => {
@@ -39,7 +31,6 @@ const LayersList = ({
   };
 
   const handleDrop = (e, layerId) => {
-    e.preventDefault();
     setHoveredLayer(null);
     const artifactId = e.dataTransfer.getData("text/plain");
     onDrop(artifactId, layerId);
@@ -50,12 +41,7 @@ const LayersList = ({
       return "border-gray-300";
     }
 
-    const hasArtifact = layer.artifactTransforms.find(
-      (l) => l.artifactId === draggedId,
-    );
-    return hasArtifact
-      ? "border-red-500 bg-red-50"
-      : "border-green-500 bg-green-50";
+    return "border-green-500 bg-green-50";
   };
 
   return (
