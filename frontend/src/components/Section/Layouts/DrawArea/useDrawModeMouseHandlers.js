@@ -336,6 +336,8 @@ function drawingOnMouseUp({
           if (artifact.type === "img") {
             intersectingPath = filterPathForImage(
               eraserPath.points,
+              eraserPath.lineWidth,
+              eraserPath.lineCap,
               t.transform[4],
               t.transform[5],
               getScaledWidth(artifact, t.transform),

@@ -422,6 +422,8 @@ export function reorderArtifactsWithBrushStrokesLast(
 
 export function filterPathForImage(
   pathPoints,
+  lineWidth,
+  lineCap,
   imageX,
   imageY,
   imageWidth,
@@ -431,16 +433,76 @@ export function filterPathForImage(
     return [];
   }
 
+  // Half of the line width is the maximum distance a point can be from the path
+  const halfWidth = lineWidth / 2;
+
+  // Adjust bounds based on line width
+  const adjustedBounds = {
+    minX: imageX - halfWidth,
+    maxX: imageX + imageWidth + halfWidth,
+    minY: imageY - halfWidth,
+    maxY: imageY + imageHeight + halfWidth,
+  };
+
   const result = [];
   let includeNext = false;
 
+  // Helper function to check if a point is in bounds
+  const isPointInBounds = (x, y) => {
+    return (
+      x >= adjustedBounds.minX &&
+      x <= adjustedBounds.maxX &&
+      y >= adjustedBounds.minY &&
+      y <= adjustedBounds.maxY
+    );
+  };
+
+  // Helper function to handle line caps
+  const isPointInBoundsWithLineCap = (point, prevPoint, nextPoint) => {
+    // Basic bounds check
+    if (isPointInBounds(point[0], point[1])) {
+      return true;
+    }
+
+    // For 'butt' cap, no additional checks needed
+    if (lineCap === "butt") {
+      return false;
+    }
+
+    // For 'round' or 'square' caps, check additional area
+    const capExtra = lineCap === "square" ? halfWidth : 0;
+
+    // If this is the start point and we have a next point
+    if (!prevPoint && nextPoint) {
+      const angle = Math.atan2(
+        nextPoint[1] - point[1],
+        nextPoint[0] - point[0],
+      );
+      const capX = point[0] - (halfWidth + capExtra) * Math.cos(angle);
+      const capY = point[1] - (halfWidth + capExtra) * Math.sin(angle);
+      return isPointInBounds(capX, capY);
+    }
+
+    // If this is the end point and we have a previous point
+    if (!nextPoint && prevPoint) {
+      const angle = Math.atan2(
+        point[1] - prevPoint[1],
+        point[0] - prevPoint[0],
+      );
+      const capX = point[0] + (halfWidth + capExtra) * Math.cos(angle);
+      const capY = point[1] + (halfWidth + capExtra) * Math.sin(angle);
+      return isPointInBounds(capX, capY);
+    }
+
+    return false;
+  };
+
   for (let i = 0; i < pathPoints.length; i++) {
     const point = pathPoints[i];
-    const isInBounds =
-      point[0] >= imageX &&
-      point[0] <= imageX + imageWidth &&
-      point[1] >= imageY &&
-      point[1] <= imageY + imageHeight;
+    const prevPoint = i > 0 ? pathPoints[i - 1] : null;
+    const nextPoint = i < pathPoints.length - 1 ? pathPoints[i + 1] : null;
+
+    const isInBounds = isPointInBoundsWithLineCap(point, prevPoint, nextPoint);
 
     if (isInBounds) {
       if (i > 0 && result.length === 0) {
