@@ -1,105 +1,234 @@
-import * as fabric from "fabric"; // v6
+import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
+import {
+  base64RequestId,
+  setTemporaryMiscState,
+} from "state/actions/temporaryMiscState";
+import {
+  useArtifacts,
+  useSectionInfos,
+  useTemporaryMiscState,
+} from "state/definitions";
+import { useDrawAreaActiveLayerAndLoadedArtifacts } from "state/hooks/artifacts";
+import useDeepCompareEffect from "use-deep-compare-effect";
+import { DrawAreaControls } from "./DrawAreaControls";
+import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
+import { useImageLoadViaDropzone } from "./useImageLoadViaDropzone";
+import {
+  drawAllLayers,
+  setCanvasSize,
+  setDraftCanvasProperties,
+  setGlobalBrushStrokesAndDrawAllLayers,
+} from "./utils";
 
 export function DrawArea({ sectionId }) {
-  const canvasEl = useRef(null);
-  const [canvas, setCanvas] = useState(null);
-  const [isDrawingMode, setIsDrawingMode] = useState(false);
-  const [opacity, setOpacity] = useState(1);
+  const {
+    activeLayer,
+    allLayersMetadata,
+    size: { width, height },
+    canvasSettings: {
+      activeLayerId,
+      color,
+      brushSize,
+      brushShape,
+      eraserBrushSize,
+      drawThrottleDelay,
+      canvasTransferQueueLength,
+      mode,
+      artifactIdUsedToSetCanvasSize,
+    },
+    loadedArtifacts,
+    loadedArtifactIdsWithDuplicates,
+  } = useDrawAreaActiveLayerAndLoadedArtifacts(sectionId);
 
-  // Convert opacity to RGBA color
-  const getColor = (opacity) => {
-    // RGB values for green (0, 255, 0)
-    return `rgba(0, 255, 0, ${opacity})`;
-  };
+  const canvasRef = useRef(null);
+  const draftCanvasRef = useRef(null);
+  const tempCanvasRefs = useRef({ layer: null, artifact: null });
+  const strokesRef = useRef([]);
+  const eraserStrokesRef = useRef([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
+  const localArtifactTransformsRef = useRef([]);
+  const prevPointRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [isEraser, setIsEraser] = useState(false);
+  const isDragging = useRef(false);
+  const draggedIdx = useRef(null);
+  const lastPos = useRef({ x: 0, y: 0 });
+  const selectedIdx = useRef(null);
+  const resizeHandle = useRef(null);
+  const resizeHandleCorners = useRef(null);
+
+  const layerOpacity = activeLayer?.layerOpacity ?? 1;
+  const brushOpacity = activeLayer?.brushOpacity ?? 1;
+  const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
+    (a) => loadedArtifacts[a.artifactId]?.type === "brushStrokes",
+  )?.artifactId;
 
   useEffect(() => {
-    // Initialize canvas
-    const fabricCanvas = new fabric.Canvas(canvasEl.current);
+    tempCanvasRefs.current.layer = document.createElement("canvas");
+    tempCanvasRefs.current.artifact = document.createElement("canvas");
 
-    // Initialize the brush
-    fabricCanvas.isDrawingMode = false;
-    const brush = new fabric.PencilBrush(fabricCanvas);
-    brush.width = 5;
-    brush.color = getColor(opacity);
-    fabricCanvas.freeDrawingBrush = brush;
-
-    setCanvas(fabricCanvas);
-
-    return () => {
-      fabricCanvas.dispose();
-    };
+    const id = base64RequestId(sectionId);
+    const unsub = useTemporaryMiscState.subscribe(
+      (x) => x[id],
+      (x) => {
+        if (x === true) {
+          setTemporaryMiscState(id, allPartsToBase64(canvasRef));
+        }
+      },
+    );
+    return unsub;
   }, []);
 
-  // Toggle drawing mode
-  const toggleDrawing = () => {
-    if (canvas) {
-      const newMode = !isDrawingMode;
-      canvas.isDrawingMode = newMode;
-      setIsDrawingMode(newMode);
-    }
-  };
+  useEffect(() => {
+    useSectionInfos.setState((state) => {
+      setCanvasSize({
+        sectionId,
+        canvasRef,
+        tempCanvasRefs,
+        draftCanvasRef,
+        height,
+        width,
+        artifactIdUsedToSetCanvasSize,
+        state,
+      });
+    });
+    drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
+  }, [height, width, Boolean(loadedArtifacts[artifactIdUsedToSetCanvasSize])]);
+  // the Boolean dependency is checking whether or not the artifactIdUsedToSetCanvasSize has been loaded or not
 
-  // Clear canvas
-  const clearCanvas = () => {
-    if (canvas) {
-      canvas.clear();
-    }
-  };
+  useEffect(() => {
+    setDraftCanvasProperties({
+      draftCanvasRef,
+      color,
+      brushSize,
+      brushShape,
+      brushOpacity,
+      layerOpacity,
+    });
+  }, [color, brushSize, brushShape, brushOpacity, layerOpacity]);
 
-  // Update opacity
-  const handleOpacityChange = (e) => {
-    const newOpacity = parseFloat(e.target.value);
-    setOpacity(newOpacity);
-    if (canvas && canvas.freeDrawingBrush) {
-      canvas.freeDrawingBrush.color = getColor(newOpacity);
+  useDeepCompareEffect(() => {
+    if (mode === "draw") {
+      selectedIdx.current = null;
+      resizeHandleCorners.current = null;
     }
-  };
+    drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
+  }, [mode, layerOpacity, allLayersMetadata, loadedArtifactIdsWithDuplicates]);
+  // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
+  // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
+
+  useEffect(() => {
+    if (!currBrushStrokeArtifactId) {
+      strokesRef.current = [];
+    } else {
+      strokesRef.current = _.cloneDeep(
+        useArtifacts.getState()[currBrushStrokeArtifactId].value,
+      );
+    }
+  }, [currBrushStrokeArtifactId]);
+
+  useDeepCompareEffect(() => {
+    if (!activeLayer?.artifactTransforms) {
+      localArtifactTransformsRef.current = [];
+    } else {
+      localArtifactTransformsRef.current = _.cloneDeep(
+        activeLayer.artifactTransforms,
+      );
+    }
+  }, [activeLayer?.artifactTransforms]);
+
+  const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
+    useDrawModeMouseHandlers({
+      sectionId,
+      isEraser,
+      strokesRef,
+      eraserStrokesRef,
+      prevPointRef,
+      eraserBrushSize,
+      brushShape,
+      isDrawing,
+      setIsDrawing,
+      isDragging,
+      draggedIdx,
+      lastPos,
+      selectedIdx,
+      resizeHandle,
+      resizeHandleCorners,
+      drawThrottleDelay,
+      canvasRef,
+      tempCanvasRefs,
+      draftCanvasRef,
+      canvasTransferQueueLength,
+      currBrushStrokeArtifactId,
+      activeLayerId,
+      localArtifactTransformsRef,
+      mode,
+    });
+
+  function clearStrokes() {
+    strokesRef.current = [];
+    setGlobalBrushStrokesAndDrawAllLayers(
+      sectionId,
+      currBrushStrokeArtifactId,
+      strokesRef,
+      canvasRef,
+      tempCanvasRefs,
+      draftCanvasRef,
+    );
+  }
+
+  const { getRootProps, isDragActive } = useImageLoadViaDropzone(
+    sectionId,
+    activeLayerId,
+  );
+
+  const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
+
+  let cursorIcon;
+  if (mode === "edit") {
+    cursorIcon = "cursor-pointer";
+  } else if (isEraser) {
+    cursorIcon = "cursor-[url(../../../erase.svg)_0_24,_pointer]";
+  } else {
+    cursorIcon = "cursor-[url(../../../pen.svg)_0_24,_pointer]";
+  }
 
   return (
-    <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
-      <div className="single-cell-child single-cell-container flex flex-col gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={toggleDrawing}
-            className={`rounded px-4 py-2 ${
-              isDrawingMode
-                ? "bg-blue-500 text-white"
-                : "bg-gray-200 text-gray-700"
-            }`}
-          >
-            {isDrawingMode ? "Stop Drawing" : "Start Drawing"}
-          </button>
-          <button
-            onClick={clearCanvas}
-            className="rounded bg-red-500 px-4 py-2 text-white"
-          >
-            Clear
-          </button>
-          <div className="flex items-center gap-2">
-            <label htmlFor="opacity" className="text-sm">
-              Opacity:
-            </label>
-            <input
-              id="opacity"
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={opacity}
-              onChange={handleOpacityChange}
-              className="w-32"
-            />
-            <span className="text-sm">{opacity.toFixed(1)}</span>
-          </div>
+    <>
+      <DrawAreaControls
+        sectionId={sectionId}
+        activeLayerId={activeLayerId}
+        color={color}
+        brushOpacity={brushOpacity}
+        brushSize={brushSize}
+        brushShape={brushShape}
+        eraserBrushSize={eraserBrushSize}
+        isEraser={isEraser}
+        setIsEraser={setIsEraser}
+        layerOpacity={layerOpacity}
+        mode={mode}
+        clearStrokes={clearStrokes}
+      />
+      <section
+        className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0"
+        {...getRootProps()}
+      >
+        <div className="single-cell-child single-cell-container">
+          <canvas
+            ref={canvasRef}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            onMouseEnter={onMouseEnter}
+            className={`${cursorIcon} ${canvasClassName}`}
+          />
+          <canvas
+            ref={draftCanvasRef}
+            className={`pointer-events-none ${canvasClassName}`}
+          />
         </div>
-        <canvas
-          width="300"
-          height="300"
-          ref={canvasEl}
-          className="border border-gray-300"
-        />
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
