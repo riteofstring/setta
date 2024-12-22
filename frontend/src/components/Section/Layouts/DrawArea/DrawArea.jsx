@@ -100,30 +100,31 @@ export function DrawArea({ sectionId }) {
         state,
       });
     });
+    drawAllLayers(canvasRef, tempCanvasRef, layers);
+  }, [height, width, loadedArtifacts]);
+
+  useEffect(() => {
     setDraftCanvasProperties({
       draftCanvasRef,
       color,
       brushSize,
       brushShape,
       brushOpacity,
-      eraserBrushSize,
-      isEraser,
       layerOpacity,
     });
-    drawAllLayers(canvasRef, tempCanvasRef, layers);
   }, [
-    height,
-    width,
-    isEraser,
     color,
     brushSize,
-    eraserBrushSize,
     brushShape,
-    layerOpacity,
     brushOpacity,
-    layers,
-    loadedArtifacts,
+    layerOpacity,
+    draftCanvasRef.current?.height,
+    draftCanvasRef.current?.width,
   ]);
+
+  useEffect(() => {
+    drawAllLayers(canvasRef, tempCanvasRef, layers);
+  }, [layerOpacity]);
 
   useEffect(() => {
     if (!currBrushStrokeArtifactId) {
