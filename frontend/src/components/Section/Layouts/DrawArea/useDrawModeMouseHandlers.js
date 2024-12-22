@@ -366,11 +366,14 @@ function drawingOnMouseUp({
                 t.transform[3],
               );
               if (intersectingPath.length > 0) {
-                t.eraserStrokes[idx] = {
+                if (!(idx in t.eraserStrokes)) {
+                  t.eraserStrokes[idx] = [];
+                }
+                t.eraserStrokes[idx].push({
                   ...eraserPath,
                   points: intersectingPath,
                   transform: inverseTransform,
-                };
+                });
               }
             }
           }

@@ -310,7 +310,9 @@ export function drawStrokesOntoTempCanvas(
     // ctx.scale(scale, scale);
     drawStrokeOntoTempCanvas(ctx, stroke, artifactTransform);
     if (pairedStrokes[idx]) {
-      drawStrokeOntoTempCanvas(ctx, pairedStrokes[idx], artifactTransform);
+      for (const pairedStroke of pairedStrokes[idx]) {
+        drawStrokeOntoTempCanvas(ctx, pairedStroke, artifactTransform);
+      }
     }
   }
 }
