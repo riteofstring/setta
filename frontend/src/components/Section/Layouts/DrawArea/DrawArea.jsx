@@ -113,6 +113,8 @@ export function DrawArea({ sectionId }) {
     console.log("layer opacity changed, drawing all layers again");
     drawAllLayers(sectionId, canvasRef, tempCanvasRef);
   }, [layerOpacity, loadedArtifactIdsWithDuplicates]);
+  // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
+  // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers) 
 
   useEffect(() => {
     if (!currBrushStrokeArtifactId) {

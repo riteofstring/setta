@@ -298,28 +298,31 @@ function drawingOnMouseUp({
     }
     if (isEraser) {
       const artifactState = useArtifacts.getState();
-      const eraserPath = _.cloneDeep(
-        eraserStrokesRef.current[eraserStrokesRef.current.length - 1],
-      );
+      const eraserPath =
+        eraserStrokesRef.current[eraserStrokesRef.current.length - 1];
+
+      let intersectingPath;
+
       // console.log("eraserPath", eraserPath);
       useSectionInfos.setState((state) => {
         const layer = state.artifactGroups[activeLayerId];
         for (const t of layer.artifactTransforms) {
           const artifact = artifactState[t.artifactId];
-          console.log("t.transform", _.cloneDeep(t.transform));
-          eraserPath.points = filterPathForImage(
-            eraserPath.points,
-            t.transform[4],
-            t.transform[5],
-            720,
-            720,
-            // getScaledWidth(artifact, t.transform),
-            // getScaledHeight(artifact, t.transform),
-          );
+          if (artifact.type === "img") {
+            intersectingPath = filterPathForImage(
+              eraserPath.points,
+              t.transform[4],
+              t.transform[5],
+              getScaledWidth(artifact, t.transform),
+              getScaledHeight(artifact, t.transform),
+            );
+          } else {
+            intersectingPath = [];
+          }
 
           // console.log("intersecting eraserPath.points", eraserPath.points)
-          if (eraserPath.points.length > 0) {
-            t.eraserStrokes.push(eraserPath);
+          if (intersectingPath.length > 0) {
+            t.eraserStrokes.push({ ...eraserPath, points: intersectingPath });
           }
         }
       });
