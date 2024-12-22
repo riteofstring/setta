@@ -3,6 +3,7 @@ import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
+import { detectHit } from "./detectHit";
 import {
   filterPathForBrushStroke,
   filterPathForImage,
@@ -12,6 +13,7 @@ import {
   drawStroke,
   getCombinedTransformForStroke,
   getInverseTransform,
+  getTransformedPoints,
   getXY,
   RESIZE_HANDLE_SIZE,
   setGlobalArtifactTransformsAndDrawAllLayers,
@@ -467,30 +469,15 @@ function editingOnMouseDown({
           return true;
         }
       } else if (artifact.type === "brushStrokes") {
-        const hitRadius = 5;
-
-        for (const stroke of artifact.value) {
-          const combinedTransform = getCombinedTransformForStroke(
-            transform,
-            stroke.transform,
-          );
-          for (const point of getTransformedPoints(
-            stroke.points,
-            combinedTransform,
-          )) {
-            if (
-              Math.abs(x - point[0]) <= hitRadius &&
-              Math.abs(y - point[1]) <= hitRadius
-            ) {
-              const bounds = getBrushStrokesBounds(artifact.value, transform);
-              setResizeHandleCorners(resizeHandleCorners, bounds);
-              isDragging.current = true;
-              draggedIdx.current = i;
-              selectedIdx.current = i;
-              lastPos.current = { x, y };
-              return true;
-            }
-          }
+        const hit = detectHit(x, y, artifact, transform);
+        if (hit) {
+          const bounds = getBrushStrokesBounds(artifact.value, transform);
+          setResizeHandleCorners(resizeHandleCorners, bounds);
+          isDragging.current = true;
+          draggedIdx.current = i;
+          selectedIdx.current = i;
+          lastPos.current = { x, y };
+          return true;
         }
       }
     }
@@ -795,16 +782,6 @@ function getScaledWidth(image, transform) {
 
 function getScaledHeight(image, transform) {
   return image.height * transform[3];
-}
-
-function getTransformedPoints(points, transform) {
-  if (!transform) {
-    return points;
-  }
-  return points.map((point) => [
-    point[0] * transform[0] + transform[4],
-    point[1] * transform[3] + transform[5],
-  ]);
 }
 
 function getImageBounds(image, transform) {

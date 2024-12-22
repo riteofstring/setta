@@ -1,5 +1,5 @@
 // Shared utility functions
-function createBounds(x, y, width, height, padding) {
+export function createBounds(x, y, width, height, padding) {
   return {
     minX: x - padding,
     maxX: x + width + padding,
@@ -17,7 +17,7 @@ function addPaddingToBounds(bounds, padding) {
   };
 }
 
-function isPointInBounds(point, bounds) {
+export function isPointInBounds(point, bounds) {
   return (
     point[0] >= bounds.minX &&
     point[0] <= bounds.maxX &&
@@ -37,7 +37,7 @@ function calculateCapPoint(point, referencePoint, halfWidth, capExtra) {
   ];
 }
 
-function isPointInBoundsWithLineCap(
+export function isPointInBoundsWithLineCap(
   point,
   prevPoint,
   nextPoint,
@@ -144,7 +144,7 @@ export function filterPathForImage(
   );
 }
 
-function getTransformedWidth(width, angle, scaleX, scaleY) {
+export function getTransformedWidth(width, angle, scaleX, scaleY) {
   // Get the direction perpendicular to the line
   const perpAngle = angle + Math.PI / 2;
 
@@ -162,7 +162,7 @@ function getTransformedWidth(width, angle, scaleX, scaleY) {
   );
 }
 
-function getSegmentAngle(p1, p2) {
+export function getSegmentAngle(p1, p2) {
   return Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
 }
 

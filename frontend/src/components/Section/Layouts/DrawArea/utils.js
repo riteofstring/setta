@@ -450,3 +450,13 @@ export const debouncedSendDrawingToInteractiveTasks = _.debounce(
   },
   500,
 );
+
+export function getTransformedPoints(points, transform) {
+  if (!transform) {
+    return points;
+  }
+  return points.map((point) => [
+    point[0] * transform[0] + transform[4],
+    point[1] * transform[3] + transform[5],
+  ]);
+}
