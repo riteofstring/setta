@@ -573,88 +573,68 @@ function editingOnMouseMove({
         const width = bounds.maxX - bounds.minX;
         const height = bounds.maxY - bounds.minY;
 
-        const deltaX = dx;
-        const deltaY = dy;
-
         switch (resizeHandle.current) {
           case 0: {
             // Top-left
-            const scaleX = (width - deltaX) / width;
-            const scaleY = (height - deltaY) / height;
+            const scaleX = (width - dx) / width;
+            const scaleY = (height - dy) / height;
 
             // Anchor point is bottom-right
             const anchorX = bounds.maxX;
             const anchorY = bounds.maxY;
 
-            const newScaleX = transform[0] * scaleX;
-            const newScaleY = transform[3] * scaleY;
-            const newTranslateX = anchorX - (anchorX - transform[4]) * scaleX;
-            const newTranslateY = anchorY - (anchorY - transform[5]) * scaleY;
+            transform[0] *= scaleX;
+            transform[3] *= scaleY;
+            transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
+            transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
 
-            transform[0] = newScaleX;
-            transform[3] = newScaleY;
-            transform[4] = newTranslateX;
-            transform[5] = newTranslateY;
             break;
           }
           case 1: {
             // Top-right
-            const scaleX = (width + deltaX) / width;
-            const scaleY = (height - deltaY) / height;
+            const scaleX = (width + dx) / width;
+            const scaleY = (height - dy) / height;
 
             // Anchor point is bottom-left
             const anchorX = bounds.minX;
             const anchorY = bounds.maxY;
 
-            const newScaleX = transform[0] * scaleX;
-            const newScaleY = transform[3] * scaleY;
-            const newTranslateX = anchorX - (anchorX - transform[4]) * scaleX;
-            const newTranslateY = anchorY - (anchorY - transform[5]) * scaleY;
+            transform[0] *= scaleX;
+            transform[3] *= scaleY;
+            transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
+            transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
 
-            transform[0] = newScaleX;
-            transform[3] = newScaleY;
-            transform[4] = newTranslateX;
-            transform[5] = newTranslateY;
             break;
           }
           case 2: {
             // Bottom-left
-            const scaleX = (width - deltaX) / width;
-            const scaleY = (height + deltaY) / height;
+            const scaleX = (width - dx) / width;
+            const scaleY = (height + dy) / height;
 
             // Anchor point is top-right
             const anchorX = bounds.maxX;
             const anchorY = bounds.minY;
 
-            const newScaleX = transform[0] * scaleX;
-            const newScaleY = transform[3] * scaleY;
-            const newTranslateX = anchorX - (anchorX - transform[4]) * scaleX;
-            const newTranslateY = anchorY - (anchorY - transform[5]) * scaleY;
+            transform[0] *= scaleX;
+            transform[3] *= scaleY;
+            transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
+            transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
 
-            transform[0] = newScaleX;
-            transform[3] = newScaleY;
-            transform[4] = newTranslateX;
-            transform[5] = newTranslateY;
             break;
           }
           case 3: {
             // Bottom-right
-            const scaleX = (width + deltaX) / width;
-            const scaleY = (height + deltaY) / height;
+            const scaleX = (width + dx) / width;
+            const scaleY = (height + dy) / height;
 
             // Anchor point is top-left
             const anchorX = bounds.minX;
             const anchorY = bounds.minY;
 
-            const newScaleX = transform[0] * scaleX;
-            const newScaleY = transform[3] * scaleY;
-            const newTranslateX = anchorX - (anchorX - transform[4]) * scaleX;
-            const newTranslateY = anchorY - (anchorY - transform[5]) * scaleY;
-
-            transform[0] = newScaleX;
-            transform[3] = newScaleY;
-            transform[4] = newTranslateX;
-            transform[5] = newTranslateY;
+            transform[0] *= scaleX;
+            transform[3] *= scaleY;
+            transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
+            transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
             break;
           }
         }
