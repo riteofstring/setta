@@ -753,64 +753,6 @@ function setNewResizeHandleCorners(resizeHandle, resizeHandleCorners, dx, dy) {
   }
 }
 
-const resizeBrushStroke = (path, bounds, dx, dy, handle) => {
-  const oldWidth = bounds.maxX - bounds.minX;
-  const oldHeight = bounds.maxY - bounds.minY;
-
-  let scaleX = 1;
-  let scaleY = 1;
-  let translateX = 0;
-  let translateY = 0;
-
-  switch (handle) {
-    case 0: // Top-left
-      scaleX = (oldWidth - dx) / oldWidth;
-      scaleY = (oldHeight - dy) / oldHeight;
-      translateX = bounds.minX + dx;
-      translateY = bounds.minY + dy;
-      break;
-    case 1: // Top-right
-      scaleX = (oldWidth + dx) / oldWidth;
-      scaleY = (oldHeight - dy) / oldHeight;
-      translateX = bounds.minX;
-      translateY = bounds.minY + dy;
-      break;
-    case 2: // Bottom-left
-      scaleX = (oldWidth - dx) / oldWidth;
-      scaleY = (oldHeight + dy) / oldHeight;
-      translateX = bounds.minX + dx;
-      translateY = bounds.minY;
-      break;
-    case 3: // Bottom-right
-      scaleX = (oldWidth + dx) / oldWidth;
-      scaleY = (oldHeight + dy) / oldHeight;
-      translateX = bounds.minX;
-      translateY = bounds.minY;
-      break;
-  }
-
-  if (scaleX * oldWidth < 20) {
-    scaleX = 20 / oldWidth;
-    // Reset translation in x direction if we hit minimum width
-    if (handle === 0 || handle === 2) {
-      translateX = bounds.minX + (bounds.maxX - bounds.minX) * (1 - scaleX);
-    }
-  }
-
-  if (scaleY * oldHeight < 20) {
-    scaleY = 20 / oldHeight;
-    // Reset translation in y direction if we hit minimum height
-    if (handle === 0 || handle === 1) {
-      translateY = bounds.minY + (bounds.maxY - bounds.minY) * (1 - scaleY);
-    }
-  }
-
-  return path.points.map((point) => ({
-    x: translateX + (point.x - bounds.minX) * scaleX,
-    y: translateY + (point.y - bounds.minY) * scaleY,
-  }));
-};
-
 function getScaledWidth(artifact, transform) {
   return artifact.value.width * transform[0];
 }
