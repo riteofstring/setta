@@ -208,15 +208,30 @@ export function drawAllLayers(
         const transformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
         tempCtx.globalAlpha = 1;
         tempCtx.globalCompositeOperation = "source-over";
-        tempCtx.setTransform(...transformInfo.transform);
-        tempCtx.drawImage(image, 0, 0, image.width, image.height);
-        drawSavedStrokesOntoTempCanvas(
-          tempCanvas,
-          tempCtx,
-          transformInfo.eraserStrokes,
-          transformInfo.transform,
-        );
-        tempCtx.resetTransform(); // MUST reset here, otherwise get smudging when moving images around. No idea why
+        if (transformInfo.eraserStrokes.length > 0) {
+          tempCtx.save();
+          tempCtx.beginPath();
+          tempCtx.setTransform(...transformInfo.transform);
+          tempCtx.rect(0, 0, image.width, image.height);
+          tempCtx.clip();
+          tempCtx.drawImage(image, 0, 0, image.width, image.height);
+          drawSavedStrokesOntoTempCanvas(
+            tempCanvas,
+            tempCtx,
+            transformInfo.eraserStrokes,
+            transformInfo.transform,
+          );
+          tempCtx.restore();
+        } else {
+          tempCtx.setTransform(...transformInfo.transform);
+          tempCtx.drawImage(image, 0, 0, image.width, image.height);
+          drawSavedStrokesOntoTempCanvas(
+            tempCanvas,
+            tempCtx,
+            transformInfo.eraserStrokes,
+            transformInfo.transform,
+          );
+        }
       } else if (
         artifact.type === "brushStrokes" &&
         artifact.value.length > 0
@@ -229,8 +244,9 @@ export function drawAllLayers(
           strokes,
           artifactTransformInfo.transform,
         );
-        tempCtx.resetTransform(); // reset for superstitious reasons
       }
+
+      tempCtx.resetTransform(); // MUST reset, otherwise get smudging when moving images around. No idea why
     }
 
     if (realTimeEraserStrokes[layerId]) {
@@ -312,8 +328,8 @@ export function drawSavedStrokesOntoTempCanvas(
       ctx.setTransform(...transform);
     }
     ctx.beginPath();
-    ctx.globalCompositeOperation = stroke.globalCompositeOperation;
-    ctx.strokeStyle = stroke.strokeStyle;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = "#ff0000";
     ctx.globalAlpha = 1;
     ctx.lineWidth = stroke.lineWidth;
     ctx.lineCap = stroke.lineCap;
