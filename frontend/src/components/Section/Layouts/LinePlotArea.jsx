@@ -1,9 +1,14 @@
+import { Tooltip } from "chart.js";
 import Chart from "chart.js/auto";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
 import { useAllSectionArtifacts } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
+
+Tooltip.positioners.mousePosition = function (elements, eventPosition) {
+  return { x: eventPosition.x, y: eventPosition.y };
+};
 
 export function useSimulatedData(
   originalData,
@@ -84,10 +89,6 @@ function _LinePlotArea({ sectionId }) {
         responsive: false,
         maintainAspectRatio: false,
         spanGaps: true,
-        interaction: {
-          mode: "index",
-          intersect: false,
-        },
         scales: {
           x: {
             type: "linear",
@@ -118,7 +119,7 @@ function _LinePlotArea({ sectionId }) {
           tooltip: {
             mode: "index",
             intersect: false,
-            position: "nearest",
+            position: "mousePosition",
             callbacks: {
               title: (context) => {
                 return `X: ${context[0].label}`;
