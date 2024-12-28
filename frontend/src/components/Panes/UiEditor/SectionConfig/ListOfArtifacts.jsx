@@ -179,7 +179,7 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
   const handleLayerDrop = (artifactId, targetLayerId) => {
     useSectionInfos.setState((x) => {
       const targetLayer = x.artifactGroups[targetLayerId];
-      const artifactType = artifactsKnownByDb[artifactId].type;
+      const artifactType = availableArtifacts[artifactId].type;
       targetLayer.artifactTransforms.push(
         newArtifactTransform(artifactId, sectionTypeName, artifactType),
       );
