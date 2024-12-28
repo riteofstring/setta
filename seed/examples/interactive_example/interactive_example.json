@@ -192,6 +192,10 @@
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
+      "size": {
+        "width": 432,
+        "height": 371
+      },
       "artifactGroupIds": ["5698c0e0-26be-4aef-b971-281e09933b3d"],
       "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
       "name": "institutional_fuchsia",

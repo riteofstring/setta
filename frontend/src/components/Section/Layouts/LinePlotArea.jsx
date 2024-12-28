@@ -9,8 +9,8 @@ function _LinePlotArea({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
   const size = useSectionInfos((x) => x.x[sectionId].size, _.isEqual);
   const canvasRef = useRef();
+  const chartRef = useRef(null);
   const xAxisColumn = "input_value";
-
   const secondYAxisColumns = ["quadratic"];
 
   useDeepCompareEffect(() => {
@@ -19,58 +19,70 @@ function _LinePlotArea({ sectionId }) {
     const artifactData = Object.values(loadedArtifacts)[0].value;
     const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
 
-    const chart = new Chart(canvasRef.current, {
-      type: "line",
-      data: {
-        labels: artifactData.data.map((row) => row[xColumnIndex]),
-        datasets: artifactData.headers
-          .map((header, index) => ({
-            header,
-            index,
-          }))
-          .filter(({ index }) => index !== xColumnIndex)
-          .map(({ header, index }) => ({
-            label: header,
-            data: artifactData.data.map((row) => row[index]),
-            yAxisID: secondYAxisColumns.includes(header) ? "y2" : "y1",
-          })),
-      },
-      options: {
-        animation: false,
-        responsive: false,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            type: "linear",
-            ticks: {
-              stepSize: Math.ceil(
-                (artifactData.data.slice(-1)[0][xColumnIndex] -
-                  artifactData.data[0][xColumnIndex]) /
-                  5,
-              ),
-              precision: 0,
+    const newData = {
+      labels: artifactData.data.map((row) => row[xColumnIndex]),
+      datasets: artifactData.headers
+        .map((header, index) => ({
+          header,
+          index,
+        }))
+        .filter(({ index }) => index !== xColumnIndex)
+        .map(({ header, index }) => ({
+          label: header,
+          data: artifactData.data.map((row) => row[index]),
+          yAxisID: secondYAxisColumns.includes(header) ? "y2" : "y1",
+        })),
+    };
+
+    if (!chartRef.current) {
+      // Create new chart if it doesn't exist
+      chartRef.current = new Chart(canvasRef.current, {
+        type: "line",
+        data: newData,
+        options: {
+          animation: false,
+          responsive: false,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              type: "linear",
+              ticks: {
+                stepSize: Math.ceil(
+                  (artifactData.data.slice(-1)[0][xColumnIndex] -
+                    artifactData.data[0][xColumnIndex]) /
+                    5,
+                ),
+                precision: 0,
+              },
             },
-          },
-          y1: {
-            type: "linear",
-            position: "left",
-          },
-          y2: {
-            type: "linear",
-            position: "right",
-            grid: {
-              drawOnChartArea: false,
+            y1: {
+              type: "linear",
+              position: "left",
             },
-            display: secondYAxisColumns.length > 0,
+            y2: {
+              type: "linear",
+              position: "right",
+              grid: {
+                drawOnChartArea: false,
+              },
+              display: secondYAxisColumns.length > 0,
+            },
           },
         },
-      },
-    });
+      });
+    } else {
+      // Update existing chart
+      chartRef.current.data = newData;
+      chartRef.current.update();
+    }
 
-    chart.resize(size.width, size.height - 40);
+    chartRef.current.resize(size.width, size.height - 50);
 
     return () => {
-      chart.destroy();
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
     };
   }, [loadedArtifacts, xAxisColumn, secondYAxisColumns, size]);
 

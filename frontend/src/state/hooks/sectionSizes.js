@@ -93,7 +93,7 @@ export function getSizeMode({ sectionType, hideParams, isTwitter }) {
     if (hideParams) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
     }
-  } else if (sectionType === C.TERMINAL) {
+  } else if (sectionType === C.TERMINAL || sectionType === C.LINE_PLOT) {
     return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
   }
   if (isTwitter) {
