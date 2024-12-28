@@ -2,7 +2,6 @@ import Chart from "chart.js/auto";
 
 export function getLineChartOptionsAndPlugins({
   secondYAxisColumns,
-  darkMode,
   setDatasetHidden,
 }) {
   return {
@@ -58,9 +57,6 @@ export function getLineChartOptionsAndPlugins({
             },
           },
         },
-        verticalLinePlugin: {
-          color: darkMode ? "white" : "black",
-        },
       },
     },
   };
@@ -68,15 +64,14 @@ export function getLineChartOptionsAndPlugins({
 
 const verticalLinePlugin = {
   id: "verticalLinePlugin",
-  defaults: {
-    width: 1,
-    color: "#FF4949",
-    dash: [3, 3],
-  },
-  afterInit: (chart, args, opts) => {
+  afterInit: (chart) => {
     chart.verticalLinePlugin = {
       x: 0,
       y: 0,
+      draw: false,
+      width: 1,
+      color: "black",
+      dash: [3, 3],
     };
   },
   afterEvent: (chart, args) => {
@@ -108,12 +103,14 @@ const verticalLinePlugin = {
       const snapX = xScale.getPixelForValue(nearestValue);
 
       chart.verticalLinePlugin = {
+        ...chart.verticalLinePlugin,
         x: snapX,
         y,
         draw: true,
       };
     } else {
       chart.verticalLinePlugin = {
+        ...chart.verticalLinePlugin,
         x,
         y,
         draw: false,
@@ -122,18 +119,18 @@ const verticalLinePlugin = {
 
     chart.draw();
   },
-  beforeDatasetsDraw: (chart, args, opts) => {
+  beforeDatasetsDraw: (chart) => {
     const { ctx } = chart;
     const { top, bottom } = chart.chartArea;
-    const { x, draw } = chart.verticalLinePlugin;
+    const { x, draw, width, color, dash } = chart.verticalLinePlugin;
     if (!draw) return;
 
     ctx.save();
 
     ctx.beginPath();
-    ctx.lineWidth = opts.width;
-    ctx.strokeStyle = opts.color;
-    ctx.setLineDash(opts.dash);
+    ctx.lineWidth = width;
+    ctx.strokeStyle = color;
+    ctx.setLineDash(dash);
     ctx.moveTo(x, bottom);
     ctx.lineTo(x, top);
     ctx.stroke();

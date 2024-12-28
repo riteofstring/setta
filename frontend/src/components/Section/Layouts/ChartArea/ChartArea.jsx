@@ -1,7 +1,7 @@
 import { Tooltip } from "chart.js";
 import Chart from "chart.js/auto";
 import _ from "lodash";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
 import { useAllSectionArtifacts } from "state/hooks/artifacts";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -80,9 +80,14 @@ function _ChartArea({ sectionId }) {
     const newData = { labels, datasets };
 
     chartRef.current.data = newData;
-    chartRef.current.update();
     chartRef.current.resize(size.width, size.height - 50);
+    chartRef.current.update();
   }, [loadedArtifacts, xAxisColumn, secondYAxisColumns, size, datasetHidden]);
+
+  useEffect(() => {
+    chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
+    chartRef.current.update();
+  }, [darkMode]);
 
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
