@@ -20,17 +20,12 @@ function _ChartArea({ sectionId }) {
   const chartRef = useRef(null);
   const xAxisColumn = "input_value";
   const secondYAxisColumns = ["quadratic"];
-
   const [datasetHidden, setDatasetHidden] = useState({});
 
   useEffect(() => {
     chartRef.current = new Chart(
       canvasRef.current,
-      getLineChartOptionsAndPlugins({
-        secondYAxisColumns,
-        darkMode,
-        setDatasetHidden,
-      }),
+      getLineChartOptionsAndPlugins({ setDatasetHidden }),
     );
 
     return () => {
@@ -40,6 +35,16 @@ function _ChartArea({ sectionId }) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
+    chartRef.current.update();
+  }, [darkMode]);
+
+  useEffect(() => {
+    chartRef.current.scales.y2.display = secondYAxisColumns.length > 0;
+    chartRef.current.update();
+  }, [secondYAxisColumns]);
 
   useDeepCompareEffect(() => {
     if (
@@ -83,11 +88,6 @@ function _ChartArea({ sectionId }) {
     chartRef.current.resize(size.width, size.height - 50);
     chartRef.current.update();
   }, [loadedArtifacts, xAxisColumn, secondYAxisColumns, size, datasetHidden]);
-
-  useEffect(() => {
-    chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
-    chartRef.current.update();
-  }, [darkMode]);
 
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">

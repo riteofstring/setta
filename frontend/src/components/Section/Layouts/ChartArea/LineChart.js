@@ -1,9 +1,6 @@
 import Chart from "chart.js/auto";
 
-export function getLineChartOptionsAndPlugins({
-  secondYAxisColumns,
-  setDatasetHidden,
-}) {
+export function getLineChartOptionsAndPlugins({ setDatasetHidden }) {
   return {
     type: "line",
     data: {
@@ -30,7 +27,6 @@ export function getLineChartOptionsAndPlugins({
           grid: {
             drawOnChartArea: false,
           },
-          display: secondYAxisColumns.length > 0,
         },
       },
       plugins: {
