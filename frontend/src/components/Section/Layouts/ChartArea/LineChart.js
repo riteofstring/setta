@@ -97,7 +97,6 @@ const verticalLinePlugin = {
     if (inChartArea) {
       // Find the nearest x-axis data point
       const xScale = chart.scales.x;
-      const pixels = xScale.getPixelForValue(x);
       const values = chart.data.labels;
 
       // Convert mouse x position to data space

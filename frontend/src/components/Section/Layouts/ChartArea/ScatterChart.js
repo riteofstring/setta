@@ -45,37 +45,39 @@ export function updateScatterChartWithNewData({
   chartSettings,
 }) {
   const xColumnIndex = artifactData.headers.indexOf(chartSettings.xAxisColumn);
-  const datasets = [];
+  const categoryColumnIndex = artifactData.headers.indexOf(
+    chartSettings.categoryColumn,
+  );
 
-  // Create datasets for each y-axis column
-  for (let i = 0; i < artifactData.headers.length; i++) {
-    if (i === xColumnIndex) continue;
-    datasets.push({
-      label: artifactData.headers[i],
-      data: [],
-      yAxisID: chartSettings.secondYAxisColumns.includes(
-        artifactData.headers[i],
-      )
-        ? "y2"
-        : "y1",
-      hidden: datasetHidden[artifactData.headers[i]],
-      pointRadius: 4,
-      pointHoverRadius: 6,
-    });
-  }
-
-  // Populate datasets with x,y coordinates
+  // Group data by category values
+  const groupedData = {};
   for (const row of artifactData.data) {
-    let datasetIndex = 0;
+    const categoryValue = row[categoryColumnIndex];
+    if (!groupedData[categoryValue]) {
+      groupedData[categoryValue] = [];
+    }
     for (let i = 0; i < row.length; i++) {
       if (i === xColumnIndex) continue;
-      datasets[datasetIndex].data.push({
+      if (i === categoryColumnIndex) continue;
+      groupedData[categoryValue].push({
         x: row[xColumnIndex],
         y: row[i],
+        columnName: artifactData.headers[i],
       });
-      datasetIndex++;
     }
   }
+
+  // Create dataset for each category
+  const datasets = Object.entries(groupedData).map(([category, points]) => ({
+    label: category,
+    data: points,
+    yAxisID: chartSettings.secondYAxisColumns.includes(points[0]?.columnName)
+      ? "y2"
+      : "y1",
+    hidden: datasetHidden[category],
+    pointRadius: 4,
+    pointHoverRadius: 6,
+  }));
 
   const newData = { datasets };
 

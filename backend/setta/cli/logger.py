@@ -112,7 +112,7 @@ class SettaListData(SettaDataWrapper):
                         try:
                             row.append(float(x))
                         except ValueError:
-                            row.append(None)  # Handle cases where float conversion fails
+                            row.append(x)
                 data.append(tuple(row))
         self.data = {"headers": headers, "data": data}
 
