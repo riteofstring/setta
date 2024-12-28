@@ -34,7 +34,7 @@ export function getRegexAndColorMap(state) {
   const patternStr = `(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`;
   const pattern = new RegExp(patternStr, "g");
   const codeAreaPattern = new RegExp(
-    `(?<=.*?\\$${C.TEMPLATE_PREFIX}${C.SETTA_GENERATED_PYTHON}.*?)${patternStr}`,
+    `(?<=.*?\\$${C.SETTA_GENERATED_PYTHON}.*?)${patternStr}`,
     "gs",
   );
 

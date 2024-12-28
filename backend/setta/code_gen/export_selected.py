@@ -11,7 +11,7 @@ from setta.utils.utils import (
 )
 
 from ..utils.constants import BASE_UI_TYPES, C
-from .find_placeholders import needs_generated_python, template_prefix
+from .find_placeholders import double_braces, needs_generated_python
 from .utils import process_refs
 
 
@@ -211,17 +211,19 @@ def export_single_run_group_to_dict(runGroup, sections, sectionVariants):
     return e
 
 
-def get_section_code_that_needs_generated_python(p):
+def get_first_section_code_that_needs_generated_python(p):
     for id in p["sections"].keys():
         if code_section_needs_generated_python(p, id):
             return get_section_code(p, id)
-    return template_prefix(C.SETTA_GENERATED_PYTHON)
+    return double_braces(C.SETTA_GENERATED_PYTHON)
 
 
 def code_section_needs_generated_python(p, id):
     code = get_section_code(p, id)
-    return p["sections"][id]["codeLanguage"] == "python" and needs_generated_python(
-        code
+    return (
+        get_section_type(p, id) == C.CODE
+        and p["sections"][id]["codeLanguage"] == "python"
+        and needs_generated_python(code)
     )
 
 
@@ -278,7 +280,7 @@ class Exporter:
                 if self.always_export_args_objs:
                     self.export_args_obj(id)
                 (
-                    used_params,
+                    params,
                     unused_params,
                     positionalOnlyParams,
                 ) = self.export_section_params(id)
@@ -297,11 +299,10 @@ class Exporter:
 
                 info["value"] = {
                     "callable": callable,
-                    "usedParams": used_params,
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,
                 }
-                info["dependencies"] = [*used_params, *used_ref_var_names]
+                info["dependencies"] = [*params, *used_ref_var_names]
                 info["ref_var_name_positions"] = ref_var_name_positions
                 self.output[var_name] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
@@ -338,22 +339,17 @@ class Exporter:
             is_args_obj=True,
         )
         if var_name not in self.output:
-            (
-                used_params,
-                unused_params,
-                positionalOnlyParams,
-            ) = self.export_section_params(id)
+            params, unused_params, positionalOnlyParams = self.export_section_params(id)
             info = {
                 "sectionId": id,
                 "name": get_section_name(self.p, id),
                 "type": C.SECTION,
                 "value": {
                     "callable": None,
-                    "usedParams": used_params,
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,
                 },
-                "dependencies": used_params,
+                "dependencies": params,
                 "ref_var_name_positions": [],  # has to be populated when the code is generated
             }
             self.output[var_name] = info
@@ -366,14 +362,14 @@ class Exporter:
     def export_params(self, section_id, ids):
         var_names = [self.export_param(section_id, x) for x in ids]
         var_names = [x for x in var_names if x]
-        used_params = []
+        params = []
         unused_params = []
         positionalOnlyParams = set()
         for v in var_names:
             if no_entered_value(self.output[v]["value"]):
                 unused_params.append(v)
             else:
-                used_params.append(v)
+                params.append(v)
 
             curr_param_info_id = self.output[v]["paramInfoId"]
             positionalOnly = self.p["codeInfo"][curr_param_info_id].get(
@@ -381,7 +377,7 @@ class Exporter:
             )
             if positionalOnly:
                 positionalOnlyParams.add(v)
-        return used_params, unused_params, positionalOnlyParams
+        return params, unused_params, positionalOnlyParams
 
     def export_param(self, section_id, id):
         codeInfo = self.p["codeInfo"][id]
@@ -396,14 +392,14 @@ class Exporter:
         if var_name not in self.output:
             param_children = get_code_info_children(self.p, section_id, id)
             if len(param_children) > 0:
-                used_params, _, _ = self.export_params(section_id, param_children)
+                params, _, _ = self.export_params(section_id, param_children)
                 info = {
                     "sectionId": section_id,
                     "paramInfoId": id,
                     "name": param_name,
                     "type": C.NESTED_PARAM,
-                    "value": used_params,
-                    "dependencies": used_params,
+                    "value": params,
+                    "dependencies": params,
                     "ref_var_name_positions": [],  # has to be populated when the code is generated
                 }
                 self.output[var_name] = info
