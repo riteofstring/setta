@@ -78,6 +78,8 @@ function _ChartArea({ sectionId }) {
       ),
     );
 
+    chartRef.current.resize(size.width, size.height - 50);
+
     return () => {
       if (chartRef.current) {
         chartRef.current.destroy();
