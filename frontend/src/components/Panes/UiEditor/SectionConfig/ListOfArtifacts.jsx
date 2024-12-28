@@ -141,7 +141,7 @@ export function ListOfArtifacts({
                     {item.type}
                   </p>
                 </header>
-                <Accordion.Trigger className="p-2">
+                <Accordion.Trigger className="cursor-pointer p-2">
                   <FiChevronDown className="transform text-setta-500 transition-transform duration-200 ease-in-out group-data-[state=open]:rotate-180 dark:text-setta-400" />
                 </Accordion.Trigger>
               </div>
