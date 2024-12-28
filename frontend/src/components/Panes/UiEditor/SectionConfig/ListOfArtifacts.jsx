@@ -24,12 +24,6 @@ const LayersList = ({
   );
 
   const [hoveredLayer, setHoveredLayer] = useState(null);
-  const artifactsAlreadyInMemory = useArtifacts(
-    (x) => _.mapValues(x, (a) => ({ name: a.name })),
-    _.isEqual,
-  );
-
-  const allArtifacts = { ...availableArtifacts, ...artifactsAlreadyInMemory };
 
   const handleDragOver = (e, layerId) => {
     setHoveredLayer(layerId);
@@ -77,7 +71,7 @@ const LayersList = ({
                 key={idx}
                 className="group flex items-center justify-between text-sm text-gray-600 dark:text-gray-400"
               >
-                <span>{allArtifacts[artifactId]?.name}</span>
+                <span>{availableArtifacts[artifactId]?.name}</span>
                 <button
                   onClick={() => onDeleteArtifact(layer.id, artifactId)}
                   className="cursor-pointer p-1 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
@@ -94,26 +88,13 @@ const LayersList = ({
 };
 
 export function ListOfArtifacts({
-  sectionTypeName,
   availableArtifacts,
-  setAvailableArtifacts,
   onDragStart,
   onDragEnd,
   onClick,
   getItemStyle,
 }) {
   const [loadedDetails, setLoadedDetails] = useState({});
-
-  useEffect(() => {
-    async function fn() {
-      const res = await dbLoadAvailableArtifacts(sectionTypeName);
-      if (res.status == 200) {
-        setAvailableArtifacts(res.data);
-      }
-    }
-
-    fn();
-  }, []);
 
   const draggable = Boolean(onDragStart);
 
@@ -180,13 +161,13 @@ export function ListOfArtifacts({
 }
 
 export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
-  const [availableArtifacts, setAvailableArtifacts] = useState({});
+  const availableArtifacts = useArtifactsKnownByDbAndInMemory(sectionTypeName);
   const [draggedId, setDraggedId] = useState(null);
 
   const handleLayerDrop = (artifactId, targetLayerId) => {
     useSectionInfos.setState((x) => {
       const targetLayer = x.artifactGroups[targetLayerId];
-      const artifactType = availableArtifacts[artifactId].type;
+      const artifactType = artifactsKnownByDb[artifactId].type;
       targetLayer.artifactTransforms.push(
         newArtifactTransform(artifactId, sectionTypeName, artifactType),
       );
@@ -221,9 +202,7 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
         onDeleteArtifact={handleDeleteArtifact}
       />
       <ListOfArtifacts
-        sectionTypeName={sectionTypeName}
         availableArtifacts={availableArtifacts}
-        setAvailableArtifacts={setAvailableArtifacts}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       />
@@ -232,7 +211,7 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
 }
 
 export function JustListOfArtifacts({ sectionId, sectionTypeName }) {
-  const [availableArtifacts, setAvailableArtifacts] = useState({});
+  const availableArtifacts = useArtifactsKnownByDbAndInMemory(sectionTypeName);
   const selectedArtifactIds = useSectionInfos(
     (state) => getAllSectionArtifactIds(sectionId, state),
     _.isEqual,
@@ -258,11 +237,31 @@ export function JustListOfArtifacts({ sectionId, sectionTypeName }) {
 
   return (
     <ListOfArtifacts
-      sectionTypeName={sectionTypeName}
       availableArtifacts={availableArtifacts}
-      setAvailableArtifacts={setAvailableArtifacts}
       getItemStyle={getItemStyle}
       onClick={onClick}
     />
   );
+}
+
+function useArtifactsKnownByDbAndInMemory(sectionTypeName) {
+  const [artifactsKnownByDb, setArtifactsKnownByDb] = useState({});
+  const artifactsInMemory = useArtifacts(
+    (x) =>
+      _.mapValues(x, (a) => ({ name: a.name, path: a.path, type: a.type })),
+    _.isEqual,
+  );
+
+  useEffect(() => {
+    async function fn() {
+      const res = await dbLoadAvailableArtifacts(sectionTypeName);
+      if (res.status == 200) {
+        setArtifactsKnownByDb(res.data);
+      }
+    }
+
+    fn();
+  }, []);
+
+  return { ...artifactsKnownByDb, ...artifactsInMemory };
 }
