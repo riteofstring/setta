@@ -7,6 +7,7 @@ from setta.utils.utils import nested_access
 
 from . import fns
 from .fns.utils import (
+    InteractiveTaskDefinition,
     TaskDefinition,
     TaskMessage,
     get_task_metadata_for_frontend,
@@ -27,16 +28,14 @@ class Tasks:
 
     async def __call__(self, fn_name, message: TaskMessage):
         print(f"Start processing message ID: {message.id}", flush=True)
-        if fn_name in self.custom_fn_name_to_exporter_obj:
-            self.process_message_for_custom_fn(fn_name, message)
         fn = self.fns[fn_name]
+        message = self.process_message(fn, fn_name, message)
         fn.read_cache(self.cache, message)
         fn_args = [message, *(getattr(self, k) for k in fn.server_dependencies)]
         result = await self.task_runner.run(fn.fn, fn_args, fn.run_as)
         fn.write_cache(self.cache, message, result)
+        result = self.process_output(fn, result)
         result["messageType"] = fn.return_message_type
-        if fn_name in self.custom_fn_name_to_exporter_obj:
-            self.process_output_content_for_custom_fn(result["content"])
         return result
 
     def add_fn(self, task_def: TaskDefinition):
@@ -96,14 +95,21 @@ class Tasks:
             del self.custom_fn_name_to_exporter_obj[x]
         del self.custom_fn_names[project_config_name]
 
-    def process_message_for_custom_fn(self, fn_name, message):
-        exporter_obj = self.custom_fn_name_to_exporter_obj[fn_name]
-        for k, v in message.content.items():
-            nice_str = exporter_obj.var_name_mapping[tuple(json.loads(k))]
-            p_dict, key = nested_access(exporter_obj.output, nice_str)
-            p_dict[key] = v
-        message.content = exporter_obj.output
+    def process_message(self, fn, fn_name, message):
+        if isinstance(fn, InteractiveTaskDefinition):
+            if fn_name in self.custom_fn_name_to_exporter_obj:
+                exporter_obj = self.custom_fn_name_to_exporter_obj[fn_name]
+                for k, v in message.content.items():
+                    nice_str = exporter_obj.var_name_mapping[tuple(json.loads(k))]
+                    p_dict, key = nested_access(exporter_obj.output, nice_str)
+                    p_dict[key] = v
+                message.content = exporter_obj.output
+            message = message.content
+        return message
 
-    def process_output_content_for_custom_fn(self, content):
-        for v in content.values():
-            v.setdefault("sectionType", default_section_type(v["type"]))
+    def process_output(self, fn, result):
+        if isinstance(fn, InteractiveTaskDefinition):
+            for v in result.values():
+                v.setdefault("sectionType", default_section_type(v["type"]))
+            result = {"content": result}
+        return result
