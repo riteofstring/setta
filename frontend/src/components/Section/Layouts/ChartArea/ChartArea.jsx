@@ -24,8 +24,6 @@ function _ChartArea({ sectionId }) {
   );
   const canvasRef = useRef();
   const chartRef = useRef(null);
-  const xAxisColumn = "input_value";
-  const secondYAxisColumns = ["quadratic"];
   const [datasetHidden, setDatasetHidden] = useState({});
 
   useEffect(() => {
@@ -101,8 +99,6 @@ function _ChartArea({ sectionId }) {
     updateFn({
       chartRef,
       artifactData,
-      xAxisColumn,
-      secondYAxisColumns,
       datasetHidden,
       darkMode,
       chartSettings,
@@ -111,19 +107,12 @@ function _ChartArea({ sectionId }) {
     setAxisType(chartRef.current.options.scales.x, chartSettings.xAxisLog);
     setAxisType(chartRef.current.options.scales.y1, chartSettings.y1AxisLog);
     setAxisType(chartRef.current.options.scales.y2, chartSettings.y2AxisLog);
-    chartRef.current.scales.y2.display = secondYAxisColumns.length > 0;
+    chartRef.current.scales.y2.display =
+      chartSettings.secondYAxisColumns.length > 0;
 
     chartRef.current.resize(size.width, size.height - 50);
     chartRef.current.update();
-  }, [
-    loadedArtifacts,
-    xAxisColumn,
-    secondYAxisColumns,
-    size,
-    datasetHidden,
-    darkMode,
-    chartSettings,
-  ]);
+  }, [loadedArtifacts, size, datasetHidden, darkMode, chartSettings]);
 
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">

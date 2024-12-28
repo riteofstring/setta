@@ -39,13 +39,11 @@ export function getLineChartOptionsAndPlugins({ setDatasetHidden }) {
 export function updateLineChartWithNewData({
   chartRef,
   artifactData,
-  xAxisColumn,
-  secondYAxisColumns,
   datasetHidden,
   darkMode,
   chartSettings,
 }) {
-  const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
+  const xColumnIndex = artifactData.headers.indexOf(chartSettings.xAxisColumn);
 
   const labels = [];
   const datasets = [];
@@ -55,7 +53,9 @@ export function updateLineChartWithNewData({
     datasets.push({
       label: artifactData.headers[i],
       data: [],
-      yAxisID: secondYAxisColumns.includes(artifactData.headers[i])
+      yAxisID: chartSettings.secondYAxisColumns.includes(
+        artifactData.headers[i],
+      )
         ? "y2"
         : "y1",
       hidden: datasetHidden[artifactData.headers[i]],

@@ -16,6 +16,8 @@ export function ChartAreaSettings({ sectionId }) {
 function ChartConfig({ sectionId }) {
   const {
     type: chartType,
+    xAxisColumn,
+    secondYAxisColumns,
     xAxisLog,
     y1AxisLog,
     y2AxisLog,
@@ -70,6 +72,8 @@ function ChartConfig({ sectionId }) {
             type="text"
             className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400"
             placeholder="Enter x-axis column"
+            value={xAxisColumn}
+            onChange={(e) => setChartSetting("xAxisColumn", e.target.value)}
           />
         </div>
 
@@ -85,6 +89,13 @@ function ChartConfig({ sectionId }) {
             type="text"
             className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400"
             placeholder="Enter second y-axis columns"
+            value={secondYAxisColumns}
+            onChange={(e) =>
+              setChartSetting(
+                "secondYAxisColumns",
+                e.target.value.split(",").map((item) => item.trim()),
+              )
+            }
           />
         </div>
 

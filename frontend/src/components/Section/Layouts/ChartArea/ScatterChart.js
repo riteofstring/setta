@@ -40,13 +40,11 @@ export function getScatterChartOptionsAndPlugins({ setDatasetHidden }) {
 export function updateScatterChartWithNewData({
   chartRef,
   artifactData,
-  xAxisColumn,
-  secondYAxisColumns,
   datasetHidden,
   darkMode,
   chartSettings,
 }) {
-  const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
+  const xColumnIndex = artifactData.headers.indexOf(chartSettings.xAxisColumn);
   const datasets = [];
 
   // Create datasets for each y-axis column
@@ -55,7 +53,9 @@ export function updateScatterChartWithNewData({
     datasets.push({
       label: artifactData.headers[i],
       data: [],
-      yAxisID: secondYAxisColumns.includes(artifactData.headers[i])
+      yAxisID: chartSettings.secondYAxisColumns.includes(
+        artifactData.headers[i],
+      )
         ? "y2"
         : "y1",
       hidden: datasetHidden[artifactData.headers[i]],
