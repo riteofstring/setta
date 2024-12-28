@@ -81,7 +81,7 @@ function ChartConfig({ sectionId }) {
           />
         </div>
 
-        <div className="space-y-2">
+        {/* <div className="space-y-2">
           <label
             htmlFor="secondYAxisColumns"
             className="block text-sm font-medium text-gray-700 dark:text-gray-300"
@@ -102,7 +102,7 @@ function ChartConfig({ sectionId }) {
               )
             }
           />
-        </div>
+        </div> */}
 
         {optionsWithToggle.map((x) => (
           <ChartConfigToggle
