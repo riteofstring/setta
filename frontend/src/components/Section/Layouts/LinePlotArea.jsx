@@ -1,42 +1,54 @@
 import Chart from "chart.js/auto";
-import React, { useEffect, useRef } from "react";
-
-const data = [
-  { year: 2010, count: 10 },
-  { year: 2011, count: 20 },
-  { year: 2012, count: 15 },
-  { year: 2013, count: 25 },
-  { year: 2014, count: 22 },
-  { year: 2015, count: 30 },
-  { year: 2016, count: 28 },
-];
+import React, { useRef } from "react";
+import { useAllSectionArtifacts } from "state/hooks/artifacts";
+import useDeepCompareEffect from "use-deep-compare-effect";
 
 function _LinePlotArea({ sectionId }) {
+  const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
   const canvasRef = useRef();
 
-  useEffect(() => {
+  useDeepCompareEffect(() => {
+    if (!loadedArtifacts || Object.keys(loadedArtifacts).length === 0) return;
+
+    const artifactData = Object.values(loadedArtifacts)[0].value;
+    const [xHeader, yHeader] = artifactData.headers;
+
     const chart = new Chart(canvasRef.current, {
-      type: "bar",
+      type: "line",
       data: {
-        labels: data.map((row) => row.year),
+        labels: artifactData.data.map((row) => row[0]),
         datasets: [
           {
-            label: "Acquisitions by year",
-            data: data.map((row) => row.count),
+            label: yHeader,
+            data: artifactData.data.map((row) => row[1]),
           },
         ],
       },
-      options: { maintainAspectRatio: false },
+      options: {
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            type: "linear",
+            ticks: {
+              stepSize: Math.ceil(
+                (artifactData.data.slice(-1)[0][0] - artifactData.data[0][0]) /
+                  5,
+              ),
+              precision: 0,
+            },
+          },
+        },
+      },
     });
 
     return () => {
       chart.destroy();
     };
-  }, []);
+  }, [loadedArtifacts]);
 
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
-      <canvas ref={canvasRef} className="bg-red-500" />
+      <canvas ref={canvasRef} />
     </figure>
   );
 }

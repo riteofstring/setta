@@ -95,10 +95,16 @@ class SettaListData(SettaDataWrapper):
         np.savetxt(self.path_with_extension(path), self.data, delimiter=",")
 
     def serialize(self):
-        return {"value": self.data.tolist(), "type": "list"}
+        return {"value": self.data, "type": "list"}
 
     def load(self, path_with_extension):
-        self.data = np.loadtxt(path_with_extension, delimiter=",")
+        with open(path_with_extension, 'r') as f:
+            headers = f.readline().strip().split(',')
+            data = []
+            for line in f:
+                values = line.strip().split(',')
+                data.append(tuple(float(x) for x in values))
+        self.data = {"headers": headers, "data": data}
 
 
 class SettaNumpyImg(SettaDataWrapper):
