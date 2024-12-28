@@ -30,76 +30,30 @@ from setta.utils.constants import (
 def runCode(message, terminal_write_fn=None, command_callback=None):
     p = message["content"]
     exporter_obj = export_selected(p, always_export_args_objs=False)
-    selected = exporter_obj.output
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
     code_sections = {
-        id: copy.deepcopy(s)
-        for id, s in p["sections"].items()
-        if get_section_type(p, s["id"]) == C.CODE
+        k: v for k, v in p["sections"].items() if get_section_type(p, k) == C.CODE
     }
-    dependencies = {}
+    section_dependencies = {}
     for s in code_sections.values():
         section_variant = get_selected_section_variant(p, s["id"])
-        curr_code = section_variant["code"]
-        curr_dependencies = []
-        replacements = {}
-        generated_python_code = None
-        generated_python_var_name_to_line_num = None
-        generated_python_code_area_ref_var_name_positions = None
-        for other_s in code_sections.values():
-            if double_braces(other_s["name"]) in curr_code:
-                replacements[other_s["name"]] = codePathStr(
-                    folder_path, other_s["name"], other_s["codeLanguage"]
-                )
-                curr_dependencies.append(other_s["id"])
-        if needs_yaml(curr_code):
-            replacements["SETTA_YAML_FILE"] = codePathStr(
-                folder_path, "SETTA_YAML", "yaml"
-            )
-        if needs_generated_python(curr_code):
-            (
-                curr_code,
-                _,
-                generated_python_code_area_ref_var_name_positions,
-            ) = process_refs(
-                curr_code,
-                section_variant["evRefs"],
-                exporter_obj.get_ref_var_name,
-            )
-            (
-                generated_python_code,
-                generated_python_var_name_to_line_num,
-            ) = generate_code(
-                selected,
-                curr_code,
-                replace_templated_code=False,
-                make_copy_of_selected=False,
-            )
-            replacements[C.SETTA_GENERATED_PYTHON] = generated_python_code
-
-        section_variant["code"] = replace_keywords(
-            curr_code, replacements, generated_python_code_area_ref_var_name_positions
-        )
-
-        section_variant["code"], setup_code = prepend_with_setup_code(
+        (
+            section_variant["code"],
+            curr_section_dependencies,
+        ) = generate_final_code_for_section(
             section_variant["code"],
             s["codeLanguage"],
-            folder_path,
-            p["projectConfig"]["name"],
+            section_variant["evRefs"],
+            code_sections,
+            exporter_obj,
+            folder_path=folder_path,
+            do_prepend_with_setup_code=True,
+            projectConfigName=p["projectConfig"]["name"],
         )
+        section_dependencies[s["id"]] = curr_section_dependencies
 
-        if generated_python_code:
-            section_variant["code"] = convert_var_names_to_readable_form(
-                section_variant["code"],
-                generated_python_var_name_to_line_num,
-                exporter_obj,
-                generated_python_code_area_ref_var_name_positions,
-                setup_code,
-            )
-        dependencies[s["id"]] = curr_dependencies
-
-    to_write = topological_sort(dependencies)
+    to_write = topological_sort(section_dependencies)
     id_to_filepath = {}
     for sid in to_write:
         curr_section = code_sections[sid]
@@ -113,7 +67,9 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         id_to_filepath[sid] = filepath
 
     # Only run code that isn't referenced by other code
-    run_order = [x for x in to_write if all(x not in y for y in dependencies.values())]
+    run_order = [
+        x for x in to_write if all(x not in y for y in section_dependencies.values())
+    ]
 
     # create a wrapper script if there are multiple files to run
     if len(run_order) > 1:
@@ -134,6 +90,75 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         terminal_write_fn(f"\x15{command}\n")
     elif command_callback:
         command_callback(command)
+
+
+def generate_final_code_for_section(
+    code,
+    codeLanguage,
+    evRefs,
+    code_sections,
+    exporter_obj,
+    folder_path=None,
+    do_prepend_with_setup_code=False,
+    projectConfigName=None,
+):
+    section_dependencies = []
+    replacements = {}
+    generated_python_code = None
+    generated_python_var_name_to_line_num = None
+    generated_python_code_area_ref_var_name_positions = None
+    for other_s in code_sections.values():
+        if folder_path and double_braces(other_s["name"]) in code:
+            replacements[other_s["name"]] = codePathStr(
+                folder_path, other_s["name"], other_s["codeLanguage"]
+            )
+            section_dependencies.append(other_s["id"])
+    if folder_path and needs_yaml(code):
+        replacements["SETTA_YAML_FILE"] = codePathStr(folder_path, "SETTA_YAML", "yaml")
+    if needs_generated_python(code):
+        (
+            code,
+            _,
+            generated_python_code_area_ref_var_name_positions,
+        ) = process_refs(
+            code,
+            evRefs,
+            exporter_obj.get_ref_var_name,
+        )
+        (
+            generated_python_code,
+            generated_python_var_name_to_line_num,
+        ) = generate_code(
+            exporter_obj.output,
+            code,
+            replace_templated_code=False,
+            make_copy_of_selected=False,
+        )
+        replacements[C.SETTA_GENERATED_PYTHON] = generated_python_code
+
+    code = replace_keywords(
+        code, replacements, generated_python_code_area_ref_var_name_positions
+    )
+
+    setup_code = ""
+    if do_prepend_with_setup_code:
+        code, setup_code = prepend_with_setup_code(
+            code,
+            codeLanguage,
+            folder_path,
+            projectConfigName,
+        )
+
+    if generated_python_code:
+        code = convert_var_names_to_readable_form(
+            code,
+            generated_python_var_name_to_line_num,
+            exporter_obj,
+            generated_python_code_area_ref_var_name_positions,
+            setup_code,
+        )
+
+    return code, section_dependencies
 
 
 def languageToExtension(x):
