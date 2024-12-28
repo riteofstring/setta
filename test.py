@@ -1,17 +1,18 @@
 import numpy as np
 import pandas as pd
 
-# Generate x values between -10 and 10
 x = np.linspace(-10, 10, 20)
+sine = np.sin(x)
+cosine = np.cos(x)
+damped_sine = np.exp(-0.2*abs(x)) * sine
+squared = x**2
 
-# Calculate damped sine wave
-y = np.exp(-0.2*abs(x)) * np.sin(x)
-
-# Create dataframe with descriptive column names
 df = pd.DataFrame({
-   'input_amplitude': x,
-   'damped_oscillation': y
+   'input_value': x,
+   'sine_wave': sine,
+   'cosine_wave': cosine, 
+   'damped_oscillation': damped_sine,
+   'quadratic': squared
 })
 
-# Save to CSV
-df.to_csv('damped_sine.csv', index=False)
+df.to_csv('function_data.csv', index=False)

@@ -239,7 +239,7 @@
     },
     "c2d2ec99-e524-4f39-952a-9ac3713339b6": {
       "name": "fancy graph",
-      "path": "seed/examples/interactive_example/damped_sine.csv",
+      "path": "seed/examples/interactive_example/function_data.csv",
       "type": "list"
     }
   },

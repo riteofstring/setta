@@ -6,23 +6,28 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 function _LinePlotArea({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
   const canvasRef = useRef();
+  const xAxisColumn = "input_value";
 
   useDeepCompareEffect(() => {
     if (!loadedArtifacts || Object.keys(loadedArtifacts).length === 0) return;
 
     const artifactData = Object.values(loadedArtifacts)[0].value;
-    const [xHeader, yHeader] = artifactData.headers;
+    const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
 
     const chart = new Chart(canvasRef.current, {
       type: "line",
       data: {
-        labels: artifactData.data.map((row) => row[0]),
-        datasets: [
-          {
-            label: yHeader,
-            data: artifactData.data.map((row) => row[1]),
-          },
-        ],
+        labels: artifactData.data.map((row) => row[xColumnIndex]),
+        datasets: artifactData.headers
+          .map((header, index) => ({
+            header,
+            index,
+          }))
+          .filter(({ index }) => index !== xColumnIndex)
+          .map(({ header, index }) => ({
+            label: header,
+            data: artifactData.data.map((row) => row[index]),
+          })),
       },
       options: {
         maintainAspectRatio: false,
@@ -31,7 +36,8 @@ function _LinePlotArea({ sectionId }) {
             type: "linear",
             ticks: {
               stepSize: Math.ceil(
-                (artifactData.data.slice(-1)[0][0] - artifactData.data[0][0]) /
+                (artifactData.data.slice(-1)[0][xColumnIndex] -
+                  artifactData.data[0][xColumnIndex]) /
                   5,
               ),
               precision: 0,
@@ -44,7 +50,7 @@ function _LinePlotArea({ sectionId }) {
     return () => {
       chart.destroy();
     };
-  }, [loadedArtifacts]);
+  }, [loadedArtifacts, xAxisColumn]);
 
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
