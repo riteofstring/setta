@@ -1,3 +1,4 @@
+import { canvasToBase64 } from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
 import { sendMessage } from "requests/websocket";
 import { useTemporaryMiscState } from "state/definitions";
@@ -44,15 +45,28 @@ export async function sendMessageAndWait({
   return await callFnAndWait({ id, condition, fn });
 }
 
-export async function requestBase64FromDrawArea(sectionId) {
+export async function requestBase64FromCanvas(sectionId) {
   const fn = (actualId) => setTemporaryMiscState(actualId, true);
   const id = base64RequestId(sectionId);
-  const condition = (x) => "completeCanvas" in x;
+  const condition = () => true;
   return await callFnAndWait({ id, condition, fn });
 }
 
 export function base64RequestId(sectionId) {
   return `${sectionId}-base64-request`;
+}
+
+export function listenForCanvasToBase64Requests(sectionId, canvasRef) {
+  const id = base64RequestId(sectionId);
+  const unsub = useTemporaryMiscState.subscribe(
+    (x) => x[id],
+    (x) => {
+      if (x === true) {
+        setTemporaryMiscState(id, canvasToBase64(canvasRef.current));
+      }
+    },
+  );
+  return unsub;
 }
 
 export async function waitForFileDeletion(filepath) {

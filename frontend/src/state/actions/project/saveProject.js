@@ -9,7 +9,6 @@ import {
 } from "requests/projects";
 import { dbSaveSettingsProject } from "requests/settings";
 import {
-  useArtifacts,
   useNodeInternals,
   useProjectConfig,
   useSectionColumnWidth,
@@ -17,11 +16,14 @@ import {
   useSettings,
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
+import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";
 import { setNotificationMessage } from "../notification";
+import { getSectionType } from "../sectionInfos";
+import { requestBase64FromCanvas } from "../temporaryMiscState";
 
 export function getProjectData({
-  withArtifactMetadata = false,
+  withArtifacts = false,
   convertYamlToGUI = true,
 }) {
   // remove temporary sections
@@ -34,26 +36,14 @@ export function getProjectData({
       }
     }
   }
-
   sections = _.mapValues(sections, (x) => {
     x.columnWidth = useSectionColumnWidth.getState()[x.id];
-
-    const artifactState = useArtifacts.getState().x;
-    if (!withArtifactMetadata) {
-      return _.omit(x, ["artifacts"]);
-    }
-    // keep only artifact paths that are actually saved to disk
-    x.artifacts = x.artifacts.filter((a) => artifactState[a].isSaved);
-    x.artifacts = x.artifacts.map((a) => ({
-      path: a,
-      value: a.startsWith("data:") ? artifactState[a].value : undefined,
-      type: artifactState[a].type,
-      displayName: artifactState[a].displayName,
-    }));
     return x;
   });
 
-  console.log("sections", sections);
+  const artifacts = withArtifacts ? getArtifactStateForSaving() : {};
+
+  console.log("saveProject artifacts", artifacts);
 
   const sectionVariants = _.mapValues(
     useSectionInfos.getState().variants,
@@ -63,6 +53,7 @@ export function getProjectData({
       children: x.children.filter((c) => c in sections),
     }),
   );
+  const artifactGroups = useSectionInfos.getState().artifactGroups;
   const uiTypes = _.pickBy(
     useSectionInfos.getState().uiTypes,
     (u) => u.presetType !== C.PRESET_UI_TYPE_BASE,
@@ -92,6 +83,8 @@ export function getProjectData({
   const output = {
     projectConfig,
     sectionVariants,
+    artifacts,
+    artifactGroups,
     uiTypes,
     uiTypeCols,
     sections,
@@ -114,7 +107,7 @@ export async function saveProject() {
     }
   } else {
     res = await dbSaveProject({
-      project: getProjectDataForSaving(),
+      project: await getProjectDataForSaving(),
     });
   }
 
@@ -139,7 +132,7 @@ export async function saveAsExistingProjectConfig({ configName }) {
 
 async function saveProjectAs({ fn, otherArgs }) {
   await fn({
-    project: getProjectDataForSaving(),
+    project: await getProjectDataForSaving(),
     ...otherArgs,
   });
 }
@@ -159,9 +152,24 @@ function getProjectConfigMetadata() {
   return output;
 }
 
-export function getProjectDataForSaving() {
-  return getProjectData({
-    withArtifactMetadata: true,
+export async function getProjectDataForSaving() {
+  const project = getProjectData({
+    withArtifacts: true,
     convertYamlToGUI: true,
   });
+
+  if (useSettings.getState().backend.saveRenderedValues) {
+    await updateSectionsWithRenderedValues(project["sections"]);
+  }
+
+  return project;
+}
+
+export async function updateSectionsWithRenderedValues(sections) {
+  for (const sectionId of Object.keys(sections)) {
+    if ([C.DRAW, C.CHART].includes(getSectionType(sectionId))) {
+      sections[sectionId].renderedValue =
+        await requestBase64FromCanvas(sectionId);
+    }
+  }
 }

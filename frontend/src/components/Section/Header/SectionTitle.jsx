@@ -93,7 +93,7 @@ function useTitleIsEditable(sectionId) {
   return useSectionInfos((x) => {
     const isUneditableType = [
       C.IMAGE,
-      C.LINE_PLOT,
+      C.CHART,
       C.GLOBAL_VARIABLES,
       C.PARAM_SWEEP,
       C.GLOBAL_PARAM_SWEEP,

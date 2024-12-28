@@ -1,25 +1,99 @@
 import _ from "lodash";
-import { useState } from "react";
 import { loadArtifacts } from "state/actions/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
-export function useArtifactData(sectionId) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const artifactPaths = useSectionInfos(
-    (x) => x.x[sectionId].artifacts,
-    _.isEqual,
-  );
-  const artifacts = useArtifacts((x) => _.pick(x.x, artifactPaths));
+export function useLoadedArtifacts(artifactIds, artifactAttrsToPick) {
+  const loadedArtifacts = useArtifacts((x) => {
+    const output = {};
+    for (const id of artifactIds) {
+      if (x[id]?.value) {
+        output[id] = _.pick(x[id], artifactAttrsToPick);
+      }
+    }
+    return output;
+  }, _.isEqual);
 
   useDeepCompareEffect(() => {
-    if (artifactPaths.length !== _.size(artifacts)) {
-      setIsLoaded(false);
-      loadArtifacts(sectionId, artifactPaths);
-    } else {
-      setIsLoaded(true);
+    const notLoaded = [];
+    for (const id of artifactIds) {
+      if (!(id in loadedArtifacts)) {
+        notLoaded.push(id);
+      }
     }
-  }, [artifactPaths, artifacts]);
+    loadArtifacts(notLoaded);
+  }, [artifactIds]);
 
-  return { artifacts, isLoaded };
+  return loadedArtifacts;
+}
+
+export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
+  const { artifactIds, activeLayer, allLayersMetadata, size, canvasSettings } =
+    useSectionInfos((state) => {
+      const artifactIds = getAllSectionArtifactIds(sectionId, state);
+      const canvasSettings = state.x[sectionId].canvasSettings;
+      const activeLayer = state.artifactGroups[canvasSettings.activeLayerId];
+      const allLayersMetadata = getSectionArtifactGroupMetadata(
+        sectionId,
+        state,
+      );
+
+      return {
+        activeLayer,
+        artifactIds,
+        allLayersMetadata,
+        size: state.x[sectionId].size,
+        canvasSettings,
+      };
+    }, _.isEqual);
+
+  const loadedArtifacts = useLoadedArtifacts(artifactIds, ["type"]);
+
+  const loadedArtifactIdsWithDuplicates = [];
+  for (const x of allLayersMetadata) {
+    loadedArtifactIdsWithDuplicates.push(
+      ...x.artifactIdsUsed.filter((a) => a in loadedArtifacts),
+    );
+    delete x.artifactIdsUsed;
+  }
+
+  return {
+    activeLayer,
+    allLayersMetadata,
+    size,
+    canvasSettings,
+    loadedArtifacts,
+    loadedArtifactIdsWithDuplicates,
+  };
+}
+
+export function useAllSectionArtifacts(sectionId, artifactAttrsToPick) {
+  const artifactIds = useSectionInfos(
+    (state) => getAllSectionArtifactIds(sectionId, state),
+    _.isEqual,
+  );
+
+  return useLoadedArtifacts(artifactIds, artifactAttrsToPick);
+}
+
+export function getSectionArtifactGroupMetadata(sectionId, state) {
+  const { artifactGroupIds } = state.x[sectionId];
+  const output = [];
+  for (const id of artifactGroupIds) {
+    const info = { id, ...state.artifactGroups[id] };
+    info.artifactIdsUsed = info.artifactTransforms.map((x) => x.artifactId);
+    delete info.artifactTransforms;
+    output.push(info);
+  }
+  return output;
+}
+
+export function getAllSectionArtifactIds(sectionId, state) {
+  const artifactIds = new Set();
+  for (const artifactGroupId of state.x[sectionId].artifactGroupIds) {
+    for (const t of state.artifactGroups[artifactGroupId].artifactTransforms) {
+      artifactIds.add(t.artifactId);
+    }
+  }
+  return artifactIds;
 }

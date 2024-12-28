@@ -234,7 +234,7 @@
     },
     "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c": {
       "name": "decent_blue",
-      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\n\ndef fn(message):\n    value = {\n        \"Big Run\": {\"selected\": True, \"sections\": {\"Global Variables\": {}}},\n        \"Regular Run\": {\"selected\": True, \"sections\": {\"dataset\": {}}},\n    }\n\n    return_value = {\"value\": value, \"type\": \"runGroupControl\"}\n\n    return {\"content\": [return_value]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn, run_on_project_change=False)\n"
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\n\ndef fn(message):\n    value = {\n        \"Big Run\": {\"selected\": True, \"sections\": {\"Global Variables\": {}}},\n        \"Regular Run\": {\"selected\": True, \"sections\": {\"dataset\": {}}},\n    }\n\n    return_value = {\"value\": value, \"type\": \"runGroupControl\"}\n\n    return {\"content\": [return_value]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)\n"
     },
     "f8d91f36-109b-43df-9770-b720dc3e74bd": {
       "name": "colourful_green"
@@ -595,5 +595,7 @@
         "03ee6530-d464-461c-a989-b310ee2d9b95": []
       }
     }
-  }
+  },
+  "artifacts": {},
+  "artifactGroups": {}
 }

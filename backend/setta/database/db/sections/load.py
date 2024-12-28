@@ -4,6 +4,7 @@ import itertools
 import json
 from collections import defaultdict
 
+from setta.database.db.artifacts.load import load_artifact_groups
 from setta.database.db.codeInfo.utils import new_code_info_col, with_code_info_defaults
 from setta.database.db.sections.utils import with_section_defaults
 from setta.database.db.sectionVariants.utils import new_ev_entry, new_section_variant
@@ -25,7 +26,7 @@ def load_sections(db, ids):
             S.*,
             U.nonPresetUITypeIds,
             E.variantIds,
-            A.artifacts
+            A.artifactGroupIds
         FROM
             Section S
         LEFT JOIN
@@ -51,13 +52,13 @@ def load_sections(db, ids):
         LEFT JOIN
             (
                 SELECT
-                    sectionId,
-                    GROUP_CONCAT(artifactPath) AS artifacts
+                    originSectionId,
+                    GROUP_CONCAT(id) AS artifactGroupIds
                 FROM
-                    SectionArtifacts
+                    ArtifactGroupId
                 GROUP BY
-                    sectionId
-            ) AS A ON S.id = A.sectionId
+                    originSectionId
+            ) AS A ON S.id = A.originSectionId
         WHERE
             S.id IN ({placeholders})
         GROUP BY
@@ -72,7 +73,9 @@ def load_sections(db, ids):
         v["isInOtherProjectConfigs"] = section_id_to_config_count[v["id"]] > 1
         v["parentId"] = child_to_parent_id.get(v["id"], None)
         v["variantIds"] = v["variantIds"].split(",") if v["variantIds"] else []
-        v["artifacts"] = v["artifacts"].split(",") if v["artifacts"] else []
+        v["artifactGroupIds"] = (
+            v["artifactGroupIds"].split(",") if v["artifactGroupIds"] else []
+        )
         v["nonPresetUITypeIds"] = (
             v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
         )
@@ -85,6 +88,13 @@ def load_sections(db, ids):
         itertools.chain.from_iterable([s["variantIds"] for s in sections.values()])
     )
     sectionVariants = load_section_variants(db, variantIds)
+
+    artifactGroupIds = list(
+        itertools.chain.from_iterable(
+            [s["artifactGroupIds"] for s in sections.values()]
+        )
+    )
+    artifactGroups = load_artifact_groups(db, artifactGroupIds)
 
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
 
@@ -100,6 +110,7 @@ def load_sections(db, ids):
     return {
         "sections": sections,
         "sectionVariants": sectionVariants,
+        "artifactGroups": artifactGroups,
         "uiTypeCols": uiTypeCols,
         "nonPresetUITypes": nonPresetUITypes,
     }
@@ -180,24 +191,6 @@ def num_projects_each_section_exists_in(db, section_ids):
     for row in db.fetchall():
         output[row[0]] = row[1]
 
-    return output
-
-
-def load_artifact_metadata(db, section_id, artifact_paths):
-    query_params = []
-    for a in artifact_paths:
-        query_params.extend([section_id, a])
-    placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
-    query = f"""
-        SELECT artifactPath as path, data
-        FROM SectionArtifacts
-        WHERE (sectionId, artifactPath) IN ({placeholders})
-    """
-    db.execute(query, query_params)
-
-    output = []
-    for row in db.fetchall():
-        output.append({"path": row["path"], **json.loads(row["data"])})
     return output
 
 

@@ -94,9 +94,11 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
         "hideUnpinnedParams",
         "displayMode",
         "canvasSettings",
+        "chartSettings",
         "renderMarkdown",
         "paramFilter",
         "columnWidth",
+        "renderedValue",
     )
 )
 
@@ -124,11 +126,3 @@ UI_TYPE_TABLE_DATA_JSON_FIELDS = set(
 )
 
 PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(["viewport", "previewImgColor"])
-
-SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS = set(
-    [
-        "value",
-        "type",
-        "displayName",
-    ]
-)

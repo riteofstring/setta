@@ -2,6 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
+import { AddImageByFilepathModal } from "./AddImageByFilepathModal/AddImageByFilepathModal";
 import { DeleteFileModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
@@ -58,6 +59,8 @@ function ModalContent({ open }) {
       return <RenameReferencesModal open={open} />;
     case MODAL_TYPE.DELETE_JSON_SOURCE_FILE.title:
       return <DeleteFileModal open={open} />;
+    case MODAL_TYPE.ADD_IMAGE_BY_FILEPATH.title:
+      return <AddImageByFilepathModal open={open} />;
     default:
       return null;
   }
