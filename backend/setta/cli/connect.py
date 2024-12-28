@@ -3,7 +3,7 @@ import subprocess
 
 import websockets
 
-from setta.terminals.terminals import runCode
+from setta.code_gen.create_runnable_scripts import runCode
 
 from ..utils.constants import C
 
