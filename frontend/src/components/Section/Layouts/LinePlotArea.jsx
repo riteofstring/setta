@@ -126,22 +126,34 @@ function _LinePlotArea({ sectionId }) {
     const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
 
     // Update data
-    const newData = {
-      labels: artifactData.data.map((row) => row[xColumnIndex]),
-      datasets: artifactData.headers
-        .map((header, index) => ({
-          header,
-          index,
-        }))
-        .filter(({ index }) => index !== xColumnIndex)
-        .map(({ header, index }) => ({
-          label: header,
-          data: artifactData.data.map((row) => row[index]),
-          yAxisID: secondYAxisColumns.includes(header) ? "y2" : "y1",
-          // Apply stored visibility state
-          hidden: datasetVisibility[header] === false,
-        })),
-    };
+    const labels = [];
+    const datasets = [];
+
+    // Initialize empty arrays for each dataset's data
+    for (let i = 0; i < artifactData.headers.length; i++) {
+      if (i === xColumnIndex) continue;
+      datasets.push({
+        label: artifactData.headers[i],
+        data: [],
+        yAxisID: secondYAxisColumns.includes(artifactData.headers[i])
+          ? "y2"
+          : "y1",
+        hidden: datasetVisibility[artifactData.headers[i]] === false,
+      });
+    }
+
+    // Fill in the data arrays
+    for (const row of artifactData.data) {
+      labels.push(row[xColumnIndex]);
+      let datasetIndex = 0;
+      for (let i = 0; i < row.length; i++) {
+        if (i === xColumnIndex) continue;
+        datasets[datasetIndex].data.push(row[i]);
+        datasetIndex++;
+      }
+    }
+
+    const newData = { labels, datasets };
 
     // Update data-dependent options
     chartRef.current.options.scales.x.ticks = {
