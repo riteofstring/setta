@@ -55,7 +55,7 @@ function _LinePlotArea({ sectionId }) {
   const secondYAxisColumns = ["quadratic"];
 
   // Add state to track dataset visibility
-  const [datasetVisibility, setDatasetVisibility] = useState({});
+  const [datasetHidden, setDatasetHidden] = useState({});
 
   // Effect for chart lifecycle (creation and destruction)
   useEffect(() => {
@@ -91,8 +91,7 @@ function _LinePlotArea({ sectionId }) {
         plugins: {
           legend: {
             onClick: (evt, legendItem, legend) => {
-              const index = legendItem.datasetIndex;
-              setDatasetVisibility((prev) => ({
+              setDatasetHidden((prev) => ({
                 ...prev,
                 [legendItem.text]: !prev[legendItem.text],
               }));
@@ -138,7 +137,7 @@ function _LinePlotArea({ sectionId }) {
         yAxisID: secondYAxisColumns.includes(artifactData.headers[i])
           ? "y2"
           : "y1",
-        hidden: datasetVisibility[artifactData.headers[i]] === false,
+        hidden: datasetHidden[artifactData.headers[i]],
       });
     }
 
@@ -169,7 +168,7 @@ function _LinePlotArea({ sectionId }) {
     chartRef.current.data = newData;
     chartRef.current.update();
     chartRef.current.resize(size.width, size.height - 50);
-  }, [simulatedData, xAxisColumn, secondYAxisColumns, size, datasetVisibility]);
+  }, [simulatedData, xAxisColumn, secondYAxisColumns, size, datasetHidden]);
 
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
