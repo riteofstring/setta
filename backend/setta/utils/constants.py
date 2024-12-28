@@ -94,11 +94,9 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
         "hideUnpinnedParams",
         "displayMode",
         "canvasSettings",
-        "chartSettings",
         "renderMarkdown",
         "paramFilter",
         "columnWidth",
-        "renderedValue",
     )
 )
 

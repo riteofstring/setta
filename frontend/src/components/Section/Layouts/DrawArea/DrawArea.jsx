@@ -1,7 +1,14 @@
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
-import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
-import { useArtifacts, useSectionInfos } from "state/definitions";
+import {
+  base64RequestId,
+  setTemporaryMiscState,
+} from "state/actions/temporaryMiscState";
+import {
+  useArtifacts,
+  useSectionInfos,
+  useTemporaryMiscState,
+} from "state/definitions";
 import { useDrawAreaActiveLayerAndLoadedArtifacts } from "state/hooks/artifacts";
 import useDeepCompareEffect, {
   useDeepCompareEffectNoCheck,
@@ -62,7 +69,15 @@ export function DrawArea({ sectionId }) {
     tempCanvasRefs.current.layer = document.createElement("canvas");
     tempCanvasRefs.current.artifact = document.createElement("canvas");
 
-    const unsub = listenForCanvasToBase64Requests(sectionId, canvasRef);
+    const id = base64RequestId(sectionId);
+    const unsub = useTemporaryMiscState.subscribe(
+      (x) => x[id],
+      (x) => {
+        if (x === true) {
+          setTemporaryMiscState(id, allPartsToBase64(canvasRef));
+        }
+      },
+    );
     return unsub;
   }, []);
 

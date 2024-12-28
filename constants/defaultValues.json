@@ -41,14 +41,6 @@
       "artifactIdUsedToSetCanvasSize": null,
       "mode": "draw"
     },
-    "chartSettings": {
-      "type": "line",
-      "xAxisColumn": "",
-      "secondYAxisColumns": [],
-      "xAxisLog": false,
-      "y1AxisLog": false,
-      "y2AxisLog": false
-    },
     "isTemporary": false,
     "renderMarkdown": false,
     "positionAndSizeLocked": false,
@@ -61,8 +53,7 @@
     "aspectRatio": false,
     "aspectRatioExtraHeight": 0,
     "aspectRatioExtraWidth": 0,
-    "columnWidth": null,
-    "renderedValue": null
+    "columnWidth": null
   },
   "sectionVariant": {
     "name": "",

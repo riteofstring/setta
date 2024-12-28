@@ -19,8 +19,6 @@ import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";
 import { setNotificationMessage } from "../notification";
-import { getSectionType } from "../sectionInfos";
-import { requestBase64FromCanvas } from "../temporaryMiscState";
 
 export function getProjectData({
   withArtifacts = false,
@@ -107,7 +105,7 @@ export async function saveProject() {
     }
   } else {
     res = await dbSaveProject({
-      project: await getProjectDataForSaving(),
+      project: getProjectDataForSaving(),
     });
   }
 
@@ -132,7 +130,7 @@ export async function saveAsExistingProjectConfig({ configName }) {
 
 async function saveProjectAs({ fn, otherArgs }) {
   await fn({
-    project: await getProjectDataForSaving(),
+    project: getProjectDataForSaving(),
     ...otherArgs,
   });
 }
@@ -152,24 +150,9 @@ function getProjectConfigMetadata() {
   return output;
 }
 
-export async function getProjectDataForSaving() {
-  const project = getProjectData({
+export function getProjectDataForSaving() {
+  return getProjectData({
     withArtifacts: true,
     convertYamlToGUI: true,
   });
-
-  if (useSettings.getState().backend.saveRenderedValues) {
-    await updateSectionsWithRenderedValues(project["sections"]);
-  }
-
-  return project;
-}
-
-export async function updateSectionsWithRenderedValues(sections) {
-  for (const sectionId of Object.keys(sections)) {
-    if ([C.DRAW, C.CHART].includes(getSectionType(sectionId))) {
-      sections[sectionId].renderedValue =
-        await requestBase64FromCanvas(sectionId);
-    }
-  }
 }

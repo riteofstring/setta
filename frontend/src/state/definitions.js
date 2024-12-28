@@ -2,57 +2,45 @@ import C from "constants/constants.json";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import {
-  create,
-  withProjectState,
-  withManualReset,
-  withResetFn,
-  withVersion,
-} from "./utils";
+import { create, createProjectState, withResetFn, withVersion } from "./utils";
 
-export const useActiveSection = withProjectState(
-  create(
-    temporal(
-      withResetFn(() =>
-        withVersion({
-          ids: [],
-        }),
-      ),
+export const useActiveSection = createProjectState(
+  temporal(
+    withResetFn(() =>
+      withVersion({
+        ids: [],
+      }),
     ),
   ),
 );
 
-export const useContextMenus = withProjectState(
-  create(
-    withResetFn(() => ({
-      pane: { isOpen: false, x: 0, y: 0 },
-      group: { isOpen: false, x: 0, y: 0, sectionId: null },
-      selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
-    })),
-  ),
+export const useContextMenus = createProjectState(
+  withResetFn(() => ({
+    pane: { isOpen: false, x: 0, y: 0 },
+    group: { isOpen: false, x: 0, y: 0, sectionId: null },
+    selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
+  })),
 );
 
-export const useSectionInfos = withProjectState(
-  create(
-    subscribeWithSelector(
-      temporal(
-        immer(
-          withResetFn(() =>
-            withVersion({
-              x: {},
-              variants: {},
-              uiTypeCols: {},
-              uiTypes: {},
-              codeInfoCols: {},
-              codeInfo: {},
-              artifactGroups: {},
-              singletonSections: {
-                [C.GLOBAL_VARIABLES]: null,
-                [C.GLOBAL_PARAM_SWEEP]: null,
-              },
-              shouldRenameReferences: false,
-            }),
-          ),
+export const useSectionInfos = createProjectState(
+  subscribeWithSelector(
+    temporal(
+      immer(
+        withResetFn(() =>
+          withVersion({
+            x: {},
+            variants: {},
+            uiTypeCols: {},
+            uiTypes: {},
+            codeInfoCols: {},
+            codeInfo: {},
+            artifactGroups: {},
+            singletonSections: {
+              [C.GLOBAL_VARIABLES]: null,
+              [C.GLOBAL_PARAM_SWEEP]: null,
+            },
+            shouldRenameReferences: false,
+          }),
         ),
       ),
     ),
@@ -82,35 +70,29 @@ export const useKeywordRegex = create(
 // keys for textFields are of the form:
 // {sectionId}-null for the main section combobox
 // {sectionId}-{paramInfoId} for section parameter fields
-export const useWaitingForLSPResult = withProjectState(
-  create(
-    immer(
-      withResetFn(() => ({
-        textFields: {},
-        parametersRequest: {},
-      })),
-    ),
-  ),
-);
-
-export const useModal = withProjectState(
-  create(
+export const useWaitingForLSPResult = createProjectState(
+  immer(
     withResetFn(() => ({
-      open: false,
-      modalType: null,
-      modalData: null,
+      textFields: {},
+      parametersRequest: {},
     })),
   ),
 );
 
-export const useNodeInternals = withProjectState(
-  create(
-    temporal(
-      withResetFn(() =>
-        withVersion({
-          x: new Map(),
-        }),
-      ),
+export const useModal = createProjectState(
+  withResetFn(() => ({
+    open: false,
+    modalType: null,
+    modalData: null,
+  })),
+);
+
+export const useNodeInternals = createProjectState(
+  temporal(
+    withResetFn(() =>
+      withVersion({
+        x: new Map(),
+      }),
     ),
   ),
 );
@@ -129,64 +111,54 @@ export const useAllProjectConfigs = create(
   })),
 );
 
-export const useArtifacts = withManualReset(
-  withProjectState(create(() => ({}))),
-);
+export const useArtifacts = createProjectState(withResetFn(() => ({})));
 
-export const useProjectConfig = withProjectState(
-  create(
-    temporal(
-      immer(
-        withResetFn(() =>
-          withVersion({
-            id: "",
-            name: "",
-          }),
-        ),
+export const useProjectConfig = createProjectState(
+  temporal(
+    immer(
+      withResetFn(() =>
+        withVersion({
+          id: "",
+          name: "",
+        }),
       ),
     ),
   ),
 );
 
-export const useProjectSearch = withProjectState(
-  create(
-    withResetFn(() => ({
-      sections: [],
-      codeInfo: [],
-      focused: {},
-      lookup: new Set(),
-      mode: "find",
-    })),
-  ),
+export const useProjectSearch = createProjectState(
+  withResetFn(() => ({
+    sections: [],
+    codeInfo: [],
+    focused: {},
+    lookup: new Set(),
+    mode: "find",
+  })),
 );
 
-export const useSectionRefs = withProjectState(
-  create(
-    subscribeWithSelector(
-      immer(
-        withResetFn(() => ({
-          withNested: {},
-          selfOnly: {},
-        })),
-      ),
-    ),
-  ),
-);
-
-export const useSettings = create(() => ({}));
-
-export const useStateVersion = withProjectState(
-  create(temporal(withResetFn(() => withVersion({})))),
-);
-
-export const useTypeErrors = withProjectState(
-  create(
+export const useSectionRefs = createProjectState(
+  subscribeWithSelector(
     immer(
       withResetFn(() => ({
-        userRequested: false,
-        errors: {},
+        withNested: {},
+        selfOnly: {},
       })),
     ),
+  ),
+);
+
+export const useSettings = create(withResetFn(() => ({})));
+
+export const useStateVersion = createProjectState(
+  temporal(withResetFn(() => withVersion({}))),
+);
+
+export const useTypeErrors = createProjectState(
+  immer(
+    withResetFn(() => ({
+      userRequested: false,
+      errors: {},
+    })),
   ),
 );
 
@@ -197,52 +169,42 @@ export const useWebsocketConnectionList = create(
   })),
 );
 
-export const useTemporaryMiscState = withManualReset(
-  withProjectState(create(subscribeWithSelector(() => ({})))),
+export const useTemporaryMiscState = createProjectState(
+  subscribeWithSelector(withResetFn(() => ({}))),
 );
 
 export const useProjectLoading = create(
   withResetFn(() => ({ projectIsLoading: false, projectIs404: false })),
 );
 
-export const useMisc = withProjectState(
-  create(
-    subscribeWithSelector(
-      withResetFn(() => ({
-        mouseDownDrawArea: false,
-        mouseDownDraggingSection: false,
-        lastPaneClickLocation: { x: 0, y: 0 },
-        undoOrRedoWasTriggered: false,
-        isSelectingParams: false,
-        numDisplayedCodeAreas: 0,
-        numInitializedCodeAreas: 0,
-        requestUpdateNodeDimensions: false,
-      })),
-    ),
-  ),
-);
-
-export const useYamlValue = withManualReset(
-  withProjectState(create(() => {})),
-);
-
-export const useOriginalYamlObj = withManualReset(
-  withProjectState(create(() => {})),
-);
-
-export const useSectionColumnWidth = withManualReset(
-  withProjectState(create(subscribeWithSelector(() => {}))),
-);
-
-export const useResizerStore = withProjectState(
-  create(
+export const useMisc = createProjectState(
+  subscribeWithSelector(
     withResetFn(() => ({
-      activeResizer: null, // { sectionId, ref, startX, startWidth, containerWidth, maxNestedDepth }
-      globalEventListenersInitialized: false,
+      mouseDownDrawArea: false,
+      mouseDownDraggingSection: false,
+      lastPaneClickLocation: { x: 0, y: 0 },
+      undoOrRedoWasTriggered: false,
+      isSelectingParams: false,
+      numDisplayedCodeAreas: 0,
+      numInitializedCodeAreas: 0,
+      requestUpdateNodeDimensions: false,
     })),
   ),
 );
 
-export const useInfoToEVReferrer = withManualReset(
-  withProjectState(create(() => ({}))),
+export const useYamlValue = createProjectState(withResetFn(() => {}));
+
+export const useOriginalYamlObj = createProjectState(withResetFn(() => {}));
+
+export const useSectionColumnWidth = createProjectState(
+  subscribeWithSelector(withResetFn(() => {})),
 );
+
+export const useResizerStore = createProjectState(
+  withResetFn(() => ({
+    activeResizer: null, // { sectionId, ref, startX, startWidth, containerWidth, maxNestedDepth }
+    globalEventListenersInitialized: false,
+  })),
+);
+
+export const useInfoToEVReferrer = createProjectState(withResetFn(() => ({})));

@@ -3,7 +3,6 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
 import { dbLoadAvailableArtifacts } from "requests/artifacts";
-import { maybeAddArtifactGroupAndSetArtifactId } from "state/actions/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import {
   getAllSectionArtifactIds,
@@ -24,6 +23,12 @@ const LayersList = ({
   );
 
   const [hoveredLayer, setHoveredLayer] = useState(null);
+  const artifactsAlreadyInMemory = useArtifacts(
+    (x) => _.mapValues(x, (a) => ({ name: a.name })),
+    _.isEqual,
+  );
+
+  const allArtifacts = { ...availableArtifacts, ...artifactsAlreadyInMemory };
 
   const handleDragOver = (e, layerId) => {
     setHoveredLayer(layerId);
@@ -71,7 +76,7 @@ const LayersList = ({
                 key={idx}
                 className="group flex items-center justify-between text-sm text-gray-600 dark:text-gray-400"
               >
-                <span>{availableArtifacts[artifactId]?.name}</span>
+                <span>{allArtifacts[artifactId]?.name}</span>
                 <button
                   onClick={() => onDeleteArtifact(layer.id, artifactId)}
                   className="cursor-pointer p-1 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
@@ -88,13 +93,26 @@ const LayersList = ({
 };
 
 export function ListOfArtifacts({
+  sectionTypeName,
   availableArtifacts,
+  setAvailableArtifacts,
   onDragStart,
   onDragEnd,
   onClick,
   getItemStyle,
 }) {
   const [loadedDetails, setLoadedDetails] = useState({});
+
+  useEffect(() => {
+    async function fn() {
+      const res = await dbLoadAvailableArtifacts(sectionTypeName);
+      if (res.status == 200) {
+        setAvailableArtifacts(res.data);
+      }
+    }
+
+    fn();
+  }, []);
 
   const draggable = Boolean(onDragStart);
 
@@ -161,13 +179,13 @@ export function ListOfArtifacts({
 }
 
 export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
-  const availableArtifacts = useArtifactsKnownByDbAndInMemory(sectionTypeName);
+  const [availableArtifacts, setAvailableArtifacts] = useState({});
   const [draggedId, setDraggedId] = useState(null);
 
   const handleLayerDrop = (artifactId, targetLayerId) => {
     useSectionInfos.setState((x) => {
       const targetLayer = x.artifactGroups[targetLayerId];
-      const artifactType = artifactsKnownByDb[artifactId].type;
+      const artifactType = availableArtifacts[artifactId].type;
       targetLayer.artifactTransforms.push(
         newArtifactTransform(artifactId, sectionTypeName, artifactType),
       );
@@ -202,7 +220,9 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
         onDeleteArtifact={handleDeleteArtifact}
       />
       <ListOfArtifacts
+        sectionTypeName={sectionTypeName}
         availableArtifacts={availableArtifacts}
+        setAvailableArtifacts={setAvailableArtifacts}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       />
@@ -210,8 +230,8 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
   );
 }
 
-export function JustListOfArtifacts({ sectionId, sectionTypeName }) {
-  const availableArtifacts = useArtifactsKnownByDbAndInMemory(sectionTypeName);
+export function JustListOfArtifacts({ sectionId, sectionTypeName, onClick }) {
+  const [availableArtifacts, setAvailableArtifacts] = useState({});
   const selectedArtifactIds = useSectionInfos(
     (state) => getAllSectionArtifactIds(sectionId, state),
     _.isEqual,
@@ -223,45 +243,13 @@ export function JustListOfArtifacts({ sectionId, sectionTypeName }) {
       : null;
   }
 
-  function onClick(artifactId, artifactType) {
-    useSectionInfos.setState((state) => {
-      maybeAddArtifactGroupAndSetArtifactId(
-        sectionId,
-        sectionTypeName,
-        artifactId,
-        artifactType,
-        state,
-      );
-    });
-  }
-
   return (
     <ListOfArtifacts
+      sectionTypeName={sectionTypeName}
       availableArtifacts={availableArtifacts}
+      setAvailableArtifacts={setAvailableArtifacts}
       getItemStyle={getItemStyle}
       onClick={onClick}
     />
   );
-}
-
-function useArtifactsKnownByDbAndInMemory(sectionTypeName) {
-  const [artifactsKnownByDb, setArtifactsKnownByDb] = useState({});
-  const artifactsInMemory = useArtifacts(
-    (x) =>
-      _.mapValues(x, (a) => ({ name: a.name, path: a.path, type: a.type })),
-    _.isEqual,
-  );
-
-  useEffect(() => {
-    async function fn() {
-      const res = await dbLoadAvailableArtifacts(sectionTypeName);
-      if (res.status == 200) {
-        setArtifactsKnownByDb(res.data);
-      }
-    }
-
-    fn();
-  }, []);
-
-  return { ...artifactsKnownByDb, ...artifactsInMemory };
 }

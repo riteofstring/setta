@@ -101,7 +101,7 @@ function getRequiredUIEditorTabs(uiTypeName) {
       return [];
     case C.DRAW:
     case C.IMAGE:
-    case C.CHART:
+    case C.LINE_PLOT:
       return [SECTION_CONFIG_TAB];
     default:
       return [

@@ -4,7 +4,7 @@ import itertools
 import json
 from collections import defaultdict
 
-from setta.database.db.artifacts.load import load_artifact_groups
+from setta.database.db.artifacts.load import load_artifact_groups, load_artifacts
 from setta.database.db.codeInfo.utils import new_code_info_col, with_code_info_defaults
 from setta.database.db.sections.utils import with_section_defaults
 from setta.database.db.sectionVariants.utils import new_ev_entry, new_section_variant

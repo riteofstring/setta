@@ -41,7 +41,7 @@ function specificArtifactTransformProps(sectionTypeName, artifactType) {
         eraserStrokes: artifactType === "img" ? [] : {},
       };
     case C.IMAGE:
-    case C.CHART:
+    case C.LINE_PLOT:
       return {};
     default:
       return {};

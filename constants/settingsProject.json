@@ -182,9 +182,6 @@
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"backend\",\"exportDbReadableWithVariantsOnSave\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
-      },
-      "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"backend\",\"saveRenderedValues\"]}": {
-        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       }
     }
   },
@@ -271,6 +268,5 @@
     }
   },
   "codeInfo": {},
-  "codeInfoCols": {},
-  "artifacts": {}
+  "codeInfoCols": {}
 }
