@@ -74,7 +74,7 @@ const verticalLinePlugin = {
     dash: [3, 3],
   },
   afterInit: (chart, args, opts) => {
-    chart.corsair = {
+    chart.verticalLinePlugin = {
       x: 0,
       y: 0,
     };
@@ -107,13 +107,13 @@ const verticalLinePlugin = {
       // Convert back to pixels for drawing
       const snapX = xScale.getPixelForValue(nearestValue);
 
-      chart.corsair = {
+      chart.verticalLinePlugin = {
         x: snapX,
         y,
         draw: true,
       };
     } else {
-      chart.corsair = {
+      chart.verticalLinePlugin = {
         x,
         y,
         draw: false,
@@ -125,7 +125,7 @@ const verticalLinePlugin = {
   beforeDatasetsDraw: (chart, args, opts) => {
     const { ctx } = chart;
     const { top, bottom } = chart.chartArea;
-    const { x, draw } = chart.corsair;
+    const { x, draw } = chart.verticalLinePlugin;
     if (!draw) return;
 
     ctx.save();
@@ -153,7 +153,7 @@ function _LinePlotArea({ sectionId }) {
 
   const [datasetHidden, setDatasetHidden] = useState({});
 
-  useEffect(() => {
+  useDeepCompareEffect(() => {
     chartRef.current = new Chart(canvasRef.current, {
       type: "line",
       data: {
