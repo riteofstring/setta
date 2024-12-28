@@ -11,7 +11,7 @@ from setta.utils.utils import (
 )
 
 from ..utils.constants import BASE_UI_TYPES, C
-from .find_placeholders import double_braces, needs_generated_python
+from .find_placeholders import needs_generated_python, template_prefix
 from .utils import process_refs
 
 
@@ -211,19 +211,17 @@ def export_single_run_group_to_dict(runGroup, sections, sectionVariants):
     return e
 
 
-def get_first_section_code_that_needs_generated_python(p):
+def get_section_code_that_needs_generated_python(p):
     for id in p["sections"].keys():
         if code_section_needs_generated_python(p, id):
             return get_section_code(p, id)
-    return double_braces(C.SETTA_GENERATED_PYTHON)
+    return template_prefix(C.SETTA_GENERATED_PYTHON)
 
 
 def code_section_needs_generated_python(p, id):
     code = get_section_code(p, id)
-    return (
-        get_section_type(p, id) == C.CODE
-        and p["sections"][id]["codeLanguage"] == "python"
-        and needs_generated_python(code)
+    return p["sections"][id]["codeLanguage"] == "python" and needs_generated_python(
+        code
     )
 
 

@@ -9,9 +9,9 @@ from setta.code_gen.export_selected import (
     get_selected_section_variant,
 )
 from setta.code_gen.find_placeholders import (
-    double_braces,
     needs_generated_python,
     needs_yaml,
+    template_prefix,
 )
 from setta.code_gen.python.generate_code import (
     convert_var_names_to_readable_form,
@@ -108,7 +108,7 @@ def generate_final_code_for_section(
     generated_python_var_name_to_line_num = None
     generated_python_code_area_ref_var_name_positions = None
     for other_s in code_sections.values():
-        if folder_path and double_braces(other_s["name"]) in code:
+        if folder_path and template_prefix(other_s["name"]) in code:
             replacements[other_s["name"]] = codePathStr(
                 folder_path, other_s["name"], other_s["codeLanguage"]
             )

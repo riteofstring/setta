@@ -5,7 +5,7 @@ import re
 from setta.utils.utils import replace_at_positions
 
 from ...utils.constants import USER_SETTINGS, C
-from ..find_placeholders import double_braces
+from ..find_placeholders import template_prefix
 from ..utils import push_var_deep
 from .ast_utils import find_missing_imports, find_top_level_symbols
 
@@ -209,7 +209,7 @@ def maybe_prepend_with_imports_and_replace_templated_code(
         imports = ""
 
     num_preceding_lines = count_lines(
-        templated_code.split(double_braces(C.SETTA_GENERATED_PYTHON))[0] + imports
+        templated_code.split(template_prefix(C.SETTA_GENERATED_PYTHON))[0] + imports
     )
     new_var_name_to_line_num = {
         k: v + num_preceding_lines for k, v in var_name_to_line_num.items()
@@ -323,7 +323,7 @@ def create_nice_var_name(top_level_symbols, nice_name):
 def replace_keywords(x, replacements, ref_var_name_positions=None):
     for key, new_value in replacements.items():
         if new_value is not None:
-            old_value = double_braces(key)
+            old_value = template_prefix(key)
             if ref_var_name_positions:
                 for match in re.finditer(re.escape(old_value), x):
                     position = match.start()
