@@ -4,15 +4,8 @@ import { StandardPopover } from "components/Utils/atoms/popover/standardpopover"
 import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { BiPaint } from "react-icons/bi";
-import {
-  FaBars,
-  FaEye,
-  FaEyeSlash,
-  FaPencilAlt,
-  FaPlus,
-  FaTrash,
-} from "react-icons/fa";
+import { BiHide, BiPaint, BiShow } from "react-icons/bi";
+import { FaPencilAlt, FaPlus } from "react-icons/fa";
 import { IoMove } from "react-icons/io5";
 import { TfiLayersAlt } from "react-icons/tfi";
 import { addDrawAreaLayer } from "state/actions/artifacts";
@@ -448,23 +441,31 @@ function LayerList({
   };
 
   return (
-    <ul className="space-y-2">
-      {layers.map((layer, idx) => (
-        <li
-          key={layer.id}
-          draggable={true}
-          onDragStart={(e) => handleDragStart(e, idx)}
-          onDragOver={(e) => handleDragOver(e, idx)}
-          onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, idx)}
-          className={`flex items-center justify-between rounded bg-gray-50 p-2 hover:bg-gray-100 ${
-            draggedOverIdx === idx ? "border-t-2 border-blue-500" : ""
-          }`}
-        >
-          <div className="flex flex-1 items-center">
-            <div className="mr-2 cursor-move text-gray-400 hover:text-gray-600">
-              <FaBars className="h-4 w-4" />
-            </div>
+    <div className="flex w-full flex-col gap-2">
+      <ul className="mt-1 flex w-full flex-col gap-2">
+        {layers.map((layer, idx) => (
+          <li
+            key={layer.id}
+            draggable={true}
+            onDragStart={(e) => handleDragStart(e, idx)}
+            onDragOver={(e) => handleDragOver(e, idx)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, idx)}
+            className={`flex cursor-move items-center justify-between gap-2 rounded-lg border-2  bg-setta-50 px-2 py-1 hover:bg-setta-100 dark:bg-setta-900 dark:hover:bg-setta-875 ${
+              draggedOverIdx === idx ? " border-blue-500" : "border-transparent"
+            } `}
+            onClick={() => setActiveLayerId(layer.id)}
+          >
+            <button
+              onClick={() => setLayerVisibility(layer.id, !layer.visible)}
+              className="cursor-pointer"
+            >
+              {layer.visible ? (
+                <BiShow className="h-5 w-5 text-blue-500" />
+              ) : (
+                <BiHide className="h-5 w-5 text-setta-400 dark:text-setta-600" />
+              )}
+            </button>
             {editingIdx === idx ? (
               <input
                 type="text"
@@ -472,62 +473,37 @@ function LayerList({
                 onChange={(e) => setEditValue(e.target.value)}
                 onKeyDown={(e) => handleKeyDown(e, idx)}
                 onBlur={() => handleBlur(idx)}
-                className="rounded border px-1 text-sm focus:border-blue-500 focus:outline-none"
+                className="rounded border px-1 text-sm text-setta-600 focus:border-blue-500 focus:outline-none dark:text-setta-400"
                 autoFocus
               />
             ) : (
-              <span
-                className="text-sm"
+              <p
+                className={`text-sm font-semibold  ${activeLayerId === layer.id ? " !text-blue-500" : "text-setta-600 dark:text-setta-400"}`}
                 // onDoubleClick={() =>
                 //   handleDoubleClick(id, artifactIdsToNames[id])
                 // }
               >
                 {layer.name}
-              </span>
+              </p>
             )}
-          </div>
-          <div className="flex items-center space-x-2">
-            <div
-              onClick={() => setLayerVisibility(layer.id, !layer.visible)}
-              className="cursor-pointer"
-            >
-              {layer.visible ? (
-                <FaEye className="h-4 w-4 text-blue-500" />
-              ) : (
-                <FaEyeSlash className="h-4 w-4 text-gray-400" />
-              )}
-            </div>
-            <div
-              onClick={() => setActiveLayerId(layer.id)}
-              className="cursor-pointer"
-            >
-              <FaPencilAlt
-                className={`h-4 w-4 ${
-                  activeLayerId === layer.id
-                    ? "text-green-500"
-                    : "text-gray-300 hover:text-gray-400"
-                }`}
-              />
-            </div>
-            <div
+
+            <button
               onClick={() => deleteLayer(layer.id)}
-              className="cursor-pointer"
+              className="flex h-4 w-4 cursor-pointer items-center"
             >
-              <FaTrash className="h-4 w-4 text-red-500" />
-            </div>
-          </div>
-        </li>
-      ))}
-      <li className="mt-2">
-        <button
-          onClick={addLayer}
-          className="flex w-full items-center justify-center rounded bg-gray-50 p-2 text-sm text-gray-600 hover:bg-gray-100"
-        >
-          <FaPlus className="mr-2 h-3 w-3" />
-          Add Layer
-        </button>
-      </li>
-    </ul>
+              <i className="gg-close  text-setta-400 hover:!text-red-500 dark:text-setta-700" />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <button
+        onClick={addLayer}
+        className="flex max-w-full cursor-pointer items-center justify-center rounded p-2 text-sm text-setta-600 hover:text-blue-500"
+      >
+        <FaPlus className="mr-2 h-3 w-3" />
+        Add Layer
+      </button>
+    </div>
   );
 }
 
