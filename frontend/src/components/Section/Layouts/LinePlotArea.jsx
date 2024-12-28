@@ -8,6 +8,8 @@ function _LinePlotArea({ sectionId }) {
   const canvasRef = useRef();
   const xAxisColumn = "input_value";
 
+  const secondYAxisColumns = ["quadratic"];
+
   useDeepCompareEffect(() => {
     if (!loadedArtifacts || Object.keys(loadedArtifacts).length === 0) return;
 
@@ -27,6 +29,7 @@ function _LinePlotArea({ sectionId }) {
           .map(({ header, index }) => ({
             label: header,
             data: artifactData.data.map((row) => row[index]),
+            yAxisID: secondYAxisColumns.includes(header) ? "y2" : "y1",
           })),
       },
       options: {
@@ -43,6 +46,18 @@ function _LinePlotArea({ sectionId }) {
               precision: 0,
             },
           },
+          y1: {
+            type: "linear",
+            position: "left",
+          },
+          y2: {
+            type: "linear",
+            position: "right",
+            grid: {
+              drawOnChartArea: false,
+            },
+            display: secondYAxisColumns.length > 0,
+          },
         },
       },
     });
@@ -50,7 +65,7 @@ function _LinePlotArea({ sectionId }) {
     return () => {
       chart.destroy();
     };
-  }, [loadedArtifacts, xAxisColumn]);
+  }, [loadedArtifacts, xAxisColumn, secondYAxisColumns]);
 
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
