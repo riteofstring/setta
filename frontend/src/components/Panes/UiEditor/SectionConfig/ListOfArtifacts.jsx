@@ -1,7 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { FaObjectGroup } from "react-icons/fa6";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
 import { dbLoadAvailableArtifacts } from "requests/artifacts";
 import { maybeAddArtifactGroupAndSetArtifactId } from "state/actions/artifacts";
@@ -42,61 +41,49 @@ const LayersList = ({
 
   const getLayerStyle = (layer) => {
     if (!draggedId || hoveredLayer !== layer.id) {
-      return "border-setta-300 dark:border-setta-600";
+      return "border-gray-300";
     }
 
-    return "border-green-500 dark:border-green-600 bg-green-50 dark:bg-green-800 dark:[&_*]:text-white/50";
+    return "border-green-500 bg-green-50";
   };
 
   return (
-    <>
-      <h3 className="mt-1 text-sm font-bold text-setta-400 dark:text-setta-600">
-        Add / Remove Layer Contents
-      </h3>
-      <section className="mb-4 rounded-xl border border-white bg-white px-4 py-2 shadow-[inset_0_3px_8px_0_rgb(0_0_0_/_0.15)] dark:border-setta-700 dark:bg-setta-800 dark:shadow-[inset_0_1px_8px_0_rgb(0_0_0_/_0.6)]">
-        {layers.map((layer) => (
-          <div
-            key={layer.id}
-            className={`-mx-2 mb-2 rounded-lg  px-2 py-1 transition-colors hover:bg-setta-100/30 dark:hover:bg-setta-900/50 ${getLayerStyle(layer)} ${
-              draggedId
-                ? "cursor-copy border border-dashed border-blue-500"
-                : "border !border-transparent"
-            }`}
-            onDragOver={(e) => handleDragOver(e, layer.id)}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, layer.id)}
-          >
-            <header className="flex gap-1">
-              <FaObjectGroup className="text-setta-300 dark:text-setta-600" />
-              <h4 className="text-xs font-bold uppercase text-setta-600 dark:text-setta-400">
-                {layer.name}
-              </h4>
-            </header>
-
-            <div className="ml-2">
-              {layer.artifactIdsUsed.map((artifactId, idx) => (
-                <div
-                  key={idx}
-                  className="group flex items-center justify-between text-xs text-setta-600 dark:text-setta-400"
+    <div className="mb-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
+      <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+        Layers
+      </h2>
+      {layers.map((layer) => (
+        <div
+          key={layer.id}
+          className={`mb-2 rounded border-2 border-dashed p-2 transition-colors ${getLayerStyle(layer)} ${
+            draggedId ? "cursor-copy" : ""
+          }`}
+          onDragOver={(e) => handleDragOver(e, layer.id)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, layer.id)}
+        >
+          <h3 className="font-medium text-gray-900 dark:text-gray-100">
+            {layer.name}
+          </h3>
+          <div className="ml-4">
+            {layer.artifactIdsUsed.map((artifactId, idx) => (
+              <div
+                key={idx}
+                className="group flex items-center justify-between text-sm text-gray-600 dark:text-gray-400"
+              >
+                <span>{availableArtifacts[artifactId]?.name}</span>
+                <button
+                  onClick={() => onDeleteArtifact(layer.id, artifactId)}
+                  className="cursor-pointer p-1 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
                 >
-                  <div className="flex gap-1">
-                    <i className="gg-image text-setta-300 dark:text-setta-600" />
-                    <p>{availableArtifacts[artifactId]?.name}</p>
-                  </div>
-
-                  <button
-                    onClick={() => onDeleteArtifact(layer.id, artifactId)}
-                    className="cursor-pointer p-1 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
-                  >
-                    <FiTrash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
+                  <FiTrash2 size={14} />
+                </button>
+              </div>
+            ))}
           </div>
-        ))}
-      </section>
-    </>
+        </div>
+      ))}
+    </div>
   );
 };
 
@@ -113,53 +100,54 @@ export function ListOfArtifacts({
 
   return (
     <>
-      <h3 className="mt-1 text-sm font-bold text-setta-400 dark:text-setta-600">
-        Available Layer Objects (Drag & Drop)
-      </h3>
+      <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+        Available Artifacts
+      </h2>
 
-      <Accordion.Root
-        type="multiple"
-        className="flex w-full flex-col gap-2 rounded-lg bg-setta-500/10 px-4 py-4"
-      >
+      <Accordion.Root type="multiple" className="w-full">
         {Object.entries(availableArtifacts).map(([id, item]) => (
           <Accordion.Item
             key={id}
             value={item.name}
-            className={`flex flex-col rounded-lg bg-white shadow-md transition-shadow hover:shadow-xl dark:bg-setta-800 dark:!shadow-setta-900 ${draggable ? "cursor-move" : "cursor-pointer"} mx-1 justify-center border px-2 py-1 last:border-0 ${getItemStyle?.(id) ?? "border-transparent  hover:border-white dark:border-setta-700 dark:hover:bg-setta-700"}`}
+            className={`border-b last:border-0 ${getItemStyle?.(id) ?? "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"}`}
             draggable={draggable}
             onDragStart={(e) => onDragStart?.(e, id)}
             onDragEnd={onDragEnd}
             onClick={() => onClick?.(id, item.type)}
           >
-            <div className="flex flex-1 flex-col">
-              <div className="flex items-center justify-between">
-                <header className="flex">
-                  <p className="text-xs font-bold text-setta-600 dark:text-setta-200">
-                    {item.name}
-                  </p>
-                  <p className="ml-2 text-xs text-setta-500 dark:text-setta-400">
-                    {item.type}
-                  </p>
-                </header>
-                <Accordion.Trigger className="p-2">
-                  <FiChevronDown className="transform text-setta-500 transition-transform duration-200 ease-in-out group-data-[state=open]:rotate-180 dark:text-setta-400" />
-                </Accordion.Trigger>
-              </div>
-              {item.path && (
-                <div className="mb-2 text-xs text-setta-500 dark:text-setta-400">
-                  {item.path}
+            <div
+              className={`flex ${draggable ? "cursor-move" : "cursor-pointer"} items-center gap-2 p-2`}
+            >
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {item.name}
+                    </span>
+                    <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                      {item.type}
+                    </span>
+                  </div>
+                  <Accordion.Trigger className="p-2">
+                    <FiChevronDown className="transform text-gray-500 transition-transform duration-200 ease-in-out group-data-[state=open]:rotate-180 dark:text-gray-400" />
+                  </Accordion.Trigger>
                 </div>
-              )}
+                {item.path && (
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    {item.path}
+                  </div>
+                )}
+              </div>
             </div>
 
             <Accordion.Content className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
-              <div className="rounded-md bg-setta-50 px-3 py-2 dark:bg-setta-900/50">
+              <div className="bg-gray-50 p-4 dark:bg-gray-800">
                 {loadedDetails[item.id] ? (
-                  <pre className="text-xs text-setta-900 dark:text-setta-100">
+                  <pre className="text-gray-900 dark:text-gray-100">
                     {JSON.stringify(loadedDetails[item.id], null, 2)}
                   </pre>
                 ) : (
-                  <div className="text-xs text-setta-500 dark:text-setta-400">
+                  <div className="text-gray-500 dark:text-gray-400">
                     No additional details available
                   </div>
                 )}
@@ -179,7 +167,7 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
   const handleLayerDrop = (artifactId, targetLayerId) => {
     useSectionInfos.setState((x) => {
       const targetLayer = x.artifactGroups[targetLayerId];
-      const artifactType = availableArtifacts[artifactId].type;
+      const artifactType = artifactsKnownByDb[artifactId].type;
       targetLayer.artifactTransforms.push(
         newArtifactTransform(artifactId, sectionTypeName, artifactType),
       );
