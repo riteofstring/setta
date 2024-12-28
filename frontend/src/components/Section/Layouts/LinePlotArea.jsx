@@ -13,7 +13,6 @@ export function useSimulatedData(originalData, updateInterval = 1000) {
   useEffect(() => {
     if (!originalData || Object.keys(originalData).length === 0) return;
 
-    // Update state when originalData changes
     setSimulatedData(_.cloneDeep(originalData));
 
     const intervalId = setInterval(() => {
@@ -23,20 +22,17 @@ export function useSimulatedData(originalData, updateInterval = 1000) {
         const artifact = newData[artifactId];
         const data = artifact.value.data;
 
-        // Get the last input value and increment it
         const lastRow = data[data.length - 1];
-        const nextInputValue = lastRow[0] + (data[1][0] - data[0][0]); // Use same step size
+        const nextInputValue = lastRow[0] + (data[1][0] - data[0][0]);
 
-        // Generate new values following the patterns
         const newRow = [
           nextInputValue,
-          Math.sin(nextInputValue), // sine_wave
-          Math.cos(nextInputValue), // cosine_wave
-          Math.sin(nextInputValue) * Math.exp(-Math.abs(nextInputValue / 10)), // damped_oscillation
-          nextInputValue * nextInputValue, // quadratic
+          Math.sin(nextInputValue),
+          Math.cos(nextInputValue),
+          Math.sin(nextInputValue) * Math.exp(-Math.abs(nextInputValue / 10)),
+          nextInputValue * nextInputValue,
         ];
 
-        // Add the new row
         artifact.value.data = [...data, newRow];
 
         return newData;
@@ -58,9 +54,11 @@ function _LinePlotArea({ sectionId }) {
   const xAxisColumn = "input_value";
   const secondYAxisColumns = ["quadratic"];
 
+  // Add state to track dataset visibility
+  const [datasetVisibility, setDatasetVisibility] = useState({});
+
   // Effect for chart lifecycle (creation and destruction)
-  useDeepCompareEffect(() => {
-    console.log('creating chart')
+  useEffect(() => {
     // Create initial chart with basic configuration
     chartRef.current = new Chart(canvasRef.current, {
       type: "line",
@@ -89,21 +87,34 @@ function _LinePlotArea({ sectionId }) {
             display: secondYAxisColumns.length > 0,
           },
         },
+        // Add legend click handler to track visibility state
+        plugins: {
+          legend: {
+            onClick: (evt, legendItem, legend) => {
+              const index = legendItem.datasetIndex;
+              setDatasetVisibility((prev) => ({
+                ...prev,
+                [legendItem.text]: !prev[legendItem.text],
+              }));
+
+              // Call original legend click handler
+              Chart.defaults.plugins.legend.onClick(evt, legendItem, legend);
+            },
+          },
+        },
       },
     });
 
-    // Cleanup only on unmount
     return () => {
       if (chartRef.current) {
         chartRef.current.destroy();
         chartRef.current = null;
       }
     };
-  }, [secondYAxisColumns]); // Only depends on secondYAxisColumns for y2 axis display
+  }, [secondYAxisColumns]);
 
   // Effect for data updates and data-dependent configuration
   useDeepCompareEffect(() => {
-    console.log("updating chart")
     if (
       !simulatedData ||
       Object.keys(simulatedData).length === 0 ||
@@ -127,6 +138,8 @@ function _LinePlotArea({ sectionId }) {
           label: header,
           data: artifactData.data.map((row) => row[index]),
           yAxisID: secondYAxisColumns.includes(header) ? "y2" : "y1",
+          // Apply stored visibility state
+          hidden: datasetVisibility[header] === false,
         })),
     };
 
@@ -144,7 +157,7 @@ function _LinePlotArea({ sectionId }) {
     chartRef.current.data = newData;
     chartRef.current.update();
     chartRef.current.resize(size.width, size.height - 50);
-  }, [simulatedData, xAxisColumn, secondYAxisColumns, size]);
+  }, [simulatedData, xAxisColumn, secondYAxisColumns, size, datasetVisibility]);
 
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
