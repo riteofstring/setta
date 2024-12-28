@@ -48,37 +48,30 @@ const LayersList = ({
   };
 
   return (
-    <section className="mb-4 rounded-xl border border-white bg-white px-4 py-2 shadow-[inset_0_3px_8px_0_rgb(0_0_0_/_0.15)] dark:border-setta-700 dark:bg-setta-800 dark:shadow-[inset_0_1px_8px_0_rgb(0_0_0_/_0.6)]">
-      <h3 className="mb-2 mt-1 text-sm font-bold text-setta-400 dark:text-setta-600">
-        Add / Remove Layer Contents
-      </h3>
-
+    <div className="mb-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
+      <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+        Layers
+      </h2>
       {layers.map((layer) => (
         <div
           key={layer.id}
-          className={`-mx-2 mb-2 rounded-lg border px-2 py-1 transition-colors hover:bg-setta-100/30 dark:hover:bg-setta-900/50 ${getLayerStyle(layer)} ${
-            draggedId
-              ? "cursor-copy border-dashed border-blue-500"
-              : "border-transparent"
+          className={`mb-2 rounded border-2 border-dashed p-2 transition-colors ${getLayerStyle(layer)} ${
+            draggedId ? "cursor-copy" : ""
           }`}
           onDragOver={(e) => handleDragOver(e, layer.id)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, layer.id)}
         >
-          <h4 className="text-xs font-bold uppercase text-setta-600 dark:text-setta-400">
+          <h3 className="font-medium text-gray-900 dark:text-gray-100">
             {layer.name}
-          </h4>
-          <div className="ml-2">
+          </h3>
+          <div className="ml-4">
             {layer.artifactIdsUsed.map((artifactId, idx) => (
               <div
                 key={idx}
-                className="group flex items-center justify-between text-xs text-setta-600 dark:text-setta-400"
+                className="group flex items-center justify-between text-sm text-gray-600 dark:text-gray-400"
               >
-                <div className="flex gap-1">
-                  <i className="gg-image text-setta-300 dark:text-setta-600" />
-                  <p>{availableArtifacts[artifactId]?.name}</p>
-                </div>
-
+                <span>{availableArtifacts[artifactId]?.name}</span>
                 <button
                   onClick={() => onDeleteArtifact(layer.id, artifactId)}
                   className="cursor-pointer p-1 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
@@ -90,7 +83,7 @@ const LayersList = ({
           </div>
         </div>
       ))}
-    </section>
+    </div>
   );
 };
 
@@ -116,7 +109,7 @@ export function ListOfArtifacts({
           <Accordion.Item
             key={id}
             value={item.name}
-            className={`border-b last:border-0 ${getItemStyle?.(id) ?? "border-setta-200 hover:bg-setta-50 dark:border-setta-700 dark:hover:bg-setta-800"}`}
+            className={`border-b last:border-0 ${getItemStyle?.(id) ?? "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"}`}
             draggable={draggable}
             onDragStart={(e) => onDragStart?.(e, id)}
             onDragEnd={onDragEnd}

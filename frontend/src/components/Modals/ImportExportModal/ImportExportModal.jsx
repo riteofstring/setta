@@ -89,7 +89,7 @@ function TextAreaModal({
         )}
         <textarea
           disabled={disabled}
-          className="overflow-y min-h-[30vh] flex-grow resize-none bg-transparent font-mono text-xs outline-none"
+          className="overflow-y flex-grow resize-none bg-transparent font-mono text-xs outline-none"
           value={value}
           onChange={(v) => setValue(v.target.value)}
           placeholder="JSON, state 'em..."
