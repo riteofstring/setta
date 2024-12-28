@@ -58,6 +58,48 @@ export function getLineChartOptionsAndPlugins({ setDatasetHidden }) {
   };
 }
 
+export function updateLineChartWithNewData({
+  chartRef,
+  artifactData,
+  xAxisColumn,
+  secondYAxisColumns,
+  datasetHidden,
+  darkMode,
+}) {
+  const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
+
+  const labels = [];
+  const datasets = [];
+
+  for (let i = 0; i < artifactData.headers.length; i++) {
+    if (i === xColumnIndex) continue;
+    datasets.push({
+      label: artifactData.headers[i],
+      data: [],
+      yAxisID: secondYAxisColumns.includes(artifactData.headers[i])
+        ? "y2"
+        : "y1",
+      hidden: datasetHidden[artifactData.headers[i]],
+    });
+  }
+
+  for (const row of artifactData.data) {
+    labels.push(row[xColumnIndex]);
+    let datasetIndex = 0;
+    for (let i = 0; i < row.length; i++) {
+      if (i === xColumnIndex) continue;
+      datasets[datasetIndex].data.push(row[i]);
+      datasetIndex++;
+    }
+  }
+
+  const newData = { labels, datasets };
+
+  chartRef.current.data = newData;
+  chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
+  chartRef.current.scales.y2.display = secondYAxisColumns.length > 0;
+}
+
 const verticalLinePlugin = {
   id: "verticalLinePlugin",
   afterInit: (chart) => {

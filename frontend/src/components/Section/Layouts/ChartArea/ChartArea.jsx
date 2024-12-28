@@ -6,7 +6,10 @@ import { useSectionInfos } from "state/definitions";
 import { useAllSectionArtifacts } from "state/hooks/artifacts";
 import { localStorageFns } from "state/hooks/localStorage";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { getLineChartOptionsAndPlugins } from "./LineChart";
+import {
+  getLineChartOptionsAndPlugins,
+  updateLineChartWithNewData,
+} from "./LineChart";
 
 Tooltip.positioners.mousePosition = function (elements, eventPosition) {
   return { x: eventPosition.x, y: eventPosition.y };
@@ -45,38 +48,14 @@ function _ChartArea({ sectionId }) {
       return;
 
     const artifactData = Object.values(loadedArtifacts)[0].value;
-    const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
-
-    const labels = [];
-    const datasets = [];
-
-    for (let i = 0; i < artifactData.headers.length; i++) {
-      if (i === xColumnIndex) continue;
-      datasets.push({
-        label: artifactData.headers[i],
-        data: [],
-        yAxisID: secondYAxisColumns.includes(artifactData.headers[i])
-          ? "y2"
-          : "y1",
-        hidden: datasetHidden[artifactData.headers[i]],
-      });
-    }
-
-    for (const row of artifactData.data) {
-      labels.push(row[xColumnIndex]);
-      let datasetIndex = 0;
-      for (let i = 0; i < row.length; i++) {
-        if (i === xColumnIndex) continue;
-        datasets[datasetIndex].data.push(row[i]);
-        datasetIndex++;
-      }
-    }
-
-    const newData = { labels, datasets };
-
-    chartRef.current.data = newData;
-    chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
-    chartRef.current.scales.y2.display = secondYAxisColumns.length > 0;
+    updateLineChartWithNewData({
+      chartRef,
+      artifactData,
+      xAxisColumn,
+      secondYAxisColumns,
+      datasetHidden,
+      darkMode,
+    });
     chartRef.current.resize(size.width, size.height - 50);
     chartRef.current.update();
   }, [
