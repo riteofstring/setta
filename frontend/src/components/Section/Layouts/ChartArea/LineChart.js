@@ -1,4 +1,12 @@
+import { Tooltip } from "chart.js";
 import Chart from "chart.js/auto";
+
+Tooltip.positioners.lineChartTooltipMousePosition = function (
+  elements,
+  eventPosition,
+) {
+  return { x: eventPosition.x, y: eventPosition.y };
+};
 
 export function getLineChartOptionsAndPlugins({ setDatasetHidden }) {
   return {
@@ -42,7 +50,7 @@ export function getLineChartOptionsAndPlugins({ setDatasetHidden }) {
         tooltip: {
           mode: "index",
           intersect: false,
-          position: "mousePosition",
+          position: "lineChartTooltipMousePosition",
           callbacks: {
             title: (context) => {
               return `X: ${context[0].label}`;

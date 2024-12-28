@@ -1,4 +1,3 @@
-import { Tooltip } from "chart.js";
 import Chart from "chart.js/auto";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
@@ -10,10 +9,6 @@ import {
   getLineChartOptionsAndPlugins,
   updateLineChartWithNewData,
 } from "./LineChart";
-
-Tooltip.positioners.mousePosition = function (elements, eventPosition) {
-  return { x: eventPosition.x, y: eventPosition.y };
-};
 
 function _ChartArea({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
