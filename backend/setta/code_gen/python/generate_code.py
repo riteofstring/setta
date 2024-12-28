@@ -82,24 +82,24 @@ def get_value(x, selected):
     type_value = x["type"]
     if type_value == C.TEXT:
         output = str(x["value"])
-        relative_positions = []
+        # Although this seems redundant, it is necessary, because if we return None, it won't update the positions
+        # with the variable declaration length.
+        relative_positions = x["ref_var_name_positions"]
     elif type_value == C.SLIDER:
         output = str(x["value"])
-        relative_positions = []
+        relative_positions = None
     elif type_value == C.SWITCH:
         output = str(get_boolean(x["value"]))
-        relative_positions = []
+        relative_positions = None
     elif type_value == C.SECTION:
         if not x["value"]["callable"]:
-            output, relative_positions = get_dict_contents(
-                x["value"]["usedParams"], selected
-            )
+            output, relative_positions = get_dict_contents(x["dependencies"], selected)
             prefix = "{"
             output = prefix + output + "}"
             prefix_len = len(prefix)
         else:
             output, relative_positions = get_callable_params(
-                x["value"]["usedParams"], x["value"]["positionalOnlyParams"], selected
+                x["dependencies"], x["value"]["positionalOnlyParams"], selected
             )
             prefix = f"{x['value']['callable']}("
             output = f"{prefix}{output})"
@@ -115,21 +115,19 @@ def get_value(x, selected):
         relative_positions = [(p + 1, v) for p, v in relative_positions]
     else:
         output = None
-        relative_positions = []
+        relative_positions = None
 
     return output, relative_positions
 
 
 def create_line(var_name, x, selected, force_appear):
     value, relative_positions = get_value(x, selected)
-    # include any ref positions that were calculated in export_selected,
-    # because they too need to be shifted by the length of the variable declaration
-    relative_positions.extend(x["ref_var_name_positions"])
     if value or force_appear:
         prefix = var_declaration(var_name, value, return_prefix=True)
         prefix_len = len(prefix)
         value = f"{prefix}{value}"
-        relative_positions = [(p + prefix_len, v) for p, v in relative_positions]
+        if relative_positions:
+            relative_positions = [(p + prefix_len, v) for p, v in relative_positions]
     return value, relative_positions
 
 
@@ -146,7 +144,6 @@ def generate_lines_of_code_without_imports(
                 isinstance(v["value"], dict)
                 and force_appear_var_name in v["value"]["unusedParams"]
             ):
-                v["value"]["usedParams"].append(force_appear_var_name)
                 v["dependencies"].append(force_appear_var_name)
                 v["value"]["unusedParams"].remove(force_appear_var_name)
         selected = [{"var_name": k, **v} for k, v in selected.items()]
@@ -160,7 +157,8 @@ def generate_lines_of_code_without_imports(
         if var_str:
             var_name_to_line_num[var_name] = len(lines)
             lines.append(var_str)
-            x["ref_var_name_positions"] = ref_var_name_positions
+            if ref_var_name_positions:
+                x["ref_var_name_positions"] = ref_var_name_positions
 
     return lines, var_name_to_line_num
 
