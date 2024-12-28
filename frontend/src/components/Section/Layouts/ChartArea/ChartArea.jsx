@@ -36,16 +36,6 @@ function _ChartArea({ sectionId }) {
     };
   }, []);
 
-  useEffect(() => {
-    chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
-    chartRef.current.update();
-  }, [darkMode]);
-
-  useEffect(() => {
-    chartRef.current.scales.y2.display = secondYAxisColumns.length > 0;
-    chartRef.current.update();
-  }, [secondYAxisColumns]);
-
   useDeepCompareEffect(() => {
     if (
       !loadedArtifacts ||
@@ -85,9 +75,18 @@ function _ChartArea({ sectionId }) {
     const newData = { labels, datasets };
 
     chartRef.current.data = newData;
+    chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
+    chartRef.current.scales.y2.display = secondYAxisColumns.length > 0;
     chartRef.current.resize(size.width, size.height - 50);
     chartRef.current.update();
-  }, [loadedArtifacts, xAxisColumn, secondYAxisColumns, size, datasetHidden]);
+  }, [
+    loadedArtifacts,
+    xAxisColumn,
+    secondYAxisColumns,
+    size,
+    datasetHidden,
+    darkMode,
+  ]);
 
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
