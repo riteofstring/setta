@@ -61,7 +61,7 @@ class Tasks:
     async def add_custom_fns(self, codeDict, project_config_name, exporter_obj):
         error_msgs = {}
         task_metadata = []
-        content = []
+        content = {}
         self.remove_existing_custom_fns(project_config_name)
         for id, code in codeDict.items():
             task_name = f"{project_config_name}-{id}"
@@ -80,11 +80,11 @@ class Tasks:
             self.custom_fn_name_to_exporter_obj[t["name"]] = exporter_obj
 
         for t in task_metadata:
-            if t["runOnImport"]:
-                task_output = await self(
-                    t["name"], TaskMessage(id=create_new_id(), content={})
-                )
-                content.extend(task_output["content"])
+            # if t["runOnImport"]:
+            task_output = await self(
+                t["name"], TaskMessage(id=create_new_id(), content={})
+            )
+            content.update(task_output["content"])
 
         return task_metadata, error_msgs, content
 
@@ -105,5 +105,5 @@ class Tasks:
         message.content = exporter_obj.output
 
     def process_output_content_for_custom_fn(self, content):
-        for v in content:
+        for v in content.values():
             v.setdefault("sectionType", default_section_type(v["type"]))

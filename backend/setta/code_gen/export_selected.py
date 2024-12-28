@@ -487,19 +487,23 @@ class SimpleExporter:
                 C.LIST_ROOT,
                 C.DICT_ROOT,
                 C.GROUP,
-                C.IMAGE,
-                C.CHART,
-                C.DRAW,
+                # C.IMAGE,
+                # C.CHART,
+                # C.DRAW,
                 C.GLOBAL_VARIABLES,
             ],
         )
         for id in list(self.p["projectConfig"]["children"].keys()):
             name = get_section_name(self.p, id)
-            self.output[name] = self.export_section(id, name)
+            value, value_is_returned = self.export_section(id, name)
+            if value_is_returned:
+                self.output[name] = value
 
     def export_section(self, id, name):
         type = get_section_type(self.p, id)
         self.create_var_mapping((id,), name)
+        value = None
+        value_is_returned = True
         if type == C.SECTION:
             selectedItem = get_selected_item_name(self.p, id)
             params = self.export_section_params(
@@ -521,17 +525,18 @@ class SimpleExporter:
                     value[child_name] = self.export_section(
                         c, f'{name}["{child_name}"]'
                     )
-        elif type in [C.IMAGE, C.CHART]:
-            value = get_artifacts(self.p, id)
-            self.create_var_mapping((id, "artifact"), name)
-        elif type == C.DRAW:
-            value = get_drawings(self.p, id)
-            self.create_var_mapping((id, "drawing"), name)
+        # elif type in [C.IMAGE, C.CHART]:
+        #     value = get_artifacts(self.p, id)
+        #     self.create_var_mapping((id, "artifact"), name)
+        # elif type == C.DRAW:
+        #     value = get_drawings(self.p, id)
+        #     self.create_var_mapping((id, "drawing"), name)
         elif type == C.GLOBAL_VARIABLES:
             self.output.update(self.export_section_params(id, "", is_global=True))
+            value_is_returned = False
         else:
             raise ValueError
-        return value
+        return value, value_is_returned
 
     def export_section_params(self, section_id, name, is_global):
         return self.export_params(

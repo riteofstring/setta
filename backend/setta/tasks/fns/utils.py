@@ -68,7 +68,7 @@ class TaskDefinition(BaseModel):
     read_cache: Optional[Callable] = do_nothing
     write_cache: Optional[Callable] = do_nothing
     run_as: Optional[RunType] = RunType.NONE
-    dependencies: Optional[List[str]] = []
+    dependencies: Optional[List[str]] = None
     server_dependencies: Optional[List[str]] = []
 
 
@@ -79,19 +79,21 @@ class TaskMessage(BaseModel):
 
 class InteractiveTaskDefinition(TaskDefinition):
     return_message_type: str = C.WS_INTERACTIVE_RETURN
-    run_on_import: bool = True
-    run_on_project_change: bool = True
 
 
 def get_task_metadata_for_frontend(task, exporter_obj=None):
     if isinstance(task, InteractiveTaskDefinition):
-        dependencies = [
-            exporter_obj.var_name_reverse_mapping[d] for d in task.dependencies
-        ]
+        # None means run the task on every change
+        if task.dependencies is None:
+            dependencies = None
+        # Empty array means only run when the task imported.
+        # Non-empty array means run when specified dependencies update.
+        else:
+            dependencies = [
+                exporter_obj.var_name_reverse_mapping[d] for d in task.dependencies
+            ]
         return {
             "name": task.name,
-            "runOnImport": task.run_on_import,
-            "runOnProjectChange": task.run_on_project_change,
             "dependencies": dependencies,
         }
     return {"name": task.name}
