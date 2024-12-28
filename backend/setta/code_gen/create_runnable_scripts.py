@@ -1,5 +1,5 @@
-import copy
 import os
+from pathlib import Path
 from datetime import datetime
 
 from setta.code_gen.export_selected import (
@@ -66,6 +66,9 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         filepath = os.path.relpath(filepath).replace(os.sep, "/")
         id_to_filepath[sid] = filepath
 
+    # allow calling as a module and having relative imports
+    add_python_init_file(folder_path)
+
     # Only run code that isn't referenced by other code
     run_order = [
         x for x in to_write if all(x not in y for y in section_dependencies.values())
@@ -83,8 +86,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     else:
         sid = run_order[0]
         filepath = id_to_filepath[sid]
-        callingProgram = languageToCall(code_sections[sid]["codeLanguage"])
-        command = f"{callingProgram} {filepath}"
+        command = languageToCall(code_sections[sid]["codeLanguage"], filepath)
 
     if terminal_write_fn:
         terminal_write_fn(f"\x15{command}\n")
@@ -108,7 +110,12 @@ def generate_final_code_for_section(
     generated_python_var_name_to_line_num = None
     generated_python_code_area_ref_var_name_positions = None
     for other_s in code_sections.values():
-        if folder_path and template_prefix(other_s["name"]) in code:
+        # insert filepath if the reference is to another code section of a different language
+        if (
+            folder_path
+            and codeLanguage != other_s["codeLanguage"]
+            and template_prefix(other_s["name"]) in code
+        ):
             replacements[other_s["name"]] = codePathStr(
                 folder_path, other_s["name"], other_s["codeLanguage"]
             )
@@ -165,8 +172,13 @@ def languageToExtension(x):
     return {"python": ".py", "bash": ".sh", "yaml": ".yaml"}[x]
 
 
-def languageToCall(x):
-    return {"python": "python", "bash": "bash"}[x]
+def languageToCall(language, filepath):
+    if language == "python":
+        module_path = python_script_filepath_to_module_path(filepath)
+        return f"python -m {module_path}\n"
+    elif language == "bash":
+        return f"bash {filepath}\n"
+
 
 
 def codePathStr(folder_path, filename, codeLanguage):
@@ -177,7 +189,7 @@ def codePathStr(folder_path, filename, codeLanguage):
 
 def codeCallStr(folder_path, section):
     codePath = codePathStr(folder_path, section["name"], section["codeLanguage"])
-    return f"{languageToCall(section['codeLanguage'])} {codePath}\n"
+    return languageToCall(section['codeLanguage'], codePath)
 
 
 def topological_sort(objects):
@@ -203,7 +215,7 @@ def topological_sort(objects):
     return order[::-1]
 
 
-def create_timestamped_folder(base_dir, prefix=""):
+def create_timestamped_folder(base_dir, prefix="_"):
     # Format the current timestamp with subsecond precision
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     # Create folder name with optional prefix and subsecond precision
@@ -229,15 +241,23 @@ def write_string_to_file(folder, filename, content):
     return file_path
 
 
+def add_python_init_file(folder):
+    filepath = Path(folder) / "__init__.py"
+    Path(filepath).touch()
+
+def python_script_filepath_to_module_path(file_path):
+    # Convert path to parts, removing file extension
+    parts = file_path.replace('\\', '/').split('/')
+    module_path = '.'.join(parts)[:-3]  # remove .py
+    return module_path
+
+
 def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name):
     setup_code = ""
     if codeLanguage == "python":
         location = f"/{project_config_name}"
         setup_code = (
-            "import sys\n"
             "import os\n"
-            "from pathlib import Path\n"
-            "sys.path.append(str(Path(__file__).parent.parent.parent))\n"
             f"os.environ['{SEND_ARTIFACT_TO_ENV_VARIABLE}'] = '{location}'\n"
             f"os.environ['{CODE_FOLDER_ENV_VARIABLE}'] = '{folder_path}'\n"
         )
