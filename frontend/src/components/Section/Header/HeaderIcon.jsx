@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { BiPaint } from "react-icons/bi";
 import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
-import { FaChartPie, FaLayerGroup, FaSquareXTwitter } from "react-icons/fa6";
+import { FaLayerGroup, FaSquareXTwitter } from "react-icons/fa6";
 import { GoDotFill } from "react-icons/go";
 import { IoLogoJavascript } from "react-icons/io";
 import { PiTextTFill } from "react-icons/pi";
@@ -53,6 +53,7 @@ export function HeaderIcon({
     case C.INFO:
       return <InfoIcon sectionId={sectionId} />;
     case C.IMAGE:
+    case C.CHART:
       return (
         <i className="gg-image !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
@@ -70,13 +71,6 @@ export function HeaderIcon({
       return (
         <FaLayerGroup
           className="[&_*]:!scale-120 text-setta-400 transition-colors group-hover/group-section:text-blue-600  dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]
-          "
-        />
-      );
-    case C.CHART:
-      return (
-        <FaChartPie
-          className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]
           "
         />
       );
