@@ -1,66 +1,10 @@
 import { Tooltip } from "chart.js";
 import Chart from "chart.js/auto";
 import _ from "lodash";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
 import { useAllSectionArtifacts } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
-
-export function useSimulatedData(
-  originalData,
-  updateInterval = 1000,
-  nullProbability = 0.2,
-) {
-  const [simulatedData, setSimulatedData] = useState(() =>
-    _.cloneDeep(originalData),
-  );
-
-  // Helper function to randomly set a value to null based on probability
-  const maybeSetNull = (value) => {
-    return Math.random() < nullProbability ? null : value;
-  };
-
-  useEffect(() => {
-    if (!originalData || Object.keys(originalData).length === 0) return;
-
-    setSimulatedData(_.cloneDeep(originalData));
-
-    const intervalId = setInterval(() => {
-      setSimulatedData((prevData) => {
-        const newData = _.cloneDeep(prevData);
-        const artifactId = Object.keys(newData)[0];
-        const artifact = newData[artifactId];
-        const data = artifact.value.data;
-
-        const lastRow = data[data.length - 1];
-        const nextInputValue = lastRow[0] + (data[1][0] - data[0][0]);
-
-        // Calculate new values
-        const newValues = [
-          nextInputValue, // Always keep the input value (x-axis)
-          Math.sin(nextInputValue),
-          Math.cos(nextInputValue),
-          Math.sin(nextInputValue) * Math.exp(-Math.abs(nextInputValue / 10)),
-          nextInputValue * nextInputValue,
-        ];
-
-        // Randomly set some values to null, except for the first value (x-axis)
-        const newRow = [
-          newValues[0],
-          ...newValues.slice(1).map((value) => maybeSetNull(value)),
-        ];
-
-        artifact.value.data = [...data, newRow];
-
-        return newData;
-      });
-    }, updateInterval);
-
-    return () => clearInterval(intervalId);
-  }, [originalData, updateInterval, nullProbability]);
-
-  return simulatedData;
-}
 
 Tooltip.positioners.mousePosition = function (elements, eventPosition) {
   return { x: eventPosition.x, y: eventPosition.y };
@@ -144,7 +88,6 @@ const verticalLinePlugin = {
 
 function _ChartArea({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
-  const simulatedData = useSimulatedData(loadedArtifacts);
   const size = useSectionInfos((x) => x.x[sectionId].size, _.isEqual);
   const canvasRef = useRef();
   const chartRef = useRef(null);
@@ -224,13 +167,13 @@ function _ChartArea({ sectionId }) {
 
   useDeepCompareEffect(() => {
     if (
-      !simulatedData ||
-      Object.keys(simulatedData).length === 0 ||
+      !loadedArtifacts ||
+      Object.keys(loadedArtifacts).length === 0 ||
       !chartRef.current
     )
       return;
 
-    const artifactData = Object.values(simulatedData)[0].value;
+    const artifactData = Object.values(loadedArtifacts)[0].value;
     const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
 
     const labels = [];
@@ -263,7 +206,7 @@ function _ChartArea({ sectionId }) {
     chartRef.current.data = newData;
     chartRef.current.update();
     chartRef.current.resize(size.width, size.height - 50);
-  }, [simulatedData, xAxisColumn, secondYAxisColumns, size, datasetHidden]);
+  }, [loadedArtifacts, xAxisColumn, secondYAxisColumns, size, datasetHidden]);
 
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
