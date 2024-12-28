@@ -192,7 +192,7 @@ function ColorPickerFromColorChoices({
         <DropdownMenu.Content
           className="z-20 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800"
           align="start"
-          style={{ minWidth: "var(--radix-dropdown-menu-trigger-width)" }}
+          style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}
         >
           {colorChoices.map((item, index) => (
             <DropdownMenu.Item

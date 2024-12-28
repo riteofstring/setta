@@ -94,11 +94,9 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
         "hideUnpinnedParams",
         "displayMode",
         "canvasSettings",
-        "chartSettings",
         "renderMarkdown",
         "paramFilter",
         "columnWidth",
-        "renderedValue",
     )
 )
 
@@ -112,7 +110,9 @@ SECTION_CONFIG_TABLE_DATA_JSON_FIELDS = set(
     )
 )
 
-SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS = set(["code", "description", "isFrozen"])
+SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS = set(
+    ["code", "description", "isFrozen", "isDefault"]
+)
 
 SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS = set(["value"])
 
@@ -126,3 +126,11 @@ UI_TYPE_TABLE_DATA_JSON_FIELDS = set(
 )
 
 PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(["viewport", "previewImgColor"])
+
+SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS = set(
+    [
+        "value",
+        "type",
+        "displayName",
+    ]
+)

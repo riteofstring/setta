@@ -30,11 +30,9 @@ CREATE TABLE IF NOT EXISTS Section (
     paramSweepSectionId TEXT,
     uiTypeId TEXT,
     uiTypeColId TEXT,
-    defaultVariantId TEXT,
     FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE SET NULL,
     FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
     FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE SET NULL
-    FOREIGN KEY (defaultVariantId) REFERENCES SectionVariantId(id) ON DELETE SET NULL
 );
 CREATE TABLE IF NOT EXISTS SectionConfig (
     projectConfigId TEXT,
@@ -185,29 +183,12 @@ CREATE TABLE IF NOT EXISTS ProjectConfigChildren (
     FOREIGN KEY (parentId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
     FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE
 );
-CREATE TABLE IF NOT EXISTS Artifact (
-    id TEXT PRIMARY KEY,
-    name TEXT,
-    path TEXT,
-    value TEXT,
-    type TEXT
-);
-CREATE TABLE IF NOT EXISTS ArtifactGroupId (
-    id TEXT PRIMARY KEY,
-    name TEXT,
+CREATE TABLE IF NOT EXISTS SectionArtifacts (
+    sectionId TEXT,
+    artifactPath TEXT,
     data TEXT,
-    originSectionId TEXT,
-    FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
-
-);
-CREATE TABLE IF NOT EXISTS ArtifactGroup (
-    idid TEXT,
-    artifactId TEXT,
-    data TEXT,
-    "order", INTEGER,
-    PRIMARY KEY (idid, "order"),
-    FOREIGN KEY (idid) REFERENCES ArtifactGroupId(id) ON DELETE CASCADE,
-    FOREIGN KEY (artifactId) REFERENCES Artifact(id) ON DELETE CASCADE
+    PRIMARY KEY (sectionId, artifactPath),
+    FOREIGN KEY (sectionId) REFERENCES Section(id)
 );
 
 -- INSERTS ---

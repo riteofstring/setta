@@ -7,7 +7,6 @@ import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { getParamUIType } from "state/hooks/uiTypes";
 import { ColorPickerInput, ColorPickerInputConfig } from "./ColorPickerInput";
 import { DropdownInput, DropdownInputConfig } from "./DropdownInput";
-import { PasswordInput } from "./PasswordInput";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
 import { SwitchInput, SwitchInputConfig } from "./SwitchInput";
 import { TextInputConfig } from "./TextInput";
@@ -57,7 +56,7 @@ export function ParamUI({
   // need to put the group/textinput in a higher div
 
   switch (uiType.type) {
-    case C.TEXT:
+    default:
       return (
         <>
           <TextInputCodeMirror
@@ -135,15 +134,6 @@ export function ParamUI({
           value={value}
           onChange={onChange}
           outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
-          isDisabled={isDisabled}
-        />
-      );
-    case C.PASSWORD:
-      return (
-        <PasswordInput
-          className={`${!isDisabled ? "cursor-text select-text" : ""} nodrag section-value flex self-center justify-self-start`}
-          value={value}
-          onChange={onChange}
           isDisabled={isDisabled}
         />
       );
@@ -251,15 +241,6 @@ export function ParamSweepUI({
           value={value}
           onChange={onChange}
           outerDivClasses="section-key-value w-[calc(100%_-_1.15rem)] ml-2 flex justify-self-start self-center [&_search]:my-auto"
-          isDisabled={isDisabled}
-        />
-      );
-    case C.PASSWORD:
-      return (
-        <PasswordInput
-          className={`${!isDisabled ? "cursor-text select-text" : ""} nodrag section-value flex self-center justify-self-start`}
-          value={value}
-          onChange={onChange}
           isDisabled={isDisabled}
         />
       );

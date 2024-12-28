@@ -6,16 +6,14 @@ import { useSectionInfos, useSettings } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
-import { SETTA_SECTION_RESIZER } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "./utils";
 
 export function CustomResizable({
   sectionId,
   bgColor,
-  isYouTube,
   isActiveSection,
-  positionAndSizeLocked,
+  isYouTube,
   children,
   as,
 }) {
@@ -27,7 +25,6 @@ export function CustomResizable({
       bgColor={bgColor}
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
-      positionAndSizeLocked={positionAndSizeLocked}
       minHeight={minHeight}
       maxHeight={maxHeight}
       minWidth={minWidth}
@@ -45,7 +42,6 @@ function CustomResizableCore({
   bgColor,
   isYouTube,
   isActiveSection,
-  positionAndSizeLocked,
   minHeight,
   maxHeight,
   minWidth,
@@ -69,8 +65,13 @@ function CustomResizableCore({
     }
   }, [sizeMode.height, sizeMode.width]);
 
-  const { size, aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
-    useAspectRatio(sectionId);
+  const {
+    size,
+    positionAndSizeLocked,
+    aspectRatio,
+    aspectRatioExtraHeight,
+    aspectRatioExtraWidth,
+  } = useAspectRatio(sectionId);
 
   function onResizeStart() {
     useSectionInfos.setState((state) => {
@@ -167,7 +168,7 @@ function CustomResizableSuperCore({
 
   const inputClasses = `${
     disablePointerEvents ? "pointer-events-none select-none" : ""
-  } ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-xl shadow-md" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700 ${isYouTube ? "overflow-clip" : ""} ${
+  } ${bgColor} section-grid-cols section-grid-rows section-grid-areas grid h-full rounded-xl shadow-md  before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700 ${isYouTube ? "overflow-clip" : ""} ${
     isActiveSection ? "z-[150]" : "z-10"
   }`;
 
@@ -189,11 +190,6 @@ function CustomResizableSuperCore({
       enable={enable}
       className={inputClasses}
       handleStyles={{ right: { right: "-8px" }, bottom: { bottom: "-8px" } }}
-      handleClasses={{
-        // used in ZoomPane to allow resizing of sections that are inside a position-locked section
-        right: SETTA_SECTION_RESIZER,
-        bottom: SETTA_SECTION_RESIZER,
-      }}
       grid={snapToGrid ? snapGrid : null}
       // handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
@@ -208,6 +204,7 @@ function useAspectRatio(sectionId) {
     if (s.isMinimized) {
       return {
         size: s.size,
+        positionAndSizeLocked: s.positionAndSizeLocked,
         aspectRatio: false,
         aspectRatioExtraHeight: 0,
         aspectRatioExtraWidth: 0,
@@ -215,6 +212,7 @@ function useAspectRatio(sectionId) {
     }
     return {
       size: s.size,
+      positionAndSizeLocked: s.positionAndSizeLocked,
       aspectRatio: s.aspectRatio ?? false,
       aspectRatioExtraHeight: s.aspectRatioExtraHeight ?? 0,
       aspectRatioExtraWidth: s.aspectRatioExtraWidth ?? 0,

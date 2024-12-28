@@ -6,8 +6,6 @@ export function Editable({
   onBlur,
   onKeyDown,
   titleProps,
-  onMouseOver,
-  onMouseLeave,
   doubleClickToEdit = false,
 }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -40,8 +38,6 @@ export function Editable({
       value={value}
       onClick={onClick}
       titleProps={titleProps["notEditing"]}
-      onMouseOver={onMouseOver}
-      onMouseLeave={onMouseLeave}
     />
   );
 }
@@ -68,13 +64,7 @@ function InEditMode({ value, onChange, onBlur, onKeyDown, titleProps }) {
   );
 }
 
-function InNonEditMode({
-  value,
-  onClick,
-  titleProps,
-  onMouseOver,
-  onMouseLeave,
-}) {
+function InNonEditMode({ value, onClick, titleProps }) {
   function onKeyDown(e) {
     if (e.code === "Space") {
       e.preventDefault(); // need this to prevent title from getting erased
@@ -88,8 +78,6 @@ function InNonEditMode({
       className={titleProps}
       tabIndex="0"
       onKeyDown={onKeyDown}
-      onMouseOver={onMouseOver}
-      onMouseLeave={onMouseLeave}
     >
       {value}
     </p>

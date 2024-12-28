@@ -11,7 +11,6 @@ import { newSectionVariant } from "utils/objs/sectionVariant";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
-import { addDrawAreaLayer } from "../artifacts";
 import { initRunGroup } from "../runGroups/runGroups";
 import { setSectionVariantChildren } from "../sectionInfos";
 
@@ -149,13 +148,8 @@ export function createSectionInfo({
     newIds.push(s.id);
     state.x[s.id] = s;
     state.variants[s.variantId] = newSectionVariant(sectionVariantProps);
-    switch (state.uiTypes[s.uiTypeId].type) {
-      case C.GLOBAL_PARAM_SWEEP:
-        initRunGroup(s.variantId, state);
-        break;
-      case C.DRAW:
-        addDrawAreaLayer(s.id, state);
-        break;
+    if (state.uiTypes[s.uiTypeId].type === C.GLOBAL_PARAM_SWEEP) {
+      initRunGroup(s.variantId, state);
     }
     if (!s.parentId) {
       topLevelSectionIds.push(s.id);

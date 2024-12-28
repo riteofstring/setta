@@ -76,8 +76,7 @@
     "exportDbRawOnSave": false,
     "exportDbReadableOnSave": false,
     "exportDbReadableWithVariantsOnSave": false,
-    "renameReferencesOnSectionMoveMode": "Always Ask",
-    "saveRenderedValues": false
+    "renameReferencesOnSectionMoveMode": "Always Ask"
   },
   "languageServer": {},
   "sections": {
@@ -86,9 +85,6 @@
     },
     "TERMINAL": {
       "size": { "width": 700, "height": 300 }
-    },
-    "CHART": {
-      "size": { "width": 400, "height": 400 }
     },
     "GLOBAL_VARIABLES": {
       "name": "Global Variables"

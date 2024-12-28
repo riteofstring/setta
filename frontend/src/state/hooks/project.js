@@ -49,7 +49,7 @@ export function useGetAllProjectConfigMetadataForFileMenu(open) {
 export function useExportProjectJson() {
   const [projectJson, setProjectJson] = useState({});
   async function exportProjectJson() {
-    const project = await getProjectDataForSaving();
+    const project = getProjectDataForSaving();
     const res = await dbFilterDataForJSONExport(project);
     if (res.status === 200) {
       setProjectJson(res.data);

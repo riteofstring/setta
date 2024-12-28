@@ -111,16 +111,6 @@ export const MODAL_TYPE = {
     title: "Rename References",
     buttonText: "Rename",
   },
-  DELETE_JSON_SOURCE_FILE: {
-    purpose: null,
-    title: "Delete JSON Source File",
-    buttonText: "Delete",
-  },
-  ADD_IMAGE_BY_FILEPATH: {
-    purpose: null,
-    title: "Add Image By Filepath",
-    buttonText: "Delete",
-  },
 };
 
 export const PAGE_LOAD_TYPES = {
@@ -131,7 +121,6 @@ export const PAGE_LOAD_TYPES = {
 export const NO_DRAG_CLASS_NAME = "nodrag";
 export const NO_WHEEL_CLASS_NAME = "nowheel";
 export const NO_PAN_CLASS_NAME = "nopan";
-export const SETTA_SECTION_RESIZER = "SETTA_SECTION_RESIZER";
 
 export const SECTION_DISPLAY_MODES = {
   RENDER: "RENDER",

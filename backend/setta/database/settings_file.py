@@ -3,13 +3,14 @@ import os
 
 from setta.code_gen.export_selected import get_selected_section_variant
 from setta.database.db.projects.utils import (
-    add_defaults_to_project_and_load_json_sources,
+    add_defaults_to_project,
     filter_data_for_json_export,
 )
 from setta.database.db.sections.jsonSource import (
     remove_json_source_data,
     save_json_source_data,
 )
+from setta.database.db.sections.load import load_json_sources_into_data_structures
 from setta.utils.constants import CONSTANTS_FOLDER, SEED_FOLDER, USER_SETTINGS
 from setta.utils.utils import get_absolute_path, save_json_to_file
 
@@ -96,7 +97,10 @@ class MetaSettingsFile:
 
     def load_settings_project(self):
         p = self.load_meta_settings()
-        add_defaults_to_project_and_load_json_sources(p)
+        add_defaults_to_project(p)
+        load_json_sources_into_data_structures(
+            p["sections"], p["codeInfo"], p["codeInfoCols"], p["sectionVariants"]
+        )
         return p
 
     def load_seed_files(self):

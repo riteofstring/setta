@@ -2,10 +2,10 @@ import json
 from collections import defaultdict
 
 from setta.utils.constants import BASE_UI_TYPE_IDS, C, is_from_json_source
-from setta.utils.utils import recursive_dict_merge, save_json_to_file, try_json
+from setta.utils.utils import save_json_to_file, try_json
 
 
-def save_json_source_data(p, section_ids=None, forking_from=None):
+def save_json_source_data(p, section_ids=None):
     sections = {
         k: v
         for k, v in p["sections"].items()
@@ -13,12 +13,6 @@ def save_json_source_data(p, section_ids=None, forking_from=None):
     }
 
     to_be_saved = defaultdict(dict)
-
-    forking_from_data = {}
-    if forking_from:
-        with open(forking_from, "r") as f:
-            forking_from_data = json.load(f)
-
     for s in sections.values():
         for variantId in s["variantIds"]:
             variant = p["sectionVariants"][variantId]
@@ -48,7 +42,6 @@ def save_json_source_data(p, section_ids=None, forking_from=None):
 
     # Save each file
     for filename, data in to_be_saved.items():
-        data = recursive_dict_merge(forking_from_data, data)
         save_json_to_file(filename, data)
 
     return to_be_saved

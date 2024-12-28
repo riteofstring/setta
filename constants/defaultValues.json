@@ -15,8 +15,7 @@
     "uiTypeId": null,
     "uiTypeColId": null,
     "social": "",
-    "artifactGroupIds": [],
-    "defaultVariantId": null,
+    "artifacts": [],
     "variantIds": [],
     "paramSweepSectionId": null,
     "nonPresetUITypeIds": [],
@@ -31,23 +30,12 @@
     "pinnedAreaHeight": "auto",
     "isMinimized": false,
     "canvasSettings": {
-      "activeLayerId": null,
       "color": "#ff0000",
+      "opacity": 1,
       "brushSize": 16,
-      "brushShape": "butt",
-      "eraserBrushSize": 16,
-      "drawThrottleDelay": 0,
-      "canvasTransferQueueLength": 50,
-      "artifactIdUsedToSetCanvasSize": null,
-      "mode": "draw"
-    },
-    "chartSettings": {
-      "type": "line",
-      "xAxisColumn": "",
-      "secondYAxisColumns": [],
-      "xAxisLog": false,
-      "y1AxisLog": false,
-      "y2AxisLog": false
+      "brushShape": "round",
+      "canvasOpacity": 0.5,
+      "eraserBrushSize": 16
     },
     "isTemporary": false,
     "renderMarkdown": false,
@@ -61,8 +49,7 @@
     "aspectRatio": false,
     "aspectRatioExtraHeight": 0,
     "aspectRatioExtraWidth": 0,
-    "columnWidth": null,
-    "renderedValue": null
+    "columnWidth": null
   },
   "sectionVariant": {
     "name": "",
@@ -74,6 +61,7 @@
     "description": "",
     "evRefs": [],
     "isFrozen": false,
+    "isDefault": true,
     "sweep": [],
     "runGroup": {}
   },
@@ -112,11 +100,5 @@
     "isArgsObj": false,
     "startPos": 0,
     "keyword": ""
-  },
-  "artifact": {
-    "name": "",
-    "path": null,
-    "value": null,
-    "type": ""
   }
 }

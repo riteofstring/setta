@@ -1,8 +1,7 @@
-import os
 from pathlib import Path
 from typing import Dict, List
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from setta.code_gen.export_selected import (
@@ -61,19 +60,10 @@ class LoadSectionJSONSourceRequest(BaseModel):
 class SaveSectionJSONSourceRequest(BaseModel):
     project: dict
     sectionId: str
-    forking_from: str
 
 
 class NewJSONVersionNameRequest(BaseModel):
     filenameGlob: str
-
-
-class GetJSONSourcePathToBeDeleted(BaseModel):
-    variantName: str
-
-
-class DeleteFileRequest(BaseModel):
-    filepath: str
 
 
 @router.post(C.ROUTE_COPY_SECTIONS)
@@ -149,28 +139,4 @@ def route_new_json_version_name(x: NewJSONVersionNameRequest):
 
 @router.post(C.ROUTE_SAVE_SECTION_JSON_SOURCE)
 def route_save_section_json_source(x: SaveSectionJSONSourceRequest):
-    save_json_source_data(x.project, [x.sectionId], x.forking_from)
-
-
-@router.post(C.ROUTE_GET_JSON_SOURCE_PATH_TO_BE_DELETED)
-def route_get_json_source_path_to_be_deleted(x: GetJSONSourcePathToBeDeleted):
-    return os.path.abspath(x.variantName)
-
-
-@router.post(C.ROUTE_DELETE_FILE)
-def route_delete_file(x: DeleteFileRequest):
-    file = Path(x.filepath)
-    if not file.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"File '{x.filepath}' not found",
-        )
-
-    try:
-        file.unlink()
-        return {"message": f"File '{x.filepath}' deleted successfully"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Failed to delete file: {str(e)}",
-        )
+    save_json_source_data(x.project, [x.sectionId])
