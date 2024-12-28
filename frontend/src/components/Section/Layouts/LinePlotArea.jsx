@@ -1,10 +1,13 @@
 import Chart from "chart.js/auto";
+import _ from "lodash";
 import React, { useRef } from "react";
+import { useSectionInfos } from "state/definitions";
 import { useAllSectionArtifacts } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
 function _LinePlotArea({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
+  const size = useSectionInfos((x) => x.x[sectionId].size, _.isEqual);
   const canvasRef = useRef();
   const xAxisColumn = "input_value";
 
@@ -33,6 +36,8 @@ function _LinePlotArea({ sectionId }) {
           })),
       },
       options: {
+        animation: false,
+        responsive: false,
         maintainAspectRatio: false,
         scales: {
           x: {
@@ -62,10 +67,12 @@ function _LinePlotArea({ sectionId }) {
       },
     });
 
+    chart.resize(size.width, size.height - 40);
+
     return () => {
       chart.destroy();
     };
-  }, [loadedArtifacts, xAxisColumn, secondYAxisColumns]);
+  }, [loadedArtifacts, xAxisColumn, secondYAxisColumns, size]);
 
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
