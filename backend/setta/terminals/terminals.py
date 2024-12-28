@@ -24,10 +24,8 @@ from setta.code_gen.export_selected import (
 from setta.code_gen.find_placeholders import (
     double_braces,
     needs_generated_python,
-    needs_python_argparse,
     needs_yaml,
 )
-from setta.code_gen.python.generate_argparse import generate_argparse
 from setta.code_gen.python.generate_code import (
     convert_var_names_to_readable_form,
     generate_code,
@@ -303,8 +301,6 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                     folder_path, other_s["name"], other_s["codeLanguage"]
                 )
                 curr_dependencies.append(other_s["id"])
-        if needs_python_argparse(curr_code):
-            replacements["SETTA_PYTHON_ARGPARSE"] = generate_argparse(selected)
         if needs_yaml(curr_code):
             replacements["SETTA_YAML_FILE"] = codePathStr(
                 folder_path, "SETTA_YAML", "yaml"
