@@ -45,7 +45,7 @@ const LayersList = ({
       return "border-setta-300 dark:border-setta-600";
     }
 
-    return "border-green-500 dark:border-green-600 bg-green-50 dark:bg-green-800 dark:[&_*]:text-white/50";
+    return "border-blue-500 dark:border-blue-600 bg-blue-50 dark:bg-blue-800 dark:[&_*]:text-white/50";
   };
 
   return (
