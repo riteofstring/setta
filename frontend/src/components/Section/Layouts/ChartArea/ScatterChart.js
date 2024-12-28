@@ -1,28 +1,31 @@
 import { Tooltip } from "chart.js";
 import Chart from "chart.js/auto";
 
-Tooltip.positioners.lineChartTooltipMousePosition = function (
+Tooltip.positioners.scatterChartTooltipMousePosition = function (
   elements,
   eventPosition,
 ) {
+  if (!eventPosition) {
+    return false;
+  }
   return { x: eventPosition.x, y: eventPosition.y };
 };
+
 export function getScatterChartOptionsAndPlugins({ setDatasetHidden }) {
   return {
-    type: "line",
+    type: "scatter",
     data: {
-      labels: [],
       datasets: [],
     },
-    plugins: [verticalLinePlugin],
+    plugins: [crosshairPlugin],
     options: {
       animation: false,
       responsive: false,
       maintainAspectRatio: false,
-      spanGaps: true,
       scales: {
         x: {
           type: "linear",
+          position: "bottom",
         },
         y1: {
           type: "linear",
@@ -47,20 +50,23 @@ export function getScatterChartOptionsAndPlugins({ setDatasetHidden }) {
           },
         },
         tooltip: {
-          mode: "index",
+          enabled: true,
+          mode: "nearest",
           intersect: false,
-          position: "lineChartTooltipMousePosition",
+          position: "scatterChartTooltipMousePosition",
           callbacks: {
             title: (context) => {
-              return `X: ${context[0].label}`;
+              const point = context[0];
+              return `(${point.parsed.x.toFixed(2)}, ${point.parsed.y.toFixed(2)})`;
             },
             label: (context) => {
               const label = context.dataset.label || "";
-              return `${label}: ${context.formattedValue}`;
+              return label;
             },
           },
         },
       },
+      onHover: () => {}, // Empty callback to ensure hover state is always active
     },
   };
 }
@@ -74,10 +80,9 @@ export function updateScatterChartWithNewData({
   darkMode,
 }) {
   const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
-
-  const labels = [];
   const datasets = [];
 
+  // Create datasets for each y-axis column
   for (let i = 0; i < artifactData.headers.length; i++) {
     if (i === xColumnIndex) continue;
     datasets.push({
@@ -87,32 +92,39 @@ export function updateScatterChartWithNewData({
         ? "y2"
         : "y1",
       hidden: datasetHidden[artifactData.headers[i]],
+      pointRadius: 4,
+      pointHoverRadius: 6,
     });
   }
 
+  // Populate datasets with x,y coordinates
   for (const row of artifactData.data) {
-    labels.push(row[xColumnIndex]);
     let datasetIndex = 0;
     for (let i = 0; i < row.length; i++) {
       if (i === xColumnIndex) continue;
-      datasets[datasetIndex].data.push(row[i]);
+      datasets[datasetIndex].data.push({
+        x: row[xColumnIndex],
+        y: row[i],
+      });
       datasetIndex++;
     }
   }
 
-  const newData = { labels, datasets };
+  const newData = { datasets };
 
   chartRef.current.data = newData;
-  chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
+  chartRef.current.crosshairPlugin.color = darkMode ? "white" : "black";
   chartRef.current.scales.y2.display = secondYAxisColumns.length > 0;
 }
 
-const verticalLinePlugin = {
-  id: "verticalLinePlugin",
+const crosshairPlugin = {
+  id: "crosshairPlugin",
   afterInit: (chart) => {
-    chart.verticalLinePlugin = {
+    chart.crosshairPlugin = {
       x: 0,
       y: 0,
+      xValue: 0,
+      yValue: 0,
       draw: false,
       width: 1,
       color: "black",
@@ -124,54 +136,80 @@ const verticalLinePlugin = {
     const { x, y } = args.event;
 
     if (inChartArea) {
-      // Find the nearest x-axis data point
-      const xScale = chart.scales.x;
-      const pixels = xScale.getPixelForValue(x);
-      const values = chart.data.labels;
+      // Find the nearest data point across all datasets
+      let minDistance = Infinity;
+      let nearestPoint = null;
 
-      // Convert mouse x position to data space
-      const mouseValue = xScale.getValueForPixel(x);
+      chart.data.datasets.forEach((dataset, datasetIndex) => {
+        if (dataset.hidden) return;
 
-      // Find nearest data point
-      let nearestValue = values[0];
-      let minDistance = Math.abs(mouseValue - values[0]);
+        dataset.data.forEach((point, pointIndex) => {
+          const xPixel = chart.scales.x.getPixelForValue(point.x);
+          const yPixel = chart.scales[dataset.yAxisID].getPixelForValue(
+            point.y,
+          );
 
-      for (const value of values) {
-        const distance = Math.abs(mouseValue - value);
-        if (distance < minDistance) {
-          minDistance = distance;
-          nearestValue = value;
-        }
+          const distance = Math.sqrt(
+            Math.pow(x - xPixel, 2) + Math.pow(y - yPixel, 2),
+          );
+
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestPoint = {
+              x: xPixel,
+              y: yPixel,
+              xValue: point.x,
+              yValue: point.y,
+              datasetIndex,
+              pointIndex,
+            };
+          }
+        });
+      });
+
+      if (nearestPoint) {
+        chart.crosshairPlugin = {
+          ...chart.crosshairPlugin,
+          x: nearestPoint.x,
+          y: nearestPoint.y,
+          xValue: nearestPoint.xValue,
+          yValue: nearestPoint.yValue,
+          draw: true,
+        };
+
+        // Update tooltip to show for the nearest point
+        const tooltipItems = [
+          {
+            datasetIndex: nearestPoint.datasetIndex,
+            index: nearestPoint.pointIndex,
+          },
+        ];
+
+        chart.tooltip.setActiveElements(tooltipItems);
+        chart.tooltip.update();
       }
-
-      // Convert back to pixels for drawing
-      const snapX = xScale.getPixelForValue(nearestValue);
-
-      chart.verticalLinePlugin = {
-        ...chart.verticalLinePlugin,
-        x: snapX,
-        y,
-        draw: true,
-      };
     } else {
-      chart.verticalLinePlugin = {
-        ...chart.verticalLinePlugin,
+      chart.crosshairPlugin = {
+        ...chart.crosshairPlugin,
         x,
         y,
         draw: false,
       };
+      chart.tooltip.setActiveElements([], { x, y });
     }
 
     chart.draw();
   },
   beforeDatasetsDraw: (chart) => {
     const { ctx } = chart;
-    const { top, bottom } = chart.chartArea;
-    const { x, draw, width, color, dash } = chart.verticalLinePlugin;
+    const { x, y, draw, width, color, dash } = chart.crosshairPlugin;
+    const { top, bottom, left, right } = chart.chartArea;
+
     if (!draw) return;
 
     ctx.save();
 
+    // Draw vertical line
     ctx.beginPath();
     ctx.lineWidth = width;
     ctx.strokeStyle = color;
@@ -179,6 +217,18 @@ const verticalLinePlugin = {
     ctx.moveTo(x, bottom);
     ctx.lineTo(x, top);
     ctx.stroke();
+
+    // Draw horizontal line
+    ctx.beginPath();
+    ctx.moveTo(left, y);
+    ctx.lineTo(right, y);
+    ctx.stroke();
+
+    // Draw point indicator
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
 
     ctx.restore();
   },
