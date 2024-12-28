@@ -27,9 +27,9 @@ class Tasks:
 
     async def __call__(self, fn_name, message: TaskMessage):
         print(f"Start processing message ID: {message.id}", flush=True)
-        fn = self.fns[fn_name]
         if fn_name in self.custom_fn_name_to_exporter_obj:
-            message = self.process_message_for_custom_fn(fn, fn_name, message)
+            self.process_message_for_custom_fn(fn_name, message)
+        fn = self.fns[fn_name]
         fn.read_cache(self.cache, message)
         fn_args = [message, *(getattr(self, k) for k in fn.server_dependencies)]
         result = await self.task_runner.run(fn.fn, fn_args, fn.run_as)
@@ -96,19 +96,13 @@ class Tasks:
             del self.custom_fn_name_to_exporter_obj[x]
         del self.custom_fn_names[project_config_name]
 
-    def process_message_for_custom_fn(self, fn, fn_name, message):
+    def process_message_for_custom_fn(self, fn_name, message):
         exporter_obj = self.custom_fn_name_to_exporter_obj[fn_name]
         for k, v in message.content.items():
             nice_str = exporter_obj.var_name_mapping[tuple(json.loads(k))]
             p_dict, key = nested_access(exporter_obj.output, nice_str)
             p_dict[key] = v
         message.content = exporter_obj.output
-
-        if isinstance(fn, InteractiveTaskDefinition):
-            message = message.content
-        
-        return message
-
 
     def process_output_content_for_custom_fn(self, content):
         for v in content.values():
