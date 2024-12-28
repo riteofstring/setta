@@ -41,6 +41,7 @@ abcde_env
 .mypy_cache/
 .dmypy.json
 backend/setta/frontend
+.setta_code
 .setta_backups
 setta_export.yaml
 setta_export

@@ -1,6 +1,6 @@
 from setta.code_gen.export_selected import (
     export_selected,
-    get_section_code_that_needs_generated_python,
+    get_first_section_code_that_needs_generated_python,
 )
 from setta.code_gen.python.generate_code import generate_code
 from setta.tasks.task_runner import RunType
@@ -13,7 +13,7 @@ async def _typeCheck(message, lsp_writers):
     project = message.content
     exporter_obj = export_selected(project, always_export_args_objs=False)
     codeJson = exporter_obj.output
-    templatedCode = get_section_code_that_needs_generated_python(project)
+    templatedCode = get_first_section_code_that_needs_generated_python(project)
     code = generate_code(codeJson, templatedCode)[0]
     await lsp_writers["full"].send_document_open_request(
         project["projectConfig"]["id"], code, codeJson

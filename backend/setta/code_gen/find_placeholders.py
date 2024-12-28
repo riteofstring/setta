@@ -1,14 +1,18 @@
 from setta.utils.constants import C
 
 
-def template_prefix(x):
+def double_braces(x):
     # return f"{{ {x} }}"
     return f"${x}"
 
 
 def needs_yaml(script):
-    return template_prefix("SETTA_YAML_FILE") in script
+    return double_braces("SETTA_YAML_FILE") in script
+
+
+def needs_python_argparse(script):
+    return double_braces("SETTA_PYTHON_ARGPARSE") in script
 
 
 def needs_generated_python(script):
-    return template_prefix(C.SETTA_GENERATED_PYTHON) in script
+    return double_braces(C.SETTA_GENERATED_PYTHON) in script

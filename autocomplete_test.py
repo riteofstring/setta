@@ -23,11 +23,11 @@ class FakeWebsocketManager:
 
 async def main():
     # lsp = LanguageServer(
-    #     root_path=Path("D:/Documents/App Development/setta/setta_code")
+    #     root_path=Path("D:/Documents/App Development/setta/.setta_code")
     # )
     lsp = LanguageServer(
-        workspace_folder=Path("/Users/kevin/Documents/AppDevelopment/setta/setta_code/timestamped_folder"),
-        code_folder=Path("/Users/kevin/Documents/AppDevelopment/setta/setta_code/timestamped_folder"),
+        workspace_folder=Path("/Users/kevin/Documents/AppDevelopment/setta/.setta_code/timestamped_folder"),
+        code_folder=Path("/Users/kevin/Documents/AppDevelopment/setta/.setta_code/timestamped_folder"),
         settings={}
     )
     lsp_writer = LanguageServerWriter(lsp)
