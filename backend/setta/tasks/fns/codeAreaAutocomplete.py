@@ -2,7 +2,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from setta.code_gen.find_placeholders import double_braces
+from setta.code_gen.find_placeholders import template_prefix
 from setta.code_gen.python.generate_code import position_to_line_col, replace_keywords
 from setta.code_gen.utils import process_refs
 from setta.tasks.task_runner import RunType
@@ -33,7 +33,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         exporter_obj,
     ) = message.cached
     fullText = message.fullText
-    template_str = double_braces(C.SETTA_GENERATED_PYTHON)
+    template_str = template_prefix(C.SETTA_GENERATED_PYTHON)
     gen_code_index = fullText.find(template_str)
     has_gen_code = gen_code_index != -1
     if has_gen_code and exporter_obj is None:
@@ -87,7 +87,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
 
 
 def special_keywords_for_autocomplete():
-    return [double_braces(C.SETTA_GENERATED_PYTHON)]
+    return [template_prefix(C.SETTA_GENERATED_PYTHON)]
 
 
 def read_cache(cache, message):

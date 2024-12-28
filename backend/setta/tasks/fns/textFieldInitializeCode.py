@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from setta.code_gen.export_selected import (
     export_selected,
-    get_first_section_code_that_needs_generated_python,
+    get_section_code_that_needs_generated_python,
 )
 from setta.code_gen.python.generate_code import (
     generate_lines_of_code_without_imports,
@@ -26,7 +26,7 @@ async def _textFieldInitializeCode(message):
     project = message.project
     exporter_obj = export_selected(project, always_export_args_objs=True)
     codeJson = exporter_obj.output
-    templatedCode = get_first_section_code_that_needs_generated_python(project)
+    templatedCode = get_section_code_that_needs_generated_python(project)
     sectionId = message.sectionId
     paramInfoId = message.paramInfoId
     push_var_name = exporter_obj.var_name_mapping[(sectionId, paramInfoId, False)]
