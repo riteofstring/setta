@@ -41,6 +41,9 @@
       "artifactIdUsedToSetCanvasSize": null,
       "mode": "draw"
     },
+    "chartSettings": {
+      "type": "line"
+    },
     "isTemporary": false,
     "renderMarkdown": false,
     "positionAndSizeLocked": false,

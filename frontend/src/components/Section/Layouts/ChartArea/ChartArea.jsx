@@ -19,6 +19,10 @@ function _ChartArea({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
   const [darkMode] = localStorageFns.darkMode.hook();
   const size = useSectionInfos((x) => x.x[sectionId].size, _.isEqual);
+  const chartSettings = useSectionInfos(
+    (x) => x.x[sectionId].chartSettings,
+    _.isEqual,
+  );
   const canvasRef = useRef();
   const chartRef = useRef(null);
   const xAxisColumn = "input_value";
@@ -26,9 +30,11 @@ function _ChartArea({ sectionId }) {
   const [datasetHidden, setDatasetHidden] = useState({});
 
   useEffect(() => {
+    const optionsAndPluginsFn = getOptionsAndPluginsFn(chartSettings.type);
+
     chartRef.current = new Chart(
       canvasRef.current,
-      getLineChartOptionsAndPlugins({ setDatasetHidden }),
+      optionsAndPluginsFn({ setDatasetHidden }),
     );
 
     return () => {
@@ -37,7 +43,7 @@ function _ChartArea({ sectionId }) {
         chartRef.current = null;
       }
     };
-  }, []);
+  }, [chartSettings.type]);
 
   useDeepCompareEffect(() => {
     if (
@@ -48,7 +54,8 @@ function _ChartArea({ sectionId }) {
       return;
 
     const artifactData = Object.values(loadedArtifacts)[0].value;
-    updateLineChartWithNewData({
+    const updateFn = getUpdaterFn(chartSettings.type);
+    updateFn({
       chartRef,
       artifactData,
       xAxisColumn,
@@ -65,6 +72,7 @@ function _ChartArea({ sectionId }) {
     size,
     datasetHidden,
     darkMode,
+    chartSettings.type,
   ]);
 
   return (
@@ -75,3 +83,17 @@ function _ChartArea({ sectionId }) {
 }
 
 export const ChartArea = React.memo(_ChartArea);
+
+function getOptionsAndPluginsFn(type) {
+  switch (type) {
+    case "line":
+      return getLineChartOptionsAndPlugins;
+  }
+}
+
+function getUpdaterFn(type) {
+  switch (type) {
+    case "line":
+      return updateLineChartWithNewData;
+  }
+}
