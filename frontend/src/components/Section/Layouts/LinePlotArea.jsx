@@ -169,16 +169,6 @@ function _LinePlotArea({ sectionId }) {
 
     const newData = { labels, datasets };
 
-    // Update data-dependent options
-    chartRef.current.options.scales.x.ticks = {
-      stepSize: Math.ceil(
-        (artifactData.data.slice(-1)[0][xColumnIndex] -
-          artifactData.data[0][xColumnIndex]) /
-          5,
-      ),
-      precision: 0,
-    };
-
     // Update chart with new data and options
     chartRef.current.data = newData;
     chartRef.current.update();
