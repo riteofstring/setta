@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useArtifacts, useSectionInfos } from "state/definitions";
-import { requestBase64FromDrawArea } from "../temporaryMiscState";
+import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { getProjectData } from "./saveProject";
 
 export async function getProjectDataForInteractive() {
@@ -16,7 +16,7 @@ export async function getProjectDataForInteractive() {
       (a) => artifactState[a],
     );
     if (getSectionType(x.id) === C.DRAW) {
-      currSection.drawings = await requestBase64FromDrawArea(x.id);
+      currSection.drawings = await requestBase64FromCanvas(x.id);
     }
     sections[x.id] = currSection;
   }

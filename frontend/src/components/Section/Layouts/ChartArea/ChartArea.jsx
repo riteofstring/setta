@@ -1,6 +1,7 @@
 import Chart from "chart.js/auto";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
+import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
 import { useSectionInfos } from "state/definitions";
 import { useAllSectionArtifacts } from "state/hooks/artifacts";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -80,11 +81,14 @@ function _ChartArea({ sectionId }) {
 
     chartRef.current.resize(size.width, size.height - 50);
 
+    const unsub = listenForCanvasToBase64Requests(sectionId, canvasRef);
+
     return () => {
       if (chartRef.current) {
         chartRef.current.destroy();
         chartRef.current = null;
       }
+      unsub();
     };
   }, [chartSettings.type]);
 

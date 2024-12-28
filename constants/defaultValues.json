@@ -61,7 +61,8 @@
     "aspectRatio": false,
     "aspectRatioExtraHeight": 0,
     "aspectRatioExtraWidth": 0,
-    "columnWidth": null
+    "columnWidth": null,
+    "renderedValue": null
   },
   "sectionVariant": {
     "name": "",

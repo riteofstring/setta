@@ -98,6 +98,7 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
         "renderMarkdown",
         "paramFilter",
         "columnWidth",
+        "renderedValue",
     )
 )
 

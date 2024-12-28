@@ -201,6 +201,13 @@ def export_image_section(folder, config, section_id, *_, **__):
     save_base64_to_png(artifact["value"], folder / f"{base}.png")
 
 
+def export_canvas_rendered_value(folder, config, section_id, *_, **__):
+    section = config["sections"][section_id]
+    if section["renderedValue"]:
+        base = get_section_name(config, section_id)
+        save_base64_to_png(section["renderedValue"], folder / f"{base}.png")
+
+
 def maybe_with_variant_in_filename(config, section_id, variant_id, with_variants):
     section_name = get_section_name(config, section_id)
     variant_name = get_variant_name(config, variant_id)
@@ -224,10 +231,10 @@ def get_exporter_fn(config, section_id):
     elif stype == C.GLOBAL_PARAM_SWEEP:
         return export_global_param_sweep_section
     elif stype == C.DRAW:
-        pass
+        return export_canvas_rendered_value
     elif stype == C.IMAGE:
         return export_image_section
     elif stype == C.SOCIAL:
         return export_social_section
     elif stype == C.CHART:
-        pass
+        return export_canvas_rendered_value
