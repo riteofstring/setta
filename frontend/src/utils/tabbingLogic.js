@@ -42,14 +42,8 @@ export function homePageProjectItemOnKeyDown(e, navigate, projectConfigName) {
 }
 
 function withinSectionTabbingHelper(focusEl) {
-  if (focusEl.id.startsWith("CodeArea-")) {
-    const codeAreaContentEditable = getContentEditableFromCodeAreaDiv(focusEl);
-    codeAreaContentEditable.focus({ preventScroll: true });
-    movePaneToIncludeElement(codeAreaContentEditable);
-  } else {
-    focusEl.focus({ preventScroll: true });
-    movePaneToIncludeElement(focusEl);
-  }
+  focusEl.focus({ preventScroll: true });
+  movePaneToIncludeElement(focusEl);
 }
 
 export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {

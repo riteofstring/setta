@@ -1,20 +1,26 @@
 import CodeMirror from "@uiw/react-codemirror";
-import { useCodeAreaHeight } from "components/Section/Layouts/CodeArea";
+import {
+  codeAreaTabOnEnterKeyHandlers,
+  useCodeAreaHeight,
+} from "components/Section/Layouts/CodeArea";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/utils/CodeMirror/useCodeMirrorStyle";
 import C from "constants/constants.json";
 import _ from "lodash";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSettings } from "state/definitions";
 import { useInfoAreaDescriptionAndEditability } from "state/hooks/sectionVariants";
 
 export function MarkdownEditorInPane({ sectionId }) {
+  const wrapperRef = useRef(); // used by onTabOnEnterKeyHandlers
+
   return (
     <MarkdownEditorCore
       sectionId={sectionId}
       wrapperClassName="cursor-auto overflow-y-scroll [&_*]:!outline-0"
+      ref={wrapperRef}
     />
   );
 }
@@ -52,6 +58,9 @@ const _MarkdownEditorCore = React.forwardRef(
       debouncedSetDescription(sectionId, v, description);
     }
 
+    const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
+      codeAreaTabOnEnterKeyHandlers(ref);
+
     const theme = useCodeMirrorStyle();
 
     const extensions = getExtensions({
@@ -61,10 +70,16 @@ const _MarkdownEditorCore = React.forwardRef(
       escapeToBlur: true,
       indentWithTab: true,
       isDisabled: variantIsFrozen,
+      onEscape: onEscapeFocusOnArticleDiv,
     });
 
     return (
-      <article ref={ref} className={wrapperClassName}>
+      <article
+        ref={ref}
+        className={wrapperClassName}
+        onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
+        tabIndex="0"
+      >
         <CodeMirror
           maxHeight={maxHeight}
           value={description}

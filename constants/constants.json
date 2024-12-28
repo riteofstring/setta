@@ -8,6 +8,7 @@
   "SWITCH": "SWITCH",
   "COLOR_PICKER": "COLOR_PICKER",
   "DROPDOWN": "DROPDOWN",
+  "PASSWORD": "PASSWORD",
   "SECTION": "SECTION",
   "LIST_ROOT": "LIST_ROOT",
   "DICT_ROOT": "DICT_ROOT",
@@ -24,7 +25,14 @@
   "DRAW": "DRAW",
   "SOCIAL": "SOCIAL",
   "IFRAME": "IFRAME",
-  "NON_SECTION_TYPES": ["TEXT", "SLIDER", "SWITCH", "COLOR_PICKER", "DROPDOWN"],
+  "NON_SECTION_TYPES": [
+    "TEXT",
+    "SLIDER",
+    "SWITCH",
+    "COLOR_PICKER",
+    "DROPDOWN",
+    "PASSWORD"
+  ],
   "COLLECTION": "collection",
   "CALLABLE": "callable",
   "PARAMETER": "parameter",
