@@ -1,0 +1,166 @@
+{
+  "projectConfig": {
+    "id": "8d5125ce-8491-4233-b77c-38bc57512ccd",
+    "name": "cliff_zesty",
+    "previewImgColor": "bg-orange-500/60 dark:bg-orange-600/30",
+    "viewport": {
+      "x": 344.0869715261249,
+      "y": 344.21287759165,
+      "zoom": 0.8491941315903756
+    },
+    "children": {
+      "6b13e165-2f8b-4226-812d-080e61cbedf0": {
+        "x": -342.46865415521677,
+        "y": -357.65477159450074,
+        "zIndex": 3,
+        "w": 497,
+        "h": 402
+      },
+      "dd1b85d2-2288-4bbf-936c-98f938e3c6cf": {
+        "x": 6.677510307525324,
+        "y": 92.12907643508373,
+        "zIndex": 1,
+        "w": 579,
+        "h": 386
+      },
+      "e1b7ec50-8c7c-4713-a2c7-60cf616650b4": {
+        "x": 259.8817085981096,
+        "y": -373.0722157385447,
+        "zIndex": 2,
+        "w": 375,
+        "h": 122
+      }
+    }
+  },
+  "sectionVariants": {
+    "2a2f77c6-8226-4a20-8830-170dff2f6902": {
+      "name": "protective_turquoise"
+    },
+    "2bafdfa4-28c6-4afc-ad43-567f27df1ca4": {
+      "name": "greasy_salmon",
+      "values": {
+        "3ea0b19f-fbaf-4afc-acb7-9ba3e34f42ef": {
+          "value": "0"
+        },
+        "d4d2b5ae-b6c9-476e-abb8-7d634fcbb34a": {
+          "value": "10"
+        }
+      },
+      "codeInfoColId": "3ba2ee6c-9002-46c2-bc1a-cdef79ae17f5"
+    },
+    "ca98f34c-c3f5-4c34-873c-a74eb6028e2f": {
+      "name": "curly_moccasin",
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\n\ndef fn(project):\n    c = float(project[\"c\"])\n    n = int(project[\"n\"])\n    data = [(i, ((i - 10) / 5) ** c) for i in range(n)]\n    headers = [\"x\", \"y\"]\n    return {\n        \"simple list\": {\n            \"value\": {\"headers\": headers, \"data\": data},\n            \"type\": \"list\",\n            \"name\": \"simple list\",\n        }\n    }\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)\n"
+    }
+  },
+  "artifacts": {
+    "simple list": {
+      "value": {
+        "headers": ["x", "y"],
+        "data": [
+          [0, 1],
+          [1, 1],
+          [2, 1],
+          [3, 1],
+          [4, 1],
+          [5, 1],
+          [6, 1],
+          [7, 1],
+          [8, 1],
+          [9, 1]
+        ]
+      },
+      "type": "list",
+      "name": "simple list",
+      "sectionType": "CHART",
+      "path": null
+    }
+  },
+  "artifactGroups": {
+    "80a56214-4a63-411a-8e0b-51749c078d41": {
+      "name": "personal_gray",
+      "artifactTransforms": [
+        {
+          "artifactId": "simple list"
+        }
+      ],
+      "visible": true,
+      "layerOpacity": 0.5,
+      "brushOpacity": 1
+    }
+  },
+  "uiTypes": {},
+  "uiTypeCols": {
+    "5e05a901-9c05-4a88-ba5d-e44480dcf2a6": {
+      "3ea0b19f-fbaf-4afc-acb7-9ba3e34f42ef": {
+        "uiTypeId": "eab8f446-17cc-4512-bab5-42bff8570f1f"
+      },
+      "d4d2b5ae-b6c9-476e-abb8-7d634fcbb34a": {
+        "uiTypeId": "eab8f446-17cc-4512-bab5-42bff8570f1f"
+      }
+    }
+  },
+  "sections": {
+    "6b13e165-2f8b-4226-812d-080e61cbedf0": {
+      "id": "6b13e165-2f8b-4226-812d-080e61cbedf0",
+      "name": "gross_bronze",
+      "size": {
+        "width": 495,
+        "height": 400
+      },
+      "variantId": "2a2f77c6-8226-4a20-8830-170dff2f6902",
+      "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c",
+      "artifactGroupIds": ["80a56214-4a63-411a-8e0b-51749c078d41"],
+      "variantIds": ["2a2f77c6-8226-4a20-8830-170dff2f6902"],
+      "chartSettings": {
+        "xAxisColumn": "x"
+      }
+    },
+    "dd1b85d2-2288-4bbf-936c-98f938e3c6cf": {
+      "id": "dd1b85d2-2288-4bbf-936c-98f938e3c6cf",
+      "name": "good_scarlet",
+      "size": {
+        "width": 577
+      },
+      "variantId": "ca98f34c-c3f5-4c34-873c-a74eb6028e2f",
+      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
+      "variantIds": ["ca98f34c-c3f5-4c34-873c-a74eb6028e2f"]
+    },
+    "e1b7ec50-8c7c-4713-a2c7-60cf616650b4": {
+      "id": "e1b7ec50-8c7c-4713-a2c7-60cf616650b4",
+      "name": "Global Variables",
+      "size": {
+        "width": 373
+      },
+      "variantId": "2bafdfa4-28c6-4afc-ad43-567f27df1ca4",
+      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
+      "uiTypeColId": "5e05a901-9c05-4a88-ba5d-e44480dcf2a6",
+      "variantIds": ["2bafdfa4-28c6-4afc-ad43-567f27df1ca4"],
+      "columnWidth": 54
+    }
+  },
+  "codeInfo": {
+    "3ea0b19f-fbaf-4afc-acb7-9ba3e34f42ef": {
+      "id": "3ea0b19f-fbaf-4afc-acb7-9ba3e34f42ef",
+      "name": "c",
+      "editable": true
+    },
+    "d4d2b5ae-b6c9-476e-abb8-7d634fcbb34a": {
+      "id": "d4d2b5ae-b6c9-476e-abb8-7d634fcbb34a",
+      "name": "n",
+      "editable": true
+    }
+  },
+  "codeInfoCols": {
+    "3ba2ee6c-9002-46c2-bc1a-cdef79ae17f5": {
+      "children": {
+        "null": [
+          "3ea0b19f-fbaf-4afc-acb7-9ba3e34f42ef",
+          "d4d2b5ae-b6c9-476e-abb8-7d634fcbb34a"
+        ],
+        "3ea0b19f-fbaf-4afc-acb7-9ba3e34f42ef": [],
+        "d4d2b5ae-b6c9-476e-abb8-7d634fcbb34a": []
+      }
+    }
+  }
+}
