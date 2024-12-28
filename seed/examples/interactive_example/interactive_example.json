@@ -50,6 +50,13 @@
         "zIndex": 1,
         "w": 302,
         "h": 302
+      },
+      "f46f4da4-3f71-46e0-8763-a8fb643c8b9a": {
+        "x": 0,
+        "y": 0,
+        "zIndex": 0,
+        "w": 302,
+        "h": 302
       }
     }
   },
@@ -86,6 +93,9 @@
     },
     "efbf1e64-8932-4fa6-928a-e930314db45c": {
       "name": "tropical_harlequin"
+    },
+    "0be09c10-3ab2-4782-b620-753cb178961d": {
+      "name": "colonial_gold"
     }
   },
   "uiTypes": {
@@ -192,12 +202,38 @@
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
+      "size": {
+        "width": 432,
+        "height": 371
+      },
+      "chartSettings": {
+        "type": "line",
+        "xAxisColumn": "input_value",
+        "secondYAxisColumns": ["quadratic"]
+      },
       "artifactGroupIds": ["5698c0e0-26be-4aef-b971-281e09933b3d"],
       "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
       "name": "institutional_fuchsia",
       "variantId": "efbf1e64-8932-4fa6-928a-e930314db45c",
       "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c",
       "defaultVariantId": "efbf1e64-8932-4fa6-928a-e930314db45c"
+    },
+    "f46f4da4-3f71-46e0-8763-a8fb643c8b9a": {
+      "id": "f46f4da4-3f71-46e0-8763-a8fb643c8b9a",
+      "size": {
+        "width": 432,
+        "height": 371
+      },
+      "name": "equal_red",
+      "chartSettings": {
+        "type": "scatter",
+        "xAxisColumn": "x_value",
+        "categoryColumn": "category"
+      },
+      "artifactGroupIds": ["be43daa8-a16a-4203-b4ab-a9384f32a5ee"],
+      "variantId": "0be09c10-3ab2-4782-b620-753cb178961d",
+      "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c",
+      "variantIds": ["0be09c10-3ab2-4782-b620-753cb178961d"]
     }
   },
   "codeInfo": {
@@ -239,7 +275,12 @@
     },
     "c2d2ec99-e524-4f39-952a-9ac3713339b6": {
       "name": "fancy graph",
-      "path": "seed/examples/interactive_example/losses.csv",
+      "path": "seed/examples/interactive_example/function_data.csv",
+      "type": "list"
+    },
+    "2d031785-c682-43a5-be97-87c8f77b83ba": {
+      "name": "scatter data",
+      "path": "seed/examples/interactive_example/scatter_data.csv",
       "type": "list"
     }
   },
@@ -254,6 +295,12 @@
       "name": "blah2",
       "artifactTransforms": [
         { "artifactId": "c2d2ec99-e524-4f39-952a-9ac3713339b6" }
+      ]
+    },
+    "be43daa8-a16a-4203-b4ab-a9384f32a5ee": {
+      "name": "blah3",
+      "artifactTransforms": [
+        { "artifactId": "2d031785-c682-43a5-be97-87c8f77b83ba" }
       ]
     }
   }

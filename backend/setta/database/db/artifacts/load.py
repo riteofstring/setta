@@ -1,6 +1,6 @@
 import json
 
-from setta.database.db.artifacts.utils import with_artifact_defaults
+from setta.cli.logger import get_wrapper_for_loading
 from setta.utils.constants import C
 
 
@@ -78,9 +78,23 @@ def load_available_artifacts(db, sectionType):
     return output
 
 
+def load_artifact_metadata_and_maybe_value_from_disk(db, artifactIds):
+    artifacts = load_artifacts(db, artifactIds)
+    for a in artifacts.values():
+        if a["path"]:
+            a.update(load_artifact_from_disk(a["path"], a["type"]))
+    return artifacts
+
+
+def load_artifact_from_disk(filepath, type):
+    wrapper = get_wrapper_for_loading(type)
+    wrapper.load(filepath)
+    return wrapper.serialize()
+
+
 def get_allow_artifact_types(type):
     return {
         C.DRAW: ["img", "brushStrokes"],
         C.IMAGE: ["img"],
-        C.LINE_PLOT: ["list"],
+        C.CHART: ["list"],
     }.get(type, [])

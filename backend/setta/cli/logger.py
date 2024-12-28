@@ -95,10 +95,26 @@ class SettaListData(SettaDataWrapper):
         np.savetxt(self.path_with_extension(path), self.data, delimiter=",")
 
     def serialize(self):
-        return {"value": self.data.tolist(), "type": "list"}
+        return {"value": self.data, "type": "list"}
 
     def load(self, path_with_extension):
-        self.data = np.loadtxt(path_with_extension, delimiter=",")
+        with open(path_with_extension, "r") as f:
+            headers = f.readline().strip().split(",")
+            data = []
+            for line in f:
+                values = line.strip().split(",")
+                # Convert each value to float if not empty, otherwise None
+                row = []
+                for x in values:
+                    if x.strip() == "":
+                        row.append(None)
+                    else:
+                        try:
+                            row.append(float(x))
+                        except ValueError:
+                            row.append(x)
+                data.append(tuple(row))
+        self.data = {"headers": headers, "data": data}
 
 
 class SettaNumpyImg(SettaDataWrapper):
@@ -133,6 +149,14 @@ def get_wrapper_for_loading(data_type):
 
 def default_section_type(data_type):
     if data_type == "list":
-        return C.LINE_PLOT
+        return C.CHART
     if data_type == "img":
         return C.IMAGE
+
+
+def save_base64_to_png(base64_string, output_file):
+    image_data = base64.b64decode(base64_string)
+
+    # Write the binary data to a file
+    with open(output_file, "wb") as f:
+        f.write(image_data)
