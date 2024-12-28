@@ -441,7 +441,7 @@ function LayerList({
   };
 
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div className="flex w-full max-w-64 flex-col gap-2">
       <ul className="mt-1 flex w-full flex-col gap-2">
         {layers.map((layer, idx) => (
           <li
@@ -478,7 +478,7 @@ function LayerList({
               />
             ) : (
               <p
-                className={`text-sm font-semibold  ${activeLayerId === layer.id ? " !text-blue-500" : "text-setta-600 dark:text-setta-400"}`}
+                className={`truncate text-sm font-semibold ${activeLayerId === layer.id ? " !text-blue-500" : "text-setta-600 dark:text-setta-400"}`}
                 // onDoubleClick={() =>
                 //   handleDoubleClick(id, artifactIdsToNames[id])
                 // }
