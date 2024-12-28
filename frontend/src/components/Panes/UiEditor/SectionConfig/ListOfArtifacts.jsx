@@ -3,6 +3,7 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
 import { dbLoadAvailableArtifacts } from "requests/artifacts";
+import { maybeAddArtifactGroupAndSetArtifactId } from "state/actions/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import {
   getAllSectionArtifactIds,
@@ -230,7 +231,7 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
   );
 }
 
-export function JustListOfArtifacts({ sectionId, sectionTypeName, onClick }) {
+export function JustListOfArtifacts({ sectionId, sectionTypeName }) {
   const [availableArtifacts, setAvailableArtifacts] = useState({});
   const selectedArtifactIds = useSectionInfos(
     (state) => getAllSectionArtifactIds(sectionId, state),
@@ -241,6 +242,18 @@ export function JustListOfArtifacts({ sectionId, sectionTypeName, onClick }) {
     return selectedArtifactIds.has(id)
       ? "border-gray-200 bg-blue-800 hover:bg-blue-50 dark:hover:bg-blue-500"
       : null;
+  }
+
+  function onClick(artifactId, artifactType) {
+    useSectionInfos.setState((state) => {
+      maybeAddArtifactGroupAndSetArtifactId(
+        sectionId,
+        sectionTypeName,
+        artifactId,
+        artifactType,
+        state,
+      );
+    });
   }
 
   return (
