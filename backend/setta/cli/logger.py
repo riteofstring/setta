@@ -103,7 +103,17 @@ class SettaListData(SettaDataWrapper):
             data = []
             for line in f:
                 values = line.strip().split(',')
-                data.append(tuple(float(x) for x in values))
+                # Convert each value to float if not empty, otherwise None
+                row = []
+                for x in values:
+                    if x.strip() == '':
+                        row.append(None)
+                    else:
+                        try:
+                            row.append(float(x))
+                        except ValueError:
+                            row.append(None)  # Handle cases where float conversion fails
+                data.append(tuple(row))
         self.data = {"headers": headers, "data": data}
 
 

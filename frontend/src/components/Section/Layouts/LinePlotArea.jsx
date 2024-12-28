@@ -5,10 +5,19 @@ import { useSectionInfos } from "state/definitions";
 import { useAllSectionArtifacts } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
-export function useSimulatedData(originalData, updateInterval = 1000) {
+export function useSimulatedData(
+  originalData,
+  updateInterval = 1000,
+  nullProbability = 0.2,
+) {
   const [simulatedData, setSimulatedData] = useState(() =>
     _.cloneDeep(originalData),
   );
+
+  // Helper function to randomly set a value to null based on probability
+  const maybeSetNull = (value) => {
+    return Math.random() < nullProbability ? null : value;
+  };
 
   useEffect(() => {
     if (!originalData || Object.keys(originalData).length === 0) return;
@@ -25,12 +34,19 @@ export function useSimulatedData(originalData, updateInterval = 1000) {
         const lastRow = data[data.length - 1];
         const nextInputValue = lastRow[0] + (data[1][0] - data[0][0]);
 
-        const newRow = [
-          nextInputValue,
+        // Calculate new values
+        const newValues = [
+          nextInputValue, // Always keep the input value (x-axis)
           Math.sin(nextInputValue),
           Math.cos(nextInputValue),
           Math.sin(nextInputValue) * Math.exp(-Math.abs(nextInputValue / 10)),
           nextInputValue * nextInputValue,
+        ];
+
+        // Randomly set some values to null, except for the first value (x-axis)
+        const newRow = [
+          newValues[0],
+          ...newValues.slice(1).map((value) => maybeSetNull(value)),
         ];
 
         artifact.value.data = [...data, newRow];
@@ -40,7 +56,7 @@ export function useSimulatedData(originalData, updateInterval = 1000) {
     }, updateInterval);
 
     return () => clearInterval(intervalId);
-  }, [originalData, updateInterval]);
+  }, [originalData, updateInterval, nullProbability]);
 
   return simulatedData;
 }
@@ -70,6 +86,7 @@ function _LinePlotArea({ sectionId }) {
         animation: false,
         responsive: false,
         maintainAspectRatio: false,
+        spanGaps: true, // Enable spanning gaps for null values globally
         scales: {
           x: {
             type: "linear",
@@ -87,7 +104,6 @@ function _LinePlotArea({ sectionId }) {
             display: secondYAxisColumns.length > 0,
           },
         },
-        // Add legend click handler to track visibility state
         plugins: {
           legend: {
             onClick: (evt, legendItem, legend) => {
@@ -96,7 +112,6 @@ function _LinePlotArea({ sectionId }) {
                 [legendItem.text]: !prev[legendItem.text],
               }));
 
-              // Call original legend click handler
               Chart.defaults.plugins.legend.onClick(evt, legendItem, legend);
             },
           },
@@ -141,7 +156,7 @@ function _LinePlotArea({ sectionId }) {
       });
     }
 
-    // Fill in the data arrays
+    // Fill in the data arrays, keeping null values as they are
     for (const row of artifactData.data) {
       labels.push(row[xColumnIndex]);
       let datasetIndex = 0;
