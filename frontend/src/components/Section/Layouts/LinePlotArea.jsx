@@ -70,12 +70,9 @@ function _LinePlotArea({ sectionId }) {
   const xAxisColumn = "input_value";
   const secondYAxisColumns = ["quadratic"];
 
-  // Add state to track dataset visibility
   const [datasetHidden, setDatasetHidden] = useState({});
 
-  // Effect for chart lifecycle (creation and destruction)
   useEffect(() => {
-    // Create initial chart with basic configuration
     chartRef.current = new Chart(canvasRef.current, {
       type: "line",
       data: {
@@ -86,7 +83,11 @@ function _LinePlotArea({ sectionId }) {
         animation: false,
         responsive: false,
         maintainAspectRatio: false,
-        spanGaps: true, // Enable spanning gaps for null values globally
+        spanGaps: true,
+        interaction: {
+          mode: "index",
+          intersect: false,
+        },
         scales: {
           x: {
             type: "linear",
@@ -111,8 +112,21 @@ function _LinePlotArea({ sectionId }) {
                 ...prev,
                 [legendItem.text]: !prev[legendItem.text],
               }));
-
               Chart.defaults.plugins.legend.onClick(evt, legendItem, legend);
+            },
+          },
+          tooltip: {
+            mode: "index",
+            intersect: false,
+            position: "nearest",
+            callbacks: {
+              title: (context) => {
+                return `X: ${context[0].label}`;
+              },
+              label: (context) => {
+                const label = context.dataset.label || "";
+                return `${label}: ${context.formattedValue}`;
+              },
             },
           },
         },
@@ -127,7 +141,6 @@ function _LinePlotArea({ sectionId }) {
     };
   }, [secondYAxisColumns]);
 
-  // Effect for data updates and data-dependent configuration
   useDeepCompareEffect(() => {
     if (
       !simulatedData ||
@@ -139,11 +152,9 @@ function _LinePlotArea({ sectionId }) {
     const artifactData = Object.values(simulatedData)[0].value;
     const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
 
-    // Update data
     const labels = [];
     const datasets = [];
 
-    // Initialize empty arrays for each dataset's data
     for (let i = 0; i < artifactData.headers.length; i++) {
       if (i === xColumnIndex) continue;
       datasets.push({
@@ -156,7 +167,6 @@ function _LinePlotArea({ sectionId }) {
       });
     }
 
-    // Fill in the data arrays, keeping null values as they are
     for (const row of artifactData.data) {
       labels.push(row[xColumnIndex]);
       let datasetIndex = 0;
@@ -169,7 +179,6 @@ function _LinePlotArea({ sectionId }) {
 
     const newData = { labels, datasets };
 
-    // Update chart with new data and options
     chartRef.current.data = newData;
     chartRef.current.update();
     chartRef.current.resize(size.width, size.height - 50);
