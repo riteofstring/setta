@@ -5,4 +5,4 @@ from .textFieldAutocomplete import textFieldCompletion
 from .textFieldFindReferences import textFieldFindReferences
 from .textFieldInitializeCode import textFieldInitializeCode
 from .typeCheck import typeCheck
-from .utils import InteractiveTaskDefinition, TaskDefinition, setta_interactive_task
+from .utils import InteractiveTaskDefinition, TaskDefinition
