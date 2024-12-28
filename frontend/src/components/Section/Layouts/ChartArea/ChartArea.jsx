@@ -9,6 +9,10 @@ import {
   getLineChartOptionsAndPlugins,
   updateLineChartWithNewData,
 } from "./LineChart";
+import {
+  getScatterChartOptionsAndPlugins,
+  updateScatterChartWithNewData,
+} from "./ScatterChart";
 
 function _ChartArea({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
@@ -83,6 +87,8 @@ function getOptionsAndPluginsFn(type) {
   switch (type) {
     case "line":
       return getLineChartOptionsAndPlugins;
+    case "scatter":
+      return getScatterChartOptionsAndPlugins;
   }
 }
 
@@ -90,5 +96,7 @@ function getUpdaterFn(type) {
   switch (type) {
     case "line":
       return updateLineChartWithNewData;
+    case "scatter":
+      return updateScatterChartWithNewData;
   }
 }

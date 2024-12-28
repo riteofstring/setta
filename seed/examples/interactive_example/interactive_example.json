@@ -196,6 +196,7 @@
         "width": 432,
         "height": 371
       },
+      "chartSettings": { "type": "scatter" },
       "artifactGroupIds": ["5698c0e0-26be-4aef-b971-281e09933b3d"],
       "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
       "name": "institutional_fuchsia",
