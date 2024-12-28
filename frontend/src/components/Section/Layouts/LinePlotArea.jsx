@@ -26,6 +26,7 @@ function _LinePlotArea({ sectionId }) {
           },
         ],
       },
+      options: { maintainAspectRatio: false },
     });
 
     return () => {
@@ -33,7 +34,11 @@ function _LinePlotArea({ sectionId }) {
     };
   }, []);
 
-  return <canvas ref={canvasRef} />;
+  return (
+    <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
+      <canvas ref={canvasRef} className="bg-red-500" />
+    </figure>
+  );
 }
 
 export const LinePlotArea = React.memo(_LinePlotArea);
