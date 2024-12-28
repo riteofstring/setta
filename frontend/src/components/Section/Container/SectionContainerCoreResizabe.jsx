@@ -5,6 +5,7 @@ import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useSectionInfos } from "state/definitions";
 import { getIsYouTubeSection } from "state/hooks/social";
 import { SectionHeader } from "../Header/SectionHeader";
+import { ChartArea } from "../Layouts/ChartArea/ChartArea";
 import { CodeArea } from "../Layouts/CodeArea";
 import { DrawArea } from "../Layouts/DrawArea/DrawArea";
 import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
@@ -13,7 +14,6 @@ import { IframeArea } from "../Layouts/IframeArea";
 import { ImageArea } from "../Layouts/ImageArea";
 import { InfoArea } from "../Layouts/InfoArea";
 import { InputArea } from "../Layouts/InputArea";
-import { LinePlotArea } from "../Layouts/LinePlotArea";
 import { ParamSweepArea } from "../Layouts/ParamSweepArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
@@ -71,8 +71,8 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
       return <InputArea sectionId={sectionId} bgColor={bgColor} />;
     case C.IMAGE:
       return <ImageArea sectionId={sectionId} />;
-    case C.LINE_PLOT:
-      return <LinePlotArea sectionId={sectionId} />;
+    case C.CHART:
+      return <ChartArea sectionId={sectionId} />;
     case C.DRAW:
       return <DrawArea sectionId={sectionId} />;
     case C.SOCIAL:

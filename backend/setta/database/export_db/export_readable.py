@@ -205,5 +205,5 @@ def get_exporter_fn(config, section_id):
         pass
     elif stype == C.SOCIAL:
         return export_social_section
-    elif stype == C.LINE_PLOT:
+    elif stype == C.CHART:
         pass

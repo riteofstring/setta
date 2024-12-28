@@ -82,5 +82,5 @@ def get_allow_artifact_types(type):
     return {
         C.DRAW: ["img", "brushStrokes"],
         C.IMAGE: ["img"],
-        C.LINE_PLOT: ["list"],
+        C.CHART: ["list"],
     }.get(type, [])

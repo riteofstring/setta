@@ -149,6 +149,6 @@ def get_wrapper_for_loading(data_type):
 
 def default_section_type(data_type):
     if data_type == "list":
-        return C.LINE_PLOT
+        return C.CHART
     if data_type == "img":
         return C.IMAGE

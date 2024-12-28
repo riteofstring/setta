@@ -488,7 +488,7 @@ class SimpleExporter:
                 C.DICT_ROOT,
                 C.GROUP,
                 C.IMAGE,
-                C.LINE_PLOT,
+                C.CHART,
                 C.DRAW,
                 C.GLOBAL_VARIABLES,
             ],
@@ -521,7 +521,7 @@ class SimpleExporter:
                     value[child_name] = self.export_section(
                         c, f'{name}["{child_name}"]'
                     )
-        elif type in [C.IMAGE, C.LINE_PLOT]:
+        elif type in [C.IMAGE, C.CHART]:
             value = get_artifacts(self.p, id)
             self.create_var_mapping((id, "artifact"), name)
         elif type == C.DRAW:

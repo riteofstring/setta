@@ -3,12 +3,12 @@ import { maybeAddArtifactGroupAndSetArtifactId } from "state/actions/artifacts";
 import { useSectionInfos } from "state/definitions";
 import { JustListOfArtifacts } from "./ListOfArtifacts";
 
-export function LinePlotSettings({ sectionId }) {
+export function ChartAreaSettings({ sectionId }) {
   function onClick(artifactId, artifactType) {
     useSectionInfos.setState((state) => {
       maybeAddArtifactGroupAndSetArtifactId(
         sectionId,
-        C.LINE_PLOT,
+        C.CHART,
         artifactId,
         artifactType,
         state,
@@ -19,7 +19,7 @@ export function LinePlotSettings({ sectionId }) {
   return (
     <JustListOfArtifacts
       sectionId={sectionId}
-      sectionTypeName={C.LINE_PLOT}
+      sectionTypeName={C.CHART}
       onClick={onClick}
     />
   );
