@@ -1,10 +1,6 @@
 import json
 
-from setta.utils.constants import (
-    DEFAULT_VALUES,
-    SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS,
-    SECTION_TABLE_DATA_JSON_FIELDS,
-)
+from setta.utils.constants import DEFAULT_VALUES, SECTION_TABLE_DATA_JSON_FIELDS
 from setta.utils.utils import filter_dict, replace_null_keys_with_none
 
 
@@ -15,21 +11,24 @@ def save_sections(db, sections, section_variants):
             name,
             data,
             uiTypeId,
-            uiTypeColId
+            uiTypeColId,
+            defaultVariantId
         )
         VALUES (
             :id,
             :name,
             :data,
             :uiTypeId,
-            :uiTypeColId
+            :uiTypeColId,
+            :defaultVariantId
         )
         ON CONFLICT (id)
         DO UPDATE SET
             name = :name,
             data = :data,
             uiTypeId = :uiTypeId,
-            uiTypeColId = :uiTypeColId
+            uiTypeColId = :uiTypeColId,
+            defaultVariantId = :defaultVariantId
     """
 
     query_params = [
@@ -43,6 +42,7 @@ def save_sections(db, sections, section_variants):
             ),
             "uiTypeId": s["uiTypeId"],
             "uiTypeColId": s["uiTypeColId"],
+            "defaultVariantId": s["defaultVariantId"],
         }
         for s in sections.values()
     ]
@@ -101,26 +101,23 @@ def save_sections(db, sections, section_variants):
     )
 
     query = f"""
-        DELETE FROM SectionArtifacts
-        WHERE sectionId IN ({placeholders});
+        UPDATE ArtifactGroupId
+        SET originSectionId = null
+        WHERE originSectionId IN ({placeholders})
     """
     db.execute(query, ids)
 
-    # add children
     query = """
-        INSERT INTO SectionArtifacts (sectionId, artifactPath, data)
-        VALUES (:sectionId, :artifactPath, :data)
+        UPDATE ArtifactGroupId
+        SET originSectionId = :sectionId
+        WHERE id = :artifactId
     """
-    query_params = []
     for s in sections.values():
-        for a in s["artifacts"]:
+        for a in s["artifactGroupIds"]:
             query_params.append(
                 {
                     "sectionId": s["id"],
-                    "artifactPath": a["path"],
-                    "data": json.dumps(
-                        filter_dict(a, SECTION_ARTIFACTS_TABLE_DATA_JSON_FIELDS)
-                    ),
+                    "artifactId": a,
                 }
             )
     db.executemany(query, query_params)

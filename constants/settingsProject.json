@@ -182,6 +182,9 @@
       },
       "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"backend\",\"exportDbReadableWithVariantsOnSave\"]}": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
+      },
+      "JSON-{\"filenameGlob\":\"setta-settings*.json\",\"key\":[\"backend\",\"saveRenderedValues\"]}": {
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       }
     }
   },
@@ -195,6 +198,7 @@
       "variantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
+      "defaultVariantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
       "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
       "configLanguage": "json",
       "hideSearch": true,
@@ -210,6 +214,7 @@
       "variantId": "f3cb4189-2692-4e75-b58f-76d632f44205",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
+      "defaultVariantId": "f3cb4189-2692-4e75-b58f-76d632f44205",
       "variantIds": ["f3cb4189-2692-4e75-b58f-76d632f44205"],
       "configLanguage": "json",
       "hideSearch": true,
@@ -225,6 +230,7 @@
       "variantId": "36d29a06-7971-48d1-a1d2-23480f770d74",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
+      "defaultVariantId": "36d29a06-7971-48d1-a1d2-23480f770d74",
       "variantIds": ["36d29a06-7971-48d1-a1d2-23480f770d74"],
       "configLanguage": "json",
       "hideSearch": true,
@@ -240,6 +246,7 @@
       "variantId": "4490975a-8d8d-4f02-8ed4-f48f8258f1ec",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
+      "defaultVariantId": "4490975a-8d8d-4f02-8ed4-f48f8258f1ec",
       "variantIds": ["4490975a-8d8d-4f02-8ed4-f48f8258f1ec"],
       "configLanguage": "json",
       "hideSearch": true,
@@ -255,6 +262,7 @@
       "variantId": "d2c7059a-8e28-488a-aa33-056476652d5e",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
+      "defaultVariantId": "d2c7059a-8e28-488a-aa33-056476652d5e",
       "variantIds": ["d2c7059a-8e28-488a-aa33-056476652d5e"],
       "configLanguage": "json",
       "hideSearch": true,
@@ -263,5 +271,6 @@
     }
   },
   "codeInfo": {},
-  "codeInfoCols": {}
+  "codeInfoCols": {},
+  "artifacts": {}
 }

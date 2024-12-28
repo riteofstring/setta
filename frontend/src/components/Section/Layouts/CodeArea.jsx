@@ -109,12 +109,16 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     dbCodeAreaInitializeCode({ sectionId });
   }
 
+  const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
+    codeAreaTabOnEnterKeyHandlers(wrapperRef);
+
   const extensions = getExtensions({
     sectionId,
     language,
     completionsFn,
     keywordStylizer,
     onModEnterDoNothing: true,
+    onEscape: onEscapeFocusOnArticleDiv,
     escapeToBlur: true,
     tabToAutocomplete: true,
     indentWithTab: true,
@@ -125,9 +129,10 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     <article
       ref={wrapperRef}
       className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
+      tabIndex="0"
+      onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >
       <CodeMirror
-        id={`CodeArea-${sectionId}`}
         maxHeight={maxHeight}
         value={value}
         theme={theme}
@@ -136,7 +141,6 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
         indentWithTab={false} // I take care of this in getExtensions
-        tabIndex="0"
       />
     </article>
   );
@@ -245,6 +249,23 @@ export function useCodeAreaHeight({ sectionId }) {
     overflow,
     nowheel,
   };
+}
+
+export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
+  function onArticleDivEnterKeyFocusOnCodeMirror(e) {
+    if (e.code === "Enter") {
+      const el = e.target.querySelector("[contenteditable]");
+      if (el) {
+        el.focus({ preventScroll: true });
+      }
+    }
+  }
+
+  function onEscapeFocusOnArticleDiv() {
+    wrapperRef.current.focus({ preventScroll: true });
+  }
+
+  return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
 }
 
 const debouncedSetEVRefs = asyncDebounce(async (sectionId, value) => {

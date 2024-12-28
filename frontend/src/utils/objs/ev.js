@@ -6,6 +6,7 @@ import { clamp } from "utils/utils";
 export function getValueForUIType({ uiType, currValue }) {
   switch (uiType.type) {
     case C.TEXT:
+    case C.PASSWORD:
       return convertValueForText({ currValue });
     case C.SLIDER:
       return convertValueForSlider({ uiType, currValue });

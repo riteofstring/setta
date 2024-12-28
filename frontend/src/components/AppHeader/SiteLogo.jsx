@@ -9,6 +9,7 @@ export function SiteLogo() {
   return (
     <Link
       id="SiteLogo"
+      className="rounded-md outline-2 outline-offset-4 outline-blue-500 focus-visible:outline"
       to={HOME_ROUTER_PATH}
       onKeyDown={(e) => siteLogoOnKeyDown(e, navigate, location)}
     >

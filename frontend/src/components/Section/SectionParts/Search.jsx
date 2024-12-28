@@ -81,16 +81,16 @@ export function ParamSweepSectionSearch({
       />
       <div className="flex">
         <button
-          className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
+          className="flex h-[22px] cursor-pointer rounded-full text-setta-300 
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>i]:focus-visible:!border-blue-500"
           onClick={onMinusClick}
           disabled={isDisabled}
         >
           <i className="gg-remove" />
         </button>
         <button
-          className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>*]:!absolute"
+          className="flex h-[22px] cursor-pointer rounded-full text-setta-300 
+            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>i]:focus-visible:!border-blue-500"
           onClick={onPlusClick}
           disabled={disablePlusButton || isDisabled}
         >

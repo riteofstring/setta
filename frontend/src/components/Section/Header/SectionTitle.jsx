@@ -1,4 +1,5 @@
 import { Editable } from "components/Utils/Editable";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import C from "constants/constants.json";
 import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
 import { createParamSweepSectionName } from "state/actions/uiTypes/utils";
@@ -16,17 +17,38 @@ export function SectionTitle({ sectionId, titleProps }) {
         sectionId={sectionId}
         sectionName={sectionName}
         titleProps={titleProps}
+        {...getFloatingBoxHandlers(null, sectionName)}
       />
     );
   }
-  return <FixedTitle sectionName={sectionName} className={titleProps.fixed} />;
+  return (
+    <FixedTitle
+      sectionName={sectionName}
+      className={titleProps.fixed}
+      {...getFloatingBoxHandlers(null, sectionName)}
+    />
+  );
 }
 
-function FixedTitle({ sectionName, className }) {
-  return <h2 className={className}>{sectionName}</h2>;
+function FixedTitle({ sectionName, className, onMouseOver, onMouseLeave }) {
+  return (
+    <h2
+      className={className}
+      onMouseOver={onMouseOver}
+      onMouseLeave={onMouseLeave}
+    >
+      {sectionName}
+    </h2>
+  );
 }
 
-function EditableTitle({ sectionId, sectionName, titleProps }) {
+function EditableTitle({
+  sectionId,
+  sectionName,
+  titleProps,
+  onMouseOver,
+  onMouseLeave,
+}) {
   function onTitleInputChange(value) {
     setSectionName(sectionId, value);
   }
@@ -49,6 +71,8 @@ function EditableTitle({ sectionId, sectionName, titleProps }) {
       onKeyDown={onKeyDown}
       titleProps={titleProps}
       doubleClickToEdit={true}
+      onMouseOver={onMouseOver}
+      onMouseLeave={onMouseLeave}
     />
   );
 }
@@ -69,7 +93,7 @@ function useTitleIsEditable(sectionId) {
   return useSectionInfos((x) => {
     const isUneditableType = [
       C.IMAGE,
-      C.LINE_PLOT,
+      C.CHART,
       C.GLOBAL_VARIABLES,
       C.PARAM_SWEEP,
       C.GLOBAL_PARAM_SWEEP,
