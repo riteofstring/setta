@@ -17,6 +17,9 @@ export function getLineChartOptionsAndPlugins({ setDatasetHidden }) {
     },
     plugins: [verticalLinePlugin],
     options: {
+      animation: false,
+      responsive: false,
+      maintainAspectRatio: false,
       spanGaps: true,
       scales: {
         x: {},
@@ -31,6 +34,15 @@ export function getLineChartOptionsAndPlugins({ setDatasetHidden }) {
         },
       },
       plugins: {
+        legend: {
+          onClick: (evt, legendItem, legend) => {
+            setDatasetHidden((prev) => ({
+              ...prev,
+              [legendItem.text]: !prev[legendItem.text],
+            }));
+            Chart.defaults.plugins.legend.onClick(evt, legendItem, legend);
+          },
+        },
         tooltip: {
           mode: "index",
           intersect: false,

@@ -19,9 +19,16 @@ export function getScatterChartOptionsAndPlugins({ setDatasetHidden }) {
     },
     plugins: [crosshairPlugin],
     options: {
+      animation: false,
+      responsive: false,
+      maintainAspectRatio: false,
       scales: {
-        x: {},
-        y1: {},
+        x: {
+          position: "bottom",
+        },
+        y1: {
+          position: "left",
+        },
         y2: {
           position: "right",
           grid: {
@@ -30,6 +37,15 @@ export function getScatterChartOptionsAndPlugins({ setDatasetHidden }) {
         },
       },
       plugins: {
+        legend: {
+          onClick: (evt, legendItem, legend) => {
+            setDatasetHidden((prev) => ({
+              ...prev,
+              [legendItem.text]: !prev[legendItem.text],
+            }));
+            Chart.defaults.plugins.legend.onClick(evt, legendItem, legend);
+          },
+        },
         tooltip: {
           enabled: true,
           mode: "nearest",

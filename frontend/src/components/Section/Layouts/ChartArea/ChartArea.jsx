@@ -33,31 +33,7 @@ function _ChartArea({ sectionId }) {
 
     chartRef.current = new Chart(
       canvasRef.current,
-      _.merge(
-        {
-          options: {
-            animation: false,
-            responsive: false,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                onClick: (evt, legendItem, legend) => {
-                  setDatasetHidden((prev) => ({
-                    ...prev,
-                    [legendItem.text]: !prev[legendItem.text],
-                  }));
-                  Chart.defaults.plugins.legend.onClick(
-                    evt,
-                    legendItem,
-                    legend,
-                  );
-                },
-              },
-            },
-          },
-        },
-        optionsAndPluginsFn({ setDatasetHidden }),
-      ),
+      optionsAndPluginsFn({ setDatasetHidden }),
     );
 
     return () => {
