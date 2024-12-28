@@ -5,9 +5,9 @@ import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiHide, BiPaint, BiShow } from "react-icons/bi";
+import { BsLayers } from "react-icons/bs";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
 import { IoMove } from "react-icons/io5";
-import { TfiLayersAlt } from "react-icons/tfi";
 import { addDrawAreaLayer } from "state/actions/artifacts";
 import { useSectionInfos } from "state/definitions";
 import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
@@ -167,7 +167,7 @@ export function DrawAreaControls({
         contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
         trigger={
           <button className="flex w-12 cursor-pointer items-center justify-center gap-0 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
-            <TfiLayersAlt />
+            <BsLayers className="w-5" />
             <i className="gg-chevron-down" />
           </button>
         }
@@ -451,7 +451,7 @@ function LayerList({
             onDragOver={(e) => handleDragOver(e, idx)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, idx)}
-            className={`flex cursor-move items-center justify-between gap-2 rounded-lg border-2  bg-setta-50 px-2 py-1 hover:bg-setta-100 dark:bg-setta-900 dark:hover:bg-setta-875 ${
+            className={`dark:hover:bg-setta-8509 flex cursor-move items-center justify-between gap-2 rounded-lg  border-2 bg-setta-50 px-2 py-1 hover:bg-setta-100 dark:bg-setta-900 ${
               draggedOverIdx === idx ? " border-blue-500" : "border-transparent"
             } `}
             onClick={() => setActiveLayerId(layer.id)}
