@@ -2,6 +2,7 @@ import os
 import shutil
 from pathlib import Path
 
+from setta.cli.logger import save_base64_to_png
 from setta.code_gen.export_selected import (
     export_param_sweep_section_to_dict,
     export_section_to_dict,
@@ -21,6 +22,9 @@ from setta.code_gen.yaml.section_dict import (
     run_group_dict_to_yaml,
     section_dict_to_yaml,
 )
+from setta.database.db.artifacts.load import (
+    load_artifact_metadata_and_maybe_value_from_disk,
+)
 from setta.utils.constants import C
 from setta.utils.section_contents import getParamIdsToShowInArea
 
@@ -39,7 +43,16 @@ def export_readable(db, filename, with_variants):
 
     print("exporting readable to", root_folder)
 
+    artifactIds = set()
     for c in configs:
+        for ag in c["artifactGroups"].values():
+            for t in ag["artifactTransforms"]:
+                artifactIds.add(t["artifactId"])
+
+    artifacts = load_artifact_metadata_and_maybe_value_from_disk(db, list(artifactIds))
+
+    for c in configs:
+        c["artifacts"] = artifacts
         export_config(root_folder, c, with_variants)
 
 
@@ -177,6 +190,17 @@ def export_social_section(folder, config, section_id, *_, **__):
         file.write(url)
 
 
+def export_image_section(folder, config, section_id, *_, **__):
+    section = config["sections"][section_id]
+    artifact_group_id = section["artifactGroupIds"][0]
+    artifactId = config["artifactGroups"][artifact_group_id]["artifactTransforms"][0][
+        "artifactId"
+    ]
+    artifact = config["artifacts"][artifactId]
+    base = get_section_name(config, section_id)
+    save_base64_to_png(artifact["value"], folder / f"{base}.png")
+
+
 def maybe_with_variant_in_filename(config, section_id, variant_id, with_variants):
     section_name = get_section_name(config, section_id)
     variant_name = get_variant_name(config, variant_id)
@@ -202,7 +226,7 @@ def get_exporter_fn(config, section_id):
     elif stype == C.DRAW:
         pass
     elif stype == C.IMAGE:
-        pass
+        return export_image_section
     elif stype == C.SOCIAL:
         return export_social_section
     elif stype == C.CHART:

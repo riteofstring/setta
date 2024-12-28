@@ -98,15 +98,15 @@ class SettaListData(SettaDataWrapper):
         return {"value": self.data, "type": "list"}
 
     def load(self, path_with_extension):
-        with open(path_with_extension, 'r') as f:
-            headers = f.readline().strip().split(',')
+        with open(path_with_extension, "r") as f:
+            headers = f.readline().strip().split(",")
             data = []
             for line in f:
-                values = line.strip().split(',')
+                values = line.strip().split(",")
                 # Convert each value to float if not empty, otherwise None
                 row = []
                 for x in values:
-                    if x.strip() == '':
+                    if x.strip() == "":
                         row.append(None)
                     else:
                         try:
@@ -152,3 +152,11 @@ def default_section_type(data_type):
         return C.CHART
     if data_type == "img":
         return C.IMAGE
+
+
+def save_base64_to_png(base64_string, output_file):
+    image_data = base64.b64decode(base64_string)
+
+    # Write the binary data to a file
+    with open(output_file, "wb") as f:
+        f.write(image_data)
