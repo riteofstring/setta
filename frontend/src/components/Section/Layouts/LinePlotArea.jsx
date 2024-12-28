@@ -1,24 +1,120 @@
 import Chart from "chart.js/auto";
 import _ from "lodash";
-import React, { useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
 import { useAllSectionArtifacts } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
+export function useSimulatedData(originalData, updateInterval = 1000) {
+  const [simulatedData, setSimulatedData] = useState(() =>
+    _.cloneDeep(originalData),
+  );
+
+  useEffect(() => {
+    if (!originalData || Object.keys(originalData).length === 0) return;
+
+    // Update state when originalData changes
+    setSimulatedData(_.cloneDeep(originalData));
+
+    const intervalId = setInterval(() => {
+      setSimulatedData((prevData) => {
+        const newData = _.cloneDeep(prevData);
+        const artifactId = Object.keys(newData)[0];
+        const artifact = newData[artifactId];
+        const data = artifact.value.data;
+
+        // Get the last input value and increment it
+        const lastRow = data[data.length - 1];
+        const nextInputValue = lastRow[0] + (data[1][0] - data[0][0]); // Use same step size
+
+        // Generate new values following the patterns
+        const newRow = [
+          nextInputValue,
+          Math.sin(nextInputValue), // sine_wave
+          Math.cos(nextInputValue), // cosine_wave
+          Math.sin(nextInputValue) * Math.exp(-Math.abs(nextInputValue / 10)), // damped_oscillation
+          nextInputValue * nextInputValue, // quadratic
+        ];
+
+        // Add the new row
+        artifact.value.data = [...data, newRow];
+
+        return newData;
+      });
+    }, updateInterval);
+
+    return () => clearInterval(intervalId);
+  }, [originalData, updateInterval]);
+
+  return simulatedData;
+}
+
 function _LinePlotArea({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
+  const simulatedData = useSimulatedData(loadedArtifacts);
   const size = useSectionInfos((x) => x.x[sectionId].size, _.isEqual);
   const canvasRef = useRef();
   const chartRef = useRef(null);
   const xAxisColumn = "input_value";
   const secondYAxisColumns = ["quadratic"];
 
+  // Effect for chart lifecycle (creation and destruction)
   useDeepCompareEffect(() => {
-    if (!loadedArtifacts || Object.keys(loadedArtifacts).length === 0) return;
+    console.log('creating chart')
+    // Create initial chart with basic configuration
+    chartRef.current = new Chart(canvasRef.current, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [],
+      },
+      options: {
+        animation: false,
+        responsive: false,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            type: "linear",
+          },
+          y1: {
+            type: "linear",
+            position: "left",
+          },
+          y2: {
+            type: "linear",
+            position: "right",
+            grid: {
+              drawOnChartArea: false,
+            },
+            display: secondYAxisColumns.length > 0,
+          },
+        },
+      },
+    });
 
-    const artifactData = Object.values(loadedArtifacts)[0].value;
+    // Cleanup only on unmount
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+    };
+  }, [secondYAxisColumns]); // Only depends on secondYAxisColumns for y2 axis display
+
+  // Effect for data updates and data-dependent configuration
+  useDeepCompareEffect(() => {
+    console.log("updating chart")
+    if (
+      !simulatedData ||
+      Object.keys(simulatedData).length === 0 ||
+      !chartRef.current
+    )
+      return;
+
+    const artifactData = Object.values(simulatedData)[0].value;
     const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
 
+    // Update data
     const newData = {
       labels: artifactData.data.map((row) => row[xColumnIndex]),
       datasets: artifactData.headers
@@ -34,57 +130,21 @@ function _LinePlotArea({ sectionId }) {
         })),
     };
 
-    if (!chartRef.current) {
-      // Create new chart if it doesn't exist
-      chartRef.current = new Chart(canvasRef.current, {
-        type: "line",
-        data: newData,
-        options: {
-          animation: false,
-          responsive: false,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              type: "linear",
-              ticks: {
-                stepSize: Math.ceil(
-                  (artifactData.data.slice(-1)[0][xColumnIndex] -
-                    artifactData.data[0][xColumnIndex]) /
-                    5,
-                ),
-                precision: 0,
-              },
-            },
-            y1: {
-              type: "linear",
-              position: "left",
-            },
-            y2: {
-              type: "linear",
-              position: "right",
-              grid: {
-                drawOnChartArea: false,
-              },
-              display: secondYAxisColumns.length > 0,
-            },
-          },
-        },
-      });
-    } else {
-      // Update existing chart
-      chartRef.current.data = newData;
-      chartRef.current.update();
-    }
-
-    chartRef.current.resize(size.width, size.height - 50);
-
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
-      }
+    // Update data-dependent options
+    chartRef.current.options.scales.x.ticks = {
+      stepSize: Math.ceil(
+        (artifactData.data.slice(-1)[0][xColumnIndex] -
+          artifactData.data[0][xColumnIndex]) /
+          5,
+      ),
+      precision: 0,
     };
-  }, [loadedArtifacts, xAxisColumn, secondYAxisColumns, size]);
+
+    // Update chart with new data and options
+    chartRef.current.data = newData;
+    chartRef.current.update();
+    chartRef.current.resize(size.width, size.height - 50);
+  }, [simulatedData, xAxisColumn, secondYAxisColumns, size]);
 
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
