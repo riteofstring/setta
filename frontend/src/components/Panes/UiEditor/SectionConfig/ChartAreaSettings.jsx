@@ -2,6 +2,7 @@ import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
+import { useAllSectionArtifacts } from "state/hooks/artifacts";
 import { JustListOfArtifacts } from "./ListOfArtifacts";
 
 export function ChartAreaSettings({ sectionId }) {
@@ -23,21 +24,31 @@ function ChartConfig({ sectionId }) {
     y2AxisLog,
   } = useSectionInfos((x) => x.x[sectionId].chartSettings, _.isEqual);
 
-  const chartTypes = [
-    {
-      group: "Chart Types",
-      items: [
-        { id: "line", name: "line" },
-        { id: "scatter", name: "scatter" },
-      ],
-    },
-  ];
+  const valueHeaders = useAllSectionArtifacts(sectionId, ["value.headers"]);
 
   function setChartSetting(name, value) {
     useSectionInfos.setState((state) => {
       state.x[sectionId].chartSettings[name] = value;
     });
   }
+
+  const chartTypes = [
+    {
+      group: "Chart Types",
+      items: ["line", "scatter"].map((x) => ({ id: x, name: x })),
+    },
+  ];
+
+  const xAxisColumnChoices = [
+    {
+      group: "Column Names",
+      items:
+        Object.values(valueHeaders)[0]?.value?.headers?.map((x) => ({
+          id: x,
+          name: x,
+        })) ?? [],
+    },
+  ];
 
   return (
     <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
@@ -67,13 +78,10 @@ function ChartConfig({ sectionId }) {
           >
             X-Axis Column
           </label>
-          <input
-            id="xAxisColumn"
-            type="text"
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400"
-            placeholder="Enter x-axis column"
+          <IdNameCombobox
+            allItems={xAxisColumnChoices}
             value={xAxisColumn}
-            onChange={(e) => setChartSetting("xAxisColumn", e.target.value)}
+            onSelectedItemChange={(v) => setChartSetting("xAxisColumn", v)}
           />
         </div>
 
