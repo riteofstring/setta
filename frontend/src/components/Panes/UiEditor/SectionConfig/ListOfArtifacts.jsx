@@ -146,7 +146,7 @@ export function ListOfArtifacts({
                 </Accordion.Trigger>
               </div>
               {item.path && (
-                <div className="mb-2 text-xs text-setta-500 dark:text-setta-400">
+                <div className="mb-2 truncate text-xs text-setta-500 dark:text-setta-400">
                   {item.path}
                 </div>
               )}
