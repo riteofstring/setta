@@ -221,8 +221,7 @@ def get_first_section_code_that_needs_generated_python(p):
 def code_section_needs_generated_python(p, id):
     code = get_section_code(p, id)
     return (
-        get_section_type(p, id) == C.CODE
-        and p["sections"][id]["codeLanguage"] == "python"
+        p["sections"][id]["codeLanguage"] == "python"
         and needs_generated_python(code)
     )
 
