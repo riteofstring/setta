@@ -2,7 +2,10 @@ import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
-import { useAllSectionArtifacts } from "state/hooks/artifacts";
+import {
+  getFirstSectionArtifact,
+  useAllSectionArtifacts,
+} from "state/hooks/artifacts";
 import { JustListOfArtifacts } from "./ListOfArtifacts";
 
 export function ChartAreaSettings({ sectionId }) {
@@ -43,7 +46,7 @@ function ChartConfig({ sectionId }) {
     {
       group: "Column Names",
       items:
-        Object.values(valueHeaders)[0]?.value?.headers?.map((x) => ({
+        getFirstSectionArtifact(valueHeaders, "value")?.headers?.map((x) => ({
           id: x,
           name: x,
         })) ?? [],

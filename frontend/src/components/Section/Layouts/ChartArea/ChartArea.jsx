@@ -2,7 +2,10 @@ import Chart from "chart.js/auto";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
-import { useAllSectionArtifacts } from "state/hooks/artifacts";
+import {
+  getFirstSectionArtifact,
+  useAllSectionArtifacts,
+} from "state/hooks/artifacts";
 import { localStorageFns } from "state/hooks/localStorage";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import {
@@ -87,14 +90,11 @@ function _ChartArea({ sectionId }) {
   }, [chartSettings.type]);
 
   useDeepCompareEffect(() => {
-    if (
-      !loadedArtifacts ||
-      Object.keys(loadedArtifacts).length === 0 ||
-      !chartRef.current
-    )
+    const artifactData = getFirstSectionArtifact(loadedArtifacts, "value");
+    if (!artifactData || !chartRef.current) {
       return;
+    }
 
-    const artifactData = Object.values(loadedArtifacts)[0].value;
     const updateFn = getUpdaterFn(chartSettings.type);
     updateFn({
       chartRef,

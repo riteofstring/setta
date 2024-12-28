@@ -76,6 +76,10 @@ export function useAllSectionArtifacts(sectionId, artifactAttrsToPick) {
   return useLoadedArtifacts(artifactIds, artifactAttrsToPick);
 }
 
+export function getFirstSectionArtifact(loadedArtifacts, attr) {
+  return Object.values(loadedArtifacts)[0]?.[attr];
+}
+
 export function getSectionArtifactGroupMetadata(sectionId, state) {
   const { artifactGroupIds } = state.x[sectionId];
   const output = [];
