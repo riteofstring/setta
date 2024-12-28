@@ -206,6 +206,11 @@
         "width": 432,
         "height": 371
       },
+      "chartSettings": {
+        "type": "line",
+        "xAxisColumn": "input_value",
+        "secondYAxisColumns": ["quadratic"]
+      },
       "artifactGroupIds": ["5698c0e0-26be-4aef-b971-281e09933b3d"],
       "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
       "name": "institutional_fuchsia",
@@ -220,7 +225,11 @@
         "height": 371
       },
       "name": "equal_red",
-      "chartSettings": { "type": "scatter" },
+      "chartSettings": {
+        "type": "scatter",
+        "xAxisColumn": "x_value",
+        "categoryColumn": "category"
+      },
       "artifactGroupIds": ["be43daa8-a16a-4203-b4ab-a9384f32a5ee"],
       "variantId": "0be09c10-3ab2-4782-b620-753cb178961d",
       "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c",
