@@ -42,7 +42,10 @@
       "mode": "draw"
     },
     "chartSettings": {
-      "type": "line"
+      "type": "line",
+      "xAxisLog": false,
+      "y1AxisLog": false,
+      "y2AxisLog": false
     },
     "isTemporary": false,
     "renderMarkdown": false,

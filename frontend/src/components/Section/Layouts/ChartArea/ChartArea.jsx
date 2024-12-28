@@ -61,6 +61,7 @@ function _ChartArea({ sectionId }) {
       secondYAxisColumns,
       datasetHidden,
       darkMode,
+      chartSettings,
     });
     chartRef.current.resize(size.width, size.height - 50);
     chartRef.current.update();
@@ -71,7 +72,7 @@ function _ChartArea({ sectionId }) {
     size,
     datasetHidden,
     darkMode,
-    chartSettings.type,
+    chartSettings,
   ]);
 
   return (

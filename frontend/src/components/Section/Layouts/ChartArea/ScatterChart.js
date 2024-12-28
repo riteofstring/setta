@@ -24,15 +24,12 @@ export function getScatterChartOptionsAndPlugins({ setDatasetHidden }) {
       maintainAspectRatio: false,
       scales: {
         x: {
-          type: "linear",
           position: "bottom",
         },
         y1: {
-          type: "linear",
           position: "left",
         },
         y2: {
-          type: "linear",
           position: "right",
           grid: {
             drawOnChartArea: false,
@@ -78,6 +75,7 @@ export function updateScatterChartWithNewData({
   secondYAxisColumns,
   datasetHidden,
   darkMode,
+  chartSettings,
 }) {
   const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
   const datasets = [];
@@ -112,9 +110,20 @@ export function updateScatterChartWithNewData({
 
   const newData = { datasets };
 
+  console.log("chartSettings updated", chartSettings);
   chartRef.current.data = newData;
   chartRef.current.crosshairPlugin.color = darkMode ? "white" : "black";
+  chartRef.current.options.scales.x.type = chartSettings.xAxisLog
+    ? "logarithmic"
+    : "linear";
+  chartRef.current.options.scales.y1.type = chartSettings.y1AxisLog
+    ? "logarithmic"
+    : "linear";
+  chartRef.current.options.scales.y2.type = chartSettings.y2AxisLog
+    ? "logarithmic"
+    : "linear";
   chartRef.current.scales.y2.display = secondYAxisColumns.length > 0;
+  console.log("chartRef.current", chartRef.current);
 }
 
 const crosshairPlugin = {

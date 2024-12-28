@@ -1,22 +1,41 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
-import React from "react";
+import _ from "lodash";
+import { useSectionInfos } from "state/definitions";
 import { JustListOfArtifacts } from "./ListOfArtifacts";
 
 export function ChartAreaSettings({ sectionId }) {
   return (
     <>
-      <ChartConfig />
+      <ChartConfig sectionId={sectionId} />
       <JustListOfArtifacts sectionId={sectionId} sectionTypeName={C.CHART} />
     </>
   );
 }
 
-function ChartConfig() {
-  const [chartType, setChartType] = React.useState("line");
-  const [xAxisLog, setXAxisLog] = React.useState(false);
-  const [y1AxisLog, setY1AxisLog] = React.useState(false);
-  const [y2AxisLog, setY2AxisLog] = React.useState(false);
+function ChartConfig({ sectionId }) {
+  const {
+    type: chartType,
+    xAxisLog,
+    y1AxisLog,
+    y2AxisLog,
+  } = useSectionInfos((x) => x.x[sectionId].chartSettings, _.isEqual);
+
+  const chartTypes = [
+    {
+      group: "Chart Types",
+      items: [
+        { id: "line", name: "line" },
+        { id: "scatter", name: "scatter" },
+      ],
+    },
+  ];
+
+  function setChartSetting(name, value) {
+    useSectionInfos.setState((state) => {
+      state.x[sectionId].chartSettings[name] = value;
+    });
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
@@ -33,17 +52,9 @@ function ChartConfig() {
             Chart Type
           </label>
           <IdNameCombobox
-            allItems={[
-              {
-                group: "Chart Types",
-                items: [
-                  { id: "line", name: "line" },
-                  { id: "scatter", name: "scatter" },
-                ],
-              },
-            ]}
+            allItems={chartTypes}
             value={chartType}
-            onSelectedItemChange={setChartType}
+            onSelectedItemChange={(v) => setChartSetting("type", v)}
           />
         </div>
 
@@ -89,7 +100,7 @@ function ChartConfig() {
             id="xAxisLog"
             className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:text-blue-400 dark:focus:ring-blue-400"
             checked={xAxisLog}
-            onChange={(e) => setXAxisLog(e.target.checked)}
+            onChange={(e) => setChartSetting("xAxisLog", e.target.checked)}
           />
         </div>
 
@@ -105,7 +116,7 @@ function ChartConfig() {
             id="y1AxisLog"
             className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:text-blue-400 dark:focus:ring-blue-400"
             checked={y1AxisLog}
-            onChange={(e) => setY1AxisLog(e.target.checked)}
+            onChange={(e) => setChartSetting("y1AxisLog", e.target.checked)}
           />
         </div>
 
@@ -121,7 +132,7 @@ function ChartConfig() {
             id="y2AxisLog"
             className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:text-blue-400 dark:focus:ring-blue-400"
             checked={y2AxisLog}
-            onChange={(e) => setY2AxisLog(e.target.checked)}
+            onChange={(e) => setChartSetting("y2AxisLog", e.target.checked)}
           />
         </div>
       </div>

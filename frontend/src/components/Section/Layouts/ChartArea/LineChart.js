@@ -22,15 +22,11 @@ export function getLineChartOptionsAndPlugins({ setDatasetHidden }) {
       maintainAspectRatio: false,
       spanGaps: true,
       scales: {
-        x: {
-          type: "linear",
-        },
+        x: {},
         y1: {
-          type: "linear",
           position: "left",
         },
         y2: {
-          type: "linear",
           position: "right",
           grid: {
             drawOnChartArea: false,
@@ -73,6 +69,7 @@ export function updateLineChartWithNewData({
   secondYAxisColumns,
   datasetHidden,
   darkMode,
+  chartSettings,
 }) {
   const xColumnIndex = artifactData.headers.indexOf(xAxisColumn);
 
@@ -105,6 +102,15 @@ export function updateLineChartWithNewData({
 
   chartRef.current.data = newData;
   chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
+  chartRef.current.options.scales.x.type = chartSettings.xAxisLog
+    ? "logarithmic"
+    : "linear";
+  chartRef.current.options.scales.y1.type = chartSettings.y1AxisLog
+    ? "logarithmic"
+    : "linear";
+  chartRef.current.options.scales.y2.type = chartSettings.y2AxisLog
+    ? "logarithmic"
+    : "linear";
   chartRef.current.scales.y2.display = secondYAxisColumns.length > 0;
 }
 
