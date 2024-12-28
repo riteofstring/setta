@@ -1,5 +1,4 @@
 import { Tooltip } from "chart.js";
-import Chart from "chart.js/auto";
 
 Tooltip.positioners.lineChartTooltipMousePosition = function (
   elements,
@@ -12,37 +11,12 @@ export function getLineChartOptionsAndPlugins({ setDatasetHidden }) {
   return {
     type: "line",
     data: {
-      labels: [],
       datasets: [],
     },
     plugins: [verticalLinePlugin],
     options: {
-      animation: false,
-      responsive: false,
-      maintainAspectRatio: false,
       spanGaps: true,
-      scales: {
-        x: {},
-        y1: {
-          position: "left",
-        },
-        y2: {
-          position: "right",
-          grid: {
-            drawOnChartArea: false,
-          },
-        },
-      },
       plugins: {
-        legend: {
-          onClick: (evt, legendItem, legend) => {
-            setDatasetHidden((prev) => ({
-              ...prev,
-              [legendItem.text]: !prev[legendItem.text],
-            }));
-            Chart.defaults.plugins.legend.onClick(evt, legendItem, legend);
-          },
-        },
         tooltip: {
           mode: "index",
           intersect: false,
@@ -102,16 +76,6 @@ export function updateLineChartWithNewData({
 
   chartRef.current.data = newData;
   chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
-  chartRef.current.options.scales.x.type = chartSettings.xAxisLog
-    ? "logarithmic"
-    : "linear";
-  chartRef.current.options.scales.y1.type = chartSettings.y1AxisLog
-    ? "logarithmic"
-    : "linear";
-  chartRef.current.options.scales.y2.type = chartSettings.y2AxisLog
-    ? "logarithmic"
-    : "linear";
-  chartRef.current.scales.y2.display = secondYAxisColumns.length > 0;
 }
 
 const verticalLinePlugin = {

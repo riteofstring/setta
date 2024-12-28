@@ -33,7 +33,51 @@ function _ChartArea({ sectionId }) {
 
     chartRef.current = new Chart(
       canvasRef.current,
-      optionsAndPluginsFn({ setDatasetHidden }),
+      _.merge(
+        {
+          data: {
+            datasets: [],
+          },
+          options: {
+            animation: false,
+            responsive: false,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                type: "linear",
+                position: "bottom",
+              },
+              y1: {
+                type: "linear",
+                position: "left",
+              },
+              y2: {
+                type: "linear",
+                position: "right",
+                grid: {
+                  drawOnChartArea: false,
+                },
+              },
+            },
+            plugins: {
+              legend: {
+                onClick: (evt, legendItem, legend) => {
+                  setDatasetHidden((prev) => ({
+                    ...prev,
+                    [legendItem.text]: !prev[legendItem.text],
+                  }));
+                  Chart.defaults.plugins.legend.onClick(
+                    evt,
+                    legendItem,
+                    legend,
+                  );
+                },
+              },
+            },
+          },
+        },
+        optionsAndPluginsFn({ setDatasetHidden }),
+      ),
     );
 
     return () => {
@@ -63,6 +107,12 @@ function _ChartArea({ sectionId }) {
       darkMode,
       chartSettings,
     });
+
+    setAxisType(chartRef.current.options.scales.x, chartSettings.xAxisLog);
+    setAxisType(chartRef.current.options.scales.y1, chartSettings.y1AxisLog);
+    setAxisType(chartRef.current.options.scales.y2, chartSettings.y2AxisLog);
+    chartRef.current.scales.y2.display = secondYAxisColumns.length > 0;
+
     chartRef.current.resize(size.width, size.height - 50);
     chartRef.current.update();
   }, [
@@ -100,4 +150,8 @@ function getUpdaterFn(type) {
     case "scatter":
       return updateScatterChartWithNewData;
   }
+}
+
+function setAxisType(axis, isLog) {
+  axis.type = isLog ? "logarithmic" : "linear";
 }

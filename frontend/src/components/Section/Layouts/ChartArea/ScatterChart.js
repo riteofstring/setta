@@ -1,5 +1,4 @@
 import { Tooltip } from "chart.js";
-import Chart from "chart.js/auto";
 
 Tooltip.positioners.scatterChartTooltipMousePosition = function (
   elements,
@@ -14,38 +13,9 @@ Tooltip.positioners.scatterChartTooltipMousePosition = function (
 export function getScatterChartOptionsAndPlugins({ setDatasetHidden }) {
   return {
     type: "scatter",
-    data: {
-      datasets: [],
-    },
     plugins: [crosshairPlugin],
     options: {
-      animation: false,
-      responsive: false,
-      maintainAspectRatio: false,
-      scales: {
-        x: {
-          position: "bottom",
-        },
-        y1: {
-          position: "left",
-        },
-        y2: {
-          position: "right",
-          grid: {
-            drawOnChartArea: false,
-          },
-        },
-      },
       plugins: {
-        legend: {
-          onClick: (evt, legendItem, legend) => {
-            setDatasetHidden((prev) => ({
-              ...prev,
-              [legendItem.text]: !prev[legendItem.text],
-            }));
-            Chart.defaults.plugins.legend.onClick(evt, legendItem, legend);
-          },
-        },
         tooltip: {
           enabled: true,
           mode: "nearest",
@@ -63,7 +33,6 @@ export function getScatterChartOptionsAndPlugins({ setDatasetHidden }) {
           },
         },
       },
-      onHover: () => {}, // Empty callback to ensure hover state is always active
     },
   };
 }
@@ -110,20 +79,8 @@ export function updateScatterChartWithNewData({
 
   const newData = { datasets };
 
-  console.log("chartSettings updated", chartSettings);
   chartRef.current.data = newData;
   chartRef.current.crosshairPlugin.color = darkMode ? "white" : "black";
-  chartRef.current.options.scales.x.type = chartSettings.xAxisLog
-    ? "logarithmic"
-    : "linear";
-  chartRef.current.options.scales.y1.type = chartSettings.y1AxisLog
-    ? "logarithmic"
-    : "linear";
-  chartRef.current.options.scales.y2.type = chartSettings.y2AxisLog
-    ? "logarithmic"
-    : "linear";
-  chartRef.current.scales.y2.display = secondYAxisColumns.length > 0;
-  console.log("chartRef.current", chartRef.current);
 }
 
 const crosshairPlugin = {
