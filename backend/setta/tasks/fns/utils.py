@@ -97,3 +97,17 @@ def get_task_metadata_for_frontend(task, exporter_obj=None):
             "dependencies": dependencies,
         }
     return {"name": task.name}
+
+
+def setta_interactive_task(func):
+    def wrapper(message):
+        # Extract project from message.content
+        project = message.content
+        
+        # Call the original function with project
+        result = func(project)
+        
+        # Wrap the result in the desired format
+        return {"content": result}
+    
+    return InteractiveTaskDefinition(fn=wrapper)
