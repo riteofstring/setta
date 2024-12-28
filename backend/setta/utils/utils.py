@@ -173,10 +173,8 @@ def filter_dict(x, keep_keys=None, default_vals=None):
     return {
         k: filter_dict(v, None, default_vals.get(k) if default_vals else None)
         for k, v in x.items()
-        if (keep_keys is None or k in keep_keys)
-        and (
-            (default_vals is None) or (k not in default_vals) or (v != default_vals[k])
-        )
+        if (not keep_keys or k in keep_keys)
+        and ((not default_vals) or (k not in default_vals) or (v != default_vals[k]))
     }
 
 

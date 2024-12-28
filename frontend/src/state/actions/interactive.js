@@ -14,9 +14,7 @@ export async function updateInteractiveCode() {
   if (res.status === 200) {
     const taskMetadata = res.data.taskMetadata;
     for (const t of taskMetadata) {
-      if (t.dependencies !== null) {
-        t.dependencies = new Set(t.dependencies.map((d) => JSON.stringify(d)));
-      }
+      t.dependencies = new Set(t.dependencies.map((d) => JSON.stringify(d)));
     }
     console.log("taskMetadata", taskMetadata);
     useInteractive.setState({ taskMetadata });
@@ -25,21 +23,20 @@ export async function updateInteractiveCode() {
 }
 
 export async function updateInteractiveData(data) {
-  console.log("updateInteractiveData", data);
   if (data.length === 0) {
     return;
   }
-  const artifacts = {};
-  for (const [id, d] of Object.entries(data)) {
+  const dataInArtifactForm = {};
+  for (const d of data) {
     if (d.type === "runGroupControl") {
       setAllRunGroupsAndMaybeCreateSection(d.value);
     } else if (["list", "img"].includes(d.type)) {
-      artifacts[id] = { ...d, path: null };
+      dataInArtifactForm[`interactive:${d.displayName}`] = d;
     } else {
       console.error("incorrect interactive type", d);
     }
   }
-  updateArtifacts({ artifacts, addSection: true });
+  updateArtifacts({ artifacts: dataInArtifactForm, addSection: true });
 }
 
 export async function formatCode() {
@@ -57,7 +54,7 @@ export function sendToInteractiveTasks(sourceInfo, value) {
   const key = JSON.stringify(sourceInfo);
   const content = { [key]: value };
   for (const t of useInteractive.getState().taskMetadata) {
-    if (t.dependencies === null || t.dependencies.has(key)) {
+    if (t.runOnProjectChange && t.dependencies.has(key)) {
       sendMessage({ id: createNewId(), content, messageType: t.name });
     }
   }

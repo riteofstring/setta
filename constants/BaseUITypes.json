@@ -75,7 +75,7 @@
   },
   "126547a6-d41e-4891-80f0-a0354f089c7c": {
     "id": "126547a6-d41e-4891-80f0-a0354f089c7c",
-    "type": "CHART",
+    "type": "LINE_PLOT",
     "name": "",
     "presetType": "BASE",
     "config": {}

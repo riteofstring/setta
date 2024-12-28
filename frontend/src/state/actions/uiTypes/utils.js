@@ -15,7 +15,7 @@ export const uiTypesToPretty = {
   [C.DICT_ROOT]: "Dict of Objects",
   [C.GROUP]: "Group",
   [C.IMAGE]: "Image",
-  [C.CHART]: "Chart",
+  [C.LINE_PLOT]: "Line Plot",
   [C.DRAW]: "Drawing Area",
   [C.INFO]: "Info",
   [C.SOCIAL]: "Social",

@@ -50,13 +50,6 @@
         "zIndex": 1,
         "w": 302,
         "h": 302
-      },
-      "f46f4da4-3f71-46e0-8763-a8fb643c8b9a": {
-        "x": 0,
-        "y": 0,
-        "zIndex": 0,
-        "w": 302,
-        "h": 302
       }
     }
   },
@@ -85,17 +78,14 @@
     },
     "8055d10b-3623-4665-b85c-977327fa40c6": {
       "name": "involved_red",
-      "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    blur_radius = float(data[\"blur_radius\"])\n    img = data[\"royal_orange\"][0][\"value\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"name\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)"
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    blur_radius = float(data[\"blur_radius\"])\n    img = data[\"royal_orange\"][0][\"value\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"displayName\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)"
     },
     "91b7814e-8f93-4ad1-a966-00851b4e41d9": {
       "name": "victorious_white",
-      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\ndef fn(message):\n    data = message.content\n    c = float(data[\"c\"])\n    n = int(data[\"n\"])\n    value = [((i - 10) / 5) ** c for i in range(n)]\n    return_content = {\"value\": value, \"type\": \"list\", \"name\": \"Fancy Graph\"}\n    return {\"content\": [return_content]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)"
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\ndef fn(message):\n    data = message.content\n    c = float(data[\"c\"])\n    n = int(data[\"n\"])\n    value = [((i - 10) / 5) ** c for i in range(n)]\n    return_content = {\"value\": value, \"type\": \"list\", \"displayName\": \"Fancy Graph\"}\n    return {\"content\": [return_content]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)"
     },
     "efbf1e64-8932-4fa6-928a-e930314db45c": {
       "name": "tropical_harlequin"
-    },
-    "0be09c10-3ab2-4782-b620-753cb178961d": {
-      "name": "colonial_gold"
     }
   },
   "uiTypes": {
@@ -178,7 +168,13 @@
         "height": 224
       },
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
-      "artifactGroupIds": ["de152d3f-fcd2-4ca2-8a45-63e88f3297ec"],
+      "artifacts": [
+        {
+          "path": "seed/examples/interactive_example/img.png",
+          "type": "img",
+          "displayName": "noisy img"
+        }
+      ],
       "variantIds": ["61ce0033-a59e-4c8e-8a52-d658feb18017"],
       "aspectRatioExtraHeight": 24,
       "aspectRatio": 1,
@@ -202,38 +198,18 @@
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
-      "size": {
-        "width": 432,
-        "height": 371
-      },
-      "chartSettings": {
-        "type": "line",
-        "xAxisColumn": "input_value",
-        "secondYAxisColumns": ["quadratic"]
-      },
-      "artifactGroupIds": ["5698c0e0-26be-4aef-b971-281e09933b3d"],
+      "artifacts": [
+        {
+          "path": "seed/examples/interactive_example/losses.csv",
+          "type": "list",
+          "displayName": "fancy graph"
+        }
+      ],
       "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
       "name": "institutional_fuchsia",
       "variantId": "efbf1e64-8932-4fa6-928a-e930314db45c",
       "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c",
       "defaultVariantId": "efbf1e64-8932-4fa6-928a-e930314db45c"
-    },
-    "f46f4da4-3f71-46e0-8763-a8fb643c8b9a": {
-      "id": "f46f4da4-3f71-46e0-8763-a8fb643c8b9a",
-      "size": {
-        "width": 432,
-        "height": 371
-      },
-      "name": "equal_red",
-      "chartSettings": {
-        "type": "scatter",
-        "xAxisColumn": "x_value",
-        "categoryColumn": "category"
-      },
-      "artifactGroupIds": ["be43daa8-a16a-4203-b4ab-a9384f32a5ee"],
-      "variantId": "0be09c10-3ab2-4782-b620-753cb178961d",
-      "uiTypeId": "126547a6-d41e-4891-80f0-a0354f089c7c",
-      "variantIds": ["0be09c10-3ab2-4782-b620-753cb178961d"]
     }
   },
   "codeInfo": {
@@ -265,43 +241,6 @@
         "f14239d6-f206-4655-8c34-ddd6873391a5": [],
         "c24c860d-2519-4a20-8acd-90fc0ffe48a8": []
       }
-    }
-  },
-  "artifacts": {
-    "a3fd9568-30c4-405e-b5a2-0688754a7725": {
-      "name": "noisy img",
-      "path": "seed/examples/interactive_example/img.png",
-      "type": "img"
-    },
-    "c2d2ec99-e524-4f39-952a-9ac3713339b6": {
-      "name": "fancy graph",
-      "path": "seed/examples/interactive_example/function_data.csv",
-      "type": "list"
-    },
-    "2d031785-c682-43a5-be97-87c8f77b83ba": {
-      "name": "scatter data",
-      "path": "seed/examples/interactive_example/scatter_data.csv",
-      "type": "list"
-    }
-  },
-  "artifactGroups": {
-    "de152d3f-fcd2-4ca2-8a45-63e88f3297ec": {
-      "name": "blah",
-      "artifactTransforms": [
-        { "artifactId": "a3fd9568-30c4-405e-b5a2-0688754a7725" }
-      ]
-    },
-    "5698c0e0-26be-4aef-b971-281e09933b3d": {
-      "name": "blah2",
-      "artifactTransforms": [
-        { "artifactId": "c2d2ec99-e524-4f39-952a-9ac3713339b6" }
-      ]
-    },
-    "be43daa8-a16a-4203-b4ab-a9384f32a5ee": {
-      "name": "blah3",
-      "artifactTransforms": [
-        { "artifactId": "2d031785-c682-43a5-be97-87c8f77b83ba" }
-      ]
     }
   }
 }
