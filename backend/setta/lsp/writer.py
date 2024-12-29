@@ -85,7 +85,9 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
-    async def send_document_highlight_request(self, line, character, code_id, request_id):
+    async def send_document_highlight_request(
+        self, line, character, code_id, request_id
+    ):
         uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {"uri": uri},
