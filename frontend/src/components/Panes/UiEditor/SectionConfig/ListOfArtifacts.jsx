@@ -125,7 +125,7 @@ export function ListOfArtifacts({
           <Accordion.Item
             key={id}
             value={item.name}
-            className={`flex flex-col rounded-lg bg-white shadow-md transition-shadow hover:shadow-xl dark:bg-setta-800 dark:!shadow-setta-900 ${draggable ? "cursor-move" : "cursor-pointer"} mx-1 justify-center border px-2 py-1 last:border-0 ${getItemStyle?.(id) ?? "border-transparent  hover:border-white dark:border-setta-700 dark:hover:bg-setta-700"}`}
+            className={`flex flex-col rounded-lg bg-white shadow-md transition-shadow hover:shadow-xl dark:bg-setta-800 dark:!shadow-setta-900 ${draggable ? "cursor-move" : "cursor-pointer"} mx-1 justify-center border px-2 py-1 ${getItemStyle?.(id) ?? "border-transparent  hover:border-white dark:border-setta-700 dark:hover:bg-setta-700"}`}
             draggable={draggable}
             onDragStart={(e) => onDragStart?.(e, id)}
             onDragEnd={onDragEnd}

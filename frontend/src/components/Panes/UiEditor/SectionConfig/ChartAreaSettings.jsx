@@ -199,7 +199,7 @@ function CategoryColumnSelection({
 function TogglableOptions({ sectionId, optionsWithToggle, chartSettings }) {
   return (
     <div className="mt-8 space-y-4">
-      <h4 className="font-semibold text-setta-700 dark:text-setta-400">
+      <h4 className="font-semibold text-setta-400 dark:text-setta-400">
         Chart Labels
       </h4>
       {optionsWithToggle.map((x) => (
