@@ -3,17 +3,14 @@ from datetime import datetime
 
 from setta.code_gen.export_selected import (
     export_selected,
-    get_gen_code_template_var,
     get_section_code,
     get_section_type,
     get_selected_section_variant,
 )
-from setta.code_gen.find_placeholders import needs_yaml, template_prefix
+from setta.code_gen.find_placeholders import template_prefix
 from setta.code_gen.python.generate_code import (
     convert_var_names_to_readable_form,
     generate_code,
-    get_template_var_name_fn,
-    replace_at_positions_and_update_ref_var_name_positions,
 )
 from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
@@ -46,9 +43,8 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
             s["codeLanguage"],
             section_variant["evRefs"],
             section_variant["templateVars"],
-            code_sections,
             exporter_obj,
-            folder_path=folder_path,
+            folder_path,
             do_prepend_with_setup_code=True,
             projectConfigName=p["projectConfig"]["name"],
         )
@@ -101,15 +97,13 @@ def generate_final_code_for_section(
     codeLanguage,
     evRefs,
     templateVars,
-    code_sections,
     exporter_obj,
-    folder_path=None,
+    folder_path,
     do_prepend_with_setup_code=False,
     projectConfigName=None,
 ):
     section_dependencies = []
-    replacements = []
-    generated_python_code = None
+    var_name_to_line_num_dict = {}
 
     (
         code,
@@ -119,33 +113,9 @@ def generate_final_code_for_section(
         evRefs,
         exporter_obj.get_ref_var_name,
         templateVars=templateVars,
-        get_template_var_name=get_template_var_name_fn(
-            folder_path, section_dependencies
+        get_template_var_replacement_value=get_template_var_replacement_value_fn(
+            exporter_obj, folder_path, section_dependencies, var_name_to_line_num_dict
         ),
-    )
-
-    gen_code_template_var = get_gen_code_template_var(templateVars)
-    if gen_code_template_var:
-        (
-            generated_python_code,
-            generated_python_var_name_to_line_num,
-        ) = generate_code(
-            exporter_obj.output,
-            code,
-            gen_code_template_var,
-            replace_templated_code=False,
-            make_copy_of_selected=False,
-        )
-        replacements.append(
-            (
-                gen_code_template_var["startPos"],
-                gen_code_template_var["keyword"],
-                generated_python_code,
-            )
-        )
-
-    code = replace_at_positions_and_update_ref_var_name_positions(
-        code, replacements, new_positions["refs"]
     )
 
     setup_code = ""
@@ -157,16 +127,39 @@ def generate_final_code_for_section(
             projectConfigName,
         )
 
-    if generated_python_code:
-        code = convert_var_names_to_readable_form(
-            code,
-            generated_python_var_name_to_line_num,
-            exporter_obj,
-            new_positions["refs"],
-            setup_code,
-        )
+    code = convert_var_names_to_readable_form(
+        code,
+        var_name_to_line_num_dict.get(template_prefix(C.SETTA_GENERATED_PYTHON), {}),
+        exporter_obj,
+        new_positions["refs"],
+        setup_code,
+    )
 
     return code, section_dependencies
+
+
+def get_template_var_replacement_value_fn(
+    exporter_obj, folder_path, section_dependencies, var_name_to_line_num_dict
+):
+    def get_template_var_replacement_value(code, template_var):
+        print("get_template_var_replacement_value", template_var, flush=True)
+        keyword = template_var["keyword"]
+        if keyword == template_prefix(C.SETTA_GENERATED_PYTHON):
+            code, var_name_to_line_num_dict[keyword] = generate_code(
+                exporter_obj.output,
+                code,
+                template_var,
+                replace_templated_code=False,
+                make_copy_of_selected=False,
+            )
+            return code
+        else:
+            section_dependencies.append(template_var["sectionId"])
+            module_path = folder_path.replace("/", ".").replace("\\", ".")
+            keyword = keyword.lstrip(C.TEMPLATE_PREFIX)
+            return f"{module_path}.{keyword}"
+
+    return get_template_var_replacement_value
 
 
 def languageToExtension(x):

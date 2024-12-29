@@ -24,14 +24,14 @@ def push_var_deep(objects, target_var_name):
 
 
 def process_refs(
-    value,
+    code,
     refs,
     get_ref_var_name,
     cursor_position=None,
     templateVars=None,
-    get_template_var_name=None,
+    get_template_var_replacement_value=None,
 ):
-    # positions is a list of tuples, where each tuple is (position, shift, replacement_name)
+    # positions is a list of tuples, where each tuple is (position, shift, replacement_value)
     positions = {
         "refs": [],
         "cursor": [] if cursor_position is None else [(cursor_position, 0, None)],
@@ -44,40 +44,35 @@ def process_refs(
     to_process = sorted(refs + templateVars, key=lambda x: x["startPos"], reverse=True)
     for x in to_process:
         if id(x) in refs_set:
-            replacement_name = get_ref_var_name(
+            replacement_value = get_ref_var_name(
                 x["sectionId"], x["paramInfoId"], x["isArgsObj"]
             )
             type = "refs"
         else:
-            replacement_name = get_template_var_name(x["sectionId"], x["keyword"])
+            replacement_value = get_template_var_replacement_value(code, x)
             type = "templateVars"
-
-        print("replacement_name", replacement_name, flush=True)
-
-        if replacement_name is None:
-            continue
 
         startPos = x["startPos"]
         endPos = startPos + len(x["keyword"])
 
-        positions[type].append((startPos, 0, replacement_name))
-        set_new_positions_and_shifts(positions, replacement_name, startPos, endPos)
+        positions[type].append((startPos, 0, replacement_value))
+        set_new_positions_and_shifts(positions, replacement_value, startPos, endPos)
 
-        value = value[:startPos] + replacement_name + value[endPos:]
+        code = code[:startPos] + replacement_value + code[endPos:]
 
     for k, v in positions.items():
         positions[k] = [(p + s, r) for p, s, r in v]
 
-    return value, positions
+    return code, positions
 
 
-def set_new_positions_and_shifts(positions, replacement_name, startPos, endPos):
+def set_new_positions_and_shifts(positions, replacement_value, startPos, endPos):
     # Calculate current replacement's length difference
-    length_diff = len(replacement_name) - (endPos - startPos)
+    length_diff = len(replacement_value) - (endPos - startPos)
 
     for v in positions.values():
         for idx in range(len(v)):
-            position, shift, name = v[idx]
+            position, shift, value = v[idx]
 
             # Update position if replacement occurs before the initial position
             if endPos <= position:
@@ -85,7 +80,7 @@ def set_new_positions_and_shifts(positions, replacement_name, startPos, endPos):
                 shift += length_diff
             elif startPos < position < endPos:
                 position = startPos + len(
-                    replacement_name
+                    replacement_value
                 )  # Reset position to after the new substring
 
-            v[idx] = position, shift, name
+            v[idx] = position, shift, value

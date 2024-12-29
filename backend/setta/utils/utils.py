@@ -180,9 +180,7 @@ def filter_dict(x, keep_keys=None, default_vals=None):
     }
 
 
-def replace_at_positions(
-    input_string, replacements, return_positions=False, callback=None
-):
+def replace_at_positions(input_string, replacements, return_positions=False):
     """
     Replace substrings at specific positions in the input string.
 
@@ -190,8 +188,6 @@ def replace_at_positions(
         input_string (str): The original string to modify
         replacements (list): List of tuples (position, old_value, new_value)
         return_positions (bool): Whether to return new positions of replacements
-        callback (callable): Optional function to call after each replacement.
-                             Receives arguments (old_pos, shift).
 
     Returns:
         Union[str, Tuple[str, List[Tuple[int, str]]]]:
@@ -226,10 +222,6 @@ def replace_at_positions(
 
         # Replace the characters
         result[pos : pos + len(old)] = list(new)
-
-        # Invoke the callback, if provided, to handle positional adjustments
-        if callback:
-            callback(pos, current_shift)
 
         # If tracking new positions, add the current replacement's new position
         if return_positions:
