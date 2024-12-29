@@ -26,20 +26,3 @@ def load_ev_refs_into_data_structures(db, section_variants, code_info):
             ].append(row)
         else:
             section_variants[variantId]["evRefs"].append(row)
-
-
-def load_template_vars_into_data_structures(db, section_variants):
-    variant_placeholders = ", ".join(["?"] * len(section_variants))
-
-    query = f"""
-        SELECT *
-        FROM TemplateVars
-        WHERE variantId IN ({variant_placeholders})
-    """
-
-    db.execute(query, list(section_variants.keys()))
-
-    for row in db.fetchall():
-        row = dict(row)
-        variantId = row.pop("variantId")
-        section_variants[variantId]["templateVars"].append(row)

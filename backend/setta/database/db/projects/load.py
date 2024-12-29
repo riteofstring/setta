@@ -1,9 +1,6 @@
 import json
 
-from setta.database.db.evRefs.load import (
-    load_ev_refs_into_data_structures,
-    load_template_vars_into_data_structures,
-)
+from setta.database.db.evRefs.load import load_ev_refs_into_data_structures
 from setta.database.db.projects.utils import with_project_config_defaults
 from setta.utils.utils import recursive_dict_merge
 
@@ -126,7 +123,6 @@ def load_project_config(db, project_config_name):
     uiTypes = sections_data["nonPresetUITypes"]
     codeInfo, codeInfoCols = load_code_info_cols(db, sectionVariants)
     load_ev_refs_into_data_structures(db, sectionVariants, codeInfo)
-    load_template_vars_into_data_structures(db, sectionVariants)
     load_json_sources_into_data_structures(
         sections, codeInfo, codeInfoCols, sectionVariants
     )
