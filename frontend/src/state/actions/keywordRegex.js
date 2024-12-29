@@ -3,7 +3,6 @@ import C from "constants/constants.json";
 // input is state computed by keyword regex subscription
 export function getRegexAndColorMap(state) {
   const names = [];
-  const namesForTemplateVars = [];
   const fullNameToInfo = {};
   for (const sid of Object.keys(state.details)) {
     if (!state.details[sid].isTopLevel) {
@@ -16,7 +15,6 @@ export function getRegexAndColorMap(state) {
       setFullChildrenNamesForRegex(
         state,
         names,
-        namesForTemplateVars,
         fullNameToInfo,
         sid,
         currName,
@@ -29,13 +27,9 @@ export function getRegexAndColorMap(state) {
     return {
       pattern: dummyRegExpObject(),
       codeAreaPattern: dummyRegExpObject(),
-      templateVarsPattern: dummyRegExpObject(),
       fullNameToInfo,
     };
   }
-
-  console.log("names", names)
-  console.log("namesForTemplateVars", namesForTemplateVars);
 
   const patternStr = `(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`;
   const pattern = new RegExp(patternStr, "g");
@@ -62,7 +56,6 @@ export function dummyRegExpObject() {
 function setFullChildrenNamesForRegex(
   state,
   allNames,
-  allNamesForTemplateVars,
   fullNameToInfo,
   sectionId,
   parentName,
@@ -77,7 +70,6 @@ function setFullChildrenNamesForRegex(
     setFullChildrenNamesForRegex(
       state,
       allNames,
-      allNamesForTemplateVars,
       fullNameToInfo,
       c,
       currFullName,
@@ -103,9 +95,6 @@ function setFullChildrenNamesForRegex(
     componentIndices: parentLengths,
     isArgsObj: false,
   };
-  if (sectionTypeName === C.CODE || sectionTypeName === C.INTERACTIVE_CODE) {
-    allNamesForTemplateVars.push(fullName);
-  }
   if (sectionTypeName === C.SECTION) {
     allNames.push(escapeRegExp(argsFullName));
     fullNameToInfo[argsFullName] = {

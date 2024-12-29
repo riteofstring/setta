@@ -188,9 +188,3 @@ export async function getEVRefs({
 
   return evRefs;
 }
-
-export async function getTemplateVars({ sectionId, fullText }) {
-  
-
-
-}
