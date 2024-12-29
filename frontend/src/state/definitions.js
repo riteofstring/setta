@@ -75,6 +75,7 @@ export const useKeywordRegex = create(
   withResetFn(() => ({
     pattern: "",
     codeAreaPattern: "",
+    templateVarsPattern: "",
     fullNameToInfo: {},
   })),
 );
