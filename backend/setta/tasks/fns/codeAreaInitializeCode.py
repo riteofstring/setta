@@ -32,7 +32,7 @@ async def _codeAreaInitializeCode(message, lsp_writers):
         project, always_export_args_objs=True, force_include_template_var=False
     )
     projectConfigName = project["projectConfig"]["name"]
-    code, _ = generate_final_code_for_sections(
+    code_dict, _ = generate_final_code_for_sections(
         project,
         exporter_obj,
         lsp_writers["full"].project_code_folder(projectConfigName),
@@ -44,9 +44,9 @@ async def _codeAreaInitializeCode(message, lsp_writers):
         exporter_obj.code_gen_template_var_section_details.get("sectionId")
         == message.sectionId
     ):
-        var_name_to_line_num = code[message.sectionId]["var_name_to_line_num_dict"][
-            template_prefix(C.SETTA_GENERATED_PYTHON)
-        ]
+        var_name_to_line_num = code_dict[message.sectionId][
+            "var_name_to_line_num_dict"
+        ][template_prefix(C.SETTA_GENERATED_PYTHON)]
         generated_var_names = list(var_name_to_line_num.keys())
         infoToFullName = {
             tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
@@ -56,12 +56,12 @@ async def _codeAreaInitializeCode(message, lsp_writers):
             for v in generated_var_names
         ]
 
-    print("code", code, flush=True)
+    print("code_dict", code_dict, flush=True)
 
     return {
         "content": True,
         "cache": [
-            code,
+            code_dict,
             generated_var_names,
             referencable_var_names,
             exporter_obj,

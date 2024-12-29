@@ -31,7 +31,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     )
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
-    code, section_dependencies = generate_final_code_for_sections(
+    code_dict, section_dependencies = generate_final_code_for_sections(
         p,
         exporter_obj,
         folder_path,
@@ -45,7 +45,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     to_write = topological_sort(section_dependencies)
     id_to_filepath = {}
     for sid in to_write:
-        curr_code = code[sid]
+        curr_code = code_dict[sid]
         codeLanguage = curr_code["codeLanguage"]
         extension = languageToExtension(codeLanguage)
         filepath = write_string_to_file(
@@ -63,14 +63,14 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     if len(run_order) > 1:
         bash_script = ""
         for sid in run_order:
-            bash_script += codeCallStr(folder_path, code[sid])
+            bash_script += codeCallStr(folder_path, code_dict[sid])
         filepath = write_string_to_file(folder_path, "SETTA_ENTRY.sh", bash_script)
         filepath = os.path.relpath(filepath).replace(os.sep, "/")
         command = f"bash {filepath}"
     else:
         sid = run_order[0]
         filepath = id_to_filepath[sid]
-        callingProgram = languageToCall(code[sid]["codeLanguage"])
+        callingProgram = languageToCall(code_dict[sid]["codeLanguage"])
         command = f"{callingProgram} {filepath}"
 
     if terminal_write_fn:
