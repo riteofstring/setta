@@ -21,6 +21,7 @@ from setta.utils.constants import (
     SEND_ARTIFACT_TO_ENV_VARIABLE,
     C,
 )
+from setta.utils.utils import extract_subtree
 
 
 def runCode(message, terminal_write_fn=None, command_callback=None):
@@ -51,6 +52,9 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
             projectConfigName=p["projectConfig"]["name"],
         )
         section_dependencies[s["id"]] = curr_section_dependencies
+
+    if p["runCodeBlock"]:
+        section_dependencies = extract_subtree(section_dependencies, p["runCodeBlock"])
 
     to_write = topological_sort(section_dependencies)
     id_to_filepath = {}
@@ -107,14 +111,14 @@ def generate_final_code_for_section(
     generated_python_code = None
     generated_python_var_name_to_line_num = None
     generated_python_code_area_ref_var_name_positions = None
-    for other_s in code_sections.values():
-        if folder_path and template_prefix(other_s["name"]) in code:
-            replacements[other_s["name"]] = codePathStr(
-                folder_path, other_s["name"], other_s["codeLanguage"]
-            )
-            section_dependencies.append(other_s["id"])
-    if folder_path and needs_yaml(code):
-        replacements["SETTA_YAML_FILE"] = codePathStr(folder_path, "SETTA_YAML", "yaml")
+    # for other_s in code_sections.values():
+    #     if folder_path and template_prefix(other_s["name"]) in code:
+    #         replacements[other_s["name"]] = codePathStr(
+    #             folder_path, other_s["name"], other_s["codeLanguage"]
+    #         )
+    #         section_dependencies.append(other_s["id"])
+    # if folder_path and needs_yaml(code):
+    #     replacements["SETTA_YAML_FILE"] = codePathStr(folder_path, "SETTA_YAML", "yaml")
 
     matching_template_var = get_gen_code_template_var(templateVars)
     if matching_template_var:

@@ -252,3 +252,26 @@ def replace_at_positions(
 def save_json_to_file(path, data):
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
+
+
+def extract_subtree(id_to_children, root_id):
+    """
+    Extract a subtree from a dictionary mapping IDs to their children,
+    starting from the given root_id.
+
+    Args:
+        id_to_children (dict): Dictionary mapping IDs to lists of child IDs
+        root_id: ID of the root node to start from
+
+    Returns:
+        dict: New dictionary containing only the subtree
+    """
+    if root_id not in id_to_children:
+        return {}
+
+    result = {root_id: id_to_children[root_id]}
+
+    for child_id in id_to_children[root_id]:
+        result.update(extract_subtree(id_to_children, child_id))
+
+    return result
