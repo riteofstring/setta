@@ -4,9 +4,9 @@
     "name": "reference_test",
     "previewImgColor": "bg-red-500/60 dark:bg-red-600/30",
     "viewport": {
-      "x": 169.51263361900266,
-      "y": 251.61346285604986,
-      "zoom": 0.5750456340852947
+      "x": -21.556062253787104,
+      "y": 127.07316799581372,
+      "zoom": 1.024160843091365
     },
     "children": {
       "9026b82c-e887-4491-ae6c-c08967d6cc12": {
@@ -61,6 +61,13 @@
           "sectionId": "9026b82c-e887-4491-ae6c-c08967d6cc12",
           "startPos": 73,
           "keyword": "great_beige"
+        }
+      ],
+      "templateVars": [
+        {
+          "sectionId": null,
+          "startPos": 0,
+          "keyword": "$SETTA_GENERATED_PYTHON"
         }
       ]
     }
