@@ -85,6 +85,19 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
+    async def send_document_highlight_request(self, line, character, code_id, request_id):
+        uri = self.get_virtual_uri(code_id)
+        params = {
+            "textDocument": {"uri": uri},
+            "position": {"line": line, "character": character},
+            "context": {"triggerKind": 2, "triggerCharacter": "("},
+        }
+        await self.send_request(
+            "textDocument/documentHighlight",
+            params=params,
+            id=request_id,
+        )
+
     async def send_didChangeConfiguration(self):
         # THIS FORMAT WORKS
         # hardcoded_settings = {
