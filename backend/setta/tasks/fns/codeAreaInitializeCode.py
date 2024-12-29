@@ -6,6 +6,7 @@ from setta.code_gen.export_selected import (
     export_selected,
     get_gen_code_template_var,
     get_section_code,
+    get_selected_section_variant,
 )
 from setta.code_gen.python.generate_code import generate_code
 from setta.tasks.task_runner import RunType
@@ -28,7 +29,9 @@ async def _codeAreaInitializeCode(message):
     referencable_var_names = None
     exporter_obj = None
     generated_var_names = set()
-    matching_template_var = get_gen_code_template_var(project, message.sectionId)
+    matching_template_var = get_gen_code_template_var(
+        get_selected_section_variant(project, message.sectionId)["templateVars"]
+    )
     if matching_template_var is not None:
         print("NEEDS GENERATED CODE", flush=True)
         exporter_obj = export_selected(project, always_export_args_objs=True)

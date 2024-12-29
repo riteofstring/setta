@@ -148,7 +148,7 @@ export async function getEVRefs({
   paramInfoId,
   fullText,
   regexPatternKey = "pattern",
-  genCodeTemplateVarLocation = null,
+  templateVars = null,
   onlyAfterGenCodeTemplateVar = false,
 }) {
   let evRefs = [];
@@ -171,7 +171,7 @@ export async function getEVRefs({
         paramInfoId,
         candidateEVRefs,
         fullText,
-        genCodeTemplateVarLocation,
+        templateVars,
         onlyAfterGenCodeTemplateVar,
       },
       condition: (x) => {
@@ -195,7 +195,6 @@ export async function getEVRefs({
 async function getTemplateVars(sectionId, fullText) {
   let templateVars = [];
   let keywordPositions = [];
-  let genCodeTemplateVarLocation = null;
   const candidateTemplateVars = findCandidateTemplateVars(sectionId, fullText);
   console.log("candidateTemplateVars", candidateTemplateVars);
   if (candidateTemplateVars.length > 0) {
@@ -217,29 +216,23 @@ async function getTemplateVars(sectionId, fullText) {
     // CodeMirror's RangeSetBuilder needs the list to be sorted
     keywordPositions.sort((a, b) => a.startPos - b.startPos);
 
-    ({ templateVars, genCodeTemplateVarLocation } = constructTemplateVars(
-      keywordPositions,
-      fullText,
-    ));
+    templateVars = constructTemplateVars(keywordPositions, fullText);
 
     console.log("templateVars", templateVars);
   }
 
-  return { templateVars, genCodeTemplateVarLocation };
+  return templateVars;
 }
 
 export async function getEVRefsAndTemplateVarsForCodeArea(sectionId, value) {
-  const { templateVars, genCodeTemplateVarLocation } = await getTemplateVars(
-    sectionId,
-    value,
-  );
+  const templateVars = await getTemplateVars(sectionId, value);
 
   const evRefs = await getEVRefs({
     sectionId,
     paramInfoId: null,
     fullText: value,
     regexPatternKey: "codeAreaPattern",
-    genCodeTemplateVarLocation,
+    templateVars,
     onlyAfterGenCodeTemplateVar: true,
   });
 

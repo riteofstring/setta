@@ -1,6 +1,4 @@
-import C from "constants/constants.json";
 import { useEVRefRegex, useTemplateVarRegex } from "state/definitions";
-import { templatePrefix } from "utils/utils";
 
 export function roundUpIdx(numList, x) {
   let closest = undefined;
@@ -41,7 +39,6 @@ export function constructEVRefs(keywordPositions, fullText) {
 
 export function constructTemplateVars(keywordPositions, fullText) {
   const output = [];
-  let genCodeTemplateVarLocation = null;
   const { fullNameToSectionId } = useTemplateVarRegex.getState();
   for (const k of keywordPositions) {
     const keyword = fullText.substring(k.startPos, k.endPos);
@@ -51,13 +48,9 @@ export function constructTemplateVars(keywordPositions, fullText) {
         startPos: k.startPos,
         keyword,
       });
-
-      if (keyword === templatePrefix(C.SETTA_GENERATED_PYTHON)) {
-        genCodeTemplateVarLocation = [k.startPos, keyword];
-      }
     }
   }
-  return { templateVars: output, genCodeTemplateVarLocation };
+  return output;
 }
 
 export function computeInfoToFullName() {

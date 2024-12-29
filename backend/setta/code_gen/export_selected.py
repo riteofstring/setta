@@ -131,14 +131,13 @@ def get_section_children(p, id):
     return get_selected_section_variant(p, id)["children"]
 
 
-def get_specific_template_var(p, section_id, keyword):
-    variant = get_selected_section_variant(p, section_id)
-    return next((t for t in variant["templateVars"] if t["keyword"] == keyword), None)
+def get_specific_template_var(template_vars, keyword):
+    return next((t for t in template_vars if t["keyword"] == keyword), None)
 
 
-def get_gen_code_template_var(p, section_id):
+def get_gen_code_template_var(template_vars):
     return get_specific_template_var(
-        p, section_id, template_prefix(C.SETTA_GENERATED_PYTHON)
+        template_vars, template_prefix(C.SETTA_GENERATED_PYTHON)
     )
 
 

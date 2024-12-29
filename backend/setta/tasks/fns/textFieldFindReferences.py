@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
+from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.tasks.task_runner import RunType
 from setta.utils.utils import multireplace
 
@@ -15,7 +16,7 @@ class TextFieldFindReferencesContent(BaseModel):
     sectionId: str
     paramInfoId: Optional[str] = None
     candidateEVRefs: List[str]
-    genCodeTemplateVarLocation: Optional[list] = None
+    templateVars: Optional[List[dict]] = None
     onlyAfterGenCodeTemplateVar: Optional[bool] = False
     fullText: str
 
@@ -28,7 +29,7 @@ async def _textFieldFindReferences(message, lsp_writers):
         candidateEVRefs,
         message.fullText,
         message.onlyAfterGenCodeTemplateVar,
-        message.genCodeTemplateVarLocation,
+        message.templateVars,
     )
     code_id = f"{message.sectionId}-{message.paramInfoId}-find-references"
 
@@ -52,16 +53,18 @@ async def _textFieldFindReferences(message, lsp_writers):
 
 
 def generateCodeForReferenceFinding(
-    candidateEVRefs, fullText, onlyAfterGenCodeTemplateVar, genCodeTemplateVarLocation
+    candidateEVRefs, fullText, onlyAfterGenCodeTemplateVar, templateVars
 ):
     position_offset = 0
 
     if onlyAfterGenCodeTemplateVar:
-        if genCodeTemplateVarLocation is None:
+        matching_template_var = get_gen_code_template_var(templateVars)
+        if matching_template_var is None:
             return "", position_offset
         # If SETTA_GENERATED_PYTHON is present, we only want to consider
         # code that comes after it.
-        startPos, keyword = genCodeTemplateVarLocation
+        startPos = matching_template_var["startPos"]
+        keyword = matching_template_var["keyword"]
         endPos = startPos + len(keyword)
         template_str_len = endPos - startPos
         before_text = fullText[:startPos]
