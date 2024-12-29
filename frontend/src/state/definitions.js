@@ -4,8 +4,8 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import {
   create,
-  withProjectState,
   withManualReset,
+  withProjectState,
   withResetFn,
   withVersion,
 } from "./utils";
@@ -71,7 +71,7 @@ export const useInteractive = create(
   })),
 );
 
-export const useKeywordRegex = create(
+export const useEVRefRegex = create(
   withResetFn(() => ({
     pattern: "",
     codeAreaPattern: "",
@@ -222,9 +222,7 @@ export const useMisc = withProjectState(
   ),
 );
 
-export const useYamlValue = withManualReset(
-  withProjectState(create(() => {})),
-);
+export const useYamlValue = withManualReset(withProjectState(create(() => {})));
 
 export const useOriginalYamlObj = withManualReset(
   withProjectState(create(() => {})),

@@ -115,7 +115,7 @@
     },
     "40fd1a3c-6fca-4b87-b427-5bee353cef09": {
       "name": "config1",
-      "code": "printf \"***START***\\n\\n\"\n\npython $Code $SETTA_PYTHON_ARGPARSE\n\nprintf \"\\n***END***\""
+      "code": "printf \"***START***\\n\\n\"\n\npython $Code\n\nprintf \"\\n***END***\""
     },
     "43a579a2-adf1-4378-a8a3-013710251c69": {
       "name": "confident_amethyst"

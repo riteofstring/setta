@@ -4,7 +4,7 @@ import { pythonLanguage } from "@codemirror/lang-python";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
-import { useKeywordRegex } from "state/definitions";
+import { useEVRefRegex } from "state/definitions";
 import { goToSectionOnNameClick } from "./getOnCreateEditor";
 import { roundUpIdx } from "./utils";
 
@@ -116,7 +116,7 @@ function HighlightedCode({
     currKeywordEndIdx,
     currComponentIndices,
   ] = [null, null, null, null];
-  const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
+  const fullNameToInfo = useEVRefRegex.getState().fullNameToInfo;
 
   for (let i = 1; i <= text.lines; i++) {
     const line = text.line(i);

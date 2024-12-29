@@ -64,3 +64,32 @@ def save_ev_refs(db, section_variants, code_info):
         )
 
     db.executemany(query, query_params)
+
+
+def save_template_vars(db, section_variants):
+    placeholders = ", ".join(["?"] * len(section_variants))
+    query = f"""
+        DELETE FROM TemplateVars
+        WHERE variantId IN ({placeholders})
+    """
+    query_params = list(section_variants.keys())
+    db.execute(query, query_params)
+
+    query = """
+        INSERT INTO TemplateVars (variantId, sectionId, startPos, keyword)
+        VALUES (:variantId, :sectionId, :startPos, :keyword)
+    """
+
+    query_params = []
+    for variantId, variant in section_variants.items():
+        query_params.extend(
+            [
+                {
+                    "variantId": variantId,
+                    **x,
+                }
+                for x in variant["templateVars"]
+            ]
+        )
+
+    db.executemany(query, query_params)
