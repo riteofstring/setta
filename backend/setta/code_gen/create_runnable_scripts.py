@@ -21,7 +21,7 @@ from setta.utils.constants import (
     SEND_ARTIFACT_TO_ENV_VARIABLE,
     C,
 )
-from setta.utils.utils import extract_subtree
+from setta.utils.utils import prune_dict
 
 
 def runCode(message, terminal_write_fn=None, command_callback=None):
@@ -53,8 +53,8 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         )
         section_dependencies[s["id"]] = curr_section_dependencies
 
-    if p["runCodeBlock"]:
-        section_dependencies = extract_subtree(section_dependencies, p["runCodeBlock"])
+    print("runCodeBlocks", p["runCodeBlocks"], flush=True)
+    section_dependencies = prune_dict(section_dependencies, p["runCodeBlocks"])
 
     to_write = topological_sort(section_dependencies)
     id_to_filepath = {}

@@ -254,24 +254,29 @@ def save_json_to_file(path, data):
         json.dump(data, f, indent=2)
 
 
-def extract_subtree(id_to_children, root_id):
+def prune_dict(id_to_children: dict, keep_ids: list) -> dict:
     """
-    Extract a subtree from a dictionary mapping IDs to their children,
-    starting from the given root_id.
+    Prunes a dictionary to keep only specified IDs and their descendants.
 
     Args:
-        id_to_children (dict): Dictionary mapping IDs to lists of child IDs
-        root_id: ID of the root node to start from
+        id_to_children: Dictionary mapping IDs to lists of child IDs
+        keep_ids: List of IDs to keep along with their descendants
 
     Returns:
-        dict: New dictionary containing only the subtree
+        New dictionary containing only the specified IDs and their descendants
     """
-    if root_id not in id_to_children:
-        return {}
+    # First find all descendants of the keep_ids
+    to_keep = set()
 
-    result = {root_id: id_to_children[root_id]}
+    def collect_descendants(current_id):
+        if current_id not in to_keep:  # Avoid cycles
+            to_keep.add(current_id)
+            for child_id in id_to_children.get(current_id, []):
+                collect_descendants(child_id)
 
-    for child_id in id_to_children[root_id]:
-        result.update(extract_subtree(id_to_children, child_id))
+    # Collect all descendants
+    for id in keep_ids:
+        collect_descendants(id)
 
-    return result
+    # Create new dict with only the ids we want to keep
+    return {id: children for id, children in id_to_children.items() if id in to_keep}
