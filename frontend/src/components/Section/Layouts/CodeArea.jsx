@@ -17,6 +17,7 @@ import {
   dbCodeAreaCompletion,
   dbCodeAreaInitializeCode,
   getEVRefs,
+  getTemplateVars,
 } from "requests/sections";
 import {
   getDisplayedSectionVariant,
@@ -275,8 +276,14 @@ const debouncedSetEVRefs = asyncDebounce(async (sectionId, value) => {
     fullText: value,
     regexPatternKey: "codeAreaPattern",
   });
+
+  const templateVars = await getTemplateVars(sectionId, value);
+
   useSectionInfos.setState((x) => {
-    getSectionVariant(sectionId, x).evRefs = evRefs;
+    const sectionVariant = getSectionVariant(sectionId, x);
+    sectionVariant.evRefs = evRefs;
+    sectionVariant.templateVars = templateVars;
   });
+
   maybeIncrementProjectStateVersion(true);
 }, 500);

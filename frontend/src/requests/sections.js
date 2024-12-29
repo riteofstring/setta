@@ -1,17 +1,15 @@
 import {
-  findCandidateKeywords,
-  findRefs,
+  constructEVRefs,
+  constructTemplateVars,
+  findCandidateEVRefs,
+  findCandidateTemplateVars,
 } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { setNotificationMessage } from "state/actions/notification";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
-import {
-  useEVRefRegex,
-  useProjectConfig,
-  useTypeErrors,
-} from "state/definitions";
+import { useProjectConfig, useTypeErrors } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { sendMessage } from "./websocket";
 
@@ -153,38 +151,66 @@ export async function getEVRefs({
   fullText,
   regexPatternKey = "pattern",
 }) {
-  const { fullNameToInfo } = useEVRefRegex.getState();
   let evRefs = [];
   let keywordPositions = [];
-  const candidateKeywords = findCandidateKeywords({
+  const candidateEVRefs = findCandidateEVRefs({
     sectionId,
     paramInfoId,
     value: fullText,
-    fullNameToInfo,
     regexPatternKey,
   });
-  console.log("candidateKeywords", candidateKeywords);
-  if (candidateKeywords.length > 0) {
+  console.log("candidateEVRefs", candidateEVRefs);
+  if (candidateEVRefs.length > 0) {
     let count = 0;
     keywordPositions = [];
     await sendMessageAndWait({
       id: createNewId(),
       messageType: "textFieldFindReferences",
-      content: { sectionId, paramInfoId, candidateKeywords, fullText },
+      content: { sectionId, paramInfoId, candidateEVRefs, fullText },
       condition: (x) => {
         keywordPositions.push(...x);
         count += 1;
-        return count === candidateKeywords.length;
+        return count === candidateEVRefs.length;
       },
     });
 
     // CodeMirror's RangeSetBuilder needs the list to be sorted
     keywordPositions.sort((a, b) => a.startPos - b.startPos);
 
-    evRefs = findRefs(keywordPositions, fullNameToInfo, fullText);
+    evRefs = constructEVRefs(keywordPositions, fullText);
 
     console.log("evRefs", evRefs);
   }
 
   return evRefs;
+}
+
+export async function getTemplateVars(sectionId, fullText) {
+  let templateVars = [];
+  let keywordPositions = [];
+  const candidateTemplateVars = findCandidateTemplateVars(sectionId, fullText);
+  console.log("candidateTemplateVars", candidateTemplateVars);
+  if (candidateTemplateVars.length > 0) {
+    let count = 0;
+    keywordPositions = [];
+    await sendMessageAndWait({
+      id: createNewId(),
+      messageType: "textFieldFindReferences",
+      content: { sectionId, candidateTemplateVars, fullText },
+      condition: (x) => {
+        keywordPositions.push(...x);
+        count += 1;
+        return count === candidateTemplateVars.length;
+      },
+    });
+
+    // CodeMirror's RangeSetBuilder needs the list to be sorted
+    keywordPositions.sort((a, b) => a.startPos - b.startPos);
+
+    templateVars = constructTemplateVars(keywordPositions, fullText);
+
+    console.log("templateVars", templateVars);
+  }
+
+  return templateVars;
 }

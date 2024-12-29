@@ -1,4 +1,4 @@
-import { useEVRefRegex } from "state/definitions";
+import { useEVRefRegex, useTemplateVarRegex } from "state/definitions";
 
 export function roundUpIdx(numList, x) {
   let closest = undefined;
@@ -17,8 +17,9 @@ export function roundUpIdx(numList, x) {
   return closest;
 }
 
-export function findRefs(keywordPositions, fullNameToInfo, fullText) {
+export function constructEVRefs(keywordPositions, fullText) {
   const output = [];
+  const { fullNameToInfo } = useEVRefRegex.getState();
   for (const k of keywordPositions) {
     const keyword = fullText.substring(k.startPos, k.endPos);
     if (keyword in fullNameToInfo) {
@@ -33,6 +34,23 @@ export function findRefs(keywordPositions, fullNameToInfo, fullText) {
     }
   }
 
+  return output;
+}
+
+export function constructTemplateVars(keywordPositions, fullText) {
+  const output = [];
+  const { fullNameToInfo } = useEVRefRegex.getState();
+  for (const k of keywordPositions) {
+    const keyword = fullText.substring(k.startPos, k.endPos);
+    if (keyword in fullNameToInfo) {
+      const info = fullNameToInfo[keyword];
+      output.push({
+        sectionId: info.sectionId,
+        startPos: k.startPos,
+        keyword,
+      });
+    }
+  }
   return output;
 }
 
@@ -60,7 +78,7 @@ export function keyForInfoToFullName({
   return JSON.stringify([sectionId, paramInfoId, isArgsObj]);
 }
 
-export function doesNotReferToSelf({
+function evRefDoesNotReferToSelf({
   fullNameToInfo,
   keyword,
   sectionId,
@@ -74,19 +92,19 @@ export function doesNotReferToSelf({
   );
 }
 
-export function findCandidateKeywords({
+export function findCandidateEVRefs({
   sectionId,
   paramInfoId,
   value,
-  fullNameToInfo,
   regexPatternKey,
 }) {
   let match;
   const output = new Set();
-  const evRefRegex = useEVRefRegex.getState()[regexPatternKey];
+  const { [regexPatternKey]: evRefRegex, fullNameToInfo } =
+    useEVRefRegex.getState();
   while ((match = evRefRegex.exec(value))) {
     if (
-      doesNotReferToSelf({
+      evRefDoesNotReferToSelf({
         fullNameToInfo,
         keyword: match[0],
         sectionId,
@@ -94,6 +112,18 @@ export function findCandidateKeywords({
       })
     )
       output.add(match[0]);
+  }
+  return Array.from(output);
+}
+
+export function findCandidateTemplateVars(sectionId, value) {
+  let match;
+  const output = new Set();
+  const templateVarsRegex = useTemplateVarRegex.getState().pattern;
+  while ((match = templateVarsRegex.exec(value))) {
+    if (fullNameToInfo[match[0]] !== sectionId) {
+      output.add(match[0]);
+    }
   }
   return Array.from(output);
 }

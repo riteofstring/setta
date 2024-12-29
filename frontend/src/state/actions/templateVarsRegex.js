@@ -1,4 +1,5 @@
 import { useSectionInfos } from "state/definitions";
+import { dummyRegExpObject } from "utils/utils";
 import { getSectionPathFullName } from "./sectionInfos";
 
 // input is state computed by keyword regex subscription
@@ -12,17 +13,15 @@ export function getTemplateVarsRegexAndColorMap(state) {
     fullNameToSectionId[fullName] = sectionId;
   }
 
-  console.log("fullNameToSectionId", fullNameToSectionId);
+  if (names.length === 0) {
+    return {
+      pattern: dummyRegExpObject(),
+      fullNameToSectionId,
+    };
+  }
 
-  //   if (names.length === 0) {
-  //     return {
-  //       pattern: dummyRegExpObject(),
-  //       fullNameToSectionId,
-  //     };
-  //   }
+  const patternStr = `(?<![A-Za-z."'_])\\$(${names.join("|")})(?![A-Za-z"'_])`;
+  const pattern = new RegExp(patternStr, "g");
 
-  //   const patternStr = `(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`;
-  //   const pattern = new RegExp(patternStr, "g");
-
-  //   return { pattern, fullNameToSectionId };
+  return { pattern, fullNameToSectionId };
 }

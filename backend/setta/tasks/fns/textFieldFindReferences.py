@@ -16,21 +16,21 @@ from .utils import TaskDefinition
 class TextFieldFindReferencesContent(BaseModel):
     sectionId: str
     paramInfoId: Optional[str] = None
-    candidateKeywords: List[str]
+    candidateEVRefs: List[str]
     fullText: str
 
 
 async def _textFieldFindReferences(message, lsp_writers):
     message_id = message.id
     message = TextFieldFindReferencesContent.parse_obj(message.content)
-    candidateKeywords = message.candidateKeywords
+    candidateEVRefs = message.candidateEVRefs
     code, position_offset = generateCodeForReferenceFinding(
-        candidateKeywords, message.fullText
+        candidateEVRefs, message.fullText
     )
     code_id = f"{message.sectionId}-{message.paramInfoId}-find-references"
 
     await lsp_writers["basic"].send_document_open_request(code_id, code)
-    for idx in range(len(candidateKeywords)):
+    for idx in range(len(candidateEVRefs)):
         request_id = f"{message_id}-{idx}"
         asyncio.create_task(
             lsp_writers["basic"].send_reference_request(
@@ -48,7 +48,7 @@ async def _textFieldFindReferences(message, lsp_writers):
     }
 
 
-def generateCodeForReferenceFinding(candidateKeywords, fullText):
+def generateCodeForReferenceFinding(candidateEVRefs, fullText):
     # If SETTA_GENERATED_PYTHON is present, we only want to consider
     # code that comes after it.
     template_str = template_prefix(C.SETTA_GENERATED_PYTHON)
@@ -60,7 +60,7 @@ def generateCodeForReferenceFinding(candidateKeywords, fullText):
 
     output = []
     var_name_mapping = {}
-    for keyword in candidateKeywords:
+    for keyword in candidateEVRefs:
         # Replace reference names like
         # list_of_models[0]
         # with a random valid variable name of the same length.
