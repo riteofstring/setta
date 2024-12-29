@@ -150,6 +150,8 @@ export async function getEVRefs({
   paramInfoId,
   fullText,
   regexPatternKey = "pattern",
+  genCodeTemplateVarLocation = null,
+  onlyAfterGenCodeTemplateVar = false,
 }) {
   let evRefs = [];
   let keywordPositions = [];
@@ -166,7 +168,14 @@ export async function getEVRefs({
     await sendMessageAndWait({
       id: createNewId(),
       messageType: "textFieldFindReferences",
-      content: { sectionId, paramInfoId, candidateEVRefs, fullText },
+      content: {
+        sectionId,
+        paramInfoId,
+        candidateEVRefs,
+        fullText,
+        genCodeTemplateVarLocation,
+        onlyAfterGenCodeTemplateVar,
+      },
       condition: (x) => {
         keywordPositions.push(...x);
         count += 1;
@@ -188,6 +197,7 @@ export async function getEVRefs({
 export async function getTemplateVars(sectionId, fullText) {
   let templateVars = [];
   let keywordPositions = [];
+  let genCodeTemplateVarLocation = null;
   const candidateTemplateVars = findCandidateTemplateVars(sectionId, fullText);
   console.log("candidateTemplateVars", candidateTemplateVars);
   if (candidateTemplateVars.length > 0) {
@@ -209,10 +219,13 @@ export async function getTemplateVars(sectionId, fullText) {
     // CodeMirror's RangeSetBuilder needs the list to be sorted
     keywordPositions.sort((a, b) => a.startPos - b.startPos);
 
-    templateVars = constructTemplateVars(keywordPositions, fullText);
+    ({ templateVars, genCodeTemplateVarLocation } = constructTemplateVars(
+      keywordPositions,
+      fullText,
+    ));
 
     console.log("templateVars", templateVars);
   }
 
-  return templateVars;
+  return { templateVars, genCodeTemplateVarLocation };
 }

@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
-import { dummyRegExpObject } from "utils/utils";
+import { dummyRegExpObject, templatePrefix } from "utils/utils";
 import { getSectionPathFullName } from "./sectionInfos";
 
 // input is state computed by keyword regex subscription
@@ -15,9 +15,8 @@ export function getTemplateVarsRegexAndColorMap(state) {
     fullRawNameToSectionId[fullName] = sectionId;
   }
 
-  const fullNameToSectionId = _.mapKeys(
-    fullRawNameToSectionId,
-    (v, k) => `${C.TEMPLATE_PREFIX}${k}`,
+  const fullNameToSectionId = _.mapKeys(fullRawNameToSectionId, (v, k) =>
+    templatePrefix(k),
   );
 
   if (names.length === 0) {

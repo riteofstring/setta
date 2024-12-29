@@ -5,9 +5,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from setta.code_gen.python.generate_code import template_prefix
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import C
 from setta.utils.utils import multireplace
 
 from .utils import TaskDefinition
@@ -17,6 +15,8 @@ class TextFieldFindReferencesContent(BaseModel):
     sectionId: str
     paramInfoId: Optional[str] = None
     candidateEVRefs: List[str]
+    genCodeTemplateVarLocation: Optional[dict] = None
+    onlyAfterGenCodeTemplateVar: Optional[bool] = False
     fullText: str
 
 
@@ -25,7 +25,10 @@ async def _textFieldFindReferences(message, lsp_writers):
     message = TextFieldFindReferencesContent.parse_obj(message.content)
     candidateEVRefs = message.candidateEVRefs
     code, position_offset = generateCodeForReferenceFinding(
-        candidateEVRefs, message.fullText
+        candidateEVRefs,
+        message.fullText,
+        message.onlyAfterGenCodeTemplateVar,
+        message.genCodeTemplateVarLocation,
     )
     code_id = f"{message.sectionId}-{message.paramInfoId}-find-references"
 
@@ -48,15 +51,22 @@ async def _textFieldFindReferences(message, lsp_writers):
     }
 
 
-def generateCodeForReferenceFinding(candidateEVRefs, fullText):
-    # If SETTA_GENERATED_PYTHON is present, we only want to consider
-    # code that comes after it.
-    template_str = template_prefix(C.SETTA_GENERATED_PYTHON)
-    split_by_gen_code = fullText.split(template_str)
+def generateCodeForReferenceFinding(
+    candidateEVRefs, fullText, onlyAfterGenCodeTemplateVar, genCodeTemplateVarLocation
+):
     position_offset = 0
-    if len(split_by_gen_code) > 1:
-        position_offset -= len(split_by_gen_code[0]) + len(template_str)
-        fullText = split_by_gen_code[1]
+
+    if onlyAfterGenCodeTemplateVar:
+        if genCodeTemplateVarLocation is None:
+            return "", position_offset
+        # If SETTA_GENERATED_PYTHON is present, we only want to consider
+        # code that comes after it.
+        startPos = genCodeTemplateVarLocation["startPos"]
+        endPos = genCodeTemplateVarLocation["endPos"]
+        template_str_len = endPos - startPos
+        before_text = fullText[:startPos]
+        fullText = fullText[endPos:]
+        position_offset -= len(before_text) + template_str_len
 
     output = []
     var_name_mapping = {}

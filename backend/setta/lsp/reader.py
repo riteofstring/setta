@@ -253,7 +253,7 @@ class LanguageServerReader(LanguageServerInteractor):
             elif method == "textDocument/references":
                 print("textDocument/references response", response, flush=True)
                 content = []
-                if len(response["result"]) > 0:
+                if response["result"] and len(response["result"]) > 0:
                     code = self.get_version(response["result"][0]["uri"])["code"]
                     line_cols = []
                     for x in response["result"]:

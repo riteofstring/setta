@@ -270,14 +270,19 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
 }
 
 const debouncedSetEVRefs = asyncDebounce(async (sectionId, value) => {
+  const { templateVars, genCodeTemplateVarLocation } = await getTemplateVars(
+    sectionId,
+    value,
+  );
+
   const evRefs = await getEVRefs({
     sectionId,
     paramInfoId: null,
     fullText: value,
     regexPatternKey: "codeAreaPattern",
+    genCodeTemplateVarLocation,
+    onlyAfterGenCodeTemplateVar: true,
   });
-
-  const templateVars = await getTemplateVars(sectionId, value);
 
   useSectionInfos.setState((x) => {
     const sectionVariant = getSectionVariant(sectionId, x);
