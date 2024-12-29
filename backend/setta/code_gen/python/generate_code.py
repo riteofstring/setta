@@ -177,13 +177,12 @@ def count_lines(string):
     return line_count + 1  # Adjusting for the last line
 
 
-def maybe_prepend_with_imports_and_replace_templated_code(
+def maybe_prepend_with_imports(
     lines,
     code,
-    template_var,
+    # template_var,
     force_appear_var_name,
     var_name_to_line_num,
-    replace_templated_code=True,
 ):
     if USER_SETTINGS["backend"]["inferImports"]:
         if force_appear_var_name:
@@ -196,11 +195,12 @@ def maybe_prepend_with_imports_and_replace_templated_code(
                 var_str = var_declaration(force_appear_var_name, "None")
             lines[line_num] = var_str
 
-        to_infer_imports_from = replace_gen_code_template_var(
-            code,
-            template_var,
-            "\n".join(lines),
-        )
+        # to_infer_imports_from = replace_gen_code_template_var(
+        #     code,
+        #     template_var,
+        #     "\n".join(lines),
+        # )
+        to_infer_imports_from = "\n".join(lines)
         imports = get_import_text(to_infer_imports_from)
         imports = imports + "\n\n"
 
@@ -209,20 +209,15 @@ def maybe_prepend_with_imports_and_replace_templated_code(
     else:
         imports = ""
 
-    num_preceding_lines = count_lines(imports + code[: template_var["startPos"]])
+    # num_preceding_lines = count_lines(imports + code[: template_var["startPos"]])
+    num_preceding_lines = count_lines(imports)
     new_var_name_to_line_num = {
         k: v + num_preceding_lines for k, v in var_name_to_line_num.items()
     }
 
     generated_code = imports + "\n".join(lines)
-    output = (
-        replace_gen_code_template_var(code, template_var, generated_code)
-        if replace_templated_code
-        else generated_code
-    )
-
     return (
-        output,
+        generated_code,
         new_var_name_to_line_num,
     )
 
@@ -230,10 +225,9 @@ def maybe_prepend_with_imports_and_replace_templated_code(
 def generate_code(
     selected,
     code,
-    template_var,
+    # template_var,
     push_var_name=None,
     force_appear_var_name=None,
-    replace_templated_code=True,
     make_copy_of_selected=True,
 ):
     (
@@ -246,13 +240,12 @@ def generate_code(
         make_copy_of_selected=make_copy_of_selected,
     )
 
-    return maybe_prepend_with_imports_and_replace_templated_code(
+    return maybe_prepend_with_imports(
         lines,
         code,
-        template_var,
+        # template_var,
         force_appear_var_name,
         var_name_to_line_num,
-        replace_templated_code,
     )
 
 

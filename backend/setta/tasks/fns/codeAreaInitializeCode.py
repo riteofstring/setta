@@ -41,8 +41,6 @@ async def _codeAreaInitializeCode(message):
         gen_code, var_name_to_line_num = generate_code(
             exporter_obj.output,
             code,
-            matching_template_var,
-            replace_templated_code=False,
         )
         generated_var_names = list(var_name_to_line_num.keys())
         infoToFullName = {

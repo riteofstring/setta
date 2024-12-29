@@ -1,7 +1,7 @@
 import copy
 
 from setta.database.db.codeInfo.utils import new_code_info_col
-from setta.database.db.sectionVariants.utils import new_ev_entry
+from setta.database.db.sectionVariants.utils import new_ev_entry, new_section_variant
 from setta.database.db.uiTypes.utils import new_ui_type_col_entry
 from setta.utils.section_contents import findAllParametersAndPathMaps
 from setta.utils.utils import (
@@ -243,16 +243,18 @@ class Exporter:
         self.var_name_mapping = {}
         self.var_name_reverse_mapping = {}
         self.always_export_args_objs = always_export_args_objs
-        self.code_with_gen_code_template_var = None
+        self.section_variant_with_code_gen_template_var = None
         if force_include_template_var:
-            self.code_with_gen_code_template_var = {
-                "code": template_prefix(C.SETTA_GENERATED_PYTHON),
-                "templateVar": {
-                    "startPos": 0,
-                    "keyword": template_prefix(C.SETTA_GENERATED_PYTHON),
-                    "sectionId": None,
-                },
-            }
+            self.section_variant_with_code_gen_template_var = new_section_variant(
+                code=template_prefix(C.SETTA_GENERATED_PYTHON),
+                templateVars=[
+                    {
+                        "startPos": 0,
+                        "keyword": template_prefix(C.SETTA_GENERATED_PYTHON),
+                        "sectionId": None,
+                    }
+                ],
+            )
 
     def export(self):
         remove_unneeded_sections(
@@ -330,10 +332,7 @@ class Exporter:
                     variant["templateVars"]
                 )
                 if matching_template_var:
-                    self.code_with_gen_code_template_var = {
-                        "code": get_section_code(self.p, id),
-                        "templateVar": matching_template_var,
-                    }
+                    self.section_variant_with_code_gen_template_var = variant
                     # Make sure any necessary variables get created.
                     # We don't do any replacements here, because that's done later
                     # when the code is actually run.

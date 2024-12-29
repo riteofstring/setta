@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 from collections import defaultdict
 
 
@@ -61,12 +62,18 @@ class LanguageServerInteractor:
     def code_folder(self):
         return self.server.code_folder
 
+    def project_code_folder(self, projectConfigName):
+        return self.code_folder / projectConfigName
+    
+    def construct_code_id(self, projectConfigName, sectionName):
+        return str(Path(projectConfigName) / sectionName)
+
     @property
     def versions(self):
         return self.server.versions
 
-    def get_new_version_number(self, uri, code, codeJson):
-        obj = {"code": code, "codeJson": codeJson}
+    def get_new_version_number(self, uri, code, codeJson, is_gen_code):
+        obj = {"code": code, "codeJson": codeJson, "is_gen_code": is_gen_code}
         if uri not in self.versions:
             self.versions[uri] = {0: obj}
             new_version = 0

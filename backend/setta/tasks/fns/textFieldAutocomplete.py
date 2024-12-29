@@ -3,7 +3,7 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from setta.code_gen.python.generate_code import (
-    maybe_prepend_with_imports_and_replace_templated_code,
+    maybe_prepend_with_imports,
     position_to_line_col,
     set_line,
     var_declaration,
@@ -67,13 +67,12 @@ async def completionHelper(message, fn):
 
     (
         lines,
+        var_name,
         var_name_to_line_num,
         referencable_var_names,
         exporter_obj,
     ) = cached
-    var_name = exporter_obj.var_name_mapping[
-        (message.sectionId, message.paramInfoId, False)
-    ]
+
     position = message.position
     fullText, new_positions = process_refs(
         message.fullText,
@@ -84,10 +83,21 @@ async def completionHelper(message, fn):
     position = new_positions["cursor"][0][0]
     set_line(lines, var_name_to_line_num, var_name, fullText)
 
-    code, var_name_to_line_num = maybe_prepend_with_imports_and_replace_templated_code(
+    fullText, new_positions = process_refs(
+        exporter_obj.section_variant_with_code_gen_template_var["code"],
+        message.evRefs,
+        exporter_obj.get_ref_var_name,
+        cursor_position=position,
+        templateVars=[
+            exporter_obj.section_variant_with_code_gen_template_var["templateVar"]
+        ],
+        get_template_var_replacement_value=...,
+    )
+
+    code, var_name_to_line_num = maybe_prepend_with_imports(
         lines,
-        exporter_obj.code_with_gen_code_template_var["code"],
-        exporter_obj.code_with_gen_code_template_var["templateVar"],
+        exporter_obj.section_variant_with_code_gen_template_var["code"],
+        # exporter_obj.section_variant_with_code_gen_template_var["templateVar"],
         var_name,
         var_name_to_line_num,
     )

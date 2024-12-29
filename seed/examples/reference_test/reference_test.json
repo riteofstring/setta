@@ -35,7 +35,14 @@
   "sectionVariants": {
     "82cc7bf5-7971-4896-9e22-daf264ab17a9": {
       "name": "ideological_apricot",
-      "code": "$implicit_cyan\n\nprint(\"hello!\")"
+      "code": "import $implicit_cyan\n\nprint(\"hello!\")",
+      "templateVars": [
+        {
+          "sectionId": "a6068098-b704-4661-ba68-946a6afc5f24",
+          "startPos": 7,
+          "keyword": "$implicit_cyan"
+        }
+      ]
     },
     "b71d16da-5039-4669-8737-9aac5c0092c8": {
       "name": "religious_rose",

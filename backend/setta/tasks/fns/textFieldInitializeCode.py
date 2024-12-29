@@ -3,10 +3,7 @@ import json
 from pydantic import BaseModel
 
 from setta.code_gen.export_selected import export_selected
-from setta.code_gen.python.generate_code import (
-    generate_lines_of_code_without_imports,
-    maybe_prepend_with_imports_and_replace_templated_code,
-)
+from setta.code_gen.python.generate_code import generate_lines_of_code_without_imports
 from setta.tasks.task_runner import RunType
 
 from .utils import TaskDefinition
@@ -27,16 +24,16 @@ async def _textFieldInitializeCode(message):
     codeJson = exporter_obj.output
     sectionId = message.sectionId
     paramInfoId = message.paramInfoId
-    push_var_name = exporter_obj.var_name_mapping[(sectionId, paramInfoId, False)]
+    var_name = exporter_obj.var_name_mapping[(sectionId, paramInfoId, False)]
     lines, var_name_to_line_num = generate_lines_of_code_without_imports(
         codeJson,
-        push_var_name=push_var_name,
-        force_appear_var_name=push_var_name,
+        push_var_name=var_name,
+        force_appear_var_name=var_name,
     )
     infoToFullName = {
         tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
     }
-    pushed_var_name_line_num = var_name_to_line_num[push_var_name]
+    pushed_var_name_line_num = var_name_to_line_num[var_name]
     referencable_var_names = [
         infoToFullName[exporter_obj.var_name_reverse_mapping[v]]
         for v, line_num in var_name_to_line_num.items()
@@ -45,20 +42,11 @@ async def _textFieldInitializeCode(message):
     print("textFieldInitializeCode", flush=True)
     print(referencable_var_names, flush=True)
 
-    code, _ = maybe_prepend_with_imports_and_replace_templated_code(
-        lines,
-        exporter_obj.code_with_gen_code_template_var["code"],
-        exporter_obj.code_with_gen_code_template_var["templateVar"],
-        push_var_name,
-        var_name_to_line_num,
-    )
-
-    print("code\n", code, flush=True)
-
     return {
         "content": None,
         "cache": [
             lines,
+            var_name,
             var_name_to_line_num,
             referencable_var_names,
             exporter_obj,

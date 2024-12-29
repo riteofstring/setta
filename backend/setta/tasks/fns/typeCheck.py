@@ -1,5 +1,8 @@
+import asyncio
+from pathlib import Path
+
+from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
-from setta.code_gen.python.generate_code import generate_code
 from setta.tasks.task_runner import RunType
 
 from .utils import TaskDefinition
@@ -11,15 +14,22 @@ async def _typeCheck(message, lsp_writers):
     exporter_obj = export_selected(
         project, always_export_args_objs=False, force_include_template_var=True
     )
-    codeJson = exporter_obj.output
-    code = generate_code(
-        codeJson,
-        exporter_obj.code_with_gen_code_template_var["code"],
-        exporter_obj.code_with_gen_code_template_var["templateVar"],
-    )[0]
-    await lsp_writers["full"].send_document_open_request(
-        project["projectConfig"]["id"], code, codeJson
+    projectConfigName = project["projectConfig"]["name"]
+    code, _ = generate_final_code_for_sections(
+        project,
+        exporter_obj,
+        lsp_writers["full"].project_code_folder(projectConfigName),
     )
+    for details in code.values():
+        code_id = lsp_writers["full"].construct_code_id(projectConfigName, details["name"])
+        asyncio.create_task(
+            lsp_writers["full"].send_document_open_request(
+                code_id=code_id,
+                code=details["code"],
+                codeJson=exporter_obj.output,
+                is_gen_code=details["is_gen_code"],
+            )
+        )
 
     return {"content": None}
 

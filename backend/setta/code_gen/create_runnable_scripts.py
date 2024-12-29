@@ -1,8 +1,10 @@
 import os
 from datetime import datetime
+from pathlib import Path
 
 from setta.code_gen.export_selected import (
     export_selected,
+    get_gen_code_template_var,
     get_section_code,
     get_section_type,
     get_selected_section_variant,
@@ -29,26 +31,9 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     )
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
-    code_sections = {
-        k: v for k, v in p["sections"].items() if get_section_type(p, k) == C.CODE
-    }
-    section_dependencies = {}
-    for s in code_sections.values():
-        section_variant = get_selected_section_variant(p, s["id"])
-        (
-            section_variant["code"],
-            curr_section_dependencies,
-        ) = generate_final_code_for_section(
-            section_variant["code"],
-            s["codeLanguage"],
-            section_variant["evRefs"],
-            section_variant["templateVars"],
-            exporter_obj,
-            folder_path,
-            do_prepend_with_setup_code=True,
-            projectConfigName=p["projectConfig"]["name"],
-        )
-        section_dependencies[s["id"]] = curr_section_dependencies
+    code, section_dependencies = generate_final_code_for_sections(
+        p, exporter_obj, folder_path
+    )
 
     print("runCodeBlocks", p["runCodeBlocks"], flush=True)
     section_dependencies = prune_dict(section_dependencies, p["runCodeBlocks"])
@@ -56,12 +41,11 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     to_write = topological_sort(section_dependencies)
     id_to_filepath = {}
     for sid in to_write:
-        curr_section = code_sections[sid]
-        codeLanguage = curr_section["codeLanguage"]
+        curr_code = code[sid]
+        codeLanguage = curr_code["codeLanguage"]
         extension = languageToExtension(codeLanguage)
-        code = get_section_code(p, sid)
         filepath = write_string_to_file(
-            folder_path, f"{curr_section['name']}{extension}", code
+            folder_path, f"{curr_code['name']}{extension}", curr_code["code"]
         )
         filepath = os.path.relpath(filepath).replace(os.sep, "/")
         id_to_filepath[sid] = filepath
@@ -75,21 +59,54 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     if len(run_order) > 1:
         bash_script = ""
         for sid in run_order:
-            curr_section = code_sections[sid]
-            bash_script += codeCallStr(folder_path, curr_section)
+            bash_script += codeCallStr(folder_path, code[sid])
         filepath = write_string_to_file(folder_path, "SETTA_ENTRY.sh", bash_script)
         filepath = os.path.relpath(filepath).replace(os.sep, "/")
         command = f"bash {filepath}"
     else:
         sid = run_order[0]
         filepath = id_to_filepath[sid]
-        callingProgram = languageToCall(code_sections[sid]["codeLanguage"])
+        callingProgram = languageToCall(code[sid]["codeLanguage"])
         command = f"{callingProgram} {filepath}"
 
     if terminal_write_fn:
         terminal_write_fn(f"\x15{command}\n")
     elif command_callback:
         command_callback(command)
+
+
+def generate_final_code_for_sections(p, exporter_obj, folder_path):
+    code_sections = {
+        k: v for k, v in p["sections"].items() if get_section_type(p, k) == C.CODE
+    }
+    code = {}
+    section_dependencies = {}
+    for s in code_sections.values():
+        section_variant = get_selected_section_variant(p, s["id"])
+        (
+            curr_code,
+            curr_section_dependencies,
+        ) = generate_final_code_for_section(
+            section_variant["code"],
+            s["codeLanguage"],
+            section_variant["evRefs"],
+            section_variant["templateVars"],
+            exporter_obj,
+            folder_path,
+            do_prepend_with_setup_code=True,
+            projectConfigName=p["projectConfig"]["name"],
+        )
+
+        is_gen_code = bool(get_gen_code_template_var(section_variant["templateVars"]))
+        code[s["id"]] = {
+            "name": s["name"],
+            "code": curr_code,
+            "codeLanguage": s["codeLanguage"],
+            "is_gen_code": is_gen_code,
+        }
+        section_dependencies[s["id"]] = curr_section_dependencies
+
+    return code, section_dependencies
 
 
 def generate_final_code_for_section(
@@ -148,18 +165,20 @@ def get_template_var_replacement_value_fn(
             code, var_name_to_line_num_dict[keyword] = generate_code(
                 exporter_obj.output,
                 code,
-                template_var,
-                replace_templated_code=False,
                 make_copy_of_selected=False,
             )
             return code
         else:
             section_dependencies.append(template_var["sectionId"])
-            module_path = folder_path.replace("/", ".").replace("\\", ".")
+            module_path = convert_folder_path_to_module_path(folder_path)
             keyword = keyword.lstrip(C.TEMPLATE_PREFIX)
             return f"{module_path}.{keyword}"
 
     return get_template_var_replacement_value
+
+
+def convert_folder_path_to_module_path(folder_path):
+    return str(os.path.relpath(folder_path)).replace("/", ".").replace("\\", ".")
 
 
 def languageToExtension(x):
@@ -172,7 +191,7 @@ def languageToCall(x):
 
 def codePathStr(folder_path, filename, codeLanguage):
     extension = languageToExtension(codeLanguage)
-    output = f"{folder_path}/{filename}{extension}"
+    output = folder_path / f"{filename}{extension}"
     return os.path.relpath(output).replace(os.sep, "/")
 
 
@@ -210,7 +229,7 @@ def create_timestamped_folder(base_dir, prefix=""):
     # Create folder name with optional prefix and subsecond precision
     folder_name = f"_{prefix}{timestamp}"
     # Full path for the new folder
-    folder_path = os.path.join(base_dir, folder_name)
+    folder_path = Path(base_dir) / folder_name
 
     if not os.path.exists(folder_path):
         try:

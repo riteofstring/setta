@@ -225,7 +225,9 @@ class LanguageServerReader(LanguageServerInteractor):
                 break
 
     async def process_response(self, response):
-        # print(response, flush=True)
+        from pprint import pprint
+
+        pprint(response)
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
@@ -311,14 +313,16 @@ class LanguageServerReader(LanguageServerInteractor):
             diagnostics = params["diagnostics"]
             uri = params["uri"]
             version_info = self.get_version(uri, params.get("version"))
-            code = version_info["code"]
-            codeJson = version_info["codeJson"]
-            code_split = code.split("\n")
-            content = process_diagnostics(diagnostics, code_split, codeJson)
-            # print("content", content, flush=True)
-            await self.websocket_manager.broadcast(
-                {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
-            )
+            # TODO, remove this condition
+            if version_info["is_gen_code"]:
+                code = version_info["code"]
+                codeJson = version_info["codeJson"]
+                code_split = code.split("\n")
+                content = process_diagnostics(diagnostics, code_split, codeJson)
+                # print("content", content, flush=True)
+                await self.websocket_manager.broadcast(
+                    {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
+                )
 
         # print(self.received_messages.keys())
         # process_response(response)
