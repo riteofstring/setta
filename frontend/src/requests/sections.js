@@ -77,12 +77,10 @@ export async function dbCodeAreaCompletion({
   setEVRefs,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  const evRefs = await getEVRefs({
+  const { evRefs } = await getEVRefsAndTemplateVarsForCodeArea(
     sectionId,
-    paramInfoId: null,
     fullText,
-    regexPatternKey: "codeAreaPattern",
-  });
+  );
 
   setEVRefs(evRefs);
 
@@ -194,7 +192,7 @@ export async function getEVRefs({
   return evRefs;
 }
 
-export async function getTemplateVars(sectionId, fullText) {
+async function getTemplateVars(sectionId, fullText) {
   let templateVars = [];
   let keywordPositions = [];
   let genCodeTemplateVarLocation = null;
@@ -228,4 +226,22 @@ export async function getTemplateVars(sectionId, fullText) {
   }
 
   return { templateVars, genCodeTemplateVarLocation };
+}
+
+export async function getEVRefsAndTemplateVarsForCodeArea(sectionId, value) {
+  const { templateVars, genCodeTemplateVarLocation } = await getTemplateVars(
+    sectionId,
+    value,
+  );
+
+  const evRefs = await getEVRefs({
+    sectionId,
+    paramInfoId: null,
+    fullText: value,
+    regexPatternKey: "codeAreaPattern",
+    genCodeTemplateVarLocation,
+    onlyAfterGenCodeTemplateVar: true,
+  });
+
+  return { templateVars, evRefs };
 }

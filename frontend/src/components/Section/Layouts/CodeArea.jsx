@@ -16,8 +16,7 @@ import React, {
 import {
   dbCodeAreaCompletion,
   dbCodeAreaInitializeCode,
-  getEVRefs,
-  getTemplateVars,
+  getEVRefsAndTemplateVarsForCodeArea,
 } from "requests/sections";
 import {
   getDisplayedSectionVariant,
@@ -270,19 +269,10 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
 }
 
 const debouncedSetEVRefs = asyncDebounce(async (sectionId, value) => {
-  const { templateVars, genCodeTemplateVarLocation } = await getTemplateVars(
+  const { templateVars, evRefs } = await getEVRefsAndTemplateVarsForCodeArea(
     sectionId,
     value,
   );
-
-  const evRefs = await getEVRefs({
-    sectionId,
-    paramInfoId: null,
-    fullText: value,
-    regexPatternKey: "codeAreaPattern",
-    genCodeTemplateVarLocation,
-    onlyAfterGenCodeTemplateVar: true,
-  });
 
   useSectionInfos.setState((x) => {
     const sectionVariant = getSectionVariant(sectionId, x);
