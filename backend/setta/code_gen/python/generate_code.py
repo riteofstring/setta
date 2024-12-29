@@ -5,7 +5,7 @@ import re
 from setta.utils.utils import replace_at_positions
 
 from ...utils.constants import USER_SETTINGS, C
-from ..find_placeholders import double_braces
+from ..find_placeholders import template_prefix
 from ..utils import push_var_deep
 from .ast_utils import find_missing_imports, find_top_level_symbols
 
@@ -82,24 +82,24 @@ def get_value(x, selected):
     type_value = x["type"]
     if type_value == C.TEXT:
         output = str(x["value"])
-        # Although this seems redundant, it is necessary, because if we return None, it won't update the positions
-        # with the variable declaration length.
-        relative_positions = x["ref_var_name_positions"]
+        relative_positions = []
     elif type_value == C.SLIDER:
         output = str(x["value"])
-        relative_positions = None
+        relative_positions = []
     elif type_value == C.SWITCH:
         output = str(get_boolean(x["value"]))
-        relative_positions = None
+        relative_positions = []
     elif type_value == C.SECTION:
         if not x["value"]["callable"]:
-            output, relative_positions = get_dict_contents(x["dependencies"], selected)
+            output, relative_positions = get_dict_contents(
+                x["value"]["usedParams"], selected
+            )
             prefix = "{"
             output = prefix + output + "}"
             prefix_len = len(prefix)
         else:
             output, relative_positions = get_callable_params(
-                x["dependencies"], x["value"]["positionalOnlyParams"], selected
+                x["value"]["usedParams"], x["value"]["positionalOnlyParams"], selected
             )
             prefix = f"{x['value']['callable']}("
             output = f"{prefix}{output})"
@@ -115,19 +115,21 @@ def get_value(x, selected):
         relative_positions = [(p + 1, v) for p, v in relative_positions]
     else:
         output = None
-        relative_positions = None
+        relative_positions = []
 
     return output, relative_positions
 
 
 def create_line(var_name, x, selected, force_appear):
     value, relative_positions = get_value(x, selected)
+    # include any ref positions that were calculated in export_selected,
+    # because they too need to be shifted by the length of the variable declaration
+    relative_positions.extend(x["ref_var_name_positions"])
     if value or force_appear:
         prefix = var_declaration(var_name, value, return_prefix=True)
         prefix_len = len(prefix)
         value = f"{prefix}{value}"
-        if relative_positions:
-            relative_positions = [(p + prefix_len, v) for p, v in relative_positions]
+        relative_positions = [(p + prefix_len, v) for p, v in relative_positions]
     return value, relative_positions
 
 
@@ -144,6 +146,7 @@ def generate_lines_of_code_without_imports(
                 isinstance(v["value"], dict)
                 and force_appear_var_name in v["value"]["unusedParams"]
             ):
+                v["value"]["usedParams"].append(force_appear_var_name)
                 v["dependencies"].append(force_appear_var_name)
                 v["value"]["unusedParams"].remove(force_appear_var_name)
         selected = [{"var_name": k, **v} for k, v in selected.items()]
@@ -157,8 +160,7 @@ def generate_lines_of_code_without_imports(
         if var_str:
             var_name_to_line_num[var_name] = len(lines)
             lines.append(var_str)
-            if ref_var_name_positions:
-                x["ref_var_name_positions"] = ref_var_name_positions
+            x["ref_var_name_positions"] = ref_var_name_positions
 
     return lines, var_name_to_line_num
 
@@ -207,7 +209,7 @@ def maybe_prepend_with_imports_and_replace_templated_code(
         imports = ""
 
     num_preceding_lines = count_lines(
-        templated_code.split(double_braces(C.SETTA_GENERATED_PYTHON))[0] + imports
+        templated_code.split(template_prefix(C.SETTA_GENERATED_PYTHON))[0] + imports
     )
     new_var_name_to_line_num = {
         k: v + num_preceding_lines for k, v in var_name_to_line_num.items()
@@ -321,7 +323,7 @@ def create_nice_var_name(top_level_symbols, nice_name):
 def replace_keywords(x, replacements, ref_var_name_positions=None):
     for key, new_value in replacements.items():
         if new_value is not None:
-            old_value = double_braces(key)
+            old_value = template_prefix(key)
             if ref_var_name_positions:
                 for match in re.finditer(re.escape(old_value), x):
                     position = match.start()

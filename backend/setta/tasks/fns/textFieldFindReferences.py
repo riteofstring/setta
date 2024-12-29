@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from setta.code_gen.python.generate_code import double_braces
+from setta.code_gen.python.generate_code import template_prefix
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 from setta.utils.utils import multireplace
@@ -51,7 +51,7 @@ async def _textFieldFindReferences(message, lsp_writers):
 def generateCodeForReferenceFinding(candidateKeywords, fullText):
     # If SETTA_GENERATED_PYTHON is present, we only want to consider
     # code that comes after it.
-    template_str = double_braces(C.SETTA_GENERATED_PYTHON)
+    template_str = template_prefix(C.SETTA_GENERATED_PYTHON)
     split_by_gen_code = fullText.split(template_str)
     position_offset = 0
     if len(split_by_gen_code) > 1:

@@ -25,10 +25,10 @@ function ChartConfig({ sectionId }) {
   )[0]?.value?.headers;
 
   return (
-    <div className="flex flex-1 flex-col gap-2 overflow-y-clip">
-      <h3 className="mt-1 font-bold text-setta-400 dark:text-setta-500">
+    <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
+      <h2 className="mb-4 text-2xl font-bold text-gray-900 dark:text-gray-100">
         Chart Config
-      </h3>
+      </h2>
       <ChartTypeSelection
         sectionId={sectionId}
         selectedChartType={chartSettings.type}
@@ -121,7 +121,7 @@ function ChartTypeSelection({ sectionId, selectedChartType }) {
     <div className="space-y-2">
       <label
         htmlFor="chartType"
-        className="block text-xs font-medium text-setta-700 dark:text-setta-300"
+        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
       >
         Chart Type
       </label>
@@ -150,7 +150,7 @@ function XAxisColumnSelection({
     <div className="space-y-2">
       <label
         htmlFor="xAxisColumn"
-        className="block text-xs font-medium text-setta-700 dark:text-setta-300"
+        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
       >
         X-Axis Column
       </label>
@@ -181,7 +181,7 @@ function CategoryColumnSelection({
     <div className="space-y-2">
       <label
         htmlFor="categoryColumn"
-        className="block text-xs font-medium text-setta-700 dark:text-setta-300"
+        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
       >
         Category Column
       </label>
@@ -198,10 +198,7 @@ function CategoryColumnSelection({
 
 function TogglableOptions({ sectionId, optionsWithToggle, chartSettings }) {
   return (
-    <div className="mt-8 space-y-4">
-      <h4 className="font-semibold text-setta-700 dark:text-setta-400">
-        Chart Labels
-      </h4>
+    <div className="space-y-4">
       {optionsWithToggle.map((x) => (
         <ChartConfigToggle
           key={`${x.name}`}
@@ -220,14 +217,14 @@ function ChartConfigToggle({ sectionId, name, value, title }) {
     <div className="flex items-center justify-between">
       <label
         htmlFor={name}
-        className="cursor-pointer text-xs font-medium text-setta-700 dark:text-setta-300"
+        className="text-sm font-medium text-gray-700 dark:text-gray-300"
       >
         {title}
       </label>
       <input
         type="checkbox"
         id={name}
-        className="h-4 w-4 cursor-pointer rounded bg-setta-500/50  text-blue-500 outline outline-offset-2 outline-transparent checked:bg-blue-500 focus-visible:!outline-blue-500 dark:text-blue-400 dark:focus-visible:ring-blue-400"
+        className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:text-blue-400 dark:focus:ring-blue-400"
         checked={value}
         onChange={(e) => setChartSetting(sectionId, name, e.target.checked)}
       />
