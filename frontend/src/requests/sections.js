@@ -60,7 +60,7 @@ export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
   });
 }
 
-export async function dbCodeAreaInitializeCode({ sectionId }) {
+export async function dbCodeAreaInitializeCode(sectionId) {
   const project = getProjectDataToGenerateCode({});
   return await sendMessageAndWait({
     id: createNewId(),
@@ -100,7 +100,7 @@ export async function dbCodeAreaCompletion({
   const res = await sendMessageAndWait(autoCompleteProps);
 
   if (res === C.CODE_AREA_GEN_CODE_NOT_INITIALIZED) {
-    const initialized = await dbCodeAreaInitializeCode({ sectionId });
+    const initialized = await dbCodeAreaInitializeCode(sectionId);
     if (initialized) {
       return await sendMessageAndWait(autoCompleteProps);
     } else {

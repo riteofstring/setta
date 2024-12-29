@@ -131,6 +131,17 @@ def get_section_children(p, id):
     return get_selected_section_variant(p, id)["children"]
 
 
+def get_specific_template_var(p, section_id, keyword):
+    variant = get_selected_section_variant(p, section_id)
+    return next((t for t in variant["templateVars"] if t["keyword"] == keyword), None)
+
+
+def get_gen_code_template_var(p, section_id):
+    return get_specific_template_var(
+        p, section_id, template_prefix(C.SETTA_GENERATED_PYTHON)
+    )
+
+
 def no_entered_value(value):
     return value is None or value == ""
 

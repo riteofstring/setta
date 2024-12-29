@@ -106,7 +106,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   }
 
   function onMouseDown() {
-    dbCodeAreaInitializeCode({ sectionId });
+    dbCodeAreaInitializeCode(sectionId);
   }
 
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =

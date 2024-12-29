@@ -53,10 +53,7 @@ export function constructTemplateVars(keywordPositions, fullText) {
       });
 
       if (keyword === templatePrefix(C.SETTA_GENERATED_PYTHON)) {
-        genCodeTemplateVarLocation = {
-          startPos: k.startPos,
-          endPos: k.startPos + keyword.length,
-        };
+        genCodeTemplateVarLocation = [k.startPos, keyword];
       }
     }
   }

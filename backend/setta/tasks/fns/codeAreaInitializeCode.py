@@ -2,11 +2,14 @@ import json
 
 from pydantic import BaseModel
 
-from setta.code_gen.export_selected import export_selected, get_section_code
-from setta.code_gen.find_placeholders import needs_generated_python
-from setta.code_gen.python.generate_code import generate_code, replace_keywords
+from setta.code_gen.export_selected import (
+    export_selected,
+    get_gen_code_template_var,
+    get_section_code,
+)
+from setta.code_gen.python.generate_code import generate_code
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import C
+from setta.utils.utils import replace_at_positions
 
 from .utils import TaskDefinition
 
@@ -25,7 +28,8 @@ async def _codeAreaInitializeCode(message):
     referencable_var_names = None
     exporter_obj = None
     generated_var_names = set()
-    if needs_generated_python(code):
+    matching_template_var = get_gen_code_template_var(project, message.sectionId)
+    if matching_template_var is not None:
         print("NEEDS GENERATED CODE", flush=True)
         exporter_obj = export_selected(project, always_export_args_objs=True)
         codeJson = exporter_obj.output
@@ -43,11 +47,20 @@ async def _codeAreaInitializeCode(message):
             for v in generated_var_names
         ]
 
+        code = replace_at_positions(
+            code,
+            [
+                (
+                    matching_template_var["startPos"],
+                    matching_template_var["keyword"],
+                    gen_code,
+                )
+            ],
+        )
+
     # print("gen_code", gen_code, flush=True)
     # print("var_name_to_line_num", var_name_to_line_num, flush=True)
     # print("referencable_var_names", referencable_var_names, flush=True)
-
-    code = replace_keywords(code, {C.SETTA_GENERATED_PYTHON: gen_code})
 
     print("code", code, flush=True)
 

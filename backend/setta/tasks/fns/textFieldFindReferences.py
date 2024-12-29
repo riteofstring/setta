@@ -15,7 +15,7 @@ class TextFieldFindReferencesContent(BaseModel):
     sectionId: str
     paramInfoId: Optional[str] = None
     candidateEVRefs: List[str]
-    genCodeTemplateVarLocation: Optional[dict] = None
+    genCodeTemplateVarLocation: Optional[list] = None
     onlyAfterGenCodeTemplateVar: Optional[bool] = False
     fullText: str
 
@@ -61,8 +61,8 @@ def generateCodeForReferenceFinding(
             return "", position_offset
         # If SETTA_GENERATED_PYTHON is present, we only want to consider
         # code that comes after it.
-        startPos = genCodeTemplateVarLocation["startPos"]
-        endPos = genCodeTemplateVarLocation["endPos"]
+        startPos, keyword = genCodeTemplateVarLocation
+        endPos = startPos + len(keyword)
         template_str_len = endPos - startPos
         before_text = fullText[:startPos]
         fullText = fullText[endPos:]
