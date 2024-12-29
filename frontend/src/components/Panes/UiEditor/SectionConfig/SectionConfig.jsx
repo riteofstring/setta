@@ -18,7 +18,7 @@ export const SectionConfig = React.memo(_SectionConfig);
 
 function SectionConfigCore({ sectionId }) {
   return (
-    <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
+    <div className="flex min-h-0 flex-col gap-1 overflow-y-clip">
       <SpecializedConfiguration sectionId={sectionId} />
     </div>
   );

@@ -111,6 +111,41 @@ export function ListOfArtifacts({
 
   const draggable = Boolean(onDragStart);
 
+  if (draggable) {
+    return (
+      <ImageArtifactObjects
+        availableArtifacts={availableArtifacts}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onClick={onClick}
+        getItemStyle={getItemStyle}
+        draggable={draggable}
+        loadedDetails={loadedDetails}
+      />
+    );
+  }
+  return (
+    <ChartArtifactObjects
+      availableArtifacts={availableArtifacts}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onClick={onClick}
+      getItemStyle={getItemStyle}
+      draggable={draggable}
+      loadedDetails={loadedDetails}
+    />
+  );
+}
+
+function ImageArtifactObjects({
+  availableArtifacts,
+  onDragStart,
+  onDragEnd,
+  onClick,
+  getItemStyle,
+  draggable,
+  loadedDetails,
+}) {
   return (
     <>
       <h3 className="mt-1 text-sm font-bold text-setta-400 dark:text-setta-600">
@@ -133,8 +168,75 @@ export function ListOfArtifacts({
           >
             <div className="flex flex-1 flex-col">
               <div className="flex items-center justify-between">
-                <header className="flex">
-                  <p className="text-xs font-bold text-setta-600 dark:text-setta-200">
+                <header className="flex min-w-0">
+                  <p className="truncate text-xs font-bold text-setta-600 dark:text-setta-200">
+                    {item.name}
+                  </p>
+                  <p className="ml-2 text-xs text-setta-500 dark:text-setta-400">
+                    {item.type}
+                  </p>
+                </header>
+                <Accordion.Trigger className="cursor-pointer p-2">
+                  <FiChevronDown className="transform text-setta-500 transition-transform duration-200 ease-in-out group-data-[state=open]:rotate-180 dark:text-setta-400" />
+                </Accordion.Trigger>
+              </div>
+              {item.path && (
+                <div className="mb-2 truncate text-xs text-setta-500 dark:text-setta-400">
+                  {item.path}
+                </div>
+              )}
+            </div>
+
+            <Accordion.Content className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+              <div className="rounded-md bg-setta-50 px-3 py-2 dark:bg-setta-900/50">
+                {loadedDetails[item.id] ? (
+                  <pre className="text-xs text-setta-900 dark:text-setta-100">
+                    {JSON.stringify(loadedDetails[item.id], null, 2)}
+                  </pre>
+                ) : (
+                  <div className="text-xs text-setta-500 dark:text-setta-400">
+                    No additional details available
+                  </div>
+                )}
+              </div>
+            </Accordion.Content>
+          </Accordion.Item>
+        ))}
+      </Accordion.Root>
+    </>
+  );
+}
+
+function ChartArtifactObjects({
+  availableArtifacts,
+  onDragStart,
+  onDragEnd,
+  onClick,
+  getItemStyle,
+  draggable,
+  loadedDetails,
+}) {
+  return (
+    <>
+      <h3 className="mb-2 text-sm font-bold text-setta-400 dark:text-setta-600">
+        Available Objects
+      </h3>
+
+      <Accordion.Root type="multiple" className="flex w-full flex-col gap-2">
+        {Object.entries(availableArtifacts).map(([id, item]) => (
+          <Accordion.Item
+            key={id}
+            value={item.name}
+            className={`flex flex-col rounded-lg bg-white shadow-md transition-shadow hover:shadow-xl dark:bg-setta-800 dark:!shadow-setta-900 ${draggable ? "cursor-move" : "cursor-pointer"} mx-1 justify-center border px-2 py-1 ${getItemStyle?.(id) ?? "border-transparent  hover:border-white dark:border-setta-700 dark:hover:bg-setta-700"}`}
+            draggable={draggable}
+            onDragStart={(e) => onDragStart?.(e, id)}
+            onDragEnd={onDragEnd}
+            onClick={() => onClick?.(id, item.type)}
+          >
+            <div className="flex flex-1 flex-col">
+              <div className="flex items-center justify-between">
+                <header className="flex min-w-0">
+                  <p className="truncate text-xs font-bold text-setta-600 dark:text-setta-200">
                     {item.name}
                   </p>
                   <p className="ml-2 text-xs text-setta-500 dark:text-setta-400">
@@ -205,7 +307,7 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
   };
 
   return (
-    <div className="flex flex-1 flex-col gap-1 overflow-y-clip">
+    <div className="flex flex-1 flex-col gap-1 overflow-y-scroll [&>*]:mx-[2px]">
       <LayersList
         sectionId={sectionId}
         availableArtifacts={availableArtifacts}
@@ -231,7 +333,7 @@ export function JustListOfArtifacts({ sectionId, sectionTypeName }) {
 
   function getItemStyle(id) {
     return selectedArtifactIds.has(id)
-      ? "border-gray-200 bg-blue-800 hover:bg-blue-50 dark:hover:bg-blue-500"
+      ? "!bg-blue-500 [&_*]:!text-white dark:!bg-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900 border-transparent"
       : null;
   }
 

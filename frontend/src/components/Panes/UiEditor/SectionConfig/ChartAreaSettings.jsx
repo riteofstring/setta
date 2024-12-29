@@ -7,10 +7,10 @@ import { JustListOfArtifacts } from "./ListOfArtifacts";
 
 export function ChartAreaSettings({ sectionId }) {
   return (
-    <>
+    <div className="flex-1 overflow-x-hidden overflow-y-scroll [&>*]:mr-[2px]">
       <ChartConfig sectionId={sectionId} />
       <JustListOfArtifacts sectionId={sectionId} sectionTypeName={C.CHART} />
-    </>
+    </div>
   );
 }
 
@@ -25,7 +25,7 @@ function ChartConfig({ sectionId }) {
   )[0]?.value?.headers;
 
   return (
-    <div className="flex flex-1 flex-col gap-2 overflow-y-clip">
+    <div className="flex flex-col gap-1">
       <h3 className="mt-1 font-bold text-setta-400 dark:text-setta-500">
         Chart Config
       </h3>
@@ -118,7 +118,7 @@ function ScatterChartConfig({ sectionId, chartSettings, valueHeaders }) {
 
 function ChartTypeSelection({ sectionId, selectedChartType }) {
   return (
-    <div className="space-y-2">
+    <>
       <label
         htmlFor="chartType"
         className="block text-xs font-medium text-setta-700 dark:text-setta-300"
@@ -130,7 +130,7 @@ function ChartTypeSelection({ sectionId, selectedChartType }) {
         value={selectedChartType}
         onSelectedItemChange={(v) => setChartSetting(sectionId, "type", v)}
       />
-    </div>
+    </>
   );
 }
 
@@ -147,7 +147,7 @@ function XAxisColumnSelection({
   ];
 
   return (
-    <div className="space-y-2">
+    <>
       <label
         htmlFor="xAxisColumn"
         className="block text-xs font-medium text-setta-700 dark:text-setta-300"
@@ -161,7 +161,7 @@ function XAxisColumnSelection({
           setChartSetting(sectionId, "xAxisColumn", v)
         }
       />
-    </div>
+    </>
   );
 }
 
@@ -178,7 +178,7 @@ function CategoryColumnSelection({
   ];
 
   return (
-    <div className="space-y-2">
+    <>
       <label
         htmlFor="categoryColumn"
         className="block text-xs font-medium text-setta-700 dark:text-setta-300"
@@ -192,13 +192,13 @@ function CategoryColumnSelection({
           setChartSetting(sectionId, "categoryColumn", v)
         }
       />
-    </div>
+    </>
   );
 }
 
 function TogglableOptions({ sectionId, optionsWithToggle, chartSettings }) {
   return (
-    <div className="mt-8 space-y-4">
+    <div className="flex flex-col gap-2 py-6">
       <h4 className="font-semibold text-setta-400 dark:text-setta-400">
         Chart Labels
       </h4>
