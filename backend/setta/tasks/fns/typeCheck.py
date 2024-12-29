@@ -21,7 +21,9 @@ async def _typeCheck(message, lsp_writers):
         lsp_writers["full"].project_code_folder(projectConfigName),
     )
     for details in code.values():
-        code_id = lsp_writers["full"].construct_code_id(projectConfigName, details["name"])
+        code_id = lsp_writers["full"].construct_code_id(
+            projectConfigName, details["name"]
+        )
         asyncio.create_task(
             lsp_writers["full"].send_document_open_request(
                 code_id=code_id,

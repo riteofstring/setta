@@ -2,17 +2,20 @@ import json
 
 from pydantic import BaseModel
 
+from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import (
     export_selected,
     get_gen_code_template_var,
     get_section_code,
     get_selected_section_variant,
 )
+from setta.code_gen.find_placeholders import template_prefix
 from setta.code_gen.python.generate_code import (
     generate_code,
     replace_gen_code_template_var,
 )
 from setta.tasks.task_runner import RunType
+from setta.utils.constants import C
 
 from .utils import TaskDefinition
 
@@ -22,26 +25,28 @@ class CodeAreaInitializeCodeContent(BaseModel):
     sectionId: str
 
 
-async def _codeAreaInitializeCode(message):
+async def _codeAreaInitializeCode(message, lsp_writers):
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     project = message.project
-    code = get_section_code(project, message.sectionId)
-    gen_code = None
+    exporter_obj = export_selected(
+        project, always_export_args_objs=True, force_include_template_var=False
+    )
+    projectConfigName = project["projectConfig"]["name"]
+    code, _ = generate_final_code_for_sections(
+        project,
+        exporter_obj,
+        lsp_writers["full"].project_code_folder(projectConfigName),
+    )
+
     referencable_var_names = []
     generated_var_names = []
-    exporter_obj = None
-    matching_template_var = get_gen_code_template_var(
-        get_selected_section_variant(project, message.sectionId)["templateVars"]
-    )
-    if matching_template_var is not None:
-        print("NEEDS GENERATED CODE", flush=True)
-        exporter_obj = export_selected(
-            project, always_export_args_objs=True, force_include_template_var=False
-        )
-        gen_code, var_name_to_line_num = generate_code(
-            exporter_obj.output,
-            code,
-        )
+    if (
+        exporter_obj.code_gen_template_var_section_details.get("sectionId")
+        == message.sectionId
+    ):
+        var_name_to_line_num = code[message.sectionId]["var_name_to_line_num_dict"][
+            template_prefix(C.SETTA_GENERATED_PYTHON)
+        ]
         generated_var_names = list(var_name_to_line_num.keys())
         infoToFullName = {
             tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
@@ -51,18 +56,12 @@ async def _codeAreaInitializeCode(message):
             for v in generated_var_names
         ]
 
-        code = replace_gen_code_template_var(code, matching_template_var, gen_code)
-
-    # print("gen_code", gen_code, flush=True)
-    # print("var_name_to_line_num", var_name_to_line_num, flush=True)
-    # print("referencable_var_names", referencable_var_names, flush=True)
-
     print("code", code, flush=True)
 
     return {
         "content": True,
         "cache": [
-            gen_code,
+            code,
             generated_var_names,
             referencable_var_names,
             exporter_obj,
@@ -91,4 +90,5 @@ codeAreaInitializeCode = TaskDefinition(
     fn=_codeAreaInitializeCode,
     write_cache=write_cache,
     run_as=RunType.NONE,
+    server_dependencies=["lsp_writers"],
 )

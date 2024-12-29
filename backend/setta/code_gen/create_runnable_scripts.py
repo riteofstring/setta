@@ -32,7 +32,11 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
     code, section_dependencies = generate_final_code_for_sections(
-        p, exporter_obj, folder_path
+        p,
+        exporter_obj,
+        folder_path,
+        do_prepend_with_setup_code=True,
+        do_convert_var_names_to_readable_form=True,
     )
 
     print("runCodeBlocks", p["runCodeBlocks"], flush=True)
@@ -75,7 +79,13 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         command_callback(command)
 
 
-def generate_final_code_for_sections(p, exporter_obj, folder_path):
+def generate_final_code_for_sections(
+    p,
+    exporter_obj,
+    folder_path,
+    do_prepend_with_setup_code=False,
+    do_convert_var_names_to_readable_form=False,
+):
     code_sections = {
         k: v for k, v in p["sections"].items() if get_section_type(p, k) == C.CODE
     }
@@ -86,14 +96,16 @@ def generate_final_code_for_sections(p, exporter_obj, folder_path):
         (
             curr_code,
             curr_section_dependencies,
+            curr_var_name_to_line_num_dict,
         ) = generate_final_code_for_section(
-            section_variant["code"],
-            s["codeLanguage"],
-            section_variant["evRefs"],
-            section_variant["templateVars"],
-            exporter_obj,
-            folder_path,
-            do_prepend_with_setup_code=True,
+            code=section_variant["code"],
+            codeLanguage=s["codeLanguage"],
+            evRefs=section_variant["evRefs"],
+            templateVars=section_variant["templateVars"],
+            exporter_obj=exporter_obj,
+            folder_path=folder_path,
+            do_prepend_with_setup_code=do_prepend_with_setup_code,
+            do_convert_var_names_to_readable_form=do_convert_var_names_to_readable_form,
             projectConfigName=p["projectConfig"]["name"],
         )
 
@@ -102,6 +114,7 @@ def generate_final_code_for_sections(p, exporter_obj, folder_path):
             "name": s["name"],
             "code": curr_code,
             "codeLanguage": s["codeLanguage"],
+            "var_name_to_line_num_dict": curr_var_name_to_line_num_dict,
             "is_gen_code": is_gen_code,
         }
         section_dependencies[s["id"]] = curr_section_dependencies
@@ -117,10 +130,12 @@ def generate_final_code_for_section(
     exporter_obj,
     folder_path,
     do_prepend_with_setup_code=False,
+    do_convert_var_names_to_readable_form=False,
     projectConfigName=None,
 ):
     section_dependencies = []
     var_name_to_line_num_dict = {}
+    setup_code = ""
 
     (
         code,
@@ -135,24 +150,26 @@ def generate_final_code_for_section(
         ),
     )
 
-    setup_code = ""
     if do_prepend_with_setup_code:
-        code, setup_code = prepend_with_setup_code(
+        (code,) = prepend_with_setup_code(
             code,
             codeLanguage,
             folder_path,
             projectConfigName,
         )
 
-    code = convert_var_names_to_readable_form(
-        code,
-        var_name_to_line_num_dict.get(template_prefix(C.SETTA_GENERATED_PYTHON), {}),
-        exporter_obj,
-        new_positions["refs"],
-        setup_code,
-    )
+    if do_convert_var_names_to_readable_form:
+        code = convert_var_names_to_readable_form(
+            code,
+            var_name_to_line_num_dict.get(
+                template_prefix(C.SETTA_GENERATED_PYTHON), {}
+            ),
+            exporter_obj,
+            new_positions["refs"],
+            setup_code,
+        )
 
-    return code, section_dependencies
+    return code, section_dependencies, var_name_to_line_num_dict
 
 
 def get_template_var_replacement_value_fn(

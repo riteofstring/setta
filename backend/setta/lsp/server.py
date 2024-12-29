@@ -1,6 +1,6 @@
 import asyncio
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
 
 class LanguageServer:
@@ -64,7 +64,7 @@ class LanguageServerInteractor:
 
     def project_code_folder(self, projectConfigName):
         return self.code_folder / projectConfigName
-    
+
     def construct_code_id(self, projectConfigName, sectionName):
         return str(Path(projectConfigName) / sectionName)
 
