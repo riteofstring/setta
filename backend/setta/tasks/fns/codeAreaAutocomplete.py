@@ -5,9 +5,7 @@ from pydantic import BaseModel
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_section
 from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.code_gen.find_placeholders import template_prefix
-from setta.code_gen.python.generate_code import (
-    position_to_line_col,
-)
+from setta.code_gen.python.generate_code import position_to_line_col
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
@@ -39,8 +37,8 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         exporter_obj,
     ) = message.cached
     code = message.fullText
-    matching_template_var = get_gen_code_template_var(message.templateVars)
-    if matching_template_var and exporter_obj is None:
+    gen_code_template_var = get_gen_code_template_var(message.templateVars)
+    if gen_code_template_var and exporter_obj is None:
         return {"content": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
 
     code, _, _, new_positions = generate_final_code_for_section(
@@ -61,7 +59,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         exporter_obj,
         message.projectConfigName,
         message.sectionName,
-        bool(matching_template_var),
+        bool(gen_code_template_var),
     )
 
     await lsp_writers["full"].send_autocomplete_request(
@@ -70,7 +68,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         code_id=code_id,
         request_id=request_id,
         referencable_var_names=[
-            *special_keywords_for_autocomplete(message.templateVars),
+            *special_keywords_for_autocomplete(gen_code_template_var),
             *referencable_var_names,
         ],
         generated_var_names=generated_var_names,
@@ -79,8 +77,8 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     return {"content": None}
 
 
-def special_keywords_for_autocomplete(templateVars):
-    if not get_gen_code_template_var(templateVars):
+def special_keywords_for_autocomplete(gen_code_template_var):
+    if not gen_code_template_var:
         return [template_prefix(C.SETTA_GENERATED_PYTHON)]
     return []
 

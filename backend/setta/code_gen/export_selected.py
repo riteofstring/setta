@@ -331,10 +331,10 @@ class Exporter:
                 self.output[var_name] = info
             elif type in [C.CODE, C.INTERACTIVE_CODE]:
                 variant = get_selected_section_variant(self.p, id)
-                matching_template_var = get_gen_code_template_var(
+                gen_code_template_var = get_gen_code_template_var(
                     variant["templateVars"]
                 )
-                if matching_template_var:
+                if gen_code_template_var:
                     self.code_gen_template_var_section_details = {
                         "sectionId": id,
                         "sectionVariant": variant,
