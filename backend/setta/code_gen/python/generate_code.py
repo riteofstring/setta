@@ -265,11 +265,6 @@ def convert_var_names_to_readable_form(
     code_area_ref_var_name_positions,
     setup_code,
 ):
-    print("generated_code", generated_code, flush=True)
-    print("var_name_to_line_num", var_name_to_line_num, flush=True)
-    print("code_area_ref_var_name_positions", code_area_ref_var_name_positions, flush=True)
-    print("setup_code", setup_code, flush=True)
-
     # need to adjust line numbers and positions with prepended setup code length
     # because the setup code has been prepended to the generated code
     # after the line numbers and positions are calculated.
@@ -298,9 +293,6 @@ def convert_var_names_to_readable_form(
         ]
         all_ref_var_name_positions.extend(ref_var_name_global_positions)
         all_ref_var_name_positions.append((variable_declaration_position, var_name))
-
-
-    print("all_ref_var_name_positions", all_ref_var_name_positions, flush=True)
 
     # create nice var names for references
     top_level_symbols = find_top_level_symbols(generated_code)
