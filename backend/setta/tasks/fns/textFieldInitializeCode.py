@@ -21,7 +21,9 @@ class TextFieldInitializeCodeContent(BaseModel):
 async def _textFieldInitializeCode(message):
     message = TextFieldInitializeCodeContent.parse_obj(message.content)
     project = message.project
-    exporter_obj = export_selected(project, always_export_args_objs=True)
+    exporter_obj = export_selected(
+        project, always_export_args_objs=True, force_include_template_var=True
+    )
     codeJson = exporter_obj.output
     sectionId = message.sectionId
     paramInfoId = message.paramInfoId

@@ -1,22 +1,18 @@
-import copy
 import os
 from datetime import datetime
 
 from setta.code_gen.export_selected import (
     export_selected,
+    get_gen_code_template_var,
     get_section_code,
     get_section_type,
     get_selected_section_variant,
 )
-from setta.code_gen.find_placeholders import (
-    needs_generated_python,
-    needs_yaml,
-    template_prefix,
-)
+from setta.code_gen.find_placeholders import needs_yaml, template_prefix
 from setta.code_gen.python.generate_code import (
     convert_var_names_to_readable_form,
     generate_code,
-    replace_keywords,
+    replace_at_positions_and_update_ref_var_name_positions,
 )
 from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
@@ -29,7 +25,9 @@ from setta.utils.constants import (
 
 def runCode(message, terminal_write_fn=None, command_callback=None):
     p = message["content"]
-    exporter_obj = export_selected(p, always_export_args_objs=False)
+    exporter_obj = export_selected(
+        p, always_export_args_objs=False, force_include_template_var=False
+    )
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
     code_sections = {
@@ -45,6 +43,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
             section_variant["code"],
             s["codeLanguage"],
             section_variant["evRefs"],
+            section_variant["templateVars"],
             code_sections,
             exporter_obj,
             folder_path=folder_path,
@@ -96,6 +95,7 @@ def generate_final_code_for_section(
     code,
     codeLanguage,
     evRefs,
+    templateVars,
     code_sections,
     exporter_obj,
     folder_path=None,
@@ -103,7 +103,7 @@ def generate_final_code_for_section(
     projectConfigName=None,
 ):
     section_dependencies = []
-    replacements = {}
+    replacements = []
     generated_python_code = None
     generated_python_var_name_to_line_num = None
     generated_python_code_area_ref_var_name_positions = None
@@ -115,7 +115,9 @@ def generate_final_code_for_section(
             section_dependencies.append(other_s["id"])
     if folder_path and needs_yaml(code):
         replacements["SETTA_YAML_FILE"] = codePathStr(folder_path, "SETTA_YAML", "yaml")
-    if needs_generated_python(code):
+
+    matching_template_var = get_gen_code_template_var(templateVars)
+    if matching_template_var:
         (
             code,
             _,
@@ -131,12 +133,19 @@ def generate_final_code_for_section(
         ) = generate_code(
             exporter_obj.output,
             code,
+            matching_template_var,
             replace_templated_code=False,
             make_copy_of_selected=False,
         )
-        replacements[C.SETTA_GENERATED_PYTHON] = generated_python_code
+        replacements.append(
+            (
+                matching_template_var["startPos"],
+                matching_template_var["keyword"],
+                generated_python_code,
+            )
+        )
 
-    code = replace_keywords(
+    code = replace_at_positions_and_update_ref_var_name_positions(
         code, replacements, generated_python_code_area_ref_var_name_positions
     )
 

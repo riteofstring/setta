@@ -8,7 +8,9 @@ from .utils import TaskDefinition
 # this just initializes a document which gets the lsp to send back diagnostics
 async def _typeCheck(message, lsp_writers):
     project = message.content
-    exporter_obj = export_selected(project, always_export_args_objs=False)
+    exporter_obj = export_selected(
+        project, always_export_args_objs=False, force_include_template_var=True
+    )
     codeJson = exporter_obj.output
     code = generate_code(
         codeJson,

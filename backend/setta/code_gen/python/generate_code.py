@@ -1,11 +1,9 @@
 import ast
 import copy
-import re
 
 from setta.utils.utils import replace_at_positions
 
 from ...utils.constants import USER_SETTINGS, C
-from ..find_placeholders import template_prefix
 from ..utils import push_var_deep
 from .ast_utils import find_missing_imports, find_top_level_symbols
 
@@ -323,23 +321,6 @@ def create_nice_var_name(top_level_symbols, nice_name):
     return trial_name
 
 
-def replace_keywords(x, replacements, ref_var_name_positions=None):
-    for key, new_value in replacements.items():
-        if new_value is not None:
-            old_value = template_prefix(key)
-            if ref_var_name_positions:
-                for match in re.finditer(re.escape(old_value), x):
-                    position = match.start()
-                    for idx in range(len(ref_var_name_positions)):
-                        p, v = ref_var_name_positions[idx]
-                        if position < p:
-                            p += len(new_value) - len(old_value)
-                            ref_var_name_positions[idx] = p, v
-
-            x = x.replace(old_value, new_value)
-    return x
-
-
 def get_line_from_string(input_string, line_number):
     lines = input_string.split("\n")
     return lines[line_number]
@@ -397,3 +378,14 @@ def replace_gen_code_template_var(code, templateVar, gen_code):
             )
         ],
     )
+
+
+def replace_at_positions_and_update_ref_var_name_positions(
+    code, replacements, ref_var_name_positions
+):
+    def callback(old_pos, shift):
+        for i, (pos, value) in enumerate(ref_var_name_positions):
+            if pos >= old_pos:
+                ref_var_name_positions[i] = (pos + shift, value)
+
+    return replace_at_positions(code, replacements, callback=callback)

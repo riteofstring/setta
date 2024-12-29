@@ -26,25 +26,25 @@ async def _codeAreaInitializeCode(message):
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     project = message.project
     code = get_section_code(project, message.sectionId)
-    codeJson = None
     gen_code = None
-    referencable_var_names = None
+    referencable_var_names = []
+    generated_var_names = []
     exporter_obj = None
-    generated_var_names = set()
     matching_template_var = get_gen_code_template_var(
         get_selected_section_variant(project, message.sectionId)["templateVars"]
     )
     if matching_template_var is not None:
         print("NEEDS GENERATED CODE", flush=True)
-        exporter_obj = export_selected(project, always_export_args_objs=True)
-        codeJson = exporter_obj.output
+        exporter_obj = export_selected(
+            project, always_export_args_objs=True, force_include_template_var=False
+        )
         gen_code, var_name_to_line_num = generate_code(
-            codeJson,
+            exporter_obj.output,
             code,
             matching_template_var,
             replace_templated_code=False,
         )
-        generated_var_names = var_name_to_line_num.keys()
+        generated_var_names = list(var_name_to_line_num.keys())
         infoToFullName = {
             tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
         }

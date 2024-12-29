@@ -11,7 +11,7 @@ from setta.utils.utils import (
 )
 
 from ..utils.constants import BASE_UI_TYPES, C
-from .find_placeholders import needs_generated_python, template_prefix
+from .find_placeholders import template_prefix
 from .utils import process_refs
 
 
@@ -169,9 +169,13 @@ def get_param_full_path_name(id, pathMap, codeInfo):
         return name
 
 
-def export_selected(p, always_export_args_objs):
+def export_selected(p, always_export_args_objs, force_include_template_var):
     p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
-    e = Exporter(p, always_export_args_objs=always_export_args_objs)
+    e = Exporter(
+        p,
+        always_export_args_objs=always_export_args_objs,
+        force_include_template_var=force_include_template_var,
+    )
     e.export()
     return e
 
@@ -233,21 +237,22 @@ def remove_unneeded_sections(p, keep_section_types):
 
 
 class Exporter:
-    def __init__(self, p, always_export_args_objs):
+    def __init__(self, p, always_export_args_objs, force_include_template_var):
         self.output = {}
         self.p = copy.deepcopy(p)
         self.var_name_mapping = {}
         self.var_name_reverse_mapping = {}
         self.always_export_args_objs = always_export_args_objs
-        # default to being just the template var by itself (if there's no code section that contains the template var)
-        self.code_with_gen_code_template_var = {
-            "code": template_prefix(C.SETTA_GENERATED_PYTHON),
-            "templateVar": {
-                "startPos": 0,
-                "keyword": template_prefix(C.SETTA_GENERATED_PYTHON),
-                "sectionId": None,
-            },
-        }
+        self.code_with_gen_code_template_var = None
+        if force_include_template_var:
+            self.code_with_gen_code_template_var = {
+                "code": template_prefix(C.SETTA_GENERATED_PYTHON),
+                "templateVar": {
+                    "startPos": 0,
+                    "keyword": template_prefix(C.SETTA_GENERATED_PYTHON),
+                    "sectionId": None,
+                },
+            }
 
     def export(self):
         remove_unneeded_sections(
