@@ -8,6 +8,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { setNotificationMessage } from "state/actions/notification";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
+import { getSectionInfo } from "state/actions/sectionInfos";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import { useProjectConfig, useTypeErrors } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
@@ -75,8 +76,12 @@ export async function dbCodeAreaCompletion({
   beforeText,
   position,
   setEVRefs,
+  codeLanguage,
 }) {
-  const projectConfigId = useProjectConfig.getState().id;
+  const { id: projectConfigId, name: projectConfigName } =
+    useProjectConfig.getState();
+  const { name: sectionName } = getSectionInfo(sectionId);
+
   const { evRefs, templateVars } = await getEVRefsAndTemplateVarsForCodeArea(
     sectionId,
     fullText,
@@ -89,7 +94,10 @@ export async function dbCodeAreaCompletion({
     messageType: "codeAreaAutocomplete",
     content: {
       projectConfigId,
+      projectConfigName,
+      codeLanguage,
       sectionId,
+      sectionName,
       fullText,
       beforeText,
       position,

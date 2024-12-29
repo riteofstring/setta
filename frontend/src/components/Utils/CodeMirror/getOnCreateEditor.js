@@ -102,6 +102,7 @@ export function getCompletionsFn(
         beforeText: before.text,
         position: context.pos,
         setEVRefs,
+        codeLanguage: language,
       });
       setToNotWaiting();
       console.log("res", res);

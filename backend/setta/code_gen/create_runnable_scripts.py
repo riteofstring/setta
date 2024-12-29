@@ -97,6 +97,7 @@ def generate_final_code_for_sections(
             curr_code,
             curr_section_dependencies,
             curr_var_name_to_line_num_dict,
+            _,
         ) = generate_final_code_for_section(
             code=section_variant["code"],
             codeLanguage=s["codeLanguage"],
@@ -104,9 +105,9 @@ def generate_final_code_for_sections(
             templateVars=section_variant["templateVars"],
             exporter_obj=exporter_obj,
             folder_path=folder_path,
+            projectConfigName=p["projectConfig"]["name"],
             do_prepend_with_setup_code=do_prepend_with_setup_code,
             do_convert_var_names_to_readable_form=do_convert_var_names_to_readable_form,
-            projectConfigName=p["projectConfig"]["name"],
         )
 
         is_gen_code = bool(get_gen_code_template_var(section_variant["templateVars"]))
@@ -129,9 +130,10 @@ def generate_final_code_for_section(
     templateVars,
     exporter_obj,
     folder_path,
+    projectConfigName=None,
     do_prepend_with_setup_code=False,
     do_convert_var_names_to_readable_form=False,
-    projectConfigName=None,
+    cursor_position=None,
 ):
     section_dependencies = []
     var_name_to_line_num_dict = {}
@@ -144,6 +146,7 @@ def generate_final_code_for_section(
         code,
         evRefs,
         exporter_obj.get_ref_var_name,
+        cursor_position=cursor_position,
         templateVars=templateVars,
         get_template_var_replacement_value=get_template_var_replacement_value_fn(
             exporter_obj, folder_path, section_dependencies, var_name_to_line_num_dict
@@ -169,7 +172,7 @@ def generate_final_code_for_section(
             setup_code,
         )
 
-    return code, section_dependencies, var_name_to_line_num_dict
+    return code, section_dependencies, var_name_to_line_num_dict, new_positions
 
 
 def get_template_var_replacement_value_fn(

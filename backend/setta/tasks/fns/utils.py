@@ -11,17 +11,33 @@ def send_document_open_request_with_code_dict(
     lsp_writers, code_dict, exporter_obj, projectConfigName
 ):
     for details in code_dict.values():
-        code_id = lsp_writers["full"].construct_code_id(
-            projectConfigName, details["name"]
-        )
         asyncio.create_task(
-            lsp_writers["full"].send_document_open_request(
-                code_id=code_id,
-                code=details["code"],
-                codeJson=exporter_obj.output,
-                is_gen_code=details["is_gen_code"],
+            send_document_open_request(
+                lsp_writers,
+                details["code"],
+                exporter_obj,
+                projectConfigName,
+                details["name"],
+                details["is_gen_code"],
             )
         )
+
+
+async def send_document_open_request(
+    lsp_writers, code, exporter_obj, projectConfigName, sectionName, is_gen_code
+):
+    code_id = lsp_writers["full"].construct_code_id(
+        projectConfigName,
+        sectionName,
+    )
+    await lsp_writers["full"].send_document_open_request(
+        code_id=code_id,
+        code=code,
+        codeJson=exporter_obj.output if exporter_obj else None,
+        is_gen_code=is_gen_code,
+    )
+
+    return code_id
 
 
 def do_nothing(*args, **kwargs):
