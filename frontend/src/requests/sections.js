@@ -8,7 +8,7 @@ import { setNotificationMessage } from "state/actions/notification";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import {
-  useKeywordRegex,
+  useEVRefRegex,
   useProjectConfig,
   useTypeErrors,
 } from "state/definitions";
@@ -153,7 +153,7 @@ export async function getEVRefs({
   fullText,
   regexPatternKey = "pattern",
 }) {
-  const { fullNameToInfo } = useKeywordRegex.getState();
+  const { fullNameToInfo } = useEVRefRegex.getState();
   let evRefs = [];
   let keywordPositions = [];
   const candidateKeywords = findCandidateKeywords({

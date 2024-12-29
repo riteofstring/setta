@@ -140,17 +140,12 @@ export function ParamUI({
       );
     case C.PASSWORD:
       return (
-        <>
-          <PasswordInput
-            className={`${!isDisabled ? "cursor-text select-text" : ""} nodrag section-value peer/textinput flex min-w-0 max-w-[calc(100%_-_1.1rem)] self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
-            value={value}
-            onChange={onChange}
-            isDisabled={isDisabled}
-          />
-          <span
-            className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
-          />
-        </>
+        <PasswordInput
+          className={`${!isDisabled ? "cursor-text select-text" : ""} nodrag section-value flex self-center justify-self-start`}
+          value={value}
+          onChange={onChange}
+          isDisabled={isDisabled}
+        />
       );
   }
 }

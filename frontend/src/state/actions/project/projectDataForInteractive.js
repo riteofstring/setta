@@ -1,8 +1,3 @@
-import C from "constants/constants.json";
-import _ from "lodash";
-import { getSectionType } from "state/actions/sectionInfos";
-import { useArtifacts, useSectionInfos } from "state/definitions";
-import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { getProjectData } from "./saveProject";
 
 export async function getProjectDataForInteractive() {

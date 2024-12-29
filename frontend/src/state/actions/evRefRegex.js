@@ -1,11 +1,12 @@
 import C from "constants/constants.json";
+import { dummyRegExpObject } from "utils/utils";
 
 // input is state computed by keyword regex subscription
-export function getRegexAndColorMap(state) {
+export function getEVRefRegexAndColorMap(state) {
   const names = [];
   const fullNameToInfo = {};
   for (const sid of Object.keys(state.details)) {
-    if (!state.details[sid].isTopLevel) {
+    if (!state.details[sid].isTopLevelAndCanHaveEVRefs) {
       continue;
     }
     if (state.globalVariableId === sid) {
@@ -34,7 +35,7 @@ export function getRegexAndColorMap(state) {
   const patternStr = `(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`;
   const pattern = new RegExp(patternStr, "g");
   const codeAreaPattern = new RegExp(
-    `(?<=.*?\\$${C.SETTA_GENERATED_PYTHON}.*?)${patternStr}`,
+    `(?<=.*?\\${C.TEMPLATE_PREFIX}${C.SETTA_GENERATED_PYTHON}.*?)${patternStr}`,
     "gs",
   );
 
@@ -43,14 +44,6 @@ export function getRegexAndColorMap(state) {
 
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-export function dummyRegExpObject() {
-  return {
-    exec: function () {
-      return null;
-    },
-  };
 }
 
 function setFullChildrenNamesForRegex(
