@@ -25,40 +25,53 @@ export function getProjectDataToGenerateCode({ includeInfoToFullName = true }) {
   return project;
 }
 
-export async function runCode() {
-  const codeId = createNewId();
+export async function runCodeBlock(sectionId) {
   const project = getProjectDataToGenerateCode({
     includeInfoToFullName: false,
   });
+  project.runCodeBlock = sectionId;
+  await sendRunCodeMessage(project);
+}
+
+export async function runCode() {
+  const project = getProjectDataToGenerateCode({
+    includeInfoToFullName: false,
+  });
+  project.runCodeBlock = null;
   let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
-    projectVariant["infoToFullName"] = computeInfoToFullName(projectVariant);
-    let message = {
-      id: codeId,
-      messageType: C.WS_RUN_CODE,
-      content: projectVariant,
-    };
-    if (useWebsocketConnectionList.getState().connectedTo !== "main") {
-      sendMessage(message);
-      continue;
-    }
-    const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
-    if (res.status === 200) {
-      const freeTerminalSectionId = res.data;
-      message = JSON.stringify(message);
-      if (freeTerminalSectionId) {
-        sendTerminalMessage(freeTerminalSectionId, message);
-      } else {
-        const id = createNewId();
-        addTerminalInitialMessage(id, message);
-        addSectionInEmptySpace({
-          type: C.TERMINAL,
-          sectionProps: { id, isTemporary: true },
-          positionOffset: { x: count * 100, y: 0 },
-        });
-      }
-    }
+    await sendRunCodeMessage(projectVariant, count);
     count += 1;
+  }
+}
+
+async function sendRunCodeMessage(project, messageIdx = 0) {
+  const codeRunId = createNewId();
+  project["infoToFullName"] = computeInfoToFullName(project);
+  let message = {
+    id: codeRunId,
+    messageType: C.WS_RUN_CODE,
+    content: project,
+  };
+  if (useWebsocketConnectionList.getState().connectedTo !== "main") {
+    sendMessage(message);
+    return;
+  }
+  const res = await dbGetFreeTerminal(project.projectConfig.id);
+  if (res.status === 200) {
+    const freeTerminalSectionId = res.data;
+    message = JSON.stringify(message);
+    if (freeTerminalSectionId) {
+      sendTerminalMessage(freeTerminalSectionId, message);
+    } else {
+      const id = createNewId();
+      addTerminalInitialMessage(id, message);
+      addSectionInEmptySpace({
+        type: C.TERMINAL,
+        sectionProps: { id, isTemporary: true },
+        positionOffset: { x: messageIdx * 100, y: 0 },
+      });
+    }
   }
 }
 
