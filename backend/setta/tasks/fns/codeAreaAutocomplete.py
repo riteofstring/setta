@@ -2,6 +2,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
+from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.code_gen.find_placeholders import template_prefix
 from setta.code_gen.python.generate_code import position_to_line_col, replace_keywords
 from setta.code_gen.utils import process_refs
@@ -19,6 +20,7 @@ class CodeAreaAutocompleteContent(BaseModel):
     fullText: str
     position: int
     evRefs: list
+    templateVars: list
     cached: Optional[Any] = None
 
 
@@ -77,7 +79,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         code_id=message.projectConfigId,
         request_id=request_id,
         referencable_var_names=[
-            *special_keywords_for_autocomplete(),
+            *special_keywords_for_autocomplete(message.templateVars),
             *referencable_var_names,
         ],
         generated_var_names=generated_var_names,
@@ -86,8 +88,10 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     return {"content": None}
 
 
-def special_keywords_for_autocomplete():
-    return [template_prefix(C.SETTA_GENERATED_PYTHON)]
+def special_keywords_for_autocomplete(templateVars):
+    if not get_gen_code_template_var(templateVars):
+        return [template_prefix(C.SETTA_GENERATED_PYTHON)]
+    return []
 
 
 def read_cache(cache, message):

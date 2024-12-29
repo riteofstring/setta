@@ -77,7 +77,7 @@ export async function dbCodeAreaCompletion({
   setEVRefs,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  const { evRefs } = await getEVRefsAndTemplateVarsForCodeArea(
+  const { evRefs, templateVars } = await getEVRefsAndTemplateVarsForCodeArea(
     sectionId,
     fullText,
   );
@@ -94,6 +94,7 @@ export async function dbCodeAreaCompletion({
       beforeText,
       position,
       evRefs,
+      templateVars,
     },
   };
 
