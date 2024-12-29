@@ -12,6 +12,7 @@ from setta.code_gen.find_placeholders import needs_yaml, template_prefix
 from setta.code_gen.python.generate_code import (
     convert_var_names_to_readable_form,
     generate_code,
+    get_template_var_name_fn,
     replace_at_positions_and_update_ref_var_name_positions,
 )
 from setta.code_gen.utils import process_refs
@@ -109,48 +110,42 @@ def generate_final_code_for_section(
     section_dependencies = []
     replacements = []
     generated_python_code = None
-    generated_python_var_name_to_line_num = None
-    generated_python_code_area_ref_var_name_positions = None
-    # for other_s in code_sections.values():
-    #     if folder_path and template_prefix(other_s["name"]) in code:
-    #         replacements[other_s["name"]] = codePathStr(
-    #             folder_path, other_s["name"], other_s["codeLanguage"]
-    #         )
-    #         section_dependencies.append(other_s["id"])
-    # if folder_path and needs_yaml(code):
-    #     replacements["SETTA_YAML_FILE"] = codePathStr(folder_path, "SETTA_YAML", "yaml")
 
-    matching_template_var = get_gen_code_template_var(templateVars)
-    if matching_template_var:
-        (
-            code,
-            _,
-            generated_python_code_area_ref_var_name_positions,
-        ) = process_refs(
-            code,
-            evRefs,
-            exporter_obj.get_ref_var_name,
-        )
+    (
+        code,
+        new_positions,
+    ) = process_refs(
+        code,
+        evRefs,
+        exporter_obj.get_ref_var_name,
+        templateVars=templateVars,
+        get_template_var_name=get_template_var_name_fn(
+            folder_path, section_dependencies
+        ),
+    )
+
+    gen_code_template_var = get_gen_code_template_var(templateVars)
+    if gen_code_template_var:
         (
             generated_python_code,
             generated_python_var_name_to_line_num,
         ) = generate_code(
             exporter_obj.output,
             code,
-            matching_template_var,
+            gen_code_template_var,
             replace_templated_code=False,
             make_copy_of_selected=False,
         )
         replacements.append(
             (
-                matching_template_var["startPos"],
-                matching_template_var["keyword"],
+                gen_code_template_var["startPos"],
+                gen_code_template_var["keyword"],
                 generated_python_code,
             )
         )
 
     code = replace_at_positions_and_update_ref_var_name_positions(
-        code, replacements, generated_python_code_area_ref_var_name_positions
+        code, replacements, new_positions["refs"]
     )
 
     setup_code = ""
@@ -167,7 +162,7 @@ def generate_final_code_for_section(
             code,
             generated_python_var_name_to_line_num,
             exporter_obj,
-            generated_python_code_area_ref_var_name_positions,
+            new_positions["refs"],
             setup_code,
         )
 
@@ -220,7 +215,7 @@ def create_timestamped_folder(base_dir, prefix=""):
     # Format the current timestamp with subsecond precision
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     # Create folder name with optional prefix and subsecond precision
-    folder_name = f"{prefix}{timestamp}"
+    folder_name = f"_{prefix}{timestamp}"
     # Full path for the new folder
     folder_path = os.path.join(base_dir, folder_name)
 

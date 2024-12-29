@@ -48,12 +48,14 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         keyword = matching_template_var["keyword"]
         endPos = startPos + len(keyword)
         if position >= endPos:
-            fullText, _, [(position, *_), *_] = process_refs(
+            fullText, new_positions = process_refs(
                 fullText,
                 message.evRefs,
                 exporter_obj.get_ref_var_name,
-                position,
+                cursor_position=position,
+                templateVars=message.templateVars,
             )
+            position = new_positions["cursor"][0][0]
             fullText = replace_gen_code_template_var(
                 fullText, matching_template_var, gen_code
             )

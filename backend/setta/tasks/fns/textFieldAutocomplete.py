@@ -74,12 +74,14 @@ async def completionHelper(message, fn):
     var_name = exporter_obj.var_name_mapping[
         (message.sectionId, message.paramInfoId, False)
     ]
-    fullText, _, [(position, *_), *_] = process_refs(
+    position = message.position
+    fullText, new_positions = process_refs(
         message.fullText,
         message.evRefs,
         exporter_obj.get_ref_var_name,
-        message.position,
+        cursor_position=position,
     )
+    position = new_positions["cursor"][0][0]
     set_line(lines, var_name_to_line_num, var_name, fullText)
 
     code, var_name_to_line_num = maybe_prepend_with_imports_and_replace_templated_code(

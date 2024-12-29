@@ -1,6 +1,7 @@
 import ast
 import copy
 
+from setta.code_gen.find_placeholders import template_prefix
 from setta.utils.utils import replace_at_positions
 
 from ...utils.constants import USER_SETTINGS, C
@@ -389,3 +390,16 @@ def replace_at_positions_and_update_ref_var_name_positions(
                 ref_var_name_positions[i] = (pos + shift, value)
 
     return replace_at_positions(code, replacements, callback=callback)
+
+
+def get_template_var_name_fn(folder_path, section_dependencies):
+    def get_template_var_name(sectionId, keyword):
+        print("calling get_template_var_name", keyword, flush=True)
+        if keyword == template_prefix(C.SETTA_GENERATED_PYTHON):
+            return None
+        section_dependencies.append(sectionId)
+        module_path = folder_path.replace("/", ".").replace("\\", ".")
+        keyword = keyword.lstrip(C.TEMPLATE_PREFIX)
+        return f"{module_path}.{keyword}"
+
+    return get_template_var_name

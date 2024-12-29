@@ -295,11 +295,13 @@ class Exporter:
 
                 selected_item_ev_refs = get_selected_item_ev_refs(self.p, id)
                 if selected_item_ev_refs:
-                    callable, used_ref_var_names, ref_var_name_positions = process_refs(
+                    callable, new_positions = process_refs(
                         get_selected_item_name(self.p, id),
                         selected_item_ev_refs,
                         self.maybe_create_ref_var_name,
                     )
+                    ref_var_name_positions = new_positions["refs"]
+                    used_ref_var_names = [x[1] for x in ref_var_name_positions]
                 else:
                     callable = get_selected_item_name(self.p, id)
                     used_ref_var_names = []
@@ -447,9 +449,11 @@ class Exporter:
         if id in variant["values"]:
             value = variant["values"][id]["value"]
             refs = variant["values"][id]["evRefs"]
-            value, used_ref_var_names, ref_var_name_positions = process_refs(
+            value, new_positions = process_refs(
                 value, refs, self.maybe_create_ref_var_name
             )
+            ref_var_name_positions = new_positions["refs"]
+            used_ref_var_names = [x[1] for x in ref_var_name_positions]
         else:
             value = new_ev_entry()["value"]
             used_ref_var_names = []
