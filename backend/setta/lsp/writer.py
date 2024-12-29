@@ -155,8 +155,9 @@ class LanguageServerWriter(LanguageServerInteractor):
     def get_workspace_uri(self):
         return f"file://{self.workspace_folder}".lower()
 
+    # https://github.com/microsoft/language-server-protocol/issues/1676
     def get_virtual_uri(self, code_id):
-        uri = f"file://{self.code_folder / code_id}.py".lower()
+        uri = f"untitled:{self.code_folder / code_id}.py".lower()
         if platform.system() == "Windows":
             uri += "/"  # need trailing slash on Windows for some reason
         return uri
