@@ -32,7 +32,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     message = CodeAreaAutocompleteContent.parse_obj(message.content)
 
     (
-        code,
+        code_dict,
         generated_var_names,
         referencable_var_names,
         exporter_obj,

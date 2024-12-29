@@ -1,7 +1,4 @@
-import importlib.util
-import os
-import sys
-import uuid
+import asyncio
 from typing import Any, Callable, List, Optional
 
 from pydantic import BaseModel
@@ -10,51 +7,21 @@ from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
 
-def import_from_path(file_path):
-    if not os.path.isfile(file_path):
-        return None
-    # Extract directory and module name from file path
-    module_dir, module_file = os.path.split(file_path)
-    module_name, _ = os.path.splitext(module_file)
-
-    # Create a module spec from the file path
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
-    if spec is None:
-        raise ImportError(f"Could not load module spec for {file_path}")
-
-    # Create a new module based on the spec
-    module = importlib.util.module_from_spec(spec)
-    if module is None:
-        raise ImportError(f"Could not create module from spec for {file_path}")
-
-    # Load the module
-    spec.loader.exec_module(module)
-
-    return module
-
-
-def import_code_from_string(code_string, module_name=None, add_to_sys_modules=False):
-    # Generate a unique module name if one isn't provided
-    if module_name is None:
-        module_name = f"setta_dynamic_module_{uuid.uuid4().hex}"
-
-    # Create a new module spec
-    spec = importlib.util.spec_from_loader(module_name, loader=None)
-
-    # Create a new module based on the spec
-    module = importlib.util.module_from_spec(spec)
-
-    # Optionally add the module to sys.modules
-    if add_to_sys_modules:
-        sys.modules[module_name] = module
-
-    # Compile the code string
-    code_object = compile(code_string, module_name, "exec")
-
-    # Execute the compiled code object in the module's namespace
-    exec(code_object, module.__dict__)
-
-    return module
+def send_document_open_request_with_code_dict(
+    lsp_writers, code_dict, exporter_obj, projectConfigName
+):
+    for details in code_dict.values():
+        code_id = lsp_writers["full"].construct_code_id(
+            projectConfigName, details["name"]
+        )
+        asyncio.create_task(
+            lsp_writers["full"].send_document_open_request(
+                code_id=code_id,
+                code=details["code"],
+                codeJson=exporter_obj.output,
+                is_gen_code=details["is_gen_code"],
+            )
+        )
 
 
 def do_nothing(*args, **kwargs):

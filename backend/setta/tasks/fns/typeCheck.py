@@ -1,11 +1,8 @@
-import asyncio
-from pathlib import Path
-
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
 from setta.tasks.task_runner import RunType
 
-from .utils import TaskDefinition
+from .utils import TaskDefinition, send_document_open_request_with_code_dict
 
 
 # this just initializes a document which gets the lsp to send back diagnostics
@@ -20,18 +17,9 @@ async def _typeCheck(message, lsp_writers):
         exporter_obj,
         lsp_writers["full"].project_code_folder(projectConfigName),
     )
-    for details in code_dict.values():
-        code_id = lsp_writers["full"].construct_code_id(
-            projectConfigName, details["name"]
-        )
-        asyncio.create_task(
-            lsp_writers["full"].send_document_open_request(
-                code_id=code_id,
-                code=details["code"],
-                codeJson=exporter_obj.output,
-                is_gen_code=details["is_gen_code"],
-            )
-        )
+    send_document_open_request_with_code_dict(
+        lsp_writers, code_dict, exporter_obj, projectConfigName
+    )
 
     return {"content": None}
 

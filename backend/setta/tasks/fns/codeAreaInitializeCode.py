@@ -3,21 +3,12 @@ import json
 from pydantic import BaseModel
 
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
-from setta.code_gen.export_selected import (
-    export_selected,
-    get_gen_code_template_var,
-    get_section_code,
-    get_selected_section_variant,
-)
+from setta.code_gen.export_selected import export_selected
 from setta.code_gen.find_placeholders import template_prefix
-from setta.code_gen.python.generate_code import (
-    generate_code,
-    replace_gen_code_template_var,
-)
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
-from .utils import TaskDefinition
+from .utils import TaskDefinition, send_document_open_request_with_code_dict
 
 
 class CodeAreaInitializeCodeContent(BaseModel):
@@ -57,6 +48,10 @@ async def _codeAreaInitializeCode(message, lsp_writers):
         ]
 
     print("code_dict", code_dict, flush=True)
+
+    send_document_open_request_with_code_dict(
+        lsp_writers, code_dict, exporter_obj, projectConfigName
+    )
 
     return {
         "content": True,
