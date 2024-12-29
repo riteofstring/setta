@@ -1,4 +1,5 @@
 from .codeAreaAutocomplete import codeAreaAutocomplete
+from .codeAreaFindTemplateVars import codeAreaFindTemplateVars
 from .codeAreaInitializeCode import codeAreaInitializeCode
 from .parametersRequest import parametersRequest
 from .textFieldAutocomplete import textFieldCompletion

@@ -86,14 +86,17 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_document_highlight_request(
-        self, line, character, code_id, request_id
+        self, line, character, code_id, request_id, return_id
     ):
         uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
-            "context": {"triggerKind": 2, "triggerCharacter": "("},
         }
+        self.msg_id_to_metadata[request_id]["return_id"] = return_id
+        # the response doesn't include uri for some reason,
+        # so we keep track of it manually
+        self.msg_id_to_metadata[request_id]["uri"] = uri
         await self.send_request(
             "textDocument/documentHighlight",
             params=params,

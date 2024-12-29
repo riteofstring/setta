@@ -39,13 +39,12 @@ export function constructEVRefs(keywordPositions, fullText) {
 
 export function constructTemplateVars(keywordPositions, fullText) {
   const output = [];
-  const { fullNameToInfo } = useEVRefRegex.getState();
+  const { fullNameToSectionId } = useTemplateVarRegex.getState();
   for (const k of keywordPositions) {
     const keyword = fullText.substring(k.startPos, k.endPos);
-    if (keyword in fullNameToInfo) {
-      const info = fullNameToInfo[keyword];
+    if (keyword in fullNameToSectionId) {
       output.push({
-        sectionId: info.sectionId,
+        sectionId: fullNameToSectionId[keyword],
         startPos: k.startPos,
         keyword,
       });
@@ -118,12 +117,14 @@ export function findCandidateEVRefs({
 
 export function findCandidateTemplateVars(sectionId, value) {
   let match;
-  const output = new Set();
-  const templateVarsRegex = useTemplateVarRegex.getState().pattern;
+  const output = [];
+  const { pattern: templateVarsRegex, fullNameToSectionId } =
+    useTemplateVarRegex.getState();
   while ((match = templateVarsRegex.exec(value))) {
-    if (fullNameToInfo[match[0]] !== sectionId) {
-      output.add(match[0]);
+    // don't allow self-references
+    if (fullNameToSectionId[match[0]] !== sectionId) {
+      output.push([match[0], match.index]);
     }
   }
-  return Array.from(output);
+  return output;
 }

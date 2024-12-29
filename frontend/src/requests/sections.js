@@ -195,10 +195,12 @@ export async function getTemplateVars(sectionId, fullText) {
     keywordPositions = [];
     await sendMessageAndWait({
       id: createNewId(),
-      messageType: "textFieldFindReferences",
+      messageType: "codeAreaFindTemplateVars",
       content: { sectionId, candidateTemplateVars, fullText },
       condition: (x) => {
-        keywordPositions.push(...x);
+        if (x !== null) {
+          keywordPositions.push(x);
+        }
         count += 1;
         return count === candidateTemplateVars.length;
       },
