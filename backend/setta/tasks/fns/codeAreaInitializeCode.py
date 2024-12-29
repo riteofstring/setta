@@ -23,7 +23,7 @@ async def _codeAreaInitializeCode(message, lsp_writers):
         project, always_export_args_objs=True, force_include_template_var=False
     )
     projectConfigName = project["projectConfig"]["name"]
-    code_dict, _ = generate_final_code_for_sections(
+    code_dict = generate_final_code_for_sections(
         project,
         exporter_obj,
         lsp_writers["full"].project_code_folder(projectConfigName),
@@ -56,6 +56,7 @@ async def _codeAreaInitializeCode(message, lsp_writers):
     return {
         "content": True,
         "cache": [
+            code_dict,
             generated_var_names,
             referencable_var_names,
             exporter_obj,

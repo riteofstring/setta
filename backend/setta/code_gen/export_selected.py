@@ -300,7 +300,7 @@ class Exporter:
 
                 selected_item_ev_refs = get_selected_item_ev_refs(self.p, id)
                 if selected_item_ev_refs:
-                    callable, new_positions = process_refs(
+                    callable, new_positions, _ = process_refs(
                         get_selected_item_name(self.p, id),
                         selected_item_ev_refs,
                         self.maybe_create_ref_var_name,
@@ -454,7 +454,7 @@ class Exporter:
         if id in variant["values"]:
             value = variant["values"][id]["value"]
             refs = variant["values"][id]["evRefs"]
-            value, new_positions = process_refs(
+            value, new_positions, _ = process_refs(
                 value, refs, self.maybe_create_ref_var_name
             )
             ref_var_name_positions = new_positions["refs"]

@@ -32,6 +32,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     message = CodeAreaAutocompleteContent.parse_obj(message.content)
 
     (
+        code_dict,
         generated_var_names,
         referencable_var_names,
         exporter_obj,
@@ -41,7 +42,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     if gen_code_template_var and exporter_obj is None:
         return {"content": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
 
-    code, _, _, new_positions = generate_final_code_for_section(
+    code, _, _, new_positions, _ = generate_final_code_for_section(
         code=code,
         codeLanguage=message.codeLanguage,
         evRefs=message.evRefs,
@@ -49,6 +50,9 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         exporter_obj=exporter_obj,
         folder_path=lsp_writers["full"].project_code_folder(message.projectConfigName),
         cursor_position=message.position,
+        template_var_replacement_values=code_dict[message.sectionId][
+            "keyword_to_replacement_value"
+        ],
     )
 
     line, column = position_to_line_col(code, new_positions["cursor"][0][0])

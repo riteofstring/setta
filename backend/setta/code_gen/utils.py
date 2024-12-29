@@ -37,6 +37,7 @@ def process_refs(
         "cursor": [] if cursor_position is None else [(cursor_position, 0, None)],
         "templateVars": [],
     }
+    keyword_to_replacement_value = {}
     if templateVars is None:
         templateVars = []
 
@@ -59,11 +60,12 @@ def process_refs(
         set_new_positions_and_shifts(positions, replacement_value, startPos, endPos)
 
         code = code[:startPos] + replacement_value + code[endPos:]
+        keyword_to_replacement_value[x["keyword"]] = replacement_value
 
     for k, v in positions.items():
         positions[k] = [(p + s, r) for p, s, r in v]
 
-    return code, positions
+    return code, positions, keyword_to_replacement_value
 
 
 def set_new_positions_and_shifts(positions, replacement_value, startPos, endPos):

@@ -31,7 +31,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     )
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
-    code_dict, section_dependencies = generate_final_code_for_sections(
+    code_dict = generate_final_code_for_sections(
         p,
         exporter_obj,
         folder_path,
@@ -40,6 +40,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     )
 
     print("runCodeBlocks", p["runCodeBlocks"], flush=True)
+    section_dependencies = {k: v["sectionDependencies"] for k, v in code_dict.items()}
     section_dependencies = prune_dict(section_dependencies, p["runCodeBlocks"])
 
     to_write = topological_sort(section_dependencies)
@@ -89,15 +90,15 @@ def generate_final_code_for_sections(
     code_sections = {
         k: v for k, v in p["sections"].items() if get_section_type(p, k) == C.CODE
     }
-    code = {}
-    section_dependencies = {}
+    code_dict = {}
     for s in code_sections.values():
         section_variant = get_selected_section_variant(p, s["id"])
         (
             curr_code,
             curr_section_dependencies,
             curr_var_name_to_line_num_dict,
-            _,
+            curr_new_positions,
+            curr_keyword_to_replacement_value,
         ) = generate_final_code_for_section(
             code=section_variant["code"],
             codeLanguage=s["codeLanguage"],
@@ -111,16 +112,18 @@ def generate_final_code_for_sections(
         )
 
         is_gen_code = bool(get_gen_code_template_var(section_variant["templateVars"]))
-        code[s["id"]] = {
+        code_dict[s["id"]] = {
             "name": s["name"],
             "code": curr_code,
             "codeLanguage": s["codeLanguage"],
             "var_name_to_line_num_dict": curr_var_name_to_line_num_dict,
+            "new_positions": curr_new_positions,
+            "keyword_to_replacement_value": curr_keyword_to_replacement_value,
+            "section_dependencies": curr_section_dependencies,
             "is_gen_code": is_gen_code,
         }
-        section_dependencies[s["id"]] = curr_section_dependencies
 
-    return code, section_dependencies
+    return code_dict
 
 
 def generate_final_code_for_section(
@@ -134,22 +137,26 @@ def generate_final_code_for_section(
     do_prepend_with_setup_code=False,
     do_convert_var_names_to_readable_form=False,
     cursor_position=None,
+    template_var_replacement_values=None,
 ):
     section_dependencies = []
     var_name_to_line_num_dict = {}
     setup_code = ""
+    if template_var_replacement_values is None:
+        template_var_replacement_values = {}
 
-    (
-        code,
-        new_positions,
-    ) = process_refs(
+    (code, new_positions, keyword_to_replacement_value) = process_refs(
         code,
         evRefs,
         exporter_obj.get_ref_var_name,
         cursor_position=cursor_position,
         templateVars=templateVars,
         get_template_var_replacement_value=get_template_var_replacement_value_fn(
-            exporter_obj, folder_path, section_dependencies, var_name_to_line_num_dict
+            exporter_obj,
+            folder_path,
+            section_dependencies,
+            var_name_to_line_num_dict,
+            template_var_replacement_values,
         ),
     )
 
@@ -172,16 +179,28 @@ def generate_final_code_for_section(
             setup_code,
         )
 
-    return code, section_dependencies, var_name_to_line_num_dict, new_positions
+    return (
+        code,
+        section_dependencies,
+        var_name_to_line_num_dict,
+        new_positions,
+        keyword_to_replacement_value,
+    )
 
 
 def get_template_var_replacement_value_fn(
-    exporter_obj, folder_path, section_dependencies, var_name_to_line_num_dict
+    exporter_obj,
+    folder_path,
+    section_dependencies,
+    var_name_to_line_num_dict,
+    template_var_replacement_values,
 ):
     def get_template_var_replacement_value(code, template_var):
         print("get_template_var_replacement_value", template_var, flush=True)
         keyword = template_var["keyword"]
-        if keyword == template_prefix(C.SETTA_GENERATED_PYTHON):
+        if keyword in template_var_replacement_values:
+            return template_var_replacement_values[keyword]
+        elif keyword == template_prefix(C.SETTA_GENERATED_PYTHON):
             code, var_name_to_line_num_dict[keyword] = generate_code(
                 exporter_obj.output,
                 code,
