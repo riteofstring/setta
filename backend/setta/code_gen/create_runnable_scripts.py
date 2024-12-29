@@ -4,6 +4,7 @@ from datetime import datetime
 
 from setta.code_gen.export_selected import (
     export_selected,
+    get_gen_code_template_var,
     get_section_code,
     get_section_type,
     get_selected_section_variant,
@@ -25,11 +26,14 @@ from setta.utils.constants import (
     SEND_ARTIFACT_TO_ENV_VARIABLE,
     C,
 )
+from setta.utils.utils import replace_at_positions
 
 
 def runCode(message, terminal_write_fn=None, command_callback=None):
     p = message["content"]
-    exporter_obj = export_selected(p, always_export_args_objs=False)
+    exporter_obj = export_selected(
+        p, always_export_args_objs=False, force_include_template_var=False
+    )
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
     code_sections = {
@@ -131,14 +135,22 @@ def generate_final_code_for_section(
         ) = generate_code(
             exporter_obj.output,
             code,
+            matching_template_var,
             replace_templated_code=False,
             make_copy_of_selected=False,
         )
-        replacements[C.SETTA_GENERATED_PYTHON] = generated_python_code
+        replacements.append(
+            (
+                matching_template_var["startPos"],
+                matching_template_var["keyword"],
+                generated_python_code,
+            )
+        )
 
-    code = replace_keywords(
-        code, replacements, generated_python_code_area_ref_var_name_positions
-    )
+    print("replacements", replacements, flush=True)
+    code = replace_at_positions(code, replacements)
+
+    print("code", code, flush=True)
 
     setup_code = ""
     if do_prepend_with_setup_code:
