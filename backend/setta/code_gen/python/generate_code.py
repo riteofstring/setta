@@ -181,7 +181,8 @@ def count_lines(string):
 
 def maybe_prepend_with_imports_and_replace_templated_code(
     lines,
-    templated_code,
+    code,
+    template_var,
     force_appear_var_name,
     var_name_to_line_num,
     replace_templated_code=True,
@@ -197,8 +198,10 @@ def maybe_prepend_with_imports_and_replace_templated_code(
                 var_str = var_declaration(force_appear_var_name, "None")
             lines[line_num] = var_str
 
-        to_infer_imports_from = replace_keywords(
-            templated_code, {C.SETTA_GENERATED_PYTHON: "\n".join(lines)}
+        to_infer_imports_from = replace_gen_code_template_var(
+            code,
+            template_var,
+            "\n".join(lines),
         )
         imports = get_import_text(to_infer_imports_from)
         imports = imports + "\n\n"
@@ -208,16 +211,14 @@ def maybe_prepend_with_imports_and_replace_templated_code(
     else:
         imports = ""
 
-    num_preceding_lines = count_lines(
-        templated_code.split(template_prefix(C.SETTA_GENERATED_PYTHON))[0] + imports
-    )
+    num_preceding_lines = count_lines(imports + code[: template_var["startPos"]])
     new_var_name_to_line_num = {
         k: v + num_preceding_lines for k, v in var_name_to_line_num.items()
     }
 
     generated_code = imports + "\n".join(lines)
     output = (
-        replace_keywords(templated_code, {C.SETTA_GENERATED_PYTHON: generated_code})
+        replace_gen_code_template_var(code, template_var, generated_code)
         if replace_templated_code
         else generated_code
     )
@@ -230,7 +231,8 @@ def maybe_prepend_with_imports_and_replace_templated_code(
 
 def generate_code(
     selected,
-    templated_code,
+    code,
+    template_var,
     push_var_name=None,
     force_appear_var_name=None,
     replace_templated_code=True,
@@ -248,7 +250,8 @@ def generate_code(
 
     return maybe_prepend_with_imports_and_replace_templated_code(
         lines,
-        templated_code,
+        code,
+        template_var,
         force_appear_var_name,
         var_name_to_line_num,
         replace_templated_code,
@@ -381,3 +384,16 @@ def line_col_to_position_batch(text, line_col_pairs):
             results.append(position)
 
     return results
+
+
+def replace_gen_code_template_var(code, templateVar, gen_code):
+    return replace_at_positions(
+        code,
+        [
+            (
+                templateVar["startPos"],
+                templateVar["keyword"],
+                gen_code,
+            )
+        ],
+    )

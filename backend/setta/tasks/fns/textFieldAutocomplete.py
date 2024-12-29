@@ -69,7 +69,6 @@ async def completionHelper(message, fn):
         lines,
         var_name_to_line_num,
         referencable_var_names,
-        templatedCode,
         exporter_obj,
     ) = cached
     var_name = exporter_obj.var_name_mapping[
@@ -85,7 +84,8 @@ async def completionHelper(message, fn):
 
     code, var_name_to_line_num = maybe_prepend_with_imports_and_replace_templated_code(
         lines,
-        templatedCode,
+        exporter_obj.code_with_gen_code_template_var["code"],
+        exporter_obj.code_with_gen_code_template_var["templateVar"],
         var_name,
         var_name_to_line_num,
     )

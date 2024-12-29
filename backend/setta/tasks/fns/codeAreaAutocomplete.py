@@ -4,11 +4,13 @@ from pydantic import BaseModel
 
 from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.code_gen.find_placeholders import template_prefix
-from setta.code_gen.python.generate_code import position_to_line_col
+from setta.code_gen.python.generate_code import (
+    position_to_line_col,
+    replace_gen_code_template_var,
+)
 from setta.code_gen.utils import process_refs
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
-from setta.utils.utils import replace_at_positions
 
 from .codeAreaInitializeCode import get_cache_key
 from .utils import TaskDefinition
@@ -52,7 +54,9 @@ async def _codeAreaAutocomplete(message, lsp_writers):
                 exporter_obj.get_ref_var_name,
                 position,
             )
-            fullText = replace_at_positions(fullText, [(startPos, keyword, gen_code)])
+            fullText = replace_gen_code_template_var(
+                fullText, matching_template_var, gen_code
+            )
             position += len(gen_code) - len(keyword)
         elif startPos <= position < endPos:
             # if cursor is inside template str, then don't fetch autocomplete results

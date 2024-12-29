@@ -221,20 +221,6 @@ def export_single_run_group_to_dict(runGroup, sections, sectionVariants):
     return e
 
 
-def get_section_code_that_needs_generated_python(p):
-    for id in p["sections"].keys():
-        if code_section_needs_generated_python(p, id):
-            return get_section_code(p, id)
-    return template_prefix(C.SETTA_GENERATED_PYTHON)
-
-
-def code_section_needs_generated_python(p, id):
-    code = get_section_code(p, id)
-    return p["sections"][id]["codeLanguage"] == "python" and needs_generated_python(
-        code
-    )
-
-
 def remove_unneeded_sections(p, keep_section_types):
     to_pop = []
     for id in p["sections"].keys():
@@ -253,6 +239,15 @@ class Exporter:
         self.var_name_mapping = {}
         self.var_name_reverse_mapping = {}
         self.always_export_args_objs = always_export_args_objs
+        # default to being just the template var by itself (if there's no code section that contains the template var)
+        self.code_with_gen_code_template_var = {
+            "code": template_prefix(C.SETTA_GENERATED_PYTHON),
+            "templateVar": {
+                "startPos": 0,
+                "keyword": template_prefix(C.SETTA_GENERATED_PYTHON),
+                "sectionId": None,
+            },
+        }
 
     def export(self):
         remove_unneeded_sections(
@@ -324,7 +319,14 @@ class Exporter:
                 self.output[var_name] = info
             elif type in [C.CODE, C.INTERACTIVE_CODE]:
                 variant = get_selected_section_variant(self.p, id)
-                if code_section_needs_generated_python(self.p, id):
+                matching_template_var = get_gen_code_template_var(
+                    variant["templateVars"]
+                )
+                if matching_template_var:
+                    self.code_with_gen_code_template_var = {
+                        "code": get_section_code(self.p, id),
+                        "templateVar": matching_template_var,
+                    }
                     # Make sure any necessary variables get created.
                     # We don't do any replacements here, because that's done later
                     # when the code is actually run.

@@ -8,9 +8,11 @@ from setta.code_gen.export_selected import (
     get_section_code,
     get_selected_section_variant,
 )
-from setta.code_gen.python.generate_code import generate_code
+from setta.code_gen.python.generate_code import (
+    generate_code,
+    replace_gen_code_template_var,
+)
 from setta.tasks.task_runner import RunType
-from setta.utils.utils import replace_at_positions
 
 from .utils import TaskDefinition
 
@@ -39,6 +41,7 @@ async def _codeAreaInitializeCode(message):
         gen_code, var_name_to_line_num = generate_code(
             codeJson,
             code,
+            matching_template_var,
             replace_templated_code=False,
         )
         generated_var_names = var_name_to_line_num.keys()
@@ -50,16 +53,7 @@ async def _codeAreaInitializeCode(message):
             for v in generated_var_names
         ]
 
-        code = replace_at_positions(
-            code,
-            [
-                (
-                    matching_template_var["startPos"],
-                    matching_template_var["keyword"],
-                    gen_code,
-                )
-            ],
-        )
+        code = replace_gen_code_template_var(code, matching_template_var, gen_code)
 
     # print("gen_code", gen_code, flush=True)
     # print("var_name_to_line_num", var_name_to_line_num, flush=True)
