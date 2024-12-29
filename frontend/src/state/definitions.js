@@ -1,12 +1,11 @@
 import C from "constants/constants.json";
-import { dummyRegExpObject } from "utils/utils";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import {
   create,
-  withManualReset,
   withProjectState,
+  withManualReset,
   withResetFn,
   withVersion,
 } from "./utils";
@@ -72,18 +71,11 @@ export const useInteractive = create(
   })),
 );
 
-export const useEVRefRegex = create(
+export const useKeywordRegex = create(
   withResetFn(() => ({
-    pattern: dummyRegExpObject(),
-    codeAreaPattern: dummyRegExpObject(),
+    pattern: "",
+    codeAreaPattern: "",
     fullNameToInfo: {},
-  })),
-);
-
-export const useTemplateVarRegex = create(
-  withResetFn(() => ({
-    pattern: dummyRegExpObject(),
-    fullNameToSectionId: {},
   })),
 );
 
@@ -230,7 +222,9 @@ export const useMisc = withProjectState(
   ),
 );
 
-export const useYamlValue = withManualReset(withProjectState(create(() => {})));
+export const useYamlValue = withManualReset(
+  withProjectState(create(() => {})),
+);
 
 export const useOriginalYamlObj = withManualReset(
   withProjectState(create(() => {})),

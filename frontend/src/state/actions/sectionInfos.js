@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
@@ -41,31 +40,6 @@ export function getHighestAncestor(
   }
 
   return highestAncestor;
-}
-
-export function getSectionPathFullName(sectionId, state) {
-  let parentId = state.x[sectionId].parentId;
-  if (!parentId) {
-    return state.x[sectionId].name;
-  }
-
-  let childId = sectionId;
-  let output = "";
-  while (parentId) {
-    if (getSectionType(parentId, state) === C.LIST_ROOT) {
-      const idx = getSectionVariant(parentId, state).children.indexOf(
-        sectionId,
-      );
-      output = `[${idx}]${output}`;
-    } else {
-      output = `["${state.x[childId].name}"]${output}`;
-    }
-    childId = parentId;
-    parentId = state.x[parentId].parentId;
-  }
-
-  // childId will contain the highest parent's id
-  return `${state.x[childId].name}${output}`;
 }
 
 export function getSectionDescendants(sectionId, state) {

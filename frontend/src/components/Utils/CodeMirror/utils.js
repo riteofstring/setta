@@ -1,4 +1,4 @@
-import { useEVRefRegex } from "state/definitions";
+import { useKeywordRegex } from "state/definitions";
 
 export function roundUpIdx(numList, x) {
   let closest = undefined;
@@ -39,7 +39,7 @@ export function findRefs(keywordPositions, fullNameToInfo, fullText) {
 export function computeInfoToFullName() {
   const output = {};
   for (const [k, v] of Object.entries(
-    useEVRefRegex.getState().fullNameToInfo,
+    useKeywordRegex.getState().fullNameToInfo,
   )) {
     output[
       keyForInfoToFullName({
@@ -83,8 +83,8 @@ export function findCandidateKeywords({
 }) {
   let match;
   const output = new Set();
-  const evRefRegex = useEVRefRegex.getState()[regexPatternKey];
-  while ((match = evRefRegex.exec(value))) {
+  const keywordRegex = useKeywordRegex.getState()[regexPatternKey];
+  while ((match = keywordRegex.exec(value))) {
     if (
       doesNotReferToSelf({
         fullNameToInfo,
