@@ -204,7 +204,6 @@ def get_template_var_replacement_value_fn(
             code, var_name_to_line_num_dict[keyword] = generate_code(
                 exporter_obj.output,
                 code,
-                make_copy_of_selected=False,
             )
             return code
         else:

@@ -131,27 +131,23 @@ def create_line(var_name, x, selected, force_appear):
     return value, relative_positions
 
 
-def generate_lines_of_code_without_imports(
-    selected, push_var_name=None, force_appear_var_name=None, make_copy_of_selected=True
-):
-    if make_copy_of_selected:
-        selected = copy.deepcopy(selected)
+def generate_lines_of_code_without_imports(selected, push_var_name=None):
     lines = []
     var_name_to_line_num = {}
     if push_var_name:
         for v in selected.values():
             if (
                 isinstance(v["value"], dict)
-                and force_appear_var_name in v["value"]["unusedParams"]
+                and push_var_name in v["value"]["unusedParams"]
             ):
-                v["value"]["usedParams"].append(force_appear_var_name)
-                v["dependencies"].append(force_appear_var_name)
-                v["value"]["unusedParams"].remove(force_appear_var_name)
+                v["value"]["usedParams"].append(push_var_name)
+                v["dependencies"].append(push_var_name)
+                v["value"]["unusedParams"].remove(push_var_name)
         selected = [{"var_name": k, **v} for k, v in selected.items()]
         selected = push_var_deep(selected, push_var_name)
         selected = {v.pop("var_name"): v for v in selected}
     for var_name, x in selected.items():
-        force_appear = force_appear_var_name == var_name
+        force_appear = push_var_name == var_name
         var_str, ref_var_name_positions = create_line(
             var_name, x, selected, force_appear=force_appear
         )
@@ -180,19 +176,18 @@ def count_lines(string):
 def maybe_prepend_with_imports(
     lines,
     code,
-    # template_var,
-    force_appear_var_name,
+    push_var_name,
     var_name_to_line_num,
 ):
     if USER_SETTINGS["backend"]["inferImports"]:
-        if force_appear_var_name:
-            line_num = var_name_to_line_num[force_appear_var_name]
+        if push_var_name:
+            line_num = var_name_to_line_num[push_var_name]
             original_force_appear_var_str = lines[line_num]
             var_str = original_force_appear_var_str.rstrip(".(")
             try:
                 ast.parse(var_str)
             except SyntaxError:
-                var_str = var_declaration(force_appear_var_name, "None")
+                var_str = var_declaration(push_var_name, "None")
             lines[line_num] = var_str
 
         # to_infer_imports_from = replace_gen_code_template_var(
@@ -204,7 +199,7 @@ def maybe_prepend_with_imports(
         imports = get_import_text(to_infer_imports_from)
         imports = imports + "\n\n"
 
-        if force_appear_var_name:
+        if push_var_name:
             lines[line_num] = original_force_appear_var_str
     else:
         imports = ""
@@ -225,10 +220,7 @@ def maybe_prepend_with_imports(
 def generate_code(
     selected,
     code,
-    # template_var,
     push_var_name=None,
-    force_appear_var_name=None,
-    make_copy_of_selected=True,
 ):
     (
         lines,
@@ -236,15 +228,11 @@ def generate_code(
     ) = generate_lines_of_code_without_imports(
         selected,
         push_var_name=push_var_name,
-        force_appear_var_name=force_appear_var_name,
-        make_copy_of_selected=make_copy_of_selected,
     )
 
     return maybe_prepend_with_imports(
         lines,
         code,
-        # template_var,
-        force_appear_var_name,
         var_name_to_line_num,
     )
 

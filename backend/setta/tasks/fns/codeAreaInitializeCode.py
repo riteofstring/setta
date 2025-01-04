@@ -28,6 +28,9 @@ async def _codeAreaInitializeCode(message, lsp_writers):
         exporter_obj,
         lsp_writers["full"].project_code_folder(projectConfigName),
     )
+    send_document_open_request_with_code_dict(
+        lsp_writers, code_dict, exporter_obj, projectConfigName
+    )
 
     referencable_var_names = []
     generated_var_names = []
@@ -46,12 +49,6 @@ async def _codeAreaInitializeCode(message, lsp_writers):
             infoToFullName[exporter_obj.var_name_reverse_mapping[v]]
             for v in generated_var_names
         ]
-
-    print("code_dict", code_dict, flush=True)
-
-    send_document_open_request_with_code_dict(
-        lsp_writers, code_dict, exporter_obj, projectConfigName
-    )
 
     return {
         "content": True,
