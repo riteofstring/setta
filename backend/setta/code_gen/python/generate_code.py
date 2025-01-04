@@ -183,7 +183,7 @@ def convert_var_names_to_readable_form(
     setup_code_len = len(setup_code)
 
     all_ref_var_name_positions = [
-        (p + setup_code_len, v) for p, v in code_area_ref_var_name_positions
+        (p + setup_code_len, v) for _, p, v in code_area_ref_var_name_positions
     ]
 
     # convert to global positions

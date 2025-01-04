@@ -30,11 +30,10 @@ def process_refs(
     var_name_to_decl_position_dict=None,
 ):
     positions = {
-        "refs": [],  # list of tuples, where each tuple is (position, replacement_value)
-        "templateVars": [],  # list of tuples, where each tuple is (position, replacement_value)
+        "refs": [],  # list of tuples, where each tuple is (keyword, position, replacement_value)
+        "templateVars": [],  # list of tuples, where each tuple is (keyword, position, replacement_value)
         "cursor": cursor_position,
     }
-    keyword_to_replacement_value = {}
     if templateVars is None:
         templateVars = []
     if var_name_to_decl_position_dict is None:
@@ -44,7 +43,6 @@ def process_refs(
     to_process = sorted(refs + templateVars, key=lambda x: x["startPos"])
     args = [
         positions,
-        keyword_to_replacement_value,
         to_process,
         refs_set,
         get_ref_var_name,
@@ -53,13 +51,12 @@ def process_refs(
     ]
     code = process_refs_helper(code, *args, process_last_ones=False)
     code = process_refs_helper(code, *args, process_last_ones=True)
-    return code, positions, keyword_to_replacement_value
+    return code, positions
 
 
 def process_refs_helper(
     code,
     positions,
-    keyword_to_replacement_value,
     to_process,
     refs_set,
     get_ref_var_name,
@@ -102,9 +99,8 @@ def process_refs_helper(
                 positions["cursor"], length_diff, startPos, endPos
             )
 
-        positions[type].append((startPos, replacement_value))
+        positions[type].append((x["keyword"], startPos, replacement_value))
         code = code[:startPos] + replacement_value + code[endPos:]
-        keyword_to_replacement_value[x["keyword"]] = replacement_value
 
     return code
 
@@ -114,7 +110,7 @@ def update_existing_positions(positions, input_positions_len, startPos, length_d
         for i in range(v):
             if startPos < positions[k][i][0]:
                 p = positions[k][i]
-                positions[k][i] = (p[0] + length_diff, p[1])
+                positions[k][i] = (p[0], p[1] + length_diff, p[2])
 
 
 def update_var_name_to_decl_position_dict(

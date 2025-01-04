@@ -26,7 +26,7 @@ class CodeCompletionContent(BaseModel):
 def get_code_and_cursor_position(
     message, code, var_name, var_name_to_decl_position, exporter_obj
 ):
-    var_value, new_positions, _ = process_refs(
+    var_value, new_positions = process_refs(
         message.fullText,
         message.evRefs,
         exporter_obj.get_ref_var_name,

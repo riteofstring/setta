@@ -32,7 +32,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     message = CodeAreaAutocompleteContent.parse_obj(message.content)
 
     (
-        code_dict,
+        template_var_replacement_values,
         generated_var_names,
         referencable_var_names,
         exporter_obj,
@@ -47,7 +47,6 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         _,
         _,
         ref_template_var_positions,
-        keyword_to_replacement_value,
     ) = generate_final_code_for_section(
         code=code,
         codeLanguage=message.codeLanguage,
@@ -56,15 +55,11 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         exporter_obj=exporter_obj,
         folder_path=lsp_writers["full"].project_code_folder(message.projectConfigName),
         cursor_position=message.position,
-        template_var_replacement_values=code_dict[message.sectionId][
-            "keyword_to_replacement_value"
-        ],
+        template_var_replacement_values=template_var_replacement_values,
     )
 
     cursor_position = ref_template_var_positions["cursor"]
-    gen_code_position = get_gen_code_position(
-        ref_template_var_positions, keyword_to_replacement_value
-    )
+    gen_code_position = get_gen_code_position(ref_template_var_positions)
 
     if gen_code_position is not None and cursor_position <= gen_code_position:
         generated_var_names = []
@@ -98,13 +93,10 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     return None
 
 
-def get_gen_code_position(ref_template_var_positions, keyword_to_replacement_value):
+def get_gen_code_position(ref_template_var_positions):
     keyword = template_prefix(C.SETTA_GENERATED_PYTHON)
-    for pos, value in ref_template_var_positions["templateVars"]:
-        if (
-            keyword in keyword_to_replacement_value
-            and keyword_to_replacement_value[keyword] == value
-        ):
+    for curr_keyword, pos, _ in ref_template_var_positions["templateVars"]:
+        if keyword == curr_keyword:
             return pos
     return None
 
