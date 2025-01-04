@@ -27,7 +27,6 @@ def process_refs(
     cursor_position=None,
     templateVars=None,
     get_template_var_replacement_value=None,
-    var_name_to_position_dict=None,
 ):
     positions = {
         "refs": [],  # list of tuples, where each tuple is (position, replacement_value)
@@ -37,42 +36,10 @@ def process_refs(
     keyword_to_replacement_value = {}
     if templateVars is None:
         templateVars = []
-    if var_name_to_position_dict is None:
-        var_name_to_position_dict = {}
 
     refs_set = set(id(x) for x in refs)
     to_process = sorted(refs + templateVars, key=lambda x: x["startPos"])
-    args = [
-        positions,
-        keyword_to_replacement_value,
-        to_process,
-        refs_set,
-        get_ref_var_name,
-        get_template_var_replacement_value,
-        var_name_to_position_dict,
-    ]
-    code = process_refs_helper(code, *args, process_last_ones=False)
-    code = process_refs_helper(code, *args, process_last_ones=True)
-    return code, positions, keyword_to_replacement_value
-
-
-def process_refs_helper(
-    code,
-    positions,
-    keyword_to_replacement_value,
-    to_process,
-    refs_set,
-    get_ref_var_name,
-    get_template_var_replacement_value,
-    var_name_to_position_dict,
-    process_last_ones,
-):
-    input_positions_len = {k: len(v) for k, v in positions.items() if k != "cursor"}
-
     for i, x in enumerate(to_process):
-        if x.get("processLast", False) != process_last_ones:
-            continue
-
         if id(x) in refs_set:
             replacement_value = get_ref_var_name(
                 x["sectionId"], x["paramInfoId"], x["isArgsObj"]
@@ -90,13 +57,6 @@ def process_refs_helper(
         for future_x in to_process[i + 1 :]:
             future_x["startPos"] += length_diff
 
-        # Update positions for all positions that already existed when this function was called.
-        update_existing_positions(positions, input_positions_len, startPos, length_diff)
-
-        update_var_name_to_position_dict(
-            var_name_to_position_dict, startPos, length_diff
-        )
-
         if positions["cursor"] is not None:
             positions["cursor"] = get_new_cursor_position(
                 positions["cursor"], length_diff, startPos, endPos
@@ -106,23 +66,7 @@ def process_refs_helper(
         code = code[:startPos] + replacement_value + code[endPos:]
         keyword_to_replacement_value[x["keyword"]] = replacement_value
 
-    return code
-
-
-def update_existing_positions(positions, input_positions_len, startPos, length_diff):
-    print("update_existing_positions", input_positions_len, flush=True)
-    for k, v in input_positions_len.items():
-        for i in range(v):
-            if startPos < positions[k][i][0]:
-                p = positions[k][i]
-                positions[k][i] = (p[0] + length_diff, p[1])
-
-
-def update_var_name_to_position_dict(var_name_to_position_dict, startPos, length_diff):
-    for var_name_to_position in var_name_to_position_dict.values():
-        for var_name, (position, var_str) in var_name_to_position.items():
-            if startPos < position:
-                var_name_to_position[var_name] = (position + length_diff, var_str)
+    return code, positions, keyword_to_replacement_value
 
 
 def get_new_cursor_position(cursor_position, length_diff, startPos, endPos):
