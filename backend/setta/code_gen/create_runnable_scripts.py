@@ -24,7 +24,7 @@ from setta.utils.constants import (
 from setta.utils.utils import prune_dict
 
 
-def runCode(message, terminal_write_fn=None, command_callback=None):
+def runCode(message):
     p = message["content"]
     exporter_obj = export_selected(
         p, always_export_args_objs=False, force_include_template_var=True
@@ -65,10 +65,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         sid = run_order[0]
         command = codeCallStr(id_to_relpath[sid], code_dict[sid]["codeLanguage"])
 
-    if terminal_write_fn:
-        terminal_write_fn(f"\x15{command}\n")
-    elif command_callback:
-        command_callback(command)
+    return command
 
 
 def generate_final_code_for_sections(
