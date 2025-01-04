@@ -225,9 +225,9 @@ class LanguageServerReader(LanguageServerInteractor):
                 break
 
     async def process_response(self, response):
-        # from pprint import pprint
+        from pprint import pprint
 
-        # pprint(response)
+        pprint(response)
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
@@ -311,6 +311,10 @@ class LanguageServerReader(LanguageServerInteractor):
                 await self.websocket_manager.send_message_to_requester(
                     return_id, content
                 )
+            elif method == "textDocument/definition":
+                # result is None if there's no definition.
+                content = bool(response["result"])
+                await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
             # print(response, flush=True)
             params = response["params"]

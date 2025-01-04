@@ -38,7 +38,11 @@ async def main():
     await lsp_writer.send_initialize_request()
 
     code_id = "referencetest"
-    code = 'import torch\ntorch.nn.CrossEntropyLoss()'
+    code = """
+def fn():
+    x = 5
+    x
+"""
     codeJson = {}
 
 
@@ -114,6 +118,7 @@ async def main():
     #     },
     # }
     await lsp_writer.send_document_open_request(code_id, code, codeJson)
+    await lsp_writer.send_definition_request(3, 4, code_id, "1234")
     # await lsp_writer.send_document_open_request(code_id2, code2, codeJson)
     id = str(uuid4())
     # await lsp_writer.send_document_highlight_request(0,10,code_id,"1234")
