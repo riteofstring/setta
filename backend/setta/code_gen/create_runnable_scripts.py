@@ -231,6 +231,9 @@ def get_template_var_replacement_value_fn(
                 )
                 return code
             elif keyword == tp(C.SETTA_GENERATED_PYTHON_IMPORTS):
+                chars_before_template_var = get_chars_in_line_before_position(
+                    code, template_var["startPos"]
+                )
                 gen_code_template_var = get_gen_code_template_var(
                     ref_template_var_positions["templateVars"]
                 )
@@ -241,7 +244,11 @@ def get_template_var_replacement_value_fn(
                     )
                 )
                 return generate_imports(
-                    code, push_var_name, var_name_to_decl_position, template_var
+                    code,
+                    push_var_name,
+                    var_name_to_decl_position,
+                    template_var,
+                    chars_before_template_var,
                 )
             else:
                 section_dependencies.append(template_var["sectionId"])

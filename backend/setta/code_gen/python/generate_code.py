@@ -7,9 +7,9 @@ from ..utils import push_var_deep
 from .ast_utils import find_missing_imports, find_top_level_symbols
 
 
-def get_import_text(code):
+def get_import_text(code, chars_before_template_var):
     imports = [f"import {x}" for x in find_missing_imports(code)]
-    return "\n".join(imports)
+    return f"\n{chars_before_template_var}".join(imports)
 
 
 def get_mappings(var_names, selected, is_dict, positionalOnlyParams=None):
@@ -177,7 +177,13 @@ def generate_code(selected, chars_before_each_line, push_var_name=None):
     return code, var_name_to_decl_position
 
 
-def generate_imports(code, push_var_name, var_name_to_decl_position, template_var):
+def generate_imports(
+    code,
+    push_var_name,
+    var_name_to_decl_position,
+    template_var,
+    chars_before_template_var,
+):
     if push_var_name:
         startPos, var_decl, chars_after_line = var_name_to_decl_position[push_var_name]
         endPos = startPos + len(var_decl)
@@ -189,7 +195,7 @@ def generate_imports(code, push_var_name, var_name_to_decl_position, template_va
     endPos = startPos + len(template_var["keyword"])
     # remove template var to infer imports, because ast will raise syntax error
     code = code[:startPos] + code[endPos:]
-    imports = get_import_text(code)
+    imports = get_import_text(code, chars_before_template_var)
     if len(imports) > 0:
         imports += "\n"
     return imports
