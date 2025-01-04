@@ -219,8 +219,13 @@ def get_template_var_replacement_value_fn(
             return template_var_replacement_values[keyword]
         if codeLanguage == "python":
             if keyword == tp(C.SETTA_GENERATED_PYTHON):
+                chars_before_template_var = get_chars_before_newline(
+                    code, template_var["startPos"]
+                )
+
                 code, var_name_to_decl_rel_position_dict[keyword] = generate_code(
                     exporter_obj.output,
+                    chars_before_template_var,
                     push_var_name,
                 )
                 return code
@@ -257,6 +262,11 @@ def get_absolute_decl_position_from_rel_position(
         k: (v[0] + template_var["startPos"], v[1])
         for k, v in var_name_to_decl_rel_position_dict[template_var["keyword"]].items()
     }
+
+
+def get_chars_before_newline(string, position):
+    last_newline = string.rfind("\n", 0, position)
+    return string[last_newline + 1 : position]
 
 
 def preprocess_template_vars(code, evRefs, templateVars, cursor_position):

@@ -130,9 +130,10 @@ def create_line(var_name, x, selected, force_appear):
     return value, relative_positions
 
 
-def generate_code(selected, push_var_name=None):
+def generate_code(selected, chars_before_each_line, push_var_name=None):
     code = ""
     var_name_to_decl_position = {}
+    last_var_name = None
     if push_var_name:
         for v in selected.values():
             if (
@@ -145,17 +146,28 @@ def generate_code(selected, push_var_name=None):
         selected = [{"var_name": k, **v} for k, v in selected.items()]
         selected = push_var_deep(selected, push_var_name)
         selected = {v.pop("var_name"): v for v in selected}
+    
     for var_name, x in selected.items():
         force_appear = push_var_name == var_name
         var_str, ref_var_name_positions = create_line(
             var_name, x, selected, force_appear=force_appear
         )
         if var_str:
-            var_str = f"{var_str}\n"
+            last_var_name = var_name
+            # We add the "before chars" after the new line.
+            # This way every var decl starts with the var instead of with the leading chars.
+            var_str = f"{var_str}\n{chars_before_each_line}"
             startPos = len(code)
             var_name_to_decl_position[var_name] = startPos, var_str
             code += var_str
             x["ref_var_name_positions"] = ref_var_name_positions
+
+    # Since each var declaration ends with the chars_before_each_line
+    # we need to remove the hanging one on the final variable declaration.
+    if last_var_name is not None:
+        startPos, var_str = var_name_to_decl_position[last_var_name]
+        var_name_to_decl_position[last_var_name] = startPos, var_str.rstrip(chars_before_each_line)
+        code = code.rstrip(chars_before_each_line)
 
     return code, var_name_to_decl_position
 

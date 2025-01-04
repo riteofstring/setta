@@ -1,18 +1,6 @@
-# Example usage
-from setta.code_gen.python.make_parseable import make_parseable, is_parseable, maybe_add_newline
+def get_chars_before_newline(string, position):
+    last_newline = string.rfind('\n', 0, position)
+    return string[last_newline + 1:position]
 
 
-test_cases = [
-    ("x=math.sqrt(\n", "x"),
-    ("y=(1,\n2,\n3)\n", "y"),
-    ("z='hello\n", "z"),
-    ("w=1+\n", "w"),
-    ("a=[1,2,\n", "a"),
-    ("b={1:2,\n", "b"),
-]
-
-for code, var in test_cases:
-    result = maybe_add_newline(make_parseable(code, var))
-    print(f"Original: {code!r}")
-    print(f"Fixed: {result!r}")
-    print(f"Parseable: {is_parseable(result)}\n")
+print(get_chars_before_newline("dog\n  1234cat\n\n\nmorestuff", 10))
