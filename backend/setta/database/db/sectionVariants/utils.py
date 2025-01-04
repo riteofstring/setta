@@ -8,8 +8,8 @@ from setta.utils.utils import recursive_dict_merge
 
 def new_section_variant(**kwargs):
     id = kwargs.get("id", create_new_id())
-    name = kwargs.get("name", generate_memorable_string())
-    obj = with_section_variant_defaults(name=name)
+    kwargs["name"] = kwargs.get("name", generate_memorable_string())
+    obj = with_section_variant_defaults(**kwargs)
     return id, obj
 
 

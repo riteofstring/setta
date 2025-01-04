@@ -4,8 +4,9 @@ from pydantic import BaseModel
 
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
-from setta.code_gen.python.generate_code import generate_code_without_imports
+from setta.code_gen.find_placeholders import template_prefix
 from setta.tasks.task_runner import RunType
+from setta.utils.constants import C
 
 from .utils import TaskDefinition, send_document_open_request_with_code_dict
 
@@ -31,28 +32,33 @@ async def _textFieldInitializeCode(message, lsp_writers):
         project,
         exporter_obj,
         lsp_writers["full"].project_code_folder(projectConfigName),
+        push_var_name=var_name,
     )
     send_document_open_request_with_code_dict(
         lsp_writers, code_dict, exporter_obj, projectConfigName
     )
 
-    # infoToFullName = {
-    #     tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
-    # }
-    # referencable_var_names = [
-    #     infoToFullName[exporter_obj.var_name_reverse_mapping[v]]
-    #     for v, line_num in code_dict["var_name_to_position_dict"][].items()
-    #     if line_num < pushed_var_name_line_num
-    # ]
-    # print("textFieldInitializeCode", flush=True)
-    # print(referencable_var_names, flush=True)
+    gen_code_section_id = exporter_obj.code_gen_template_var_section_details["section"][
+        "id"
+    ]
+    var_name_to_position = code_dict[gen_code_section_id]["var_name_to_position_dict"][
+        template_prefix(C.SETTA_GENERATED_PYTHON)
+    ]
+    pushed_var_name_position = var_name_to_position[var_name]
+    infoToFullName = {
+        tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
+    }
+    referencable_var_names = [
+        infoToFullName[exporter_obj.var_name_reverse_mapping[v]]
+        for v, (startPos, _) in var_name_to_position.items()
+        if startPos < pushed_var_name_position[0]
+    ]
 
     return {
         "content": None,
         "cache": [
-            lines,
+            code_dict,
             var_name,
-            var_name_to_line_num,
             referencable_var_names,
             exporter_obj,
         ],

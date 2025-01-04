@@ -251,22 +251,24 @@ class Exporter:
         }
         if force_include_template_var:
             taken_names = [s["name"] for s in p["sections"].values()]
+            section_details = {
+                "id": None,
+                "name": generate_memorable_available_string(taken_names),
+                "codeLanguage": "python",
+            }
+            _, section_variant = new_section_variant(
+                code=template_prefix(C.SETTA_GENERATED_PYTHON),
+                templateVars=[
+                    {
+                        "startPos": 0,
+                        "keyword": template_prefix(C.SETTA_GENERATED_PYTHON),
+                        "sectionId": None,
+                    }
+                ],
+            )
             self.code_gen_template_var_section_details = {
-                "section": {
-                    "id": None,
-                    "name": generate_memorable_available_string(taken_names),
-                    "codeLanguage": "python",
-                },
-                "sectionVariant": new_section_variant(
-                    code=template_prefix(C.SETTA_GENERATED_PYTHON),
-                    templateVars=[
-                        {
-                            "startPos": 0,
-                            "keyword": template_prefix(C.SETTA_GENERATED_PYTHON),
-                            "sectionId": None,
-                        }
-                    ],
-                ),
+                "section": section_details,
+                "sectionVariant": section_variant,
             }
 
     def export(self):

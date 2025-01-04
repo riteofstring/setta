@@ -85,6 +85,7 @@ def generate_final_code_for_sections(
     folder_path,
     do_prepend_with_setup_code=False,
     do_convert_var_names_to_readable_form=False,
+    push_var_name=None,
 ):
     code_sections = {
         k: v for k, v in p["sections"].items() if get_section_type(p, k) == C.CODE
@@ -107,6 +108,8 @@ def generate_final_code_for_sections(
         else:
             section_variant = get_selected_section_variant(p, s["id"])
 
+        print("section_variant", section_variant, flush=True)
+
         (
             curr_code,
             curr_section_dependencies,
@@ -123,6 +126,7 @@ def generate_final_code_for_sections(
             projectConfigName=p["projectConfig"]["name"],
             do_prepend_with_setup_code=do_prepend_with_setup_code,
             do_convert_var_names_to_readable_form=do_convert_var_names_to_readable_form,
+            push_var_name=push_var_name,
         )
 
         is_gen_code = bool(get_gen_code_template_var(section_variant["templateVars"]))
@@ -152,6 +156,7 @@ def generate_final_code_for_section(
     do_convert_var_names_to_readable_form=False,
     cursor_position=None,
     template_var_replacement_values=None,
+    push_var_name=None,
 ):
     section_dependencies = []
     var_name_to_position_dict = {}
@@ -171,6 +176,7 @@ def generate_final_code_for_section(
             section_dependencies,
             var_name_to_position_dict,
             template_var_replacement_values,
+            push_var_name,
         ),
     )
 
@@ -208,6 +214,7 @@ def get_template_var_replacement_value_fn(
     section_dependencies,
     var_name_to_position_dict,
     template_var_replacement_values,
+    push_var_name,
 ):
     def get_template_var_replacement_value(code, template_var):
         print("get_template_var_replacement_value", template_var, flush=True)
@@ -219,6 +226,7 @@ def get_template_var_replacement_value_fn(
             code, var_name_to_position = generate_code(
                 exporter_obj.output,
                 code_before_template_var,
+                push_var_name,
             )
             var_name_to_position_dict[keyword] = {
                 k: (v[0] + len(code_before_template_var), v[1])
