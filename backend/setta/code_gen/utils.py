@@ -1,3 +1,6 @@
+import copy
+
+
 def push_var_deep(objects, target_var_name):
     def find_dependents(obj_list, var_name):
         """Find all objects that directly or indirectly depend on the given object."""
@@ -36,6 +39,8 @@ def process_refs(
     if templateVars is None:
         templateVars = []
 
+    refs = copy.deepcopy(refs)
+    templateVars = copy.deepcopy(templateVars)
     refs_set = set(id(x) for x in refs)
     to_process = sorted(refs + templateVars, key=lambda x: x["startPos"])
     args = [
