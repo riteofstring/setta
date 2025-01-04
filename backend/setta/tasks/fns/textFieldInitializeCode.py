@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
-from setta.code_gen.python.generate_code import generate_lines_of_code_without_imports
+from setta.code_gen.python.generate_code import generate_code_without_imports
 from setta.tasks.task_runner import RunType
 
 from .utils import TaskDefinition, send_document_open_request_with_code_dict

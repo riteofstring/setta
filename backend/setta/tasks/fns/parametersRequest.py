@@ -1,5 +1,3 @@
-import jedi
-
 from setta.code_gen.python.generate_code import append_to_line
 from setta.tasks.task_runner import RunType
 
@@ -7,7 +5,7 @@ from .textFieldAutocomplete import completionHelper, read_cache
 from .utils import TaskDefinition
 
 
-def parametersRequestFn(lsp_writers, use_jedi=False):
+def parametersRequestFn(lsp_writers):
     async def fn(
         code_id,
         request_id,
@@ -23,12 +21,9 @@ def parametersRequestFn(lsp_writers, use_jedi=False):
         print("parametersRequest", flush=True)
         print(code, flush=True)
         await lsp_writers["full"].send_document_update(code_id, code, codeJson)
-        if use_jedi:
-            return jedi_get_signature(code, line, column)
-        else:
-            await lsp_writers["full"].send_signature_help_request(
-                line, column, code_id, request_id
-            )
+        await lsp_writers["full"].send_signature_help_request(
+            line, column, code_id, request_id
+        )
 
     return fn
 
@@ -45,27 +40,3 @@ parametersRequest = TaskDefinition(
     run_as=RunType.NONE,
     server_dependencies=["lsp_writers"],
 )
-
-
-def jedi_get_signature(code, line, column):
-    # results, line = autocomplete(code, var_name_to_line_num, var_name, column)
-    # parsed = docstring_parser.parse(results[0].docstring(raw=True))
-    # descriptions = {v.arg_name: v.description for v in parsed.params}
-    descriptions = {}
-
-    signatures = jedi.Script(code).get_signatures(line + 1, column)
-    output = []
-    if signatures:
-        signature = signatures[0]
-        for param in signature.params:
-            # If a default value is present, it will be included in the bracket.
-            defaultVal = (
-                param.description.split("=")[-1].strip()
-                if "=" in param.description
-                else None
-            )
-            output.append(
-                {"name": param.name, "defaultVal": defaultVal, "description": ""}
-            )
-
-    return output

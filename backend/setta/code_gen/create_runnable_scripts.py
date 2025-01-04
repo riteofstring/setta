@@ -96,8 +96,8 @@ def generate_final_code_for_sections(
         (
             curr_code,
             curr_section_dependencies,
-            curr_var_name_to_line_num_dict,
-            curr_new_positions,
+            curr_var_name_to_position_dict,
+            curr_ref_template_var_positions,
             curr_keyword_to_replacement_value,
         ) = generate_final_code_for_section(
             code=section_variant["code"],
@@ -116,8 +116,8 @@ def generate_final_code_for_sections(
             "name": s["name"],
             "code": curr_code,
             "codeLanguage": s["codeLanguage"],
-            "var_name_to_line_num_dict": curr_var_name_to_line_num_dict,
-            "new_positions": curr_new_positions,
+            "var_name_to_position_dict": curr_var_name_to_position_dict,
+            "ref_template_var_positions": curr_ref_template_var_positions,
             "keyword_to_replacement_value": curr_keyword_to_replacement_value,
             "section_dependencies": curr_section_dependencies,
             "is_gen_code": is_gen_code,
@@ -140,12 +140,12 @@ def generate_final_code_for_section(
     template_var_replacement_values=None,
 ):
     section_dependencies = []
-    var_name_to_line_num_dict = {}
+    var_name_to_position_dict = {}
     setup_code = ""
     if template_var_replacement_values is None:
         template_var_replacement_values = {}
 
-    (code, new_positions, keyword_to_replacement_value) = process_refs(
+    (code, ref_template_var_positions, keyword_to_replacement_value) = process_refs(
         code,
         evRefs,
         exporter_obj.get_ref_var_name,
@@ -155,7 +155,7 @@ def generate_final_code_for_section(
             exporter_obj,
             folder_path,
             section_dependencies,
-            var_name_to_line_num_dict,
+            var_name_to_position_dict,
             template_var_replacement_values,
         ),
     )
@@ -171,19 +171,19 @@ def generate_final_code_for_section(
     if do_convert_var_names_to_readable_form:
         code = convert_var_names_to_readable_form(
             code,
-            var_name_to_line_num_dict.get(
+            var_name_to_position_dict.get(
                 template_prefix(C.SETTA_GENERATED_PYTHON), {}
             ),
             exporter_obj,
-            new_positions["refs"],
+            ref_template_var_positions["refs"],
             setup_code,
         )
 
     return (
         code,
         section_dependencies,
-        var_name_to_line_num_dict,
-        new_positions,
+        var_name_to_position_dict,
+        ref_template_var_positions,
         keyword_to_replacement_value,
     )
 
@@ -192,7 +192,7 @@ def get_template_var_replacement_value_fn(
     exporter_obj,
     folder_path,
     section_dependencies,
-    var_name_to_line_num_dict,
+    var_name_to_position_dict,
     template_var_replacement_values,
 ):
     def get_template_var_replacement_value(code, template_var):
@@ -201,10 +201,15 @@ def get_template_var_replacement_value_fn(
         if keyword in template_var_replacement_values:
             return template_var_replacement_values[keyword]
         elif keyword == template_prefix(C.SETTA_GENERATED_PYTHON):
-            code, var_name_to_line_num_dict[keyword] = generate_code(
+            code_before_template_var = code[: template_var["startPos"]]
+            code, var_name_to_position = generate_code(
                 exporter_obj.output,
-                code,
+                code_before_template_var,
             )
+            var_name_to_position_dict[keyword] = {
+                k: (v[0] + len(code_before_template_var), v[1])
+                for k, v in var_name_to_position.items()
+            }
             return code
         else:
             section_dependencies.append(template_var["sectionId"])

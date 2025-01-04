@@ -38,10 +38,10 @@ async def _codeAreaInitializeCode(message, lsp_writers):
         exporter_obj.code_gen_template_var_section_details.get("sectionId")
         == message.sectionId
     ):
-        var_name_to_line_num = code_dict[message.sectionId][
-            "var_name_to_line_num_dict"
+        var_name_to_position = code_dict[message.sectionId][
+            "var_name_to_position_dict"
         ][template_prefix(C.SETTA_GENERATED_PYTHON)]
-        generated_var_names = list(var_name_to_line_num.keys())
+        generated_var_names = list(var_name_to_position.keys())
         infoToFullName = {
             tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
         }

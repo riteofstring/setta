@@ -1,6 +1,4 @@
-import ast
-import copy
-
+from setta.code_gen.python.make_parseable import make_parseable, maybe_add_newline
 from setta.utils.utils import replace_at_positions
 
 from ...utils.constants import USER_SETTINGS, C
@@ -131,9 +129,9 @@ def create_line(var_name, x, selected, force_appear):
     return value, relative_positions
 
 
-def generate_lines_of_code_without_imports(selected, push_var_name=None):
-    lines = []
-    var_name_to_line_num = {}
+def generate_code_without_imports(selected, push_var_name=None):
+    code = ""
+    var_name_to_position = {}
     if push_var_name:
         for v in selected.values():
             if (
@@ -152,16 +150,13 @@ def generate_lines_of_code_without_imports(selected, push_var_name=None):
             var_name, x, selected, force_appear=force_appear
         )
         if var_str:
-            var_name_to_line_num[var_name] = len(lines)
-            lines.append(var_str)
+            var_str = f"{var_str}\n"
+            startPos = len(code)
+            var_name_to_position[var_name] = startPos, var_str
+            code += var_str
             x["ref_var_name_positions"] = ref_var_name_positions
 
-    return lines, var_name_to_line_num
-
-
-def set_line(lines, var_name_to_line_num, var_name, value):
-    line_num = var_name_to_line_num[var_name]
-    lines[line_num] = var_declaration(var_name, value)
+    return code, var_name_to_position
 
 
 def count_lines(string):
@@ -174,72 +169,56 @@ def count_lines(string):
 
 
 def maybe_prepend_with_imports(
-    lines,
-    code,
+    code_before_gen_code,
+    gen_code,
     push_var_name,
-    var_name_to_line_num,
+    var_name_to_position,
 ):
+    imports = ""
     if USER_SETTINGS["backend"]["inferImports"]:
         if push_var_name:
-            line_num = var_name_to_line_num[push_var_name]
-            original_force_appear_var_str = lines[line_num]
-            var_str = original_force_appear_var_str.rstrip(".(")
-            try:
-                ast.parse(var_str)
-            except SyntaxError:
-                var_str = var_declaration(push_var_name, "None")
-            lines[line_num] = var_str
+            original_gen_code = gen_code
+            startPos, var_decl = var_name_to_position[push_var_name]
+            endPos = startPos + len(var_decl)
+            var_decl = maybe_add_newline(
+                make_parseable(gen_code[startPos:endPos], push_var_name)
+            )
+            gen_code = gen_code[:startPos] + var_decl + gen_code[endPos:]
 
-        # to_infer_imports_from = replace_gen_code_template_var(
-        #     code,
-        #     template_var,
-        #     "\n".join(lines),
-        # )
-        to_infer_imports_from = "\n".join(lines)
-        imports = get_import_text(to_infer_imports_from)
-        imports = imports + "\n\n"
+        to_infer_imports_from = code_before_gen_code + gen_code
+        imports = get_import_text(to_infer_imports_from) + "\n\n"
 
         if push_var_name:
-            lines[line_num] = original_force_appear_var_str
-    else:
-        imports = ""
+            gen_code = original_gen_code
 
-    # num_preceding_lines = count_lines(imports + code[: template_var["startPos"]])
-    num_preceding_lines = count_lines(imports)
-    new_var_name_to_line_num = {
-        k: v + num_preceding_lines for k, v in var_name_to_line_num.items()
+    new_gen_code = imports + gen_code
+    new_var_name_to_position = {
+        k: (v[0] + len(imports), v[1]) for k, v in var_name_to_position.items()
     }
 
-    generated_code = imports + "\n".join(lines)
     return (
-        generated_code,
-        new_var_name_to_line_num,
+        new_gen_code,
+        new_var_name_to_position,
     )
 
 
-def generate_code(
-    selected,
-    code,
-    push_var_name=None,
-):
-    (
-        lines,
-        var_name_to_line_num,
-    ) = generate_lines_of_code_without_imports(
+def generate_code(selected, code_before_gen_code, push_var_name=None):
+    gen_code, var_name_to_position = generate_code_without_imports(
         selected,
-        push_var_name=push_var_name,
+        push_var_name,
     )
 
     return maybe_prepend_with_imports(
-        lines,
-        code,
-        var_name_to_line_num,
+        code_before_gen_code,
+        gen_code,
+        push_var_name,
+        var_name_to_position,
     )
 
 
 def convert_var_names_to_readable_form(
     generated_code,
-    var_name_to_line_num,
+    var_name_to_position,
     exporter_obj,
     code_area_ref_var_name_positions,
     setup_code,
@@ -248,30 +227,17 @@ def convert_var_names_to_readable_form(
     # because the setup code has been prepended to the generated code
     # after the line numbers and positions are calculated.
     setup_code_len = len(setup_code)
-    setup_code_num_lines = count_lines(setup_code)
 
     all_ref_var_name_positions = [
         (p + setup_code_len, v) for p, v in code_area_ref_var_name_positions
     ]
 
     # convert to global positions
-    for var_name, line_num in var_name_to_line_num.items():
-        line_num += setup_code_num_lines
-        details = exporter_obj.output[var_name]
-        line_col_pairs = [
-            (line_num, col) for col, _ in details["ref_var_name_positions"]
-        ]
-        line_col_pairs.append((line_num, 0))  # this is for the variable declaration
-        global_positions = line_col_to_position_batch(generated_code, line_col_pairs)
-        variable_declaration_position = (
-            global_positions.pop()
-        )  # need to pop this before we zip with ref_var_name_positions
-        ref_var_name_global_positions = [
-            (p, v[1])
-            for p, v in zip(global_positions, details["ref_var_name_positions"])
-        ]
-        all_ref_var_name_positions.extend(ref_var_name_global_positions)
-        all_ref_var_name_positions.append((variable_declaration_position, var_name))
+    for var_name, (startPos, _) in var_name_to_position.items():
+        newStartPos = startPos + setup_code_len
+        all_ref_var_name_positions.append((newStartPos, var_name))
+        for col, v in exporter_obj.output[var_name]["ref_var_name_positions"]:
+            all_ref_var_name_positions.append((newStartPos + col, v))
 
     # create nice var names for references
     top_level_symbols = find_top_level_symbols(generated_code)

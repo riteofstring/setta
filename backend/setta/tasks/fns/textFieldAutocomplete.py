@@ -5,7 +5,6 @@ from pydantic import BaseModel
 from setta.code_gen.python.generate_code import (
     maybe_prepend_with_imports,
     position_to_line_col,
-    set_line,
     var_declaration,
 )
 from setta.code_gen.utils import process_refs
@@ -36,7 +35,7 @@ def textFieldCompletionFn(lsp_writers):
         request_id,
         code,
         codeJson,
-        var_name_to_line_num,
+        var_name_to_position,
         referencable_var_names,
         line,
         column,
@@ -52,7 +51,7 @@ def textFieldCompletionFn(lsp_writers):
             code_id,
             request_id,
             referencable_var_names,
-            var_name_to_line_num.keys(),
+            var_name_to_position.keys(),
         )
 
     return fn
@@ -68,7 +67,7 @@ async def completionHelper(message, fn):
     (
         lines,
         var_name,
-        var_name_to_line_num,
+        var_name_to_position,
         referencable_var_names,
         exporter_obj,
     ) = cached
@@ -81,7 +80,7 @@ async def completionHelper(message, fn):
         cursor_position=position,
     )
     position = new_positions["cursor"][0][0]
-    set_line(lines, var_name_to_line_num, var_name, fullText)
+    set_line(lines, var_name_to_position, var_name, fullText)
 
     fullText, new_positions = process_refs(
         exporter_obj.section_variant_with_code_gen_template_var["code"],
@@ -94,19 +93,19 @@ async def completionHelper(message, fn):
         get_template_var_replacement_value=...,
     )
 
-    code, var_name_to_line_num = maybe_prepend_with_imports(
+    code, var_name_to_position = maybe_prepend_with_imports(
         lines,
         exporter_obj.section_variant_with_code_gen_template_var["code"],
         # exporter_obj.section_variant_with_code_gen_template_var["templateVar"],
         var_name,
-        var_name_to_line_num,
+        var_name_to_position,
     )
 
     line_within_fullText, column = position_to_line_col(fullText, position)
     # print("line_within_fullText, column", line_within_fullText, column, flush=True)
     if line_within_fullText == 0:
         column += len(var_declaration(var_name, ""))
-    line = line_within_fullText + var_name_to_line_num[var_name]
+    line = line_within_fullText + var_name_to_position[var_name]
 
     output = await fn(
         code_id=message.projectConfigId,
@@ -114,7 +113,7 @@ async def completionHelper(message, fn):
         beforeText=message.beforeText,
         code=code,
         codeJson=exporter_obj.output,
-        var_name_to_line_num=var_name_to_line_num,
+        var_name_to_position=var_name_to_position,
         referencable_var_names=referencable_var_names,
         line=line,
         column=column,

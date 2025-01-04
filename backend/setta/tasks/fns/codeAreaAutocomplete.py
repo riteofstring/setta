@@ -46,7 +46,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         code,
         _,
         _,
-        new_positions,
+        ref_template_var_positions,
         keyword_to_replacement_value,
     ) = generate_final_code_for_section(
         code=code,
@@ -61,9 +61,9 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         ],
     )
 
-    cursor_position = new_positions["cursor"][0][0]
+    cursor_position = ref_template_var_positions["cursor"][0][0]
     gen_code_position = get_gen_code_position(
-        new_positions, keyword_to_replacement_value
+        ref_template_var_positions, keyword_to_replacement_value
     )
 
     if gen_code_position is not None and cursor_position <= gen_code_position:
@@ -98,11 +98,11 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     return {"content": None}
 
 
-def get_gen_code_position(new_positions, keyword_to_replacement_value):
+def get_gen_code_position(ref_template_var_positions, keyword_to_replacement_value):
     return next(
         (
             t[0]
-            for t in new_positions["templateVars"]
+            for t in ref_template_var_positions["templateVars"]
             if t[1]
             == keyword_to_replacement_value[template_prefix(C.SETTA_GENERATED_PYTHON)]
         ),

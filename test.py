@@ -1,39 +1,18 @@
-# import numpy as np
-# import pandas as pd
+# Example usage
+from setta.code_gen.python.make_parseable import make_parseable, is_parseable, maybe_add_newline
 
-# # Set random seed for reproducibility
-# np.random.seed(42)
 
-# # Generate sample size
-# n_samples = 1000
+test_cases = [
+    ("x=math.sqrt(\n", "x"),
+    ("y=(1,\n2,\n3)\n", "y"),
+    ("z='hello\n", "z"),
+    ("w=1+\n", "w"),
+    ("a=[1,2,\n", "a"),
+    ("b={1:2,\n", "b"),
+]
 
-# # Generate x values
-# x = np.random.uniform(0, 100, n_samples)
-
-# # Generate y values with some correlation to x plus random noise
-# y = 0.5 * x + np.random.normal(0, 15, n_samples)
-
-# # Generate a categorical variable
-# categories = np.random.choice(['A', 'B', 'C'], size=n_samples)
-
-# # Create a DataFrame
-# df = pd.DataFrame({
-#     'x_value': x,
-#     'y_value': y,
-#     'category': categories
-# })
-
-# # Save to CSV
-# df.to_csv('scatter_data.csv', index=False)
-
-# # Print first few rows to verify
-# print("First few rows of the generated data:")
-# print(df.head())
-
-# x,y,z=1,2,3
-
-# my_var = (x +
-# y +
-# z)
-
-# print(my_var)
+for code, var in test_cases:
+    result = maybe_add_newline(make_parseable(code, var))
+    print(f"Original: {code!r}")
+    print(f"Fixed: {result!r}")
+    print(f"Parseable: {is_parseable(result)}\n")
