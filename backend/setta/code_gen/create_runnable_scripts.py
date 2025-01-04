@@ -20,7 +20,6 @@ from setta.utils.constants import (
     CODE_FOLDER_ENV_VARIABLE,
     SEND_ARTIFACT_TO_ENV_VARIABLE,
     C,
-    USER_SETTINGS,
 )
 from setta.utils.utils import prune_dict
 
@@ -252,21 +251,9 @@ def get_template_var_replacement_value_fn(
 
 
 def preprocess_template_vars(templateVars):
-    has_gen_imports = False
-    has_gen_code = False
     for t in templateVars:
-        if t["keyword"] == template_prefix(C.SETTA_GENERATED_PYTHON):
-            has_gen_code = True
-        elif t["keyword"] == template_prefix(C.SETTA_GENERATED_PYTHON_IMPORTS):
+        if t["keyword"] == template_prefix(C.SETTA_GENERATED_PYTHON_IMPORTS):
             t["processLast"] = True
-            has_gen_imports = True
-
-    if has_gen_code and not has_gen_imports and USER_SETTINGS["backend"]["inferImports"]:
-        templateVars.append( {
-                        "startPos": 0,
-                        "keyword": template_prefix(C.SETTA_GENERATED_PYTHON_IMPORTS),
-                        "sectionId": None,
-                    })
 
 
 def convert_folder_path_to_module_path(folder_path):
