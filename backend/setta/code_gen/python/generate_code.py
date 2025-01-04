@@ -1,5 +1,5 @@
 from setta.code_gen.export_selected import get_gen_code_template_var
-from setta.code_gen.python.make_parseable import make_parseable, maybe_add_newline
+from setta.code_gen.python.make_parseable import make_parseable
 from setta.utils.utils import replace_at_positions
 
 from ...utils.constants import C
@@ -146,7 +146,7 @@ def generate_code(selected, chars_before_each_line, push_var_name=None):
         selected = [{"var_name": k, **v} for k, v in selected.items()]
         selected = push_var_deep(selected, push_var_name)
         selected = {v.pop("var_name"): v for v in selected}
-    
+
     for var_name, x in selected.items():
         force_appear = push_var_name == var_name
         var_str, ref_var_name_positions = create_line(
@@ -158,29 +158,33 @@ def generate_code(selected, chars_before_each_line, push_var_name=None):
             # This way every var decl starts with the var instead of with the leading chars.
             var_str = f"{var_str}\n{chars_before_each_line}"
             startPos = len(code)
-            var_name_to_decl_position[var_name] = startPos, var_str
+            var_name_to_decl_position[var_name] = (
+                startPos,
+                var_str,
+                chars_before_each_line,
+            )
             code += var_str
             x["ref_var_name_positions"] = ref_var_name_positions
 
     # Since each var declaration ends with the chars_before_each_line
     # we need to remove the hanging one on the final variable declaration.
     if last_var_name is not None:
-        startPos, var_str = var_name_to_decl_position[last_var_name]
-        var_name_to_decl_position[last_var_name] = startPos, var_str.rstrip(chars_before_each_line)
-        code = code.rstrip(chars_before_each_line)
+        startPos, var_str, chars_after_line = var_name_to_decl_position[last_var_name]
+        new_var_str = var_str.rstrip(chars_after_line)
+        var_name_to_decl_position[last_var_name] = startPos, new_var_str, ""
+        code = code.rstrip(chars_after_line)
 
     return code, var_name_to_decl_position
 
 
 def generate_imports(code, push_var_name, var_name_to_decl_position, template_var):
     if push_var_name:
-        startPos, var_decl = var_name_to_decl_position[push_var_name]
+        startPos, var_decl, chars_after_line = var_name_to_decl_position[push_var_name]
         endPos = startPos + len(var_decl)
-        var_decl = maybe_add_newline(
-            make_parseable(code[startPos:endPos], push_var_name)
+        var_decl = (
+            make_parseable(code[startPos:endPos], push_var_name) + chars_after_line
         )
         code = code[:startPos] + var_decl + code[endPos:]
-
     startPos = template_var["startPos"]
     endPos = startPos + len(template_var["keyword"])
     # remove template var to infer imports, because ast will raise syntax error
@@ -213,7 +217,7 @@ def convert_var_names_to_readable_form(
     )
 
     # convert to global positions
-    for var_name, (startPos, _) in var_name_to_decl_rel_position.items():
+    for var_name, (startPos, _, _) in var_name_to_decl_rel_position.items():
         newStartPos = startPos + setup_code_len
         if gen_code_template_var:
             newStartPos += gen_code_template_var["startPos"]
@@ -283,3 +287,8 @@ def line_col_to_position_batch(text, line_col_pairs):
             results.append(position)
 
     return results
+
+
+def get_chars_before_newline(string, position):
+    last_newline = string.rfind("\n", 0, position)
+    return string[last_newline + 1 : position]

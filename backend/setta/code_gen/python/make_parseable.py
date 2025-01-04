@@ -95,9 +95,3 @@ def is_parseable(code: str) -> bool:
         return True
     except SyntaxError:
         return False
-
-
-def maybe_add_newline(code):
-    if not code.endswith("\n"):
-        return f"{code}\n"
-    return code

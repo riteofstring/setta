@@ -52,7 +52,7 @@ async def _textFieldInitializeCode(message, lsp_writers):
     }
     referencable_var_names = [
         infoToFullName[exporter_obj.var_name_reverse_mapping[v]]
-        for v, (startPos, _) in var_name_to_decl_position.items()
+        for v, (startPos, _, _) in var_name_to_decl_position.items()
         if startPos < pushed_var_name_position[0]
     ]
 

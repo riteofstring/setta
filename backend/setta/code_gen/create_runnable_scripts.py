@@ -14,6 +14,7 @@ from setta.code_gen.python.generate_code import (
     convert_var_names_to_readable_form,
     generate_code,
     generate_imports,
+    get_chars_before_newline,
 )
 from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
@@ -259,14 +260,9 @@ def get_absolute_decl_position_from_rel_position(
     template_var, var_name_to_decl_rel_position_dict
 ):
     return {
-        k: (v[0] + template_var["startPos"], v[1])
+        k: (v[0] + template_var["startPos"], v[1], v[2])
         for k, v in var_name_to_decl_rel_position_dict[template_var["keyword"]].items()
     }
-
-
-def get_chars_before_newline(string, position):
-    last_newline = string.rfind("\n", 0, position)
-    return string[last_newline + 1 : position]
 
 
 def preprocess_template_vars(code, evRefs, templateVars, cursor_position):
