@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_section
 from setta.code_gen.export_selected import get_gen_code_template_var
-from setta.code_gen.find_placeholders import template_prefix
+from setta.code_gen.find_placeholders import tp
 from setta.code_gen.python.generate_code import position_to_line_col, var_declaration
 from setta.code_gen.python.make_parseable import maybe_add_newline
 from setta.code_gen.utils import process_refs
@@ -53,7 +53,7 @@ def get_code_and_cursor_position(
     # 3. Get position of original variable declaration within generated code.
     #    This will have to be the relative position, not the position adjusted after code generation
     startPos, old_var_decl = gen_code_dict["var_name_to_decl_rel_position_dict"][
-        template_prefix(C.SETTA_GENERATED_PYTHON)
+        tp(C.SETTA_GENERATED_PYTHON)
     ][var_name]
     endPos = startPos + len(old_var_decl)
 
@@ -64,15 +64,14 @@ def get_code_and_cursor_position(
     gen_code = gen_code[:startPos] + maybe_add_newline(new_var_decl) + gen_code[endPos:]
 
     # 5. Call generate_final_code_for_section with the new generated code as a replacement value
-    template_var_replacement_values = {
-        template_prefix(C.SETTA_GENERATED_PYTHON): gen_code
-    }
+    template_var_replacement_values = {tp(C.SETTA_GENERATED_PYTHON): gen_code}
     var_name_to_decl_rel_position_dict = copy.deepcopy(
         gen_code_dict["var_name_to_decl_rel_position_dict"]
     )
-    var_name_to_decl_rel_position_dict[template_prefix(C.SETTA_GENERATED_PYTHON)][
-        var_name
-    ] = (startPos, new_var_decl)
+    var_name_to_decl_rel_position_dict[tp(C.SETTA_GENERATED_PYTHON)][var_name] = (
+        startPos,
+        new_var_decl,
+    )
     gen_code_details = exporter_obj.code_gen_template_var_section_details
     gen_code_section = gen_code_details["section"]
     gen_code_section_variant = gen_code_details["sectionVariant"]
@@ -98,7 +97,7 @@ def get_code_and_cursor_position(
 
     # 6. Compute the cursor position using the value from step 2, plus the returned var_name_to_decl_rel_position_dict
     var_decl_rel_position = var_name_to_decl_rel_position_dict[
-        template_prefix(C.SETTA_GENERATED_PYTHON)
+        tp(C.SETTA_GENERATED_PYTHON)
     ][var_name][0]
     gen_code_position = get_gen_code_template_var(
         ref_template_var_positions["templateVars"]

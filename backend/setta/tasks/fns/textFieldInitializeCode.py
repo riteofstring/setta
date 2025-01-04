@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
-from setta.code_gen.find_placeholders import template_prefix
+from setta.code_gen.find_placeholders import tp
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
@@ -43,7 +43,7 @@ async def _textFieldInitializeCode(message, lsp_writers):
     ]
     gen_code_dict = code_dict[gen_code_section_details["id"]]
     var_name_to_decl_position = gen_code_dict["var_name_to_decl_rel_position_dict"][
-        template_prefix(C.SETTA_GENERATED_PYTHON)
+        tp(C.SETTA_GENERATED_PYTHON)
     ]
     pushed_var_name_position = var_name_to_decl_position[var_name]
     generated_var_names = list(var_name_to_decl_position.keys())

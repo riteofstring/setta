@@ -12,7 +12,7 @@ from setta.utils.utils import (
 )
 
 from ..utils.constants import BASE_UI_TYPES, C
-from .find_placeholders import template_prefix
+from .find_placeholders import tp
 from .utils import process_refs
 
 
@@ -137,9 +137,7 @@ def get_specific_template_var(template_vars, keyword):
 
 
 def get_gen_code_template_var(template_vars):
-    return get_specific_template_var(
-        template_vars, template_prefix(C.SETTA_GENERATED_PYTHON)
-    )
+    return get_specific_template_var(template_vars, tp(C.SETTA_GENERATED_PYTHON))
 
 
 def no_entered_value(value):
@@ -257,11 +255,11 @@ class Exporter:
                 "codeLanguage": "python",
             }
             _, section_variant = new_section_variant(
-                code=template_prefix(C.SETTA_GENERATED_PYTHON),
+                code=tp(C.SETTA_GENERATED_PYTHON),
                 templateVars=[
                     {
                         "startPos": 0,
-                        "keyword": template_prefix(C.SETTA_GENERATED_PYTHON),
+                        "keyword": tp(C.SETTA_GENERATED_PYTHON),
                         "sectionId": None,
                     }
                 ],

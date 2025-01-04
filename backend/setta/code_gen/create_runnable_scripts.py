@@ -9,7 +9,7 @@ from setta.code_gen.export_selected import (
     get_section_type,
     get_selected_section_variant,
 )
-from setta.code_gen.find_placeholders import template_prefix
+from setta.code_gen.find_placeholders import tp
 from setta.code_gen.python.generate_code import (
     convert_var_names_to_readable_form,
     generate_code,
@@ -187,7 +187,7 @@ def generate_final_code_for_section(
             code = convert_var_names_to_readable_form(
                 code,
                 var_name_to_decl_rel_position_dict.get(
-                    template_prefix(C.SETTA_GENERATED_PYTHON), {}
+                    tp(C.SETTA_GENERATED_PYTHON), {}
                 ),
                 exporter_obj,
                 ref_template_var_positions,
@@ -218,13 +218,13 @@ def get_template_var_replacement_value_fn(
         if keyword in template_var_replacement_values:
             return template_var_replacement_values[keyword]
         if codeLanguage == "python":
-            if keyword == template_prefix(C.SETTA_GENERATED_PYTHON):
+            if keyword == tp(C.SETTA_GENERATED_PYTHON):
                 code, var_name_to_decl_rel_position_dict[keyword] = generate_code(
                     exporter_obj.output,
                     push_var_name,
                 )
                 return code
-            elif keyword == template_prefix(C.SETTA_GENERATED_PYTHON_IMPORTS):
+            elif keyword == tp(C.SETTA_GENERATED_PYTHON_IMPORTS):
                 gen_code_template_var = get_gen_code_template_var(
                     ref_template_var_positions["templateVars"]
                 )
@@ -263,9 +263,9 @@ def preprocess_template_vars(code, evRefs, templateVars, cursor_position):
     has_gen_code = None
     has_gen_code_import = False
     for t in templateVars:
-        if t["keyword"] == template_prefix(C.SETTA_GENERATED_PYTHON):
+        if t["keyword"] == tp(C.SETTA_GENERATED_PYTHON):
             has_gen_code = True
-        elif t["keyword"] == template_prefix(C.SETTA_GENERATED_PYTHON_IMPORTS):
+        elif t["keyword"] == tp(C.SETTA_GENERATED_PYTHON_IMPORTS):
             t["processLast"] = True
             has_gen_code_import = True
 
@@ -276,7 +276,7 @@ def preprocess_template_vars(code, evRefs, templateVars, cursor_position):
     ):
         evRefs = copy.deepcopy(evRefs)
         templateVars = copy.deepcopy(templateVars)
-        keyword = template_prefix(C.SETTA_GENERATED_PYTHON_IMPORTS)
+        keyword = tp(C.SETTA_GENERATED_PYTHON_IMPORTS)
         keyword_new_line = f"{keyword}\n"
         code = f"{keyword_new_line}{code}"
         shiftAmount = len(keyword_new_line)

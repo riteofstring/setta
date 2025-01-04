@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
-from setta.code_gen.find_placeholders import template_prefix
+from setta.code_gen.find_placeholders import tp
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
@@ -40,7 +40,7 @@ async def _codeAreaInitializeCode(message, lsp_writers):
     ):
         generated_var_names = list(
             code_dict[message.sectionId]["var_name_to_decl_rel_position_dict"][
-                template_prefix(C.SETTA_GENERATED_PYTHON)
+                tp(C.SETTA_GENERATED_PYTHON)
             ].keys()
         )
         infoToFullName = {
