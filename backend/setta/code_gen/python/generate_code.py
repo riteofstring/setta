@@ -1,7 +1,7 @@
 from setta.code_gen.python.make_parseable import make_parseable, maybe_add_newline
 from setta.utils.utils import replace_at_positions
 
-from ...utils.constants import USER_SETTINGS, C
+from ...utils.constants import C
 from ..utils import push_var_deep
 from .ast_utils import find_missing_imports, find_top_level_symbols
 

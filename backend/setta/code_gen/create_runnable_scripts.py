@@ -1,3 +1,4 @@
+import copy
 import os
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +20,7 @@ from setta.utils.constants import (
     CODE_FOLDER,
     CODE_FOLDER_ENV_VARIABLE,
     SEND_ARTIFACT_TO_ENV_VARIABLE,
+    USER_SETTINGS,
     C,
 )
 from setta.utils.utils import prune_dict
@@ -151,7 +153,9 @@ def generate_final_code_for_section(
     if template_var_replacement_values is None:
         template_var_replacement_values = {}
 
-    preprocess_template_vars(templateVars)
+    code, evRefs, templateVars, cursor_position = preprocess_template_vars(
+        code, evRefs, templateVars, cursor_position
+    )
 
     (code, ref_template_var_positions) = process_refs(
         code,
@@ -244,10 +248,40 @@ def get_template_var_replacement_value_fn(
     return get_template_var_replacement_value
 
 
-def preprocess_template_vars(templateVars):
+def preprocess_template_vars(code, evRefs, templateVars, cursor_position):
+    has_gen_code = None
+    has_gen_code_import = False
     for t in templateVars:
-        if t["keyword"] == template_prefix(C.SETTA_GENERATED_PYTHON_IMPORTS):
+        if t["keyword"] == template_prefix(C.SETTA_GENERATED_PYTHON):
+            has_gen_code = True
+        elif t["keyword"] == template_prefix(C.SETTA_GENERATED_PYTHON_IMPORTS):
             t["processLast"] = True
+            has_gen_code_import = True
+
+    if (
+        has_gen_code
+        and not has_gen_code_import
+        and USER_SETTINGS["backend"]["inferImports"]
+    ):
+        evRefs = copy.deepcopy(evRefs)
+        templateVars = copy.deepcopy(templateVars)
+        keyword = template_prefix(C.SETTA_GENERATED_PYTHON_IMPORTS)
+        keyword_new_line = f"{keyword}\n"
+        code = f"{keyword_new_line}{code}"
+        shiftAmount = len(keyword_new_line)
+        for x in evRefs:
+            x["startPos"] += shiftAmount
+        for x in templateVars:
+            x["startPos"] += shiftAmount
+
+        if cursor_position is not None:
+            cursor_position += shiftAmount
+
+        templateVars.append(
+            {"startPos": 0, "keyword": keyword, "sectionId": None, "processLast": True}
+        )
+
+    return code, evRefs, templateVars, cursor_position
 
 
 def convert_folder_path_to_module_path(folder_path):
