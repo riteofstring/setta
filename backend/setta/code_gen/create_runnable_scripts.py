@@ -211,7 +211,6 @@ def get_template_var_replacement_value_fn(
     push_var_name,
 ):
     def get_template_var_replacement_value(code, template_var):
-        print("get_template_var_replacement_value", template_var, flush=True)
         keyword = template_var["keyword"]
         if keyword in template_var_replacement_values:
             return template_var_replacement_values[keyword]

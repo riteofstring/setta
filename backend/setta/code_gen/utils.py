@@ -28,19 +28,18 @@ def process_refs(
     templateVars=None,
     get_template_var_replacement_value=None,
 ):
-    # positions is a list of tuples, where each tuple is (position, shift, replacement_value)
     positions = {
-        "refs": [],
-        "cursor": [] if cursor_position is None else [(cursor_position, 0, None)],
-        "templateVars": [],
+        "refs": [],  # list of tuples, where each tuple is (position, replacement_value)
+        "templateVars": [],  # list of tuples, where each tuple is (position, replacement_value)
+        "cursor": cursor_position,
     }
     keyword_to_replacement_value = {}
     if templateVars is None:
         templateVars = []
 
     refs_set = set(id(x) for x in refs)
-    to_process = sorted(refs + templateVars, key=lambda x: x["startPos"], reverse=True)
-    for x in to_process:
+    to_process = sorted(refs + templateVars, key=lambda x: x["startPos"])
+    for i, x in enumerate(to_process):
         if id(x) in refs_set:
             replacement_value = get_ref_var_name(
                 x["sectionId"], x["paramInfoId"], x["isArgsObj"]
@@ -52,34 +51,29 @@ def process_refs(
 
         startPos = x["startPos"]
         endPos = startPos + len(x["keyword"])
+        length_diff = len(replacement_value) - (endPos - startPos)
 
-        positions[type].append((startPos, 0, replacement_value))
-        set_new_positions_and_shifts(positions, replacement_value, startPos, endPos)
+        # Update positions for all future replacements
+        for future_x in to_process[i + 1 :]:
+            future_x["startPos"] += length_diff
 
+        if positions["cursor"] is not None:
+            positions["cursor"] = get_new_cursor_position(
+                positions["cursor"], length_diff, startPos, endPos
+            )
+
+        positions[type].append((startPos, replacement_value))
         code = code[:startPos] + replacement_value + code[endPos:]
         keyword_to_replacement_value[x["keyword"]] = replacement_value
-
-    for k, v in positions.items():
-        positions[k] = [(p + s, r) for p, s, r in v]
 
     return code, positions, keyword_to_replacement_value
 
 
-def set_new_positions_and_shifts(positions, replacement_value, startPos, endPos):
-    # Calculate current replacement's length difference
-    length_diff = len(replacement_value) - (endPos - startPos)
-
-    for v in positions.values():
-        for idx in range(len(v)):
-            position, shift, value = v[idx]
-
-            # Update position if replacement occurs before the initial position
-            if endPos <= position:
-                # All changes before the position affect its offset
-                shift += length_diff
-            elif startPos < position < endPos:
-                position = startPos + len(
-                    replacement_value
-                )  # Reset position to after the new substring
-
-            v[idx] = position, shift, value
+def get_new_cursor_position(cursor_position, length_diff, startPos, endPos):
+    # Update position if replacement occurs before the initial position
+    if endPos <= cursor_position:
+        # All changes before the position affect its offset
+        return cursor_position + length_diff
+    elif startPos < cursor_position < endPos:
+        return endPos + length_diff  # Reset position to after the new substring
+    return cursor_position

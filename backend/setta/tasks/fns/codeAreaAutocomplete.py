@@ -61,7 +61,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         ],
     )
 
-    cursor_position = ref_template_var_positions["cursor"][0][0]
+    cursor_position = ref_template_var_positions["cursor"]
     gen_code_position = get_gen_code_position(
         ref_template_var_positions, keyword_to_replacement_value
     )

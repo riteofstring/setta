@@ -42,7 +42,7 @@ def get_code_and_cursor_position(
     endPos = startPos + len(old_var_decl)
     code = code[:startPos] + maybe_add_newline(new_var_decl) + code[endPos:]
 
-    cursor_position = new_positions["cursor"][0][0]
+    cursor_position = new_positions["cursor"]
     cursor_position += len(new_var_decl) - len(
         var_value
     )  # shift by length of var declaration (like x = ...)
