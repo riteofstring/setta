@@ -91,8 +91,6 @@ async def _textFieldCompletion(message, lsp_writers):
 
     line, column = position_to_line_col(code, cursor_position)
 
-    print("****code", code, flush=True)
-
     code_id = await send_document_open_request(
         lsp_writers,
         code,
