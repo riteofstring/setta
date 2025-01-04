@@ -1,12 +1,17 @@
+import copy
 from typing import Any, Optional
 
 from pydantic import BaseModel
 
+from setta.code_gen.create_runnable_scripts import generate_final_code_for_section
+from setta.code_gen.export_selected import get_gen_code_template_var
+from setta.code_gen.find_placeholders import template_prefix
 from setta.code_gen.python.generate_code import position_to_line_col, var_declaration
 from setta.code_gen.python.make_parseable import maybe_add_newline
 from setta.code_gen.utils import process_refs
 from setta.tasks.fns.textFieldInitializeCode import get_cache_key
 from setta.tasks.task_runner import RunType
+from setta.utils.constants import C
 
 from .utils import TaskDefinition, send_document_open_request
 
@@ -24,25 +29,86 @@ class CodeCompletionContent(BaseModel):
 
 
 def get_code_and_cursor_position(
-    message, code, var_name, var_name_to_decl_position, exporter_obj
+    message,
+    gen_code_dict,
+    var_name,
+    exporter_obj,
+    lsp_writers,
 ):
+    # 1. Create new variable declaration with new value
     var_value, new_positions = process_refs(
         message.fullText,
         message.evRefs,
         exporter_obj.get_ref_var_name,
         cursor_position=message.position,
     )
-
     new_var_decl = var_declaration(var_name, var_value)
-    startPos, old_var_decl = var_name_to_decl_position[var_name]
-    endPos = startPos + len(old_var_decl)
-    code = code[:startPos] + maybe_add_newline(new_var_decl) + code[endPos:]
 
+    # 2. Compute relative cursor position (cursor position in the context of the variable declaration)
     cursor_position = new_positions["cursor"]
     cursor_position += len(new_var_decl) - len(
         var_value
     )  # shift by length of var declaration (like x = ...)
-    cursor_position += startPos  # shift by location of var declaration
+
+    # 3. Get position of original variable declaration within generated code.
+    #    This will have to be the relative position, not the position adjusted after code generation
+    print(
+        'gen_code_dict["var_name_to_decl_rel_position_dict"]',
+        gen_code_dict["var_name_to_decl_rel_position_dict"],
+        flush=True,
+    )
+    startPos, old_var_decl = gen_code_dict["var_name_to_decl_rel_position_dict"][
+        template_prefix(C.SETTA_GENERATED_PYTHON)
+    ][var_name]
+    endPos = startPos + len(old_var_decl)
+
+    # 4. Replace the old declaration with the new declaration.
+    gen_code = get_gen_code_template_var(
+        gen_code_dict["ref_template_var_positions"]["templateVars"]
+    )["value"]
+    gen_code = gen_code[:startPos] + maybe_add_newline(new_var_decl) + gen_code[endPos:]
+
+    # 5. Call generate_final_code_for_section with the new generated code as a replacement value
+    template_var_replacement_values = {
+        template_prefix(C.SETTA_GENERATED_PYTHON): gen_code
+    }
+    var_name_to_decl_rel_position_dict = copy.deepcopy(
+        gen_code_dict["var_name_to_decl_rel_position_dict"]
+    )
+    var_name_to_decl_rel_position_dict[template_prefix(C.SETTA_GENERATED_PYTHON)][
+        var_name
+    ] = (startPos, new_var_decl)
+    gen_code_details = exporter_obj.code_gen_template_var_section_details
+    gen_code_section = gen_code_details["section"]
+    gen_code_section_variant = gen_code_details["sectionVariant"]
+
+    (
+        code,
+        _,
+        var_name_to_decl_rel_position_dict,
+        ref_template_var_positions,
+    ) = generate_final_code_for_section(
+        code=gen_code_section_variant[
+            "code"
+        ],  # this is the code with the template vars still in place
+        codeLanguage=gen_code_section["codeLanguage"],
+        evRefs=gen_code_section_variant["evRefs"],
+        templateVars=gen_code_section_variant["templateVars"],
+        exporter_obj=exporter_obj,
+        folder_path=lsp_writers["full"].project_code_folder(message.projectConfigName),
+        template_var_replacement_values=template_var_replacement_values,
+        var_name_to_decl_rel_position_dict=var_name_to_decl_rel_position_dict,
+        push_var_name=var_name,
+    )
+
+    # 6. Compute the cursor position using the value from step 2, plus the returned var_name_to_decl_rel_position_dict
+    var_decl_rel_position = var_name_to_decl_rel_position_dict[
+        template_prefix(C.SETTA_GENERATED_PYTHON)
+    ][var_name][0]
+    gen_code_position = get_gen_code_template_var(
+        ref_template_var_positions["templateVars"]
+    )["startPos"]
+    cursor_position += var_decl_rel_position + gen_code_position
 
     return code, cursor_position
 
@@ -55,16 +121,19 @@ async def _textFieldCompletion(message, lsp_writers):
         return {"content": []}
 
     (
-        code,
-        code_gen_section_name,
+        gen_code_dict,
         var_name,
-        var_name_to_decl_position,
         referencable_var_names,
+        generated_var_names,
         exporter_obj,
     ) = cached
 
     code, cursor_position = get_code_and_cursor_position(
-        message, code, var_name, var_name_to_decl_position, exporter_obj
+        message,
+        gen_code_dict,
+        var_name,
+        exporter_obj,
+        lsp_writers,
     )
     line, column = position_to_line_col(code, cursor_position)
 
@@ -73,7 +142,7 @@ async def _textFieldCompletion(message, lsp_writers):
         code,
         exporter_obj,
         message.projectConfigName,
-        code_gen_section_name,
+        gen_code_dict["name"],
         is_gen_code=True,
     )
     await lsp_writers["full"].send_autocomplete_request(
@@ -82,7 +151,7 @@ async def _textFieldCompletion(message, lsp_writers):
         code_id,
         request_id,
         referencable_var_names,
-        var_name_to_decl_position.keys(),
+        generated_var_names,
     )
 
     return None

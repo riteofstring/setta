@@ -99,12 +99,10 @@ def generate_final_code_for_sections(
         else:
             section_variant = get_selected_section_variant(p, s["id"])
 
-        print("section_variant", section_variant, flush=True)
-
         (
             curr_code,
             curr_section_dependencies,
-            curr_var_name_to_decl_position_dict,
+            curr_var_name_to_decl_rel_position_dict,
             curr_ref_template_var_positions,
         ) = generate_final_code_for_section(
             code=section_variant["code"],
@@ -124,7 +122,7 @@ def generate_final_code_for_sections(
             "name": s["name"],
             "code": curr_code,
             "codeLanguage": s["codeLanguage"],
-            "var_name_to_decl_position_dict": curr_var_name_to_decl_position_dict,
+            "var_name_to_decl_rel_position_dict": curr_var_name_to_decl_rel_position_dict,
             "ref_template_var_positions": curr_ref_template_var_positions,
             "section_dependencies": curr_section_dependencies,
             "is_gen_code": is_gen_code,
@@ -145,11 +143,13 @@ def generate_final_code_for_section(
     do_convert_var_names_to_readable_form=False,
     cursor_position=None,
     template_var_replacement_values=None,
+    var_name_to_decl_rel_position_dict=None,
     push_var_name=None,
 ):
-    section_dependencies = []
-    var_name_to_decl_position_dict = {}
     setup_code = ""
+    section_dependencies = []
+    if var_name_to_decl_rel_position_dict is None:
+        var_name_to_decl_rel_position_dict = {}
     if template_var_replacement_values is None:
         template_var_replacement_values = {}
 
@@ -168,11 +168,10 @@ def generate_final_code_for_section(
             folder_path,
             codeLanguage,
             section_dependencies,
-            var_name_to_decl_position_dict,
+            var_name_to_decl_rel_position_dict,
             template_var_replacement_values,
             push_var_name,
         ),
-        var_name_to_decl_position_dict=var_name_to_decl_position_dict,
     )
 
     if codeLanguage == "python":
@@ -187,7 +186,8 @@ def generate_final_code_for_section(
         if do_convert_var_names_to_readable_form:
             code = convert_var_names_to_readable_form(
                 code,
-                var_name_to_decl_position_dict.get(
+                # TODO: this needs to be adjusted by startPos of SETTA_GENERATED_PYTHON
+                var_name_to_decl_rel_position_dict.get(
                     template_prefix(C.SETTA_GENERATED_PYTHON), {}
                 ),
                 exporter_obj,
@@ -198,7 +198,7 @@ def generate_final_code_for_section(
     return (
         code,
         section_dependencies,
-        var_name_to_decl_position_dict,
+        var_name_to_decl_rel_position_dict,
         ref_template_var_positions,
     )
 
@@ -208,30 +208,33 @@ def get_template_var_replacement_value_fn(
     folder_path,
     codeLanguage,
     section_dependencies,
-    var_name_to_decl_position_dict,
+    var_name_to_decl_rel_position_dict,
     template_var_replacement_values,
     push_var_name,
 ):
-    def get_template_var_replacement_value(code, template_var):
+    def get_template_var_replacement_value(
+        code, template_var, ref_template_var_positions
+    ):
         keyword = template_var["keyword"]
         if keyword in template_var_replacement_values:
             return template_var_replacement_values[keyword]
         if codeLanguage == "python":
             if keyword == template_prefix(C.SETTA_GENERATED_PYTHON):
-                code_before_template_var = code[: template_var["startPos"]]
-                code, var_name_to_decl_position = generate_code(
+                code, var_name_to_decl_rel_position_dict[keyword] = generate_code(
                     exporter_obj.output,
                     push_var_name,
                 )
-                var_name_to_decl_position_dict[keyword] = {
-                    k: (v[0] + len(code_before_template_var), v[1])
-                    for k, v in var_name_to_decl_position.items()
-                }
                 return code
             elif keyword == template_prefix(C.SETTA_GENERATED_PYTHON_IMPORTS):
-                var_name_to_decl_position = var_name_to_decl_position_dict[
-                    template_prefix(C.SETTA_GENERATED_PYTHON)
-                ]
+                gen_code_template_var = get_gen_code_template_var(
+                    ref_template_var_positions["templateVars"]
+                )
+                var_name_to_decl_position = (
+                    get_absolute_decl_position_from_rel_position(
+                        gen_code_template_var,
+                        var_name_to_decl_rel_position_dict,
+                    )
+                )
                 return generate_imports(
                     code, push_var_name, var_name_to_decl_position, template_var
                 )
@@ -246,6 +249,15 @@ def get_template_var_replacement_value_fn(
             return codePathStr(Path(os.path.relpath(folder_path)), keyword, "python")
 
     return get_template_var_replacement_value
+
+
+def get_absolute_decl_position_from_rel_position(
+    template_var, var_name_to_decl_rel_position_dict
+):
+    return {
+        k: (v[0] + template_var["startPos"], v[1])
+        for k, v in var_name_to_decl_rel_position_dict[template_var["keyword"]].items()
+    }
 
 
 def preprocess_template_vars(code, evRefs, templateVars, cursor_position):

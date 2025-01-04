@@ -27,7 +27,6 @@ def process_refs(
     cursor_position=None,
     templateVars=None,
     get_template_var_replacement_value=None,
-    var_name_to_decl_position_dict=None,
 ):
     positions = {
         "refs": [],  # list of dicts, where each dict is {"keyword", "startPos", "value"}
@@ -36,8 +35,6 @@ def process_refs(
     }
     if templateVars is None:
         templateVars = []
-    if var_name_to_decl_position_dict is None:
-        var_name_to_decl_position_dict = {}
 
     refs_set = set(id(x) for x in refs)
     to_process = sorted(refs + templateVars, key=lambda x: x["startPos"])
@@ -47,7 +44,6 @@ def process_refs(
         refs_set,
         get_ref_var_name,
         get_template_var_replacement_value,
-        var_name_to_decl_position_dict,
     ]
     code = process_refs_helper(code, *args, process_last_ones=False)
     code = process_refs_helper(code, *args, process_last_ones=True)
@@ -61,7 +57,6 @@ def process_refs_helper(
     refs_set,
     get_ref_var_name,
     get_template_var_replacement_value,
-    var_name_to_decl_position_dict,
     process_last_ones,
 ):
     input_positions_len = {k: len(v) for k, v in positions.items() if k != "cursor"}
@@ -76,7 +71,7 @@ def process_refs_helper(
             )
             type = "refs"
         else:
-            replacement_value = get_template_var_replacement_value(code, x)
+            replacement_value = get_template_var_replacement_value(code, x, positions)
             type = "templateVars"
 
         startPos = x["startPos"]
@@ -89,10 +84,6 @@ def process_refs_helper(
 
         # Update positions for all positions that already existed when this function was called.
         update_existing_positions(positions, input_positions_len, startPos, length_diff)
-
-        update_var_name_to_decl_position_dict(
-            var_name_to_decl_position_dict, startPos, length_diff, x["keyword"]
-        )
 
         if positions["cursor"] is not None:
             positions["cursor"] = get_new_cursor_position(
@@ -112,18 +103,6 @@ def update_existing_positions(positions, input_positions_len, startPos, length_d
         for i in range(v):
             if startPos < positions[k][i]["startPos"]:
                 positions[k][i]["startPos"] += length_diff
-
-
-def update_var_name_to_decl_position_dict(
-    var_name_to_decl_position_dict, startPos, length_diff, curr_keyword
-):
-    for keyword, var_name_to_decl_position in var_name_to_decl_position_dict.items():
-        # We skip self because the var name declarations are being put "inside" the keyword.
-        if keyword == curr_keyword:
-            continue
-        for var_name, (position, var_str) in var_name_to_decl_position.items():
-            if startPos < position:
-                var_name_to_decl_position[var_name] = (position + length_diff, var_str)
 
 
 def get_new_cursor_position(cursor_position, length_diff, startPos, endPos):
