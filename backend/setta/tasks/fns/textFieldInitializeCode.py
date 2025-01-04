@@ -36,19 +36,12 @@ async def _textFieldInitializeCode(message, lsp_writers):
         lsp_writers, code_dict, exporter_obj, projectConfigName
     )
 
-    # codeJson = exporter_obj.output
-
-    # lines, var_name_to_line_num = generate_lines_of_code_without_imports(
-    #     codeJson,
-    #     push_var_name=var_name,
-    # )
     # infoToFullName = {
     #     tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
     # }
-    # pushed_var_name_line_num = var_name_to_line_num[var_name]
     # referencable_var_names = [
     #     infoToFullName[exporter_obj.var_name_reverse_mapping[v]]
-    #     for v, line_num in var_name_to_line_num.items()
+    #     for v, line_num in code_dict["var_name_to_position_dict"][].items()
     #     if line_num < pushed_var_name_line_num
     # ]
     # print("textFieldInitializeCode", flush=True)

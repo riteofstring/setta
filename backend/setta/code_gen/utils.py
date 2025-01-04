@@ -1,6 +1,3 @@
-import copy
-
-
 def push_var_deep(objects, target_var_name):
     def find_dependents(obj_list, var_name):
         """Find all objects that directly or indirectly depend on the given object."""

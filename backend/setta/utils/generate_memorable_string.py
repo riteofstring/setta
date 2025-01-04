@@ -1,6 +1,13 @@
 import random
 
 
+def generate_memorable_available_string(taken_strings):
+    name = None
+    while (not name) or name in taken_strings:
+        name = generate_memorable_string()
+    return name
+
+
 def generate_memorable_string(num_words=2, separator="_"):
     """
     Generate a random name by combining words from predefined lists.

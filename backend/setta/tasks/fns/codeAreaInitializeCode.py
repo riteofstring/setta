@@ -35,7 +35,7 @@ async def _codeAreaInitializeCode(message, lsp_writers):
     referencable_var_names = []
     generated_var_names = []
     if (
-        exporter_obj.code_gen_template_var_section_details.get("sectionId")
+        exporter_obj.code_gen_template_var_section_details["section"].get("id")
         == message.sectionId
     ):
         var_name_to_position = code_dict[message.sectionId][

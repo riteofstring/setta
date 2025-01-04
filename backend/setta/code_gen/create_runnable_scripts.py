@@ -5,7 +5,6 @@ from pathlib import Path
 from setta.code_gen.export_selected import (
     export_selected,
     get_gen_code_template_var,
-    get_section_code,
     get_section_type,
     get_selected_section_variant,
 )
@@ -27,7 +26,7 @@ from setta.utils.utils import prune_dict
 def runCode(message, terminal_write_fn=None, command_callback=None):
     p = message["content"]
     exporter_obj = export_selected(
-        p, always_export_args_objs=False, force_include_template_var=False
+        p, always_export_args_objs=False, force_include_template_var=True
     )
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
@@ -90,9 +89,24 @@ def generate_final_code_for_sections(
     code_sections = {
         k: v for k, v in p["sections"].items() if get_section_type(p, k) == C.CODE
     }
+
+    code_gen_template_var_section_details = (
+        exporter_obj.code_gen_template_var_section_details
+    )
+
+    if (
+        exporter_obj.force_include_template_var
+        and code_gen_template_var_section_details["section"]["id"] is None
+    ):
+        code_sections[None] = code_gen_template_var_section_details["section"]
+
     code_dict = {}
     for s in code_sections.values():
-        section_variant = get_selected_section_variant(p, s["id"])
+        if s["id"] is None:
+            section_variant = code_gen_template_var_section_details["sectionVariant"]
+        else:
+            section_variant = get_selected_section_variant(p, s["id"])
+
         (
             curr_code,
             curr_section_dependencies,

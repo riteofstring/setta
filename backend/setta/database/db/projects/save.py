@@ -11,7 +11,7 @@ from setta.utils.constants import (
     SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
     USER_SETTINGS,
 )
-from setta.utils.generate_memorable_string import generate_memorable_string
+from setta.utils.generate_memorable_string import generate_memorable_available_string
 from setta.utils.utils import filter_dict
 
 from ..codeInfo.save import save_code_info, save_code_info_col
@@ -98,8 +98,7 @@ def create_project_config(db, name, previewImgColor):
     db.execute(query)
     taken_names = [row[0] for row in db.fetchall()]
 
-    while (not name) or name in taken_names:
-        name = generate_memorable_string()
+    name = generate_memorable_available_string(taken_names)
 
     query = """
         INSERT INTO ProjectConfig (id, name, data)
