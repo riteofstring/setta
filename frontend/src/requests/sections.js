@@ -36,12 +36,14 @@ export async function dbParametersRequest({
   position,
   evRefs,
 }) {
-  const projectConfigId = useProjectConfig.getState().id;
+  const { id: projectConfigId, name: projectConfigName } =
+    useProjectConfig.getState();
   return await sendMessageAndWait({
     id: createNewId(),
     messageType: "parametersRequest",
     content: {
       projectConfigId,
+      projectConfigName,
       sectionId,
       paramInfoId: null,
       fullText,

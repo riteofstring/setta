@@ -27,50 +27,9 @@ class CodeCompletionContent(BaseModel):
     cached: Optional[Any] = None
 
 
-def textFieldCompletionFn(lsp_writers):
-    async def fn(
-        code_id,
-        request_id,
-        code,
-        codeJson,
-        var_name_to_position,
-        referencable_var_names,
-        line,
-        column,
-        **_,
-    ):
-        # print("code", code, flush=True)
-        # print("line, column", line, column, flush=True)
-
-        await lsp_writers["full"].send_document_update(code_id, code, codeJson)
-        await lsp_writers["full"].send_autocomplete_request(
-            line,
-            column,
-            code_id,
-            request_id,
-            referencable_var_names,
-            var_name_to_position.keys(),
-        )
-
-    return fn
-
-
-async def _textFieldCompletion(message, lsp_writers):
-    request_id = message.id
-    message = CodeCompletionContent.parse_obj(message.content)
-    cached = message.cached
-    if cached is None:
-        return {"content": []}
-
-    (
-        code,
-        code_gen_section_name,
-        var_name,
-        var_name_to_position,
-        referencable_var_names,
-        exporter_obj,
-    ) = cached
-
+def get_code_and_cursor_position(
+    message, code, var_name, var_name_to_position, exporter_obj
+):
     var_value, new_positions, _ = process_refs(
         message.fullText,
         message.evRefs,
@@ -89,6 +48,28 @@ async def _textFieldCompletion(message, lsp_writers):
     )  # shift by length of var declaration (like x = ...)
     cursor_position += startPos  # shift by location of var declaration
 
+    return code, cursor_position
+
+
+async def _textFieldCompletion(message, lsp_writers):
+    request_id = message.id
+    message = CodeCompletionContent.parse_obj(message.content)
+    cached = message.cached
+    if cached is None:
+        return {"content": []}
+
+    (
+        code,
+        code_gen_section_name,
+        var_name,
+        var_name_to_position,
+        referencable_var_names,
+        exporter_obj,
+    ) = cached
+
+    code, cursor_position = get_code_and_cursor_position(
+        message, code, var_name, var_name_to_position, exporter_obj
+    )
     line, column = position_to_line_col(code, cursor_position)
 
     code_id = await send_document_open_request(
