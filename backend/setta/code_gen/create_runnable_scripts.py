@@ -39,20 +39,17 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     )
 
     print("runCodeBlocks", p["runCodeBlocks"], flush=True)
-    section_dependencies = {k: v["sectionDependencies"] for k, v in code_dict.items()}
+    section_dependencies = {k: v["section_dependencies"] for k, v in code_dict.items()}
     section_dependencies = prune_dict(section_dependencies, p["runCodeBlocks"])
 
     to_write = topological_sort(section_dependencies)
-    id_to_filepath = {}
+    id_to_relpath = {}
     for sid in to_write:
         curr_code = code_dict[sid]
-        codeLanguage = curr_code["codeLanguage"]
-        extension = languageToExtension(codeLanguage)
-        filepath = write_string_to_file(
-            folder_path, f"{curr_code['name']}{extension}", curr_code["code"]
+        rel_path = write_code_to_file(
+            folder_path, curr_code["name"], curr_code["code"], curr_code["codeLanguage"]
         )
-        filepath = os.path.relpath(filepath).replace(os.sep, "/")
-        id_to_filepath[sid] = filepath
+        id_to_relpath[sid] = rel_path
 
     # Only run code that isn't referenced by other code
     run_order = [
@@ -61,17 +58,11 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
 
     # create a wrapper script if there are multiple files to run
     if len(run_order) > 1:
-        bash_script = ""
-        for sid in run_order:
-            bash_script += codeCallStr(folder_path, code_dict[sid])
-        filepath = write_string_to_file(folder_path, "SETTA_ENTRY.sh", bash_script)
-        filepath = os.path.relpath(filepath).replace(os.sep, "/")
-        command = f"bash {filepath}"
+        rel_path = create_wrapper_bash_script(folder_path, run_order, code_dict)
+        command = codeCallStr(rel_path, "bash")
     else:
         sid = run_order[0]
-        filepath = id_to_filepath[sid]
-        callingProgram = languageToCall(code_dict[sid]["codeLanguage"])
-        command = f"{callingProgram} {filepath}"
+        command = codeCallStr(id_to_relpath[sid], code_dict[sid]["codeLanguage"])
 
     if terminal_write_fn:
         terminal_write_fn(f"\x15{command}\n")
@@ -181,7 +172,7 @@ def generate_final_code_for_section(
     )
 
     if do_prepend_with_setup_code:
-        (code,) = prepend_with_setup_code(
+        code, setup_code = prepend_with_setup_code(
             code,
             codeLanguage,
             folder_path,
@@ -260,9 +251,19 @@ def codePathStr(folder_path, filename, codeLanguage):
     return os.path.relpath(output).replace(os.sep, "/")
 
 
-def codeCallStr(folder_path, section):
-    codePath = codePathStr(folder_path, section["name"], section["codeLanguage"])
-    return f"{languageToCall(section['codeLanguage'])} {codePath}\n"
+def codeCallStr(filepath, codeLanguage):
+    return f"{languageToCall(codeLanguage)} {filepath}"
+
+
+def create_wrapper_bash_script(folder_path, run_order, code_dict):
+    bash_script = ""
+    for sid in run_order:
+        curr_code = code_dict[sid]
+        codePath = codePathStr(
+            folder_path, curr_code["name"], curr_code["codeLanguage"]
+        )
+        bash_script += f'{codeCallStr(codePath, curr_code["codeLanguage"])}\n'
+    return write_code_to_file(folder_path, "SETTA_ENTRY", bash_script, "bash")
 
 
 def topological_sort(objects):
@@ -303,6 +304,12 @@ def create_timestamped_folder(base_dir, prefix=""):
             pass
 
     return folder_path
+
+
+def write_code_to_file(folder_path, filename, code, codeLanguage):
+    extension = languageToExtension(codeLanguage)
+    filepath = write_string_to_file(folder_path, f"{filename}{extension}", code)
+    return os.path.relpath(filepath).replace(os.sep, "/")
 
 
 def write_string_to_file(folder, filename, content):
