@@ -21,13 +21,19 @@ async def _codeAreaFindTemplateVars(message, lsp_writers):
     message_id = message.id
     message = CodeAreaFindTemplateVarsContent.parse_obj(message.content)
     candidateTemplateVars = message.candidateTemplateVars
+
+    if len(candidateTemplateVars) == 0:
+        return {"content": {"positions": [], "numMessages": 1}}
+
     code, positions_to_test = generateCodeForTemplateVarFinding(
         candidateTemplateVars, message.fullText
     )
     code_id = f"{message.sectionId}-find-template-vars"
 
     await lsp_writers["basic"].send_document_open_request(code_id, code)
-    for idx, startPos in enumerate(positions_to_test):
+    num_messages = len(positions_to_test)
+    for idx in range(num_messages):
+        startPos = positions_to_test[idx]
         line, col = position_to_line_col(code, startPos)
         request_id = f"{message_id}-{idx}"
         asyncio.create_task(
@@ -37,6 +43,7 @@ async def _codeAreaFindTemplateVars(message, lsp_writers):
                 code_id=code_id,
                 request_id=request_id,
                 return_id=message_id,
+                num_messages=num_messages,
             )
         )
 
@@ -54,7 +61,7 @@ def generateCodeForTemplateVarFinding(candidateTemplateVars, fullText):
         keyword_to_pos[keyword] = pos
 
     code = multireplace(fullText, var_name_mapping)
-    return code, keyword_to_pos.values()
+    return code, list(keyword_to_pos.values())
 
 
 codeAreaFindTemplateVars = TaskDefinition(

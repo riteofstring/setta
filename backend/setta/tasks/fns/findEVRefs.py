@@ -30,7 +30,16 @@ class TextFieldFindReferencesContent(BaseModel):
 async def _findEVRefs(message, lsp_writers):
     message_id = message.id
     message = TextFieldFindReferencesContent.parse_obj(message.content)
-    candidateEVRefs = message.candidateEVRefs
+    candidateEVRefs = filterCandidatesByScope(
+        message.candidateEVRefs,
+        message.fullText,
+        message.onlyAfterGenCodeTemplateVar,
+        message.templateVars,
+    )
+
+    if len(candidateEVRefs) == 0:
+        return {"content": {"positions": [], "numMessages": 1}}
+
     code, position_offset = generateCodeForReferenceFinding(
         candidateEVRefs,
         message.fullText,
@@ -42,7 +51,8 @@ async def _findEVRefs(message, lsp_writers):
     print(f"_findEVRefs\n{code}", flush=True)
 
     await lsp_writers["basic"].send_document_open_request(code_id, code)
-    for idx in range(len(candidateEVRefs)):
+    num_messages = len(candidateEVRefs)
+    for idx in range(num_messages):
         request_id = f"{message_id}-{idx}"
         asyncio.create_task(
             lsp_writers["basic"].send_reference_request(
@@ -52,10 +62,24 @@ async def _findEVRefs(message, lsp_writers):
                 code_id=code_id,
                 request_id=request_id,
                 return_id=message_id,
+                num_messages=num_messages,
             )
         )
 
     return None
+
+
+def filterCandidatesByScope(
+    candidateEVRefs, fullText, onlyAfterGenCodeTemplateVar, templateVars
+):
+    if not onlyAfterGenCodeTemplateVar:
+        return candidateEVRefs
+    matching_template_var = get_gen_code_template_var(templateVars)
+    if matching_template_var is None:
+        return []
+
+    # TODO
+    return candidateEVRefs
 
 
 def generateCodeForReferenceFinding(

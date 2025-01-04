@@ -91,7 +91,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_document_highlight_request(
-        self, line, character, code_id, request_id, return_id
+        self, line, character, code_id, request_id, return_id, num_messages
     ):
         uri = self.get_virtual_uri(code_id)
         params = {
@@ -99,6 +99,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             "position": {"line": line, "character": character},
         }
         self.msg_id_to_metadata[request_id]["return_id"] = return_id
+        self.msg_id_to_metadata[request_id]["num_messages"] = num_messages
         # the response doesn't include uri for some reason,
         # so we keep track of it manually
         self.msg_id_to_metadata[request_id]["uri"] = uri
@@ -142,6 +143,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         code_id,
         request_id,
         return_id,
+        num_messages,
     ):
         uri = self.get_virtual_uri(code_id)
         params = {
@@ -153,6 +155,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         }
         self.msg_id_to_metadata[request_id]["position_offset"] = position_offset
         self.msg_id_to_metadata[request_id]["return_id"] = return_id
+        self.msg_id_to_metadata[request_id]["num_messages"] = num_messages
         await self.send_request(
             "textDocument/references",
             params=params,

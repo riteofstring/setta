@@ -187,10 +187,10 @@ export async function getEVRefs({
         templateVars,
         onlyAfterGenCodeTemplateVar,
       },
-      condition: (x) => {
-        keywordPositions.push(...x);
+      condition: ({ positions, numMessages }) => {
+        keywordPositions.push(...positions);
         count += 1;
-        return count === candidateEVRefs.length;
+        return count === numMessages;
       },
     });
 
@@ -212,21 +212,17 @@ async function getTemplateVars(sectionId, fullText) {
   console.log("candidateTemplateVars", candidateTemplateVars);
   if (candidateTemplateVars.length > 0) {
     let count = 0;
-    const uniqueCandidateKeywords = new Set();
-    for (const c of candidateTemplateVars) {
-      uniqueCandidateKeywords.add(c[0]);
-    }
     keywordPositions = [];
     await sendMessageAndWait({
       id: createNewId(),
       messageType: "codeAreaFindTemplateVars",
       content: { sectionId, candidateTemplateVars, fullText },
-      condition: (x) => {
-        if (x !== null) {
-          keywordPositions.push(...x);
+      condition: ({ positions, numMessages }) => {
+        if (positions !== null) {
+          keywordPositions.push(...positions);
         }
         count += 1;
-        return count === uniqueCandidateKeywords.size;
+        return count === numMessages;
       },
     });
 

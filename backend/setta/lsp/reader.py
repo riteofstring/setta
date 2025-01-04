@@ -282,9 +282,10 @@ class LanguageServerReader(LanguageServerInteractor):
 
                 # print(content, flush=True)
                 return_id = self.msg_id_to_metadata[id]["return_id"]
+                num_messages = self.msg_id_to_metadata[id]["num_messages"]
                 # print('returning reference request', content, flush=True)
                 await self.websocket_manager.send_message_to_requester(
-                    return_id, content
+                    return_id, {"positions": content, "numMessages": num_messages}
                 )
             elif method == "textDocument/documentHighlight":
                 content = []
@@ -308,8 +309,9 @@ class LanguageServerReader(LanguageServerInteractor):
                             {"startPos": positions[0], "endPos": positions[1]}
                         )
                 return_id = self.msg_id_to_metadata[id]["return_id"]
+                num_messages = self.msg_id_to_metadata[id]["num_messages"]
                 await self.websocket_manager.send_message_to_requester(
-                    return_id, content
+                    return_id, {"positions": content, "numMessages": num_messages}
                 )
         elif method == "textDocument/publishDiagnostics":
             # print(response, flush=True)
