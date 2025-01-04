@@ -95,7 +95,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         generated_var_names=generated_var_names,
     )
 
-    return {"content": None}
+    return None
 
 
 def get_gen_code_position(ref_template_var_positions, keyword_to_replacement_value):

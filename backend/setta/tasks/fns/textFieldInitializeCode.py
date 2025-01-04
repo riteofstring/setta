@@ -58,7 +58,6 @@ async def _textFieldInitializeCode(message, lsp_writers):
     code_gen_section_name = gen_code_section_details["name"]
 
     return {
-        "content": None,
         "cache": [
             code,
             code_gen_section_name,

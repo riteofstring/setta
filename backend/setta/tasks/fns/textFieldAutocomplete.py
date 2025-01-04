@@ -89,7 +89,7 @@ async def _textFieldCompletion(message, lsp_writers):
         var_name_to_position.keys(),
     )
 
-    return {"content": None}
+    return None
 
 
 def read_cache(cache, message):

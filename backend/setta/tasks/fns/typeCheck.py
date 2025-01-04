@@ -21,7 +21,7 @@ async def _typeCheck(message, lsp_writers):
         lsp_writers, code_dict, exporter_obj, projectConfigName
     )
 
-    return {"content": None}
+    return None
 
 
 typeCheck = TaskDefinition(

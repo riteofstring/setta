@@ -46,7 +46,7 @@ class WebsocketManager:
                 result = await self.tasks(
                     message["messageType"], TaskMessage.parse_obj(message)
                 )
-                if result["content"]:
+                if "content" in result:
                     websocket = self.sockets[fromWebsocketId]["websocket"]
                     await websocket.send_text(
                         json.dumps(

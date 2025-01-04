@@ -38,9 +38,7 @@ async def _codeAreaFindTemplateVars(message, lsp_writers):
             )
         )
 
-    return {
-        "content": None,
-    }
+    return None
 
 
 # generate valid variable names because for example $SETTA_GENERATED_PYTHON is not valid

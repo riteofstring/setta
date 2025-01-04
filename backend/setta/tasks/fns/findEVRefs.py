@@ -47,9 +47,7 @@ async def _findEVRefs(message, lsp_writers):
             )
         )
 
-    return {
-        "content": None,
-    }
+    return None
 
 
 def generateCodeForReferenceFinding(

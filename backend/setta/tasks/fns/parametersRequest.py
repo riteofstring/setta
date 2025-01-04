@@ -43,7 +43,7 @@ async def _parametersRequest(message, lsp_writers):
     await lsp_writers["full"].send_signature_help_request(
         line, column, code_id, request_id
     )
-    return {"content": None}
+    return None
 
 
 parametersRequest = TaskDefinition(
