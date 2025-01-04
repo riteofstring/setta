@@ -42,7 +42,13 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     if gen_code_template_var and exporter_obj is None:
         return {"content": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
 
-    code, _, _, new_positions, _ = generate_final_code_for_section(
+    (
+        code,
+        _,
+        _,
+        new_positions,
+        keyword_to_replacement_value,
+    ) = generate_final_code_for_section(
         code=code,
         codeLanguage=message.codeLanguage,
         evRefs=message.evRefs,
@@ -55,7 +61,21 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         ],
     )
 
-    line, column = position_to_line_col(code, new_positions["cursor"][0][0])
+    cursor_position = new_positions["cursor"][0][0]
+    gen_code_position = get_gen_code_position(
+        new_positions, keyword_to_replacement_value
+    )
+
+    if gen_code_position is not None and cursor_position <= gen_code_position:
+        generated_var_names = []
+        referencable_var_names = []
+
+    referencable_var_names = [
+        *special_keywords_for_autocomplete(gen_code_template_var),
+        *referencable_var_names,
+    ]
+
+    line, column = position_to_line_col(code, cursor_position)
 
     code_id = await send_document_open_request(
         lsp_writers,
@@ -71,14 +91,23 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         column,
         code_id=code_id,
         request_id=request_id,
-        referencable_var_names=[
-            *special_keywords_for_autocomplete(gen_code_template_var),
-            *referencable_var_names,
-        ],
+        referencable_var_names=referencable_var_names,
         generated_var_names=generated_var_names,
     )
 
     return {"content": None}
+
+
+def get_gen_code_position(new_positions, keyword_to_replacement_value):
+    return next(
+        (
+            t[0]
+            for t in new_positions["templateVars"]
+            if t[1]
+            == keyword_to_replacement_value[template_prefix(C.SETTA_GENERATED_PYTHON)]
+        ),
+        None,
+    )
 
 
 def special_keywords_for_autocomplete(gen_code_template_var):
