@@ -6,16 +6,8 @@ from ..utils import push_var_deep
 from .ast_utils import find_missing_imports, find_top_level_symbols
 
 
-def get_location_str(node):
-    return f"{node.lineno}_{node.col_offset}"
-
-
-def import_str(x):
-    return f"import {x}"
-
-
 def get_import_text(code):
-    imports = [import_str(x) for x in find_missing_imports(code)]
+    imports = [f"import {x}" for x in find_missing_imports(code)]
     return "\n".join(imports)
 
 
@@ -129,9 +121,9 @@ def create_line(var_name, x, selected, force_appear):
     return value, relative_positions
 
 
-def generate_code_without_imports(selected, push_var_name=None):
+def generate_code(selected, push_var_name=None):
     code = ""
-    var_name_to_position = {}
+    var_name_to_decl_position = {}
     if push_var_name:
         for v in selected.values():
             if (
@@ -152,73 +144,35 @@ def generate_code_without_imports(selected, push_var_name=None):
         if var_str:
             var_str = f"{var_str}\n"
             startPos = len(code)
-            var_name_to_position[var_name] = startPos, var_str
+            var_name_to_decl_position[var_name] = startPos, var_str
             code += var_str
             x["ref_var_name_positions"] = ref_var_name_positions
 
-    return code, var_name_to_position
+    return code, var_name_to_decl_position
 
 
-def count_lines(string):
-    if not string:  # Check if the string is empty
-        return 0
-    line_count = string.count("\n")
-    if string.endswith("\n"):
-        line_count -= 1
-    return line_count + 1  # Adjusting for the last line
+def generate_imports(code, push_var_name, var_name_to_decl_position, template_var):
+    if push_var_name:
+        startPos, var_decl = var_name_to_decl_position[push_var_name]
+        endPos = startPos + len(var_decl)
+        var_decl = maybe_add_newline(
+            make_parseable(code[startPos:endPos], push_var_name)
+        )
+        code = code[:startPos] + var_decl + code[endPos:]
 
-
-def maybe_prepend_with_imports(
-    code_before_gen_code,
-    gen_code,
-    push_var_name,
-    var_name_to_position,
-):
-    imports = ""
-    if USER_SETTINGS["backend"]["inferImports"]:
-        if push_var_name:
-            original_gen_code = gen_code
-            startPos, var_decl = var_name_to_position[push_var_name]
-            endPos = startPos + len(var_decl)
-            var_decl = maybe_add_newline(
-                make_parseable(gen_code[startPos:endPos], push_var_name)
-            )
-            gen_code = gen_code[:startPos] + var_decl + gen_code[endPos:]
-
-        to_infer_imports_from = code_before_gen_code + gen_code
-        imports = get_import_text(to_infer_imports_from) + "\n\n"
-
-        if push_var_name:
-            gen_code = original_gen_code
-
-    new_gen_code = imports + gen_code
-    new_var_name_to_position = {
-        k: (v[0] + len(imports), v[1]) for k, v in var_name_to_position.items()
-    }
-
-    return (
-        new_gen_code,
-        new_var_name_to_position,
-    )
-
-
-def generate_code(selected, code_before_gen_code, push_var_name=None):
-    gen_code, var_name_to_position = generate_code_without_imports(
-        selected,
-        push_var_name,
-    )
-
-    return maybe_prepend_with_imports(
-        code_before_gen_code,
-        gen_code,
-        push_var_name,
-        var_name_to_position,
-    )
+    startPos = template_var["startPos"]
+    endPos = startPos + len(template_var["keyword"])
+    # remove template var to infer imports, because ast will raise syntax error
+    code = code[:startPos] + code[endPos:]
+    imports = get_import_text(code)
+    if len(imports) > 0:
+        imports += "\n"
+    return imports
 
 
 def convert_var_names_to_readable_form(
     generated_code,
-    var_name_to_position,
+    var_name_to_decl_position,
     exporter_obj,
     code_area_ref_var_name_positions,
     setup_code,
@@ -233,7 +187,7 @@ def convert_var_names_to_readable_form(
     ]
 
     # convert to global positions
-    for var_name, (startPos, _) in var_name_to_position.items():
+    for var_name, (startPos, _) in var_name_to_decl_position.items():
         newStartPos = startPos + setup_code_len
         all_ref_var_name_positions.append((newStartPos, var_name))
         for col, v in exporter_obj.output[var_name]["ref_var_name_positions"]:
@@ -266,17 +220,6 @@ def create_nice_var_name(top_level_symbols, nice_name):
         trial_name = f"{nice_name}_{counter}"
         counter += 1
     return trial_name
-
-
-def get_line_from_string(input_string, line_number):
-    lines = input_string.split("\n")
-    return lines[line_number]
-
-
-def append_to_line(input_string, line_number, append):
-    lines = input_string.split("\n")
-    lines[line_number] += append
-    return "\n".join(lines)
 
 
 def position_to_line_col(text, position):
@@ -312,16 +255,3 @@ def line_col_to_position_batch(text, line_col_pairs):
             results.append(position)
 
     return results
-
-
-def replace_gen_code_template_var(code, templateVar, gen_code):
-    return replace_at_positions(
-        code,
-        [
-            (
-                templateVar["startPos"],
-                templateVar["keyword"],
-                gen_code,
-            )
-        ],
-    )

@@ -42,16 +42,16 @@ async def _textFieldInitializeCode(message, lsp_writers):
         "section"
     ]
     gen_code_dict = code_dict[gen_code_section_details["id"]]
-    var_name_to_position = gen_code_dict["var_name_to_position_dict"][
+    var_name_to_decl_position = gen_code_dict["var_name_to_decl_position_dict"][
         template_prefix(C.SETTA_GENERATED_PYTHON)
     ]
-    pushed_var_name_position = var_name_to_position[var_name]
+    pushed_var_name_position = var_name_to_decl_position[var_name]
     infoToFullName = {
         tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
     }
     referencable_var_names = [
         infoToFullName[exporter_obj.var_name_reverse_mapping[v]]
-        for v, (startPos, _) in var_name_to_position.items()
+        for v, (startPos, _) in var_name_to_decl_position.items()
         if startPos < pushed_var_name_position[0]
     ]
     code = gen_code_dict["code"]
@@ -62,7 +62,7 @@ async def _textFieldInitializeCode(message, lsp_writers):
             code,
             code_gen_section_name,
             var_name,
-            var_name_to_position,
+            var_name_to_decl_position,
             referencable_var_names,
             exporter_obj,
         ],

@@ -20,13 +20,13 @@ async def _parametersRequest(message, lsp_writers):
         code,
         code_gen_section_name,
         var_name,
-        var_name_to_position,
+        var_name_to_decl_position,
         _,
         exporter_obj,
     ) = cached
 
     code, cursor_position = get_code_and_cursor_position(
-        message, code, var_name, var_name_to_position, exporter_obj
+        message, code, var_name, var_name_to_decl_position, exporter_obj
     )
     code = code[:cursor_position] + "()" + code[cursor_position + 2 :]
     # move cursor into parentheses

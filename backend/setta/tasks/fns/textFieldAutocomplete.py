@@ -2,11 +2,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from setta.code_gen.python.generate_code import (
-    maybe_prepend_with_imports,
-    position_to_line_col,
-    var_declaration,
-)
+from setta.code_gen.python.generate_code import position_to_line_col, var_declaration
 from setta.code_gen.python.make_parseable import maybe_add_newline
 from setta.code_gen.utils import process_refs
 from setta.tasks.fns.textFieldInitializeCode import get_cache_key
@@ -28,7 +24,7 @@ class CodeCompletionContent(BaseModel):
 
 
 def get_code_and_cursor_position(
-    message, code, var_name, var_name_to_position, exporter_obj
+    message, code, var_name, var_name_to_decl_position, exporter_obj
 ):
     var_value, new_positions, _ = process_refs(
         message.fullText,
@@ -38,7 +34,7 @@ def get_code_and_cursor_position(
     )
 
     new_var_decl = var_declaration(var_name, var_value)
-    startPos, old_var_decl = var_name_to_position[var_name]
+    startPos, old_var_decl = var_name_to_decl_position[var_name]
     endPos = startPos + len(old_var_decl)
     code = code[:startPos] + maybe_add_newline(new_var_decl) + code[endPos:]
 
@@ -62,13 +58,13 @@ async def _textFieldCompletion(message, lsp_writers):
         code,
         code_gen_section_name,
         var_name,
-        var_name_to_position,
+        var_name_to_decl_position,
         referencable_var_names,
         exporter_obj,
     ) = cached
 
     code, cursor_position = get_code_and_cursor_position(
-        message, code, var_name, var_name_to_position, exporter_obj
+        message, code, var_name, var_name_to_decl_position, exporter_obj
     )
     line, column = position_to_line_col(code, cursor_position)
 
@@ -86,7 +82,7 @@ async def _textFieldCompletion(message, lsp_writers):
         code_id,
         request_id,
         referencable_var_names,
-        var_name_to_position.keys(),
+        var_name_to_decl_position.keys(),
     )
 
     return None

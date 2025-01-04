@@ -6,8 +6,12 @@ import { getSectionPathFullName } from "./sectionInfos";
 
 // input is state computed by keyword regex subscription
 export function getTemplateVarsRegexAndColorMap(state) {
-  const names = [C.SETTA_GENERATED_PYTHON];
-  const fullRawNameToSectionId = { [C.SETTA_GENERATED_PYTHON]: null };
+  const names = [C.SETTA_GENERATED_PYTHON, C.SETTA_GENERATED_PYTHON_IMPORTS];
+  const fullRawNameToSectionId = {};
+  for (const n of names) {
+    fullRawNameToSectionId[n] = null;
+  }
+
   const sectionState = useSectionInfos.getState();
   for (const sectionId of state.templateVarEligibleSections) {
     const fullName = getSectionPathFullName(sectionId, sectionState);
