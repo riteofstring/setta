@@ -1,4 +1,6 @@
 import asyncio
+import random
+import string
 from typing import Any, Callable, List, Optional
 
 from pydantic import BaseModel
@@ -38,6 +40,42 @@ async def send_document_open_request(
     )
 
     return code_id
+
+
+def prepare_code_for_scope_checking(fullText, templateVars, target_template_var):
+    the_special_var_name = None
+    for t in templateVars:
+        startPos = t["startPos"]
+        keyword = t["keyword"]
+        endPos = startPos + len(keyword)
+        if t is target_template_var:
+            # need to assign something to the replacement variable so that ast considers it a variable
+            decl = "=None"
+            # the [:-len(decl)] is to keep the full declaration the same length as the original keyword
+            the_special_var_name = generate_unique_variable(fullText, keyword)[
+                : -len(decl)
+            ]
+            replacement = the_special_var_name + decl
+        else:
+            # variable assignment not necessary for the keywords that we don't care about
+            replacement = generate_unique_variable(fullText, keyword)
+        fullText = fullText[:startPos] + replacement + fullText[endPos:]
+
+    return fullText, the_special_var_name
+
+
+def generate_unique_variable(code, keyword):
+    length = len(keyword)
+    chars = string.ascii_lowercase + string.digits + "_"
+
+    while True:
+        # Ensure the variable starts with a letter or underscore
+        new_var = random.choice(string.ascii_lowercase + "_")
+        # Fill the rest with random characters
+        new_var += "".join(random.choice(chars) for _ in range(length - 1))
+
+        if new_var.isidentifier() and new_var not in code:
+            return new_var
 
 
 def do_nothing(*args, **kwargs):

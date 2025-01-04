@@ -254,6 +254,8 @@ def create_nice_var_name(top_level_symbols, nice_name):
     return trial_name
 
 
-def get_chars_before_newline(string, position):
+def get_chars_in_line_before_position(string, position):
     last_newline = string.rfind("\n", 0, position)
-    return string[last_newline + 1 : position]
+    if last_newline != -1:
+        return string[last_newline + 1 : position]
+    return ""

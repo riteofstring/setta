@@ -1,6 +1,4 @@
 import asyncio
-import random
-import string
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -10,7 +8,11 @@ from setta.code_gen.python.check_scope import are_positions_in_scope_with_variab
 from setta.tasks.task_runner import RunType
 from setta.utils.utils import multireplace
 
-from .utils import TaskDefinition
+from .utils import (
+    TaskDefinition,
+    generate_unique_variable,
+    prepare_code_for_scope_checking,
+)
 
 # TODO: for each candidate evRef, check if it's in the same scope as $SETTA_GENERATED_PYTHON
 # Replace $SETTA_GENERATED_PYTHON with random characters so that it's a valid python value
@@ -77,23 +79,9 @@ def filterCandidatesByScope(
     if matching_template_var is None:
         return []
 
-    the_special_var_name = None
-    for t in templateVars:
-        startPos = t["startPos"]
-        keyword = t["keyword"]
-        endPos = startPos + len(keyword)
-        if t is matching_template_var:
-            # need to assign something to the replacement variable so that ast considers it a variable
-            decl = "=None"
-            # the [:-len(decl)] is to keep the full declaration the same length as the original keyword
-            the_special_var_name = generate_unique_variable(fullText, keyword)[
-                : -len(decl)
-            ]
-            replacement = the_special_var_name + decl
-        else:
-            # variable assignment not necessary for the keywords that we don't care about
-            replacement = generate_unique_variable(fullText, keyword)
-        fullText = fullText[:startPos] + replacement + fullText[endPos:]
+    fullText, the_special_var_name = prepare_code_for_scope_checking(
+        fullText, templateVars, matching_template_var
+    )
 
     response = are_positions_in_scope_with_variable(
         fullText, [x[1] for x in candidateEVRefs], the_special_var_name
@@ -142,20 +130,6 @@ def generateCodeForReferenceFinding(
     if len(var_name_mapping) > 0:
         fullText = multireplace(fullText, var_name_mapping)
     return f"{output}\n{fullText}", position_offset
-
-
-def generate_unique_variable(code, keyword):
-    length = len(keyword)
-    chars = string.ascii_lowercase + string.digits + "_"
-
-    while True:
-        # Ensure the variable starts with a letter or underscore
-        new_var = random.choice(string.ascii_lowercase + "_")
-        # Fill the rest with random characters
-        new_var += "".join(random.choice(chars) for _ in range(length - 1))
-
-        if new_var.isidentifier() and new_var not in code:
-            return new_var
 
 
 findEVRefs = TaskDefinition(

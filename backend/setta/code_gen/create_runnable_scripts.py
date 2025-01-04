@@ -14,7 +14,7 @@ from setta.code_gen.python.generate_code import (
     convert_var_names_to_readable_form,
     generate_code,
     generate_imports,
-    get_chars_before_newline,
+    get_chars_in_line_before_position,
 )
 from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
@@ -220,7 +220,7 @@ def get_template_var_replacement_value_fn(
             return template_var_replacement_values[keyword]
         if codeLanguage == "python":
             if keyword == tp(C.SETTA_GENERATED_PYTHON):
-                chars_before_template_var = get_chars_before_newline(
+                chars_before_template_var = get_chars_in_line_before_position(
                     code, template_var["startPos"]
                 )
 
