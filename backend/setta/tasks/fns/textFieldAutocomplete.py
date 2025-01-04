@@ -7,15 +7,17 @@ from setta.code_gen.python.generate_code import (
     position_to_line_col,
     var_declaration,
 )
+from setta.code_gen.python.make_parseable import maybe_add_newline
 from setta.code_gen.utils import process_refs
 from setta.tasks.fns.textFieldInitializeCode import get_cache_key
 from setta.tasks.task_runner import RunType
 
-from .utils import TaskDefinition
+from .utils import TaskDefinition, send_document_open_request
 
 
 class CodeCompletionContent(BaseModel):
     projectConfigId: str
+    projectConfigName: str
     sectionId: str
     paramInfoId: str | None
     beforeText: str
@@ -23,10 +25,6 @@ class CodeCompletionContent(BaseModel):
     position: int
     evRefs: list
     cached: Optional[Any] = None
-
-
-async def _textFieldCompletion(message, lsp_writers):
-    return await completionHelper(message, textFieldCompletionFn(lsp_writers))
 
 
 def textFieldCompletionFn(lsp_writers):
@@ -57,7 +55,7 @@ def textFieldCompletionFn(lsp_writers):
     return fn
 
 
-async def completionHelper(message, fn):
+async def _textFieldCompletion(message, lsp_writers):
     request_id = message.id
     message = CodeCompletionContent.parse_obj(message.content)
     cached = message.cached
@@ -65,60 +63,52 @@ async def completionHelper(message, fn):
         return {"content": []}
 
     (
-        lines,
+        code,
+        code_gen_section_name,
         var_name,
         var_name_to_position,
         referencable_var_names,
         exporter_obj,
     ) = cached
 
-    position = message.position
-    fullText, new_positions = process_refs(
+    var_value, new_positions, _ = process_refs(
         message.fullText,
         message.evRefs,
         exporter_obj.get_ref_var_name,
-        cursor_position=position,
-    )
-    position = new_positions["cursor"][0][0]
-    set_line(lines, var_name_to_position, var_name, fullText)
-
-    fullText, new_positions = process_refs(
-        exporter_obj.section_variant_with_code_gen_template_var["code"],
-        message.evRefs,
-        exporter_obj.get_ref_var_name,
-        cursor_position=position,
-        templateVars=[
-            exporter_obj.section_variant_with_code_gen_template_var["templateVar"]
-        ],
-        get_template_var_replacement_value=...,
+        cursor_position=message.position,
     )
 
-    code, var_name_to_position = maybe_prepend_with_imports(
-        lines,
-        exporter_obj.section_variant_with_code_gen_template_var["code"],
-        # exporter_obj.section_variant_with_code_gen_template_var["templateVar"],
-        var_name,
-        var_name_to_position,
+    new_var_decl = var_declaration(var_name, var_value)
+    startPos, old_var_decl = var_name_to_position[var_name]
+    endPos = startPos + len(old_var_decl)
+    code = code[:startPos] + maybe_add_newline(new_var_decl) + code[endPos:]
+
+    cursor_position = new_positions["cursor"][0][0]
+    cursor_position += len(new_var_decl) - len(
+        var_value
+    )  # shift by length of var declaration (like x = ...)
+    cursor_position += startPos  # shift by location of var declaration
+
+    line, column = position_to_line_col(code, cursor_position)
+
+    code_id = await send_document_open_request(
+        lsp_writers,
+        code,
+        exporter_obj,
+        message.projectConfigName,
+        code_gen_section_name,
+        is_gen_code=True,
+    )
+    await lsp_writers["full"].send_autocomplete_request(
+        line,
+        column,
+        code_id,
+        request_id,
+        referencable_var_names,
+        var_name_to_position.keys(),
     )
 
-    line_within_fullText, column = position_to_line_col(fullText, position)
-    # print("line_within_fullText, column", line_within_fullText, column, flush=True)
-    if line_within_fullText == 0:
-        column += len(var_declaration(var_name, ""))
-    line = line_within_fullText + var_name_to_position[var_name]
-
-    output = await fn(
-        code_id=message.projectConfigId,
-        request_id=request_id,
-        beforeText=message.beforeText,
-        code=code,
-        codeJson=exporter_obj.output,
-        var_name_to_position=var_name_to_position,
-        referencable_var_names=referencable_var_names,
-        line=line,
-        column=column,
-    )
-    return {"content": output}
+    return {"content": None}
 
 
 def read_cache(cache, message):

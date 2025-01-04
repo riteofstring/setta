@@ -128,7 +128,8 @@ export async function dbTextFieldCompletion({
   position,
   setEVRefs,
 }) {
-  const projectConfigId = useProjectConfig.getState().id;
+  const { id: projectConfigId, name: projectConfigName } =
+    useProjectConfig.getState();
   const evRefs = await getEVRefs({
     sectionId,
     paramInfoId,
@@ -142,6 +143,7 @@ export async function dbTextFieldCompletion({
     messageType: "textFieldCompletion",
     content: {
       projectConfigId,
+      projectConfigName,
       sectionId,
       paramInfoId,
       fullText,
