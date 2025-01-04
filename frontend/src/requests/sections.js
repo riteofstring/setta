@@ -174,7 +174,7 @@ export async function getEVRefs({
     keywordPositions = [];
     await sendMessageAndWait({
       id: createNewId(),
-      messageType: "textFieldFindReferences",
+      messageType: "findEVRefs",
       content: {
         sectionId,
         paramInfoId,

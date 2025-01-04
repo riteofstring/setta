@@ -4,7 +4,7 @@ from typing import List
 from pydantic import BaseModel
 
 from setta.code_gen.python.generate_code import position_to_line_col
-from setta.tasks.fns.textFieldFindReferences import generate_unique_variable
+from setta.tasks.fns.findEVRefs import generate_unique_variable
 from setta.tasks.task_runner import RunType
 from setta.utils.utils import multireplace
 

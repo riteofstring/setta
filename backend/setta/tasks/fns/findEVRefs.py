@@ -21,7 +21,7 @@ class TextFieldFindReferencesContent(BaseModel):
     fullText: str
 
 
-async def _textFieldFindReferences(message, lsp_writers):
+async def _findEVRefs(message, lsp_writers):
     message_id = message.id
     message = TextFieldFindReferencesContent.parse_obj(message.content)
     candidateEVRefs = message.candidateEVRefs
@@ -108,10 +108,10 @@ def generate_unique_variable(code, keyword):
             return new_var
 
 
-textFieldFindReferences = TaskDefinition(
-    name="textFieldFindReferences",
-    return_message_type="textFieldFindReferencesReturn",
-    fn=_textFieldFindReferences,
+findEVRefs = TaskDefinition(
+    name="findEVRefs",
+    return_message_type="findEVRefsReturn",
+    fn=_findEVRefs,
     run_as=RunType.NONE,
     server_dependencies=["lsp_writers"],
 )
