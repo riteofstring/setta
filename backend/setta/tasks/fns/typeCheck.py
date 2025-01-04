@@ -1,3 +1,5 @@
+from pprint import pprint
+
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
 from setta.tasks.task_runner import RunType
@@ -17,6 +19,7 @@ async def _typeCheck(message, lsp_writers):
         exporter_obj,
         lsp_writers["full"].project_code_folder(projectConfigName),
     )
+    pprint(code_dict)
     send_document_open_request_with_code_dict(
         lsp_writers, code_dict, exporter_obj, projectConfigName
     )
