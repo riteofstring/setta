@@ -30,8 +30,8 @@ def process_refs(
     var_name_to_decl_position_dict=None,
 ):
     positions = {
-        "refs": [],  # list of tuples, where each tuple is (keyword, position, replacement_value)
-        "templateVars": [],  # list of tuples, where each tuple is (keyword, position, replacement_value)
+        "refs": [],  # list of dicts, where each dict is {"keyword", "startPos", "value"}
+        "templateVars": [],  # list of dicts, where each tuple is {"keyword", "startPos", "value"}
         "cursor": cursor_position,
     }
     if templateVars is None:
@@ -99,7 +99,9 @@ def process_refs_helper(
                 positions["cursor"], length_diff, startPos, endPos
             )
 
-        positions[type].append((x["keyword"], startPos, replacement_value))
+        positions[type].append(
+            {"keyword": x["keyword"], "startPos": startPos, "value": replacement_value}
+        )
         code = code[:startPos] + replacement_value + code[endPos:]
 
     return code
@@ -108,9 +110,8 @@ def process_refs_helper(
 def update_existing_positions(positions, input_positions_len, startPos, length_diff):
     for k, v in input_positions_len.items():
         for i in range(v):
-            if startPos < positions[k][i][1]:
-                p = positions[k][i]
-                positions[k][i] = (p[0], p[1] + length_diff, p[2])
+            if startPos < positions[k][i]["startPos"]:
+                positions[k][i]["startPos"] += length_diff
 
 
 def update_var_name_to_decl_position_dict(

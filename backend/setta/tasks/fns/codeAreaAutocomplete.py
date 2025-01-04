@@ -95,9 +95,9 @@ async def _codeAreaAutocomplete(message, lsp_writers):
 
 def get_gen_code_position(ref_template_var_positions):
     keyword = template_prefix(C.SETTA_GENERATED_PYTHON)
-    for curr_keyword, pos, _ in ref_template_var_positions["templateVars"]:
-        if keyword == curr_keyword:
-            return pos
+    for r in ref_template_var_positions["templateVars"]:
+        if keyword == r["keyword"]:
+            return r["startPos"]
     return None
 
 

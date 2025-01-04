@@ -28,7 +28,7 @@ def get_mappings(var_names, selected, is_dict, positionalOnlyParams=None):
             prefix += var_decl_prefix
 
         curr_output = f"{prefix}{v}"
-        relative_positions.append((curr_position + len(prefix), v))
+        relative_positions.append({"startPos": curr_position + len(prefix), "value": v})
         curr_position += len(curr_output)
         output += curr_output
 
@@ -92,15 +92,21 @@ def get_value(x, selected):
             prefix = f"{x['value']['callable']}("
             output = f"{prefix}{output})"
             prefix_len = len(prefix)
-        relative_positions = [(p + prefix_len, v) for p, v in relative_positions]
+        relative_positions = [
+            {**r, "startPos": r["startPos"] + prefix_len} for r in relative_positions
+        ]
     elif type_value == C.LIST_ROOT:
         output, relative_positions = get_list_of_vars(x["value"])
         output = f"[{output}]"
-        relative_positions = [(p + 1, v) for p, v in relative_positions]
+        relative_positions = [
+            {**r, "startPos": r["startPos"] + 1} for r in relative_positions
+        ]
     elif type_value in [C.DICT_ROOT, C.GROUP, C.NESTED_PARAM]:
         output, relative_positions = get_dict_contents(x["value"], selected)
         output = "{" + output + "}"
-        relative_positions = [(p + 1, v) for p, v in relative_positions]
+        relative_positions = [
+            {**r, "startPos": r["startPos"] + 1} for r in relative_positions
+        ]
     else:
         output = None
         relative_positions = []
@@ -117,7 +123,9 @@ def create_line(var_name, x, selected, force_appear):
         prefix = var_declaration(var_name, value, return_prefix=True)
         prefix_len = len(prefix)
         value = f"{prefix}{value}"
-        relative_positions = [(p + prefix_len, v) for p, v in relative_positions]
+        relative_positions = [
+            {**r, "startPos": r["startPos"] + prefix_len} for r in relative_positions
+        ]
     return value, relative_positions
 
 

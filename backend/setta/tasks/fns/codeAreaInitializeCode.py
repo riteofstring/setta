@@ -51,10 +51,8 @@ async def _codeAreaInitializeCode(message, lsp_writers):
         ]
 
     template_var_replacement_values = {}
-    for keyword, _, replacement_value in code_dict[message.sectionId][
-        "ref_template_var_positions"
-    ]["templateVars"]:
-        template_var_replacement_values[keyword] = replacement_value
+    for r in code_dict[message.sectionId]["ref_template_var_positions"]["templateVars"]:
+        template_var_replacement_values[r["keyword"]] = r["value"]
 
     return {
         "content": True,

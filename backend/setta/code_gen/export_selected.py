@@ -318,7 +318,7 @@ class Exporter:
                         self.maybe_create_ref_var_name,
                     )
                     ref_var_name_positions = ref_template_var_positions["refs"]
-                    used_ref_var_names = [x[2] for x in ref_var_name_positions]
+                    used_ref_var_names = [x["value"] for x in ref_var_name_positions]
                 else:
                     callable = get_selected_item_name(self.p, id)
                     used_ref_var_names = []
@@ -470,7 +470,7 @@ class Exporter:
                 value, refs, self.maybe_create_ref_var_name
             )
             ref_var_name_positions = ref_template_var_positions["refs"]
-            used_ref_var_names = [x[2] for x in ref_var_name_positions]
+            used_ref_var_names = [x["value"] for x in ref_var_name_positions]
         else:
             value = new_ev_entry()["value"]
             used_ref_var_names = []
