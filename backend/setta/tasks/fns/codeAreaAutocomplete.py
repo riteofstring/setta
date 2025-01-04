@@ -99,15 +99,14 @@ async def _codeAreaAutocomplete(message, lsp_writers):
 
 
 def get_gen_code_position(ref_template_var_positions, keyword_to_replacement_value):
-    return next(
-        (
-            t[0]
-            for t in ref_template_var_positions["templateVars"]
-            if t[1]
-            == keyword_to_replacement_value[template_prefix(C.SETTA_GENERATED_PYTHON)]
-        ),
-        None,
-    )
+    keyword = template_prefix(C.SETTA_GENERATED_PYTHON)
+    for pos, value in ref_template_var_positions["templateVars"]:
+        if (
+            keyword in keyword_to_replacement_value
+            and keyword_to_replacement_value[keyword] == value
+        ):
+            return pos
+    return None
 
 
 def special_keywords_for_autocomplete(gen_code_template_var):
