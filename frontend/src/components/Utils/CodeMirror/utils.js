@@ -110,7 +110,7 @@ export function findCandidateEVRefs({
         paramInfoId,
       })
     )
-      output.add(match[0]);
+      output.add([match[0], match.index]);
   }
   return Array.from(output);
 }

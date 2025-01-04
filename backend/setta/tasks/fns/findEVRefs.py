@@ -6,6 +6,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from setta.code_gen.export_selected import get_gen_code_template_var
+from setta.code_gen.python.check_scope import are_positions_in_scope_with_variable
 from setta.tasks.task_runner import RunType
 from setta.utils.utils import multireplace
 
@@ -21,7 +22,7 @@ from .utils import TaskDefinition
 class TextFieldFindReferencesContent(BaseModel):
     sectionId: str
     paramInfoId: Optional[str] = None
-    candidateEVRefs: List[str]
+    candidateEVRefs: List[list]
     templateVars: Optional[List[dict]] = None
     onlyAfterGenCodeTemplateVar: Optional[bool] = False
     fullText: str
@@ -47,8 +48,6 @@ async def _findEVRefs(message, lsp_writers):
         message.templateVars,
     )
     code_id = f"{message.sectionId}-{message.paramInfoId}-find-references"
-
-    print(f"_findEVRefs\n{code}", flush=True)
 
     await lsp_writers["basic"].send_document_open_request(code_id, code)
     num_messages = len(candidateEVRefs)
@@ -78,8 +77,29 @@ def filterCandidatesByScope(
     if matching_template_var is None:
         return []
 
-    # TODO
-    return candidateEVRefs
+    the_special_var_name = None
+    for t in templateVars:
+        startPos = t["startPos"]
+        keyword = t["keyword"]
+        endPos = startPos + len(keyword)
+        if t is matching_template_var:
+            # need to assign something to the replacement variable so that ast considers it a variable
+            decl = "=None"
+            # the [:-len(decl)] is to keep the full declaration the same length as the original keyword
+            the_special_var_name = generate_unique_variable(fullText, keyword)[
+                : -len(decl)
+            ]
+            replacement = the_special_var_name + decl
+        else:
+            # variable assignment not necessary for the keywords that we don't care about
+            replacement = generate_unique_variable(fullText, keyword)
+        fullText = fullText[:startPos] + replacement + fullText[endPos:]
+
+    response = are_positions_in_scope_with_variable(
+        fullText, [x[1] for x in candidateEVRefs], the_special_var_name
+    )
+
+    return [x for idx, x in enumerate(candidateEVRefs) if response[idx]]
 
 
 def generateCodeForReferenceFinding(
@@ -103,7 +123,7 @@ def generateCodeForReferenceFinding(
 
     output = []
     var_name_mapping = {}
-    for keyword in candidateEVRefs:
+    for keyword, _ in candidateEVRefs:
         # Replace reference names like
         # list_of_models[0]
         # with a random valid variable name of the same length.

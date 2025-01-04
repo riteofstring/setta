@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_section
 from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.code_gen.find_placeholders import tp
-from setta.code_gen.python.generate_code import position_to_line_col
+from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 

@@ -2,6 +2,8 @@ import ast
 from dataclasses import dataclass
 from typing import List, Set
 
+from setta.code_gen.python.position_line_col import position_to_line_col
+
 
 @dataclass
 class ScopeRange:
@@ -160,7 +162,12 @@ def are_positions_in_scope_with_variable(
 
     output = []
 
-    for line, col in positions:
+    line_col_positions = []
+    for x in positions:
+        line, col = position_to_line_col(code, x)
+        line_col_positions.append((line + 1, col))
+
+    for line, col in line_col_positions:
         in_scope = False
         # Check each scope
         for scope in visitor.scopes:

@@ -1,4 +1,4 @@
-from setta.code_gen.python.generate_code import position_to_line_col
+from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.tasks.task_runner import RunType
 
 from .textFieldAutocomplete import (
