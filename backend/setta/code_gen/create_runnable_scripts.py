@@ -186,12 +186,11 @@ def generate_final_code_for_section(
         if do_convert_var_names_to_readable_form:
             code = convert_var_names_to_readable_form(
                 code,
-                # TODO: this needs to be adjusted by startPos of SETTA_GENERATED_PYTHON
                 var_name_to_decl_rel_position_dict.get(
                     template_prefix(C.SETTA_GENERATED_PYTHON), {}
                 ),
                 exporter_obj,
-                ref_template_var_positions["refs"],
+                ref_template_var_positions,
                 setup_code,
             )
 

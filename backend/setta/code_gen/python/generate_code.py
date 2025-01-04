@@ -1,3 +1,4 @@
+from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.code_gen.python.make_parseable import make_parseable, maybe_add_newline
 from setta.utils.utils import replace_at_positions
 
@@ -180,9 +181,9 @@ def generate_imports(code, push_var_name, var_name_to_decl_position, template_va
 
 def convert_var_names_to_readable_form(
     generated_code,
-    var_name_to_decl_position,
+    var_name_to_decl_rel_position,
     exporter_obj,
-    code_area_ref_var_name_positions,
+    ref_template_var_positions,
     setup_code,
 ):
     # need to adjust line numbers and positions with prepended setup code length
@@ -191,15 +192,22 @@ def convert_var_names_to_readable_form(
     setup_code_len = len(setup_code)
 
     all_ref_var_name_positions = [
-        (p + setup_code_len, v) for _, p, v in code_area_ref_var_name_positions
+        (r["startPos"] + setup_code_len, r["value"])
+        for r in ref_template_var_positions["refs"]
     ]
 
+    gen_code_template_var = get_gen_code_template_var(
+        ref_template_var_positions["templateVars"]
+    )
+
     # convert to global positions
-    for var_name, (startPos, _) in var_name_to_decl_position.items():
+    for var_name, (startPos, _) in var_name_to_decl_rel_position.items():
         newStartPos = startPos + setup_code_len
+        if gen_code_template_var:
+            newStartPos += gen_code_template_var["startPos"]
         all_ref_var_name_positions.append((newStartPos, var_name))
-        for col, v in exporter_obj.output[var_name]["ref_var_name_positions"]:
-            all_ref_var_name_positions.append((newStartPos + col, v))
+        for r in exporter_obj.output[var_name]["ref_var_name_positions"]:
+            all_ref_var_name_positions.append((newStartPos + r["startPos"], r["value"]))
 
     # create nice var names for references
     top_level_symbols = find_top_level_symbols(generated_code)
