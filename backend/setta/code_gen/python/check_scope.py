@@ -114,43 +114,63 @@ def are_positions_in_scope_with_variable(
     code: str,
     positions: list[tuple[int, int]],
     variable_name: str
-) -> bool:
+) -> list[bool]:
     """
-    Check if a position in the code is in the same scope as a specific variable.
+    Check if multiple positions in the code are in the same scope as a specific variable.
+    
+    This function analyzes Python code to determine whether each given position (line, column)
+    falls within a scope where a specified variable is defined. A scope can be a module,
+    function, or class definition.
     
     Args:
-        code: The Python code as a string
-        position: Tuple of (line, column) for the position to check
-        variable_name: Name of the variable to check for
+        code (str): The Python source code to analyze
+        positions (list[tuple[int, int]]): List of (line, column) tuples representing
+            positions to check. Line and column numbers are 1-based.
+        variable_name (str): Name of the variable to check for in the scope
         
     Returns:
-        bool: True if the position is in the same scope as the variable
+        list[bool]: List of boolean values corresponding to each position in the input,
+            where True indicates the position is in a scope where the variable is defined,
+            and False indicates it is not.
+            
+    Raises:
+        SyntaxError: If the provided code contains syntax errors (handled internally
+            by returning all False values)
+    
+    Example:
+        >>> code = '''
+        def func():
+            x = 1
+            return x
+        '''
+        >>> positions = [(2, 0), (3, 4), (4, 0)]
+        >>> are_positions_in_scope_with_variable(code, positions, 'x')
+        [True, True, False]
     """
     try:
         tree = ast.parse(code)
     except SyntaxError:
-        return False
+        return [False] * len(positions)  # Return correct number of Falses
         
     visitor = ScopeVisitor()
     visitor.visit(tree)
     
     output = []
 
-    for line,col in positions:
+    for line, col in positions:
+        in_scope = False
         # Check each scope
         for scope in visitor.scopes:
             # Check if position is within this scope
-            if not (
-                scope.start_line <= line <= scope.end_line and
+            if (scope.start_line <= line <= scope.end_line and
                 (scope.start_line != line or scope.start_col <= col) and
-                (scope.end_line != line or col <= scope.end_col)
-            ):
-                continue
-                
-            # Check if variable is defined in this scope
-            if variable_name in scope.variable_names:
-                output.append(True)
-                
-        output.append(False)
+                (scope.end_line != line or col <= scope.end_col)):
+                    
+                # Check if variable is defined in this scope
+                if variable_name in scope.variable_names:
+                    in_scope = True
+                    break
+                    
+        output.append(in_scope)
     
     return output
