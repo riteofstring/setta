@@ -12,6 +12,17 @@ from setta.utils.utils import multireplace
 from .utils import TaskDefinition
 
 
+#TODO: for each candidate evRef, check if it's in the same scope as $SETTA_GENERATED_PYTHON
+# Replace $SETTA_GENERATED_PYTHON with random characters so that it's a valid python value
+# and declare it equal to something, like dlkfslkdjf=None.
+# Then use the ast-based function that claude wrote to check if each position in the candidate evRefs
+# is in the same scope as the randomly-named variable.
+
+
+
+
+
+
 class TextFieldFindReferencesContent(BaseModel):
     sectionId: str
     paramInfoId: Optional[str] = None
