@@ -164,6 +164,7 @@ def generate_final_code_for_section(
         get_template_var_replacement_value=get_template_var_replacement_value_fn(
             exporter_obj,
             folder_path,
+            codeLanguage,
             section_dependencies,
             var_name_to_position_dict,
             template_var_replacement_values,
@@ -171,24 +172,25 @@ def generate_final_code_for_section(
         ),
     )
 
-    if do_prepend_with_setup_code:
-        code, setup_code = prepend_with_setup_code(
-            code,
-            codeLanguage,
-            folder_path,
-            projectConfigName,
-        )
+    if codeLanguage == "python":
+        if do_prepend_with_setup_code:
+            code, setup_code = prepend_with_setup_code(
+                code,
+                codeLanguage,
+                folder_path,
+                projectConfigName,
+            )
 
-    if do_convert_var_names_to_readable_form:
-        code = convert_var_names_to_readable_form(
-            code,
-            var_name_to_position_dict.get(
-                template_prefix(C.SETTA_GENERATED_PYTHON), {}
-            ),
-            exporter_obj,
-            ref_template_var_positions["refs"],
-            setup_code,
-        )
+        if do_convert_var_names_to_readable_form:
+            code = convert_var_names_to_readable_form(
+                code,
+                var_name_to_position_dict.get(
+                    template_prefix(C.SETTA_GENERATED_PYTHON), {}
+                ),
+                exporter_obj,
+                ref_template_var_positions["refs"],
+                setup_code,
+            )
 
     return (
         code,
@@ -202,6 +204,7 @@ def generate_final_code_for_section(
 def get_template_var_replacement_value_fn(
     exporter_obj,
     folder_path,
+    codeLanguage,
     section_dependencies,
     var_name_to_position_dict,
     template_var_replacement_values,
@@ -212,29 +215,34 @@ def get_template_var_replacement_value_fn(
         keyword = template_var["keyword"]
         if keyword in template_var_replacement_values:
             return template_var_replacement_values[keyword]
-        elif keyword == template_prefix(C.SETTA_GENERATED_PYTHON):
-            code_before_template_var = code[: template_var["startPos"]]
-            code, var_name_to_position = generate_code(
-                exporter_obj.output,
-                code_before_template_var,
-                push_var_name,
-            )
-            var_name_to_position_dict[keyword] = {
-                k: (v[0] + len(code_before_template_var), v[1])
-                for k, v in var_name_to_position.items()
-            }
-            return code
-        else:
+        if codeLanguage == "python":
+            if keyword == template_prefix(C.SETTA_GENERATED_PYTHON):
+                code_before_template_var = code[: template_var["startPos"]]
+                code, var_name_to_position = generate_code(
+                    exporter_obj.output,
+                    code_before_template_var,
+                    push_var_name,
+                )
+                var_name_to_position_dict[keyword] = {
+                    k: (v[0] + len(code_before_template_var), v[1])
+                    for k, v in var_name_to_position.items()
+                }
+                return code
+            else:
+                section_dependencies.append(template_var["sectionId"])
+                module_path = convert_folder_path_to_module_path(folder_path)
+                keyword = keyword.lstrip(C.TEMPLATE_PREFIX)
+                return f"{module_path}.{keyword}"
+        elif codeLanguage == "bash":
             section_dependencies.append(template_var["sectionId"])
-            module_path = convert_folder_path_to_module_path(folder_path)
             keyword = keyword.lstrip(C.TEMPLATE_PREFIX)
-            return f"{module_path}.{keyword}"
+            return codePathStr(Path(os.path.relpath(folder_path)), keyword, "python")
 
     return get_template_var_replacement_value
 
 
 def convert_folder_path_to_module_path(folder_path):
-    return str(os.path.relpath(folder_path)).replace("/", ".").replace("\\", ".")
+    return os.path.relpath(folder_path).replace("/", ".").replace("\\", ".")
 
 
 def languageToExtension(x):
