@@ -27,28 +27,32 @@ class CodeCompletionContent(BaseModel):
     cached: Optional[Any] = None
 
 
-def get_code_and_cursor_position(
-    message, code, var_name, var_name_to_position, exporter_obj
-):
-    var_value, new_positions, _ = process_refs(
-        message.fullText,
-        message.evRefs,
-        exporter_obj.get_ref_var_name,
-        cursor_position=message.position,
-    )
+def textFieldCompletionFn(lsp_writers):
+    async def fn(
+        code_id,
+        request_id,
+        code,
+        codeJson,
+        var_name_to_position,
+        referencable_var_names,
+        line,
+        column,
+        **_,
+    ):
+        # print("code", code, flush=True)
+        # print("line, column", line, column, flush=True)
 
-    new_var_decl = maybe_add_newline(var_declaration(var_name, var_value))
-    startPos, old_var_decl = var_name_to_position[var_name]
-    endPos = startPos + len(old_var_decl)
-    code = code[:startPos] + new_var_decl + code[endPos:]
+        await lsp_writers["full"].send_document_update(code_id, code, codeJson)
+        await lsp_writers["full"].send_autocomplete_request(
+            line,
+            column,
+            code_id,
+            request_id,
+            referencable_var_names,
+            var_name_to_position.keys(),
+        )
 
-    cursor_position = new_positions["cursor"][0][0]
-    cursor_position += len(new_var_decl) - len(
-        var_value
-    )  # shift by length of var declaration (like x = ...)
-    cursor_position += startPos  # shift by location of var declaration
-
-    return code, cursor_position
+    return fn
 
 
 async def _textFieldCompletion(message, lsp_writers):
@@ -67,12 +71,25 @@ async def _textFieldCompletion(message, lsp_writers):
         exporter_obj,
     ) = cached
 
-    code, cursor_position = get_code_and_cursor_position(
-        message, code, var_name, var_name_to_position, exporter_obj
+    var_value, new_positions, _ = process_refs(
+        message.fullText,
+        message.evRefs,
+        exporter_obj.get_ref_var_name,
+        cursor_position=message.position,
     )
-    line, column = position_to_line_col(code, cursor_position)
 
-    print("code", code, flush=True)
+    new_var_decl = var_declaration(var_name, var_value)
+    startPos, old_var_decl = var_name_to_position[var_name]
+    endPos = startPos + len(old_var_decl)
+    code = code[:startPos] + maybe_add_newline(new_var_decl) + code[endPos:]
+
+    cursor_position = new_positions["cursor"][0][0]
+    cursor_position += len(new_var_decl) - len(
+        var_value
+    )  # shift by length of var declaration (like x = ...)
+    cursor_position += startPos  # shift by location of var declaration
+
+    line, column = position_to_line_col(code, cursor_position)
 
     code_id = await send_document_open_request(
         lsp_writers,
