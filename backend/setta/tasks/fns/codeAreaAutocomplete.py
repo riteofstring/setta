@@ -2,34 +2,23 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from setta.code_gen.create_runnable_scripts import generate_final_code_for_section
-from setta.code_gen.export_selected import get_gen_code_template_var
-from setta.code_gen.find_placeholders import tp
-from setta.code_gen.python.check_scope import are_positions_in_scope_with_variable
-from setta.code_gen.python.generate_code import get_chars_in_line_before_position
-from setta.code_gen.python.position_line_col import position_to_line_col
+from setta.code_gen.find_placeholders import double_braces
+from setta.code_gen.python.generate_code import position_to_line_col, replace_keywords
+from setta.code_gen.utils import process_refs
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
 from .codeAreaInitializeCode import get_cache_key
-from .utils import (
-    TaskDefinition,
-    prepare_code_for_scope_checking,
-    send_document_open_request,
-)
+from .utils import TaskDefinition
 
 
 class CodeAreaAutocompleteContent(BaseModel):
     projectConfigId: str
-    projectConfigName: str
-    codeLanguage: str
     sectionId: str
-    sectionName: str
     beforeText: str
     fullText: str
     position: int
     evRefs: list
-    templateVars: list
     cached: Optional[Any] = None
 
 
@@ -38,128 +27,67 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     message = CodeAreaAutocompleteContent.parse_obj(message.content)
 
     (
-        template_var_replacement_values,
+        gen_code,
         generated_var_names,
         referencable_var_names,
         exporter_obj,
     ) = message.cached
-    code = message.fullText
-    gen_code_template_var = get_gen_code_template_var(message.templateVars)
-    if gen_code_template_var and exporter_obj is None:
+    fullText = message.fullText
+    template_str = double_braces(C.SETTA_GENERATED_PYTHON)
+    gen_code_index = fullText.find(template_str)
+    has_gen_code = gen_code_index != -1
+    if has_gen_code and exporter_obj is None:
         return {"content": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
 
-    (
+    position = message.position
+    cursor_is_after_gen_code = False
+    if has_gen_code:
+        if position >= (gen_code_index + len(template_str)):
+            cursor_is_after_gen_code = True
+        elif gen_code_index <= position < gen_code_index + len(template_str):
+            # if cursor is inside template str, then don't fetch autocomplete results
+            return {"content": None}
+
+    if cursor_is_after_gen_code:
+        fullText, _, [(position, *_), *_] = process_refs(
+            fullText,
+            message.evRefs,
+            exporter_obj.get_ref_var_name,
+            position,
+        )
+
+    code = replace_keywords(fullText, {C.SETTA_GENERATED_PYTHON: gen_code})
+
+    if cursor_is_after_gen_code:
+        position += len(gen_code) - len(template_str)
+    else:
+        referencable_var_names = []
+        generated_var_names = []
+
+    line, column = position_to_line_col(code, position)
+
+    await lsp_writers["full"].send_document_update(
+        message.projectConfigId,
         code,
-        _,
-        _,
-        ref_template_var_positions,
-    ) = generate_final_code_for_section(
-        code=code,
-        codeLanguage=message.codeLanguage,
-        evRefs=message.evRefs,
-        templateVars=message.templateVars,
-        exporter_obj=exporter_obj,
-        folder_path=lsp_writers["full"].project_code_folder(message.projectConfigName),
-        cursor_position=message.position,
-        template_var_replacement_values=template_var_replacement_values,
+        codeJson=exporter_obj.output if exporter_obj else None,
     )
-
-    cursor_position = ref_template_var_positions["cursor"]
-    line, column = position_to_line_col(code, cursor_position)
-
-    generated_var_names, referencable_var_names = calculate_referencable_var_names(
-        message.fullText,  # use original code
-        message.templateVars,  # use original template vars
-        message.position,  # use original cursor position
-        generated_var_names,
-        referencable_var_names,
-    )
-
-    code_id = await send_document_open_request(
-        lsp_writers,
-        code,
-        exporter_obj,
-        message.projectConfigName,
-        message.sectionName,
-        bool(gen_code_template_var),
-    )
-
     await lsp_writers["full"].send_autocomplete_request(
         line,
         column,
-        code_id=code_id,
+        code_id=message.projectConfigId,
         request_id=request_id,
-        referencable_var_names=referencable_var_names,
+        referencable_var_names=[
+            *special_keywords_for_autocomplete(),
+            *referencable_var_names,
+        ],
         generated_var_names=generated_var_names,
     )
 
-    return None
+    return {"content": None}
 
 
-def calculate_referencable_var_names(
-    code,
-    original_template_vars,
-    original_cursor_position,
-    generated_var_names,
-    referencable_var_names,
-):
-    gen_code_template_var = get_gen_code_template_var(original_template_vars)
-    gen_code_position = (
-        gen_code_template_var["startPos"] if gen_code_template_var else None
-    )
-
-    if gen_code_position is None or original_cursor_position <= gen_code_position:
-        return [], []
-
-    code, the_special_var_name = prepare_code_for_scope_checking(
-        code, original_template_vars, gen_code_template_var
-    )
-
-    code = add_placeholder_to_empty_line_for_scope_checking(
-        code, original_cursor_position
-    )
-
-    response = are_positions_in_scope_with_variable(
-        code, [original_cursor_position], the_special_var_name
-    )
-
-    if response[0]:
-        referencable_var_names = [
-            *special_keywords_for_autocomplete(gen_code_template_var),
-            *referencable_var_names,
-        ]
-        return generated_var_names, referencable_var_names
-
-    return [], []
-
-
-# The are_positions_in_scope_with_variable function doesn't work with empty lines
-# So if the cursor is on an empty line, we add a dummy _
-def add_placeholder_to_empty_line_for_scope_checking(code, cursor_position):
-    is_empty_line = False
-    before_chars = get_chars_in_line_before_position(code, cursor_position)
-
-    if len(before_chars.strip()) == 0:
-        line_end_index = code.find("\n", cursor_position)
-        if line_end_index == -1:
-            # Check remaining characters if we're at the last line
-            after_chars = code[cursor_position:]
-        else:
-            after_chars = code[cursor_position:line_end_index]
-
-        if len(after_chars.strip()) == 0:
-            is_empty_line = True
-
-    if is_empty_line:
-        code = code[:cursor_position] + "_" + code[cursor_position:]
-
-    return code
-
-
-def special_keywords_for_autocomplete(gen_code_template_var):
-    if not gen_code_template_var:
-        return [tp(C.SETTA_GENERATED_PYTHON)]
-    return []
+def special_keywords_for_autocomplete():
+    return [double_braces(C.SETTA_GENERATED_PYTHON)]
 
 
 def read_cache(cache, message):

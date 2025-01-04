@@ -69,15 +69,3 @@ export function shortcutPrettified(shortcut) {
   // Replace all occurrences of "mod" (case-insensitive) with the appropriate symbol
   return shortcut.replace(modRegex, isMacOs() ? macSymbol : windowsText);
 }
-
-export function dummyRegExpObject() {
-  return {
-    exec: function () {
-      return null;
-    },
-  };
-}
-
-export function templatePrefix(x) {
-  return `${C.TEMPLATE_PREFIX}${x}`;
-}

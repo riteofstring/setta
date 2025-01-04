@@ -2,13 +2,17 @@ import json
 
 from pydantic import BaseModel
 
-from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
-from setta.code_gen.export_selected import export_selected
-from setta.code_gen.find_placeholders import tp
+from setta.code_gen.export_selected import (
+    export_selected,
+    get_first_section_code_that_needs_generated_python,
+)
+from setta.code_gen.python.generate_code import (
+    generate_lines_of_code_without_imports,
+    maybe_prepend_with_imports_and_replace_templated_code,
+)
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import C
 
-from .utils import TaskDefinition, send_document_open_request_with_code_dict
+from .utils import TaskDefinition
 
 
 class TextFieldInitializeCodeContent(BaseModel):
@@ -17,51 +21,48 @@ class TextFieldInitializeCodeContent(BaseModel):
     paramInfoId: str | None
 
 
-async def _textFieldInitializeCode(message, lsp_writers):
+async def _textFieldInitializeCode(message):
     message = TextFieldInitializeCodeContent.parse_obj(message.content)
     project = message.project
-    exporter_obj = export_selected(
-        project, always_export_args_objs=True, force_include_template_var=True
+    exporter_obj = export_selected(project, always_export_args_objs=True)
+    codeJson = exporter_obj.output
+    templatedCode = get_first_section_code_that_needs_generated_python(project)
+    sectionId = message.sectionId
+    paramInfoId = message.paramInfoId
+    push_var_name = exporter_obj.var_name_mapping[(sectionId, paramInfoId, False)]
+    lines, var_name_to_line_num = generate_lines_of_code_without_imports(
+        codeJson,
+        push_var_name=push_var_name,
+        force_appear_var_name=push_var_name,
     )
-
-    var_name = exporter_obj.var_name_mapping[
-        (message.sectionId, message.paramInfoId, False)
-    ]
-    projectConfigName = project["projectConfig"]["name"]
-    code_dict = generate_final_code_for_sections(
-        project,
-        exporter_obj,
-        lsp_writers["full"].project_code_folder(projectConfigName),
-        push_var_name=var_name,
-    )
-    send_document_open_request_with_code_dict(
-        lsp_writers, code_dict, exporter_obj, projectConfigName
-    )
-
-    gen_code_section_details = exporter_obj.code_gen_template_var_section_details[
-        "section"
-    ]
-    gen_code_dict = code_dict[gen_code_section_details["id"]]
-    var_name_to_decl_position = gen_code_dict["var_name_to_decl_rel_position_dict"][
-        tp(C.SETTA_GENERATED_PYTHON)
-    ]
-    pushed_var_name_position = var_name_to_decl_position[var_name]
-    generated_var_names = list(var_name_to_decl_position.keys())
     infoToFullName = {
         tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
     }
+    pushed_var_name_line_num = var_name_to_line_num[push_var_name]
     referencable_var_names = [
         infoToFullName[exporter_obj.var_name_reverse_mapping[v]]
-        for v, (startPos, _, _) in var_name_to_decl_position.items()
-        if startPos < pushed_var_name_position[0]
+        for v, line_num in var_name_to_line_num.items()
+        if line_num < pushed_var_name_line_num
     ]
+    print("textFieldInitializeCode", flush=True)
+    print(referencable_var_names, flush=True)
+
+    code, _ = maybe_prepend_with_imports_and_replace_templated_code(
+        lines,
+        templatedCode,
+        push_var_name,
+        var_name_to_line_num,
+    )
+
+    print("code\n", code, flush=True)
 
     return {
+        "content": None,
         "cache": [
-            gen_code_dict,
-            var_name,
+            lines,
+            var_name_to_line_num,
             referencable_var_names,
-            generated_var_names,
+            templatedCode,
             exporter_obj,
         ],
     }
@@ -87,5 +88,4 @@ textFieldInitializeCode = TaskDefinition(
     fn=_textFieldInitializeCode,
     write_cache=write_cache,
     run_as=RunType.NONE,
-    server_dependencies=["lsp_writers"],
 )

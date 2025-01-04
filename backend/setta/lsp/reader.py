@@ -5,7 +5,7 @@ from pprint import pprint
 
 import docstring_parser
 
-from setta.code_gen.python.position_line_col import line_col_to_position_batch
+from setta.code_gen.python.generate_code import line_col_to_position_batch
 from setta.utils.constants import C
 
 from .server import LanguageServerInteractor
@@ -225,9 +225,7 @@ class LanguageServerReader(LanguageServerInteractor):
                 break
 
     async def process_response(self, response):
-        # from pprint import pprint
-
-        # pprint(response)
+        # print(response, flush=True)
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
@@ -255,7 +253,7 @@ class LanguageServerReader(LanguageServerInteractor):
             elif method == "textDocument/references":
                 print("textDocument/references response", response, flush=True)
                 content = []
-                if response["result"] and len(response["result"]) > 0:
+                if len(response["result"]) > 0:
                     code = self.get_version(response["result"][0]["uri"])["code"]
                     line_cols = []
                     for x in response["result"]:
@@ -282,36 +280,9 @@ class LanguageServerReader(LanguageServerInteractor):
 
                 # print(content, flush=True)
                 return_id = self.msg_id_to_metadata[id]["return_id"]
-                num_messages = self.msg_id_to_metadata[id]["num_messages"]
                 # print('returning reference request', content, flush=True)
                 await self.websocket_manager.send_message_to_requester(
-                    return_id, {"positions": content, "numMessages": num_messages}
-                )
-            elif method == "textDocument/documentHighlight":
-                content = []
-                # if it's not None, then it's a variable or import or something like that
-                if response["result"]:
-                    # the response doesn't include uri for some reason,
-                    # so we keep track of it manually
-                    uri = self.msg_id_to_metadata[id]["uri"]
-                    code = self.get_version(uri)["code"]
-
-                    for x in response["result"]:
-                        r = x["range"]
-                        positions = line_col_to_position_batch(
-                            code,
-                            [
-                                (r["start"]["line"], r["start"]["character"]),
-                                (r["end"]["line"], r["end"]["character"]),
-                            ],
-                        )
-                        content.append(
-                            {"startPos": positions[0], "endPos": positions[1]}
-                        )
-                return_id = self.msg_id_to_metadata[id]["return_id"]
-                num_messages = self.msg_id_to_metadata[id]["num_messages"]
-                await self.websocket_manager.send_message_to_requester(
-                    return_id, {"positions": content, "numMessages": num_messages}
+                    return_id, content
                 )
         elif method == "textDocument/publishDiagnostics":
             # print(response, flush=True)
@@ -319,16 +290,14 @@ class LanguageServerReader(LanguageServerInteractor):
             diagnostics = params["diagnostics"]
             uri = params["uri"]
             version_info = self.get_version(uri, params.get("version"))
-            # TODO, remove this condition
-            if version_info["is_gen_code"]:
-                code = version_info["code"]
-                codeJson = version_info["codeJson"]
-                code_split = code.split("\n")
-                content = process_diagnostics(diagnostics, code_split, codeJson)
-                # print("content", content, flush=True)
-                await self.websocket_manager.broadcast(
-                    {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
-                )
+            code = version_info["code"]
+            codeJson = version_info["codeJson"]
+            code_split = code.split("\n")
+            content = process_diagnostics(diagnostics, code_split, codeJson)
+            # print("content", content, flush=True)
+            await self.websocket_manager.broadcast(
+                {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
+            )
 
         # print(self.received_messages.keys())
         # process_response(response)

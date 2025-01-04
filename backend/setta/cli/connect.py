@@ -3,7 +3,7 @@ import subprocess
 
 import websockets
 
-from setta.code_gen.create_runnable_scripts import runCode
+from setta.terminals.terminals import runCode
 
 from ..utils.constants import C
 
@@ -28,8 +28,7 @@ async def consumer_handler(websocket):
     async for message in websocket:
         message = json.loads(message)
         if message["messageType"] == C.WS_RUN_CODE:
-            command = runCode(message)
-            run_code_as_subprocess(command)
+            runCode(message, command_callback=run_code_as_subprocess)
 
 
 def run_code_as_subprocess(command):

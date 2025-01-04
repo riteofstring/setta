@@ -12,7 +12,6 @@ import { CustomCloseButton } from "./CustomCloseButton";
 import { LockPositionButton } from "./LockPositionButton";
 import MenuButton from "./MenuButton/MenuButton";
 import { MinimizeButton } from "./MinimizeButton";
-import { RunButton } from "./RunButton";
 import { SectionTitle } from "./SectionTitle";
 
 function _SectionHeader({
@@ -71,7 +70,6 @@ function _SectionHeader({
             <Incrementer sectionId={sectionId} isRoot={isRoot} popover={true} />
           </StandardPopover>
         )}
-        {sectionTypeName === C.CODE && <RunButton sectionId={sectionId} />}
         <LockPositionButton sectionId={sectionId} />
         {!isRoot && <MinimizeButton sectionId={sectionId} />}
         <CustomCloseButton onClick={onCustomCloseButtonClick} />

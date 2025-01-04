@@ -145,15 +145,6 @@ CREATE TABLE IF NOT EXISTS EVRefs (
     FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
     FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
 );
-CREATE TABLE IF NOT EXISTS TemplateVars (
-    variantId TEXT,
-    sectionId TEXT,
-    startPos INTEGER,
-    keyword TEXT,
-    PRIMARY KEY (variantId, startPos),
-    FOREIGN KEY (variantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
-    FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE
-);
 CREATE TABLE IF NOT EXISTS UIType (
     id TEXT PRIMARY KEY,
     type TEXT,

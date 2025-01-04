@@ -1,6 +1,5 @@
 import asyncio
 from collections import defaultdict
-from pathlib import Path
 
 
 class LanguageServer:
@@ -21,7 +20,7 @@ class LanguageServer:
     async def start_server(self):
         print("starting server")
         self.server = await asyncio.create_subprocess_shell(
-            # "pylyzer --server D:\\Documents\\App Development\\setta\\setta_code\\test.py",
+            # "pylyzer --server D:\\Documents\\App Development\\setta\\.setta_code\\test.py",
             # "pyright-langserver --stdio",
             # "pylsp",
             "basedpyright-langserver --stdio",
@@ -62,18 +61,12 @@ class LanguageServerInteractor:
     def code_folder(self):
         return self.server.code_folder
 
-    def project_code_folder(self, projectConfigName):
-        return self.code_folder / projectConfigName
-
-    def construct_code_id(self, projectConfigName, sectionName):
-        return str(Path(projectConfigName) / sectionName)
-
     @property
     def versions(self):
         return self.server.versions
 
-    def get_new_version_number(self, uri, code, codeJson, is_gen_code):
-        obj = {"code": code, "codeJson": codeJson, "is_gen_code": is_gen_code}
+    def get_new_version_number(self, uri, code, codeJson):
+        obj = {"code": code, "codeJson": codeJson}
         if uri not in self.versions:
             self.versions[uri] = {0: obj}
             new_version = 0

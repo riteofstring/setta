@@ -1,6 +1,3 @@
-import copy
-
-
 def push_var_deep(objects, target_var_name):
     def find_dependents(obj_list, var_name):
         """Find all objects that directly or indirectly depend on the given object."""
@@ -23,98 +20,43 @@ def push_var_deep(objects, target_var_name):
     return everything_else + target_and_dependents
 
 
-def process_refs(
-    code,
-    refs,
-    get_ref_var_name,
-    cursor_position=None,
-    templateVars=None,
-    get_template_var_replacement_value=None,
-):
-    positions = {
-        "refs": [],  # list of dicts, where each dict is {"keyword", "startPos", "value"}
-        "templateVars": [],  # list of dicts, where each tuple is {"keyword", "startPos", "value"}
-        "cursor": cursor_position,
-    }
-    if templateVars is None:
-        templateVars = []
+def process_refs(value, refs, get_var_name, cursor_position=None):
+    # positions is a list of tuples, where each tuple is (positions, shift, ref_var_name)
+    positions = [] if cursor_position is None else [(cursor_position, 0, None)]
+    refs = sorted(refs, key=lambda x: x["startPos"], reverse=True)
+    used_ref_var_names = []
+    for ref in refs:
+        ref_section_id = ref["sectionId"]
+        ref_param_info_id = ref["paramInfoId"]
+        ref_is_args_obj = ref["isArgsObj"]
+        ref_var_name = get_var_name(ref_section_id, ref_param_info_id, ref_is_args_obj)
+        startPos = ref["startPos"]
+        endPos = startPos + len(ref["keyword"])
 
-    refs = copy.deepcopy(refs)
-    templateVars = copy.deepcopy(templateVars)
-    refs_set = set(id(x) for x in refs)
-    to_process = sorted(refs + templateVars, key=lambda x: x["startPos"])
-    args = [
-        positions,
-        to_process,
-        refs_set,
-        get_ref_var_name,
-        get_template_var_replacement_value,
-    ]
-    code = process_refs_helper(code, *args, process_last_ones=False)
-    code = process_refs_helper(code, *args, process_last_ones=True)
-    return code, positions
+        positions.append((startPos, 0, ref_var_name))
+        set_new_positions_and_shifts(positions, ref_var_name, startPos, endPos)
+
+        value = value[:startPos] + ref_var_name + value[endPos:]
+        used_ref_var_names.append(ref_var_name)
+
+    positions = [(p + s, r) for p, s, r in positions]
+    return value, used_ref_var_names, positions
 
 
-def process_refs_helper(
-    code,
-    positions,
-    to_process,
-    refs_set,
-    get_ref_var_name,
-    get_template_var_replacement_value,
-    process_last_ones,
-):
-    input_positions_len = {k: len(v) for k, v in positions.items() if k != "cursor"}
+def set_new_positions_and_shifts(positions, ref_var_name, startPos, endPos):
+    # Calculate current replacement's length difference
+    length_diff = len(ref_var_name) - (endPos - startPos)
 
-    for i, x in enumerate(to_process):
-        if x.get("processLast", False) != process_last_ones:
-            continue
+    for idx in range(len(positions)):
+        position, shift, curr_ref_var_name = positions[idx]
 
-        if id(x) in refs_set:
-            replacement_value = get_ref_var_name(
-                x["sectionId"], x["paramInfoId"], x["isArgsObj"]
-            )
-            type = "refs"
-        else:
-            replacement_value = get_template_var_replacement_value(code, x, positions)
-            type = "templateVars"
+        # Update position if replacement occurs before the initial position
+        if endPos <= position:
+            # All changes before the position affect its offset
+            shift += length_diff
+        elif startPos < position < endPos:
+            position = startPos + len(
+                ref_var_name
+            )  # Reset position to after the new substring
 
-        startPos = x["startPos"]
-        endPos = startPos + len(x["keyword"])
-        length_diff = len(replacement_value) - (endPos - startPos)
-
-        # Update positions for all future replacements
-        for future_x in to_process[i + 1 :]:
-            future_x["startPos"] += length_diff
-
-        # Update positions for all positions that already existed when this function was called.
-        update_existing_positions(positions, input_positions_len, startPos, length_diff)
-
-        if positions["cursor"] is not None:
-            positions["cursor"] = get_new_cursor_position(
-                positions["cursor"], length_diff, startPos, endPos
-            )
-
-        positions[type].append(
-            {"keyword": x["keyword"], "startPos": startPos, "value": replacement_value}
-        )
-        code = code[:startPos] + replacement_value + code[endPos:]
-
-    return code
-
-
-def update_existing_positions(positions, input_positions_len, startPos, length_diff):
-    for k, v in input_positions_len.items():
-        for i in range(v):
-            if startPos < positions[k][i]["startPos"]:
-                positions[k][i]["startPos"] += length_diff
-
-
-def get_new_cursor_position(cursor_position, length_diff, startPos, endPos):
-    # Update position if replacement occurs before the initial position
-    if endPos <= cursor_position:
-        # All changes before the position affect its offset
-        return cursor_position + length_diff
-    elif startPos < cursor_position < endPos:
-        return endPos + length_diff  # Reset position to after the new substring
-    return cursor_position
+        positions[idx] = position, shift, curr_ref_var_name

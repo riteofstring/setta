@@ -3,7 +3,7 @@ from collections import defaultdict
 
 from setta.code_gen.export_selected import get_section_variants
 from setta.database.db.artifacts.save import save_artifact_groups, save_artifacts
-from setta.database.db.evRefs.save import save_ev_refs, save_template_vars
+from setta.database.db.evRefs.save import save_ev_refs
 from setta.database.utils import create_new_id
 from setta.utils.constants import (
     DEFAULT_VALUES,
@@ -11,7 +11,7 @@ from setta.utils.constants import (
     SECTION_CONFIG_TABLE_DATA_JSON_FIELDS,
     USER_SETTINGS,
 )
-from setta.utils.generate_memorable_string import generate_memorable_available_string
+from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import filter_dict
 
 from ..codeInfo.save import save_code_info, save_code_info_col
@@ -33,7 +33,6 @@ def save_project_details(db, p):
     save_section_variants(db, p["sectionVariants"])
     save_sections(db, p["sections"], p["sectionVariants"])
     save_ev_refs(db, p["sectionVariants"], p["codeInfo"])
-    save_template_vars(db, p["sectionVariants"])
     save_project(db, p["projectConfig"])
     save_section_configs(db, p["projectConfig"]["id"], p["sections"])
     update_linked_project_configs(db, p)
@@ -98,7 +97,8 @@ def create_project_config(db, name, previewImgColor):
     db.execute(query)
     taken_names = [row[0] for row in db.fetchall()]
 
-    name = generate_memorable_available_string(taken_names)
+    while (not name) or name in taken_names:
+        name = generate_memorable_string()
 
     query = """
         INSERT INTO ProjectConfig (id, name, data)
