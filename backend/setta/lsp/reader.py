@@ -287,22 +287,26 @@ class LanguageServerReader(LanguageServerInteractor):
                     return_id, content
                 )
             elif method == "textDocument/documentHighlight":
-                content = None
+                content = []
+                # if it's not None, then it's a variable or import or something like that
                 if response["result"]:
-                    # if it's not None, then it's a variable or import or something like that
-                    r = response["result"][0]["range"]
                     # the response doesn't include uri for some reason,
                     # so we keep track of it manually
                     uri = self.msg_id_to_metadata[id]["uri"]
                     code = self.get_version(uri)["code"]
-                    positions = line_col_to_position_batch(
-                        code,
-                        [
-                            (r["start"]["line"], r["start"]["character"]),
-                            (r["end"]["line"], r["end"]["character"]),
-                        ],
-                    )
-                    content = {"startPos": positions[0], "endPos": positions[1]}
+
+                    for x in response["result"]:
+                        r = x["range"]
+                        positions = line_col_to_position_batch(
+                            code,
+                            [
+                                (r["start"]["line"], r["start"]["character"]),
+                                (r["end"]["line"], r["end"]["character"]),
+                            ],
+                        )
+                        content.append(
+                            {"startPos": positions[0], "endPos": positions[1]}
+                        )
                 return_id = self.msg_id_to_metadata[id]["return_id"]
                 await self.websocket_manager.send_message_to_requester(
                     return_id, content

@@ -108,7 +108,7 @@ def process_refs_helper(
 def update_existing_positions(positions, input_positions_len, startPos, length_diff):
     for k, v in input_positions_len.items():
         for i in range(v):
-            if startPos < positions[k][i][0]:
+            if startPos < positions[k][i][1]:
                 p = positions[k][i]
                 positions[k][i] = (p[0], p[1] + length_diff, p[2])
 

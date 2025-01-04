@@ -212,6 +212,10 @@ async function getTemplateVars(sectionId, fullText) {
   console.log("candidateTemplateVars", candidateTemplateVars);
   if (candidateTemplateVars.length > 0) {
     let count = 0;
+    const uniqueCandidateKeywords = new Set();
+    for (const c of candidateTemplateVars) {
+      uniqueCandidateKeywords.add(c[0]);
+    }
     keywordPositions = [];
     await sendMessageAndWait({
       id: createNewId(),
@@ -219,10 +223,10 @@ async function getTemplateVars(sectionId, fullText) {
       content: { sectionId, candidateTemplateVars, fullText },
       condition: (x) => {
         if (x !== null) {
-          keywordPositions.push(x);
+          keywordPositions.push(...x);
         }
         count += 1;
-        return count === candidateTemplateVars.length;
+        return count === uniqueCandidateKeywords.size;
       },
     });
 
