@@ -3,9 +3,17 @@ import builtins
 from typing import Set
 
 
+def not_in_root_imports(import_path, root_imports):
+    return not any(
+        import_path.startswith(root + ".") or import_path == root
+        for root in root_imports
+    )
+
+
 def find_missing_imports(code: str) -> Set[str]:
     """
     Analyzes Python code and returns a set of missing imports.
+    If a module is explicitly imported (directly or with alias), its submodules are not considered missing.
 
     Args:
         code (str): String containing Python code to analyze
@@ -14,15 +22,16 @@ def find_missing_imports(code: str) -> Set[str]:
         Set[str]: Set of import statements that are missing
 
     Example:
-        >>> code = "x = torch.nn.CrossEntropyLoss()"
+        >>> code = "import torch; x = torch.nn.CrossEntropyLoss()"
         >>> find_missing_imports(code)
-        {'torch', 'torch.nn'}
+        set()  # torch.nn is not considered missing since torch is imported
     """
     # Get set of built-in names
     builtin_names = set(dir(builtins))
 
     # Track existing imports, defined names, and missing imports
     existing_imports = set()
+    root_imports = set()  # Track the root modules that are explicitly imported
     defined_names = set()
     missing_imports = set()
 
@@ -36,19 +45,21 @@ def find_missing_imports(code: str) -> Set[str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for name in node.names:
-                existing_imports.add(name.name)  # Original name
                 if name.asname:  # Alias
                     existing_imports.add(name.asname)
+                    root_imports.add(name.asname)  # Add alias as root
+                else:
+                    existing_imports.add(name.name)  # Original name
+                    root_imports.add(name.name.split(".")[0])  # Add root module
         elif isinstance(node, ast.ImportFrom):
             if node.module:
-                existing_imports.add(node.module)
                 for name in node.names:
-                    # Add both the fully qualified name and the direct import name
-                    existing_imports.add(f"{node.module}.{name.name}")
                     if name.asname:  # Alias
                         existing_imports.add(name.asname)
+                        root_imports.add(name.asname)
                     else:
                         existing_imports.add(name.name)
+                        root_imports.add(name.name.split(".")[0])  # Add root module
         elif isinstance(node, ast.FunctionDef):
             defined_names.add(node.name)
         elif isinstance(node, ast.ClassDef):
@@ -67,6 +78,7 @@ def find_missing_imports(code: str) -> Set[str]:
                 and node.id not in existing_imports
                 and node.id not in defined_names
                 and isinstance(node.ctx, ast.Load)
+                and not_in_root_imports(node.id, root_imports)
             ):
                 missing_imports.add(node.id)
         elif isinstance(node, ast.Attribute):
@@ -93,6 +105,7 @@ def find_missing_imports(code: str) -> Set[str]:
                     import_path not in existing_imports
                     and import_path not in builtin_names
                     and import_path not in defined_names
+                    and not_in_root_imports(import_path, root_imports)
                 ):
                     missing_imports.add(import_path)
 

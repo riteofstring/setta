@@ -2,13 +2,13 @@ import json
 
 from pydantic import BaseModel
 
-from setta.code_gen.export_selected import export_selected, get_section_code
-from setta.code_gen.find_placeholders import needs_generated_python
-from setta.code_gen.python.generate_code import generate_code, replace_keywords
+from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
+from setta.code_gen.export_selected import export_selected
+from setta.code_gen.find_placeholders import tp
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
-from .utils import TaskDefinition
+from .utils import TaskDefinition, send_document_open_request_with_code_dict
 
 
 class CodeAreaInitializeCodeContent(BaseModel):
@@ -16,25 +16,33 @@ class CodeAreaInitializeCodeContent(BaseModel):
     sectionId: str
 
 
-async def _codeAreaInitializeCode(message):
+async def _codeAreaInitializeCode(message, lsp_writers):
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     project = message.project
-    code = get_section_code(project, message.sectionId)
-    codeJson = None
-    gen_code = None
-    referencable_var_names = None
-    exporter_obj = None
-    generated_var_names = set()
-    if needs_generated_python(code):
-        print("NEEDS GENERATED CODE", flush=True)
-        exporter_obj = export_selected(project, always_export_args_objs=True)
-        codeJson = exporter_obj.output
-        gen_code, var_name_to_line_num = generate_code(
-            codeJson,
-            code,
-            replace_templated_code=False,
+    exporter_obj = export_selected(
+        project, always_export_args_objs=True, force_include_template_var=False
+    )
+    projectConfigName = project["projectConfig"]["name"]
+    code_dict = generate_final_code_for_sections(
+        project,
+        exporter_obj,
+        lsp_writers["full"].project_code_folder(projectConfigName),
+    )
+    send_document_open_request_with_code_dict(
+        lsp_writers, code_dict, exporter_obj, projectConfigName
+    )
+
+    referencable_var_names = []
+    generated_var_names = []
+    if (
+        exporter_obj.code_gen_template_var_section_details["section"].get("id")
+        == message.sectionId
+    ):
+        generated_var_names = list(
+            code_dict[message.sectionId]["var_name_to_decl_rel_position_dict"][
+                tp(C.SETTA_GENERATED_PYTHON)
+            ].keys()
         )
-        generated_var_names = var_name_to_line_num.keys()
         infoToFullName = {
             tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
         }
@@ -43,18 +51,14 @@ async def _codeAreaInitializeCode(message):
             for v in generated_var_names
         ]
 
-    # print("gen_code", gen_code, flush=True)
-    # print("var_name_to_line_num", var_name_to_line_num, flush=True)
-    # print("referencable_var_names", referencable_var_names, flush=True)
-
-    code = replace_keywords(code, {C.SETTA_GENERATED_PYTHON: gen_code})
-
-    print("code", code, flush=True)
+    template_var_replacement_values = {}
+    for r in code_dict[message.sectionId]["ref_template_var_positions"]["templateVars"]:
+        template_var_replacement_values[r["keyword"]] = r["value"]
 
     return {
         "content": True,
         "cache": [
-            gen_code,
+            template_var_replacement_values,
             generated_var_names,
             referencable_var_names,
             exporter_obj,
@@ -67,7 +71,6 @@ def get_cache_key(projectConfigId, sectionId):
 
 
 def write_cache(cache, message, result):
-    print("writing to cache", cache)
     if result.get("cache") is None:
         return
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
@@ -83,4 +86,5 @@ codeAreaInitializeCode = TaskDefinition(
     fn=_codeAreaInitializeCode,
     write_cache=write_cache,
     run_as=RunType.NONE,
+    server_dependencies=["lsp_writers"],
 )

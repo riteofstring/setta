@@ -1,7 +1,6 @@
-import importlib.util
-import os
-import sys
-import uuid
+import asyncio
+import random
+import string
 from typing import Any, Callable, List, Optional
 
 from pydantic import BaseModel
@@ -10,51 +9,73 @@ from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
 
-def import_from_path(file_path):
-    if not os.path.isfile(file_path):
-        return None
-    # Extract directory and module name from file path
-    module_dir, module_file = os.path.split(file_path)
-    module_name, _ = os.path.splitext(module_file)
-
-    # Create a module spec from the file path
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
-    if spec is None:
-        raise ImportError(f"Could not load module spec for {file_path}")
-
-    # Create a new module based on the spec
-    module = importlib.util.module_from_spec(spec)
-    if module is None:
-        raise ImportError(f"Could not create module from spec for {file_path}")
-
-    # Load the module
-    spec.loader.exec_module(module)
-
-    return module
+def send_document_open_request_with_code_dict(
+    lsp_writers, code_dict, exporter_obj, projectConfigName
+):
+    for details in code_dict.values():
+        asyncio.create_task(
+            send_document_open_request(
+                lsp_writers,
+                details["code"],
+                exporter_obj,
+                projectConfigName,
+                details["name"],
+                details["is_gen_code"],
+            )
+        )
 
 
-def import_code_from_string(code_string, module_name=None, add_to_sys_modules=False):
-    # Generate a unique module name if one isn't provided
-    if module_name is None:
-        module_name = f"setta_dynamic_module_{uuid.uuid4().hex}"
+async def send_document_open_request(
+    lsp_writers, code, exporter_obj, projectConfigName, sectionName, is_gen_code
+):
+    code_id = lsp_writers["full"].construct_code_id(
+        projectConfigName,
+        sectionName,
+    )
+    await lsp_writers["full"].send_document_open_request(
+        code_id=code_id,
+        code=code,
+        codeJson=exporter_obj.output if exporter_obj else None,
+        is_gen_code=is_gen_code,
+    )
 
-    # Create a new module spec
-    spec = importlib.util.spec_from_loader(module_name, loader=None)
+    return code_id
 
-    # Create a new module based on the spec
-    module = importlib.util.module_from_spec(spec)
 
-    # Optionally add the module to sys.modules
-    if add_to_sys_modules:
-        sys.modules[module_name] = module
+def prepare_code_for_scope_checking(fullText, templateVars, target_template_var):
+    the_special_var_name = None
+    for t in templateVars:
+        startPos = t["startPos"]
+        keyword = t["keyword"]
+        endPos = startPos + len(keyword)
+        if t is target_template_var:
+            # need to assign something to the replacement variable so that ast considers it a variable
+            decl = "=None"
+            # the [:-len(decl)] is to keep the full declaration the same length as the original keyword
+            the_special_var_name = generate_unique_variable(fullText, keyword)[
+                : -len(decl)
+            ]
+            replacement = the_special_var_name + decl
+        else:
+            # variable assignment not necessary for the keywords that we don't care about
+            replacement = generate_unique_variable(fullText, keyword)
+        fullText = fullText[:startPos] + replacement + fullText[endPos:]
 
-    # Compile the code string
-    code_object = compile(code_string, module_name, "exec")
+    return fullText, the_special_var_name
 
-    # Execute the compiled code object in the module's namespace
-    exec(code_object, module.__dict__)
 
-    return module
+def generate_unique_variable(code, keyword):
+    length = len(keyword)
+    chars = string.ascii_lowercase + string.digits + "_"
+
+    while True:
+        # Ensure the variable starts with a letter or underscore
+        new_var = random.choice(string.ascii_lowercase + "_")
+        # Fill the rest with random characters
+        new_var += "".join(random.choice(chars) for _ in range(length - 1))
+
+        if new_var.isidentifier() and new_var not in code:
+            return new_var
 
 
 def do_nothing(*args, **kwargs):

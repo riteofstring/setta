@@ -1,8 +1,9 @@
 import copy
 
 from setta.database.db.codeInfo.utils import new_code_info_col
-from setta.database.db.sectionVariants.utils import new_ev_entry
+from setta.database.db.sectionVariants.utils import new_ev_entry, new_section_variant
 from setta.database.db.uiTypes.utils import new_ui_type_col_entry
+from setta.utils.generate_memorable_string import generate_memorable_available_string
 from setta.utils.section_contents import findAllParametersAndPathMaps
 from setta.utils.utils import (
     QuoteInsensitiveDict,
@@ -11,7 +12,7 @@ from setta.utils.utils import (
 )
 
 from ..utils.constants import BASE_UI_TYPES, C
-from .find_placeholders import double_braces, needs_generated_python
+from .find_placeholders import tp
 from .utils import process_refs
 
 
@@ -131,6 +132,14 @@ def get_section_children(p, id):
     return get_selected_section_variant(p, id)["children"]
 
 
+def get_specific_template_var(template_vars, keyword):
+    return next((t for t in template_vars if t["keyword"] == keyword), None)
+
+
+def get_gen_code_template_var(template_vars):
+    return get_specific_template_var(template_vars, tp(C.SETTA_GENERATED_PYTHON))
+
+
 def no_entered_value(value):
     return value is None or value == ""
 
@@ -159,9 +168,13 @@ def get_param_full_path_name(id, pathMap, codeInfo):
         return name
 
 
-def export_selected(p, always_export_args_objs):
+def export_selected(p, always_export_args_objs, force_include_template_var):
     p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
-    e = Exporter(p, always_export_args_objs=always_export_args_objs)
+    e = Exporter(
+        p,
+        always_export_args_objs=always_export_args_objs,
+        force_include_template_var=force_include_template_var,
+    )
     e.export()
     return e
 
@@ -211,22 +224,6 @@ def export_single_run_group_to_dict(runGroup, sections, sectionVariants):
     return e
 
 
-def get_first_section_code_that_needs_generated_python(p):
-    for id in p["sections"].keys():
-        if code_section_needs_generated_python(p, id):
-            return get_section_code(p, id)
-    return double_braces(C.SETTA_GENERATED_PYTHON)
-
-
-def code_section_needs_generated_python(p, id):
-    code = get_section_code(p, id)
-    return (
-        get_section_type(p, id) == C.CODE
-        and p["sections"][id]["codeLanguage"] == "python"
-        and needs_generated_python(code)
-    )
-
-
 def remove_unneeded_sections(p, keep_section_types):
     to_pop = []
     for id in p["sections"].keys():
@@ -239,12 +236,38 @@ def remove_unneeded_sections(p, keep_section_types):
 
 
 class Exporter:
-    def __init__(self, p, always_export_args_objs):
+    def __init__(self, p, always_export_args_objs, force_include_template_var):
         self.output = {}
         self.p = copy.deepcopy(p)
         self.var_name_mapping = {}
         self.var_name_reverse_mapping = {}
         self.always_export_args_objs = always_export_args_objs
+        self.force_include_template_var = force_include_template_var
+        self.code_gen_template_var_section_details = {
+            "section": {},
+            "sectionVariant": {},
+        }
+        if force_include_template_var:
+            taken_names = [s["name"] for s in p["sections"].values()]
+            section_details = {
+                "id": None,
+                "name": generate_memorable_available_string(taken_names),
+                "codeLanguage": "python",
+            }
+            _, section_variant = new_section_variant(
+                code=tp(C.SETTA_GENERATED_PYTHON),
+                templateVars=[
+                    {
+                        "startPos": 0,
+                        "keyword": tp(C.SETTA_GENERATED_PYTHON),
+                        "sectionId": None,
+                    }
+                ],
+            )
+            self.code_gen_template_var_section_details = {
+                "section": section_details,
+                "sectionVariant": section_variant,
+            }
 
     def export(self):
         remove_unneeded_sections(
@@ -280,18 +303,20 @@ class Exporter:
                 if self.always_export_args_objs:
                     self.export_args_obj(id)
                 (
-                    params,
+                    used_params,
                     unused_params,
                     positionalOnlyParams,
                 ) = self.export_section_params(id)
 
                 selected_item_ev_refs = get_selected_item_ev_refs(self.p, id)
                 if selected_item_ev_refs:
-                    callable, used_ref_var_names, ref_var_name_positions = process_refs(
+                    callable, ref_template_var_positions = process_refs(
                         get_selected_item_name(self.p, id),
                         selected_item_ev_refs,
                         self.maybe_create_ref_var_name,
                     )
+                    ref_var_name_positions = ref_template_var_positions["refs"]
+                    used_ref_var_names = [x["value"] for x in ref_var_name_positions]
                 else:
                     callable = get_selected_item_name(self.p, id)
                     used_ref_var_names = []
@@ -299,10 +324,11 @@ class Exporter:
 
                 info["value"] = {
                     "callable": callable,
+                    "usedParams": used_params,
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,
                 }
-                info["dependencies"] = [*params, *used_ref_var_names]
+                info["dependencies"] = [*used_params, *used_ref_var_names]
                 info["ref_var_name_positions"] = ref_var_name_positions
                 self.output[var_name] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
@@ -315,7 +341,14 @@ class Exporter:
                 self.output[var_name] = info
             elif type in [C.CODE, C.INTERACTIVE_CODE]:
                 variant = get_selected_section_variant(self.p, id)
-                if code_section_needs_generated_python(self.p, id):
+                gen_code_template_var = get_gen_code_template_var(
+                    variant["templateVars"]
+                )
+                if gen_code_template_var:
+                    self.code_gen_template_var_section_details = {
+                        "section": self.p["sections"][id],
+                        "sectionVariant": variant,
+                    }
                     # Make sure any necessary variables get created.
                     # We don't do any replacements here, because that's done later
                     # when the code is actually run.
@@ -339,17 +372,22 @@ class Exporter:
             is_args_obj=True,
         )
         if var_name not in self.output:
-            params, unused_params, positionalOnlyParams = self.export_section_params(id)
+            (
+                used_params,
+                unused_params,
+                positionalOnlyParams,
+            ) = self.export_section_params(id)
             info = {
                 "sectionId": id,
                 "name": get_section_name(self.p, id),
                 "type": C.SECTION,
                 "value": {
                     "callable": None,
+                    "usedParams": used_params,
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,
                 },
-                "dependencies": params,
+                "dependencies": used_params,
                 "ref_var_name_positions": [],  # has to be populated when the code is generated
             }
             self.output[var_name] = info
@@ -362,14 +400,14 @@ class Exporter:
     def export_params(self, section_id, ids):
         var_names = [self.export_param(section_id, x) for x in ids]
         var_names = [x for x in var_names if x]
-        params = []
+        used_params = []
         unused_params = []
         positionalOnlyParams = set()
         for v in var_names:
             if no_entered_value(self.output[v]["value"]):
                 unused_params.append(v)
             else:
-                params.append(v)
+                used_params.append(v)
 
             curr_param_info_id = self.output[v]["paramInfoId"]
             positionalOnly = self.p["codeInfo"][curr_param_info_id].get(
@@ -377,7 +415,7 @@ class Exporter:
             )
             if positionalOnly:
                 positionalOnlyParams.add(v)
-        return params, unused_params, positionalOnlyParams
+        return used_params, unused_params, positionalOnlyParams
 
     def export_param(self, section_id, id):
         codeInfo = self.p["codeInfo"][id]
@@ -392,14 +430,14 @@ class Exporter:
         if var_name not in self.output:
             param_children = get_code_info_children(self.p, section_id, id)
             if len(param_children) > 0:
-                params, _, _ = self.export_params(section_id, param_children)
+                used_params, _, _ = self.export_params(section_id, param_children)
                 info = {
                     "sectionId": section_id,
                     "paramInfoId": id,
                     "name": param_name,
                     "type": C.NESTED_PARAM,
-                    "value": params,
-                    "dependencies": params,
+                    "value": used_params,
+                    "dependencies": used_params,
                     "ref_var_name_positions": [],  # has to be populated when the code is generated
                 }
                 self.output[var_name] = info
@@ -426,9 +464,11 @@ class Exporter:
         if id in variant["values"]:
             value = variant["values"][id]["value"]
             refs = variant["values"][id]["evRefs"]
-            value, used_ref_var_names, ref_var_name_positions = process_refs(
+            value, ref_template_var_positions = process_refs(
                 value, refs, self.maybe_create_ref_var_name
             )
+            ref_var_name_positions = ref_template_var_positions["refs"]
+            used_ref_var_names = [x["value"] for x in ref_var_name_positions]
         else:
             value = new_ev_entry()["value"]
             used_ref_var_names = []

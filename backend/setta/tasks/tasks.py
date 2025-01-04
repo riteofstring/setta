@@ -11,9 +11,9 @@ from .fns.utils import (
     TaskDefinition,
     TaskMessage,
     get_task_metadata_for_frontend,
-    import_code_from_string,
 )
 from .task_runner import TaskRunner
+from .utils import import_code_from_string
 
 
 class Tasks:
@@ -112,4 +112,7 @@ class Tasks:
             for v in result.values():
                 v.setdefault("sectionType", default_section_type(v["type"]))
             result = {"content": result}
+        elif isinstance(fn, TaskDefinition):
+            if result is None:
+                result = {}
         return result

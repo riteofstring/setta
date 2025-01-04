@@ -3,17 +3,18 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
+  useEVRefRegex,
   useInfoToEVReferrer,
-  useKeywordRegex,
   useMisc,
   useNodeInternals,
   useSectionInfos,
+  useTemplateVarRegex,
 } from "state/definitions";
+import { getEVRefRegexAndColorMap } from "./actions/evRefRegex";
 import {
   getInfoToEVReferrers,
   maybeOpenRenameReferencesModal,
 } from "./actions/infoToEVReferrer";
-import { getRegexAndColorMap } from "./actions/keywordRegex";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
@@ -26,6 +27,7 @@ import {
   getSectionType,
   getSectionVariant,
 } from "./actions/sectionInfos";
+import { getTemplateVarsRegexAndColorMap } from "./actions/templateVarsRegex";
 
 export function subscribe() {
   useSectionInfos.subscribe(
@@ -39,10 +41,11 @@ export function subscribe() {
   );
 
   useSectionInfos.subscribe(
-    keywordRegexSubscriptionFn,
+    regexSubscriptionFn,
     (x) => {
-      console.log("keywordRegexSubscription triggered");
-      useKeywordRegex.setState(getRegexAndColorMap(x));
+      console.log("evRefRegexSubscription triggered");
+      useEVRefRegex.setState(getEVRefRegexAndColorMap(x));
+      useTemplateVarRegex.setState(getTemplateVarsRegexAndColorMap(x));
       if (useSectionInfos.getState().shouldRenameReferences) {
         // reset the flag used by subscriptions
         useSectionInfos.setState({ shouldRenameReferences: false });
@@ -128,11 +131,12 @@ function singletonSectionsSubscriptionFn(state) {
   return output;
 }
 
-function keywordRegexSubscriptionFn(x) {
+function regexSubscriptionFn(x) {
   const output = {
     details: {},
     codeInfo: _.mapValues(x.codeInfo, (c) => ({ id: c.id, name: c.name })),
     globalVariableId: x.singletonSections[C.GLOBAL_VARIABLES],
+    templateVarEligibleSections: [],
   };
 
   let sectionVariant, sectionTypeName;
@@ -145,7 +149,7 @@ function keywordRegexSubscriptionFn(x) {
       codeInfoChildren: getCodeInfoCol(id, x).children,
       sectionTypeName,
       selectedItem: sectionVariant.selectedItem,
-      isTopLevel:
+      isTopLevelAndCanHaveEVRefs:
         !s.parentId &&
         [
           C.GLOBAL_VARIABLES,
@@ -155,6 +159,10 @@ function keywordRegexSubscriptionFn(x) {
           C.GROUP,
         ].includes(sectionTypeName),
     };
+
+    if (sectionTypeName === C.CODE || sectionTypeName === C.INTERACTIVE_CODE) {
+      output.templateVarEligibleSections.push(id);
+    }
   }
 
   return output;

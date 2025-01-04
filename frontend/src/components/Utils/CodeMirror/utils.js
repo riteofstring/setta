@@ -1,4 +1,4 @@
-import { useKeywordRegex } from "state/definitions";
+import { useEVRefRegex, useTemplateVarRegex } from "state/definitions";
 
 export function roundUpIdx(numList, x) {
   let closest = undefined;
@@ -17,8 +17,9 @@ export function roundUpIdx(numList, x) {
   return closest;
 }
 
-export function findRefs(keywordPositions, fullNameToInfo, fullText) {
+export function constructEVRefs(keywordPositions, fullText) {
   const output = [];
+  const { fullNameToInfo } = useEVRefRegex.getState();
   for (const k of keywordPositions) {
     const keyword = fullText.substring(k.startPos, k.endPos);
     if (keyword in fullNameToInfo) {
@@ -36,10 +37,26 @@ export function findRefs(keywordPositions, fullNameToInfo, fullText) {
   return output;
 }
 
+export function constructTemplateVars(keywordPositions, fullText) {
+  const output = [];
+  const { fullNameToSectionId } = useTemplateVarRegex.getState();
+  for (const k of keywordPositions) {
+    const keyword = fullText.substring(k.startPos, k.endPos);
+    if (keyword in fullNameToSectionId) {
+      output.push({
+        sectionId: fullNameToSectionId[keyword],
+        startPos: k.startPos,
+        keyword,
+      });
+    }
+  }
+  return output;
+}
+
 export function computeInfoToFullName() {
   const output = {};
   for (const [k, v] of Object.entries(
-    useKeywordRegex.getState().fullNameToInfo,
+    useEVRefRegex.getState().fullNameToInfo,
   )) {
     output[
       keyForInfoToFullName({
@@ -60,7 +77,7 @@ export function keyForInfoToFullName({
   return JSON.stringify([sectionId, paramInfoId, isArgsObj]);
 }
 
-export function doesNotReferToSelf({
+function evRefDoesNotReferToSelf({
   fullNameToInfo,
   keyword,
   sectionId,
@@ -74,26 +91,40 @@ export function doesNotReferToSelf({
   );
 }
 
-export function findCandidateKeywords({
+export function findCandidateEVRefs({
   sectionId,
   paramInfoId,
   value,
-  fullNameToInfo,
   regexPatternKey,
 }) {
   let match;
   const output = new Set();
-  const keywordRegex = useKeywordRegex.getState()[regexPatternKey];
-  while ((match = keywordRegex.exec(value))) {
+  const { [regexPatternKey]: evRefRegex, fullNameToInfo } =
+    useEVRefRegex.getState();
+  while ((match = evRefRegex.exec(value))) {
     if (
-      doesNotReferToSelf({
+      evRefDoesNotReferToSelf({
         fullNameToInfo,
         keyword: match[0],
         sectionId,
         paramInfoId,
       })
     )
-      output.add(match[0]);
+      output.add([match[0], match.index]);
   }
   return Array.from(output);
+}
+
+export function findCandidateTemplateVars(sectionId, value) {
+  let match;
+  const output = [];
+  const { pattern: templateVarsRegex, fullNameToSectionId } =
+    useTemplateVarRegex.getState();
+  while ((match = templateVarsRegex.exec(value))) {
+    // don't allow self-references
+    if (fullNameToSectionId[match[0]] !== sectionId) {
+      output.push([match[0], match.index]);
+    }
+  }
+  return output;
 }

@@ -2,7 +2,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { variableClick } from "state/actions/keyActivations";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { useKeywordRegex } from "state/definitions";
+import { useEVRefRegex } from "state/definitions";
 import { roundUpIdx } from "./utils";
 
 function getContentDomEventListener(evRefs, editor) {
@@ -31,7 +31,7 @@ function getContentDomEventListener(evRefs, editor) {
     if (keywordInfo) {
       const { startPos, keyword } = keywordInfo;
       const endIdx = roundUpIdx(
-        useKeywordRegex.getState().fullNameToInfo[keyword].componentIndices,
+        useEVRefRegex.getState().fullNameToInfo[keyword].componentIndices,
         pos - startPos,
       );
       goToSectionOnNameClick({
@@ -102,6 +102,7 @@ export function getCompletionsFn(
         beforeText: before.text,
         position: context.pos,
         setEVRefs,
+        codeLanguage: language,
       });
       setToNotWaiting();
       console.log("res", res);
@@ -121,7 +122,7 @@ export function getCompletionsFn(
 }
 
 export function goToSectionOnNameClick({ editor, event, variable }) {
-  const { sectionId } = useKeywordRegex.getState().fullNameToInfo[variable];
+  const { sectionId } = useEVRefRegex.getState().fullNameToInfo[variable];
   if (sectionId) {
     event.stopPropagation(); //prevent SectionContainerCore onClick from triggering
     if (editor) {

@@ -16,7 +16,7 @@ import React, {
 import {
   dbCodeAreaCompletion,
   dbCodeAreaInitializeCode,
-  getEVRefs,
+  getEVRefsAndTemplateVarsForCodeArea,
 } from "requests/sections";
 import {
   getDisplayedSectionVariant,
@@ -106,7 +106,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   }
 
   function onMouseDown() {
-    dbCodeAreaInitializeCode({ sectionId });
+    dbCodeAreaInitializeCode(sectionId);
   }
 
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
@@ -269,14 +269,16 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
 }
 
 const debouncedSetEVRefs = asyncDebounce(async (sectionId, value) => {
-  const evRefs = await getEVRefs({
+  const { templateVars, evRefs } = await getEVRefsAndTemplateVarsForCodeArea(
     sectionId,
-    paramInfoId: null,
-    fullText: value,
-    regexPatternKey: "codeAreaPattern",
-  });
+    value,
+  );
+
   useSectionInfos.setState((x) => {
-    getSectionVariant(sectionId, x).evRefs = evRefs;
+    const sectionVariant = getSectionVariant(sectionId, x);
+    sectionVariant.evRefs = evRefs;
+    sectionVariant.templateVars = templateVars;
   });
+
   maybeIncrementProjectStateVersion(true);
 }, 500);

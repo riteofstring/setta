@@ -31,22 +31,27 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_request("initialize", params=params, id=str(uuid.uuid4()))
         await self.send_didChangeConfiguration()  # pyright requires this step
 
-    async def send_document_open_request(self, code_id, code, codeJson=None):
+    async def send_document_open_request(
+        self, code_id, code, codeJson=None, is_gen_code=False
+    ):
         uri = self.get_virtual_uri(code_id)
+        print("uri", uri, flush=True)
         if uri not in self.versions:
             print("send_document_open_request", code_id, flush=True)
             params = {
                 "textDocument": {
                     "uri": uri,
                     "languageId": "python",
-                    "version": self.get_new_version_number(uri, code, codeJson),
+                    "version": self.get_new_version_number(
+                        uri, code, codeJson, is_gen_code
+                    ),
                     "text": code,
                 }
             }
             await self.send_request("textDocument/didOpen", params=params)
         else:
             print("document already open, updating it", code_id, flush=True)
-            await self.send_document_update(code_id, code, codeJson)
+            await self.send_document_update(code_id, code, codeJson, is_gen_code)
 
     async def send_autocomplete_request(
         self,
@@ -85,10 +90,29 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
+    async def send_document_highlight_request(
+        self, line, character, code_id, request_id, return_id, num_messages
+    ):
+        uri = self.get_virtual_uri(code_id)
+        params = {
+            "textDocument": {"uri": uri},
+            "position": {"line": line, "character": character},
+        }
+        self.msg_id_to_metadata[request_id]["return_id"] = return_id
+        self.msg_id_to_metadata[request_id]["num_messages"] = num_messages
+        # the response doesn't include uri for some reason,
+        # so we keep track of it manually
+        self.msg_id_to_metadata[request_id]["uri"] = uri
+        await self.send_request(
+            "textDocument/documentHighlight",
+            params=params,
+            id=request_id,
+        )
+
     async def send_didChangeConfiguration(self):
         # THIS FORMAT WORKS
         # hardcoded_settings = {
-        #     "basedpyright": {"analysis": {"exclude": [".setta_code"]}}
+        #     "basedpyright": {"analysis": {"exclude": ["setta_code"]}}
         # }
         hardcoded_settings = {}
         settings = recursive_dict_merge(hardcoded_settings, self.settings)
@@ -98,12 +122,14 @@ class LanguageServerWriter(LanguageServerInteractor):
             params={"settings": settings},
         )
 
-    async def send_document_update(self, code_id, code, codeJson):
+    async def send_document_update(self, code_id, code, codeJson, is_gen_code):
         uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {
                 "uri": uri,
-                "version": self.get_new_version_number(uri, code, codeJson),
+                "version": self.get_new_version_number(
+                    uri, code, codeJson, is_gen_code
+                ),
             },
             "contentChanges": [{"text": code}],
         }
@@ -117,6 +143,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         code_id,
         request_id,
         return_id,
+        num_messages,
     ):
         uri = self.get_virtual_uri(code_id)
         params = {
@@ -128,6 +155,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         }
         self.msg_id_to_metadata[request_id]["position_offset"] = position_offset
         self.msg_id_to_metadata[request_id]["return_id"] = return_id
+        self.msg_id_to_metadata[request_id]["num_messages"] = num_messages
         await self.send_request(
             "textDocument/references",
             params=params,
@@ -137,8 +165,9 @@ class LanguageServerWriter(LanguageServerInteractor):
     def get_workspace_uri(self):
         return f"file://{self.workspace_folder}".lower()
 
+    # https://github.com/microsoft/language-server-protocol/issues/1676
     def get_virtual_uri(self, code_id):
-        uri = f"file://{self.code_folder / code_id}.py".lower()
+        uri = f"untitled:{self.code_folder / code_id}.py".lower()
         if platform.system() == "Windows":
             uri += "/"  # need trailing slash on Windows for some reason
         return uri

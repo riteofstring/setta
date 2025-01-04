@@ -1,4 +1,5 @@
 import { computeInfoToFullName } from "components/Utils/CodeMirror/utils";
+import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";
@@ -11,6 +12,7 @@ import {
   sendTerminalMessage,
 } from "state/hooks/terminal";
 import { createNewId } from "utils/idNameCreation";
+import { templatePrefix } from "utils/utils";
 import { addSectionInEmptySpace } from "../sections/createSections";
 import { generateParamSweepCombinations } from "./generateParamSweepCombinations";
 import { generateSectionParamSweepVersionCombinations } from "./generateSectionParamSweepVersionCombinations";
@@ -25,40 +27,52 @@ export function getProjectDataToGenerateCode({ includeInfoToFullName = true }) {
   return project;
 }
 
+export async function runCodeBlocks(sectionIds) {
+  const project = getProjectDataToGenerateCode({
+    includeInfoToFullName: false,
+  });
+  project.runCodeBlocks = sectionIds;
+  await sendRunCodeMessage(project);
+}
+
 export async function runCode() {
-  const codeId = createNewId();
   const project = getProjectDataToGenerateCode({
     includeInfoToFullName: false,
   });
   let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
-    projectVariant["infoToFullName"] = computeInfoToFullName(projectVariant);
-    let message = {
-      id: codeId,
-      messageType: C.WS_RUN_CODE,
-      content: projectVariant,
-    };
-    if (useWebsocketConnectionList.getState().connectedTo !== "main") {
-      sendMessage(message);
-      continue;
-    }
-    const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
-    if (res.status === 200) {
-      const freeTerminalSectionId = res.data;
-      message = JSON.stringify(message);
-      if (freeTerminalSectionId) {
-        sendTerminalMessage(freeTerminalSectionId, message);
-      } else {
-        const id = createNewId();
-        addTerminalInitialMessage(id, message);
-        addSectionInEmptySpace({
-          type: C.TERMINAL,
-          sectionProps: { id, isTemporary: true },
-          positionOffset: { x: count * 100, y: 0 },
-        });
-      }
-    }
+    await sendRunCodeMessage(projectVariant, count);
     count += 1;
+  }
+}
+
+async function sendRunCodeMessage(project, messageIdx = 0) {
+  const codeRunId = createNewId();
+  project["infoToFullName"] = computeInfoToFullName(project);
+  let message = {
+    id: codeRunId,
+    messageType: C.WS_RUN_CODE,
+    content: project,
+  };
+  if (useWebsocketConnectionList.getState().connectedTo !== "main") {
+    sendMessage(message);
+    return;
+  }
+  const res = await dbGetFreeTerminal(project.projectConfig.id);
+  if (res.status === 200) {
+    const freeTerminalSectionId = res.data;
+    message = JSON.stringify(message);
+    if (freeTerminalSectionId) {
+      sendTerminalMessage(freeTerminalSectionId, message);
+    } else {
+      const id = createNewId();
+      addTerminalInitialMessage(id, message);
+      addSectionInEmptySpace({
+        type: C.TERMINAL,
+        sectionProps: { id, isTemporary: true },
+        positionOffset: { x: messageIdx * 100, y: 0 },
+      });
+    }
   }
 }
 
@@ -79,6 +93,7 @@ function* getProjectRuns(project) {
           variant.sections[s.paramSweepSectionId].variantId;
       }
     }
+    variant.runCodeBlocks = getRunCodeBlocks(project, false);
     yield* getProjectVariants(variant, paramSweepSectionVariantIds);
   } else {
     for (const runGroupId of Object.keys(selectedRunGroupIds)) {
@@ -123,6 +138,8 @@ function* getProjectRuns(project) {
             paramSweepSectionVariantIds[paramSweepSectionId] = c.paramSweepId;
           }
         }
+
+        variant.runCodeBlocks = getRunCodeBlocks(project, true);
         yield* getProjectVariants(variant, paramSweepSectionVariantIds);
       }
     }
@@ -226,4 +243,32 @@ function* getProjectVariants(project, paramSweepSectionVariantIds) {
   } else {
     yield project;
   }
+}
+
+function getRunCodeBlocks(project, isRunGroup) {
+  if (isRunGroup) {
+    // use all code sections when running a run group
+    const ids = [];
+    for (const s of Object.values(project.sections)) {
+      const sectionType =
+        project.uiTypes[s.uiTypeId]?.type ?? BASE_UI_TYPES[s.uiTypeId].type;
+      if (sectionType === C.CODE) {
+        ids.push(s.id);
+      }
+    }
+    return ids;
+  } else {
+    // use only the section with the gen code template var
+    for (const s of Object.values(project.sections)) {
+      const templateVars = project.sectionVariants[s.variantId].templateVars;
+      const genCodeTemplateVar = templateVars.find(
+        (t) => t.keyword === templatePrefix(C.SETTA_GENERATED_PYTHON),
+      );
+      if (genCodeTemplateVar) {
+        return [s.id];
+      }
+    }
+  }
+  // otherwise the backend will figure out something
+  return null;
 }
