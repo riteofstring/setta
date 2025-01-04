@@ -59,7 +59,12 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     )
 
     cursor_position = ref_template_var_positions["cursor"]
-    gen_code_position = get_gen_code_position(ref_template_var_positions)
+    gen_code_template_var = get_gen_code_template_var(
+        ref_template_var_positions["templateVars"]
+    )
+    gen_code_position = (
+        gen_code_template_var["startPos"] if gen_code_template_var else None
+    )
 
     if gen_code_position is not None and cursor_position <= gen_code_position:
         generated_var_names = []
@@ -90,14 +95,6 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         generated_var_names=generated_var_names,
     )
 
-    return None
-
-
-def get_gen_code_position(ref_template_var_positions):
-    keyword = template_prefix(C.SETTA_GENERATED_PYTHON)
-    for r in ref_template_var_positions["templateVars"]:
-        if keyword == r["keyword"]:
-            return r["startPos"]
     return None
 
 

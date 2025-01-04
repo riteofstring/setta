@@ -52,11 +52,6 @@ def get_code_and_cursor_position(
 
     # 3. Get position of original variable declaration within generated code.
     #    This will have to be the relative position, not the position adjusted after code generation
-    print(
-        'gen_code_dict["var_name_to_decl_rel_position_dict"]',
-        gen_code_dict["var_name_to_decl_rel_position_dict"],
-        flush=True,
-    )
     startPos, old_var_decl = gen_code_dict["var_name_to_decl_rel_position_dict"][
         template_prefix(C.SETTA_GENERATED_PYTHON)
     ][var_name]

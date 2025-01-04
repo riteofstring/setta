@@ -17,16 +17,19 @@ async def _parametersRequest(message, lsp_writers):
         return {"content": []}
 
     (
-        code,
-        code_gen_section_name,
+        gen_code_dict,
         var_name,
-        var_name_to_decl_position,
+        _,
         _,
         exporter_obj,
     ) = cached
 
     code, cursor_position = get_code_and_cursor_position(
-        message, code, var_name, var_name_to_decl_position, exporter_obj
+        message,
+        gen_code_dict,
+        var_name,
+        exporter_obj,
+        lsp_writers,
     )
     code = code[:cursor_position] + "()" + code[cursor_position + 2 :]
     # move cursor into parentheses
@@ -37,7 +40,7 @@ async def _parametersRequest(message, lsp_writers):
         code,
         exporter_obj,
         message.projectConfigName,
-        code_gen_section_name,
+        gen_code_dict["name"],
         is_gen_code=True,
     )
     await lsp_writers["full"].send_signature_help_request(
