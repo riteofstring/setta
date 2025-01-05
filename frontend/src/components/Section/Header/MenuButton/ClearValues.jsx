@@ -1,6 +1,7 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
 import { getSectionInfo } from "state/actions/sectionInfos";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { getParamUIType } from "state/hooks/uiTypes";
 import { newEVEntry } from "utils/objs/ev";
@@ -16,7 +17,7 @@ export function ClearValues({ sectionId }) {
         );
       }
     });
-
+    maybeIncrementProjectStateVersion(true);
     maybeRunGuiToYaml(sectionId, variantId);
   }
 
