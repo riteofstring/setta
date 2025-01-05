@@ -26,12 +26,11 @@ import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
 import { paramNameFromPathArray } from "./sections/sectionContents";
 
 export async function guiToYaml(sectionId, variantId) {
-  const { res, metaData } = await dbGuiToYaml(sectionId, variantId);
-  // console.log(res, metaData);
+  const res = await dbGuiToYaml(sectionId, variantId);
   if (res.status === 200) {
     const { originalObj, yamlValue } = res.data;
     useOriginalYamlObj.setState({
-      [variantId]: { originalObj, metaData },
+      [variantId]: originalObj,
     });
     useYamlValue.setState({ [variantId]: yamlValue });
   }
@@ -46,13 +45,11 @@ export function yamlToGUI(sectionId) {
       paramSweepSectionYamlToGUI(sectionId, yamlValue);
       break;
     case C.GLOBAL_PARAM_SWEEP:
-      const metaData = useOriginalYamlObj.getState()[variantId]?.metaData ?? {};
-      globalParamSweepSectionYamlToGUI(yamlValue, metaData);
+      globalParamSweepSectionYamlToGUI(yamlValue, variantId);
       break;
     case C.GLOBAL_VARIABLES:
     case C.SECTION:
-      const originalObj =
-        useOriginalYamlObj.getState()[variantId]?.originalObj ?? {};
+      const originalObj = useOriginalYamlObj.getState()[variantId] ?? {};
       sectionYamlToGUI(sectionId, yamlValue, originalObj);
       break;
   }
@@ -122,9 +119,8 @@ function tryFindingMatchingId(name, codeInfoChildrenKeys, codeInfo) {
   return codeInfoChildrenKeys.find((x) => codeInfo[x]?.name === name);
 }
 
-function globalParamSweepSectionYamlToGUI(yamlValue, metaData) {
+function globalParamSweepSectionYamlToGUI(yamlValue, runGroupId) {
   const doc = parseAllDocuments(yamlValue)[0].toJS();
-  const runGroupId = metaData.runGroupId;
   const state = useSectionInfos.getState();
   const sections = state.x;
   const sectionVariants = state.variants;
@@ -143,7 +139,7 @@ function globalParamSweepSectionYamlToGUI(yamlValue, metaData) {
   }
 
   useSectionInfos.setState((x) => {
-    x.variants[runGroupId].sections = newRunGroupSections;
+    x.variants[runGroupId].runGroup = newRunGroupSections;
   });
 }
 

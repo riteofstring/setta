@@ -66,14 +66,18 @@ def convert_to_dict(replacements):
 
 
 @router.post(C.ROUTE_MAKE_EV_REF_TEMPLATE_VAR_REPLACEMENTS)
-def route_make_ev_ref_template_var_replacements(x: MakeEVRefTemplateVarReplacementsRequest):
+def route_make_ev_ref_template_var_replacements(
+    x: MakeEVRefTemplateVarReplacementsRequest,
+):
     newCodeAreaValues = {}
     for variantId, details in x.codeAreaReplacements.items():
         details["replacements"] = convert_to_dict(details["replacements"])
         newValue, newStartPositions = get_new_value_and_positions(details)
         newCodeAreaValues[variantId] = [
             newValue,
-            *create_new_ev_refs_template_vars(details["replacements"], newStartPositions),
+            *create_new_ev_refs_template_vars(
+                details["replacements"], newStartPositions
+            ),
         ]
 
     newCodeInfoValues = {}
@@ -82,7 +86,9 @@ def route_make_ev_ref_template_var_replacements(x: MakeEVRefTemplateVarReplaceme
         newValue, newStartPositions = get_new_value_and_positions(details)
         newCodeInfoValues[codeInfoId] = [
             newValue,
-            *create_new_ev_refs_template_vars(details["replacements"], newStartPositions),
+            *create_new_ev_refs_template_vars(
+                details["replacements"], newStartPositions
+            ),
         ]
 
     newParamEVValues = {}
@@ -93,7 +99,9 @@ def route_make_ev_ref_template_var_replacements(x: MakeEVRefTemplateVarReplaceme
             newValue, newStartPositions = get_new_value_and_positions(details)
             newParamEVValues[variantId][referringParamInfoId] = [
                 newValue,
-                *create_new_ev_refs_template_vars(details["replacements"], newStartPositions),
+                *create_new_ev_refs_template_vars(
+                    details["replacements"], newStartPositions
+                ),
             ]
 
     return {

@@ -52,7 +52,7 @@ export function YamlView({ sectionId, isDisabled, onChange }) {
 
   function localOnChange(v) {
     setYamlValue(v);
-    onChange();
+    onChange?.();
   }
 
   // We need this class to avoid double scrollbars in GlobalParamSweepArea.

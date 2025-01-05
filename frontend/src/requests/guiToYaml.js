@@ -58,7 +58,7 @@ async function dbSectionToYaml(sectionId, variantId) {
     },
     address: C.ROUTE_SECTION_TO_YAML,
   });
-  return { res };
+  return res;
 }
 
 async function dbParamSweepSectionToYaml(sectionId, variantId) {
@@ -80,7 +80,7 @@ async function dbParamSweepSectionToYaml(sectionId, variantId) {
     },
     address: C.ROUTE_PARAM_SWEEP_SECTION_TO_YAML,
   });
-  return { res };
+  return res;
 }
 
 async function dbGlobalParamSweepSectionToYaml(variantId) {
@@ -97,5 +97,5 @@ async function dbGlobalParamSweepSectionToYaml(variantId) {
     },
     address: C.ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML,
   });
-  return { res, metaData: { runGroupId: shownVariantId } };
+  return res;
 }
