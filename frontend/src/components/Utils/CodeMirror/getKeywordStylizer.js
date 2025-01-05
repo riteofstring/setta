@@ -7,26 +7,38 @@ export function getKeywordStylizer(evRefs) {
   const keywordStylizer = ViewPlugin.fromClass(
     class {
       decorations;
+      positions;
 
       constructor() {
-        this.originalDecorations = this.buildDecorations();
-        this.decorations = this.originalDecorations;
+        this.positions = [...evRefs];
+        this.decorations = this.buildDecorations();
       }
 
       update(update) {
         if (update.docChanged) {
-          this.decorations = this.originalDecorations.update({
-            filter: (from) => from < update.view.state.doc.length,
+          update.changes.iterChanges((fromA, toA, fromB, toB) => {
+            const delta = toB - fromB - (toA - fromA);
+            this.positions = this.positions.map((pos) => {
+              if (pos.startPos > fromA) {
+                return {
+                  ...pos,
+                  startPos: pos.startPos + delta,
+                };
+              }
+              return pos;
+            });
           });
+
+          this.decorations = this.buildDecorations();
         }
       }
 
       buildDecorations() {
         const builder = new RangeSetBuilder();
-        for (const kp of evRefs) {
+        for (const pos of this.positions) {
           builder.add(
-            kp.startPos,
-            kp.startPos + kp.keyword.length,
+            pos.startPos,
+            pos.startPos + pos.keyword.length,
             italicStyle,
           );
         }
