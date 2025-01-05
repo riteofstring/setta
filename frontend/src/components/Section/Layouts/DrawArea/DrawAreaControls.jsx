@@ -6,7 +6,7 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiHide, BiPaint, BiShow } from "react-icons/bi";
 import { BsLayers } from "react-icons/bs";
-import { FaPencilAlt, FaPlus } from "react-icons/fa";
+import { FaPlus } from "react-icons/fa";
 import { IoMove } from "react-icons/io5";
 import { addDrawAreaLayer } from "state/actions/artifacts";
 import { useSectionInfos } from "state/definitions";
@@ -50,8 +50,16 @@ export function DrawAreaControls({
   function setActiveLayerId(v) {
     setCanvasSettings(sectionId, "activeLayerId", v);
   }
-  function toggleMode() {
-    setCanvasSettings(sectionId, "mode", mode === "draw" ? "edit" : "draw");
+  function setToBrushMode() {
+    setIsEraser(false);
+    setCanvasSettings(sectionId, "mode", "draw");
+  }
+  function setToEraserMode() {
+    setIsEraser(true);
+    setCanvasSettings(sectionId, "mode", "draw");
+  }
+  function setToEditMode() {
+    setCanvasSettings(sectionId, "mode", "edit");
   }
   function addLayer() {
     useSectionInfos.setState((state) => {
@@ -95,10 +103,8 @@ export function DrawAreaControls({
       />
       <div className="flex self-stretch">
         <button
-          className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${!isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-          onClick={() => {
-            setIsEraser(false);
-          }}
+          className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${mode === "draw" && !isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+          onClick={setToBrushMode}
         >
           <BiPaint />
         </button>
@@ -124,10 +130,8 @@ export function DrawAreaControls({
       </div>
       <div className="flex self-stretch">
         <button
-          className={`flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-          onClick={() => {
-            setIsEraser(true);
-          }}
+          className={`flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${mode === "draw" && isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+          onClick={setToEraserMode}
         >
           <i className="gg-erase" />
         </button>
@@ -147,6 +151,12 @@ export function DrawAreaControls({
           />
         </StandardPopover>
       </div>
+      <button
+        className={`flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs ${mode === "edit" ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+        onClick={setToEditMode}
+      >
+        <IoMove />
+      </button>
 
       <StandardPopover
         arrowClasses="fill-white dark:fill-setta-800"
@@ -189,12 +199,6 @@ export function DrawAreaControls({
         onClick={clearStrokes}
       >
         <i className="gg-trash" />
-      </button>
-      <button
-        className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
-        onClick={toggleMode}
-      >
-        {mode === "draw" ? <FaPencilAlt /> : <IoMove />}
       </button>
     </div>
   );
