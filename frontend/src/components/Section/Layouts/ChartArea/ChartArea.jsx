@@ -36,7 +36,9 @@ function _ChartArea({ sectionId }) {
 }
 
 function _ChartAreaCore({ sectionId }) {
-  const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
+  const loadedArtifacts = useAllSectionArtifacts(sectionId, (x) =>
+    _.pick(x, ["value"]),
+  );
   const [darkMode] = localStorageFns.darkMode.hook();
   const size = useSectionInfos((x) => x.x[sectionId].size, _.isEqual);
   const chartSettings = useSectionInfos(

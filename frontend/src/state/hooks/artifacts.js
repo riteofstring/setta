@@ -9,16 +9,12 @@ import {
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
-export function useLoadedArtifacts(
-  sectionId,
-  artifactIds,
-  artifactAttrsToPick,
-) {
+export function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
   const loadedArtifacts = useArtifacts((x) => {
     const output = {};
     for (const id of artifactIds) {
       if (x.x[id]?.value) {
-        output[id] = _.pick(x.x[id], artifactAttrsToPick);
+        output[id] = attrPickerFn(x.x[id]);
       }
     }
     return output;
@@ -62,7 +58,9 @@ export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
       };
     }, _.isEqual);
 
-  const loadedArtifacts = useLoadedArtifacts(sectionId, artifactIds, ["type"]);
+  const loadedArtifacts = useLoadedArtifacts(sectionId, artifactIds, (a) =>
+    _.pick(a, ["type"]),
+  );
 
   const loadedArtifactIdsWithDuplicates = [];
   for (const x of allLayersMetadata) {
@@ -82,13 +80,13 @@ export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
   };
 }
 
-export function useAllSectionArtifacts(sectionId, artifactAttrsToPick) {
+export function useAllSectionArtifacts(sectionId, attrPickerFn) {
   const artifactIds = useSectionInfos(
     (state) => getAllSectionArtifactIds(sectionId, state),
     _.isEqual,
   );
 
-  return useLoadedArtifacts(sectionId, artifactIds, artifactAttrsToPick);
+  return useLoadedArtifacts(sectionId, artifactIds, attrPickerFn);
 }
 
 export function getSectionArtifactGroupMetadata(sectionId, state) {

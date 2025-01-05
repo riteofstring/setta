@@ -44,27 +44,30 @@ export function updateScatterChartWithNewData({
   darkMode,
   chartSettings,
 }) {
-  const xColumnIndex = artifactData.headers.indexOf(chartSettings.xAxisColumn);
-  const categoryColumnIndex = artifactData.headers.indexOf(
-    chartSettings.categoryColumn,
+  let categoryValue = "No Category";
+  const firstColumnLength = Object.values(artifactData)[0].length;
+  const categoryColumn = chartSettings.categoryColumn;
+  let xAxisColumn = Object.keys(artifactData)[0];
+  if (chartSettings.xAxisColumn) {
+    xAxisColumn = chartSettings.xAxisColumn;
+  }
+  let yAxisColumn = Object.keys(artifactData).find(
+    (a) => ![categoryColumn, xAxisColumn].includes(a),
   );
 
-  // Group data by category values
   const groupedData = {};
-  for (const row of artifactData.data) {
-    const categoryValue = row[categoryColumnIndex];
-    if (!groupedData[categoryValue]) {
+  for (let i = 0; i < firstColumnLength; i++) {
+    if (categoryColumn) {
+      categoryValue = artifactData[categoryColumn][i];
+    }
+    if (!(categoryValue in groupedData)) {
       groupedData[categoryValue] = [];
     }
-    for (let i = 0; i < row.length; i++) {
-      if (i === xColumnIndex) continue;
-      if (i === categoryColumnIndex) continue;
-      groupedData[categoryValue].push({
-        x: row[xColumnIndex],
-        y: row[i],
-        columnName: artifactData.headers[i],
-      });
-    }
+    groupedData[categoryValue].push({
+      x: artifactData[xAxisColumn][i],
+      y: artifactData[yAxisColumn][i],
+      columnName: yAxisColumn,
+    });
   }
 
   // Create dataset for each category

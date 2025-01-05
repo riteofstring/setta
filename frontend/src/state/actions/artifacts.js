@@ -205,10 +205,10 @@ function actionAfterSettingSectionArtifacts(artifactIds, sectionId, state) {
   const sectionTypeName = getSectionType(sectionId, state);
   if (sectionTypeName === C.CHART) {
     const artifact = useArtifacts.getState().x[artifactIds[0]];
-    const headers = artifact?.value?.headers;
+    const columnNames = artifact ? Object.keys(artifact.value) : null;
     const chartSettings = state.x[sectionId].chartSettings;
-    if (headers && !headers.includes(chartSettings.xAxisColumn)) {
-      chartSettings.xAxisColumn = headers[0];
+    if (columnNames && !columnNames.includes(chartSettings.xAxisColumn)) {
+      chartSettings.xAxisColumn = columnNames[0];
     }
   }
 }

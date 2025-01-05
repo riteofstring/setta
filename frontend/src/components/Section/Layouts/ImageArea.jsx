@@ -1,3 +1,4 @@
+import _ from "lodash";
 import React from "react";
 import {
   useAllSectionArtifacts,
@@ -6,7 +7,9 @@ import {
 import { useImgArtifactAreaSize } from "state/hooks/sectionSizes";
 
 export function _ImageArea({ sectionId }) {
-  const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
+  const loadedArtifacts = useAllSectionArtifacts(sectionId, (x) =>
+    _.pick(x, ["value"]),
+  );
   const artifact = Object.values(loadedArtifacts)[0];
   const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,

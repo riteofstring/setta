@@ -113,13 +113,19 @@ class SettaList(SettaDataWrapper):
     def save(self, path):
         if not self.data:
             return
-        headers = list(self.data[0].keys())
+
+        headers = list(self.data.keys())
+        num_rows = len(next(iter(self.data.values())))  # Get length from first column
+
         with open(path, "w") as f:
+            # Write headers
             f.write(",".join(headers) + "\n")
-            for row_dict in self.data:
+
+            # Write rows
+            for i in range(num_rows):
                 row_vals = []
-                for h in headers:
-                    val = row_dict.get(h, None)
+                for header in headers:
+                    val = self.data[header][i] if i < len(self.data[header]) else None
                     row_vals.append("" if val is None else str(val))
                 f.write(",".join(row_vals) + "\n")
 
@@ -192,18 +198,27 @@ def parse_csv_row(values):
                 row.append(float(x))
             except ValueError:
                 row.append(x)
-    return tuple(row)
+    return row
 
 
 def parse_csv_content(content):
     lines = content.strip().split("\n")
     if not lines:
-        return {"headers": [], "data": []}
+        return {}
 
-    headers = lines[0].strip().split(",")
-    data = [parse_csv_row(line.strip().split(",")) for line in lines[1:]]
+    headers = [h.strip() for h in lines[0].split(",")]
+    result = {header: [] for header in headers}
 
-    return {"headers": headers, "data": data}
+    if not lines[1:]:
+        return result
+
+    # Parse rows and populate lists
+    for line in lines[1:]:
+        values = parse_csv_row(line.strip().split(","))
+        for header, value in zip(headers, values):
+            result[header].append(value)
+
+    return result
 
 
 def load_from_csv_file(path):
