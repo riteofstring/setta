@@ -54,18 +54,6 @@ const githubLightTheme = githubLightInit({
 const greenDarkTheme = boringTheme(true, "#7ee787");
 const greenLightTheme = boringTheme(false, "hsla(157, 100%, 28%, 1)");
 
-// make styles available for DummyCodeMirror
-for (const theme of [
-  githubDarkTheme,
-  githubLightTheme,
-  greenDarkTheme,
-  greenLightTheme,
-]) {
-  const sheet = new CSSStyleSheet();
-  sheet.replaceSync(theme[1][2].value.module.rules.join("\n"));
-  document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
-}
-
 export function useCodeMirrorStyle(color) {
   const [darkMode] = localStorageFns.darkMode.hook();
   return getCodeMirrorStyle(darkMode, color);
