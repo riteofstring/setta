@@ -45,7 +45,11 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     ) = message.cached
     code = message.fullText
     gen_code_template_var = get_gen_code_template_var(message.templateVars)
-    if gen_code_template_var and exporter_obj is None:
+    if (
+        gen_code_template_var
+        and exporter_obj.code_gen_template_var_section_details["section"].get("id")
+        != message.sectionId
+    ):
         return {"content": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
 
     (
@@ -109,7 +113,7 @@ def calculate_referencable_var_names(
     )
 
     if gen_code_position is None or original_cursor_position <= gen_code_position:
-        return [], []
+        return [], special_keywords_for_autocomplete(gen_code_template_var)
 
     code, the_special_var_name = prepare_code_for_scope_checking(
         code, original_template_vars, gen_code_template_var
