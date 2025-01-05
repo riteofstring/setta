@@ -1,7 +1,6 @@
 import base64
 import os
 from abc import ABC, abstractmethod
-from io import BytesIO
 from pathlib import Path
 
 import requests
@@ -16,11 +15,6 @@ from setta.utils.constants import (
     set_constants,
 )
 
-try:
-    from PIL import Image
-except ImportError:
-    pass
-
 
 class Setta:
     def __init__(self, root_path=None, send_data_to=None):
@@ -33,7 +27,7 @@ class Setta:
             self.root_path = Path(root_path)
         else:
             self.root_path = Path(os.environ.get(CODE_FOLDER_ENV_VARIABLE, os.getcwd()))
-        
+
         if send_data_to:
             self.send_data_to = send_data_to
         else:
@@ -86,7 +80,7 @@ class SettaDataWrapper(ABC):
         pass
 
 
-class SettaListData(SettaDataWrapper):
+class SettaList(SettaDataWrapper):
     def __init__(self, data=None):
         self.data = data
 
@@ -94,7 +88,8 @@ class SettaListData(SettaDataWrapper):
         return f"{path}.csv"
 
     def save(self, path_with_extension):
-        if not self.data: return
+        if not self.data:
+            return
         headers = list(self.data[0].keys())
         with open(path_with_extension, "w") as f:
             f.write(",".join(headers) + "\n")
@@ -104,7 +99,6 @@ class SettaListData(SettaDataWrapper):
                     val = row_dict.get(h, None)
                     row_vals.append("" if val is None else str(val))
                 f.write(",".join(row_vals) + "\n")
-
 
     def serialize(self):
         return {"value": self.data, "type": "list"}
@@ -129,34 +123,34 @@ class SettaListData(SettaDataWrapper):
         self.data = {"headers": headers, "data": data}
 
 
-class SettaNumpyImg(SettaDataWrapper):
+class SettaImg(SettaDataWrapper):
     def __init__(self, img=None, format="png"):
-        self.img = Image.fromarray(img) if img is not None else img
+        self.img = img
         self.format = format
 
     def path_with_extension(self, path):
         return f"{path}.{self.format}"
 
     def save(self, path):
-        self.img.save(self.path_with_extension(path))
+        with open(self.path_with_extension(path), "wb") as f:
+            f.write(self.img)
 
     def serialize(self):
-        img_byte_arr = BytesIO()
-        self.img.save(
-            img_byte_arr, format=self.format
-        )  # You can change 'PNG' to other formats if needed
-        base64_encoded = base64.b64encode(img_byte_arr.getvalue())
-        return {"value": base64_encoded.decode("utf-8"), "type": "img"}
+        if self.img is None:
+            raise ValueError("No image data to serialize")
+        b64_str = base64.b64encode(self.img).decode("utf-8")
+        return {"value": b64_str, "type": "img"}
 
     def load(self, path_with_extension):
-        self.img = Image.open(path_with_extension)
+        with open(path_with_extension, "rb") as f:
+            self.img = f.read()
 
 
 def get_wrapper_for_loading(data_type):
     if data_type == "list":
-        return SettaListData()
+        return SettaList()
     if data_type == "img":
-        return SettaNumpyImg()
+        return SettaImg()
 
 
 def default_section_type(data_type):
