@@ -390,7 +390,6 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   const newInfos = {};
   const updatedInfos = {};
   const paramInfoIdToValue = {};
-  const { configLanguage } = state.x[sectionId];
   const defaultValue = newEVEntry().value;
   for (const v of output) {
     if (!(v.id in cState)) {
@@ -404,14 +403,8 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     } else {
       updatedInfos[v.id] = { name: v.key, isPinned: v.isPinned };
     }
-    paramInfoIdToValue[v.id] =
-      configLanguage === "json"
-        ? JSON.stringify(v.value)
-        : unprocessValue(v.value);
-
-    // remove the value if it's equal to the default value
-    if (paramInfoIdToValue[v.id] === defaultValue) {
-      delete paramInfoIdToValue[v.id];
+    if (v.value !== defaultValue) {
+      paramInfoIdToValue[v.id] = v.value;
     }
   }
 
@@ -636,32 +629,6 @@ function parseRawDump(input) {
     stack[stack.length - 1].obj[multilineKey] = currentMultiline.trim();
   }
 
-  return result;
-}
-
-function unprocessValue(value) {
-  if (typeof value === "boolean") {
-    return value.toString(); // Convert boolean to string "true" or "false"
-  } else if (typeof value === "number") {
-    return value.toString(); // Convert number to string
-  } else if (Array.isArray(value)) {
-    // Recursively process each element in the array
-    return value.map(unprocessValue);
-  } else if (typeof value === "object" && value !== null) {
-    // Recursively process nested objects
-    return unprocessObject(value);
-  } else if (value === null) {
-    return "";
-  } else {
-    return value; // Return the value as is for other data types (e.g., strings)
-  }
-}
-
-function unprocessObject(obj) {
-  const result = {};
-  for (const key of Object.keys(obj)) {
-    result[key] = unprocessValue(obj[key]);
-  }
   return result;
 }
 

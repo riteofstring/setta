@@ -18,11 +18,11 @@ export async function dbGuiToYaml(sectionId, variantId) {
       return await dbGlobalParamSweepSectionToYaml(variantId);
     case C.GLOBAL_VARIABLES:
     case C.SECTION:
-      return await dbSectionToYaml(sectionId, variantId);
+      return await dbSectionToYaml(variantId);
   }
 }
 
-async function dbSectionToYaml(sectionId, variantId) {
+async function dbSectionToYaml(variantId) {
   const state = useSectionInfos.getState();
   const { codeInfoChildren, parentCodeInfoId } =
     getCodeChildrenAndParentCodeInfoId(null, state, variantId);
@@ -45,7 +45,6 @@ async function dbSectionToYaml(sectionId, variantId) {
   );
   delete pinnedIds.requiredParamIdsToPaths;
   delete unpinnedIds.requiredParamIdsToPaths;
-  const { configLanguage } = state.x[sectionId];
   const sectionVariant = state.variants[variantId];
   const res = await post({
     body: {
@@ -54,7 +53,6 @@ async function dbSectionToYaml(sectionId, variantId) {
       sectionVariant,
       pinnedIds,
       unpinnedIds,
-      configLanguage,
     },
     address: C.ROUTE_SECTION_TO_YAML,
   });

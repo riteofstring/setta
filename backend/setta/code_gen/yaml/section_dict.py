@@ -1,5 +1,3 @@
-import ast
-
 import yaml
 
 
@@ -53,13 +51,12 @@ class RunGroupDumper(yaml.Dumper):
 RunGroupDumper.add_representer(dict, represent_dict_skip_empty)
 
 
-
 def raw_dump(input_dict, indent=0):
     output = ""
     for k, v in input_dict.items():
         # Add indentation
         output += " " * indent
-        
+
         # If value is a dictionary, recursively process it
         if isinstance(v, dict):
             output += f"{k}:\n"
@@ -67,7 +64,7 @@ def raw_dump(input_dict, indent=0):
         else:
             # Check if value contains newlines
             str_value = str(v)
-            if '\n' in str_value:
+            if "\n" in str_value:
                 # Use literal block style
                 output += f"{k}: |\n"
                 # Indent each line of the value
@@ -76,5 +73,5 @@ def raw_dump(input_dict, indent=0):
             else:
                 # Single line value
                 output += f"{k}: {str_value}\n"
-            
+
     return output
