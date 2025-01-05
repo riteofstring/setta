@@ -118,9 +118,10 @@ function HighlightedCode({
   ] = [null, null, null, null];
   const fullNameToInfo = useEVRefRegex.getState().fullNameToInfo;
 
+  const cursor = decorationRangeSet.iter();
+
   for (let i = 1; i <= text.lines; i++) {
     const line = text.line(i);
-    const cursor = decorationRangeSet.iter(line.from);
     isJustLineBreak = true;
     pos = line.from;
 
