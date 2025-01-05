@@ -11,7 +11,7 @@ print("logger.send_data_to", logger.send_data_to)
 all_data = []
 
 for i in range(100):
-    all_data.append({"size": i, "elephant": 3*i})
+    all_data.append({"size": i, "elephant": 3})
     logger.log({"frogdog": SettaList(all_data)}, save_to="db")
     time.sleep(1)
 
