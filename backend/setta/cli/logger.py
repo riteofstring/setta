@@ -127,23 +127,7 @@ class SettaList(SettaDataWrapper):
         return {"value": self.data, "type": "list"}
 
     def load(self, path):
-        with open(path, "r") as f:
-            headers = f.readline().strip().split(",")
-            data = []
-            for line in f:
-                values = line.strip().split(",")
-                # Convert each value to float if not empty, otherwise None
-                row = []
-                for x in values:
-                    if x.strip() == "":
-                        row.append(None)
-                    else:
-                        try:
-                            row.append(float(x))
-                        except ValueError:
-                            row.append(x)
-                data.append(tuple(row))
-        self.data = {"headers": headers, "data": data}
+        self.data = load_from_csv_file(path)
 
 
 class SettaImg(SettaDataWrapper):
@@ -196,3 +180,38 @@ def pil_to_setta_img(pil_image, format="png"):
     pil_image.save(buffer, format=format.upper())
     raw_data = buffer.getvalue()
     return SettaImg(img=raw_data, format=format)
+
+
+def parse_csv_row(values):
+    row = []
+    for x in values:
+        if x.strip() == "":
+            row.append(None)
+        else:
+            try:
+                row.append(float(x))
+            except ValueError:
+                row.append(x)
+    return tuple(row)
+
+
+def parse_csv_content(content):
+    lines = content.strip().split("\n")
+    if not lines:
+        return {"headers": [], "data": []}
+
+    headers = lines[0].strip().split(",")
+    data = [parse_csv_row(line.strip().split(",")) for line in lines[1:]]
+
+    return {"headers": headers, "data": data}
+
+
+def load_from_csv_file(path):
+    with open(path, "r") as f:
+        content = f.read()
+    return parse_csv_content(content)
+
+
+def load_from_csv_base64(base64_string):
+    content = base64.b64decode(base64_string).decode("utf-8")
+    return parse_csv_content(content)

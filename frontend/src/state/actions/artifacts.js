@@ -4,7 +4,7 @@ import {
 } from "components/Section/Layouts/DrawArea/base64Conversion";
 import C from "constants/constants.json";
 import _ from "lodash";
-import { dbLoadArtifacts } from "requests/artifacts";
+import { dbLoadArtifacts, dbReadCSVBase64 } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import {
@@ -62,6 +62,20 @@ export async function prepareArtifactForRendering(type, value) {
     case "list":
     case "brushStrokes":
       return value;
+  }
+}
+
+export async function prepareDataURLForRendering(type, value) {
+  switch (type) {
+    case "img":
+      return await base64ToImageObj(value);
+    case "list":
+      const res = await dbReadCSVBase64(dataURLToBase64(value));
+      if (res.status == 200) {
+        return res.data;
+      }
+    default:
+      return null;
   }
 }
 

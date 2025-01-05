@@ -7,7 +7,6 @@ export function canvasToBase64(canvas) {
 }
 
 export async function base64ToImageObj(input_value) {
-  console.log("base64ToImageObj", input_value);
   const imgSrc = base64StrToImgSrc(input_value);
   const value = new Image();
   value.src = imgSrc;

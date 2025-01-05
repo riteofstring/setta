@@ -3,7 +3,10 @@ import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
 import { useSectionInfos } from "state/definitions";
-import { useAllSectionArtifacts } from "state/hooks/artifacts";
+import {
+  useAllSectionArtifacts,
+  useLoadArtifactViaDropzone,
+} from "state/hooks/artifacts";
 import { localStorageFns } from "state/hooks/localStorage";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import {
@@ -16,6 +19,23 @@ import {
 } from "./ScatterChart";
 
 function _ChartArea({ sectionId }) {
+  const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
+    sectionId,
+    false,
+    "list",
+  );
+
+  return (
+    <figure
+      className={`section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
+      {...getRootProps()}
+    >
+      <ChartAreaCore sectionId={sectionId} />
+    </figure>
+  );
+}
+
+function _ChartAreaCore({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
   const [darkMode] = localStorageFns.darkMode.hook();
   const size = useSectionInfos((x) => x.x[sectionId].size, _.isEqual);
@@ -117,12 +137,10 @@ function _ChartArea({ sectionId }) {
     chartRef.current.update();
   }, [loadedArtifacts, size, datasetHidden, darkMode, chartSettings]);
 
-  return (
-    <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
-      <canvas ref={canvasRef} />
-    </figure>
-  );
+  return <canvas ref={canvasRef} />;
 }
+
+const ChartAreaCore = React.memo(_ChartAreaCore);
 
 export const ChartArea = React.memo(_ChartArea);
 

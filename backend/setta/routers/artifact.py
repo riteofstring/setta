@@ -1,9 +1,10 @@
 import os
-from typing import Any, Dict, List
+from typing import List
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from setta.cli.logger import load_from_csv_base64
 from setta.database.db.artifacts.load import (
     load_artifact_from_disk,
     load_artifact_metadata_and_maybe_value_from_disk,
@@ -39,6 +40,10 @@ class CheckIfFileExistsRequests(BaseModel):
 class LoadArtifactFromDiskRequest(BaseModel):
     filepath: str
     type: str
+
+
+class ReadCSVBase64Request(BaseModel):
+    base64Str: str
 
 
 @router.post(C.ROUTE_SEND_ARTIFACT)
@@ -80,3 +85,8 @@ def route_check_if_file_exists(x: CheckIfFileExistsRequests):
 @router.post(C.ROUTE_LOAD_ARTIFACT_FROM_DISK)
 def route_load_artifact_from_disk(x: LoadArtifactFromDiskRequest):
     return load_artifact_from_disk(x.filepath, x.type)
+
+
+@router.post(C.ROUTE_READ_CSV_BASE64)
+def route_read_csv_base64(x: ReadCSVBase64Request):
+    return load_from_csv_base64(x.base64Str)

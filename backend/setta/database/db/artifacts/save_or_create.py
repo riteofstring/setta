@@ -81,7 +81,7 @@ def save_or_create_artifacts(db, artifacts, saveTo):
             where_clause_parts.append("(?, ?, ?)")
             params.extend([n, p, t])
         where_clause = " OR ".join(
-            [f"(name=? AND path=? AND type=?)" for _ in unique_keys]
+            ["(name=? AND path=? AND type=?)" for _ in unique_keys]
         )
         # We can do a single SELECT for these combos.
         sql = f"""

@@ -4,7 +4,7 @@ import { useDropzone } from "react-dropzone";
 import {
   addArtifactAndMaybeCreateNewArtifactGroup,
   loadArtifacts,
-  prepareArtifactForRendering,
+  prepareDataURLForRendering,
 } from "state/actions/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
@@ -120,7 +120,7 @@ export function useLoadArtifactViaDropzone(
         const reader = new FileReader();
 
         reader.onload = async () => {
-          const value = await prepareArtifactForRendering(
+          const value = await prepareDataURLForRendering(
             artifactType,
             reader.result,
           );
