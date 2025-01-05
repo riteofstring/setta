@@ -2,7 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
-import { AddArtifactByFilepathModal } from "./AddImageByFilepathModal/AddImageByFilepathModal";
+import { AddArtifactByFilepathModal } from "./AddArtifactByFilepathModal/AddArtifactByFilepathModal";
 import { DeleteFileModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
