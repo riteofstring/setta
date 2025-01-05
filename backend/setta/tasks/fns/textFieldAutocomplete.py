@@ -6,7 +6,10 @@ from pydantic import BaseModel
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_section
 from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.code_gen.find_placeholders import tp
-from setta.code_gen.python.generate_code import var_declaration
+from setta.code_gen.python.generate_code import (
+    construct_var_decl_with_trailing_whitespace,
+    var_declaration,
+)
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.utils import process_refs
 from setta.tasks.fns.textFieldInitializeCode import get_cache_key
@@ -62,7 +65,11 @@ def get_code_and_cursor_position(
         gen_code_dict["ref_template_var_positions"]["templateVars"]
     )["value"]
     gen_code = (
-        gen_code[:startPos] + new_var_decl + chars_after_var_decl + gen_code[endPos:]
+        gen_code[:startPos]
+        + construct_var_decl_with_trailing_whitespace(
+            new_var_decl, chars_after_var_decl
+        )
+        + gen_code[endPos:]
     )
 
     # 5. Call generate_final_code_for_section with the new generated code as a replacement value

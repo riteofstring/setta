@@ -76,8 +76,8 @@ def make_parseable(code: str, var_name: str) -> str:
             return code
         code = code[:-1]
 
-    # Instead of returning empty string, return a valid None assignment
-    return f"{var_name} = None"
+    # this means it failed
+    return None
 
 
 def is_parseable(code: str) -> bool:

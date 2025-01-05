@@ -156,7 +156,9 @@ def generate_code(selected, chars_before_each_line, push_var_name=None):
             last_var_name = var_name
             # We add the "before chars" after the new line.
             # This way every var decl starts with the var instead of with the leading chars.
-            var_str = f"{var_str}\n{chars_before_each_line}"
+            var_str = construct_var_decl_with_trailing_whitespace(
+                var_str, chars_before_each_line
+            )
             startPos = len(code)
             var_name_to_decl_position[var_name] = (
                 startPos,
@@ -177,6 +179,10 @@ def generate_code(selected, chars_before_each_line, push_var_name=None):
     return code, var_name_to_decl_position
 
 
+def construct_var_decl_with_trailing_whitespace(var_decl, chars_after_line):
+    return f"{var_decl}\n{chars_after_line}"
+
+
 def generate_imports(
     code,
     push_var_name,
@@ -187,8 +193,11 @@ def generate_imports(
     if push_var_name:
         startPos, var_decl, chars_after_line = var_name_to_decl_position[push_var_name]
         endPos = startPos + len(var_decl)
-        var_decl = (
-            make_parseable(code[startPos:endPos], push_var_name) + chars_after_line
+        parseable_str = make_parseable(code[startPos:endPos], push_var_name)
+        if parseable_str is None:
+            parseable_str = var_declaration(push_var_name, "None")
+        var_decl = construct_var_decl_with_trailing_whitespace(
+            parseable_str, chars_after_line
         )
         code = code[:startPos] + var_decl + code[endPos:]
     startPos = template_var["startPos"]
