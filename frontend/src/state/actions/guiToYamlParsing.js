@@ -1,3 +1,39 @@
+export function splitDocuments(input) {
+  // Common YAML document separators
+  const separators = [
+    "---", // Standard YAML document separator
+    "...", // YAML document terminator
+    "===", // Alternative separator sometimes used
+  ];
+
+  // Trim the input and split into lines
+  const lines = input.trim().split("\n");
+
+  let documents = [];
+  let currentDoc = [];
+
+  for (let line of lines) {
+    const trimmedLine = line.trim();
+
+    // Check if line is a separator
+    const isSeparator = separators.some((sep) => trimmedLine === sep);
+
+    if (isSeparator) {
+      // Always add current document when we hit a separator,
+      // even if it's empty
+      documents.push(currentDoc.join("\n"));
+      currentDoc = [];
+    } else {
+      currentDoc.push(line);
+    }
+  }
+
+  // Always add the final document, even if empty
+  documents.push(currentDoc.join("\n"));
+
+  return documents;
+}
+
 export function parseRawDump(rawStr) {
   const lines = rawStr.split(/\r?\n/);
   return parseBlock(lines, 0, 0).result;
