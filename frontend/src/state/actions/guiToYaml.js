@@ -22,6 +22,7 @@ import { newCodeInfo } from "utils/objs/codeInfo";
 import { newEVEntry } from "utils/objs/ev";
 import { parseAllDocuments } from "yaml";
 import { getOrCreateCodeInfoCol } from "./codeInfo";
+import { parseRawDump, splitDocuments } from "./guiToYamlParsing";
 import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
 import { paramNameFromPathArray } from "./sections/sectionContents";
 
@@ -58,18 +59,26 @@ export function yamlToGUI(sectionId) {
 function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
   const state = useSectionInfos.getState();
   const forSectionId = getForSectionId(sectionId, state.x);
-  const docs = parseAllDocuments(yamlValue);
+  const documents = splitDocuments(yamlValue);
+  const parsedDocs = documents.map((doc) =>
+    doc.trim() ? parseRawDump(doc) : {},
+  );
+  console.log(parsedDocs);
   const codeInfoChildren = getCodeInfoCol(forSectionId, state).children;
   const codeInfoChildrenKeys = Object.keys(codeInfoChildren);
   const newParamSweep = [];
 
-  for (const doc of docs) {
-    const d = doc.toJS();
+  for (const d of parsedDocs) {
     const hasCallable = !Array.isArray(d);
     let matchingCallableId = null,
       callableName;
     if (hasCallable) {
       callableName = Object.keys(d)[0];
+      if (!callableName) {
+        newParamSweep.push({ selectedItem: null, params: [] });
+        continue;
+      }
+
       matchingCallableId = tryFindingMatchingId(
         callableName,
         codeInfoChildrenKeys,
@@ -86,7 +95,14 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
       startingId: matchingCallableId,
     });
 
-    const paramsInDoc = callableName ? d[callableName] : d;
+    let paramsInDoc = callableName ? d[callableName] : d;
+    // Usually this is a list.
+    // But if it's just "empty" then it'll be an empty dict.
+    // Hence why I'm using _.size
+    if (_.size(paramsInDoc) === 0) {
+      paramsInDoc = [];
+    }
+
     const params = [];
 
     for (const singleParam of paramsInDoc) {
@@ -101,10 +117,13 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
       if (!matchingParamId) {
         continue;
       }
-      params.push({
-        paramInfoId: matchingParamId,
-        values: singleParam[paramName],
-      });
+      const values = singleParam[paramName];
+      if (_.size(values) > 0) {
+        params.push({
+          paramInfoId: matchingParamId,
+          values,
+        });
+      }
     }
 
     newParamSweep.push({ selectedItem: matchingCallableId, params });
@@ -270,20 +289,19 @@ function getMatch(name, forSectionId, sections, sectionVariants) {
 
 function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   const state = useSectionInfos.getState();
-  const docs = parseAllDocuments(yamlValue);
-  console.log("docs", docs);
+  const documents = splitDocuments(yamlValue);
+  const parsedDocs = documents.map((doc) =>
+    doc.trim() ? parseRawDump(doc) : {},
+  );
   let selectedItemName = null;
   let pinned = {};
   let unpinned = {};
-  if (docs.length === 3) {
-    selectedItemName = docs[0].toJS();
-    pinned = docs[1].toJS();
-    unpinned = docs[2].toJS();
-  } else if (docs.length === 2) {
-    pinned = docs[0].toJS();
-    unpinned = docs[1].toJS();
+  if (parsedDocs.length === 3) {
+    [selectedItemName, pinned, unpinned] = parsedDocs;
+  } else if (parsedDocs.length === 2) {
+    [pinned, unpinned] = parsedDocs;
   } else {
-    unpinned = docs[0]?.toJS();
+    [unpinned] = parsedDocs;
   }
   pinned = pinned ?? {};
   unpinned = unpinned ?? {};
@@ -392,7 +410,6 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   const newInfos = {};
   const updatedInfos = {};
   const paramInfoIdToValue = {};
-  const { configLanguage } = state.x[sectionId];
   const defaultValue = newEVEntry().value;
   for (const v of output) {
     if (!(v.id in cState)) {
@@ -406,14 +423,8 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     } else {
       updatedInfos[v.id] = { name: v.key, isPinned: v.isPinned };
     }
-    paramInfoIdToValue[v.id] =
-      configLanguage === "json"
-        ? JSON.stringify(v.value)
-        : unprocessValue(v.value);
-
-    // remove the value if it's equal to the default value
-    if (paramInfoIdToValue[v.id] === defaultValue) {
-      delete paramInfoIdToValue[v.id];
+    if (v.value !== defaultValue) {
+      paramInfoIdToValue[v.id] = v.value;
     }
   }
 
@@ -529,32 +540,6 @@ function mergePinnedAndUnpinned(pinned, unpinned) {
   }
 
   return [...pinnedNotInUnpinned, ...unpinned];
-}
-
-function unprocessValue(value) {
-  if (typeof value === "boolean") {
-    return value.toString(); // Convert boolean to string "true" or "false"
-  } else if (typeof value === "number") {
-    return value.toString(); // Convert number to string
-  } else if (Array.isArray(value)) {
-    // Recursively process each element in the array
-    return value.map(unprocessValue);
-  } else if (typeof value === "object" && value !== null) {
-    // Recursively process nested objects
-    return unprocessObject(value);
-  } else if (value === null) {
-    return "";
-  } else {
-    return value; // Return the value as is for other data types (e.g., strings)
-  }
-}
-
-function unprocessObject(obj) {
-  const result = {};
-  for (const key of Object.keys(obj)) {
-    result[key] = unprocessValue(obj[key]);
-  }
-  return result;
 }
 
 function updateIdsToChildren({
