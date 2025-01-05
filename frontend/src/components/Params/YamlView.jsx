@@ -6,6 +6,7 @@ import {
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
+import { yamlToGUI } from "state/actions/guiToYaml";
 import {
   getDisplayedSectionVariantId,
   getSectionVariant,
@@ -16,10 +17,21 @@ export function SectionYamlView({ sectionId }) {
   const isDisabled = useSectionInfos(
     (x) => getSectionVariant(sectionId, x).isFrozen,
   );
-  return <YamlView sectionId={sectionId} isDisabled={isDisabled} />;
+
+  function onChange() {
+    debouncedYamlToGUI(sectionId);
+  }
+
+  return (
+    <YamlView
+      sectionId={sectionId}
+      isDisabled={isDisabled}
+      onChange={onChange}
+    />
+  );
 }
 
-export function YamlView({ sectionId, isDisabled }) {
+export function YamlView({ sectionId, isDisabled, onChange }) {
   const [yamlValue, setYamlValue] = useGetAndSetYamlValue(sectionId);
 
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
@@ -38,6 +50,11 @@ export function YamlView({ sectionId, isDisabled }) {
     isDisabled,
   });
 
+  function localOnChange(v) {
+    setYamlValue(v);
+    onChange();
+  }
+
   // We need this class to avoid double scrollbars in GlobalParamSweepArea.
   // But we don't apply it when we're resizing because doing so causes
   // the scrollTop logic in useCodeAreaHeight to break.
@@ -54,7 +71,7 @@ export function YamlView({ sectionId, isDisabled }) {
       <CodeMirror
         maxHeight={maxHeight}
         value={yamlValue}
-        onChange={setYamlValue}
+        onChange={localOnChange}
         theme={theme}
         extensions={extensions}
         onCreateEditor={handleCreateEditor}
@@ -80,3 +97,5 @@ function useGetAndSetYamlValue(sectionId) {
 
   return [yamlValue, setYamlValue];
 }
+
+const debouncedYamlToGUI = _.debounce(yamlToGUI, 500);
