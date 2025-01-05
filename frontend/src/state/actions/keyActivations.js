@@ -44,7 +44,7 @@ import {
   addTerminalInEmptySpace,
 } from "./sections/createSections";
 import { deleteAllActiveSections } from "./sections/deleteSections";
-import { groupSections } from "./sections/groupSections";
+import { groupSections, ungroupActiveGroup } from "./sections/groupSections";
 import {
   focusOnAdvancedSearch,
   focusOnSearch,
@@ -390,6 +390,7 @@ export function attachKeyEventListeners() {
     [shortcuts.undoShortcut, _.throttle(undoProjectState, 100), null, true],
     [shortcuts.redoShortcut, _.throttle(redoProjectState, 100), null, true],
     [shortcuts.groupShortcut, groupSections],
+    [shortcuts.ungroupShortcut, ungroupActiveGroup],
     [shortcuts.saveShortcut, saveProject],
     [shortcuts.loadShortcut, openLoadModal],
     [shortcuts.saveAsShortcut, openSaveAsModal],

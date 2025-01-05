@@ -7,14 +7,16 @@ import {
   useNodeInternals,
   useSectionInfos,
 } from "state/definitions";
-import { getSectionVariant } from "../sectionInfos";
+import { setActiveSectionIds } from "../activeSections";
+import { getSectionType, getSectionVariant } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { addSectionAtPosition } from "./createSections";
 import { deleteSections } from "./deleteSections";
 
-export async function createGroup({ nodeIds, x, y }) {
+export function createGroup({ nodeIds, x, y }) {
+  let groupId;
   useSectionInfos.setState((state) => {
-    const groupId = addSectionAtPosition({
+    groupId = addSectionAtPosition({
       type: C.GROUP,
       position: { x, y },
       state,
@@ -30,6 +32,8 @@ export async function createGroup({ nodeIds, x, y }) {
     state.shouldRenameReferences = true;
   });
 
+  setActiveSectionIds([groupId]);
+
   maybeIncrementProjectStateVersion(true);
 }
 
@@ -43,30 +47,42 @@ export async function groupSections() {
     const nodeIds = selectedNodes.map((x) => x[1].id);
     const x = Math.min(...selectedNodes.map((x) => x[1].position.x));
     const y = Math.min(...selectedNodes.map((x) => x[1].position.y));
-    await createGroup({ nodeIds, x, y });
+    createGroup({ nodeIds, x, y });
     useReactFlow.setState({ nodesSelectionDims: null });
   }
 }
 
-export async function ungroup(groupId) {
-  useSectionInfos.setState((state) => {
-    const childIds = getSectionVariant(groupId, state).children;
-    const positions = {};
-    childIds.forEach((id) => {
-      const { x, y } = getSectionRect(id);
-      positions[id] = { x, y };
-    });
-
-    moveSections({
-      oldParentId: groupId,
-      newParentId: null,
-      sectionIds: childIds,
-      positions,
-      state,
-    });
-
-    deleteSections([groupId], state);
-
-    state.shouldRenameReferences = true;
+export function ungroup(groupId, state) {
+  if (getSectionType(groupId, state) !== C.GROUP) {
+    return;
+  }
+  const childIds = getSectionVariant(groupId, state).children;
+  const positions = {};
+  childIds.forEach((id) => {
+    const { x, y } = getSectionRect(id);
+    positions[id] = { x, y };
   });
+
+  moveSections({
+    oldParentId: groupId,
+    newParentId: null,
+    sectionIds: childIds,
+    positions,
+    state,
+  });
+
+  deleteSections([groupId], state);
+
+  state.shouldRenameReferences = true;
+}
+
+export function ungroupActiveGroup() {
+  useSectionInfos.setState((state) => {
+    const ids = useActiveSection.getState().ids;
+    // TODO: support multiple groups
+    if (ids.length === 1) {
+      ungroup(ids[0], state);
+    }
+  });
+  maybeIncrementProjectStateVersion(true);
 }

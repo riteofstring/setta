@@ -26,7 +26,7 @@ import { paramNameFromPathArray } from "./sections/sectionContents";
 
 export async function guiToYaml(sectionId) {
   const { res, metaData } = await dbGuiToYaml(sectionId);
-  console.log(res, metaData);
+  // console.log(res, metaData);
   if (res.status === 200) {
     const { originalObj, yamlValue } = res.data;
     useOriginalYamlObj.setState({

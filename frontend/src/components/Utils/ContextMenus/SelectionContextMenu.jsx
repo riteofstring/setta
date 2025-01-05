@@ -22,7 +22,6 @@ export function SelectionContextMenu() {
 
   const closeContextMenu = () => {
     closeAllContextMenus();
-    clearActiveSectionIds();
     useReactFlow.setState({ nodesSelectionDims: null });
   };
 
@@ -39,6 +38,7 @@ export function SelectionContextMenu() {
       deleteSections(nodeIds, state);
     });
     closeContextMenu();
+    clearActiveSectionIds();
     maybeIncrementProjectStateVersion(true);
   }
 
