@@ -111,10 +111,13 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
       if (!matchingParamId) {
         continue;
       }
-      params.push({
-        paramInfoId: matchingParamId,
-        values: singleParam[paramName],
-      });
+      const values = singleParam[paramName];
+      if (_.size(values) > 0) {
+        params.push({
+          paramInfoId: matchingParamId,
+          values,
+        });
+      }
     }
 
     newParamSweep.push({ selectedItem: matchingCallableId, params });
