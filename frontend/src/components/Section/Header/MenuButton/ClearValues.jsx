@@ -1,9 +1,8 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { guiToYaml } from "state/actions/guiToYaml";
+import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
 import { getSectionInfo } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { getParamUIType } from "state/hooks/uiTypes";
-import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { newEVEntry } from "utils/objs/ev";
 
 export function ClearValues({ sectionId }) {
@@ -18,9 +17,7 @@ export function ClearValues({ sectionId }) {
       }
     });
 
-    if (displayMode === SECTION_DISPLAY_MODES.YAML) {
-      guiToYaml(sectionId);
-    }
+    maybeRunGuiToYaml(sectionId, variantId, displayMode);
   }
 
   return <MenuItem onClick={onClick}>Clear Values</MenuItem>;

@@ -3,7 +3,7 @@ import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
 import {
   getCodeInfoCol,
-  getSectionInfo,
+  getDisplayedSectionVariantId,
   getSectionType,
   getSectionVariant,
   setEnteredValue,
@@ -593,14 +593,19 @@ function updateIdsToChildren({
   }
 }
 
-export async function maybeRunGuiToYaml(sectionId) {
-  if (getSectionInfo(sectionId).displayMode === SECTION_DISPLAY_MODES.YAML) {
-    await guiToYaml(sectionId);
+export async function maybeRunGuiToYaml(sectionId, variantId, displayMode) {
+  console.log("maybeRunGuiToYaml");
+  if (displayMode === SECTION_DISPLAY_MODES.YAML) {
+    await guiToYaml(sectionId, variantId);
   }
 }
 
-export async function maybeRunGuiToYamlOnAllSections() {
-  for (const k of Object.keys(useSectionInfos.getState().x)) {
-    await maybeRunGuiToYaml(k);
+export async function maybeRunGuiToYamlOnAllSections(isPreview = false) {
+  const state = useSectionInfos.getState();
+  for (const [sectionId, section] of Object.entries(state.x)) {
+    const variantId = isPreview
+      ? getDisplayedSectionVariantId(sectionId)
+      : section.variantId;
+    await maybeRunGuiToYaml(sectionId, variantId, section.displayMode);
   }
 }
