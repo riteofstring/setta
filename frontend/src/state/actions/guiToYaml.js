@@ -21,6 +21,7 @@ import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { newEVEntry } from "utils/objs/ev";
 import { getOrCreateCodeInfoCol } from "./codeInfo";
+import { parseRawDump } from "./guiToYamlParsing";
 import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
 import { paramNameFromPathArray } from "./sections/sectionContents";
 
@@ -57,13 +58,16 @@ export function yamlToGUI(sectionId) {
 function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
   const state = useSectionInfos.getState();
   const forSectionId = getForSectionId(sectionId, state.x);
-  const docs = parseAllDocuments(yamlValue);
+  const documents = splitDocuments(yamlValue);
+  const parsedDocs = documents.map((doc) =>
+    doc.trim() ? parseRawDump(doc) : {},
+  );
+  console.log(parsedDocs);
   const codeInfoChildren = getCodeInfoCol(forSectionId, state).children;
   const codeInfoChildrenKeys = Object.keys(codeInfoChildren);
   const newParamSweep = [];
 
-  for (const doc of docs) {
-    const d = doc.toJS();
+  for (const d of parsedDocs) {
     const hasCallable = !Array.isArray(d);
     let matchingCallableId = null,
       callableName;
@@ -556,80 +560,6 @@ function splitDocuments(input) {
   documents.push(currentDoc.join("\n"));
 
   return documents;
-}
-
-function parseRawDump(input) {
-  // Split input into lines and remove empty lines
-  const lines = input.split("\n").filter((line) => line.trim());
-
-  // Track the current object we're building
-  const result = {};
-
-  // Stack to keep track of objects and their indentation levels
-  const stack = [{ obj: result, indent: -1 }];
-
-  // Current multiline value collection
-  let currentMultiline = null;
-  let multilineKey = null;
-  let multilineIndent = 0;
-
-  for (let line of lines) {
-    // Get the indentation level
-    const indent = line.search(/\S/);
-    const content = line.trim();
-
-    // If we're collecting a multiline value
-    if (currentMultiline !== null) {
-      // If this line has less indentation, we're done with the multiline
-      if (indent < multilineIndent) {
-        stack[stack.length - 1].obj[multilineKey] = currentMultiline.trim();
-        currentMultiline = null;
-        multilineKey = null;
-      } else {
-        // Add to multiline collection
-        currentMultiline +=
-          (currentMultiline ? "\n" : "") + line.substring(multilineIndent);
-        continue;
-      }
-    }
-
-    // Split into key and value
-    const colonIndex = content.indexOf(":");
-    if (colonIndex === -1) continue;
-
-    const key = content.substring(0, colonIndex).trim();
-    let value = content.substring(colonIndex + 1).trim();
-
-    // Remove from stack any objects with greater or equal indentation
-    while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
-      stack.pop();
-    }
-
-    // If value is empty, this is a new object
-    if (!value) {
-      const newObj = {};
-      stack[stack.length - 1].obj[key] = newObj;
-      stack.push({ obj: newObj, indent: indent });
-    }
-    // If value starts with '|', this is a multiline value
-    else if (value === "|") {
-      currentMultiline = "";
-      multilineKey = key;
-      multilineIndent = indent + 2;
-    }
-    // Otherwise, this is a simple key-value pair
-    else {
-      // Keep all values as strings
-      stack[stack.length - 1].obj[key] = value;
-    }
-  }
-
-  // Handle any remaining multiline value
-  if (currentMultiline !== null) {
-    stack[stack.length - 1].obj[multilineKey] = currentMultiline.trim();
-  }
-
-  return result;
 }
 
 function updateIdsToChildren({
