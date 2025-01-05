@@ -385,7 +385,6 @@ function LayerList({
   activeLayerId,
   setActiveLayerId,
   setLayerVisibility,
-  onNameChange,
   addLayer,
   reorderLayers,
   deleteLayer,
@@ -394,28 +393,7 @@ function LayerList({
     (x) => getSectionArtifactGroupMetadata(sectionId, x),
     _.isEqual,
   );
-  const [editingIdx, setEditingIdx] = useState(null);
-  const [editValue, setEditValue] = useState("");
   const [draggedOverIdx, setDraggedOverIdx] = useState(null);
-
-  const handleDoubleClick = (idx, name) => {
-    setEditingIdx(idx);
-    setEditValue(name);
-  };
-
-  const handleKeyDown = (e, idx) => {
-    if (e.key === "Enter") {
-      onNameChange(idx, editValue);
-      setEditingIdx(null);
-    } else if (e.key === "Escape") {
-      setEditingIdx(null);
-    }
-  };
-
-  const handleBlur = (idx) => {
-    onNameChange(idx, editValue);
-    setEditingIdx(null);
-  };
 
   const handleDragStart = (e, idx) => {
     e.dataTransfer.setData("text/plain", idx);
@@ -466,26 +444,12 @@ function LayerList({
                 <BiHide className="h-5 w-5 text-setta-400 dark:text-setta-600" />
               )}
             </button>
-            {editingIdx === idx ? (
-              <input
-                type="text"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, idx)}
-                onBlur={() => handleBlur(idx)}
-                className="rounded border px-1 text-sm text-setta-600 focus:border-blue-500 focus:outline-none dark:text-setta-400"
-                autoFocus
-              />
-            ) : (
-              <p
-                className={`truncate text-sm font-semibold ${activeLayerId === layer.id ? " !text-blue-500" : "text-setta-600 dark:text-setta-400"}`}
-                // onDoubleClick={() =>
-                //   handleDoubleClick(id, artifactIdsToNames[id])
-                // }
-              >
-                {layer.name}
-              </p>
-            )}
+
+            <p
+              className={`truncate text-sm font-semibold ${activeLayerId === layer.id ? " !text-blue-500" : "text-setta-600 dark:text-setta-400"}`}
+            >
+              {layer.name}
+            </p>
 
             <button
               onClick={() => deleteLayer(layer.id)}
