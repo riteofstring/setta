@@ -1,3 +1,4 @@
+import { temporal } from "zundo";
 import { createWithEqualityFn as _create } from "zustand/traditional";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
@@ -55,6 +56,10 @@ function addStatePointer(state, stateType) {
 
 export function withVersion(initialState) {
   return { ...initialState, version: 0 };
+}
+
+export function withTemporal(...props) {
+  return temporal(...props, { limit: 200 });
 }
 
 function resetStores(stateType) {

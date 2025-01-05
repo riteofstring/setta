@@ -1,13 +1,18 @@
 import C from "constants/constants.json";
 import { dummyRegExpObject } from "utils/utils";
-import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import { create, withProjectState, withResetFn, withVersion } from "./utils";
+import {
+  create,
+  withProjectState,
+  withResetFn,
+  withTemporal,
+  withVersion,
+} from "./utils";
 
 export const useActiveSection = withProjectState(
   create(
-    temporal(
+    withTemporal(
       withResetFn(() =>
         withVersion({
           ids: [],
@@ -30,7 +35,7 @@ export const useContextMenus = withProjectState(
 export const useSectionInfos = withProjectState(
   create(
     subscribeWithSelector(
-      temporal(
+      withTemporal(
         immer(
           withResetFn(() =>
             withVersion({
@@ -107,7 +112,7 @@ export const useModal = withProjectState(
 
 export const useNodeInternals = withProjectState(
   create(
-    temporal(
+    withTemporal(
       withResetFn(() =>
         withVersion({
           x: new Map(),
@@ -133,13 +138,15 @@ export const useAllProjectConfigs = create(
 
 export const useArtifacts = withProjectState(
   create(
-    subscribeWithSelector(temporal(withResetFn(() => withVersion({ x: {} })))),
+    subscribeWithSelector(
+      withTemporal(withResetFn(() => withVersion({ x: {} }))),
+    ),
   ),
 );
 
 export const useProjectConfig = withProjectState(
   create(
-    temporal(
+    withTemporal(
       immer(
         withResetFn(() =>
           withVersion({
@@ -180,7 +187,7 @@ export const useSectionRefs = withProjectState(
 export const useSettings = create(() => ({}));
 
 export const useStateVersion = withProjectState(
-  create(temporal(withResetFn(() => withVersion({})))),
+  create(withTemporal(withResetFn(() => withVersion({})))),
 );
 
 export const useTypeErrors = withProjectState(
