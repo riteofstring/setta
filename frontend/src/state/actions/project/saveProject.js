@@ -78,7 +78,6 @@ export function getProjectData({
     }
   }
   projectConfig.children = children;
-  console.log("projectConfig", projectConfig);
 
   const output = {
     projectConfig,
@@ -92,7 +91,7 @@ export function getProjectData({
     codeInfoCols,
   };
 
-  // console.log(output);
+  console.log(output);
 
   return output;
 }

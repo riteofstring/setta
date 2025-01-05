@@ -28,11 +28,7 @@ def save_json_source_data(p, section_ids=None, forking_from=None):
                 if is_from_json_source(k):
                     metadata = json.loads(k.removeprefix(C.JSON_SOURCE_PREFIX))
                     key_path = metadata["key"]
-                    value = (
-                        try_json(variant["values"][k]["value"])
-                        if len(children) == 0
-                        else {}
-                    )
+                    value = try_getting_value(variant, k, children)
 
                     current_dict = add_key_path_to_dict(
                         to_be_saved[filename], key_path[:-1]
@@ -52,6 +48,14 @@ def save_json_source_data(p, section_ids=None, forking_from=None):
         save_json_to_file(filename, data)
 
     return to_be_saved
+
+
+def try_getting_value(variant, codeInfoId, codeInfoChildren):
+    if len(codeInfoChildren) == 0:
+        if codeInfoId in variant["values"]:
+            return try_json(variant["values"][codeInfoId]["value"])
+        return ""
+    return {}
 
 
 def add_key_path_to_dict(output, key_path):
