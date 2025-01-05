@@ -243,12 +243,14 @@ function drawingOnMouseDown({
         localArtifactTransformsRef.current.find(
           (l) => l.artifactId === currBrushStrokeArtifactId,
         );
-      startNewStroke(
-        draftCanvasRef,
-        strokesRef,
-        point,
-        getInverseTransform(currentBrushStrokeTransformInfo.transform),
-      );
+      if (currentBrushStrokeTransformInfo) {
+        startNewStroke(
+          draftCanvasRef,
+          strokesRef,
+          point,
+          getInverseTransform(currentBrushStrokeTransformInfo.transform),
+        );
+      }
     }
 
     prevPointRef.current = point;
@@ -278,6 +280,10 @@ function drawingOnMouseMove({
     const currStrokesRef = isEraser ? eraserStrokesRef : strokesRef;
     const currStroke =
       currStrokesRef.current[currStrokesRef.current.length - 1];
+    if (!currStroke) {
+      return;
+    }
+
     if (isEraser) {
       currStroke.points.push(point);
       prevPointRef.current = point;
@@ -304,12 +310,14 @@ function drawingOnMouseMove({
         localArtifactTransformsRef.current.find(
           (l) => l.artifactId === currBrushStrokeArtifactId,
         );
-      startNewStroke(
-        draftCanvasRef,
-        currStrokesRef,
-        point,
-        getInverseTransform(currentBrushStrokeTransformInfo.transform),
-      );
+      if (currentBrushStrokeTransformInfo) {
+        startNewStroke(
+          draftCanvasRef,
+          currStrokesRef,
+          point,
+          getInverseTransform(currentBrushStrokeTransformInfo.transform),
+        );
+      }
       prevPointRef.current = point;
     } else {
       drawStroke(draftCanvasRef, prevPointRef.current, point);

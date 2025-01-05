@@ -92,7 +92,7 @@ const LayersList = ({
                   className="group flex items-center justify-between text-xs text-setta-600 dark:text-setta-400"
                 >
                   <div className="flex gap-1">
-                    {getArtifactTypeIcon(availableArtifacts[artifactId].type)}
+                    {getArtifactTypeIcon(availableArtifacts[artifactId]?.type)}
                     <p>{availableArtifacts[artifactId]?.name}</p>
                   </div>
 
