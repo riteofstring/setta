@@ -89,7 +89,14 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
       startingId: matchingCallableId,
     });
 
-    const paramsInDoc = callableName ? d[callableName] : d;
+    let paramsInDoc = callableName ? d[callableName] : d;
+    // Usually this is a list.
+    // But if it's just "empty" then it'll be an empty dict.
+    // Hence why I'm using _.size
+    if (_.size(paramsInDoc) === 0) {
+      paramsInDoc = [];
+    }
+
     const params = [];
 
     for (const singleParam of paramsInDoc) {
