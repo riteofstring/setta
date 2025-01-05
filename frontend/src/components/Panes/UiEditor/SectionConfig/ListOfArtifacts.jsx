@@ -1,6 +1,7 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import _ from "lodash";
 import { useEffect, useState } from "react";
+import { BiPaint } from "react-icons/bi";
 import { FaObjectGroup } from "react-icons/fa6";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
 import { dbLoadAvailableArtifacts } from "requests/artifacts";
@@ -50,6 +51,15 @@ const LayersList = ({
     return "border-blue-500 dark:border-blue-600 bg-blue-50 dark:bg-blue-800 dark:[&_*]:text-white/50";
   };
 
+  function getArtifactTypeIcon(type) {
+    switch (type) {
+      case "img":
+        return <i className="gg-image text-setta-300 dark:text-setta-600" />;
+      case "brushStrokes":
+        return <BiPaint className="text-setta-300 dark:text-setta-600" />;
+    }
+  }
+
   return (
     <>
       <h3 className="mt-1 text-sm font-bold text-setta-400 dark:text-setta-600">
@@ -82,7 +92,7 @@ const LayersList = ({
                   className="group flex items-center justify-between text-xs text-setta-600 dark:text-setta-400"
                 >
                   <div className="flex gap-1">
-                    <i className="gg-image text-setta-300 dark:text-setta-600" />
+                    {getArtifactTypeIcon(availableArtifacts[artifactId].type)}
                     <p>{availableArtifacts[artifactId]?.name}</p>
                   </div>
 
