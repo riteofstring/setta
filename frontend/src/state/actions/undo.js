@@ -58,6 +58,7 @@ function redoSetPastAndFutureStates(s) {
 }
 
 function incrementStateVersion(states) {
+  console.log("*****incrementStateVersion")
   const version = useStateVersion.getState().version;
   for (const s of states) {
     if (s.temporal) {

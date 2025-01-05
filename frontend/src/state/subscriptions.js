@@ -3,6 +3,7 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
+  useArtifacts,
   useEVRefRegex,
   useInfoToEVReferrer,
   useMisc,
@@ -28,6 +29,7 @@ import {
   getSectionVariant,
 } from "./actions/sectionInfos";
 import { getTemplateVarsRegexAndColorMap } from "./actions/templateVarsRegex";
+import { maybeIncrementProjectStateVersion } from "./actions/undo";
 
 export function subscribe() {
   useSectionInfos.subscribe(
@@ -122,6 +124,19 @@ export function subscribe() {
       useInfoToEVReferrer.setState(infoToEVReferrers);
     },
     { equalityFn: _.isEqual },
+  );
+
+  useArtifacts.subscribe(
+    (x) => x,
+    (newState, prevState) => {
+      if (
+        newState.requestStateVersionIncrement &&
+        !_.isEqual(newState.x, prevState.x)
+      ) {
+        useArtifacts.setState({ requestStateVersionIncrement: false });
+        maybeIncrementProjectStateVersion(true);
+      }
+    },
   );
 }
 
