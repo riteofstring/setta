@@ -2,13 +2,15 @@ import {
   computeInfoToFullName,
   keyForInfoToFullName,
 } from "components/Utils/CodeMirror/utils";
-import { dbMakeEVRefReplacements } from "requests/infoToEVReferrer";
+import { dbMakeEVRefTemplateVarReplacements } from "requests/infoToEVReferrer";
 import {
   useInfoToEVReferrer,
+  useInfoToTemplateVarReferrer,
   useSectionInfos,
   useSettings,
 } from "state/definitions";
 import { RENAME_REFERENCES_ON_SECTION_MOVE_MODES } from "utils/constants";
+import { templatePrefix } from "utils/utils";
 import { openRenameReferencesModal } from "./modal";
 
 export function getInfoToEVReferrers(state) {
@@ -54,53 +56,32 @@ export function getRequiredReplacements() {
   const codeInfoReplacements = {};
   const paramEVReplacements = {};
   const state = useSectionInfos.getState();
-
   const infoToFullName = computeInfoToFullName();
   let atLeastOneReplacement = false;
-  let curr;
+  let referrers;
+
   for (const sectionId of Object.keys(useSectionInfos.getState().x)) {
-    const referrersToSection = useInfoToEVReferrer.getState()[sectionId];
-    if (!referrersToSection) {
-      continue;
+    referrers = useInfoToEVReferrer.getState()[sectionId];
+    if (referrers) {
+      const changed = setEVRefReplacements(
+        referrers,
+        codeAreaReplacements,
+        codeInfoReplacements,
+        paramEVReplacements,
+        state,
+        infoToFullName,
+      );
+      atLeastOneReplacement ||= changed;
     }
-    for (const details of Object.values(referrersToSection)) {
-      for (const oneReferrer of details) {
-        const { variantId, codeInfoId, referringParamInfoId, originalEVRef } =
-          oneReferrer;
 
-        if (referringParamInfoId) {
-          curr = getParamEVReplacementObj(
-            paramEVReplacements,
-            variantId,
-            referringParamInfoId,
-            state,
-          );
-        } else if (codeInfoId) {
-          curr = getCodeInfoReplacementObj(
-            codeInfoReplacements,
-            codeInfoId,
-            state,
-          );
-        } else {
-          curr = getCodeAreaReplacementObj(
-            codeAreaReplacements,
-            variantId,
-            state,
-          );
-        }
-
-        const newName = infoToFullName[keyForInfoToFullName(originalEVRef)];
-
-        if (originalEVRef.keyword !== newName) {
-          atLeastOneReplacement = true;
-        }
-        // Even if newName is not different from the current name
-        // we add it to the replacements array because
-        // if atLeastOneReplacement is true,
-        // we need to send everything (replacements and unchanged) to the backend to be processed all together
-        // so that all position changes are accounted for.
-        curr.replacements.push({ originalEVRef, newName });
-      }
+    referrers = useInfoToTemplateVarReferrer.getState()[sectionId];
+    if (referrers) {
+      const changed = setTemplateVarReplacements(
+        referrers,
+        codeAreaReplacements,
+        state,
+      );
+      atLeastOneReplacement ||= changed;
     }
   }
 
@@ -110,6 +91,75 @@ export function getRequiredReplacements() {
     paramEVReplacements,
     atLeastOneReplacement,
   ];
+}
+
+function setEVRefReplacements(
+  evReferrersToSection,
+  codeAreaReplacements,
+  codeInfoReplacements,
+  paramEVReplacements,
+  state,
+  infoToFullName,
+) {
+  let curr;
+  let atLeastOneReplacement = false;
+  for (const details of Object.values(evReferrersToSection)) {
+    for (const oneReferrer of details) {
+      const { variantId, codeInfoId, referringParamInfoId, originalEVRef } =
+        oneReferrer;
+
+      if (referringParamInfoId) {
+        curr = getParamEVReplacementObj(
+          paramEVReplacements,
+          variantId,
+          referringParamInfoId,
+          state,
+        );
+      } else if (codeInfoId) {
+        curr = getCodeInfoReplacementObj(
+          codeInfoReplacements,
+          codeInfoId,
+          state,
+        );
+      } else {
+        curr = getCodeAreaReplacementObj(
+          codeAreaReplacements,
+          variantId,
+          state,
+        );
+      }
+      const newName = infoToFullName[keyForInfoToFullName(originalEVRef)];
+      curr.replacements.push({ originalEVRef, newName });
+      if (originalEVRef.keyword !== newName) {
+        atLeastOneReplacement = true;
+      }
+    }
+  }
+  return atLeastOneReplacement;
+}
+
+function setTemplateVarReplacements(
+  templateVarReferrersToSection,
+  codeAreaReplacements,
+  state,
+) {
+  let curr;
+  let atLeastOneReplacement = false;
+  for (const oneReferrer of templateVarReferrersToSection) {
+    const { variantId, originalTemplateVar } = oneReferrer;
+    curr = getCodeAreaReplacementObj(codeAreaReplacements, variantId, state);
+    const matchingSection = Object.values(state.x).find(
+      (s) => s.id === originalTemplateVar.sectionId,
+    );
+    if (matchingSection) {
+      const newName = templatePrefix(matchingSection.name);
+      curr.replacements.push({ originalTemplateVar, newName });
+      if (originalTemplateVar.keyword !== newName) {
+        atLeastOneReplacement = true;
+      }
+    }
+  }
+  return atLeastOneReplacement;
 }
 
 function newReplacementObj(string) {
@@ -195,7 +245,7 @@ export async function makeReplacements(
   codeInfoReplacements,
   paramEVReplacements,
 ) {
-  const res = await dbMakeEVRefReplacements(
+  const res = await dbMakeEVRefTemplateVarReplacements(
     codeAreaReplacements,
     codeInfoReplacements,
     paramEVReplacements,
@@ -208,6 +258,7 @@ export async function makeReplacements(
         curr = state.variants[variantId];
         curr.code = newData[0];
         curr.evRefs = newData[1];
+        curr.templateVars = newData[2];
       }
       for (const [codeInfoId, newData] of Object.entries(newCodeInfoValues)) {
         curr = state.codeInfo[codeInfoId];

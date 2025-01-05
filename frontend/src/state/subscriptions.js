@@ -5,6 +5,7 @@ import _ from "lodash";
 import {
   useEVRefRegex,
   useInfoToEVReferrer,
+  useInfoToTemplateVarReferrer,
   useMisc,
   useNodeInternals,
   useSectionInfos,
@@ -15,6 +16,7 @@ import {
   getInfoToEVReferrers,
   maybeOpenRenameReferencesModal,
 } from "./actions/infoToEVReferrer";
+import { getInfoToTemplateVarReferrer } from "./actions/infoToTemplateVarReferrer";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
@@ -120,6 +122,14 @@ export function subscribe() {
     getInfoToEVReferrers,
     (infoToEVReferrers) => {
       useInfoToEVReferrer.setState(infoToEVReferrers);
+    },
+    { equalityFn: _.isEqual },
+  );
+
+  useSectionInfos.subscribe(
+    getInfoToTemplateVarReferrer,
+    (infoToTemplateVarReferrers) => {
+      useInfoToTemplateVarReferrer.setState(infoToTemplateVarReferrers);
     },
     { equalityFn: _.isEqual },
   );
