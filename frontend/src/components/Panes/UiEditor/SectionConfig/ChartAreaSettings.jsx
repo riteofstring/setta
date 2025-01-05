@@ -139,17 +139,12 @@ function XAxisColumnSelection({
   valueHeaders,
   selectedXAxisColumn,
 }) {
-  const xAxisColumnChoices =
-    valueHeaders?.map((x) => ({ id: x, name: x })) ?? [];
-  const allItems = [
+  const xAxisColumnChoices = [
     {
       group: "Column Names",
-      items: xAxisColumnChoices,
+      items: valueHeaders?.map((x) => ({ id: x, name: x })) ?? [],
     },
   ];
-
-  console.log("selectedXAxisColumn", selectedXAxisColumn);
-  console.log("xAxisColumnChoices[0]?.id", xAxisColumnChoices[0]?.id);
 
   return (
     <>
@@ -160,12 +155,8 @@ function XAxisColumnSelection({
         X-Axis Column
       </label>
       <IdNameCombobox
-        allItems={allItems}
-        value={
-          !selectedXAxisColumn
-            ? xAxisColumnChoices[0]?.id ?? ""
-            : selectedXAxisColumn
-        }
+        allItems={xAxisColumnChoices}
+        value={selectedXAxisColumn}
         onSelectedItemChange={(v) =>
           setChartSetting(sectionId, "xAxisColumn", v)
         }
@@ -179,13 +170,10 @@ function CategoryColumnSelection({
   valueHeaders,
   selectedCategoryColumn,
 }) {
-  const categoryColumnChoices =
-    valueHeaders?.map((x) => ({ id: x, name: x })) ?? [];
-
-  const allItems = [
+  const categoryColumnChoices = [
     {
       group: "Column Names",
-      items: categoryColumnChoices,
+      items: valueHeaders?.map((x) => ({ id: x, name: x })) ?? [],
     },
   ];
 
@@ -198,8 +186,8 @@ function CategoryColumnSelection({
         Category Column
       </label>
       <IdNameCombobox
-        allItems={allItems}
-        value={selectedCategoryColumn ?? categoryColumnChoices[0] ?? ""}
+        allItems={categoryColumnChoices}
+        value={selectedCategoryColumn}
         onSelectedItemChange={(v) =>
           setChartSetting(sectionId, "categoryColumn", v)
         }
