@@ -7,7 +7,6 @@ import { useSectionInfos } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import colors from "tailwindcss/colors";
 import { BehaviorDropType } from "./dropTypes";
-f;
 
 export function useHighlightDroppable({ sectionId, isGroup }) {
   const padding = !isGroup ? "0.75rem" : "";
