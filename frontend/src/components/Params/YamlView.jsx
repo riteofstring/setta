@@ -40,7 +40,7 @@ export function YamlView({ sectionId, isDisabled, onChange }) {
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
 
-  const { theme } = useCodeMirrorStyle();
+  const theme = useCodeMirrorStyle();
   const extensions = getExtensions({
     sectionId,
     language: "yaml",

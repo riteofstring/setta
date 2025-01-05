@@ -96,7 +96,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
-  const { theme } = useCodeMirrorStyle();
+  const theme = useCodeMirrorStyle();
 
   function onChange(v) {
     useSectionInfos.setState((x) => {

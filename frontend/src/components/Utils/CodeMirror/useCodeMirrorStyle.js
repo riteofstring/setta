@@ -1,5 +1,11 @@
-import { EditorView } from "@codemirror/view";
-import { githubDarkInit, githubLightInit } from "@uiw/codemirror-theme-github";
+import { tags as t } from "@lezer/highlight";
+import {
+  defaultSettingsGithubDark,
+  defaultSettingsGithubLight,
+  githubDarkInit,
+  githubLightInit,
+} from "@uiw/codemirror-theme-github";
+import { createTheme } from "@uiw/codemirror-themes";
 import { localStorageFns } from "state/hooks/localStorage";
 
 const commonSettings = {
@@ -11,6 +17,32 @@ const commonSettings = {
   gutterBorder: "#dddddd00",
 };
 
+function boringTheme(darkMode, color) {
+  const defaultSettingsGithub = darkMode
+    ? defaultSettingsGithubDark
+    : defaultSettingsGithubLight;
+  return createTheme({
+    theme: darkMode ? "dark" : "light",
+    settings: { ...defaultSettingsGithub, ...commonSettings },
+    styles: [
+      { tag: [t.comment, t.bracket], color },
+      { tag: t.variableName, color },
+      { tag: [t.string, t.special(t.brace)], color },
+      { tag: t.number, color },
+      { tag: t.bool, color },
+      { tag: t.null, color },
+      { tag: t.keyword, color },
+      { tag: t.operator, color },
+      { tag: t.className, color },
+      { tag: t.definition(t.typeName), color },
+      { tag: t.typeName, color },
+      { tag: t.angleBracket, color },
+      { tag: t.tagName, color },
+      { tag: t.attributeName, color },
+    ],
+  });
+}
+
 const githubDarkTheme = githubDarkInit({
   settings: commonSettings,
 });
@@ -19,111 +51,29 @@ const githubLightTheme = githubLightInit({
   settings: commonSettings,
 });
 
+const greenDarkTheme = boringTheme(true, "#7ee787");
+const greenLightTheme = boringTheme(false, "hsla(157, 100%, 28%, 1)");
+
 // make styles available for DummyCodeMirror
-for (const theme of [githubDarkTheme, githubLightTheme]) {
+for (const theme of [
+  githubDarkTheme,
+  githubLightTheme,
+  greenDarkTheme,
+  greenLightTheme,
+]) {
   const sheet = new CSSStyleSheet();
   sheet.replaceSync(theme[1][2].value.module.rules.join("\n"));
   document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
 }
 
-function boringTheme(dark, color) {
-  const baseFn = dark ? githubDarkInit : githubLightInit;
-  const themeOptions = customCreateTheme(baseFn({ settings: commonSettings }));
-  for (const k of ["&", ".cm-content"]) {
-    if (!(k in themeOptions)) {
-      themeOptions[k] = {};
-    }
-    themeOptions[k].color = color;
-  }
-
-  const theme = EditorView.theme(themeOptions, { dark });
-  return { theme, color };
-}
-
-const greenDarkTheme = boringTheme(true, "#7ee787");
-const greenLightTheme = boringTheme(false, "hsla(157, 100%, 28%, 1)");
-
-export function useCodeMirrorStyle(monochrome) {
+export function useCodeMirrorStyle(color) {
   const [darkMode] = localStorageFns.darkMode.hook();
-  return getCodeMirrorStyle(darkMode, monochrome);
+  return getCodeMirrorStyle(darkMode, color);
 }
 
-export function getCodeMirrorStyle(darkMode, monochrome) {
-  if (monochrome) {
+export function getCodeMirrorStyle(darkMode, color) {
+  if (color === "green") {
     return darkMode ? greenDarkTheme : greenLightTheme;
   }
-  return { theme: darkMode ? githubDarkTheme : githubLightTheme };
-}
-
-// https://github.com/uiwjs/react-codemirror/blob/master/themes/theme/src/index.tsx
-function customCreateTheme(settings) {
-  const themeOptions = {
-    ".cm-gutters": {},
-  };
-  const baseStyle = {};
-  if (settings.background) {
-    baseStyle.backgroundColor = settings.background;
-  }
-  if (settings.backgroundImage) {
-    baseStyle.backgroundImage = settings.backgroundImage;
-  }
-  if (settings.foreground) {
-    baseStyle.color = settings.foreground;
-  }
-  if (settings.fontSize) {
-    baseStyle.fontSize = settings.fontSize;
-  }
-  if (settings.background || settings.foreground) {
-    themeOptions["&"] = baseStyle;
-  }
-
-  if (settings.fontFamily) {
-    themeOptions["&.cm-editor .cm-scroller"] = {
-      fontFamily: settings.fontFamily,
-    };
-  }
-  if (settings.gutterBackground) {
-    themeOptions[".cm-gutters"].backgroundColor = settings.gutterBackground;
-  }
-  if (settings.gutterForeground) {
-    themeOptions[".cm-gutters"].color = settings.gutterForeground;
-  }
-  if (settings.gutterBorder) {
-    themeOptions[".cm-gutters"].borderRightColor = settings.gutterBorder;
-  }
-
-  if (settings.caret) {
-    themeOptions[".cm-content"] = {
-      caretColor: settings.caret,
-    };
-    themeOptions[".cm-cursor, .cm-dropCursor"] = {
-      borderLeftColor: settings.caret,
-    };
-  }
-  let activeLineGutterStyle = {};
-  if (settings.gutterActiveForeground) {
-    activeLineGutterStyle.color = settings.gutterActiveForeground;
-  }
-  if (settings.lineHighlight) {
-    themeOptions[".cm-activeLine"] = {
-      backgroundColor: settings.lineHighlight,
-    };
-    activeLineGutterStyle.backgroundColor = settings.lineHighlight;
-  }
-  themeOptions[".cm-activeLineGutter"] = activeLineGutterStyle;
-
-  if (settings.selection) {
-    themeOptions[
-      "&.cm-focused .cm-selectionBackground, & .cm-line::selection, & .cm-selectionLayer .cm-selectionBackground, .cm-content ::selection"
-    ] = {
-      background: settings.selection + " !important",
-    };
-  }
-  if (settings.selectionMatch) {
-    themeOptions["& .cm-selectionMatch"] = {
-      backgroundColor: settings.selectionMatch,
-    };
-  }
-
-  return themeOptions;
+  return darkMode ? githubDarkTheme : githubLightTheme;
 }
