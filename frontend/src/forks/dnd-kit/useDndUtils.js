@@ -7,8 +7,11 @@ import { useSectionInfos } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import colors from "tailwindcss/colors";
 import { BehaviorDropType } from "./dropTypes";
+f;
 
-export function useHighlightDroppable(sectionId) {
+export function useHighlightDroppable({ sectionId, isGroup }) {
+  const padding = !isGroup ? "0.75rem" : "";
+  const margin = !isGroup ? "-0.75rem" : "";
   return useDndState((x) => {
     const behaviorDropType = x.overId === sectionId ? x.behaviorDropType : null;
     return {
@@ -17,8 +20,8 @@ export function useHighlightDroppable(sectionId) {
         behaviorDropType === BehaviorDropType.INVALID
           ? {
               borderRadius: "1.5rem",
-              padding: "0.75rem",
-              margin: "-0.75rem",
+              padding: padding,
+              margin: margin,
               backgroundColor: colors.red[600],
             }
           : {},
