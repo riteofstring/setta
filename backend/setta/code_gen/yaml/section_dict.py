@@ -1,11 +1,13 @@
+import ast
+
 import yaml
 
 
-def section_dict_to_yaml(exporter_obj, codeInfo, sectionVariant):
-    pinned = exporter_obj["pinned"].prettyOutput
-    unpinned = exporter_obj["unpinned"].prettyOutput
-    pinnedStr = yaml.dump(pinned, sort_keys=False)
-    unpinnedStr = yaml.dump(unpinned, sort_keys=False)
+def section_dict_to_yaml(exporter_objs, codeInfo, sectionVariant):
+    pinned = exporter_objs["pinned"].prettyOutput
+    unpinned = exporter_objs["unpinned"].prettyOutput
+    pinnedStr = raw_dump(pinned)
+    unpinnedStr = raw_dump(unpinned)
 
     yamlValue = ""
     if sectionVariant["selectedItem"]:
@@ -31,14 +33,10 @@ def run_group_dict_to_yaml(exporter_obj):
         return "{}"
     return yaml.dump(
         exporter_obj.prettyOutput,
-        Dumper=NoEmptyDictDumper,
+        Dumper=RunGroupDumper,
         explicit_end=False,
         sort_keys=False,
     )
-
-
-class NoEmptyDictDumper(yaml.Dumper):
-    pass
 
 
 # Register representer for dict that skips empty ones
@@ -48,4 +46,35 @@ def represent_dict_skip_empty(dumper, data):
     return dumper.represent_dict(data)
 
 
-NoEmptyDictDumper.add_representer(dict, represent_dict_skip_empty)
+class RunGroupDumper(yaml.Dumper):
+    pass
+
+
+RunGroupDumper.add_representer(dict, represent_dict_skip_empty)
+
+
+
+def raw_dump(input_dict, indent=0):
+    output = ""
+    for k, v in input_dict.items():
+        # Add indentation
+        output += " " * indent
+        
+        # If value is a dictionary, recursively process it
+        if isinstance(v, dict):
+            output += f"{k}:\n"
+            output += raw_dump(v, indent + 2)
+        else:
+            # Check if value contains newlines
+            str_value = str(v)
+            if '\n' in str_value:
+                # Use literal block style
+                output += f"{k}: |\n"
+                # Indent each line of the value
+                for line in str_value.splitlines():
+                    output += " " * (indent + 2) + line + "\n"
+            else:
+                # Single line value
+                output += f"{k}: {str_value}\n"
+            
+    return output
