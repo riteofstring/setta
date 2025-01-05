@@ -98,6 +98,13 @@
           "startPos": 139,
           "keyword": "__historical_black[\"annual_amaranth\"][\"weight\"]"
         }
+      ],
+      "templateVars": [
+        {
+          "sectionId": null,
+          "startPos": 20,
+          "keyword": "$SETTA_GENERATED_PYTHON"
+        }
       ]
     },
     "8c87860b-8c2b-4b59-adc5-49950eb29c50": {
