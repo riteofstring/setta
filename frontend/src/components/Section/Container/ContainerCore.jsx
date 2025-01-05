@@ -114,7 +114,7 @@ function ContainerGroup({
           isInOtherProjectConfigs={isInOtherProjectConfigs}
         />
         <div
-          className={`${pointerSelectCSS}flex relative my-auto mr-2 min-h-10 w-full items-center overflow-hidden`}
+          className={`${pointerSelectCSS} relative my-auto mr-2 flex min-h-10 w-full items-center overflow-hidden`}
         >
           <GroupSectionTitle sectionId={sectionId} />
         </div>
