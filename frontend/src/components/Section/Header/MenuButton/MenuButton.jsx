@@ -118,6 +118,7 @@ export function getMenuItems(uiTypeName) {
     case C.GROUP:
       return [UngroupButton];
     case C.DRAW:
+    case C.IMAGE:
       return [AddImageByFilepath];
     default:
       return [];

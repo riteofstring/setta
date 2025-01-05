@@ -12,6 +12,7 @@ import {
   newArtifactTransform,
   newLayer,
 } from "utils/objs/artifact";
+import { getSectionType } from "./sectionInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function updateArtifacts({ artifacts, addSection = false }) {
@@ -121,12 +122,12 @@ export function maybeAddArtifactGroupAndSetArtifactId(
     artifactId;
 }
 
-export async function addImageArtifactAndMaybeCreateNewLayer(
+export async function addArtifactAndMaybeCreateNewArtifactGroup({
   sectionId,
-  activeLayerId,
+  createNewArtifactGroup,
   imgSrc,
   path = null,
-) {
+}) {
   const artifactId = createNewId();
   const artifactType = "img";
   const value = new Image();
@@ -143,14 +144,32 @@ export async function addImageArtifactAndMaybeCreateNewLayer(
     },
   }));
   useSectionInfos.setState((state) => {
-    // let layerId = activeLayerId;
-    // if (!layerId) {
-    const layerId = createNewId();
-    state.artifactGroups[layerId] = newLayer({});
-    state.x[sectionId].artifactGroupIds.unshift(layerId);
-    // }
-    state.artifactGroups[layerId].artifactTransforms.push(
-      newArtifactTransform(artifactId, C.DRAW, artifactType),
+    const sectionTypeName = getSectionType(sectionId, state);
+
+    let artifactGroupId = getActiveArtifactGroupId(
+      sectionId,
+      sectionTypeName,
+      state,
+    );
+
+    if (!artifactGroupId || createNewArtifactGroup) {
+      artifactGroupId = createNewId();
+      state.artifactGroups[artifactGroupId] = newLayer({});
+      state.x[sectionId].artifactGroupIds.unshift(artifactGroupId);
+    }
+
+    state.artifactGroups[artifactGroupId].artifactTransforms.push(
+      newArtifactTransform(artifactId, sectionTypeName, artifactType),
     );
   });
+}
+
+function getActiveArtifactGroupId(sectionId, sectionTypeName, state) {
+  switch (sectionTypeName) {
+    case C.DRAW:
+      return state.x[sectionId].canvasSettings.activeLayerId;
+    case C.IMAGE:
+    case C.CHART:
+      return state.x[sectionId].artifactGroupIds[0];
+  }
 }

@@ -1,19 +1,19 @@
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { addImageArtifactAndMaybeCreateNewLayer } from "state/actions/artifacts";
+import { addArtifactAndMaybeCreateNewArtifactGroup } from "state/actions/artifacts";
 
-export function useImageLoadViaDropzone(sectionId, activeLayerId) {
+export function useImageLoadViaDropzone(sectionId, createNewLayer) {
   const onDrop = useCallback(
     (acceptedFiles) => {
       acceptedFiles.forEach((file) => {
         const reader = new FileReader();
 
         reader.onload = async () => {
-          await addImageArtifactAndMaybeCreateNewLayer(
+          await addArtifactAndMaybeCreateNewArtifactGroup({
             sectionId,
-            activeLayerId,
-            reader.result,
-          );
+            createNewArtifactGroup: createNewLayer,
+            imgSrc: reader.result,
+          });
         };
 
         reader.onerror = (error) => {
@@ -24,7 +24,7 @@ export function useImageLoadViaDropzone(sectionId, activeLayerId) {
         reader.readAsDataURL(file);
       });
     },
-    [sectionId, activeLayerId],
+    [sectionId, createNewLayer],
   );
 
   return useDropzone({ onDrop });

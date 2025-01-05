@@ -1,16 +1,18 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { base64StrToImgSrc } from "components/Section/Layouts/DrawArea/base64Conversion";
+import C from "constants/constants.json";
 import { useCallback, useState } from "react";
 import {
   dbCheckIfFileExists,
   dbLoadArtifactFromDisk,
 } from "requests/artifacts";
-import { addImageArtifactAndMaybeCreateNewLayer } from "state/actions/artifacts";
+import { addArtifactAndMaybeCreateNewArtifactGroup } from "state/actions/artifacts";
 import { setModalOpen } from "state/actions/modal";
-import { useModal, useSectionInfos } from "state/definitions";
+import { getSectionType } from "state/actions/sectionInfos";
+import { useModal } from "state/definitions";
 import { asyncDebounce } from "utils/utils";
 
-export function AddImageByFilepathModal() {
+export function AddArtifactByFilepathModal() {
   const sectionId = useModal((x) => x.modalData);
   const [filepath, setFilepath] = useState("");
   const [fileExists, setFileExists] = useState(false);
@@ -32,19 +34,22 @@ export function AddImageByFilepathModal() {
     setModalOpen(false);
   };
 
+  const shouldCreateNewArtifactGroup = () => {
+    return getSectionType(sectionId) === C.DRAW;
+  };
+
   const handleConfirm = async () => {
     if (filepath) {
-      const activeLayerId =
-        useSectionInfos.getState().x[sectionId].canvasSettings.activeLayerId;
       const res = await dbLoadArtifactFromDisk(filepath, "img");
       if (res.status === 200) {
         const imgSrc = base64StrToImgSrc(res.data.value);
-        addImageArtifactAndMaybeCreateNewLayer(
+
+        addArtifactAndMaybeCreateNewArtifactGroup({
           sectionId,
-          activeLayerId,
+          createNewArtifactGroup: shouldCreateNewArtifactGroup(),
           imgSrc,
-          filepath
-        );
+          path: filepath,
+        });
       }
     }
     setModalOpen(false);
@@ -54,10 +59,10 @@ export function AddImageByFilepathModal() {
     <div className="mx-auto flex h-full w-full flex-col items-center">
       <header className="flex flex-col gap-2 self-start">
         <Dialog.Title className="text-xl font-semibold text-setta-800 dark:text-setta-200">
-          Add Image by Filepath
+          Add Artifact by Filepath
         </Dialog.Title>
         <Dialog.Description className="mb-4 text-sm text-setta-600 dark:text-setta-300">
-          Enter the filepath of the image you want to add
+          Enter the filepath of the artifact you want to add
         </Dialog.Description>
       </header>
 
@@ -88,7 +93,7 @@ export function AddImageByFilepathModal() {
           onClick={handleConfirm}
           className="cursor-pointer rounded-full bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 dark:hover:bg-blue-800"
         >
-          Add Image
+          Add Artifact
         </button>
       </div>
     </div>
