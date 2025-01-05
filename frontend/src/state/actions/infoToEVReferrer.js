@@ -3,7 +3,7 @@ import {
   keyForInfoToFullName,
 } from "components/Utils/CodeMirror/utils";
 import _ from "lodash";
-import { dbMakeEVRefReplacements } from "requests/infoToEVReferrer";
+import { dbMakeEVRefTemplateVarReplacements } from "requests/infoToEVReferrer";
 import {
   useInfoToEVReferrer,
   useSectionInfos,
@@ -50,7 +50,7 @@ function processEVRefForUpdater(evRefs, output, metadata) {
   }
 }
 
-export function getRequiredReplacements() {
+function getRequiredReplacements() {
   const codeAreaReplacements = {};
   const codeInfoReplacements = {};
   const paramEVReplacements = {};
@@ -63,7 +63,7 @@ export function getRequiredReplacements() {
     if (!referrersToSection) {
       continue;
     }
-    for (const [paramInfoId, details] of Object.entries(referrersToSection)) {
+    for (const details of Object.values(referrersToSection)) {
       for (const oneReferrer of details) {
         const { variantId, codeInfoId, referringParamInfoId, originalEVRef } =
           oneReferrer;
