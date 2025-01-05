@@ -4,7 +4,11 @@ import { findAllParametersAndPathMaps } from "utils/getDescendants";
 import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
-import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
+import {
+  getCodeInfoCol,
+  getSectionInfo,
+  getSectionVariant,
+} from "./sectionInfos";
 
 export function addKwarg({
   sectionId,
@@ -19,7 +23,7 @@ export function addKwarg({
     if (!actualName) {
       actualName = createRandomName();
     }
-    paramPath = getParamPath(actualName, parentId, state);
+    paramPath = getParamPath(actualName, sectionId, parentId, state);
   }
   const kwargInfo = newCodeInfo({
     id: createNewParamId(paramPath, jsonSource),
@@ -116,7 +120,7 @@ function getKwargIds(sectionId, codeInfoId, _state) {
   return codeInfoChildren[codeInfoId].filter((x) => state.codeInfo[x].editable);
 }
 
-function getParamPath(name, parentId, state) {
+function getParamPath(name, sectionId, parentId, state) {
   const path = [name];
   let id = parentId;
   while (id) {
@@ -127,6 +131,10 @@ function getParamPath(name, parentId, state) {
     } else {
       break;
     }
+  }
+
+  for (const k of getSectionInfo(sectionId).jsonSourceKeys.toReversed()) {
+    path.push(k);
   }
 
   path.reverse();
