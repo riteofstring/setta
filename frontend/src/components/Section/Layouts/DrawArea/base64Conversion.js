@@ -6,16 +6,13 @@ export function canvasToBase64(canvas) {
   return dataURLToBase64(canvas.toDataURL("image/png"));
 }
 
-export async function imgSrcToImageObj(imgSrc) {
+export async function base64ToImageObj(input_value) {
+  console.log("base64ToImageObj", input_value);
+  const imgSrc = base64StrToImgSrc(input_value);
   const value = new Image();
   value.src = imgSrc;
   await value.decode();
   return value;
-}
-
-export async function base64ToImageObj(base64Input) {
-  const imgSrc = base64StrToImgSrc(base64Input);
-  return await imgSrcToImageObj(imgSrc);
 }
 
 // function exportStrokesToBase64(strokes, width, height) {
@@ -55,5 +52,7 @@ export async function base64ToImageObj(base64Input) {
 // }
 
 export function base64StrToImgSrc(base64Str) {
-  return `data:image/png;base64,${base64Str}`;
+  return base64Str.startsWith("data:image/")
+    ? base64Str
+    : `data:image/png;base64,${base64Str}`;
 }

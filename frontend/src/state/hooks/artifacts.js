@@ -1,5 +1,11 @@
 import _ from "lodash";
-import { loadArtifacts } from "state/actions/artifacts";
+import { useCallback } from "react";
+import { useDropzone } from "react-dropzone";
+import {
+  addArtifactAndMaybeCreateNewArtifactGroup,
+  loadArtifacts,
+  prepareArtifactForRendering,
+} from "state/actions/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
@@ -101,4 +107,41 @@ export function getAllSectionArtifactIds(sectionId, state) {
     }
   }
   return artifactIds;
+}
+
+export function useLoadArtifactViaDropzone(
+  sectionId,
+  createNewArtifactGroup,
+  artifactType,
+) {
+  const onDrop = useCallback(
+    (acceptedFiles) => {
+      acceptedFiles.forEach((file) => {
+        const reader = new FileReader();
+
+        reader.onload = async () => {
+          const value = await prepareArtifactForRendering(
+            artifactType,
+            reader.result,
+          );
+          await addArtifactAndMaybeCreateNewArtifactGroup({
+            sectionId,
+            createNewArtifactGroup,
+            value,
+            artifactType,
+          });
+        };
+
+        reader.onerror = (error) => {
+          console.error("Error reading file:", error);
+        };
+
+        // Read the file as a Data URL (base64)
+        reader.readAsDataURL(file);
+      });
+    },
+    [sectionId, createNewArtifactGroup],
+  );
+
+  return useDropzone({ onDrop });
 }

@@ -1,14 +1,17 @@
 import React from "react";
-import { useAllSectionArtifacts } from "state/hooks/artifacts";
+import {
+  useAllSectionArtifacts,
+  useLoadArtifactViaDropzone,
+} from "state/hooks/artifacts";
 import { useImgArtifactAreaSize } from "state/hooks/sectionSizes";
-import { useImageLoadViaDropzone } from "./DrawArea/useImageLoadViaDropzone";
 
 export function _ImageArea({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, ["value"]);
   const artifact = Object.values(loadedArtifacts)[0];
-  const { getRootProps, isDragActive } = useImageLoadViaDropzone(
+  const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,
     false,
+    "img",
   );
   return (
     <figure

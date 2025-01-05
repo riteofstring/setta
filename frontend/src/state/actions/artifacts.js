@@ -160,9 +160,21 @@ export async function addArtifactAndMaybeCreateNewArtifactGroup({
       state.x[sectionId].artifactGroupIds.unshift(artifactGroupId);
     }
 
-    state.artifactGroups[artifactGroupId].artifactTransforms.push(
-      newArtifactTransform(artifactId, sectionTypeName, artifactType),
+    const artifactTransform = newArtifactTransform(
+      artifactId,
+      sectionTypeName,
+      artifactType,
     );
+
+    if (artifactType === C.DRAW) {
+      state.artifactGroups[artifactGroupId].artifactTransforms.push(
+        artifactTransform,
+      );
+    } else {
+      state.artifactGroups[artifactGroupId].artifactTransforms = [
+        artifactTransform,
+      ];
+    }
   });
 }
 
