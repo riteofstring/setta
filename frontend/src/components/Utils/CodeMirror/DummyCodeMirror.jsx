@@ -24,6 +24,7 @@ export function DummyCodeMirror({
   onMouseDownCapture,
   onFocus,
   className,
+  color,
   evRefs,
   placeholder,
   language,
@@ -36,6 +37,7 @@ export function DummyCodeMirror({
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
       className={className}
+      color={color}
       evRefs={evRefs}
       language={language}
     />
@@ -78,11 +80,29 @@ function HighlightedCode({
   theme,
   onMouseDownCapture,
   className,
+  // color,
   evRefs,
   language,
   onFocus,
 }) {
-  const tree = getLanguageParser(language).parser.parse(code);
+  const parser = getLanguageParser(language);
+  // if (!parser) {
+  //   const scopeClassName = theme[0][0]?.value || "";
+  //   console.log("scopeClassName", scopeClassName)
+  //   return (
+  //     <div
+  //       id={divId}
+  //       className={`${className} ${scopeClassName} outline-none`}
+  //       style={lineWrapStyle}
+  //       onMouseDownCapture={onMouseDownCapture}
+  //       onFocus={onFocus}
+  //       tabIndex="0"
+  //     >
+  //       {code}
+  //     </div>
+  //   );
+  // }
+  const tree = parser.parse(code);
   const highlightStyle = theme[1][2].value;
   const markCache = {};
   const builder = new RangeSetBuilder();
@@ -211,11 +231,11 @@ function HighlightedCode({
 function getLanguageParser(language) {
   switch (language) {
     case "python":
-      return pythonLanguage;
+      return pythonLanguage.parser;
     case "javascript":
-      return javascriptLanguage;
+      return javascriptLanguage.parser;
     case "json":
-      return jsonLanguage;
+      return jsonLanguage.parser;
     default:
       return null;
   }

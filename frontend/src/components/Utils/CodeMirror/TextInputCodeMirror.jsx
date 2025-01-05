@@ -27,7 +27,7 @@ export function TextInputCodeMirror({
   onEnter,
   onEscape,
   onTab,
-  color,
+  monochrome,
   language,
   evRefs,
   setEVRefs,
@@ -39,7 +39,7 @@ export function TextInputCodeMirror({
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
-  const theme = useCodeMirrorStyle(color);
+  const theme = useCodeMirrorStyle(monochrome);
 
   function localOnBlur() {
     // hack to prevent codemirror from
@@ -90,6 +90,7 @@ export function TextInputCodeMirror({
           onFocus={onFocus}
           className={dummyCodeClassName}
           theme={theme}
+          // color={color}
           evRefs={evRefs}
           placeholder={defaultVal}
           language={language}
