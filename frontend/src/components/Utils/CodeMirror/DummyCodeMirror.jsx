@@ -120,7 +120,6 @@ function HighlightedCode({
 
   for (let i = 1; i <= text.lines; i++) {
     const line = text.line(i);
-    console.log("line", line);
     const cursor = decorationRangeSet.iter(line.from);
     isJustLineBreak = true;
     pos = line.from;
@@ -128,11 +127,9 @@ function HighlightedCode({
     const currLineDivs = [];
 
     while (cursor.value && cursor.from < line.to) {
-      console.log("cursor while loop", cursor.from);
       isJustLineBreak = false;
       if (cursor.from > pos) {
-        console.log("cursor.from > pos", line.sliceString(pos, cursor.from));
-        currLineDivs.push(line.sliceString(pos, cursor.from));
+        currLineDivs.push(text.sliceString(pos, cursor.from));
       }
 
       if (currKeyword === null && cursor.from in matchedIndices) {
@@ -162,17 +159,13 @@ function HighlightedCode({
             })
         : () => {};
 
-      console.log(
-        "pushing span tag with",
-        line.sliceString(cursor.from, Math.min(line.to, cursor.to)),
-      );
       currLineDivs.push(
         <span
           key={`line-${i}-${cursor.from}`}
           className={className}
           onClick={onClick}
         >
-          {line.sliceString(cursor.from, Math.min(line.to, cursor.to))}
+          {text.sliceString(cursor.from, Math.min(line.to, cursor.to))}
         </span>,
       );
       pos = cursor.to;
@@ -182,17 +175,12 @@ function HighlightedCode({
         currKeywordEndIdx = null;
         currComponentIndices = null;
       }
-      console.log("calling cursor.next()")
       cursor.next();
     }
-
-    console.log("outside of while loop, pushing", line.sliceString(pos, line.to))
-    currLineDivs.push(line.sliceString(pos, line.to));
+    currLineDivs.push(text.sliceString(pos, line.to));
     if (isJustLineBreak) {
-      console.log("isJustLineBreak")
       currLineDivs.push(<br key={`br-${i}`} />);
     }
-
     outputDivs.push(
       <div key={`line-${i}`} className="cm-line">
         {currLineDivs}
