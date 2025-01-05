@@ -1,6 +1,7 @@
 import base64
 import os
 from abc import ABC, abstractmethod
+from io import BytesIO
 from pathlib import Path
 
 import requests
@@ -166,3 +167,10 @@ def save_base64_to_png(base64_string, output_file):
     # Write the binary data to a file
     with open(output_file, "wb") as f:
         f.write(image_data)
+
+
+def pil_to_setta_img(pil_image, format="png"):
+    buffer = BytesIO()
+    pil_image.save(buffer, format=format.upper())
+    raw_data = buffer.getvalue()
+    return SettaImg(img=raw_data, format=format)

@@ -1,7 +1,7 @@
 from setta.cli import Setta
 import time
 
-from setta.cli.logger import SettaImg, SettaList
+from setta.cli.logger import SettaImg, SettaList, pil_to_setta_img
 
 logger = Setta(root_path="/Users/kevin/Downloads")
 
@@ -21,13 +21,4 @@ import io
 
 # Suppose you have a NumPy array representing an image
 arr = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
-pil_img = Image.fromarray(arr)
-
-# Encode the PIL image as PNG in memory
-buffer = io.BytesIO()
-pil_img.save(buffer, format="PNG")
-raw_png = buffer.getvalue()
-
-# Now pass that raw PNG bytes to SettaImg (which doesn't use PIL itself)
-setta_img = SettaImg(img=raw_png, format="png")
-setta_img.save("my_numpy_image_converted")  # writes "my_numpy_image_converted.png"
+pil_to_setta_img(Image.fromarray(arr), "png").save("example_img")
