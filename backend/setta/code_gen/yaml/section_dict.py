@@ -23,7 +23,7 @@ def section_dict_to_yaml(exporter_objs, codeInfo, sectionVariant):
 
 
 def param_sweep_dict_to_yaml(exporter_obj):
-    return yaml.dump_all(exporter_obj.prettyOutput, sort_keys=False)
+    return "\n---\n".join(raw_dump(x) for x in exporter_obj.prettyOutput)
 
 
 def run_group_dict_to_yaml(exporter_obj):
@@ -51,27 +51,43 @@ class RunGroupDumper(yaml.Dumper):
 RunGroupDumper.add_representer(dict, represent_dict_skip_empty)
 
 
-def raw_dump(input_dict, indent=0):
+def raw_dump(input_data, indent=0):
     output = ""
-    for k, v in input_dict.items():
-        # Add indentation
-        output += " " * indent
 
-        # If value is a dictionary, recursively process it
-        if isinstance(v, dict):
-            output += f"{k}:\n"
-            output += raw_dump(v, indent + 2)
-        else:
-            # Check if value contains newlines
-            str_value = str(v)
-            if "\n" in str_value:
-                # Use literal block style
-                output += f"{k}: |\n"
-                # Indent each line of the value
-                for line in str_value.splitlines():
-                    output += " " * (indent + 2) + line + "\n"
+    # Handle list of dictionaries or other lists
+    if isinstance(input_data, list):
+        for item in input_data:
+            output += " " * indent + "-"
+            if isinstance(item, (dict, list)):
+                output += " " + raw_dump(item, indent + 2)[indent + 2 :]
             else:
-                # Single line value
-                output += f"{k}: {str_value}\n"
+                output += " " + str(item) + "\n"
+    # Handle single dictionary
+    elif isinstance(input_data, dict):
+        for k, v in input_data.items():
+            # Add indentation
+            output += " " * indent
+
+            # If value is a dictionary, recursively process it
+            if isinstance(v, dict):
+                output += f"{k}:\n"
+                output += raw_dump(v, indent + 2)
+            else:
+                # Check if value is a list
+                if isinstance(v, list):
+                    output += f"{k}:\n"
+                    output += raw_dump(v, indent + 2)
+                # Check if value contains newlines
+                else:
+                    str_value = str(v)
+                    if "\n" in str_value:
+                        # Use literal block style
+                        output += f"{k}: |\n"
+                        # Indent each line of the value
+                        for line in str_value.splitlines():
+                            output += " " * (indent + 2) + line + "\n"
+                    else:
+                        # Single line value
+                        output += f"{k}: {str_value}\n"
 
     return output

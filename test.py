@@ -38,27 +38,50 @@
 from setta.code_gen.yaml.section_dict import raw_dump
 
 
-data = {
-    "sign": '"cancer"',
-    "another_sign": "'gemini'",
-    "numbers": 'yellow+"black"',
-    "dog": "5",
-    "tiger": "5.16",
-    "lion": "5.16.123",
-    "cat": "True",
-    "giraffe": 'true',
-    "an_expression": "torch.tensor([1,2,3])",
-    "a_list": "[1,2,3]",
-    "a_tuple": "(1,2,3)",
-    "a_dict": "{'building': 'tall', 'elements': ['gold', 'silver']}",
-    "name": '{"kevin": {"height": "170"}}',
-    "nested": {"john": [1,2,3], "jacob": {"wow": "dog"}},
-    "bio": '"""a triple quoted string!\nwow!\ncool"""',
-    "address": {
-        "street": "123 Main St",
-        "notes": "Ring twice\nUse back door\nAnd say \"hello!\""
-    }
-}
+# data = {
+#     "sign": '"cancer"',
+#     "another_sign": "'gemini'",
+#     "numbers": 'yellow+"black"',
+#     "dog": "5",
+#     "tiger": "5.16",
+#     "lion": "5.16.123",
+#     "cat": "True",
+#     "giraffe": 'true',
+#     "an_expression": "torch.tensor([1,2,3])",
+#     "a_list": "[1,2,3]",
+#     "a_tuple": "(1,2,3)",
+#     "a_dict": "{'building': 'tall', 'elements': ['gold', 'silver']}",
+#     "name": '{"kevin": {"height": "170"}}',
+#     "nested": {"john": [1,2,3], "jacob": {"wow": "dog"}},
+#     "bio": '"""a triple quoted string!\nwow!\ncool"""',
+#     "address": {
+#         "street": "123 Main St",
+#         "notes": "Ring twice\nUse back door\nAnd say \"hello!\""
+#     }
+# }
 
-print(raw_dump(data))
+# test_data = [
+#     {
+#         "name": "John",
+#         "bio": "Software engineer\nPython enthusiast",
+#     },
+#     {
+#         "name": "Jane",
+#         "bio": "Data scientist\nR programmer",
+#         "address": {
+#             "street": "456 Oak St",
+#             "notes": "Call first"
+#         }
+#     }
+# ]
+
+test_data = [[{'name["astrology_sign"]': ['"Gemini"', '"Leo"']}]]
+print(test_data[0])
+print(raw_dump(test_data[0]))
+
+# print(raw_dump(data))
 # print(raw_dump(data, wrap_values_with_quotes=True))
+
+# - name["astrology_sign"]:
+#   - "Gemini"
+#   - "Leo"
