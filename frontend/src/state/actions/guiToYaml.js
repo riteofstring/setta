@@ -269,24 +269,22 @@ function getMatch(name, forSectionId, sections, sectionVariants) {
 
 function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   const state = useSectionInfos.getState();
-  const docs = parseRawDump(yamlValue)
+  const documents = splitDocuments(yamlValue);
+  const parsedDocs = documents.map((doc) =>
+    doc.trim() ? parseRawDump(doc) : {},
+  );
   let selectedItemName = null;
   let pinned = {};
   let unpinned = {};
-  if (docs.length === 3) {
-    selectedItemName = docs[0].toJS();
-    pinned = docs[1].toJS();
-    unpinned = docs[2].toJS();
-  } else if (docs.length === 2) {
-    pinned = docs[0].toJS();
-    unpinned = docs[1].toJS();
+  if (parsedDocs.length === 3) {
+    [selectedItemName, pinned, unpinned] = parsedDocs;
+  } else if (parsedDocs.length === 2) {
+    [pinned, unpinned] = parsedDocs;
   } else {
-    unpinned = docs[0]?.toJS();
+    [unpinned] = parsedDocs;
   }
   pinned = pinned ?? {};
   unpinned = unpinned ?? {};
-  console.log("pinned", pinned);
-  console.log("unpinned", unpinned);
 
   const fOriginalObj = mergePinnedAndUnpinned(
     flattenObject(originalObj.pinned),
@@ -296,9 +294,6 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     flattenObject(pinned, true),
     flattenObject(unpinned, true),
   );
-
-  console.log("fOriginalObj", fOriginalObj);
-  console.log("fNewObj", fNewObj);
 
   const output = [];
   const usedOriginalIds = new Set();
@@ -534,79 +529,115 @@ function mergePinnedAndUnpinned(pinned, unpinned) {
   return [...pinnedNotInUnpinned, ...unpinned];
 }
 
+function splitDocuments(input) {
+  // Common YAML document separators
+  const separators = [
+    "---", // Standard YAML document separator
+    "...", // YAML document terminator
+    "===", // Alternative separator sometimes used
+  ];
+
+  // Trim the input and split into lines
+  const lines = input.trim().split("\n");
+
+  let documents = [];
+  let currentDoc = [];
+
+  for (let line of lines) {
+    const trimmedLine = line.trim();
+
+    // Check if line is a separator
+    const isSeparator = separators.some((sep) => trimmedLine === sep);
+
+    if (isSeparator) {
+      // Always add current document when we hit a separator,
+      // even if it's empty
+      documents.push(currentDoc.join("\n"));
+      currentDoc = [];
+    } else {
+      currentDoc.push(line);
+    }
+  }
+
+  // Always add the final document, even if empty
+  documents.push(currentDoc.join("\n"));
+
+  return documents;
+}
+
 function parseRawDump(input) {
   // Split input into lines and remove empty lines
-  const lines = input.split('\n').filter(line => line.trim());
-  
+  const lines = input.split("\n").filter((line) => line.trim());
+
   // Track the current object we're building
   const result = {};
-  
+
   // Stack to keep track of objects and their indentation levels
   const stack = [{ obj: result, indent: -1 }];
-  
+
   // Current multiline value collection
   let currentMultiline = null;
   let multilineKey = null;
   let multilineIndent = 0;
 
   for (let line of lines) {
-      // Get the indentation level
-      const indent = line.search(/\S/);
-      const content = line.trim();
+    // Get the indentation level
+    const indent = line.search(/\S/);
+    const content = line.trim();
 
-      // If we're collecting a multiline value
-      if (currentMultiline !== null) {
-          // If this line has less indentation, we're done with the multiline
-          if (indent < multilineIndent) {
-              stack[stack.length - 1].obj[multilineKey] = currentMultiline.trim();
-              currentMultiline = null;
-              multilineKey = null;
-          } else {
-              // Add to multiline collection
-              currentMultiline += (currentMultiline ? '\n' : '') + line.substring(multilineIndent);
-              continue;
-          }
+    // If we're collecting a multiline value
+    if (currentMultiline !== null) {
+      // If this line has less indentation, we're done with the multiline
+      if (indent < multilineIndent) {
+        stack[stack.length - 1].obj[multilineKey] = currentMultiline.trim();
+        currentMultiline = null;
+        multilineKey = null;
+      } else {
+        // Add to multiline collection
+        currentMultiline +=
+          (currentMultiline ? "\n" : "") + line.substring(multilineIndent);
+        continue;
       }
+    }
 
-      // Split into key and value
-      const colonIndex = content.indexOf(':');
-      if (colonIndex === -1) continue;
+    // Split into key and value
+    const colonIndex = content.indexOf(":");
+    if (colonIndex === -1) continue;
 
-      const key = content.substring(0, colonIndex).trim();
-      let value = content.substring(colonIndex + 1).trim();
+    const key = content.substring(0, colonIndex).trim();
+    let value = content.substring(colonIndex + 1).trim();
 
-      // Remove from stack any objects with greater or equal indentation
-      while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
-          stack.pop();
-      }
+    // Remove from stack any objects with greater or equal indentation
+    while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
+      stack.pop();
+    }
 
-      // If value is empty, this is a new object
-      if (!value) {
-          const newObj = {};
-          stack[stack.length - 1].obj[key] = newObj;
-          stack.push({ obj: newObj, indent: indent });
-      }
-      // If value starts with '|', this is a multiline value
-      else if (value === '|') {
-          currentMultiline = '';
-          multilineKey = key;
-          multilineIndent = indent + 2;
-      }
-      // Otherwise, this is a simple key-value pair
-      else {
-          // Keep all values as strings
-          stack[stack.length - 1].obj[key] = value;
-      }
+    // If value is empty, this is a new object
+    if (!value) {
+      const newObj = {};
+      stack[stack.length - 1].obj[key] = newObj;
+      stack.push({ obj: newObj, indent: indent });
+    }
+    // If value starts with '|', this is a multiline value
+    else if (value === "|") {
+      currentMultiline = "";
+      multilineKey = key;
+      multilineIndent = indent + 2;
+    }
+    // Otherwise, this is a simple key-value pair
+    else {
+      // Keep all values as strings
+      stack[stack.length - 1].obj[key] = value;
+    }
   }
 
   // Handle any remaining multiline value
   if (currentMultiline !== null) {
-      stack[stack.length - 1].obj[multilineKey] = currentMultiline.trim();
+    stack[stack.length - 1].obj[multilineKey] = currentMultiline.trim();
   }
 
   return result;
 }
-
 
 function unprocessValue(value) {
   if (typeof value === "boolean") {
