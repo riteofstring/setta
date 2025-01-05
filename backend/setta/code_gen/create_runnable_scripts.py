@@ -42,6 +42,11 @@ def runCode(message):
         do_convert_var_names_to_readable_form=True,
     )
 
+    if p["runCodeBlocks"] is None:
+        p["runCodeBlocks"] = [
+            exporter_obj.code_gen_template_var_section_details["section"]["id"]
+        ]
+
     print("runCodeBlocks", p["runCodeBlocks"], flush=True)
     section_dependencies = {k: v["section_dependencies"] for k, v in code_dict.items()}
     section_dependencies = prune_dict(section_dependencies, p["runCodeBlocks"])
