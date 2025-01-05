@@ -7,7 +7,7 @@ Tooltip.positioners.lineChartTooltipMousePosition = function (
   return { x: eventPosition.x, y: eventPosition.y };
 };
 
-export function getLineChartOptionsAndPlugins() {
+export function getLineChartOptionsAndPlugins({ setDatasetHidden }) {
   return {
     type: "line",
     data: {
@@ -43,25 +43,39 @@ export function updateLineChartWithNewData({
   darkMode,
   chartSettings,
 }) {
+  const xColumnIndex = artifactData.headers.indexOf(chartSettings.xAxisColumn);
+
+  const labels = [];
   const datasets = [];
 
-  for (const [columnName, values] of Object.entries(artifactData)) {
-    if (columnName === chartSettings.xAxisColumn) continue;
+  for (let i = 0; i < artifactData.headers.length; i++) {
+    if (i === xColumnIndex) continue;
     datasets.push({
-      label: columnName,
-      data: values,
-      yAxisID: chartSettings.secondYAxisColumns.includes(columnName)
+      label: artifactData.headers[i],
+      data: [],
+      yAxisID: chartSettings.secondYAxisColumns.includes(
+        artifactData.headers[i],
+      )
         ? "y2"
         : "y1",
-      hidden: datasetHidden[columnName],
+      hidden: datasetHidden[artifactData.headers[i]],
     });
   }
 
-  const labels = artifactData[chartSettings.xAxisColumn];
+  for (const row of artifactData.data) {
+    labels.push(row[xColumnIndex]);
+    let datasetIndex = 0;
+    for (let i = 0; i < row.length; i++) {
+      if (i === xColumnIndex) continue;
+      datasets[datasetIndex].data.push(row[i]);
+      datasetIndex++;
+    }
+  }
 
+  const newData = { labels, datasets };
+
+  chartRef.current.data = newData;
   chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
-
-  return { labels, datasets };
 }
 
 const verticalLinePlugin = {

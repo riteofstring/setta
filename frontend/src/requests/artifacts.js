@@ -28,10 +28,3 @@ export async function dbLoadArtifactFromDisk(filepath, type) {
     address: C.ROUTE_LOAD_ARTIFACT_FROM_DISK,
   });
 }
-
-export async function dbReadCSVBase64(base64Str) {
-  return await post({
-    body: { base64Str },
-    address: C.ROUTE_READ_CSV_BASE64,
-  });
-}

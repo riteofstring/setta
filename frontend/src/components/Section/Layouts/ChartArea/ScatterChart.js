@@ -10,7 +10,7 @@ Tooltip.positioners.scatterChartTooltipMousePosition = function (
   return { x: eventPosition.x, y: eventPosition.y };
 };
 
-export function getScatterChartOptionsAndPlugins() {
+export function getScatterChartOptionsAndPlugins({ setDatasetHidden }) {
   return {
     type: "scatter",
     plugins: [crosshairPlugin],
@@ -44,30 +44,27 @@ export function updateScatterChartWithNewData({
   darkMode,
   chartSettings,
 }) {
-  let categoryValue = "No Category";
-  const firstColumnLength = Object.values(artifactData)[0].length;
-  const categoryColumn = chartSettings.categoryColumn;
-  let xAxisColumn = Object.keys(artifactData)[0];
-  if (chartSettings.xAxisColumn) {
-    xAxisColumn = chartSettings.xAxisColumn;
-  }
-  let yAxisColumn = Object.keys(artifactData).find(
-    (a) => ![categoryColumn, xAxisColumn].includes(a),
+  const xColumnIndex = artifactData.headers.indexOf(chartSettings.xAxisColumn);
+  const categoryColumnIndex = artifactData.headers.indexOf(
+    chartSettings.categoryColumn,
   );
 
+  // Group data by category values
   const groupedData = {};
-  for (let i = 0; i < firstColumnLength; i++) {
-    if (categoryColumn) {
-      categoryValue = artifactData[categoryColumn][i];
-    }
-    if (!(categoryValue in groupedData)) {
+  for (const row of artifactData.data) {
+    const categoryValue = row[categoryColumnIndex];
+    if (!groupedData[categoryValue]) {
       groupedData[categoryValue] = [];
     }
-    groupedData[categoryValue].push({
-      x: artifactData[xAxisColumn][i],
-      y: artifactData[yAxisColumn][i],
-      columnName: yAxisColumn,
-    });
+    for (let i = 0; i < row.length; i++) {
+      if (i === xColumnIndex) continue;
+      if (i === categoryColumnIndex) continue;
+      groupedData[categoryValue].push({
+        x: row[xColumnIndex],
+        y: row[i],
+        columnName: artifactData.headers[i],
+      });
+    }
   }
 
   // Create dataset for each category
@@ -82,9 +79,10 @@ export function updateScatterChartWithNewData({
     pointHoverRadius: 6,
   }));
 
-  chartRef.current.crosshairPlugin.color = darkMode ? "white" : "black";
+  const newData = { datasets };
 
-  return { datasets };
+  chartRef.current.data = newData;
+  chartRef.current.crosshairPlugin.color = darkMode ? "white" : "black";
 }
 
 const crosshairPlugin = {

@@ -3,7 +3,7 @@ import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import C from "constants/constants.json";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { HeaderIcon } from "../HeaderIcon";
-import { AddArtifactByFilepath } from "./AddArtifactByFilepath";
+import { AddImageByFilepath } from "./AddImageByFilepath";
 import { ClearValues } from "./ClearValues";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
 import { HideShowParamsButton } from "./HideShowParamsButton";
@@ -118,9 +118,7 @@ export function getMenuItems(uiTypeName) {
     case C.GROUP:
       return [UngroupButton];
     case C.DRAW:
-    case C.IMAGE:
-    case C.CHART:
-      return [AddArtifactByFilepath];
+      return [AddImageByFilepath];
     default:
       return [];
   }

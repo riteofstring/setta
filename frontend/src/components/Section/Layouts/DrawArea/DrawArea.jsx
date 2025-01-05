@@ -2,10 +2,7 @@ import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
-import {
-  useDrawAreaActiveLayerAndLoadedArtifacts,
-  useLoadArtifactViaDropzone,
-} from "state/hooks/artifacts";
+import { useDrawAreaActiveLayerAndLoadedArtifacts } from "state/hooks/artifacts";
 import useDeepCompareEffect, {
   useDeepCompareEffectNoCheck,
 } from "use-deep-compare-effect";
@@ -17,6 +14,7 @@ import {
 } from "./canvasUtils";
 import { DrawAreaControls } from "./DrawAreaControls";
 import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
+import { useImageLoadViaDropzone } from "./useImageLoadViaDropzone";
 
 export function DrawArea({ sectionId }) {
   const {
@@ -186,10 +184,9 @@ export function DrawArea({ sectionId }) {
     );
   }
 
-  const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
+  const { getRootProps, isDragActive } = useImageLoadViaDropzone(
     sectionId,
-    true,
-    "img",
+    activeLayerId,
   );
 
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;

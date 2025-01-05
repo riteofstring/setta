@@ -6,14 +6,6 @@ export function canvasToBase64(canvas) {
   return dataURLToBase64(canvas.toDataURL("image/png"));
 }
 
-export async function base64ToImageObj(input_value) {
-  const imgSrc = base64StrToImgSrc(input_value);
-  const value = new Image();
-  value.src = imgSrc;
-  await value.decode();
-  return value;
-}
-
 // function exportStrokesToBase64(strokes, width, height) {
 //   // Create a temporary canvas
 //   const tempCanvas = document.createElement("canvas");
@@ -51,7 +43,5 @@ export async function base64ToImageObj(input_value) {
 // }
 
 export function base64StrToImgSrc(base64Str) {
-  return base64Str.startsWith("data:image/")
-    ? base64Str
-    : `data:image/png;base64,${base64Str}`;
+  return `data:image/png;base64,${base64Str}`;
 }

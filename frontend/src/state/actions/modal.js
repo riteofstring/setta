@@ -45,6 +45,6 @@ export function openDeleteJSONSourceFileModal(filepath) {
   openModal(MODAL_TYPE.DELETE_JSON_SOURCE_FILE, filepath);
 }
 
-export function openAddArtifactByFilepathModal(sectionId) {
-  openModal(MODAL_TYPE.ADD_ARTIFACT_BY_FILEPATH, sectionId);
+export function openAddImageByFilepathModal(sectionId) {
+  openModal(MODAL_TYPE.ADD_IMAGE_BY_FILEPATH, sectionId);
 }

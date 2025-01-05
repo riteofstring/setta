@@ -1,20 +1,14 @@
 import _ from "lodash";
-import { useCallback } from "react";
-import { useDropzone } from "react-dropzone";
-import {
-  addArtifactAndMaybeCreateNewArtifactGroup,
-  loadArtifacts,
-  prepareDataURLForRendering,
-} from "state/actions/artifacts";
+import { loadArtifacts } from "state/actions/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
-export function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
+export function useLoadedArtifacts(artifactIds, artifactAttrsToPick) {
   const loadedArtifacts = useArtifacts((x) => {
     const output = {};
     for (const id of artifactIds) {
       if (x.x[id]?.value) {
-        output[id] = attrPickerFn(x.x[id]);
+        output[id] = _.pick(x.x[id], artifactAttrsToPick);
       }
     }
     return output;
@@ -28,7 +22,7 @@ export function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
         notLoaded.push(id);
       }
     }
-    loadArtifacts(sectionId, notLoaded, controller.signal);
+    loadArtifacts(notLoaded, controller.signal);
 
     return () => {
       controller.abort();
@@ -58,9 +52,7 @@ export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
       };
     }, _.isEqual);
 
-  const loadedArtifacts = useLoadedArtifacts(sectionId, artifactIds, (a) =>
-    _.pick(a, ["type"]),
-  );
+  const loadedArtifacts = useLoadedArtifacts(artifactIds, ["type"]);
 
   const loadedArtifactIdsWithDuplicates = [];
   for (const x of allLayersMetadata) {
@@ -80,13 +72,13 @@ export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
   };
 }
 
-export function useAllSectionArtifacts(sectionId, attrPickerFn) {
+export function useAllSectionArtifacts(sectionId, artifactAttrsToPick) {
   const artifactIds = useSectionInfos(
     (state) => getAllSectionArtifactIds(sectionId, state),
     _.isEqual,
   );
 
-  return useLoadedArtifacts(sectionId, artifactIds, attrPickerFn);
+  return useLoadedArtifacts(artifactIds, artifactAttrsToPick);
 }
 
 export function getSectionArtifactGroupMetadata(sectionId, state) {
@@ -109,41 +101,4 @@ export function getAllSectionArtifactIds(sectionId, state) {
     }
   }
   return artifactIds;
-}
-
-export function useLoadArtifactViaDropzone(
-  sectionId,
-  createNewArtifactGroup,
-  artifactType,
-) {
-  const onDrop = useCallback(
-    (acceptedFiles) => {
-      acceptedFiles.forEach((file) => {
-        const reader = new FileReader();
-
-        reader.onload = async () => {
-          const value = await prepareDataURLForRendering(
-            artifactType,
-            reader.result,
-          );
-          await addArtifactAndMaybeCreateNewArtifactGroup({
-            sectionId,
-            createNewArtifactGroup,
-            value,
-            artifactType,
-          });
-        };
-
-        reader.onerror = (error) => {
-          console.error("Error reading file:", error);
-        };
-
-        // Read the file as a Data URL (base64)
-        reader.readAsDataURL(file);
-      });
-    },
-    [sectionId, createNewArtifactGroup],
-  );
-
-  return useDropzone({ onDrop });
 }

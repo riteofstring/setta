@@ -116,9 +116,9 @@ export const MODAL_TYPE = {
     title: "Delete JSON Source File",
     buttonText: "Delete",
   },
-  ADD_ARTIFACT_BY_FILEPATH: {
+  ADD_IMAGE_BY_FILEPATH: {
     purpose: null,
-    title: "Add Artifact By Filepath",
+    title: "Add Image By Filepath",
     buttonText: "Delete",
   },
 };

@@ -21,8 +21,8 @@ function ChartConfig({ sectionId }) {
   );
 
   const valueHeaders = Object.values(
-    useAllSectionArtifacts(sectionId, (x) => Object.keys(x.value)),
-  )[0];
+    useAllSectionArtifacts(sectionId, ["value.headers"]),
+  )[0]?.value?.headers;
 
   return (
     <div className="flex flex-col gap-1">
