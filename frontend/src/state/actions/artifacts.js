@@ -134,12 +134,12 @@ export async function addImageArtifactAndMaybeCreateNewLayer(
     }),
   });
   useSectionInfos.setState((state) => {
-    let layerId = activeLayerId;
-    if (!layerId) {
-      layerId = createNewId();
-      state.artifactGroups[layerId] = newLayer({});
-      state.x[sectionId].artifactGroupIds.push(layerId);
-    }
+    // let layerId = activeLayerId;
+    // if (!layerId) {
+    const layerId = createNewId();
+    state.artifactGroups[layerId] = newLayer({});
+    state.x[sectionId].artifactGroupIds.unshift(layerId);
+    // }
     state.artifactGroups[layerId].artifactTransforms.push(
       newArtifactTransform(artifactId, C.DRAW, artifactType),
     );
