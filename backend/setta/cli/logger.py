@@ -34,25 +34,32 @@ class Setta:
         else:
             self.send_data_to = os.environ.get(SEND_ARTIFACT_TO_ENV_VARIABLE)
 
-    def log(self, obj, save=False):
-        data_to_send = {}
-        for rel_path, data in obj.items():
-            full_path = self.root_path / rel_path
+        self.name_path_type_to_id = {}
 
-            if save:
+    def log(self, obj, save_to="db"):
+        data_to_send = []
+        for name, data in obj.items():
+            full_path = self.root_path / name
+            full_path = data.path_with_extension(full_path)
+            artifact_path = None
+
+            if save_to == "disk":
                 directory = full_path.parent
                 directory.mkdir(parents=True, exist_ok=True)
-                data.save(data.path_with_extension(full_path))
+                data.save(full_path)
+                artifact_path = full_path
 
-            data_to_send[data.path_with_extension(full_path)] = {
-                **data.serialize(),
-                "name": rel_path,
-                "isSaved": save,
+            serialized = data.serialize()
+            curr_data = {
+                "name": name,
+                "path": str(artifact_path),
+                "value": serialized["value"],
+                "type": serialized["type"],
             }
+            curr_data["id"] = self.maybe_get_artifact_id(curr_data)
+            data_to_send.append(curr_data)
 
-        print("data_to_send", data_to_send)
-
-        requests.post(
+        res = requests.post(
             f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_ARTIFACT}",
             json={
                 "data": data_to_send,
@@ -61,6 +68,18 @@ class Setta:
             },
             headers={"Content-Type": "application/json"},
         )
+
+        if res.status_code == 200:
+            artifact_ids = res.json()
+            for idx, id in enumerate(artifact_ids):
+                sent_data = data_to_send[idx]
+                self.name_path_type_to_id[self.get_name_path_type_key(sent_data)] = id
+
+    def maybe_get_artifact_id(self, data_to_send):
+        return self.name_path_type_to_id.get(self.get_name_path_type_key(data_to_send))
+
+    def get_name_path_type_key(self, data_to_send):
+        return data_to_send["name"], data_to_send["path"], data_to_send["type"]
 
 
 class SettaDataWrapper(ABC):
@@ -86,13 +105,13 @@ class SettaList(SettaDataWrapper):
         self.data = data
 
     def path_with_extension(self, path):
-        return f"{path}.csv"
+        return path.with_suffix(".csv")
 
-    def save(self, path_with_extension):
+    def save(self, path):
         if not self.data:
             return
         headers = list(self.data[0].keys())
-        with open(path_with_extension, "w") as f:
+        with open(path, "w") as f:
             f.write(",".join(headers) + "\n")
             for row_dict in self.data:
                 row_vals = []
@@ -104,8 +123,8 @@ class SettaList(SettaDataWrapper):
     def serialize(self):
         return {"value": self.data, "type": "list"}
 
-    def load(self, path_with_extension):
-        with open(path_with_extension, "r") as f:
+    def load(self, path):
+        with open(path, "r") as f:
             headers = f.readline().strip().split(",")
             data = []
             for line in f:
@@ -130,10 +149,10 @@ class SettaImg(SettaDataWrapper):
         self.format = format
 
     def path_with_extension(self, path):
-        return f"{path}.{self.format}"
+        return path.with_suffix(f".{self.format}")
 
     def save(self, path):
-        with open(self.path_with_extension(path), "wb") as f:
+        with open(path, "wb") as f:
             f.write(self.img)
 
     def serialize(self):

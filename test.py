@@ -3,22 +3,22 @@ import time
 
 from setta.cli.logger import SettaImg, SettaList, pil_to_setta_img
 
-logger = Setta(root_path="/Users/kevin/Downloads")
+logger = Setta(send_data_to="/diffusionDrops")
 
 print("logger.root_path", logger.root_path)
 print("logger.send_data_to", logger.send_data_to)
 
-# all_data = []
+all_data = []
 
-# for i in range(100):
-#     all_data.append({"size": i, "elephant": 3})
-#     logger.log({"frogdog": SettaList(all_data)}, save=True)
-#     time.sleep(1)
+for i in range(100):
+    all_data.append({"size": i, "elephant": 3})
+    logger.log({"frogdog": SettaList(all_data)}, save_to="disk")
+    time.sleep(1)
 
-from PIL import Image
-import numpy as np
-import io
+# from PIL import Image
+# import numpy as np
+# import io
 
-# Suppose you have a NumPy array representing an image
-arr = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
-pil_to_setta_img(Image.fromarray(arr), "png").save("example_img")
+# # Suppose you have a NumPy array representing an image
+# arr = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+# pil_to_setta_img(Image.fromarray(arr), "png").save("example_img")

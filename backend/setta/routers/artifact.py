@@ -9,6 +9,7 @@ from setta.database.db.artifacts.load import (
     load_artifact_metadata_and_maybe_value_from_disk,
     load_available_artifacts,
 )
+from setta.database.db.artifacts.save_or_create import save_or_create_artifacts
 from setta.utils.constants import C
 
 from .dependencies import get_dbq, get_websocket_manager
@@ -17,7 +18,7 @@ router = APIRouter()
 
 
 class SendArtifactRequest(BaseModel):
-    data: Dict[str, Any]
+    data: List[dict]
     sendDataTo: str
     messageType: str
 
@@ -41,12 +42,19 @@ class LoadArtifactFromDiskRequest(BaseModel):
 
 @router.post(C.ROUTE_SEND_ARTIFACT)
 async def route_send_artifact(
-    x: SendArtifactRequest, websocket_manager=Depends(get_websocket_manager)
+    x: SendArtifactRequest,
+    dbq=Depends(get_dbq),
+    websocket_manager=Depends(get_websocket_manager),
 ):
-    x = x.dict()
-    location = x.pop("sendDataTo")
-    messageType = x.pop("messageType")
-    await websocket_manager.send_message_to_location(x["data"], messageType, location)
+    with dbq as db:
+        artifact_ids = save_or_create_artifacts(db, x.data)
+        for idx, d in enumerate(x.data):
+            d["id"] = artifact_ids[idx]
+
+        await websocket_manager.send_message_to_location(
+            x.data, x.messageType, x.sendDataTo
+        )
+        return artifact_ids
 
 
 @router.post(C.ROUTE_LOAD_ARTIFACTS)
