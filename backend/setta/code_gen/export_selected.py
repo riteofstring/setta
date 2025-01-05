@@ -5,7 +5,11 @@ from setta.database.db.sectionVariants.utils import new_ev_entry, new_section_va
 from setta.database.db.uiTypes.utils import new_ui_type_col_entry
 from setta.utils.generate_memorable_string import generate_memorable_available_string
 from setta.utils.section_contents import findAllParametersAndPathMaps
-from setta.utils.utils import QuoteInsensitiveDict, replace_null_keys_with_none
+from setta.utils.utils import (
+    QuoteInsensitiveDict,
+    replace_null_keys_with_none,
+    try_json,
+)
 
 from ..utils.constants import BASE_UI_TYPES, C
 from .find_placeholders import tp
@@ -187,6 +191,7 @@ def export_section_to_dict(
     codeInfoChildren,
     sectionVariant,
     pinnedUnpinnedDict,
+    configLanguage,
 ):
     codeInfoChildren = replace_null_keys_with_none(codeInfoChildren)
     output = {}
@@ -197,6 +202,7 @@ def export_section_to_dict(
             sectionVariant,
             v["topLevelParamIds"],
             v.get("requiredParamIds", None),
+            configLanguage,
         )
         e.export()
         output[k] = e
@@ -617,6 +623,7 @@ class SectionToDict:
         sectionVariant,
         topLevelParamIds,
         requiredParamIds,
+        configLanguage,
     ):
         self.output = {}
         self.prettyOutput = {}
@@ -625,6 +632,7 @@ class SectionToDict:
         self.sectionVariant = sectionVariant
         self.topLevelParamIds = topLevelParamIds
         self.requiredParamIds = set(requiredParamIds) if requiredParamIds else None
+        self.configLanguage = configLanguage
 
     def export(self):
         self.output, self.prettyOutput = self.export_params(self.topLevelParamIds)
@@ -661,6 +669,8 @@ class SectionToDict:
             value = values[id]["value"]
         else:
             value = new_ev_entry()["value"]
+        if self.configLanguage == "json":
+            value = try_json(value)
         return value, value
 
 

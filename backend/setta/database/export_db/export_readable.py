@@ -117,6 +117,7 @@ def export_regular_section(folder, config, section_id, variant_id, with_variants
         codeInfoChildren,
         sectionVariant,
         {"pinned": pinned, "unpinned": unpinned},
+        config["sections"][section_id]["configLanguage"],
     )
     yamlValue = section_dict_to_yaml(output, config["codeInfo"], sectionVariant)
     base = maybe_with_variant_in_filename(config, section_id, variant_id, with_variants)

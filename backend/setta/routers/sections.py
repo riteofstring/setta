@@ -37,6 +37,7 @@ class SectionToYamlRequest(BaseModel):
     sectionVariant: dict
     pinnedIds: Dict[str, List[str]]
     unpinnedIds: Dict[str, List[str]]
+    configLanguage: str
 
 
 class ParamSweepSectionToYamlRequest(BaseModel):
@@ -92,6 +93,7 @@ def route_section_to_yaml(x: SectionToYamlRequest):
         x.codeInfoChildren,
         x.sectionVariant,
         {"pinned": x.pinnedIds, "unpinned": x.unpinnedIds},
+        x.configLanguage,
     )
 
     yamlValue = section_dict_to_yaml(output, x.codeInfo, x.sectionVariant)
