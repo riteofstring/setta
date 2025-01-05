@@ -16,19 +16,19 @@ class MakeEVRefReplacementsRequest(BaseModel):
 def create_replacements_array(replacements):
     output = []
     for r in replacements:
-        startPos = r["original"]["startPos"]
-        oldName = r["original"]["keyword"]
+        startPos = r["originalEVRef"]["startPos"]
+        oldName = r["originalEVRef"]["keyword"]
         newName = r["newName"]
         output.append((startPos, oldName, newName))
     return output
 
 
-def create_new_ev_ref_or_template_var(replacements, newStartPositions):
+def create_new_ev_refs(replacements, newStartPositions):
     output = []
     for idx, (startPos, newName) in enumerate(newStartPositions):
         output.append(
             {
-                **replacements[idx]["original"],
+                **replacements[idx]["originalEVRef"],
                 "startPos": startPos,
                 "keyword": newName,
             }
@@ -44,16 +44,14 @@ def get_new_value_and_positions(details):
     )
 
 
-@router.post(C.ROUTE_MAKE_EV_REF_TEMPLATE_VAR_REPLACEMENTS)
-def route_make_ev_ref_template_var_replacements(x: MakeEVRefReplacementsRequest):
+@router.post(C.ROUTE_MAKE_EV_REF_REPLACEMENTS)
+def route_make_ev_ref_replacements(x: MakeEVRefReplacementsRequest):
     newCodeAreaValues = {}
     for variantId, details in x.codeAreaReplacements.items():
         newValue, newStartPositions = get_new_value_and_positions(details)
         newCodeAreaValues[variantId] = [
             newValue,
-            create_new_ev_ref_or_template_var(
-                details["replacements"], newStartPositions
-            ),
+            create_new_ev_refs(details["replacements"], newStartPositions),
         ]
 
     newCodeInfoValues = {}
@@ -61,9 +59,7 @@ def route_make_ev_ref_template_var_replacements(x: MakeEVRefReplacementsRequest)
         newValue, newStartPositions = get_new_value_and_positions(details)
         newCodeInfoValues[codeInfoId] = [
             newValue,
-            create_new_ev_ref_or_template_var(
-                details["replacements"], newStartPositions
-            ),
+            create_new_ev_refs(details["replacements"], newStartPositions),
         ]
 
     newParamEVValues = {}
@@ -73,9 +69,7 @@ def route_make_ev_ref_template_var_replacements(x: MakeEVRefReplacementsRequest)
             newValue, newStartPositions = get_new_value_and_positions(details)
             newParamEVValues[variantId][referringParamInfoId] = [
                 newValue,
-                create_new_ev_ref_or_template_var(
-                    details["replacements"], newStartPositions
-                ),
+                create_new_ev_refs(details["replacements"], newStartPositions),
             ]
 
     return {
