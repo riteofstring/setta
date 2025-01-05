@@ -24,6 +24,8 @@ const LayersList = ({
     _.isEqual,
   );
 
+  const reversedLayers = layers.toReversed();
+
   const [hoveredLayer, setHoveredLayer] = useState(null);
 
   const handleDragOver = (e, layerId) => {
@@ -54,7 +56,7 @@ const LayersList = ({
         Add / Remove Layer Contents
       </h3>
       <section className="mb-4 rounded-xl border border-white bg-white px-4 py-2 shadow-[inset_0_3px_8px_0_rgb(0_0_0_/_0.15)] dark:border-setta-700 dark:bg-setta-800 dark:shadow-[inset_0_1px_8px_0_rgb(0_0_0_/_0.6)]">
-        {layers.map((layer) => (
+        {reversedLayers.map((layer) => (
           <div
             key={layer.id}
             className={`-mx-2 mb-2 rounded-lg  px-2 py-1 transition-colors hover:bg-setta-100/30 dark:hover:bg-setta-900/50 ${getLayerStyle(layer)} ${
@@ -74,7 +76,7 @@ const LayersList = ({
             </header>
 
             <div className="ml-2">
-              {layer.artifactIdsUsed.map((artifactId, idx) => (
+              {layer.artifactIdsUsed.toReversed().map((artifactId, idx) => (
                 <div
                   key={idx}
                   className="group flex items-center justify-between text-xs text-setta-600 dark:text-setta-400"
@@ -85,7 +87,12 @@ const LayersList = ({
                   </div>
 
                   <button
-                    onClick={() => onDeleteArtifact(layer.id, artifactId)}
+                    onClick={() =>
+                      onDeleteArtifact(
+                        layer.id,
+                        layer.artifactIdsUsed.length - 1 - idx,
+                      )
+                    }
                     className="cursor-pointer p-1 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
                   >
                     <FiTrash2 size={14} />
@@ -288,11 +295,11 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
     });
   };
 
-  const handleDeleteArtifact = (layerId, artifactId) => {
+  const handleDeleteArtifact = (layerId, artifactIdx) => {
     useSectionInfos.setState((x) => {
       const targetLayer = x.artifactGroups[layerId];
       targetLayer.artifactTransforms = targetLayer.artifactTransforms.filter(
-        (t) => t.artifactId !== artifactId,
+        (t, idx) => idx !== artifactIdx,
       );
     });
   };

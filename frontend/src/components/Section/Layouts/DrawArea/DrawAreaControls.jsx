@@ -393,6 +393,8 @@ function LayerList({
     (x) => getSectionArtifactGroupMetadata(sectionId, x),
     _.isEqual,
   );
+  const reversedLayers = layers.toReversed();
+
   const [draggedOverIdx, setDraggedOverIdx] = useState(null);
 
   const handleDragStart = (e, idx) => {
@@ -414,14 +416,18 @@ function LayerList({
     setDraggedOverIdx(null);
 
     if (draggedIdx !== targetIdx) {
-      reorderLayers(draggedIdx, targetIdx);
+      // layers are reversed, so adjust indices
+      reorderLayers(
+        layers.length - 1 - draggedIdx,
+        layers.length - 1 - targetIdx,
+      );
     }
   };
 
   return (
     <div className="flex w-full max-w-64 flex-col gap-2">
       <ul className="mt-1 flex w-full flex-col gap-2">
-        {layers.map((layer, idx) => (
+        {reversedLayers.map((layer, idx) => (
           <li
             key={layer.id}
             draggable={true}
