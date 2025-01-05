@@ -11,6 +11,7 @@ import {
   PINNED_PARAMS_AREA_MIN_HEIGHT,
   useIsScrollable,
 } from "state/hooks/sectionSizes";
+import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }) {
@@ -142,6 +143,10 @@ function ResizablePinnedArea({
         bottomRight: false,
         topLeft: false,
         bottomLeft: false,
+      }}
+      handleClasses={{
+        // used in ZoomPane to allow resizing of sections that are inside a position-locked section
+        bottom: NO_PAN_CLASS_NAME,
       }}
     >
       <header className="flex w-full gap-1 px-2">
