@@ -22,9 +22,12 @@ export function createJSONSourceParamId(paramPath, jsonSource) {
   return `${C.JSON_SOURCE_PREFIX}${metadata}`;
 }
 
-export function createNewParamId(paramPath, jsonSource) {
+export function createNewParamId(paramPath, jsonSource, jsonSourceKeys) {
   if (jsonSource) {
-    return createJSONSourceParamId(paramPath, jsonSource);
+    return createJSONSourceParamId(
+      [...jsonSourceKeys, ...paramPath],
+      jsonSource,
+    );
   }
   return createNewId();
 }

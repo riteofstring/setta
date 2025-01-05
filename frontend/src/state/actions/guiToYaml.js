@@ -330,7 +330,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     }
   }
 
-  const { jsonSource } = state.x[sectionId];
+  const { jsonSource, jsonSourceKeys } = state.x[sectionId];
   // add remaining new entries
   for (const v of fNewObj) {
     if (usedPaths.has(JSON.stringify(v.keyPath))) {
@@ -342,7 +342,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
       value: v.value,
       isPinned: v.isPinned,
     };
-    curr.id = createNewParamId(curr.keyPath, jsonSource);
+    curr.id = createNewParamId(curr.keyPath, jsonSource, jsonSourceKeys);
     curr.isNewParam = true;
     output.push(curr);
   }
