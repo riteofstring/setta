@@ -118,27 +118,41 @@ export function addDrawAreaLayer(sectionId, state) {
   state.x[sectionId].canvasSettings.activeLayerId = artifactGroupId;
 }
 
-export function maybeAddArtifactGroupAndSetArtifactId(
+export function maybeAddArtifactGroupAndSetArtifactId({
   sectionId,
   sectionTypeName,
   artifactId,
   artifactType,
+  createNewArtifactGroup = false,
   state,
-) {
-  let artifactGroupId = state.x[sectionId].artifactGroupIds[0];
-  if (!artifactGroupId) {
-    artifactGroupId = createNewId();
-    state.artifactGroups[artifactGroupId] = newLayer({
-      artifactTransforms: [
-        newArtifactTransform(artifactId, sectionTypeName, artifactType),
-      ],
-    });
+}) {
+  let artifactGroupId = getActiveArtifactGroupId(
+    sectionId,
+    sectionTypeName,
+    state,
+  );
 
-    state.x[sectionId].artifactGroupIds.push(artifactGroupId);
+  if (!artifactGroupId || createNewArtifactGroup) {
+    artifactGroupId = createNewId();
+    state.artifactGroups[artifactGroupId] = newLayer({});
+    state.x[sectionId].artifactGroupIds.unshift(artifactGroupId);
   }
 
-  state.artifactGroups[artifactGroupId].artifactTransforms[0].artifactId =
-    artifactId;
+  const artifactTransform = newArtifactTransform(
+    artifactId,
+    sectionTypeName,
+    artifactType,
+  );
+
+  if (sectionTypeName === C.DRAW) {
+    state.artifactGroups[artifactGroupId].artifactTransforms.push(
+      artifactTransform,
+    );
+  } else {
+    state.artifactGroups[artifactGroupId].artifactTransforms = [
+      artifactTransform,
+    ];
+  }
 }
 
 export async function addArtifactAndMaybeCreateNewArtifactGroup({
@@ -161,34 +175,14 @@ export async function addArtifactAndMaybeCreateNewArtifactGroup({
   }));
   useSectionInfos.setState((state) => {
     const sectionTypeName = getSectionType(sectionId, state);
-
-    let artifactGroupId = getActiveArtifactGroupId(
+    maybeAddArtifactGroupAndSetArtifactId({
       sectionId,
       sectionTypeName,
-      state,
-    );
-
-    if (!artifactGroupId || createNewArtifactGroup) {
-      artifactGroupId = createNewId();
-      state.artifactGroups[artifactGroupId] = newLayer({});
-      state.x[sectionId].artifactGroupIds.unshift(artifactGroupId);
-    }
-
-    const artifactTransform = newArtifactTransform(
       artifactId,
-      sectionTypeName,
       artifactType,
-    );
-
-    if (artifactType === C.DRAW) {
-      state.artifactGroups[artifactGroupId].artifactTransforms.push(
-        artifactTransform,
-      );
-    } else {
-      state.artifactGroups[artifactGroupId].artifactTransforms = [
-        artifactTransform,
-      ];
-    }
+      createNewArtifactGroup,
+      state,
+    });
   });
 }
 
