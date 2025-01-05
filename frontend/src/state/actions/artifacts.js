@@ -1,5 +1,5 @@
 import {
-  base64StrToImgSrc,
+  base64ToImageObj,
   dataURLToBase64,
 } from "components/Section/Layouts/DrawArea/base64Conversion";
 import C from "constants/constants.json";
@@ -51,12 +51,17 @@ export async function loadArtifacts(artifactIds, signal) {
 
 async function prepareArtifactsForRendering(artifactsFromBackend) {
   for (const data of Object.values(artifactsFromBackend)) {
-    if (data.type === "img") {
-      const imgSrc = base64StrToImgSrc(data.value);
-      data.value = new Image();
-      data.value.src = imgSrc;
-      await data.value.decode();
-    }
+    data.value = await prepareArtifactForRendering(data.type, data.value);
+  }
+}
+
+export async function prepareArtifactForRendering(type, value) {
+  switch (type) {
+    case "img":
+      return await base64ToImageObj(value);
+    case "list":
+    case "brushStrokes":
+      return value;
   }
 }
 
@@ -125,14 +130,11 @@ export function maybeAddArtifactGroupAndSetArtifactId(
 export async function addArtifactAndMaybeCreateNewArtifactGroup({
   sectionId,
   createNewArtifactGroup,
-  imgSrc,
+  value,
+  artifactType,
   path = null,
 }) {
   const artifactId = createNewId();
-  const artifactType = "img";
-  const value = new Image();
-  value.src = imgSrc;
-  await value.decode();
   useArtifacts.setState((state) => ({
     x: {
       ...state.x,

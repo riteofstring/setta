@@ -1,12 +1,14 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { base64StrToImgSrc } from "components/Section/Layouts/DrawArea/base64Conversion";
 import C from "constants/constants.json";
 import { useCallback, useState } from "react";
 import {
   dbCheckIfFileExists,
   dbLoadArtifactFromDisk,
 } from "requests/artifacts";
-import { addArtifactAndMaybeCreateNewArtifactGroup } from "state/actions/artifacts";
+import {
+  addArtifactAndMaybeCreateNewArtifactGroup,
+  prepareArtifactForRendering,
+} from "state/actions/artifacts";
 import { setModalOpen } from "state/actions/modal";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useModal } from "state/definitions";
@@ -38,16 +40,30 @@ export function AddArtifactByFilepathModal() {
     return getSectionType(sectionId) === C.DRAW;
   };
 
+  const getArtifactType = () => {
+    switch (getSectionType(sectionId)) {
+      case C.DRAW:
+      case C.IMAGE:
+        return "img";
+      case C.CHART:
+        return "list";
+    }
+  };
+
   const handleConfirm = async () => {
     if (filepath) {
-      const res = await dbLoadArtifactFromDisk(filepath, "img");
+      const artifactType = getArtifactType();
+      const res = await dbLoadArtifactFromDisk(filepath, artifactType);
       if (res.status === 200) {
-        const imgSrc = base64StrToImgSrc(res.data.value);
-
+        const value = await prepareArtifactForRendering(
+          artifactType,
+          res.data.value,
+        );
         addArtifactAndMaybeCreateNewArtifactGroup({
           sectionId,
           createNewArtifactGroup: shouldCreateNewArtifactGroup(),
-          imgSrc,
+          value,
+          artifactType,
           path: filepath,
         });
       }

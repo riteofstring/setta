@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { addArtifactAndMaybeCreateNewArtifactGroup } from "state/actions/artifacts";
+import { imgSrcToImageObj } from "./base64Conversion";
 
 export function useImageLoadViaDropzone(sectionId, createNewLayer) {
   const onDrop = useCallback(
@@ -9,10 +10,12 @@ export function useImageLoadViaDropzone(sectionId, createNewLayer) {
         const reader = new FileReader();
 
         reader.onload = async () => {
+          const value = await imgSrcToImageObj(reader.result);
           await addArtifactAndMaybeCreateNewArtifactGroup({
             sectionId,
             createNewArtifactGroup: createNewLayer,
-            imgSrc: reader.result,
+            value,
+            artifactType: "img",
           });
         };
 
