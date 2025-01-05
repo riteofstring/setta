@@ -17,7 +17,7 @@ export function useCodeMirrorStyleLoader(doneLoading, is404) {
       return;
     }
     const darkMode = localStorageFns.darkMode.state();
-    const theme = getCodeMirrorStyle(darkMode);
+    const { theme } = getCodeMirrorStyle(darkMode);
     // Create an off-screen container
     const container = document.createElement("div");
     container.style.position = "absolute";

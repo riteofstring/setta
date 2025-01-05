@@ -76,7 +76,7 @@ const _MarkdownEditorCore = React.forwardRef(
     const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
       codeAreaTabOnEnterKeyHandlers(ref);
 
-    const theme = useCodeMirrorStyle();
+    const { theme } = useCodeMirrorStyle();
 
     const extensions = getExtensions({
       sectionId,
