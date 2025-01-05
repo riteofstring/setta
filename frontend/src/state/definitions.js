@@ -3,13 +3,7 @@ import { dummyRegExpObject } from "utils/utils";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import {
-  create,
-  withManualReset,
-  withProjectState,
-  withResetFn,
-  withVersion,
-} from "./utils";
+import { create, withProjectState, withResetFn, withVersion } from "./utils";
 
 export const useActiveSection = withProjectState(
   create(
@@ -137,8 +131,8 @@ export const useAllProjectConfigs = create(
   })),
 );
 
-export const useArtifacts = withManualReset(
-  withProjectState(create(() => ({}))),
+export const useArtifacts = withProjectState(
+  create(subscribeWithSelector(temporal(withResetFn(() => withVersion({}))))),
 );
 
 export const useProjectConfig = withProjectState(
@@ -205,8 +199,8 @@ export const useWebsocketConnectionList = create(
   })),
 );
 
-export const useTemporaryMiscState = withManualReset(
-  withProjectState(create(subscribeWithSelector(() => ({})))),
+export const useTemporaryMiscState = withProjectState(
+  create(subscribeWithSelector(withResetFn(() => ({})))),
 );
 
 export const useProjectLoading = create(
@@ -230,14 +224,14 @@ export const useMisc = withProjectState(
   ),
 );
 
-export const useYamlValue = withManualReset(withProjectState(create(() => {})));
+export const useYamlValue = withProjectState(create(withResetFn(() => {})));
 
-export const useOriginalYamlObj = withManualReset(
-  withProjectState(create(() => {})),
+export const useOriginalYamlObj = withProjectState(
+  create(withResetFn(() => {})),
 );
 
-export const useSectionColumnWidth = withManualReset(
-  withProjectState(create(subscribeWithSelector(() => {}))),
+export const useSectionColumnWidth = withProjectState(
+  create(subscribeWithSelector(withResetFn(() => {}))),
 );
 
 export const useResizerStore = withProjectState(
@@ -249,6 +243,6 @@ export const useResizerStore = withProjectState(
   ),
 );
 
-export const useInfoToEVReferrer = withManualReset(
-  withProjectState(create(() => ({}))),
+export const useInfoToEVReferrer = withProjectState(
+  create(withResetFn(() => ({}))),
 );

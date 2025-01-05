@@ -16,21 +16,12 @@ export function withProjectState(store) {
   return store;
 }
 
-// use this for state that maps directly from keys (like uuids) to values.
-// This way, none of the keys have to be used by "reset"
-export function withManualReset(store) {
-  addStatePointer(store, STATE_TYPES.REQUIRES_MANUAL_RESET);
-  return store;
-}
-
 export const STATE_TYPES = {
   PROJECT_STATE: "PROJECT_STATE",
-  REQUIRES_MANUAL_RESET: "REQUIRES_MANUAL_RESET",
 };
 
 export const stateDict = {
   [STATE_TYPES.PROJECT_STATE]: [],
-  [STATE_TYPES.REQUIRES_MANUAL_RESET]: [],
 };
 
 export function withResetFn(config) {
@@ -68,11 +59,7 @@ export function withVersion(initialState) {
 
 function resetStores(stateType) {
   for (const state of stateDict[stateType]) {
-    if (stateDict[STATE_TYPES.REQUIRES_MANUAL_RESET].includes(state)) {
-      state.setState({}, true);
-    } else {
-      state.getState().reset();
-    }
+    state.getState().reset();
     if (state.temporal) {
       state.temporal.getState().clear();
     }
