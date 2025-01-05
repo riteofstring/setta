@@ -20,6 +20,7 @@ import { findAllParametersAndPathMaps } from "utils/getDescendants";
 import { createNewParamId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { newEVEntry } from "utils/objs/ev";
+import { parseAllDocuments } from "yaml";
 import { getOrCreateCodeInfoCol } from "./codeInfo";
 import { parseRawDump, splitDocuments } from "./guiToYamlParsing";
 import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
