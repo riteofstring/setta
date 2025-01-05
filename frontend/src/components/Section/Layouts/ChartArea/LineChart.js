@@ -7,7 +7,7 @@ Tooltip.positioners.lineChartTooltipMousePosition = function (
   return { x: eventPosition.x, y: eventPosition.y };
 };
 
-export function getLineChartOptionsAndPlugins({ setDatasetHidden }) {
+export function getLineChartOptionsAndPlugins() {
   return {
     type: "line",
     data: {
@@ -72,10 +72,9 @@ export function updateLineChartWithNewData({
     }
   }
 
-  const newData = { labels, datasets };
-
-  chartRef.current.data = newData;
   chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
+
+  return { labels, datasets };
 }
 
 const verticalLinePlugin = {

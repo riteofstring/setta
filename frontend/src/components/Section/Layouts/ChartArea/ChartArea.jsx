@@ -95,7 +95,7 @@ function _ChartAreaCore({ sectionId }) {
             },
           },
         },
-        optionsAndPluginsFn({ setDatasetHidden }),
+        optionsAndPluginsFn(),
       ),
     );
 
@@ -119,7 +119,7 @@ function _ChartAreaCore({ sectionId }) {
     }
 
     const updateFn = getUpdaterFn(chartSettings.type);
-    updateFn({
+    const newData = updateFn({
       chartRef,
       artifactData,
       datasetHidden,
@@ -127,11 +127,16 @@ function _ChartAreaCore({ sectionId }) {
       chartSettings,
     });
 
-    setAxisType(chartRef.current.options.scales.x, chartSettings.xAxisLog);
-    setAxisType(chartRef.current.options.scales.y1, chartSettings.y1AxisLog);
-    setAxisType(chartRef.current.options.scales.y2, chartSettings.y2AxisLog);
-    chartRef.current.scales.y2.display =
-      chartSettings.secondYAxisColumns.length > 0;
+    chartRef.current.data = newData;
+
+    const scaleOptions = chartRef.current.options.scales;
+    scaleOptions.x.type = getAxisType(
+      chartSettings.xAxisLog,
+      newData.labels?.[0],
+    );
+    scaleOptions.y1.type = getAxisType(chartSettings.y1AxisLog);
+    scaleOptions.y2.type = getAxisType(chartSettings.y2AxisLog);
+    scaleOptions.y2.display = chartSettings.secondYAxisColumns.length > 0;
 
     chartRef.current.resize(size.width, size.height - 50);
     chartRef.current.update();
@@ -162,6 +167,9 @@ function getUpdaterFn(type) {
   }
 }
 
-function setAxisType(axis, isLog) {
-  axis.type = isLog ? "logarithmic" : "linear";
+export function getAxisType(isLog, sampleData) {
+  if (typeof sampleData === "string") {
+    return "category";
+  }
+  return isLog ? "logarithmic" : "linear";
 }

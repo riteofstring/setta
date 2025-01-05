@@ -10,7 +10,7 @@ Tooltip.positioners.scatterChartTooltipMousePosition = function (
   return { x: eventPosition.x, y: eventPosition.y };
 };
 
-export function getScatterChartOptionsAndPlugins({ setDatasetHidden }) {
+export function getScatterChartOptionsAndPlugins() {
   return {
     type: "scatter",
     plugins: [crosshairPlugin],
@@ -79,10 +79,9 @@ export function updateScatterChartWithNewData({
     pointHoverRadius: 6,
   }));
 
-  const newData = { datasets };
-
-  chartRef.current.data = newData;
   chartRef.current.crosshairPlugin.color = darkMode ? "white" : "black";
+
+  return { datasets };
 }
 
 const crosshairPlugin = {
