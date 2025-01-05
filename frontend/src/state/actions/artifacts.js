@@ -12,9 +12,10 @@ import {
   newArtifactTransform,
   newLayer,
 } from "utils/objs/artifact";
+import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function updateArtifacts({ artifacts, addSection = false }) {
-  useArtifacts.setState(artifacts);
+  useArtifacts.setState((state) => ({ x: { ...state.x, ...artifacts } }));
 
   // if (addSection) {
   //   for (const [id, data] of Object.entries(artifacts)) {
@@ -36,12 +37,14 @@ export function updateArtifacts({ artifacts, addSection = false }) {
 //   });
 // }
 
-export async function loadArtifacts(artifactIds) {
+export async function loadArtifacts(artifactIds, signal) {
   const res = await dbLoadArtifacts(artifactIds);
   if (res.status === 200) {
     const artifactsFromBackend = _.cloneDeep(res.data);
     await prepareArtifactsForRendering(artifactsFromBackend);
+    if (signal?.aborted) return;
     updateArtifacts({ artifacts: artifactsFromBackend });
+    maybeIncrementProjectStateVersion(true);
   }
 }
 
@@ -59,7 +62,7 @@ async function prepareArtifactsForRendering(artifactsFromBackend) {
 export function getArtifactStateForSaving() {
   const result = {};
 
-  for (const [key, value] of Object.entries(useArtifacts.getState())) {
+  for (const [key, value] of Object.entries(useArtifacts.getState().x)) {
     if (typeof value !== "function") {
       result[key] = value;
     }
@@ -77,9 +80,12 @@ export function getArtifactStateForSaving() {
 export function addDrawAreaLayer(sectionId, state) {
   const artifactId = createNewId();
   const artifactType = "brushStrokes";
-  useArtifacts.setState({
-    [artifactId]: newArtifact({ type: artifactType, value: [] }),
-  });
+  useArtifacts.setState((state) => ({
+    x: {
+      ...state.x,
+      [artifactId]: newArtifact({ type: artifactType, value: [] }),
+    },
+  }));
 
   const artifactGroupId = createNewId();
   state.artifactGroups[artifactGroupId] = newLayer({
@@ -126,13 +132,16 @@ export async function addImageArtifactAndMaybeCreateNewLayer(
   const value = new Image();
   value.src = imgSrc;
   await value.decode();
-  useArtifacts.setState({
-    [artifactId]: newArtifact({
-      value,
-      path,
-      type: artifactType,
-    }),
-  });
+  useArtifacts.setState((state) => ({
+    x: {
+      ...state.x,
+      [artifactId]: newArtifact({
+        value,
+        path,
+        type: artifactType,
+      }),
+    },
+  }));
   useSectionInfos.setState((state) => {
     // let layerId = activeLayerId;
     // if (!layerId) {

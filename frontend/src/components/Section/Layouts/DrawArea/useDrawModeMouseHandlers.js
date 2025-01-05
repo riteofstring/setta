@@ -2,6 +2,7 @@ import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
 import {
   drawAllLayers,
@@ -336,7 +337,7 @@ function drawingOnMouseUp({
       return;
     }
     if (isEraser) {
-      const artifactState = useArtifacts.getState();
+      const artifactState = useArtifacts.getState().x;
       const eraserPath =
         eraserStrokesRef.current[eraserStrokesRef.current.length - 1];
 
@@ -391,6 +392,7 @@ function drawingOnMouseUp({
       tempCanvasRefs,
       draftCanvasRef,
     );
+    maybeIncrementProjectStateVersion(true);
     // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   };
 }
@@ -421,7 +423,7 @@ function editingOnMouseDown({
 }) {
   // returns true if layers should be redrawn
   return (e) => {
-    const artifactState = useArtifacts.getState();
+    const artifactState = useArtifacts.getState().x;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const zoom = getZoom();
@@ -501,7 +503,7 @@ function editingOnMouseMove({
   return (e) => {
     if (!isDragging.current && resizeHandle.current === null) return false;
 
-    const artifactState = useArtifacts.getState();
+    const artifactState = useArtifacts.getState().x;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const zoom = getZoom();
@@ -660,5 +662,7 @@ function editingOnMouseUp({
     isDragging.current = false;
     draggedIdx.current = null;
     resizeHandle.current = null;
+
+    maybeIncrementProjectStateVersion(true);
   };
 }

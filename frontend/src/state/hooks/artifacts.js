@@ -7,21 +7,26 @@ export function useLoadedArtifacts(artifactIds, artifactAttrsToPick) {
   const loadedArtifacts = useArtifacts((x) => {
     const output = {};
     for (const id of artifactIds) {
-      if (x[id]?.value) {
-        output[id] = _.pick(x[id], artifactAttrsToPick);
+      if (x.x[id]?.value) {
+        output[id] = _.pick(x.x[id], artifactAttrsToPick);
       }
     }
     return output;
   }, _.isEqual);
 
   useDeepCompareEffect(() => {
+    const controller = new AbortController();
     const notLoaded = [];
     for (const id of artifactIds) {
       if (!(id in loadedArtifacts)) {
         notLoaded.push(id);
       }
     }
-    loadArtifacts(notLoaded);
+    loadArtifacts(notLoaded, controller.signal);
+
+    return () => {
+      controller.abort();
+    };
   }, [artifactIds]);
 
   return loadedArtifacts;

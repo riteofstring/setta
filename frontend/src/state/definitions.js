@@ -132,7 +132,9 @@ export const useAllProjectConfigs = create(
 );
 
 export const useArtifacts = withProjectState(
-  create(subscribeWithSelector(temporal(withResetFn(() => withVersion({}))))),
+  create(
+    subscribeWithSelector(temporal(withResetFn(() => withVersion({ x: {} })))),
+  ),
 );
 
 export const useProjectConfig = withProjectState(
@@ -219,6 +221,7 @@ export const useMisc = withProjectState(
         numDisplayedCodeAreas: 0,
         numInitializedCodeAreas: 0,
         requestUpdateNodeDimensions: false,
+        updateDrawAreas: 0, // increments every time we want to update
       })),
     ),
   ),

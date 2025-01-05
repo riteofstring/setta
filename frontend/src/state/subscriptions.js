@@ -97,12 +97,23 @@ export function subscribe() {
           getNodeUpdateInformation(useNodeInternals.getState().x.keys(), false),
         );
         useMisc.setState({
-          undoOrRedoWasTriggered: false,
           requestUpdateNodeDimensions: false,
         });
       }
     },
     { equalityFn: _.isEqual },
+  );
+
+  useMisc.subscribe(
+    (x) => x.undoOrRedoWasTriggered,
+    (undoOrRedoWasTriggered) => {
+      if (undoOrRedoWasTriggered) {
+        useMisc.setState((state) => ({
+          updateDrawAreas: state.updateDrawAreas + 1,
+          undoOrRedoWasTriggered: false,
+        }));
+      }
+    },
   );
 
   useSectionInfos.subscribe(

@@ -237,8 +237,8 @@ dependencies:
     specifier: 2.5.1
     version: 2.5.1
   zundo:
-    specifier: 2.0.0-beta.15
-    version: 2.0.0-beta.15(zustand@4.4.7)
+    specifier: 2.3.0
+    version: 2.3.0(zustand@4.4.7)
   zustand:
     specifier: 4.4.7
     version: 4.4.7(@types/react@18.3.2)(immer@10.0.2)(react@18.2.0)
@@ -9125,11 +9125,10 @@ packages:
     resolution: {integrity: sha512-iC+8Io04lddc+mVqQ9AZ7OQ2MrUKGN+oIQyq1vemgt46jwCwLfhq7/pwnBnNXXXZb8VTVLKwp9EDkx+ryxIWmg==}
     dev: true
 
-  /zundo@2.0.0-beta.15(zustand@4.4.7):
-    resolution: {integrity: sha512-1mdzONJNOfX4h1UhO3HlAYFDrR59rE35V29MpfbDGShyCWC81rWuoeEJ1VNtMeHPO359g9FYpRsL/3NKQLmNow==}
-    engines: {node: '>=12'}
+  /zundo@2.3.0(zustand@4.4.7):
+    resolution: {integrity: sha512-4GXYxXA17SIKYhVbWHdSEU04P697IMyVGXrC2TnzoyohEAWytFNOKqOp5gTGvaW93F/PM5Y0evbGtOPF0PWQwQ==}
     peerDependencies:
-      zustand: ^4.3.0
+      zustand: ^4.3.0 || ^5.0.0
     dependencies:
       zustand: 4.4.7(@types/react@18.3.2)(immer@10.0.2)(react@18.2.0)
     dev: false

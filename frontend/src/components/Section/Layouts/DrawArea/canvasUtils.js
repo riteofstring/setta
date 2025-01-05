@@ -51,7 +51,7 @@ export function setCanvasSize({
   state,
 }) {
   const sectionState = useSectionInfos.getState();
-  const artifactState = useArtifacts.getState();
+  const artifactState = useArtifacts.getState().x;
   let imgSize = maybeGetImgSizeFromArtifact(
     artifactState[artifactIdUsedToSetCanvasSize],
   );
@@ -135,9 +135,12 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
   draftCanvasRef,
 ) {
   useArtifacts.setState((state) => ({
-    [currBrushStrokeArtifactId]: {
-      ...state[currBrushStrokeArtifactId],
-      value: _.cloneDeep(strokesRef.current),
+    x: {
+      ...state.x,
+      [currBrushStrokeArtifactId]: {
+        ...state.x[currBrushStrokeArtifactId],
+        value: _.cloneDeep(strokesRef.current),
+      },
     },
   }));
   drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
@@ -190,7 +193,7 @@ export function drawAllLayers(
   clearCanvas(canvasRef.current);
 
   const sectionState = useSectionInfos.getState();
-  const artifactState = useArtifacts.getState();
+  const artifactState = useArtifacts.getState().x;
   for (const layerId of sectionState.x[sectionId].artifactGroupIds) {
     const layer = sectionState.artifactGroups[layerId];
     if (!layer.visible) {

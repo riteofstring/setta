@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
-import { useArtifacts, useSectionInfos } from "state/definitions";
+import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
 import { useDrawAreaActiveLayerAndLoadedArtifacts } from "state/hooks/artifacts";
 import useDeepCompareEffect, {
   useDeepCompareEffectNoCheck,
@@ -58,6 +58,8 @@ export function DrawArea({ sectionId }) {
     (a) => loadedArtifacts[a.artifactId]?.type === "brushStrokes",
   )?.artifactId;
 
+  const updateDrawAreas = useMisc((x) => x.updateDrawAreas);
+
   useEffect(() => {
     tempCanvasRefs.current.layer = document.createElement("canvas");
     tempCanvasRefs.current.artifact = document.createElement("canvas");
@@ -80,7 +82,12 @@ export function DrawArea({ sectionId }) {
       });
     });
     drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
-  }, [height, width, Boolean(loadedArtifacts[artifactIdUsedToSetCanvasSize])]);
+  }, [
+    height,
+    width,
+    Boolean(loadedArtifacts[artifactIdUsedToSetCanvasSize]),
+    updateDrawAreas,
+  ]);
   // the Boolean dependency is checking whether or not the artifactIdUsedToSetCanvasSize has been loaded or not
 
   useEffect(() => {
@@ -92,7 +99,14 @@ export function DrawArea({ sectionId }) {
       brushOpacity,
       layerOpacity,
     });
-  }, [color, brushSize, brushShape, brushOpacity, layerOpacity]);
+  }, [
+    color,
+    brushSize,
+    brushShape,
+    brushOpacity,
+    layerOpacity,
+    updateDrawAreas,
+  ]);
 
   useDeepCompareEffect(() => {
     if (mode === "draw") {
@@ -100,7 +114,13 @@ export function DrawArea({ sectionId }) {
       resizeHandleCorners.current = null;
     }
     drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
-  }, [mode, layerOpacity, allLayersMetadata, loadedArtifactIdsWithDuplicates]);
+  }, [
+    mode,
+    layerOpacity,
+    allLayersMetadata,
+    loadedArtifactIdsWithDuplicates,
+    updateDrawAreas,
+  ]);
   // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
   // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
 
@@ -109,10 +129,10 @@ export function DrawArea({ sectionId }) {
       strokesRef.current = [];
     } else {
       strokesRef.current = _.cloneDeep(
-        useArtifacts.getState()[currBrushStrokeArtifactId].value,
+        useArtifacts.getState().x[currBrushStrokeArtifactId].value,
       );
     }
-  }, [currBrushStrokeArtifactId]);
+  }, [currBrushStrokeArtifactId, updateDrawAreas]);
 
   useDeepCompareEffectNoCheck(() => {
     if (!activeLayer?.artifactTransforms) {
@@ -122,7 +142,7 @@ export function DrawArea({ sectionId }) {
         activeLayer.artifactTransforms,
       );
     }
-  }, [activeLayer?.artifactTransforms]);
+  }, [activeLayer?.artifactTransforms, updateDrawAreas]);
 
   const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
     useDrawModeMouseHandlers({

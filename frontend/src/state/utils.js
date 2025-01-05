@@ -59,7 +59,7 @@ export function withVersion(initialState) {
 
 function resetStores(stateType) {
   for (const state of stateDict[stateType]) {
-    state.getState().reset();
+    state.getState().reset?.();
     if (state.temporal) {
       state.temporal.getState().clear();
     }

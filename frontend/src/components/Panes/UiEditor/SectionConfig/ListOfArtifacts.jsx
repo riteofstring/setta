@@ -379,7 +379,7 @@ function useArtifactsKnownByDbAndInMemory(sectionTypeName) {
   const [artifactsKnownByDb, setArtifactsKnownByDb] = useState({});
   const artifactsInMemory = useArtifacts(
     (x) =>
-      _.mapValues(x, (a) => ({ name: a.name, path: a.path, type: a.type })),
+      _.mapValues(x.x, (a) => ({ name: a.name, path: a.path, type: a.type })),
     _.isEqual,
   );
 
