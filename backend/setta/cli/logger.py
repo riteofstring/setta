@@ -18,16 +18,18 @@ from setta.utils.constants import (
 
 
 class Setta:
-    def __init__(self, root_path=None, send_data_to=None):
+    def __init__(self, root_path=None, send_data_to=None, host=None, port=None):
         load_constants()
         set_constants(
-            host=os.environ.get(HOST_ENV_VARIABLE, C.DEFAULT_HOST),
-            port=os.environ.get(PORT_ENV_VARIABLE, C.DEFAULT_PORT),
+            host=host or os.environ.get(HOST_ENV_VARIABLE, C.DEFAULT_HOST),
+            port=port or os.environ.get(PORT_ENV_VARIABLE, C.DEFAULT_PORT),
         )
         if root_path:
             self.root_path = Path(root_path)
         else:
-            self.root_path = Path(os.environ.get(CODE_FOLDER_ENV_VARIABLE, os.getcwd()))
+            self.root_path = Path(
+                os.environ.get(CODE_FOLDER_ENV_VARIABLE, os.path.relpath(os.getcwd()))
+            )
 
         if send_data_to:
             self.send_data_to = send_data_to
