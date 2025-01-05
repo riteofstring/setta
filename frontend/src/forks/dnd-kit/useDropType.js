@@ -9,6 +9,7 @@ import {
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
+import { useSectionInfos } from "state/definitions";
 
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);
@@ -238,13 +239,17 @@ export function getDndParentId(dndSectionId) {
 }
 
 function getBehaviorDropType(activeId, newParentId) {
-  // invalid if parent can't have children
+  // invalid
+  // if parent can't have children
   // or if child can only be in group and parent is not a group
+  // or if parent variant is frozen
+  // or if dragged section is global variables (TODO: loosen this restriction)
   if (
     !getSectionIsRoot(newParentId) ||
     (getSectionCanOnlyBeChildOfGroup(activeId) &&
       !getSectionIsGroup(newParentId)) ||
-    getSectionVariant(newParentId).isFrozen
+    getSectionVariant(newParentId).isFrozen ||
+    getSectionIsGlobalVariables(activeId)
   ) {
     return BehaviorDropType.INVALID;
   }
@@ -264,6 +269,13 @@ function getSectionCanOnlyBeChildOfGroup(sectionId) {
 
 function getSectionIsGroup(sectionId) {
   return getSectionType(sectionId) === C.GROUP;
+}
+
+function getSectionIsGlobalVariables(sectionId) {
+  return (
+    useSectionInfos.getState().singletonSections[C.GLOBAL_VARIABLES] ===
+    sectionId
+  );
 }
 
 function getSectionIsRoot(sectionId) {
