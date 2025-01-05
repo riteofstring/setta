@@ -56,7 +56,7 @@ def load_artifact_groups(db, ids):
 
 
 def load_available_artifacts(db, sectionType):
-    allowed_types = get_allow_artifact_types(sectionType)
+    allowed_types = C.ALLOWED_ARTIFACT_TYPES[sectionType]
 
     placeholders = ", ".join(["?"] * len(allowed_types))
     query = f"""
@@ -91,10 +91,3 @@ def load_artifact_from_disk(filepath, type):
     wrapper.load(filepath)
     return wrapper.serialize()
 
-
-def get_allow_artifact_types(type):
-    return {
-        C.DRAW: ["img", "brushStrokes"],
-        C.IMAGE: ["img"],
-        C.CHART: ["list"],
-    }.get(type, [])

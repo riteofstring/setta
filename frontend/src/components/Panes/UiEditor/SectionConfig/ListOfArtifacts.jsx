@@ -1,4 +1,5 @@
 import * as Accordion from "@radix-ui/react-accordion";
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
@@ -377,11 +378,15 @@ export function JustListOfArtifacts({ sectionId, sectionTypeName }) {
 
 function useArtifactsKnownByDbAndInMemory(sectionTypeName) {
   const [artifactsKnownByDb, setArtifactsKnownByDb] = useState({});
-  const artifactsInMemory = useArtifacts(
-    (x) =>
-      _.mapValues(x.x, (a) => ({ name: a.name, path: a.path, type: a.type })),
-    _.isEqual,
-  );
+  const artifactsInMemory = useArtifacts((x) => {
+    const output = {};
+    for (const [id, a] of Object.entries(x.x)) {
+      if (C.ALLOWED_ARTIFACT_TYPES[sectionTypeName].includes(a.type)) {
+        output[id] = a;
+      }
+    }
+    return output;
+  }, _.isEqual);
 
   useEffect(() => {
     async function fn() {
