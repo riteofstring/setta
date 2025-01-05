@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { guiToYaml, yamlToGUI } from "state/actions/guiToYaml";
+import { getSectionInfo } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
@@ -11,7 +12,8 @@ export function useShowYaml(sectionId) {
 
   useEffect(() => {
     if (showYaml) {
-      guiToYaml(sectionId);
+      const { variantId, displayMode } = getSectionInfo(sectionId);
+      guiToYaml(sectionId, variantId, displayMode);
       setToYamlWasCalled(true);
     } else {
       if (toYamlWasCalled) {

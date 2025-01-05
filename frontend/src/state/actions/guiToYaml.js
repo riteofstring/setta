@@ -3,6 +3,7 @@ import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
 import {
   getCodeInfoCol,
+  getDisplayedSectionVariantId,
   getSectionInfo,
   getSectionType,
   getSectionVariant,
@@ -24,33 +25,34 @@ import { getOrCreateCodeInfoCol } from "./codeInfo";
 import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
 import { paramNameFromPathArray } from "./sections/sectionContents";
 
-export async function guiToYaml(sectionId) {
-  const { res, metaData } = await dbGuiToYaml(sectionId);
+export async function guiToYaml(sectionId, variantId) {
+  const { res, metaData } = await dbGuiToYaml(sectionId, variantId);
   // console.log(res, metaData);
   if (res.status === 200) {
     const { originalObj, yamlValue } = res.data;
     useOriginalYamlObj.setState({
-      [sectionId]: { originalObj, metaData },
+      [variantId]: { originalObj, metaData },
     });
-    useYamlValue.setState({ [sectionId]: yamlValue });
+    useYamlValue.setState({ [variantId]: yamlValue });
   }
 }
 
 export function yamlToGUI(sectionId) {
+  const variantId = useSectionInfos.getState().x[sectionId].variantId;
   const sectionType = getSectionType(sectionId);
-  const yamlValue = useYamlValue.getState()[sectionId] ?? "";
+  const yamlValue = useYamlValue.getState()[variantId] ?? "";
   switch (sectionType) {
     case C.PARAM_SWEEP:
       paramSweepSectionYamlToGUI(sectionId, yamlValue);
       break;
     case C.GLOBAL_PARAM_SWEEP:
-      const metaData = useOriginalYamlObj.getState()[sectionId]?.metaData ?? {};
+      const metaData = useOriginalYamlObj.getState()[variantId]?.metaData ?? {};
       globalParamSweepSectionYamlToGUI(yamlValue, metaData);
       break;
     case C.GLOBAL_VARIABLES:
     case C.SECTION:
       const originalObj =
-        useOriginalYamlObj.getState()[sectionId]?.originalObj ?? {};
+        useOriginalYamlObj.getState()[variantId]?.originalObj ?? {};
       sectionYamlToGUI(sectionId, yamlValue, originalObj);
       break;
   }
@@ -593,14 +595,19 @@ function updateIdsToChildren({
   }
 }
 
-export async function maybeRunGuiToYaml(sectionId) {
+export async function maybeRunGuiToYaml(sectionId, variantId) {
+  console.log("maybeRunGuiToYaml");
   if (getSectionInfo(sectionId).displayMode === SECTION_DISPLAY_MODES.YAML) {
-    await guiToYaml(sectionId);
+    await guiToYaml(sectionId, variantId);
   }
 }
 
-export async function maybeRunGuiToYamlOnAllSections() {
-  for (const k of Object.keys(useSectionInfos.getState().x)) {
-    await maybeRunGuiToYaml(k);
+export async function maybeRunGuiToYamlOnAllSections(isPreview = false) {
+  const state = useSectionInfos.getState();
+  for (const [sectionId, section] of Object.entries(state.x)) {
+    const variantId = isPreview
+      ? getDisplayedSectionVariantId(sectionId)
+      : section.variantId;
+    await maybeRunGuiToYaml(sectionId, variantId);
   }
 }

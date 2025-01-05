@@ -94,14 +94,14 @@ function onMouseOver({
       }
     });
 
-    maybeRunGuiToYamlOnAllSections();
+    maybeRunGuiToYamlOnAllSections(true);
   } else {
     setAllPreviewVariantIdsToNull();
-    maybeRunGuiToYamlOnAllSections();
+    maybeRunGuiToYamlOnAllSections(false);
   }
 }
 
 function onMouseLeave() {
   setAllPreviewVariantIdsToNull();
-  maybeRunGuiToYamlOnAllSections();
+  maybeRunGuiToYamlOnAllSections(false);
 }

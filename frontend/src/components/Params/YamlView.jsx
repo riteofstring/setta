@@ -5,7 +5,11 @@ import {
 } from "components/Section/Layouts/CodeArea";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { getSectionVariant } from "state/actions/sectionInfos";
+import _ from "lodash";
+import {
+  getDisplayedSectionVariantId,
+  getSectionVariant,
+} from "state/actions/sectionInfos";
 import { useSectionInfos, useYamlValue } from "state/definitions";
 
 export function SectionYamlView({ sectionId }) {
@@ -16,6 +20,8 @@ export function SectionYamlView({ sectionId }) {
 }
 
 export function YamlView({ sectionId, isDisabled }) {
+  const [yamlValue, setYamlValue] = useGetAndSetYamlValue(sectionId);
+
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
@@ -31,11 +37,6 @@ export function YamlView({ sectionId, isDisabled }) {
     onEscape: onEscapeFocusOnArticleDiv,
     isDisabled,
   });
-
-  const yamlValue = useYamlValue((x) => x[sectionId] ?? "");
-  function setYamlValue(v) {
-    useYamlValue.setState({ [sectionId]: v });
-  }
 
   // We need this class to avoid double scrollbars in GlobalParamSweepArea.
   // But we don't apply it when we're resizing because doing so causes
@@ -61,4 +62,21 @@ export function YamlView({ sectionId, isDisabled }) {
       />
     </article>
   );
+}
+
+function useGetAndSetYamlValue(sectionId) {
+  const { variantId, displayedVariantId } = useSectionInfos((state) => {
+    return {
+      variantId: state.x[sectionId].variantId,
+      displayedVariantId: getDisplayedSectionVariantId(sectionId, state),
+    };
+  }, _.isEqual);
+
+  const yamlValue = useYamlValue((x) => x[displayedVariantId] ?? "");
+
+  function setYamlValue(v) {
+    useYamlValue.setState({ [variantId]: v });
+  }
+
+  return [yamlValue, setYamlValue];
 }

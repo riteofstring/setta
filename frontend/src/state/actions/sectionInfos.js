@@ -270,13 +270,19 @@ export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
   return newId;
 }
 
-export function getCodeChildrenAndParentCodeInfoId(sectionId, x) {
-  const sectionVariant = getDisplayedSectionVariant(sectionId, x);
+export function getCodeChildrenAndParentCodeInfoId(
+  sectionId,
+  state,
+  variantId = null,
+) {
+  const sectionVariant = variantId
+    ? state.variants[variantId]
+    : getDisplayedSectionVariant(sectionId, state);
   const { codeInfoColId } = sectionVariant;
   const parentCodeInfoId = sectionVariant.selectedItem;
 
   const codeInfoChildren = codeInfoColId
-    ? x.codeInfoCols[codeInfoColId].children
+    ? state.codeInfoCols[codeInfoColId].children
     : newUITypeColEntry();
 
   return { codeInfoChildren, parentCodeInfoId };

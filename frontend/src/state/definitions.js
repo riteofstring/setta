@@ -227,8 +227,10 @@ export const useMisc = withProjectState(
   ),
 );
 
+// maps from variantId to yaml
 export const useYamlValue = withProjectState(create(withResetFn(() => {})));
 
+// maps from variantId to yaml metadata
 export const useOriginalYamlObj = withProjectState(
   create(withResetFn(() => {})),
 );

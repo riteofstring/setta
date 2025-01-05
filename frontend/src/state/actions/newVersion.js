@@ -7,6 +7,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { createRandomName } from "utils/idNameCreation";
+import { maybeRunGuiToYaml } from "./guiToYaml";
 import { duplicateSectionVariant, getSectionVariant } from "./sectionInfos";
 
 export function createNewVersion(sectionId, newVersionName, state) {
@@ -52,9 +53,14 @@ export async function createNewVersionName(jsonSource) {
 export async function createNewVersionMaybeWithJSON(sectionId) {
   const { jsonSource } = getSectionInfo(sectionId);
   const newVersionName = await createNewVersionName(jsonSource);
-  let oldVariantId;
+  let newVariantId, oldVariantId;
   useSectionInfos.setState((state) => {
-    ({ oldVariantId } = createNewVersion(sectionId, newVersionName, state));
+    ({ newVariantId, oldVariantId } = createNewVersion(
+      sectionId,
+      newVersionName,
+      state,
+    ));
   });
+  maybeRunGuiToYaml(sectionId, newVariantId);
   maybeSaveNewJSONVersion(sectionId, jsonSource, oldVariantId);
 }
