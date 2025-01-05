@@ -39,20 +39,20 @@ class Setta:
     def log(self, obj, save_to="db"):
         data_to_send = []
         for name, data in obj.items():
-            full_path = self.root_path / name
-            full_path = data.path_with_extension(full_path)
             artifact_path = None
 
             if save_to == "disk":
+                full_path = self.root_path / name
+                full_path = data.path_with_extension(full_path)
                 directory = full_path.parent
                 directory.mkdir(parents=True, exist_ok=True)
                 data.save(full_path)
-                artifact_path = full_path
+                artifact_path = str(full_path)
 
             serialized = data.serialize()
             curr_data = {
                 "name": name,
-                "path": str(artifact_path),
+                "path": artifact_path,
                 "value": serialized["value"],
                 "type": serialized["type"],
             }
@@ -63,6 +63,7 @@ class Setta:
             f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_ARTIFACT}",
             json={
                 "data": data_to_send,
+                "saveTo": save_to,
                 "sendDataTo": self.send_data_to,
                 "messageType": C.WS_ARTIFACT,
             },

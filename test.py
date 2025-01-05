@@ -12,7 +12,7 @@ all_data = []
 
 for i in range(100):
     all_data.append({"size": i, "elephant": 3})
-    logger.log({"frogdog": SettaList(all_data)}, save_to="disk")
+    logger.log({"frogdog": SettaList(all_data)}, save_to="db")
     time.sleep(1)
 
 # from PIL import Image

@@ -19,6 +19,7 @@ router = APIRouter()
 
 class SendArtifactRequest(BaseModel):
     data: List[dict]
+    saveTo: str
     sendDataTo: str
     messageType: str
 
@@ -47,7 +48,7 @@ async def route_send_artifact(
     websocket_manager=Depends(get_websocket_manager),
 ):
     with dbq as db:
-        artifact_ids = save_or_create_artifacts(db, x.data)
+        artifact_ids = save_or_create_artifacts(db, x.data, x.saveTo)
         for idx, d in enumerate(x.data):
             d["id"] = artifact_ids[idx]
 
