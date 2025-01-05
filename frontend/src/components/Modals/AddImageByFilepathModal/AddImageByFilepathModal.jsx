@@ -43,6 +43,7 @@ export function AddImageByFilepathModal() {
           sectionId,
           activeLayerId,
           imgSrc,
+          filepath
         );
       }
     }
