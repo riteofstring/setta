@@ -90,4 +90,3 @@ def load_artifact_from_disk(filepath, type):
     wrapper = get_wrapper_for_loading(type)
     wrapper.load(filepath)
     return wrapper.serialize()
-

@@ -2,7 +2,6 @@ import {
   computeInfoToFullName,
   keyForInfoToFullName,
 } from "components/Utils/CodeMirror/utils";
-import _ from "lodash";
 import { dbMakeEVRefReplacements } from "requests/infoToEVReferrer";
 import {
   useInfoToEVReferrer,
@@ -57,21 +56,17 @@ export function getRequiredReplacements() {
   const state = useSectionInfos.getState();
 
   const infoToFullName = computeInfoToFullName();
+  let atLeastOneReplacement = false;
   let curr;
   for (const sectionId of Object.keys(useSectionInfos.getState().x)) {
     const referrersToSection = useInfoToEVReferrer.getState()[sectionId];
     if (!referrersToSection) {
       continue;
     }
-    for (const [paramInfoId, details] of Object.entries(referrersToSection)) {
+    for (const details of Object.values(referrersToSection)) {
       for (const oneReferrer of details) {
         const { variantId, codeInfoId, referringParamInfoId, originalEVRef } =
           oneReferrer;
-
-        const newName = infoToFullName[keyForInfoToFullName(originalEVRef)];
-        if (originalEVRef.keyword === newName) {
-          continue;
-        }
 
         if (referringParamInfoId) {
           curr = getParamEVReplacementObj(
@@ -94,12 +89,27 @@ export function getRequiredReplacements() {
           );
         }
 
+        const newName = infoToFullName[keyForInfoToFullName(originalEVRef)];
+
+        if (originalEVRef.keyword !== newName) {
+          atLeastOneReplacement = true;
+        }
+        // Even if newName is not different from the current name
+        // we add it to the replacements array because
+        // if atLeastOneReplacement is true,
+        // we need to send everything (replacements and unchanged) to the backend to be processed all together
+        // so that all position changes are accounted for.
         curr.replacements.push({ originalEVRef, newName });
       }
     }
   }
 
-  return [codeAreaReplacements, codeInfoReplacements, paramEVReplacements];
+  return [
+    codeAreaReplacements,
+    codeInfoReplacements,
+    paramEVReplacements,
+    atLeastOneReplacement,
+  ];
 }
 
 function newReplacementObj(string) {
@@ -152,14 +162,14 @@ export async function maybeOpenRenameReferencesModal() {
     return;
   }
 
-  const [codeAreaReplacements, codeInfoReplacements, paramEVReplacements] =
-    getRequiredReplacements();
+  const [
+    codeAreaReplacements,
+    codeInfoReplacements,
+    paramEVReplacements,
+    atLeastOneReplacement,
+  ] = getRequiredReplacements();
 
-  if (
-    _.size(codeAreaReplacements) === 0 &&
-    _.size(codeInfoReplacements) === 0 &&
-    _.size(paramEVReplacements) === 0
-  ) {
+  if (!atLeastOneReplacement) {
     return;
   }
 
