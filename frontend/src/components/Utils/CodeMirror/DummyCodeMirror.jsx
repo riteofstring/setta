@@ -82,7 +82,37 @@ function HighlightedCode({
   language,
   onFocus,
 }) {
-  const tree = getLanguageParser(language).parser.parse(code);
+  // "ͼ1 ͼ3 ͼ4 ͼ1ng ͼ21"
+  // ${highlightStyles.scopeClassName}
+  const scopeClassName = theme[0][0]?.value || "";
+
+  // TODO: the style object here seems to reduce performance
+  return (
+    <div
+      id={divId}
+      className={`${className} ${scopeClassName} outline-none`}
+      style={lineWrapStyle}
+      onMouseDownCapture={onMouseDownCapture}
+      onFocus={onFocus}
+      tabIndex="0"
+    >
+      <ParsedCodeAsDivs
+        language={language}
+        code={code}
+        theme={theme}
+        evRefs={evRefs}
+      />
+    </div>
+  );
+}
+
+function ParsedCodeAsDivs({ language, code, theme, evRefs }) {
+  const parser = getLanguageParser(language);
+  if (!parser) {
+    return <div className="cm-line">{code}</div>;
+  }
+
+  const tree = parser.parse(code);
   const highlightStyle = theme[1][2].value;
   const markCache = {};
   const builder = new RangeSetBuilder();
@@ -189,33 +219,17 @@ function HighlightedCode({
     );
   }
 
-  // "ͼ1 ͼ3 ͼ4 ͼ1ng ͼ21"
-  // ${highlightStyles.scopeClassName}
-  const scopeClassName = theme[0][0]?.value || "";
-
-  // TODO: the style object here seems to reduce performance
-  return (
-    <div
-      id={divId}
-      className={`${className} ${scopeClassName} outline-none`}
-      style={lineWrapStyle}
-      onMouseDownCapture={onMouseDownCapture}
-      onFocus={onFocus}
-      tabIndex="0"
-    >
-      {outputDivs}
-    </div>
-  );
+  return outputDivs;
 }
 
 function getLanguageParser(language) {
   switch (language) {
     case "python":
-      return pythonLanguage;
+      return pythonLanguage.parser;
     case "javascript":
-      return javascriptLanguage;
+      return javascriptLanguage.parser;
     case "json":
-      return jsonLanguage;
+      return jsonLanguage.parser;
     default:
       return null;
   }
