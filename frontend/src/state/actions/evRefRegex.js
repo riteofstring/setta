@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { dummyRegExpObject } from "utils/utils";
+import { dummyRegExpObject, escapeRegExp } from "utils/utils";
 
 // input is state computed by keyword regex subscription
 export function getEVRefRegexAndColorMap(state) {
@@ -40,10 +40,6 @@ export function getEVRefRegexAndColorMap(state) {
   );
 
   return { pattern, codeAreaPattern, fullNameToInfo };
-}
-
-function escapeRegExp(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function setFullChildrenNamesForRegex(

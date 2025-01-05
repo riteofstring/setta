@@ -14,9 +14,9 @@ import {
 import { getEVRefRegexAndColorMap } from "./actions/evRefRegex";
 import {
   getInfoToEVReferrers,
+  getInfoToTemplateVarReferrer,
   maybeOpenRenameReferencesModal,
 } from "./actions/infoToEVReferrer";
-import { getInfoToTemplateVarReferrer } from "./actions/infoToTemplateVarReferrer";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,

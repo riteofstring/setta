@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
-import { dummyRegExpObject, templatePrefix } from "utils/utils";
+import { dummyRegExpObject, escapeRegExp, templatePrefix } from "utils/utils";
 import { getSectionPathFullName } from "./sectionInfos";
 
 // input is state computed by keyword regex subscription
@@ -15,7 +15,7 @@ export function getTemplateVarsRegexAndColorMap(state) {
   const sectionState = useSectionInfos.getState();
   for (const sectionId of state.templateVarEligibleSections) {
     const fullName = getSectionPathFullName(sectionId, sectionState);
-    names.push(fullName);
+    names.push(escapeRegExp(fullName));
     fullRawNameToSectionId[fullName] = sectionId;
   }
 

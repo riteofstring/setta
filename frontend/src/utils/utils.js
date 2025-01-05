@@ -81,3 +81,7 @@ export function dummyRegExpObject() {
 export function templatePrefix(x) {
   return `${C.TEMPLATE_PREFIX}${x}`;
 }
+
+export function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
