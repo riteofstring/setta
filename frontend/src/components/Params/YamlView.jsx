@@ -16,7 +16,13 @@ export function SectionYamlView({ sectionId }) {
   const isDisabled = useSectionInfos(
     (x) => getSectionVariant(sectionId, x).isFrozen,
   );
-  return <YamlView sectionId={sectionId} isDisabled={isDisabled} />;
+  return (
+    <YamlView
+      sectionId={sectionId}
+      isDisabled={isDisabled}
+      onChange={onChange}
+    />
+  );
 }
 
 export function YamlView({ sectionId, isDisabled }) {
