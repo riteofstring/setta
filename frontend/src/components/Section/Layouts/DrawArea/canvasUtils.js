@@ -133,7 +133,6 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
   canvasRef,
   tempCanvasRefs,
   draftCanvasRef,
-  requestStateVersionIncrement = true,
 ) {
   useArtifacts.setState((state) => ({
     x: {
@@ -143,7 +142,6 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
         value: _.cloneDeep(strokesRef.current),
       },
     },
-    requestStateVersionIncrement: requestStateVersionIncrement,
   }));
   drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
   clearCanvas(draftCanvasRef.current);
@@ -167,8 +165,6 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
       t.eraserStrokes = _.cloneDeep(eraserStrokes);
     }
   });
-
-  useArtifacts.setState({ requestStateVersionIncrement: true });
 
   drawAllLayers(
     sectionId,

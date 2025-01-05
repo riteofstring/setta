@@ -133,13 +133,7 @@ export const useAllProjectConfigs = create(
 
 export const useArtifacts = withProjectState(
   create(
-    subscribeWithSelector(
-      temporal(
-        withResetFn(() =>
-          withVersion({ x: {}, requestStateVersionIncrement: false }),
-        ),
-      ),
-    ),
+    subscribeWithSelector(temporal(withResetFn(() => withVersion({ x: {} })))),
   ),
 );
 
