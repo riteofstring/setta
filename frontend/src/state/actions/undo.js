@@ -58,6 +58,21 @@ function redoSetPastAndFutureStates(s) {
 }
 
 function incrementStateVersion(states) {
+  let stateActuallyChanged = false;
+  for (const s of states) {
+    if (
+      s.temporal &&
+      !_.isEqual(s.getState(), s.temporal.getState().pastStates.at(-1))
+    ) {
+      stateActuallyChanged = true;
+      break;
+    }
+  }
+
+  if (!stateActuallyChanged) {
+    return;
+  }
+
   const version = useStateVersion.getState().version;
   for (const s of states) {
     if (s.temporal) {

@@ -2,7 +2,6 @@ import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
 import {
   drawAllLayers,
@@ -299,6 +298,7 @@ function drawingOnMouseMove({
         canvasRef,
         tempCanvasRefs,
         draftCanvasRef,
+        false,
       );
       const currentBrushStrokeTransformInfo =
         localArtifactTransformsRef.current.find(
@@ -392,7 +392,6 @@ function drawingOnMouseUp({
       tempCanvasRefs,
       draftCanvasRef,
     );
-    maybeIncrementProjectStateVersion(true);
     // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   };
 }
@@ -662,7 +661,5 @@ function editingOnMouseUp({
     isDragging.current = false;
     draggedIdx.current = null;
     resizeHandle.current = null;
-
-    maybeIncrementProjectStateVersion(true);
   };
 }

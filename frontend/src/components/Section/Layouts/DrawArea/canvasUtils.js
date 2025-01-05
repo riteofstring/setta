@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { sendToInteractiveTasks } from "state/actions/interactive";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 
@@ -133,6 +134,7 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
   canvasRef,
   tempCanvasRefs,
   draftCanvasRef,
+  incrementVersion = true,
 ) {
   useArtifacts.setState((state) => ({
     x: {
@@ -145,6 +147,7 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
   }));
   drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
   clearCanvas(draftCanvasRef.current);
+  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function setGlobalArtifactTransformsAndDrawAllLayers(
@@ -174,6 +177,8 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
     {},
     { [activeLayerId]: resizeHandleCorners.current },
   );
+
+  maybeIncrementProjectStateVersion(true);
 }
 
 export function drawAllLayers(
