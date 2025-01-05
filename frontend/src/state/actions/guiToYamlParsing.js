@@ -20,17 +20,21 @@ function parseBlock(lines, startIndex, currentIndent) {
     if (indent < currentIndent) break;
     const trimmed = line.trim();
 
-    // List item?
+    // Check if it's a list item
     const dashIdx = trimmed.indexOf("- ");
-    if (dashIdx === 0) {
+    // This also allows just '-' (dash at index 0), so handle that
+    if (dashIdx === 0 || trimmed === "-") {
       if (!isList && !isObj) {
         isList = true;
         result = [];
       } else if (isObj) {
         throw new Error("Mixed list and object at same level.");
       }
-      const afterDash = trimmed.slice(2).trim();
+      // Extract what's after the dash; if there's nothing, afterDash = ''
+      const afterDash = trimmed === "-" ? "" : trimmed.slice(2).trim();
+      // If afterDash is blank or ends with colon/colon+pipe, we might have a nested block
       if (!afterDash || afterDash.endsWith(":") || afterDash.endsWith(": |")) {
+        // Try parsing either a sub-block or empty
         const { parsedValue, isBlock, extraIndent } =
           parsePossibleKeyValue(afterDash);
         if (isBlock) {
@@ -40,27 +44,45 @@ function parseBlock(lines, startIndex, currentIndent) {
             currentIndent + extraIndent,
           );
           if (parsedValue === undefined) {
-            result.push(subBlock.result);
+            // Means something like '-'
+            if (isEmptyStructure(subBlock.result)) {
+              result.push("");
+            } else {
+              result.push(subBlock.result);
+            }
           } else {
-            result.push({ [parsedValue]: subBlock.result });
+            // Means something like '- mykey:'
+            if (isEmptyStructure(subBlock.result)) {
+              result.push({ [parsedValue]: "" });
+            } else {
+              result.push({ [parsedValue]: subBlock.result });
+            }
           }
           i = subBlock.nextIndex;
         } else {
+          // If there's no block, but let's parse a sub-block in case
           const subBlock = parseBlock(lines, i + 1, indent + 2);
-          result.push(subBlock.result);
+          if (isEmptyStructure(subBlock.result)) {
+            result.push("");
+          } else {
+            result.push(subBlock.result);
+          }
           i = subBlock.nextIndex;
         }
       } else {
+        // It's a single-line item
         result.push(afterDash);
         i++;
       }
     } else {
+      // It's an object key
       if (!isObj && !isList) {
         isObj = true;
         result = {};
       } else if (isList) {
         throw new Error("Mixed list and object at same level.");
       }
+
       const keyMatch = trimmed.match(/^([^:]+):\s*(.*)$/);
       if (!keyMatch) {
         throw new Error(`Line doesn't match "key: value": ${trimmed}`);
@@ -69,37 +91,39 @@ function parseBlock(lines, startIndex, currentIndent) {
       let remainder = keyMatch[2];
 
       if (remainder === "|") {
+        // Multi-line literal block
         const { textBlock, nextIdx } = gatherBlock(lines, i + 1, indent + 2);
         result[key] = textBlock;
         i = nextIdx;
       } else if (remainder === "") {
-        // If there's nothing after "key:", it might be a nested block or empty value.
+        // Could be a nested block or empty
         const subBlock = parseBlock(lines, i + 1, indent + 2);
-        // If subBlock returned an empty object or empty array, treat as ""
-        if (
-          (Array.isArray(subBlock.result) && subBlock.result.length === 0) ||
-          (!Array.isArray(subBlock.result) &&
-            Object.keys(subBlock.result).length === 0)
-        ) {
+        // If subBlock is empty structure, treat as ""
+        if (isEmptyStructure(subBlock.result)) {
           result[key] = "";
         } else {
           result[key] = subBlock.result;
         }
         i = subBlock.nextIndex;
       } else {
-        // Single line value
+        // Single line
         result[key] = remainder;
         i++;
       }
     }
   }
-  if (result === undefined) result = {};
+  if (result === undefined) {
+    result = {};
+  }
   return { result, nextIndex: i };
 }
 
+// Check if we might have a key: (something)
 function parsePossibleKeyValue(str) {
   const match = str.match(/^([^:]+):\s*(.*)$/);
-  if (!match) return { parsedValue: undefined, isBlock: false, extraIndent: 2 };
+  if (!match) {
+    return { parsedValue: undefined, isBlock: false, extraIndent: 2 };
+  }
   const key = match[1].trim();
   const after = match[2].trim();
   if (!after || after === "|") {
@@ -108,6 +132,7 @@ function parsePossibleKeyValue(str) {
   return { parsedValue: undefined, isBlock: false, extraIndent: 2 };
 }
 
+// Gather multiline block
 function gatherBlock(lines, startIndex, blockIndent) {
   let textBlock = "";
   let i = startIndex;
@@ -128,6 +153,16 @@ function gatherBlock(lines, startIndex, blockIndent) {
     textBlock = textBlock.slice(0, -1);
   }
   return { textBlock, nextIdx: i };
+}
+
+// A small helper to check if a structure is an empty object or empty array
+function isEmptyStructure(val) {
+  if (Array.isArray(val)) {
+    return val.length === 0;
+  } else if (typeof val === "object" && val !== null) {
+    return Object.keys(val).length === 0;
+  }
+  return false;
 }
 
 function leadingSpaces(str) {
