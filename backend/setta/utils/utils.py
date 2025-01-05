@@ -225,11 +225,11 @@ def replace_at_positions(input_string, replacements, return_positions=False):
 
         # If tracking new positions, add the current replacement's new position
         if return_positions:
-            new_positions.append((pos, new))
+            new_positions.append((pos, pos, new))
             # Update all previous entries' positions to account for this shift
             for i in range(len(new_positions) - 1):
-                pos_i, val_i = new_positions[i]
-                new_positions[i] = (pos_i + current_shift, val_i)
+                old_pos_i, pos_i, val_i = new_positions[i]
+                new_positions[i] = (old_pos_i, pos_i + current_shift, val_i)
 
     # Join the result list back into a string
     final_string = "".join(result)

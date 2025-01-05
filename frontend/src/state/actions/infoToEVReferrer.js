@@ -197,20 +197,31 @@ export async function makeReplacements(
       for (const [variantId, newData] of Object.entries(newCodeAreaValues)) {
         curr = state.variants[variantId];
         curr.code = newData[0];
-        curr.evRefs = newData[1];
+        curr.evRefs = updateEVRefsWithNewData(curr.evRefs, newData[1]);
       }
       for (const [codeInfoId, newData] of Object.entries(newCodeInfoValues)) {
         curr = state.codeInfo[codeInfoId];
         curr.name = newData[0];
-        curr.evRefs = newData[1];
+        curr.evRefs = updateEVRefsWithNewData(curr.evRefs, newData[1]);
       }
       for (const [variantId, params] of Object.entries(newParamEVValues)) {
         for (const [referringParamInfoId, newData] of Object.entries(params)) {
           curr = state.variants[variantId].values[referringParamInfoId];
           curr.value = newData[0];
-          curr.evRefs = newData[1];
+          curr.evRefs = updateEVRefsWithNewData(curr.evRefs, newData[1]);
         }
       }
     });
   }
+}
+
+function updateEVRefsWithNewData(evRefs, newData) {
+  for (const n of newData) {
+    const [oldPos, newEVRef] = n;
+    const idx = evRefs.findIndex((e) => (e.startPos = oldPos));
+    if (idx !== -1) {
+      evRefs[idx] = newEVRef;
+    }
+  }
+  return evRefs.sort((a, b) => a.startPos - b.startPos);
 }

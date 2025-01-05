@@ -25,13 +25,16 @@ def create_replacements_array(replacements):
 
 def create_new_ev_refs(replacements, newStartPositions):
     output = []
-    for idx, (startPos, newName) in enumerate(newStartPositions):
+    for idx, (oldStartPos, startPos, newName) in enumerate(newStartPositions):
         output.append(
-            {
-                **replacements[idx]["originalEVRef"],
-                "startPos": startPos,
-                "keyword": newName,
-            }
+            (
+                oldStartPos,
+                {
+                    **replacements[idx]["originalEVRef"],
+                    "startPos": startPos,
+                    "keyword": newName,
+                },
+            )
         )
     return output
 
