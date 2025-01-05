@@ -53,6 +53,21 @@ const _MarkdownEditorCore = React.forwardRef(
       }
     }, [description]);
 
+    const debouncedSetDescription = useCallback(
+      _.debounce((sectionId, v, description) => {
+        if (v !== description) {
+          useSectionInfos.setState((state) => {
+            getSectionVariant(sectionId, state).description = v;
+            state.x[sectionId].name =
+              getFirstHeadingOrText(v) ??
+              useSettings.getState().sections[C.INFO].name;
+          });
+          maybeIncrementProjectStateVersion(true);
+        }
+      }, 200),
+      [],
+    );
+
     function onChange(v) {
       setLocalDescription(v);
       debouncedSetDescription(sectionId, v, description);
@@ -134,15 +149,3 @@ function getFirstHeadingOrText(markdown) {
   }
   return output;
 }
-
-const debouncedSetDescription = _.debounce((sectionId, v, description) => {
-  if (v !== description) {
-    useSectionInfos.setState((state) => {
-      getSectionVariant(sectionId, state).description = v;
-      state.x[sectionId].name =
-        getFirstHeadingOrText(v) ??
-        useSettings.getState().sections[C.INFO].name;
-    });
-    maybeIncrementProjectStateVersion(true);
-  }
-}, 200);
