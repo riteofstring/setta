@@ -1,6 +1,8 @@
+import { findCandidateTemplateVars } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { getProjectDataForInteractive } from "state/actions/project/projectDataForInteractive";
 import { getProjectData } from "state/actions/project/saveProject";
+import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
 import { post } from "./utils";
 
 export async function dbUpdateInteractiveCode() {
@@ -14,8 +16,17 @@ export async function dbUpdateInteractiveCode() {
 
 export async function dbFormateCode() {
   const project = getProjectData({});
+  const candidateTemplateVars = {};
+  for (const s of Object.values(project.sections)) {
+    if ([C.CODE, C.INTERACTIVE_CODE].includes(getSectionType(s.id))) {
+      candidateTemplateVars[s.id] = findCandidateTemplateVars(
+        s.id,
+        getSectionVariant(s.id).code,
+      );
+    }
+  }
   return await post({
-    body: { project },
+    body: { project, candidateTemplateVars },
     address: C.ROUTE_FORMAT_CODE,
   });
 }

@@ -76,6 +76,7 @@ export function YamlView({ sectionId, isDisabled, onChange }) {
         extensions={extensions}
         onCreateEditor={handleCreateEditor}
         indentWithTab={false}
+        basicSetup={{ tabSize: 4 }}
       />
     </article>
   );

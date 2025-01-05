@@ -4,11 +4,9 @@ from typing import List
 from pydantic import BaseModel
 
 from setta.code_gen.python.position_line_col import position_to_line_col
-from setta.tasks.fns.findEVRefs import generate_unique_variable
 from setta.tasks.task_runner import RunType
-from setta.utils.utils import multireplace
 
-from .utils import TaskDefinition
+from .utils import TaskDefinition, replace_template_vars_with_random_names
 
 
 class CodeAreaFindTemplateVarsContent(BaseModel):
@@ -25,7 +23,7 @@ async def _codeAreaFindTemplateVars(message, lsp_writers):
     if len(candidateTemplateVars) == 0:
         return {"content": {"positions": [], "numMessages": 1}}
 
-    code, positions_to_test = generateCodeForTemplateVarFinding(
+    code, positions_to_test, _ = replace_template_vars_with_random_names(
         candidateTemplateVars, message.fullText
     )
     code_id = f"{message.sectionId}-find-template-vars"
@@ -48,20 +46,6 @@ async def _codeAreaFindTemplateVars(message, lsp_writers):
         )
 
     return None
-
-
-# generate valid variable names because for example $SETTA_GENERATED_PYTHON is not valid
-def generateCodeForTemplateVarFinding(candidateTemplateVars, fullText):
-    var_name_mapping = {}
-    keyword_to_pos = {}
-    for keyword, pos in candidateTemplateVars:
-        new_keyword = generate_unique_variable(fullText, keyword)
-        var_name_mapping[keyword] = new_keyword
-        # we only need 1 position of the keyword, even if there are multiple positions
-        keyword_to_pos[keyword] = pos
-
-    code = multireplace(fullText, var_name_mapping)
-    return code, list(keyword_to_pos.values())
 
 
 codeAreaFindTemplateVars = TaskDefinition(

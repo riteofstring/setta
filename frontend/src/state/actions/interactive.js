@@ -47,7 +47,9 @@ export async function formatCode() {
   if (res.status === 200) {
     useSectionInfos.setState((state) => {
       for (const [sectionId, code] of Object.entries(res.data)) {
-        getSectionVariant(sectionId, state).code = code;
+        if (code !== null) {
+          getSectionVariant(sectionId, state).code = code;
+        }
       }
     });
   }

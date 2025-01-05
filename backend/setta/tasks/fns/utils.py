@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
+from setta.utils.utils import multireplace
 
 
 def send_document_open_request_with_code_dict(
@@ -62,6 +63,22 @@ def prepare_code_for_scope_checking(fullText, templateVars, target_template_var)
         fullText = fullText[:startPos] + replacement + fullText[endPos:]
 
     return fullText, the_special_var_name
+
+
+# generate valid variable names because for example $SETTA_GENERATED_PYTHON is not valid
+def replace_template_vars_with_random_names(candidateTemplateVars, fullText):
+    var_name_mapping = {}
+    reverse_var_name_mapping = {}
+    keyword_to_pos = {}
+    for keyword, pos in candidateTemplateVars:
+        new_keyword = generate_unique_variable(fullText, keyword)
+        var_name_mapping[keyword] = new_keyword
+        reverse_var_name_mapping[new_keyword] = keyword
+        # we only need 1 position of the keyword, even if there are multiple positions
+        keyword_to_pos[keyword] = pos
+
+    code = multireplace(fullText, var_name_mapping)
+    return code, list(keyword_to_pos.values()), reverse_var_name_mapping
 
 
 def generate_unique_variable(code, keyword):

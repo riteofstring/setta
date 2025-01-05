@@ -199,6 +199,7 @@ function CoreCodeMirror({
         lineNumbers: false,
         foldGutter: false,
         highlightActiveLine: false,
+        tabSize: 4,
       }}
       onCreateEditor={onCreateEditor}
       theme={theme}

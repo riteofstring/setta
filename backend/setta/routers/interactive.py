@@ -7,7 +7,9 @@ from setta.code_gen.export_selected import (
     get_section_type,
     simple_export_selected,
 )
+from setta.tasks.fns.utils import replace_template_vars_with_random_names
 from setta.utils.constants import C
+from setta.utils.utils import multireplace
 
 from .dependencies import get_tasks
 
@@ -20,6 +22,7 @@ class UpdateInteractiveCodeRequest(BaseModel):
 
 class FormatCodeRequest(BaseModel):
     project: dict
+    candidateTemplateVars: dict
 
 
 @router.post(C.ROUTE_UPDATE_INTERACTIVE_CODE)
@@ -49,7 +52,16 @@ async def route_format_code(x: FormatCodeRequest):
         if get_section_type(p, id) in [C.CODE, C.INTERACTIVE_CODE]:
             if s["codeLanguage"] == "python":
                 code = get_section_code(p, id)
-                formattedCode[id] = format_python_code(code)
+                (
+                    code,
+                    _,
+                    reverse_var_name_mapping,
+                ) = replace_template_vars_with_random_names(
+                    x.candidateTemplateVars[id], code
+                )
+                formattedCode[id] = multireplace(
+                    format_python_code(code), reverse_var_name_mapping
+                )
 
     return formattedCode
 

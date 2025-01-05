@@ -141,6 +141,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
         indentWithTab={false} // I take care of this in getExtensions
+        basicSetup={{ tabSize: 4 }}
       />
     </article>
   );

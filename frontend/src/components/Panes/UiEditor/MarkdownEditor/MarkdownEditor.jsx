@@ -103,6 +103,7 @@ const _MarkdownEditorCore = React.forwardRef(
           onChange={onChange}
           onCreateEditor={onCreateEditor}
           indentWithTab={false} // I take care of this in getExtensions
+          basicSetup={{ tabSize: 4 }}
         />
       </article>
     );
