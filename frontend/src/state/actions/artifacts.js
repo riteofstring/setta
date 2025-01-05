@@ -38,13 +38,16 @@ export function updateArtifacts({ artifacts, addSection = false }) {
 //   });
 // }
 
-export async function loadArtifacts(artifactIds, signal) {
+export async function loadArtifacts(sectionId, artifactIds, signal) {
   const res = await dbLoadArtifacts(artifactIds);
   if (res.status === 200) {
     const artifactsFromBackend = _.cloneDeep(res.data);
     await prepareArtifactsForRendering(artifactsFromBackend);
     if (signal?.aborted) return;
     updateArtifacts({ artifacts: artifactsFromBackend });
+    useSectionInfos.setState((state) => {
+      actionAfterSettingSectionArtifacts(artifactIds, sectionId, state);
+    });
     maybeIncrementProjectStateVersion(true);
   }
 }
@@ -153,6 +156,8 @@ export function maybeAddArtifactGroupAndSetArtifactId({
       artifactTransform,
     ];
   }
+
+  actionAfterSettingSectionArtifacts([artifactId], sectionId, state);
 }
 
 export async function addArtifactAndMaybeCreateNewArtifactGroup({
@@ -193,5 +198,17 @@ function getActiveArtifactGroupId(sectionId, sectionTypeName, state) {
     case C.IMAGE:
     case C.CHART:
       return state.x[sectionId].artifactGroupIds[0];
+  }
+}
+
+function actionAfterSettingSectionArtifacts(artifactIds, sectionId, state) {
+  const sectionTypeName = getSectionType(sectionId, state);
+  if (sectionTypeName === C.CHART) {
+    const artifact = useArtifacts.getState().x[artifactIds[0]];
+    const headers = artifact?.value?.headers;
+    const chartSettings = state.x[sectionId].chartSettings;
+    if (headers && !headers.includes(chartSettings.xAxisColumn)) {
+      chartSettings.xAxisColumn = headers[0];
+    }
   }
 }

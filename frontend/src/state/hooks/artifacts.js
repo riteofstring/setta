@@ -9,7 +9,11 @@ import {
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
-export function useLoadedArtifacts(artifactIds, artifactAttrsToPick) {
+export function useLoadedArtifacts(
+  sectionId,
+  artifactIds,
+  artifactAttrsToPick,
+) {
   const loadedArtifacts = useArtifacts((x) => {
     const output = {};
     for (const id of artifactIds) {
@@ -28,7 +32,7 @@ export function useLoadedArtifacts(artifactIds, artifactAttrsToPick) {
         notLoaded.push(id);
       }
     }
-    loadArtifacts(notLoaded, controller.signal);
+    loadArtifacts(sectionId, notLoaded, controller.signal);
 
     return () => {
       controller.abort();
@@ -58,7 +62,7 @@ export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
       };
     }, _.isEqual);
 
-  const loadedArtifacts = useLoadedArtifacts(artifactIds, ["type"]);
+  const loadedArtifacts = useLoadedArtifacts(sectionId, artifactIds, ["type"]);
 
   const loadedArtifactIdsWithDuplicates = [];
   for (const x of allLayersMetadata) {
@@ -84,7 +88,7 @@ export function useAllSectionArtifacts(sectionId, artifactAttrsToPick) {
     _.isEqual,
   );
 
-  return useLoadedArtifacts(artifactIds, artifactAttrsToPick);
+  return useLoadedArtifacts(sectionId, artifactIds, artifactAttrsToPick);
 }
 
 export function getSectionArtifactGroupMetadata(sectionId, state) {
