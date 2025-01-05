@@ -12,6 +12,7 @@ import {
 import { RENAME_REFERENCES_ON_SECTION_MOVE_MODES } from "utils/constants";
 import { templatePrefix } from "utils/utils";
 import { openRenameReferencesModal } from "./modal";
+import { getSectionPathFullName } from "./sectionInfos";
 
 export function getInfoToEVReferrers(state) {
   const output = {};
@@ -176,7 +177,9 @@ function setTemplateVarReplacements(
       (s) => s.id === originalTemplateVar.sectionId,
     );
     if (matchingSection) {
-      const newName = templatePrefix(matchingSection.name);
+      const newName = templatePrefix(
+        getSectionPathFullName(matchingSection.id, state),
+      );
       curr.replacements.push({ originalTemplateVar, newName });
       if (originalTemplateVar.keyword !== newName) {
         atLeastOneReplacement = true;
