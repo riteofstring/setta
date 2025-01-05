@@ -142,8 +142,6 @@ function globalParamSweepSectionYamlToGUI(yamlValue, metaData) {
     );
   }
 
-  console.log("newRunGroupSections", newRunGroupSections)
-
   useSectionInfos.setState((x) => {
     x.variants[runGroupId].sections = newRunGroupSections;
   });
