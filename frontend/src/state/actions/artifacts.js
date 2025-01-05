@@ -54,7 +54,9 @@ export async function loadArtifacts(sectionId, artifactIds, signal) {
 
 async function prepareArtifactsForRendering(artifactsFromBackend) {
   for (const data of Object.values(artifactsFromBackend)) {
-    data.value = await prepareArtifactForRendering(data.type, data.value);
+    if (data.value) {
+      data.value = await prepareArtifactForRendering(data.type, data.value);
+    }
   }
 }
 

@@ -1,7 +1,7 @@
 import os
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from setta.cli.logger import load_from_csv_base64
@@ -84,7 +84,10 @@ def route_check_if_file_exists(x: CheckIfFileExistsRequests):
 
 @router.post(C.ROUTE_LOAD_ARTIFACT_FROM_DISK)
 def route_load_artifact_from_disk(x: LoadArtifactFromDiskRequest):
-    return load_artifact_from_disk(x.filepath, x.type)
+    artifact = load_artifact_from_disk(x.filepath, x.type)
+    if artifact:
+        return artifact
+    raise HTTPException(status_code=422)
 
 
 @router.post(C.ROUTE_READ_CSV_BASE64)

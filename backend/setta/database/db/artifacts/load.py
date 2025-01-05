@@ -82,11 +82,16 @@ def load_artifact_metadata_and_maybe_value_from_disk(db, artifactIds):
     artifacts = load_artifacts(db, artifactIds)
     for a in artifacts.values():
         if a["path"]:
-            a.update(load_artifact_from_disk(a["path"], a["type"]))
+            artifact = load_artifact_from_disk(a["path"], a["type"])
+            if artifact:
+                a.update(artifact)
     return artifacts
 
 
 def load_artifact_from_disk(filepath, type):
     wrapper = get_wrapper_for_loading(type)
-    wrapper.load(filepath)
+    try:
+        wrapper.load(filepath)
+    except FileNotFoundError:
+        return None
     return wrapper.serialize()
