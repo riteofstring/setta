@@ -27,7 +27,7 @@ function _ChartArea({ sectionId }) {
 
   return (
     <figure
-      className={`section-w-full section-row-main single-cell-container flex h-auto w-full max-w-full items-center justify-items-center overflow-clip ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
+      className={`section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
       {...getRootProps()}
     >
       <ChartAreaCore sectionId={sectionId} />
@@ -101,7 +101,7 @@ function _ChartAreaCore({ sectionId }) {
       ),
     );
 
-    chartRef.current.resize(size.width - 25, size.height - 50);
+    chartRef.current.resize(size.width, size.height - 50);
 
     const unsub = listenForCanvasToBase64Requests(sectionId, canvasRef);
 
@@ -140,7 +140,7 @@ function _ChartAreaCore({ sectionId }) {
     scaleOptions.y2.type = getAxisType(chartSettings.y2AxisLog);
     scaleOptions.y2.display = chartSettings.secondYAxisColumns.length > 0;
 
-    chartRef.current.resize(size.width - 25, size.height - 50);
+    chartRef.current.resize(size.width, size.height - 50);
     chartRef.current.update();
   }, [loadedArtifacts, size, datasetHidden, darkMode, chartSettings]);
 

@@ -1074,7 +1074,7 @@ main {
   transform: scale(var(--ggs, 1));
   width: 12px;
   height: 11px;
-  border: 3px solid;
+  border: 2px solid;
   border-top-right-radius: 50%;
   border-top-left-radius: 50%;
   border-bottom: transparent;
@@ -1088,9 +1088,9 @@ main {
   width: 16px;
   height: 10px;
   border-radius: 2px;
-  border: 3px solid transparent;
-  box-shadow: 0 0 0 3px;
-  left: -5px;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 2px;
+  left: -4px;
   top: 9px;
 }
 
@@ -1101,7 +1101,7 @@ main {
   transform: scale(var(--ggs, 1));
   width: 12px;
   height: 6px;
-  border: 3px solid;
+  border: 2px solid;
   border-top-right-radius: 100px;
   border-top-left-radius: 100px;
   border-bottom: transparent;
@@ -1117,20 +1117,20 @@ main {
   position: absolute;
 }
 .gg-lock-unlock::after {
-  border: 3px solid transparent;
-  box-shadow: 0 0 0 3px;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 2px;
   width: 16px;
   height: 10px;
   border-radius: 2px;
-  left: -5px;
+  left: -4px;
   top: 10px;
 }
 .gg-lock-unlock::before {
-  width: 3px;
-  height: 7px;
+  width: 2px;
+  height: 6px;
   background: currentColor;
-  left: -3px;
-  top: 2px;
+  left: -2px;
+  top: 4px;
 }
 
 .gg-color-picker {

@@ -7,7 +7,7 @@ from setta.utils.utils import nested_access
 
 from . import fns
 from .fns.utils import (
-    InteractiveTaskDefinition,
+    SettaMemoryFn,
     TaskDefinition,
     TaskMessage,
     get_task_metadata_for_frontend,
@@ -60,7 +60,7 @@ class Tasks:
     async def add_custom_fns(self, codeDict, project_config_name, exporter_obj):
         error_msgs = {}
         task_metadata = []
-        content = {}
+        content = []
         self.remove_existing_custom_fns(project_config_name)
         for id, code in codeDict.items():
             task_name = f"{project_config_name}-{id}"
@@ -79,11 +79,10 @@ class Tasks:
             self.custom_fn_name_to_exporter_obj[t["name"]] = exporter_obj
 
         for t in task_metadata:
-            # if t["runOnImport"]:
             task_output = await self(
                 t["name"], TaskMessage(id=create_new_id(), content={})
             )
-            content.update(task_output["content"])
+            content.extend(task_output["content"])
 
         return task_metadata, error_msgs, content
 
@@ -96,7 +95,7 @@ class Tasks:
         del self.custom_fn_names[project_config_name]
 
     def process_message(self, fn, fn_name, message):
-        if isinstance(fn, InteractiveTaskDefinition):
+        if isinstance(fn, SettaMemoryFn):
             if fn_name in self.custom_fn_name_to_exporter_obj:
                 exporter_obj = self.custom_fn_name_to_exporter_obj[fn_name]
                 for k, v in message.content.items():
@@ -108,9 +107,9 @@ class Tasks:
         return message
 
     def process_output(self, fn, result):
-        if isinstance(fn, InteractiveTaskDefinition):
-            for v in result.values():
-                v.setdefault("sectionType", default_section_type(v["type"]))
+        if isinstance(fn, SettaMemoryFn):
+            for x in result:
+                x.setdefault("sectionType", default_section_type(x["type"]))
             result = {"content": result}
         elif isinstance(fn, TaskDefinition):
             if result is None:
