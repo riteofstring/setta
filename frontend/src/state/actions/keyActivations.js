@@ -34,7 +34,8 @@ import {
 } from "./activeSections";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
-import { formatCode, updateInteractiveCode } from "./interactive";
+import { formatCode } from "./interactive";
+import { importCodeBlocks } from "./runOrImportCode";
 import { unselectAllParams } from "./kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
@@ -400,7 +401,7 @@ export function attachKeyEventListeners() {
     [shortcuts.copyShortcut, copy],
     [shortcuts.pasteShortcut, paste],
     [shortcuts.pasteAsRefShortcut, () => paste({ asRef: true })],
-    [shortcuts.runCode, updateInteractiveCode],
+    [shortcuts.runCodeShortcut, importCodeBlocks],
     [shortcuts.formatCode, formatCode],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, onFitViewHandler],

@@ -1,7 +1,7 @@
 import { MenuBarButton } from "components/Utils/atoms/buttons/MenuBarButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { RiPlayMiniFill } from "react-icons/ri";
-import { runCode } from "state/actions/project/generateCode";
+import { runCode } from "state/actions/runOrImportCode";
 
 export function RunButton() {
   return (

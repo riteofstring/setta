@@ -33,9 +33,8 @@ async def route_update_interactive_code(
     exporter_obj = simple_export_selected(p)
 
     codeDict = {}
-    for id, s in p["sections"].items():
-        if get_section_type(p, id) == C.CODE and s["runInMemory"]:
-            codeDict[id] = get_section_code(p, id)
+    for id in p["importCodeBlocks"]:
+        codeDict[id] = get_section_code(p, id)
 
     projectConfigName = x.project["projectConfig"]["name"]
     task_metadata, error_msgs, content = await tasks.add_custom_fns(

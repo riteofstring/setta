@@ -1,10 +1,17 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { RiPlayMiniFill } from "react-icons/ri";
-import { runCodeBlocks } from "state/actions/project/generateCode";
+import { importCodeBlocks } from "state/actions/runOrImportCode";
+import { runCodeBlocks } from "state/actions/runOrImportCode";
+import { getSectionInfo } from "state/actions/sectionInfos";
 
 export function RunButton({ sectionId }) {
   function onClick() {
-    runCodeBlocks([sectionId]);
+    const { runInMemory } = getSectionInfo(sectionId);
+    if (runInMemory) {
+      importCodeBlocks([sectionId]);
+    } else {
+      runCodeBlocks([sectionId]);
+    }
   }
 
   return (

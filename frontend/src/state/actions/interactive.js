@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { dbGetArtifactIdsFromNamePathType } from "requests/artifacts";
-import { dbFormateCode, dbUpdateInteractiveCode } from "requests/interactive";
+import { dbFormateCode } from "requests/interactive";
 import { sendMessage } from "requests/websocket";
 import {
   useArtifacts,
@@ -9,26 +9,7 @@ import {
 } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { getNamePathTypeKey } from "./artifacts";
-import { setNotificationMessage } from "./notification";
 import { getSectionVariant } from "./sectionInfos";
-
-export async function updateInteractiveCode() {
-  setNotificationMessage("Importing your code...");
-  const res = await dbUpdateInteractiveCode();
-  if (res.status === 200) {
-    const taskMetadata = res.data.taskMetadata;
-    for (const t of taskMetadata) {
-      if (t.dependencies !== null) {
-        t.dependencies = new Set(t.dependencies.map((d) => JSON.stringify(d)));
-      }
-    }
-    console.log("taskMetadata", taskMetadata);
-    useInteractive.setState({ taskMetadata });
-    await maybeGetNewArtifactIds(res.data.content);
-    updateInteractiveData(res.data.content);
-    setNotificationMessage("Done importing");
-  }
-}
 
 export async function updateInteractiveData(artifacts) {
   if (artifacts.length === 0) {
@@ -60,7 +41,7 @@ export function sendToInteractiveTasks(sourceInfo, value) {
   }
 }
 
-async function maybeGetNewArtifactIds(content) {
+export async function maybeGetNewArtifactIds(content) {
   if (content.length === 0) {
     return;
   }
