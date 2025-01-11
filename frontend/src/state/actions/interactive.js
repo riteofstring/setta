@@ -77,7 +77,7 @@ async function maybeGetNewArtifactIds(content) {
       missingIdx.push(idx);
       namesPathsTypes.push(_.pick(c, ["name", "path", "type"]));
     } else {
-      c.id = artId;
+      c.id = match;
     }
   }
 

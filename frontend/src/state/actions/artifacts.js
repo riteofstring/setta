@@ -21,7 +21,9 @@ export async function loadArtifacts(sectionId, artifactIds, signal) {
     const artifactsFromBackend = _.cloneDeep(res.data);
     await prepareArtifactsForRendering(artifactsFromBackend);
     if (signal?.aborted) return;
-    useArtifacts.setState((x) => ({ ...x, ...artifactsFromBackend }));
+    useArtifacts.setState((state) => ({
+      x: { ...state.x, ...artifactsFromBackend },
+    }));
     useSectionInfos.setState((state) => {
       actionAfterSettingSectionArtifacts(artifactIds, sectionId, state);
     });
