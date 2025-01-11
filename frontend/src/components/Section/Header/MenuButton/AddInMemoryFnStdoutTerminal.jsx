@@ -1,9 +1,10 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import C from "constants/constants.json";
-import { addSectionInEmptySpace } from "state/actions/sections/createSections";
+import { createAdjacentSection } from "state/actions/sections/createSections";
+import { goToSection } from "state/actions/sections/sectionPositions";
 import { useSectionInfos } from "state/definitions";
+import { BASE_UI_TYPE_IDS } from "utils/constants";
 
-export function AddInMemoryFnStdoutTerminal({}) {
+export function AddInMemoryFnStdoutTerminal({ sectionId }) {
   function onClick(e) {
     const existingTerminalId =
       useSectionInfos.getState().singletonSections.inMemoryFnStdoutTerminal;
@@ -12,9 +13,15 @@ export function AddInMemoryFnStdoutTerminal({}) {
       goToSection(existingTerminalId);
       e.stopPropagation();
     } else {
-      addSectionInEmptySpace({
-        type: C.TERMINAL,
-        sectionProps: { isReadOnlyTerminal: true },
+      useSectionInfos.setState((state) => {
+        createAdjacentSection(
+          sectionId,
+          {
+            isReadOnlyTerminal: true,
+            uiTypeId: BASE_UI_TYPE_IDS.TERMINAL,
+          },
+          state,
+        );
       });
     }
   }
