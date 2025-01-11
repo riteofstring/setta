@@ -16,8 +16,10 @@ import { getSectionType } from "./sectionInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export async function loadArtifacts(sectionId, artifactIds, signal) {
+  console.log("loadArtifacts", artifactIds)
   const res = await dbLoadArtifacts(artifactIds);
   if (res.status === 200) {
+    console.log("res.data", res.data)
     const artifactsFromBackend = _.cloneDeep(res.data);
     await prepareArtifactsForRendering(artifactsFromBackend);
     if (signal?.aborted) return;
