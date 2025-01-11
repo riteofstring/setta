@@ -23,10 +23,7 @@ function _SectionHeader({
   isInOtherProjectConfigs,
   isRoot,
 }) {
-  const onCustomCloseButtonClick = (e) => {
-    // ignore onClick events in parent components
-    // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element
-    e.stopPropagation();
+  const onCustomCloseButtonClick = () => {
     useSectionInfos.setState((state) => {
       deleteSections([sectionId], state);
     });

@@ -58,6 +58,10 @@ export function getOutlineColor({
 
 export function getOnSectionClick(sectionId, isActiveSection) {
   return (e) => {
+    if (e.target.closest("button")) {
+      // if a child button is clicked, don't "activate" the section
+      return;
+    }
     e.stopPropagation();
     if (useMisc.getState().mouseDownDrawArea) {
       useMisc.setState({ mouseDownDrawArea: false });

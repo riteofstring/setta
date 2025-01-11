@@ -20,8 +20,7 @@ export function LockPositionButton({ sectionId }) {
       : "[&>i]:!scale-50 [&>i]:!-mt-[9px]" // when isGroup && !positionAndSizeLocked
     : "[&>i]:!scale-[.4]"; // when !isGroup
 
-  function onClick(e) {
-    e.stopPropagation();
+  function onClick() {
     toggleSectionLock(sectionId);
   }
 
