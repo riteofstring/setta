@@ -181,7 +181,7 @@ function regexSubscriptionFn(x) {
         ].includes(sectionTypeName),
     };
 
-    if (sectionTypeName === C.CODE || sectionTypeName === C.INTERACTIVE_CODE) {
+    if (sectionTypeName === C.CODE) {
       output.templateVarEligibleSections.push(id);
     }
   }

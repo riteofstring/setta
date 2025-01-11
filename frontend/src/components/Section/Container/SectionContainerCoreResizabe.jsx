@@ -82,7 +82,6 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
     case C.GLOBAL_VARIABLES:
       return <GlobalVariablesArea sectionId={sectionId} bgColor={bgColor} />;
     case C.CODE:
-    case C.INTERACTIVE_CODE:
       return <CodeArea sectionId={sectionId} />;
     case C.PARAM_SWEEP:
       return <ParamSweepArea sectionId={sectionId} />;

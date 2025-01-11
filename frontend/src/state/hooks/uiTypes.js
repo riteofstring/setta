@@ -87,7 +87,6 @@ function getRequiredUIEditorTabs(uiTypeName) {
     case C.LIST_ROOT:
     case C.DICT_ROOT:
     case C.CODE:
-    case C.INTERACTIVE_CODE:
       return [SECTION_CONFIG_TAB, SECTION_VARIANTS_TAB];
     case C.INFO:
       return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB, SECTION_VARIANTS_TAB];

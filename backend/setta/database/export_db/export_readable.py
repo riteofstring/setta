@@ -217,7 +217,7 @@ def maybe_with_variant_in_filename(config, section_id, variant_id, with_variants
 
 def get_exporter_fn(config, section_id):
     stype = get_section_type(config, section_id)
-    if stype in [C.INTERACTIVE_CODE, C.CODE]:
+    if stype == C.CODE:
         return export_code
     elif stype in [C.SECTION, C.GLOBAL_VARIABLES]:
         return export_regular_section

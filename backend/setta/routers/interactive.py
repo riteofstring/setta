@@ -49,7 +49,7 @@ async def route_format_code(x: FormatCodeRequest):
     p = x.project
     formattedCode = {}
     for id, s in p["sections"].items():
-        if get_section_type(p, id) in [C.CODE, C.INTERACTIVE_CODE]:
+        if get_section_type(p, id) == C.CODE:
             if s["codeLanguage"] == "python":
                 code = get_section_code(p, id)
                 (

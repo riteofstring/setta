@@ -122,13 +122,6 @@
     "presetType": "BASE",
     "config": {}
   },
-  "4520be53-fc28-47ad-bb7f-70d1133e4d44": {
-    "id": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
-    "type": "INTERACTIVE_CODE",
-    "name": "",
-    "presetType": "BASE",
-    "config": {}
-  },
   "af0538a7-9667-400e-987e-ae3c844e0fcd": {
     "id": "af0538a7-9667-400e-987e-ae3c844e0fcd",
     "type": "PARAM_SWEEP",

@@ -39,7 +39,7 @@ export function getMinSectionHeight({
     return ROOT_SECTION_HEIGHT;
   } else if (sectionType === C.GLOBAL_VARIABLES) {
     return 78;
-  } else if (sectionType === C.CODE || sectionType === C.INTERACTIVE_CODE) {
+  } else if (sectionType === C.CODE) {
     return 58.2;
   } else if (sectionType === C.INFO) {
     return 98;

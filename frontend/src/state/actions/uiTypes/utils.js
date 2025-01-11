@@ -22,7 +22,6 @@ export const uiTypesToPretty = {
   [C.SOCIAL]: "Social",
   [C.GLOBAL_VARIABLES]: "Global Variables",
   [C.CODE]: "Code",
-  [C.INTERACTIVE_CODE]: "Interactive Code",
   [C.PARAM_SWEEP]: "Parameter Sweep",
   [C.TERMINAL]: "Terminal",
   [C.GLOBAL_PARAM_SWEEP]: "Global Param Sweep",

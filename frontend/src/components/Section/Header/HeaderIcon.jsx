@@ -30,7 +30,6 @@ export function HeaderIcon({
 
   switch (sectionTypeName) {
     case C.CODE:
-    case C.INTERACTIVE_CODE:
       return (
         <CodeLanguageIcon
           sectionId={sectionId}

@@ -18,7 +18,7 @@ export async function dbFormateCode() {
   const project = getProjectData({});
   const candidateTemplateVars = {};
   for (const s of Object.values(project.sections)) {
-    if ([C.CODE, C.INTERACTIVE_CODE].includes(getSectionType(s.id))) {
+    if (getSectionType(s.id) === C.CODE) {
       candidateTemplateVars[s.id] = findCandidateTemplateVars(
         s.id,
         getSectionVariant(s.id).code,

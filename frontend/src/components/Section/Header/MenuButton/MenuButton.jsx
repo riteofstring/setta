@@ -113,7 +113,6 @@ export function getMenuItems(uiTypeName) {
     case C.LIST_ROOT:
     case C.DICT_ROOT:
     case C.CODE:
-    case C.INTERACTIVE_CODE:
       return [CreateNewVersionButton, ResetToDefaultVersion];
     case C.GROUP:
       return [UngroupButton];
