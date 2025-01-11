@@ -115,23 +115,5 @@ class TaskMessage(BaseModel):
     content: Any
 
 
-class InteractiveTaskDefinition(TaskDefinition):
-    return_message_type: str = C.WS_INTERACTIVE_RETURN
-
-
-def get_task_metadata_for_frontend(task, exporter_obj=None):
-    if isinstance(task, InteractiveTaskDefinition):
-        # None means run the task on every change
-        if task.dependencies is None:
-            dependencies = None
-        # Empty array means only run when the task imported.
-        # Non-empty array means run when specified dependencies update.
-        else:
-            dependencies = [
-                exporter_obj.var_name_reverse_mapping[d] for d in task.dependencies
-            ]
-        return {
-            "name": task.name,
-            "dependencies": dependencies,
-        }
-    return {"name": task.name}
+class SettaInMemoryFn(TaskDefinition):
+    return_message_type: str = C.WS_IN_MEMORY_FN_RETURN

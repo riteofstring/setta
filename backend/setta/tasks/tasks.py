@@ -6,12 +6,7 @@ from setta.database.utils import create_new_id
 from setta.utils.utils import nested_access
 
 from . import fns
-from .fns.utils import (
-    InteractiveTaskDefinition,
-    TaskDefinition,
-    TaskMessage,
-    get_task_metadata_for_frontend,
-)
+from .fns.utils import SettaInMemoryFn, TaskDefinition, TaskMessage
 from .task_runner import TaskRunner
 from .utils import import_code_from_string
 
@@ -22,8 +17,7 @@ class Tasks:
         self.task_runner = TaskRunner()
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
-        self.custom_fn_names = {}
-        self.custom_fn_name_to_exporter_obj = {}
+        self.custom_fn_cache = {}
         self.add_fns_from_module(fns)
 
     async def __call__(self, fn_name, message: TaskMessage):
@@ -41,9 +35,9 @@ class Tasks:
     def add_fn(self, task_def: TaskDefinition):
         self.fns[task_def.name] = task_def
 
-    def add_fns_from_module(self, module, task_name=None, exporter_obj=None):
+    def add_fns_from_module(self, module, task_name=None, task_metadata_fn=None):
         count = 1
-        task_metadata = []
+        task_metadata = {}
         for attr in vars(module).values():
             if isinstance(attr, TaskDefinition):
                 if not attr.name:
@@ -54,51 +48,48 @@ class Tasks:
                     attr.name = f"{task_name}-{count}"
                     count += 1
                 self.add_fn(attr)
-                task_metadata.append(get_task_metadata_for_frontend(attr, exporter_obj))
+                if task_metadata_fn:
+                    task_metadata.update(task_metadata_fn(attr))
         return task_metadata
 
-    async def add_custom_fns(self, codeDict, project_config_name, exporter_obj):
+    async def add_custom_fns(
+        self, codeDict, project_config_name, task_metadata_fn=None, to_cache=None
+    ):
         error_msgs = {}
-        task_metadata = []
-        content = {}
-        self.remove_existing_custom_fns(project_config_name)
+        task_metadata = {}
+        content = []
+        # self.remove_existing_custom_fns(project_config_name)
         for id, code in codeDict.items():
             task_name = f"{project_config_name}-{id}"
             try:
                 module = import_code_from_string(code)
                 if module:
-                    task_metadata.extend(
+                    task_metadata.update(
                         self.add_fns_from_module(
-                            module, task_name=task_name, exporter_obj=exporter_obj
+                            module,
+                            task_name=task_name,
+                            task_metadata_fn=task_metadata_fn,
                         )
                     )
             except Exception as e:
                 error_msgs[task_name] = str(e)
-        self.custom_fn_names[project_config_name] = [x["name"] for x in task_metadata]
-        for t in task_metadata:
-            self.custom_fn_name_to_exporter_obj[t["name"]] = exporter_obj
-
-        for t in task_metadata:
-            # if t["runOnImport"]:
-            task_output = await self(
-                t["name"], TaskMessage(id=create_new_id(), content={})
-            )
-            content.update(task_output["content"])
+        for k in task_metadata.keys():
+            if to_cache:
+                self.custom_fn_cache[k] = to_cache
+            task_output = await self(k, TaskMessage(id=create_new_id(), content={}))
+            content.extend(task_output["content"])
 
         return task_metadata, error_msgs, content
 
-    def remove_existing_custom_fns(self, project_config_name):
-        if project_config_name not in self.custom_fn_names:
-            return
-        for x in self.custom_fn_names[project_config_name]:
-            del self.fns[x]
-            del self.custom_fn_name_to_exporter_obj[x]
-        del self.custom_fn_names[project_config_name]
+    def remove_existing_custom_fns(self):
+        for k in self.custom_fn_cache.keys():
+            del self.fns[k]
+            del self.custom_fn_cache[k]
 
     def process_message(self, fn, fn_name, message):
-        if isinstance(fn, InteractiveTaskDefinition):
-            if fn_name in self.custom_fn_name_to_exporter_obj:
-                exporter_obj = self.custom_fn_name_to_exporter_obj[fn_name]
+        if isinstance(fn, SettaInMemoryFn):
+            if fn_name in self.custom_fn_cache:
+                exporter_obj = self.custom_fn_cache[fn_name]
                 for k, v in message.content.items():
                     nice_str = exporter_obj.var_name_mapping[tuple(json.loads(k))]
                     p_dict, key = nested_access(exporter_obj.output, nice_str)
@@ -108,9 +99,9 @@ class Tasks:
         return message
 
     def process_output(self, fn, result):
-        if isinstance(fn, InteractiveTaskDefinition):
-            for v in result.values():
-                v.setdefault("sectionType", default_section_type(v["type"]))
+        if isinstance(fn, SettaInMemoryFn):
+            for x in result:
+                x.setdefault("sectionType", default_section_type(x["type"]))
             result = {"content": result}
         elif isinstance(fn, TaskDefinition):
             if result is None:

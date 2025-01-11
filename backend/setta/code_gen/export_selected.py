@@ -175,9 +175,9 @@ def export_selected(p, always_export_args_objs, force_include_template_var):
     return e
 
 
-def simple_export_selected(p):
+def export_for_in_memory_fn(p):
     p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
-    e = SimpleExporter(p)
+    e = ExporterForInMemoryFn(p)
     e.export()
     return e
 
@@ -505,7 +505,7 @@ class Exporter:
         return var_name
 
 
-class SimpleExporter:
+class ExporterForInMemoryFn:
     def __init__(self, p):
         self.output = {}
         self.p = copy.deepcopy(p)
@@ -599,9 +599,10 @@ class SimpleExporter:
         return params
 
     def export_param_value(self, section_id, id):
-        variant = get_selected_section_variant(self.p, section_id)
-        value = variant["values"][id]["value"]
-        return value
+        values = get_selected_section_variant(self.p, section_id)["values"]
+        if id in values:
+            return values[id]["value"]
+        return ""
 
     def create_var_mapping(self, key, value):
         self.var_name_mapping[key] = value

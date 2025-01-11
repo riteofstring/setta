@@ -88,17 +88,17 @@ function resumeThenPauseTemporal(statePointer, callback) {
   statePointer.temporal.getState().pause();
 }
 
-export function maybeIncrementProjectStateVersion(
-  doIncrementVersion,
-  doAutoSave = true,
-) {
-  if (doIncrementVersion) {
-    incrementStateVersion(stateDict[STATE_TYPES.PROJECT_STATE]);
-    if (doAutoSave) {
-      autoSave();
+export const maybeIncrementProjectStateVersion = _.throttle(
+  (doIncrementVersion, doAutoSave = true) => {
+    if (doIncrementVersion) {
+      incrementStateVersion(stateDict[STATE_TYPES.PROJECT_STATE]);
+      if (doAutoSave) {
+        autoSave();
+      }
     }
-  }
-}
+  },
+  500,
+);
 
 const autoSave = _.debounce(() => {
   if (useSettings.getState().backend.autosave) {
