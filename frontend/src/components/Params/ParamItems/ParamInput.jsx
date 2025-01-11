@@ -80,5 +80,5 @@ const debouncedSetParamEnteredValue = asyncDebounce(
       maybeIncrementProjectStateVersion(true);
     }
   },
-  200,
+  50,
 );
