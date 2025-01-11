@@ -1,6 +1,6 @@
 import asyncio
+import queue
 import threading
-from queue import Queue
 from typing import Dict
 
 from setta.cli.logger import default_section_type
@@ -23,39 +23,39 @@ class Tasks:
         add_fns_from_module(self.fns, fns)
 
         # Start stdout listener thread
-        self._stdout_running = True
-        self.stdout_queue = Queue()
-        asyncio.create_task(self._process_stdout_queue())
+        self._stdout_running = asyncio.Event()
+        self._stdout_running.set()
+        self.stdout_queue = queue.Queue()  # regular Queue
+        self._stdout_processor_task = asyncio.create_task(self._process_stdout_queue())
         self.stdout_thread = threading.Thread(target=self._stdout_listener, daemon=True)
         self.stdout_thread.start()
 
     def _stdout_listener(self):
-        while self._stdout_running:
+        while self._stdout_running.is_set():
             try:
                 stdout_data = self.in_memory_subprocess.stdout_parent_conn.recv()
-                # Put in queue instead of broadcasting directly
-                self.stdout_queue.put(stdout_data)
+                self.stdout_queue.put(stdout_data)  # simple put, no async needed
             except Exception as e:
-                if not self._stdout_running:
+                if not self._stdout_running.is_set():
                     break
                 print(f"Error in stdout listener: {e}", flush=True)
 
     async def _process_stdout_queue(self):
-        """Process stdout data in the async context"""
         while True:
             try:
-                if not self._stdout_running:
+                if not self._stdout_running.is_set():
                     break
-
-                # Use run_in_executor to make the blocking get() non-blocking
-                stdout_data = await asyncio.get_running_loop().run_in_executor(
-                    None, self.stdout_queue.get  # Uses default executor
-                )
-                await self.websocket_manager.broadcast(
-                    {"inMemoryFnStdOut": stdout_data}
-                )
-
+                try:
+                    stdout_data = self.stdout_queue.get_nowait()
+                    await self.websocket_manager.broadcast(stdout_data)
+                    self.stdout_queue.task_done()
+                except queue.Empty:
+                    await asyncio.sleep(0.1)  # Check for cancellation every 100ms
+            except asyncio.CancelledError:
+                break
             except Exception as e:
+                if not self._stdout_running.is_set():
+                    break
                 print(f"Error processing stdout: {e}", flush=True)
 
     async def __call__(self, fn_name, message: TaskMessage):
@@ -118,6 +118,7 @@ class Tasks:
         return task_metadata, error_msgs, initial_content
 
     def close(self):
-        self._stdout_running = False
+        self._stdout_running.clear()
         self.in_memory_subprocess.close()
         self.stdout_thread.join()
+        self._stdout_processor_task.cancel()
