@@ -49,8 +49,12 @@ async def route_update_interactive_code(
     }
 
     projectConfigName = x.project["projectConfig"]["name"]
+
     metadata, error_msgs, content = await tasks.add_custom_fns(
-        code_dict, projectConfigName, exporter_obj_in_memory
+        code_dict,
+        projectConfigName,
+        task_metadata_fn=get_task_metadata_fn(exporter_obj_in_memory),
+        to_cache=exporter_obj_in_memory,
     )
     return {"metadata": metadata, "errorMsgs": error_msgs, "content": content}
 
@@ -82,3 +86,23 @@ def format_python_code(code: str) -> str:
         return black.format_str(code, mode=black.Mode())
     except black.InvalidInput:
         pass
+
+
+def get_task_metadata_fn(exporter_obj):
+    def task_metadata_fn(task):
+        # None means run the task on every change
+        if task.dependencies is None:
+            dependencies = None
+        # Empty array means only run when the task imported.
+        # Non-empty array means run when specified dependencies update.
+        else:
+            dependencies = [
+                exporter_obj.var_name_reverse_mapping[d] for d in task.dependencies
+            ]
+        return {
+            task.name: {
+                "dependencies": dependencies,
+            }
+        }
+
+    return task_metadata_fn

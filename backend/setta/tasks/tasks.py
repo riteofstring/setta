@@ -6,12 +6,7 @@ from setta.database.utils import create_new_id
 from setta.utils.utils import nested_access
 
 from . import fns
-from .fns.utils import (
-    SettaInMemoryFn,
-    TaskDefinition,
-    TaskMessage,
-    get_task_metadata_for_frontend,
-)
+from .fns.utils import SettaInMemoryFn, TaskDefinition, TaskMessage
 from .task_runner import TaskRunner
 from .utils import import_code_from_string
 
@@ -22,7 +17,7 @@ class Tasks:
         self.task_runner = TaskRunner()
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
-        self.custom_fn_cached_data = {}
+        self.custom_fn_cache = {}
         self.add_fns_from_module(fns)
 
     async def __call__(self, fn_name, message: TaskMessage):
@@ -40,7 +35,7 @@ class Tasks:
     def add_fn(self, task_def: TaskDefinition):
         self.fns[task_def.name] = task_def
 
-    def add_fns_from_module(self, module, task_name=None, exporter_obj=None):
+    def add_fns_from_module(self, module, task_name=None, task_metadata_fn=None):
         count = 1
         task_metadata = {}
         for attr in vars(module).values():
@@ -53,10 +48,13 @@ class Tasks:
                     attr.name = f"{task_name}-{count}"
                     count += 1
                 self.add_fn(attr)
-                task_metadata.update(get_task_metadata_for_frontend(attr, exporter_obj))
+                if task_metadata_fn:
+                    task_metadata.update(task_metadata_fn(attr))
         return task_metadata
 
-    async def add_custom_fns(self, codeDict, project_config_name, exporter_obj):
+    async def add_custom_fns(
+        self, codeDict, project_config_name, task_metadata_fn=None, to_cache=None
+    ):
         error_msgs = {}
         task_metadata = {}
         content = []
@@ -68,27 +66,30 @@ class Tasks:
                 if module:
                     task_metadata.update(
                         self.add_fns_from_module(
-                            module, task_name=task_name, exporter_obj=exporter_obj
+                            module,
+                            task_name=task_name,
+                            task_metadata_fn=task_metadata_fn,
                         )
                     )
             except Exception as e:
                 error_msgs[task_name] = str(e)
         for k in task_metadata.keys():
-            self.custom_fn_cached_data[k] = exporter_obj
+            if to_cache:
+                self.custom_fn_cache[k] = to_cache
             task_output = await self(k, TaskMessage(id=create_new_id(), content={}))
             content.extend(task_output["content"])
 
         return task_metadata, error_msgs, content
 
     def remove_existing_custom_fns(self):
-        for k in self.custom_fn_cached_data.keys():
+        for k in self.custom_fn_cache.keys():
             del self.fns[k]
-            del self.custom_fn_cached_data[k]
+            del self.custom_fn_cache[k]
 
     def process_message(self, fn, fn_name, message):
         if isinstance(fn, SettaInMemoryFn):
-            if fn_name in self.custom_fn_cached_data:
-                exporter_obj = self.custom_fn_cached_data[fn_name]
+            if fn_name in self.custom_fn_cache:
+                exporter_obj = self.custom_fn_cache[fn_name]
                 for k, v in message.content.items():
                     nice_str = exporter_obj.var_name_mapping[tuple(json.loads(k))]
                     p_dict, key = nested_access(exporter_obj.output, nice_str)

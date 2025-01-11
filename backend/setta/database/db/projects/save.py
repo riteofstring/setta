@@ -264,5 +264,4 @@ def update_linked_project_configs(db, project):
                 ):
                     ids.add(c)
 
-    print("section_configs_to_add", section_configs_to_add, flush=True)
     insert_section_configs(db, project["sections"], section_configs_to_add)
