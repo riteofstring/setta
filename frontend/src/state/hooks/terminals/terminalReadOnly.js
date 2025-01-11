@@ -13,7 +13,7 @@ import {
 
 export function useTerminalReadOnly({ width, height, setHasScrollbar }) {
   const terminalRef = useRef(null); // Ref for the terminal container
-  const fitAddon = useFitAddon(width, height);
+  const fitAddon = useFitAddon();
 
   useEffect(() => {
     const terminal = new Terminal({
@@ -37,6 +37,10 @@ export function useTerminalReadOnly({ width, height, setHasScrollbar }) {
       unsub();
     };
   }, []);
+
+  useEffect(() => {
+    fitAddon.fit();
+  }, [width, height]);
 
   return terminalRef;
 }

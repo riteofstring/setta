@@ -30,7 +30,7 @@ export const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
 
 export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
   const terminalRef = useRef(null); // Ref for the terminal container
-  const fitAddon = useFitAddon(width, height);
+  const fitAddon = useFitAddon();
 
   useEffect(() => {
     const terminal = new Terminal({
