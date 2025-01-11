@@ -88,6 +88,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        app.state.tasks.close()
         kill_lsps(app.state.lsps, app.state.lsp_readers)
         print("******FINISHED CLEANUP*******")
 

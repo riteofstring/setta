@@ -37,6 +37,7 @@ class SettaInMemoryFnSubprocess:
     def __init__(self):
         self.parent_conn, self.child_conn = multiprocessing.Pipe()
         self.process = multiprocessing.Process(target=self._subprocess_main)
+        self.process.daemon = True  # Ensure process dies with parent
         self.process.start()
 
     def _subprocess_main(self):
@@ -49,6 +50,9 @@ class SettaInMemoryFnSubprocess:
             msg = self.child_conn.recv()  # Wait for requests
             msg_type = msg["type"]
             return_message_type = None
+
+            if msg_type == "shutdown":
+                break
 
             # try:
             if msg_type == "import":
@@ -94,6 +98,24 @@ class SettaInMemoryFnSubprocess:
             #         "messageType": return_message_type,
             #     }
             # )
+
+    def close(self):
+        # Send shutdown message to subprocess
+        try:
+            self.parent_conn.send({"type": "shutdown"})
+            # Optional: wait briefly for graceful shutdown
+            self.process.join(timeout=1.0)
+        except:
+            pass  # Handle any communication errors
+
+        # Force terminate if still alive
+        if self.process.is_alive():
+            self.process.terminate()
+            self.process.join()
+
+        # Close connections
+        self.parent_conn.close()
+        self.child_conn.close()
 
     def process_message(self, fn_name, message, cache):
         if fn_name in cache:

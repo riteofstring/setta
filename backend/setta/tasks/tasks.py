@@ -77,3 +77,6 @@ class Tasks:
             initial_content.extend(task_output["content"])
 
         return task_metadata, error_msgs, initial_content
+
+    def close(self):
+        self.in_memory_subprocess.close()
