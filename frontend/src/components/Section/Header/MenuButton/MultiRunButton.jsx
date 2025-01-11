@@ -11,7 +11,6 @@ export function MultirunButton({ sectionId }) {
     const { paramSweepSectionId } = useSectionInfos.getState().x[sectionId];
     if (paramSweepSectionId) {
       goToSection(paramSweepSectionId);
-      e.stopPropagation();
     } else {
       addParamSweepSection(sectionId);
     }

@@ -11,7 +11,6 @@ export function AddInMemoryFnStdoutTerminal({ sectionId }) {
 
     if (existingTerminalId) {
       goToSection(existingTerminalId);
-      e.stopPropagation();
     } else {
       useSectionInfos.setState((state) => {
         createAdjacentSection(

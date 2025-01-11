@@ -11,17 +11,5 @@ export function UngroupButton({ sectionId }) {
     maybeIncrementProjectStateVersion(true);
   }
 
-  return (
-    <MenuItem
-      onClick={(e) => {
-        // Need to stop propagation for this Group button
-        // because the onClick in ContainerCore gets triggered for some reason
-        // whereas that's not the case with regular sections.
-        e.stopPropagation();
-        onClick(e);
-      }}
-    >
-      Ungroup
-    </MenuItem>
-  );
+  return <MenuItem onClick={onClick}>Ungroup</MenuItem>;
 }
