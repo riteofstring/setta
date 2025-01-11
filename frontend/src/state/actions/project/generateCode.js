@@ -27,7 +27,26 @@ export function getProjectDataToGenerateCode({ includeInfoToFullName = true }) {
   return project;
 }
 
-export async function sendRunCodeMessage(project, messageIdx = 0) {
+export async function runCodeBlocks(sectionIds) {
+  const project = getProjectDataToGenerateCode({
+    includeInfoToFullName: false,
+  });
+  project.runCodeBlocks = sectionIds;
+  await sendRunCodeMessage(project);
+}
+
+export async function runCode() {
+  const project = getProjectDataToGenerateCode({
+    includeInfoToFullName: false,
+  });
+  let count = 0;
+  for (const projectVariant of getProjectRuns(project)) {
+    await sendRunCodeMessage(projectVariant, count);
+    count += 1;
+  }
+}
+
+async function sendRunCodeMessage(project, messageIdx = 0) {
   const codeRunId = createNewId();
   project["infoToFullName"] = computeInfoToFullName(project);
   let message = {
@@ -57,7 +76,7 @@ export async function sendRunCodeMessage(project, messageIdx = 0) {
   }
 }
 
-export function* getProjectRuns(project) {
+function* getProjectRuns(project) {
   const globalParamSweepSectionId =
     useSectionInfos.getState().singletonSections[C.GLOBAL_PARAM_SWEEP];
   const selectedRunGroupIds = globalParamSweepSectionId

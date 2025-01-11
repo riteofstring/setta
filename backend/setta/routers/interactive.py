@@ -2,12 +2,10 @@ import black
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import (
-    export_for_in_memory_fn,
-    export_selected,
     get_section_code,
     get_section_type,
+    simple_export_selected,
 )
 from setta.tasks.fns.utils import replace_template_vars_with_random_names
 from setta.utils.constants import C
@@ -32,27 +30,18 @@ async def route_update_interactive_code(
     x: UpdateInteractiveCodeRequest, tasks=Depends(get_tasks)
 ):
     p = x.project
-    exporter_obj = export_selected(
-        p, always_export_args_objs=False, force_include_template_var=True
-    )
-    exporter_obj_in_memory = export_for_in_memory_fn(p)
-    code_dict = generate_final_code_for_sections(
-        p,
-        exporter_obj,
-        "",
-        do_prepend_with_setup_code=False,
-        do_convert_var_names_to_readable_form=True,
-    )
+    exporter_obj = simple_export_selected(p)
 
-    code_dict = {
-        k: v["code"] for k, v in code_dict.items() if k in p["importCodeBlocks"]
-    }
+    codeDict = {}
+    for id, s in p["sections"].items():
+        if get_section_type(p, id) == C.CODE and s["runInMemory"]:
+            codeDict[id] = get_section_code(p, id)
 
     projectConfigName = x.project["projectConfig"]["name"]
-    metadata, error_msgs, content = await tasks.add_custom_fns(
-        code_dict, projectConfigName, exporter_obj_in_memory
+    task_metadata, error_msgs, content = await tasks.add_custom_fns(
+        codeDict, projectConfigName, exporter_obj
     )
-    return {"metadata": metadata, "errorMsgs": error_msgs, "content": content}
+    return {"taskMetadata": task_metadata, "errorMsgs": error_msgs, "content": content}
 
 
 @router.post(C.ROUTE_FORMAT_CODE)

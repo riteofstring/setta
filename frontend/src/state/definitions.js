@@ -65,9 +65,9 @@ export const useHomePageSearch = create(
   })),
 );
 
-export const useInMemoryFn = create(
+export const useInteractive = create(
   withResetFn(() => ({
-    metadata: {},
+    taskMetadata: [],
   })),
 );
 
@@ -139,9 +139,7 @@ export const useAllProjectConfigs = create(
 export const useArtifacts = withProjectState(
   create(
     subscribeWithSelector(
-      withTemporal(
-        withResetFn(() => withVersion({ x: {}, namePathTypeToId: {} })),
-      ),
+      withTemporal(withResetFn(() => withVersion({ x: {} }))),
     ),
   ),
 );
