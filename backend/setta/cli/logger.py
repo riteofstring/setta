@@ -18,16 +18,18 @@ from setta.utils.constants import (
 
 
 class Setta:
-    def __init__(self, root_path=None, send_data_to=None):
+    def __init__(self, root_path=None, send_data_to=None, host=None, port=None):
         load_constants()
         set_constants(
-            host=os.environ.get(HOST_ENV_VARIABLE, C.DEFAULT_HOST),
-            port=os.environ.get(PORT_ENV_VARIABLE, C.DEFAULT_PORT),
+            host=host or os.environ.get(HOST_ENV_VARIABLE, C.DEFAULT_HOST),
+            port=port or os.environ.get(PORT_ENV_VARIABLE, C.DEFAULT_PORT),
         )
         if root_path:
             self.root_path = Path(root_path)
         else:
-            self.root_path = Path(os.environ.get(CODE_FOLDER_ENV_VARIABLE, os.getcwd()))
+            self.root_path = Path(
+                os.environ.get(CODE_FOLDER_ENV_VARIABLE, os.path.relpath(os.getcwd()))
+            )
 
         if send_data_to:
             self.send_data_to = send_data_to
@@ -39,20 +41,20 @@ class Setta:
     def log(self, obj, save_to="db"):
         data_to_send = []
         for name, data in obj.items():
-            full_path = self.root_path / name
-            full_path = data.path_with_extension(full_path)
             artifact_path = None
 
             if save_to == "disk":
+                full_path = self.root_path / name
+                full_path = data.path_with_extension(full_path)
                 directory = full_path.parent
                 directory.mkdir(parents=True, exist_ok=True)
                 data.save(full_path)
-                artifact_path = full_path
+                artifact_path = str(full_path)
 
             serialized = data.serialize()
             curr_data = {
                 "name": name,
-                "path": str(artifact_path),
+                "path": artifact_path,
                 "value": serialized["value"],
                 "type": serialized["type"],
             }
@@ -63,6 +65,7 @@ class Setta:
             f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_ARTIFACT}",
             json={
                 "data": data_to_send,
+                "saveTo": save_to,
                 "sendDataTo": self.send_data_to,
                 "messageType": C.WS_ARTIFACT,
             },
@@ -110,13 +113,19 @@ class SettaList(SettaDataWrapper):
     def save(self, path):
         if not self.data:
             return
-        headers = list(self.data[0].keys())
+
+        headers = list(self.data.keys())
+        num_rows = len(next(iter(self.data.values())))  # Get length from first column
+
         with open(path, "w") as f:
+            # Write headers
             f.write(",".join(headers) + "\n")
-            for row_dict in self.data:
+
+            # Write rows
+            for i in range(num_rows):
                 row_vals = []
-                for h in headers:
-                    val = row_dict.get(h, None)
+                for header in headers:
+                    val = self.data[header][i] if i < len(self.data[header]) else None
                     row_vals.append("" if val is None else str(val))
                 f.write(",".join(row_vals) + "\n")
 
@@ -124,23 +133,7 @@ class SettaList(SettaDataWrapper):
         return {"value": self.data, "type": "list"}
 
     def load(self, path):
-        with open(path, "r") as f:
-            headers = f.readline().strip().split(",")
-            data = []
-            for line in f:
-                values = line.strip().split(",")
-                # Convert each value to float if not empty, otherwise None
-                row = []
-                for x in values:
-                    if x.strip() == "":
-                        row.append(None)
-                    else:
-                        try:
-                            row.append(float(x))
-                        except ValueError:
-                            row.append(x)
-                data.append(tuple(row))
-        self.data = {"headers": headers, "data": data}
+        self.data = load_from_csv_file(path)
 
 
 class SettaImg(SettaDataWrapper):
@@ -193,3 +186,47 @@ def pil_to_setta_img(pil_image, format="png"):
     pil_image.save(buffer, format=format.upper())
     raw_data = buffer.getvalue()
     return SettaImg(img=raw_data, format=format)
+
+
+def parse_csv_row(values):
+    row = []
+    for x in values:
+        if x.strip() == "":
+            row.append(None)
+        else:
+            try:
+                row.append(float(x))
+            except ValueError:
+                row.append(x)
+    return row
+
+
+def parse_csv_content(content):
+    lines = content.strip().split("\n")
+    if not lines:
+        return {}
+
+    headers = [h.strip() for h in lines[0].split(",")]
+    result = {header: [] for header in headers}
+
+    if not lines[1:]:
+        return result
+
+    # Parse rows and populate lists
+    for line in lines[1:]:
+        values = parse_csv_row(line.strip().split(","))
+        for header, value in zip(headers, values):
+            result[header].append(value)
+
+    return result
+
+
+def load_from_csv_file(path):
+    with open(path, "r") as f:
+        content = f.read()
+    return parse_csv_content(content)
+
+
+def load_from_csv_base64(base64_string):
+    content = base64.b64decode(base64_string).decode("utf-8")
+    return parse_csv_content(content)

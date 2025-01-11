@@ -1,10 +1,10 @@
 import {
-  base64StrToImgSrc,
+  base64ToImageObj,
   dataURLToBase64,
 } from "components/Section/Layouts/DrawArea/base64Conversion";
 import C from "constants/constants.json";
 import _ from "lodash";
-import { dbLoadArtifacts } from "requests/artifacts";
+import { dbLoadArtifacts, dbReadCSVBase64 } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import {
@@ -12,6 +12,7 @@ import {
   newArtifactTransform,
   newLayer,
 } from "utils/objs/artifact";
+import { getSectionType } from "./sectionInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function updateArtifacts({ artifacts, addSection = false }) {
@@ -37,25 +38,47 @@ export function updateArtifacts({ artifacts, addSection = false }) {
 //   });
 // }
 
-export async function loadArtifacts(artifactIds, signal) {
+export async function loadArtifacts(sectionId, artifactIds, signal) {
   const res = await dbLoadArtifacts(artifactIds);
   if (res.status === 200) {
     const artifactsFromBackend = _.cloneDeep(res.data);
     await prepareArtifactsForRendering(artifactsFromBackend);
     if (signal?.aborted) return;
     updateArtifacts({ artifacts: artifactsFromBackend });
+    useSectionInfos.setState((state) => {
+      actionAfterSettingSectionArtifacts(artifactIds, sectionId, state);
+    });
     maybeIncrementProjectStateVersion(true);
   }
 }
 
 async function prepareArtifactsForRendering(artifactsFromBackend) {
   for (const data of Object.values(artifactsFromBackend)) {
-    if (data.type === "img") {
-      const imgSrc = base64StrToImgSrc(data.value);
-      data.value = new Image();
-      data.value.src = imgSrc;
-      await data.value.decode();
-    }
+    data.value = await prepareArtifactForRendering(data.type, data.value);
+  }
+}
+
+export async function prepareArtifactForRendering(type, value) {
+  switch (type) {
+    case "img":
+      return await base64ToImageObj(value);
+    case "list":
+    case "brushStrokes":
+      return value;
+  }
+}
+
+export async function prepareDataURLForRendering(type, value) {
+  switch (type) {
+    case "img":
+      return await base64ToImageObj(value);
+    case "list":
+      const res = await dbReadCSVBase64(dataURLToBase64(value));
+      if (res.status == 200) {
+        return res.data;
+      }
+    default:
+      return null;
   }
 }
 
@@ -98,40 +121,53 @@ export function addDrawAreaLayer(sectionId, state) {
   state.x[sectionId].canvasSettings.activeLayerId = artifactGroupId;
 }
 
-export function maybeAddArtifactGroupAndSetArtifactId(
+export function maybeAddArtifactGroupAndSetArtifactId({
   sectionId,
   sectionTypeName,
   artifactId,
   artifactType,
+  createNewArtifactGroup = false,
   state,
-) {
-  let artifactGroupId = state.x[sectionId].artifactGroupIds[0];
-  if (!artifactGroupId) {
-    artifactGroupId = createNewId();
-    state.artifactGroups[artifactGroupId] = newLayer({
-      artifactTransforms: [
-        newArtifactTransform(artifactId, sectionTypeName, artifactType),
-      ],
-    });
+}) {
+  let artifactGroupId = getActiveArtifactGroupId(
+    sectionId,
+    sectionTypeName,
+    state,
+  );
 
-    state.x[sectionId].artifactGroupIds.push(artifactGroupId);
+  if (!artifactGroupId || createNewArtifactGroup) {
+    artifactGroupId = createNewId();
+    state.artifactGroups[artifactGroupId] = newLayer({});
+    state.x[sectionId].artifactGroupIds.unshift(artifactGroupId);
   }
 
-  state.artifactGroups[artifactGroupId].artifactTransforms[0].artifactId =
-    artifactId;
+  const artifactTransform = newArtifactTransform(
+    artifactId,
+    sectionTypeName,
+    artifactType,
+  );
+
+  if (sectionTypeName === C.DRAW) {
+    state.artifactGroups[artifactGroupId].artifactTransforms.push(
+      artifactTransform,
+    );
+  } else {
+    state.artifactGroups[artifactGroupId].artifactTransforms = [
+      artifactTransform,
+    ];
+  }
+
+  actionAfterSettingSectionArtifacts([artifactId], sectionId, state);
 }
 
-export async function addImageArtifactAndMaybeCreateNewLayer(
+export async function addArtifactAndMaybeCreateNewArtifactGroup({
   sectionId,
-  activeLayerId,
-  imgSrc,
+  createNewArtifactGroup,
+  value,
+  artifactType,
   path = null,
-) {
+}) {
   const artifactId = createNewId();
-  const artifactType = "img";
-  const value = new Image();
-  value.src = imgSrc;
-  await value.decode();
   useArtifacts.setState((state) => ({
     x: {
       ...state.x,
@@ -143,14 +179,36 @@ export async function addImageArtifactAndMaybeCreateNewLayer(
     },
   }));
   useSectionInfos.setState((state) => {
-    // let layerId = activeLayerId;
-    // if (!layerId) {
-    const layerId = createNewId();
-    state.artifactGroups[layerId] = newLayer({});
-    state.x[sectionId].artifactGroupIds.unshift(layerId);
-    // }
-    state.artifactGroups[layerId].artifactTransforms.push(
-      newArtifactTransform(artifactId, C.DRAW, artifactType),
-    );
+    const sectionTypeName = getSectionType(sectionId, state);
+    maybeAddArtifactGroupAndSetArtifactId({
+      sectionId,
+      sectionTypeName,
+      artifactId,
+      artifactType,
+      createNewArtifactGroup,
+      state,
+    });
   });
+}
+
+function getActiveArtifactGroupId(sectionId, sectionTypeName, state) {
+  switch (sectionTypeName) {
+    case C.DRAW:
+      return state.x[sectionId].canvasSettings.activeLayerId;
+    case C.IMAGE:
+    case C.CHART:
+      return state.x[sectionId].artifactGroupIds[0];
+  }
+}
+
+function actionAfterSettingSectionArtifacts(artifactIds, sectionId, state) {
+  const sectionTypeName = getSectionType(sectionId, state);
+  if (sectionTypeName === C.CHART) {
+    const artifact = useArtifacts.getState().x[artifactIds[0]];
+    const columnNames = artifact ? Object.keys(artifact.value) : null;
+    const chartSettings = state.x[sectionId].chartSettings;
+    if (columnNames && !columnNames.includes(chartSettings.xAxisColumn)) {
+      chartSettings.xAxisColumn = columnNames[0];
+    }
+  }
 }

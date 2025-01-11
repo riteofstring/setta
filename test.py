@@ -8,11 +8,12 @@ logger = Setta(send_data_to="/diffusionDrops")
 print("logger.root_path", logger.root_path)
 print("logger.send_data_to", logger.send_data_to)
 
-all_data = []
+all_data = {"size": [], "elephant": []}
 
 for i in range(100):
-    all_data.append({"size": i, "elephant": 3})
-    logger.log({"frogdog": SettaList(all_data)}, save_to="disk")
+    all_data["size"].append(i)
+    all_data["elephant"].append(i*3)
+    logger.log({"frogdog": SettaList(all_data)}, save_to="db")
     time.sleep(1)
 
 # from PIL import Image

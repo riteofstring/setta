@@ -357,13 +357,13 @@ export function JustListOfArtifacts({ sectionId, sectionTypeName }) {
 
   function onClick(artifactId, artifactType) {
     useSectionInfos.setState((state) => {
-      maybeAddArtifactGroupAndSetArtifactId(
+      maybeAddArtifactGroupAndSetArtifactId({
         sectionId,
         sectionTypeName,
         artifactId,
         artifactType,
         state,
-      );
+      });
     });
   }
 

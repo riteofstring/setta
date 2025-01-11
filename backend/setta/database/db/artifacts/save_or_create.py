@@ -3,7 +3,13 @@ import json
 from setta.database.utils import create_new_id
 
 
-def save_or_create_artifacts(db, artifacts):
+def get_artifact_value_for_db(artifact, saveTo):
+    if saveTo == "disk":
+        return None
+    return json.dumps(artifact["value"])
+
+
+def save_or_create_artifacts(db, artifacts, saveTo):
     # We want fewer round-trips to the DB, so we'll process
     # all artifacts with an id in one multi-row upsert,
     # and handle those without an id in another pass.
@@ -35,7 +41,7 @@ def save_or_create_artifacts(db, artifacts):
                     art["id"],
                     art["name"],
                     art["path"],
-                    json.dumps(art["value"]),
+                    get_artifact_value_for_db(art, saveTo),
                     art["type"],
                 ]
             )
@@ -75,7 +81,7 @@ def save_or_create_artifacts(db, artifacts):
             where_clause_parts.append("(?, ?, ?)")
             params.extend([n, p, t])
         where_clause = " OR ".join(
-            [f"(name=? AND path=? AND type=?)" for _ in unique_keys]
+            ["(name=? AND path=? AND type=?)" for _ in unique_keys]
         )
         # We can do a single SELECT for these combos.
         sql = f"""
@@ -113,7 +119,7 @@ def save_or_create_artifacts(db, artifacts):
                 (
                     art["name"],
                     art["path"],
-                    json.dumps(art["value"]),
+                    get_artifact_value_for_db(art, saveTo),
                     art["type"],
                     matched_id,
                 )
@@ -126,7 +132,7 @@ def save_or_create_artifacts(db, artifacts):
                     new_id,
                     art["name"],
                     art["path"],
-                    json.dumps(art["value"]),
+                    get_artifact_value_for_db(art, saveTo),
                     art["type"],
                 )
             )
