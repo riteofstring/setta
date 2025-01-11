@@ -62,27 +62,26 @@ def save_or_create_artifacts(db, artifacts, saveTo):
 
     # Handle those without an id:
     # We need to check if there's an existing row by (name, path, type).
-    # 1) Gather unique (name, path, type) from these artifacts
-    lookup_map = {}  # (name, path, type) -> list of (index, artifact)
+    # 1) Gather unique (name, path, type)
     unique_keys = set()
     for i, art in without_id:
         key = (art["name"], art["path"], art["type"])
         unique_keys.add(key)
-        lookup_map.setdefault(key, []).append(i)
 
     # 2) Fetch existing rows for these (name, path, type)
     if unique_keys:
-        # Build "WHERE (name, path, type) IN ..."
-        # We'll do this with placeholders: (?,?,?), (?,?,?), ...
-        # Because we have a variable number of keys.
+        # Build WHERE clause that handles NULL paths
         where_clause_parts = []
         params = []
         for n, p, t in unique_keys:
-            where_clause_parts.append("(?, ?, ?)")
-            params.extend([n, p, t])
-        where_clause = " OR ".join(
-            ["(name=? AND path=? AND type=?)" for _ in unique_keys]
-        )
+            if p is None:
+                where_clause_parts.append("(name=? AND path IS NULL AND type=?)")
+                params.extend([n, t])
+            else:
+                where_clause_parts.append("(name=? AND path=? AND type=?)")
+                params.extend([n, p, t])
+        where_clause = " OR ".join(where_clause_parts)
+
         # We can do a single SELECT for these combos.
         sql = f"""
             SELECT id, name, path, type
@@ -140,18 +139,6 @@ def save_or_create_artifacts(db, artifacts, saveTo):
 
     # 5) Do a single multi-row UPDATE for those that matched
     if update_list:
-        # We'll do something like:
-        # UPDATE Artifact
-        #     SET name=?, path=?, value=?, type=?
-        # WHERE id=?
-        #
-        # but we have to do one row at a time in SQLite unless
-        # we set up a trick using CASE. For clarity, we'll do
-        # one multi-statement approach. It's still fewer queries
-        # than updating each artifact individually outside a transaction.
-        #
-        # If we really want one statement, we can build a giant CASE, but
-        # that's usually more trouble than it's worth.
         for name, path, value, type_, row_id in update_list:
             db.execute(
                 """
