@@ -263,7 +263,13 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
   }
 
   function onEscapeFocusOnArticleDiv() {
-    wrapperRef.current.focus({ preventScroll: true });
+    // Need the requestAnimationFrame to prevent scroll
+    // in certain cases. Specifically, if you zoom in so that the code area
+    // doesn't fit on screen, and then select some code and then press escape,
+    // it'll scroll if you don't have the requestAnimationFrame
+    requestAnimationFrame(() => {
+      wrapperRef.current.focus({ preventScroll: true });
+    });
   }
 
   return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
