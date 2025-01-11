@@ -4,7 +4,10 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";
 import { sendMessage } from "requests/websocket";
-import { getSectionInfo } from "state/actions/sectionInfos";
+import {
+  getSectionInfo,
+  getSectionPathFullName,
+} from "state/actions/sectionInfos";
 import { useSectionInfos, useWebsocketConnectionList } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import {
@@ -18,10 +21,22 @@ import { generateParamSweepCombinations } from "./generateParamSweepCombinations
 import { generateSectionParamSweepVersionCombinations } from "./generateSectionParamSweepVersionCombinations";
 import { getProjectData } from "./saveProject";
 
-export function getProjectDataToGenerateCode({ includeInfoToFullName = true }) {
+export function getProjectDataToGenerateCode({
+  includeInfoToFullName = true,
+  includeSectionPathFullNames = true,
+}) {
   const project = getProjectData({});
   if (includeInfoToFullName) {
-    project["infoToFullName"] = computeInfoToFullName(project);
+    project.infoToFullName = computeInfoToFullName(project);
+  }
+  if (includeSectionPathFullNames) {
+    project.sectionPathFullNames = {};
+    for (const s of Object.values(project.sections)) {
+      project.sectionPathFullNames[s.id] = getSectionPathFullName(
+        s.id,
+        useSectionInfos.getState(),
+      );
+    }
   }
   // console.log(project);
   return project;
@@ -29,7 +44,7 @@ export function getProjectDataToGenerateCode({ includeInfoToFullName = true }) {
 
 export async function sendRunCodeMessage(project, messageIdx = 0) {
   const codeRunId = createNewId();
-  project["infoToFullName"] = computeInfoToFullName(project);
+  project.infoToFullName = computeInfoToFullName(project);
   let message = {
     id: codeRunId,
     messageType: C.WS_RUN_CODE,

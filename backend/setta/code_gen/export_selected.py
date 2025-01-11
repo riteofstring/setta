@@ -326,6 +326,12 @@ class Exporter:
                 self.output[var_name] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
                 children = get_section_children(self.p, id)
+                children = [
+                    c
+                    for c in children
+                    if get_section_type(self.p, c)
+                    in [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.GROUP]
+                ]
                 info["value"] = self.export_sections(children)
                 info["dependencies"] = info["value"]
                 info[

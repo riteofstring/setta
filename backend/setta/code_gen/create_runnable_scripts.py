@@ -9,7 +9,7 @@ from setta.code_gen.export_selected import (
     get_section_type,
     get_selected_section_variant,
 )
-from setta.code_gen.find_placeholders import tp
+from setta.code_gen.find_placeholders import remove_tp, tp
 from setta.code_gen.python.generate_code import (
     convert_var_names_to_readable_form,
     generate_code,
@@ -48,15 +48,15 @@ def runCode(message):
         ]
 
     print("runCodeBlocks", p["runCodeBlocks"], flush=True)
-    section_dependencies = {k: v["section_dependencies"] for k, v in code_dict.items()}
-    section_dependencies = prune_dict(section_dependencies, p["runCodeBlocks"])
-
-    to_write = topological_sort(section_dependencies)
+    to_write, section_dependencies = prune_and_topological_sort(
+        code_dict, p["runCodeBlocks"]
+    )
     id_to_relpath = {}
     for sid in to_write:
         curr_code = code_dict[sid]
+        sanitized_name = sanitize_section_path_full_name(p["sectionPathFullNames"][sid])
         rel_path = write_code_to_file(
-            folder_path, curr_code["name"], curr_code["code"], curr_code["codeLanguage"]
+            folder_path, sanitized_name, curr_code["code"], curr_code["codeLanguage"]
         )
         id_to_relpath[sid] = rel_path
 
@@ -257,12 +257,11 @@ def get_template_var_replacement_value_fn(
                 )
             else:
                 section_dependencies.append(template_var["sectionId"])
-                module_path = convert_folder_path_to_module_path(folder_path)
-                keyword = keyword.lstrip(C.TEMPLATE_PREFIX)
-                return f"{module_path}.{keyword}"
+                keyword = remove_tp(keyword)
+                return construct_module_path(folder_path, keyword)
         elif codeLanguage == "bash":
             section_dependencies.append(template_var["sectionId"])
-            keyword = keyword.lstrip(C.TEMPLATE_PREFIX)
+            keyword = sanitize_section_path_full_name(remove_tp(keyword))
             return codePathStr(Path(os.path.relpath(folder_path)), keyword, "python")
 
     return get_template_var_replacement_value
@@ -346,6 +345,12 @@ def create_wrapper_bash_script(folder_path, run_order, code_dict):
     return write_code_to_file(folder_path, "SETTA_ENTRY", bash_script, "bash")
 
 
+def prune_and_topological_sort(code_dict, to_keep):
+    section_dependencies = {k: v["section_dependencies"] for k, v in code_dict.items()}
+    section_dependencies = prune_dict(section_dependencies, to_keep)
+    return topological_sort(section_dependencies), section_dependencies
+
+
 def topological_sort(objects):
     graph = {id: refs for id, refs in objects.items()}
     visiting, visited = set(), set()
@@ -415,3 +420,24 @@ def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name
         )
         code = setup_code + code
     return code, setup_code
+
+
+def construct_module_path(folder_path, section_path_full_name):
+    module_path = convert_folder_path_to_module_path(folder_path)
+    filename = sanitize_section_path_full_name(section_path_full_name)
+    return f"{module_path}.{filename}"
+
+
+def sanitize_section_path_full_name(name):
+    # Replace brackets, quotes and other invalid chars with underscores
+    invalid_chars = "[]\"' "
+    name = "".join("_" if c in invalid_chars else c for c in name)
+
+    # Remove consecutive underscores
+    while "__" in name:
+        name = name.replace("__", "_")
+
+    # Remove leading/trailing underscores
+    name = name.strip("_")
+
+    return name
