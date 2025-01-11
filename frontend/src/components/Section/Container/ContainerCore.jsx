@@ -125,7 +125,7 @@ function ContainerGroup({
       </div>
 
       {!hasNested && (
-        <div className="z-10 -mx-4 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-setta-500/80 dark:border-setta-700 dark:text-setta-500">
+        <div className="z-10 -mx-4 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-sm text-setta-500/80 dark:border-setta-700 dark:text-setta-500">
           Drop A Section Here.
         </div>
       )}
@@ -138,10 +138,10 @@ function ContainerGroup({
 function GroupSectionTitle({ sectionId }) {
   const titleProps = {
     editing:
-      "absolute nodrag cursor-text box-border px-3 focus-visible:ring-0 focus-visible:outline-none focus-visible:border-blue-500 rounded-full border border-solid border-transparent w-full text-2xl tracking-tighter text-setta-500 dark:text-setta-500 cursor-pointer flex-shrink",
+      "absolute nodrag cursor-text box-border px-1 focus-visible:ring-0 focus-visible:outline-none focus-visible:border-blue-500 rounded-lg border border-solid border-transparent w-full tracking-tighter text-setta-500 dark:text-setta-500 cursor-pointer flex-shrink",
 
     notEditing:
-      "absolute cursor-pointer box-border px-3 focus-visible:ring-0 focus-visible:outline-none focus-visible:border-blue-500 rounded-full border border-solid border-transparent w-full truncate text-2xl tracking-tighter text-setta-500 dark:text-setta-500 cursor-pointer flex-shrink",
+      "absolute cursor-pointer box-border px-1 focus-visible:ring-0 focus-visible:outline-none focus-visible:border-blue-500 rounded-lg border border-solid border-transparent w-full truncate tracking-tighter text-setta-500 dark:text-setta-500 cursor-pointer flex-shrink",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
