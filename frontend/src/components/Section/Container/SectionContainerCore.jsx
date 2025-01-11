@@ -29,7 +29,7 @@ function _SectionContainerCore({ sectionId }) {
   const boxShadow = !positionAndSizeLocked
     ? isActiveSection
       ? "shadow-2xl dark:shadow-setta-925"
-      : "shadow-md dark:shadow-setta-900/30 active:shadow-2xl dark:active:shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)]"
+      : "shadow-md dark:shadow-setta-900/30 [&:active:not(:has(button:active))]:shadow-2xl dark:[&:active:not(:has(button:active))]:shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)]"
     : "";
 
   const outlineColor = getOutlineColor({
@@ -42,7 +42,7 @@ function _SectionContainerCore({ sectionId }) {
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   return (
     <section
-      className={`group/card-section shadow-setta transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} border  bg-white  dark:bg-setta-925 ${boxShadow} dndline w-min outline outline-4  ${outlineColor} `}
+      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} border  bg-white  dark:bg-setta-925 ${boxShadow} dndline w-min outline outline-4 ${outlineColor} `}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
       ref={refForPosition}
     >
