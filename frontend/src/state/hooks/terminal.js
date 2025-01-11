@@ -30,7 +30,7 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
   useEffect(() => {
     const terminal = new Terminal({
       cursorBlink: true,
-      theme: theme,
+      theme: terminalTheme,
       // fontFamily: fontFamily,
       // letterSpacing: "0",
       // fontSize: "14",
@@ -106,7 +106,7 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
   return terminalRef;
 }
 
-function useFitAddon() {
+export function useFitAddon() {
   const fitAddon = useRef(null);
 
   if (!fitAddon.current) {
@@ -161,7 +161,7 @@ function newTerminalWebsocket(sectionId) {
   return { ws, wsId: id };
 }
 
-const theme = {
+export const terminalTheme = {
   foreground: "#B8C2D5",
   // background: "#0D1016",
   background: "#06070A",

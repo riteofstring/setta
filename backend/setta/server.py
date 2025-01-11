@@ -22,6 +22,7 @@ from setta.lsp.utils import (
 from setta.routers import (
     artifact_router,
     code_info_router,
+    in_memory_fn_stdout_router,
     interactive_code_router,
     projects_router,
     reference_renaming_router,
@@ -49,7 +50,7 @@ async def lifespan(app: FastAPI):
     app.state.lsp_writers = create_lsp_writers(app.state.lsps)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager()
-    app.state.tasks = Tasks(app.state.lsp_writers, app.state.websocket_manager)
+    app.state.tasks = Tasks(app.state.lsp_writers)
     app.state.lsp_readers = create_lsp_readers(
         app.state.lsps, app.state.websocket_manager
     )
@@ -117,6 +118,7 @@ app.include_router(settings_router, **kwargs)
 app.include_router(interactive_code_router, **kwargs)
 app.include_router(artifact_router, **kwargs)
 app.include_router(reference_renaming_router, **kwargs)
+app.include_router(in_memory_fn_stdout_router, **kwargs)
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988

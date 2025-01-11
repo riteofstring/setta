@@ -5,7 +5,6 @@ from typing import Dict
 
 from setta.cli.logger import default_section_type
 from setta.database.utils import create_new_id
-from setta.utils.constants import C
 
 from . import fns
 from .fns.utils import TaskDefinition, TaskMessage
@@ -14,21 +13,46 @@ from .utils import SettaInMemoryFnSubprocess, add_fns_from_module
 
 
 class Tasks:
-    def __init__(self, lsp_writers, websocket_manager):
+    def __init__(self, lsp_writers):
         self.lsp_writers = lsp_writers
-        self.websocket_manager = websocket_manager
         self.task_runner = TaskRunner()
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
         self.in_memory_subprocess = SettaInMemoryFnSubprocess()
+        self.websockets = []  # Store the websocket connections
         add_fns_from_module(self.fns, fns)
 
         # Start stdout listener thread
         self._stop_event = asyncio.Event()
         self.stdout_queue = queue.Queue()  # regular Queue
-        self._stdout_processor_task = asyncio.create_task(self._process_stdout_queue())
+        self._stdout_processor_task = None
         self.stdout_thread = threading.Thread(target=self._stdout_listener, daemon=True)
         self.stdout_thread.start()
+
+    # Backend Changes (Tasks class)
+    async def connect(self, websocket):
+        # Accept the new connection
+        await websocket.accept()
+        self.websockets.append(websocket)
+
+        # Start the processor task if it's not running
+        if self._stdout_processor_task is None or self._stdout_processor_task.done():
+            self._stdout_processor_task = asyncio.create_task(
+                self._process_stdout_queue()
+            )
+
+
+    async def disconnect(self, websocket):
+        self.websockets.remove(websocket)
+        if len(self.websockets) == 0:
+            # Cancel the processor task
+            if self._stdout_processor_task and not self._stdout_processor_task.done():
+                self._stdout_processor_task.cancel()
+                try:
+                    await self._stdout_processor_task
+                except asyncio.CancelledError:
+                    pass
+                self._stdout_processor_task = None
 
     def _stdout_listener(self):
         while not self._stop_event.is_set():
@@ -45,17 +69,13 @@ class Tasks:
             try:
                 if self._stop_event.is_set():
                     break
-                try:
+                if len(self.websockets) > 0:
                     stdout_data = self.stdout_queue.get_nowait()
-                    await self.websocket_manager.broadcast(
-                        {
-                            "content": stdout_data,
-                            "messageType": C.WS_IN_MEMORY_FN_STDOUT,
-                        }
-                    )
+                    for w in self.websockets:
+                        await w.send_text(stdout_data)
                     self.stdout_queue.task_done()
-                except queue.Empty:
-                    await asyncio.sleep(0.1)  # Check for cancellation every 100ms
+            except queue.Empty:
+                await asyncio.sleep(0.1)  # Check for connection every 100ms
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -126,4 +146,5 @@ class Tasks:
         self._stop_event.set()
         self.in_memory_subprocess.close()
         self.stdout_thread.join()
-        self._stdout_processor_task.cancel()
+        if self._stdout_processor_task:
+            self._stdout_processor_task.cancel()
