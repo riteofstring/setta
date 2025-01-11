@@ -1,14 +1,17 @@
 import black
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from pathlib import Path
+import sys
 
-from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
+from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections, prune_and_topological_sort
 from setta.code_gen.export_selected import (
     export_for_in_memory_fn,
     export_selected,
     get_section_code,
     get_section_type,
 )
+from setta.code_gen.find_placeholders import remove_tp, tp
 from setta.tasks.fns.utils import replace_template_vars_with_random_names
 from setta.utils.constants import C
 from setta.utils.utils import multireplace
@@ -26,7 +29,7 @@ class FormatCodeRequest(BaseModel):
     project: dict
     candidateTemplateVars: dict
 
-
+from pprint import pprint
 @router.post(C.ROUTE_UPDATE_INTERACTIVE_CODE)
 async def route_update_interactive_code(
     x: UpdateInteractiveCodeRequest, tasks=Depends(get_tasks)
@@ -36,26 +39,49 @@ async def route_update_interactive_code(
         p, always_export_args_objs=False, force_include_template_var=True
     )
     exporter_obj_in_memory = export_for_in_memory_fn(p)
-    code_dict = generate_final_code_for_sections(
-        p,
-        exporter_obj,
-        "",
-        do_prepend_with_setup_code=False,
-        do_convert_var_names_to_readable_form=True,
-    )
-
-    code_dict = {
-        k: v["code"] for k, v in code_dict.items() if k in p["importCodeBlocks"]
-    }
 
     projectConfigName = x.project["projectConfig"]["name"]
 
+    template_var_replacement_values = {}
+    for variant in p["sectionVariants"]:
+        for t in variant["templateVars"]:
+            keyword = remove_tp(t["keyword"])
+            template_var_replacement_values[keyword] = f"setta_in_memory_{projectConfigName}_{keyword}"
+
+
+    code_dict = generate_final_code_for_sections(
+        p,
+        exporter_obj,
+        None,
+        do_prepend_with_setup_code=False,
+        do_convert_var_names_to_readable_form=True,
+        template_var_replacement_values=template_var_replacement_values
+    )
+
+    to_import, _ = prune_and_topological_sort(code_dict, p["importCodeBlocks"])
+    code_list = []
+    for section_id in to_import:
+        v = code_dict[section_id]
+        task_name = template_var_replacement_values[tp()]
+        code_list.append(
+            {
+                "task_name": task_name,
+                "code": v["code"],
+                "module_name": task_name,
+                "add_to_sys_modules": True,
+            }
+        )
+
+    print([v["task_name"] for v in code_list])
+
     metadata, error_msgs, content = await tasks.add_custom_fns(
-        code_dict,
-        projectConfigName,
+        code_list,
         task_metadata_fn=get_task_metadata_fn(exporter_obj_in_memory),
         to_cache=exporter_obj_in_memory,
     )
+
+    print("error_msgs", error_msgs, flush=True)
+
     return {"metadata": metadata, "errorMsgs": error_msgs, "content": content}
 
 

@@ -1,20 +1,20 @@
-from setta.cli import Setta
-import time
+# from setta.cli import Setta
+# import time
 
-from setta.cli.logger import SettaImg, SettaList, pil_to_setta_img
+# from setta.cli.logger import SettaImg, SettaList, pil_to_setta_img
 
-logger = Setta(send_data_to="/diffusionDrops")
+# logger = Setta(send_data_to="/diffusionDrops")
 
-print("logger.root_path", logger.root_path)
-print("logger.send_data_to", logger.send_data_to)
+# print("logger.root_path", logger.root_path)
+# print("logger.send_data_to", logger.send_data_to)
 
-all_data = {"size": [], "elephant": []}
+# all_data = {"size": [], "elephant": []}
 
-for i in range(100):
-    all_data["size"].append(i)
-    all_data["elephant"].append(i*3)
-    logger.log({"frogdog": SettaList(all_data)}, save_to="db")
-    time.sleep(1)
+# for i in range(100):
+#     all_data["size"].append(i)
+#     all_data["elephant"].append(i*3)
+#     logger.log({"frogdog": SettaList(all_data)}, save_to="db")
+#     time.sleep(1)
 
 # from PIL import Image
 # import numpy as np

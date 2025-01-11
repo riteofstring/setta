@@ -48,10 +48,7 @@ def runCode(message):
         ]
 
     print("runCodeBlocks", p["runCodeBlocks"], flush=True)
-    section_dependencies = {k: v["section_dependencies"] for k, v in code_dict.items()}
-    section_dependencies = prune_dict(section_dependencies, p["runCodeBlocks"])
-
-    to_write = topological_sort(section_dependencies)
+    to_write, section_dependencies = prune_and_topological_sort(code_dict, p["runCodeBlocks"])
     id_to_relpath = {}
     for sid in to_write:
         curr_code = code_dict[sid]
@@ -180,6 +177,8 @@ def generate_final_code_for_section(
         ),
     )
 
+    print(code, flush=True)
+
     if codeLanguage == "python":
         if do_prepend_with_setup_code:
             code, setup_code = prepend_with_setup_code(
@@ -221,6 +220,7 @@ def get_template_var_replacement_value_fn(
         code, template_var, ref_template_var_positions
     ):
         keyword = template_var["keyword"]
+        print("keyword", keyword, flush=True)
         if keyword in template_var_replacement_values:
             return template_var_replacement_values[keyword]
         if codeLanguage == "python":
@@ -258,11 +258,11 @@ def get_template_var_replacement_value_fn(
             else:
                 section_dependencies.append(template_var["sectionId"])
                 module_path = convert_folder_path_to_module_path(folder_path)
-                keyword = keyword.lstrip(C.TEMPLATE_PREFIX)
+                keyword = sanitize_template_var(remove_tp(keyword))
                 return f"{module_path}.{keyword}"
         elif codeLanguage == "bash":
             section_dependencies.append(template_var["sectionId"])
-            keyword = keyword.lstrip(C.TEMPLATE_PREFIX)
+            keyword = sanitize_template_var(remove_tp(keyword))
             return codePathStr(Path(os.path.relpath(folder_path)), keyword, "python")
 
     return get_template_var_replacement_value
@@ -415,3 +415,18 @@ def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name
         )
         code = setup_code + code
     return code, setup_code
+
+
+def sanitize_template_var(name):
+    # Replace brackets, quotes and other invalid chars with underscores
+    invalid_chars = '[]"\' '
+    name = ''.join('_' if c in invalid_chars else c for c in name)
+    
+    # Remove consecutive underscores
+    while '__' in name:
+        name = name.replace('__', '_')
+    
+    # Remove leading/trailing underscores
+    name = name.strip('_')
+    
+    return name
