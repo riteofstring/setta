@@ -85,11 +85,11 @@
     },
     "8055d10b-3623-4665-b85c-977327fa40c6": {
       "name": "involved_red",
-      "code": "from setta.tasks.fns import SettaMemoryFn\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    blur_radius = float(data[\"blur_radius\"])\n    img = data[\"royal_orange\"][0][\"value\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"name\": \"blurredImg\"}]}\n\n\ninteractive_example = SettaMemoryFn(fn=fn)"
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    blur_radius = float(data[\"blur_radius\"])\n    img = data[\"royal_orange\"][0][\"value\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"name\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)"
     },
     "91b7814e-8f93-4ad1-a966-00851b4e41d9": {
       "name": "victorious_white",
-      "code": "from setta.tasks.fns import SettaMemoryFn\n\ndef fn(message):\n    data = message.content\n    c = float(data[\"c\"])\n    n = int(data[\"n\"])\n    value = [((i - 10) / 5) ** c for i in range(n)]\n    return_content = {\"value\": value, \"type\": \"list\", \"name\": \"Fancy Graph\"}\n    return {\"content\": [return_content]}\n\n\ninteractive_example = SettaMemoryFn(fn=fn)"
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\ndef fn(message):\n    data = message.content\n    c = float(data[\"c\"])\n    n = int(data[\"n\"])\n    value = [((i - 10) / 5) ** c for i in range(n)]\n    return_content = {\"value\": value, \"type\": \"list\", \"name\": \"Fancy Graph\"}\n    return {\"content\": [return_content]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)"
     },
     "efbf1e64-8932-4fa6-928a-e930314db45c": {
       "name": "tropical_harlequin"
