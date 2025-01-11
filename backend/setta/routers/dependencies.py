@@ -9,20 +9,16 @@ def get_tasks(request: Request):
     return request.app.state.tasks
 
 
-def get_tasks_from_websocket(websocket: WebSocket):
-    return websocket.app.state.tasks
-
-
 def get_settings_file(request: Request):
     return request.app.state.settings_file
 
 
-def get_terminal_websockets(request: Request):
-    return request.app.state.terminal_websockets
-
-
 def get_terminal_websockets_from_websocket(websocket: WebSocket):
     return websocket.app.state.terminal_websockets
+
+
+def get_terminal_websockets(request: Request):
+    return request.app.state.terminal_websockets
 
 
 def get_websocket_manager(request: Request):

@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { dbRequestTypeCheck } from "requests/sections";
 import { initializeGlobalSectionColumnWidthEventListeners } from "state/actions/sectionColumnWidth";
 import { useLoadProjectConfig } from "state/hooks/project";
-import { restoreTerminals } from "state/hooks/terminals/terminal";
+import { restoreTerminals } from "state/hooks/terminal";
 import { Overview } from "../../../components/Panes/Overview/Overview";
 import { UiEditor } from "../../../components/Panes/UiEditor/UiEditor";
 import { NotFound } from "../NotFound/NotFound";

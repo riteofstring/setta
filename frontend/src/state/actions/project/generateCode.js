@@ -13,7 +13,7 @@ import { getForSectionId } from "state/hooks/paramSweep";
 import {
   addTerminalInitialMessage,
   sendTerminalMessage,
-} from "state/hooks/terminals/terminal";
+} from "state/hooks/terminal";
 import { createNewId } from "utils/idNameCreation";
 import { templatePrefix } from "utils/utils";
 import { addSectionInEmptySpace } from "../sections/createSections";

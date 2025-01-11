@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
 from setta.utils.constants import C
 
-from .dependencies import get_tasks_from_websocket, get_websocket_manager_from_websocket
+from .dependencies import get_websocket_manager_from_websocket
 
 router = APIRouter()
 
@@ -14,7 +14,6 @@ router = APIRouter()
 async def websocket_endpoint(
     websocket: WebSocket,
     websocket_manager=Depends(get_websocket_manager_from_websocket),
-    tasks=Depends(get_tasks_from_websocket),
 ):
     print("regular websocket", websocket)
     id = await websocket_manager.connect(websocket)
@@ -22,9 +21,7 @@ async def websocket_endpoint(
         try:
             data = await websocket.receive_text()
             print("received message", flush=True)
-            await websocket_manager.send_message(
-                json.loads(data), fromWebsocketId=id, tasks=tasks
-            )
+            await websocket_manager.send_message(json.loads(data), fromWebsocketId=id)
         except WebSocketDisconnect:
             print("WebSocketDisconnect!", flush=True)
             await websocket_manager.disconnect(id)

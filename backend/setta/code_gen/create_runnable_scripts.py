@@ -100,7 +100,6 @@ def generate_final_code_for_sections(
         and code_gen_template_var_section_details["section"]["id"] is None
     ):
         code_sections[None] = code_gen_template_var_section_details["section"]
-        p["sectionPathFullNames"][None] = code_sections[None]["name"]
 
     code_dict = {}
     for s in code_sections.values():
@@ -424,7 +423,8 @@ def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name
         setup_code = (
             "import sys\n"
             "import os\n"
-            "sys.path.append(os.getcwd())\n"
+            "from pathlib import Path\n"
+            "sys.path.append(str(Path(__file__).parent.parent.parent))\n"
             f"os.environ['{SEND_ARTIFACT_TO_ENV_VARIABLE}'] = '{location}'\n"
             f"os.environ['{CODE_FOLDER_ENV_VARIABLE}'] = '{folder_path}'\n"
         )

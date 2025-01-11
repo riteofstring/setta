@@ -10,9 +10,10 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class WebsocketManager:
-    def __init__(self):
+    def __init__(self, tasks):
         self.sockets = {}
         self.server_cli_id = "main"
+        self.tasks = tasks
         self.message_id_to_sender_id = {}
 
     async def connect(self, websocket: WebSocket):
@@ -35,14 +36,14 @@ class WebsocketManager:
         except ConnectionClosedError:
             pass
 
-    async def send_message(self, message, fromWebsocketId, tasks):
+    async def send_message(self, message, fromWebsocketId):
         if "toWebsocketId" in message:
             if "id" in message:
                 self.message_id_to_sender_id[message["id"]] = fromWebsocketId
             wid = message["toWebsocketId"]
             if wid == self.server_cli_id:
                 # process task and send any results back to requester
-                result = await tasks(
+                result = await self.tasks(
                     message["messageType"], TaskMessage.parse_obj(message)
                 )
                 if "content" in result:
