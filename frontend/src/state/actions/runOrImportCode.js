@@ -45,7 +45,7 @@ export async function runCodeBlocks(sectionIds) {
   await sendRunCodeMessage(project);
 }
 
-export async function runOrImportAllCodeSections() {
+export async function runOrImportAllCode() {
   const project = getProjectDataToGenerateCode({
     includeInfoToFullName: false,
   });
@@ -56,7 +56,7 @@ export async function runOrImportAllCodeSections() {
   }
 }
 
-export function runOrImportActiveCodeSections() {
+export function runOrImportActiveCode() {
   const inMemory = [];
   const asSubprocess = [];
   for (const id of useActiveSection.getState().ids) {
