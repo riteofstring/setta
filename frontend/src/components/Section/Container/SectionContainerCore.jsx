@@ -4,7 +4,6 @@ import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useActiveSection, useSectionInfos } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT } from "utils/constants";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { getOnSectionClick, getOutlineColor } from "./utils";
@@ -30,7 +29,7 @@ function _SectionContainerCore({ sectionId }) {
   const boxShadow = !positionAndSizeLocked
     ? isActiveSection
       ? "shadow-2xl dark:shadow-setta-925"
-      : `shadow-md dark:shadow-setta-900/30 [&:active:not(:has(button:active,:active.${SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT}))]:shadow-2xl dark:[&:active:not(:has(button:active,:active.${SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT}))]:shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)]`
+      : "shadow-md dark:shadow-setta-900/30 [&:active:not(:has(button:active,:active.setta-custom-resizable-handle-component))]:shadow-2xl dark:[&:active:not(:has(button:active,:active.setta-custom-resizable-handle-component))]:shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)]"
     : "";
 
   const outlineColor = getOutlineColor({
