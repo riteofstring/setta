@@ -10,7 +10,10 @@ import remarkMath from "remark-math";
 import { useSectionInfos } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { getInfoAreaDescription } from "state/hooks/sectionVariants";
-import { SECTION_DISPLAY_MODES } from "utils/constants";
+import {
+  SECTION_DISPLAY_MODES,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+} from "utils/constants";
 
 function _InfoArea({ sectionId }) {
   const displayMode = useSectionInfos((x) => x.x[sectionId].displayMode);
@@ -30,7 +33,7 @@ function _Markdown({ sectionId }) {
 
   const { ref, isScrollable } = useIsScrollable();
 
-  const wrapperClassName = `section-main -mt-1  nodrag ${isScrollable ? "nowheel" : ""} -mr-[13px] pr-4 mb-3 ml-1 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
+  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-main -mt-1  nodrag ${isScrollable ? "nowheel" : ""} -mr-[13px] pr-4 mb-3 ml-1 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
 
   // the classes "prose-code:before:hidden prose-code:after:hidden" are needed to prevent backticks from appearing
   // https://github.com/tailwindlabs/tailwindcss-typography/issues/18#issuecomment-1280797041

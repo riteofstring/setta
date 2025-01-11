@@ -8,7 +8,8 @@ import { localStorageFns } from "state/hooks/localStorage";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import {
   NO_PAN_CLASS_NAME,
-  SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "./utils";
@@ -194,8 +195,8 @@ function CustomResizableSuperCore({
       handleStyles={{ right: { right: "-8px" }, bottom: { bottom: "-8px" } }}
       handleClasses={{
         // used in ZoomPane to allow resizing of sections that are inside a position-locked section
-        right: `${SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT} ${NO_PAN_CLASS_NAME}`,
-        bottom: `${SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT} ${NO_PAN_CLASS_NAME}`,
+        right: `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`,
+        bottom: `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`,
       }}
       grid={snapToGrid ? snapGrid : null}
     >

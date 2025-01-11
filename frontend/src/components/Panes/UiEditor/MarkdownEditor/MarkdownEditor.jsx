@@ -12,6 +12,7 @@ import { getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSettings } from "state/definitions";
 import { useInfoAreaDescriptionAndEditability } from "state/hooks/sectionVariants";
+import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 
 export function MarkdownEditorInPane({ sectionId }) {
   const wrapperRef = useRef(); // used by onTabOnEnterKeyHandlers
@@ -35,7 +36,7 @@ export function MarkdownEditorInSection({ sectionId }) {
       onCreateEditor={handleCreateEditor}
       maxHeight={maxHeight}
       ref={wrapperRef}
-      wrapperClassName={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
+      wrapperClassName={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
     />
   );
 }

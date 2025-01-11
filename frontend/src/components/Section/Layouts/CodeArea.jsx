@@ -25,6 +25,7 @@ import {
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useMisc, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import { asyncDebounce } from "utils/utils";
 
 function _CodeArea({ sectionId }) {
@@ -128,7 +129,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   return (
     <article
       ref={wrapperRef}
-      className={`nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
+      className={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow} ${nowheel}`}
       tabIndex="0"
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >

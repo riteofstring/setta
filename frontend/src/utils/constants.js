@@ -131,8 +131,10 @@ export const PAGE_LOAD_TYPES = {
 export const NO_DRAG_CLASS_NAME = "nodrag";
 export const NO_WHEEL_CLASS_NAME = "nowheel";
 export const NO_PAN_CLASS_NAME = "nopan";
-export const SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT =
-  "setta-custom-resizable-handle-component";
+export const SETTA_PREVENT_SECTION_ACTIVE_CSS =
+  "setta-prevent-section-active-css";
+export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
+  "setta-prevent-section-on-click-trigger";
 
 export const SECTION_DISPLAY_MODES = {
   RENDER: "RENDER",
