@@ -10,13 +10,6 @@ def get_artifact_value_for_db(artifact, saveTo):
 
 
 def save_or_create_artifacts(db, artifacts, saveTo):
-    # We want fewer round-trips to the DB, so we'll process
-    # all artifacts with an id in one multi-row upsert,
-    # and handle those without an id in another pass.
-    # This assumes we do not have a uniqueness constraint
-    # on (name, path, type). If we did, we could do a single
-    # multi-row upsert on that as well.
-
     # We'll maintain output IDs in the same order as input.
     result_ids = [None] * len(artifacts)
 
@@ -31,30 +24,30 @@ def save_or_create_artifacts(db, artifacts, saveTo):
 
     # Upsert everything that already has an id in a single query
     if with_id:
-        # Build a multi-row INSERT ... ON CONFLICT (id) DO UPDATE
-        values_clause = []
-        params = []
-        for i, art in with_id:
-            values_clause.append("(?, ?, ?, ?, ?)")
-            params.extend(
-                [
-                    art["id"],
-                    art["name"],
-                    art["path"],
-                    get_artifact_value_for_db(art, saveTo),
-                    art["type"],
-                ]
+        # Build parameters for executemany
+        params = [
+            (
+                art["id"],
+                art["name"],
+                art["path"],
+                get_artifact_value_for_db(art, saveTo),
+                art["type"],
             )
-        sql = f"""
+            for _, art in with_id
+        ]
+
+        db.executemany(
+            """
             INSERT INTO Artifact (id, name, path, value, type)
-            VALUES {", ".join(values_clause)}
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE
             SET name=excluded.name,
                 path=excluded.path,
                 value=excluded.value,
                 type=excluded.type
-        """
-        db.execute(sql, params)
+            """,
+            params,
+        )
 
         # Record the final IDs in the output array
         for i, art in with_id:
@@ -103,11 +96,11 @@ def save_or_create_artifacts(db, artifacts, saveTo):
     #    or create a new row with a new id in two bulk steps.
 
     # Step 4A: Those that match existing row -> we'll collect them for a single update
-    update_list = []  # (name, path, value, type, existing_id)
+    update_list = []  # (name, path, value, type, id)
     update_map = {}  # index -> id
 
     # Step 4B: Those that don't match -> we'll create new id and do a bulk insert
-    insert_list = []  # (new_id, name, path, value, type)
+    insert_list = []  # (id, name, path, value, type)
     insert_map = {}  # index -> new_id
 
     for i, art in without_id:
@@ -125,7 +118,7 @@ def save_or_create_artifacts(db, artifacts, saveTo):
             )
             update_map[i] = matched_id
         else:
-            new_id = create_new_id()  # assume this is defined elsewhere
+            new_id = create_new_id()
             insert_list.append(
                 (
                     new_id,
@@ -137,31 +130,26 @@ def save_or_create_artifacts(db, artifacts, saveTo):
             )
             insert_map[i] = new_id
 
-    # 5) Do a single multi-row UPDATE for those that matched
+    # 5) Do a bulk UPDATE for those that matched using executemany
     if update_list:
-        for name, path, value, type_, row_id in update_list:
-            db.execute(
-                """
-                UPDATE Artifact
-                SET name=?, path=?, value=?, type=?
-                WHERE id=?
+        db.executemany(
+            """
+            UPDATE Artifact
+            SET name=?, path=?, value=?, type=?
+            WHERE id=?
             """,
-                (name, path, value, type_, row_id),
-            )
+            update_list,
+        )
 
-    # 6) Do a single multi-row INSERT for those that didn't match
+    # 6) Do a bulk INSERT for those that didn't match using executemany
     if insert_list:
-        # Build multi-row insert statement
-        values_clause = []
-        params = []
-        for aid, n, p, v, t in insert_list:
-            values_clause.append("(?, ?, ?, ?, ?)")
-            params.extend([aid, n, p, v, t])
-        sql = f"""
+        db.executemany(
+            """
             INSERT INTO Artifact (id, name, path, value, type)
-            VALUES {", ".join(values_clause)}
-        """
-        db.execute(sql, params)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            insert_list,
+        )
 
     # Fill in result_ids for the ones without id
     for i, art in without_id:
