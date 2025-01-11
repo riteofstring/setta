@@ -52,7 +52,7 @@ export function getOutlineColor({
     return "outline-blue-600 dark:outline-blue-700";
   }
 
-  return `outline-transparent [&:active:not(:has(button:active))]:outline-cyan-300`;
+  return `outline-transparent active:outline-cyan-300`;
 }
 
 export function getOnSectionClick(sectionId, isActiveSection) {

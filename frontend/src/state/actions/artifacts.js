@@ -15,36 +15,15 @@ import {
 import { getSectionType } from "./sectionInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
-export function updateArtifacts({ artifacts, addSection = false }) {
-  useArtifacts.setState((state) => ({ x: { ...state.x, ...artifacts } }));
-
-  // if (addSection) {
-  //   for (const [id, data] of Object.entries(artifacts)) {
-  //     maybeAddArtifactSection(id, data.sectionType);
-  //   }
-  // }
-}
-
-// function maybeAddArtifactSection(artifactId, sectionType) {
-//   for (const s of Object.values(useSectionInfos.getState().x)) {
-//     if (s.artifactIds.includes(artifactId)) {
-//       return;
-//     }
-//   }
-
-//   addSectionInEmptySpace({
-//     type: sectionType,
-//     sectionProps: { artifactIds: [artifactId] },
-//   });
-// }
-
 export async function loadArtifacts(sectionId, artifactIds, signal) {
   const res = await dbLoadArtifacts(artifactIds);
   if (res.status === 200) {
     const artifactsFromBackend = _.cloneDeep(res.data);
     await prepareArtifactsForRendering(artifactsFromBackend);
     if (signal?.aborted) return;
-    updateArtifacts({ artifacts: artifactsFromBackend });
+    useArtifacts.setState((state) => ({
+      x: { ...state.x, ...artifactsFromBackend },
+    }));
     useSectionInfos.setState((state) => {
       actionAfterSettingSectionArtifacts(artifactIds, sectionId, state);
     });
@@ -211,4 +190,8 @@ function actionAfterSettingSectionArtifacts(artifactIds, sectionId, state) {
       chartSettings.xAxisColumn = columnNames[0];
     }
   }
+}
+
+export function getNamePathTypeKey(artifact) {
+  return JSON.stringify([artifact["name"], artifact["path"], artifact["type"]]);
 }

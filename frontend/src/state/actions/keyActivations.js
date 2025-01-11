@@ -34,10 +34,11 @@ import {
 } from "./activeSections";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
-import { formatCode, updateInteractiveCode } from "./interactive";
+import { formatCode } from "./interactive";
 import { unselectAllParams } from "./kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
+import { runOrImportActiveCode, runOrImportAllCode } from "./runOrImportCode";
 import {
   addGroupInEmptySpace,
   addRegularSectionInEmptySpace,
@@ -400,7 +401,8 @@ export function attachKeyEventListeners() {
     [shortcuts.copyShortcut, copy],
     [shortcuts.pasteShortcut, paste],
     [shortcuts.pasteAsRefShortcut, () => paste({ asRef: true })],
-    [shortcuts.updateInteractiveCode, updateInteractiveCode],
+    [shortcuts.runCodeShortcut, runOrImportActiveCode],
+    [shortcuts.runAllCodeShortcut, runOrImportAllCode],
     [shortcuts.formatCode, formatCode],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, onFitViewHandler],
@@ -533,10 +535,6 @@ export function attachKeyEventListeners() {
   return () => {
     cleanup_functions.forEach((x) => x());
   };
-}
-
-export function variableClick(e) {
-  return e.ctrlKey && !e.shiftKey;
 }
 
 // When you do mod + tab in macos, but change your mind and don't change programs

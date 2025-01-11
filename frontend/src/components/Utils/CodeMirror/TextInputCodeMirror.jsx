@@ -6,7 +6,6 @@ import {
   dbTextFieldInitializeCode,
 } from "requests/sections";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
-import { variableClick } from "state/actions/keyActivations";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getKeywordStylizer } from "./getKeywordStylizer";
@@ -59,8 +58,7 @@ export function TextInputCodeMirror({
       onMouseDown?.(event);
       return;
     }
-    // if (!variableClick(event)) {
-    if (!variableClick(event) && event.button === 0) {
+    if (event.button === 0) {
       setActivationEvent(event);
       setActiveSectionIdAndUpdateZIndex(visualSectionId);
     }

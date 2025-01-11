@@ -6,4 +6,4 @@ from .parametersRequest import parametersRequest
 from .textFieldAutocomplete import textFieldCompletion
 from .textFieldInitializeCode import textFieldInitializeCode
 from .typeCheck import typeCheck
-from .utils import InteractiveTaskDefinition, TaskDefinition
+from .utils import SettaInMemoryFn, TaskDefinition
