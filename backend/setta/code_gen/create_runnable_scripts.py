@@ -424,8 +424,7 @@ def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name
         setup_code = (
             "import sys\n"
             "import os\n"
-            "from pathlib import Path\n"
-            "sys.path.append(str(Path(__file__).parent.parent.parent))\n"
+            "sys.path.append(os.getcwd())\n"
             f"os.environ['{SEND_ARTIFACT_TO_ENV_VARIABLE}'] = '{location}'\n"
             f"os.environ['{CODE_FOLDER_ENV_VARIABLE}'] = '{folder_path}'\n"
         )

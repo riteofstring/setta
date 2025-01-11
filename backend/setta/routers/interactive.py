@@ -54,7 +54,7 @@ async def route_update_interactive_code(
         p,
         exporter_obj,
         "",
-        do_prepend_with_setup_code=False,
+        do_prepend_with_setup_code=True,
         do_convert_var_names_to_readable_form=True,
         template_var_replacement_values=template_var_replacement_values,
     )
