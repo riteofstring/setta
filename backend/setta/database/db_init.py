@@ -1,10 +1,13 @@
+from setta.utils.constants import CONSTANTS_FOLDER
 from setta.utils.utils import get_absolute_path
 
 from .seed import seed
 
 
 def create_tables(db):
-    with open(get_absolute_path(__file__, "./db_init.sql"), "r") as sql_file:
+    with open(
+        get_absolute_path(__file__, CONSTANTS_FOLDER / "db_init.sql"), "r"
+    ) as sql_file:
         sql_script = sql_file.read()
         db.executescript(sql_script)
 
