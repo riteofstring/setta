@@ -14,7 +14,10 @@ function _DndSlotAndDndWatcher({
   dragListeners,
   children,
 }) {
-  const { style, behaviorDropType } = useHighlightDroppable(sectionId);
+  const { style, behaviorDropType } = useHighlightDroppable({
+    sectionId,
+    isGroup,
+  });
 
   return (
     <DndSlot behaviorDropType={behaviorDropType} isGroup={isGroup}>
