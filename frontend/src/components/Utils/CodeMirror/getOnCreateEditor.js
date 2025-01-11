@@ -1,4 +1,5 @@
 import { useReactFlow } from "forks/xyflow/core/store";
+import { variableClick } from "state/actions/keyActivations";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useEVRefRegex } from "state/definitions";
@@ -62,10 +63,10 @@ export function getOnCreateEditor({
   defaultVal,
 }) {
   return (view) => {
-    // view.contentDOM.addEventListener(
-    //   "click",
-    //   getContentDomEventListener(evRefs, view),
-    // );
+    view.contentDOM.addEventListener(
+      "click",
+      getContentDomEventListener(evRefs, view),
+    );
     view.focus();
     if (initialEvent !== "tab") {
       const { clientX, clientY } = initialEvent;

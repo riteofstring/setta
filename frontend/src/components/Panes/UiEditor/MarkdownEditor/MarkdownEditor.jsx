@@ -7,7 +7,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/utils/CodeMirror/useCodeMirrorStyle";
 import C from "constants/constants.json";
 import _ from "lodash";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSettings } from "state/definitions";
