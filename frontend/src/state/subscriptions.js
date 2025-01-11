@@ -83,6 +83,9 @@ export function subscribe() {
         // because that means zoom or x/y position must have changed
         useReactFlow.setState({ fitViewOnInit: false });
       }
+
+      // used by forked xterm to make text appear correctly
+      window.reactFlowZoom = newState.transform[2];
     },
     { equalityFn: _.isEqual },
   );
@@ -130,10 +133,18 @@ export function subscribe() {
 }
 
 function singletonSectionsSubscriptionFn(state) {
-  const output = { [C.GLOBAL_VARIABLES]: null, [C.GLOBAL_PARAM_SWEEP]: null };
+  const output = {
+    [C.GLOBAL_VARIABLES]: null,
+    [C.GLOBAL_PARAM_SWEEP]: null,
+    inMemoryFnStdoutTerminal: null,
+  };
   for (const s of Object.values(state.x)) {
     const uiType = state.uiTypes[s.uiTypeId]?.type;
-    if (output[C.GLOBAL_VARIABLES] && output[C.GLOBAL_PARAM_SWEEP]) {
+    if (
+      output[C.GLOBAL_VARIABLES] &&
+      output[C.GLOBAL_PARAM_SWEEP] &&
+      output.inMemoryFnStdoutTerminal
+    ) {
       break;
     }
     if (!output[C.GLOBAL_VARIABLES] && uiType === C.GLOBAL_VARIABLES) {
@@ -141,6 +152,13 @@ function singletonSectionsSubscriptionFn(state) {
     }
     if (!output[C.GLOBAL_PARAM_SWEEP] && uiType === C.GLOBAL_PARAM_SWEEP) {
       output[C.GLOBAL_PARAM_SWEEP] = s.id;
+    }
+    if (
+      !output.inMemoryFnStdoutTerminal &&
+      uiType === C.TERMINAL &&
+      s.isReadOnlyTerminal
+    ) {
+      output.inMemoryFnStdoutTerminal = s.id;
     }
   }
   return output;

@@ -51,6 +51,7 @@
       "y2AxisLog": false
     },
     "isTemporary": false,
+    "isReadOnlyTerminal": false,
     "renderMarkdown": false,
     "positionAndSizeLocked": false,
     "jsonSource": "",

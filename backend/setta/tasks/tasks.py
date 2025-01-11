@@ -1,14 +1,15 @@
-import json
+import asyncio
+import queue
+import threading
 from typing import Dict
 
 from setta.cli.logger import default_section_type
 from setta.database.utils import create_new_id
-from setta.utils.utils import nested_access
 
 from . import fns
-from .fns.utils import SettaInMemoryFn, TaskDefinition, TaskMessage
+from .fns.utils import TaskDefinition, TaskMessage
 from .task_runner import RunType, TaskRunner
-from .utils import import_code_from_string
+from .utils import SettaInMemoryFnSubprocess, add_fns_from_module
 
 
 class Tasks:
@@ -17,95 +18,133 @@ class Tasks:
         self.task_runner = TaskRunner()
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
-        self.custom_fn_cache = {}
-        self.add_fns_from_module(fns)
+        self.in_memory_subprocess = SettaInMemoryFnSubprocess()
+        self.websockets = []  # Store the websocket connections
+        add_fns_from_module(self.fns, fns)
+
+        # Start stdout listener thread
+        self._stop_event = asyncio.Event()
+        self.stdout_queue = queue.Queue()  # regular Queue
+        self._stdout_processor_task = None
+        self.stdout_thread = threading.Thread(target=self._stdout_listener, daemon=True)
+        self.stdout_thread.start()
+
+    # Backend Changes (Tasks class)
+    async def connect(self, websocket):
+        # Accept the new connection
+        await websocket.accept()
+        self.websockets.append(websocket)
+
+        # Start the processor task if it's not running
+        if self._stdout_processor_task is None or self._stdout_processor_task.done():
+            self._stdout_processor_task = asyncio.create_task(
+                self._process_stdout_queue()
+            )
+
+    async def disconnect(self, websocket):
+        self.websockets.remove(websocket)
+        if len(self.websockets) == 0:
+            # Cancel the processor task
+            if self._stdout_processor_task and not self._stdout_processor_task.done():
+                self._stdout_processor_task.cancel()
+                try:
+                    await self._stdout_processor_task
+                except asyncio.CancelledError:
+                    pass
+                self._stdout_processor_task = None
+
+    def _stdout_listener(self):
+        while not self._stop_event.is_set():
+            try:
+                stdout_data = self.in_memory_subprocess.stdout_parent_conn.recv()
+                self.stdout_queue.put(stdout_data)  # simple put, no async needed
+            except Exception as e:
+                if self._stop_event.is_set():
+                    break
+                print(f"Error in stdout listener: {e}", flush=True)
+
+    async def _process_stdout_queue(self):
+        while not self._stop_event.is_set():
+            try:
+                if self._stop_event.is_set():
+                    break
+                if len(self.websockets) > 0:
+                    stdout_data = self.stdout_queue.get_nowait()
+                    stdout_data = stdout_data.replace("\n", "\r\n")
+                    for w in self.websockets:
+                        await w.send_text(stdout_data)
+                    self.stdout_queue.task_done()
+            except queue.Empty:
+                await asyncio.sleep(0.1)  # Check for connection every 100ms
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                if self._stop_event.is_set():
+                    break
+                print(f"Error processing stdout: {e}", flush=True)
 
     async def __call__(self, fn_name, message: TaskMessage):
-        print(f"Start processing message ID: {message.id}", flush=True)
+        if fn_name in self.fns:
+            return await self.call_regular_fn(fn_name, message)
+        return await self.call_in_memory_subprocess_fn(fn_name, message)
+
+    async def call_regular_fn(self, fn_name, message: TaskMessage):
         fn = self.fns[fn_name]
-        message = self.process_message(fn, fn_name, message)
         fn.read_cache(self.cache, message)
         fn_args = [message, *(getattr(self, k) for k in fn.server_dependencies)]
         result = await self.task_runner.run(fn.fn, fn_args, fn.run_as)
         fn.write_cache(self.cache, message, result)
-        result = self.process_output(fn, result)
+        if result is None:
+            result = {}
         result["messageType"] = fn.return_message_type
         return result
 
-    def add_fn(self, task_def: TaskDefinition):
-        self.fns[task_def.name] = task_def
+    async def call_in_memory_subprocess_fn(self, fn_name, message: TaskMessage):
+        self.in_memory_subprocess.parent_conn.send(
+            {"type": "call", "fn_name": fn_name, "message": message}
+        )
+        result = await self.task_runner.run(
+            self.in_memory_subprocess.parent_conn.recv, [], RunType.THREAD
+        )
+        if result["status"] == "success":
+            for x in result["content"]:
+                x.setdefault("sectionType", default_section_type(x["type"]))
+        else:
+            result["content"] = {}
 
-    def add_fns_from_module(self, module, task_name=None, task_metadata_fn=None):
-        count = 1
-        task_metadata = {}
-        for attr in vars(module).values():
-            if isinstance(attr, TaskDefinition):
-                if not attr.name:
-                    if not task_name:
-                        raise ValueError(
-                            "Either TaskDefinition must be initialized with a name, or task_name must be specified"
-                        )
-                    attr.name = f"{task_name}-{count}"
-                    count += 1
-                self.add_fn(attr)
-                if task_metadata_fn:
-                    task_metadata.update(task_metadata_fn(attr))
-        return task_metadata
+        return {"content": result["content"], "messageType": result["messageType"]}
 
-    async def add_custom_fns(self, code_list, task_metadata_fn=None, to_cache=None):
+    async def add_custom_fns(self, code_list, to_cache):
         error_msgs = {}
         task_metadata = {}
-        content = []
-        # self.remove_existing_custom_fns(project_config_name)
+        initial_content = []
         for c in code_list:
-            task_name = c["task_name"]
-            try:
-                module = await self.task_runner.run(
-                    import_code_from_string,
-                    [c["code"], c["module_name"], c["add_to_sys_modules"]],
-                    RunType.THREAD,
-                )
-                if module:
-                    task_metadata.update(
-                        self.add_fns_from_module(
-                            module,
-                            task_name=task_name,
-                            task_metadata_fn=task_metadata_fn,
-                        )
-                    )
-            except Exception as e:
-                error_msgs[task_name] = str(e)
+            # Send import request to subprocess
+            self.in_memory_subprocess.parent_conn.send(
+                {
+                    "type": "import",
+                    "code": c["code"],
+                    "module_name": c["module_name"],
+                    "to_cache": to_cache,
+                }
+            )
+            result = await self.task_runner.run(
+                self.in_memory_subprocess.parent_conn.recv, [], RunType.THREAD
+            )
+            if result["status"] == "success":
+                task_metadata.update(result["content"])
+            else:
+                error_msgs[c["module_name"]] = result["error"]
+
         for k in task_metadata.keys():
-            if to_cache:
-                self.custom_fn_cache[k] = to_cache
             task_output = await self(k, TaskMessage(id=create_new_id(), content={}))
-            content.extend(task_output["content"])
+            initial_content.extend(task_output["content"])
 
-        return task_metadata, error_msgs, content
+        return task_metadata, error_msgs, initial_content
 
-    def remove_existing_custom_fns(self):
-        for k in self.custom_fn_cache.keys():
-            del self.fns[k]
-            del self.custom_fn_cache[k]
-
-    def process_message(self, fn, fn_name, message):
-        if isinstance(fn, SettaInMemoryFn):
-            if fn_name in self.custom_fn_cache:
-                exporter_obj = self.custom_fn_cache[fn_name]
-                for k, v in message.content.items():
-                    nice_str = exporter_obj.var_name_mapping[tuple(json.loads(k))]
-                    p_dict, key = nested_access(exporter_obj.output, nice_str)
-                    p_dict[key] = v
-                message.content = exporter_obj.output
-            message = message.content
-        return message
-
-    def process_output(self, fn, result):
-        if isinstance(fn, SettaInMemoryFn):
-            for x in result:
-                x.setdefault("sectionType", default_section_type(x["type"]))
-            result = {"content": result}
-        elif isinstance(fn, TaskDefinition):
-            if result is None:
-                result = {}
-        return result
+    def close(self):
+        self._stop_event.set()
+        self.in_memory_subprocess.close()
+        self.stdout_thread.join()
+        if self._stdout_processor_task:
+            self._stdout_processor_task.cancel()
