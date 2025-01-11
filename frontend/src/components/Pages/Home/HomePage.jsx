@@ -47,7 +47,7 @@ function RightColumn({ projects, defaultProjectName, setDoRefresh }) {
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
 
   function onSelectProject(e, projectId) {
-    e.preventDefault();
+    e.preventDefault(); // to prevent going into the project
     if (selectedProjects.includes(projectId)) {
       setSelectedProjects(selectedProjects.filter((x) => x !== projectId));
     } else {
