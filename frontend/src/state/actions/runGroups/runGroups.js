@@ -2,6 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
+import { createNewId } from "utils/idNameCreation";
 
 const RUNNABLE_SECTION_TYPES = [
   C.SECTION,
@@ -212,40 +213,40 @@ export function toggleRunGroupSectionVersion({
   });
 }
 
-// export function setAllRunGroupsAndMaybeCreateSection(runGroups) {
-//   const stateFormat = {};
-//   for (const [name, runGroup] of Object.entries(runGroups)) {
-//     stateFormat[createNewId()] = {
-//       name,
-//       selected: runGroup.selected,
-//       sections: parsePrettyRunGroupSections(runGroup),
-//     };
-//   }
+export function setAllRunGroupsAndMaybeCreateSection(runGroups) {
+  const stateFormat = {};
+  for (const [name, runGroup] of Object.entries(runGroups)) {
+    stateFormat[createNewId()] = {
+      name,
+      selected: runGroup.selected,
+      sections: parsePrettyRunGroupSections(runGroup),
+    };
+  }
 
-//   console.log("stateFormt", stateFormat);
+  console.log("stateFormt", stateFormat);
 
-//   setAllRunGroups(stateFormat);
-//   if (!useSectionInfos.getState().singletonSections[C.GLOBAL_PARAM_SWEEP]) {
-//     console.log("will create section");
-//   } else {
-//     console.log("section already exists");
-//   }
-// }
+  setAllRunGroups(stateFormat);
+  if (!useSectionInfos.getState().singletonSections[C.GLOBAL_PARAM_SWEEP]) {
+    console.log("will create section");
+  } else {
+    console.log("section already exists");
+  }
+}
 
-// function parsePrettyRunGroupSections(runGroup) {
-//   const sections = {};
-//   for (const [sectionName, sectionDetails] of Object.entries(runGroup)) {
-//     // const s = getSectionByName(sectionName);
-//     sections[s.id] = {};
-//     // TODO
-//     // for (const [paramSweepName, paramSweepIsSelected] of Object.entries(
-//     //   sectionDetails,
-//     // )) {
-//     //   sections[s.id][]
-//     // }
-//   }
-//   return sections;
-// }
+function parsePrettyRunGroupSections(runGroup) {
+  const sections = {};
+  for (const [sectionName, sectionDetails] of Object.entries(runGroup)) {
+    // const s = getSectionByName(sectionName);
+    sections[s.id] = {};
+    // TODO
+    // for (const [paramSweepName, paramSweepIsSelected] of Object.entries(
+    //   sectionDetails,
+    // )) {
+    //   sections[s.id][]
+    // }
+  }
+  return sections;
+}
 
 export function useRunGroupListing(variantId) {
   return useSectionInfos((x) => {

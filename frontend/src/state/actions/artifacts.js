@@ -16,18 +16,7 @@ import { getSectionType } from "./sectionInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function updateArtifacts({ artifacts, addSection = false }) {
-  useArtifacts.setState((state) => {
-    let newArtifacts = artifacts;
-    if (Array.isArray(artifacts)) {
-      newArtifacts = {};
-      for (const a of artifacts) {
-        newArtifacts[a.id] = _.omit(a, ["id"]);
-      }
-    }
-    return { x: { ...state.x, ...newArtifacts } };
-  });
-
-  console.log("useArtifacts.getState()", useArtifacts.getState());
+  useArtifacts.setState((state) => ({ x: { ...state.x, ...artifacts } }));
 
   // if (addSection) {
   //   for (const [id, data] of Object.entries(artifacts)) {

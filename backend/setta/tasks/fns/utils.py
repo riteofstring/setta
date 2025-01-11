@@ -115,12 +115,12 @@ class TaskMessage(BaseModel):
     content: Any
 
 
-class SettaMemoryFn(TaskDefinition):
-    return_message_type: str = C.WS_MEMORY_FN_RETURN
+class InteractiveTaskDefinition(TaskDefinition):
+    return_message_type: str = C.WS_INTERACTIVE_RETURN
 
 
 def get_task_metadata_for_frontend(task, exporter_obj=None):
-    if isinstance(task, SettaMemoryFn):
+    if isinstance(task, InteractiveTaskDefinition):
         # None means run the task on every change
         if task.dependencies is None:
             dependencies = None
