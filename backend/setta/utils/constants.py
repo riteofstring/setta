@@ -16,8 +16,23 @@ SEND_ARTIFACT_TO_ENV_VARIABLE = "SETTA_SEND_ARTIFACT_TO"
 
 
 class Constants:
+    def __init__(self):
+        self._initialized = False
+
+    def _ensure_initialized(self):
+        if not self._initialized:
+            load_constants()
+            self._initialized = True
+
+    def __getattr__(self, name):
+        if name == "_initialized":
+            return object.__getattribute__(self, name)
+        self._ensure_initialized()
+        return object.__getattribute__(self, name)
+
     @property
     def FRONTEND_ORIGINS(self):
+        self._ensure_initialized()
         if is_dev_mode():
             output = [f"http://{self.HOST}:{self.DEV_MODE_FRONTEND_PORT}"]
         else:
@@ -28,10 +43,12 @@ class Constants:
 
     @property
     def BACKEND(self):
+        self._ensure_initialized()
         return f"http://{self.HOST}:{self.PORT}"
 
     @property
     def WEBSOCKET(self):
+        self._ensure_initialized()
         return f"ws://{self.HOST}:{self.PORT}{self.ROUTE_PREFIX}{self.ROUTE_WEBSOCKET_MANAGER}"
 
 

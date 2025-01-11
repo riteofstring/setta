@@ -5,11 +5,9 @@ from setta.lsp.reader import LanguageServerReader
 from setta.lsp.server import LanguageServer
 from setta.lsp.writer import LanguageServerWriter
 from pathlib import Path
-from setta.utils.constants import load_constants
 # from setta.utils.utils import multireplace
 # from setta.tasks.fns.textFieldFindReferences import generateCodeForReferenceFinding
 from uuid import uuid4
-load_constants()
 
 
 
