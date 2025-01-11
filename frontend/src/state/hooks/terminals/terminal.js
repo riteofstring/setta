@@ -7,13 +7,13 @@ import {
   addChild,
   addSectionInEmptySpace,
 } from "state/actions/sections/createSections";
-import { useMisc, useProjectConfig, useSectionInfos } from "state/definitions";
+import { useProjectConfig, useSectionInfos } from "state/definitions";
 import { URLS } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
-import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
+import { terminalTheme, useFitAddon } from "./utils";
 
 // Maps from sectionId to a list of websocket connections.
 // There should only be 1 websocket for a given section.
@@ -68,52 +68,15 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
 
     ws.addEventListener("message", onInitialMessage);
 
-    // Even though react flow calls preventDefault and stopPropagation when in pan scrolling mode,
-    // xterm still picks up the scrolling. So this sets scrollSensitivity to a small number to disable scrolling when already moving via trackpad.
-    const unsub = useMisc.subscribe(
-      (x) => x.isPanScrolling,
-      (isPanScrolling) => {
-        if (isPanScrolling) {
-          // can't make it 0
-          terminal.options.scrollSensitivity = Number.MIN_VALUE;
-        } else {
-          terminal.options.scrollSensitivity = 1;
-        }
-      },
-    );
+    const unsub = scrollSensitivityUpdater(terminal, setHasScrollbar);
 
     return () => {
-      if (ws.readyState === 1) {
-        ws.close();
-        terminal.dispose();
-      } else {
-        ws.addEventListener("open", () => {
-          ws.close();
-          // Causes Uncaught TypeError: Cannot read properties of undefined (reading 'dimensions')
-          // https://github.com/xtermjs/xterm.js/issues/4775
-          terminal.dispose();
-        });
-      }
-
+      terminalCleanup(ws, terminal);
       unsub();
     };
   }, []);
 
-  useEffect(() => {
-    fitAddon.fit();
-  }, [width, height]);
-
   return terminalRef;
-}
-
-export function useFitAddon() {
-  const fitAddon = useRef(null);
-
-  if (!fitAddon.current) {
-    fitAddon.current = new FitAddon();
-  }
-
-  return fitAddon.current;
 }
 
 function newTerminalWebsocket(sectionId) {
