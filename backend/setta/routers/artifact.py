@@ -54,17 +54,15 @@ async def route_send_artifact(
 ):
     with dbq as db:
         artifact_ids = save_or_create_artifacts(db, x.data, x.saveTo)
-        print("artifact_ids", artifact_ids, flush=True)
-        # to_send = {}
-        # for idx, d in enumerate(x.data):
-        #     d.pop("id")
-        #     to_send[artifact_ids[idx]] = d
+        to_send = {}
+        for idx, d in enumerate(x.data):
+            d.pop("id")
+            to_send[artifact_ids[idx]] = d
 
-        # await websocket_manager.send_message_to_location(
-        #     to_send, x.messageType, x.sendDataTo
-        # )
-        # return artifact_ids
-    return [None]
+        await websocket_manager.send_message_to_location(
+            to_send, x.messageType, x.sendDataTo
+        )
+        return artifact_ids
 
 
 @router.post(C.ROUTE_LOAD_ARTIFACTS)
