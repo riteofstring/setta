@@ -10,6 +10,7 @@ import { getHighestAncestor } from "state/actions/sectionInfos";
 import { getSectionHasAtLeastOneSelectedParam } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useMisc, useSectionInfos } from "state/definitions";
+import { SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT } from "utils/constants";
 import "./dndline.css";
 
 export function getBgColor(sectionTypeName) {
@@ -52,7 +53,7 @@ export function getOutlineColor({
     return "outline-blue-600 dark:outline-blue-700";
   }
 
-  return `outline-transparent [&:active:not(:has(button:active))]:outline-cyan-300`;
+  return `outline-transparent [&:active:not(:has(button:active,:active.${SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT}))]:outline-cyan-300`;
 }
 
 export function getOnSectionClick(sectionId, isActiveSection) {

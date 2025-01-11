@@ -6,7 +6,10 @@ import { useSectionInfos, useSettings } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
-import { NO_PAN_CLASS_NAME } from "utils/constants";
+import {
+  NO_PAN_CLASS_NAME,
+  SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT,
+} from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "./utils";
 
@@ -229,14 +232,15 @@ function setSectionResizeEvent(sectionId, resizeEvent, state) {
   state.x[sectionId].resizeEvent = resizeEvent;
 }
 
-// stop propagation so that section doesn't become an active section
+// stop propagation so that section doesn't become an active section.
+// The SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT is to stop the "active" css from triggering
 function HandleComponentStopClickPropagation() {
   return (
     <div
       onClick={(e) => {
         e.stopPropagation();
       }}
-      className="absolute inset-0 h-full w-full"
+      className={`absolute inset-0 h-full w-full ${SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT}`}
     />
   );
 }
