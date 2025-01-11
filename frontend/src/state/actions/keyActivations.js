@@ -400,7 +400,7 @@ export function attachKeyEventListeners() {
     [shortcuts.copyShortcut, copy],
     [shortcuts.pasteShortcut, paste],
     [shortcuts.pasteAsRefShortcut, () => paste({ asRef: true })],
-    [shortcuts.updateInteractiveCode, updateInteractiveCode],
+    [shortcuts.runCode, updateInteractiveCode],
     [shortcuts.formatCode, formatCode],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, onFitViewHandler],
@@ -533,10 +533,6 @@ export function attachKeyEventListeners() {
   return () => {
     cleanup_functions.forEach((x) => x());
   };
-}
-
-export function variableClick(e) {
-  return e.ctrlKey && !e.shiftKey;
 }
 
 // When you do mod + tab in macos, but change your mind and don't change programs
