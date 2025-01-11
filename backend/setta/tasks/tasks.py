@@ -41,7 +41,6 @@ class Tasks:
                 self._process_stdout_queue()
             )
 
-
     async def disconnect(self, websocket):
         self.websockets.remove(websocket)
         if len(self.websockets) == 0:
@@ -71,6 +70,7 @@ class Tasks:
                     break
                 if len(self.websockets) > 0:
                     stdout_data = self.stdout_queue.get_nowait()
+                    stdout_data = stdout_data.replace("\n", "\r\n")
                     for w in self.websockets:
                         await w.send_text(stdout_data)
                     self.stdout_queue.task_done()
