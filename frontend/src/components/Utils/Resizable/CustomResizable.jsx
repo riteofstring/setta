@@ -195,6 +195,9 @@ function CustomResizableSuperCore({
         bottom: NO_PAN_CLASS_NAME,
       }}
       grid={snapToGrid ? snapGrid : null}
+      onClick={(e) => {
+        e.stopPropagation(); // to prevent the section from becoming active
+      }}
       // handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
       {children}
