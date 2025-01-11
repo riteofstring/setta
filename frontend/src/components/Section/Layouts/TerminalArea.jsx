@@ -2,8 +2,8 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useState } from "react";
 import { useSectionInfos } from "state/definitions";
-import { useTerminal } from "state/hooks/terminal";
-import { useTerminalReadOnly } from "state/hooks/terminalReadOnly";
+import { useTerminal } from "state/hooks/terminals/terminal";
+import { useTerminalReadOnly } from "state/hooks/terminals/terminalReadOnly";
 
 function _TerminalArea({ sectionId }) {
   const {
