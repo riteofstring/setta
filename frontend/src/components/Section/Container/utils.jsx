@@ -62,7 +62,7 @@ export function getOnSectionClick(sectionId, isActiveSection) {
       // if a child button is clicked, don't "activate" the section
       return;
     }
-    e.stopPropagation();
+    e.stopPropagation(); // to prevent parent section from becoming active
     if (useMisc.getState().mouseDownDrawArea) {
       useMisc.setState({ mouseDownDrawArea: false });
       return;

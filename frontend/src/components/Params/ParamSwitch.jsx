@@ -23,7 +23,7 @@ function _ParamSwitch(props) {
   const handleParamSelection = useCallback(
     (e) => {
       if (useMisc.getState().isSelectingParams) {
-        e.stopPropagation();
+        e.stopPropagation(); // to prevent text input from becoming active
         toggleParamSelected(sectionId, paramInfoId);
       }
     },
