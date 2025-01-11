@@ -23,27 +23,26 @@ class Tasks:
         add_fns_from_module(self.fns, fns)
 
         # Start stdout listener thread
-        self._stdout_running = asyncio.Event()
-        self._stdout_running.set()
+        self._stop_event = asyncio.Event()
         self.stdout_queue = queue.Queue()  # regular Queue
         self._stdout_processor_task = asyncio.create_task(self._process_stdout_queue())
         self.stdout_thread = threading.Thread(target=self._stdout_listener, daemon=True)
         self.stdout_thread.start()
 
     def _stdout_listener(self):
-        while self._stdout_running.is_set():
+        while not self._stop_event.is_set():
             try:
                 stdout_data = self.in_memory_subprocess.stdout_parent_conn.recv()
                 self.stdout_queue.put(stdout_data)  # simple put, no async needed
             except Exception as e:
-                if not self._stdout_running.is_set():
+                if self._stop_event.is_set():
                     break
                 print(f"Error in stdout listener: {e}", flush=True)
 
     async def _process_stdout_queue(self):
-        while True:
+        while not self._stop_event.is_set():
             try:
-                if not self._stdout_running.is_set():
+                if self._stop_event.is_set():
                     break
                 try:
                     stdout_data = self.stdout_queue.get_nowait()
@@ -54,7 +53,7 @@ class Tasks:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                if not self._stdout_running.is_set():
+                if self._stop_event.is_set():
                     break
                 print(f"Error processing stdout: {e}", flush=True)
 
@@ -118,7 +117,7 @@ class Tasks:
         return task_metadata, error_msgs, initial_content
 
     def close(self):
-        self._stdout_running.clear()
+        self._stop_event.set()
         self.in_memory_subprocess.close()
         self.stdout_thread.join()
         self._stdout_processor_task.cancel()
