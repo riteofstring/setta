@@ -27,7 +27,7 @@ def save_or_create_artifacts(db, artifacts, saveTo):
         """
        INSERT INTO Artifact (id, name, path, value, type)
        VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT (id) DO UPDATE 
+       ON CONFLICT (id) DO UPDATE
        SET name=excluded.name,
            path=excluded.path,
            value=excluded.value,

@@ -7,7 +7,7 @@ from setta.utils.utils import nested_access
 
 from . import fns
 from .fns.utils import (
-    InteractiveTaskDefinition,
+    SettaMemoryFn,
     TaskDefinition,
     TaskMessage,
     get_task_metadata_for_frontend,
@@ -96,7 +96,7 @@ class Tasks:
         del self.custom_fn_names[project_config_name]
 
     def process_message(self, fn, fn_name, message):
-        if isinstance(fn, InteractiveTaskDefinition):
+        if isinstance(fn, SettaMemoryFn):
             if fn_name in self.custom_fn_name_to_exporter_obj:
                 exporter_obj = self.custom_fn_name_to_exporter_obj[fn_name]
                 for k, v in message.content.items():
@@ -108,7 +108,7 @@ class Tasks:
         return message
 
     def process_output(self, fn, result):
-        if isinstance(fn, InteractiveTaskDefinition):
+        if isinstance(fn, SettaMemoryFn):
             for v in result.values():
                 v.setdefault("sectionType", default_section_type(v["type"]))
             result = {"content": result}
