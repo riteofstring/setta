@@ -3,9 +3,9 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from setta.code_gen.export_selected import (
+    export_for_in_memory_fn,
     get_section_code,
     get_section_type,
-    simple_export_selected,
 )
 from setta.tasks.fns.utils import replace_template_vars_with_random_names
 from setta.utils.constants import C
@@ -30,7 +30,7 @@ async def route_update_interactive_code(
     x: UpdateInteractiveCodeRequest, tasks=Depends(get_tasks)
 ):
     p = x.project
-    exporter_obj = simple_export_selected(p)
+    exporter_obj = export_for_in_memory_fn(p)
 
     codeDict = {}
     for id in p["importCodeBlocks"]:
