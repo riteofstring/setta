@@ -3,6 +3,7 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
+  useArtifacts,
   useEVRefRegex,
   useInfoToEVReferrer,
   useInfoToTemplateVarReferrer,
@@ -11,6 +12,7 @@ import {
   useSectionInfos,
   useTemplateVarRegex,
 } from "state/definitions";
+import { getNamePathTypeKey } from "./actions/artifacts";
 import { getEVRefRegexAndColorMap } from "./actions/evRefRegex";
 import {
   getInfoToEVReferrers,
@@ -133,6 +135,20 @@ export function subscribe() {
     },
     { equalityFn: _.isEqual },
   );
+
+  useArtifacts.subscribe(
+    artifactNamePathTypeToIdSubscriptionFn,
+    (artifacts) => {
+      useArtifacts.setState(() => {
+        const namePathTypeToId = {};
+        for (const [id, a] of Object.entries(artifacts)) {
+          namePathTypeToId[getNamePathTypeKey(a)] = id;
+        }
+        return { namePathTypeToId };
+      });
+    },
+    { equalityFn: _.isEqual },
+  );
 }
 
 function singletonSectionsSubscriptionFn(state) {
@@ -199,4 +215,12 @@ function reactFitViewOnInitSubscriptionFn(state) {
 
 function updateNodeDimensionsSubscriptionFn(state) {
   return state.undoOrRedoWasTriggered || state.requestUpdateNodeDimensions;
+}
+
+function artifactNamePathTypeToIdSubscriptionFn(state) {
+  const output = {};
+  for (const [id, a] of Object.entries(state.x)) {
+    output[id] = { name: a["name"], path: a["path"], type: a["type"] };
+  }
+  return output;
 }

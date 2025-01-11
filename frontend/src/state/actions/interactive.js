@@ -8,7 +8,7 @@ import {
   useSectionInfos,
 } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
-import { updateArtifacts } from "./artifacts";
+import { getNamePathTypeKey } from "./artifacts";
 import { setNotificationMessage } from "./notification";
 import { getSectionVariant } from "./sectionInfos";
 
@@ -31,11 +31,10 @@ export async function updateInteractiveCode() {
 }
 
 export async function updateInteractiveData(artifacts) {
-  console.log("updateInteractiveData", artifacts);
   if (artifacts.length === 0) {
     return;
   }
-  updateArtifacts({ artifacts, addSection: true });
+  updateInteractiveArtifacts(artifacts);
 }
 
 export async function formatCode() {
@@ -66,28 +65,19 @@ async function maybeGetNewArtifactIds(content) {
     return;
   }
 
-  const existingNamePathTypeToId = {};
-  for (const [artId, art] of Object.entries(useArtifacts.getState().x)) {
-    existingNamePathTypeToId[
-      JSON.stringify(_.pick(art, ["name", "path", "type"]))
-    ] = artId;
-  }
-
+  const namePathTypeToId = useArtifacts.getState().namePathTypeToId;
   const missingIdx = [];
   const namesPathsTypes = [];
   for (const [idx, c] of content.entries()) {
-    if (!("path" in c)) {
-      c["path"] = "";
-    }
+    c.path = "";
 
-    const namePathType = _.pick(c, ["name", "path", "type"]);
-    const match = existingNamePathTypeToId[JSON.stringify(namePathType)];
+    const match = namePathTypeToId[getNamePathTypeKey(c)];
 
     if (!match) {
       missingIdx.push(idx);
-      namesPathsTypes.push(namePathType);
+      namesPathsTypes.push(_.pick(c, ["name", "path", "type"]));
     } else {
-      c["id"] = artId;
+      c.id = artId;
     }
   }
 
@@ -95,7 +85,38 @@ async function maybeGetNewArtifactIds(content) {
   if (res.status == 200) {
     for (const [idx, artifactId] of res.data.entries()) {
       const originalIdx = missingIdx[idx];
-      content[originalIdx]["id"] = artifactId ?? createNewId();
+      content[originalIdx].id = artifactId ?? createNewId();
     }
   }
 }
+
+export function updateInteractiveArtifacts(artifacts) {
+  useArtifacts.setState((state) => {
+    const newArtifacts = {};
+    for (const a of artifacts) {
+      a.path = "";
+      newArtifacts[a.id ?? state.namePathTypeToId[getNamePathTypeKey(a)]] = a;
+    }
+
+    return { x: { ...state.x, ...newArtifacts } };
+  });
+
+  // if (addSection) {
+  //   for (const [id, data] of Object.entries(artifacts)) {
+  //     maybeAddArtifactSection(id, data.sectionType);
+  //   }
+  // }
+}
+
+// function maybeAddArtifactSection(artifactId, sectionType) {
+//   for (const s of Object.values(useSectionInfos.getState().x)) {
+//     if (s.artifactIds.includes(artifactId)) {
+//       return;
+//     }
+//   }
+
+//   addSectionInEmptySpace({
+//     type: sectionType,
+//     sectionProps: { artifactIds: [artifactId] },
+//   });
+// }

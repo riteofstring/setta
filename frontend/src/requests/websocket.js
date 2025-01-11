@@ -1,6 +1,8 @@
 import C from "constants/constants.json";
-import { updateArtifacts } from "state/actions/artifacts";
-import { updateInteractiveData } from "state/actions/interactive";
+import {
+  updateInteractiveArtifacts,
+  updateInteractiveData,
+} from "state/actions/interactive";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeErrors";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";
@@ -44,7 +46,7 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     processTypeErrors(m.content);
   } else if (m.messageType === C.WS_ARTIFACT) {
-    updateArtifacts({ artifacts: m.content, addSection: true });
+    updateInteractiveArtifacts(m.content);
   } else if (m.messageType === C.WS_MEMORY_FN_RETURN) {
     updateInteractiveData(m.content);
   } else if (m.id) {
