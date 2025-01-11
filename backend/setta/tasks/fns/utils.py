@@ -116,7 +116,7 @@ class TaskMessage(BaseModel):
 
 
 class SettaMemoryFn(TaskDefinition):
-    return_message_type: str = C.WS_INTERACTIVE_RETURN
+    return_message_type: str = C.WS_MEMORY_FN_RETURN
 
 
 def get_task_metadata_for_frontend(task, exporter_obj=None):
