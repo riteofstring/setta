@@ -4,29 +4,36 @@
     "name": "cliff_zesty",
     "previewImgColor": "bg-orange-500/60 dark:bg-orange-600/30",
     "viewport": {
-      "x": 262.75650825842035,
-      "y": 376.9659130239962,
-      "zoom": 0.43565698402249564
+      "x": 61.34312090609757,
+      "y": 210.96279109400885,
+      "zoom": 0.2632409641771357
     },
     "children": {
       "0a024338-6915-49e9-bf2f-c096f901659f": {
         "x": 787.7033102208691,
         "y": -208.68358717901725,
-        "zIndex": 5,
+        "zIndex": 6,
         "w": 765,
-        "h": 1150
+        "h": 1132
+      },
+      "2e473422-5199-48c8-8cbd-cf42da98b51c": {
+        "x": 1583.1341960109467,
+        "y": -600.4603628460598,
+        "zIndex": 3,
+        "w": 202,
+        "h": 260
       },
       "6b13e165-2f8b-4226-812d-080e61cbedf0": {
         "x": 338.04651910463633,
         "y": -638.042802225563,
-        "zIndex": 3,
+        "zIndex": 2,
         "w": 497,
         "h": 402
       },
       "dd1b85d2-2288-4bbf-936c-98f938e3c6cf": {
         "x": 6.677510307525324,
         "y": 92.12907643508373,
-        "zIndex": 2,
+        "zIndex": 1,
         "w": 579,
         "h": 458
       },
@@ -37,12 +44,12 @@
         "w": 375,
         "h": 226
       },
-      "2e473422-5199-48c8-8cbd-cf42da98b51c": {
-        "x": 1583.1341960109467,
-        "y": -600.4603628460598,
+      "74d1e0a0-00f3-4baf-b76c-de1b43c493c2": {
+        "x": 1634.8721996037189,
+        "y": -204.21091888062642,
         "zIndex": 4,
-        "w": 202,
-        "h": 260
+        "w": 502,
+        "h": 60
       }
     }
   },
@@ -73,23 +80,34 @@
     },
     "444d098b-16f2-4d9f-aff5-bd127a130e14": {
       "name": "fantastic_magenta",
-      "code": "import numpy as np\nfrom setta.tasks.fns import SettaInMemoryFn\n\n$SETTA_GENERATED_PYTHON\n\nparticle_data = {}\n\n\ndef generate_particle_data(project, n_particles=1000, complexity=50):\n    positions = []\n    velocities = []\n    masses = []\n    for _ in range(n_particles):\n        pos = np.array([0.0, 0.0])\n        vel = np.array([0.0, 0.0])\n        for _ in range(complexity):\n            random_vector = np.random.randn(2)\n            pos += random_vector / np.linalg.norm(random_vector)\n            vel += np.random.randn(2) * 0.1\n        positions.append(pos)\n        velocities.append(vel)\n        masses.append(np.random.exponential(1.0))\n    particle_data[\"positions\"] = np.array(positions)\n    particle_data[\"velocities\"] = np.array(velocities)\n    particle_data[\"masses\"] = np.array(masses)\n    x = [float(pos[0]) for pos in particle_data[\"positions\"]]\n    y = [float(pos[1]) for pos in particle_data[\"positions\"]]\n    return [\n        {\n            \"name\": \"particle_data\",\n            \"type\": \"list\",\n            \"value\": {\"x\": x, \"y\": y},\n        }\n    ]\n\n\ndef transform_particles(project):\n    print(\"particle_data\", particle_data, flush=True)\n    scale = float(project[\"scale\"])\n    rotation_angle = float(project[\"rotation_angle\"])\n    mass_threshold = float(project[\"mass_threshold\"])\n    cos_theta = np.cos(rotation_angle)\n    sin_theta = np.sin(rotation_angle)\n    rotation_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])\n    positions = particle_data[\"positions\"].copy()\n    positions = scale * (positions @ rotation_matrix.T)\n    valid_indices = particle_data[\"masses\"] >= mass_threshold\n    positions = positions[valid_indices]\n    x = [float(pos[0]) for pos in positions]\n    y = [float(pos[1]) for pos in positions]\n    return [\n        {\"name\": \"transformed_particle_data\", \"type\": \"list\", \"value\": {\"x\": x, \"y\": y}}\n    ]\n\n\nfn1 = SettaInMemoryFn(fn=generate_particle_data, dependencies=[])\nfn2 = SettaInMemoryFn(\n    fn=transform_particles,\n    dependencies=[\"scale\", \"rotation_angle\", \"mass_threshold\"],\n)\n",
+      "code": "import numpy as np\nfrom setta.tasks.fns import SettaInMemoryFn\nimport $anonymous_amethyst\n\nparticle_data = {}\n\n\ndef generate_particle_data(project, n_particles=1000, complexity=50):\n    positions = []\n    velocities = []\n    masses = []\n    for _ in range(n_particles):\n        pos = np.array([0.0, 0.0])\n        vel = np.array([0.0, 0.0])\n        for _ in range(complexity):\n            random_vector = np.random.randn(2)\n            pos += random_vector / np.linalg.norm(random_vector)\n            vel += np.random.randn(2) * 0.1\n        positions.append(pos)\n        velocities.append(vel)\n        masses.append(np.random.exponential(1.0))\n    particle_data[\"positions\"] = np.array(positions)\n    particle_data[\"velocities\"] = np.array(velocities)\n    particle_data[\"masses\"] = np.array(masses)\n    x = [float(pos[0]) for pos in particle_data[\"positions\"]]\n    y = [float(pos[1]) for pos in particle_data[\"positions\"]]\n    return [\n        {\n            \"name\": \"particle_data\",\n            \"type\": \"list\",\n            \"value\": {\"x\": x, \"y\": y},\n        }\n    ]\n\n\ndef transform_particles(project):\n    print(\"particle_data\", particle_data, flush=True)\n    scale = float(project[\"scale\"])\n    rotation_angle = float(project[\"rotation_angle\"])\n    mass_threshold = float(project[\"mass_threshold\"])\n    cos_theta = np.cos(rotation_angle)\n    sin_theta = np.sin(rotation_angle)\n    rotation_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])\n    positions = particle_data[\"positions\"].copy()\n    positions = scale * (positions @ rotation_matrix.T)\n    valid_indices = particle_data[\"masses\"] >= mass_threshold\n    positions = positions[valid_indices]\n    x = [float(pos[0]) for pos in positions]\n    y = [float(pos[1]) for pos in positions]\n    return [\n        {\"name\": \"transformed_particle_data\", \"type\": \"list\", \"value\": {\"x\": x, \"y\": y}}\n    ]\n\n\nfn1 = SettaInMemoryFn(fn=generate_particle_data, dependencies=[])\nfn2 = SettaInMemoryFn(\n    fn=transform_particles,\n    dependencies=[\"scale\", \"rotation_angle\", \"mass_threshold\"],\n)\n",
       "templateVars": [
         {
-          "sectionId": null,
-          "startPos": 64,
-          "keyword": "$SETTA_GENERATED_PYTHON"
+          "sectionId": "74d1e0a0-00f3-4baf-b76c-de1b43c493c2",
+          "startPos": 70,
+          "keyword": "$anonymous_amethyst"
         }
       ]
-    },
-    "ca98f34c-c3f5-4c34-873c-a74eb6028e2f": {
-      "name": "curly_moccasin",
-      "code": "from setta.tasks.fns import SettaInMemoryFn\n\n\ndef fn(project):\n    c = float(project[\"c\"])\n    n = int(project[\"n\"])\n    x = []\n    y = []\n    for i in range(n):\n        x.append(i)\n        y.append(((i - 10) / 5) ** c)\n\n    return [\n        {\n            \"value\": {\"x\": x, \"y\": y},\n            \"type\": \"list\",\n            \"name\": \"simple list\",\n        }\n    ]\n\n\ninteractive_example = SettaInMemoryFn(fn=fn)\n"
     },
     "70a23ca5-5508-49a6-8d12-49de24520d7f": {
       "name": "coloured_olive",
       "selectedItem": "d1fd9a6a-5043-4422-954d-638572899661",
       "codeInfoColId": "e0a048df-7adb-4114-8acb-f73f86c5574e"
+    },
+    "ca98f34c-c3f5-4c34-873c-a74eb6028e2f": {
+      "name": "curly_moccasin",
+      "code": "from setta.tasks.fns import SettaInMemoryFn\n\n\ndef fn(project):\n    c = float(project[\"c\"])\n    n = int(project[\"n\"])\n    x = []\n    y = []\n    for i in range(n):\n        x.append(i)\n        y.append(((i - 10) / 5) ** c)\n\n    return [\n        {\n            \"value\": {\"x\": x, \"y\": y},\n            \"type\": \"list\",\n            \"name\": \"simple list\",\n        }\n    ]\n\n\ninteractive_example = SettaInMemoryFn(fn=fn)\n"
+    },
+    "9afaff6f-f0bf-48b8-bc15-dad65b397b02": {
+      "name": "moderate_aquamarine",
+      "code": "$SETTA_GENERATED_PYTHON",
+      "templateVars": [
+        {
+          "sectionId": null,
+          "startPos": 0,
+          "keyword": "$SETTA_GENERATED_PYTHON"
+        }
+      ]
     }
   },
   "artifacts": {},
@@ -147,6 +165,14 @@
       "variantIds": ["444d098b-16f2-4d9f-aff5-bd127a130e14"],
       "runInMemory": true
     },
+    "2e473422-5199-48c8-8cbd-cf42da98b51c": {
+      "id": "2e473422-5199-48c8-8cbd-cf42da98b51c",
+      "name": "level_turquoise",
+      "variantId": "70a23ca5-5508-49a6-8d12-49de24520d7f",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "variantIds": ["70a23ca5-5508-49a6-8d12-49de24520d7f"],
+      "columnWidth": 82
+    },
     "6b13e165-2f8b-4226-812d-080e61cbedf0": {
       "id": "6b13e165-2f8b-4226-812d-080e61cbedf0",
       "name": "gross_bronze",
@@ -185,13 +211,15 @@
       "variantIds": ["2bafdfa4-28c6-4afc-ad43-567f27df1ca4"],
       "columnWidth": 54
     },
-    "2e473422-5199-48c8-8cbd-cf42da98b51c": {
-      "id": "2e473422-5199-48c8-8cbd-cf42da98b51c",
-      "name": "level_turquoise",
-      "variantId": "70a23ca5-5508-49a6-8d12-49de24520d7f",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "variantIds": ["70a23ca5-5508-49a6-8d12-49de24520d7f"],
-      "columnWidth": 82
+    "74d1e0a0-00f3-4baf-b76c-de1b43c493c2": {
+      "id": "74d1e0a0-00f3-4baf-b76c-de1b43c493c2",
+      "name": "anonymous_amethyst",
+      "size": {
+        "width": 500
+      },
+      "variantId": "9afaff6f-f0bf-48b8-bc15-dad65b397b02",
+      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
+      "variantIds": ["9afaff6f-f0bf-48b8-bc15-dad65b397b02"]
     }
   },
   "codeInfo": {
@@ -205,26 +233,17 @@
       "name": "c",
       "editable": true
     },
-    "a79d40ec-c4f2-4d8c-8c4d-8bcfab3fb1dc": {
-      "id": "a79d40ec-c4f2-4d8c-8c4d-8bcfab3fb1dc",
-      "name": "mass_threshold",
-      "editable": true
+    "63f17239-b05f-46f2-9e7d-db81e7fa77b0": {
+      "id": "63f17239-b05f-46f2-9e7d-db81e7fa77b0",
+      "name": "label_smoothing",
+      "defaultVal": "0",
+      "description": "A float in [0.0, 1.0]. Specifies the amount\nof smoothing when computing the loss, where 0.0 means no smoothing. The targets\nbecome a mixture of the original ground truth and a uniform distribution as described in\n`Rethinking the Inception Architecture for Computer Vision <https://arxiv.org/abs/1512.00567>`__. Default: :math:`0.0`."
     },
-    "d4d2b5ae-b6c9-476e-abb8-7d634fcbb34a": {
-      "id": "d4d2b5ae-b6c9-476e-abb8-7d634fcbb34a",
-      "name": "n",
-      "editable": true
-    },
-    "d9927b15-b841-44e5-9bc5-65406967e231": {
-      "id": "d9927b15-b841-44e5-9bc5-65406967e231",
-      "name": "scale",
-      "editable": true
-    },
-    "d1fd9a6a-5043-4422-954d-638572899661": {
-      "id": "d1fd9a6a-5043-4422-954d-638572899661",
-      "name": "torch.nn.CrossEntropyLoss",
-      "rcType": "callable",
-      "description": "This criterion computes the cross entropy loss between input logits\nand target.\n\nIt is useful when training a classification problem with `C` classes.\nIf provided, the optional argument :attr:`weight` should be a 1D `Tensor`\nassigning weight to each of the classes.\nThis is particularly useful when you have an unbalanced training set.\n\nThe `input` is expected to contain the unnormalized logits for each class (which do `not` need\nto be positive or sum to 1, in general).\n`input` has to be a Tensor of size :math:`(C)` for unbatched input,\n:math:`(minibatch, C)` or :math:`(minibatch, C, d_1, d_2, ..., d_K)` with :math:`K \\geq 1` for the\n`K`-dimensional case. The last being useful for higher dimension inputs, such\nas computing cross entropy loss per-pixel for 2D images.\n\nThe `target` that this criterion expects should contain either:\n\n- Class indices in the range :math:`[0, C)` where :math:`C` is the number of classes; if\n  `ignore_index` is specified, this loss also accepts this class index (this index\n  may not necessarily be in the class range). The unreduced (i.e. with :attr:`reduction`\n  set to ``'none'``) loss for this case can be described as:\n\n  .. math::\n      \\ell(x, y) = L = \\{l_1,\\dots,l_N\\}^\\top, \\quad\n      l_n = - w_{y_n} \\log \\frac{\\exp(x_{n,y_n})}{\\sum_{c=1}^C \\exp(x_{n,c})}\n      \\cdot \\mathbb{1}\\{y_n \\not= \\text{ignore\\_index}\\}\n\n  where :math:`x` is the input, :math:`y` is the target, :math:`w` is the weight,\n  :math:`C` is the number of classes, and :math:`N` spans the minibatch dimension as well as\n  :math:`d_1, ..., d_k` for the `K`-dimensional case. If\n  :attr:`reduction` is not ``'none'`` (default ``'mean'``), then\n\n  .. math::\n      \\ell(x, y) = \\begin{cases}\n          \\sum_{n=1}^N \\frac{1}{\\sum_{n=1}^N w_{y_n} \\cdot \\mathbb{1}\\{y_n \\not= \\text{ignore\\_index}\\}} l_n, &\n           \\text{if reduction} = \\text{`mean';}\\\\\n            \\sum_{n=1}^N l_n,  &\n            \\text{if reduction} = \\text{`sum'.}\n        \\end{cases}\n\n  Note that this case is equivalent to applying :class:`~torch.nn.LogSoftmax`\n  on an input, followed by :class:`~torch.nn.NLLLoss`.\n\n- Probabilities for each class; useful when labels beyond a single class per minibatch item\n  are required, such as for blended labels, label smoothing, etc. The unreduced (i.e. with\n  :attr:`reduction` set to ``'none'``) loss for this case can be described as:\n\n  .. math::\n      \\ell(x, y) = L = \\{l_1,\\dots,l_N\\}^\\top, \\quad\n      l_n = - \\sum_{c=1}^C w_c \\log \\frac{\\exp(x_{n,c})}{\\sum_{i=1}^C \\exp(x_{n,i})} y_{n,c}\n\n  where :math:`x` is the input, :math:`y` is the target, :math:`w` is the weight,\n  :math:`C` is the number of classes, and :math:`N` spans the minibatch dimension as well as\n  :math:`d_1, ..., d_k` for the `K`-dimensional case. If\n  :attr:`reduction` is not ``'none'`` (default ``'mean'``), then\n\n  .. math::\n      \\ell(x, y) = \\begin{cases}\n          \\frac{\\sum_{n=1}^N l_n}{N}, &\n           \\text{if reduction} = \\text{`mean';}\\\\\n            \\sum_{n=1}^N l_n,  &\n            \\text{if reduction} = \\text{`sum'.}\n        \\end{cases}\n\n.. note::\n    The performance of this criterion is generally better when `target` contains class\n    indices, as this allows for optimized computation. Consider providing `target` as\n    class probabilities only when a single class label per minibatch item is too restrictive.\n\nArgs:\n    weight (Tensor, optional): a manual rescaling weight given to each class.\n        If given, has to be a Tensor of size `C`\n    size_average (bool, optional): Deprecated (see :attr:`reduction`). By default,\n        the losses are averaged over each loss element in the batch. Note that for\n        some losses, there are multiple elements per sample. If the field :attr:`size_average`\n        is set to ``False``, the losses are instead summed for each minibatch. Ignored\n        when :attr:`reduce` is ``False``. Default: ``True``\n    ignore_index (int, optional): Specifies a target value that is ignored\n        and does not contribute to the input gradient. When :attr:`size_average` is\n        ``True``, the loss is averaged over non-ignored targets. Note that\n        :attr:`ignore_index` is only applicable when the target contains class indices.\n    reduce (bool, optional): Deprecated (see :attr:`reduction`). By default, the\n        losses are averaged or summed over observations for each minibatch depending\n        on :attr:`size_average`. When :attr:`reduce` is ``False``, returns a loss per\n        batch element instead and ignores :attr:`size_average`. Default: ``True``\n    reduction (str, optional): Specifies the reduction to apply to the output:\n        ``'none'`` | ``'mean'`` | ``'sum'``. ``'none'``: no reduction will\n        be applied, ``'mean'``: the weighted mean of the output is taken,\n        ``'sum'``: the output will be summed. Note: :attr:`size_average`\n        and :attr:`reduce` are in the process of being deprecated, and in\n        the meantime, specifying either of those two args will override\n        :attr:`reduction`. Default: ``'mean'``\n    label_smoothing (float, optional): A float in [0.0, 1.0]. Specifies the amount\n        of smoothing when computing the loss, where 0.0 means no smoothing. The targets\n        become a mixture of the original ground truth and a uniform distribution as described in\n        `Rethinking the Inception Architecture for Computer Vision <https://arxiv.org/abs/1512.00567>`__. Default: :math:`0.0`.\n\nShape:\n    - Input: Shape :math:`(C)`, :math:`(N, C)` or :math:`(N, C, d_1, d_2, ..., d_K)` with :math:`K \\geq 1`\n      in the case of `K`-dimensional loss.\n    - Target: If containing class indices, shape :math:`()`, :math:`(N)` or :math:`(N, d_1, d_2, ..., d_K)` with\n      :math:`K \\geq 1` in the case of K-dimensional loss where each value should be between :math:`[0, C)`.\n      If containing class probabilities, same shape as the input and each value should be between :math:`[0, 1]`.\n    - Output: If reduction is 'none', shape :math:`()`, :math:`(N)` or :math:`(N, d_1, d_2, ..., d_K)` with :math:`K \\geq 1`\n      in the case of K-dimensional loss, depending on the shape of the input. Otherwise, scalar.\n\n    where:\n\n    .. math::\n        \\begin{aligned}\n            C ={} & \\text{number of classes} \\\\\n            N ={} & \\text{batch size} \\\\\n        \\end{aligned}\n\nExamples::\n\n    >>> # Example of target with class indices\n    >>> loss = nn.CrossEntropyLoss()\n    >>> input = torch.randn(3, 5, requires_grad=True)\n    >>> target = torch.empty(3, dtype=torch.long).random_(5)\n    >>> output = loss(input, target)\n    >>> output.backward()\n    >>>\n    >>> # Example of target with class probabilities\n    >>> input = torch.randn(3, 5, requires_grad=True)\n    >>> target = torch.randn(3, 5).softmax(dim=1)\n    >>> output = loss(input, target)\n    >>> output.backward()"
+    "6531282c-68c1-40f6-828a-c82b1347960c": {
+      "id": "6531282c-68c1-40f6-828a-c82b1347960c",
+      "name": "reduce",
+      "defaultVal": "None",
+      "description": "Deprecated (see :attr:`reduction`). By default, the\nlosses are averaged or summed over observations for each minibatch depending\non :attr:`size_average`. When :attr:`reduce` is ``False``, returns a loss per\nbatch element instead and ignores :attr:`size_average`. Default: ``True``"
     },
     "77db4033-84d5-4e6c-9f65-5a0f2d6d924a": {
       "id": "77db4033-84d5-4e6c-9f65-5a0f2d6d924a",
@@ -238,17 +257,10 @@
       "defaultVal": "None",
       "description": "Deprecated (see :attr:`reduction`). By default,\nthe losses are averaged over each loss element in the batch. Note that for\nsome losses, there are multiple elements per sample. If the field :attr:`size_average`\nis set to ``False``, the losses are instead summed for each minibatch. Ignored\nwhen :attr:`reduce` is ``False``. Default: ``True``"
     },
-    "b3d8c291-cbfc-4577-9887-3fe4e4bcefa0": {
-      "id": "b3d8c291-cbfc-4577-9887-3fe4e4bcefa0",
-      "name": "ignore_index",
-      "defaultVal": "-100",
-      "description": "Specifies a target value that is ignored\nand does not contribute to the input gradient. When :attr:`size_average` is\n``True``, the loss is averaged over non-ignored targets. Note that\n:attr:`ignore_index` is only applicable when the target contains class indices."
-    },
-    "6531282c-68c1-40f6-828a-c82b1347960c": {
-      "id": "6531282c-68c1-40f6-828a-c82b1347960c",
-      "name": "reduce",
-      "defaultVal": "None",
-      "description": "Deprecated (see :attr:`reduction`). By default, the\nlosses are averaged or summed over observations for each minibatch depending\non :attr:`size_average`. When :attr:`reduce` is ``False``, returns a loss per\nbatch element instead and ignores :attr:`size_average`. Default: ``True``"
+    "a79d40ec-c4f2-4d8c-8c4d-8bcfab3fb1dc": {
+      "id": "a79d40ec-c4f2-4d8c-8c4d-8bcfab3fb1dc",
+      "name": "mass_threshold",
+      "editable": true
     },
     "ad8f9fd4-6dbe-4cfd-823b-ade123c129b4": {
       "id": "ad8f9fd4-6dbe-4cfd-823b-ade123c129b4",
@@ -256,11 +268,27 @@
       "defaultVal": "'mean'",
       "description": "Specifies the reduction to apply to the output:\n``'none'`` | ``'mean'`` | ``'sum'``. ``'none'``: no reduction will\nbe applied, ``'mean'``: the weighted mean of the output is taken,\n``'sum'``: the output will be summed. Note: :attr:`size_average`\nand :attr:`reduce` are in the process of being deprecated, and in\nthe meantime, specifying either of those two args will override\n:attr:`reduction`. Default: ``'mean'``"
     },
-    "63f17239-b05f-46f2-9e7d-db81e7fa77b0": {
-      "id": "63f17239-b05f-46f2-9e7d-db81e7fa77b0",
-      "name": "label_smoothing",
-      "defaultVal": "0",
-      "description": "A float in [0.0, 1.0]. Specifies the amount\nof smoothing when computing the loss, where 0.0 means no smoothing. The targets\nbecome a mixture of the original ground truth and a uniform distribution as described in\n`Rethinking the Inception Architecture for Computer Vision <https://arxiv.org/abs/1512.00567>`__. Default: :math:`0.0`."
+    "b3d8c291-cbfc-4577-9887-3fe4e4bcefa0": {
+      "id": "b3d8c291-cbfc-4577-9887-3fe4e4bcefa0",
+      "name": "ignore_index",
+      "defaultVal": "-100",
+      "description": "Specifies a target value that is ignored\nand does not contribute to the input gradient. When :attr:`size_average` is\n``True``, the loss is averaged over non-ignored targets. Note that\n:attr:`ignore_index` is only applicable when the target contains class indices."
+    },
+    "d1fd9a6a-5043-4422-954d-638572899661": {
+      "id": "d1fd9a6a-5043-4422-954d-638572899661",
+      "name": "torch.nn.CrossEntropyLoss",
+      "rcType": "callable",
+      "description": "This criterion computes the cross entropy loss between input logits\nand target.\n\nIt is useful when training a classification problem with `C` classes.\nIf provided, the optional argument :attr:`weight` should be a 1D `Tensor`\nassigning weight to each of the classes.\nThis is particularly useful when you have an unbalanced training set.\n\nThe `input` is expected to contain the unnormalized logits for each class (which do `not` need\nto be positive or sum to 1, in general).\n`input` has to be a Tensor of size :math:`(C)` for unbatched input,\n:math:`(minibatch, C)` or :math:`(minibatch, C, d_1, d_2, ..., d_K)` with :math:`K \\geq 1` for the\n`K`-dimensional case. The last being useful for higher dimension inputs, such\nas computing cross entropy loss per-pixel for 2D images.\n\nThe `target` that this criterion expects should contain either:\n\n- Class indices in the range :math:`[0, C)` where :math:`C` is the number of classes; if\n  `ignore_index` is specified, this loss also accepts this class index (this index\n  may not necessarily be in the class range). The unreduced (i.e. with :attr:`reduction`\n  set to ``'none'``) loss for this case can be described as:\n\n  .. math::\n      \\ell(x, y) = L = \\{l_1,\\dots,l_N\\}^\\top, \\quad\n      l_n = - w_{y_n} \\log \\frac{\\exp(x_{n,y_n})}{\\sum_{c=1}^C \\exp(x_{n,c})}\n      \\cdot \\mathbb{1}\\{y_n \\not= \\text{ignore\\_index}\\}\n\n  where :math:`x` is the input, :math:`y` is the target, :math:`w` is the weight,\n  :math:`C` is the number of classes, and :math:`N` spans the minibatch dimension as well as\n  :math:`d_1, ..., d_k` for the `K`-dimensional case. If\n  :attr:`reduction` is not ``'none'`` (default ``'mean'``), then\n\n  .. math::\n      \\ell(x, y) = \\begin{cases}\n          \\sum_{n=1}^N \\frac{1}{\\sum_{n=1}^N w_{y_n} \\cdot \\mathbb{1}\\{y_n \\not= \\text{ignore\\_index}\\}} l_n, &\n           \\text{if reduction} = \\text{`mean';}\\\\\n            \\sum_{n=1}^N l_n,  &\n            \\text{if reduction} = \\text{`sum'.}\n        \\end{cases}\n\n  Note that this case is equivalent to applying :class:`~torch.nn.LogSoftmax`\n  on an input, followed by :class:`~torch.nn.NLLLoss`.\n\n- Probabilities for each class; useful when labels beyond a single class per minibatch item\n  are required, such as for blended labels, label smoothing, etc. The unreduced (i.e. with\n  :attr:`reduction` set to ``'none'``) loss for this case can be described as:\n\n  .. math::\n      \\ell(x, y) = L = \\{l_1,\\dots,l_N\\}^\\top, \\quad\n      l_n = - \\sum_{c=1}^C w_c \\log \\frac{\\exp(x_{n,c})}{\\sum_{i=1}^C \\exp(x_{n,i})} y_{n,c}\n\n  where :math:`x` is the input, :math:`y` is the target, :math:`w` is the weight,\n  :math:`C` is the number of classes, and :math:`N` spans the minibatch dimension as well as\n  :math:`d_1, ..., d_k` for the `K`-dimensional case. If\n  :attr:`reduction` is not ``'none'`` (default ``'mean'``), then\n\n  .. math::\n      \\ell(x, y) = \\begin{cases}\n          \\frac{\\sum_{n=1}^N l_n}{N}, &\n           \\text{if reduction} = \\text{`mean';}\\\\\n            \\sum_{n=1}^N l_n,  &\n            \\text{if reduction} = \\text{`sum'.}\n        \\end{cases}\n\n.. note::\n    The performance of this criterion is generally better when `target` contains class\n    indices, as this allows for optimized computation. Consider providing `target` as\n    class probabilities only when a single class label per minibatch item is too restrictive.\n\nArgs:\n    weight (Tensor, optional): a manual rescaling weight given to each class.\n        If given, has to be a Tensor of size `C`\n    size_average (bool, optional): Deprecated (see :attr:`reduction`). By default,\n        the losses are averaged over each loss element in the batch. Note that for\n        some losses, there are multiple elements per sample. If the field :attr:`size_average`\n        is set to ``False``, the losses are instead summed for each minibatch. Ignored\n        when :attr:`reduce` is ``False``. Default: ``True``\n    ignore_index (int, optional): Specifies a target value that is ignored\n        and does not contribute to the input gradient. When :attr:`size_average` is\n        ``True``, the loss is averaged over non-ignored targets. Note that\n        :attr:`ignore_index` is only applicable when the target contains class indices.\n    reduce (bool, optional): Deprecated (see :attr:`reduction`). By default, the\n        losses are averaged or summed over observations for each minibatch depending\n        on :attr:`size_average`. When :attr:`reduce` is ``False``, returns a loss per\n        batch element instead and ignores :attr:`size_average`. Default: ``True``\n    reduction (str, optional): Specifies the reduction to apply to the output:\n        ``'none'`` | ``'mean'`` | ``'sum'``. ``'none'``: no reduction will\n        be applied, ``'mean'``: the weighted mean of the output is taken,\n        ``'sum'``: the output will be summed. Note: :attr:`size_average`\n        and :attr:`reduce` are in the process of being deprecated, and in\n        the meantime, specifying either of those two args will override\n        :attr:`reduction`. Default: ``'mean'``\n    label_smoothing (float, optional): A float in [0.0, 1.0]. Specifies the amount\n        of smoothing when computing the loss, where 0.0 means no smoothing. The targets\n        become a mixture of the original ground truth and a uniform distribution as described in\n        `Rethinking the Inception Architecture for Computer Vision <https://arxiv.org/abs/1512.00567>`__. Default: :math:`0.0`.\n\nShape:\n    - Input: Shape :math:`(C)`, :math:`(N, C)` or :math:`(N, C, d_1, d_2, ..., d_K)` with :math:`K \\geq 1`\n      in the case of `K`-dimensional loss.\n    - Target: If containing class indices, shape :math:`()`, :math:`(N)` or :math:`(N, d_1, d_2, ..., d_K)` with\n      :math:`K \\geq 1` in the case of K-dimensional loss where each value should be between :math:`[0, C)`.\n      If containing class probabilities, same shape as the input and each value should be between :math:`[0, 1]`.\n    - Output: If reduction is 'none', shape :math:`()`, :math:`(N)` or :math:`(N, d_1, d_2, ..., d_K)` with :math:`K \\geq 1`\n      in the case of K-dimensional loss, depending on the shape of the input. Otherwise, scalar.\n\n    where:\n\n    .. math::\n        \\begin{aligned}\n            C ={} & \\text{number of classes} \\\\\n            N ={} & \\text{batch size} \\\\\n        \\end{aligned}\n\nExamples::\n\n    >>> # Example of target with class indices\n    >>> loss = nn.CrossEntropyLoss()\n    >>> input = torch.randn(3, 5, requires_grad=True)\n    >>> target = torch.empty(3, dtype=torch.long).random_(5)\n    >>> output = loss(input, target)\n    >>> output.backward()\n    >>>\n    >>> # Example of target with class probabilities\n    >>> input = torch.randn(3, 5, requires_grad=True)\n    >>> target = torch.randn(3, 5).softmax(dim=1)\n    >>> output = loss(input, target)\n    >>> output.backward()"
+    },
+    "d4d2b5ae-b6c9-476e-abb8-7d634fcbb34a": {
+      "id": "d4d2b5ae-b6c9-476e-abb8-7d634fcbb34a",
+      "name": "n",
+      "editable": true
+    },
+    "d9927b15-b841-44e5-9bc5-65406967e231": {
+      "id": "d9927b15-b841-44e5-9bc5-65406967e231",
+      "name": "scale",
+      "editable": true
     }
   },
   "codeInfoCols": {
