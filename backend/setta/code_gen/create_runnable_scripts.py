@@ -54,9 +54,11 @@ def runCode(message):
     id_to_relpath = {}
     for sid in to_write:
         curr_code = code_dict[sid]
-        sanitized_name = sanitize_section_path_full_name(p["sectionPathFullNames"][sid])
         rel_path = write_code_to_file(
-            folder_path, sanitized_name, curr_code["code"], curr_code["codeLanguage"]
+            folder_path,
+            curr_code["sanitized_full_name"],
+            curr_code["code"],
+            curr_code["codeLanguage"],
         )
         id_to_relpath[sid] = rel_path
 
@@ -124,8 +126,12 @@ def generate_final_code_for_sections(
         )
 
         is_gen_code = bool(get_gen_code_template_var(section_variant["templateVars"]))
+        sanitized_full_name = sanitize_section_path_full_name(
+            p["sectionPathFullNames"][s["id"]]
+        )
         code_dict[s["id"]] = {
             "name": s["name"],
+            "sanitized_full_name": sanitized_full_name,
             "code": curr_code,
             "codeLanguage": s["codeLanguage"],
             "var_name_to_decl_rel_position_dict": curr_var_name_to_decl_rel_position_dict,

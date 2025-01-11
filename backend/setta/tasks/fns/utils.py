@@ -20,7 +20,7 @@ def send_document_open_request_with_code_dict(
                 details["code"],
                 exporter_obj,
                 projectConfigName,
-                details["name"],
+                details["sanitized_full_name"],
                 details["is_gen_code"],
             )
         )
