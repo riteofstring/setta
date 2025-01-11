@@ -5,6 +5,7 @@ from typing import Dict
 
 from setta.cli.logger import default_section_type
 from setta.database.utils import create_new_id
+from setta.utils.constants import C
 
 from . import fns
 from .fns.utils import TaskDefinition, TaskMessage
@@ -46,7 +47,12 @@ class Tasks:
                     break
                 try:
                     stdout_data = self.stdout_queue.get_nowait()
-                    await self.websocket_manager.broadcast(stdout_data)
+                    await self.websocket_manager.broadcast(
+                        {
+                            "content": stdout_data,
+                            "messageType": C.WS_IN_MEMORY_FN_STDOUT,
+                        }
+                    )
                     self.stdout_queue.task_done()
                 except queue.Empty:
                     await asyncio.sleep(0.1)  # Check for cancellation every 100ms
