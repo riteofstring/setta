@@ -2,7 +2,11 @@ import black
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
+from setta.code_gen.create_runnable_scripts import (
+    generate_final_code_for_sections,
+    prune_and_topological_sort,
+    sanitize_section_path_full_name,
+)
 from setta.code_gen.export_selected import (
     export_for_in_memory_fn,
     export_selected,
@@ -36,23 +40,42 @@ async def route_update_interactive_code(
         p, always_export_args_objs=False, force_include_template_var=True
     )
     exporter_obj_in_memory = export_for_in_memory_fn(p)
+
+    template_var_replacement_values = {}
+    for variant in p["sectionVariants"].values():
+        for t in variant["templateVars"]:
+            if not t["sectionId"]:
+                continue
+            template_var_replacement_values[
+                t["keyword"]
+            ] = create_in_memory_module_name(p, t["sectionId"])
+
     code_dict = generate_final_code_for_sections(
         p,
         exporter_obj,
         "",
         do_prepend_with_setup_code=False,
         do_convert_var_names_to_readable_form=True,
+        template_var_replacement_values=template_var_replacement_values,
     )
 
-    code_dict = {
-        k: v["code"] for k, v in code_dict.items() if k in p["importCodeBlocks"]
-    }
-
-    projectConfigName = x.project["projectConfig"]["name"]
+    to_import, _ = prune_and_topological_sort(code_dict, p["importCodeBlocks"])
+    to_import = to_import[::-1]  # we want to import the dependencies first
+    code_list = []
+    for section_id in to_import:
+        v = code_dict[section_id]
+        task_name = create_in_memory_module_name(p, section_id)
+        code_list.append(
+            {
+                "task_name": task_name,
+                "code": v["code"],
+                "module_name": task_name,
+                "add_to_sys_modules": True,
+            }
+        )
 
     metadata, error_msgs, content = await tasks.add_custom_fns(
-        code_dict,
-        projectConfigName,
+        code_list,
         task_metadata_fn=get_task_metadata_fn(exporter_obj_in_memory),
         to_cache=exporter_obj_in_memory,
     )
@@ -106,3 +129,11 @@ def get_task_metadata_fn(exporter_obj):
         }
 
     return task_metadata_fn
+
+
+def create_in_memory_module_name(p, sectionId):
+    projectConfigName = p["projectConfig"]["name"]
+    sanitized_full_name = sanitize_section_path_full_name(
+        p["sectionPathFullNames"][sectionId]
+    )
+    return f"setta_in_memory_{projectConfigName}_{sanitized_full_name}"

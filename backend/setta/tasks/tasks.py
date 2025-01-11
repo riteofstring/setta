@@ -52,17 +52,19 @@ class Tasks:
                     task_metadata.update(task_metadata_fn(attr))
         return task_metadata
 
-    async def add_custom_fns(
-        self, codeDict, project_config_name, task_metadata_fn=None, to_cache=None
-    ):
+    async def add_custom_fns(self, code_list, task_metadata_fn=None, to_cache=None):
         error_msgs = {}
         task_metadata = {}
         content = []
         # self.remove_existing_custom_fns(project_config_name)
-        for id, code in codeDict.items():
-            task_name = f"{project_config_name}-{id}"
+        for c in code_list:
+            task_name = c["task_name"]
             try:
-                module = import_code_from_string(code)
+                module = import_code_from_string(
+                    code_string=c["code"],
+                    module_name=c["module_name"],
+                    add_to_sys_modules=c["add_to_sys_modules"],
+                )
                 if module:
                     task_metadata.update(
                         self.add_fns_from_module(

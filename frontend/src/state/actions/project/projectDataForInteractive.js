@@ -1,7 +1,7 @@
-import { getProjectData } from "./saveProject";
+import { getProjectDataToGenerateCode } from "./generateCode";
 
 export async function getProjectDataForInteractive() {
-  const project = getProjectData({});
+  const project = getProjectDataToGenerateCode({});
   // const sectionInfosState = useSectionInfos.getState().x;
   // const artifactState = useArtifacts.getState();
   // const sections = {};

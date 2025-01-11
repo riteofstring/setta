@@ -85,6 +85,7 @@ def generate_final_code_for_sections(
     do_prepend_with_setup_code=False,
     do_convert_var_names_to_readable_form=False,
     push_var_name=None,
+    template_var_replacement_values=None,
 ):
     code_sections = {
         k: v for k, v in p["sections"].items() if get_section_type(p, k) == C.CODE
@@ -122,6 +123,7 @@ def generate_final_code_for_sections(
             projectConfigName=p["projectConfig"]["name"],
             do_prepend_with_setup_code=do_prepend_with_setup_code,
             do_convert_var_names_to_readable_form=do_convert_var_names_to_readable_form,
+            template_var_replacement_values=template_var_replacement_values,
             push_var_name=push_var_name,
         )
 
@@ -228,6 +230,8 @@ def get_template_var_replacement_value_fn(
     ):
         keyword = template_var["keyword"]
         if keyword in template_var_replacement_values:
+            if template_var["sectionId"]:
+                section_dependencies.append(template_var["sectionId"])
             return template_var_replacement_values[keyword]
         if codeLanguage == "python":
             if keyword == tp(C.SETTA_GENERATED_PYTHON):
