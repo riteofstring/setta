@@ -36,18 +36,14 @@ export function PaneContextMenu() {
       closeContextMenu={closeAllContextMenus}
       isOpen={isOpen}
     >
-      <p className="mx-2 mb-2 min-w-[100px] border-b border-setta-100 py-1 text-xs font-bold uppercase text-setta-300 dark:border-setta-700 dark:text-setta-500">
-        Create New
-      </p>
-
-      <Item onClick={getOnClickFn({ type: C.SECTION })}>Section</Item>
-      <Item onClick={getOnClickFn({ type: C.LIST_ROOT })}>List</Item>
-      <Item onClick={getOnClickFn({ type: C.DICT_ROOT })}>Dict</Item>
-      <Item onClick={getOnClickFn({ type: C.GROUP })}>Group</Item>
-      <Item onClick={getOnClickFn({ type: C.INFO })}>Info</Item>
+      <Item onClick={getOnClickFn({ type: C.SECTION })}>New Section</Item>
+      <Item onClick={getOnClickFn({ type: C.LIST_ROOT })}>New List</Item>
+      <Item onClick={getOnClickFn({ type: C.DICT_ROOT })}>New Dict</Item>
+      <Item onClick={getOnClickFn({ type: C.GROUP })}>New Group</Item>
+      <Item onClick={getOnClickFn({ type: C.INFO })}>New Info</Item>
       {!singletonSections[C.GLOBAL_VARIABLES] && (
         <Item onClick={getOnClickFn({ type: C.GLOBAL_VARIABLES })}>
-          Global Variables
+          New Global Variables
         </Item>
       )}
       <Item
@@ -56,7 +52,7 @@ export function PaneContextMenu() {
           sectionProps: { codeLanguage: "python" },
         })}
       >
-        Python Code
+        New Python Script
       </Item>
       <Item
         onClick={getOnClickFn({
@@ -64,19 +60,19 @@ export function PaneContextMenu() {
           sectionProps: { codeLanguage: "bash" },
         })}
       >
-        Bash Script
+        New Bash Script
       </Item>
-      <Item onClick={getOnClickFn({ type: C.TERMINAL })}>Terminal</Item>
+      <Item onClick={getOnClickFn({ type: C.TERMINAL })}>New Terminal</Item>
       {!singletonSections[C.GLOBAL_PARAM_SWEEP] && (
         <Item onClick={getOnClickFn({ type: C.GLOBAL_PARAM_SWEEP })}>
-          Global Param Sweep
+          New Global Param Sweep
         </Item>
       )}
-      <Item onClick={getOnClickFn({ type: C.DRAW })}>Drawing Area</Item>
-      <Item onClick={getOnClickFn({ type: C.IMAGE })}>Image</Item>
-      <Item onClick={getOnClickFn({ type: C.CHART })}>Chart</Item>
-      <Item onClick={getOnClickFn({ type: C.SOCIAL })}>Social</Item>
-      <Item onClick={getOnClickFn({ type: C.IFRAME })}>IFrame</Item>
+      <Item onClick={getOnClickFn({ type: C.DRAW })}>New Drawing Area</Item>
+      <Item onClick={getOnClickFn({ type: C.IMAGE })}>New Image</Item>
+      <Item onClick={getOnClickFn({ type: C.CHART })}>New Chart</Item>
+      <Item onClick={getOnClickFn({ type: C.SOCIAL })}>New Social</Item>
+      <Item onClick={getOnClickFn({ type: C.IFRAME })}>New IFrame</Item>
     </ContextMenuCore>
   );
 }
