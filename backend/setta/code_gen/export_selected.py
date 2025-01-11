@@ -272,7 +272,6 @@ class Exporter:
                 C.DICT_ROOT,
                 C.GROUP,
                 C.CODE,
-                C.INTERACTIVE_CODE,
                 C.GLOBAL_VARIABLES,
             ],
         )
@@ -333,7 +332,7 @@ class Exporter:
                     "ref_var_name_positions"
                 ] = []  # has to be populated when the code is generated
                 self.output[var_name] = info
-            elif type in [C.CODE, C.INTERACTIVE_CODE]:
+            elif type == C.CODE:
                 variant = get_selected_section_variant(self.p, id)
                 gen_code_template_var = get_gen_code_template_var(
                     variant["templateVars"]

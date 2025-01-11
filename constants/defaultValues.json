@@ -22,6 +22,7 @@
     "nonPresetUITypeIds": [],
     "codeLanguage": "python",
     "configLanguage": "python",
+    "runInMemory": false,
     "isFrozen": false,
     "isHorizontalOrientation": false,
     "hideParams": false,

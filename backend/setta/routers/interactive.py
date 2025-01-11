@@ -33,8 +33,8 @@ async def route_update_interactive_code(
     exporter_obj = simple_export_selected(p)
 
     codeDict = {}
-    for id in p["sections"].keys():
-        if get_section_type(p, id) == C.INTERACTIVE_CODE:
+    for id, s in p["sections"].items():
+        if get_section_type(p, id) == C.CODE and s["runInMemory"]:
             codeDict[id] = get_section_code(p, id)
 
     projectConfigName = x.project["projectConfig"]["name"]

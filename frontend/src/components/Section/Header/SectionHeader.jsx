@@ -14,6 +14,7 @@ import MenuButton from "./MenuButton/MenuButton";
 import { MinimizeButton } from "./MinimizeButton";
 import { RunButton } from "./RunButton";
 import { SectionTitle } from "./SectionTitle";
+import { ToggleRunInMemoryButton } from "./ToggleRunInMemoryButton";
 
 function _SectionHeader({
   sectionId,
@@ -71,7 +72,12 @@ function _SectionHeader({
             <Incrementer sectionId={sectionId} isRoot={isRoot} popover={true} />
           </StandardPopover>
         )}
-        {sectionTypeName === C.CODE && <RunButton sectionId={sectionId} />}
+        {sectionTypeName === C.CODE && (
+          <>
+            <RunButton sectionId={sectionId} />{" "}
+            <ToggleRunInMemoryButton sectionId={sectionId} />{" "}
+          </>
+        )}
         <LockPositionButton sectionId={sectionId} />
         {!isRoot && <MinimizeButton sectionId={sectionId} />}
         <CustomCloseButton onClick={onCustomCloseButtonClick} />

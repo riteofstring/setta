@@ -87,6 +87,7 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
         "social",
         "codeLanguage",
         "configLanguage",
+        "runInMemory",
         "isFrozen",
         "jsonSource",
         "hideUnpinnedParams",
