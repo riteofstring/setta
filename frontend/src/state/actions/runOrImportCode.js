@@ -1,5 +1,6 @@
+import C from "constants/constants.json";
 import { dbImportCodeBlocks } from "requests/interactive";
-import { useInMemoryFn } from "state/definitions";
+import { useActiveSection, useInMemoryFn } from "state/definitions";
 import { maybeGetNewArtifactIds, updateInteractiveData } from "./interactive";
 import { setNotificationMessage } from "./notification";
 import {
@@ -7,8 +8,13 @@ import {
   getProjectRuns,
   sendRunCodeMessage,
 } from "./project/generateCode";
+import { getSectionInfo, getSectionType } from "./sectionInfos";
 
 export async function importCodeBlocks(sectionIds) {
+  if (sectionIds.length === 0) {
+    return;
+  }
+
   setNotificationMessage("Importing your code...");
   const res = await dbImportCodeBlocks(sectionIds);
   if (res.status === 200) {
@@ -29,6 +35,9 @@ export async function importCodeBlocks(sectionIds) {
 }
 
 export async function runCodeBlocks(sectionIds) {
+  if (sectionIds.length === 0) {
+    return;
+  }
   const project = getProjectDataToGenerateCode({
     includeInfoToFullName: false,
   });
@@ -45,4 +54,22 @@ export async function runCode() {
     await sendRunCodeMessage(projectVariant, count);
     count += 1;
   }
+}
+
+export function runOrImportActiveCodeSections() {
+  const inMemory = [];
+  const asSubprocess = [];
+  for (const id of useActiveSection.getState().ids) {
+    if (getSectionType(id) !== C.CODE) {
+      continue;
+    }
+    if (getSectionInfo(id).runInMemory) {
+      inMemory.push(id);
+    } else {
+      asSubprocess.push(id);
+    }
+  }
+
+  importCodeBlocks(inMemory);
+  runCodeBlocks(asSubprocess);
 }
