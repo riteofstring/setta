@@ -100,6 +100,7 @@ def generate_final_code_for_sections(
         and code_gen_template_var_section_details["section"]["id"] is None
     ):
         code_sections[None] = code_gen_template_var_section_details["section"]
+        p["sectionPathFullNames"][None] = code_sections[None]["name"]
 
     code_dict = {}
     for s in code_sections.values():
