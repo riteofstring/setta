@@ -65,9 +65,9 @@ export const useHomePageSearch = create(
   })),
 );
 
-export const useInteractive = create(
+export const useInMemoryFn = create(
   withResetFn(() => ({
-    taskMetadata: [],
+    metadata: {},
   })),
 );
 

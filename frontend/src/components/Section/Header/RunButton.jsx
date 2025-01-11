@@ -1,7 +1,6 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { RiPlayMiniFill } from "react-icons/ri";
-import { importCodeBlocks } from "state/actions/runOrImportCode";
-import { runCodeBlocks } from "state/actions/runOrImportCode";
+import { importCodeBlocks, runCodeBlocks } from "state/actions/runOrImportCode";
 import { getSectionInfo } from "state/actions/sectionInfos";
 
 export function RunButton({ sectionId }) {

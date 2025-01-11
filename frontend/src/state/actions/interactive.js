@@ -4,7 +4,7 @@ import { dbFormateCode } from "requests/interactive";
 import { sendMessage } from "requests/websocket";
 import {
   useArtifacts,
-  useInteractive,
+  useInMemoryFn,
   useSectionInfos,
 } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
@@ -34,9 +34,11 @@ export async function formatCode() {
 export function sendToInteractiveTasks(sourceInfo, value) {
   const key = JSON.stringify(sourceInfo);
   const content = { [key]: value };
-  for (const t of useInteractive.getState().taskMetadata) {
-    if (t.dependencies === null || t.dependencies.has(key)) {
-      sendMessage({ id: createNewId(), content, messageType: t.name });
+  for (const [fnName, metadata] of Object.entries(
+    useInMemoryFn.getState().metadata,
+  )) {
+    if (metadata.dependencies === null || metadata.dependencies.has(key)) {
+      sendMessage({ id: createNewId(), content, messageType: fnName });
     }
   }
 }

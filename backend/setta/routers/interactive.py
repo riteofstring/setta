@@ -37,10 +37,10 @@ async def route_update_interactive_code(
         codeDict[id] = get_section_code(p, id)
 
     projectConfigName = x.project["projectConfig"]["name"]
-    task_metadata, error_msgs, content = await tasks.add_custom_fns(
+    metadata, error_msgs, content = await tasks.add_custom_fns(
         codeDict, projectConfigName, exporter_obj
     )
-    return {"taskMetadata": task_metadata, "errorMsgs": error_msgs, "content": content}
+    return {"metadata": metadata, "errorMsgs": error_msgs, "content": content}
 
 
 @router.post(C.ROUTE_FORMAT_CODE)

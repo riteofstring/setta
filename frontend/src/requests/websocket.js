@@ -47,7 +47,7 @@ function receiveMessage(message) {
     processTypeErrors(m.content);
   } else if (m.messageType === C.WS_ARTIFACT) {
     updateInteractiveArtifacts(m.content);
-  } else if (m.messageType === C.WS_MEMORY_FN_RETURN) {
+  } else if (m.messageType === C.WS_IN_MEMORY_FN_RETURN) {
     updateInteractiveData(m.content);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);

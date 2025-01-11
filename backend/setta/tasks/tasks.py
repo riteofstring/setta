@@ -7,7 +7,7 @@ from setta.utils.utils import nested_access
 
 from . import fns
 from .fns.utils import (
-    SettaMemoryFn,
+    SettaInMemoryFn,
     TaskDefinition,
     TaskMessage,
     get_task_metadata_for_frontend,
@@ -22,8 +22,7 @@ class Tasks:
         self.task_runner = TaskRunner()
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
-        self.custom_fn_names = {}
-        self.custom_fn_name_to_exporter_obj = {}
+        self.custom_fn_cached_data = {}
         self.add_fns_from_module(fns)
 
     async def __call__(self, fn_name, message: TaskMessage):
@@ -43,7 +42,7 @@ class Tasks:
 
     def add_fns_from_module(self, module, task_name=None, exporter_obj=None):
         count = 1
-        task_metadata = []
+        task_metadata = {}
         for attr in vars(module).values():
             if isinstance(attr, TaskDefinition):
                 if not attr.name:
@@ -54,50 +53,42 @@ class Tasks:
                     attr.name = f"{task_name}-{count}"
                     count += 1
                 self.add_fn(attr)
-                task_metadata.append(get_task_metadata_for_frontend(attr, exporter_obj))
+                task_metadata.update(get_task_metadata_for_frontend(attr, exporter_obj))
         return task_metadata
 
     async def add_custom_fns(self, codeDict, project_config_name, exporter_obj):
         error_msgs = {}
-        task_metadata = []
+        task_metadata = {}
         content = []
-        self.remove_existing_custom_fns(project_config_name)
+        # self.remove_existing_custom_fns(project_config_name)
         for id, code in codeDict.items():
             task_name = f"{project_config_name}-{id}"
             try:
                 module = import_code_from_string(code)
                 if module:
-                    task_metadata.extend(
+                    task_metadata.update(
                         self.add_fns_from_module(
                             module, task_name=task_name, exporter_obj=exporter_obj
                         )
                     )
             except Exception as e:
                 error_msgs[task_name] = str(e)
-        self.custom_fn_names[project_config_name] = [x["name"] for x in task_metadata]
-        for t in task_metadata:
-            self.custom_fn_name_to_exporter_obj[t["name"]] = exporter_obj
-
-        for t in task_metadata:
-            task_output = await self(
-                t["name"], TaskMessage(id=create_new_id(), content={})
-            )
+        for k in task_metadata.keys():
+            self.custom_fn_cached_data[k] = exporter_obj
+            task_output = await self(k, TaskMessage(id=create_new_id(), content={}))
             content.extend(task_output["content"])
 
         return task_metadata, error_msgs, content
 
-    def remove_existing_custom_fns(self, project_config_name):
-        if project_config_name not in self.custom_fn_names:
-            return
-        for x in self.custom_fn_names[project_config_name]:
-            del self.fns[x]
-            del self.custom_fn_name_to_exporter_obj[x]
-        del self.custom_fn_names[project_config_name]
+    def remove_existing_custom_fns(self):
+        for k in self.custom_fn_cached_data.keys():
+            del self.fns[k]
+            del self.custom_fn_cached_data[k]
 
     def process_message(self, fn, fn_name, message):
-        if isinstance(fn, SettaMemoryFn):
-            if fn_name in self.custom_fn_name_to_exporter_obj:
-                exporter_obj = self.custom_fn_name_to_exporter_obj[fn_name]
+        if isinstance(fn, SettaInMemoryFn):
+            if fn_name in self.custom_fn_cached_data:
+                exporter_obj = self.custom_fn_cached_data[fn_name]
                 for k, v in message.content.items():
                     nice_str = exporter_obj.var_name_mapping[tuple(json.loads(k))]
                     p_dict, key = nested_access(exporter_obj.output, nice_str)
@@ -107,7 +98,7 @@ class Tasks:
         return message
 
     def process_output(self, fn, result):
-        if isinstance(fn, SettaMemoryFn):
+        if isinstance(fn, SettaInMemoryFn):
             for x in result:
                 x.setdefault("sectionType", default_section_type(x["type"]))
             result = {"content": result}
