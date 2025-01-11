@@ -4,7 +4,7 @@ import {
   useCodeAreaHeight,
 } from "components/Section/Layouts/CodeArea";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
-import { useCodeMirrorStyle } from "components/utils/CodeMirror/useCodeMirrorStyle";
+import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import C from "constants/constants.json";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";

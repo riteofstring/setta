@@ -1,4 +1,4 @@
-import { useCodeMirrorStyleLoader } from "components/utils/CodeMirror/useCodeMirrorStyleLoader";
+import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
