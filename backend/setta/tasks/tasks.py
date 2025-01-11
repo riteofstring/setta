@@ -7,7 +7,7 @@ from setta.utils.utils import nested_access
 
 from . import fns
 from .fns.utils import SettaInMemoryFn, TaskDefinition, TaskMessage
-from .task_runner import TaskRunner
+from .task_runner import RunType, TaskRunner
 from .utils import import_code_from_string
 
 
@@ -60,10 +60,10 @@ class Tasks:
         for c in code_list:
             task_name = c["task_name"]
             try:
-                module = import_code_from_string(
-                    code_string=c["code"],
-                    module_name=c["module_name"],
-                    add_to_sys_modules=c["add_to_sys_modules"],
+                module = await self.task_runner.run(
+                    import_code_from_string,
+                    [c["code"], c["module_name"], c["add_to_sys_modules"]],
+                    RunType.THREAD,
                 )
                 if module:
                     task_metadata.update(
