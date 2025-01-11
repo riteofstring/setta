@@ -194,14 +194,10 @@ function CustomResizableSuperCore({
       handleStyles={{ right: { right: "-8px" }, bottom: { bottom: "-8px" } }}
       handleClasses={{
         // used in ZoomPane to allow resizing of sections that are inside a position-locked section
-        right: NO_PAN_CLASS_NAME,
-        bottom: NO_PAN_CLASS_NAME,
+        right: `${SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT} ${NO_PAN_CLASS_NAME}`,
+        bottom: `${SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT} ${NO_PAN_CLASS_NAME}`,
       }}
       grid={snapToGrid ? snapGrid : null}
-      handleComponent={{
-        right: <HandleComponentStopClickPropagation />,
-        bottom: <HandleComponentStopClickPropagation />,
-      }}
     >
       {children}
     </ResizableWithScale>
@@ -230,17 +226,4 @@ function useAspectRatio(sectionId) {
 
 function setSectionResizeEvent(sectionId, resizeEvent, state) {
   state.x[sectionId].resizeEvent = resizeEvent;
-}
-
-// stop propagation so that section doesn't become an active section.
-// The SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT is to stop the "active" css from triggering
-function HandleComponentStopClickPropagation() {
-  return (
-    <div
-      onClick={(e) => {
-        e.stopPropagation();
-      }}
-      className={`absolute inset-0 h-full w-full ${SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT}`}
-    />
-  );
 }

@@ -10,6 +10,7 @@ import { getHighestAncestor } from "state/actions/sectionInfos";
 import { getSectionHasAtLeastOneSelectedParam } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useMisc, useSectionInfos } from "state/definitions";
+import { SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT } from "utils/constants";
 import "./dndline.css";
 
 export function getBgColor(sectionTypeName) {
@@ -57,8 +58,12 @@ export function getOutlineColor({
 
 export function getOnSectionClick(sectionId, isActiveSection) {
   return (e) => {
-    if (e.target.closest('button, [role="menuitem"]')) {
-      // if a child button is clicked, don't "activate" the section
+    if (
+      e.target.closest(
+        `button, [role="menuitem"], .${SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT}`,
+      )
+    ) {
+      // if a child button, menu item, or resizable is clicked, don't "activate" the section
       return;
     }
     e.stopPropagation(); // to prevent parent section from becoming active
