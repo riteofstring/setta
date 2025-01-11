@@ -1,8 +1,5 @@
 import C from "constants/constants.json";
-import {
-  updateInteractiveArtifacts,
-  updateInteractiveData,
-} from "state/actions/interactive";
+import { updateInteractiveArtifacts } from "state/actions/interactive";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeErrors";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";
@@ -45,10 +42,11 @@ function receiveMessage(message) {
     updateConnectedTo(m);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     processTypeErrors(m.content);
-  } else if (m.messageType === C.WS_ARTIFACT) {
+  } else if (
+    m.messageType === C.WS_ARTIFACT ||
+    m.messageType === C.WS_IN_MEMORY_FN_RETURN
+  ) {
     updateInteractiveArtifacts(m.content);
-  } else if (m.messageType === C.WS_IN_MEMORY_FN_RETURN) {
-    updateInteractiveData(m.content);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);
   }

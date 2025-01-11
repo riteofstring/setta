@@ -5,7 +5,10 @@ import {
   useInMemoryFn,
   useSectionInfos,
 } from "state/definitions";
-import { maybeGetNewArtifactIds, updateInteractiveData } from "./interactive";
+import {
+  maybeGetNewArtifactIds,
+  updateInteractiveArtifacts,
+} from "./interactive";
 import { setNotificationMessage } from "./notification";
 import {
   getProjectDataToGenerateCode,
@@ -33,7 +36,7 @@ export async function importCodeBlocks(sectionIds) {
       metadata: { ...state.metadata, ...res.data.metadata },
     }));
     await maybeGetNewArtifactIds(res.data.content);
-    updateInteractiveData(res.data.content);
+    updateInteractiveArtifacts(res.data.content);
     setNotificationMessage("Done importing");
   }
 }
@@ -50,19 +53,16 @@ export async function runCodeBlocks(sectionIds) {
 }
 
 export async function runOrImportAllCode() {
-  const project = getProjectDataToGenerateCode({
-    includeInfoToFullName: false,
-  });
-  let count = 0;
-  for (const projectVariant of getProjectRuns(project)) {
-    await sendRunCodeMessage(projectVariant, count);
-    count += 1;
-  }
+  const { inMemory, asSubprocess } = getInMemoryAndAsSubprocessCodeBlocks();
 
-  const inMemory = [];
-  for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (getSectionType(s.id) === C.CODE && s.runInMemory) {
-      inMemory.push(s.id);
+  if (asSubprocess.length > 0) {
+    const project = getProjectDataToGenerateCode({
+      includeInfoToFullName: false,
+    });
+    let count = 0;
+    for (const projectVariant of getProjectRuns(project)) {
+      await sendRunCodeMessage(projectVariant, count);
+      count += 1;
     }
   }
 
@@ -70,9 +70,19 @@ export async function runOrImportAllCode() {
 }
 
 export function runOrImportActiveCode() {
+  const { inMemory, asSubprocess } = getInMemoryAndAsSubprocessCodeBlocks(true);
+  importCodeBlocks(inMemory);
+  runCodeBlocks(asSubprocess);
+}
+
+function getInMemoryAndAsSubprocessCodeBlocks(onlyActiveSections = false) {
   const inMemory = [];
   const asSubprocess = [];
-  for (const id of useActiveSection.getState().ids) {
+  const ids = onlyActiveSections
+    ? useActiveSection.getState().ids
+    : Object.keys(useSectionInfos.getState().x);
+
+  for (const id of ids) {
     if (getSectionType(id) !== C.CODE) {
       continue;
     }
@@ -82,7 +92,5 @@ export function runOrImportActiveCode() {
       asSubprocess.push(id);
     }
   }
-
-  importCodeBlocks(inMemory);
-  runCodeBlocks(asSubprocess);
+  return { inMemory, asSubprocess };
 }

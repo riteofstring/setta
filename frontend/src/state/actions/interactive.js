@@ -11,13 +11,6 @@ import { createNewId } from "utils/idNameCreation";
 import { getNamePathTypeKey } from "./artifacts";
 import { getSectionVariant } from "./sectionInfos";
 
-export async function updateInteractiveData(artifacts) {
-  if (artifacts.length === 0) {
-    return;
-  }
-  updateInteractiveArtifacts(artifacts);
-}
-
 export async function formatCode() {
   const res = await dbFormateCode();
   if (res.status === 200) {
@@ -74,6 +67,10 @@ export async function maybeGetNewArtifactIds(content) {
 }
 
 export function updateInteractiveArtifacts(artifacts) {
+  if (artifacts.length === 0) {
+    return;
+  }
+
   useArtifacts.setState((state) => {
     const newArtifacts = {};
     for (const a of artifacts) {
