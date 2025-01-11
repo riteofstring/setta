@@ -29,12 +29,12 @@ export async function updateInteractiveData(data) {
   if (data.length === 0) {
     return;
   }
-  const artifacts = {};
-  for (const [id, d] of Object.entries(data)) {
+  const artifacts = [];
+  for (const d of data) {
     if (d.type === "runGroupControl") {
       setAllRunGroupsAndMaybeCreateSection(d.value);
     } else if (["list", "img"].includes(d.type)) {
-      artifacts[id] = { ...d, path: "" };
+      artifacts.push({ ...d, path: "" });
     } else {
       console.error("incorrect interactive type", d);
     }
