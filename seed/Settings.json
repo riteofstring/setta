@@ -35,6 +35,7 @@
     "showParamUITypeTabShortcut": "P",
     "showProjectOverviewTabShortcut": "O",
     "runCodeShortcut": "Mod + Enter",
+    "runAllCodeShortcut": "Mod + Shift + Enter",
     "paramSelect": "Mod + Shift",
     "formatCode": "Shift + Alt + F",
     "selectionKeyCode": "Shift",

@@ -45,7 +45,7 @@ export async function runCodeBlocks(sectionIds) {
   await sendRunCodeMessage(project);
 }
 
-export async function runCode() {
+export async function runOrImportAllCodeSections() {
   const project = getProjectDataToGenerateCode({
     includeInfoToFullName: false,
   });
