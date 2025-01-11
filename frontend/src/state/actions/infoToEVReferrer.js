@@ -3,78 +3,11 @@ import {
   keyForInfoToFullName,
 } from "components/Utils/CodeMirror/utils";
 import { dbMakeEVRefTemplateVarReplacements } from "requests/infoToEVReferrer";
-import {
-  useInfoToEVReferrer,
-  useInfoToTemplateVarReferrer,
-  useSectionInfos,
-  useSettings,
-} from "state/definitions";
+import { useSectionInfos, useSettings } from "state/definitions";
 import { RENAME_REFERENCES_ON_SECTION_MOVE_MODES } from "utils/constants";
 import { templatePrefix } from "utils/utils";
 import { openRenameReferencesModal } from "./modal";
 import { getSectionPathFullName } from "./sectionInfos";
-
-export function getInfoToEVReferrers(state) {
-  const output = {};
-  for (const [variantId, variant] of Object.entries(state.variants)) {
-    processEVRefForUpdater(variant.evRefs, output, { variantId });
-    if (variant.selectedItem) {
-      const codeInfoId = variant.selectedItem;
-      processEVRefForUpdater(state.codeInfo[codeInfoId].evRefs, output, {
-        codeInfoId,
-      });
-    }
-    for (const [referringParamInfoId, valueInfo] of Object.entries(
-      variant.values,
-    )) {
-      processEVRefForUpdater(valueInfo.evRefs, output, {
-        variantId,
-        referringParamInfoId,
-      });
-    }
-  }
-  return output;
-}
-
-function processEVRefForUpdater(evRefs, output, metadata) {
-  for (const evRef of evRefs) {
-    const { sectionId, paramInfoId } = evRef;
-    if (!(sectionId in output)) {
-      output[sectionId] = {};
-    }
-    if (!(paramInfoId in output[sectionId])) {
-      output[sectionId][paramInfoId] = [];
-    }
-    output[sectionId][paramInfoId].push({
-      originalEVRef: evRef,
-      ...metadata,
-    });
-  }
-}
-
-export function getInfoToTemplateVarReferrer(state) {
-  const output = {};
-  for (const [variantId, variant] of Object.entries(state.variants)) {
-    processTemplateVarForUpdater(variant.templateVars, output, { variantId });
-  }
-  return output;
-}
-
-function processTemplateVarForUpdater(templateVars, output, metadata) {
-  for (const t of templateVars) {
-    const { sectionId } = t;
-    if (!sectionId) {
-      return;
-    }
-    if (!(sectionId in output)) {
-      output[sectionId] = [];
-    }
-    output[sectionId].push({
-      originalTemplateVar: t,
-      ...metadata,
-    });
-  }
-}
 
 export function getRequiredReplacements() {
   const codeAreaReplacements = {};
@@ -83,31 +16,25 @@ export function getRequiredReplacements() {
   const state = useSectionInfos.getState();
   const infoToFullName = computeInfoToFullName();
   let atLeastOneReplacement = false;
-  let referrers;
+  let changed = false;
 
-  for (const sectionId of Object.keys(useSectionInfos.getState().x)) {
-    referrers = useInfoToEVReferrer.getState()[sectionId];
-    if (referrers) {
-      const changed = setEVRefReplacements(
-        referrers,
-        codeAreaReplacements,
-        codeInfoReplacements,
-        paramEVReplacements,
-        state,
-        infoToFullName,
-      );
-      atLeastOneReplacement ||= changed;
-    }
+  for (const variantId of Object.keys(useSectionInfos.getState().variants)) {
+    changed = setEVRefReplacements(
+      variantId,
+      codeAreaReplacements,
+      codeInfoReplacements,
+      paramEVReplacements,
+      state,
+      infoToFullName,
+    );
+    atLeastOneReplacement ||= changed;
 
-    referrers = useInfoToTemplateVarReferrer.getState()[sectionId];
-    if (referrers) {
-      const changed = setTemplateVarReplacements(
-        referrers,
-        codeAreaReplacements,
-        state,
-      );
-      atLeastOneReplacement ||= changed;
-    }
+    changed = setTemplateVarReplacements(
+      variantId,
+      codeAreaReplacements,
+      state,
+    );
+    atLeastOneReplacement ||= changed;
   }
 
   return [
@@ -119,71 +46,96 @@ export function getRequiredReplacements() {
 }
 
 function setEVRefReplacements(
-  evReferrersToSection,
+  variantId,
   codeAreaReplacements,
   codeInfoReplacements,
   paramEVReplacements,
   state,
   infoToFullName,
 ) {
-  let curr;
+  let curr, changed;
   let atLeastOneReplacement = false;
-  for (const details of Object.values(evReferrersToSection)) {
-    for (const oneReferrer of details) {
-      const { variantId, codeInfoId, referringParamInfoId, originalEVRef } =
-        oneReferrer;
 
-      if (referringParamInfoId) {
-        curr = getParamEVReplacementObj(
-          paramEVReplacements,
-          variantId,
-          referringParamInfoId,
-          state,
-        );
-      } else if (codeInfoId) {
-        curr = getCodeInfoReplacementObj(
-          codeInfoReplacements,
-          codeInfoId,
-          state,
-        );
-      } else {
-        curr = getCodeAreaReplacementObj(
-          codeAreaReplacements,
-          variantId,
-          state,
-        );
-      }
-      const newName = infoToFullName[keyForInfoToFullName(originalEVRef)];
-      curr.replacements.push({ originalEVRef, newName });
-      if (originalEVRef.keyword !== newName) {
-        atLeastOneReplacement = true;
-      }
+  const variant = state.variants[variantId];
+  for (const originalEVRef of variant.evRefs) {
+    curr = getCodeAreaReplacementObj(codeAreaReplacements, variantId, state);
+    changed = getNewEVRefNameAndAddToReplacements(
+      originalEVRef,
+      infoToFullName,
+      curr,
+    );
+    atLeastOneReplacement ||= changed;
+  }
+
+  if (variant.selectedItem) {
+    const codeInfoId = variant.selectedItem;
+    for (const originalEVRef of state.codeInfo[codeInfoId].evRefs) {
+      curr = getCodeInfoReplacementObj(codeInfoReplacements, codeInfoId, state);
+      changed = getNewEVRefNameAndAddToReplacements(
+        originalEVRef,
+        infoToFullName,
+        curr,
+      );
+      atLeastOneReplacement ||= changed;
+    }
+  }
+
+  for (const [referringParamInfoId, valueInfo] of Object.entries(
+    variant.values,
+  )) {
+    for (const originalEVRef of valueInfo.evRefs) {
+      curr = getParamEVReplacementObj(
+        paramEVReplacements,
+        variantId,
+        referringParamInfoId,
+        state,
+      );
+      changed = getNewEVRefNameAndAddToReplacements(
+        originalEVRef,
+        infoToFullName,
+        curr,
+      );
+      atLeastOneReplacement ||= changed;
     }
   }
   return atLeastOneReplacement;
 }
 
-function setTemplateVarReplacements(
-  templateVarReferrersToSection,
-  codeAreaReplacements,
-  state,
+function getNewEVRefNameAndAddToReplacements(
+  originalEVRef,
+  infoToFullName,
+  curr,
 ) {
+  const newName = infoToFullName[keyForInfoToFullName(originalEVRef)];
+  curr.replacements.push({ originalEVRef, newName });
+  return originalEVRef.keyword !== newName;
+}
+
+function setTemplateVarReplacements(variantId, codeAreaReplacements, state) {
   let curr;
   let atLeastOneReplacement = false;
-  for (const oneReferrer of templateVarReferrersToSection) {
-    const { variantId, originalTemplateVar } = oneReferrer;
+  for (const originalTemplateVar of state.variants[variantId].templateVars) {
     curr = getCodeAreaReplacementObj(codeAreaReplacements, variantId, state);
-    const matchingSection = Object.values(state.x).find(
-      (s) => s.id === originalTemplateVar.sectionId,
-    );
-    if (matchingSection) {
-      const newName = templatePrefix(
-        getSectionPathFullName(matchingSection.id, state),
+    if (originalTemplateVar.sectionId) {
+      const matchingSection = Object.values(state.x).find(
+        (s) => s.id === originalTemplateVar.sectionId,
       );
-      curr.replacements.push({ originalTemplateVar, newName });
-      if (originalTemplateVar.keyword !== newName) {
-        atLeastOneReplacement = true;
+      if (matchingSection) {
+        const newName = templatePrefix(
+          getSectionPathFullName(matchingSection.id, state),
+        );
+        curr.replacements.push({ originalTemplateVar, newName });
+        if (originalTemplateVar.keyword !== newName) {
+          atLeastOneReplacement = true;
+        }
       }
+    } else {
+      // If it's not referring to a section, then it's a special keyword
+      // like SETTA_GENERATED_PYTHON, and this doesn't need a different new name.
+      curr.replacements.push({
+        originalTemplateVar,
+        newName: originalTemplateVar.keyword,
+      });
     }
   }
   return atLeastOneReplacement;

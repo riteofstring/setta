@@ -256,11 +256,3 @@ export const useResizerStore = withProjectState(
     })),
   ),
 );
-
-export const useInfoToEVReferrer = withProjectState(
-  create(withResetFn(() => ({}))),
-);
-
-export const useInfoToTemplateVarReferrer = withProjectState(
-  create(withResetFn(() => ({}))),
-);

@@ -43,8 +43,6 @@ export function RenameReferencesModal() {
     setModalOpen(false);
   };
 
-  const referencesToBeUpdated = ["this", "is", "a", "test"];
-
   return (
     <div className="mx-auto flex h-full w-full flex-col items-center">
       <header className="flex flex-col gap-2 self-start">
@@ -60,7 +58,7 @@ export function RenameReferencesModal() {
         </Dialog.Description>
       </header>
       {/* Scrollable content section */}
-      <div className="mb-6 w-full flex-grow overflow-auto rounded-lg bg-setta-50 p-4 dark:bg-setta-900">
+      {/* <div className="mb-6 w-full flex-grow overflow-auto rounded-lg bg-setta-50 p-4 dark:bg-setta-900">
         <h4 className="mb-2 text-sm font-medium text-setta-700 dark:text-setta-300">
           References to be updated:
         </h4>
@@ -75,7 +73,7 @@ export function RenameReferencesModal() {
             </li>
           ))}
         </ul>
-      </div>
+      </div> */}
       {/* Fixed footer section */}
       <div className="flex w-full flex-col space-y-3 border-t border-setta-200 pt-4 dark:border-setta-700">
         <label className="flex items-center space-x-2 text-sm text-setta-600 dark:text-setta-400">

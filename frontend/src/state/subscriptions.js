@@ -5,8 +5,6 @@ import _ from "lodash";
 import {
   useArtifacts,
   useEVRefRegex,
-  useInfoToEVReferrer,
-  useInfoToTemplateVarReferrer,
   useMisc,
   useNodeInternals,
   useSectionInfos,
@@ -14,11 +12,7 @@ import {
 } from "state/definitions";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { getEVRefRegexAndColorMap } from "./actions/evRefRegex";
-import {
-  getInfoToEVReferrers,
-  getInfoToTemplateVarReferrer,
-  maybeOpenRenameReferencesModal,
-} from "./actions/infoToEVReferrer";
+import { maybeOpenRenameReferencesModal } from "./actions/infoToEVReferrer";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
@@ -118,22 +112,6 @@ export function subscribe() {
         }));
       }
     },
-  );
-
-  useSectionInfos.subscribe(
-    getInfoToEVReferrers,
-    (infoToEVReferrers) => {
-      useInfoToEVReferrer.setState(infoToEVReferrers);
-    },
-    { equalityFn: _.isEqual },
-  );
-
-  useSectionInfos.subscribe(
-    getInfoToTemplateVarReferrer,
-    (infoToTemplateVarReferrers) => {
-      useInfoToTemplateVarReferrer.setState(infoToTemplateVarReferrers);
-    },
-    { equalityFn: _.isEqual },
   );
 
   useArtifacts.subscribe(
