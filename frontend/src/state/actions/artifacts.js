@@ -165,7 +165,7 @@ export async function addArtifactAndMaybeCreateNewArtifactGroup({
   createNewArtifactGroup,
   value,
   artifactType,
-  path = null,
+  path = "",
 }) {
   const artifactId = createNewId();
   useArtifacts.setState((state) => ({

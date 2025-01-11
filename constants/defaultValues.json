@@ -116,7 +116,7 @@
   },
   "artifact": {
     "name": "",
-    "path": null,
+    "path": "",
     "value": null,
     "type": ""
   }

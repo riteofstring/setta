@@ -198,7 +198,7 @@ function ImageArtifactObjects({
                   <FiChevronDown className="transform text-setta-500 transition-transform duration-200 ease-in-out group-data-[state=open]:rotate-180 dark:text-setta-400" />
                 </Accordion.Trigger>
               </div>
-              {item.path && (
+              {Boolean(item.path) && (
                 <div className="mb-2 truncate text-xs text-setta-500 dark:text-setta-400">
                   {item.path}
                 </div>
@@ -265,7 +265,7 @@ function ChartArtifactObjects({
                   <FiChevronDown className="transform text-setta-500 transition-transform duration-200 ease-in-out group-data-[state=open]:rotate-180 dark:text-setta-400" />
                 </Accordion.Trigger>
               </div>
-              {item.path && (
+              {Boolean(item.path) && (
                 <div className="mb-2 truncate text-xs text-setta-500 dark:text-setta-400">
                   {item.path}
                 </div>

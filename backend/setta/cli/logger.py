@@ -41,7 +41,7 @@ class Setta:
     def log(self, obj, save_to="db"):
         data_to_send = []
         for name, data in obj.items():
-            artifact_path = None
+            artifact_path = ""
 
             if save_to == "disk":
                 full_path = self.root_path / name

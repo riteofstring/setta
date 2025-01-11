@@ -76,7 +76,7 @@
   "artifacts": {
     "transformed_particle_data": {
       "name": "transformed_particle_data",
-      "path": null,
+      "path": "",
       "value": {
         "data": [
           [-74.5091192779221, -42.407247910854025],

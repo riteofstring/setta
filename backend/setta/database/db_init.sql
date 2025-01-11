@@ -196,10 +196,11 @@ CREATE TABLE IF NOT EXISTS ProjectConfigChildren (
 );
 CREATE TABLE IF NOT EXISTS Artifact (
     id TEXT PRIMARY KEY,
-    name TEXT,
-    path TEXT,
+    name TEXT NOT NULL,
+    path TEXT NOT NULL DEFAULT '',
     value TEXT,
-    type TEXT
+    type TEXT NOT NULL,
+    UNIQUE (name, path, type)
 );
 CREATE TABLE IF NOT EXISTS ArtifactGroupId (
     id TEXT PRIMARY KEY,
