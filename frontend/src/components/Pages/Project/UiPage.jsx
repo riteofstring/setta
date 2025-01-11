@@ -6,12 +6,14 @@ import ReactFlow from "forks/xyflow/core/container/ReactFlow";
 import "forks/xyflow/core/styles/style.css";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "state/actions/keyActivations";
+import { useMisc } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import "./react-flow-css.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 
 export function UIPage() {
   useInitGlobalKeyEventListeners();
+  useLastMouseDownMouseUpLocation();
   const [showMiniMap] = localStorageFns.showMinimap.hook();
 
   return (
@@ -29,5 +31,29 @@ function useInitGlobalKeyEventListeners() {
   useEffect(() => {
     const cleanup = attachKeyEventListeners();
     return cleanup;
+  }, []);
+}
+
+function useLastMouseDownMouseUpLocation() {
+  useEffect(() => {
+    const handlePointerDown = (e) => {
+      useMisc.setState({
+        lastMouseDownLocation: { x: e.clientX, y: e.clientY },
+      });
+    };
+
+    const handlePointerUp = (e) => {
+      useMisc.setState({
+        lastMouseUpLocation: { x: e.clientX, y: e.clientY },
+      });
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
   }, []);
 }

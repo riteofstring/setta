@@ -223,6 +223,8 @@ export const useMisc = withProjectState(
   create(
     subscribeWithSelector(
       withResetFn(() => ({
+        lastMouseDownLocation: null,
+        lastMouseUpLocation: null,
         mouseDownDrawArea: false,
         mouseDownDraggingSection: false,
         lastPaneClickLocation: { x: 0, y: 0 },

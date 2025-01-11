@@ -61,9 +61,12 @@ export function getOnSectionClick(sectionId, isActiveSection) {
     if (
       e.target.closest(
         `button, [role="menuitem"], .${SETTA_CUSTOM_RESIZABLE_HANDLE_COMPONENT}`,
-      )
+      ) ||
+      isActuallyADrag()
     ) {
-      // if a child button, menu item, or resizable is clicked, don't "activate" the section
+      // if a child button, menu item, or resizable is clicked,
+      // or the click is actually a drag,
+      // then don't "activate" the section
       return;
     }
     e.stopPropagation(); // to prevent parent section from becoming active
@@ -99,4 +102,20 @@ export function getOnSectionClick(sectionId, isActiveSection) {
 
 export function useHasTempNested(sectionId) {
   return useDndChildren((x) => x.x[sectionId]?.length > 0);
+}
+
+function isActuallyADrag(minimumDelta = 5) {
+  const { lastMouseDownLocation, lastMouseUpLocation } = useMisc.getState();
+
+  if (!lastMouseDownLocation || !lastMouseUpLocation) {
+    return false;
+  }
+
+  const deltaX = lastMouseUpLocation.x - lastMouseDownLocation.x;
+  const deltaY = lastMouseUpLocation.y - lastMouseDownLocation.y;
+
+  // Pythagorean theorem: a² + b² = c²
+  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+  return distance > minimumDelta;
 }
