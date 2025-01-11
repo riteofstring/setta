@@ -12,11 +12,11 @@ import {
 } from "state/definitions";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { getEVRefRegexAndColorMap } from "./actions/evRefRegex";
-import { maybeOpenRenameReferencesModal } from "./actions/infoToEVReferrer";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./actions/nodeInternals";
+import { maybeOpenRenameReferencesModal } from "./actions/referenceRenaming";
 import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
 import {
   getCodeInfoCol,

@@ -2,8 +2,8 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
 import { VscReferences } from "react-icons/vsc";
 import { dbSaveSettings } from "requests/settings";
-import { makeReplacements } from "state/actions/infoToEVReferrer";
 import { setModalOpen } from "state/actions/modal";
+import { makeReplacements } from "state/actions/referenceRenaming";
 import { useModal, useSettings } from "state/definitions";
 import { RENAME_REFERENCES_ON_SECTION_MOVE_MODES } from "utils/constants";
 
