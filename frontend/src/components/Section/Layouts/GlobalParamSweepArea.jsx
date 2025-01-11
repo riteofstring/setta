@@ -59,13 +59,13 @@ function ResizablePane({ width, children }) {
   if (width > 384) {
     return (
       <ResizableWithScale
-        className="nodrag relative -mr-2 flex flex-col pr-2"
+        className="nodrag relative -mr-2 flex flex-col pr-1"
         enable={{ right: true }}
         minWidth={100}
         maxWidth="70%"
         handleClasses={{
           right:
-            "before:bg-transparent before:absolute before:top-0 before:h-3/4 before:bottom-0 before:left-0 before:right-0 before: before:m-auto before:w-1/2 hover:before:bg-setta-500/10 before:rounded-full",
+            "before:bg-transparent before:absolute before:top-0 before:h-3/4 before:bottom-0 before:left-0 before:right-0  before:m-auto before:w-1/4 hover:before:bg-blue-500 before:rounded-full",
         }}
       >
         {children}
