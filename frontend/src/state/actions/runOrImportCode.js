@@ -1,6 +1,10 @@
 import C from "constants/constants.json";
 import { dbImportCodeBlocks } from "requests/interactive";
-import { useActiveSection, useInMemoryFn } from "state/definitions";
+import {
+  useActiveSection,
+  useInMemoryFn,
+  useSectionInfos,
+} from "state/definitions";
 import { maybeGetNewArtifactIds, updateInteractiveData } from "./interactive";
 import { setNotificationMessage } from "./notification";
 import {
@@ -54,6 +58,15 @@ export async function runOrImportAllCode() {
     await sendRunCodeMessage(projectVariant, count);
     count += 1;
   }
+
+  const inMemory = [];
+  for (const s of Object.values(useSectionInfos.getState().x)) {
+    if (getSectionType(s.id) === C.CODE && s.runInMemory) {
+      inMemory.push(s.id);
+    }
+  }
+
+  importCodeBlocks(inMemory);
 }
 
 export function runOrImportActiveCode() {
