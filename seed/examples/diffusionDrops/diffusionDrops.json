@@ -412,7 +412,8 @@
       "name": "light_beige",
       "variantId": "56758b16-1bb1-4167-852c-321b23cfce38",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-      "defaultVariantId": "56758b16-1bb1-4167-852c-321b23cfce38"
+      "defaultVariantId": "56758b16-1bb1-4167-852c-321b23cfce38",
+      "runInMemory": true
     },
     "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d": {
       "id": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",

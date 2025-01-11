@@ -344,7 +344,8 @@
       "variantId": "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
       "defaultVariantId": "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c",
-      "variantIds": ["bc3f3f42-899b-4ef2-a550-d19fcbcfe38c"]
+      "variantIds": ["bc3f3f42-899b-4ef2-a550-d19fcbcfe38c"],
+      "runInMemory": true
     },
     "a439f079-d1f0-4dee-8490-6bb69be8c3ea": {
       "id": "a439f079-d1f0-4dee-8490-6bb69be8c3ea",

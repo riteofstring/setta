@@ -1140,7 +1140,8 @@
       },
       "variantId": "444d098b-16f2-4d9f-aff5-bd127a130e14",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-      "variantIds": ["444d098b-16f2-4d9f-aff5-bd127a130e14"]
+      "variantIds": ["444d098b-16f2-4d9f-aff5-bd127a130e14"],
+      "runInMemory": true
     },
     "6b13e165-2f8b-4226-812d-080e61cbedf0": {
       "id": "6b13e165-2f8b-4226-812d-080e61cbedf0",
@@ -1166,7 +1167,8 @@
       },
       "variantId": "ca98f34c-c3f5-4c34-873c-a74eb6028e2f",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-      "variantIds": ["ca98f34c-c3f5-4c34-873c-a74eb6028e2f"]
+      "variantIds": ["ca98f34c-c3f5-4c34-873c-a74eb6028e2f"],
+      "runInMemory": true
     },
     "e1b7ec50-8c7c-4713-a2c7-60cf616650b4": {
       "id": "e1b7ec50-8c7c-4713-a2c7-60cf616650b4",

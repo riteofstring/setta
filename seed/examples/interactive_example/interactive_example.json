@@ -147,7 +147,8 @@
       "name": "spatial_orange",
       "variantId": "8055d10b-3623-4665-b85c-977327fa40c6",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-      "defaultVariantId": "8055d10b-3623-4665-b85c-977327fa40c6"
+      "defaultVariantId": "8055d10b-3623-4665-b85c-977327fa40c6",
+      "runInMemory": true
     },
     "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
       "size": {
@@ -170,7 +171,8 @@
       "name": "exclusive_jade",
       "variantId": "91b7814e-8f93-4ad1-a966-00851b4e41d9",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-      "defaultVariantId": "91b7814e-8f93-4ad1-a966-00851b4e41d9"
+      "defaultVariantId": "91b7814e-8f93-4ad1-a966-00851b4e41d9",
+      "runInMemory": true
     },
     "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
       "size": {
