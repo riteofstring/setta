@@ -37,6 +37,7 @@ class SettaInMemoryFnSubprocess:
     def __init__(self):
         self.parent_conn, self.child_conn = multiprocessing.Pipe()
         self.process = multiprocessing.Process(target=self._subprocess_main)
+        self.stdout_parent_conn, self.stdout_child_conn = multiprocessing.Pipe()
         self.process.daemon = True  # Ensure process dies with parent
         self.process.start()
 
@@ -45,6 +46,21 @@ class SettaInMemoryFnSubprocess:
         # Initialize store for imported modules
         fns_dict = {}
         cache = {}
+
+        import sys
+
+        class OutputCapture:
+            def __init__(self, stdout_pipe):
+                self.stdout_pipe = stdout_pipe
+
+            def write(self, text):
+                self.stdout_pipe.send(text)
+
+            def flush(self):
+                pass
+
+        # Redirect stdout as soon as subprocess starts
+        sys.stdout = OutputCapture(self.stdout_child_conn)
 
         while True:
             msg = self.child_conn.recv()  # Wait for requests
@@ -100,22 +116,21 @@ class SettaInMemoryFnSubprocess:
             # )
 
     def close(self):
-        # Send shutdown message to subprocess
         try:
             self.parent_conn.send({"type": "shutdown"})
-            # Optional: wait briefly for graceful shutdown
             self.process.join(timeout=1.0)
         except:
-            pass  # Handle any communication errors
+            pass
 
-        # Force terminate if still alive
         if self.process.is_alive():
             self.process.terminate()
             self.process.join()
 
-        # Close connections
+        # Close both sets of connections
         self.parent_conn.close()
         self.child_conn.close()
+        self.stdout_parent_conn.close()
+        self.stdout_child_conn.close()
 
     def process_message(self, fn_name, message, cache):
         if fn_name in cache:

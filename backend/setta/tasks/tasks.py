@@ -1,3 +1,6 @@
+import asyncio
+import threading
+from queue import Queue
 from typing import Dict
 
 from setta.cli.logger import default_section_type
@@ -10,13 +13,50 @@ from .utils import SettaInMemoryFnSubprocess, add_fns_from_module
 
 
 class Tasks:
-    def __init__(self, lsp_writers):
+    def __init__(self, lsp_writers, websocket_manager):
         self.lsp_writers = lsp_writers
+        self.websocket_manager = websocket_manager
         self.task_runner = TaskRunner()
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
         self.in_memory_subprocess = SettaInMemoryFnSubprocess()
         add_fns_from_module(self.fns, fns)
+
+        # Start stdout listener thread
+        self._stdout_running = True
+        self.stdout_queue = Queue()
+        asyncio.create_task(self._process_stdout_queue())
+        self.stdout_thread = threading.Thread(target=self._stdout_listener, daemon=True)
+        self.stdout_thread.start()
+
+    def _stdout_listener(self):
+        while self._stdout_running:
+            try:
+                stdout_data = self.in_memory_subprocess.stdout_parent_conn.recv()
+                # Put in queue instead of broadcasting directly
+                self.stdout_queue.put(stdout_data)
+            except Exception as e:
+                if not self._stdout_running:
+                    break
+                print(f"Error in stdout listener: {e}", flush=True)
+
+    async def _process_stdout_queue(self):
+        """Process stdout data in the async context"""
+        while True:
+            try:
+                if not self._stdout_running:
+                    break
+
+                # Use run_in_executor to make the blocking get() non-blocking
+                stdout_data = await asyncio.get_running_loop().run_in_executor(
+                    None, self.stdout_queue.get  # Uses default executor
+                )
+                await self.websocket_manager.broadcast(
+                    {"inMemoryFnStdOut": stdout_data}
+                )
+
+            except Exception as e:
+                print(f"Error processing stdout: {e}", flush=True)
 
     async def __call__(self, fn_name, message: TaskMessage):
         if fn_name in self.fns:
@@ -41,7 +81,6 @@ class Tasks:
         result = await self.task_runner.run(
             self.in_memory_subprocess.parent_conn.recv, [], RunType.THREAD
         )
-        print("result", result, flush=True)
         if result["status"] == "success":
             for x in result["content"]:
                 x.setdefault("sectionType", default_section_type(x["type"]))
@@ -79,4 +118,6 @@ class Tasks:
         return task_metadata, error_msgs, initial_content
 
     def close(self):
+        self._stdout_running = False
         self.in_memory_subprocess.close()
+        self.stdout_thread.join()
