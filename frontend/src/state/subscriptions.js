@@ -83,6 +83,9 @@ export function subscribe() {
         // because that means zoom or x/y position must have changed
         useReactFlow.setState({ fitViewOnInit: false });
       }
+
+      // used by forked xterm to make text appear correctly
+      window.reactFlowZoom = newState.transform[2];
     },
     { equalityFn: _.isEqual },
   );

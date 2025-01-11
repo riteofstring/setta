@@ -1,4 +1,3 @@
-import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useState } from "react";
 import { useSectionInfos } from "state/definitions";
@@ -17,7 +16,6 @@ function _TerminalArea({ sectionId }) {
     _.isEqual,
   );
   const [hasScrollbar, setHasScrollbar] = useState(false);
-  window.reactFlowZoom = useReactFlow((x) => x.transform[2]);
 
   return isReadOnlyTerminal ? (
     <TerminalAreaRead
