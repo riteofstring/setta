@@ -195,10 +195,10 @@ function CustomResizableSuperCore({
         bottom: NO_PAN_CLASS_NAME,
       }}
       grid={snapToGrid ? snapGrid : null}
-      onClick={(e) => {
-        e.stopPropagation(); // to prevent the section from becoming active
+      handleComponent={{
+        right: <HandleComponentStopClickPropagation />,
+        bottom: <HandleComponentStopClickPropagation />,
       }}
-      // handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
       {children}
     </ResizableWithScale>
@@ -227,4 +227,16 @@ function useAspectRatio(sectionId) {
 
 function setSectionResizeEvent(sectionId, resizeEvent, state) {
   state.x[sectionId].resizeEvent = resizeEvent;
+}
+
+// stop propagation so that section doesn't become an active section
+function HandleComponentStopClickPropagation() {
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation();
+      }}
+      className="absolute inset-0 h-full w-full"
+    />
+  );
 }
