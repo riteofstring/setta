@@ -1,0 +1,559 @@
+{
+  "projectConfig": {
+    "id": "421b6591-a038-4f6c-8ac1-873df4e3986f",
+    "name": "young_turning",
+    "previewImgColor": "bg-green-500/60 dark:bg-green-600/30",
+    "viewport": {
+      "x": 189.08768702303053,
+      "y": 187.7083351489731,
+      "zoom": 0.6948826816772498
+    },
+    "children": {
+      "1208afa8-a38d-4b98-be08-1bcf4381834b": {
+        "x": 420,
+        "y": 90,
+        "zIndex": 0,
+        "w": 257,
+        "h": 156
+      },
+      "161346b7-e7cd-48d8-901c-c4d5db02ae88": {
+        "x": 1005,
+        "y": 105,
+        "zIndex": 3,
+        "w": 677,
+        "h": 259
+      },
+      "24cfaaf2-c025-4101-a0a4-0c788801968d": {
+        "x": 705,
+        "y": 90,
+        "zIndex": 5,
+        "w": 272,
+        "h": 524
+      },
+      "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
+        "x": 195,
+        "y": 90,
+        "zIndex": 1,
+        "w": 202,
+        "h": 572
+      },
+      "4919a72d-05a0-4e04-9616-679464cfe3a0": {
+        "x": 975,
+        "y": -90,
+        "zIndex": 4,
+        "w": 242,
+        "h": 172
+      }
+    }
+  },
+  "sectionVariants": {
+    "393c89bc-0835-48fd-a10c-7f73fb6fa820": {
+      "name": "symbolic_beige",
+      "values": {
+        "ed260abd-2a04-4f9a-85a1-c71d2c64df44": {
+          "value": "\"google-bert/bert-base-cased\""
+        }
+      },
+      "selectedItem": "e9c0e184-aa25-4650-8b7c-18ad20b1dc80",
+      "codeInfoColId": "b38a378c-0fb8-474c-ab61-0432efc80c39"
+    },
+    "832dfd68-6b3b-4573-8f4f-c8014a9426fc": {
+      "name": "unfortunate_apricot",
+      "values": {
+        "092f94ce-45a2-4007-8e5e-cbe731635476": {
+          "value": "tokenizer_function",
+          "evRefs": [
+            {
+              "sectionId": "4919a72d-05a0-4e04-9616-679464cfe3a0",
+              "keyword": "tokenizer_function"
+            }
+          ]
+        }
+      },
+      "selectedItem": "56c89985-9ac5-464e-86df-6da9069106fc",
+      "codeInfoColId": "fa9a1df5-52ec-4b35-951a-c6c51b8fe8db"
+    },
+    "8c6ab656-ea9a-42e1-9257-a99084eba0ae": {
+      "name": "gradual_bronze",
+      "code": "from transformers import AutoTokenizer\n\n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n",
+      "templateVars": [
+        {
+          "sectionId": null,
+          "startPos": 211,
+          "keyword": "$SETTA_GENERATED_PYTHON"
+        }
+      ]
+    },
+    "a49c0df9-eeba-4a84-975e-6a9ef56cddda": {
+      "name": "prepared_blue",
+      "values": {
+        "baf70593-070c-4f36-9ea0-da2483d868e8": {
+          "value": "\"yelp_review_full\""
+        }
+      },
+      "selectedItem": "2dc543d7-10d1-4a7f-840f-e1f328b7fe63",
+      "codeInfoColId": "c6dca4f6-4d19-47af-805e-896be80935c5"
+    },
+    "67b60326-601c-47cb-820c-5729f37c94a4": {
+      "name": "level_brown",
+      "values": {
+        "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": {
+          "value": "\"max_length\""
+        },
+        "a47fb2c4-d982-44ce-912d-7ea93a06b4ef": {
+          "value": "tokenizer",
+          "evRefs": [
+            {
+              "sectionId": "1208afa8-a38d-4b98-be08-1bcf4381834b",
+              "keyword": "tokenizer"
+            }
+          ]
+        },
+        "ce837917-0991-43df-84d8-b8d869e17994": {
+          "value": "True"
+        }
+      },
+      "selectedItem": "aeaeb439-2d67-4c65-9688-46fb8fa04d50",
+      "codeInfoColId": "dd3f7e52-567a-4f6f-89cf-57fefc8f7524"
+    },
+    "13b0c85d-e8ea-40a1-9a71-d6e14a99b748": {
+      "name": "costly_red"
+    }
+  },
+  "artifacts": {},
+  "artifactGroups": {},
+  "uiTypes": {},
+  "uiTypeCols": {},
+  "sections": {
+    "1208afa8-a38d-4b98-be08-1bcf4381834b": {
+      "id": "1208afa8-a38d-4b98-be08-1bcf4381834b",
+      "name": "tokenizer",
+      "size": {
+        "width": 255
+      },
+      "variantId": "393c89bc-0835-48fd-a10c-7f73fb6fa820",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "variantIds": ["393c89bc-0835-48fd-a10c-7f73fb6fa820"],
+      "columnWidth": 111.53999999999999
+    },
+    "161346b7-e7cd-48d8-901c-c4d5db02ae88": {
+      "id": "161346b7-e7cd-48d8-901c-c4d5db02ae88",
+      "name": "institutional_indigo",
+      "size": {
+        "width": 675
+      },
+      "variantId": "8c6ab656-ea9a-42e1-9257-a99084eba0ae",
+      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
+      "variantIds": ["8c6ab656-ea9a-42e1-9257-a99084eba0ae"]
+    },
+    "24cfaaf2-c025-4101-a0a4-0c788801968d": {
+      "id": "24cfaaf2-c025-4101-a0a4-0c788801968d",
+      "name": "tokenized_datasets",
+      "size": {
+        "width": 270
+      },
+      "variantId": "832dfd68-6b3b-4573-8f4f-c8014a9426fc",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "variantIds": ["832dfd68-6b3b-4573-8f4f-c8014a9426fc"],
+      "columnWidth": 117
+    },
+    "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
+      "id": "66d39f20-3b35-4bec-8d74-fa7ab55f94f6",
+      "name": "dataset",
+      "variantId": "a49c0df9-eeba-4a84-975e-6a9ef56cddda",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "variantIds": ["a49c0df9-eeba-4a84-975e-6a9ef56cddda"],
+      "columnWidth": 82
+    },
+    "4919a72d-05a0-4e04-9616-679464cfe3a0": {
+      "id": "4919a72d-05a0-4e04-9616-679464cfe3a0",
+      "name": "tokenizer_function",
+      "size": {
+        "width": 240
+      },
+      "variantId": "67b60326-601c-47cb-820c-5729f37c94a4",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "variantIds": ["67b60326-601c-47cb-820c-5729f37c94a4"],
+      "columnWidth": 102
+    }
+  },
+  "codeInfo": {
+    "050e121d-bca7-4727-9045-97ecde5a79be": {
+      "id": "050e121d-bca7-4727-9045-97ecde5a79be",
+      "name": "keep_in_memory",
+      "defaultVal": "None",
+      "description": "Whether to copy the dataset in-memory. If `None`, the dataset\nwill not be copied in-memory unless explicitly enabled by setting `datasets.config.IN_MEMORY_MAX_SIZE` to\nnonzero. See more details in the [improve performance](../cache#improve-performance) section."
+    },
+    "092f94ce-45a2-4007-8e5e-cbe731635476": {
+      "id": "092f94ce-45a2-4007-8e5e-cbe731635476",
+      "name": "function",
+      "defaultVal": "None",
+      "description": "function (`callable`): with one of the following signature:"
+    },
+    "0ab7e813-1dc8-47ca-80c9-b91522cf6e36": {
+      "id": "0ab7e813-1dc8-47ca-80c9-b91522cf6e36",
+      "name": "with_rank",
+      "defaultVal": "False",
+      "description": "Provide process rank to `function`. Note that in this case the\nsignature of `function` should be `def function(example[, idx], rank): ...`."
+    },
+    "0ead3a0a-c06f-4fbc-b3d9-605692337514": {
+      "id": "0ead3a0a-c06f-4fbc-b3d9-605692337514",
+      "name": "keep_in_memory",
+      "defaultVal": "False",
+      "description": "Keep the dataset in memory instead of writing it to a cache file."
+    },
+    "13e03876-e9a8-46e4-9246-c339094a0764": {
+      "id": "13e03876-e9a8-46e4-9246-c339094a0764",
+      "name": "verification_mode",
+      "defaultVal": "None",
+      "description": "Verification mode determining the checks to run on the downloaded/processed dataset information (checksums/size/splits/...).\n\n<Added version=\"2.9.1\"/>"
+    },
+    "2653f571-0dfa-4181-9783-a2355b6ef3f9": {
+      "id": "2653f571-0dfa-4181-9783-a2355b6ef3f9",
+      "name": "writer_batch_size",
+      "defaultVal": "1000",
+      "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
+    },
+    "28ca671b-8ebb-41d9-a04e-3451a30d0ab2": {
+      "id": "28ca671b-8ebb-41d9-a04e-3451a30d0ab2",
+      "name": "drop_last_batch",
+      "defaultVal": "False",
+      "description": "Whether a last batch smaller than the batch_size should be\ndropped instead of being processed by the function."
+    },
+    "2a1e85c6-cf69-441b-b633-bb90ee71b70d": {
+      "id": "2a1e85c6-cf69-441b-b633-bb90ee71b70d",
+      "name": "token",
+      "defaultVal": "None",
+      "description": "Optional string or boolean to use as Bearer token for remote files on the Datasets Hub.\nIf `True`, or not specified, will get token from `\"~/.huggingface\"`."
+    },
+    "2dc543d7-10d1-4a7f-840f-e1f328b7fe63": {
+      "id": "2dc543d7-10d1-4a7f-840f-e1f328b7fe63",
+      "name": "datasets.load_dataset",
+      "rcType": "callable",
+      "description": "Load a dataset from the Hugging Face Hub, or a local dataset.\n\nYou can find the list of datasets on the [Hub](https://huggingface.co/datasets) or with [`huggingface_hub.list_datasets`].\n\nA dataset is a directory that contains some data files in generic formats (JSON, CSV, Parquet, etc.) and possibly\nin a generic structure (Webdataset, ImageFolder, AudioFolder, VideoFolder, etc.)\n\nThis function does the following under the hood:\n\n    1. Load a dataset builder:\n\n        * Find the most common data format in the dataset and pick its associated builder (JSON, CSV, Parquet, Webdataset, ImageFolder, AudioFolder, etc.)\n        * Find which file goes into which split (e.g. train/test) based on file and directory names or on the YAML configuration\n        * It is also possible to specify `data_files` manually, and which dataset builder to use (e.g. \"parquet\").\n\n    2. Run the dataset builder:\n\n        In the general case:\n\n        * Download the data files from the dataset if they are not already available locally or cached.\n        * Process and cache the dataset in typed Arrow tables for caching.\n\n            Arrow table are arbitrarily long, typed tables which can store nested objects and be mapped to numpy/pandas/python generic types.\n            They can be directly accessed from disk, loaded in RAM or even streamed over the web.\n\n        In the streaming case:\n\n        * Don't download or cache anything. Instead, the dataset is lazily loaded and will be streamed on-the-fly when iterating on it.\n\n    3. Return a dataset built from the requested splits in `split` (default: all).\n\nIt can also use a custom dataset builder if the dataset contains a dataset script, but this feature is mostly for backward compatibility.\nIn this case the dataset script file must be named after the dataset repository or directory and end with \".py\".\n\nArgs:\n\n    path (`str`):\n        Path or name of the dataset.\n\n        - if `path` is a dataset repository on the HF hub (list all available datasets with [`huggingface_hub.list_datasets`])\n          -> load the dataset from supported files in the repository (csv, json, parquet, etc.)\n          e.g. `'username/dataset_name'`, a dataset repository on the HF hub containing the data files.\n\n        - if `path` is a local directory\n          -> load the dataset from supported files in the directory (csv, json, parquet, etc.)\n          e.g. `'./path/to/directory/with/my/csv/data'`.\n\n        - if `path` is the name of a dataset builder and `data_files` or `data_dir` is specified\n          (available builders are \"json\", \"csv\", \"parquet\", \"arrow\", \"text\", \"xml\", \"webdataset\", \"imagefolder\", \"audiofolder\", \"videofolder\")\n          -> load the dataset from the files in `data_files` or `data_dir`\n          e.g. `'parquet'`.\n\n        It can also point to a local dataset script but this is not recommended.\n    name (`str`, *optional*):\n        Defining the name of the dataset configuration.\n    data_dir (`str`, *optional*):\n        Defining the `data_dir` of the dataset configuration. If specified for the generic builders (csv, text etc.) or the Hub datasets and `data_files` is `None`,\n        the behavior is equal to passing `os.path.join(data_dir, **)` as `data_files` to reference all the files in a directory.\n    data_files (`str` or `Sequence` or `Mapping`, *optional*):\n        Path(s) to source data file(s).\n    split (`Split` or `str`):\n        Which split of the data to load.\n        If `None`, will return a `dict` with all splits (typically `datasets.Split.TRAIN` and `datasets.Split.TEST`).\n        If given, will return a single Dataset.\n        Splits can be combined and specified like in tensorflow-datasets.\n    cache_dir (`str`, *optional*):\n        Directory to read/write data. Defaults to `\"~/.cache/huggingface/datasets\"`.\n    features (`Features`, *optional*):\n        Set the features type to use for this dataset.\n    download_config ([`DownloadConfig`], *optional*):\n        Specific download configuration parameters.\n    download_mode ([`DownloadMode`] or `str`, defaults to `REUSE_DATASET_IF_EXISTS`):\n        Download/generate mode.\n    verification_mode ([`VerificationMode`] or `str`, defaults to `BASIC_CHECKS`):\n        Verification mode determining the checks to run on the downloaded/processed dataset information (checksums/size/splits/...).\n\n        <Added version=\"2.9.1\"/>\n    keep_in_memory (`bool`, defaults to `None`):\n        Whether to copy the dataset in-memory. If `None`, the dataset\n        will not be copied in-memory unless explicitly enabled by setting `datasets.config.IN_MEMORY_MAX_SIZE` to\n        nonzero. See more details in the [improve performance](../cache#improve-performance) section.\n    save_infos (`bool`, defaults to `False`):\n        Save the dataset information (checksums/size/splits/...).\n    revision ([`Version`] or `str`, *optional*):\n        Version of the dataset script to load.\n        As datasets have their own git repository on the Datasets Hub, the default version \"main\" corresponds to their \"main\" branch.\n        You can specify a different version than the default \"main\" by using a commit SHA or a git tag of the dataset repository.\n    token (`str` or `bool`, *optional*):\n        Optional string or boolean to use as Bearer token for remote files on the Datasets Hub.\n        If `True`, or not specified, will get token from `\"~/.huggingface\"`.\n    streaming (`bool`, defaults to `False`):\n        If set to `True`, don't download the data files. Instead, it streams the data progressively while\n        iterating on the dataset. An [`IterableDataset`] or [`IterableDatasetDict`] is returned instead in this case.\n\n        Note that streaming works for datasets that use data formats that support being iterated over like txt, csv, jsonl for example.\n        Json files may be downloaded completely. Also streaming from remote zip or gzip files is supported but other compressed formats\n        like rar and xz are not yet supported. The tgz format doesn't allow streaming.\n    num_proc (`int`, *optional*, defaults to `None`):\n        Number of processes when downloading and generating the dataset locally.\n        Multiprocessing is disabled by default.\n\n        <Added version=\"2.7.0\"/>\n    storage_options (`dict`, *optional*, defaults to `None`):\n        **Experimental**. Key/value pairs to be passed on to the dataset file-system backend, if any.\n\n        <Added version=\"2.11.0\"/>\n    trust_remote_code (`bool`, defaults to `False`):\n        Whether or not to allow for datasets defined on the Hub using a dataset script. This option\n        should only be set to `True` for repositories you trust and in which you have read the code, as it will\n        execute code present on the Hub on your local machine.\n\n        <Added version=\"2.16.0\"/>\n\n        <Changed version=\"2.20.0\">\n\n        `trust_remote_code` defaults to `False` if not specified.\n\n        </Changed>\n\n    **config_kwargs (additional keyword arguments):\n        Keyword arguments to be passed to the `BuilderConfig`\n        and used in the [`DatasetBuilder`].\n\nReturns:\n    [`Dataset`] or [`DatasetDict`]:\n    - if `split` is not `None`: the dataset requested,\n    - if `split` is `None`, a [`~datasets.DatasetDict`] with each split.\n\n    or [`IterableDataset`] or [`IterableDatasetDict`]: if `streaming=True`\n\n    - if `split` is not `None`, the dataset is requested\n    - if `split` is `None`, a [`~datasets.streaming.IterableDatasetDict`] with each split.\n\nExample:\n\nLoad a dataset from the Hugging Face Hub:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset('cornell-movie-review-data/rotten_tomatoes', split='train')\n\n# Load a subset or dataset configuration (here 'sst2')\n>>> from datasets import load_dataset\n>>> ds = load_dataset('nyu-mll/glue', 'sst2', split='train')\n\n# Manual mapping of data files to splits\n>>> data_files = {'train': 'train.csv', 'test': 'test.csv'}\n>>> ds = load_dataset('namespace/your_dataset_name', data_files=data_files)\n\n# Manual selection of a directory to load\n>>> ds = load_dataset('namespace/your_dataset_name', data_dir='folder_name')\n```\n\nLoad a local dataset:\n\n```py\n# Load a CSV file\n>>> from datasets import load_dataset\n>>> ds = load_dataset('csv', data_files='path/to/local/my_dataset.csv')\n\n# Load a JSON file\n>>> from datasets import load_dataset\n>>> ds = load_dataset('json', data_files='path/to/local/my_dataset.json')\n\n# Load from a local loading script (not recommended)\n>>> from datasets import load_dataset\n>>> ds = load_dataset('path/to/local/loading_script/loading_script.py', split='train')\n```\n\nLoad an [`~datasets.IterableDataset`]:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset('cornell-movie-review-data/rotten_tomatoes', split='train', streaming=True)\n```\n\nLoad an image dataset with the `ImageFolder` dataset builder:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset('imagefolder', data_dir='/path/to/images', split='train')\n```"
+    },
+    "4c3e1aa5-ad1c-4eb9-a407-562185c6bfd3": {
+      "id": "4c3e1aa5-ad1c-4eb9-a407-562185c6bfd3",
+      "name": "num_proc",
+      "defaultVal": "None",
+      "description": "Number of processes for multiprocessing. By default it doesn't\nuse multiprocessing."
+    },
+    "5488b6fc-c6fc-4b4e-8885-e822052d7c94": {
+      "id": "5488b6fc-c6fc-4b4e-8885-e822052d7c94",
+      "name": "input_columns",
+      "defaultVal": "None",
+      "description": "The columns to be passed into `function` as\npositional arguments. If `None`, a dict mapping to all formatted columns is passed as one argument."
+    },
+    "56c89985-9ac5-464e-86df-6da9069106fc": {
+      "id": "56c89985-9ac5-464e-86df-6da9069106fc",
+      "name": "dataset.map",
+      "rcType": "callable",
+      "description": "Apply a function to all the elements in the table (individually or in batches)\nand update the table (if function does updated examples).\nThe transformation is applied to all the datasets of the dataset dictionary.\n\nArgs:\n    function (`callable`): with one of the following signature:\n        - `function(example: Dict[str, Any]) -> Dict[str, Any]` if `batched=False` and `with_indices=False`\n        - `function(example: Dict[str, Any], indices: int) -> Dict[str, Any]` if `batched=False` and `with_indices=True`\n        - `function(batch: Dict[str, List]) -> Dict[str, List]` if `batched=True` and `with_indices=False`\n        - `function(batch: Dict[str, List], indices: List[int]) -> Dict[str, List]` if `batched=True` and `with_indices=True`\n\n        For advanced usage, the function can also return a `pyarrow.Table`.\n        Moreover if your function returns nothing (`None`), then `map` will run your function and return the dataset unchanged.\n\n    with_indices (`bool`, defaults to `False`):\n        Provide example indices to `function`. Note that in this case the signature of `function` should be `def function(example, idx): ...`.\n    with_rank (`bool`, defaults to `False`):\n        Provide process rank to `function`. Note that in this case the\n        signature of `function` should be `def function(example[, idx], rank): ...`.\n    input_columns (`[Union[str, List[str]]]`, *optional*, defaults to `None`):\n        The columns to be passed into `function` as\n        positional arguments. If `None`, a dict mapping to all formatted columns is passed as one argument.\n    batched (`bool`, defaults to `False`):\n        Provide batch of examples to `function`.\n    batch_size (`int`, *optional*, defaults to `1000`):\n        Number of examples per batch provided to `function` if `batched=True`,\n        `batch_size <= 0` or `batch_size == None` then provide the full dataset as a single batch to `function`.\n    drop_last_batch (`bool`, defaults to `False`):\n        Whether a last batch smaller than the batch_size should be\n        dropped instead of being processed by the function.\n    remove_columns (`[Union[str, List[str]]]`, *optional*, defaults to `None`):\n        Remove a selection of columns while doing the mapping.\n        Columns will be removed before updating the examples with the output of `function`, i.e. if `function` is adding\n        columns with names in `remove_columns`, these columns will be kept.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the dataset in memory instead of writing it to a cache file.\n    load_from_cache_file (`Optional[bool]`, defaults to `True` if caching is enabled):\n        If a cache file storing the current computation from `function`\n        can be identified, use it instead of recomputing.\n    cache_file_names (`[Dict[str, str]]`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        results of the computation instead of the automatically generated cache file name.\n        You have to provide one `cache_file_name` per dataset in the dataset dictionary.\n    writer_batch_size (`int`, default `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    features (`[datasets.Features]`, *optional*, defaults to `None`):\n        Use a specific [`Features`] to store the cache file\n        instead of the automatically generated one.\n    disable_nullable (`bool`, defaults to `False`):\n        Disallow null values in the table.\n    fn_kwargs (`Dict`, *optional*, defaults to `None`):\n        Keyword arguments to be passed to `function`\n    num_proc (`int`, *optional*, defaults to `None`):\n        Number of processes for multiprocessing. By default it doesn't\n        use multiprocessing.\n    desc (`str`, *optional*, defaults to `None`):\n        Meaningful description to be displayed alongside with the progress bar while mapping examples.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\")\n>>> def add_prefix(example):\n...     example[\"text\"] = \"Review: \" + example[\"text\"]\n...     return example\n>>> ds = ds.map(add_prefix)\n>>> ds[\"train\"][0:3][\"text\"]\n['Review: the rock is destined to be the 21st century's new \" conan \" and that he's going to make a splash even greater than arnold schwarzenegger , jean-claud van damme or steven segal .',\n 'Review: the gorgeously elaborate continuation of \" the lord of the rings \" trilogy is so huge that a column of words cannot adequately describe co-writer/director peter jackson's expanded vision of j . r . r . tolkien's middle-earth .',\n 'Review: effective but too-tepid biopic']\n\n# process a batch of examples\n>>> ds = ds.map(lambda example: tokenizer(example[\"text\"]), batched=True)\n# set number of processors\n>>> ds = ds.map(add_prefix, num_proc=4)\n```",
+      "evRefs": [
+        {
+          "sectionId": "66d39f20-3b35-4bec-8d74-fa7ab55f94f6",
+          "keyword": "dataset"
+        }
+      ]
+    },
+    "57602d7c-b4fc-4607-aa6a-b59c0bf3ac13": {
+      "id": "57602d7c-b4fc-4607-aa6a-b59c0bf3ac13",
+      "name": "disable_nullable",
+      "defaultVal": "False",
+      "description": "Disallow null values in the table."
+    },
+    "5c8010ce-9586-4396-b28b-33140f813afe": {
+      "id": "5c8010ce-9586-4396-b28b-33140f813afe",
+      "name": "storage_options",
+      "defaultVal": "None",
+      "description": "**Experimental**. Key/value pairs to be passed on to the dataset file-system backend, if any.\n\n<Added version=\"2.11.0\"/>"
+    },
+    "627d49b3-a1a3-433e-85fd-5b820a757e63": {
+      "id": "627d49b3-a1a3-433e-85fd-5b820a757e63",
+      "name": "batched",
+      "defaultVal": "False",
+      "description": "Provide batch of examples to `function`."
+    },
+    "75dfee7f-1055-444a-b8b0-f638abd67eef": {
+      "id": "75dfee7f-1055-444a-b8b0-f638abd67eef",
+      "name": "streaming",
+      "defaultVal": "False",
+      "description": "If set to `True`, don't download the data files. Instead, it streams the data progressively while\niterating on the dataset. An [`IterableDataset`] or [`IterableDatasetDict`] is returned instead in this case.\n\nNote that streaming works for datasets that use data formats that support being iterated over like txt, csv, jsonl for example.\nJson files may be downloaded completely. Also streaming from remote zip or gzip files is supported but other compressed formats\nlike rar and xz are not yet supported. The tgz format doesn't allow streaming."
+    },
+    "792d9660-7e38-4c59-8c03-c302a734b154": {
+      "id": "792d9660-7e38-4c59-8c03-c302a734b154",
+      "name": "config_kwargs",
+      "description": "Keyword arguments to be passed to the `BuilderConfig`\nand used in the [`DatasetBuilder`]."
+    },
+    "818393a4-e8a7-44dc-8bb9-06009d5eca01": {
+      "id": "818393a4-e8a7-44dc-8bb9-06009d5eca01",
+      "name": "download_config",
+      "defaultVal": "None",
+      "description": "Specific download configuration parameters."
+    },
+    "81bc8053-70b1-4f92-a464-476611d662d7": {
+      "id": "81bc8053-70b1-4f92-a464-476611d662d7",
+      "name": "trust_remote_code",
+      "defaultVal": "None",
+      "description": "Whether or not to allow for datasets defined on the Hub using a dataset script. This option\nshould only be set to `True` for repositories you trust and in which you have read the code, as it will\nexecute code present on the Hub on your local machine.\n\n<Added version=\"2.16.0\"/>\n\n<Changed version=\"2.20.0\">\n\n`trust_remote_code` defaults to `False` if not specified.\n\n</Changed>"
+    },
+    "8ec39021-5777-41c1-a174-6e0f49a0a700": {
+      "id": "8ec39021-5777-41c1-a174-6e0f49a0a700",
+      "name": "fn_kwargs",
+      "defaultVal": "None",
+      "description": "Keyword arguments to be passed to `function`"
+    },
+    "9d06e66c-8d3a-42d8-a2f8-14b32452cec2": {
+      "id": "9d06e66c-8d3a-42d8-a2f8-14b32452cec2",
+      "name": "data_dir",
+      "defaultVal": "None",
+      "description": "Defining the `data_dir` of the dataset configuration. If specified for the generic builders (csv, text etc.) or the Hub datasets and `data_files` is `None`,\nthe behavior is equal to passing `os.path.join(data_dir, **)` as `data_files` to reference all the files in a directory."
+    },
+    "a3b35e4c-ae88-4e15-8945-e6a194271477": {
+      "id": "a3b35e4c-ae88-4e15-8945-e6a194271477",
+      "name": "revision",
+      "defaultVal": "None",
+      "description": "Version of the dataset script to load.\nAs datasets have their own git repository on the Datasets Hub, the default version \"main\" corresponds to their \"main\" branch.\nYou can specify a different version than the default \"main\" by using a commit SHA or a git tag of the dataset repository."
+    },
+    "a403c612-b637-463c-98f6-d0d2aed8f623": {
+      "id": "a403c612-b637-463c-98f6-d0d2aed8f623",
+      "name": "cache_file_names",
+      "defaultVal": "None",
+      "description": "Provide the name of a path for the cache file. It is used to store the\nresults of the computation instead of the automatically generated cache file name.\nYou have to provide one `cache_file_name` per dataset in the dataset dictionary."
+    },
+    "baf70593-070c-4f36-9ea0-da2483d868e8": {
+      "id": "baf70593-070c-4f36-9ea0-da2483d868e8",
+      "name": "path",
+      "description": "path (`str`):"
+    },
+    "c113d251-6f76-4648-a52a-deffdfd822d4": {
+      "id": "c113d251-6f76-4648-a52a-deffdfd822d4",
+      "name": "desc",
+      "defaultVal": "None",
+      "description": "Meaningful description to be displayed alongside with the progress bar while mapping examples."
+    },
+    "ca8b8e25-0851-4c42-a38d-dc91c6cf6f0d": {
+      "id": "ca8b8e25-0851-4c42-a38d-dc91c6cf6f0d",
+      "name": "load_from_cache_file",
+      "defaultVal": "None",
+      "description": "If a cache file storing the current computation from `function`\ncan be identified, use it instead of recomputing."
+    },
+    "d268948b-6aa6-4042-8e74-b6eaf08521de": {
+      "id": "d268948b-6aa6-4042-8e74-b6eaf08521de",
+      "name": "save_infos",
+      "defaultVal": "False",
+      "description": "Save the dataset information (checksums/size/splits/...)."
+    },
+    "d48d216e-2f92-4324-9153-b3c8c6704139": {
+      "id": "d48d216e-2f92-4324-9153-b3c8c6704139",
+      "name": "features",
+      "defaultVal": "None",
+      "description": "Set the features type to use for this dataset."
+    },
+    "d4bbb18c-8ea5-4a77-9837-dfde91f806b5": {
+      "id": "d4bbb18c-8ea5-4a77-9837-dfde91f806b5",
+      "name": "batch_size",
+      "defaultVal": "1000",
+      "description": "Number of examples per batch provided to `function` if `batched=True`,\n`batch_size <= 0` or `batch_size == None` then provide the full dataset as a single batch to `function`."
+    },
+    "d5a5e485-813e-4f35-922d-a76ca4e6a203": {
+      "id": "d5a5e485-813e-4f35-922d-a76ca4e6a203",
+      "name": "download_mode",
+      "defaultVal": "None",
+      "description": "Download/generate mode."
+    },
+    "db2a5508-0807-489d-8679-b334a81b9666": {
+      "id": "db2a5508-0807-489d-8679-b334a81b9666",
+      "name": "name",
+      "defaultVal": "None",
+      "description": "Defining the name of the dataset configuration."
+    },
+    "db93e7c1-2458-4856-80c8-36735f03d5ec": {
+      "id": "db93e7c1-2458-4856-80c8-36735f03d5ec",
+      "name": "data_files",
+      "defaultVal": "None",
+      "description": "Path(s) to source data file(s)."
+    },
+    "e7b90f1f-4b44-45f8-a118-0e88dd948909": {
+      "id": "e7b90f1f-4b44-45f8-a118-0e88dd948909",
+      "name": "split",
+      "defaultVal": "None",
+      "description": "Which split of the data to load.\nIf `None`, will return a `dict` with all splits (typically `datasets.Split.TRAIN` and `datasets.Split.TEST`).\nIf given, will return a single Dataset.\nSplits can be combined and specified like in tensorflow-datasets."
+    },
+    "e9c0e184-aa25-4650-8b7c-18ad20b1dc80": {
+      "id": "e9c0e184-aa25-4650-8b7c-18ad20b1dc80",
+      "name": "AutoTokenizer.from_pretrained",
+      "rcType": "callable",
+      "description": "Instantiate one of the tokenizer classes of the library from a pretrained model vocabulary.\n\nThe tokenizer class to instantiate is selected based on the `model_type` property of the config object (either\npassed as an argument or loaded from `pretrained_model_name_or_path` if possible), or when it's missing, by\nfalling back to using pattern matching on `pretrained_model_name_or_path`:\n\nList options\n\nParams:\n    pretrained_model_name_or_path (`str` or `os.PathLike`):\n        Can be either:\n\n            - A string, the *model id* of a predefined tokenizer hosted inside a model repo on huggingface.co.\n            - A path to a *directory* containing vocabulary files required by the tokenizer, for instance saved\n              using the [`~PreTrainedTokenizer.save_pretrained`] method, e.g., `./my_model_directory/`.\n            - A path or url to a single saved vocabulary file if and only if the tokenizer only requires a\n              single vocabulary file (like Bert or XLNet), e.g.: `./my_model_directory/vocab.txt`. (Not\n              applicable to all derived classes)\n    inputs (additional positional arguments, *optional*):\n        Will be passed along to the Tokenizer `__init__()` method.\n    config ([`PretrainedConfig`], *optional*)\n        The configuration object used to determine the tokenizer class to instantiate.\n    cache_dir (`str` or `os.PathLike`, *optional*):\n        Path to a directory in which a downloaded pretrained model configuration should be cached if the\n        standard cache should not be used.\n    force_download (`bool`, *optional*, defaults to `False`):\n        Whether or not to force the (re-)download the model weights and configuration files and override the\n        cached versions if they exist.\n    resume_download:\n        Deprecated and ignored. All downloads are now resumed by default when possible.\n        Will be removed in v5 of Transformers.\n    proxies (`Dict[str, str]`, *optional*):\n        A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',\n        'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request.\n    revision (`str`, *optional*, defaults to `\"main\"`):\n        The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a\n        git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any\n        identifier allowed by git.\n    subfolder (`str`, *optional*):\n        In case the relevant files are located inside a subfolder of the model repo on huggingface.co (e.g. for\n        facebook/rag-token-base), specify it here.\n    use_fast (`bool`, *optional*, defaults to `True`):\n        Use a [fast Rust-based tokenizer](https://huggingface.co/docs/tokenizers/index) if it is supported for\n        a given model. If a fast tokenizer is not available for a given model, a normal Python-based tokenizer\n        is returned instead.\n    tokenizer_type (`str`, *optional*):\n        Tokenizer type to be loaded.\n    trust_remote_code (`bool`, *optional*, defaults to `False`):\n        Whether or not to allow for custom models defined on the Hub in their own modeling files. This option\n        should only be set to `True` for repositories you trust and in which you have read the code, as it will\n        execute code present on the Hub on your local machine.\n    kwargs (additional keyword arguments, *optional*):\n        Will be passed to the Tokenizer `__init__()` method. Can be used to set special tokens like\n        `bos_token`, `eos_token`, `unk_token`, `sep_token`, `pad_token`, `cls_token`, `mask_token`,\n        `additional_special_tokens`. See parameters in the `__init__()` for more details.\n\nExamples:\n\n```python\n>>> from transformers import AutoTokenizer\n\n>>> # Download vocabulary from huggingface.co and cache.\n>>> tokenizer = AutoTokenizer.from_pretrained(\"google-bert/bert-base-uncased\")\n\n>>> # Download vocabulary from huggingface.co (user-uploaded) and cache.\n>>> tokenizer = AutoTokenizer.from_pretrained(\"dbmdz/bert-base-german-cased\")\n\n>>> # If vocabulary files are in a directory (e.g. tokenizer was saved using *save_pretrained('./test/saved_model/')*)\n>>> # tokenizer = AutoTokenizer.from_pretrained(\"./test/bert_saved_model/\")\n\n>>> # Download vocabulary from huggingface.co and define model-specific arguments\n>>> tokenizer = AutoTokenizer.from_pretrained(\"FacebookAI/roberta-base\", add_prefix_space=True)\n```"
+    },
+    "ed260abd-2a04-4f9a-85a1-c71d2c64df44": {
+      "id": "ed260abd-2a04-4f9a-85a1-c71d2c64df44",
+      "name": "pretrained_model_name_or_path",
+      "description": "pretrained_model_name_or_path (`str` or `os.PathLike`):"
+    },
+    "eeb14515-7038-4716-a867-cb4f4dfd5efb": {
+      "id": "eeb14515-7038-4716-a867-cb4f4dfd5efb",
+      "name": "features",
+      "defaultVal": "None",
+      "description": "Use a specific [`Features`] to store the cache file\ninstead of the automatically generated one."
+    },
+    "f3b9847d-6675-4212-a942-3ddf262329a8": {
+      "id": "f3b9847d-6675-4212-a942-3ddf262329a8",
+      "name": "cache_dir",
+      "defaultVal": "None",
+      "description": "Directory to read/write data. Defaults to `\"~/.cache/huggingface/datasets\"`."
+    },
+    "f62cfbe0-bbce-4536-8617-5cd05a9ada35": {
+      "id": "f62cfbe0-bbce-4536-8617-5cd05a9ada35",
+      "name": "remove_columns",
+      "defaultVal": "None",
+      "description": "Remove a selection of columns while doing the mapping.\nColumns will be removed before updating the examples with the output of `function`, i.e. if `function` is adding\ncolumns with names in `remove_columns`, these columns will be kept."
+    },
+    "f711c6f2-d884-4860-9008-7153e8dd1f8d": {
+      "id": "f711c6f2-d884-4860-9008-7153e8dd1f8d",
+      "name": "num_proc",
+      "defaultVal": "None",
+      "description": "Number of processes when downloading and generating the dataset locally.\nMultiprocessing is disabled by default.\n\n<Added version=\"2.7.0\"/>"
+    },
+    "fcaeec8c-e3e0-49c8-b327-c8ecfa7a2ab5": {
+      "id": "fcaeec8c-e3e0-49c8-b327-c8ecfa7a2ab5",
+      "name": "with_indices",
+      "defaultVal": "False",
+      "description": "Provide example indices to `function`. Note that in this case the signature of `function` should be `def function(example, idx): ...`."
+    },
+    "aeaeb439-2d67-4c65-9688-46fb8fa04d50": {
+      "id": "aeaeb439-2d67-4c65-9688-46fb8fa04d50",
+      "name": "get_tokenize_function",
+      "rcType": "callable"
+    },
+    "a47fb2c4-d982-44ce-912d-7ea93a06b4ef": {
+      "id": "a47fb2c4-d982-44ce-912d-7ea93a06b4ef",
+      "name": "tokenizer"
+    },
+    "e78f4386-1c13-4924-b48e-dd434a377d92": {
+      "id": "e78f4386-1c13-4924-b48e-dd434a377d92",
+      "name": "kwargs",
+      "isSelected": true
+    },
+    "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": {
+      "id": "d47ae65e-d0e2-4c50-9465-8c07324b6cfa",
+      "name": "padding",
+      "editable": true
+    },
+    "ce837917-0991-43df-84d8-b8d869e17994": {
+      "id": "ce837917-0991-43df-84d8-b8d869e17994",
+      "name": "truncation",
+      "editable": true
+    }
+  },
+  "codeInfoCols": {
+    "b38a378c-0fb8-474c-ab61-0432efc80c39": {
+      "children": {
+        "null": ["e9c0e184-aa25-4650-8b7c-18ad20b1dc80"],
+        "e9c0e184-aa25-4650-8b7c-18ad20b1dc80": [
+          "ed260abd-2a04-4f9a-85a1-c71d2c64df44"
+        ],
+        "ed260abd-2a04-4f9a-85a1-c71d2c64df44": []
+      }
+    },
+    "fa9a1df5-52ec-4b35-951a-c6c51b8fe8db": {
+      "children": {
+        "null": ["56c89985-9ac5-464e-86df-6da9069106fc"],
+        "56c89985-9ac5-464e-86df-6da9069106fc": [
+          "092f94ce-45a2-4007-8e5e-cbe731635476",
+          "fcaeec8c-e3e0-49c8-b327-c8ecfa7a2ab5",
+          "0ab7e813-1dc8-47ca-80c9-b91522cf6e36",
+          "5488b6fc-c6fc-4b4e-8885-e822052d7c94",
+          "627d49b3-a1a3-433e-85fd-5b820a757e63",
+          "d4bbb18c-8ea5-4a77-9837-dfde91f806b5",
+          "28ca671b-8ebb-41d9-a04e-3451a30d0ab2",
+          "f62cfbe0-bbce-4536-8617-5cd05a9ada35",
+          "0ead3a0a-c06f-4fbc-b3d9-605692337514",
+          "ca8b8e25-0851-4c42-a38d-dc91c6cf6f0d",
+          "a403c612-b637-463c-98f6-d0d2aed8f623",
+          "2653f571-0dfa-4181-9783-a2355b6ef3f9",
+          "eeb14515-7038-4716-a867-cb4f4dfd5efb",
+          "57602d7c-b4fc-4607-aa6a-b59c0bf3ac13",
+          "8ec39021-5777-41c1-a174-6e0f49a0a700",
+          "4c3e1aa5-ad1c-4eb9-a407-562185c6bfd3",
+          "c113d251-6f76-4648-a52a-deffdfd822d4"
+        ],
+        "092f94ce-45a2-4007-8e5e-cbe731635476": [],
+        "fcaeec8c-e3e0-49c8-b327-c8ecfa7a2ab5": [],
+        "0ab7e813-1dc8-47ca-80c9-b91522cf6e36": [],
+        "5488b6fc-c6fc-4b4e-8885-e822052d7c94": [],
+        "627d49b3-a1a3-433e-85fd-5b820a757e63": [],
+        "d4bbb18c-8ea5-4a77-9837-dfde91f806b5": [],
+        "28ca671b-8ebb-41d9-a04e-3451a30d0ab2": [],
+        "f62cfbe0-bbce-4536-8617-5cd05a9ada35": [],
+        "0ead3a0a-c06f-4fbc-b3d9-605692337514": [],
+        "ca8b8e25-0851-4c42-a38d-dc91c6cf6f0d": [],
+        "a403c612-b637-463c-98f6-d0d2aed8f623": [],
+        "2653f571-0dfa-4181-9783-a2355b6ef3f9": [],
+        "eeb14515-7038-4716-a867-cb4f4dfd5efb": [],
+        "57602d7c-b4fc-4607-aa6a-b59c0bf3ac13": [],
+        "8ec39021-5777-41c1-a174-6e0f49a0a700": [],
+        "4c3e1aa5-ad1c-4eb9-a407-562185c6bfd3": [],
+        "c113d251-6f76-4648-a52a-deffdfd822d4": []
+      }
+    },
+    "c6dca4f6-4d19-47af-805e-896be80935c5": {
+      "children": {
+        "null": ["2dc543d7-10d1-4a7f-840f-e1f328b7fe63"],
+        "2dc543d7-10d1-4a7f-840f-e1f328b7fe63": [
+          "baf70593-070c-4f36-9ea0-da2483d868e8",
+          "db2a5508-0807-489d-8679-b334a81b9666",
+          "9d06e66c-8d3a-42d8-a2f8-14b32452cec2",
+          "db93e7c1-2458-4856-80c8-36735f03d5ec",
+          "e7b90f1f-4b44-45f8-a118-0e88dd948909",
+          "f3b9847d-6675-4212-a942-3ddf262329a8",
+          "d48d216e-2f92-4324-9153-b3c8c6704139",
+          "818393a4-e8a7-44dc-8bb9-06009d5eca01",
+          "d5a5e485-813e-4f35-922d-a76ca4e6a203",
+          "13e03876-e9a8-46e4-9246-c339094a0764",
+          "050e121d-bca7-4727-9045-97ecde5a79be",
+          "d268948b-6aa6-4042-8e74-b6eaf08521de",
+          "a3b35e4c-ae88-4e15-8945-e6a194271477",
+          "2a1e85c6-cf69-441b-b633-bb90ee71b70d",
+          "75dfee7f-1055-444a-b8b0-f638abd67eef",
+          "f711c6f2-d884-4860-9008-7153e8dd1f8d",
+          "5c8010ce-9586-4396-b28b-33140f813afe",
+          "81bc8053-70b1-4f92-a464-476611d662d7",
+          "792d9660-7e38-4c59-8c03-c302a734b154"
+        ],
+        "baf70593-070c-4f36-9ea0-da2483d868e8": [],
+        "db2a5508-0807-489d-8679-b334a81b9666": [],
+        "9d06e66c-8d3a-42d8-a2f8-14b32452cec2": [],
+        "db93e7c1-2458-4856-80c8-36735f03d5ec": [],
+        "e7b90f1f-4b44-45f8-a118-0e88dd948909": [],
+        "f3b9847d-6675-4212-a942-3ddf262329a8": [],
+        "d48d216e-2f92-4324-9153-b3c8c6704139": [],
+        "818393a4-e8a7-44dc-8bb9-06009d5eca01": [],
+        "d5a5e485-813e-4f35-922d-a76ca4e6a203": [],
+        "13e03876-e9a8-46e4-9246-c339094a0764": [],
+        "050e121d-bca7-4727-9045-97ecde5a79be": [],
+        "d268948b-6aa6-4042-8e74-b6eaf08521de": [],
+        "a3b35e4c-ae88-4e15-8945-e6a194271477": [],
+        "2a1e85c6-cf69-441b-b633-bb90ee71b70d": [],
+        "75dfee7f-1055-444a-b8b0-f638abd67eef": [],
+        "f711c6f2-d884-4860-9008-7153e8dd1f8d": [],
+        "5c8010ce-9586-4396-b28b-33140f813afe": [],
+        "81bc8053-70b1-4f92-a464-476611d662d7": [],
+        "792d9660-7e38-4c59-8c03-c302a734b154": []
+      }
+    },
+    "dd3f7e52-567a-4f6f-89cf-57fefc8f7524": {
+      "children": {
+        "null": ["aeaeb439-2d67-4c65-9688-46fb8fa04d50"],
+        "aeaeb439-2d67-4c65-9688-46fb8fa04d50": [
+          "a47fb2c4-d982-44ce-912d-7ea93a06b4ef",
+          "d47ae65e-d0e2-4c50-9465-8c07324b6cfa",
+          "ce837917-0991-43df-84d8-b8d869e17994"
+        ],
+        "a47fb2c4-d982-44ce-912d-7ea93a06b4ef": [],
+        "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": [],
+        "ce837917-0991-43df-84d8-b8d869e17994": []
+      }
+    }
+  }
+}
