@@ -574,8 +574,8 @@ class ExporterForInMemoryFn:
         #     value = get_artifacts(self.p, id)
         #     self.create_var_mapping((id, "artifact"), name)
         elif type == C.DRAW:
-            value = get_drawing(self.p, id)
-            self.create_var_mapping((id, "drawing"), name)
+            value = {"drawing": get_drawing(self.p, id)}
+            self.create_var_mapping((id, "drawing"), f'{name}["drawing"]')
         elif type == C.GLOBAL_VARIABLES:
             self.output.update(self.export_section_params(id, "", is_global=True))
             value_is_returned = False
