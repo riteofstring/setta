@@ -3,6 +3,11 @@
     "id": "13181374-a2d7-44d1-9ecf-f3d121dcc7fc",
     "name": "img_to_img",
     "previewImgColor": "bg-orange-500/60 dark:bg-orange-600/30",
+    "viewport": {
+      "x": -285.3775003114881,
+      "y": 100.34145314437438,
+      "zoom": 0.49793513293356395
+    },
     "children": {
       "4bb4c596-a4f6-43a1-90f8-2e173547b0cc": {
         "x": 1500,
@@ -16,7 +21,7 @@
         "y": 225,
         "zIndex": 4,
         "w": 617,
-        "h": 749
+        "h": 658
       },
       "9b219263-3d97-493d-8add-f54b5142a500": {
         "x": 780,
@@ -43,7 +48,7 @@
     },
     "b86565ba-e641-45ef-986c-0a85d1c14629": {
       "name": "racial_ivory",
-      "code": "from setta.tasks.fns import SettaInMemoryFn\nimport base64\nimport io\nfrom PIL import Image\n\n\ndef base64_to_pil(base64_string: str) -> Image.Image:\n    # Remove data URL prefix if present\n    if \"base64,\" in base64_string:\n        base64_string = base64_string.split(\"base64,\")[1]\n\n    # Convert base64 to PIL Image\n    img_bytes = base64.b64decode(base64_string)\n    image = Image.open(io.BytesIO(img_bytes))\n\n    # Convert to RGB if in RGBA format (common with canvas output)\n    if image.mode == \"RGBA\":\n        image = image.convert(\"RGB\")\n\n    return image\n\n\ndef pil_to_base64(pil_image: Image.Image, format=\"PNG\") -> str:\n    buffered = io.BytesIO()\n    pil_image.save(buffered, format=format)\n    return base64.b64encode(buffered.getvalue()).decode()\n\n\ndef drawing_to_img(project):\n    x = base64_to_pil(project[\"input_image\"][\"drawing\"])\n\n    output = pil_to_base64(x)\n    print(\"returning\", output)\n    return [{\"name\": \"stream_diffusion_output\", \"type\": \"img\", \"value\": output}]\n\n\nfn = SettaInMemoryFn(fn=drawing_to_img)\n"
+      "code": "from setta.tasks.fns import SettaInMemoryFn\nimport base64\nimport io\nfrom PIL import Image\n\n\ndef base64_to_pil(base64_string: str) -> Image.Image:\n    # Remove data URL prefix if present\n    if \"base64,\" in base64_string:\n        base64_string = base64_string.split(\"base64,\")[1]\n\n    # Convert base64 to PIL Image\n    img_bytes = base64.b64decode(base64_string)\n    image = Image.open(io.BytesIO(img_bytes))\n\n    return image\n\n\ndef pil_to_base64(pil_image: Image.Image, format=\"PNG\") -> str:\n    buffered = io.BytesIO()\n    pil_image.save(buffered, format=format)\n    return base64.b64encode(buffered.getvalue()).decode()\n\n\ndef drawing_to_img(project):\n    x = base64_to_pil(project[\"input_image\"][\"drawing\"])\n\n    output = pil_to_base64(x)\n    return [{\"name\": \"stream_diffusion_output\", \"type\": \"img\", \"value\": output}]\n\n\nfn = SettaInMemoryFn(fn=drawing_to_img)\n"
     },
     "f027b326-9317-47c6-a7c5-127a543dac8d": {
       "name": "graceful_beige"
