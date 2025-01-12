@@ -4,9 +4,9 @@
     "name": "hf_finetuning",
     "previewImgColor": "bg-green-500/60 dark:bg-green-600/30",
     "viewport": {
-      "x": 338.526774579973,
-      "y": 227.94896338460745,
-      "zoom": 0.4265765299191943
+      "x": 242.1344239224253,
+      "y": 239.40042317546383,
+      "zoom": 0.4793096466414433
     },
     "children": {
       "1208afa8-a38d-4b98-be08-1bcf4381834b": {
@@ -19,44 +19,51 @@
       "161346b7-e7cd-48d8-901c-c4d5db02ae88": {
         "x": 1005,
         "y": 105,
-        "zIndex": 2,
+        "zIndex": 3,
         "w": 677,
         "h": 258
       },
       "24cfaaf2-c025-4101-a0a4-0c788801968d": {
         "x": 705,
         "y": 90,
-        "zIndex": 4,
+        "zIndex": 5,
         "w": 272,
         "h": 524
       },
       "4919a72d-05a0-4e04-9616-679464cfe3a0": {
         "x": 975,
         "y": -90,
-        "zIndex": 3,
+        "zIndex": 4,
         "w": 242,
         "h": 172
       },
       "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
         "x": 195,
         "y": 90,
-        "zIndex": 1,
+        "zIndex": 2,
         "w": 202,
         "h": 572
       },
       "b3f05acb-cb47-463d-a875-ca9a1d05bdf3": {
         "x": 1020,
         "y": 405,
-        "zIndex": 5,
+        "zIndex": 7,
         "w": 407,
-        "h": 220
+        "h": 236
       },
       "f9bfda0e-6786-4124-9efe-edd085db6480": {
         "x": 1455,
         "y": 405,
-        "zIndex": 7,
+        "zIndex": 9,
         "w": 392,
-        "h": 220
+        "h": 236
+      },
+      "093adddf-0c8f-4a33-a00d-56aa4680f172": {
+        "x": 1290,
+        "y": -90,
+        "zIndex": 6,
+        "w": 202,
+        "h": 138
       }
     }
   },
@@ -135,9 +142,20 @@
       "values": {
         "5cce3d85-6ed4-40e3-9db5-e6ed4fb98ac6": {
           "value": "range(1000)"
+        },
+        "bb563bea-d34c-4e9f-80de-1d2d3dbff17e": {
+          "value": "range(dataset_size)",
+          "evRefs": [
+            {
+              "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
+              "paramInfoId": "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae",
+              "startPos": 6,
+              "keyword": "dataset_size"
+            }
+          ]
         }
       },
-      "selectedItem": "71c4eea3-5c1d-42f5-9fd4-4c49a2500d51",
+      "selectedItem": "d0bf7204-56d2-4c9c-8b3d-24efca52a8e3",
       "codeInfoColId": "a59b8c13-aa3d-4be7-9338-21bbb2f1a9a1"
     },
     "f6128d84-323e-459c-8bb0-5bd479c44f00": {
@@ -145,10 +163,36 @@
       "values": {
         "18203775-d8a9-425e-ad88-c839cde49b98": {
           "value": "range(1000)"
+        },
+        "6f0a5a6a-8592-4187-bf5e-8376a0cc28df": {
+          "value": "range(dataset_size)",
+          "evRefs": [
+            {
+              "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
+              "paramInfoId": "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae",
+              "startPos": 6,
+              "keyword": "dataset_size"
+            }
+          ]
         }
       },
-      "selectedItem": "1fe27a36-c606-47c9-bee1-8f2d51fc7b17",
+      "selectedItem": "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97",
       "codeInfoColId": "791d3c96-e490-4612-ba99-d94e3b2d6653"
+    },
+    "76931c1c-f8ac-480e-942c-91b8891a3dc6": {
+      "name": "extensive_gray",
+      "values": {
+        "27139828-f120-4514-bd18-fe9f013abff1": {
+          "value": "42"
+        },
+        "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae": {
+          "value": "1000"
+        }
+      },
+      "codeInfoColId": "9b2fd0cb-a3e8-41e1-814a-a2153693a1a9"
+    },
+    "e501a22c-fe1f-4b97-b12b-f4fd5b9b0122": {
+      "name": "psychiatric_orange"
     }
   },
   "artifacts": {},
@@ -228,9 +272,23 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["f6128d84-323e-459c-8bb0-5bd479c44f00"],
       "columnWidth": 177
+    },
+    "093adddf-0c8f-4a33-a00d-56aa4680f172": {
+      "id": "093adddf-0c8f-4a33-a00d-56aa4680f172",
+      "name": "Global Variables",
+      "variantId": "76931c1c-f8ac-480e-942c-91b8891a3dc6",
+      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
+      "variantIds": ["76931c1c-f8ac-480e-942c-91b8891a3dc6"],
+      "columnWidth": 82
     }
   },
   "codeInfo": {
+    "03c5a8a5-3a4c-42f2-a803-a58a88466cbe": {
+      "id": "03c5a8a5-3a4c-42f2-a803-a58a88466cbe",
+      "name": "keep_in_memory",
+      "defaultVal": "False",
+      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
+    },
     "050e121d-bca7-4727-9045-97ecde5a79be": {
       "id": "050e121d-bca7-4727-9045-97ecde5a79be",
       "name": "keep_in_memory",
@@ -260,6 +318,23 @@
       "name": "verification_mode",
       "defaultVal": "None",
       "description": "Verification mode determining the checks to run on the downloaded/processed dataset information (checksums/size/splits/...).\n\n<Added version=\"2.9.1\"/>"
+    },
+    "18203775-d8a9-425e-ad88-c839cde49b98": {
+      "id": "18203775-d8a9-425e-ad88-c839cde49b98",
+      "name": "indices",
+      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
+    },
+    "1fe27a36-c606-47c9-bee1-8f2d51fc7b17": {
+      "id": "1fe27a36-c606-47c9-bee1-8f2d51fc7b17",
+      "name": "tokenized_datasets[\"test\"].shuffle(seed=42).select",
+      "rcType": "callable",
+      "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
+      "evRefs": [
+        {
+          "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
+          "keyword": "tokenized_datasets"
+        }
+      ]
     },
     "2653f571-0dfa-4181-9783-a2355b6ef3f9": {
       "id": "2653f571-0dfa-4181-9783-a2355b6ef3f9",
@@ -321,11 +396,34 @@
       "defaultVal": "None",
       "description": "**Experimental**. Key/value pairs to be passed on to the dataset file-system backend, if any.\n\n<Added version=\"2.11.0\"/>"
     },
+    "5cce3d85-6ed4-40e3-9db5-e6ed4fb98ac6": {
+      "id": "5cce3d85-6ed4-40e3-9db5-e6ed4fb98ac6",
+      "name": "indices",
+      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
+    },
     "627d49b3-a1a3-433e-85fd-5b820a757e63": {
       "id": "627d49b3-a1a3-433e-85fd-5b820a757e63",
       "name": "batched",
       "defaultVal": "False",
       "description": "Provide batch of examples to `function`."
+    },
+    "6ce1c8a7-8afb-4e4d-8178-c9b20ed1f128": {
+      "id": "6ce1c8a7-8afb-4e4d-8178-c9b20ed1f128",
+      "name": "indices_cache_file_name",
+      "defaultVal": "None",
+      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
+    },
+    "71c4eea3-5c1d-42f5-9fd4-4c49a2500d51": {
+      "id": "71c4eea3-5c1d-42f5-9fd4-4c49a2500d51",
+      "name": "tokenized_datasets[\"train\"].shuffle(seed=42).select",
+      "rcType": "callable",
+      "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
+      "evRefs": [
+        {
+          "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
+          "keyword": "tokenized_datasets"
+        }
+      ]
     },
     "75dfee7f-1055-444a-b8b0-f638abd67eef": {
       "id": "75dfee7f-1055-444a-b8b0-f638abd67eef",
@@ -362,6 +460,12 @@
       "defaultVal": "None",
       "description": "Defining the `data_dir` of the dataset configuration. If specified for the generic builders (csv, text etc.) or the Hub datasets and `data_files` is `None`,\nthe behavior is equal to passing `os.path.join(data_dir, **)` as `data_files` to reference all the files in a directory."
     },
+    "a08db806-c6d8-45bb-b65e-749cd7ea61f6": {
+      "id": "a08db806-c6d8-45bb-b65e-749cd7ea61f6",
+      "name": "writer_batch_size",
+      "defaultVal": "1000",
+      "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
+    },
     "a3b35e4c-ae88-4e15-8945-e6a194271477": {
       "id": "a3b35e4c-ae88-4e15-8945-e6a194271477",
       "name": "revision",
@@ -382,6 +486,12 @@
       "id": "aeaeb439-2d67-4c65-9688-46fb8fa04d50",
       "name": "get_tokenize_function",
       "rcType": "callable"
+    },
+    "b3d87aef-c1b3-49f6-b0af-fd0e75935c48": {
+      "id": "b3d87aef-c1b3-49f6-b0af-fd0e75935c48",
+      "name": "keep_in_memory",
+      "defaultVal": "False",
+      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
     },
     "baf70593-070c-4f36-9ea0-da2483d868e8": {
       "id": "baf70593-070c-4f36-9ea0-da2483d868e8",
@@ -434,6 +544,18 @@
       "defaultVal": "None",
       "description": "Download/generate mode."
     },
+    "d64a9350-02a5-4fac-a4e5-501adc761002": {
+      "id": "d64a9350-02a5-4fac-a4e5-501adc761002",
+      "name": "new_fingerprint",
+      "defaultVal": "None",
+      "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
+    },
+    "d681b68a-50fc-4cfc-8442-71f2e56bb367": {
+      "id": "d681b68a-50fc-4cfc-8442-71f2e56bb367",
+      "name": "new_fingerprint",
+      "defaultVal": "None",
+      "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
+    },
     "db2a5508-0807-489d-8679-b334a81b9666": {
       "id": "db2a5508-0807-489d-8679-b334a81b9666",
       "name": "name",
@@ -457,6 +579,12 @@
       "name": "AutoTokenizer.from_pretrained",
       "rcType": "callable",
       "description": "Instantiate one of the tokenizer classes of the library from a pretrained model vocabulary.\n\nThe tokenizer class to instantiate is selected based on the `model_type` property of the config object (either\npassed as an argument or loaded from `pretrained_model_name_or_path` if possible), or when it's missing, by\nfalling back to using pattern matching on `pretrained_model_name_or_path`:\n\nList options\n\nParams:\n    pretrained_model_name_or_path (`str` or `os.PathLike`):\n        Can be either:\n\n            - A string, the *model id* of a predefined tokenizer hosted inside a model repo on huggingface.co.\n            - A path to a *directory* containing vocabulary files required by the tokenizer, for instance saved\n              using the [`~PreTrainedTokenizer.save_pretrained`] method, e.g., `./my_model_directory/`.\n            - A path or url to a single saved vocabulary file if and only if the tokenizer only requires a\n              single vocabulary file (like Bert or XLNet), e.g.: `./my_model_directory/vocab.txt`. (Not\n              applicable to all derived classes)\n    inputs (additional positional arguments, *optional*):\n        Will be passed along to the Tokenizer `__init__()` method.\n    config ([`PretrainedConfig`], *optional*)\n        The configuration object used to determine the tokenizer class to instantiate.\n    cache_dir (`str` or `os.PathLike`, *optional*):\n        Path to a directory in which a downloaded pretrained model configuration should be cached if the\n        standard cache should not be used.\n    force_download (`bool`, *optional*, defaults to `False`):\n        Whether or not to force the (re-)download the model weights and configuration files and override the\n        cached versions if they exist.\n    resume_download:\n        Deprecated and ignored. All downloads are now resumed by default when possible.\n        Will be removed in v5 of Transformers.\n    proxies (`Dict[str, str]`, *optional*):\n        A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',\n        'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request.\n    revision (`str`, *optional*, defaults to `\"main\"`):\n        The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a\n        git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any\n        identifier allowed by git.\n    subfolder (`str`, *optional*):\n        In case the relevant files are located inside a subfolder of the model repo on huggingface.co (e.g. for\n        facebook/rag-token-base), specify it here.\n    use_fast (`bool`, *optional*, defaults to `True`):\n        Use a [fast Rust-based tokenizer](https://huggingface.co/docs/tokenizers/index) if it is supported for\n        a given model. If a fast tokenizer is not available for a given model, a normal Python-based tokenizer\n        is returned instead.\n    tokenizer_type (`str`, *optional*):\n        Tokenizer type to be loaded.\n    trust_remote_code (`bool`, *optional*, defaults to `False`):\n        Whether or not to allow for custom models defined on the Hub in their own modeling files. This option\n        should only be set to `True` for repositories you trust and in which you have read the code, as it will\n        execute code present on the Hub on your local machine.\n    kwargs (additional keyword arguments, *optional*):\n        Will be passed to the Tokenizer `__init__()` method. Can be used to set special tokens like\n        `bos_token`, `eos_token`, `unk_token`, `sep_token`, `pad_token`, `cls_token`, `mask_token`,\n        `additional_special_tokens`. See parameters in the `__init__()` for more details.\n\nExamples:\n\n```python\n>>> from transformers import AutoTokenizer\n\n>>> # Download vocabulary from huggingface.co and cache.\n>>> tokenizer = AutoTokenizer.from_pretrained(\"google-bert/bert-base-uncased\")\n\n>>> # Download vocabulary from huggingface.co (user-uploaded) and cache.\n>>> tokenizer = AutoTokenizer.from_pretrained(\"dbmdz/bert-base-german-cased\")\n\n>>> # If vocabulary files are in a directory (e.g. tokenizer was saved using *save_pretrained('./test/saved_model/')*)\n>>> # tokenizer = AutoTokenizer.from_pretrained(\"./test/bert_saved_model/\")\n\n>>> # Download vocabulary from huggingface.co and define model-specific arguments\n>>> tokenizer = AutoTokenizer.from_pretrained(\"FacebookAI/roberta-base\", add_prefix_space=True)\n```"
+    },
+    "ea1b4f6f-1e91-4e0b-8fb1-39cf7f80cb50": {
+      "id": "ea1b4f6f-1e91-4e0b-8fb1-39cf7f80cb50",
+      "name": "indices_cache_file_name",
+      "defaultVal": "None",
+      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
     },
     "ed260abd-2a04-4f9a-85a1-c71d2c64df44": {
       "id": "ed260abd-2a04-4f9a-85a1-c71d2c64df44",
@@ -487,93 +615,174 @@
       "defaultVal": "None",
       "description": "Number of processes when downloading and generating the dataset locally.\nMultiprocessing is disabled by default.\n\n<Added version=\"2.7.0\"/>"
     },
-    "fcaeec8c-e3e0-49c8-b327-c8ecfa7a2ab5": {
-      "id": "fcaeec8c-e3e0-49c8-b327-c8ecfa7a2ab5",
-      "name": "with_indices",
-      "defaultVal": "False",
-      "description": "Provide example indices to `function`. Note that in this case the signature of `function` should be `def function(example, idx): ...`."
-    },
-    "71c4eea3-5c1d-42f5-9fd4-4c49a2500d51": {
-      "id": "71c4eea3-5c1d-42f5-9fd4-4c49a2500d51",
-      "name": "tokenized_datasets[\"train\"].shuffle(seed=42).select",
-      "rcType": "callable",
-      "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
-      "evRefs": [
-        {
-          "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
-          "keyword": "tokenized_datasets"
-        }
-      ]
-    },
-    "5cce3d85-6ed4-40e3-9db5-e6ed4fb98ac6": {
-      "id": "5cce3d85-6ed4-40e3-9db5-e6ed4fb98ac6",
-      "name": "indices",
-      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
-    },
-    "03c5a8a5-3a4c-42f2-a803-a58a88466cbe": {
-      "id": "03c5a8a5-3a4c-42f2-a803-a58a88466cbe",
-      "name": "keep_in_memory",
-      "defaultVal": "False",
-      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
-    },
-    "ea1b4f6f-1e91-4e0b-8fb1-39cf7f80cb50": {
-      "id": "ea1b4f6f-1e91-4e0b-8fb1-39cf7f80cb50",
-      "name": "indices_cache_file_name",
-      "defaultVal": "None",
-      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
-    },
-    "a08db806-c6d8-45bb-b65e-749cd7ea61f6": {
-      "id": "a08db806-c6d8-45bb-b65e-749cd7ea61f6",
-      "name": "writer_batch_size",
-      "defaultVal": "1000",
-      "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
-    },
-    "d64a9350-02a5-4fac-a4e5-501adc761002": {
-      "id": "d64a9350-02a5-4fac-a4e5-501adc761002",
-      "name": "new_fingerprint",
-      "defaultVal": "None",
-      "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
-    },
-    "1fe27a36-c606-47c9-bee1-8f2d51fc7b17": {
-      "id": "1fe27a36-c606-47c9-bee1-8f2d51fc7b17",
-      "name": "tokenized_datasets[\"test\"].shuffle(seed=42).select",
-      "rcType": "callable",
-      "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
-      "evRefs": [
-        {
-          "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
-          "keyword": "tokenized_datasets"
-        }
-      ]
-    },
-    "18203775-d8a9-425e-ad88-c839cde49b98": {
-      "id": "18203775-d8a9-425e-ad88-c839cde49b98",
-      "name": "indices",
-      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
-    },
-    "b3d87aef-c1b3-49f6-b0af-fd0e75935c48": {
-      "id": "b3d87aef-c1b3-49f6-b0af-fd0e75935c48",
-      "name": "keep_in_memory",
-      "defaultVal": "False",
-      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
-    },
-    "6ce1c8a7-8afb-4e4d-8178-c9b20ed1f128": {
-      "id": "6ce1c8a7-8afb-4e4d-8178-c9b20ed1f128",
-      "name": "indices_cache_file_name",
-      "defaultVal": "None",
-      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
-    },
     "fac0bddf-d48c-4773-b40f-50186c1d7114": {
       "id": "fac0bddf-d48c-4773-b40f-50186c1d7114",
       "name": "writer_batch_size",
       "defaultVal": "1000",
       "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
     },
-    "d681b68a-50fc-4cfc-8442-71f2e56bb367": {
-      "id": "d681b68a-50fc-4cfc-8442-71f2e56bb367",
+    "fcaeec8c-e3e0-49c8-b327-c8ecfa7a2ab5": {
+      "id": "fcaeec8c-e3e0-49c8-b327-c8ecfa7a2ab5",
+      "name": "with_indices",
+      "defaultVal": "False",
+      "description": "Provide example indices to `function`. Note that in this case the signature of `function` should be `def function(example, idx): ...`."
+    },
+    "27139828-f120-4514-bd18-fe9f013abff1": {
+      "id": "27139828-f120-4514-bd18-fe9f013abff1",
+      "name": "seed",
+      "editable": true
+    },
+    "d0bf7204-56d2-4c9c-8b3d-24efca52a8e3": {
+      "id": "d0bf7204-56d2-4c9c-8b3d-24efca52a8e3",
+      "name": "tokenized_datasets[\"train\"].shuffle(seed=seed).select",
+      "rcType": "callable",
+      "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
+      "evRefs": [
+        {
+          "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
+          "keyword": "tokenized_datasets"
+        },
+        {
+          "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
+          "paramInfoId": "27139828-f120-4514-bd18-fe9f013abff1",
+          "startPos": 41,
+          "keyword": "seed"
+        },
+        {
+          "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
+          "paramInfoId": "27139828-f120-4514-bd18-fe9f013abff1",
+          "startPos": 41,
+          "keyword": "seed"
+        }
+      ]
+    },
+    "bb563bea-d34c-4e9f-80de-1d2d3dbff17e": {
+      "id": "bb563bea-d34c-4e9f-80de-1d2d3dbff17e",
+      "name": "indices",
+      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
+    },
+    "9a91e177-de6d-45de-8cbe-8948a606a0b0": {
+      "id": "9a91e177-de6d-45de-8cbe-8948a606a0b0",
+      "name": "keep_in_memory",
+      "defaultVal": "False",
+      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
+    },
+    "c0b6277b-479b-44dc-90c3-5daed42d3142": {
+      "id": "c0b6277b-479b-44dc-90c3-5daed42d3142",
+      "name": "indices_cache_file_name",
+      "defaultVal": "None",
+      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
+    },
+    "e9efa49c-2f6a-4b55-a454-5ac3cdffae33": {
+      "id": "e9efa49c-2f6a-4b55-a454-5ac3cdffae33",
+      "name": "writer_batch_size",
+      "defaultVal": "1000",
+      "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
+    },
+    "c75ae3ae-a487-4b96-8424-15e0d1323202": {
+      "id": "c75ae3ae-a487-4b96-8424-15e0d1323202",
       "name": "new_fingerprint",
       "defaultVal": "None",
       "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
+    },
+    "7088adc4-1ab4-4a2b-9f4b-3c89173af42e": {
+      "id": "7088adc4-1ab4-4a2b-9f4b-3c89173af42e",
+      "name": "tokenized_datasets[\"test\"].shuffle(seed=seed).select",
+      "rcType": "callable",
+      "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
+      "evRefs": [
+        {
+          "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
+          "keyword": "tokenized_datasets"
+        },
+        {
+          "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
+          "paramInfoId": "27139828-f120-4514-bd18-fe9f013abff1",
+          "startPos": 40,
+          "keyword": "seed"
+        }
+      ]
+    },
+    "33b0fd56-8b28-469e-88f3-4c06c8a05a41": {
+      "id": "33b0fd56-8b28-469e-88f3-4c06c8a05a41",
+      "name": "indices",
+      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
+    },
+    "b5f8b57f-c90e-4ac9-aad6-7de3647f5d3e": {
+      "id": "b5f8b57f-c90e-4ac9-aad6-7de3647f5d3e",
+      "name": "keep_in_memory",
+      "defaultVal": "False",
+      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
+    },
+    "2238892d-f719-436f-a7c0-15b4562f6531": {
+      "id": "2238892d-f719-436f-a7c0-15b4562f6531",
+      "name": "indices_cache_file_name",
+      "defaultVal": "None",
+      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
+    },
+    "3b07cd41-9016-473d-a340-692bad7352d3": {
+      "id": "3b07cd41-9016-473d-a340-692bad7352d3",
+      "name": "writer_batch_size",
+      "defaultVal": "1000",
+      "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
+    },
+    "5a7e1b85-f715-4a66-9c3b-aa2c3861a301": {
+      "id": "5a7e1b85-f715-4a66-9c3b-aa2c3861a301",
+      "name": "new_fingerprint",
+      "defaultVal": "None",
+      "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
+    },
+    "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97": {
+      "id": "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97",
+      "name": "tokenized_datasets[\"test\"].shuffle(seed=seed).select",
+      "rcType": "callable",
+      "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
+      "evRefs": [
+        {
+          "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
+          "keyword": "tokenized_datasets"
+        },
+        {
+          "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
+          "paramInfoId": "27139828-f120-4514-bd18-fe9f013abff1",
+          "startPos": 40,
+          "keyword": "seed"
+        }
+      ]
+    },
+    "6f0a5a6a-8592-4187-bf5e-8376a0cc28df": {
+      "id": "6f0a5a6a-8592-4187-bf5e-8376a0cc28df",
+      "name": "indices",
+      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
+    },
+    "f85493e8-23f1-4f1b-ba9b-3280ffd909d1": {
+      "id": "f85493e8-23f1-4f1b-ba9b-3280ffd909d1",
+      "name": "keep_in_memory",
+      "defaultVal": "False",
+      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
+    },
+    "d9818f78-89d9-4bbf-baa7-9828fc227d88": {
+      "id": "d9818f78-89d9-4bbf-baa7-9828fc227d88",
+      "name": "indices_cache_file_name",
+      "defaultVal": "None",
+      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
+    },
+    "462519f5-cd0b-42ce-8b39-fa5432e69cde": {
+      "id": "462519f5-cd0b-42ce-8b39-fa5432e69cde",
+      "name": "writer_batch_size",
+      "defaultVal": "1000",
+      "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
+    },
+    "1800aae4-c3b4-4a67-86b1-c6dfb734cf80": {
+      "id": "1800aae4-c3b4-4a67-86b1-c6dfb734cf80",
+      "name": "new_fingerprint",
+      "defaultVal": "None",
+      "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
+    },
+    "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae": {
+      "id": "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae",
+      "name": "dataset_size",
+      "editable": true
     }
   },
   "codeInfoCols": {
@@ -687,7 +896,10 @@
     },
     "a59b8c13-aa3d-4be7-9338-21bbb2f1a9a1": {
       "children": {
-        "null": ["71c4eea3-5c1d-42f5-9fd4-4c49a2500d51"],
+        "null": [
+          "71c4eea3-5c1d-42f5-9fd4-4c49a2500d51",
+          "d0bf7204-56d2-4c9c-8b3d-24efca52a8e3"
+        ],
         "71c4eea3-5c1d-42f5-9fd4-4c49a2500d51": [
           "5cce3d85-6ed4-40e3-9db5-e6ed4fb98ac6",
           "03c5a8a5-3a4c-42f2-a803-a58a88466cbe",
@@ -699,12 +911,28 @@
         "03c5a8a5-3a4c-42f2-a803-a58a88466cbe": [],
         "ea1b4f6f-1e91-4e0b-8fb1-39cf7f80cb50": [],
         "a08db806-c6d8-45bb-b65e-749cd7ea61f6": [],
-        "d64a9350-02a5-4fac-a4e5-501adc761002": []
+        "d64a9350-02a5-4fac-a4e5-501adc761002": [],
+        "d0bf7204-56d2-4c9c-8b3d-24efca52a8e3": [
+          "bb563bea-d34c-4e9f-80de-1d2d3dbff17e",
+          "9a91e177-de6d-45de-8cbe-8948a606a0b0",
+          "c0b6277b-479b-44dc-90c3-5daed42d3142",
+          "e9efa49c-2f6a-4b55-a454-5ac3cdffae33",
+          "c75ae3ae-a487-4b96-8424-15e0d1323202"
+        ],
+        "bb563bea-d34c-4e9f-80de-1d2d3dbff17e": [],
+        "9a91e177-de6d-45de-8cbe-8948a606a0b0": [],
+        "c0b6277b-479b-44dc-90c3-5daed42d3142": [],
+        "e9efa49c-2f6a-4b55-a454-5ac3cdffae33": [],
+        "c75ae3ae-a487-4b96-8424-15e0d1323202": []
       }
     },
     "791d3c96-e490-4612-ba99-d94e3b2d6653": {
       "children": {
-        "null": ["1fe27a36-c606-47c9-bee1-8f2d51fc7b17"],
+        "null": [
+          "1fe27a36-c606-47c9-bee1-8f2d51fc7b17",
+          "7088adc4-1ab4-4a2b-9f4b-3c89173af42e",
+          "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97"
+        ],
         "1fe27a36-c606-47c9-bee1-8f2d51fc7b17": [
           "18203775-d8a9-425e-ad88-c839cde49b98",
           "b3d87aef-c1b3-49f6-b0af-fd0e75935c48",
@@ -716,7 +944,41 @@
         "b3d87aef-c1b3-49f6-b0af-fd0e75935c48": [],
         "6ce1c8a7-8afb-4e4d-8178-c9b20ed1f128": [],
         "fac0bddf-d48c-4773-b40f-50186c1d7114": [],
-        "d681b68a-50fc-4cfc-8442-71f2e56bb367": []
+        "d681b68a-50fc-4cfc-8442-71f2e56bb367": [],
+        "7088adc4-1ab4-4a2b-9f4b-3c89173af42e": [
+          "33b0fd56-8b28-469e-88f3-4c06c8a05a41",
+          "b5f8b57f-c90e-4ac9-aad6-7de3647f5d3e",
+          "2238892d-f719-436f-a7c0-15b4562f6531",
+          "3b07cd41-9016-473d-a340-692bad7352d3",
+          "5a7e1b85-f715-4a66-9c3b-aa2c3861a301"
+        ],
+        "33b0fd56-8b28-469e-88f3-4c06c8a05a41": [],
+        "b5f8b57f-c90e-4ac9-aad6-7de3647f5d3e": [],
+        "2238892d-f719-436f-a7c0-15b4562f6531": [],
+        "3b07cd41-9016-473d-a340-692bad7352d3": [],
+        "5a7e1b85-f715-4a66-9c3b-aa2c3861a301": [],
+        "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97": [
+          "6f0a5a6a-8592-4187-bf5e-8376a0cc28df",
+          "f85493e8-23f1-4f1b-ba9b-3280ffd909d1",
+          "d9818f78-89d9-4bbf-baa7-9828fc227d88",
+          "462519f5-cd0b-42ce-8b39-fa5432e69cde",
+          "1800aae4-c3b4-4a67-86b1-c6dfb734cf80"
+        ],
+        "6f0a5a6a-8592-4187-bf5e-8376a0cc28df": [],
+        "f85493e8-23f1-4f1b-ba9b-3280ffd909d1": [],
+        "d9818f78-89d9-4bbf-baa7-9828fc227d88": [],
+        "462519f5-cd0b-42ce-8b39-fa5432e69cde": [],
+        "1800aae4-c3b4-4a67-86b1-c6dfb734cf80": []
+      }
+    },
+    "9b2fd0cb-a3e8-41e1-814a-a2153693a1a9": {
+      "children": {
+        "null": [
+          "27139828-f120-4514-bd18-fe9f013abff1",
+          "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae"
+        ],
+        "27139828-f120-4514-bd18-fe9f013abff1": [],
+        "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae": []
       }
     }
   }
