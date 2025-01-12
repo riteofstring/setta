@@ -3,155 +3,126 @@ import { useCallback, useEffect, useRef } from "react";
 import { useResizerStore, useSectionColumnWidth } from "state/definitions";
 import { clamp } from "utils/utils";
 
-// Constants
-const CENTER_OFFSET = 18;
-const BASE_MARGIN = 72;
-const NESTED_MARGIN_INCREMENT = 12;
-const DEFAULT_PERCENTAGE = 50;
-const DOUBLE_CLICK_COUNT = 2;
+export const CENTER_OFFSET = 18;
 
-// Margin calculation
-const getMarginPx = (maxNestedDepth) =>
-  BASE_MARGIN + Math.max(0, NESTED_MARGIN_INCREMENT * (maxNestedDepth - 1));
+export function getMarginPx(maxNestedDepth) {
+  return 72 + Math.max(0, 12 * (maxNestedDepth - 1));
+}
 
-// Pure functions for width calculations
-const calculateBoundedWidth = (width, containerWidth, maxNestedDepth) => {
+export function calculateBoundedWidth(width, containerWidth, maxNestedDepth) {
   const marginPx = getMarginPx(maxNestedDepth);
   return clamp(width, marginPx, containerWidth - marginPx);
-};
+}
 
-const calculatePercentage = (width, containerWidth) =>
-  (width / containerWidth) * 100;
-
-// State management functions
-const setSectionWidth = (sectionId, rawWidth) => {
+export function setSectionWidth(sectionId, rawWidth) {
   useSectionColumnWidth.setState({
     [sectionId]: rawWidth - CENTER_OFFSET,
   });
-};
+}
 
-const setActiveResizer = (resizerData) => {
+export function setActiveResizer(resizerData) {
   useResizerStore.setState({ activeResizer: resizerData });
-};
+}
 
-const clearActiveResizer = () => {
+export function clearActiveResizer() {
   useResizerStore.setState({ activeResizer: null });
-};
+}
 
-// Optimized event handlers with debouncing
-const handleGlobalMouseMove = (() => {
-  let rafId = null;
+export function handleGlobalMouseMove(e) {
+  const activeResizer = useResizerStore.getState().activeResizer;
+  if (!activeResizer) return;
 
-  return (e) => {
-    const activeResizer = useResizerStore.getState().activeResizer;
-    if (!activeResizer) return;
+  if (activeResizer.rafId) {
+    cancelAnimationFrame(activeResizer.rafId);
+  }
 
-    if (rafId) {
-      cancelAnimationFrame(rafId);
-    }
+  activeResizer.rafId = requestAnimationFrame(() => {
+    const {
+      ref,
+      startX,
+      startWidth,
+      containerWidth,
+      maxNestedDepth,
+      sectionId,
+      widthRef,
+    } = activeResizer;
+    if (!ref.current) return;
 
-    rafId = requestAnimationFrame(() => {
-      const {
-        ref,
-        startX,
-        startWidth,
-        containerWidth,
-        maxNestedDepth,
-        sectionId,
-        widthRef,
-      } = activeResizer;
+    const diff = (e.clientX - startX) / useReactFlow.getState().transform[2];
+    const newWidth = startWidth + diff;
 
-      if (!ref.current) return;
+    const boundedWidth = calculateBoundedWidth(
+      newWidth,
+      containerWidth,
+      maxNestedDepth,
+    );
+    setSectionWidth(sectionId, boundedWidth);
 
-      const diff = (e.clientX - startX) / useReactFlow.getState().transform[2];
-      const newWidth = startWidth + diff;
-      const boundedWidth = calculateBoundedWidth(
-        newWidth,
-        containerWidth,
-        maxNestedDepth,
-      );
+    widthRef.current.currentWidth = boundedWidth;
 
-      setSectionWidth(sectionId, boundedWidth);
-      widthRef.current.currentWidth = boundedWidth;
-      rafId = null;
-    });
-  };
-})();
+    delete activeResizer.rafId;
+  });
+}
 
-const handleGlobalMouseUp = () => {
+export function handleGlobalMouseUp() {
   const activeResizer = useResizerStore.getState().activeResizer;
   if (activeResizer?.widthRef) {
     const finalWidth =
       useSectionColumnWidth.getState()[activeResizer.sectionId] + CENTER_OFFSET;
-    activeResizer.widthRef.current = {
-      ...activeResizer.widthRef.current,
-      currentPercentage: calculatePercentage(
-        finalWidth,
-        activeResizer.containerWidth,
-      ),
-      isDragging: false,
-    };
+    const percentage = (finalWidth / activeResizer.containerWidth) * 100;
+    activeResizer.widthRef.current.currentPercentage = percentage;
+    activeResizer.widthRef.current.isDragging = false;
   }
   clearActiveResizer();
-};
+}
 
-// Event listener initialization for use in useEffect
-export const initializeGlobalSectionColumnWidthEventListeners = () => {
+export function initializeGlobalSectionColumnWidthEventListeners() {
   const state = useResizerStore.getState();
   if (state.globalEventListenersInitialized) return;
 
-  window.addEventListener("mousemove", handleGlobalMouseMove, {
-    passive: true,
-  });
+  window.addEventListener("mousemove", handleGlobalMouseMove);
   window.addEventListener("mouseup", handleGlobalMouseUp);
+
   useResizerStore.setState({ globalEventListenersInitialized: true });
 
   return () => {
     window.removeEventListener("mousemove", handleGlobalMouseMove);
     window.removeEventListener("mouseup", handleGlobalMouseUp);
-    useResizerStore.setState({ globalEventListenersInitialized: false });
   };
-};
+}
 
-// Custom hook for column resizing
 export function useColumnResizer(sectionId, ref, maxNestedDepth) {
   const widthRef = useRef({
     currentWidth: 0,
     containerWidth: 0,
-    currentPercentage: DEFAULT_PERCENTAGE,
+    currentPercentage: 50,
     isDragging: false,
   });
 
-  const setNewWidth = useCallback(
-    (containerWidth, width) => {
-      const boundedWidth = calculateBoundedWidth(
-        width,
-        containerWidth,
-        maxNestedDepth,
-      );
-      widthRef.current = {
-        ...widthRef.current,
-        currentWidth: boundedWidth,
-        currentPercentage: calculatePercentage(boundedWidth, containerWidth),
-      };
-      setSectionWidth(sectionId, boundedWidth);
-    },
-    [sectionId, maxNestedDepth],
-  );
+  function setNewWidth(containerWidth, width) {
+    const boundedWidth = calculateBoundedWidth(
+      width,
+      containerWidth,
+      maxNestedDepth,
+    );
+    widthRef.current.currentWidth = boundedWidth;
+    widthRef.current.currentPercentage = (boundedWidth / containerWidth) * 100;
+    setSectionWidth(sectionId, boundedWidth);
+  }
 
-  const updatedWidthOnContainerResize = useCallback(() => {
+  function updatedWidthOnContainerResize() {
     if (widthRef.current.isDragging || !ref.current) return;
 
     const containerWidth = ref.current.clientWidth;
-    const newWidth =
-      (containerWidth * widthRef.current.currentPercentage) / 100;
+    const currentPercentage = widthRef.current.currentPercentage;
+    const newWidth = (containerWidth * currentPercentage) / 100;
     widthRef.current.containerWidth = containerWidth;
     setNewWidth(containerWidth, newWidth);
-  }, [setNewWidth]);
+  }
 
-  // ResizeObserver setup
   useEffect(() => {
     let previousWidth = ref.current?.clientWidth;
+
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
       const newWidth =
@@ -167,10 +138,11 @@ export function useColumnResizer(sectionId, ref, maxNestedDepth) {
       resizeObserver.observe(ref.current);
     }
 
-    return () => resizeObserver.disconnect();
-  }, [updatedWidthOnContainerResize]);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [maxNestedDepth]);
 
-  // Initial width setup
   useEffect(() => {
     if (ref.current) {
       const containerWidth = ref.current.clientWidth;
@@ -178,37 +150,38 @@ export function useColumnResizer(sectionId, ref, maxNestedDepth) {
       const initialWidth = existingWidth
         ? existingWidth + CENTER_OFFSET
         : containerWidth / 2;
-
       widthRef.current.containerWidth = containerWidth;
       setNewWidth(containerWidth, initialWidth);
     }
-  }, [setNewWidth, sectionId]);
+  }, [maxNestedDepth]);
 
-  // Resize handler
-  return useCallback(
+  const handleResizeStart = useCallback(
     (e) => {
       e.preventDefault();
-      if (!ref.current) return;
+      if (ref.current) {
+        if (e.detail === 2) {
+          // Double click
+          const containerWidth = ref.current.clientWidth;
+          widthRef.current.isDragging = false;
+          widthRef.current.currentPercentage = 50;
+          setNewWidth(containerWidth, containerWidth / 2);
+          return;
+        }
 
-      if (e.detail === DOUBLE_CLICK_COUNT) {
-        const containerWidth = ref.current.clientWidth;
-        widthRef.current.isDragging = false;
-        widthRef.current.currentPercentage = DEFAULT_PERCENTAGE;
-        setNewWidth(containerWidth, containerWidth / 2);
-        return;
+        widthRef.current.isDragging = true;
+        setActiveResizer({
+          sectionId,
+          ref,
+          startX: e.clientX,
+          startWidth: widthRef.current.currentWidth,
+          containerWidth: widthRef.current.containerWidth,
+          maxNestedDepth,
+          widthRef,
+        });
       }
-
-      widthRef.current.isDragging = true;
-      setActiveResizer({
-        sectionId,
-        ref,
-        startX: e.clientX,
-        startWidth: widthRef.current.currentWidth,
-        containerWidth: widthRef.current.containerWidth,
-        maxNestedDepth,
-        widthRef,
-      });
     },
-    [sectionId, maxNestedDepth, setNewWidth],
+    [sectionId, maxNestedDepth],
   );
+
+  return handleResizeStart;
 }

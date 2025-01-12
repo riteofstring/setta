@@ -89,7 +89,7 @@ function _ParamContainer({
           paramInfoId={paramInfoId}
           maybeErrorMessage={maybeErrorMessage}
         />
-        {/* <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} /> */}
+        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
         )}
