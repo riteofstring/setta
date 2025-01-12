@@ -21,8 +21,8 @@ export function MainContainer() {
     if (doneLoading && !is404) {
       dbRequestTypeCheck();
       restoreTerminals();
-      const cleanup = initializeGlobalSectionColumnWidthEventListeners();
-      return cleanup;
+      // const cleanup = initializeGlobalSectionColumnWidthEventListeners();
+      // return cleanup;
     }
   }, [doneLoading, is404]);
 

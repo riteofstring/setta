@@ -23,6 +23,7 @@ export function CustomResizable({
   children,
   as,
 }) {
+  console.log("CustomResizable")
   const { minHeight, maxHeight, minWidth, maxWidth, sizeMode } =
     useSectionMinMaxDims(sectionId);
   return (
@@ -58,6 +59,7 @@ function CustomResizableCore({
   children,
   as,
 }) {
+  console.log("CustomResizableCore")
   useEffect(() => {
     const changedSize = {};
     if (sizeMode.height === SIZE_MODE.auto_only) {
@@ -153,6 +155,7 @@ function CustomResizableSuperCore({
   snapToGrid,
   children,
 }) {
+  console.log("CustomResizableSuperCore")
   const disablePointerEvents = useShouldDisablePointerEvents();
 
   const enable =
