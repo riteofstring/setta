@@ -45,7 +45,7 @@ export async function maybeGetNewArtifactIds(content) {
   const missingIdx = [];
   const namesPathsTypes = [];
   for (const [idx, c] of content.entries()) {
-    c.path = "";
+    if (!("path" in c)) c.path = "";
 
     const match = namePathTypeToId[getNamePathTypeKey(c)];
 
@@ -74,7 +74,7 @@ export function updateInteractiveArtifacts(artifacts) {
   useArtifacts.setState((state) => {
     const newArtifacts = {};
     for (const a of artifacts) {
-      a.path = "";
+      if (!("path" in a)) a.path = "";
       newArtifacts[a.id ?? state.namePathTypeToId[getNamePathTypeKey(a)]] = a;
     }
 

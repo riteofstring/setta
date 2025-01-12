@@ -311,14 +311,8 @@
   "artifacts": {
     "0e2b3663-3b13-4fa3-87dc-4a6fa8f1e2c7": {
       "name": "training_loss",
-      "path": "",
-      "value": {
-        "step": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-        "loss": [
-          1.6262, 1.666, 1.5446, 1.6805, 1.712, 1.6073, 1.4654, 1.5544, 1.4924,
-          1.6477, 1.6628
-        ]
-      },
+      "path": "hf_finetuning_test/training_loss.csv",
+      "value": null,
       "type": "list",
       "id": "0e2b3663-3b13-4fa3-87dc-4a6fa8f1e2c7"
     }
