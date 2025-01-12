@@ -5,7 +5,6 @@ import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections"
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
 import { canvasToBase64 } from "./base64Conversion";
 import {
-  throttledSendDrawingToInteractiveTasks,
   drawAllLayers,
   drawStroke,
   getInverseTransform,
@@ -15,6 +14,7 @@ import {
   setGlobalBrushStrokesAndDrawAllLayers,
   startNewEraserStroke,
   startNewStroke,
+  throttledSendDrawingToInteractiveTasks,
 } from "./canvasUtils";
 import { filterEraserPath } from "./eraserIntersection";
 import {

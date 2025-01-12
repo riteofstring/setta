@@ -59,10 +59,12 @@ class QuoteInsensitiveDict(dict):
 
 
 def nested_access(input_dict, access_string):
-    # Split the string into keys/indices
-    keys = (
-        access_string.replace("][", ",").replace("[", ",").replace("]", "").split(",")
-    )
+    # Split by array/dict access while preserving quotes
+    keys = re.findall(r"\[([^\]]+)\]|([^[]+)", access_string)
+    # Flatten tuples and handle quotes
+    keys = [k[0] if k[0] else k[1] for k in keys]
+    # Remove quotes from string keys and convert numeric keys to integers
+    keys = [int(k) if k.isdigit() else k.strip("\"'") for k in keys]
 
     # Start with the input dictionary
     result = input_dict
@@ -71,11 +73,7 @@ def nested_access(input_dict, access_string):
     for idx, key in enumerate(keys):
         if idx == len(keys) - 1:
             break
-        if isinstance(result, list):
-            result = result[int(key)]
-        else:
-            # If not an integer, use as a dictionary key
-            result = result[key]
+        result = result[key]
 
     return result, key
 

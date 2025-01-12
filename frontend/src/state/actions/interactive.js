@@ -1,3 +1,4 @@
+import { base64ToImageObj } from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
 import { dbGetArtifactIdsFromNamePathType } from "requests/artifacts";
 import { dbFormateCode } from "requests/interactive";
@@ -66,18 +67,25 @@ export async function maybeGetNewArtifactIds(content) {
   }
 }
 
-export function updateInteractiveArtifacts(artifacts) {
+export async function updateInteractiveArtifacts(artifacts) {
   if (artifacts.length === 0) {
     return;
   }
-
-  useArtifacts.setState((state) => {
-    const newArtifacts = {};
-    for (const a of artifacts) {
-      if (!("path" in a)) a.path = "";
-      newArtifacts[a.id ?? state.namePathTypeToId[getNamePathTypeKey(a)]] = a;
+  const newArtifacts = {};
+  const artifactState = useArtifacts.getState();
+  for (const a of artifacts) {
+    if (!("path" in a)) a.path = "";
+    if (a.type === "img") {
+      // console.log("a.value", a.value)
+      a.value = await base64ToImageObj(a.value);
     }
 
+    newArtifacts[
+      a.id ?? artifactState.namePathTypeToId[getNamePathTypeKey(a)]
+    ] = a;
+  }
+
+  useArtifacts.setState((state) => {
     return { x: { ...state.x, ...newArtifacts } };
   });
 

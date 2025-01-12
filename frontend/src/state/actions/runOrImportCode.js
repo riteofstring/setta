@@ -36,7 +36,7 @@ export async function importCodeBlocks(sectionIds) {
       metadata: { ...state.metadata, ...res.data.metadata },
     }));
     await maybeGetNewArtifactIds(res.data.content);
-    updateInteractiveArtifacts(res.data.content);
+    await updateInteractiveArtifacts(res.data.content);
     setNotificationMessage("Done importing");
   }
 }
