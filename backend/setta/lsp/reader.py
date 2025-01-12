@@ -187,42 +187,53 @@ class LanguageServerReader(LanguageServerInteractor):
 
     async def read_response(self):
         while not self.stop_event.is_set():
-            headers = b""
-            while not self.stop_event.is_set():
-                chunk = await self.server.stdout.read(1)
-                if not chunk:
-                    break
-                headers += chunk
-                if headers.endswith(b"\r\n\r\n"):
-                    break
-
-            if self.stop_event.is_set():
-                break
-
-            headers_str = headers.decode("utf-8")
-            header_parts = headers_str.split("\r\n")
-            content_length = 0
-            for header in header_parts:
-                if header.startswith("Content-Length:"):
-                    content_length = int(header.split(":")[1].strip())
-                    break
-
-            response = b""
-            while len(response) < content_length and not self.stop_event.is_set():
-                chunk = await self.server.stdout.read(content_length - len(response))
-                if not chunk:
-                    break
-                response += chunk
-
-            if self.stop_event.is_set():
-                break
-
             try:
-                response = json.loads(response.decode("utf-8"))
-                await self.process_response(response)
-            except json.JSONDecodeError as e:
-                # print(f"JSONDecodeError: {e} - Response: {response}")
+                await self.read_and_process_message()
+            except Exception as e:
+                print(f"Error reading from language server: {e}", flush=True)
+                # Optional: add a small delay to prevent tight loop if there's a persistent error
+                await asyncio.sleep(0.1)
+
+    async def read_and_process_message(self):
+        headers = b""
+        while not self.stop_event.is_set():
+            chunk = await self.server.stdout.read(1)
+            if not chunk:
                 break
+            headers += chunk
+            if headers.endswith(b"\r\n\r\n"):
+                break
+
+        if self.stop_event.is_set():
+            return
+
+        headers_str = headers.decode("utf-8")
+        header_parts = headers_str.split("\r\n")
+        content_length = 0
+        for header in header_parts:
+            if header.startswith("Content-Length:"):
+                content_length = int(header.split(":")[1].strip())
+                break
+
+        response = b""
+        while len(response) < content_length and not self.stop_event.is_set():
+            chunk = await self.server.stdout.read(content_length - len(response))
+            if not chunk:
+                break
+            response += chunk
+
+        if self.stop_event.is_set():
+            return
+
+        try:
+            response = json.loads(response.decode("utf-8"))
+            await self.process_response(response)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON response: {e}", flush=True)
+            return
+        except Exception as e:
+            print(f"Error processing response: {e}", flush=True)
+            return
 
     async def process_response(self, response):
         # from pprint import pprint
