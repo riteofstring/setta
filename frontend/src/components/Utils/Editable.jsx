@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 export function Editable({
   value,
@@ -11,10 +11,14 @@ export function Editable({
   doubleClickToEdit = false,
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const paragraphRef = useRef(null);
 
   function localOnBlur(e) {
     setIsEditing(false);
     onBlur(e);
+    requestAnimationFrame(() => {
+      paragraphRef.current.focus({ preventScroll: true });
+    });
   }
 
   function onClick(e) {
@@ -42,6 +46,7 @@ export function Editable({
       titleProps={titleProps["notEditing"]}
       onMouseOver={onMouseOver}
       onMouseLeave={onMouseLeave}
+      ref={paragraphRef}
     />
   );
 }
@@ -68,30 +73,27 @@ function InEditMode({ value, onChange, onBlur, onKeyDown, titleProps }) {
   );
 }
 
-function InNonEditMode({
-  value,
-  onClick,
-  titleProps,
-  onMouseOver,
-  onMouseLeave,
-}) {
-  function onKeyDown(e) {
-    if (e.code === "Space") {
-      e.preventDefault(); // need this to prevent title from getting erased
-      onClick(e);
+const InNonEditMode = React.forwardRef(
+  ({ value, onClick, titleProps, onMouseOver, onMouseLeave }, ref) => {
+    function onKeyDown(e) {
+      if (e.code === "Space") {
+        e.preventDefault(); // need this to prevent title from getting erased
+        onClick(e);
+      }
     }
-  }
 
-  return (
-    <p
-      onClick={onClick}
-      className={titleProps}
-      tabIndex="0"
-      onKeyDown={onKeyDown}
-      onMouseOver={onMouseOver}
-      onMouseLeave={onMouseLeave}
-    >
-      {value}
-    </p>
-  );
-}
+    return (
+      <p
+        onClick={onClick}
+        className={titleProps}
+        tabIndex="0"
+        onKeyDown={onKeyDown}
+        onMouseOver={onMouseOver}
+        onMouseLeave={onMouseLeave}
+        ref={ref}
+      >
+        {value}
+      </p>
+    );
+  },
+);
