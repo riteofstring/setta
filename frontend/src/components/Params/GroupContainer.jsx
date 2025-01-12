@@ -30,8 +30,6 @@ function _ParamGroupContainer({ sectionId }) {
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
   // const waitingForResult = true;
 
-  console.log("_ParamGroupContainer")
-
   return (
     <div
       className="section-w-full section-row-pin-main -mt-3 flex flex-col overflow-y-hidden pt-2"
@@ -66,7 +64,6 @@ function GetPinnedParams({
   handleColumnResizeStart,
   setMaxNestedDepth,
 }) {
-  console.log("GetPinnedParams")
   const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     true,
@@ -98,7 +95,6 @@ function ResizablePinnedArea({
   outerRef,
   handleColumnResizeStart,
 }) {
-  console.log("ResizablePinnedArea")
   const { sectionHeight, height } = useSectionInfos((x) => {
     return {
       sectionHeight: x.x[sectionId].size.height,
@@ -181,7 +177,6 @@ function GetUnpinnedParams({
   handleColumnResizeStart,
   setMaxNestedDepth,
 }) {
-  console.log("GetUnpinnedParams")
   const { ref, isScrollable } = useIsScrollable();
   const hideUnpinnedParams = useSectionInfos(
     (x) => x.x[sectionId].hideUnpinnedParams,
@@ -210,7 +205,6 @@ function GetUnpinnedParamsCore({
   onResizeStart,
   setMaxNestedDepth,
 }) {
-  console.log("GetUnpinnedParamsCore")
   const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     false,

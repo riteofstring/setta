@@ -108,7 +108,6 @@ export function useColumnResizer(sectionId, ref, maxNestedDepth) {
     widthRef.current.currentWidth = boundedWidth;
     widthRef.current.currentPercentage = (boundedWidth / containerWidth) * 100;
     setSectionWidth(sectionId, boundedWidth);
-    console.log("setNewWidth")
   }
 
   function updatedWidthOnContainerResize() {
@@ -119,7 +118,6 @@ export function useColumnResizer(sectionId, ref, maxNestedDepth) {
     const newWidth = (containerWidth * currentPercentage) / 100;
     widthRef.current.containerWidth = containerWidth;
     setNewWidth(containerWidth, newWidth);
-    console.log("updatedWidthOnContainerResize")
   }
 
   useEffect(() => {
@@ -140,8 +138,6 @@ export function useColumnResizer(sectionId, ref, maxNestedDepth) {
       resizeObserver.observe(ref.current);
     }
 
-    console.log("resizeObserver useEffect")
-
     return () => {
       resizeObserver.disconnect();
     };
@@ -157,12 +153,10 @@ export function useColumnResizer(sectionId, ref, maxNestedDepth) {
       widthRef.current.containerWidth = containerWidth;
       setNewWidth(containerWidth, initialWidth);
     }
-    console.log("container width useEffect")
   }, [maxNestedDepth]);
 
   const handleResizeStart = useCallback(
     (e) => {
-      console.log("handleResizeStart")
       e.preventDefault();
       if (ref.current) {
         if (e.detail === 2) {

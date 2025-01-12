@@ -10,7 +10,6 @@ export function GetParamSwitch({
   onResizeStart,
   isTopLevel = false,
 }) {
-  console.log("GetParamSwitch")
   // TODO: make this more efficient
   const filteredIds = useSectionInfos((x) => {
     let matches = paramIds;

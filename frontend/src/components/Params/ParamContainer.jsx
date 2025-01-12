@@ -67,7 +67,6 @@ function _ParamContainer({
     sectionId,
     paramChildren,
   );
-  console.log("ParamContainer")
 
   return paramChildren.length === 0 ? (
     <>
@@ -128,10 +127,10 @@ function useColumnWidth(sectionId, paramChildren) {
       (columnWidth) => {
         if (childlessRef.current) {
           // Use a CSS calc() function to provide a fallback
-          childlessRef.current.style.gridTemplateColumns = `${columnWidth}px [c3] 0.75rem [c4] 1fr [c5]`;
+          childlessRef.current.style.gridTemplateColumns = `minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
         }
         if (parentRef.current) {
-          parentRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] ${columnWidth}px [c3] 0.75rem [c4] 1fr [c5]`;
+          parentRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
         }
         if (childlessNameRef.current) {
           childlessNameRef.current.style.width = `${columnWidth}px`;

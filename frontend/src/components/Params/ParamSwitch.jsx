@@ -8,7 +8,6 @@ import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 
 function _ParamSwitch(props) {
-  console.log("_ParamSwitch")
   const { sectionId, paramInfoId } = props;
 
   const { paramIsSelected, isKwarg, paramChildren } = useSectionInfos((x) => {
