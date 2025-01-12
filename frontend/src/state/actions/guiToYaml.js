@@ -290,21 +290,18 @@ function getMatch(name, forSectionId, sections, sectionVariants) {
 function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   const state = useSectionInfos.getState();
   const documents = splitDocuments(yamlValue);
-  const parsedDocs = documents.map((doc) =>
-    doc.trim() ? parseRawDump(doc) : {},
-  );
   let selectedItemName = null;
   let pinned = {};
   let unpinned = {};
-  if (parsedDocs.length === 3) {
-    [selectedItemName, pinned, unpinned] = parsedDocs;
-  } else if (parsedDocs.length === 2) {
-    [pinned, unpinned] = parsedDocs;
+  if (documents.length === 3) {
+    [selectedItemName, pinned, unpinned] = documents;
+  } else if (documents.length === 2) {
+    [pinned, unpinned] = documents;
   } else {
-    [unpinned] = parsedDocs;
+    [unpinned] = documents;
   }
-  pinned = pinned ?? {};
-  unpinned = unpinned ?? {};
+  pinned = pinned.trim() ? parseRawDump(pinned) : {};
+  unpinned = unpinned.trim() ? parseRawDump(unpinned) : {};
 
   const fOriginalObj = mergePinnedAndUnpinned(
     flattenObject(originalObj.pinned),
