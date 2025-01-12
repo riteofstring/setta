@@ -1,7 +1,7 @@
 {
   "projectConfig": {
     "id": "421b6591-a038-4f6c-8ac1-873df4e3986f",
-    "name": "young_turning",
+    "name": "hf_finetuning",
     "previewImgColor": "bg-green-500/60 dark:bg-green-600/30",
     "viewport": {
       "x": 189.08768702303053,
@@ -21,7 +21,7 @@
         "y": 105,
         "zIndex": 3,
         "w": 677,
-        "h": 259
+        "h": 258
       },
       "24cfaaf2-c025-4101-a0a4-0c788801968d": {
         "x": 705,
@@ -30,19 +30,19 @@
         "w": 272,
         "h": 524
       },
-      "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
-        "x": 195,
-        "y": 90,
-        "zIndex": 1,
-        "w": 202,
-        "h": 572
-      },
       "4919a72d-05a0-4e04-9616-679464cfe3a0": {
         "x": 975,
         "y": -90,
         "zIndex": 4,
         "w": 242,
         "h": 172
+      },
+      "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
+        "x": 195,
+        "y": 90,
+        "zIndex": 1,
+        "w": 202,
+        "h": 572
       }
     }
   },
@@ -56,6 +56,28 @@
       },
       "selectedItem": "e9c0e184-aa25-4650-8b7c-18ad20b1dc80",
       "codeInfoColId": "b38a378c-0fb8-474c-ab61-0432efc80c39"
+    },
+    "67b60326-601c-47cb-820c-5729f37c94a4": {
+      "name": "level_brown",
+      "values": {
+        "a47fb2c4-d982-44ce-912d-7ea93a06b4ef": {
+          "value": "tokenizer",
+          "evRefs": [
+            {
+              "sectionId": "1208afa8-a38d-4b98-be08-1bcf4381834b",
+              "keyword": "tokenizer"
+            }
+          ]
+        },
+        "ce837917-0991-43df-84d8-b8d869e17994": {
+          "value": "True"
+        },
+        "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": {
+          "value": "\"max_length\""
+        }
+      },
+      "selectedItem": "aeaeb439-2d67-4c65-9688-46fb8fa04d50",
+      "codeInfoColId": "dd3f7e52-567a-4f6f-89cf-57fefc8f7524"
     },
     "832dfd68-6b3b-4573-8f4f-c8014a9426fc": {
       "name": "unfortunate_apricot",
@@ -93,31 +115,6 @@
       },
       "selectedItem": "2dc543d7-10d1-4a7f-840f-e1f328b7fe63",
       "codeInfoColId": "c6dca4f6-4d19-47af-805e-896be80935c5"
-    },
-    "67b60326-601c-47cb-820c-5729f37c94a4": {
-      "name": "level_brown",
-      "values": {
-        "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": {
-          "value": "\"max_length\""
-        },
-        "a47fb2c4-d982-44ce-912d-7ea93a06b4ef": {
-          "value": "tokenizer",
-          "evRefs": [
-            {
-              "sectionId": "1208afa8-a38d-4b98-be08-1bcf4381834b",
-              "keyword": "tokenizer"
-            }
-          ]
-        },
-        "ce837917-0991-43df-84d8-b8d869e17994": {
-          "value": "True"
-        }
-      },
-      "selectedItem": "aeaeb439-2d67-4c65-9688-46fb8fa04d50",
-      "codeInfoColId": "dd3f7e52-567a-4f6f-89cf-57fefc8f7524"
-    },
-    "13b0c85d-e8ea-40a1-9a71-d6e14a99b748": {
-      "name": "costly_red"
     }
   },
   "artifacts": {},
@@ -157,14 +154,6 @@
       "variantIds": ["832dfd68-6b3b-4573-8f4f-c8014a9426fc"],
       "columnWidth": 117
     },
-    "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
-      "id": "66d39f20-3b35-4bec-8d74-fa7ab55f94f6",
-      "name": "dataset",
-      "variantId": "a49c0df9-eeba-4a84-975e-6a9ef56cddda",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "variantIds": ["a49c0df9-eeba-4a84-975e-6a9ef56cddda"],
-      "columnWidth": 82
-    },
     "4919a72d-05a0-4e04-9616-679464cfe3a0": {
       "id": "4919a72d-05a0-4e04-9616-679464cfe3a0",
       "name": "tokenizer_function",
@@ -175,6 +164,14 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["67b60326-601c-47cb-820c-5729f37c94a4"],
       "columnWidth": 102
+    },
+    "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
+      "id": "66d39f20-3b35-4bec-8d74-fa7ab55f94f6",
+      "name": "dataset",
+      "variantId": "a49c0df9-eeba-4a84-975e-6a9ef56cddda",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "variantIds": ["a49c0df9-eeba-4a84-975e-6a9ef56cddda"],
+      "columnWidth": 82
     }
   },
   "codeInfo": {
@@ -321,6 +318,15 @@
       "defaultVal": "None",
       "description": "Provide the name of a path for the cache file. It is used to store the\nresults of the computation instead of the automatically generated cache file name.\nYou have to provide one `cache_file_name` per dataset in the dataset dictionary."
     },
+    "a47fb2c4-d982-44ce-912d-7ea93a06b4ef": {
+      "id": "a47fb2c4-d982-44ce-912d-7ea93a06b4ef",
+      "name": "tokenizer"
+    },
+    "aeaeb439-2d67-4c65-9688-46fb8fa04d50": {
+      "id": "aeaeb439-2d67-4c65-9688-46fb8fa04d50",
+      "name": "get_tokenize_function",
+      "rcType": "callable"
+    },
     "baf70593-070c-4f36-9ea0-da2483d868e8": {
       "id": "baf70593-070c-4f36-9ea0-da2483d868e8",
       "name": "path",
@@ -338,11 +344,21 @@
       "defaultVal": "None",
       "description": "If a cache file storing the current computation from `function`\ncan be identified, use it instead of recomputing."
     },
+    "ce837917-0991-43df-84d8-b8d869e17994": {
+      "id": "ce837917-0991-43df-84d8-b8d869e17994",
+      "name": "truncation",
+      "editable": true
+    },
     "d268948b-6aa6-4042-8e74-b6eaf08521de": {
       "id": "d268948b-6aa6-4042-8e74-b6eaf08521de",
       "name": "save_infos",
       "defaultVal": "False",
       "description": "Save the dataset information (checksums/size/splits/...)."
+    },
+    "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": {
+      "id": "d47ae65e-d0e2-4c50-9465-8c07324b6cfa",
+      "name": "padding",
+      "editable": true
     },
     "d48d216e-2f92-4324-9153-b3c8c6704139": {
       "id": "d48d216e-2f92-4324-9153-b3c8c6704139",
@@ -420,30 +436,6 @@
       "name": "with_indices",
       "defaultVal": "False",
       "description": "Provide example indices to `function`. Note that in this case the signature of `function` should be `def function(example, idx): ...`."
-    },
-    "aeaeb439-2d67-4c65-9688-46fb8fa04d50": {
-      "id": "aeaeb439-2d67-4c65-9688-46fb8fa04d50",
-      "name": "get_tokenize_function",
-      "rcType": "callable"
-    },
-    "a47fb2c4-d982-44ce-912d-7ea93a06b4ef": {
-      "id": "a47fb2c4-d982-44ce-912d-7ea93a06b4ef",
-      "name": "tokenizer"
-    },
-    "e78f4386-1c13-4924-b48e-dd434a377d92": {
-      "id": "e78f4386-1c13-4924-b48e-dd434a377d92",
-      "name": "kwargs",
-      "isSelected": true
-    },
-    "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": {
-      "id": "d47ae65e-d0e2-4c50-9465-8c07324b6cfa",
-      "name": "padding",
-      "editable": true
-    },
-    "ce837917-0991-43df-84d8-b8d869e17994": {
-      "id": "ce837917-0991-43df-84d8-b8d869e17994",
-      "name": "truncation",
-      "editable": true
     }
   },
   "codeInfoCols": {
@@ -454,6 +446,19 @@
           "ed260abd-2a04-4f9a-85a1-c71d2c64df44"
         ],
         "ed260abd-2a04-4f9a-85a1-c71d2c64df44": []
+      }
+    },
+    "dd3f7e52-567a-4f6f-89cf-57fefc8f7524": {
+      "children": {
+        "null": ["aeaeb439-2d67-4c65-9688-46fb8fa04d50"],
+        "aeaeb439-2d67-4c65-9688-46fb8fa04d50": [
+          "a47fb2c4-d982-44ce-912d-7ea93a06b4ef",
+          "d47ae65e-d0e2-4c50-9465-8c07324b6cfa",
+          "ce837917-0991-43df-84d8-b8d869e17994"
+        ],
+        "a47fb2c4-d982-44ce-912d-7ea93a06b4ef": [],
+        "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": [],
+        "ce837917-0991-43df-84d8-b8d869e17994": []
       }
     },
     "fa9a1df5-52ec-4b35-951a-c6c51b8fe8db": {
@@ -540,19 +545,6 @@
         "5c8010ce-9586-4396-b28b-33140f813afe": [],
         "81bc8053-70b1-4f92-a464-476611d662d7": [],
         "792d9660-7e38-4c59-8c03-c302a734b154": []
-      }
-    },
-    "dd3f7e52-567a-4f6f-89cf-57fefc8f7524": {
-      "children": {
-        "null": ["aeaeb439-2d67-4c65-9688-46fb8fa04d50"],
-        "aeaeb439-2d67-4c65-9688-46fb8fa04d50": [
-          "a47fb2c4-d982-44ce-912d-7ea93a06b4ef",
-          "d47ae65e-d0e2-4c50-9465-8c07324b6cfa",
-          "ce837917-0991-43df-84d8-b8d869e17994"
-        ],
-        "a47fb2c4-d982-44ce-912d-7ea93a06b4ef": [],
-        "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": [],
-        "ce837917-0991-43df-84d8-b8d869e17994": []
       }
     }
   }
