@@ -11,10 +11,20 @@ export function Editable({
   doubleClickToEdit = false,
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const paragraphRef = useRef(null);
+  const shouldFocusRef = useRef(false);
+
+  useEffect(() => {
+    if (shouldFocusRef.current) {
+      paragraphRef.current?.focus({ preventScroll: true });
+      shouldFocusRef.current = false;
+    }
+  });
 
   function localOnBlur(e) {
     setIsEditing(false);
-    onBlur(e);
+    onBlur?.(e);
+    shouldFocusRef.current = true;
   }
 
   function onClick(e) {
@@ -50,9 +60,9 @@ function InEditMode({ value, onChange, onBlur, onKeyDown, titleProps }) {
   const inputRef = useRef(null);
 
   useEffect(() => {
-    inputRef.current.focus({ preventScroll: true });
+    inputRef.current?.focus({ preventScroll: true });
     const s = value.length;
-    inputRef.current.setSelectionRange(0, s);
+    inputRef.current?.setSelectionRange(0, s);
   }, []);
 
   return (
@@ -68,30 +78,29 @@ function InEditMode({ value, onChange, onBlur, onKeyDown, titleProps }) {
   );
 }
 
-function InNonEditMode({
-  value,
-  onClick,
-  titleProps,
-  onMouseOver,
-  onMouseLeave,
-}) {
-  function onKeyDown(e) {
-    if (e.code === "Space") {
-      e.preventDefault(); // need this to prevent title from getting erased
-      onClick(e);
+const InNonEditMode = React.forwardRef(
+  ({ value, onClick, titleProps, onMouseOver, onMouseLeave }, ref) => {
+    function onKeyDown(e) {
+      if (e.code === "Space") {
+        e.preventDefault(); // need this to prevent title from getting erased
+        onClick(e);
+      }
     }
-  }
 
-  return (
-    <p
-      onClick={onClick}
-      className={titleProps}
-      tabIndex="0"
-      onKeyDown={onKeyDown}
-      onMouseOver={onMouseOver}
-      onMouseLeave={onMouseLeave}
-    >
-      {value}
-    </p>
-  );
-}
+    return (
+      <p
+        onClick={onClick}
+        className={titleProps}
+        tabIndex="0"
+        onKeyDown={onKeyDown}
+        onMouseOver={onMouseOver}
+        onMouseLeave={onMouseLeave}
+        ref={ref}
+      >
+        {value}
+      </p>
+    );
+  },
+);
+
+InNonEditMode.displayName = "InNonEditMode";
