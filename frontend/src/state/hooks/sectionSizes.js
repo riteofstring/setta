@@ -305,7 +305,7 @@ export function setDrawAreaSectionSize({
 }
 
 export function useYouTubeSectionSize(sectionId) {
-  const extraHeight = 24;
+  const extraHeight = 22;
   const defaultSize = { width: 640, height: 360 };
   const { width, height } = useSectionInfos(
     (x) => x.x[sectionId].size,

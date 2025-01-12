@@ -61,7 +61,7 @@ export function Overview() {
         onResizeStop={onOverviewResizeStop}
         vis={vis}
         width={width}
-        minimumWidth={350}
+        minimumWidth={250}
       >
         {vis && <TabsVisible tab={tab} />}
       </PaneContainer>
