@@ -4,11 +4,18 @@
     "name": "hf_finetuning",
     "previewImgColor": "bg-green-500/60 dark:bg-green-600/30",
     "viewport": {
-      "x": 242.1344239224253,
-      "y": 239.40042317546383,
-      "zoom": 0.4793096466414433
+      "x": 497.65399519878724,
+      "y": 218.92206528074064,
+      "zoom": 0.41161002187138523
     },
     "children": {
+      "093adddf-0c8f-4a33-a00d-56aa4680f172": {
+        "x": 1290,
+        "y": -90,
+        "zIndex": 3,
+        "w": 202,
+        "h": 138
+      },
       "1208afa8-a38d-4b98-be08-1bcf4381834b": {
         "x": 420,
         "y": 90,
@@ -19,51 +26,58 @@
       "161346b7-e7cd-48d8-901c-c4d5db02ae88": {
         "x": 1005,
         "y": 105,
-        "zIndex": 3,
+        "zIndex": 6,
         "w": 677,
-        "h": 258
+        "h": 277
       },
       "24cfaaf2-c025-4101-a0a4-0c788801968d": {
         "x": 705,
         "y": 90,
-        "zIndex": 5,
+        "zIndex": 2,
         "w": 272,
         "h": 524
+      },
+      "363f22f6-beec-4392-9e77-e096d01b609f": {
+        "x": -15,
+        "y": -75,
+        "zIndex": 10,
+        "w": 257,
+        "h": 3268
       },
       "4919a72d-05a0-4e04-9616-679464cfe3a0": {
         "x": 975,
         "y": -90,
-        "zIndex": 4,
+        "zIndex": 1,
         "w": 242,
         "h": 172
       },
       "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
-        "x": 195,
-        "y": 90,
-        "zIndex": 2,
-        "w": 202,
-        "h": 572
+        "x": 315,
+        "y": 270,
+        "zIndex": 9,
+        "w": 362,
+        "h": 556
+      },
+      "81723767-1611-48c8-b2ab-5d145f53b516": {
+        "x": 465,
+        "y": -120,
+        "zIndex": 7,
+        "w": 377,
+        "h": 204
       },
       "b3f05acb-cb47-463d-a875-ca9a1d05bdf3": {
         "x": 1020,
         "y": 405,
-        "zIndex": 7,
+        "zIndex": 4,
         "w": 407,
         "h": 236
       },
       "f9bfda0e-6786-4124-9efe-edd085db6480": {
         "x": 1455,
         "y": 405,
-        "zIndex": 9,
+        "zIndex": 5,
         "w": 392,
         "h": 236
-      },
-      "093adddf-0c8f-4a33-a00d-56aa4680f172": {
-        "x": 1290,
-        "y": -90,
-        "zIndex": 6,
-        "w": 202,
-        "h": 138
       }
     }
   },
@@ -100,6 +114,18 @@
       "selectedItem": "aeaeb439-2d67-4c65-9688-46fb8fa04d50",
       "codeInfoColId": "dd3f7e52-567a-4f6f-89cf-57fefc8f7524"
     },
+    "76931c1c-f8ac-480e-942c-91b8891a3dc6": {
+      "name": "extensive_gray",
+      "values": {
+        "27139828-f120-4514-bd18-fe9f013abff1": {
+          "value": "42"
+        },
+        "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae": {
+          "value": "1000"
+        }
+      },
+      "codeInfoColId": "9b2fd0cb-a3e8-41e1-814a-a2153693a1a9"
+    },
     "832dfd68-6b3b-4573-8f4f-c8014a9426fc": {
       "name": "unfortunate_apricot",
       "values": {
@@ -118,14 +144,30 @@
     },
     "8c6ab656-ea9a-42e1-9257-a99084eba0ae": {
       "name": "gradual_bronze",
-      "code": "from transformers import AutoTokenizer\n\n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n",
+      "code": "from transformers import AutoTokenizer\nfrom transformers import AutoModelForSequenceClassification\n\n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n",
       "templateVars": [
         {
           "sectionId": null,
-          "startPos": 211,
+          "startPos": 271,
           "keyword": "$SETTA_GENERATED_PYTHON"
         }
       ]
+    },
+    "9a5117b1-ff41-4a98-85fe-496aca5b53a7": {
+      "name": "disciplinary_ivory",
+      "values": {
+        "28c1092b-bd48-4171-ab32-3fdb49764231": {
+          "value": "\"auto\""
+        },
+        "2e41d29b-8590-49cf-b2d9-f80b77a08e9c": {
+          "value": "\"google-bert/bert-base-cased\""
+        },
+        "f04ecdb1-81b5-4f7d-9a79-208b340b5fa1": {
+          "value": "5"
+        }
+      },
+      "selectedItem": "0eb278f6-39ca-4ecc-9bf5-561bf8850706",
+      "codeInfoColId": "99ff27de-fdfe-49b3-92a1-7077da634c20"
     },
     "a49c0df9-eeba-4a84-975e-6a9ef56cddda": {
       "name": "prepared_blue",
@@ -136,6 +178,16 @@
       },
       "selectedItem": "2dc543d7-10d1-4a7f-840f-e1f328b7fe63",
       "codeInfoColId": "c6dca4f6-4d19-47af-805e-896be80935c5"
+    },
+    "cb9763e6-7c1d-4dc9-af60-2e9204cca081": {
+      "name": "thorough_harlequin",
+      "values": {
+        "7c7b8de0-a95e-466f-91ef-e787c501614d": {
+          "value": "\"hf_finetuning_test\""
+        }
+      },
+      "selectedItem": "5bb0f081-853d-40e2-9f8e-bbe5339443ee",
+      "codeInfoColId": "41427820-aac1-4959-a3a8-b1e19bb53a72"
     },
     "e4f65e7d-308e-45ec-bb0e-36129c762eb2": {
       "name": "tricky_tomato",
@@ -178,21 +230,6 @@
       },
       "selectedItem": "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97",
       "codeInfoColId": "791d3c96-e490-4612-ba99-d94e3b2d6653"
-    },
-    "76931c1c-f8ac-480e-942c-91b8891a3dc6": {
-      "name": "extensive_gray",
-      "values": {
-        "27139828-f120-4514-bd18-fe9f013abff1": {
-          "value": "42"
-        },
-        "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae": {
-          "value": "1000"
-        }
-      },
-      "codeInfoColId": "9b2fd0cb-a3e8-41e1-814a-a2153693a1a9"
-    },
-    "e501a22c-fe1f-4b97-b12b-f4fd5b9b0122": {
-      "name": "psychiatric_orange"
     }
   },
   "artifacts": {},
@@ -200,6 +237,14 @@
   "uiTypes": {},
   "uiTypeCols": {},
   "sections": {
+    "093adddf-0c8f-4a33-a00d-56aa4680f172": {
+      "id": "093adddf-0c8f-4a33-a00d-56aa4680f172",
+      "name": "Global Variables",
+      "variantId": "76931c1c-f8ac-480e-942c-91b8891a3dc6",
+      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
+      "variantIds": ["76931c1c-f8ac-480e-942c-91b8891a3dc6"],
+      "columnWidth": 82
+    },
     "1208afa8-a38d-4b98-be08-1bcf4381834b": {
       "id": "1208afa8-a38d-4b98-be08-1bcf4381834b",
       "name": "tokenizer",
@@ -232,6 +277,17 @@
       "variantIds": ["832dfd68-6b3b-4573-8f4f-c8014a9426fc"],
       "columnWidth": 117
     },
+    "363f22f6-beec-4392-9e77-e096d01b609f": {
+      "id": "363f22f6-beec-4392-9e77-e096d01b609f",
+      "name": "open_tan",
+      "size": {
+        "width": 255
+      },
+      "variantId": "cb9763e6-7c1d-4dc9-af60-2e9204cca081",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "variantIds": ["cb9763e6-7c1d-4dc9-af60-2e9204cca081"],
+      "columnWidth": 109.5
+    },
     "4919a72d-05a0-4e04-9616-679464cfe3a0": {
       "id": "4919a72d-05a0-4e04-9616-679464cfe3a0",
       "name": "tokenizer_function",
@@ -246,10 +302,24 @@
     "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
       "id": "66d39f20-3b35-4bec-8d74-fa7ab55f94f6",
       "name": "dataset",
+      "size": {
+        "width": 360
+      },
       "variantId": "a49c0df9-eeba-4a84-975e-6a9ef56cddda",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["a49c0df9-eeba-4a84-975e-6a9ef56cddda"],
-      "columnWidth": 82
+      "columnWidth": 162
+    },
+    "81723767-1611-48c8-b2ab-5d145f53b516": {
+      "id": "81723767-1611-48c8-b2ab-5d145f53b516",
+      "name": "model",
+      "size": {
+        "width": 375
+      },
+      "variantId": "9a5117b1-ff41-4a98-85fe-496aca5b53a7",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "variantIds": ["9a5117b1-ff41-4a98-85fe-496aca5b53a7"],
+      "columnWidth": 169.5
     },
     "b3f05acb-cb47-463d-a875-ca9a1d05bdf3": {
       "id": "b3f05acb-cb47-463d-a875-ca9a1d05bdf3",
@@ -272,14 +342,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["f6128d84-323e-459c-8bb0-5bd479c44f00"],
       "columnWidth": 177
-    },
-    "093adddf-0c8f-4a33-a00d-56aa4680f172": {
-      "id": "093adddf-0c8f-4a33-a00d-56aa4680f172",
-      "name": "Global Variables",
-      "variantId": "76931c1c-f8ac-480e-942c-91b8891a3dc6",
-      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
-      "variantIds": ["76931c1c-f8ac-480e-942c-91b8891a3dc6"],
-      "columnWidth": 82
     }
   },
   "codeInfo": {
@@ -295,6 +357,26 @@
       "defaultVal": "None",
       "description": "Whether to copy the dataset in-memory. If `None`, the dataset\nwill not be copied in-memory unless explicitly enabled by setting `datasets.config.IN_MEMORY_MAX_SIZE` to\nnonzero. See more details in the [improve performance](../cache#improve-performance) section."
     },
+    "060285dd-ce3b-4e69-90e5-434bf742c822": {
+      "id": "060285dd-ce3b-4e69-90e5-434bf742c822",
+      "name": "dataloader_num_workers",
+      "defaultVal": "0"
+    },
+    "088788e8-9ab5-41ae-aaaa-e015c1d55dbc": {
+      "id": "088788e8-9ab5-41ae-aaaa-e015c1d55dbc",
+      "name": "prediction_loss_only",
+      "defaultVal": "False"
+    },
+    "08c19f9e-38ba-49bd-b492-8688cf870390": {
+      "id": "08c19f9e-38ba-49bd-b492-8688cf870390",
+      "name": "dataloader_drop_last",
+      "defaultVal": "False"
+    },
+    "08f99690-5150-4423-aea1-106947ff6621": {
+      "id": "08f99690-5150-4423-aea1-106947ff6621",
+      "name": "include_num_input_tokens_seen",
+      "defaultVal": "False"
+    },
     "092f94ce-45a2-4007-8e5e-cbe731635476": {
       "id": "092f94ce-45a2-4007-8e5e-cbe731635476",
       "name": "function",
@@ -307,11 +389,46 @@
       "defaultVal": "False",
       "description": "Provide process rank to `function`. Note that in this case the\nsignature of `function` should be `def function(example[, idx], rank): ...`."
     },
+    "0afdf9c5-c3f7-447f-9a1e-b69aecdf98b8": {
+      "id": "0afdf9c5-c3f7-447f-9a1e-b69aecdf98b8",
+      "name": "warmup_ratio",
+      "defaultVal": "0"
+    },
+    "0ba81a7d-4bed-4480-a78d-9154e5698603": {
+      "id": "0ba81a7d-4bed-4480-a78d-9154e5698603",
+      "name": "save_only_model",
+      "defaultVal": "False"
+    },
+    "0de98313-17aa-40af-9997-5b56299ddd2f": {
+      "id": "0de98313-17aa-40af-9997-5b56299ddd2f",
+      "name": "hub_strategy",
+      "defaultVal": "\"every_save\""
+    },
     "0ead3a0a-c06f-4fbc-b3d9-605692337514": {
       "id": "0ead3a0a-c06f-4fbc-b3d9-605692337514",
       "name": "keep_in_memory",
       "defaultVal": "False",
       "description": "Keep the dataset in memory instead of writing it to a cache file."
+    },
+    "0eb278f6-39ca-4ecc-9bf5-561bf8850706": {
+      "id": "0eb278f6-39ca-4ecc-9bf5-561bf8850706",
+      "name": "AutoModelForSequenceClassification.from_pretrained",
+      "rcType": "callable"
+    },
+    "0f64a244-065a-40ce-b6cb-91525ff7fc3b": {
+      "id": "0f64a244-065a-40ce-b6cb-91525ff7fc3b",
+      "name": "hub_token",
+      "defaultVal": "None"
+    },
+    "1173ca1f-755e-4604-b792-fd87b965b93e": {
+      "id": "1173ca1f-755e-4604-b792-fd87b965b93e",
+      "name": "include_inputs_for_metrics",
+      "defaultVal": "False"
+    },
+    "11cdf2d8-86e3-4b25-b460-a09ddd24e166": {
+      "id": "11cdf2d8-86e3-4b25-b460-a09ddd24e166",
+      "name": "log_level_replica",
+      "defaultVal": "\"warning\""
     },
     "13e03876-e9a8-46e4-9246-c339094a0764": {
       "id": "13e03876-e9a8-46e4-9246-c339094a0764",
@@ -319,10 +436,46 @@
       "defaultVal": "None",
       "description": "Verification mode determining the checks to run on the downloaded/processed dataset information (checksums/size/splits/...).\n\n<Added version=\"2.9.1\"/>"
     },
+    "13fac919-2708-46a2-bc92-64fd17cb4828": {
+      "id": "13fac919-2708-46a2-bc92-64fd17cb4828",
+      "name": "learning_rate",
+      "defaultVal": "0.00005"
+    },
+    "174beb08-0e0d-476b-b99e-984ef2b5a054": {
+      "id": "174beb08-0e0d-476b-b99e-984ef2b5a054",
+      "name": "push_to_hub_token",
+      "defaultVal": "None"
+    },
+    "1800aae4-c3b4-4a67-86b1-c6dfb734cf80": {
+      "id": "1800aae4-c3b4-4a67-86b1-c6dfb734cf80",
+      "name": "new_fingerprint",
+      "defaultVal": "None",
+      "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
+    },
+    "1805e7a9-4661-426b-abef-23e02e5ace90": {
+      "id": "1805e7a9-4661-426b-abef-23e02e5ace90",
+      "name": "logging_steps",
+      "defaultVal": "500"
+    },
     "18203775-d8a9-425e-ad88-c839cde49b98": {
       "id": "18203775-d8a9-425e-ad88-c839cde49b98",
       "name": "indices",
       "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
+    },
+    "1bbeab5f-bb5e-48e8-a167-0683ec0d71b8": {
+      "id": "1bbeab5f-bb5e-48e8-a167-0683ec0d71b8",
+      "name": "save_on_each_node",
+      "defaultVal": "False"
+    },
+    "1cdf1226-6505-4710-8989-9c17dad95b67": {
+      "id": "1cdf1226-6505-4710-8989-9c17dad95b67",
+      "name": "half_precision_backend",
+      "defaultVal": "\"auto\""
+    },
+    "1d5745ab-ad11-41d5-ab06-ac87b0ed154e": {
+      "id": "1d5745ab-ad11-41d5-ab06-ac87b0ed154e",
+      "name": "debug",
+      "defaultVal": "\"\""
     },
     "1fe27a36-c606-47c9-bee1-8f2d51fc7b17": {
       "id": "1fe27a36-c606-47c9-bee1-8f2d51fc7b17",
@@ -336,11 +489,62 @@
         }
       ]
     },
+    "20b12a00-6cb0-496b-b9de-c2cfdacce373": {
+      "id": "20b12a00-6cb0-496b-b9de-c2cfdacce373",
+      "name": "optim",
+      "defaultVal": "default_optim"
+    },
+    "21bc3e14-0dbf-43c8-bbdd-f245c1af98d3": {
+      "id": "21bc3e14-0dbf-43c8-bbdd-f245c1af98d3",
+      "name": "overwrite_output_dir",
+      "defaultVal": "False"
+    },
+    "2238892d-f719-436f-a7c0-15b4562f6531": {
+      "id": "2238892d-f719-436f-a7c0-15b4562f6531",
+      "name": "indices_cache_file_name",
+      "defaultVal": "None",
+      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
+    },
+    "2342d2fd-d4eb-4855-8142-88c6df8ec446": {
+      "id": "2342d2fd-d4eb-4855-8142-88c6df8ec446",
+      "name": "ignore_data_skip",
+      "defaultVal": "False"
+    },
+    "234deedf-2d31-47d3-84b3-2b3f7d88395e": {
+      "id": "234deedf-2d31-47d3-84b3-2b3f7d88395e",
+      "name": "dataloader_pin_memory",
+      "defaultVal": "True"
+    },
+    "250a169a-8a61-4143-b586-aeff74b7f422": {
+      "id": "250a169a-8a61-4143-b586-aeff74b7f422",
+      "name": "torch_compile_mode",
+      "defaultVal": "None"
+    },
+    "259e7c77-9db1-4220-8102-aa5ffaad835d": {
+      "id": "259e7c77-9db1-4220-8102-aa5ffaad835d",
+      "name": "dataloader_persistent_workers",
+      "defaultVal": "False"
+    },
     "2653f571-0dfa-4181-9783-a2355b6ef3f9": {
       "id": "2653f571-0dfa-4181-9783-a2355b6ef3f9",
       "name": "writer_batch_size",
       "defaultVal": "1000",
       "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
+    },
+    "269cbce5-4776-4b86-b91e-7e3f09eb7823": {
+      "id": "269cbce5-4776-4b86-b91e-7e3f09eb7823",
+      "name": "remove_unused_columns",
+      "defaultVal": "True"
+    },
+    "27139828-f120-4514-bd18-fe9f013abff1": {
+      "id": "27139828-f120-4514-bd18-fe9f013abff1",
+      "name": "seed",
+      "editable": true
+    },
+    "28c1092b-bd48-4171-ab32-3fdb49764231": {
+      "id": "28c1092b-bd48-4171-ab32-3fdb49764231",
+      "name": "torch_dtype",
+      "editable": true
     },
     "28ca671b-8ebb-41d9-a04e-3451a30d0ab2": {
       "id": "28ca671b-8ebb-41d9-a04e-3451a30d0ab2",
@@ -348,11 +552,51 @@
       "defaultVal": "False",
       "description": "Whether a last batch smaller than the batch_size should be\ndropped instead of being processed by the function."
     },
+    "2946702e-a862-49c4-9163-eaa69ba28a5f": {
+      "id": "2946702e-a862-49c4-9163-eaa69ba28a5f",
+      "name": "use_mps_device",
+      "defaultVal": "False"
+    },
+    "297ab2e6-287e-4c9c-959d-b7277dfaed02": {
+      "id": "297ab2e6-287e-4c9c-959d-b7277dfaed02",
+      "name": "label_smoothing_factor",
+      "defaultVal": "0"
+    },
+    "29a10a09-066b-45a7-a032-a923b956995f": {
+      "id": "29a10a09-066b-45a7-a032-a923b956995f",
+      "name": "save_steps",
+      "defaultVal": "500"
+    },
     "2a1e85c6-cf69-441b-b633-bb90ee71b70d": {
       "id": "2a1e85c6-cf69-441b-b633-bb90ee71b70d",
       "name": "token",
       "defaultVal": "None",
       "description": "Optional string or boolean to use as Bearer token for remote files on the Datasets Hub.\nIf `True`, or not specified, will get token from `\"~/.huggingface\"`."
+    },
+    "2a552c14-96e8-4b0f-bd3b-3415dcce7a9b": {
+      "id": "2a552c14-96e8-4b0f-bd3b-3415dcce7a9b",
+      "name": "push_to_hub_model_id",
+      "defaultVal": "None"
+    },
+    "2b90de22-f073-4134-a862-cf4ce093cfa1": {
+      "id": "2b90de22-f073-4134-a862-cf4ce093cfa1",
+      "name": "fsdp_min_num_params",
+      "defaultVal": "0"
+    },
+    "2d360cd4-8ad8-417a-b1b6-967d43396310": {
+      "id": "2d360cd4-8ad8-417a-b1b6-967d43396310",
+      "name": "save_strategy",
+      "defaultVal": "\"steps\""
+    },
+    "2d6b13a5-0eb3-45ab-949a-c48a7eeee00e": {
+      "id": "2d6b13a5-0eb3-45ab-949a-c48a7eeee00e",
+      "name": "group_by_length",
+      "defaultVal": "False"
+    },
+    "2dc2e6f5-0bea-41ff-a195-81f37883f6ba": {
+      "id": "2dc2e6f5-0bea-41ff-a195-81f37883f6ba",
+      "name": "logging_strategy",
+      "defaultVal": "\"steps\""
     },
     "2dc543d7-10d1-4a7f-840f-e1f328b7fe63": {
       "id": "2dc543d7-10d1-4a7f-840f-e1f328b7fe63",
@@ -360,17 +604,161 @@
       "rcType": "callable",
       "description": "Load a dataset from the Hugging Face Hub, or a local dataset.\n\nYou can find the list of datasets on the [Hub](https://huggingface.co/datasets) or with [`huggingface_hub.list_datasets`].\n\nA dataset is a directory that contains some data files in generic formats (JSON, CSV, Parquet, etc.) and possibly\nin a generic structure (Webdataset, ImageFolder, AudioFolder, VideoFolder, etc.)\n\nThis function does the following under the hood:\n\n    1. Load a dataset builder:\n\n        * Find the most common data format in the dataset and pick its associated builder (JSON, CSV, Parquet, Webdataset, ImageFolder, AudioFolder, etc.)\n        * Find which file goes into which split (e.g. train/test) based on file and directory names or on the YAML configuration\n        * It is also possible to specify `data_files` manually, and which dataset builder to use (e.g. \"parquet\").\n\n    2. Run the dataset builder:\n\n        In the general case:\n\n        * Download the data files from the dataset if they are not already available locally or cached.\n        * Process and cache the dataset in typed Arrow tables for caching.\n\n            Arrow table are arbitrarily long, typed tables which can store nested objects and be mapped to numpy/pandas/python generic types.\n            They can be directly accessed from disk, loaded in RAM or even streamed over the web.\n\n        In the streaming case:\n\n        * Don't download or cache anything. Instead, the dataset is lazily loaded and will be streamed on-the-fly when iterating on it.\n\n    3. Return a dataset built from the requested splits in `split` (default: all).\n\nIt can also use a custom dataset builder if the dataset contains a dataset script, but this feature is mostly for backward compatibility.\nIn this case the dataset script file must be named after the dataset repository or directory and end with \".py\".\n\nArgs:\n\n    path (`str`):\n        Path or name of the dataset.\n\n        - if `path` is a dataset repository on the HF hub (list all available datasets with [`huggingface_hub.list_datasets`])\n          -> load the dataset from supported files in the repository (csv, json, parquet, etc.)\n          e.g. `'username/dataset_name'`, a dataset repository on the HF hub containing the data files.\n\n        - if `path` is a local directory\n          -> load the dataset from supported files in the directory (csv, json, parquet, etc.)\n          e.g. `'./path/to/directory/with/my/csv/data'`.\n\n        - if `path` is the name of a dataset builder and `data_files` or `data_dir` is specified\n          (available builders are \"json\", \"csv\", \"parquet\", \"arrow\", \"text\", \"xml\", \"webdataset\", \"imagefolder\", \"audiofolder\", \"videofolder\")\n          -> load the dataset from the files in `data_files` or `data_dir`\n          e.g. `'parquet'`.\n\n        It can also point to a local dataset script but this is not recommended.\n    name (`str`, *optional*):\n        Defining the name of the dataset configuration.\n    data_dir (`str`, *optional*):\n        Defining the `data_dir` of the dataset configuration. If specified for the generic builders (csv, text etc.) or the Hub datasets and `data_files` is `None`,\n        the behavior is equal to passing `os.path.join(data_dir, **)` as `data_files` to reference all the files in a directory.\n    data_files (`str` or `Sequence` or `Mapping`, *optional*):\n        Path(s) to source data file(s).\n    split (`Split` or `str`):\n        Which split of the data to load.\n        If `None`, will return a `dict` with all splits (typically `datasets.Split.TRAIN` and `datasets.Split.TEST`).\n        If given, will return a single Dataset.\n        Splits can be combined and specified like in tensorflow-datasets.\n    cache_dir (`str`, *optional*):\n        Directory to read/write data. Defaults to `\"~/.cache/huggingface/datasets\"`.\n    features (`Features`, *optional*):\n        Set the features type to use for this dataset.\n    download_config ([`DownloadConfig`], *optional*):\n        Specific download configuration parameters.\n    download_mode ([`DownloadMode`] or `str`, defaults to `REUSE_DATASET_IF_EXISTS`):\n        Download/generate mode.\n    verification_mode ([`VerificationMode`] or `str`, defaults to `BASIC_CHECKS`):\n        Verification mode determining the checks to run on the downloaded/processed dataset information (checksums/size/splits/...).\n\n        <Added version=\"2.9.1\"/>\n    keep_in_memory (`bool`, defaults to `None`):\n        Whether to copy the dataset in-memory. If `None`, the dataset\n        will not be copied in-memory unless explicitly enabled by setting `datasets.config.IN_MEMORY_MAX_SIZE` to\n        nonzero. See more details in the [improve performance](../cache#improve-performance) section.\n    save_infos (`bool`, defaults to `False`):\n        Save the dataset information (checksums/size/splits/...).\n    revision ([`Version`] or `str`, *optional*):\n        Version of the dataset script to load.\n        As datasets have their own git repository on the Datasets Hub, the default version \"main\" corresponds to their \"main\" branch.\n        You can specify a different version than the default \"main\" by using a commit SHA or a git tag of the dataset repository.\n    token (`str` or `bool`, *optional*):\n        Optional string or boolean to use as Bearer token for remote files on the Datasets Hub.\n        If `True`, or not specified, will get token from `\"~/.huggingface\"`.\n    streaming (`bool`, defaults to `False`):\n        If set to `True`, don't download the data files. Instead, it streams the data progressively while\n        iterating on the dataset. An [`IterableDataset`] or [`IterableDatasetDict`] is returned instead in this case.\n\n        Note that streaming works for datasets that use data formats that support being iterated over like txt, csv, jsonl for example.\n        Json files may be downloaded completely. Also streaming from remote zip or gzip files is supported but other compressed formats\n        like rar and xz are not yet supported. The tgz format doesn't allow streaming.\n    num_proc (`int`, *optional*, defaults to `None`):\n        Number of processes when downloading and generating the dataset locally.\n        Multiprocessing is disabled by default.\n\n        <Added version=\"2.7.0\"/>\n    storage_options (`dict`, *optional*, defaults to `None`):\n        **Experimental**. Key/value pairs to be passed on to the dataset file-system backend, if any.\n\n        <Added version=\"2.11.0\"/>\n    trust_remote_code (`bool`, defaults to `False`):\n        Whether or not to allow for datasets defined on the Hub using a dataset script. This option\n        should only be set to `True` for repositories you trust and in which you have read the code, as it will\n        execute code present on the Hub on your local machine.\n\n        <Added version=\"2.16.0\"/>\n\n        <Changed version=\"2.20.0\">\n\n        `trust_remote_code` defaults to `False` if not specified.\n\n        </Changed>\n\n    **config_kwargs (additional keyword arguments):\n        Keyword arguments to be passed to the `BuilderConfig`\n        and used in the [`DatasetBuilder`].\n\nReturns:\n    [`Dataset`] or [`DatasetDict`]:\n    - if `split` is not `None`: the dataset requested,\n    - if `split` is `None`, a [`~datasets.DatasetDict`] with each split.\n\n    or [`IterableDataset`] or [`IterableDatasetDict`]: if `streaming=True`\n\n    - if `split` is not `None`, the dataset is requested\n    - if `split` is `None`, a [`~datasets.streaming.IterableDatasetDict`] with each split.\n\nExample:\n\nLoad a dataset from the Hugging Face Hub:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset('cornell-movie-review-data/rotten_tomatoes', split='train')\n\n# Load a subset or dataset configuration (here 'sst2')\n>>> from datasets import load_dataset\n>>> ds = load_dataset('nyu-mll/glue', 'sst2', split='train')\n\n# Manual mapping of data files to splits\n>>> data_files = {'train': 'train.csv', 'test': 'test.csv'}\n>>> ds = load_dataset('namespace/your_dataset_name', data_files=data_files)\n\n# Manual selection of a directory to load\n>>> ds = load_dataset('namespace/your_dataset_name', data_dir='folder_name')\n```\n\nLoad a local dataset:\n\n```py\n# Load a CSV file\n>>> from datasets import load_dataset\n>>> ds = load_dataset('csv', data_files='path/to/local/my_dataset.csv')\n\n# Load a JSON file\n>>> from datasets import load_dataset\n>>> ds = load_dataset('json', data_files='path/to/local/my_dataset.json')\n\n# Load from a local loading script (not recommended)\n>>> from datasets import load_dataset\n>>> ds = load_dataset('path/to/local/loading_script/loading_script.py', split='train')\n```\n\nLoad an [`~datasets.IterableDataset`]:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset('cornell-movie-review-data/rotten_tomatoes', split='train', streaming=True)\n```\n\nLoad an image dataset with the `ImageFolder` dataset builder:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset('imagefolder', data_dir='/path/to/images', split='train')\n```"
     },
+    "2e41d29b-8590-49cf-b2d9-f80b77a08e9c": {
+      "id": "2e41d29b-8590-49cf-b2d9-f80b77a08e9c",
+      "name": "pretrained_model_name_or_path"
+    },
+    "3359506a-b2ac-4a9f-b476-adc076154ef5": {
+      "id": "3359506a-b2ac-4a9f-b476-adc076154ef5",
+      "name": "per_device_train_batch_size",
+      "defaultVal": "8"
+    },
+    "338c3019-b363-469c-b0b9-c716b3efcad8": {
+      "id": "338c3019-b363-469c-b0b9-c716b3efcad8",
+      "name": "logging_first_step",
+      "defaultVal": "False"
+    },
+    "33b0fd56-8b28-469e-88f3-4c06c8a05a41": {
+      "id": "33b0fd56-8b28-469e-88f3-4c06c8a05a41",
+      "name": "indices",
+      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
+    },
+    "356c1f41-7d96-41c7-bfd9-0478ac9409c5": {
+      "id": "356c1f41-7d96-41c7-bfd9-0478ac9409c5",
+      "name": "past_index",
+      "defaultVal": "-1"
+    },
+    "36f6ffa9-fb08-496a-b24c-07cba78ebf69": {
+      "id": "36f6ffa9-fb08-496a-b24c-07cba78ebf69",
+      "name": "fsdp",
+      "defaultVal": "\"\""
+    },
+    "3b07cd41-9016-473d-a340-692bad7352d3": {
+      "id": "3b07cd41-9016-473d-a340-692bad7352d3",
+      "name": "writer_batch_size",
+      "defaultVal": "1000",
+      "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
+    },
+    "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97": {
+      "id": "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97",
+      "name": "tokenized_datasets[\"test\"].shuffle(seed=seed).select",
+      "rcType": "callable",
+      "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
+      "evRefs": [
+        {
+          "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
+          "keyword": "tokenized_datasets"
+        },
+        {
+          "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
+          "paramInfoId": "27139828-f120-4514-bd18-fe9f013abff1",
+          "startPos": 40,
+          "keyword": "seed"
+        }
+      ]
+    },
+    "3b554a98-e6a3-46ee-91d1-98b1ebd8b710": {
+      "id": "3b554a98-e6a3-46ee-91d1-98b1ebd8b710",
+      "name": "max_steps",
+      "defaultVal": "-1"
+    },
+    "3ba9efbc-7f8d-4e70-a05c-46025542d45c": {
+      "id": "3ba9efbc-7f8d-4e70-a05c-46025542d45c",
+      "name": "ddp_bucket_cap_mb",
+      "defaultVal": "None"
+    },
+    "3dbf3842-e4dd-4d14-9478-f509ac9070f0": {
+      "id": "3dbf3842-e4dd-4d14-9478-f509ac9070f0",
+      "name": "eval_use_gather_object",
+      "defaultVal": "False"
+    },
+    "3f94690b-0d88-4500-be58-dfd34d64cc36": {
+      "id": "3f94690b-0d88-4500-be58-dfd34d64cc36",
+      "name": "run_name",
+      "defaultVal": "None"
+    },
+    "424d68d8-2d10-4d7f-9c6b-8c93fe8a8220": {
+      "id": "424d68d8-2d10-4d7f-9c6b-8c93fe8a8220",
+      "name": "do_eval",
+      "defaultVal": "False"
+    },
+    "447b028e-af73-4ec3-949c-5203434e8b08": {
+      "id": "447b028e-af73-4ec3-949c-5203434e8b08",
+      "name": "warmup_steps",
+      "defaultVal": "0"
+    },
+    "462519f5-cd0b-42ce-8b39-fa5432e69cde": {
+      "id": "462519f5-cd0b-42ce-8b39-fa5432e69cde",
+      "name": "writer_batch_size",
+      "defaultVal": "1000",
+      "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
+    },
+    "464b91b8-06a0-42f4-96b7-919783a7e0d5": {
+      "id": "464b91b8-06a0-42f4-96b7-919783a7e0d5",
+      "name": "greater_is_better",
+      "defaultVal": "None"
+    },
+    "4811f7ec-42da-4b86-a638-a7cdab23f147": {
+      "id": "4811f7ec-42da-4b86-a638-a7cdab23f147",
+      "name": "use_ipex",
+      "defaultVal": "False"
+    },
+    "48243c50-6596-4128-b885-d10127b854d7": {
+      "id": "48243c50-6596-4128-b885-d10127b854d7",
+      "name": "fp16",
+      "defaultVal": "False"
+    },
+    "484e4444-24af-4995-9092-59060ba7be0c": {
+      "id": "484e4444-24af-4995-9092-59060ba7be0c",
+      "name": "eval_delay",
+      "defaultVal": "0"
+    },
+    "49613f0e-96c1-42fb-add4-dc8048488bbb": {
+      "id": "49613f0e-96c1-42fb-add4-dc8048488bbb",
+      "name": "dispatch_batches",
+      "defaultVal": "None"
+    },
+    "4abfa296-c078-4c68-ae6a-449a6bfd44ea": {
+      "id": "4abfa296-c078-4c68-ae6a-449a6bfd44ea",
+      "name": "deepspeed",
+      "defaultVal": "None"
+    },
     "4c3e1aa5-ad1c-4eb9-a407-562185c6bfd3": {
       "id": "4c3e1aa5-ad1c-4eb9-a407-562185c6bfd3",
       "name": "num_proc",
       "defaultVal": "None",
       "description": "Number of processes for multiprocessing. By default it doesn't\nuse multiprocessing."
     },
+    "4dabb493-6b6d-432a-b0d4-886cfa944093": {
+      "id": "4dabb493-6b6d-432a-b0d4-886cfa944093",
+      "name": "optim_args",
+      "defaultVal": "None"
+    },
+    "4fc3ece9-2028-4fc9-bb9c-5d7550be91bb": {
+      "id": "4fc3ece9-2028-4fc9-bb9c-5d7550be91bb",
+      "name": "torch_compile_backend",
+      "defaultVal": "None"
+    },
+    "535f7dfc-547e-49aa-96c4-1889ec2dde34": {
+      "id": "535f7dfc-547e-49aa-96c4-1889ec2dde34",
+      "name": "hub_private_repo",
+      "defaultVal": "False"
+    },
+    "542a2669-358c-41d3-922e-fdc73ba5b296": {
+      "id": "542a2669-358c-41d3-922e-fdc73ba5b296",
+      "name": "seed",
+      "defaultVal": "42"
+    },
     "5488b6fc-c6fc-4b4e-8885-e822052d7c94": {
       "id": "5488b6fc-c6fc-4b4e-8885-e822052d7c94",
       "name": "input_columns",
       "defaultVal": "None",
       "description": "The columns to be passed into `function` as\npositional arguments. If `None`, a dict mapping to all formatted columns is passed as one argument."
+    },
+    "54d6f2cf-ea57-4c75-a50e-57850d20cb55": {
+      "id": "54d6f2cf-ea57-4c75-a50e-57850d20cb55",
+      "name": "optim_target_modules",
+      "defaultVal": "None"
     },
     "56c89985-9ac5-464e-86df-6da9069106fc": {
       "id": "56c89985-9ac5-464e-86df-6da9069106fc",
@@ -390,6 +778,23 @@
       "defaultVal": "False",
       "description": "Disallow null values in the table."
     },
+    "57ed15c1-8de1-4f29-9577-3ab88e972c2b": {
+      "id": "57ed15c1-8de1-4f29-9577-3ab88e972c2b",
+      "name": "log_on_each_node",
+      "defaultVal": "True"
+    },
+    "5a7e1b85-f715-4a66-9c3b-aa2c3861a301": {
+      "id": "5a7e1b85-f715-4a66-9c3b-aa2c3861a301",
+      "name": "new_fingerprint",
+      "defaultVal": "None",
+      "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
+    },
+    "5bb0f081-853d-40e2-9f8e-bbe5339443ee": {
+      "id": "5bb0f081-853d-40e2-9f8e-bbe5339443ee",
+      "name": "transformers.TrainingArguments",
+      "rcType": "callable",
+      "description": "TrainingArguments is the subset of the arguments we use in our example scripts **which relate to the training loop\nitself**.\n\nUsing [`HfArgumentParser`] we can turn this class into\n[argparse](https://docs.python.org/3/library/argparse#module-argparse) arguments that can be specified on the\ncommand line.\n\nParameters:\n    output_dir (`str`):\n        The output directory where the model predictions and checkpoints will be written.\n    overwrite_output_dir (`bool`, *optional*, defaults to `False`):\n        If `True`, overwrite the content of the output directory. Use this to continue training if `output_dir`\n        points to a checkpoint directory.\n    do_train (`bool`, *optional*, defaults to `False`):\n        Whether to run training or not. This argument is not directly used by [`Trainer`], it's intended to be used\n        by your training/evaluation scripts instead. See the [example\n        scripts](https://github.com/huggingface/transformers/tree/main/examples) for more details.\n    do_eval (`bool`, *optional*):\n        Whether to run evaluation on the validation set or not. Will be set to `True` if `eval_strategy` is\n        different from `\"no\"`. This argument is not directly used by [`Trainer`], it's intended to be used by your\n        training/evaluation scripts instead. See the [example\n        scripts](https://github.com/huggingface/transformers/tree/main/examples) for more details.\n    do_predict (`bool`, *optional*, defaults to `False`):\n        Whether to run predictions on the test set or not. This argument is not directly used by [`Trainer`], it's\n        intended to be used by your training/evaluation scripts instead. See the [example\n        scripts](https://github.com/huggingface/transformers/tree/main/examples) for more details.\n    eval_strategy (`str` or [`~trainer_utils.IntervalStrategy`], *optional*, defaults to `\"no\"`):\n        The evaluation strategy to adopt during training. Possible values are:\n\n            - `\"no\"`: No evaluation is done during training.\n            - `\"steps\"`: Evaluation is done (and logged) every `eval_steps`.\n            - `\"epoch\"`: Evaluation is done at the end of each epoch.\n\n    prediction_loss_only (`bool`, *optional*, defaults to `False`):\n        When performing evaluation and generating predictions, only returns the loss.\n    per_device_train_batch_size (`int`, *optional*, defaults to 8):\n        The batch size per GPU/XPU/TPU/MPS/NPU core/CPU for training.\n    per_device_eval_batch_size (`int`, *optional*, defaults to 8):\n        The batch size per GPU/XPU/TPU/MPS/NPU core/CPU for evaluation.\n    gradient_accumulation_steps (`int`, *optional*, defaults to 1):\n        Number of updates steps to accumulate the gradients for, before performing a backward/update pass.\n\n        <Tip warning={true}>\n\n        When using gradient accumulation, one step is counted as one step with backward pass. Therefore, logging,\n        evaluation, save will be conducted every `gradient_accumulation_steps * xxx_step` training examples.\n\n        </Tip>\n\n    eval_accumulation_steps (`int`, *optional*):\n        Number of predictions steps to accumulate the output tensors for, before moving the results to the CPU. If\n        left unset, the whole predictions are accumulated on GPU/NPU/TPU before being moved to the CPU (faster but\n        requires more memory).\n    eval_delay (`float`, *optional*):\n        Number of epochs or steps to wait for before the first evaluation can be performed, depending on the\n        eval_strategy.\n    torch_empty_cache_steps (`int`, *optional*):\n        Number of steps to wait before calling `torch.<device>.empty_cache()`. If left unset or set to None, cache will not be emptied.\n\n        <Tip>\n\n        This can help avoid CUDA out-of-memory errors by lowering peak VRAM usage at a cost of about [10% slower performance](https://github.com/huggingface/transformers/issues/31372).\n\n        </Tip>\n\n    learning_rate (`float`, *optional*, defaults to 5e-5):\n        The initial learning rate for [`AdamW`] optimizer.\n    weight_decay (`float`, *optional*, defaults to 0):\n        The weight decay to apply (if not zero) to all layers except all bias and LayerNorm weights in [`AdamW`]\n        optimizer.\n    adam_beta1 (`float`, *optional*, defaults to 0.9):\n        The beta1 hyperparameter for the [`AdamW`] optimizer.\n    adam_beta2 (`float`, *optional*, defaults to 0.999):\n        The beta2 hyperparameter for the [`AdamW`] optimizer.\n    adam_epsilon (`float`, *optional*, defaults to 1e-8):\n        The epsilon hyperparameter for the [`AdamW`] optimizer.\n    max_grad_norm (`float`, *optional*, defaults to 1.0):\n        Maximum gradient norm (for gradient clipping).\n    num_train_epochs(`float`, *optional*, defaults to 3.0):\n        Total number of training epochs to perform (if not an integer, will perform the decimal part percents of\n        the last epoch before stopping training).\n    max_steps (`int`, *optional*, defaults to -1):\n        If set to a positive number, the total number of training steps to perform. Overrides `num_train_epochs`.\n        For a finite dataset, training is reiterated through the dataset (if all data is exhausted) until\n        `max_steps` is reached.\n    lr_scheduler_type (`str` or [`SchedulerType`], *optional*, defaults to `\"linear\"`):\n        The scheduler type to use. See the documentation of [`SchedulerType`] for all possible values.\n    lr_scheduler_kwargs ('dict', *optional*, defaults to {}):\n        The extra arguments for the lr_scheduler. See the documentation of each scheduler for possible values.\n    warmup_ratio (`float`, *optional*, defaults to 0.0):\n        Ratio of total training steps used for a linear warmup from 0 to `learning_rate`.\n    warmup_steps (`int`, *optional*, defaults to 0):\n        Number of steps used for a linear warmup from 0 to `learning_rate`. Overrides any effect of `warmup_ratio`.\n    log_level (`str`, *optional*, defaults to `passive`):\n        Logger log level to use on the main process. Possible choices are the log levels as strings: 'debug',\n        'info', 'warning', 'error' and 'critical', plus a 'passive' level which doesn't set anything and keeps the\n        current log level for the Transformers library (which will be `\"warning\"` by default).\n    log_level_replica (`str`, *optional*, defaults to `\"warning\"`):\n        Logger log level to use on replicas. Same choices as `log_level`\"\n    log_on_each_node (`bool`, *optional*, defaults to `True`):\n        In multinode distributed training, whether to log using `log_level` once per node, or only on the main\n        node.\n    logging_dir (`str`, *optional*):\n        [TensorBoard](https://www.tensorflow.org/tensorboard) log directory. Will default to\n        *output_dir/runs/**CURRENT_DATETIME_HOSTNAME***.\n    logging_strategy (`str` or [`~trainer_utils.IntervalStrategy`], *optional*, defaults to `\"steps\"`):\n        The logging strategy to adopt during training. Possible values are:\n\n            - `\"no\"`: No logging is done during training.\n            - `\"epoch\"`: Logging is done at the end of each epoch.\n            - `\"steps\"`: Logging is done every `logging_steps`.\n\n    logging_first_step (`bool`, *optional*, defaults to `False`):\n        Whether to log the first `global_step` or not.\n    logging_steps (`int` or `float`, *optional*, defaults to 500):\n        Number of update steps between two logs if `logging_strategy=\"steps\"`. Should be an integer or a float in\n        range `[0,1)`. If smaller than 1, will be interpreted as ratio of total training steps.\n    logging_nan_inf_filter (`bool`, *optional*, defaults to `True`):\n        Whether to filter `nan` and `inf` losses for logging. If set to `True` the loss of every step that is `nan`\n        or `inf` is filtered and the average loss of the current logging window is taken instead.\n\n        <Tip>\n\n        `logging_nan_inf_filter` only influences the logging of loss values, it does not change the behavior the\n        gradient is computed or applied to the model.\n\n        </Tip>\n\n    save_strategy (`str` or [`~trainer_utils.IntervalStrategy`], *optional*, defaults to `\"steps\"`):\n        The checkpoint save strategy to adopt during training. Possible values are:\n\n            - `\"no\"`: No save is done during training.\n            - `\"epoch\"`: Save is done at the end of each epoch.\n            - `\"steps\"`: Save is done every `save_steps`.\n\n            If `\"epoch\"` or `\"steps\"` is chosen, saving will also be performed at the\n            very end of training, always.\n    save_steps (`int` or `float`, *optional*, defaults to 500):\n        Number of updates steps before two checkpoint saves if `save_strategy=\"steps\"`. Should be an integer or a\n        float in range `[0,1)`. If smaller than 1, will be interpreted as ratio of total training steps.\n    save_total_limit (`int`, *optional*):\n        If a value is passed, will limit the total amount of checkpoints. Deletes the older checkpoints in\n        `output_dir`. When `load_best_model_at_end` is enabled, the \"best\" checkpoint according to\n        `metric_for_best_model` will always be retained in addition to the most recent ones. For example, for\n        `save_total_limit=5` and `load_best_model_at_end`, the four last checkpoints will always be retained\n        alongside the best model. When `save_total_limit=1` and `load_best_model_at_end`, it is possible that two\n        checkpoints are saved: the last one and the best one (if they are different).\n    save_safetensors (`bool`, *optional*, defaults to `True`):\n        Use [safetensors](https://huggingface.co/docs/safetensors) saving and loading for state dicts instead of\n        default `torch.load` and `torch.save`.\n    save_on_each_node (`bool`, *optional*, defaults to `False`):\n        When doing multi-node distributed training, whether to save models and checkpoints on each node, or only on\n        the main one.\n\n        This should not be activated when the different nodes use the same storage as the files will be saved with\n        the same names for each node.\n    save_only_model (`bool`, *optional*, defaults to `False`):\n        When checkpointing, whether to only save the model, or also the optimizer, scheduler & rng state.\n        Note that when this is true, you won't be able to resume training from checkpoint.\n        This enables you to save storage by not storing the optimizer, scheduler & rng state.\n        You can only load the model using `from_pretrained` with this option set to `True`.\n    restore_callback_states_from_checkpoint (`bool`, *optional*, defaults to `False`):\n        Whether to restore the callback states from the checkpoint. If `True`, will override\n        callbacks passed to the `Trainer` if they exist in the checkpoint.\"\n    use_cpu (`bool`, *optional*, defaults to `False`):\n        Whether or not to use cpu. If set to False, we will use cuda or mps device if available.\n    seed (`int`, *optional*, defaults to 42):\n        Random seed that will be set at the beginning of training. To ensure reproducibility across runs, use the\n        [`~Trainer.model_init`] function to instantiate the model if it has some randomly initialized parameters.\n    data_seed (`int`, *optional*):\n        Random seed to be used with data samplers. If not set, random generators for data sampling will use the\n        same seed as `seed`. This can be used to ensure reproducibility of data sampling, independent of the model\n        seed.\n    jit_mode_eval (`bool`, *optional*, defaults to `False`):\n        Whether or not to use PyTorch jit trace for inference.\n    use_ipex (`bool`, *optional*, defaults to `False`):\n        Use Intel extension for PyTorch when it is available. [IPEX\n        installation](https://github.com/intel/intel-extension-for-pytorch).\n    bf16 (`bool`, *optional*, defaults to `False`):\n        Whether to use bf16 16-bit (mixed) precision training instead of 32-bit training. Requires Ampere or higher\n        NVIDIA architecture or using CPU (use_cpu) or Ascend NPU. This is an experimental API and it may change.\n    fp16 (`bool`, *optional*, defaults to `False`):\n        Whether to use fp16 16-bit (mixed) precision training instead of 32-bit training.\n    fp16_opt_level (`str`, *optional*, defaults to 'O1'):\n        For `fp16` training, Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']. See details on\n        the [Apex documentation](https://nvidia.github.io/apex/amp).\n    fp16_backend (`str`, *optional*, defaults to `\"auto\"`):\n        This argument is deprecated. Use `half_precision_backend` instead.\n    half_precision_backend (`str`, *optional*, defaults to `\"auto\"`):\n        The backend to use for mixed precision training. Must be one of `\"auto\", \"apex\", \"cpu_amp\"`. `\"auto\"` will\n        use CPU/CUDA AMP or APEX depending on the PyTorch version detected, while the other choices will force the\n        requested backend.\n    bf16_full_eval (`bool`, *optional*, defaults to `False`):\n        Whether to use full bfloat16 evaluation instead of 32-bit. This will be faster and save memory but can harm\n        metric values. This is an experimental API and it may change.\n    fp16_full_eval (`bool`, *optional*, defaults to `False`):\n        Whether to use full float16 evaluation instead of 32-bit. This will be faster and save memory but can harm\n        metric values.\n    tf32 (`bool`, *optional*):\n        Whether to enable the TF32 mode, available in Ampere and newer GPU architectures. The default value depends\n        on PyTorch's version default of `torch.backends.cuda.matmul.allow_tf32`. For more details please refer to\n        the [TF32](https://huggingface.co/docs/transformers/performance#tf32) documentation. This is an\n        experimental API and it may change.\n    local_rank (`int`, *optional*, defaults to -1):\n        Rank of the process during distributed training.\n    ddp_backend (`str`, *optional*):\n        The backend to use for distributed training. Must be one of `\"nccl\"`, `\"mpi\"`, `\"ccl\"`, `\"gloo\"`, `\"hccl\"`.\n    tpu_num_cores (`int`, *optional*):\n        When training on TPU, the number of TPU cores (automatically passed by launcher script).\n    dataloader_drop_last (`bool`, *optional*, defaults to `False`):\n        Whether to drop the last incomplete batch (if the length of the dataset is not divisible by the batch size)\n        or not.\n    eval_steps (`int` or `float`, *optional*):\n        Number of update steps between two evaluations if `eval_strategy=\"steps\"`. Will default to the same\n        value as `logging_steps` if not set. Should be an integer or a float in range `[0,1)`. If smaller than 1,\n        will be interpreted as ratio of total training steps.\n    dataloader_num_workers (`int`, *optional*, defaults to 0):\n        Number of subprocesses to use for data loading (PyTorch only). 0 means that the data will be loaded in the\n        main process.\n    past_index (`int`, *optional*, defaults to -1):\n        Some models like [TransformerXL](../model_doc/transformerxl) or [XLNet](../model_doc/xlnet) can make use of\n        the past hidden states for their predictions. If this argument is set to a positive int, the `Trainer` will\n        use the corresponding output (usually index 2) as the past state and feed it to the model at the next\n        training step under the keyword argument `mems`.\n    run_name (`str`, *optional*, defaults to `output_dir`):\n        A descriptor for the run. Typically used for [wandb](https://www.wandb.com/),\n        [mlflow](https://www.mlflow.org/) and [comet](https://www.comet.com/site) logging. If not specified, will\n        be the same as `output_dir`.\n    disable_tqdm (`bool`, *optional*):\n        Whether or not to disable the tqdm progress bars and table of metrics produced by\n        [`~notebook.NotebookTrainingTracker`] in Jupyter Notebooks. Will default to `True` if the logging level is\n        set to warn or lower (default), `False` otherwise.\n    remove_unused_columns (`bool`, *optional*, defaults to `True`):\n        Whether or not to automatically remove the columns unused by the model forward method.\n    label_names (`List[str]`, *optional*):\n        The list of keys in your dictionary of inputs that correspond to the labels.\n\n        Will eventually default to the list of argument names accepted by the model that contain the word \"label\",\n        except if the model used is one of the `XxxForQuestionAnswering` in which case it will also include the\n        `[\"start_positions\", \"end_positions\"]` keys.\n    load_best_model_at_end (`bool`, *optional*, defaults to `False`):\n        Whether or not to load the best model found during training at the end of training. When this option is\n        enabled, the best checkpoint will always be saved. See\n        [`save_total_limit`](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments.save_total_limit)\n        for more.\n\n        <Tip>\n\n        When set to `True`, the parameters `save_strategy` needs to be the same as `eval_strategy`, and in\n        the case it is \"steps\", `save_steps` must be a round multiple of `eval_steps`.\n\n        </Tip>\n\n    metric_for_best_model (`str`, *optional*):\n        Use in conjunction with `load_best_model_at_end` to specify the metric to use to compare two different\n        models. Must be the name of a metric returned by the evaluation with or without the prefix `\"eval_\"`. Will\n        default to `\"loss\"` if unspecified and `load_best_model_at_end=True` (to use the evaluation loss).\n\n        If you set this value, `greater_is_better` will default to `True`. Don't forget to set it to `False` if\n        your metric is better when lower.\n    greater_is_better (`bool`, *optional*):\n        Use in conjunction with `load_best_model_at_end` and `metric_for_best_model` to specify if better models\n        should have a greater metric or not. Will default to:\n\n        - `True` if `metric_for_best_model` is set to a value that doesn't end in `\"loss\"`.\n        - `False` if `metric_for_best_model` is not set, or set to a value that ends in `\"loss\"`.\n    ignore_data_skip (`bool`, *optional*, defaults to `False`):\n        When resuming training, whether or not to skip the epochs and batches to get the data loading at the same\n        stage as in the previous training. If set to `True`, the training will begin faster (as that skipping step\n        can take a long time) but will not yield the same results as the interrupted training would have.\n    fsdp (`bool`, `str` or list of [`~trainer_utils.FSDPOption`], *optional*, defaults to `''`):\n        Use PyTorch Distributed Parallel Training (in distributed training only).\n\n        A list of options along the following:\n\n        - `\"full_shard\"`: Shard parameters, gradients and optimizer states.\n        - `\"shard_grad_op\"`: Shard optimizer states and gradients.\n        - `\"hybrid_shard\"`: Apply `FULL_SHARD` within a node, and replicate parameters across nodes.\n        - `\"hybrid_shard_zero2\"`: Apply `SHARD_GRAD_OP` within a node, and replicate parameters across nodes.\n        - `\"offload\"`: Offload parameters and gradients to CPUs (only compatible with `\"full_shard\"` and\n          `\"shard_grad_op\"`).\n        - `\"auto_wrap\"`: Automatically recursively wrap layers with FSDP using `default_auto_wrap_policy`.\n    fsdp_config (`str` or `dict`, *optional*):\n        Config to be used with fsdp (Pytorch Distributed Parallel Training). The value is either a location of\n        fsdp json config file (e.g., `fsdp_config.json`) or an already loaded json file as `dict`.\n\n        A List of config and its options:\n            - min_num_params (`int`, *optional*, defaults to `0`):\n                FSDP's minimum number of parameters for Default Auto Wrapping. (useful only when `fsdp` field is\n                passed).\n            - transformer_layer_cls_to_wrap (`List[str]`, *optional*):\n                List of transformer layer class names (case-sensitive) to wrap, e.g, `BertLayer`, `GPTJBlock`,\n                `T5Block` .... (useful only when `fsdp` flag is passed).\n            - backward_prefetch (`str`, *optional*)\n                FSDP's backward prefetch mode. Controls when to prefetch next set of parameters (useful only when\n                `fsdp` field is passed).\n\n                A list of options along the following:\n\n                - `\"backward_pre\"` : Prefetches the next set of parameters before the current set of parameter's\n                  gradient\n                    computation.\n                - `\"backward_post\"` : This prefetches the next set of parameters after the current set of\n                  parameter’s\n                    gradient computation.\n            - forward_prefetch (`bool`, *optional*, defaults to `False`)\n                FSDP's forward prefetch mode (useful only when `fsdp` field is passed).\n                 If `\"True\"`, then FSDP explicitly prefetches the next upcoming all-gather while executing in the\n                 forward pass.\n            - limit_all_gathers (`bool`, *optional*, defaults to `False`)\n                FSDP's limit_all_gathers (useful only when `fsdp` field is passed).\n                 If `\"True\"`, FSDP explicitly synchronizes the CPU thread to prevent too many in-flight\n                 all-gathers.\n            - use_orig_params (`bool`, *optional*, defaults to `True`)\n                If `\"True\"`, allows non-uniform `requires_grad` during init, which means support for interspersed\n                frozen and trainable paramteres. Useful in cases such as parameter-efficient fine-tuning. Please\n                refer this\n                [blog](https://dev-discuss.pytorch.org/t/rethinking-pytorch-fully-sharded-data-parallel-fsdp-from-first-principles/1019\n            - sync_module_states (`bool`, *optional*, defaults to `True`)\n                If `\"True\"`, each individually wrapped FSDP unit will broadcast module parameters from rank 0 to\n                ensure they are the same across all ranks after initialization\n            - cpu_ram_efficient_loading (`bool`, *optional*, defaults to `False`)\n                If `\"True\"`, only the first process loads the pretrained model checkpoint while all other processes\n                have empty weights.  When this setting as `\"True\"`, `sync_module_states` also must to be `\"True\"`,\n                otherwise all the processes except the main process would have random weights leading to unexpected\n                behaviour during training.\n            - activation_checkpointing (`bool`, *optional*, defaults to `False`):\n                If `\"True\"`, activation checkpointing is a technique to reduce memory usage by clearing activations of\n                certain layers and recomputing them during a backward pass. Effectively, this trades extra\n                computation time for reduced memory usage.\n            - xla (`bool`, *optional*, defaults to `False`):\n                Whether to use PyTorch/XLA Fully Sharded Data Parallel Training. This is an experimental feature\n                and its API may evolve in the future.\n            - xla_fsdp_settings (`dict`, *optional*)\n                The value is a dictionary which stores the XLA FSDP wrapping parameters.\n\n                For a complete list of options, please see [here](\n                https://github.com/pytorch/xla/blob/master/torch_xla/distributed/fsdp/xla_fully_sharded_data_parallel.py).\n            - xla_fsdp_grad_ckpt (`bool`, *optional*, defaults to `False`):\n                Will use gradient checkpointing over each nested XLA FSDP wrapped layer. This setting can only be\n                used when the xla flag is set to true, and an auto wrapping policy is specified through\n                fsdp_min_num_params or fsdp_transformer_layer_cls_to_wrap.\n\n    deepspeed (`str` or `dict`, *optional*):\n        Use [Deepspeed](https://github.com/microsoft/deepspeed). This is an experimental feature and its API may\n        evolve in the future. The value is either the location of DeepSpeed json config file (e.g.,\n        `ds_config.json`) or an already loaded json file as a `dict`\"\n\n        <Tip warning={true}>\n            If enabling any Zero-init, make sure that your model is not initialized until\n            *after* initializing the `TrainingArguments`, else it will not be applied.\n        </Tip>\n\n    accelerator_config (`str`, `dict`, or `AcceleratorConfig`, *optional*):\n        Config to be used with the internal `Accelerator` implementation. The value is either a location of\n        accelerator json config file (e.g., `accelerator_config.json`), an already loaded json file as `dict`,\n        or an instance of [`~trainer_pt_utils.AcceleratorConfig`].\n\n        A list of config and its options:\n            - split_batches (`bool`, *optional*, defaults to `False`):\n                Whether or not the accelerator should split the batches yielded by the dataloaders across the devices. If\n                `True` the actual batch size used will be the same on any kind of distributed processes, but it must be a\n                round multiple of the `num_processes` you are using. If `False`, actual batch size used will be the one set\n                in your script multiplied by the number of processes.\n            - dispatch_batches (`bool`, *optional*):\n                If set to `True`, the dataloader prepared by the Accelerator is only iterated through on the main process\n                and then the batches are split and broadcast to each process. Will default to `True` for `DataLoader` whose\n                underlying dataset is an `IterableDataset`, `False` otherwise.\n            - even_batches (`bool`, *optional*, defaults to `True`):\n                If set to `True`, in cases where the total batch size across all processes does not exactly divide the\n                dataset, samples at the start of the dataset will be duplicated so the batch can be divided equally among\n                all workers.\n            - use_seedable_sampler (`bool`, *optional*, defaults to `True`):\n                Whether or not use a fully seedable random sampler ([`accelerate.data_loader.SeedableRandomSampler`]). Ensures\n                training results are fully reproducable using a different sampling technique. While seed-to-seed results\n                may differ, on average the differences are neglible when using multiple different seeds to compare. Should\n                also be ran with [`~utils.set_seed`] for the best results.\n            - use_configured_state (`bool`, *optional*, defaults to `False`):\n                Whether or not to use a pre-configured `AcceleratorState` or `PartialState` defined before calling `TrainingArguments`.\n                If `True`, an `Accelerator` or `PartialState` must be initialized. Note that by doing so, this could lead to issues\n                with hyperparameter tuning.\n\n    label_smoothing_factor (`float`, *optional*, defaults to 0.0):\n        The label smoothing factor to use. Zero means no label smoothing, otherwise the underlying onehot-encoded\n        labels are changed from 0s and 1s to `label_smoothing_factor/num_labels` and `1 - label_smoothing_factor +\n        label_smoothing_factor/num_labels` respectively.\n    debug (`str` or list of [`~debug_utils.DebugOption`], *optional*, defaults to `\"\"`):\n        Enable one or more debug features. This is an experimental feature.\n\n        Possible options are:\n\n        - `\"underflow_overflow\"`: detects overflow in model's input/outputs and reports the last frames that led to\n          the event\n        - `\"tpu_metrics_debug\"`: print debug metrics on TPU\n\n        The options should be separated by whitespaces.\n    optim (`str` or [`training_args.OptimizerNames`], *optional*, defaults to `\"adamw_torch\"`):\n        The optimizer to use: adamw_hf, adamw_torch, adamw_torch_fused, adamw_apex_fused, adamw_anyprecision or\n        adafactor.\n    optim_args (`str`, *optional*):\n        Optional arguments that are supplied to AnyPrecisionAdamW.\n    group_by_length (`bool`, *optional*, defaults to `False`):\n        Whether or not to group together samples of roughly the same length in the training dataset (to minimize\n        padding applied and be more efficient). Only useful if applying dynamic padding.\n    length_column_name (`str`, *optional*, defaults to `\"length\"`):\n        Column name for precomputed lengths. If the column exists, grouping by length will use these values rather\n        than computing them on train startup. Ignored unless `group_by_length` is `True` and the dataset is an\n        instance of `Dataset`.\n    report_to (`str` or `List[str]`, *optional*, defaults to `\"all\"`):\n        The list of integrations to report the results and logs to. Supported platforms are `\"azure_ml\"`,\n        `\"clearml\"`, `\"codecarbon\"`, `\"comet_ml\"`, `\"dagshub\"`, `\"dvclive\"`, `\"flyte\"`, `\"mlflow\"`, `\"neptune\"`,\n        `\"tensorboard\"`, and `\"wandb\"`. Use `\"all\"` to report to all integrations installed, `\"none\"` for no\n        integrations.\n    ddp_find_unused_parameters (`bool`, *optional*):\n        When using distributed training, the value of the flag `find_unused_parameters` passed to\n        `DistributedDataParallel`. Will default to `False` if gradient checkpointing is used, `True` otherwise.\n    ddp_bucket_cap_mb (`int`, *optional*):\n        When using distributed training, the value of the flag `bucket_cap_mb` passed to `DistributedDataParallel`.\n    ddp_broadcast_buffers (`bool`, *optional*):\n        When using distributed training, the value of the flag `broadcast_buffers` passed to\n        `DistributedDataParallel`. Will default to `False` if gradient checkpointing is used, `True` otherwise.\n    dataloader_pin_memory (`bool`, *optional*, defaults to `True`):\n        Whether you want to pin memory in data loaders or not. Will default to `True`.\n    dataloader_persistent_workers (`bool`, *optional*, defaults to `False`):\n        If True, the data loader will not shut down the worker processes after a dataset has been consumed once.\n        This allows to maintain the workers Dataset instances alive. Can potentially speed up training, but will\n        increase RAM usage. Will default to `False`.\n    dataloader_prefetch_factor (`int`, *optional*):\n        Number of batches loaded in advance by each worker.\n        2 means there will be a total of 2 * num_workers batches prefetched across all workers.\n    skip_memory_metrics (`bool`, *optional*, defaults to `True`):\n        Whether to skip adding of memory profiler reports to metrics. This is skipped by default because it slows\n        down the training and evaluation speed.\n    push_to_hub (`bool`, *optional*, defaults to `False`):\n        Whether or not to push the model to the Hub every time the model is saved. If this is activated,\n        `output_dir` will begin a git directory synced with the repo (determined by `hub_model_id`) and the content\n        will be pushed each time a save is triggered (depending on your `save_strategy`). Calling\n        [`~Trainer.save_model`] will also trigger a push.\n\n        <Tip warning={true}>\n\n        If `output_dir` exists, it needs to be a local clone of the repository to which the [`Trainer`] will be\n        pushed.\n\n        </Tip>\n\n    resume_from_checkpoint (`str`, *optional*):\n        The path to a folder with a valid checkpoint for your model. This argument is not directly used by\n        [`Trainer`], it's intended to be used by your training/evaluation scripts instead. See the [example\n        scripts](https://github.com/huggingface/transformers/tree/main/examples) for more details.\n    hub_model_id (`str`, *optional*):\n        The name of the repository to keep in sync with the local *output_dir*. It can be a simple model ID in\n        which case the model will be pushed in your namespace. Otherwise it should be the whole repository name,\n        for instance `\"user_name/model\"`, which allows you to push to an organization you are a member of with\n        `\"organization_name/model\"`. Will default to `user_name/output_dir_name` with *output_dir_name* being the\n        name of `output_dir`.\n\n        Will default to the name of `output_dir`.\n    hub_strategy (`str` or [`~trainer_utils.HubStrategy`], *optional*, defaults to `\"every_save\"`):\n        Defines the scope of what is pushed to the Hub and when. Possible values are:\n\n        - `\"end\"`: push the model, its configuration, the tokenizer (if passed along to the [`Trainer`]) and a\n          draft of a model card when the [`~Trainer.save_model`] method is called.\n        - `\"every_save\"`: push the model, its configuration, the tokenizer (if passed along to the [`Trainer`]) and\n          a draft of a model card each time there is a model save. The pushes are asynchronous to not block\n          training, and in case the save are very frequent, a new push is only attempted if the previous one is\n          finished. A last push is made with the final model at the end of training.\n        - `\"checkpoint\"`: like `\"every_save\"` but the latest checkpoint is also pushed in a subfolder named\n          last-checkpoint, allowing you to resume training easily with\n          `trainer.train(resume_from_checkpoint=\"last-checkpoint\")`.\n        - `\"all_checkpoints\"`: like `\"checkpoint\"` but all checkpoints are pushed like they appear in the output\n          folder (so you will get one checkpoint folder per folder in your final repository)\n\n    hub_token (`str`, *optional*):\n        The token to use to push the model to the Hub. Will default to the token in the cache folder obtained with\n        `huggingface-cli login`.\n    hub_private_repo (`bool`, *optional*, defaults to `False`):\n        If True, the Hub repo will be set to private.\n    hub_always_push (`bool`, *optional*, defaults to `False`):\n        Unless this is `True`, the `Trainer` will skip pushing a checkpoint when the previous push is not finished.\n    gradient_checkpointing (`bool`, *optional*, defaults to `False`):\n        If True, use gradient checkpointing to save memory at the expense of slower backward pass.\n    gradient_checkpointing_kwargs (`dict`, *optional*, defaults to `None`):\n        Key word arguments to be passed to the `gradient_checkpointing_enable` method.\n    include_inputs_for_metrics (`bool`, *optional*, defaults to `False`):\n        Whether or not the inputs will be passed to the `compute_metrics` function. This is intended for metrics\n        that need inputs, predictions and references for scoring calculation in Metric class.\n    eval_do_concat_batches (`bool`, *optional*, defaults to `True`):\n        Whether to recursively concat inputs/losses/labels/predictions across batches. If `False`,\n        will instead store them as lists, with each batch kept separate.\n    auto_find_batch_size (`bool`, *optional*, defaults to `False`)\n        Whether to find a batch size that will fit into memory automatically through exponential decay, avoiding\n        CUDA Out-of-Memory errors. Requires accelerate to be installed (`pip install accelerate`)\n    full_determinism (`bool`, *optional*, defaults to `False`)\n        If `True`, [`enable_full_determinism`] is called instead of [`set_seed`] to ensure reproducible results in\n        distributed training. Important: this will negatively impact the performance, so only use it for debugging.\n    torchdynamo (`str`, *optional*):\n        If set, the backend compiler for TorchDynamo. Possible choices are `\"eager\"`, `\"aot_eager\"`, `\"inductor\"`,\n        `\"nvfuser\"`, `\"aot_nvfuser\"`, `\"aot_cudagraphs\"`, `\"ofi\"`, `\"fx2trt\"`, `\"onnxrt\"` and `\"ipex\"`.\n    ray_scope (`str`, *optional*, defaults to `\"last\"`):\n        The scope to use when doing hyperparameter search with Ray. By default, `\"last\"` will be used. Ray will\n        then use the last checkpoint of all trials, compare those, and select the best one. However, other options\n        are also available. See the [Ray documentation](\n        https://docs.ray.io/en/latest/tune/api_docs/analysis.html#ray.tune.ExperimentAnalysis.get_best_trial) for\n        more options.\n    ddp_timeout (`int`, *optional*, defaults to 1800):\n        The timeout for `torch.distributed.init_process_group` calls, used to avoid GPU socket timeouts when\n        performing slow operations in distributed runnings. Please refer the [PyTorch documentation]\n        (https://pytorch.org/docs/stable/distributed.html#torch.distributed.init_process_group) for more\n        information.\n    use_mps_device (`bool`, *optional*, defaults to `False`):\n        This argument is deprecated.`mps` device will be used if it is available similar to `cuda` device.\n    torch_compile (`bool`, *optional*, defaults to `False`):\n        Whether or not to compile the model using PyTorch 2.0\n        [`torch.compile`](https://pytorch.org/get-started/pytorch-2.0/).\n\n        This will use the best defaults for the [`torch.compile`\n        API](https://pytorch.org/docs/stable/generated/torch.compile.html?highlight=torch+compile#torch.compile).\n        You can customize the defaults with the argument `torch_compile_backend` and `torch_compile_mode` but we\n        don't guarantee any of them will work as the support is progressively rolled in in PyTorch.\n\n        This flag and the whole compile API is experimental and subject to change in future releases.\n    torch_compile_backend (`str`, *optional*):\n        The backend to use in `torch.compile`. If set to any value, `torch_compile` will be set to `True`.\n\n        Refer to the PyTorch doc for possible values and note that they may change across PyTorch versions.\n\n        This flag is experimental and subject to change in future releases.\n    torch_compile_mode (`str`, *optional*):\n        The mode to use in `torch.compile`. If set to any value, `torch_compile` will be set to `True`.\n\n        Refer to the PyTorch doc for possible values and note that they may change across PyTorch versions.\n\n        This flag is experimental and subject to change in future releases.\n    split_batches (`bool`, *optional*):\n        Whether or not the accelerator should split the batches yielded by the dataloaders across the devices\n        during distributed training. If\n\n        set to `True`, the actual batch size used will be the same on any kind of distributed processes, but it\n        must be a\n\n        round multiple of the number of processes you are using (such as GPUs).\n    include_tokens_per_second (`bool`, *optional*):\n        Whether or not to compute the number of tokens per second per device for training speed metrics.\n\n        This will iterate over the entire training dataloader once beforehand,\n\n        and will slow down the entire process.\n\n    include_num_input_tokens_seen (`bool`, *optional*):\n        Whether or not to track the number of input tokens seen throughout training.\n\n        May be slower in distributed training as gather operations must be called.\n\n    neftune_noise_alpha (`Optional[float]`):\n        If not `None`, this will activate NEFTune noise embeddings. This can drastically improve model performance\n        for instruction fine-tuning. Check out the [original paper](https://arxiv.org/abs/2310.05914) and the\n        [original code](https://github.com/neelsjain/NEFTune). Support transformers `PreTrainedModel` and also\n        `PeftModel` from peft. The original paper used values in the range [5.0, 15.0].\n    optim_target_modules (`Union[str, List[str]]`, *optional*):\n        The target modules to optimize, i.e. the module names that you would like to train, right now this is used only for GaLore algorithm\n        https://arxiv.org/abs/2403.03507\n        See: https://github.com/jiaweizzhao/GaLore for more details. You need to make sure to pass a valid GaloRe\n        optimizer, e.g. one of: \"galore_adamw\", \"galore_adamw_8bit\", \"galore_adafactor\" and make sure that the target modules are `nn.Linear` modules\n        only.\n\n    batch_eval_metrics (`Optional[bool]`, defaults to `False`):\n        If set to `True`, evaluation will call compute_metrics at the end of each batch to accumulate statistics\n        rather than saving all eval logits in memory. When set to `True`, you must pass a compute_metrics function\n        that takes a boolean argument `compute_result`, which when passed `True`, will trigger the final global\n        summary statistics from the batch-level summary statistics you've accumulated over the evaluation set.\n\n    eval_on_start (`bool`, *optional*, defaults to `False`):\n        Whether to perform a evaluation step (sanity check) before the training to ensure the validation steps works correctly.\n\n    eval_use_gather_object (`bool`, *optional*, defaults to `False`):\n        Whether to run recursively gather object in a nested list/tuple/dictionary of objects from all devices. This should only be enabled if users are not just returning tensors, and this is actively discouraged by PyTorch."
+    },
     "5c8010ce-9586-4396-b28b-33140f813afe": {
       "id": "5c8010ce-9586-4396-b28b-33140f813afe",
       "name": "storage_options",
@@ -401,17 +806,75 @@
       "name": "indices",
       "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
     },
+    "61163743-ffbb-4202-b9b4-7114f2ce8423": {
+      "id": "61163743-ffbb-4202-b9b4-7114f2ce8423",
+      "name": "fp16_backend",
+      "defaultVal": "\"auto\""
+    },
     "627d49b3-a1a3-433e-85fd-5b820a757e63": {
       "id": "627d49b3-a1a3-433e-85fd-5b820a757e63",
       "name": "batched",
       "defaultVal": "False",
       "description": "Provide batch of examples to `function`."
     },
+    "661c20be-b57b-468b-a414-60d860bd05a3": {
+      "id": "661c20be-b57b-468b-a414-60d860bd05a3",
+      "name": "data_seed",
+      "defaultVal": "None"
+    },
+    "68de0c7c-9017-4925-854e-b8011f642419": {
+      "id": "68de0c7c-9017-4925-854e-b8011f642419",
+      "name": "torchdynamo",
+      "defaultVal": "None"
+    },
+    "6a7a7e81-5a51-4707-96fc-303c99a9bcc0": {
+      "id": "6a7a7e81-5a51-4707-96fc-303c99a9bcc0",
+      "name": "torch_compile",
+      "defaultVal": "False"
+    },
+    "6ba84855-0859-4c23-b642-680b6dc72c65": {
+      "id": "6ba84855-0859-4c23-b642-680b6dc72c65",
+      "name": "resume_from_checkpoint",
+      "defaultVal": "None"
+    },
+    "6bac893e-f8ef-43f2-bab9-90ac28a6e62e": {
+      "id": "6bac893e-f8ef-43f2-bab9-90ac28a6e62e",
+      "name": "restore_callback_states_from_checkpoint",
+      "defaultVal": "False"
+    },
     "6ce1c8a7-8afb-4e4d-8178-c9b20ed1f128": {
       "id": "6ce1c8a7-8afb-4e4d-8178-c9b20ed1f128",
       "name": "indices_cache_file_name",
       "defaultVal": "None",
       "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
+    },
+    "6d76ca19-96e6-48aa-8377-60960a0021e1": {
+      "id": "6d76ca19-96e6-48aa-8377-60960a0021e1",
+      "name": "eval_accumulation_steps",
+      "defaultVal": "None"
+    },
+    "6f0a5a6a-8592-4187-bf5e-8376a0cc28df": {
+      "id": "6f0a5a6a-8592-4187-bf5e-8376a0cc28df",
+      "name": "indices",
+      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
+    },
+    "7088adc4-1ab4-4a2b-9f4b-3c89173af42e": {
+      "id": "7088adc4-1ab4-4a2b-9f4b-3c89173af42e",
+      "name": "tokenized_datasets[\"test\"].shuffle(seed=seed).select",
+      "rcType": "callable",
+      "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
+      "evRefs": [
+        {
+          "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
+          "keyword": "tokenized_datasets"
+        },
+        {
+          "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
+          "paramInfoId": "27139828-f120-4514-bd18-fe9f013abff1",
+          "startPos": 40,
+          "keyword": "seed"
+        }
+      ]
     },
     "71c4eea3-5c1d-42f5-9fd4-4c49a2500d51": {
       "id": "71c4eea3-5c1d-42f5-9fd4-4c49a2500d51",
@@ -431,10 +894,75 @@
       "defaultVal": "False",
       "description": "If set to `True`, don't download the data files. Instead, it streams the data progressively while\niterating on the dataset. An [`IterableDataset`] or [`IterableDatasetDict`] is returned instead in this case.\n\nNote that streaming works for datasets that use data formats that support being iterated over like txt, csv, jsonl for example.\nJson files may be downloaded completely. Also streaming from remote zip or gzip files is supported but other compressed formats\nlike rar and xz are not yet supported. The tgz format doesn't allow streaming."
     },
+    "779366da-3902-45ba-b952-824b9f2e7283": {
+      "id": "779366da-3902-45ba-b952-824b9f2e7283",
+      "name": "eval_on_start",
+      "defaultVal": "False"
+    },
+    "77a4f552-7c36-47ce-9455-bdd9cd5d94b0": {
+      "id": "77a4f552-7c36-47ce-9455-bdd9cd5d94b0",
+      "name": "disable_tqdm",
+      "defaultVal": "None"
+    },
+    "78244c98-2f1f-47f1-b027-e33d6582aad8": {
+      "id": "78244c98-2f1f-47f1-b027-e33d6582aad8",
+      "name": "eval_strategy",
+      "defaultVal": "\"no\""
+    },
+    "78cae679-5cbb-4f48-8a30-e2a060ce0da0": {
+      "id": "78cae679-5cbb-4f48-8a30-e2a060ce0da0",
+      "name": "AutoModelForSequenceClassification",
+      "rcType": "callable"
+    },
+    "78d0f481-b07a-4e95-a8b9-84aa5bed09e3": {
+      "id": "78d0f481-b07a-4e95-a8b9-84aa5bed09e3",
+      "name": "evaluation_strategy",
+      "defaultVal": "None"
+    },
     "792d9660-7e38-4c59-8c03-c302a734b154": {
       "id": "792d9660-7e38-4c59-8c03-c302a734b154",
       "name": "config_kwargs",
       "description": "Keyword arguments to be passed to the `BuilderConfig`\nand used in the [`DatasetBuilder`]."
+    },
+    "7acb1be4-56e1-4f0d-add2-45a9a2c1b07b": {
+      "id": "7acb1be4-56e1-4f0d-add2-45a9a2c1b07b",
+      "name": "auto_find_batch_size",
+      "defaultVal": "False"
+    },
+    "7b2f1c01-a036-425b-b70d-c81b89c7aec6": {
+      "id": "7b2f1c01-a036-425b-b70d-c81b89c7aec6",
+      "name": "logging_nan_inf_filter",
+      "defaultVal": "True"
+    },
+    "7c7b8de0-a95e-466f-91ef-e787c501614d": {
+      "id": "7c7b8de0-a95e-466f-91ef-e787c501614d",
+      "name": "output_dir",
+      "description": "output_dir (`str`):"
+    },
+    "7c8d978f-4211-431e-8135-0e7b0a59bbed": {
+      "id": "7c8d978f-4211-431e-8135-0e7b0a59bbed",
+      "name": "ddp_backend",
+      "defaultVal": "None"
+    },
+    "7cbb66af-b50c-46cf-8257-db2abc2c93fe": {
+      "id": "7cbb66af-b50c-46cf-8257-db2abc2c93fe",
+      "name": "use_legacy_prediction_loop",
+      "defaultVal": "False"
+    },
+    "7e0391a8-9df4-41b5-8d52-93f004ba8b39": {
+      "id": "7e0391a8-9df4-41b5-8d52-93f004ba8b39",
+      "name": "lr_scheduler_kwargs",
+      "defaultVal": "dict"
+    },
+    "7e5d2341-47c5-4250-b983-63d8aa869d3a": {
+      "id": "7e5d2341-47c5-4250-b983-63d8aa869d3a",
+      "name": "batch_eval_metrics",
+      "defaultVal": "False"
+    },
+    "7fcf960f-32d3-4027-8ad0-a3ed3aa65c52": {
+      "id": "7fcf960f-32d3-4027-8ad0-a3ed3aa65c52",
+      "name": "accelerator_config",
+      "defaultVal": "None"
     },
     "818393a4-e8a7-44dc-8bb9-06009d5eca01": {
       "id": "818393a4-e8a7-44dc-8bb9-06009d5eca01",
@@ -442,11 +970,46 @@
       "defaultVal": "None",
       "description": "Specific download configuration parameters."
     },
+    "81b29edc-c834-4776-af26-39ec084ee1b3": {
+      "id": "81b29edc-c834-4776-af26-39ec084ee1b3",
+      "name": "tpu_metrics_debug",
+      "defaultVal": "False"
+    },
     "81bc8053-70b1-4f92-a464-476611d662d7": {
       "id": "81bc8053-70b1-4f92-a464-476611d662d7",
       "name": "trust_remote_code",
       "defaultVal": "None",
       "description": "Whether or not to allow for datasets defined on the Hub using a dataset script. This option\nshould only be set to `True` for repositories you trust and in which you have read the code, as it will\nexecute code present on the Hub on your local machine.\n\n<Added version=\"2.16.0\"/>\n\n<Changed version=\"2.20.0\">\n\n`trust_remote_code` defaults to `False` if not specified.\n\n</Changed>"
+    },
+    "84375c20-9dfc-4c06-8b96-f1b54a98e4ae": {
+      "id": "84375c20-9dfc-4c06-8b96-f1b54a98e4ae",
+      "name": "include_tokens_per_second",
+      "defaultVal": "False"
+    },
+    "85331e3e-6980-459e-9e24-3b9ebfb45d5f": {
+      "id": "85331e3e-6980-459e-9e24-3b9ebfb45d5f",
+      "name": "split_batches",
+      "defaultVal": "None"
+    },
+    "854d874f-aa29-4310-b5a7-a8a696590e7c": {
+      "id": "854d874f-aa29-4310-b5a7-a8a696590e7c",
+      "name": "metric_for_best_model",
+      "defaultVal": "None"
+    },
+    "87026602-931f-4c81-8e47-6b0701775b40": {
+      "id": "87026602-931f-4c81-8e47-6b0701775b40",
+      "name": "adam_beta1",
+      "defaultVal": "0.9"
+    },
+    "887f8cab-16ec-41ee-87ff-a1cf1121675f": {
+      "id": "887f8cab-16ec-41ee-87ff-a1cf1121675f",
+      "name": "ddp_find_unused_parameters",
+      "defaultVal": "None"
+    },
+    "8ab25a4f-ee02-4c78-ae2c-e89e2e95c126": {
+      "id": "8ab25a4f-ee02-4c78-ae2c-e89e2e95c126",
+      "name": "num_train_epochs",
+      "defaultVal": "3"
     },
     "8ec39021-5777-41c1-a174-6e0f49a0a700": {
       "id": "8ec39021-5777-41c1-a174-6e0f49a0a700",
@@ -454,17 +1017,78 @@
       "defaultVal": "None",
       "description": "Keyword arguments to be passed to `function`"
     },
+    "8eeb2771-d578-4631-a0b8-8c291bc54b21": {
+      "id": "8eeb2771-d578-4631-a0b8-8c291bc54b21",
+      "name": "fsdp_transformer_layer_cls_to_wrap",
+      "defaultVal": "None"
+    },
+    "916cb2c3-22fc-448a-97bb-ea23b93efda5": {
+      "id": "916cb2c3-22fc-448a-97bb-ea23b93efda5",
+      "name": "push_to_hub_organization",
+      "defaultVal": "None"
+    },
+    "92cb075f-a5a0-4136-aa9f-f059eb30bf17": {
+      "id": "92cb075f-a5a0-4136-aa9f-f059eb30bf17",
+      "name": "neftune_noise_alpha",
+      "defaultVal": "None"
+    },
+    "94ad103f-5a4d-4357-bc8f-8952471de7df": {
+      "id": "94ad103f-5a4d-4357-bc8f-8952471de7df",
+      "name": "report_to",
+      "defaultVal": "None"
+    },
+    "984f6797-f6a9-40b7-a2ea-e2a4ca189e1d": {
+      "id": "984f6797-f6a9-40b7-a2ea-e2a4ca189e1d",
+      "name": "gradient_accumulation_steps",
+      "defaultVal": "1"
+    },
+    "9a91e177-de6d-45de-8cbe-8948a606a0b0": {
+      "id": "9a91e177-de6d-45de-8cbe-8948a606a0b0",
+      "name": "keep_in_memory",
+      "defaultVal": "False",
+      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
+    },
+    "9cf6e3bc-d2cf-4ddd-ae8c-5e786c4c2d6c": {
+      "id": "9cf6e3bc-d2cf-4ddd-ae8c-5e786c4c2d6c",
+      "name": "gradient_checkpointing_kwargs",
+      "defaultVal": "None"
+    },
     "9d06e66c-8d3a-42d8-a2f8-14b32452cec2": {
       "id": "9d06e66c-8d3a-42d8-a2f8-14b32452cec2",
       "name": "data_dir",
       "defaultVal": "None",
       "description": "Defining the `data_dir` of the dataset configuration. If specified for the generic builders (csv, text etc.) or the Hub datasets and `data_files` is `None`,\nthe behavior is equal to passing `os.path.join(data_dir, **)` as `data_files` to reference all the files in a directory."
     },
+    "9da0958a-845f-44cd-ae1e-877e4e5e1009": {
+      "id": "9da0958a-845f-44cd-ae1e-877e4e5e1009",
+      "name": "gradient_checkpointing",
+      "defaultVal": "False"
+    },
+    "9e745fe2-d081-4a8e-ae49-cfdfbfc816c9": {
+      "id": "9e745fe2-d081-4a8e-ae49-cfdfbfc816c9",
+      "name": "save_safetensors",
+      "defaultVal": "True"
+    },
+    "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae": {
+      "id": "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae",
+      "name": "dataset_size",
+      "editable": true
+    },
     "a08db806-c6d8-45bb-b65e-749cd7ea61f6": {
       "id": "a08db806-c6d8-45bb-b65e-749cd7ea61f6",
       "name": "writer_batch_size",
       "defaultVal": "1000",
       "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
+    },
+    "a1e518f1-8cfe-42c6-804f-608ee2e7e969": {
+      "id": "a1e518f1-8cfe-42c6-804f-608ee2e7e969",
+      "name": "hub_always_push",
+      "defaultVal": "False"
+    },
+    "a2d078c5-8dc1-44a2-a4e2-baf54da2849b": {
+      "id": "a2d078c5-8dc1-44a2-a4e2-baf54da2849b",
+      "name": "hub_model_id",
+      "defaultVal": "None"
     },
     "a3b35e4c-ae88-4e15-8945-e6a194271477": {
       "id": "a3b35e4c-ae88-4e15-8945-e6a194271477",
@@ -482,10 +1106,45 @@
       "id": "a47fb2c4-d982-44ce-912d-7ea93a06b4ef",
       "name": "tokenizer"
     },
+    "a50b3a93-6166-4d8d-808e-b82d2ce63615": {
+      "id": "a50b3a93-6166-4d8d-808e-b82d2ce63615",
+      "name": "full_determinism",
+      "defaultVal": "False"
+    },
+    "a618ed6b-610f-4871-9b0d-bdc0ee85e716": {
+      "id": "a618ed6b-610f-4871-9b0d-bdc0ee85e716",
+      "name": "logging_dir",
+      "defaultVal": "None"
+    },
+    "aba3ebc3-5fb0-4cb9-96fe-c6c14a021e54": {
+      "id": "aba3ebc3-5fb0-4cb9-96fe-c6c14a021e54",
+      "name": "skip_memory_metrics",
+      "defaultVal": "True"
+    },
     "aeaeb439-2d67-4c65-9688-46fb8fa04d50": {
       "id": "aeaeb439-2d67-4c65-9688-46fb8fa04d50",
       "name": "get_tokenize_function",
       "rcType": "callable"
+    },
+    "af37c770-eae4-4caf-a510-83af5c48ecd7": {
+      "id": "af37c770-eae4-4caf-a510-83af5c48ecd7",
+      "name": "ddp_broadcast_buffers",
+      "defaultVal": "None"
+    },
+    "b0f72828-4d5c-4c82-a485-893e9b800655": {
+      "id": "b0f72828-4d5c-4c82-a485-893e9b800655",
+      "name": "per_device_eval_batch_size",
+      "defaultVal": "8"
+    },
+    "b14b2bc3-c3af-4e65-8c17-407c5f1ee989": {
+      "id": "b14b2bc3-c3af-4e65-8c17-407c5f1ee989",
+      "name": "length_column_name",
+      "defaultVal": "\"length\""
+    },
+    "b3b58f80-7b6b-48ce-90cc-3609dc62e2e6": {
+      "id": "b3b58f80-7b6b-48ce-90cc-3609dc62e2e6",
+      "name": "no_cuda",
+      "defaultVal": "False"
     },
     "b3d87aef-c1b3-49f6-b0af-fd0e75935c48": {
       "id": "b3d87aef-c1b3-49f6-b0af-fd0e75935c48",
@@ -493,10 +1152,42 @@
       "defaultVal": "False",
       "description": "Keep the indices mapping in memory instead of writing it to a cache file."
     },
+    "b5a26430-3c3d-4d96-ba33-cb56441cf35e": {
+      "id": "b5a26430-3c3d-4d96-ba33-cb56441cf35e",
+      "name": "eval_steps",
+      "defaultVal": "None"
+    },
+    "b5f8b57f-c90e-4ac9-aad6-7de3647f5d3e": {
+      "id": "b5f8b57f-c90e-4ac9-aad6-7de3647f5d3e",
+      "name": "keep_in_memory",
+      "defaultVal": "False",
+      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
+    },
+    "b87386af-7835-480c-96ff-07d35d86cb36": {
+      "id": "b87386af-7835-480c-96ff-07d35d86cb36",
+      "name": "mp_parameters",
+      "defaultVal": "\"\""
+    },
     "baf70593-070c-4f36-9ea0-da2483d868e8": {
       "id": "baf70593-070c-4f36-9ea0-da2483d868e8",
       "name": "path",
       "description": "path (`str`):"
+    },
+    "bb563bea-d34c-4e9f-80de-1d2d3dbff17e": {
+      "id": "bb563bea-d34c-4e9f-80de-1d2d3dbff17e",
+      "name": "indices",
+      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
+    },
+    "bd0f70ab-3686-4595-a634-ab30a32c8eda": {
+      "id": "bd0f70ab-3686-4595-a634-ab30a32c8eda",
+      "name": "adafactor",
+      "defaultVal": "False"
+    },
+    "c0b6277b-479b-44dc-90c3-5daed42d3142": {
+      "id": "c0b6277b-479b-44dc-90c3-5daed42d3142",
+      "name": "indices_cache_file_name",
+      "defaultVal": "None",
+      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
     },
     "c113d251-6f76-4648-a52a-deffdfd822d4": {
       "id": "c113d251-6f76-4648-a52a-deffdfd822d4",
@@ -504,132 +1195,46 @@
       "defaultVal": "None",
       "description": "Meaningful description to be displayed alongside with the progress bar while mapping examples."
     },
+    "c716fddb-bb2c-4659-aca7-d9fa1602d3fa": {
+      "id": "c716fddb-bb2c-4659-aca7-d9fa1602d3fa",
+      "name": "weight_decay",
+      "defaultVal": "0"
+    },
+    "c75ae3ae-a487-4b96-8424-15e0d1323202": {
+      "id": "c75ae3ae-a487-4b96-8424-15e0d1323202",
+      "name": "new_fingerprint",
+      "defaultVal": "None",
+      "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
+    },
+    "c80fe90e-ca14-430f-9ac0-2c652654e14f": {
+      "id": "c80fe90e-ca14-430f-9ac0-2c652654e14f",
+      "name": "log_level",
+      "defaultVal": "\"passive\""
+    },
+    "c83ccf16-0448-4f09-a482-ae0011be6912": {
+      "id": "c83ccf16-0448-4f09-a482-ae0011be6912",
+      "name": "use_cpu",
+      "defaultVal": "False"
+    },
+    "ca315726-4d63-4a31-bd8e-0a2e2e83692d": {
+      "id": "ca315726-4d63-4a31-bd8e-0a2e2e83692d",
+      "name": "max_grad_norm",
+      "defaultVal": "1"
+    },
     "ca8b8e25-0851-4c42-a38d-dc91c6cf6f0d": {
       "id": "ca8b8e25-0851-4c42-a38d-dc91c6cf6f0d",
       "name": "load_from_cache_file",
       "defaultVal": "None",
       "description": "If a cache file storing the current computation from `function`\ncan be identified, use it instead of recomputing."
     },
+    "ce6f255c-8d44-483c-8919-a4cc1e5635bd": {
+      "id": "ce6f255c-8d44-483c-8919-a4cc1e5635bd",
+      "name": "dataloader_prefetch_factor",
+      "defaultVal": "None if not is_torch_available() or is_torch_greater_or_equal_than_2_0 else 2"
+    },
     "ce837917-0991-43df-84d8-b8d869e17994": {
       "id": "ce837917-0991-43df-84d8-b8d869e17994",
       "name": "truncation",
-      "editable": true
-    },
-    "d268948b-6aa6-4042-8e74-b6eaf08521de": {
-      "id": "d268948b-6aa6-4042-8e74-b6eaf08521de",
-      "name": "save_infos",
-      "defaultVal": "False",
-      "description": "Save the dataset information (checksums/size/splits/...)."
-    },
-    "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": {
-      "id": "d47ae65e-d0e2-4c50-9465-8c07324b6cfa",
-      "name": "padding",
-      "editable": true
-    },
-    "d48d216e-2f92-4324-9153-b3c8c6704139": {
-      "id": "d48d216e-2f92-4324-9153-b3c8c6704139",
-      "name": "features",
-      "defaultVal": "None",
-      "description": "Set the features type to use for this dataset."
-    },
-    "d4bbb18c-8ea5-4a77-9837-dfde91f806b5": {
-      "id": "d4bbb18c-8ea5-4a77-9837-dfde91f806b5",
-      "name": "batch_size",
-      "defaultVal": "1000",
-      "description": "Number of examples per batch provided to `function` if `batched=True`,\n`batch_size <= 0` or `batch_size == None` then provide the full dataset as a single batch to `function`."
-    },
-    "d5a5e485-813e-4f35-922d-a76ca4e6a203": {
-      "id": "d5a5e485-813e-4f35-922d-a76ca4e6a203",
-      "name": "download_mode",
-      "defaultVal": "None",
-      "description": "Download/generate mode."
-    },
-    "d64a9350-02a5-4fac-a4e5-501adc761002": {
-      "id": "d64a9350-02a5-4fac-a4e5-501adc761002",
-      "name": "new_fingerprint",
-      "defaultVal": "None",
-      "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
-    },
-    "d681b68a-50fc-4cfc-8442-71f2e56bb367": {
-      "id": "d681b68a-50fc-4cfc-8442-71f2e56bb367",
-      "name": "new_fingerprint",
-      "defaultVal": "None",
-      "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
-    },
-    "db2a5508-0807-489d-8679-b334a81b9666": {
-      "id": "db2a5508-0807-489d-8679-b334a81b9666",
-      "name": "name",
-      "defaultVal": "None",
-      "description": "Defining the name of the dataset configuration."
-    },
-    "db93e7c1-2458-4856-80c8-36735f03d5ec": {
-      "id": "db93e7c1-2458-4856-80c8-36735f03d5ec",
-      "name": "data_files",
-      "defaultVal": "None",
-      "description": "Path(s) to source data file(s)."
-    },
-    "e7b90f1f-4b44-45f8-a118-0e88dd948909": {
-      "id": "e7b90f1f-4b44-45f8-a118-0e88dd948909",
-      "name": "split",
-      "defaultVal": "None",
-      "description": "Which split of the data to load.\nIf `None`, will return a `dict` with all splits (typically `datasets.Split.TRAIN` and `datasets.Split.TEST`).\nIf given, will return a single Dataset.\nSplits can be combined and specified like in tensorflow-datasets."
-    },
-    "e9c0e184-aa25-4650-8b7c-18ad20b1dc80": {
-      "id": "e9c0e184-aa25-4650-8b7c-18ad20b1dc80",
-      "name": "AutoTokenizer.from_pretrained",
-      "rcType": "callable",
-      "description": "Instantiate one of the tokenizer classes of the library from a pretrained model vocabulary.\n\nThe tokenizer class to instantiate is selected based on the `model_type` property of the config object (either\npassed as an argument or loaded from `pretrained_model_name_or_path` if possible), or when it's missing, by\nfalling back to using pattern matching on `pretrained_model_name_or_path`:\n\nList options\n\nParams:\n    pretrained_model_name_or_path (`str` or `os.PathLike`):\n        Can be either:\n\n            - A string, the *model id* of a predefined tokenizer hosted inside a model repo on huggingface.co.\n            - A path to a *directory* containing vocabulary files required by the tokenizer, for instance saved\n              using the [`~PreTrainedTokenizer.save_pretrained`] method, e.g., `./my_model_directory/`.\n            - A path or url to a single saved vocabulary file if and only if the tokenizer only requires a\n              single vocabulary file (like Bert or XLNet), e.g.: `./my_model_directory/vocab.txt`. (Not\n              applicable to all derived classes)\n    inputs (additional positional arguments, *optional*):\n        Will be passed along to the Tokenizer `__init__()` method.\n    config ([`PretrainedConfig`], *optional*)\n        The configuration object used to determine the tokenizer class to instantiate.\n    cache_dir (`str` or `os.PathLike`, *optional*):\n        Path to a directory in which a downloaded pretrained model configuration should be cached if the\n        standard cache should not be used.\n    force_download (`bool`, *optional*, defaults to `False`):\n        Whether or not to force the (re-)download the model weights and configuration files and override the\n        cached versions if they exist.\n    resume_download:\n        Deprecated and ignored. All downloads are now resumed by default when possible.\n        Will be removed in v5 of Transformers.\n    proxies (`Dict[str, str]`, *optional*):\n        A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',\n        'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request.\n    revision (`str`, *optional*, defaults to `\"main\"`):\n        The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a\n        git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any\n        identifier allowed by git.\n    subfolder (`str`, *optional*):\n        In case the relevant files are located inside a subfolder of the model repo on huggingface.co (e.g. for\n        facebook/rag-token-base), specify it here.\n    use_fast (`bool`, *optional*, defaults to `True`):\n        Use a [fast Rust-based tokenizer](https://huggingface.co/docs/tokenizers/index) if it is supported for\n        a given model. If a fast tokenizer is not available for a given model, a normal Python-based tokenizer\n        is returned instead.\n    tokenizer_type (`str`, *optional*):\n        Tokenizer type to be loaded.\n    trust_remote_code (`bool`, *optional*, defaults to `False`):\n        Whether or not to allow for custom models defined on the Hub in their own modeling files. This option\n        should only be set to `True` for repositories you trust and in which you have read the code, as it will\n        execute code present on the Hub on your local machine.\n    kwargs (additional keyword arguments, *optional*):\n        Will be passed to the Tokenizer `__init__()` method. Can be used to set special tokens like\n        `bos_token`, `eos_token`, `unk_token`, `sep_token`, `pad_token`, `cls_token`, `mask_token`,\n        `additional_special_tokens`. See parameters in the `__init__()` for more details.\n\nExamples:\n\n```python\n>>> from transformers import AutoTokenizer\n\n>>> # Download vocabulary from huggingface.co and cache.\n>>> tokenizer = AutoTokenizer.from_pretrained(\"google-bert/bert-base-uncased\")\n\n>>> # Download vocabulary from huggingface.co (user-uploaded) and cache.\n>>> tokenizer = AutoTokenizer.from_pretrained(\"dbmdz/bert-base-german-cased\")\n\n>>> # If vocabulary files are in a directory (e.g. tokenizer was saved using *save_pretrained('./test/saved_model/')*)\n>>> # tokenizer = AutoTokenizer.from_pretrained(\"./test/bert_saved_model/\")\n\n>>> # Download vocabulary from huggingface.co and define model-specific arguments\n>>> tokenizer = AutoTokenizer.from_pretrained(\"FacebookAI/roberta-base\", add_prefix_space=True)\n```"
-    },
-    "ea1b4f6f-1e91-4e0b-8fb1-39cf7f80cb50": {
-      "id": "ea1b4f6f-1e91-4e0b-8fb1-39cf7f80cb50",
-      "name": "indices_cache_file_name",
-      "defaultVal": "None",
-      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
-    },
-    "ed260abd-2a04-4f9a-85a1-c71d2c64df44": {
-      "id": "ed260abd-2a04-4f9a-85a1-c71d2c64df44",
-      "name": "pretrained_model_name_or_path",
-      "description": "pretrained_model_name_or_path (`str` or `os.PathLike`):"
-    },
-    "eeb14515-7038-4716-a867-cb4f4dfd5efb": {
-      "id": "eeb14515-7038-4716-a867-cb4f4dfd5efb",
-      "name": "features",
-      "defaultVal": "None",
-      "description": "Use a specific [`Features`] to store the cache file\ninstead of the automatically generated one."
-    },
-    "f3b9847d-6675-4212-a942-3ddf262329a8": {
-      "id": "f3b9847d-6675-4212-a942-3ddf262329a8",
-      "name": "cache_dir",
-      "defaultVal": "None",
-      "description": "Directory to read/write data. Defaults to `\"~/.cache/huggingface/datasets\"`."
-    },
-    "f62cfbe0-bbce-4536-8617-5cd05a9ada35": {
-      "id": "f62cfbe0-bbce-4536-8617-5cd05a9ada35",
-      "name": "remove_columns",
-      "defaultVal": "None",
-      "description": "Remove a selection of columns while doing the mapping.\nColumns will be removed before updating the examples with the output of `function`, i.e. if `function` is adding\ncolumns with names in `remove_columns`, these columns will be kept."
-    },
-    "f711c6f2-d884-4860-9008-7153e8dd1f8d": {
-      "id": "f711c6f2-d884-4860-9008-7153e8dd1f8d",
-      "name": "num_proc",
-      "defaultVal": "None",
-      "description": "Number of processes when downloading and generating the dataset locally.\nMultiprocessing is disabled by default.\n\n<Added version=\"2.7.0\"/>"
-    },
-    "fac0bddf-d48c-4773-b40f-50186c1d7114": {
-      "id": "fac0bddf-d48c-4773-b40f-50186c1d7114",
-      "name": "writer_batch_size",
-      "defaultVal": "1000",
-      "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
-    },
-    "fcaeec8c-e3e0-49c8-b327-c8ecfa7a2ab5": {
-      "id": "fcaeec8c-e3e0-49c8-b327-c8ecfa7a2ab5",
-      "name": "with_indices",
-      "defaultVal": "False",
-      "description": "Provide example indices to `function`. Note that in this case the signature of `function` should be `def function(example, idx): ...`."
-    },
-    "27139828-f120-4514-bd18-fe9f013abff1": {
-      "id": "27139828-f120-4514-bd18-fe9f013abff1",
-      "name": "seed",
       "editable": true
     },
     "d0bf7204-56d2-4c9c-8b3d-24efca52a8e3": {
@@ -656,110 +1261,61 @@
         }
       ]
     },
-    "bb563bea-d34c-4e9f-80de-1d2d3dbff17e": {
-      "id": "bb563bea-d34c-4e9f-80de-1d2d3dbff17e",
-      "name": "indices",
-      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
+    "d24e1d2b-84bb-4be1-9554-33d9951e05bb": {
+      "id": "d24e1d2b-84bb-4be1-9554-33d9951e05bb",
+      "name": "do_train",
+      "defaultVal": "False"
     },
-    "9a91e177-de6d-45de-8cbe-8948a606a0b0": {
-      "id": "9a91e177-de6d-45de-8cbe-8948a606a0b0",
-      "name": "keep_in_memory",
+    "d268948b-6aa6-4042-8e74-b6eaf08521de": {
+      "id": "d268948b-6aa6-4042-8e74-b6eaf08521de",
+      "name": "save_infos",
       "defaultVal": "False",
-      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
+      "description": "Save the dataset information (checksums/size/splits/...)."
     },
-    "c0b6277b-479b-44dc-90c3-5daed42d3142": {
-      "id": "c0b6277b-479b-44dc-90c3-5daed42d3142",
-      "name": "indices_cache_file_name",
+    "d343ee90-2323-4b71-93d3-402adea7f078": {
+      "id": "d343ee90-2323-4b71-93d3-402adea7f078",
+      "name": "jit_mode_eval",
+      "defaultVal": "False"
+    },
+    "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": {
+      "id": "d47ae65e-d0e2-4c50-9465-8c07324b6cfa",
+      "name": "padding",
+      "editable": true
+    },
+    "d48d216e-2f92-4324-9153-b3c8c6704139": {
+      "id": "d48d216e-2f92-4324-9153-b3c8c6704139",
+      "name": "features",
       "defaultVal": "None",
-      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
+      "description": "Set the features type to use for this dataset."
     },
-    "e9efa49c-2f6a-4b55-a454-5ac3cdffae33": {
-      "id": "e9efa49c-2f6a-4b55-a454-5ac3cdffae33",
-      "name": "writer_batch_size",
+    "d4bbb18c-8ea5-4a77-9837-dfde91f806b5": {
+      "id": "d4bbb18c-8ea5-4a77-9837-dfde91f806b5",
+      "name": "batch_size",
       "defaultVal": "1000",
-      "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
+      "description": "Number of examples per batch provided to `function` if `batched=True`,\n`batch_size <= 0` or `batch_size == None` then provide the full dataset as a single batch to `function`."
     },
-    "c75ae3ae-a487-4b96-8424-15e0d1323202": {
-      "id": "c75ae3ae-a487-4b96-8424-15e0d1323202",
+    "d58a1432-30cb-4efe-aafd-0b3f74528b09": {
+      "id": "d58a1432-30cb-4efe-aafd-0b3f74528b09",
+      "name": "lr_scheduler_type",
+      "defaultVal": "\"linear\""
+    },
+    "d5a5e485-813e-4f35-922d-a76ca4e6a203": {
+      "id": "d5a5e485-813e-4f35-922d-a76ca4e6a203",
+      "name": "download_mode",
+      "defaultVal": "None",
+      "description": "Download/generate mode."
+    },
+    "d64a9350-02a5-4fac-a4e5-501adc761002": {
+      "id": "d64a9350-02a5-4fac-a4e5-501adc761002",
       "name": "new_fingerprint",
       "defaultVal": "None",
       "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
     },
-    "7088adc4-1ab4-4a2b-9f4b-3c89173af42e": {
-      "id": "7088adc4-1ab4-4a2b-9f4b-3c89173af42e",
-      "name": "tokenized_datasets[\"test\"].shuffle(seed=seed).select",
-      "rcType": "callable",
-      "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
-      "evRefs": [
-        {
-          "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
-          "keyword": "tokenized_datasets"
-        },
-        {
-          "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
-          "paramInfoId": "27139828-f120-4514-bd18-fe9f013abff1",
-          "startPos": 40,
-          "keyword": "seed"
-        }
-      ]
-    },
-    "33b0fd56-8b28-469e-88f3-4c06c8a05a41": {
-      "id": "33b0fd56-8b28-469e-88f3-4c06c8a05a41",
-      "name": "indices",
-      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
-    },
-    "b5f8b57f-c90e-4ac9-aad6-7de3647f5d3e": {
-      "id": "b5f8b57f-c90e-4ac9-aad6-7de3647f5d3e",
-      "name": "keep_in_memory",
-      "defaultVal": "False",
-      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
-    },
-    "2238892d-f719-436f-a7c0-15b4562f6531": {
-      "id": "2238892d-f719-436f-a7c0-15b4562f6531",
-      "name": "indices_cache_file_name",
-      "defaultVal": "None",
-      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
-    },
-    "3b07cd41-9016-473d-a340-692bad7352d3": {
-      "id": "3b07cd41-9016-473d-a340-692bad7352d3",
-      "name": "writer_batch_size",
-      "defaultVal": "1000",
-      "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
-    },
-    "5a7e1b85-f715-4a66-9c3b-aa2c3861a301": {
-      "id": "5a7e1b85-f715-4a66-9c3b-aa2c3861a301",
+    "d681b68a-50fc-4cfc-8442-71f2e56bb367": {
+      "id": "d681b68a-50fc-4cfc-8442-71f2e56bb367",
       "name": "new_fingerprint",
       "defaultVal": "None",
       "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
-    },
-    "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97": {
-      "id": "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97",
-      "name": "tokenized_datasets[\"test\"].shuffle(seed=seed).select",
-      "rcType": "callable",
-      "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
-      "evRefs": [
-        {
-          "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
-          "keyword": "tokenized_datasets"
-        },
-        {
-          "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
-          "paramInfoId": "27139828-f120-4514-bd18-fe9f013abff1",
-          "startPos": 40,
-          "keyword": "seed"
-        }
-      ]
-    },
-    "6f0a5a6a-8592-4187-bf5e-8376a0cc28df": {
-      "id": "6f0a5a6a-8592-4187-bf5e-8376a0cc28df",
-      "name": "indices",
-      "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
-    },
-    "f85493e8-23f1-4f1b-ba9b-3280ffd909d1": {
-      "id": "f85493e8-23f1-4f1b-ba9b-3280ffd909d1",
-      "name": "keep_in_memory",
-      "defaultVal": "False",
-      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
     },
     "d9818f78-89d9-4bbf-baa7-9828fc227d88": {
       "id": "d9818f78-89d9-4bbf-baa7-9828fc227d88",
@@ -767,22 +1323,198 @@
       "defaultVal": "None",
       "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
     },
-    "462519f5-cd0b-42ce-8b39-fa5432e69cde": {
-      "id": "462519f5-cd0b-42ce-8b39-fa5432e69cde",
+    "daa91218-b165-492e-be9e-ea6f6dca8737": {
+      "id": "daa91218-b165-492e-be9e-ea6f6dca8737",
+      "name": "per_gpu_eval_batch_size",
+      "defaultVal": "None"
+    },
+    "db2a5508-0807-489d-8679-b334a81b9666": {
+      "id": "db2a5508-0807-489d-8679-b334a81b9666",
+      "name": "name",
+      "defaultVal": "None",
+      "description": "Defining the name of the dataset configuration."
+    },
+    "db93e7c1-2458-4856-80c8-36735f03d5ec": {
+      "id": "db93e7c1-2458-4856-80c8-36735f03d5ec",
+      "name": "data_files",
+      "defaultVal": "None",
+      "description": "Path(s) to source data file(s)."
+    },
+    "dff5ffa0-7a47-4ef3-a195-8c49aab7af95": {
+      "id": "dff5ffa0-7a47-4ef3-a195-8c49aab7af95",
+      "name": "torch_empty_cache_steps",
+      "defaultVal": "None"
+    },
+    "e077f688-0154-40e1-acf6-a2ff642dc702": {
+      "id": "e077f688-0154-40e1-acf6-a2ff642dc702",
+      "name": "tpu_num_cores",
+      "defaultVal": "None"
+    },
+    "e259b0cc-0564-46de-b10e-4c65c2d0bb51": {
+      "id": "e259b0cc-0564-46de-b10e-4c65c2d0bb51",
+      "name": "per_gpu_train_batch_size",
+      "defaultVal": "None"
+    },
+    "e3a91d33-21c2-4242-adba-650a119b153d": {
+      "id": "e3a91d33-21c2-4242-adba-650a119b153d",
+      "name": "tf32",
+      "defaultVal": "None"
+    },
+    "e419cf0c-1045-4324-87d8-25d2852a0823": {
+      "id": "e419cf0c-1045-4324-87d8-25d2852a0823",
+      "name": "bf16",
+      "defaultVal": "False"
+    },
+    "e5274370-ac5e-4114-9b1b-e1301f2dcf7b": {
+      "id": "e5274370-ac5e-4114-9b1b-e1301f2dcf7b",
+      "name": "load_best_model_at_end",
+      "defaultVal": "False"
+    },
+    "e5f99675-69fe-4f7f-967c-d359906466c7": {
+      "id": "e5f99675-69fe-4f7f-967c-d359906466c7",
+      "name": "push_to_hub",
+      "defaultVal": "False"
+    },
+    "e62fd62a-1ca1-4db1-9289-688caf42c9c1": {
+      "id": "e62fd62a-1ca1-4db1-9289-688caf42c9c1",
+      "name": "local_rank",
+      "defaultVal": "-1"
+    },
+    "e7b90f1f-4b44-45f8-a118-0e88dd948909": {
+      "id": "e7b90f1f-4b44-45f8-a118-0e88dd948909",
+      "name": "split",
+      "defaultVal": "None",
+      "description": "Which split of the data to load.\nIf `None`, will return a `dict` with all splits (typically `datasets.Split.TRAIN` and `datasets.Split.TEST`).\nIf given, will return a single Dataset.\nSplits can be combined and specified like in tensorflow-datasets."
+    },
+    "e9c0e184-aa25-4650-8b7c-18ad20b1dc80": {
+      "id": "e9c0e184-aa25-4650-8b7c-18ad20b1dc80",
+      "name": "AutoTokenizer.from_pretrained",
+      "rcType": "callable",
+      "description": "Instantiate one of the tokenizer classes of the library from a pretrained model vocabulary.\n\nThe tokenizer class to instantiate is selected based on the `model_type` property of the config object (either\npassed as an argument or loaded from `pretrained_model_name_or_path` if possible), or when it's missing, by\nfalling back to using pattern matching on `pretrained_model_name_or_path`:\n\nList options\n\nParams:\n    pretrained_model_name_or_path (`str` or `os.PathLike`):\n        Can be either:\n\n            - A string, the *model id* of a predefined tokenizer hosted inside a model repo on huggingface.co.\n            - A path to a *directory* containing vocabulary files required by the tokenizer, for instance saved\n              using the [`~PreTrainedTokenizer.save_pretrained`] method, e.g., `./my_model_directory/`.\n            - A path or url to a single saved vocabulary file if and only if the tokenizer only requires a\n              single vocabulary file (like Bert or XLNet), e.g.: `./my_model_directory/vocab.txt`. (Not\n              applicable to all derived classes)\n    inputs (additional positional arguments, *optional*):\n        Will be passed along to the Tokenizer `__init__()` method.\n    config ([`PretrainedConfig`], *optional*)\n        The configuration object used to determine the tokenizer class to instantiate.\n    cache_dir (`str` or `os.PathLike`, *optional*):\n        Path to a directory in which a downloaded pretrained model configuration should be cached if the\n        standard cache should not be used.\n    force_download (`bool`, *optional*, defaults to `False`):\n        Whether or not to force the (re-)download the model weights and configuration files and override the\n        cached versions if they exist.\n    resume_download:\n        Deprecated and ignored. All downloads are now resumed by default when possible.\n        Will be removed in v5 of Transformers.\n    proxies (`Dict[str, str]`, *optional*):\n        A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',\n        'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request.\n    revision (`str`, *optional*, defaults to `\"main\"`):\n        The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a\n        git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any\n        identifier allowed by git.\n    subfolder (`str`, *optional*):\n        In case the relevant files are located inside a subfolder of the model repo on huggingface.co (e.g. for\n        facebook/rag-token-base), specify it here.\n    use_fast (`bool`, *optional*, defaults to `True`):\n        Use a [fast Rust-based tokenizer](https://huggingface.co/docs/tokenizers/index) if it is supported for\n        a given model. If a fast tokenizer is not available for a given model, a normal Python-based tokenizer\n        is returned instead.\n    tokenizer_type (`str`, *optional*):\n        Tokenizer type to be loaded.\n    trust_remote_code (`bool`, *optional*, defaults to `False`):\n        Whether or not to allow for custom models defined on the Hub in their own modeling files. This option\n        should only be set to `True` for repositories you trust and in which you have read the code, as it will\n        execute code present on the Hub on your local machine.\n    kwargs (additional keyword arguments, *optional*):\n        Will be passed to the Tokenizer `__init__()` method. Can be used to set special tokens like\n        `bos_token`, `eos_token`, `unk_token`, `sep_token`, `pad_token`, `cls_token`, `mask_token`,\n        `additional_special_tokens`. See parameters in the `__init__()` for more details.\n\nExamples:\n\n```python\n>>> from transformers import AutoTokenizer\n\n>>> # Download vocabulary from huggingface.co and cache.\n>>> tokenizer = AutoTokenizer.from_pretrained(\"google-bert/bert-base-uncased\")\n\n>>> # Download vocabulary from huggingface.co (user-uploaded) and cache.\n>>> tokenizer = AutoTokenizer.from_pretrained(\"dbmdz/bert-base-german-cased\")\n\n>>> # If vocabulary files are in a directory (e.g. tokenizer was saved using *save_pretrained('./test/saved_model/')*)\n>>> # tokenizer = AutoTokenizer.from_pretrained(\"./test/bert_saved_model/\")\n\n>>> # Download vocabulary from huggingface.co and define model-specific arguments\n>>> tokenizer = AutoTokenizer.from_pretrained(\"FacebookAI/roberta-base\", add_prefix_space=True)\n```"
+    },
+    "e9c9c7c8-0c8d-4d26-866f-420cce34d720": {
+      "id": "e9c9c7c8-0c8d-4d26-866f-420cce34d720",
+      "name": "ddp_timeout",
+      "defaultVal": "1800"
+    },
+    "e9efa49c-2f6a-4b55-a454-5ac3cdffae33": {
+      "id": "e9efa49c-2f6a-4b55-a454-5ac3cdffae33",
       "name": "writer_batch_size",
       "defaultVal": "1000",
       "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
     },
-    "1800aae4-c3b4-4a67-86b1-c6dfb734cf80": {
-      "id": "1800aae4-c3b4-4a67-86b1-c6dfb734cf80",
-      "name": "new_fingerprint",
+    "ea1b4f6f-1e91-4e0b-8fb1-39cf7f80cb50": {
+      "id": "ea1b4f6f-1e91-4e0b-8fb1-39cf7f80cb50",
+      "name": "indices_cache_file_name",
       "defaultVal": "None",
-      "description": "The new fingerprint of the dataset after transform.\nIf `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments."
+      "description": "Provide the name of a path for the cache file. It is used to store the\nindices mapping instead of the automatically generated cache file name."
     },
-    "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae": {
-      "id": "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae",
-      "name": "dataset_size",
+    "eb35597b-e965-4df7-94aa-7009d1dd4d10": {
+      "id": "eb35597b-e965-4df7-94aa-7009d1dd4d10",
+      "name": "fsdp_config",
+      "defaultVal": "None"
+    },
+    "ecfd26c7-5c1e-42c9-8afb-0ea9f416a42b": {
+      "id": "ecfd26c7-5c1e-42c9-8afb-0ea9f416a42b",
+      "name": "adam_epsilon",
+      "defaultVal": "1e-8"
+    },
+    "ed260abd-2a04-4f9a-85a1-c71d2c64df44": {
+      "id": "ed260abd-2a04-4f9a-85a1-c71d2c64df44",
+      "name": "pretrained_model_name_or_path",
+      "description": "pretrained_model_name_or_path (`str` or `os.PathLike`):"
+    },
+    "eeb14515-7038-4716-a867-cb4f4dfd5efb": {
+      "id": "eeb14515-7038-4716-a867-cb4f4dfd5efb",
+      "name": "features",
+      "defaultVal": "None",
+      "description": "Use a specific [`Features`] to store the cache file\ninstead of the automatically generated one."
+    },
+    "f04ecdb1-81b5-4f7d-9a79-208b340b5fa1": {
+      "id": "f04ecdb1-81b5-4f7d-9a79-208b340b5fa1",
+      "name": "num_labels",
       "editable": true
+    },
+    "f395a024-a130-4082-8d46-fe09876e3e28": {
+      "id": "f395a024-a130-4082-8d46-fe09876e3e28",
+      "name": "save_total_limit",
+      "defaultVal": "None"
+    },
+    "f3b9847d-6675-4212-a942-3ddf262329a8": {
+      "id": "f3b9847d-6675-4212-a942-3ddf262329a8",
+      "name": "cache_dir",
+      "defaultVal": "None",
+      "description": "Directory to read/write data. Defaults to `\"~/.cache/huggingface/datasets\"`."
+    },
+    "f4867691-9313-4214-bec4-06032495a600": {
+      "id": "f4867691-9313-4214-bec4-06032495a600",
+      "name": "do_predict",
+      "defaultVal": "False"
+    },
+    "f4b1c3f6-c0eb-4808-add0-e1e3110e3da7": {
+      "id": "f4b1c3f6-c0eb-4808-add0-e1e3110e3da7",
+      "name": "label_names",
+      "defaultVal": "None"
+    },
+    "f4fe206e-365c-4089-a4f9-ce46f77c9ed9": {
+      "id": "f4fe206e-365c-4089-a4f9-ce46f77c9ed9",
+      "name": "ray_scope",
+      "defaultVal": "\"last\""
+    },
+    "f62cfbe0-bbce-4536-8617-5cd05a9ada35": {
+      "id": "f62cfbe0-bbce-4536-8617-5cd05a9ada35",
+      "name": "remove_columns",
+      "defaultVal": "None",
+      "description": "Remove a selection of columns while doing the mapping.\nColumns will be removed before updating the examples with the output of `function`, i.e. if `function` is adding\ncolumns with names in `remove_columns`, these columns will be kept."
+    },
+    "f639a14a-b746-4d68-8332-55a0a8e35d7a": {
+      "id": "f639a14a-b746-4d68-8332-55a0a8e35d7a",
+      "name": "fp16_opt_level",
+      "defaultVal": "\"O1\""
+    },
+    "f711c6f2-d884-4860-9008-7153e8dd1f8d": {
+      "id": "f711c6f2-d884-4860-9008-7153e8dd1f8d",
+      "name": "num_proc",
+      "defaultVal": "None",
+      "description": "Number of processes when downloading and generating the dataset locally.\nMultiprocessing is disabled by default.\n\n<Added version=\"2.7.0\"/>"
+    },
+    "f85493e8-23f1-4f1b-ba9b-3280ffd909d1": {
+      "id": "f85493e8-23f1-4f1b-ba9b-3280ffd909d1",
+      "name": "keep_in_memory",
+      "defaultVal": "False",
+      "description": "Keep the indices mapping in memory instead of writing it to a cache file."
+    },
+    "fa8012fb-17be-486f-84be-3cd20786ec7c": {
+      "id": "fa8012fb-17be-486f-84be-3cd20786ec7c",
+      "name": "fp16_full_eval",
+      "defaultVal": "False"
+    },
+    "fac0bddf-d48c-4773-b40f-50186c1d7114": {
+      "id": "fac0bddf-d48c-4773-b40f-50186c1d7114",
+      "name": "writer_batch_size",
+      "defaultVal": "1000",
+      "description": "Number of rows per write operation for the cache file writer.\nThis value is a good trade-off between memory usage during the processing, and processing speed.\nHigher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`."
+    },
+    "fc1a963d-764f-4c4e-ac06-a0b51779a713": {
+      "id": "fc1a963d-764f-4c4e-ac06-a0b51779a713",
+      "name": "bf16_full_eval",
+      "defaultVal": "False"
+    },
+    "fcaeec8c-e3e0-49c8-b327-c8ecfa7a2ab5": {
+      "id": "fcaeec8c-e3e0-49c8-b327-c8ecfa7a2ab5",
+      "name": "with_indices",
+      "defaultVal": "False",
+      "description": "Provide example indices to `function`. Note that in this case the signature of `function` should be `def function(example, idx): ...`."
+    },
+    "fd4cc1be-3e48-4ad3-ad19-4c3b674dcaef": {
+      "id": "fd4cc1be-3e48-4ad3-ad19-4c3b674dcaef",
+      "name": "eval_do_concat_batches",
+      "defaultVal": "True"
+    },
+    "febcdafe-763b-4169-a24a-a4e783014de6": {
+      "id": "febcdafe-763b-4169-a24a-a4e783014de6",
+      "name": "adam_beta2",
+      "defaultVal": "0.999"
     }
   },
   "codeInfoCols": {
@@ -806,6 +1538,16 @@
         "a47fb2c4-d982-44ce-912d-7ea93a06b4ef": [],
         "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": [],
         "ce837917-0991-43df-84d8-b8d869e17994": []
+      }
+    },
+    "9b2fd0cb-a3e8-41e1-814a-a2153693a1a9": {
+      "children": {
+        "null": [
+          "27139828-f120-4514-bd18-fe9f013abff1",
+          "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae"
+        ],
+        "27139828-f120-4514-bd18-fe9f013abff1": [],
+        "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae": []
       }
     },
     "fa9a1df5-52ec-4b35-951a-c6c51b8fe8db": {
@@ -847,6 +1589,23 @@
         "8ec39021-5777-41c1-a174-6e0f49a0a700": [],
         "4c3e1aa5-ad1c-4eb9-a407-562185c6bfd3": [],
         "c113d251-6f76-4648-a52a-deffdfd822d4": []
+      }
+    },
+    "99ff27de-fdfe-49b3-92a1-7077da634c20": {
+      "children": {
+        "null": [
+          "78cae679-5cbb-4f48-8a30-e2a060ce0da0",
+          "0eb278f6-39ca-4ecc-9bf5-561bf8850706"
+        ],
+        "78cae679-5cbb-4f48-8a30-e2a060ce0da0": [],
+        "0eb278f6-39ca-4ecc-9bf5-561bf8850706": [
+          "2e41d29b-8590-49cf-b2d9-f80b77a08e9c",
+          "f04ecdb1-81b5-4f7d-9a79-208b340b5fa1",
+          "28c1092b-bd48-4171-ab32-3fdb49764231"
+        ],
+        "2e41d29b-8590-49cf-b2d9-f80b77a08e9c": [],
+        "f04ecdb1-81b5-4f7d-9a79-208b340b5fa1": [],
+        "28c1092b-bd48-4171-ab32-3fdb49764231": []
       }
     },
     "c6dca4f6-4d19-47af-805e-896be80935c5": {
@@ -894,6 +1653,269 @@
         "792d9660-7e38-4c59-8c03-c302a734b154": []
       }
     },
+    "41427820-aac1-4959-a3a8-b1e19bb53a72": {
+      "children": {
+        "null": ["5bb0f081-853d-40e2-9f8e-bbe5339443ee"],
+        "5bb0f081-853d-40e2-9f8e-bbe5339443ee": [
+          "7c7b8de0-a95e-466f-91ef-e787c501614d",
+          "21bc3e14-0dbf-43c8-bbdd-f245c1af98d3",
+          "d24e1d2b-84bb-4be1-9554-33d9951e05bb",
+          "424d68d8-2d10-4d7f-9c6b-8c93fe8a8220",
+          "f4867691-9313-4214-bec4-06032495a600",
+          "78244c98-2f1f-47f1-b027-e33d6582aad8",
+          "088788e8-9ab5-41ae-aaaa-e015c1d55dbc",
+          "3359506a-b2ac-4a9f-b476-adc076154ef5",
+          "b0f72828-4d5c-4c82-a485-893e9b800655",
+          "e259b0cc-0564-46de-b10e-4c65c2d0bb51",
+          "daa91218-b165-492e-be9e-ea6f6dca8737",
+          "984f6797-f6a9-40b7-a2ea-e2a4ca189e1d",
+          "6d76ca19-96e6-48aa-8377-60960a0021e1",
+          "484e4444-24af-4995-9092-59060ba7be0c",
+          "dff5ffa0-7a47-4ef3-a195-8c49aab7af95",
+          "13fac919-2708-46a2-bc92-64fd17cb4828",
+          "c716fddb-bb2c-4659-aca7-d9fa1602d3fa",
+          "87026602-931f-4c81-8e47-6b0701775b40",
+          "febcdafe-763b-4169-a24a-a4e783014de6",
+          "ecfd26c7-5c1e-42c9-8afb-0ea9f416a42b",
+          "ca315726-4d63-4a31-bd8e-0a2e2e83692d",
+          "8ab25a4f-ee02-4c78-ae2c-e89e2e95c126",
+          "3b554a98-e6a3-46ee-91d1-98b1ebd8b710",
+          "d58a1432-30cb-4efe-aafd-0b3f74528b09",
+          "7e0391a8-9df4-41b5-8d52-93f004ba8b39",
+          "0afdf9c5-c3f7-447f-9a1e-b69aecdf98b8",
+          "447b028e-af73-4ec3-949c-5203434e8b08",
+          "c80fe90e-ca14-430f-9ac0-2c652654e14f",
+          "11cdf2d8-86e3-4b25-b460-a09ddd24e166",
+          "57ed15c1-8de1-4f29-9577-3ab88e972c2b",
+          "a618ed6b-610f-4871-9b0d-bdc0ee85e716",
+          "2dc2e6f5-0bea-41ff-a195-81f37883f6ba",
+          "338c3019-b363-469c-b0b9-c716b3efcad8",
+          "1805e7a9-4661-426b-abef-23e02e5ace90",
+          "7b2f1c01-a036-425b-b70d-c81b89c7aec6",
+          "2d360cd4-8ad8-417a-b1b6-967d43396310",
+          "29a10a09-066b-45a7-a032-a923b956995f",
+          "f395a024-a130-4082-8d46-fe09876e3e28",
+          "9e745fe2-d081-4a8e-ae49-cfdfbfc816c9",
+          "1bbeab5f-bb5e-48e8-a167-0683ec0d71b8",
+          "0ba81a7d-4bed-4480-a78d-9154e5698603",
+          "6bac893e-f8ef-43f2-bab9-90ac28a6e62e",
+          "b3b58f80-7b6b-48ce-90cc-3609dc62e2e6",
+          "c83ccf16-0448-4f09-a482-ae0011be6912",
+          "2946702e-a862-49c4-9163-eaa69ba28a5f",
+          "542a2669-358c-41d3-922e-fdc73ba5b296",
+          "661c20be-b57b-468b-a414-60d860bd05a3",
+          "d343ee90-2323-4b71-93d3-402adea7f078",
+          "4811f7ec-42da-4b86-a638-a7cdab23f147",
+          "e419cf0c-1045-4324-87d8-25d2852a0823",
+          "48243c50-6596-4128-b885-d10127b854d7",
+          "f639a14a-b746-4d68-8332-55a0a8e35d7a",
+          "1cdf1226-6505-4710-8989-9c17dad95b67",
+          "fc1a963d-764f-4c4e-ac06-a0b51779a713",
+          "fa8012fb-17be-486f-84be-3cd20786ec7c",
+          "e3a91d33-21c2-4242-adba-650a119b153d",
+          "e62fd62a-1ca1-4db1-9289-688caf42c9c1",
+          "7c8d978f-4211-431e-8135-0e7b0a59bbed",
+          "e077f688-0154-40e1-acf6-a2ff642dc702",
+          "81b29edc-c834-4776-af26-39ec084ee1b3",
+          "1d5745ab-ad11-41d5-ab06-ac87b0ed154e",
+          "08c19f9e-38ba-49bd-b492-8688cf870390",
+          "b5a26430-3c3d-4d96-ba33-cb56441cf35e",
+          "060285dd-ce3b-4e69-90e5-434bf742c822",
+          "ce6f255c-8d44-483c-8919-a4cc1e5635bd",
+          "356c1f41-7d96-41c7-bfd9-0478ac9409c5",
+          "3f94690b-0d88-4500-be58-dfd34d64cc36",
+          "77a4f552-7c36-47ce-9455-bdd9cd5d94b0",
+          "269cbce5-4776-4b86-b91e-7e3f09eb7823",
+          "f4b1c3f6-c0eb-4808-add0-e1e3110e3da7",
+          "e5274370-ac5e-4114-9b1b-e1301f2dcf7b",
+          "854d874f-aa29-4310-b5a7-a8a696590e7c",
+          "464b91b8-06a0-42f4-96b7-919783a7e0d5",
+          "2342d2fd-d4eb-4855-8142-88c6df8ec446",
+          "36f6ffa9-fb08-496a-b24c-07cba78ebf69",
+          "2b90de22-f073-4134-a862-cf4ce093cfa1",
+          "eb35597b-e965-4df7-94aa-7009d1dd4d10",
+          "8eeb2771-d578-4631-a0b8-8c291bc54b21",
+          "7fcf960f-32d3-4027-8ad0-a3ed3aa65c52",
+          "4abfa296-c078-4c68-ae6a-449a6bfd44ea",
+          "297ab2e6-287e-4c9c-959d-b7277dfaed02",
+          "20b12a00-6cb0-496b-b9de-c2cfdacce373",
+          "4dabb493-6b6d-432a-b0d4-886cfa944093",
+          "bd0f70ab-3686-4595-a634-ab30a32c8eda",
+          "2d6b13a5-0eb3-45ab-949a-c48a7eeee00e",
+          "b14b2bc3-c3af-4e65-8c17-407c5f1ee989",
+          "94ad103f-5a4d-4357-bc8f-8952471de7df",
+          "887f8cab-16ec-41ee-87ff-a1cf1121675f",
+          "3ba9efbc-7f8d-4e70-a05c-46025542d45c",
+          "af37c770-eae4-4caf-a510-83af5c48ecd7",
+          "234deedf-2d31-47d3-84b3-2b3f7d88395e",
+          "259e7c77-9db1-4220-8102-aa5ffaad835d",
+          "aba3ebc3-5fb0-4cb9-96fe-c6c14a021e54",
+          "7cbb66af-b50c-46cf-8257-db2abc2c93fe",
+          "e5f99675-69fe-4f7f-967c-d359906466c7",
+          "6ba84855-0859-4c23-b642-680b6dc72c65",
+          "a2d078c5-8dc1-44a2-a4e2-baf54da2849b",
+          "0de98313-17aa-40af-9997-5b56299ddd2f",
+          "0f64a244-065a-40ce-b6cb-91525ff7fc3b",
+          "535f7dfc-547e-49aa-96c4-1889ec2dde34",
+          "a1e518f1-8cfe-42c6-804f-608ee2e7e969",
+          "9da0958a-845f-44cd-ae1e-877e4e5e1009",
+          "9cf6e3bc-d2cf-4ddd-ae8c-5e786c4c2d6c",
+          "1173ca1f-755e-4604-b792-fd87b965b93e",
+          "fd4cc1be-3e48-4ad3-ad19-4c3b674dcaef",
+          "61163743-ffbb-4202-b9b4-7114f2ce8423",
+          "78d0f481-b07a-4e95-a8b9-84aa5bed09e3",
+          "2a552c14-96e8-4b0f-bd3b-3415dcce7a9b",
+          "916cb2c3-22fc-448a-97bb-ea23b93efda5",
+          "174beb08-0e0d-476b-b99e-984ef2b5a054",
+          "b87386af-7835-480c-96ff-07d35d86cb36",
+          "7acb1be4-56e1-4f0d-add2-45a9a2c1b07b",
+          "a50b3a93-6166-4d8d-808e-b82d2ce63615",
+          "68de0c7c-9017-4925-854e-b8011f642419",
+          "f4fe206e-365c-4089-a4f9-ce46f77c9ed9",
+          "e9c9c7c8-0c8d-4d26-866f-420cce34d720",
+          "6a7a7e81-5a51-4707-96fc-303c99a9bcc0",
+          "4fc3ece9-2028-4fc9-bb9c-5d7550be91bb",
+          "250a169a-8a61-4143-b586-aeff74b7f422",
+          "49613f0e-96c1-42fb-add4-dc8048488bbb",
+          "85331e3e-6980-459e-9e24-3b9ebfb45d5f",
+          "84375c20-9dfc-4c06-8b96-f1b54a98e4ae",
+          "08f99690-5150-4423-aea1-106947ff6621",
+          "92cb075f-a5a0-4136-aa9f-f059eb30bf17",
+          "54d6f2cf-ea57-4c75-a50e-57850d20cb55",
+          "7e5d2341-47c5-4250-b983-63d8aa869d3a",
+          "779366da-3902-45ba-b952-824b9f2e7283",
+          "3dbf3842-e4dd-4d14-9478-f509ac9070f0"
+        ],
+        "7c7b8de0-a95e-466f-91ef-e787c501614d": [],
+        "21bc3e14-0dbf-43c8-bbdd-f245c1af98d3": [],
+        "d24e1d2b-84bb-4be1-9554-33d9951e05bb": [],
+        "424d68d8-2d10-4d7f-9c6b-8c93fe8a8220": [],
+        "f4867691-9313-4214-bec4-06032495a600": [],
+        "78244c98-2f1f-47f1-b027-e33d6582aad8": [],
+        "088788e8-9ab5-41ae-aaaa-e015c1d55dbc": [],
+        "3359506a-b2ac-4a9f-b476-adc076154ef5": [],
+        "b0f72828-4d5c-4c82-a485-893e9b800655": [],
+        "e259b0cc-0564-46de-b10e-4c65c2d0bb51": [],
+        "daa91218-b165-492e-be9e-ea6f6dca8737": [],
+        "984f6797-f6a9-40b7-a2ea-e2a4ca189e1d": [],
+        "6d76ca19-96e6-48aa-8377-60960a0021e1": [],
+        "484e4444-24af-4995-9092-59060ba7be0c": [],
+        "dff5ffa0-7a47-4ef3-a195-8c49aab7af95": [],
+        "13fac919-2708-46a2-bc92-64fd17cb4828": [],
+        "c716fddb-bb2c-4659-aca7-d9fa1602d3fa": [],
+        "87026602-931f-4c81-8e47-6b0701775b40": [],
+        "febcdafe-763b-4169-a24a-a4e783014de6": [],
+        "ecfd26c7-5c1e-42c9-8afb-0ea9f416a42b": [],
+        "ca315726-4d63-4a31-bd8e-0a2e2e83692d": [],
+        "8ab25a4f-ee02-4c78-ae2c-e89e2e95c126": [],
+        "3b554a98-e6a3-46ee-91d1-98b1ebd8b710": [],
+        "d58a1432-30cb-4efe-aafd-0b3f74528b09": [],
+        "7e0391a8-9df4-41b5-8d52-93f004ba8b39": [],
+        "0afdf9c5-c3f7-447f-9a1e-b69aecdf98b8": [],
+        "447b028e-af73-4ec3-949c-5203434e8b08": [],
+        "c80fe90e-ca14-430f-9ac0-2c652654e14f": [],
+        "11cdf2d8-86e3-4b25-b460-a09ddd24e166": [],
+        "57ed15c1-8de1-4f29-9577-3ab88e972c2b": [],
+        "a618ed6b-610f-4871-9b0d-bdc0ee85e716": [],
+        "2dc2e6f5-0bea-41ff-a195-81f37883f6ba": [],
+        "338c3019-b363-469c-b0b9-c716b3efcad8": [],
+        "1805e7a9-4661-426b-abef-23e02e5ace90": [],
+        "7b2f1c01-a036-425b-b70d-c81b89c7aec6": [],
+        "2d360cd4-8ad8-417a-b1b6-967d43396310": [],
+        "29a10a09-066b-45a7-a032-a923b956995f": [],
+        "f395a024-a130-4082-8d46-fe09876e3e28": [],
+        "9e745fe2-d081-4a8e-ae49-cfdfbfc816c9": [],
+        "1bbeab5f-bb5e-48e8-a167-0683ec0d71b8": [],
+        "0ba81a7d-4bed-4480-a78d-9154e5698603": [],
+        "6bac893e-f8ef-43f2-bab9-90ac28a6e62e": [],
+        "b3b58f80-7b6b-48ce-90cc-3609dc62e2e6": [],
+        "c83ccf16-0448-4f09-a482-ae0011be6912": [],
+        "2946702e-a862-49c4-9163-eaa69ba28a5f": [],
+        "542a2669-358c-41d3-922e-fdc73ba5b296": [],
+        "661c20be-b57b-468b-a414-60d860bd05a3": [],
+        "d343ee90-2323-4b71-93d3-402adea7f078": [],
+        "4811f7ec-42da-4b86-a638-a7cdab23f147": [],
+        "e419cf0c-1045-4324-87d8-25d2852a0823": [],
+        "48243c50-6596-4128-b885-d10127b854d7": [],
+        "f639a14a-b746-4d68-8332-55a0a8e35d7a": [],
+        "1cdf1226-6505-4710-8989-9c17dad95b67": [],
+        "fc1a963d-764f-4c4e-ac06-a0b51779a713": [],
+        "fa8012fb-17be-486f-84be-3cd20786ec7c": [],
+        "e3a91d33-21c2-4242-adba-650a119b153d": [],
+        "e62fd62a-1ca1-4db1-9289-688caf42c9c1": [],
+        "7c8d978f-4211-431e-8135-0e7b0a59bbed": [],
+        "e077f688-0154-40e1-acf6-a2ff642dc702": [],
+        "81b29edc-c834-4776-af26-39ec084ee1b3": [],
+        "1d5745ab-ad11-41d5-ab06-ac87b0ed154e": [],
+        "08c19f9e-38ba-49bd-b492-8688cf870390": [],
+        "b5a26430-3c3d-4d96-ba33-cb56441cf35e": [],
+        "060285dd-ce3b-4e69-90e5-434bf742c822": [],
+        "ce6f255c-8d44-483c-8919-a4cc1e5635bd": [],
+        "356c1f41-7d96-41c7-bfd9-0478ac9409c5": [],
+        "3f94690b-0d88-4500-be58-dfd34d64cc36": [],
+        "77a4f552-7c36-47ce-9455-bdd9cd5d94b0": [],
+        "269cbce5-4776-4b86-b91e-7e3f09eb7823": [],
+        "f4b1c3f6-c0eb-4808-add0-e1e3110e3da7": [],
+        "e5274370-ac5e-4114-9b1b-e1301f2dcf7b": [],
+        "854d874f-aa29-4310-b5a7-a8a696590e7c": [],
+        "464b91b8-06a0-42f4-96b7-919783a7e0d5": [],
+        "2342d2fd-d4eb-4855-8142-88c6df8ec446": [],
+        "36f6ffa9-fb08-496a-b24c-07cba78ebf69": [],
+        "2b90de22-f073-4134-a862-cf4ce093cfa1": [],
+        "eb35597b-e965-4df7-94aa-7009d1dd4d10": [],
+        "8eeb2771-d578-4631-a0b8-8c291bc54b21": [],
+        "7fcf960f-32d3-4027-8ad0-a3ed3aa65c52": [],
+        "4abfa296-c078-4c68-ae6a-449a6bfd44ea": [],
+        "297ab2e6-287e-4c9c-959d-b7277dfaed02": [],
+        "20b12a00-6cb0-496b-b9de-c2cfdacce373": [],
+        "4dabb493-6b6d-432a-b0d4-886cfa944093": [],
+        "bd0f70ab-3686-4595-a634-ab30a32c8eda": [],
+        "2d6b13a5-0eb3-45ab-949a-c48a7eeee00e": [],
+        "b14b2bc3-c3af-4e65-8c17-407c5f1ee989": [],
+        "94ad103f-5a4d-4357-bc8f-8952471de7df": [],
+        "887f8cab-16ec-41ee-87ff-a1cf1121675f": [],
+        "3ba9efbc-7f8d-4e70-a05c-46025542d45c": [],
+        "af37c770-eae4-4caf-a510-83af5c48ecd7": [],
+        "234deedf-2d31-47d3-84b3-2b3f7d88395e": [],
+        "259e7c77-9db1-4220-8102-aa5ffaad835d": [],
+        "aba3ebc3-5fb0-4cb9-96fe-c6c14a021e54": [],
+        "7cbb66af-b50c-46cf-8257-db2abc2c93fe": [],
+        "e5f99675-69fe-4f7f-967c-d359906466c7": [],
+        "6ba84855-0859-4c23-b642-680b6dc72c65": [],
+        "a2d078c5-8dc1-44a2-a4e2-baf54da2849b": [],
+        "0de98313-17aa-40af-9997-5b56299ddd2f": [],
+        "0f64a244-065a-40ce-b6cb-91525ff7fc3b": [],
+        "535f7dfc-547e-49aa-96c4-1889ec2dde34": [],
+        "a1e518f1-8cfe-42c6-804f-608ee2e7e969": [],
+        "9da0958a-845f-44cd-ae1e-877e4e5e1009": [],
+        "9cf6e3bc-d2cf-4ddd-ae8c-5e786c4c2d6c": [],
+        "1173ca1f-755e-4604-b792-fd87b965b93e": [],
+        "fd4cc1be-3e48-4ad3-ad19-4c3b674dcaef": [],
+        "61163743-ffbb-4202-b9b4-7114f2ce8423": [],
+        "78d0f481-b07a-4e95-a8b9-84aa5bed09e3": [],
+        "2a552c14-96e8-4b0f-bd3b-3415dcce7a9b": [],
+        "916cb2c3-22fc-448a-97bb-ea23b93efda5": [],
+        "174beb08-0e0d-476b-b99e-984ef2b5a054": [],
+        "b87386af-7835-480c-96ff-07d35d86cb36": [],
+        "7acb1be4-56e1-4f0d-add2-45a9a2c1b07b": [],
+        "a50b3a93-6166-4d8d-808e-b82d2ce63615": [],
+        "68de0c7c-9017-4925-854e-b8011f642419": [],
+        "f4fe206e-365c-4089-a4f9-ce46f77c9ed9": [],
+        "e9c9c7c8-0c8d-4d26-866f-420cce34d720": [],
+        "6a7a7e81-5a51-4707-96fc-303c99a9bcc0": [],
+        "4fc3ece9-2028-4fc9-bb9c-5d7550be91bb": [],
+        "250a169a-8a61-4143-b586-aeff74b7f422": [],
+        "49613f0e-96c1-42fb-add4-dc8048488bbb": [],
+        "85331e3e-6980-459e-9e24-3b9ebfb45d5f": [],
+        "84375c20-9dfc-4c06-8b96-f1b54a98e4ae": [],
+        "08f99690-5150-4423-aea1-106947ff6621": [],
+        "92cb075f-a5a0-4136-aa9f-f059eb30bf17": [],
+        "54d6f2cf-ea57-4c75-a50e-57850d20cb55": [],
+        "7e5d2341-47c5-4250-b983-63d8aa869d3a": [],
+        "779366da-3902-45ba-b952-824b9f2e7283": [],
+        "3dbf3842-e4dd-4d14-9478-f509ac9070f0": []
+      }
+    },
     "a59b8c13-aa3d-4be7-9338-21bbb2f1a9a1": {
       "children": {
         "null": [
@@ -908,10 +1930,6 @@
           "d64a9350-02a5-4fac-a4e5-501adc761002"
         ],
         "5cce3d85-6ed4-40e3-9db5-e6ed4fb98ac6": [],
-        "03c5a8a5-3a4c-42f2-a803-a58a88466cbe": [],
-        "ea1b4f6f-1e91-4e0b-8fb1-39cf7f80cb50": [],
-        "a08db806-c6d8-45bb-b65e-749cd7ea61f6": [],
-        "d64a9350-02a5-4fac-a4e5-501adc761002": [],
         "d0bf7204-56d2-4c9c-8b3d-24efca52a8e3": [
           "bb563bea-d34c-4e9f-80de-1d2d3dbff17e",
           "9a91e177-de6d-45de-8cbe-8948a606a0b0",
@@ -920,9 +1938,13 @@
           "c75ae3ae-a487-4b96-8424-15e0d1323202"
         ],
         "bb563bea-d34c-4e9f-80de-1d2d3dbff17e": [],
+        "03c5a8a5-3a4c-42f2-a803-a58a88466cbe": [],
         "9a91e177-de6d-45de-8cbe-8948a606a0b0": [],
+        "ea1b4f6f-1e91-4e0b-8fb1-39cf7f80cb50": [],
         "c0b6277b-479b-44dc-90c3-5daed42d3142": [],
+        "a08db806-c6d8-45bb-b65e-749cd7ea61f6": [],
         "e9efa49c-2f6a-4b55-a454-5ac3cdffae33": [],
+        "d64a9350-02a5-4fac-a4e5-501adc761002": [],
         "c75ae3ae-a487-4b96-8424-15e0d1323202": []
       }
     },
@@ -941,22 +1963,6 @@
           "d681b68a-50fc-4cfc-8442-71f2e56bb367"
         ],
         "18203775-d8a9-425e-ad88-c839cde49b98": [],
-        "b3d87aef-c1b3-49f6-b0af-fd0e75935c48": [],
-        "6ce1c8a7-8afb-4e4d-8178-c9b20ed1f128": [],
-        "fac0bddf-d48c-4773-b40f-50186c1d7114": [],
-        "d681b68a-50fc-4cfc-8442-71f2e56bb367": [],
-        "7088adc4-1ab4-4a2b-9f4b-3c89173af42e": [
-          "33b0fd56-8b28-469e-88f3-4c06c8a05a41",
-          "b5f8b57f-c90e-4ac9-aad6-7de3647f5d3e",
-          "2238892d-f719-436f-a7c0-15b4562f6531",
-          "3b07cd41-9016-473d-a340-692bad7352d3",
-          "5a7e1b85-f715-4a66-9c3b-aa2c3861a301"
-        ],
-        "33b0fd56-8b28-469e-88f3-4c06c8a05a41": [],
-        "b5f8b57f-c90e-4ac9-aad6-7de3647f5d3e": [],
-        "2238892d-f719-436f-a7c0-15b4562f6531": [],
-        "3b07cd41-9016-473d-a340-692bad7352d3": [],
-        "5a7e1b85-f715-4a66-9c3b-aa2c3861a301": [],
         "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97": [
           "6f0a5a6a-8592-4187-bf5e-8376a0cc28df",
           "f85493e8-23f1-4f1b-ba9b-3280ffd909d1",
@@ -965,20 +1971,26 @@
           "1800aae4-c3b4-4a67-86b1-c6dfb734cf80"
         ],
         "6f0a5a6a-8592-4187-bf5e-8376a0cc28df": [],
-        "f85493e8-23f1-4f1b-ba9b-3280ffd909d1": [],
-        "d9818f78-89d9-4bbf-baa7-9828fc227d88": [],
-        "462519f5-cd0b-42ce-8b39-fa5432e69cde": [],
-        "1800aae4-c3b4-4a67-86b1-c6dfb734cf80": []
-      }
-    },
-    "9b2fd0cb-a3e8-41e1-814a-a2153693a1a9": {
-      "children": {
-        "null": [
-          "27139828-f120-4514-bd18-fe9f013abff1",
-          "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae"
+        "7088adc4-1ab4-4a2b-9f4b-3c89173af42e": [
+          "33b0fd56-8b28-469e-88f3-4c06c8a05a41",
+          "b5f8b57f-c90e-4ac9-aad6-7de3647f5d3e",
+          "2238892d-f719-436f-a7c0-15b4562f6531",
+          "3b07cd41-9016-473d-a340-692bad7352d3",
+          "5a7e1b85-f715-4a66-9c3b-aa2c3861a301"
         ],
-        "27139828-f120-4514-bd18-fe9f013abff1": [],
-        "9e9b30d3-309a-4e3a-a07f-ed7e858e33ae": []
+        "33b0fd56-8b28-469e-88f3-4c06c8a05a41": [],
+        "b3d87aef-c1b3-49f6-b0af-fd0e75935c48": [],
+        "f85493e8-23f1-4f1b-ba9b-3280ffd909d1": [],
+        "b5f8b57f-c90e-4ac9-aad6-7de3647f5d3e": [],
+        "6ce1c8a7-8afb-4e4d-8178-c9b20ed1f128": [],
+        "d9818f78-89d9-4bbf-baa7-9828fc227d88": [],
+        "2238892d-f719-436f-a7c0-15b4562f6531": [],
+        "fac0bddf-d48c-4773-b40f-50186c1d7114": [],
+        "462519f5-cd0b-42ce-8b39-fa5432e69cde": [],
+        "3b07cd41-9016-473d-a340-692bad7352d3": [],
+        "d681b68a-50fc-4cfc-8442-71f2e56bb367": [],
+        "1800aae4-c3b4-4a67-86b1-c6dfb734cf80": [],
+        "5a7e1b85-f715-4a66-9c3b-aa2c3861a301": []
       }
     }
   }
