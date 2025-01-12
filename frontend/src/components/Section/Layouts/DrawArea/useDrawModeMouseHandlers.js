@@ -3,7 +3,9 @@ import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
+import { canvasToBase64 } from "./base64Conversion";
 import {
+  throttledSendDrawingToInteractiveTasks,
   drawAllLayers,
   drawStroke,
   getInverseTransform,
@@ -56,9 +58,11 @@ export function useDrawModeMouseHandlers({
   mode,
 }) {
   let onMouseDown, onMouseMove, onMouseUp, onMouseEnter;
+  let redrawLayers, didChange;
+  const fnCanvasToBase64 = () => canvasToBase64(canvasRef.current);
 
   if (mode === "draw") {
-    onMouseDown = drawingOnMouseDown({
+    const onMouseDownCore = drawingOnMouseDown({
       sectionId,
       isEraser,
       strokesRef,
@@ -75,7 +79,14 @@ export function useDrawModeMouseHandlers({
       localArtifactTransformsRef,
     });
 
-    onMouseMove = drawingOnMouseMove({
+    onMouseDown = (...props) => {
+      didChange = onMouseDownCore(...props);
+      if (didChange) {
+        throttledSendDrawingToInteractiveTasks(sectionId, fnCanvasToBase64);
+      }
+    };
+
+    const onMouseMoveCore = drawingOnMouseMove({
       sectionId,
       isEraser,
       strokesRef,
@@ -91,7 +102,14 @@ export function useDrawModeMouseHandlers({
       localArtifactTransformsRef,
     });
 
-    onMouseUp = drawingOnMouseUp({
+    onMouseMove = (...props) => {
+      didChange = onMouseMoveCore(...props);
+      if (didChange) {
+        throttledSendDrawingToInteractiveTasks(sectionId, fnCanvasToBase64);
+      }
+    };
+
+    const onMouseUpCore = drawingOnMouseUp({
       sectionId,
       isEraser,
       eraserStrokesRef,
@@ -104,6 +122,13 @@ export function useDrawModeMouseHandlers({
       tempCanvasRefs,
       draftCanvasRef,
     });
+
+    onMouseUp = (...props) => {
+      didChange = onMouseUpCore(...props);
+      if (didChange) {
+        throttledSendDrawingToInteractiveTasks(sectionId, fnCanvasToBase64);
+      }
+    };
 
     onMouseEnter = drawingOnMouseEnter({ draftCanvasRef, onMouseDown });
   } else {
@@ -118,8 +143,8 @@ export function useDrawModeMouseHandlers({
       isDragging,
     });
 
-    onMouseDown = (e) => {
-      const redrawLayers = onMouseDownCore(e);
+    onMouseDown = (...props) => {
+      redrawLayers = onMouseDownCore(...props);
       if (redrawLayers) {
         drawAllLayers(
           sectionId,
@@ -129,6 +154,7 @@ export function useDrawModeMouseHandlers({
           { [activeLayerId]: localArtifactTransformsRef.current },
           { [activeLayerId]: resizeHandleCorners.current },
         );
+        throttledSendDrawingToInteractiveTasks(sectionId, fnCanvasToBase64);
       }
     };
 
@@ -143,8 +169,8 @@ export function useDrawModeMouseHandlers({
       localArtifactTransformsRef,
     });
 
-    onMouseMove = (e) => {
-      const redrawLayers = onMouseMoveCore(e);
+    onMouseMove = (...props) => {
+      redrawLayers = onMouseMoveCore(...props);
       if (redrawLayers) {
         drawAllLayers(
           sectionId,
@@ -154,10 +180,11 @@ export function useDrawModeMouseHandlers({
           { [activeLayerId]: localArtifactTransformsRef.current },
           { [activeLayerId]: resizeHandleCorners.current },
         );
+        throttledSendDrawingToInteractiveTasks(sectionId, fnCanvasToBase64);
       }
     };
 
-    onMouseUp = editingOnMouseUp({
+    const onMouseUpCore = editingOnMouseUp({
       sectionId,
       isDragging,
       draggedIdx,
@@ -168,6 +195,11 @@ export function useDrawModeMouseHandlers({
       canvasRef,
       tempCanvasRefs,
     });
+
+    onMouseUp = (...props) => {
+      onMouseUpCore(...props);
+      throttledSendDrawingToInteractiveTasks(sectionId, fnCanvasToBase64);
+    };
 
     onMouseEnter = () => {};
   }
@@ -206,8 +238,10 @@ function drawingOnMouseDown({
 }) {
   return (e, offsetX, offsetY) => {
     if (useMisc.getState().mouseDownDraggingSection) {
-      return;
+      return false;
     }
+
+    let didDraw = false;
 
     if (!useMisc.getState().mouseDownDrawArea) {
       // We want to do this just on the first mouse down.
@@ -238,6 +272,7 @@ function drawingOnMouseDown({
         {},
         { [activeLayerId]: eraserStrokesRef.current },
       );
+      didDraw = true;
     } else {
       const currentBrushStrokeTransformInfo =
         localArtifactTransformsRef.current.find(
@@ -250,10 +285,13 @@ function drawingOnMouseDown({
           point,
           getInverseTransform(currentBrushStrokeTransformInfo.transform),
         );
+        didDraw = true;
       }
     }
 
     prevPointRef.current = point;
+
+    return didDraw;
   };
 }
 
@@ -274,14 +312,14 @@ function drawingOnMouseMove({
 }) {
   return (e) => {
     if (!isDrawing) {
-      return;
+      return false;
     }
     const point = getXY(e);
     const currStrokesRef = isEraser ? eraserStrokesRef : strokesRef;
     const currStroke =
       currStrokesRef.current[currStrokesRef.current.length - 1];
     if (!currStroke) {
-      return;
+      return false;
     }
 
     if (isEraser) {
@@ -324,6 +362,8 @@ function drawingOnMouseMove({
       currStroke.points.push(point);
       prevPointRef.current = point;
     }
+
+    return true;
   };
 }
 
@@ -342,7 +382,7 @@ function drawingOnMouseUp({
 }) {
   return () => {
     if (!isDrawing) {
-      return;
+      return false;
     }
     if (isEraser) {
       const artifactState = useArtifacts.getState().x;
@@ -400,7 +440,8 @@ function drawingOnMouseUp({
       tempCanvasRefs,
       draftCanvasRef,
     );
-    // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
+
+    return true;
   };
 }
 

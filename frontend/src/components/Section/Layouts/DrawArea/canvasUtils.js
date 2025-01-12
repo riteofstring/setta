@@ -430,9 +430,9 @@ export function maybeGetImgSizeFromArtifact(artifact) {
   return null;
 }
 
-export const debouncedSendDrawingToInteractiveTasks = _.debounce(
+export const throttledSendDrawingToInteractiveTasks = _.throttle(
   (sectionId, fnToBase64) => {
     sendToInteractiveTasks([sectionId, "drawing"], fnToBase64());
   },
-  500,
+  200,
 );

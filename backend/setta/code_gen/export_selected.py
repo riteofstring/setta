@@ -26,8 +26,8 @@ def get_artifacts(p, id):
     return p["sections"][id]["artifacts"]
 
 
-def get_drawings(p, id):
-    return p["sections"][id]["drawings"]
+def get_drawing(p, id):
+    return p["sections"][id]["drawing"]
 
 
 def get_section_name(p, id):
@@ -534,7 +534,7 @@ class ExporterForInMemoryFn:
                 C.GROUP,
                 # C.IMAGE,
                 # C.CHART,
-                # C.DRAW,
+                C.DRAW,
                 C.GLOBAL_VARIABLES,
             ],
         )
@@ -573,9 +573,9 @@ class ExporterForInMemoryFn:
         # elif type in [C.IMAGE, C.CHART]:
         #     value = get_artifacts(self.p, id)
         #     self.create_var_mapping((id, "artifact"), name)
-        # elif type == C.DRAW:
-        #     value = get_drawings(self.p, id)
-        #     self.create_var_mapping((id, "drawing"), name)
+        elif type == C.DRAW:
+            value = get_drawing(self.p, id)
+            self.create_var_mapping((id, "drawing"), name)
         elif type == C.GLOBAL_VARIABLES:
             self.output.update(self.export_section_params(id, "", is_global=True))
             value_is_returned = False

@@ -3,13 +3,18 @@
     "id": "13181374-a2d7-44d1-9ecf-f3d121dcc7fc",
     "name": "img_to_img",
     "previewImgColor": "bg-orange-500/60 dark:bg-orange-600/30",
+    "viewport": {
+      "x": 51.21418658442556,
+      "y": 108.47185813415571,
+      "zoom": 0.5242868157286045
+    },
     "children": {
-      "a7ed7b7d-5708-434a-87f7-7857511efc73": {
-        "x": 90,
-        "y": -15,
-        "zIndex": 1,
-        "w": 526,
-        "h": 622
+      "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d": {
+        "x": 885,
+        "y": 225,
+        "zIndex": 3,
+        "w": 502,
+        "h": 222
       },
       "9b219263-3d97-493d-8add-f54b5142a500": {
         "x": 780,
@@ -18,25 +23,25 @@
         "w": 202,
         "h": 102
       },
-      "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d": {
-        "x": 885,
-        "y": 225,
-        "zIndex": 3,
-        "w": 502,
-        "h": 222
+      "a7ed7b7d-5708-434a-87f7-7857511efc73": {
+        "x": 90,
+        "y": -15,
+        "zIndex": 1,
+        "w": 526,
+        "h": 622
       }
     }
   },
   "sectionVariants": {
-    "f027b326-9317-47c6-a7c5-127a543dac8d": {
-      "name": "graceful_beige"
-    },
     "08eb54f9-8e51-4081-a74b-645acd89151f": {
       "name": "relaxed_rose"
     },
     "b86565ba-e641-45ef-986c-0a85d1c14629": {
       "name": "racial_ivory",
-      "code": "from setta.tasks.fns import SettaInMemoryFn\n\n\ndef drawing_to_img(project):\n    print(\"received project\")\n    return None\n\n\nfn = SettaInMemoryFn(fn=drawing_to_img)\n"
+      "code": "from setta.tasks.fns import SettaInMemoryFn\n\n\ndef drawing_to_img(project):\n    print(\"received project\")\n    return []\n\n\nfn = SettaInMemoryFn(fn=drawing_to_img)\n"
+    },
+    "f027b326-9317-47c6-a7c5-127a543dac8d": {
+      "name": "graceful_beige"
     }
   },
   "artifacts": {
@@ -65,6 +70,24 @@
   "uiTypes": {},
   "uiTypeCols": {},
   "sections": {
+    "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d": {
+      "id": "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d",
+      "name": "code",
+      "size": {
+        "width": 500
+      },
+      "variantId": "b86565ba-e641-45ef-986c-0a85d1c14629",
+      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
+      "variantIds": ["b86565ba-e641-45ef-986c-0a85d1c14629"],
+      "runInMemory": true
+    },
+    "9b219263-3d97-493d-8add-f54b5142a500": {
+      "id": "9b219263-3d97-493d-8add-f54b5142a500",
+      "name": "output_image",
+      "variantId": "08eb54f9-8e51-4081-a74b-645acd89151f",
+      "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
+      "variantIds": ["08eb54f9-8e51-4081-a74b-645acd89151f"]
+    },
     "a7ed7b7d-5708-434a-87f7-7857511efc73": {
       "id": "a7ed7b7d-5708-434a-87f7-7857511efc73",
       "name": "input_image",
@@ -79,24 +102,6 @@
       "canvasSettings": {
         "activeLayerId": "00dd4f58-01ab-44f3-b884-cc1e9a397f5f"
       }
-    },
-    "9b219263-3d97-493d-8add-f54b5142a500": {
-      "id": "9b219263-3d97-493d-8add-f54b5142a500",
-      "name": "output_image",
-      "variantId": "08eb54f9-8e51-4081-a74b-645acd89151f",
-      "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
-      "variantIds": ["08eb54f9-8e51-4081-a74b-645acd89151f"]
-    },
-    "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d": {
-      "id": "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d",
-      "name": "code",
-      "size": {
-        "width": 500
-      },
-      "variantId": "b86565ba-e641-45ef-986c-0a85d1c14629",
-      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-      "variantIds": ["b86565ba-e641-45ef-986c-0a85d1c14629"],
-      "runInMemory": true
     }
   },
   "codeInfo": {},
