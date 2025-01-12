@@ -2,6 +2,7 @@ import json
 
 from setta.cli.logger import get_wrapper_for_loading
 from setta.utils.constants import C
+from setta.utils.utils import try_json
 
 
 def load_artifacts(db, ids):
@@ -19,7 +20,7 @@ def load_artifacts(db, ids):
         output[row["id"]] = {
             "name": row["name"],
             "path": row["path"],
-            "value": json.loads(row["value"]),
+            "value": try_json(row["value"]),
             "type": row["type"],
         }
 

@@ -129,7 +129,7 @@ def recursive_dict_merge(dict1, dict2, strict_top_level_keys=False):
 def try_json(x):
     try:
         return json.loads(x)
-    except JSONDecodeError:
+    except (JSONDecodeError, TypeError):
         return x
 
 
