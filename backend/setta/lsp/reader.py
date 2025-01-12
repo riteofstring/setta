@@ -199,7 +199,9 @@ class LanguageServerReader(LanguageServerInteractor):
         while not self.stop_event.is_set():
             chunk = await self.server.stdout.read(1)
             if not chunk:
-                break
+                # Server stdout closed/EOF reached
+                self.stop_event.set()  # Signal to stop
+                return
             headers += chunk
             if headers.endswith(b"\r\n\r\n"):
                 break
@@ -219,7 +221,9 @@ class LanguageServerReader(LanguageServerInteractor):
         while len(response) < content_length and not self.stop_event.is_set():
             chunk = await self.server.stdout.read(content_length - len(response))
             if not chunk:
-                break
+                # Server stdout closed/EOF reached
+                self.stop_event.set()  # Signal to stop
+                return
             response += chunk
 
         if self.stop_event.is_set():
