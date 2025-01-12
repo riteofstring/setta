@@ -18,6 +18,10 @@ def seed_examples(db):
         str(get_absolute_path(__file__, SEED_FOLDER / "examples/**/*.json"))
     )
     for filepath in example_jsons:
+        if "hf_finetuning_2" in filepath:
+            continue
+        if "hf_finetuning_copy" in filepath:
+            continue
         with open(filepath, "r") as f:
             data = json.load(f)
         add_defaults_to_project(data)  # json files don't have all the defaults
