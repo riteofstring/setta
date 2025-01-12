@@ -92,8 +92,6 @@ function setSectionName(sectionId, name) {
 function useTitleIsEditable(sectionId) {
   return useSectionInfos((x) => {
     const isUneditableType = [
-      C.IMAGE,
-      C.CHART,
       C.GLOBAL_VARIABLES,
       C.PARAM_SWEEP,
       C.GLOBAL_PARAM_SWEEP,
