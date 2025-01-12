@@ -3,102 +3,34 @@
     "id": "421b6591-a038-4f6c-8ac1-873df4e3986f",
     "name": "hf_finetuning",
     "previewImgColor": "bg-green-500/60 dark:bg-green-600/30",
-    "viewport": {
-      "x": 541.4876311875094,
-      "y": 291.3626118128637,
-      "zoom": 0.43471235406254566
-    },
     "children": {
       "093adddf-0c8f-4a33-a00d-56aa4680f172": {
-        "x": 1290,
-        "y": -90,
-        "zIndex": 3,
+        "x": 1285.1341343976594,
+        "y": 223.8483313509601,
+        "zIndex": 4,
         "w": 202,
         "h": 138
       },
-      "1208afa8-a38d-4b98-be08-1bcf4381834b": {
-        "x": 420,
-        "y": 90,
-        "zIndex": 0,
-        "w": 257,
-        "h": 156
-      },
       "161346b7-e7cd-48d8-901c-c4d5db02ae88": {
-        "x": 1005,
-        "y": 105,
-        "zIndex": 13,
+        "x": 535.0696804671663,
+        "y": 215.74719067855392,
+        "zIndex": 3,
         "w": 677,
-        "h": 458
+        "h": 459
       },
-      "24cfaaf2-c025-4101-a0a4-0c788801968d": {
-        "x": 705,
-        "y": 90,
-        "zIndex": 2,
-        "w": 272,
-        "h": 524
+      "2cf97913-b000-4ddd-b5d3-c235724970bf": {
+        "x": 519.174087889749,
+        "y": -1184.6396173710887,
+        "zIndex": 0,
+        "w": 2110,
+        "h": 636
       },
-      "363f22f6-beec-4392-9e77-e096d01b609f": {
-        "x": -15,
-        "y": -75,
-        "zIndex": 10,
-        "w": 303,
-        "h": 3268
-      },
-      "4919a72d-05a0-4e04-9616-679464cfe3a0": {
-        "x": 975,
-        "y": -90,
+      "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c": {
+        "x": 525.0336542710568,
+        "y": -522.3710300635282,
         "zIndex": 1,
-        "w": 242,
-        "h": 172
-      },
-      "5c167035-ed45-4864-9a90-6d096db3583b": {
-        "x": 557.3085989787912,
-        "y": -381.99048145859854,
-        "zIndex": 9,
-        "w": 202,
-        "h": 124
-      },
-      "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0": {
-        "x": 916.8113501073288,
-        "y": -342.0457313332054,
-        "zIndex": 11,
-        "w": 202,
-        "h": 444
-      },
-      "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
-        "x": 315,
-        "y": 270,
-        "zIndex": 7,
-        "w": 362,
-        "h": 556
-      },
-      "7ba1a244-1a3b-41d3-a3fe-6b88180bf7cb": {
-        "x": 95.40662198781257,
-        "y": -512.2354240254886,
-        "zIndex": 8,
-        "w": 334,
-        "h": 388
-      },
-      "81723767-1611-48c8-b2ab-5d145f53b516": {
-        "x": 465,
-        "y": -120,
-        "zIndex": 6,
-        "w": 377,
-        "h": 204
-      },
-      "b3f05acb-cb47-463d-a875-ca9a1d05bdf3": {
-        "x": 1020,
-        "y": 405,
-        "zIndex": 4,
-        "w": 407,
-        "h": 236
-      },
-      "f9bfda0e-6786-4124-9efe-edd085db6480": {
-        "x": 1455,
-        "y": 405,
-        "zIndex": 5,
-        "w": 392,
-        "h": 236
+        "w": 1716,
+        "h": 684
       }
     }
   },
@@ -117,11 +49,11 @@
       "name": "level_brown",
       "values": {
         "a47fb2c4-d982-44ce-912d-7ea93a06b4ef": {
-          "value": "tokenizer",
+          "value": "dataset_setup[\"tokenizer\"]",
           "evRefs": [
             {
               "sectionId": "1208afa8-a38d-4b98-be08-1bcf4381834b",
-              "keyword": "tokenizer"
+              "keyword": "dataset_setup[\"tokenizer\"]"
             }
           ]
         },
@@ -151,11 +83,11 @@
       "name": "unfortunate_apricot",
       "values": {
         "092f94ce-45a2-4007-8e5e-cbe731635476": {
-          "value": "tokenizer_function",
+          "value": "dataset_setup[\"tokenizer_function\"]",
           "evRefs": [
             {
               "sectionId": "4919a72d-05a0-4e04-9616-679464cfe3a0",
-              "keyword": "tokenizer_function"
+              "keyword": "dataset_setup[\"tokenizer_function\"]"
             }
           ]
         }
@@ -165,12 +97,12 @@
     },
     "8c6ab656-ea9a-42e1-9257-a99084eba0ae": {
       "name": "gradual_bronze",
-      "code": "from transformers import AutoTokenizer\nfrom transformers import AutoModelForSequenceClassification\nimport numpy as np\n\ndef get_compute_metrics(metric):\n    def compute_metrics(eval_pred):\n        logits, labels = eval_pred\n        predictions = np.argmax(logits, axis=-1)\n        return metric.compute(predictions=predictions, references=labels)\n    return compute_metrics\n    \n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n\ntrainer.train()\n",
+      "code": "from transformers import AutoTokenizer\nfrom transformers import AutoModelForSequenceClassification\nimport numpy as np\n\ndef get_compute_metrics(metric):\n    def compute_metrics(eval_pred):\n        logits, labels = eval_pred\n        predictions = np.argmax(logits, axis=-1)\n        return metric.compute(predictions=predictions, references=labels)\n    return compute_metrics\n    \n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n\ntraining_setup[\"trainer\"].train()\n",
       "evRefs": [
         {
           "sectionId": "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0",
           "startPos": 574,
-          "keyword": "trainer"
+          "keyword": "training_setup[\"trainer\"]"
         }
       ],
       "templateVars": [
@@ -224,11 +156,11 @@
       "name": "little_azure",
       "values": {
         "ff410e29-221b-4000-95e5-d136d75f7b79": {
-          "value": "metric",
+          "value": "training_setup[\"metric\"]",
           "evRefs": [
             {
               "sectionId": "7ba1a244-1a3b-41d3-a3fe-6b88180bf7cb",
-              "keyword": "metric"
+              "keyword": "training_setup[\"metric\"]"
             }
           ]
         }
@@ -271,47 +203,47 @@
       "name": "xerothermic_harlequin",
       "values": {
         "37f1709a-0c04-45cc-8d0a-c816a48d4d74": {
-          "value": "compute_metrics",
+          "value": "training_setup[\"compute_metrics\"]",
           "evRefs": [
             {
               "sectionId": "5c167035-ed45-4864-9a90-6d096db3583b",
-              "keyword": "compute_metrics"
+              "keyword": "training_setup[\"compute_metrics\"]"
             }
           ]
         },
         "4ab39e51-1d97-4959-bf3c-343b97b9bffd": {
-          "value": "small_eval_dataset",
+          "value": "dataset_setup[\"small_eval_dataset\"]",
           "evRefs": [
             {
               "sectionId": "f9bfda0e-6786-4124-9efe-edd085db6480",
-              "keyword": "small_eval_dataset"
+              "keyword": "dataset_setup[\"small_eval_dataset\"]"
             }
           ]
         },
         "93921c6f-74c9-435f-b7b5-77f87f453cf3": {
-          "value": "training_args",
+          "value": "training_setup[\"training_args\"]",
           "evRefs": [
             {
               "sectionId": "363f22f6-beec-4392-9e77-e096d01b609f",
-              "keyword": "training_args"
+              "keyword": "training_setup[\"training_args\"]"
             }
           ]
         },
         "a5f2ee73-1883-41b2-b475-97d2e958397e": {
-          "value": "small_train_dataset",
+          "value": "dataset_setup[\"small_train_dataset\"]",
           "evRefs": [
             {
               "sectionId": "b3f05acb-cb47-463d-a875-ca9a1d05bdf3",
-              "keyword": "small_train_dataset"
+              "keyword": "dataset_setup[\"small_train_dataset\"]"
             }
           ]
         },
         "ca6857c9-59ad-478d-8732-14c00e5a8f7c": {
-          "value": "model",
+          "value": "training_setup[\"model\"]",
           "evRefs": [
             {
               "sectionId": "81723767-1611-48c8-b2ab-5d145f53b516",
-              "keyword": "model"
+              "keyword": "training_setup[\"model\"]"
             }
           ]
         }
@@ -339,6 +271,27 @@
       },
       "selectedItem": "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97",
       "codeInfoColId": "791d3c96-e490-4612-ba99-d94e3b2d6653"
+    },
+    "9d625ea3-88b1-44c1-85c1-ae24629a98bc": {
+      "name": "dry_fuchsia",
+      "children": [
+        "66d39f20-3b35-4bec-8d74-fa7ab55f94f6",
+        "1208afa8-a38d-4b98-be08-1bcf4381834b",
+        "4919a72d-05a0-4e04-9616-679464cfe3a0",
+        "24cfaaf2-c025-4101-a0a4-0c788801968d",
+        "b3f05acb-cb47-463d-a875-ca9a1d05bdf3",
+        "f9bfda0e-6786-4124-9efe-edd085db6480"
+      ]
+    },
+    "5c91a373-ed7d-4c6e-aa30-cfc9259b2565": {
+      "name": "average_blue",
+      "children": [
+        "81723767-1611-48c8-b2ab-5d145f53b516",
+        "7ba1a244-1a3b-41d3-a3fe-6b88180bf7cb",
+        "5c167035-ed45-4864-9a90-6d096db3583b",
+        "363f22f6-beec-4392-9e77-e096d01b609f",
+        "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0"
+      ]
     }
   },
   "artifacts": {},
@@ -360,6 +313,7 @@
       "size": {
         "width": 255
       },
+      "parentId": "2cf97913-b000-4ddd-b5d3-c235724970bf",
       "variantId": "393c89bc-0835-48fd-a10c-7f73fb6fa820",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["393c89bc-0835-48fd-a10c-7f73fb6fa820"],
@@ -379,8 +333,9 @@
       "id": "24cfaaf2-c025-4101-a0a4-0c788801968d",
       "name": "tokenized_datasets",
       "size": {
-        "width": 270
+        "width": 360
       },
+      "parentId": "2cf97913-b000-4ddd-b5d3-c235724970bf",
       "variantId": "832dfd68-6b3b-4573-8f4f-c8014a9426fc",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["832dfd68-6b3b-4573-8f4f-c8014a9426fc"],
@@ -392,9 +347,11 @@
       "size": {
         "width": 301
       },
+      "parentId": "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c",
       "variantId": "cb9763e6-7c1d-4dc9-af60-2e9204cca081",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["cb9763e6-7c1d-4dc9-af60-2e9204cca081"],
+      "hideUnpinnedParams": true,
       "columnWidth": 132.5
     },
     "4919a72d-05a0-4e04-9616-679464cfe3a0": {
@@ -403,6 +360,7 @@
       "size": {
         "width": 240
       },
+      "parentId": "2cf97913-b000-4ddd-b5d3-c235724970bf",
       "variantId": "67b60326-601c-47cb-820c-5729f37c94a4",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["67b60326-601c-47cb-820c-5729f37c94a4"],
@@ -411,6 +369,10 @@
     "5c167035-ed45-4864-9a90-6d096db3583b": {
       "id": "5c167035-ed45-4864-9a90-6d096db3583b",
       "name": "compute_metrics",
+      "size": {
+        "width": 375
+      },
+      "parentId": "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c",
       "variantId": "ce44feaa-dc0f-4b8a-945c-82192d8c14bf",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["ce44feaa-dc0f-4b8a-945c-82192d8c14bf"],
@@ -419,6 +381,7 @@
     "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0": {
       "id": "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0",
       "name": "trainer",
+      "parentId": "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c",
       "variantId": "f4d731dc-743d-4825-b677-3ebc22baaa7a",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["f4d731dc-743d-4825-b677-3ebc22baaa7a"],
@@ -430,6 +393,7 @@
       "size": {
         "width": 360
       },
+      "parentId": "2cf97913-b000-4ddd-b5d3-c235724970bf",
       "variantId": "a49c0df9-eeba-4a84-975e-6a9ef56cddda",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["a49c0df9-eeba-4a84-975e-6a9ef56cddda"],
@@ -439,8 +403,9 @@
       "id": "7ba1a244-1a3b-41d3-a3fe-6b88180bf7cb",
       "name": "metric",
       "size": {
-        "width": 332
+        "width": 375
       },
+      "parentId": "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c",
       "variantId": "ec254728-baeb-4641-8e72-96eb190c4eca",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["ec254728-baeb-4641-8e72-96eb190c4eca"],
@@ -452,6 +417,7 @@
       "size": {
         "width": 375
       },
+      "parentId": "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c",
       "variantId": "9a5117b1-ff41-4a98-85fe-496aca5b53a7",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["9a5117b1-ff41-4a98-85fe-496aca5b53a7"],
@@ -463,6 +429,7 @@
       "size": {
         "width": 405
       },
+      "parentId": "2cf97913-b000-4ddd-b5d3-c235724970bf",
       "variantId": "e4f65e7d-308e-45ec-bb0e-36129c762eb2",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["e4f65e7d-308e-45ec-bb0e-36129c762eb2"],
@@ -474,10 +441,27 @@
       "size": {
         "width": 390
       },
+      "parentId": "2cf97913-b000-4ddd-b5d3-c235724970bf",
       "variantId": "f6128d84-323e-459c-8bb0-5bd479c44f00",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["f6128d84-323e-459c-8bb0-5bd479c44f00"],
       "columnWidth": 177
+    },
+    "2cf97913-b000-4ddd-b5d3-c235724970bf": {
+      "id": "2cf97913-b000-4ddd-b5d3-c235724970bf",
+      "name": "dataset_setup",
+      "variantId": "9d625ea3-88b1-44c1-85c1-ae24629a98bc",
+      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
+      "variantIds": ["9d625ea3-88b1-44c1-85c1-ae24629a98bc"],
+      "isHorizontalOrientation": true
+    },
+    "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c": {
+      "id": "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c",
+      "name": "training_setup",
+      "variantId": "5c91a373-ed7d-4c6e-aa30-cfc9259b2565",
+      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
+      "variantIds": ["5c91a373-ed7d-4c6e-aa30-cfc9259b2565"],
+      "isHorizontalOrientation": true
     }
   },
   "codeInfo": {
@@ -819,18 +803,18 @@
     },
     "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97": {
       "id": "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97",
-      "name": "tokenized_datasets[\"test\"].shuffle(seed=seed).select",
+      "name": "dataset_setup[\"tokenized_datasets\"][\"test\"].shuffle(seed=seed).select",
       "rcType": "callable",
       "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
       "evRefs": [
         {
           "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
-          "keyword": "tokenized_datasets"
+          "keyword": "dataset_setup[\"tokenized_datasets\"]"
         },
         {
           "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
           "paramInfoId": "27139828-f120-4514-bd18-fe9f013abff1",
-          "startPos": 40,
+          "startPos": 57,
           "keyword": "seed"
         }
       ]
@@ -964,13 +948,13 @@
     },
     "56c89985-9ac5-464e-86df-6da9069106fc": {
       "id": "56c89985-9ac5-464e-86df-6da9069106fc",
-      "name": "dataset.map",
+      "name": "dataset_setup[\"dataset\"].map",
       "rcType": "callable",
       "description": "Apply a function to all the elements in the table (individually or in batches)\nand update the table (if function does updated examples).\nThe transformation is applied to all the datasets of the dataset dictionary.\n\nArgs:\n    function (`callable`): with one of the following signature:\n        - `function(example: Dict[str, Any]) -> Dict[str, Any]` if `batched=False` and `with_indices=False`\n        - `function(example: Dict[str, Any], indices: int) -> Dict[str, Any]` if `batched=False` and `with_indices=True`\n        - `function(batch: Dict[str, List]) -> Dict[str, List]` if `batched=True` and `with_indices=False`\n        - `function(batch: Dict[str, List], indices: List[int]) -> Dict[str, List]` if `batched=True` and `with_indices=True`\n\n        For advanced usage, the function can also return a `pyarrow.Table`.\n        Moreover if your function returns nothing (`None`), then `map` will run your function and return the dataset unchanged.\n\n    with_indices (`bool`, defaults to `False`):\n        Provide example indices to `function`. Note that in this case the signature of `function` should be `def function(example, idx): ...`.\n    with_rank (`bool`, defaults to `False`):\n        Provide process rank to `function`. Note that in this case the\n        signature of `function` should be `def function(example[, idx], rank): ...`.\n    input_columns (`[Union[str, List[str]]]`, *optional*, defaults to `None`):\n        The columns to be passed into `function` as\n        positional arguments. If `None`, a dict mapping to all formatted columns is passed as one argument.\n    batched (`bool`, defaults to `False`):\n        Provide batch of examples to `function`.\n    batch_size (`int`, *optional*, defaults to `1000`):\n        Number of examples per batch provided to `function` if `batched=True`,\n        `batch_size <= 0` or `batch_size == None` then provide the full dataset as a single batch to `function`.\n    drop_last_batch (`bool`, defaults to `False`):\n        Whether a last batch smaller than the batch_size should be\n        dropped instead of being processed by the function.\n    remove_columns (`[Union[str, List[str]]]`, *optional*, defaults to `None`):\n        Remove a selection of columns while doing the mapping.\n        Columns will be removed before updating the examples with the output of `function`, i.e. if `function` is adding\n        columns with names in `remove_columns`, these columns will be kept.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the dataset in memory instead of writing it to a cache file.\n    load_from_cache_file (`Optional[bool]`, defaults to `True` if caching is enabled):\n        If a cache file storing the current computation from `function`\n        can be identified, use it instead of recomputing.\n    cache_file_names (`[Dict[str, str]]`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        results of the computation instead of the automatically generated cache file name.\n        You have to provide one `cache_file_name` per dataset in the dataset dictionary.\n    writer_batch_size (`int`, default `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    features (`[datasets.Features]`, *optional*, defaults to `None`):\n        Use a specific [`Features`] to store the cache file\n        instead of the automatically generated one.\n    disable_nullable (`bool`, defaults to `False`):\n        Disallow null values in the table.\n    fn_kwargs (`Dict`, *optional*, defaults to `None`):\n        Keyword arguments to be passed to `function`\n    num_proc (`int`, *optional*, defaults to `None`):\n        Number of processes for multiprocessing. By default it doesn't\n        use multiprocessing.\n    desc (`str`, *optional*, defaults to `None`):\n        Meaningful description to be displayed alongside with the progress bar while mapping examples.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\")\n>>> def add_prefix(example):\n...     example[\"text\"] = \"Review: \" + example[\"text\"]\n...     return example\n>>> ds = ds.map(add_prefix)\n>>> ds[\"train\"][0:3][\"text\"]\n['Review: the rock is destined to be the 21st century's new \" conan \" and that he's going to make a splash even greater than arnold schwarzenegger , jean-claud van damme or steven segal .',\n 'Review: the gorgeously elaborate continuation of \" the lord of the rings \" trilogy is so huge that a column of words cannot adequately describe co-writer/director peter jackson's expanded vision of j . r . r . tolkien's middle-earth .',\n 'Review: effective but too-tepid biopic']\n\n# process a batch of examples\n>>> ds = ds.map(lambda example: tokenizer(example[\"text\"]), batched=True)\n# set number of processors\n>>> ds = ds.map(add_prefix, num_proc=4)\n```",
       "evRefs": [
         {
           "sectionId": "66d39f20-3b35-4bec-8d74-fa7ab55f94f6",
-          "keyword": "dataset"
+          "keyword": "dataset_setup[\"dataset\"]"
         }
       ]
     },
@@ -1115,7 +1099,8 @@
     "78244c98-2f1f-47f1-b027-e33d6582aad8": {
       "id": "78244c98-2f1f-47f1-b027-e33d6582aad8",
       "name": "eval_strategy",
-      "defaultVal": "\"no\""
+      "defaultVal": "\"no\"",
+      "isPinned": true
     },
     "78cae679-5cbb-4f48-8a30-e2a060ce0da0": {
       "id": "78cae679-5cbb-4f48-8a30-e2a060ce0da0",
@@ -1145,7 +1130,8 @@
     "7c7b8de0-a95e-466f-91ef-e787c501614d": {
       "id": "7c7b8de0-a95e-466f-91ef-e787c501614d",
       "name": "output_dir",
-      "description": "output_dir (`str`):"
+      "description": "output_dir (`str`):",
+      "isPinned": true
     },
     "7c8d978f-4211-431e-8135-0e7b0a59bbed": {
       "id": "7c8d978f-4211-431e-8135-0e7b0a59bbed",
@@ -1499,24 +1485,18 @@
     },
     "d0bf7204-56d2-4c9c-8b3d-24efca52a8e3": {
       "id": "d0bf7204-56d2-4c9c-8b3d-24efca52a8e3",
-      "name": "tokenized_datasets[\"train\"].shuffle(seed=seed).select",
+      "name": "dataset_setup[\"tokenized_datasets\"][\"train\"].shuffle(seed=seed).select",
       "rcType": "callable",
       "description": "Create a new dataset with rows selected following the list/array of indices.\n\nArgs:\n    indices (`range`, `list`, `iterable`, `ndarray` or `Series`):\n        Range, list or 1D-array of integer indices for indexing.\n        If the indices correspond to a contiguous range, the Arrow table is simply sliced.\n        However passing a list of indices that are not contiguous creates indices mapping, which is much less efficient,\n        but still faster than recreating an Arrow table made of the requested rows.\n    keep_in_memory (`bool`, defaults to `False`):\n        Keep the indices mapping in memory instead of writing it to a cache file.\n    indices_cache_file_name (`str`, *optional*, defaults to `None`):\n        Provide the name of a path for the cache file. It is used to store the\n        indices mapping instead of the automatically generated cache file name.\n    writer_batch_size (`int`, defaults to `1000`):\n        Number of rows per write operation for the cache file writer.\n        This value is a good trade-off between memory usage during the processing, and processing speed.\n        Higher value makes the processing do fewer lookups, lower value consume less temporary memory while running `map`.\n    new_fingerprint (`str`, *optional*, defaults to `None`):\n        The new fingerprint of the dataset after transform.\n        If `None`, the new fingerprint is computed using a hash of the previous fingerprint, and the transform arguments.\n\nExample:\n\n```py\n>>> from datasets import load_dataset\n>>> ds = load_dataset(\"rotten_tomatoes\", split=\"validation\")\n>>> ds.select(range(4))\nDataset({\n    features: ['text', 'label'],\n    num_rows: 4\n})\n```",
       "evRefs": [
         {
           "sectionId": "24cfaaf2-c025-4101-a0a4-0c788801968d",
-          "keyword": "tokenized_datasets"
+          "keyword": "dataset_setup[\"tokenized_datasets\"]"
         },
         {
           "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
           "paramInfoId": "27139828-f120-4514-bd18-fe9f013abff1",
-          "startPos": 41,
-          "keyword": "seed"
-        },
-        {
-          "sectionId": "093adddf-0c8f-4a33-a00d-56aa4680f172",
-          "paramInfoId": "27139828-f120-4514-bd18-fe9f013abff1",
-          "startPos": 41,
+          "startPos": 58,
           "keyword": "seed"
         }
       ]
