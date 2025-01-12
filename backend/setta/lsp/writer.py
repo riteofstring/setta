@@ -111,10 +111,10 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_didChangeConfiguration(self):
         # THIS FORMAT WORKS
-        # hardcoded_settings = {
-        #     "basedpyright": {"analysis": {"exclude": ["setta_code"]}}
-        # }
-        hardcoded_settings = {}
+        hardcoded_settings = {
+            "basedpyright": {"analysis": {"autoImportCompletions": True}}
+        }
+        # hardcoded_settings = {}
         settings = recursive_dict_merge(hardcoded_settings, self.settings)
 
         await self.send_request(
