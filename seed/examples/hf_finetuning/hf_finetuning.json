@@ -4,9 +4,9 @@
     "name": "hf_finetuning",
     "previewImgColor": "bg-green-500/60 dark:bg-green-600/30",
     "viewport": {
-      "x": 428.15182496429003,
-      "y": 299.2176018484036,
-      "zoom": 0.4826878845050485
+      "x": 541.4876311875094,
+      "y": 291.3626118128637,
+      "zoom": 0.43471235406254566
     },
     "children": {
       "093adddf-0c8f-4a33-a00d-56aa4680f172": {
@@ -26,9 +26,9 @@
       "161346b7-e7cd-48d8-901c-c4d5db02ae88": {
         "x": 1005,
         "y": 105,
-        "zIndex": 9,
+        "zIndex": 13,
         "w": 677,
-        "h": 422
+        "h": 458
       },
       "24cfaaf2-c025-4101-a0a4-0c788801968d": {
         "x": 705,
@@ -40,8 +40,8 @@
       "363f22f6-beec-4392-9e77-e096d01b609f": {
         "x": -15,
         "y": -75,
-        "zIndex": 11,
-        "w": 257,
+        "zIndex": 10,
+        "w": 303,
         "h": 3268
       },
       "4919a72d-05a0-4e04-9616-679464cfe3a0": {
@@ -54,14 +54,14 @@
       "5c167035-ed45-4864-9a90-6d096db3583b": {
         "x": 557.3085989787912,
         "y": -381.99048145859854,
-        "zIndex": 10,
+        "zIndex": 9,
         "w": 202,
         "h": 124
       },
       "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0": {
         "x": 916.8113501073288,
         "y": -342.0457313332054,
-        "zIndex": 12,
+        "zIndex": 11,
         "w": 202,
         "h": 444
       },
@@ -76,7 +76,7 @@
         "x": 95.40662198781257,
         "y": -512.2354240254886,
         "zIndex": 8,
-        "w": 323,
+        "w": 334,
         "h": 388
       },
       "81723767-1611-48c8-b2ab-5d145f53b516": {
@@ -165,7 +165,14 @@
     },
     "8c6ab656-ea9a-42e1-9257-a99084eba0ae": {
       "name": "gradual_bronze",
-      "code": "from transformers import AutoTokenizer\nfrom transformers import AutoModelForSequenceClassification\nimport numpy as np\n\ndef get_compute_metrics(metric):\n    def compute_metrics(eval_pred):\n        logits, labels = eval_pred\n        predictions = np.argmax(logits, axis=-1)\n        return metric.compute(predictions=predictions, references=labels)\n    return compute_metrics\n    \n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n",
+      "code": "from transformers import AutoTokenizer\nfrom transformers import AutoModelForSequenceClassification\nimport numpy as np\n\ndef get_compute_metrics(metric):\n    def compute_metrics(eval_pred):\n        logits, labels = eval_pred\n        predictions = np.argmax(logits, axis=-1)\n        return metric.compute(predictions=predictions, references=labels)\n    return compute_metrics\n    \n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n\ntrainer.train()\n",
+      "evRefs": [
+        {
+          "sectionId": "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0",
+          "startPos": 574,
+          "keyword": "trainer"
+        }
+      ],
       "templateVars": [
         {
           "sectionId": null,
@@ -383,12 +390,12 @@
       "id": "363f22f6-beec-4392-9e77-e096d01b609f",
       "name": "training_args",
       "size": {
-        "width": 255
+        "width": 301
       },
       "variantId": "cb9763e6-7c1d-4dc9-af60-2e9204cca081",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["cb9763e6-7c1d-4dc9-af60-2e9204cca081"],
-      "columnWidth": 109.5
+      "columnWidth": 132.5
     },
     "4919a72d-05a0-4e04-9616-679464cfe3a0": {
       "id": "4919a72d-05a0-4e04-9616-679464cfe3a0",
@@ -432,12 +439,12 @@
       "id": "7ba1a244-1a3b-41d3-a3fe-6b88180bf7cb",
       "name": "metric",
       "size": {
-        "width": 321
+        "width": 332
       },
       "variantId": "ec254728-baeb-4641-8e72-96eb190c4eca",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["ec254728-baeb-4641-8e72-96eb190c4eca"],
-      "columnWidth": 142.5
+      "columnWidth": 148
     },
     "81723767-1611-48c8-b2ab-5d145f53b516": {
       "id": "81723767-1611-48c8-b2ab-5d145f53b516",
