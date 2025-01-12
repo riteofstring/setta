@@ -7,16 +7,23 @@
       "093adddf-0c8f-4a33-a00d-56aa4680f172": {
         "x": 1285.1341343976594,
         "y": 223.8483313509601,
-        "zIndex": 4,
+        "zIndex": 1,
         "w": 202,
         "h": 138
       },
       "161346b7-e7cd-48d8-901c-c4d5db02ae88": {
         "x": 535.0696804671663,
         "y": 215.74719067855392,
+        "zIndex": 5,
+        "w": 853,
+        "h": 841
+      },
+      "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c": {
+        "x": 525.0336542710568,
+        "y": -522.3710300635282,
         "zIndex": 3,
-        "w": 677,
-        "h": 459
+        "w": 1886,
+        "h": 788
       },
       "2cf97913-b000-4ddd-b5d3-c235724970bf": {
         "x": 519.174087889749,
@@ -24,13 +31,6 @@
         "zIndex": 0,
         "w": 2110,
         "h": 636
-      },
-      "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c": {
-        "x": 525.0336542710568,
-        "y": -522.3710300635282,
-        "zIndex": 1,
-        "w": 1716,
-        "h": 684
       }
     }
   },
@@ -44,6 +44,16 @@
       },
       "selectedItem": "e9c0e184-aa25-4650-8b7c-18ad20b1dc80",
       "codeInfoColId": "b38a378c-0fb8-474c-ab61-0432efc80c39"
+    },
+    "5c91a373-ed7d-4c6e-aa30-cfc9259b2565": {
+      "name": "average_blue",
+      "children": [
+        "81723767-1611-48c8-b2ab-5d145f53b516",
+        "7ba1a244-1a3b-41d3-a3fe-6b88180bf7cb",
+        "5c167035-ed45-4864-9a90-6d096db3583b",
+        "363f22f6-beec-4392-9e77-e096d01b609f",
+        "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0"
+      ]
     },
     "67b60326-601c-47cb-820c-5729f37c94a4": {
       "name": "level_brown",
@@ -97,18 +107,18 @@
     },
     "8c6ab656-ea9a-42e1-9257-a99084eba0ae": {
       "name": "gradual_bronze",
-      "code": "from transformers import AutoTokenizer\nfrom transformers import AutoModelForSequenceClassification\nimport numpy as np\n\ndef get_compute_metrics(metric):\n    def compute_metrics(eval_pred):\n        logits, labels = eval_pred\n        predictions = np.argmax(logits, axis=-1)\n        return metric.compute(predictions=predictions, references=labels)\n    return compute_metrics\n    \n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n\ntraining_setup[\"trainer\"].train()\n",
+      "code": "from transformers import (\n    AutoTokenizer,\n    AutoModelForSequenceClassification,\n    TrainerCallback,\n)\nimport numpy as np\nfrom setta.cli import Setta\n\n\nclass SettaLossTracker(TrainerCallback):\n    def __init__(self):\n        self.setta_logger = Setta(\n            root_path=\"hf_finetuning_test\", send_data_to=\"/hf_finetuning\"\n        )\n        self.setta_logging_dict = {\"step\": [], \"loss\": []}\n\n    def on_log(self, args, state, control, logs=None, **kwargs):\n        if state.is_local_process_zero and logs is not None:\n            if \"loss\" in logs:\n                self.setta_logging_dict[\"step\"].append(state.global_step)\n                self.setta_logging_dict[\"loss\"].append(logs[\"loss\"])\n                self.setta_logger.log(self.setta_logging_dict, save_to=\"disk\")\n\n\ndef get_compute_metrics(metric):\n    def compute_metrics(eval_pred):\n        logits, labels = eval_pred\n        predictions = np.argmax(logits, axis=-1)\n        return metric.compute(predictions=predictions, references=labels)\n\n    return compute_metrics\n\n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n\ntraining_setup[\"trainer\"].train()\n",
       "evRefs": [
         {
           "sectionId": "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0",
-          "startPos": 574,
+          "startPos": 1235,
           "keyword": "training_setup[\"trainer\"]"
         }
       ],
       "templateVars": [
         {
           "sectionId": null,
-          "startPos": 549,
+          "startPos": 1210,
           "keyword": "$SETTA_GENERATED_PYTHON"
         }
       ]
@@ -129,6 +139,17 @@
       "selectedItem": "0eb278f6-39ca-4ecc-9bf5-561bf8850706",
       "codeInfoColId": "99ff27de-fdfe-49b3-92a1-7077da634c20"
     },
+    "9d625ea3-88b1-44c1-85c1-ae24629a98bc": {
+      "name": "dry_fuchsia",
+      "children": [
+        "66d39f20-3b35-4bec-8d74-fa7ab55f94f6",
+        "1208afa8-a38d-4b98-be08-1bcf4381834b",
+        "4919a72d-05a0-4e04-9616-679464cfe3a0",
+        "24cfaaf2-c025-4101-a0a4-0c788801968d",
+        "b3f05acb-cb47-463d-a875-ca9a1d05bdf3",
+        "f9bfda0e-6786-4124-9efe-edd085db6480"
+      ]
+    },
     "a49c0df9-eeba-4a84-975e-6a9ef56cddda": {
       "name": "prepared_blue",
       "values": {
@@ -147,6 +168,9 @@
         },
         "7c7b8de0-a95e-466f-91ef-e787c501614d": {
           "value": "\"hf_finetuning_test\""
+        },
+        "1805e7a9-4661-426b-abef-23e02e5ace90": {
+          "value": "1"
         }
       },
       "selectedItem": "5bb0f081-853d-40e2-9f8e-bbe5339443ee",
@@ -246,6 +270,9 @@
               "keyword": "training_setup[\"model\"]"
             }
           ]
+        },
+        "0ac27b52-f9f7-4e58-9d06-cc1c850f25bb": {
+          "value": "[SettaLossTracker()]"
         }
       },
       "selectedItem": "2b4713ba-83ff-49ad-b754-7f5a2d16c9f8",
@@ -272,26 +299,8 @@
       "selectedItem": "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97",
       "codeInfoColId": "791d3c96-e490-4612-ba99-d94e3b2d6653"
     },
-    "9d625ea3-88b1-44c1-85c1-ae24629a98bc": {
-      "name": "dry_fuchsia",
-      "children": [
-        "66d39f20-3b35-4bec-8d74-fa7ab55f94f6",
-        "1208afa8-a38d-4b98-be08-1bcf4381834b",
-        "4919a72d-05a0-4e04-9616-679464cfe3a0",
-        "24cfaaf2-c025-4101-a0a4-0c788801968d",
-        "b3f05acb-cb47-463d-a875-ca9a1d05bdf3",
-        "f9bfda0e-6786-4124-9efe-edd085db6480"
-      ]
-    },
-    "5c91a373-ed7d-4c6e-aa30-cfc9259b2565": {
-      "name": "average_blue",
-      "children": [
-        "81723767-1611-48c8-b2ab-5d145f53b516",
-        "7ba1a244-1a3b-41d3-a3fe-6b88180bf7cb",
-        "5c167035-ed45-4864-9a90-6d096db3583b",
-        "363f22f6-beec-4392-9e77-e096d01b609f",
-        "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0"
-      ]
+    "5760e003-ba32-490e-8435-d41a098d3c6e": {
+      "name": "supporting_indigo"
     }
   },
   "artifacts": {},
@@ -323,11 +332,19 @@
       "id": "161346b7-e7cd-48d8-901c-c4d5db02ae88",
       "name": "institutional_indigo",
       "size": {
-        "width": 675
+        "width": 851
       },
       "variantId": "8c6ab656-ea9a-42e1-9257-a99084eba0ae",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
       "variantIds": ["8c6ab656-ea9a-42e1-9257-a99084eba0ae"]
+    },
+    "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c": {
+      "id": "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c",
+      "name": "training_setup",
+      "variantId": "5c91a373-ed7d-4c6e-aa30-cfc9259b2565",
+      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
+      "variantIds": ["5c91a373-ed7d-4c6e-aa30-cfc9259b2565"],
+      "isHorizontalOrientation": true
     },
     "24cfaaf2-c025-4101-a0a4-0c788801968d": {
       "id": "24cfaaf2-c025-4101-a0a4-0c788801968d",
@@ -340,6 +357,14 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["832dfd68-6b3b-4573-8f4f-c8014a9426fc"],
       "columnWidth": 117
+    },
+    "2cf97913-b000-4ddd-b5d3-c235724970bf": {
+      "id": "2cf97913-b000-4ddd-b5d3-c235724970bf",
+      "name": "dataset_setup",
+      "variantId": "9d625ea3-88b1-44c1-85c1-ae24629a98bc",
+      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
+      "variantIds": ["9d625ea3-88b1-44c1-85c1-ae24629a98bc"],
+      "isHorizontalOrientation": true
     },
     "363f22f6-beec-4392-9e77-e096d01b609f": {
       "id": "363f22f6-beec-4392-9e77-e096d01b609f",
@@ -381,11 +406,14 @@
     "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0": {
       "id": "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0",
       "name": "trainer",
+      "size": {
+        "width": 370
+      },
       "parentId": "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c",
       "variantId": "f4d731dc-743d-4825-b677-3ebc22baaa7a",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["f4d731dc-743d-4825-b677-3ebc22baaa7a"],
-      "columnWidth": 82
+      "columnWidth": 167
     },
     "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
       "id": "66d39f20-3b35-4bec-8d74-fa7ab55f94f6",
@@ -446,22 +474,6 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["f6128d84-323e-459c-8bb0-5bd479c44f00"],
       "columnWidth": 177
-    },
-    "2cf97913-b000-4ddd-b5d3-c235724970bf": {
-      "id": "2cf97913-b000-4ddd-b5d3-c235724970bf",
-      "name": "dataset_setup",
-      "variantId": "9d625ea3-88b1-44c1-85c1-ae24629a98bc",
-      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
-      "variantIds": ["9d625ea3-88b1-44c1-85c1-ae24629a98bc"],
-      "isHorizontalOrientation": true
-    },
-    "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c": {
-      "id": "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c",
-      "name": "training_setup",
-      "variantId": "5c91a373-ed7d-4c6e-aa30-cfc9259b2565",
-      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
-      "variantIds": ["5c91a373-ed7d-4c6e-aa30-cfc9259b2565"],
-      "isHorizontalOrientation": true
     }
   },
   "codeInfo": {
@@ -593,7 +605,8 @@
     "1805e7a9-4661-426b-abef-23e02e5ace90": {
       "id": "1805e7a9-4661-426b-abef-23e02e5ace90",
       "name": "logging_steps",
-      "defaultVal": "500"
+      "defaultVal": "500",
+      "isPinned": true
     },
     "18203775-d8a9-425e-ad88-c839cde49b98": {
       "id": "18203775-d8a9-425e-ad88-c839cde49b98",
