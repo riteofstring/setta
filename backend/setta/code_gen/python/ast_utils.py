@@ -10,6 +10,38 @@ def not_in_root_imports(import_path, root_imports):
     )
 
 
+def is_instance_attribute(node: ast.AST) -> bool:
+    """
+    Determines if an attribute access chain involves an instance parameter (self/cls/etc).
+    Checks if any part of the attribute chain starts with the first parameter of a method.
+    """
+    if not isinstance(node, ast.Attribute):
+        return False
+
+    # Walk up the AST to find the enclosing function
+    current = node
+    while current and not isinstance(current, ast.FunctionDef):
+        current = getattr(current, "parent", None)
+
+    if not current:  # Not in a function
+        return False
+
+    # Check if the function is a method (has at least one argument)
+    if not current.args.args:
+        return False
+
+    # Get the instance parameter name (traditionally 'self' but could be anything)
+    instance_param = current.args.args[0].arg
+
+    # Build the complete attribute chain
+    base = node
+    while isinstance(base, ast.Attribute):
+        base = base.value
+
+    # Check if the chain starts with the instance parameter
+    return isinstance(base, ast.Name) and base.id == instance_param
+
+
 def find_missing_imports(code: str) -> Set[str]:
     """
     Analyzes Python code and returns a set of missing imports.
@@ -40,6 +72,11 @@ def find_missing_imports(code: str) -> Set[str]:
         tree = ast.parse(code)
     except SyntaxError as e:
         raise ValueError(f"Invalid Python code: {str(e)}")
+
+    # Add parent references to make context checking easier
+    for parent in ast.walk(tree):
+        for child in ast.iter_child_nodes(parent):
+            child.parent = parent
 
     # First pass: collect existing imports and defined names
     for node in ast.walk(tree):
@@ -88,26 +125,31 @@ def find_missing_imports(code: str) -> Set[str]:
             while isinstance(current, ast.Attribute):
                 attr_chain.append(current.attr)
                 current = current.value
+
             if isinstance(current, ast.Name):
                 attr_chain.append(current.id)
 
-                # Skip if the root is a local name
-                if attr_chain[0] in defined_names:
+                # Skip instance attributes (where chain starts with self/cls)
+                if is_instance_attribute(node):
                     continue
 
-            # Reverse to get correct order (e.g., ['torch', 'nn', 'CrossEntropyLoss'])
-            attr_chain.reverse()
+                # Skip if the root is a local name
+                if attr_chain[-1] in defined_names:
+                    continue
 
-            # Generate all possible import paths
-            for i in range(1, len(attr_chain)):
-                import_path = ".".join(attr_chain[:i])
-                if (
-                    import_path not in existing_imports
-                    and import_path not in builtin_names
-                    and import_path not in defined_names
-                    and not_in_root_imports(import_path, root_imports)
-                ):
-                    missing_imports.add(import_path)
+                # Reverse to get correct order
+                attr_chain.reverse()
+
+                # Generate all possible import paths
+                for i in range(1, len(attr_chain)):
+                    import_path = ".".join(attr_chain[:i])
+                    if (
+                        import_path not in existing_imports
+                        and import_path not in builtin_names
+                        and import_path not in defined_names
+                        and not_in_root_imports(import_path, root_imports)
+                    ):
+                        missing_imports.add(import_path)
 
     return missing_imports
 

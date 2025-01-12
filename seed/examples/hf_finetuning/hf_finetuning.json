@@ -3,6 +3,11 @@
     "id": "421b6591-a038-4f6c-8ac1-873df4e3986f",
     "name": "hf_finetuning",
     "previewImgColor": "bg-green-500/60 dark:bg-green-600/30",
+    "viewport": {
+      "x": 346.5393871246533,
+      "y": 342.9340862892379,
+      "zoom": 0.31554815549260334
+    },
     "children": {
       "093adddf-0c8f-4a33-a00d-56aa4680f172": {
         "x": 1285.1341343976594,
@@ -14,16 +19,16 @@
       "161346b7-e7cd-48d8-901c-c4d5db02ae88": {
         "x": 535.0696804671663,
         "y": 215.74719067855392,
-        "zIndex": 5,
+        "zIndex": 4,
         "w": 853,
-        "h": 841
+        "h": 913
       },
       "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c": {
         "x": 525.0336542710568,
         "y": -522.3710300635282,
-        "zIndex": 3,
+        "zIndex": 2,
         "w": 1886,
-        "h": 788
+        "h": 554
       },
       "2cf97913-b000-4ddd-b5d3-c235724970bf": {
         "x": 519.174087889749,
@@ -107,18 +112,18 @@
     },
     "8c6ab656-ea9a-42e1-9257-a99084eba0ae": {
       "name": "gradual_bronze",
-      "code": "from transformers import (\n    AutoTokenizer,\n    AutoModelForSequenceClassification,\n    TrainerCallback,\n)\nimport numpy as np\nfrom setta.cli import Setta\n\n\nclass SettaLossTracker(TrainerCallback):\n    def __init__(self):\n        self.setta_logger = Setta(\n            root_path=\"hf_finetuning_test\", send_data_to=\"/hf_finetuning\"\n        )\n        self.setta_logging_dict = {\"step\": [], \"loss\": []}\n\n    def on_log(self, args, state, control, logs=None, **kwargs):\n        if state.is_local_process_zero and logs is not None:\n            if \"loss\" in logs:\n                self.setta_logging_dict[\"step\"].append(state.global_step)\n                self.setta_logging_dict[\"loss\"].append(logs[\"loss\"])\n                self.setta_logger.log(self.setta_logging_dict, save_to=\"disk\")\n\n\ndef get_compute_metrics(metric):\n    def compute_metrics(eval_pred):\n        logits, labels = eval_pred\n        predictions = np.argmax(logits, axis=-1)\n        return metric.compute(predictions=predictions, references=labels)\n\n    return compute_metrics\n\n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n\ntraining_setup[\"trainer\"].train()\n",
+      "code": "from transformers import (\n    AutoTokenizer,\n    AutoModelForSequenceClassification,\n    TrainerCallback,\n)\nimport numpy as np\nfrom setta.cli import Setta\nfrom setta.cli.logger import SettaList\n\n\nclass SettaLossTracker(TrainerCallback):\n    def __init__(self):\n        self.setta_logger = Setta(\n            root_path=\"hf_finetuning_test\", send_data_to=\"/hf_finetuning\"\n        )\n        self.setta_logging_dict = {\"step\": [], \"loss\": []}\n\n    def on_log(self, args, state, control, logs=None, **kwargs):\n        if state.is_local_process_zero and logs is not None:\n            if \"loss\" in logs:\n                self.setta_logging_dict[\"step\"].append(state.global_step)\n                self.setta_logging_dict[\"loss\"].append(logs[\"loss\"])\n                self.setta_logger.log(\n                    {\"training_loss\": SettaList(self.setta_logging_dict)},\n                    save_to=\"disk\",\n                )\n\n\ndef get_compute_metrics(metric):\n    def compute_metrics(eval_pred):\n        logits, labels = eval_pred\n        predictions = np.argmax(logits, axis=-1)\n        return metric.compute(predictions=predictions, references=labels)\n\n    return compute_metrics\n\n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n\ntraining_setup[\"trainer\"].train()\n",
       "evRefs": [
         {
           "sectionId": "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0",
-          "startPos": 1235,
+          "startPos": 1363,
           "keyword": "training_setup[\"trainer\"]"
         }
       ],
       "templateVars": [
         {
           "sectionId": null,
-          "startPos": 1210,
+          "startPos": 1338,
           "keyword": "$SETTA_GENERATED_PYTHON"
         }
       ]
@@ -163,14 +168,14 @@
     "cb9763e6-7c1d-4dc9-af60-2e9204cca081": {
       "name": "thorough_harlequin",
       "values": {
+        "1805e7a9-4661-426b-abef-23e02e5ace90": {
+          "value": "1"
+        },
         "78244c98-2f1f-47f1-b027-e33d6582aad8": {
           "value": "\"epoch\""
         },
         "7c7b8de0-a95e-466f-91ef-e787c501614d": {
           "value": "\"hf_finetuning_test\""
-        },
-        "1805e7a9-4661-426b-abef-23e02e5ace90": {
-          "value": "1"
         }
       },
       "selectedItem": "5bb0f081-853d-40e2-9f8e-bbe5339443ee",
@@ -226,6 +231,9 @@
     "f4d731dc-743d-4825-b677-3ebc22baaa7a": {
       "name": "xerothermic_harlequin",
       "values": {
+        "0ac27b52-f9f7-4e58-9d06-cc1c850f25bb": {
+          "value": "[SettaLossTracker()]"
+        },
         "37f1709a-0c04-45cc-8d0a-c816a48d4d74": {
           "value": "training_setup[\"compute_metrics\"]",
           "evRefs": [
@@ -270,9 +278,6 @@
               "keyword": "training_setup[\"model\"]"
             }
           ]
-        },
-        "0ac27b52-f9f7-4e58-9d06-cc1c850f25bb": {
-          "value": "[SettaLossTracker()]"
         }
       },
       "selectedItem": "2b4713ba-83ff-49ad-b754-7f5a2d16c9f8",
@@ -299,11 +304,25 @@
       "selectedItem": "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97",
       "codeInfoColId": "791d3c96-e490-4612-ba99-d94e3b2d6653"
     },
-    "5760e003-ba32-490e-8435-d41a098d3c6e": {
-      "name": "supporting_indigo"
+    "305299c5-46c3-4499-802b-64e627fcaedb": {
+      "name": "drab_red"
     }
   },
-  "artifacts": {},
+  "artifacts": {
+    "0e2b3663-3b13-4fa3-87dc-4a6fa8f1e2c7": {
+      "name": "training_loss",
+      "path": "",
+      "value": {
+        "step": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        "loss": [
+          1.6262, 1.666, 1.5446, 1.6805, 1.712, 1.6073, 1.4654, 1.5544, 1.4924,
+          1.6477, 1.6628
+        ]
+      },
+      "type": "list",
+      "id": "0e2b3663-3b13-4fa3-87dc-4a6fa8f1e2c7"
+    }
+  },
   "artifactGroups": {},
   "uiTypes": {},
   "uiTypeCols": {},
