@@ -3,48 +3,60 @@
     "id": "421b6591-a038-4f6c-8ac1-873df4e3986f",
     "name": "hf_finetuning",
     "previewImgColor": "bg-green-500/60 dark:bg-green-600/30",
+    "viewport": {
+      "x": 356.1333175960847,
+      "y": 563.2004766825266,
+      "zoom": 0.4660174611864418
+    },
     "children": {
       "093adddf-0c8f-4a33-a00d-56aa4680f172": {
-        "x": 1455,
-        "y": -270,
-        "zIndex": 0,
+        "x": 1395,
+        "y": -465,
+        "zIndex": 7,
         "w": 407,
-        "h": 122
+        "h": 121
       },
       "0c986306-fb95-4692-a504-4c72881f8118": {
-        "x": -165,
-        "y": -1185,
-        "zIndex": 3,
-        "w": 680,
-        "h": 812
+        "x": -15,
+        "y": -810,
+        "zIndex": 4,
+        "w": 530,
+        "h": 811
       },
       "161346b7-e7cd-48d8-901c-c4d5db02ae88": {
-        "x": 540,
-        "y": -165,
-        "zIndex": 2,
+        "x": 525,
+        "y": -465,
+        "zIndex": 6,
         "w": 853,
-        "h": 913
+        "h": 914
       },
       "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c": {
         "x": 525,
         "y": -855,
         "zIndex": 1,
-        "w": 1901,
+        "w": 1899,
         "h": 382
       },
       "2cf97913-b000-4ddd-b5d3-c235724970bf": {
         "x": 525,
         "y": -1185,
-        "zIndex": 4,
-        "w": 2110,
-        "h": 636
+        "zIndex": 2,
+        "w": 2108,
+        "h": 635
       },
       "a7d79150-23d1-43ad-b6cc-840b62a74c69": {
-        "x": -1335,
+        "x": -600,
         "y": -1185,
         "zIndex": 5,
-        "w": 812,
+        "w": 572,
         "h": 2492
+      },
+      "8ae4c8df-1c58-48d6-9f83-b259849f9e19": {
+        "x": -15,
+        "y": -1185,
+        "zIndex": 3,
+        "w": 527,
+        "h": 362
       }
     }
   },
@@ -383,6 +395,9 @@
       },
       "selectedItem": "3b127b24-3ec2-4bf2-90a9-23ddbcc05b97",
       "codeInfoColId": "791d3c96-e490-4612-ba99-d94e3b2d6653"
+    },
+    "fd4b488b-46ae-4806-a4b4-5a5f0296c1c5": {
+      "name": "current_ivory"
     }
   },
   "artifacts": {
@@ -872,14 +887,13 @@
         "2bf5bdbd-eb22-4822-8e74-b7295a021875",
         "76931c1c-f8ac-480e-942c-91b8891a3dc6"
       ],
-      "isInOtherProjectConfigs": true,
       "columnWidth": 111
     },
     "0c986306-fb95-4692-a504-4c72881f8118": {
       "id": "0c986306-fb95-4692-a504-4c72881f8118",
       "name": "outputs",
       "size": {
-        "width": 630
+        "width": 480
       },
       "variantId": "c052ba9b-c340-479a-9526-f666e8373c95",
       "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
@@ -899,7 +913,6 @@
         "6c621bea-f2b3-4458-940d-d764966af5f9",
         "da3c75a5-e1b3-4b1e-bf03-90a9ae4665fa"
       ],
-      "isInOtherProjectConfigs": true,
       "columnWidth": 111.53999999999999
     },
     "161346b7-e7cd-48d8-901c-c4d5db02ae88": {
@@ -910,8 +923,7 @@
       },
       "variantId": "8c6ab656-ea9a-42e1-9257-a99084eba0ae",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-      "variantIds": ["8c6ab656-ea9a-42e1-9257-a99084eba0ae"],
-      "isInOtherProjectConfigs": true
+      "variantIds": ["8c6ab656-ea9a-42e1-9257-a99084eba0ae"]
     },
     "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c": {
       "id": "1a6f6c7f-129c-4a4b-83a0-5c63d305a59c",
@@ -919,8 +931,7 @@
       "variantId": "5c91a373-ed7d-4c6e-aa30-cfc9259b2565",
       "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
       "variantIds": ["5c91a373-ed7d-4c6e-aa30-cfc9259b2565"],
-      "isHorizontalOrientation": true,
-      "isInOtherProjectConfigs": true
+      "isHorizontalOrientation": true
     },
     "24cfaaf2-c025-4101-a0a4-0c788801968d": {
       "id": "24cfaaf2-c025-4101-a0a4-0c788801968d",
@@ -932,7 +943,6 @@
       "variantId": "832dfd68-6b3b-4573-8f4f-c8014a9426fc",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["832dfd68-6b3b-4573-8f4f-c8014a9426fc"],
-      "isInOtherProjectConfigs": true,
       "columnWidth": 117
     },
     "2cf97913-b000-4ddd-b5d3-c235724970bf": {
@@ -941,14 +951,13 @@
       "variantId": "9d625ea3-88b1-44c1-85c1-ae24629a98bc",
       "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
       "variantIds": ["9d625ea3-88b1-44c1-85c1-ae24629a98bc"],
-      "isHorizontalOrientation": true,
-      "isInOtherProjectConfigs": true
+      "isHorizontalOrientation": true
     },
     "31927ade-9b06-4aa0-bb18-27e57fc1c0d6": {
       "id": "31927ade-9b06-4aa0-bb18-27e57fc1c0d6",
       "name": "loss_plot",
       "size": {
-        "width": 630,
+        "width": 480,
         "height": 465
       },
       "parentId": "0c986306-fb95-4692-a504-4c72881f8118",
@@ -974,7 +983,6 @@
         "cb9763e6-7c1d-4dc9-af60-2e9204cca081"
       ],
       "hideUnpinnedParams": true,
-      "isInOtherProjectConfigs": true,
       "columnWidth": 132.5
     },
     "4919a72d-05a0-4e04-9616-679464cfe3a0": {
@@ -987,7 +995,6 @@
       "variantId": "67b60326-601c-47cb-820c-5729f37c94a4",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["67b60326-601c-47cb-820c-5729f37c94a4"],
-      "isInOtherProjectConfigs": true,
       "columnWidth": 102
     },
     "5c167035-ed45-4864-9a90-6d096db3583b": {
@@ -1000,7 +1007,6 @@
       "variantId": "ce44feaa-dc0f-4b8a-945c-82192d8c14bf",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["ce44feaa-dc0f-4b8a-945c-82192d8c14bf"],
-      "isInOtherProjectConfigs": true,
       "columnWidth": 82
     },
     "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0": {
@@ -1014,7 +1020,6 @@
       "variantId": "f4d731dc-743d-4825-b677-3ebc22baaa7a",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["f4d731dc-743d-4825-b677-3ebc22baaa7a"],
-      "isInOtherProjectConfigs": true,
       "columnWidth": 167
     },
     "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
@@ -1027,7 +1032,6 @@
       "variantId": "a49c0df9-eeba-4a84-975e-6a9ef56cddda",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["a49c0df9-eeba-4a84-975e-6a9ef56cddda"],
-      "isInOtherProjectConfigs": true,
       "columnWidth": 162
     },
     "7ba1a244-1a3b-41d3-a3fe-6b88180bf7cb": {
@@ -1041,7 +1045,6 @@
       "variantId": "ec254728-baeb-4641-8e72-96eb190c4eca",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["ec254728-baeb-4641-8e72-96eb190c4eca"],
-      "isInOtherProjectConfigs": true,
       "columnWidth": 148
     },
     "81723767-1611-48c8-b2ab-5d145f53b516": {
@@ -1054,14 +1057,13 @@
       "variantId": "9a5117b1-ff41-4a98-85fe-496aca5b53a7",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["9a5117b1-ff41-4a98-85fe-496aca5b53a7"],
-      "isInOtherProjectConfigs": true,
       "columnWidth": 169.5
     },
     "a68673ab-de72-460b-b8d1-985bf902939c": {
       "id": "a68673ab-de72-460b-b8d1-985bf902939c",
       "name": "wilful_teal",
       "size": {
-        "width": 630,
+        "width": 480,
         "height": 255
       },
       "parentId": "0c986306-fb95-4692-a504-4c72881f8118",
@@ -1073,7 +1075,7 @@
       "id": "a7d79150-23d1-43ad-b6cc-840b62a74c69",
       "name": "![PyTorch Logo](http...",
       "size": {
-        "width": 810,
+        "width": 570,
         "height": 2490
       },
       "variantId": "540437db-1faa-4b07-b26d-d9fac5cb31da",
@@ -1092,7 +1094,6 @@
       "variantId": "e4f65e7d-308e-45ec-bb0e-36129c762eb2",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["e4f65e7d-308e-45ec-bb0e-36129c762eb2"],
-      "isInOtherProjectConfigs": true,
       "columnWidth": 184.5
     },
     "f9bfda0e-6786-4124-9efe-edd085db6480": {
@@ -1105,8 +1106,21 @@
       "variantId": "f6128d84-323e-459c-8bb0-5bd479c44f00",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["f6128d84-323e-459c-8bb0-5bd479c44f00"],
-      "isInOtherProjectConfigs": true,
       "columnWidth": 177
+    },
+    "8ae4c8df-1c58-48d6-9f83-b259849f9e19": {
+      "id": "8ae4c8df-1c58-48d6-9f83-b259849f9e19",
+      "name": "brief_aquamarine",
+      "size": {
+        "width": 525,
+        "height": 360
+      },
+      "variantId": "fd4b488b-46ae-4806-a4b4-5a5f0296c1c5",
+      "uiTypeId": "76cd4b19-cc63-4e2c-8214-5a4246ca637c",
+      "social": "https://www.youtube.com/watch?v=zjkBMFhNj_g",
+      "variantIds": ["fd4b488b-46ae-4806-a4b4-5a5f0296c1c5"],
+      "aspectRatio": 1.5841584158415842,
+      "aspectRatioExtraHeight": 24
     }
   },
   "codeInfo": {
