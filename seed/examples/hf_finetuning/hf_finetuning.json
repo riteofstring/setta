@@ -4,9 +4,9 @@
     "name": "hf_finetuning",
     "previewImgColor": "bg-green-500/60 dark:bg-green-600/30",
     "viewport": {
-      "x": 497.65399519878724,
-      "y": 218.92206528074064,
-      "zoom": 0.41161002187138523
+      "x": 428.15182496429003,
+      "y": 299.2176018484036,
+      "zoom": 0.4826878845050485
     },
     "children": {
       "093adddf-0c8f-4a33-a00d-56aa4680f172": {
@@ -26,9 +26,9 @@
       "161346b7-e7cd-48d8-901c-c4d5db02ae88": {
         "x": 1005,
         "y": 105,
-        "zIndex": 6,
+        "zIndex": 9,
         "w": 677,
-        "h": 277
+        "h": 422
       },
       "24cfaaf2-c025-4101-a0a4-0c788801968d": {
         "x": 705,
@@ -40,7 +40,7 @@
       "363f22f6-beec-4392-9e77-e096d01b609f": {
         "x": -15,
         "y": -75,
-        "zIndex": 10,
+        "zIndex": 11,
         "w": 257,
         "h": 3268
       },
@@ -51,17 +51,38 @@
         "w": 242,
         "h": 172
       },
+      "5c167035-ed45-4864-9a90-6d096db3583b": {
+        "x": 557.3085989787912,
+        "y": -381.99048145859854,
+        "zIndex": 10,
+        "w": 202,
+        "h": 124
+      },
+      "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0": {
+        "x": 916.8113501073288,
+        "y": -342.0457313332054,
+        "zIndex": 12,
+        "w": 202,
+        "h": 444
+      },
       "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
         "x": 315,
         "y": 270,
-        "zIndex": 9,
+        "zIndex": 7,
         "w": 362,
         "h": 556
+      },
+      "7ba1a244-1a3b-41d3-a3fe-6b88180bf7cb": {
+        "x": 95.40662198781257,
+        "y": -512.2354240254886,
+        "zIndex": 8,
+        "w": 323,
+        "h": 388
       },
       "81723767-1611-48c8-b2ab-5d145f53b516": {
         "x": 465,
         "y": -120,
-        "zIndex": 7,
+        "zIndex": 6,
         "w": 377,
         "h": 204
       },
@@ -144,11 +165,11 @@
     },
     "8c6ab656-ea9a-42e1-9257-a99084eba0ae": {
       "name": "gradual_bronze",
-      "code": "from transformers import AutoTokenizer\nfrom transformers import AutoModelForSequenceClassification\n\n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n",
+      "code": "from transformers import AutoTokenizer\nfrom transformers import AutoModelForSequenceClassification\nimport numpy as np\n\ndef get_compute_metrics(metric):\n    def compute_metrics(eval_pred):\n        logits, labels = eval_pred\n        predictions = np.argmax(logits, axis=-1)\n        return metric.compute(predictions=predictions, references=labels)\n    return compute_metrics\n    \n\ndef get_tokenize_function(tokenizer, **kwargs):\n    def tokenize_function(examples):\n        return tokenizer(examples[\"text\"], **kwargs)\n\n    return tokenize_function\n\n\n$SETTA_GENERATED_PYTHON\n",
       "templateVars": [
         {
           "sectionId": null,
-          "startPos": 271,
+          "startPos": 549,
           "keyword": "$SETTA_GENERATED_PYTHON"
         }
       ]
@@ -182,12 +203,31 @@
     "cb9763e6-7c1d-4dc9-af60-2e9204cca081": {
       "name": "thorough_harlequin",
       "values": {
+        "78244c98-2f1f-47f1-b027-e33d6582aad8": {
+          "value": "\"epoch\""
+        },
         "7c7b8de0-a95e-466f-91ef-e787c501614d": {
           "value": "\"hf_finetuning_test\""
         }
       },
       "selectedItem": "5bb0f081-853d-40e2-9f8e-bbe5339443ee",
       "codeInfoColId": "41427820-aac1-4959-a3a8-b1e19bb53a72"
+    },
+    "ce44feaa-dc0f-4b8a-945c-82192d8c14bf": {
+      "name": "little_azure",
+      "values": {
+        "ff410e29-221b-4000-95e5-d136d75f7b79": {
+          "value": "metric",
+          "evRefs": [
+            {
+              "sectionId": "7ba1a244-1a3b-41d3-a3fe-6b88180bf7cb",
+              "keyword": "metric"
+            }
+          ]
+        }
+      },
+      "selectedItem": "b832443c-d703-4efe-abcb-0bc2b0eb744f",
+      "codeInfoColId": "9ee7b590-3b13-4e08-97cb-df4b0c479b52"
     },
     "e4f65e7d-308e-45ec-bb0e-36129c762eb2": {
       "name": "tricky_tomato",
@@ -209,6 +249,68 @@
       },
       "selectedItem": "d0bf7204-56d2-4c9c-8b3d-24efca52a8e3",
       "codeInfoColId": "a59b8c13-aa3d-4be7-9338-21bbb2f1a9a1"
+    },
+    "ec254728-baeb-4641-8e72-96eb190c4eca": {
+      "name": "technical_orange",
+      "values": {
+        "c61ed7b0-e5fb-43e0-9ef5-c38da659c92d": {
+          "value": "\"accuracy\""
+        }
+      },
+      "selectedItem": "4183c012-7ab5-4f8b-a1e7-22849ebb0149",
+      "codeInfoColId": "575e551f-91fe-42a4-9726-fb0f6ecea072"
+    },
+    "f4d731dc-743d-4825-b677-3ebc22baaa7a": {
+      "name": "xerothermic_harlequin",
+      "values": {
+        "37f1709a-0c04-45cc-8d0a-c816a48d4d74": {
+          "value": "compute_metrics",
+          "evRefs": [
+            {
+              "sectionId": "5c167035-ed45-4864-9a90-6d096db3583b",
+              "keyword": "compute_metrics"
+            }
+          ]
+        },
+        "4ab39e51-1d97-4959-bf3c-343b97b9bffd": {
+          "value": "small_eval_dataset",
+          "evRefs": [
+            {
+              "sectionId": "f9bfda0e-6786-4124-9efe-edd085db6480",
+              "keyword": "small_eval_dataset"
+            }
+          ]
+        },
+        "93921c6f-74c9-435f-b7b5-77f87f453cf3": {
+          "value": "training_args",
+          "evRefs": [
+            {
+              "sectionId": "363f22f6-beec-4392-9e77-e096d01b609f",
+              "keyword": "training_args"
+            }
+          ]
+        },
+        "a5f2ee73-1883-41b2-b475-97d2e958397e": {
+          "value": "small_train_dataset",
+          "evRefs": [
+            {
+              "sectionId": "b3f05acb-cb47-463d-a875-ca9a1d05bdf3",
+              "keyword": "small_train_dataset"
+            }
+          ]
+        },
+        "ca6857c9-59ad-478d-8732-14c00e5a8f7c": {
+          "value": "model",
+          "evRefs": [
+            {
+              "sectionId": "81723767-1611-48c8-b2ab-5d145f53b516",
+              "keyword": "model"
+            }
+          ]
+        }
+      },
+      "selectedItem": "2b4713ba-83ff-49ad-b754-7f5a2d16c9f8",
+      "codeInfoColId": "19730d6b-2dca-446c-b5cb-e64093cd63bb"
     },
     "f6128d84-323e-459c-8bb0-5bd479c44f00": {
       "name": "ltd_scarlet",
@@ -279,7 +381,7 @@
     },
     "363f22f6-beec-4392-9e77-e096d01b609f": {
       "id": "363f22f6-beec-4392-9e77-e096d01b609f",
-      "name": "open_tan",
+      "name": "training_args",
       "size": {
         "width": 255
       },
@@ -299,6 +401,22 @@
       "variantIds": ["67b60326-601c-47cb-820c-5729f37c94a4"],
       "columnWidth": 102
     },
+    "5c167035-ed45-4864-9a90-6d096db3583b": {
+      "id": "5c167035-ed45-4864-9a90-6d096db3583b",
+      "name": "compute_metrics",
+      "variantId": "ce44feaa-dc0f-4b8a-945c-82192d8c14bf",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "variantIds": ["ce44feaa-dc0f-4b8a-945c-82192d8c14bf"],
+      "columnWidth": 82
+    },
+    "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0": {
+      "id": "5f0e2d2e-5035-40ff-bd3f-93ef52bf57a0",
+      "name": "trainer",
+      "variantId": "f4d731dc-743d-4825-b677-3ebc22baaa7a",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "variantIds": ["f4d731dc-743d-4825-b677-3ebc22baaa7a"],
+      "columnWidth": 82
+    },
     "66d39f20-3b35-4bec-8d74-fa7ab55f94f6": {
       "id": "66d39f20-3b35-4bec-8d74-fa7ab55f94f6",
       "name": "dataset",
@@ -309,6 +427,17 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "variantIds": ["a49c0df9-eeba-4a84-975e-6a9ef56cddda"],
       "columnWidth": 162
+    },
+    "7ba1a244-1a3b-41d3-a3fe-6b88180bf7cb": {
+      "id": "7ba1a244-1a3b-41d3-a3fe-6b88180bf7cb",
+      "name": "metric",
+      "size": {
+        "width": 321
+      },
+      "variantId": "ec254728-baeb-4641-8e72-96eb190c4eca",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "variantIds": ["ec254728-baeb-4641-8e72-96eb190c4eca"],
+      "columnWidth": 142.5
     },
     "81723767-1611-48c8-b2ab-5d145f53b516": {
       "id": "81723767-1611-48c8-b2ab-5d145f53b516",
@@ -345,6 +474,12 @@
     }
   },
   "codeInfo": {
+    "02a8de89-1f1a-4535-aa16-dcc94d692cea": {
+      "id": "02a8de89-1f1a-4535-aa16-dcc94d692cea",
+      "name": "num_process",
+      "defaultVal": "1",
+      "description": "For distributed evaluation: total number of processes."
+    },
     "03c5a8a5-3a4c-42f2-a803-a58a88466cbe": {
       "id": "03c5a8a5-3a4c-42f2-a803-a58a88466cbe",
       "name": "keep_in_memory",
@@ -389,6 +524,12 @@
       "defaultVal": "False",
       "description": "Provide process rank to `function`. Note that in this case the\nsignature of `function` should be `def function(example[, idx], rank): ...`."
     },
+    "0ac27b52-f9f7-4e58-9d06-cc1c850f25bb": {
+      "id": "0ac27b52-f9f7-4e58-9d06-cc1c850f25bb",
+      "name": "callbacks",
+      "defaultVal": "None",
+      "description": "A list of callbacks to customize the training loop. Will add those to the list of default callbacks\ndetailed in [here](callback).\n\nIf you want to remove one of the default callbacks used, use the [`Trainer.remove_callback`] method."
+    },
     "0afdf9c5-c3f7-447f-9a1e-b69aecdf98b8": {
       "id": "0afdf9c5-c3f7-447f-9a1e-b69aecdf98b8",
       "name": "warmup_ratio",
@@ -429,6 +570,12 @@
       "id": "11cdf2d8-86e3-4b25-b460-a09ddd24e166",
       "name": "log_level_replica",
       "defaultVal": "\"warning\""
+    },
+    "12277058-f776-4be4-8b10-9bb36e1f13b2": {
+      "id": "12277058-f776-4be4-8b10-9bb36e1f13b2",
+      "name": "cache_dir",
+      "defaultVal": "None",
+      "description": "Path to store the temporary predictions and references (default to `~/.cache/huggingface/evaluate/`)."
     },
     "13e03876-e9a8-46e4-9246-c339094a0764": {
       "id": "13e03876-e9a8-46e4-9246-c339094a0764",
@@ -573,10 +720,22 @@
       "defaultVal": "None",
       "description": "Optional string or boolean to use as Bearer token for remote files on the Datasets Hub.\nIf `True`, or not specified, will get token from `\"~/.huggingface\"`."
     },
+    "2a4d6992-1d27-4778-980c-0cd44f6208ca": {
+      "id": "2a4d6992-1d27-4778-980c-0cd44f6208ca",
+      "name": "revision",
+      "defaultVal": "None",
+      "description": "If specified, the module will be loaded from the datasets repository\nat this version. By default it is set to the local version of the lib. Specifying a version that is different from\nyour local version of the lib might cause compatibility issues."
+    },
     "2a552c14-96e8-4b0f-bd3b-3415dcce7a9b": {
       "id": "2a552c14-96e8-4b0f-bd3b-3415dcce7a9b",
       "name": "push_to_hub_model_id",
       "defaultVal": "None"
+    },
+    "2b4713ba-83ff-49ad-b754-7f5a2d16c9f8": {
+      "id": "2b4713ba-83ff-49ad-b754-7f5a2d16c9f8",
+      "name": "transformers.Trainer",
+      "rcType": "callable",
+      "description": "Trainer is a simple but feature-complete training and eval loop for PyTorch, optimized for 🤗 Transformers.\n\nArgs:\n    model ([`PreTrainedModel`] or `torch.nn.Module`, *optional*):\n        The model to train, evaluate or use for predictions. If not provided, a `model_init` must be passed.\n\n        <Tip>\n\n        [`Trainer`] is optimized to work with the [`PreTrainedModel`] provided by the library. You can still use\n        your own models defined as `torch.nn.Module` as long as they work the same way as the 🤗 Transformers\n        models.\n\n        </Tip>\n\n    args ([`TrainingArguments`], *optional*):\n        The arguments to tweak for training. Will default to a basic instance of [`TrainingArguments`] with the\n        `output_dir` set to a directory named *tmp_trainer* in the current directory if not provided.\n    data_collator (`DataCollator`, *optional*):\n        The function to use to form a batch from a list of elements of `train_dataset` or `eval_dataset`. Will\n        default to [`default_data_collator`] if no `tokenizer` is provided, an instance of\n        [`DataCollatorWithPadding`] otherwise.\n    train_dataset (Union[`torch.utils.data.Dataset`, `torch.utils.data.IterableDataset`, `datasets.Dataset`], *optional*):\n        The dataset to use for training. If it is a [`~datasets.Dataset`], columns not accepted by the\n        `model.forward()` method are automatically removed.\n\n        Note that if it's a `torch.utils.data.IterableDataset` with some randomization and you are training in a\n        distributed fashion, your iterable dataset should either use a internal attribute `generator` that is a\n        `torch.Generator` for the randomization that must be identical on all processes (and the Trainer will\n        manually set the seed of this `generator` at each epoch) or have a `set_epoch()` method that internally\n        sets the seed of the RNGs used.\n    eval_dataset (Union[`torch.utils.data.Dataset`, Dict[str, `torch.utils.data.Dataset`, `datasets.Dataset`]), *optional*):\n         The dataset to use for evaluation. If it is a [`~datasets.Dataset`], columns not accepted by the\n         `model.forward()` method are automatically removed. If it is a dictionary, it will evaluate on each\n         dataset prepending the dictionary key to the metric name.\n    tokenizer ([`PreTrainedTokenizerBase`], *optional*):\n        The tokenizer used to preprocess the data. If provided, will be used to automatically pad the inputs to the\n        maximum length when batching inputs, and it will be saved along the model to make it easier to rerun an\n        interrupted training or reuse the fine-tuned model.\n    model_init (`Callable[[], PreTrainedModel]`, *optional*):\n        A function that instantiates the model to be used. If provided, each call to [`~Trainer.train`] will start\n        from a new instance of the model as given by this function.\n\n        The function may have zero argument, or a single one containing the optuna/Ray Tune/SigOpt trial object, to\n        be able to choose different architectures according to hyper parameters (such as layer count, sizes of\n        inner layers, dropout probabilities etc).\n    compute_metrics (`Callable[[EvalPrediction], Dict]`, *optional*):\n        The function that will be used to compute metrics at evaluation. Must take a [`EvalPrediction`] and return\n        a dictionary string to metric values. *Note* When passing TrainingArgs with `batch_eval_metrics` set to\n        `True`, your compute_metrics function must take a boolean `compute_result` argument. This will be triggered\n        after the last eval batch to signal that the function needs to calculate and return the global summary\n        statistics rather than accumulating the batch-level statistics.\n    callbacks (List of [`TrainerCallback`], *optional*):\n        A list of callbacks to customize the training loop. Will add those to the list of default callbacks\n        detailed in [here](callback).\n\n        If you want to remove one of the default callbacks used, use the [`Trainer.remove_callback`] method.\n    optimizers (`Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR]`, *optional*, defaults to `(None, None)`):\n        A tuple containing the optimizer and the scheduler to use. Will default to an instance of [`AdamW`] on your\n        model and a scheduler given by [`get_linear_schedule_with_warmup`] controlled by `args`.\n    preprocess_logits_for_metrics (`Callable[[torch.Tensor, torch.Tensor], torch.Tensor]`, *optional*):\n        A function that preprocess the logits right before caching them at each evaluation step. Must take two\n        tensors, the logits and the labels, and return the logits once processed as desired. The modifications made\n        by this function will be reflected in the predictions received by `compute_metrics`.\n\n        Note that the labels (second parameter) will be `None` if the dataset does not have them.\n\nImportant attributes:\n\n    - **model** -- Always points to the core model. If using a transformers model, it will be a [`PreTrainedModel`]\n      subclass.\n    - **model_wrapped** -- Always points to the most external model in case one or more other modules wrap the\n      original model. This is the model that should be used for the forward pass. For example, under `DeepSpeed`,\n      the inner model is wrapped in `DeepSpeed` and then again in `torch.nn.DistributedDataParallel`. If the inner\n      model hasn't been wrapped, then `self.model_wrapped` is the same as `self.model`.\n    - **is_model_parallel** -- Whether or not a model has been switched to a model parallel mode (different from\n      data parallelism, this means some of the model layers are split on different GPUs).\n    - **place_model_on_device** -- Whether or not to automatically place the model on the device - it will be set\n      to `False` if model parallel or deepspeed is used, or if the default\n      `TrainingArguments.place_model_on_device` is overridden to return `False` .\n    - **is_in_train** -- Whether or not a model is currently running `train` (e.g. when `evaluate` is called while\n      in `train`)"
     },
     "2b90de22-f073-4134-a862-cf4ce093cfa1": {
       "id": "2b90de22-f073-4134-a862-cf4ce093cfa1",
@@ -628,10 +787,22 @@
       "name": "past_index",
       "defaultVal": "-1"
     },
+    "36ad87b5-f468-439f-aef9-316ae1ee1f9e": {
+      "id": "36ad87b5-f468-439f-aef9-316ae1ee1f9e",
+      "name": "config_name",
+      "defaultVal": "None",
+      "description": "Selecting a configuration for the metric (e.g. the GLUE metric has a configuration for each subset)."
+    },
     "36f6ffa9-fb08-496a-b24c-07cba78ebf69": {
       "id": "36f6ffa9-fb08-496a-b24c-07cba78ebf69",
       "name": "fsdp",
       "defaultVal": "\"\""
+    },
+    "37f1709a-0c04-45cc-8d0a-c816a48d4d74": {
+      "id": "37f1709a-0c04-45cc-8d0a-c816a48d4d74",
+      "name": "compute_metrics",
+      "defaultVal": "None",
+      "description": "The function that will be used to compute metrics at evaluation. Must take a [`EvalPrediction`] and return\na dictionary string to metric values. *Note* When passing TrainingArgs with `batch_eval_metrics` set to\n`True`, your compute_metrics function must take a boolean `compute_result` argument. This will be triggered\nafter the last eval batch to signal that the function needs to calculate and return the global summary\nstatistics rather than accumulating the batch-level statistics."
     },
     "3b07cd41-9016-473d-a340-692bad7352d3": {
       "id": "3b07cd41-9016-473d-a340-692bad7352d3",
@@ -677,6 +848,12 @@
       "name": "run_name",
       "defaultVal": "None"
     },
+    "4183c012-7ab5-4f8b-a1e7-22849ebb0149": {
+      "id": "4183c012-7ab5-4f8b-a1e7-22849ebb0149",
+      "name": "evaluate.load",
+      "rcType": "callable",
+      "description": "Load a [`~evaluate.EvaluationModule`].\n\nArgs:\n\n    path (`str`):\n        Path to the evaluation processing script with the evaluation builder. Can be either:\n            - a local path to processing script or the directory containing the script (if the script has the same name as the directory),\n                e.g. `'./metrics/rouge'` or `'./metrics/rouge/rouge.py'`\n            - a evaluation module identifier on the HuggingFace evaluate repo e.g. `'rouge'` or `'bleu'` that are in either `'metrics/'`,\n                `'comparisons/'`, or `'measurements/'` depending on the provided `module_type`\n    config_name (`str`, *optional*):\n        Selecting a configuration for the metric (e.g. the GLUE metric has a configuration for each subset).\n    module_type (`str`, default `'metric'`):\n        Type of evaluation module, can be one of `'metric'`, `'comparison'`, or `'measurement'`.\n    process_id (`int`, *optional*):\n        For distributed evaluation: id of the process.\n    num_process (`int`, *optional*):\n        For distributed evaluation: total number of processes.\n    cache_dir (`str`, *optional*):\n        Path to store the temporary predictions and references (default to `~/.cache/huggingface/evaluate/`).\n    experiment_id (`str`):\n        A specific experiment id. This is used if several distributed evaluations share the same file system.\n        This is useful to compute metrics in distributed setups (in particular non-additive metrics like F1).\n    keep_in_memory (`bool`):\n        Whether to store the temporary results in memory (defaults to `False`).\n    download_config ([`~evaluate.DownloadConfig`], *optional*):\n        Specific download configuration parameters.\n    download_mode ([`DownloadMode`], defaults to `REUSE_DATASET_IF_EXISTS`):\n        Download/generate mode.\n    revision (`Union[str, evaluate.Version]`, *optional*):\n        If specified, the module will be loaded from the datasets repository\n        at this version. By default it is set to the local version of the lib. Specifying a version that is different from\n        your local version of the lib might cause compatibility issues.\n\nReturns:\n    [`evaluate.EvaluationModule`]\n\nExample:\n\n    ```py\n    >>> from evaluate import load\n    >>> accuracy = load(\"accuracy\")\n    ```"
+    },
     "424d68d8-2d10-4d7f-9c6b-8c93fe8a8220": {
       "id": "424d68d8-2d10-4d7f-9c6b-8c93fe8a8220",
       "name": "do_eval",
@@ -718,6 +895,12 @@
       "name": "dispatch_batches",
       "defaultVal": "None"
     },
+    "4ab39e51-1d97-4959-bf3c-343b97b9bffd": {
+      "id": "4ab39e51-1d97-4959-bf3c-343b97b9bffd",
+      "name": "eval_dataset",
+      "defaultVal": "None",
+      "description": "The dataset to use for evaluation. If it is a [`~datasets.Dataset`], columns not accepted by the\n`model.forward()` method are automatically removed. If it is a dictionary, it will evaluate on each\ndataset prepending the dictionary key to the metric name."
+    },
     "4abfa296-c078-4c68-ae6a-449a6bfd44ea": {
       "id": "4abfa296-c078-4c68-ae6a-449a6bfd44ea",
       "name": "deepspeed",
@@ -744,6 +927,12 @@
       "name": "hub_private_repo",
       "defaultVal": "False"
     },
+    "540c9d53-a5c9-4958-beb9-b2cf222758dd": {
+      "id": "540c9d53-a5c9-4958-beb9-b2cf222758dd",
+      "name": "optimizers",
+      "defaultVal": "(None, None)",
+      "description": "A tuple containing the optimizer and the scheduler to use. Will default to an instance of [`AdamW`] on your\nmodel and a scheduler given by [`get_linear_schedule_with_warmup`] controlled by `args`."
+    },
     "542a2669-358c-41d3-922e-fdc73ba5b296": {
       "id": "542a2669-358c-41d3-922e-fdc73ba5b296",
       "name": "seed",
@@ -759,6 +948,12 @@
       "id": "54d6f2cf-ea57-4c75-a50e-57850d20cb55",
       "name": "optim_target_modules",
       "defaultVal": "None"
+    },
+    "5658d286-d99f-42ee-8b47-28fe905706de": {
+      "id": "5658d286-d99f-42ee-8b47-28fe905706de",
+      "name": "download_mode",
+      "defaultVal": "None",
+      "description": "Download/generate mode."
     },
     "56c89985-9ac5-464e-86df-6da9069106fc": {
       "id": "56c89985-9ac5-464e-86df-6da9069106fc",
@@ -805,6 +1000,12 @@
       "id": "5cce3d85-6ed4-40e3-9db5-e6ed4fb98ac6",
       "name": "indices",
       "description": "indices (`range`, `list`, `iterable`, `ndarray` or `Series`):"
+    },
+    "5ff637fd-a7a8-4a0c-a4e6-0ae598537af5": {
+      "id": "5ff637fd-a7a8-4a0c-a4e6-0ae598537af5",
+      "name": "module_type",
+      "defaultVal": "None",
+      "description": "Type of evaluation module, can be one of `'metric'`, `'comparison'`, or `'measurement'`."
     },
     "61163743-ffbb-4202-b9b4-7114f2ce8423": {
       "id": "61163743-ffbb-4202-b9b4-7114f2ce8423",
@@ -1032,6 +1233,12 @@
       "name": "neftune_noise_alpha",
       "defaultVal": "None"
     },
+    "93921c6f-74c9-435f-b7b5-77f87f453cf3": {
+      "id": "93921c6f-74c9-435f-b7b5-77f87f453cf3",
+      "name": "args",
+      "defaultVal": "None",
+      "description": "The arguments to tweak for training. Will default to a basic instance of [`TrainingArguments`] with the\n`output_dir` set to a directory named *tmp_trainer* in the current directory if not provided."
+    },
     "94ad103f-5a4d-4357-bc8f-8952471de7df": {
       "id": "94ad103f-5a4d-4357-bc8f-8952471de7df",
       "name": "report_to",
@@ -1111,6 +1318,12 @@
       "name": "full_determinism",
       "defaultVal": "False"
     },
+    "a5f2ee73-1883-41b2-b475-97d2e958397e": {
+      "id": "a5f2ee73-1883-41b2-b475-97d2e958397e",
+      "name": "train_dataset",
+      "defaultVal": "None",
+      "description": "The dataset to use for training. If it is a [`~datasets.Dataset`], columns not accepted by the\n`model.forward()` method are automatically removed.\n\nNote that if it's a `torch.utils.data.IterableDataset` with some randomization and you are training in a\ndistributed fashion, your iterable dataset should either use a internal attribute `generator` that is a\n`torch.Generator` for the randomization that must be identical on all processes (and the Trainer will\nmanually set the seed of this `generator` at each epoch) or have a `set_epoch()` method that internally\nsets the seed of the RNGs used."
+    },
     "a618ed6b-610f-4871-9b0d-bdc0ee85e716": {
       "id": "a618ed6b-610f-4871-9b0d-bdc0ee85e716",
       "name": "logging_dir",
@@ -1163,6 +1376,11 @@
       "defaultVal": "False",
       "description": "Keep the indices mapping in memory instead of writing it to a cache file."
     },
+    "b832443c-d703-4efe-abcb-0bc2b0eb744f": {
+      "id": "b832443c-d703-4efe-abcb-0bc2b0eb744f",
+      "name": "get_compute_metrics",
+      "rcType": "callable"
+    },
     "b87386af-7835-480c-96ff-07d35d86cb36": {
       "id": "b87386af-7835-480c-96ff-07d35d86cb36",
       "name": "mp_parameters",
@@ -1183,6 +1401,12 @@
       "name": "adafactor",
       "defaultVal": "False"
     },
+    "bd77d2b8-1368-4faa-90ce-e142521253dd": {
+      "id": "bd77d2b8-1368-4faa-90ce-e142521253dd",
+      "name": "preprocess_logits_for_metrics",
+      "defaultVal": "None",
+      "description": "A function that preprocess the logits right before caching them at each evaluation step. Must take two\ntensors, the logits and the labels, and return the logits once processed as desired. The modifications made\nby this function will be reflected in the predictions received by `compute_metrics`.\n\nNote that the labels (second parameter) will be `None` if the dataset does not have them."
+    },
     "c0b6277b-479b-44dc-90c3-5daed42d3142": {
       "id": "c0b6277b-479b-44dc-90c3-5daed42d3142",
       "name": "indices_cache_file_name",
@@ -1195,10 +1419,27 @@
       "defaultVal": "None",
       "description": "Meaningful description to be displayed alongside with the progress bar while mapping examples."
     },
+    "c61ed7b0-e5fb-43e0-9ef5-c38da659c92d": {
+      "id": "c61ed7b0-e5fb-43e0-9ef5-c38da659c92d",
+      "name": "path",
+      "description": "path (`str`):"
+    },
+    "c6f1cb72-cc4a-453c-b078-c6ace1b69525": {
+      "id": "c6f1cb72-cc4a-453c-b078-c6ace1b69525",
+      "name": "keep_in_memory",
+      "defaultVal": "False",
+      "description": "Whether to store the temporary results in memory (defaults to `False`)."
+    },
     "c716fddb-bb2c-4659-aca7-d9fa1602d3fa": {
       "id": "c716fddb-bb2c-4659-aca7-d9fa1602d3fa",
       "name": "weight_decay",
       "defaultVal": "0"
+    },
+    "c71b508e-c862-42e2-820c-7b5b3c889498": {
+      "id": "c71b508e-c862-42e2-820c-7b5b3c889498",
+      "name": "model_init",
+      "defaultVal": "None",
+      "description": "A function that instantiates the model to be used. If provided, each call to [`~Trainer.train`] will start\nfrom a new instance of the model as given by this function.\n\nThe function may have zero argument, or a single one containing the optuna/Ray Tune/SigOpt trial object, to\nbe able to choose different architectures according to hyper parameters (such as layer count, sizes of\ninner layers, dropout probabilities etc)."
     },
     "c75ae3ae-a487-4b96-8424-15e0d1323202": {
       "id": "c75ae3ae-a487-4b96-8424-15e0d1323202",
@@ -1221,11 +1462,23 @@
       "name": "max_grad_norm",
       "defaultVal": "1"
     },
+    "ca6857c9-59ad-478d-8732-14c00e5a8f7c": {
+      "id": "ca6857c9-59ad-478d-8732-14c00e5a8f7c",
+      "name": "model",
+      "defaultVal": "None",
+      "description": "model ([`PreTrainedModel`] or `torch.nn.Module`, *optional*):"
+    },
     "ca8b8e25-0851-4c42-a38d-dc91c6cf6f0d": {
       "id": "ca8b8e25-0851-4c42-a38d-dc91c6cf6f0d",
       "name": "load_from_cache_file",
       "defaultVal": "None",
       "description": "If a cache file storing the current computation from `function`\ncan be identified, use it instead of recomputing."
+    },
+    "cafdbddd-ed47-4519-8269-05f3766f558f": {
+      "id": "cafdbddd-ed47-4519-8269-05f3766f558f",
+      "name": "download_config",
+      "defaultVal": "None",
+      "description": "Specific download configuration parameters."
     },
     "ce6f255c-8d44-483c-8919-a4cc1e5635bd": {
       "id": "ce6f255c-8d44-483c-8919-a4cc1e5635bd",
@@ -1276,6 +1529,12 @@
       "id": "d343ee90-2323-4b71-93d3-402adea7f078",
       "name": "jit_mode_eval",
       "defaultVal": "False"
+    },
+    "d42418f6-1155-499c-a193-cec44c391d77": {
+      "id": "d42418f6-1155-499c-a193-cec44c391d77",
+      "name": "process_id",
+      "defaultVal": "0",
+      "description": "For distributed evaluation: id of the process."
     },
     "d47ae65e-d0e2-4c50-9465-8c07324b6cfa": {
       "id": "d47ae65e-d0e2-4c50-9465-8c07324b6cfa",
@@ -1386,6 +1645,12 @@
       "defaultVal": "None",
       "description": "Which split of the data to load.\nIf `None`, will return a `dict` with all splits (typically `datasets.Split.TRAIN` and `datasets.Split.TEST`).\nIf given, will return a single Dataset.\nSplits can be combined and specified like in tensorflow-datasets."
     },
+    "e95d6d62-56e1-450e-82d2-3c24104eb34c": {
+      "id": "e95d6d62-56e1-450e-82d2-3c24104eb34c",
+      "name": "tokenizer",
+      "defaultVal": "None",
+      "description": "The tokenizer used to preprocess the data. If provided, will be used to automatically pad the inputs to the\nmaximum length when batching inputs, and it will be saved along the model to make it easier to rerun an\ninterrupted training or reuse the fine-tuned model."
+    },
     "e9c0e184-aa25-4650-8b7c-18ad20b1dc80": {
       "id": "e9c0e184-aa25-4650-8b7c-18ad20b1dc80",
       "name": "AutoTokenizer.from_pretrained",
@@ -1424,6 +1689,12 @@
       "name": "pretrained_model_name_or_path",
       "description": "pretrained_model_name_or_path (`str` or `os.PathLike`):"
     },
+    "edf10c6d-ab20-4307-a093-0c90ffc7a024": {
+      "id": "edf10c6d-ab20-4307-a093-0c90ffc7a024",
+      "name": "experiment_id",
+      "defaultVal": "None",
+      "description": "A specific experiment id. This is used if several distributed evaluations share the same file system.\nThis is useful to compute metrics in distributed setups (in particular non-additive metrics like F1)."
+    },
     "eeb14515-7038-4716-a867-cb4f4dfd5efb": {
       "id": "eeb14515-7038-4716-a867-cb4f4dfd5efb",
       "name": "features",
@@ -1445,6 +1716,12 @@
       "name": "cache_dir",
       "defaultVal": "None",
       "description": "Directory to read/write data. Defaults to `\"~/.cache/huggingface/datasets\"`."
+    },
+    "f43be4fc-14ab-426b-bee5-3711fed4f159": {
+      "id": "f43be4fc-14ab-426b-bee5-3711fed4f159",
+      "name": "data_collator",
+      "defaultVal": "None",
+      "description": "The function to use to form a batch from a list of elements of `train_dataset` or `eval_dataset`. Will\ndefault to [`default_data_collator`] if no `tokenizer` is provided, an instance of\n[`DataCollatorWithPadding`] otherwise."
     },
     "f4867691-9313-4214-bec4-06032495a600": {
       "id": "f4867691-9313-4214-bec4-06032495a600",
@@ -1506,6 +1783,10 @@
       "defaultVal": "False",
       "description": "Provide example indices to `function`. Note that in this case the signature of `function` should be `def function(example, idx): ...`."
     },
+    "fcebaeb8-31dd-4d96-8d12-80df4862819f": {
+      "id": "fcebaeb8-31dd-4d96-8d12-80df4862819f",
+      "name": "init_kwargs"
+    },
     "fd4cc1be-3e48-4ad3-ad19-4c3b674dcaef": {
       "id": "fd4cc1be-3e48-4ad3-ad19-4c3b674dcaef",
       "name": "eval_do_concat_batches",
@@ -1515,6 +1796,10 @@
       "id": "febcdafe-763b-4169-a24a-a4e783014de6",
       "name": "adam_beta2",
       "defaultVal": "0.999"
+    },
+    "ff410e29-221b-4000-95e5-d136d75f7b79": {
+      "id": "ff410e29-221b-4000-95e5-d136d75f7b79",
+      "name": "metric"
     }
   },
   "codeInfoCols": {
@@ -1916,6 +2201,15 @@
         "3dbf3842-e4dd-4d14-9478-f509ac9070f0": []
       }
     },
+    "9ee7b590-3b13-4e08-97cb-df4b0c479b52": {
+      "children": {
+        "null": ["b832443c-d703-4efe-abcb-0bc2b0eb744f"],
+        "b832443c-d703-4efe-abcb-0bc2b0eb744f": [
+          "ff410e29-221b-4000-95e5-d136d75f7b79"
+        ],
+        "ff410e29-221b-4000-95e5-d136d75f7b79": []
+      }
+    },
     "a59b8c13-aa3d-4be7-9338-21bbb2f1a9a1": {
       "children": {
         "null": [
@@ -1946,6 +2240,66 @@
         "e9efa49c-2f6a-4b55-a454-5ac3cdffae33": [],
         "d64a9350-02a5-4fac-a4e5-501adc761002": [],
         "c75ae3ae-a487-4b96-8424-15e0d1323202": []
+      }
+    },
+    "575e551f-91fe-42a4-9726-fb0f6ecea072": {
+      "children": {
+        "null": ["4183c012-7ab5-4f8b-a1e7-22849ebb0149"],
+        "4183c012-7ab5-4f8b-a1e7-22849ebb0149": [
+          "c61ed7b0-e5fb-43e0-9ef5-c38da659c92d",
+          "36ad87b5-f468-439f-aef9-316ae1ee1f9e",
+          "5ff637fd-a7a8-4a0c-a4e6-0ae598537af5",
+          "d42418f6-1155-499c-a193-cec44c391d77",
+          "02a8de89-1f1a-4535-aa16-dcc94d692cea",
+          "12277058-f776-4be4-8b10-9bb36e1f13b2",
+          "edf10c6d-ab20-4307-a093-0c90ffc7a024",
+          "c6f1cb72-cc4a-453c-b078-c6ace1b69525",
+          "cafdbddd-ed47-4519-8269-05f3766f558f",
+          "5658d286-d99f-42ee-8b47-28fe905706de",
+          "2a4d6992-1d27-4778-980c-0cd44f6208ca",
+          "fcebaeb8-31dd-4d96-8d12-80df4862819f"
+        ],
+        "c61ed7b0-e5fb-43e0-9ef5-c38da659c92d": [],
+        "36ad87b5-f468-439f-aef9-316ae1ee1f9e": [],
+        "5ff637fd-a7a8-4a0c-a4e6-0ae598537af5": [],
+        "d42418f6-1155-499c-a193-cec44c391d77": [],
+        "02a8de89-1f1a-4535-aa16-dcc94d692cea": [],
+        "12277058-f776-4be4-8b10-9bb36e1f13b2": [],
+        "edf10c6d-ab20-4307-a093-0c90ffc7a024": [],
+        "c6f1cb72-cc4a-453c-b078-c6ace1b69525": [],
+        "cafdbddd-ed47-4519-8269-05f3766f558f": [],
+        "5658d286-d99f-42ee-8b47-28fe905706de": [],
+        "2a4d6992-1d27-4778-980c-0cd44f6208ca": [],
+        "fcebaeb8-31dd-4d96-8d12-80df4862819f": []
+      }
+    },
+    "19730d6b-2dca-446c-b5cb-e64093cd63bb": {
+      "children": {
+        "null": ["2b4713ba-83ff-49ad-b754-7f5a2d16c9f8"],
+        "2b4713ba-83ff-49ad-b754-7f5a2d16c9f8": [
+          "ca6857c9-59ad-478d-8732-14c00e5a8f7c",
+          "93921c6f-74c9-435f-b7b5-77f87f453cf3",
+          "f43be4fc-14ab-426b-bee5-3711fed4f159",
+          "a5f2ee73-1883-41b2-b475-97d2e958397e",
+          "4ab39e51-1d97-4959-bf3c-343b97b9bffd",
+          "e95d6d62-56e1-450e-82d2-3c24104eb34c",
+          "c71b508e-c862-42e2-820c-7b5b3c889498",
+          "37f1709a-0c04-45cc-8d0a-c816a48d4d74",
+          "0ac27b52-f9f7-4e58-9d06-cc1c850f25bb",
+          "540c9d53-a5c9-4958-beb9-b2cf222758dd",
+          "bd77d2b8-1368-4faa-90ce-e142521253dd"
+        ],
+        "ca6857c9-59ad-478d-8732-14c00e5a8f7c": [],
+        "93921c6f-74c9-435f-b7b5-77f87f453cf3": [],
+        "f43be4fc-14ab-426b-bee5-3711fed4f159": [],
+        "a5f2ee73-1883-41b2-b475-97d2e958397e": [],
+        "4ab39e51-1d97-4959-bf3c-343b97b9bffd": [],
+        "e95d6d62-56e1-450e-82d2-3c24104eb34c": [],
+        "c71b508e-c862-42e2-820c-7b5b3c889498": [],
+        "37f1709a-0c04-45cc-8d0a-c816a48d4d74": [],
+        "0ac27b52-f9f7-4e58-9d06-cc1c850f25bb": [],
+        "540c9d53-a5c9-4958-beb9-b2cf222758dd": [],
+        "bd77d2b8-1368-4faa-90ce-e142521253dd": []
       }
     },
     "791d3c96-e490-4612-ba99-d94e3b2d6653": {
