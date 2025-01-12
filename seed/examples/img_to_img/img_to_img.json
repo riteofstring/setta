@@ -4,9 +4,9 @@
     "name": "img_to_img",
     "previewImgColor": "bg-orange-500/60 dark:bg-orange-600/30",
     "viewport": {
-      "x": -285.3775003114881,
-      "y": 100.34145314437438,
-      "zoom": 0.49793513293356395
+      "x": 325.3031725086588,
+      "y": 91.24213702257214,
+      "zoom": 0.3128827804863356
     },
     "children": {
       "4bb4c596-a4f6-43a1-90f8-2e173547b0cc": {
@@ -16,24 +16,31 @@
         "w": 702,
         "h": 302
       },
+      "521ca3bc-acd2-49b7-8608-3a1024eb2e9b": {
+        "x": 1110,
+        "y": -15,
+        "zIndex": 1,
+        "w": 202,
+        "h": 80
+      },
       "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d": {
         "x": 885,
         "y": 225,
-        "zIndex": 4,
+        "zIndex": 5,
         "w": 617,
-        "h": 658
+        "h": 1259
       },
       "9b219263-3d97-493d-8add-f54b5142a500": {
         "x": 780,
         "y": -90,
-        "zIndex": 1,
+        "zIndex": 2,
         "w": 202,
         "h": 102
       },
       "a7ed7b7d-5708-434a-87f7-7857511efc73": {
         "x": 90,
         "y": -15,
-        "zIndex": 2,
+        "zIndex": 3,
         "w": 526,
         "h": 622
       }
@@ -46,9 +53,19 @@
     "19f7d3ed-7a99-4576-8e7f-667e3bb2f1b0": {
       "name": "steady_pink"
     },
+    "1ada1c52-cc01-4ddd-9f40-3b5408a96141": {
+      "name": "protective_amethyst"
+    },
     "b86565ba-e641-45ef-986c-0a85d1c14629": {
       "name": "racial_ivory",
-      "code": "from setta.tasks.fns import SettaInMemoryFn\nimport base64\nimport io\nfrom PIL import Image\n\n\ndef base64_to_pil(base64_string: str) -> Image.Image:\n    # Remove data URL prefix if present\n    if \"base64,\" in base64_string:\n        base64_string = base64_string.split(\"base64,\")[1]\n\n    # Convert base64 to PIL Image\n    img_bytes = base64.b64decode(base64_string)\n    image = Image.open(io.BytesIO(img_bytes))\n\n    return image\n\n\ndef pil_to_base64(pil_image: Image.Image, format=\"PNG\") -> str:\n    buffered = io.BytesIO()\n    pil_image.save(buffered, format=format)\n    return base64.b64encode(buffered.getvalue()).decode()\n\n\ndef drawing_to_img(project):\n    x = base64_to_pil(project[\"input_image\"][\"drawing\"])\n\n    output = pil_to_base64(x)\n    return [{\"name\": \"stream_diffusion_output\", \"type\": \"img\", \"value\": output}]\n\n\nfn = SettaInMemoryFn(fn=drawing_to_img)\n"
+      "code": "from setta.tasks.fns import SettaInMemoryFn\nimport base64\nimport io\nfrom PIL import Image\nimport sys\n\nsys.path.insert(0, \"/home/paperspace/Documents/StreamDiffusion\")\nfrom utils.wrapper import StreamDiffusionWrapper\n\n$SETTA_GENERATED_PYTHON\n\n\nstream = StreamDiffusionWrapper(\n    model_id_or_path=\"SG161222/Realistic_Vision_V2.0\",\n    t_index_list=[22, 32, 45],\n    frame_buffer_size=1,\n    warmup=10,\n    acceleration=\"xformers\",\n    mode=\"img2img\",\n    use_denoising_batch=True,\n    cfg_type=\"self\",\n)\n\nstream.prepare(\n    prompt=\"alligator in space\",\n    negative_prompt=\"low quality, bad quality, blurry, low resolution\",\n    num_inference_steps=50,\n    guidance_scale=1.2,\n    delta=0.5,\n)\n\n\ndef base64_to_pil(base64_string: str) -> Image.Image:\n    # Remove data URL prefix if present\n    if \"base64,\" in base64_string:\n        base64_string = base64_string.split(\"base64,\")[1]\n\n    # Convert base64 to PIL Image\n    img_bytes = base64.b64decode(base64_string)\n    image = Image.open(io.BytesIO(img_bytes))\n\n    return image\n\n\ndef pil_to_base64(pil_image: Image.Image, format=\"PNG\") -> str:\n    buffered = io.BytesIO()\n    pil_image.save(buffered, format=format)\n    return base64.b64encode(buffered.getvalue()).decode()\n\n\ndef drawing_to_img(project):\n    x = base64_to_pil(project[\"input_image\"][\"drawing\"])\n\n    image_tensor = stream.preprocess_image(x)\n\n    for _ in range(stream.batch_size - 1):\n        stream(image=image_tensor)\n\n    output_image = stream(image=image_tensor)\n\n    output = pil_to_base64(output_image)\n    return [{\"name\": \"stream_diffusion_output\", \"type\": \"img\", \"value\": output}]\n\n\nfn = SettaInMemoryFn(fn=drawing_to_img)\n",
+      "templateVars": [
+        {
+          "sectionId": null,
+          "startPos": 217,
+          "keyword": "$SETTA_GENERATED_PYTHON"
+        }
+      ]
     },
     "f027b326-9317-47c6-a7c5-127a543dac8d": {
       "name": "graceful_beige"
@@ -91,6 +108,14 @@
       "uiTypeId": "d6d40533-ee47-42a5-8b55-5455716c71ac",
       "variantIds": ["19f7d3ed-7a99-4576-8e7f-667e3bb2f1b0"],
       "isReadOnlyTerminal": true
+    },
+    "521ca3bc-acd2-49b7-8608-3a1024eb2e9b": {
+      "id": "521ca3bc-acd2-49b7-8608-3a1024eb2e9b",
+      "name": "Global Variables",
+      "variantId": "1ada1c52-cc01-4ddd-9f40-3b5408a96141",
+      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
+      "variantIds": ["1ada1c52-cc01-4ddd-9f40-3b5408a96141"],
+      "columnWidth": 82
     },
     "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d": {
       "id": "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d",
