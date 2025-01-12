@@ -22,7 +22,7 @@ export function PasswordInput({ className, value, onChange, isDisabled }) {
         className="section-value grid-row-start-1 cursor-pointer justify-self-end text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300"
         tabIndex={-1}
       >
-        {showPassword ? <BiHide /> : <BiShow />}
+        {!showPassword ? <BiHide /> : <BiShow />}
       </button>
     </>
   );

@@ -18,7 +18,7 @@ export function ChangeOrientationButton({ sectionId }) {
   return (
     <IconButton
       icon={
-        isHorizontalOrientation ? (
+        !isHorizontalOrientation ? (
           <TbArrowBigDownLinesFilled />
         ) : (
           <TbArrowBigRightLinesFilled />
