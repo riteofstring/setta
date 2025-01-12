@@ -1,0 +1,66 @@
+{
+  "projectConfig": {
+    "id": "cbc97194-83e5-4ef5-82be-866d40d6c555",
+    "name": "terminal_example",
+    "previewImgColor": "bg-pink-500/60 dark:bg-pink-600/30",
+    "viewport": {
+      "x": 277.41757641542426,
+      "y": 22.088092447751364,
+      "zoom": 0.6299049891160018
+    },
+    "children": {
+      "6a17c0b1-16e6-40af-918a-a2b0efce9c48": {
+        "x": 44,
+        "y": -3.799999999999997,
+        "zIndex": 2,
+        "w": 702,
+        "h": 302
+      },
+      "d03d0a6d-6da2-4336-8570-5f79a3d35fe3": {
+        "x": 241.23778835464157,
+        "y": 349.0983948115026,
+        "zIndex": 1,
+        "w": 708,
+        "h": 495
+      }
+    }
+  },
+  "sectionVariants": {
+    "2cbc3d04-597b-4eaa-a383-e74b273f9b9d": {
+      "name": "innocent_magenta"
+    },
+    "c7ac9ded-3d2d-43af-9f25-2568a5c6adab": {
+      "name": "xerothermic_green",
+      "code": "from tqdm import tqdm\nimport numpy as np\nimport time\n\ndef calculate_moving_averages(data_size=1_000_000, window_size=100):\n    # Generate random data\n    data = np.random.random(data_size)\n    moving_averages = np.zeros(data_size - window_size + 1)\n    \n    # Calculate moving average with progress bar\n    for i in tqdm(range(len(moving_averages)), desc=\"Calculating\"):\n        # Intentionally using a simple loop instead of numpy's optimized functions\n        # to demonstrate tqdm with a ~10 second process\n        window_sum = 0\n        for j in range(window_size):\n            window_sum += data[i + j]\n            time.sleep(1e-6)  # Small delay to simulate more processing\n        moving_averages[i] = window_sum / window_size\n    \n    return moving_averages\n\nif __name__ == \"__main__\":\n    print(\"Starting moving average calculation...\")\n    result = calculate_moving_averages()\n    print(f\"\\nFinished!\")"
+    }
+  },
+  "artifacts": {},
+  "artifactGroups": {},
+  "uiTypes": {},
+  "uiTypeCols": {},
+  "sections": {
+    "6a17c0b1-16e6-40af-918a-a2b0efce9c48": {
+      "id": "6a17c0b1-16e6-40af-918a-a2b0efce9c48",
+      "name": "confidential_green",
+      "size": {
+        "width": 700,
+        "height": 300
+      },
+      "variantId": "2cbc3d04-597b-4eaa-a383-e74b273f9b9d",
+      "uiTypeId": "d6d40533-ee47-42a5-8b55-5455716c71ac",
+      "variantIds": ["2cbc3d04-597b-4eaa-a383-e74b273f9b9d"]
+    },
+    "d03d0a6d-6da2-4336-8570-5f79a3d35fe3": {
+      "id": "d03d0a6d-6da2-4336-8570-5f79a3d35fe3",
+      "name": "chronic_pink",
+      "size": {
+        "width": 706
+      },
+      "variantId": "c7ac9ded-3d2d-43af-9f25-2568a5c6adab",
+      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
+      "variantIds": ["c7ac9ded-3d2d-43af-9f25-2568a5c6adab"]
+    }
+  },
+  "codeInfo": {},
+  "codeInfoCols": {}
+}
