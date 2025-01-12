@@ -3,39 +3,51 @@
     "id": "64dd065e-1a8b-4934-bb56-e2a90c504a6d",
     "name": "working_finetune",
     "previewImgColor": "bg-pink-500/60 dark:bg-pink-600/30",
+    "viewport": {
+      "x": -1.3495273521405389,
+      "y": 222.12534131258445,
+      "zoom": 0.4810574424288497
+    },
     "children": {
       "155d01e7-6ad2-4439-884f-941e6a937186": {
         "x": 120,
-        "y": -195,
-        "zIndex": 5,
+        "y": -120,
+        "zIndex": 8,
         "w": 512,
-        "h": 707
+        "h": 1097
       },
       "165b8eff-fa4f-47f4-b09c-2cb293634b40": {
-        "x": 255,
+        "x": 120,
         "y": -450,
-        "zIndex": 4,
-        "w": 377,
-        "h": 237
+        "zIndex": 6,
+        "w": 512,
+        "h": 317
       },
       "4adad04e-a6d8-44e8-abe8-6571ea67513d": {
         "x": 660,
         "y": 360,
-        "zIndex": 6,
+        "zIndex": 3,
         "w": 827,
-        "h": 347
+        "h": 617
       },
       "b80e7d87-29de-4f22-b4ce-442257c8b54d": {
         "x": 1500,
         "y": 360,
-        "zIndex": 7,
+        "zIndex": 4,
         "w": 362,
         "h": 145
+      },
+      "d6ef7ee3-cfe6-4884-abfd-1b2c56105f48": {
+        "x": 1875,
+        "y": 360,
+        "zIndex": 5,
+        "w": 242,
+        "h": 257
       },
       "e6b535aa-30ba-4a99-8f47-98212619eac8": {
         "x": 645,
         "y": -450,
-        "zIndex": 3,
+        "zIndex": 2,
         "w": 530,
         "h": 796
       },
@@ -49,16 +61,9 @@
       "f8c4f6c0-71b0-4f2a-94f3-e868cbd2f8f3": {
         "x": 1185,
         "y": -450,
-        "zIndex": 2,
+        "zIndex": 1,
         "w": 1158,
         "h": 397
-      },
-      "d6ef7ee3-cfe6-4884-abfd-1b2c56105f48": {
-        "x": 1875,
-        "y": 360,
-        "zIndex": 8,
-        "w": 242,
-        "h": 257
       }
     }
   },
@@ -402,7 +407,7 @@
       "name": "![PyTorch Logo](http...",
       "size": {
         "width": 510,
-        "height": 705
+        "height": 1095
       },
       "variantId": "f3627edd-07fe-484c-92a2-1b9682df9adf",
       "uiTypeId": "2b06a83b-b96a-490d-a2d7-3631619e6495",
@@ -414,8 +419,8 @@
       "id": "165b8eff-fa4f-47f4-b09c-2cb293634b40",
       "name": "envious_gray",
       "size": {
-        "width": 375,
-        "height": 234.9375
+        "width": 510,
+        "height": 315
       },
       "variantId": "c51b9552-004b-4c65-b736-357b632ae4bc",
       "uiTypeId": "76cd4b19-cc63-4e2c-8214-5a4246ca637c",
@@ -445,7 +450,7 @@
       "name": "skinny_maroon",
       "size": {
         "width": 825,
-        "height": 345
+        "height": 615
       },
       "variantId": "9c4dc330-9064-4d1b-add6-4e32120d6f8a",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
