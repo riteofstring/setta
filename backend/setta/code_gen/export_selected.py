@@ -225,8 +225,12 @@ def remove_unneeded_sections(p, keep_section_types):
         if section_type not in keep_section_types:
             to_pop.append(id)
     for id in to_pop:
-        parentVariant = get_selected_section_variant(p, p["sections"][id]["parentId"])
-        parentVariant["children"] = [c for c in parentVariant["children"] if c!=id]
+        parentId = p["sections"][id]["parentId"]
+        if parentId:
+            parentVariant = get_selected_section_variant(p, parentId)
+            parentVariant["children"] = [
+                c for c in parentVariant["children"] if c != id
+            ]
         p["sections"].pop(id, None)
         p["projectConfig"]["children"].pop(id, None)
 
