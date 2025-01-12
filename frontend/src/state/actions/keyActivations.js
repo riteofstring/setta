@@ -327,8 +327,8 @@ function getWindowsIgnoreWhenInInputField(parsedShortcut) {
     isModOrCtrlShiftPlus(parsedShortcut, ["ArrowDown"]) || // Extend selection to end of paragraph
     isShiftPlus(parsedShortcut, ["ArrowUp"]) || // Extend selection one line up
     isShiftPlus(parsedShortcut, ["ArrowDown"]) || // Extend selection one line down
-    isOptionPlus(parsedShortcut, ["ArrowLeft"]) || // Move cursor one word left (alternative to Ctrl+Left)
-    isOptionPlus(parsedShortcut, ["ArrowRight"]) || // Move cursor one word right (alternative to Ctrl+Right)
+    isAltPlus(parsedShortcut, ["ArrowLeft"]) || // Move cursor one word left (alternative to Ctrl+Left)
+    isAltPlus(parsedShortcut, ["ArrowRight"]) || // Move cursor one word right (alternative to Ctrl+Right)
     isModOrCtrlPlus(parsedShortcut, ["KeyK"]) || // Create/follow link (in rich text editors)
     isShiftPlus(parsedShortcut, ["Home"]) || // Select text from the cursor to the beginning of the line
     isShiftPlus(parsedShortcut, ["End"]) || // Select text from the cursor to the end of the line
