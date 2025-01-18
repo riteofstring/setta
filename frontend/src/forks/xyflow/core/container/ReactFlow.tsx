@@ -23,6 +23,21 @@ const ReactFlow = () => {
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
   const ref = useRef();
   const [initialized, setInitialized] = useState(false);
+  const [wrapperDimensions, setWrapperDimensions] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const observer = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect;
+      setWrapperDimensions({ width, height });
+    });
+    
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+    
+    return () => observer.disconnect();
+  }, []);
+
 
   useEffect(() => {
     // console.log("scrollHeight", ref.current.scrollHeight);

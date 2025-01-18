@@ -20,12 +20,16 @@ function useResizeHandler(
 
       const size = getDimensions(rendererNode.current);
 
-      if (size.height === 0 || size.width === 0) {
-        devWarn(
-          "004",
-          "The React Flow parent container needs a width and a height to render the graph.",
-        );
-      }
+      console.log("useResizeHandler", size)
+      // if (size.height === 0 || size.width === 0) {
+      //   devWarn(
+      //     "004",
+      //     "The React Flow parent container needs a width and a height to render the graph.",
+      //   );
+      // }
+
+      console.log("overviewWidth", overviewWidth)
+      console.log("uiEditorWidth", uiEditorWidth)
 
       useReactFlow.setState({
         width: size.width - overviewWidth - uiEditorWidth || 500,
