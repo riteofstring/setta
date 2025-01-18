@@ -44,6 +44,8 @@ const ReactFlow = () => {
   useEffect(() => {
     ref.current.scrollTop = SCROLL_INIT;
     ref.current.scrollLeft = SCROLL_INIT;
+    console.log("ref.current.scrollHeight", ref.current.scrollHeight);
+    console.log("ref.current.scrollTop", ref.current.scrollTop);
     setInitialized(true);
   }, []);
 
@@ -63,17 +65,6 @@ const ReactFlow = () => {
           width: `${MAX_SCROLL_AMOUNT}px`,
         }}
       >
-        {/* This provides the actual background dimensions */}
-        <div
-          className="absolute"
-          style={{
-            height: `${MAX_SCROLL_AMOUNT}px`,
-            width: `${MAX_SCROLL_AMOUNT}px`,
-            top: `-${SCROLL_INIT}px`,
-            left: `-${SCROLL_INIT}px`,
-          }}
-        />
-        {/* This ensures Flow components are positioned correctly relative to the viewport */}
         <div
           style={{
             position: "relative",
