@@ -5,8 +5,8 @@ import { HiHome } from "react-icons/hi";
 import { createNewVersionMaybeWithJSON } from "state/actions/newVersion";
 import {
   onClickSetVariantId,
+  onMouseEnterSetPreviewVariantId,
   onMouseLeaveSetPreviewVariantId,
-  onMouseOverSetPreviewVariantId,
 } from "state/actions/previewOnMouseOver";
 import {
   deleteSectionVariantAndMaybeJsonFile,
@@ -29,32 +29,29 @@ export function VersionList({ sectionId }) {
 
   return (
     <section className="section-grid-cols section-grid-rows section-grid-areas -mx-3 -my-4 grid flex-1 self-stretch">
-      <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-6">
-        <header className="absolute right-16 top-[15px] flex items-center gap-2">
-          {/* <p className="text-xs text-setta-400 dark:text-setta-600">Name</p> */}
-          {!isEditing && (
-            <button
-              className="flex cursor-pointer items-center justify-center gap-1 rounded-md  px-2 py-1 text-xs font-bold text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400"
-              onClick={onClickAddVersionButton}
-            >
-              Add Version
-            </button>
-          )}
+      <header className="absolute right-16 top-[15px] flex items-center gap-2">
+        {/* <p className="text-xs text-setta-400 dark:text-setta-600">Name</p> */}
+        {!isEditing && (
           <button
             className="flex cursor-pointer items-center justify-center gap-1 rounded-md  px-2 py-1 text-xs font-bold text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400"
-            onClick={onClickEditButton}
+            onClick={onClickAddVersionButton}
           >
-            <i className="gg-pen" />
-            {isEditing ? "Done Editing" : "Edit"}
+            Add Version
           </button>
-        </header>
-
-        <div
-          className="contents"
-          onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
+        )}
+        <button
+          className="flex cursor-pointer items-center justify-center gap-1 rounded-md  px-2 py-1 text-xs font-bold text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400"
+          onClick={onClickEditButton}
         >
-          <EVItems sectionId={sectionId} isEditing={isEditing} />
-        </div>
+          <i className="gg-pen" />
+          {isEditing ? "Done Editing" : "Edit"}
+        </button>
+      </header>
+      <ul
+        className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-6"
+        onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
+      >
+        <EVItems sectionId={sectionId} isEditing={isEditing} />
       </ul>
     </section>
   );
@@ -104,7 +101,7 @@ function OneItem({ sectionId, id, isCurr, isDefault }) {
 
   return (
     <li
-      onMouseOver={() => onMouseOverSetPreviewVariantId(sectionId, id)}
+      onMouseEnter={() => onMouseEnterSetPreviewVariantId(sectionId, id)}
       onClick={() => onClickSetVariantId(sectionId, id)}
       className="section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between rounded-sm border-b border-transparent px-1 py-[0.125rem] text-xs hover:bg-setta-200/30 dark:hover:bg-setta-800/50"
     >

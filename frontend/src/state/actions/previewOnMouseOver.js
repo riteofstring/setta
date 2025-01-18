@@ -1,7 +1,7 @@
 import { useSectionInfos } from "state/definitions";
 import { maybeRunGuiToYaml } from "./guiToYaml";
 
-export function onMouseOverSetPreviewVariantId(sectionId, id) {
+export function onMouseEnterSetPreviewVariantId(sectionId, id) {
   let selectedVariantId;
   useSectionInfos.setState((state) => {
     selectedVariantId = state.x[sectionId].variantId;

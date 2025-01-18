@@ -5,11 +5,12 @@ import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScal
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import React from "react";
+import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
 import { createNewVersion } from "state/actions/newVersion";
 import {
   onClickSetVariantId,
+  onMouseEnterSetPreviewVariantId,
   onMouseLeaveSetPreviewVariantId,
-  onMouseOverSetPreviewVariantId,
 } from "state/actions/previewOnMouseOver";
 import {
   initRunGroup,
@@ -140,6 +141,7 @@ function RunGroupList({ sectionId }) {
     <ul
       className={`${isScrollable ? "nowheel" : ""} flex flex-grow flex-col overflow-visible py-[2px] @sm/multipane:overflow-y-scroll`}
       ref={ref}
+      onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
     >
       {runGroupsDetails.map(({ id, name }) => (
         <CheckboxNextToLabel
@@ -149,8 +151,7 @@ function RunGroupList({ sectionId }) {
           onChange={() => {
             toggleRunGroup(sectionId, id);
           }}
-          onMouseOver={() => onMouseOverSetPreviewVariantId(sectionId, id)}
-          onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
+          onMouseEnter={() => onMouseEnterSetPreviewVariantId(sectionId, id)}
           onClick={() => onClickSetVariantId(sectionId, id)}
         >
           {name}
@@ -505,14 +506,12 @@ function CheckboxNextToLabel({
   shown,
   onChange,
   onClick,
-  onMouseOver,
-  onMouseLeave,
+  onMouseEnter,
 }) {
   return (
     <li
       className="group/runitem flex justify-between"
-      onMouseOver={onMouseOver}
-      onMouseLeave={onMouseLeave}
+      onMouseEnter={onMouseEnter}
     >
       <label
         className={`flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-700  group-hover/runitem:!text-blue-500 dark:text-setta-200 ${shown ? "font-bold !text-blue-500" : ""}`}
