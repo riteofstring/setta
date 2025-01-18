@@ -94,10 +94,6 @@ function getCurrentElementIndex(e, focusableArray) {
     : focusableArray.indexOf(document.activeElement);
 }
 
-function getContentEditableFromCodeAreaDiv(el) {
-  return el.querySelector("[contenteditable]");
-}
-
 export function tabFromDocumentBody(e) {
   if (document.activeElement === document.body) {
     focusOnProjectOverviewButton(e);
