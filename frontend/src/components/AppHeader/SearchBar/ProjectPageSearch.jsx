@@ -85,9 +85,7 @@ function ProjectPageAdvancedCore({ allItems, children }) {
     highlightedIndex,
     getItemProps,
     itemToString,
-    onInputClick,
     onKeyDown,
-    listDims,
   } = useIdNameCombobox({
     allItems,
     onSelectedItemChange,
@@ -99,7 +97,6 @@ function ProjectPageAdvancedCore({ allItems, children }) {
     <>
       {React.cloneElement(children, {
         ...getInputProps({
-          onClick: () => onInputClick(inputRef.current),
           onKeyDown,
           ref: inputRef,
         }),
@@ -108,7 +105,7 @@ function ProjectPageAdvancedCore({ allItems, children }) {
       <ComboboxList
         isOpen={isOpen}
         getMenuProps={getMenuProps}
-        listDims={listDims}
+        inputRef={inputRef}
       >
         <ComboboxItems
           filteredItems={filteredItems}

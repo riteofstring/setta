@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
 import { useIdNameCombobox } from "./useIdNameCombobox";
 
@@ -13,6 +14,8 @@ export function IdNameCombobox({
   isDisabled,
   inputDivId,
 }) {
+  const inputRef = useRef();
+
   const {
     isOpen,
     filteredItems,
@@ -22,9 +25,7 @@ export function IdNameCombobox({
     highlightedIndex,
     getItemProps,
     itemToString,
-    onInputClick,
     onKeyDown,
-    listDims,
   } = useIdNameCombobox({
     allItems,
     onSelectedItemChange,
@@ -43,17 +44,17 @@ export function IdNameCombobox({
         getToggleButtonProps={getToggleButtonProps}
         isOpen={isOpen}
         small={small}
-        onInputClick={onInputClick}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         bg={bg}
         isDisabled={isDisabled}
+        inputRef={inputRef}
       />
 
       <ComboboxList
         isOpen={isOpen}
         getMenuProps={getMenuProps}
-        listDims={listDims}
+        inputRef={inputRef}
       >
         <ComboboxItems
           filteredItems={filteredItems}

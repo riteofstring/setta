@@ -18,6 +18,16 @@ def seed_examples(db):
         str(get_absolute_path(__file__, SEED_FOLDER / "examples/**/*.json"))
     )
     for filepath in example_jsons:
+        # if (
+        #     "reviews" not in filepath
+        #     and "medical" not in filepath
+        #     and "financial" not in filepath
+        # ):
+        #     continue
+        # if "hf" not in filepath:
+        #     continue
+        # if "img_to_img" not in filepath:
+        #     continue
         with open(filepath, "r") as f:
             data = json.load(f)
         add_defaults_to_project(data)  # json files don't have all the defaults
