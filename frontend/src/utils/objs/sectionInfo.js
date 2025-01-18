@@ -33,6 +33,7 @@ export function newSectionInfo({
     {
       id: maybeNewId(id),
       variantId: _variantId,
+      defaultVariantId: _variantId,
       uiTypeId,
       variantIds: _variantIds,
     },
