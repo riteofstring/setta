@@ -43,18 +43,15 @@ export function fitView(options: InternalFitViewOptions = {}) {
 
     if (nodes.length > 0 && nodesInitialized) {
       const bounds = getNodesBounds(nodes);
-      console.log("bounds", bounds);
 
       const { x, y, zoom } = getViewportForBounds(
         bounds,
-        800.8,
-        616,
+        width,
+        height,
         options.minZoom ?? minZoom,
         options.maxZoom ?? maxZoom,
         options.padding ?? 0.1,
       );
-      console.log("width,height", width, height);
-      console.log("x,y,zoom", x, y, zoom);
 
       const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
 
