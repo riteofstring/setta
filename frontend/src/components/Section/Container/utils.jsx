@@ -39,21 +39,23 @@ export function getOutlineColor({
   if (jsonSourceMissing) {
     return "outline-red-600 dark:outline-red-400";
   }
-  if (isActiveSection && isGlobalVariables) {
-    return "outline-green-600 dark:outline-turquoise-400";
-  }
-  if (isInOtherProjectConfigs) {
-    if (isActiveSection) {
+  if (isActiveSection) {
+    if (isGlobalVariables) {
+      return "outline-green-600 dark:outline-turquoise-400";
+    }
+    if (isInOtherProjectConfigs) {
       return "outline-purple-600 dark:outline-purple-700";
     }
-    return `outline-transparent active:outline-fuchsia-400`;
-  }
-
-  if (isActiveSection) {
     return "outline-blue-600 dark:outline-blue-700";
   }
 
-  return "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-cyan-300";
+  const 
+
+  const activeOutline = isInOtherProjectConfigs
+    ? "outline-fuchsia-400"
+    : "outline-cyan-300";
+
+  return `outline-transparent :${activeOutline}`;
 }
 
 export function getOnSectionClick(sectionId, isActiveSection) {
