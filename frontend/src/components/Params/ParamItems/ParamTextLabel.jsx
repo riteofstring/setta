@@ -1,5 +1,4 @@
 import { useMisc, useSectionInfos } from "state/definitions";
-import { focusAndMovePaneToIncludeElement } from "utils/tabbingLogic";
 
 export function ParamTextLabel({ sectionId, paramInfoId, onMouseDown, bg }) {
   const name = useSectionInfos((x) => x.codeInfo[paramInfoId].name);
@@ -12,7 +11,7 @@ export function ParamTextLabel({ sectionId, paramInfoId, onMouseDown, bg }) {
       `${sectionId}-${paramInfoId}-ParamInput`,
     );
     if (paramInputEl) {
-      focusAndMovePaneToIncludeElement(paramInputEl);
+      paramInputEl.focus({ preventScroll: true });
     }
   }
 

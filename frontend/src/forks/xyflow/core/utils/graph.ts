@@ -228,16 +228,16 @@ function isSectionOverlappingWithRect(sectionId, otherRect, partially) {
 }
 
 export function movePaneToIncludeElement(element) {
-  // const point = screenToFlowPosition(element.getBoundingClientRect());
-  // const paneRect = getPaneRect(
-  //   useReactFlow.getState(),
-  //   localStorageFns.overviewTrueWidth.state()[0],
-  // );
-  // const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
-  // if (!isInside) {
-  //   const { d3Zoom, d3Selection } = useReactFlow.getState();
-  //   d3Zoom.translateBy(d3Selection, -x, -y);
-  // }
+  const point = screenToFlowPosition(element.getBoundingClientRect());
+  const paneRect = getPaneRect(
+    useReactFlow.getState(),
+    localStorageFns.overviewTrueWidth.state()[0],
+  );
+  const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
+  if (!isInside) {
+    const { d3Zoom, d3Selection } = useReactFlow.getState();
+    d3Zoom.translateBy(d3Selection, -x, -y);
+  }
 }
 
 function getRectTranslation(point, rect, padding = 0) {
