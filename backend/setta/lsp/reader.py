@@ -240,9 +240,9 @@ class LanguageServerReader(LanguageServerInteractor):
             return
 
     async def process_response(self, response):
-        from pprint import pprint
+        # from pprint import pprint
 
-        pprint(response)
+        # pprint(response)
         id = response.get("id", None)
         method = response.get("method", None)
         if id:

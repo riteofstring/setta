@@ -36,7 +36,7 @@ async def main():
     await lsp_writer.send_initialize_request()
 
     code_id = "referencetest"
-    code = 'x = {"dog": 5}\nx[]'
+    code = 'import torch\ntorch.nn.CrossEntropyLoss()'
     codeJson = {}
 
 
@@ -129,8 +129,7 @@ async def main():
     #     "test", "import torch\ntorch.nn.CrossEntropyLoss("
     # )
     # print(len(code.split("\n")[1])-2)
-    # await lsp_writer.send_signature_help_request(1, 26, code_id, "1234")
-    await lsp_writer.send_autocomplete_request(1, 2, code_id, "1234",[],[])
+    await lsp_writer.send_signature_help_request(1, 26, code_id, "1234")
     # await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # pprint(lsp.sent_msg_info.keys())
