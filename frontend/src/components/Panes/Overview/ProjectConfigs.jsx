@@ -44,9 +44,9 @@ export const ProjectConfigs = React.forwardRef(() => {
                 to={pathRelativeToProject(name)}
                 key={idx}
                 className="grouop flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-xl px-2 py-1 hover:bg-blue-300/40 dark:hover:bg-blue-900/50"
-                onMouseOver={() => {
+                onMouseEnter={() => {
                   setMousedOverName(name);
-                  onMouseOver({
+                  onMouseEnter({
                     previewEnabled,
                     mousedOverName: name,
                     currProjectConfigName,
@@ -70,7 +70,7 @@ export const ProjectConfigs = React.forwardRef(() => {
   );
 });
 
-function onMouseOver({
+function onMouseEnter({
   mousedOverName,
   previewEnabled,
   currProjectConfigName,
