@@ -6,7 +6,7 @@ import { useReactFlow } from "../store";
 import Pane from "./Pane";
 import ZoomPane from "./ZoomPane";
 
-const FlowRenderer = ({ children }) => {
+const FlowRenderer = ({ children, wrapperDimensions }) => {
   const {
     panActivationKeyPressed,
     zoomActivationKeyPressed,
@@ -50,6 +50,7 @@ const FlowRenderer = ({ children }) => {
       panOnDrag={!selectionKeyPressed && panOnDrag}
       panActivationKeyPressed={panActivationKeyPressed}
       zoomActivationKeyPressed={zoomActivationKeyPressed}
+      wrapperDimensions={wrapperDimensions}
     >
       <Pane panOnDrag={panOnDrag} isSelecting={!!selectionKeyPressed}>
         {children}
