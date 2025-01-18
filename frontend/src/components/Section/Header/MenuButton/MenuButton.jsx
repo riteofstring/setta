@@ -2,6 +2,7 @@ import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import C from "constants/constants.json";
 import { useIsListElement } from "state/hooks/uiTypes";
+import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import { HeaderIcon } from "../HeaderIcon";
 import { AddArtifactByFilepath } from "./AddArtifactByFilepath";
 import { AddInMemoryFnStdoutTerminal } from "./AddInMemoryFnStdoutTerminal";
@@ -38,7 +39,7 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
   }
 
   return (
-    <Menubar.Root>
+    <Menubar.Root className={SETTA_PREVENT_SECTION_ACTIVE_CSS}>
       <CardHeaderMenuButton
         triggerClassName={iconWrapperClassName}
         trigger={
