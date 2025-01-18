@@ -50,8 +50,13 @@ const FlowRenderer = ({ children }) => {
       panOnDrag={!selectionKeyPressed && panOnDrag}
       panActivationKeyPressed={panActivationKeyPressed}
       zoomActivationKeyPressed={zoomActivationKeyPressed}
+      wrapperDimensions={wrapperDimensions}
     >
-      <Pane panOnDrag={panOnDrag} isSelecting={!!selectionKeyPressed}>
+      <Pane
+        panOnDrag={panOnDrag}
+        isSelecting={!!selectionKeyPressed}
+        wrapperDimensions={wrapperDimensions}
+      >
         {children}
         <NodesSelectionWrapper />
       </Pane>
