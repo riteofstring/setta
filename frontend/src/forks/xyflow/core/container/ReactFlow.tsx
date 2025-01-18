@@ -42,14 +42,9 @@ const ReactFlow = () => {
   }, []);
 
   useEffect(() => {
-    // console.log("scrollHeight", ref.current.scrollHeight);
-    // console.log("scrollTop", ref.current.scrollTop);
     ref.current.scrollTop = SCROLL_INIT;
     ref.current.scrollLeft = SCROLL_INIT;
     setInitialized(true);
-
-    // console.log("scrollHeight", ref.current.scrollHeight);
-    // console.log("scrollTop", ref.current.scrollTop);
   }, []);
 
   return (
