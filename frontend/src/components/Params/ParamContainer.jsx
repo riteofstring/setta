@@ -29,7 +29,7 @@ function _ParamContainer({
   bg,
 }) {
   const maybeErrorMessage = useTypeErrors(
-    (x) => null,
+    (x) => x.errors[sectionId]?.[paramInfoId],
   );
 
   // const maybeErrorMessage = useTypeErrors((x) => "error");
