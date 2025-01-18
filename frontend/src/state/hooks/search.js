@@ -6,7 +6,7 @@ import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";
 import { getDisplayedSectionIdToChildren } from "state/actions/sectionInfos";
-import { getAllDisplayedParamsInSection } from "state/actions/sections/sectionContents";
+import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
 import {
   useProjectSearch,
   useSectionInfos,
@@ -76,7 +76,7 @@ function getAllVisibleParams() {
 }
 
 function getParamsAndAddToSearchResults(sectionId, state, output) {
-  const ids = getAllDisplayedParamsInSection(sectionId, state);
+  const ids = getAllVisibleParamsInSection(sectionId, state);
   for (const p of ids) {
     output.push({
       sectionId,

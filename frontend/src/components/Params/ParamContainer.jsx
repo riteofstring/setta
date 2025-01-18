@@ -97,6 +97,7 @@ function _ParamContainer({
     </>
   ) : (
     <article
+      id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
       className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${border} [&>p]:section-key-value ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
       ref={parentRef}

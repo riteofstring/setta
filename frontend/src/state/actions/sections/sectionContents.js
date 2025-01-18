@@ -94,13 +94,31 @@ export function getSectionHasAtLeastOneSelectedParam(sectionId, state) {
   });
 }
 
-export function getAllDisplayedParamsInSection(sectionId, state) {
+export function getAllVisibleParamsInSection(sectionId, state) {
+  const { hideUnpinnedParams } = state.x[sectionId];
   const { codeInfoChildren, parentCodeInfoId } =
     getCodeChildrenAndParentCodeInfoId(sectionId, state);
-  const { ids } = findAllParametersAndPathMaps({
-    allCodeInfo: state.codeInfo,
+  let pinnedIds = getParamIdsToShowInArea(
+    true,
+    state.codeInfo,
     codeInfoChildren,
-    startingId: parentCodeInfoId,
-  });
-  return ids;
+    parentCodeInfoId,
+  );
+
+  pinnedIds = Object.keys(pinnedIds.requiredParamIdsToPaths);
+  pinnedIds.reverse();
+
+  let unpinnedIds = [];
+  if (!hideUnpinnedParams) {
+    unpinnedIds = getParamIdsToShowInArea(
+      false,
+      state.codeInfo,
+      codeInfoChildren,
+      parentCodeInfoId,
+    );
+    unpinnedIds = Object.keys(unpinnedIds.requiredParamIdsToPaths);
+    unpinnedIds.reverse();
+  }
+
+  return [...pinnedIds, ...unpinnedIds];
 }

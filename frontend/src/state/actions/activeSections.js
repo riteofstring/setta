@@ -6,7 +6,7 @@ import {
   useSectionInfos,
 } from "state/definitions";
 import { getHighestAncestor, getSectionType } from "./sectionInfos";
-import { getAllDisplayedParamsInSection } from "./sections/sectionContents";
+import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";
 
 export function setActiveSectionIds(ids) {
@@ -40,7 +40,7 @@ export function selectAll() {
   if (currActiveSections.length === 1) {
     useSectionInfos.setState((state) => {
       const sectionId = currActiveSections[0];
-      const ids = getAllDisplayedParamsInSection(sectionId, state);
+      const ids = getAllVisibleParamsInSection(sectionId, state);
       for (const p of ids) {
         state.codeInfo[p].isSelected = true;
       }
