@@ -71,9 +71,9 @@ const ReactFlow = () => {
             left: `${SCROLL_INIT}px`,
           }}
         >
-          <FlowRenderer wrapperDimensions={wrapperDimensions}>
+          <FlowRenderer>
             <ViewportWrapper>
-              <NodeRenderer wrapperDimensions={wrapperDimensions} />
+              <NodeRenderer />
             </ViewportWrapper>
           </FlowRenderer>
           {snapToGrid && showGridLines && <Background />}

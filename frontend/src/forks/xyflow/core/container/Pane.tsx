@@ -47,7 +47,7 @@ const selector = (s: ReactFlowState) => ({
   dragging: s.paneDragging,
 });
 
-const Pane = memo(({ isSelecting, panOnDrag, children, wrapperDimensions }: PaneProps) => {
+const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
   const container = useRef<HTMLDivElement | null>(null);
   const prevSelectedNodesCount = useRef<number>(0);
   const containerBounds = useRef<DOMRect>();
@@ -202,13 +202,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children, wrapperDimensions }: Pane
       onMouseUp={hasActiveSelection ? onMouseUp : undefined}
       onMouseLeave={hasActiveSelection ? onMouseLeave : undefined}
       ref={container}
-      style={{
-        width: wrapperDimensions.width,
-        height: wrapperDimensions.height,
-        position: "absolute",
-        top: 0,
-        left: 0,
-      }}
+      style={containerStyle}
     >
       {children}
       <UserSelection />

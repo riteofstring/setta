@@ -9,6 +9,7 @@ import {
 import { useActiveSection, useNodeInternals } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { computeReadyToBeVisible } from "../store/utils";
+import { containerStyle } from "../styles";
 import type { ReactFlowState } from "../types";
 
 const selector = (s: ReactFlowState) => ({
@@ -18,7 +19,7 @@ const selector = (s: ReactFlowState) => ({
   panActivationKeyPressed: s.panActivationKeyPressed,
 });
 
-const NodeRenderer = ({ wrapperDimensions }) => {
+const NodeRenderer = ({}) => {
   const {
     nodesDraggable,
     nodesFocusable,
@@ -57,16 +58,7 @@ const NodeRenderer = ({ wrapperDimensions }) => {
   }, []);
 
   return (
-    <div
-      className="react-flow__nodes"
-      style={{
-        width: wrapperDimensions.width,
-        height: wrapperDimensions.height,
-        position: "absolute",
-        top: 0,
-        left: 0,
-      }}
-    >
+    <div className="react-flow__nodes" style={containerStyle}>
       {nodes.map((node) => {
         const isDraggable = !!(
           !panActivationKeyPressed &&
