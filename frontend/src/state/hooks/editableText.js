@@ -36,5 +36,5 @@ export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
     setInputValue(initialValue);
   }, [initialValue]);
 
-  return [inputValue, onChange, onBlur, onKeyDown];
+  return [inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey];
 }

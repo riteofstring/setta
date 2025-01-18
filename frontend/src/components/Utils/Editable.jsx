@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function Editable({
   value,
@@ -9,16 +9,22 @@ export function Editable({
   onMouseOver,
   onMouseLeave,
   doubleClickToEdit = false,
+  blurTriggeredByEscapeKey,
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const paragraphRef = useRef(null);
 
   function localOnBlur(e) {
+    // store value in separate variable,
+    // because blurTriggeredByEscapeKey gets reset in onBlur
+    const focusOnNonEdit = blurTriggeredByEscapeKey.current;
     setIsEditing(false);
     onBlur(e);
-    requestAnimationFrame(() => {
-      paragraphRef.current.focus({ preventScroll: true });
-    });
+    if (focusOnNonEdit) {
+      requestAnimationFrame(() => {
+        paragraphRef.current.focus({ preventScroll: true });
+      });
+    }
   }
 
   function onClick(e) {
@@ -46,7 +52,7 @@ export function Editable({
       titleProps={titleProps["notEditing"]}
       onMouseOver={onMouseOver}
       onMouseLeave={onMouseLeave}
-      ref={paragraphRef}
+      paragraphRef={paragraphRef}
     />
   );
 }
@@ -73,27 +79,32 @@ function InEditMode({ value, onChange, onBlur, onKeyDown, titleProps }) {
   );
 }
 
-const InNonEditMode = React.forwardRef(
-  ({ value, onClick, titleProps, onMouseOver, onMouseLeave }, ref) => {
-    function onKeyDown(e) {
-      if (e.code === "Space") {
-        e.preventDefault(); // need this to prevent title from getting erased
-        onClick(e);
-      }
+function InNonEditMode({
+  value,
+  onClick,
+  titleProps,
+  onMouseOver,
+  onMouseLeave,
+  paragraphRef,
+}) {
+  function onKeyDown(e) {
+    if (e.code === "Space") {
+      e.preventDefault(); // need this to prevent title from getting erased
+      onClick(e);
     }
+  }
 
-    return (
-      <p
-        onClick={onClick}
-        className={titleProps}
-        tabIndex="0"
-        onKeyDown={onKeyDown}
-        onMouseOver={onMouseOver}
-        onMouseLeave={onMouseLeave}
-        ref={ref}
-      >
-        {value}
-      </p>
-    );
-  },
-);
+  return (
+    <p
+      onClick={onClick}
+      className={titleProps}
+      tabIndex="0"
+      onKeyDown={onKeyDown}
+      onMouseOver={onMouseOver}
+      onMouseLeave={onMouseLeave}
+      ref={paragraphRef}
+    >
+      {value}
+    </p>
+  );
+}

@@ -26,7 +26,8 @@ export function ProjectName() {
 }
 
 function ProjectNameOnly() {
-  const [localName, onChange, onBlur, onKeyDown] = useEditableProjectName();
+  const [localName, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey] =
+    useEditableProjectName();
 
   return (
     <Editable
@@ -38,6 +39,7 @@ function ProjectNameOnly() {
       onChange={onChange}
       onBlur={onBlur}
       onKeyDown={onKeyDown}
+      blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
     />
   );
 }

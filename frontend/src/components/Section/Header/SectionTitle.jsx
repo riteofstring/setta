@@ -57,11 +57,8 @@ function EditableTitle({
     return !getSiblingHasName(sectionId, value);
   }
 
-  const [inputValue, onChange, onBlur, onKeyDown] = useEditableOnSubmit(
-    sectionName,
-    onTitleInputChange,
-    condition,
-  );
+  const [inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey] =
+    useEditableOnSubmit(sectionName, onTitleInputChange, condition);
 
   return (
     <Editable
@@ -73,6 +70,7 @@ function EditableTitle({
       doubleClickToEdit={true}
       onMouseOver={onMouseOver}
       onMouseLeave={onMouseLeave}
+      blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
     />
   );
 }
