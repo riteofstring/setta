@@ -16,7 +16,6 @@ const wrapperStyle: CSSProperties = {
 };
 
 const SCROLL_INIT = 5000;
-const MAX_SCROLL_AMOUNT = 10000;
 
 const ReactFlow = () => {
   const [snapToGrid] = localStorageFns.snapToGrid.hook();
@@ -44,8 +43,6 @@ const ReactFlow = () => {
   useEffect(() => {
     ref.current.scrollTop = SCROLL_INIT;
     ref.current.scrollLeft = SCROLL_INIT;
-    console.log("ref.current.scrollHeight", ref.current.scrollHeight);
-    console.log("ref.current.scrollTop", ref.current.scrollTop);
     setInitialized(true);
   }, []);
 
@@ -57,12 +54,14 @@ const ReactFlow = () => {
       ref={ref}
       onScroll={(e) => cancelOutScrolling(e, initialized)}
     >
-      {/* This wrapper establishes the full scrollable area */}
+      {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to */}
+      {/* so that onScroll can be triggered in any direction. */}
+      {/* That way, we can leverage the browser's scroll behavior in any direction, if we want to. */}
       <div
         style={{
           position: "relative",
-          height: `${MAX_SCROLL_AMOUNT}px`,
-          width: `${MAX_SCROLL_AMOUNT}px`,
+          height: `${SCROLL_INIT}px`,
+          width: `${SCROLL_INIT}px`,
           top: `${SCROLL_INIT}px`,
           left: `${SCROLL_INIT}px`,
         }}
