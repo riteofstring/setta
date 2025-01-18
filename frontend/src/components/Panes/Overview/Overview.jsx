@@ -49,7 +49,8 @@ export function Overview() {
           <i className="gg-git-branch !scale-100" />
         </TabButton>
         <a
-          href="https://setta.dev"
+          href="https://docs.setta.dev"
+          target="_blank"
           className="focus-visible:ring-light-blue-500 absolute bottom-2 left-1 flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-500"
         >
           <BiHelpCircle />
