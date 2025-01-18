@@ -6,7 +6,6 @@ import { useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newEVEntry } from "utils/objs/ev";
-import { newUITypeColEntry } from "utils/objs/uiTypeCol";
 import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
@@ -283,7 +282,7 @@ export function getCodeChildrenAndParentCodeInfoId(
 
   const codeInfoChildren = codeInfoColId
     ? state.codeInfoCols[codeInfoColId].children
-    : newUITypeColEntry();
+    : newCodeInfoCol().children;
 
   return { codeInfoChildren, parentCodeInfoId };
 }

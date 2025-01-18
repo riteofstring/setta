@@ -7,6 +7,7 @@ import {
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import { useSectionInfos } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
+import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { post } from "./utils";
 
 export async function dbGuiToYaml(sectionId, variantId) {
@@ -65,10 +66,9 @@ async function dbParamSweepSectionToYaml(sectionId, variantId) {
   const sectionVariant = state.variants[variantId];
   const sweep = sectionVariant.sweep;
   const codeInfo = state.codeInfo;
-  const codeInfoChildren = getDisplayedCodeInfoCol(
-    forSectionId,
-    state,
-  ).children;
+  const codeInfoCol =
+    getDisplayedCodeInfoCol(forSectionId, state) ?? newCodeInfoCol();
+  const codeInfoChildren = codeInfoCol.children;
 
   const res = await post({
     body: {
