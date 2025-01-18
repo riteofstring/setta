@@ -15,6 +15,9 @@ const wrapperStyle: CSSProperties = {
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
+const SCROLL_INIT = 5000;
+const MAX_SCROLL_AMOUNT = 10000;
+
 const ReactFlow = () => {
   const [snapToGrid] = localStorageFns.snapToGrid.hook();
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
@@ -24,8 +27,8 @@ const ReactFlow = () => {
   useEffect(() => {
     // console.log("scrollHeight", ref.current.scrollHeight);
     // console.log("scrollTop", ref.current.scrollTop);
-    ref.current.scrollTop = 5000;
-    ref.current.scrollLeft = 5000;
+    ref.current.scrollTop = SCROLL_INIT;
+    ref.current.scrollLeft = SCROLL_INIT;
     setInitialized(true);
 
     // console.log("scrollHeight", ref.current.scrollHeight);
@@ -42,20 +45,32 @@ const ReactFlow = () => {
     >
       {/* This wrapper establishes the full scrollable area */}
       <div
-        style={{ position: "relative", height: "10000px", width: "10000px" }}
+        style={{
+          position: "relative",
+          height: `${MAX_SCROLL_AMOUNT}px`,
+          width: `${MAX_SCROLL_AMOUNT}px`,
+        }}
       >
         {/* This provides the actual background dimensions */}
         <div
           className="absolute"
           style={{
-            height: "10000px",
-            width: "10000px",
-            top: "-5000px",
-            left: "-5000px",
+            height: `${MAX_SCROLL_AMOUNT}px`,
+            width: `${MAX_SCROLL_AMOUNT}px`,
+            top: `-${SCROLL_INIT}px`,
+            left: `-${SCROLL_INIT}px`,
           }}
         />
         {/* This ensures Flow components are positioned correctly relative to the viewport */}
-        <div style={{ position: "fixed", inset: 0 }}>
+        <div
+          style={{
+            position: "relative",
+            height: "100%",
+            width: "100%",
+            top: `${SCROLL_INIT}px`,
+            left: `${SCROLL_INIT}px`,
+          }}
+        >
           <FlowRenderer>
             <ViewportWrapper>
               <NodeRenderer />
@@ -72,16 +87,14 @@ function cancelOutScrolling(e, initialized) {
   if (!initialized) {
     return;
   }
-  console.log("e.target.scrollTop", e.target.scrollTop);
-  console.log("e.target.scrollLeft", e.target.scrollLeft);
   const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
   d3Zoom.translateBy(
     d3Selection,
-    -e.target.scrollLeft / transform[2],
-    -e.target.scrollTop / transform[2],
+    -(e.target.scrollLeft - SCROLL_INIT) / transform[2],
+    -(e.target.scrollTop - SCROLL_INIT) / transform[2],
   );
-  e.target.scrollTop = 5000;
-  e.target.scrollLeft = 5000;
+  e.target.scrollTop = SCROLL_INIT;
+  e.target.scrollLeft = SCROLL_INIT;
 }
 
 ReactFlow.displayName = "ReactFlow";
