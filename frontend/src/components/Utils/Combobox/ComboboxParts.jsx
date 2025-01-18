@@ -1,5 +1,5 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import React, { useEffect, useState } from "react";
+import React, { useRef } from "react";
 import { createPortal } from "react-dom";
 import { StandardSearchRightBtn } from "../atoms/search/StandardSearchRightBtn";
 
@@ -53,40 +53,17 @@ export function ComboboxInput({
   );
 }
 
-export function ComboboxList({ isOpen, children, getMenuProps, inputRef }) {
-  const [position, setPosition] = useState(null);
+export function ComboboxList({ isOpen, children, getMenuProps, listDims }) {
+  const display = isOpen ? "flex" : "hidden";
+  const { x, y, width } = listDims;
 
-  function updatePosition() {
-    if (inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect();
-      const yMargin = -30;
-
-      setPosition({
-        left: rect.left,
-        top: rect.bottom + yMargin,
-        width: rect.width,
-      });
-    }
-  }
-
-  // Update position when opening the combobox
-  useEffect(() => {
-    if (isOpen) {
-      updatePosition();
-    }
-  }, [isOpen]);
-
-  if (!isOpen || !position) return null;
+  // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
 
   return createPortal(
     <div
-      className="nowheel nodrag absolute z-20 mt-8 max-h-96 w-fit rounded-md border bg-white pb-2 shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50"
+      className={`nowheel nodrag absolute w-fit pb-2 ${display} z-20 mt-8 max-h-96  rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50`}
       {...getMenuProps()}
-      style={{
-        left: `${position.left}px`,
-        top: `${position.top}px`,
-        minWidth: position.width,
-      }}
+      style={{ left: `${x}px`, top: `${y}px`, minWidth: width }}
     >
       <div className="w-full overflow-y-scroll">{children}</div>
     </div>,
