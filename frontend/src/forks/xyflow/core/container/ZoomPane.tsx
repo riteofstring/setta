@@ -16,7 +16,6 @@ import { useMisc, useSettings } from "state/definitions";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { clamp, isMacOs } from "utils/utils";
 import { shallow } from "zustand/shallow";
-import useResizeHandler from "../hooks/useResizeHandler";
 import { getViewport } from "../hooks/useViewportHelper";
 import { infiniteExtent } from "../store/initialState";
 import {
@@ -80,7 +79,6 @@ const ZoomPane = ({
   const mouseButton = useRef<number>(0);
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
-  useResizeHandler(zoomPane);
   useZoomPaneInit(zoomPane, translateExtent);
 
   useEffect(() => {

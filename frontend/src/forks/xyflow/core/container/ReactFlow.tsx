@@ -22,23 +22,7 @@ const ReactFlow = () => {
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
   const ref = useRef();
   const [initialized, setInitialized] = useState(false);
-  const [wrapperDimensions, setWrapperDimensions] = useState({
-    width: 0,
-    height: 0,
-  });
-
-  useEffect(() => {
-    const observer = new ResizeObserver((entries) => {
-      const { width, height } = entries[0].contentRect;
-      setWrapperDimensions({ width, height });
-    });
-
-    if (ref.current) {
-      observer.observe(ref.current);
-    }
-
-    return () => observer.disconnect();
-  }, []);
+  const wrapperDimensions = useWrapperDivDimensions(ref);
 
   useEffect(() => {
     ref.current.scrollTop = SCROLL_INIT;
@@ -89,6 +73,45 @@ function cancelOutScrolling(e, initialized) {
   );
   e.target.scrollTop = SCROLL_INIT;
   e.target.scrollLeft = SCROLL_INIT;
+}
+
+function useWrapperDivDimensions(ref) {
+  const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
+  const [uiEditorWidth] = localStorageFns.uiEditorTrueWidth.hook();
+
+  const [wrapperDimensions, setWrapperDimensions] = useState({
+    width: 0,
+    height: 0,
+  });
+
+  useEffect(() => {
+    let resizeObserver;
+
+    if (ref.current) {
+      resizeObserver = new ResizeObserver((entries) => {
+        const { width, height } = entries[0].contentRect;
+
+        // Set wrapper dimensions
+        setWrapperDimensions({ width, height });
+
+        // Set React Flow state
+        useReactFlow.setState({
+          width: width - overviewWidth - uiEditorWidth || 500,
+          height: height || 500,
+        });
+      });
+
+      resizeObserver.observe(ref.current);
+    }
+
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, [overviewWidth, uiEditorWidth]);
+
+  return wrapperDimensions;
 }
 
 ReactFlow.displayName = "ReactFlow";
