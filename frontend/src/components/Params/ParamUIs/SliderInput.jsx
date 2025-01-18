@@ -83,14 +83,14 @@ export function SliderInput({
         sliderRangeClassName={sliderRangeClassName}
         sliderThumbClassName={sliderThumbClassName}
       />
-      <SliderTextField
+      {/* <SliderTextField
         className={textInputClassName}
         value={value}
         onChange={onChange}
         onCommit={onCommit}
         min={min}
         max={max}
-      />
+      /> */}
     </div>
   );
 }
