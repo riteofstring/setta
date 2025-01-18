@@ -1,7 +1,8 @@
 import Background from "forks/xyflow/background/Background";
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
+import { useReactFlow } from "../store";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
 import ViewportWrapper from "./Viewport";
@@ -18,11 +19,17 @@ const ReactFlow = () => {
   const [snapToGrid] = localStorageFns.snapToGrid.hook();
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
   const ref = useRef();
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    console.log("scrollHeight", ref.current.scrollHeight);
-    console.log("scrollTop", ref.current.scrollTop);
+    // console.log("scrollHeight", ref.current.scrollHeight);
+    // console.log("scrollTop", ref.current.scrollTop);
     ref.current.scrollTop = 5000;
+    ref.current.scrollLeft = 5000;
+    setInitialized(true);
+
+    // console.log("scrollHeight", ref.current.scrollHeight);
+    // console.log("scrollTop", ref.current.scrollTop);
   }, []);
 
   return (
@@ -31,7 +38,7 @@ const ReactFlow = () => {
       className="react-flow setta-light dark:setta-dark"
       data-testid="rf__wrapper"
       ref={ref}
-      onScroll={cancelOutScrolling}
+      onScroll={(e) => cancelOutScrolling(e, initialized)}
     >
       {/* This wrapper establishes the full scrollable area */}
       <div
@@ -61,20 +68,22 @@ const ReactFlow = () => {
   );
 };
 
+function cancelOutScrolling(e, initialized) {
+  if (!initialized) {
+    return;
+  }
+  console.log("e.target.scrollTop", e.target.scrollTop);
+  console.log("e.target.scrollLeft", e.target.scrollLeft);
+  const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
+  d3Zoom.translateBy(
+    d3Selection,
+    -e.target.scrollLeft / transform[2],
+    -e.target.scrollTop / transform[2],
+  );
+  e.target.scrollTop = 5000;
+  e.target.scrollLeft = 5000;
+}
+
 ReactFlow.displayName = "ReactFlow";
 
 export default ReactFlow;
-
-function cancelOutScrolling(e) {
-  console.log("e.target.scrollTop", e.target.scrollTop);
-  // if (e.target.scrollTop > 0 || e.target.scrollLeft) {
-  //   const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
-  //   d3Zoom.translateBy(
-  //     d3Selection,
-  //     -e.target.scrollLeft / transform[2],
-  //     -e.target.scrollTop / transform[2],
-  //   );
-  //   e.target.scrollTop = 0;
-  //   e.target.scrollLeft = 0;
-  // }
-}
