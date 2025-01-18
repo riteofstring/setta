@@ -54,7 +54,7 @@ const ReactFlow = () => {
       ref={ref}
       onScroll={(e) => cancelOutScrolling(e, initialized)}
     >
-      {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to */}
+      {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
       {/* so that onScroll can be triggered in any direction. */}
       {/* That way, we can leverage the browser's scroll behavior in any direction, if we want to. */}
       <div
