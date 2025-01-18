@@ -41,8 +41,8 @@ export function homePageProjectItemOnKeyDown(e, navigate, projectConfigName) {
   }
 }
 
-function withinSectionTabbingHelper(focusEl) {
-  focusEl.focus({ preventScroll: true });
+export function focusAndMovePaneToIncludeElement(focusEl) {
+  focusEl.focus();
   movePaneToIncludeElement(focusEl);
 }
 
@@ -61,14 +61,14 @@ export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
     if (!focusEl) {
       shiftTabBackToOverviewListItem(e, sectionId);
     } else {
-      withinSectionTabbingHelper(focusEl);
+      focusAndMovePaneToIncludeElement(focusEl);
     }
   } else {
     const focusEl = getNextElement(e, ref, focusableArray);
     if (!focusEl) {
       tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
     } else {
-      withinSectionTabbingHelper(focusEl);
+      focusAndMovePaneToIncludeElement(focusEl);
     }
   }
 }

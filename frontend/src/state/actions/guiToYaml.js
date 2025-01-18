@@ -300,8 +300,8 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   } else {
     [unpinned] = documents;
   }
-  pinned = pinned.trim() ? parseRawDump(pinned) : {};
-  unpinned = unpinned.trim() ? parseRawDump(unpinned) : {};
+  pinned = pinned.trim?.() ? parseRawDump(pinned) : {};
+  unpinned = unpinned.trim?.() ? parseRawDump(unpinned) : {};
 
   const fOriginalObj = mergePinnedAndUnpinned(
     flattenObject(originalObj.pinned),
