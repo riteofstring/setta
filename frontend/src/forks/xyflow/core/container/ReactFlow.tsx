@@ -63,24 +63,16 @@ const ReactFlow = () => {
           position: "relative",
           height: `${MAX_SCROLL_AMOUNT}px`,
           width: `${MAX_SCROLL_AMOUNT}px`,
+          top: `${SCROLL_INIT}px`,
+          left: `${SCROLL_INIT}px`,
         }}
       >
-        <div
-          style={{
-            position: "relative",
-            height: "100%",
-            width: "100%",
-            top: `${SCROLL_INIT}px`,
-            left: `${SCROLL_INIT}px`,
-          }}
-        >
-          <FlowRenderer wrapperDimensions={wrapperDimensions}>
-            <ViewportWrapper>
-              <NodeRenderer />
-            </ViewportWrapper>
-          </FlowRenderer>
-          {snapToGrid && showGridLines && <Background />}
-        </div>
+        <FlowRenderer wrapperDimensions={wrapperDimensions}>
+          <ViewportWrapper>
+            <NodeRenderer />
+          </ViewportWrapper>
+        </FlowRenderer>
+        {snapToGrid && showGridLines && <Background />}
       </div>
     </div>
   );
