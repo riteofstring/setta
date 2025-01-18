@@ -19,6 +19,7 @@ import { shallow } from "zustand/shallow";
 import useResizeHandler from "../hooks/useResizeHandler";
 import { getViewport } from "../hooks/useViewportHelper";
 import { infiniteExtent } from "../store/initialState";
+import { containerStyle } from "../styles";
 import {
   CoordinateExtent,
   PanOnScrollMode,
@@ -69,7 +70,6 @@ const ZoomPane = ({
   translateExtent = infiniteExtent,
   preventScrolling = true,
   children,
-  wrapperDimensions,
 }) => {
   const isZoomingOrPanning = useRef(false);
   const zoomedWithRightMouseButton = useRef(false);
@@ -377,17 +377,7 @@ const ZoomPane = ({
   ]);
 
   return (
-    <div
-      className="react-flow__renderer"
-      ref={zoomPane}
-      style={{
-        width: wrapperDimensions.width,
-        height: wrapperDimensions.height,
-        position: "absolute",
-        top: 0,
-        left: 0,
-      }}
-    >
+    <div className="react-flow__renderer" ref={zoomPane} style={containerStyle}>
       {children}
     </div>
   );

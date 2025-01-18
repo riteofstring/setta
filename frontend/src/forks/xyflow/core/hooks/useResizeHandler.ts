@@ -2,7 +2,7 @@ import type { MutableRefObject } from "react";
 import { useEffect } from "react";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useReactFlow } from "../store";
-import { getDimensions } from "../utils";
+import { devWarn, getDimensions } from "../utils";
 
 function useResizeHandler(
   rendererNode: MutableRefObject<HTMLDivElement | null>,
@@ -20,12 +20,12 @@ function useResizeHandler(
 
       const size = getDimensions(rendererNode.current);
 
-      // if (size.height === 0 || size.width === 0) {
-      //   devWarn(
-      //     "004",
-      //     "The React Flow parent container needs a width and a height to render the graph.",
-      //   );
-      // }
+      if (size.height === 0 || size.width === 0) {
+        devWarn(
+          "004",
+          "The React Flow parent container needs a width and a height to render the graph.",
+        );
+      }
 
       useReactFlow.setState({
         width: size.width - overviewWidth - uiEditorWidth || 500,
