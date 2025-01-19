@@ -4,6 +4,7 @@ import { BiPaint } from "react-icons/bi";
 import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
 import { FaChartPie, FaLayerGroup, FaSquareXTwitter } from "react-icons/fa6";
 import { GoDotFill } from "react-icons/go";
+import { GrFormView } from "react-icons/gr";
 import { IoLogoJavascript } from "react-icons/io";
 import { PiTextTFill } from "react-icons/pi";
 import { RiGlobalFill } from "react-icons/ri";
@@ -159,7 +160,7 @@ function TerminalIcon({ sectionId }) {
   );
 
   return isReadOnlyTerminal ? (
-    <FaTerminal className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+    <GrFormView className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
   ) : (
     <FaTerminal className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
   );
