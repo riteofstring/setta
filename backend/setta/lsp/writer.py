@@ -49,13 +49,11 @@ class LanguageServerWriter(LanguageServerInteractor):
         if uri not in self.versions:
             if not virtual:
                 self.create_or_update_temp_file(code_id, code)
+            self.get_new_version_number(uri, code, codeJson, is_gen_code)
             params = {
                 "textDocument": {
                     "uri": uri,
                     "languageId": "python",
-                    "version": self.get_new_version_number(
-                        uri, code, codeJson, is_gen_code
-                    ),
                     "text": code,
                 }
             }
@@ -146,12 +144,10 @@ class LanguageServerWriter(LanguageServerInteractor):
         if not virtual:
             self.create_or_update_temp_file(code_id, code)
         uri = self.get_uri(code_id, virtual)
+        self.get_new_version_number(uri, code, codeJson, is_gen_code)
         params = {
             "textDocument": {
                 "uri": uri,
-                "version": self.get_new_version_number(
-                    uri, code, codeJson, is_gen_code
-                ),
             },
             "contentChanges": [{"text": code}],
         }

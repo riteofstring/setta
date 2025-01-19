@@ -116,7 +116,7 @@ class LanguageServerInteractor:
             self.versions[uri] = {0: obj}
             new_version = 0
         else:
-            new_version = max(self.versions[uri].keys()) + 1
+            new_version = 0
             self.versions[uri][new_version] = obj
         return new_version
 
