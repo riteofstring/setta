@@ -1,5 +1,4 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { RiPlayMiniFill } from "react-icons/ri";
 import { importCodeBlocks, runCodeBlocks } from "state/actions/runOrImportCode";
 import { getSectionInfo } from "state/actions/sectionInfos";
@@ -22,7 +21,6 @@ export function RunButton({ sectionId }) {
       size="w-4 h-4"
       padding="p-0 mr-1"
       onClick={onClick}
-      {...getFloatingBoxHandlers(null, "Run this code block")}
     />
   );
 }

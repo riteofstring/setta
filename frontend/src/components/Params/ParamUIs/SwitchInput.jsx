@@ -8,7 +8,6 @@ export function SwitchInput({
   value,
   defaultVal,
   onChange,
-  onEscape,
   isDisabled,
   outerDivClassName,
   twRootClasses,
@@ -24,13 +23,6 @@ export function SwitchInput({
         onCheckedChange={onChange}
         twRootClasses={twRootClasses}
         twThumbClasses={twThumbClasses}
-        onKeyDown={(e) => {
-          if (e.code === "Escape") {
-            // have to stop propagation to prevent section from becoming unselected
-            e.stopPropagation();
-            onEscape?.();
-          }
-        }}
       />
     </div>
   );

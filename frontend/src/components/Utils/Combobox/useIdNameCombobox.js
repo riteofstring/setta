@@ -5,8 +5,7 @@ import { flattenedItems } from "./utils";
 export function useIdNameCombobox({ allItems, onSelectedItemChange, value }) {
   function onKeyDown(e) {
     if (e.code === "Escape") {
-      // TODO: figure out best way to blur without being annoying
-      // e.target.blur();
+      e.target.blur();
     }
   }
 

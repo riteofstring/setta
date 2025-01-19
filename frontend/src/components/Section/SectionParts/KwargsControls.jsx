@@ -15,7 +15,6 @@ import {
   useSettings,
 } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
-import { focusOnSection } from "utils/tabbingLogic";
 import { shortcutPrettified } from "utils/utils";
 
 export function KwargsControls({
@@ -116,7 +115,6 @@ function ParamFilter({ sectionId }) {
         onKeyDown={(e) => {
           if (e.code === "Escape") {
             e.target.blur();
-            focusOnSection(null, sectionId, false);
           }
         }}
       />

@@ -1,13 +1,7 @@
 import { useState } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 
-export function PasswordInput({
-  className,
-  value,
-  onChange,
-  onEscape,
-  isDisabled,
-}) {
+export function PasswordInput({ className, value, onChange, isDisabled }) {
   const [showPassword, setShowPassword] = useState(false);
 
   const togglePasswordVisibility = () => {
@@ -21,11 +15,6 @@ export function PasswordInput({
         onChange={(e) => onChange(e.target.value)}
         disabled={isDisabled}
         type={showPassword ? "text" : "password"}
-        onKeyDown={(e) => {
-          if (e.code === "Escape") {
-            onEscape?.();
-          }
-        }}
       />
       <button
         type="button"

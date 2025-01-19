@@ -6,7 +6,6 @@ import { useMisc, useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { getParamUIType } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { focusOnSection } from "utils/tabbingLogic";
 import { ColorPickerInput, ColorPickerInputConfig } from "./ColorPickerInput";
 import { DropdownInput, DropdownInputConfig } from "./DropdownInput";
 import { PasswordInput } from "./PasswordInput";
@@ -56,10 +55,6 @@ export function ParamUI({
   });
   const isDisabled = isSelectingParams || disabledOrFrozen;
 
-  function onEscape() {
-    focusOnSection(null, sectionId, false);
-  }
-
   // need to put the group/textinput in a higher div
 
   switch (uiType.type) {
@@ -74,11 +69,6 @@ export function ParamUI({
             value={value}
             defaultVal={defaultVal}
             onChange={onChange}
-            onEscape={(completionResult) => {
-              if (!completionResult) {
-                onEscape();
-              }
-            }}
             dummyCodeClassName={`section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
             realCodeClassName={`nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
             language={configLanguage}
@@ -101,7 +91,6 @@ export function ParamUI({
           value={value}
           defaultVal={defaultVal}
           onChange={onChange}
-          onEscape={onEscape}
           min={min}
           max={max}
           step={step}
@@ -122,7 +111,6 @@ export function ParamUI({
           value={value}
           defaultVal={defaultVal}
           onChange={onChange}
-          onEscape={onEscape}
           isDisabled={isDisabled}
           outerDivClassName="section-value flex justify-self-start self-center"
           twRootClasses="nodrag"
@@ -135,7 +123,6 @@ export function ParamUI({
           colorChoices={colorChoices}
           value={value}
           onChange={onChange}
-          onEscape={onEscape}
           wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
           colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
           isDisabled={isDisabled}
@@ -159,7 +146,6 @@ export function ParamUI({
             className={`${!isDisabled ? "cursor-text select-text" : ""} nodrag section-value peer/textinput flex min-w-0 max-w-[calc(100%_-_1.1rem)] self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
             value={value}
             onChange={onChange}
-            onEscape={onEscape}
             isDisabled={isDisabled}
           />
           <span
