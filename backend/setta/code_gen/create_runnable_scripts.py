@@ -198,7 +198,10 @@ async def generate_final_code_for_section(
     )
 
     if USER_SETTINGS["backend"]["inferImports"]:
-        code, ref_template_var_positions = await maybe_validate_imports_and_update_code(
+        (
+            code,
+            ref_template_var_positions["templateVars"],
+        ) = await maybe_validate_imports_and_update_code(
             sectionId, code, ref_template_var_positions, lsp_writers
         )
 
