@@ -2,6 +2,7 @@ import importlib.util
 import json
 import multiprocessing
 import sys
+import traceback
 import uuid
 
 from setta.tasks.fns.utils import TaskDefinition
@@ -47,8 +48,6 @@ class SettaInMemoryFnSubprocess:
         fns_dict = {}
         cache = {}
 
-        import sys
-
         class OutputCapture:
             def __init__(self, stdout_pipe):
                 self.stdout_pipe = stdout_pipe
@@ -60,7 +59,9 @@ class SettaInMemoryFnSubprocess:
                 pass
 
         # Redirect stdout as soon as subprocess starts
-        sys.stdout = OutputCapture(self.stdout_child_conn)
+        output_capture = OutputCapture(self.stdout_child_conn)
+        sys.stdout = output_capture
+        sys.stderr = output_capture
 
         while True:
             msg = self.child_conn.recv()  # Wait for requests
@@ -70,50 +71,51 @@ class SettaInMemoryFnSubprocess:
             if msg_type == "shutdown":
                 break
 
-            # try:
-            if msg_type == "import":
-                # Handle module import
-                code = msg["code"]
-                module_name = msg["module_name"]
-                # Import and store module
-                module = import_code_from_string(code, module_name)
-                added_fn_names = add_fns_from_module(fns_dict, module, module_name)
-                task_metadata = {}
-                for k in added_fn_names:
-                    cache[k] = msg["to_cache"]
-                    task_metadata[k] = get_task_metadata(fns_dict[k], cache[k])
+            try:
+                if msg_type == "import":
+                    # Handle module import
+                    code = msg["code"]
+                    module_name = msg["module_name"]
+                    # Import and store module
+                    module = import_code_from_string(code, module_name)
+                    added_fn_names = add_fns_from_module(fns_dict, module, module_name)
+                    task_metadata = {}
+                    for k in added_fn_names:
+                        cache[k] = msg["to_cache"]
+                        task_metadata[k] = get_task_metadata(fns_dict[k], cache[k])
 
-                self.child_conn.send(
-                    {
-                        "status": "success",
-                        "content": task_metadata,
-                    }
-                )
+                    self.child_conn.send(
+                        {
+                            "status": "success",
+                            "content": task_metadata,
+                        }
+                    )
 
-            elif msg_type == "call":
-                # Handle function call
-                fn_name = msg["fn_name"]
-                message = self.process_message(fn_name, msg["message"], cache)
-                fn = fns_dict[fn_name]
-                result = fn.fn(message)
-                return_message_type = fn.return_message_type
+                elif msg_type == "call":
+                    # Handle function call
+                    fn_name = msg["fn_name"]
+                    message = self.process_message(fn_name, msg["message"], cache)
+                    fn = fns_dict[fn_name]
+                    result = fn.fn(message)
+                    return_message_type = fn.return_message_type
 
-                self.child_conn.send(
-                    {
-                        "status": "success",
-                        "content": result,
-                        "messageType": return_message_type,
-                    }
-                )
+                    self.child_conn.send(
+                        {
+                            "status": "success",
+                            "content": result,
+                            "messageType": return_message_type,
+                        }
+                    )
 
-            # except Exception as e:
-            # self.child_conn.send(
-            #     {
-            #         "status": "error",
-            #         "error": str(e),
-            #         "messageType": return_message_type,
-            #     }
-            # )
+            except Exception as e:
+                traceback.print_exc()
+                # self.child_conn.send(
+                #     {
+                #         "status": "error",
+                #         "error": str(e),
+                #         "messageType": return_message_type,
+                #     }
+                # )
 
     def close(self):
         try:
