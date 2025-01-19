@@ -84,7 +84,7 @@ async def runCode(message, lsp_writers):
 async def generate_final_code_for_sections(
     p,
     exporter_obj,
-    lsp_writer,
+    lsp_writers,
     folder_path,
     do_prepend_with_setup_code=False,
     do_convert_var_names_to_readable_form=False,
@@ -124,7 +124,7 @@ async def generate_final_code_for_sections(
             evRefs=section_variant["evRefs"],
             templateVars=section_variant["templateVars"],
             exporter_obj=exporter_obj,
-            lsp_writer=lsp_writer,
+            lsp_writers=lsp_writers,
             folder_path=folder_path,
             projectConfigName=p["projectConfig"]["name"],
             do_prepend_with_setup_code=do_prepend_with_setup_code,
@@ -157,7 +157,7 @@ async def generate_final_code_for_section(
     evRefs,
     templateVars,
     exporter_obj,
-    lsp_writer,
+    lsp_writers,
     folder_path,
     projectConfigName=None,
     do_prepend_with_setup_code=False,
@@ -197,7 +197,7 @@ async def generate_final_code_for_section(
 
     if USER_SETTINGS["backend"]["inferImports"]:
         code, ref_template_var_positions = await maybe_validate_imports_and_update_code(
-            code, ref_template_var_positions, lsp_writer
+            code, ref_template_var_positions, lsp_writers
         )
 
     if codeLanguage == "python":

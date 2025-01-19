@@ -6,7 +6,7 @@ from setta.utils.constants import C
 
 
 async def maybe_validate_imports_and_update_code(
-    code, ref_template_var_positions, lsp_writer
+    code, ref_template_var_positions, lsp_writers
 ):
     templateVars = ref_template_var_positions["templateVars"]
     generated_imports_info, idx = get_specific_template_var(
@@ -15,7 +15,7 @@ async def maybe_validate_imports_and_update_code(
     if not generated_imports_info:
         return code, ref_template_var_positions
     old_value = generated_imports_info["value"]
-    new_value, did_change = await validate_imports(old_value, lsp_writer)
+    new_value, did_change = await validate_imports(old_value, lsp_writers)
     if not did_change:
         return code, ref_template_var_positions
 
@@ -33,8 +33,15 @@ async def maybe_validate_imports_and_update_code(
     return code, ref_template_var_positions
 
 
-async def validate_imports(generated_imports, lsp_writer):
+async def validate_imports(generated_imports, lsp_writers):
     if not generated_imports:
         return generated_imports, False
+
+    # await lsp_writers["full"].send_document_open_request(
+    #     code_id=code_id,
+    #     code=code,
+    #     codeJson=exporter_obj.output if exporter_obj else None,
+    #     is_gen_code=is_gen_code,
+    # )
 
     return generated_imports, False

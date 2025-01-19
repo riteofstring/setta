@@ -62,7 +62,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         evRefs=message.evRefs,
         templateVars=message.templateVars,
         exporter_obj=exporter_obj,
-        lsp_writer=lsp_writers["full"],
+        lsp_writers=lsp_writers,
         folder_path=lsp_writers["full"].project_code_folder(message.projectConfigName),
         cursor_position=message.position,
         template_var_replacement_values=template_var_replacement_values,

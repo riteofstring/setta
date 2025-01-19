@@ -55,7 +55,7 @@ async def route_update_interactive_code(
     code_dict = await generate_final_code_for_sections(
         p,
         exporter_obj,
-        lsp_writer=lsp_writers["full"],
+        lsp_writers=lsp_writers,
         folder_path="",
         do_prepend_with_setup_code=True,
         do_convert_var_names_to_readable_form=True,

@@ -15,7 +15,7 @@ async def _typeCheck(message, lsp_writers):
     code_dict = await generate_final_code_for_sections(
         project,
         exporter_obj,
-        lsp_writer=lsp_writers["full"],
+        lsp_writers=lsp_writers,
         folder_path=lsp_writers["full"].project_code_folder(projectConfigName),
     )
     send_document_open_request_with_code_dict(

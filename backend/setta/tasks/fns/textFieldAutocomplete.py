@@ -98,7 +98,7 @@ async def get_code_and_cursor_position(
         evRefs=gen_code_section_variant["evRefs"],
         templateVars=gen_code_section_variant["templateVars"],
         exporter_obj=exporter_obj,
-        lsp_writer=lsp_writers["full"],
+        lsp_writers=lsp_writers,
         folder_path=lsp_writers["full"].project_code_folder(message.projectConfigName),
         template_var_replacement_values=template_var_replacement_values,
         var_name_to_decl_rel_position_dict=var_name_to_decl_rel_position_dict,
