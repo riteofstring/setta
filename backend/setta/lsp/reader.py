@@ -244,6 +244,7 @@ class LanguageServerReader(LanguageServerInteractor):
         # from pprint import pprint
 
         # pprint(response)
+        print(response, flush=True)
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
@@ -271,6 +272,7 @@ class LanguageServerReader(LanguageServerInteractor):
                 content = [*referencable_var_names, *content]
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
+                # print("self.server.versions", self.server.versions, flush=True)
                 if response["result"]:
                     content = parse_signature(response["result"]["signatures"][0])
                     # pprint(content)
@@ -338,19 +340,19 @@ class LanguageServerReader(LanguageServerInteractor):
                 await self.websocket_manager.send_message_to_requester(
                     return_id, {"positions": content, "numMessages": num_messages}
                 )
-        elif method == "textDocument/publishDiagnostics":
-            # print(response, flush=True)
-            params = response["params"]
-            diagnostics = params["diagnostics"]
-            uri = params["uri"]
-            version_info = self.get_version(uri, params.get("version"))
-            # TODO, remove this condition
-            if version_info["is_gen_code"]:
-                code = version_info["code"]
-                codeJson = version_info["codeJson"]
-                code_split = code.split("\n")
-                content = process_diagnostics(diagnostics, code_split, codeJson)
-                # print("content", content, flush=True)
-                await self.websocket_manager.broadcast(
-                    {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
-                )
+        # elif method == "textDocument/publishDiagnostics":
+        #     # print(response, flush=True)
+        #     params = response["params"]
+        #     diagnostics = params["diagnostics"]
+        #     uri = params["uri"]
+        #     version_info = self.get_version(uri, params.get("version"))
+        #     # TODO, remove this condition
+        #     if version_info["is_gen_code"]:
+        #         code = version_info["code"]
+        #         codeJson = version_info["codeJson"]
+        #         code_split = code.split("\n")
+        #         content = process_diagnostics(diagnostics, code_split, codeJson)
+        #         # print("content", content, flush=True)
+        #         await self.websocket_manager.broadcast(
+        #             {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
+        #         )
