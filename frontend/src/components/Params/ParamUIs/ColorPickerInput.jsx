@@ -93,6 +93,7 @@ export function ColorPickerInput({
   colorChoices,
   value,
   onChange,
+  onEscape,
   wrapperClassName,
   colorPickerChoicesClasses,
   isDisabled,
@@ -104,6 +105,7 @@ export function ColorPickerInput({
         colorChoices={colorChoices}
         value={_value}
         onChange={onChange}
+        onEscape={onEscape}
         colorPickerChoicesClasses={colorPickerChoicesClasses}
         isDisabled={isDisabled}
       />
@@ -115,6 +117,7 @@ function ColorPicker({
   colorChoices,
   value,
   onChange,
+  onEscape,
   colorPickerChoicesClasses,
   isDisabled,
 }) {
@@ -131,6 +134,7 @@ function ColorPicker({
       colorChoices={colorChoices}
       colorPickerChoicesClasses={colorPickerChoicesClasses}
       isDisabled={isDisabled}
+      onEscape={onEscape}
     />
   ) : (
     <>
@@ -145,6 +149,11 @@ function ColorPicker({
         onChange={(e) => onChange(e.target.value)}
         className="single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)]  min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
         disabled={isDisabled}
+        onKeyDown={(e) => {
+          if (e.code === "Escape") {
+            onEscape?.();
+          }
+        }}
       />
     </>
   );
@@ -156,6 +165,7 @@ function ColorPickerFromColorChoices({
   colorChoices,
   colorPickerChoicesClasses,
   isDisabled,
+  onEscape,
 }) {
   let selectedItem = colorChoices.find((c) => c.color === color);
   if (!selectedItem) {
@@ -173,6 +183,13 @@ function ColorPickerFromColorChoices({
       <DropdownMenu.Trigger
         className={colorPickerChoicesClasses}
         disabled={isDisabled}
+        onKeyDown={(e) => {
+          if (e.code === "Escape") {
+            // have to stop propagation to prevent section from becoming unselected
+            e.stopPropagation();
+            onEscape?.();
+          }
+        }}
       >
         <div
           className="single-cell-child min-w-0s m-auto h-full min-h-0 w-full rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
