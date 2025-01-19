@@ -7,11 +7,7 @@ class LanguageServer:
     def __init__(self, workspace_folder, code_folder, settings):
         self.workspace_folder = workspace_folder
         self.code_folder = code_folder
-        self.msg_id_to_metadata = defaultdict(dict)
-        self.pending_requests = {}
-        self.versions = {}
-        self.initialization_request_id = None
-        self.is_initialized = False
+        self.init_properties()
         self.server = None
         if not isinstance(settings, dict):
             print(
@@ -23,14 +19,32 @@ class LanguageServer:
 
     async def start_server(self):
         print("starting server")
-        self.initialization_request_id = None
-        self.is_initialized = False
+        self.init_properties()
         self.server = await asyncio.create_subprocess_shell(
             "basedpyright-langserver --stdio",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+
+    def init_properties(self):
+        self.cleanup_pending_requests()
+        self.pending_requests = {}
+        self.msg_id_to_metadata = defaultdict(dict)
+        self.versions = {}
+        self.initialization_request_id = None
+        self.is_initialized = False
+
+    def cleanup_pending_requests(self):
+        if not hasattr(self, "pending_requests"):
+            return
+        # Cancel all pending futures with an appropriate error
+        for future in self.pending_requests.values():
+            if not future.done():
+                future.set_exception(
+                    ConnectionResetError("Language server was restarted")
+                )
+        self.pending_requests.clear()
 
     def kill_server(self):
         try:
@@ -71,7 +85,14 @@ class LanguageServerInteractor:
     async def wait_for_response(self, id, timeout=None):
         future = self.pending_requests.get(id)
         if future:
-            return await asyncio.wait_for(future, timeout=timeout)
+            try:
+                result = await asyncio.wait_for(future, timeout=timeout)
+                return result
+            except ConnectionResetError as e:
+                # Handle the error case
+                pass
+            finally:
+                self.pending_requests.pop(id, None)
         return None
 
     def project_code_folder(self, projectConfigName):
