@@ -14,8 +14,12 @@ export async function setSelectedItem(
   selectedItemName,
   changedByUser,
   callbackSetAttr,
+  refetchParams = false,
 ) {
-  if (itemIsAlreadySelected(dataSectionId, selectedItemName)) {
+  if (
+    !refetchParams &&
+    itemIsAlreadySelected(dataSectionId, selectedItemName)
+  ) {
     useSectionInfos.setState((state) => {
       callbackSetAttr(undefined, state);
     });
@@ -26,7 +30,7 @@ export async function setSelectedItem(
     selectedItemName,
   );
 
-  if (prevSelected !== undefined) {
+  if (!refetchParams && prevSelected !== undefined) {
     useSectionInfos.setState((state) => {
       callbackSetAttr(prevSelected, state);
     });
@@ -50,13 +54,18 @@ export async function setSelectedItem(
   });
 
   useSectionInfos.setState((state) => {
-    const info = newCodeInfo({
-      name: selectedItemName,
-      editable: false,
-      rcType: C.CALLABLE,
-      evRefs,
-    });
-    addCodeInfo({ sectionId: dataSectionId, info, parent: null, state });
+    let info;
+    if (!prevSelected) {
+      info = newCodeInfo({
+        name: selectedItemName,
+        editable: false,
+        rcType: C.CALLABLE,
+        evRefs,
+      });
+      addCodeInfo({ sectionId: dataSectionId, info, parent: null, state });
+    } else {
+      info = state.codeInfo[prevSelected];
+    }
 
     if (paramRes) {
       const [documentation, params] = paramRes;
@@ -77,9 +86,18 @@ export async function setSelectedItem(
 }
 
 function createChildrenCodeInfo(sectionId, parent, params, state) {
-  const paramIds = [];
+  const existingChildrenNameToId = {};
+  for (const c of getCodeInfoCol(sectionId, state)?.children?.[parent] ?? []) {
+    existingChildrenNameToId[state.codeInfo[c].name] = c;
+  }
+
+  const paramIdsInOrder = [];
   for (const p of params) {
+    // if the param name is already a child of parent, then get its id
+    // otherwise it'll be undefined and id will be created in newCodeInfo
+    const existingId = existingChildrenNameToId[p.name];
     const info = newCodeInfo({
+      id: existingId,
       name: p.name,
       editable: false,
       rcType: C.PARAMETER,
@@ -87,9 +105,17 @@ function createChildrenCodeInfo(sectionId, parent, params, state) {
       description: p.description,
       positionalOnly: p.positionalOnly,
     });
-    addCodeInfo({ sectionId, info, parent, state });
-    paramIds.push(info.id);
+    paramIdsInOrder.push(info.id);
+    if (!existingId) {
+      addCodeInfo({ sectionId, info, parent, state });
+    } else {
+      state.codeInfo[existingId] = info;
+    }
   }
+
+  // ensures the params are in the right order, regardless of whether we are
+  // creating new children, or updating existing ones.
+  getCodeInfoCol(sectionId, state).children[parent] = paramIdsInOrder;
 }
 
 function itemHasBeenSelectedBefore(sectionId, selectedItemName) {

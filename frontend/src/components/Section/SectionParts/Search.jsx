@@ -15,16 +15,20 @@ import { asyncDebounce } from "utils/utils";
 export function SectionSearch({ sectionId, selectedItem }) {
   const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
 
+  function callbackSetAttr(id, state) {
+    // for this callback, an undefined id means that the selectedItem is already selected.
+    if (id !== undefined) {
+      getSectionVariant(sectionId, state).selectedItem = id;
+    }
+  }
+
   function onEnter(value) {
     // gets called inside useSectionInfos.setState
-    function callbackSetAttr(id, state) {
-      // for this callback, an undefined id means that the selectedItem is already selected.
-      if (id !== undefined) {
-        getSectionVariant(sectionId, state).selectedItem = id;
-      }
-    }
-
     setSelectedItem(sectionId, sectionId, value, true, callbackSetAttr);
+  }
+
+  function onShiftEnter(value) {
+    setSelectedItem(sectionId, sectionId, value, true, callbackSetAttr, true);
   }
 
   return (
@@ -34,6 +38,7 @@ export function SectionSearch({ sectionId, selectedItem }) {
       visualSectionId={sectionId}
       selectedItem={selectedItem}
       onEnter={onEnter}
+      onShiftEnter={onShiftEnter}
       dummyCodeClassName="single-cell-child rounded-2xl border border-solid border-setta-100 bg-white py-1 dark:border-setta-800 dark:bg-setta-950 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]"
       realCodeClassName="single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-blue-500 bg-white mx-[.125rem] py-1  dark:border-blue-400/50 dark:bg-setta-950 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
       isDisabled={variantIsFrozen}
@@ -68,6 +73,8 @@ export function ParamSweepSectionSearch({
     setSelectedItem(forSectionId, sectionId, value, true, callbackSetAttr);
   }
 
+  function onShiftEnter(value) {}
+
   return (
     <div className="section-search flex items-center justify-between gap-0.5">
       <SectionSearchCore
@@ -75,6 +82,7 @@ export function ParamSweepSectionSearch({
         visualSectionId={sectionId}
         selectedItem={selectedItem}
         onEnter={onEnter}
+        onShiftEnter={onShiftEnter}
         isDisabled={isDisabled}
         dummyCodeClassName="single-cell-child rounded-2xl border border-solid border-setta-100 bg-white py-1 dark:border-setta-800 dark:bg-setta-950 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]"
         realCodeClassName="single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-blue-500 bg-white mx-[.125rem] py-1  dark:border-blue-400/50 dark:bg-setta-950 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
@@ -106,6 +114,7 @@ function SectionSearchCore({
   visualSectionId,
   selectedItem,
   onEnter,
+  onShiftEnter,
   dummyCodeClassName,
   realCodeClassName,
   isDisabled,
@@ -159,6 +168,15 @@ function SectionSearchCore({
     onEnter(value);
   }
 
+  function _onShiftEnter() {
+    onShiftEnter(value);
+  }
+
+  const keyComboActions = {
+    Enter: _onEnter,
+    "Shift-Enter": _onShiftEnter,
+  };
+
   return (
     <search
       className="section-search single-cell-container w-full"
@@ -174,7 +192,7 @@ function SectionSearchCore({
         dummyCodeClassName={dummyCodeClassName}
         realCodeClassName={realCodeClassName}
         singleLine={true}
-        onEnter={_onEnter}
+        keyComboActions={keyComboActions}
         onTab={onTab}
         onEscape={onEscape}
         language={configLanguage}

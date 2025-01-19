@@ -23,7 +23,7 @@ export function TextInputCodeMirror({
   dummyCodeClassName,
   realCodeClassName,
   singleLine,
-  onEnter,
+  keyComboActions,
   onEscape,
   onTab,
   color,
@@ -103,7 +103,7 @@ export function TextInputCodeMirror({
           onChange={onChange}
           className={realCodeClassName}
           singleLine={singleLine}
-          onEnter={onEnter}
+          keyComboActions={keyComboActions}
           onEscape={onEscape}
           onTab={onTab}
           onBlur={localOnBlur}
@@ -131,7 +131,7 @@ function CoreCodeMirror({
   onChange,
   className,
   singleLine,
-  onEnter,
+  keyComboActions,
   onEscape,
   onBlur,
   onTab,
@@ -173,7 +173,7 @@ function CoreCodeMirror({
     singleLine,
     tabToAutocomplete: true,
     escapeToBlur: true,
-    onEnter,
+    keyComboActions,
     onTab,
     onEscape,
   });

@@ -22,10 +22,10 @@ export function getExtensions({
   tabToAutocomplete,
   indentWithTab,
   escapeToBlur,
-  onEnter,
   onTab,
   onEscape,
   onModEnterDoNothing,
+  keyComboActions,
   isDisabled,
 }) {
   const extensions = [
@@ -67,17 +67,19 @@ export function getExtensions({
     );
   }
 
-  if (onEnter) {
-    extensions.push(
-      Prec.highest(
-        keymap.of([
-          {
-            key: "Enter",
-            run: onEnter,
-          },
-        ]),
-      ),
-    );
+  if (keyComboActions) {
+    for (const [combo, action] of Object.entries(keyComboActions)) {
+      extensions.push(
+        Prec.highest(
+          keymap.of([
+            {
+              key: combo,
+              run: action,
+            },
+          ]),
+        ),
+      );
+    }
   }
 
   extensions.push(
