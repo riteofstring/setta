@@ -28,7 +28,9 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_initialize_request(self):
         params = {
-            "capabilities": {},
+            "capabilities": {
+                "workspace": {"didChangeWatchedFiles": {"dynamicRegistration": True}}
+            },
             "workspaceFolders": [{"uri": self.get_workspace_uri()}],
         }
         request_id = str(uuid.uuid4())
