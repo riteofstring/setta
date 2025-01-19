@@ -247,6 +247,15 @@ class LanguageServerReader(LanguageServerInteractor):
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
+            if (
+                not self.server.is_initialized
+                and id == self.server.initialization_request_id
+            ):
+                self.server.is_initialized = True
+                await self.websocket_manager.broadcast(
+                    {"messageType": C.WS_LSP_STATUS, "content": "Initialized"}
+                )
+
             method = method if method else self.msg_id_to_metadata[id]["method"]
             if method == "textDocument/completion":
                 content = [
@@ -345,7 +354,3 @@ class LanguageServerReader(LanguageServerInteractor):
                 await self.websocket_manager.broadcast(
                     {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
                 )
-
-        # print(self.received_messages.keys())
-        # process_response(response)
-        # pprint(response)

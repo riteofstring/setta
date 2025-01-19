@@ -12,4 +12,3 @@ router = APIRouter()
 async def route_restart_language_server(lsps=Depends(get_lsps)):
     lsps, lsp_readers, lsp_writers = lsps
     await restart_lsps(lsps, lsp_readers, lsp_writers)
-    print("done restarting", flush=True)

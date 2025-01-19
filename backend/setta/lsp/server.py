@@ -9,6 +9,8 @@ class LanguageServer:
         self.code_folder = code_folder
         self.msg_id_to_metadata = defaultdict(dict)
         self.versions = {}
+        self.initialization_request_id = None
+        self.is_initialized = False
         self.server = None
         if not isinstance(settings, dict):
             print(
@@ -20,6 +22,8 @@ class LanguageServer:
 
     async def start_server(self):
         print("starting server")
+        self.initialization_request_id = None
+        self.is_initialized = False
         self.server = await asyncio.create_subprocess_shell(
             "basedpyright-langserver --stdio",
             stdin=asyncio.subprocess.PIPE,

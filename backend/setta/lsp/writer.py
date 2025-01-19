@@ -28,7 +28,9 @@ class LanguageServerWriter(LanguageServerInteractor):
             "capabilities": {},
             "workspaceFolders": [{"uri": self.get_workspace_uri()}],
         }
-        await self.send_request("initialize", params=params, id=str(uuid.uuid4()))
+        request_id = str(uuid.uuid4())
+        self.server.initialization_request_id = request_id
+        await self.send_request("initialize", params=params, id=request_id)
         await self.send_didChangeConfiguration()  # pyright requires this step
 
     async def send_document_open_request(
