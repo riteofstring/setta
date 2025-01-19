@@ -286,6 +286,7 @@ class LanguageServerReader(LanguageServerInteractor):
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
+            metadata = self.msg_id_to_metadata.pop(id, {})
             if (
                 not self.server.is_initialized
                 and id == self.server.initialization_request_id
@@ -295,18 +296,18 @@ class LanguageServerReader(LanguageServerInteractor):
                     {"messageType": C.WS_LSP_STATUS, "content": "Initialized"}
                 )
 
-            method = method if method else self.msg_id_to_metadata[id]["method"]
+            method = method if method else metadata["method"]
             if method == "textDocument/completion":
                 content = []
                 if response["result"] and response["result"]["items"]:
-                    uri = self.msg_id_to_metadata[id]["uri"]
+                    uri = metadata["uri"]
                     code = self.get_version(uri)["code"]
                     content = process_completion(
                         code,
                         response["result"]["items"],
-                        self.msg_id_to_metadata[id]["generated_var_names"],
-                        self.msg_id_to_metadata[id]["referencable_var_names"],
-                        self.msg_id_to_metadata[id]["cursor_offset"],
+                        metadata["generated_var_names"],
+                        metadata["referencable_var_names"],
+                        metadata["cursor_offset"],
                     )
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
@@ -333,7 +334,7 @@ class LanguageServerReader(LanguageServerInteractor):
                             (x["range"]["end"]["line"], x["range"]["end"]["character"])
                         )
                     positions = line_col_to_position_batch(code, line_cols)
-                    position_offset = self.msg_id_to_metadata[id]["position_offset"]
+                    position_offset = metadata["position_offset"]
                     for idx in range(0, len(positions), 2):
                         startPos = positions[idx] - position_offset
                         endPos = positions[idx + 1] - position_offset
@@ -345,8 +346,8 @@ class LanguageServerReader(LanguageServerInteractor):
                         )
 
                 # print(content, flush=True)
-                return_id = self.msg_id_to_metadata[id]["return_id"]
-                num_messages = self.msg_id_to_metadata[id]["num_messages"]
+                return_id = metadata["return_id"]
+                num_messages = metadata["num_messages"]
                 # print('returning reference request', content, flush=True)
                 await self.websocket_manager.send_message_to_requester(
                     return_id, {"positions": content, "numMessages": num_messages}
@@ -357,7 +358,7 @@ class LanguageServerReader(LanguageServerInteractor):
                 if response["result"]:
                     # the response doesn't include uri for some reason,
                     # so we keep track of it manually
-                    uri = self.msg_id_to_metadata[id]["uri"]
+                    uri = metadata["uri"]
                     code = self.get_version(uri)["code"]
 
                     for x in response["result"]:
@@ -372,8 +373,8 @@ class LanguageServerReader(LanguageServerInteractor):
                         content.append(
                             {"startPos": positions[0], "endPos": positions[1]}
                         )
-                return_id = self.msg_id_to_metadata[id]["return_id"]
-                num_messages = self.msg_id_to_metadata[id]["num_messages"]
+                return_id = metadata["return_id"]
+                num_messages = metadata["num_messages"]
                 await self.websocket_manager.send_message_to_requester(
                     return_id, {"positions": content, "numMessages": num_messages}
                 )
