@@ -21,6 +21,7 @@ async def websocket_endpoint(
     while True:
         try:
             data = await websocket.receive_text()
+            print("received message", flush=True)
             await websocket_manager.send_message(
                 json.loads(data), fromWebsocketId=id, tasks=tasks
             )
