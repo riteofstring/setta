@@ -1,3 +1,4 @@
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { BiPaint } from "react-icons/bi";
@@ -160,8 +161,14 @@ function TerminalIcon({ sectionId }) {
   );
 
   return isReadOnlyTerminal ? (
-    <GrFormView className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+    <GrFormView
+      className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] "
+      {...getFloatingBoxHandlers(null, "Read-only terminal")}
+    />
   ) : (
-    <FaTerminal className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+    <FaTerminal
+      className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] "
+      {...getFloatingBoxHandlers(null, "Read/write terminal")}
+    />
   );
 }
