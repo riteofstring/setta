@@ -378,6 +378,12 @@ class LanguageServerReader(LanguageServerInteractor):
                 await self.websocket_manager.send_message_to_requester(
                     return_id, {"positions": content, "numMessages": num_messages}
                 )
+            elif method == "textDocument/definition":
+                is_valid = bool(response["result"])
+                if id in self.pending_requests:
+                    self.pending_requests[id].set_result(is_valid)
+                else:
+                    await self.websocket_manager.send_message_to_requester(id, is_valid)
         elif method == "textDocument/publishDiagnostics":
             # print(response, flush=True)
             params = response["params"]

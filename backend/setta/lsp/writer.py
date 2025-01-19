@@ -1,3 +1,4 @@
+import asyncio
 import json
 import platform
 import uuid
@@ -11,11 +12,13 @@ class LanguageServerWriter(LanguageServerInteractor):
     def __init__(self, server):
         self.server = server
 
-    async def send_request(self, method, params, id=None):
+    async def send_request(self, method, params, id=None, local=False):
         request_dict = {"jsonrpc": "2.0", "method": method, "params": params}
         if id:
             request_dict["id"] = id
             self.msg_id_to_metadata[id]["method"] = method
+            if local:
+                self.pending_requests[id] = asyncio.Future()
 
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
@@ -165,6 +168,23 @@ class LanguageServerWriter(LanguageServerInteractor):
             "textDocument/references",
             params=params,
             id=request_id,
+        )
+
+    async def send_definition_request(
+        self,
+        line,
+        character,
+        code_id,
+        request_id,
+        local=False,
+    ):
+        uri = self.get_virtual_uri(code_id)
+        params = {
+            "textDocument": {"uri": uri},
+            "position": {"line": line, "character": character},
+        }
+        await self.send_request(
+            "textDocument/definition", params=params, id=request_id, local=local
         )
 
     def get_workspace_uri(self):
