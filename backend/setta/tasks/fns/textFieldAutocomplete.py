@@ -149,7 +149,6 @@ async def _textFieldCompletion(message, lsp_writers):
         message.projectConfigName,
         gen_code_dict["sanitized_full_name"],
         is_gen_code=True,
-        virtual=False
     )
     await lsp_writers["full"].send_autocomplete_request(
         line,
@@ -159,7 +158,6 @@ async def _textFieldCompletion(message, lsp_writers):
         referencable_var_names,
         generated_var_names,
         cursor_offset=cursor_position - message.position,
-        virtual=False
     )
 
     return None

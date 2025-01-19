@@ -30,7 +30,7 @@ async def _codeAreaInitializeCode(message, lsp_writers):
         folder_path=lsp_writers["full"].project_code_folder(projectConfigName),
     )
     send_document_open_request_with_code_dict(
-        lsp_writers, code_dict, exporter_obj, projectConfigName, virtual=False
+        lsp_writers, code_dict, exporter_obj, projectConfigName
     )
 
     referencable_var_names = []

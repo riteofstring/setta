@@ -34,7 +34,6 @@ class LanguageServer:
         self.versions = {}
         self.initialization_request_id = None
         self.is_initialized = False
-        self.temp_files = {}
 
     def cleanup_pending_requests(self):
         if not hasattr(self, "pending_requests"):
@@ -83,10 +82,6 @@ class LanguageServerInteractor:
     def pending_requests(self):
         return self.server.pending_requests
 
-    @property
-    def temp_files(self):
-        return self.server.temp_files
-
     async def wait_for_response(self, id, timeout=None):
         future = self.pending_requests.get(id)
         if future:
@@ -116,7 +111,7 @@ class LanguageServerInteractor:
             self.versions[uri] = {0: obj}
             new_version = 0
         else:
-            new_version = 0
+            new_version = max(self.versions[uri].keys()) + 1
             self.versions[uri][new_version] = obj
         return new_version
 
