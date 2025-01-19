@@ -16,6 +16,9 @@ from setta.code_gen.python.generate_code import (
     generate_imports,
     get_chars_in_line_before_position,
 )
+from setta.code_gen.python.validate_imports import (
+    maybe_validate_imports_and_update_code,
+)
 from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
     CODE_FOLDER,
@@ -191,6 +194,11 @@ async def generate_final_code_for_section(
             push_var_name,
         ),
     )
+
+    if USER_SETTINGS["backend"]["inferImports"]:
+        code, ref_template_var_positions = await maybe_validate_imports_and_update_code(
+            code, ref_template_var_positions, lsp_writer
+        )
 
     if codeLanguage == "python":
         if do_prepend_with_setup_code:

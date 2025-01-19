@@ -128,8 +128,11 @@ def get_section_children(p, id):
     return get_selected_section_variant(p, id)["children"]
 
 
-def get_specific_template_var(template_vars, keyword):
-    return next((t for t in template_vars if t["keyword"] == keyword), None)
+def get_specific_template_var(template_vars, keyword, return_index=False):
+    for i, t in enumerate(template_vars):
+        if t["keyword"] == keyword:
+            return (t, i) if return_index else t
+    return (None, -1) if return_index else None
 
 
 def get_gen_code_template_var(template_vars):
