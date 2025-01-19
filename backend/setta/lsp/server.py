@@ -62,6 +62,10 @@ class LanguageServerInteractor:
     @property
     def code_folder(self):
         return self.server.code_folder
+    
+    @property
+    def pending_requests(self):
+        return self.server.pending_requests
 
     def project_code_folder(self, projectConfigName):
         return self.code_folder / projectConfigName
