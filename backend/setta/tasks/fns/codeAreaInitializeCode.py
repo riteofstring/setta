@@ -23,11 +23,10 @@ async def _codeAreaInitializeCode(message, lsp_writers):
         project, always_export_args_objs=True, force_include_template_var=False
     )
     projectConfigName = project["projectConfig"]["name"]
-    code_dict = await generate_final_code_for_sections(
+    code_dict = generate_final_code_for_sections(
         project,
         exporter_obj,
-        lsp_writers=lsp_writers,
-        folder_path=lsp_writers["full"].project_code_folder(projectConfigName),
+        lsp_writers["full"].project_code_folder(projectConfigName),
     )
     send_document_open_request_with_code_dict(
         lsp_writers, code_dict, exporter_obj, projectConfigName

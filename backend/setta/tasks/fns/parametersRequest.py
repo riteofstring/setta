@@ -24,7 +24,7 @@ async def _parametersRequest(message, lsp_writers):
         exporter_obj,
     ) = cached
 
-    code, cursor_position = await get_code_and_cursor_position(
+    code, cursor_position = get_code_and_cursor_position(
         message,
         gen_code_dict,
         var_name,

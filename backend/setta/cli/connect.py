@@ -28,11 +28,7 @@ async def consumer_handler(websocket):
     async for message in websocket:
         message = json.loads(message)
         if message["messageType"] == C.WS_RUN_CODE:
-            # TODO: now that runCode requires lsp_writers
-            # this will have to be changed, probably needs to communicate
-            # with host setta process via websocket instead of calling
-            # runCode
-            command = await runCode(message)
+            command = runCode(message)
             run_code_as_subprocess(command)
 
 

@@ -16,9 +16,6 @@ from setta.code_gen.python.generate_code import (
     generate_imports,
     get_chars_in_line_before_position,
 )
-from setta.code_gen.python.validate_imports import (
-    maybe_validate_imports_and_update_code,
-)
 from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
     CODE_FOLDER,
@@ -29,17 +26,16 @@ from setta.utils.constants import (
 from setta.utils.utils import prune_dict
 
 
-async def runCode(message, lsp_writers):
+def runCode(message):
     p = message["content"]
     exporter_obj = export_selected(
         p, always_export_args_objs=False, force_include_template_var=True
     )
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
-    code_dict = await generate_final_code_for_sections(
+    code_dict = generate_final_code_for_sections(
         p,
         exporter_obj,
-        lsp_writers,
         folder_path,
         do_prepend_with_setup_code=True,
         do_convert_var_names_to_readable_form=True,
@@ -81,10 +77,9 @@ async def runCode(message, lsp_writers):
     return command
 
 
-async def generate_final_code_for_sections(
+def generate_final_code_for_sections(
     p,
     exporter_obj,
-    lsp_writers,
     folder_path,
     do_prepend_with_setup_code=False,
     do_convert_var_names_to_readable_form=False,
@@ -118,14 +113,12 @@ async def generate_final_code_for_sections(
             curr_section_dependencies,
             curr_var_name_to_decl_rel_position_dict,
             curr_ref_template_var_positions,
-        ) = await generate_final_code_for_section(
-            sectionId=s["id"],
+        ) = generate_final_code_for_section(
             code=section_variant["code"],
             codeLanguage=s["codeLanguage"],
             evRefs=section_variant["evRefs"],
             templateVars=section_variant["templateVars"],
             exporter_obj=exporter_obj,
-            lsp_writers=lsp_writers,
             folder_path=folder_path,
             projectConfigName=p["projectConfig"]["name"],
             do_prepend_with_setup_code=do_prepend_with_setup_code,
@@ -152,14 +145,12 @@ async def generate_final_code_for_sections(
     return code_dict
 
 
-async def generate_final_code_for_section(
-    sectionId,
+def generate_final_code_for_section(
     code,
     codeLanguage,
     evRefs,
     templateVars,
     exporter_obj,
-    lsp_writers,
     folder_path,
     projectConfigName=None,
     do_prepend_with_setup_code=False,
@@ -196,14 +187,6 @@ async def generate_final_code_for_section(
             push_var_name,
         ),
     )
-
-    if USER_SETTINGS["backend"]["inferImports"]:
-        (
-            code,
-            ref_template_var_positions["templateVars"],
-        ) = await maybe_validate_imports_and_update_code(
-            sectionId, code, ref_template_var_positions, lsp_writers
-        )
 
     if codeLanguage == "python":
         if do_prepend_with_setup_code:

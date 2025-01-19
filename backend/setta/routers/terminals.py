@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from setta.utils.constants import C
 
 from .dependencies import (
-    get_lsp_writers_from_websocket,
     get_terminal_websockets,
     get_terminal_websockets_from_websocket,
 )
@@ -27,7 +26,6 @@ async def terminal_websocket_endpoint(
     id: str,
     isTemporary: bool,
     terminal_websockets=Depends(get_terminal_websockets_from_websocket),
-    lsp_writers=Depends(get_lsp_writers_from_websocket),
 ):
     # First check if terminal exists
     isNew = terminal_websockets.new_terminal(projectConfigId, sectionId, isTemporary)
@@ -47,7 +45,7 @@ async def terminal_websocket_endpoint(
     try:
         await terminal_websockets.connect(websocket, sectionId, id)
         write_task = asyncio.get_running_loop().create_task(
-            terminal_websockets.write_to_terminal(websocket, lsp_writers, sectionId)
+            terminal_websockets.write_to_terminal(websocket, sectionId)
         )
         await write_task
     except:
