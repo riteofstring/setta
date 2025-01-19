@@ -91,6 +91,7 @@ async def get_code_and_cursor_position(
         var_name_to_decl_rel_position_dict,
         ref_template_var_positions,
     ) = await generate_final_code_for_section(
+        sectionId=message.sectionId,
         code=gen_code_section_variant[
             "code"
         ],  # this is the code with the template vars still in place

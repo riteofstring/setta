@@ -57,6 +57,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         _,
         ref_template_var_positions,
     ) = await generate_final_code_for_section(
+        sectionId=message.sectionId,
         code=code,
         codeLanguage=message.codeLanguage,
         evRefs=message.evRefs,

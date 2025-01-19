@@ -119,6 +119,7 @@ async def generate_final_code_for_sections(
             curr_var_name_to_decl_rel_position_dict,
             curr_ref_template_var_positions,
         ) = await generate_final_code_for_section(
+            sectionId=s["id"],
             code=section_variant["code"],
             codeLanguage=s["codeLanguage"],
             evRefs=section_variant["evRefs"],
@@ -152,6 +153,7 @@ async def generate_final_code_for_sections(
 
 
 async def generate_final_code_for_section(
+    sectionId,
     code,
     codeLanguage,
     evRefs,
@@ -197,7 +199,7 @@ async def generate_final_code_for_section(
 
     if USER_SETTINGS["backend"]["inferImports"]:
         code, ref_template_var_positions = await maybe_validate_imports_and_update_code(
-            code, ref_template_var_positions, lsp_writers
+            sectionId, code, ref_template_var_positions, lsp_writers
         )
 
     if codeLanguage == "python":
