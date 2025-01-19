@@ -187,7 +187,7 @@ function SectionSearchCore({
   };
 
   const valueNameInconsistentStyle =
-    value !== codeInfoName ? "outline outline-red-500" : "";
+    value !== codeInfoName ? "!border-red-500" : "";
 
   return (
     <search
