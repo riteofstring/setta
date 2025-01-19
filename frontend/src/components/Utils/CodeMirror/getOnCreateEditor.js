@@ -78,6 +78,15 @@ export function getOnCreateEditor({
   };
 }
 
+function getFromTo(options, before, context) {
+  for (const opt of options) {
+    if (opt.from) {
+      return { from: opt.from, to: opt.to };
+    }
+  }
+  return { from: before ? before.from : context.pos };
+}
+
 export function getCompletionsFn(
   sectionId,
   paramInfoId,
@@ -108,7 +117,7 @@ export function getCompletionsFn(
       if (res) {
         return {
           filter: true,
-          from: before ? before.from : context.pos,
+          ...getFromTo(res, before, context),
           options: res,
           // validFor: /([^.=\\(]*)$/,
         };

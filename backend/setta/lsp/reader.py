@@ -176,6 +176,40 @@ def extract_parameters(error_string):
     return parameters
 
 
+def process_completion(code, items, generated_var_names, referencable_var_names):
+    content = []
+    line_cols = []
+    content_idx_with_text_edit = {}
+    for x in items:
+        if x["label"] in generated_var_names:
+            continue
+        c = {"label": x["label"], "type": type_mapping[x["kind"]]}
+        if "textEdit" in x:
+            content_idx_with_text_edit[len(content)] = len(line_cols)
+            r = x["textEdit"]["range"]
+            line_cols.append(
+                (
+                    r["start"]["line"],
+                    r["start"]["character"],
+                )
+            )
+            line_cols.append((r["end"]["line"], r["end"]["character"]))
+
+        content.append(c)
+
+    if len(line_cols) > 0:
+        positions = line_col_to_position_batch(code, line_cols)
+
+        for i, j in content_idx_with_text_edit.items():
+            content[i]["from"] = positions[j]
+            content[i]["to"] = positions[j + 1]
+
+    for x in referencable_var_names:
+        content.append({"label": x, "type": "variable"})
+
+    return content
+
+
 class LanguageServerReader(LanguageServerInteractor):
     def __init__(self, server, websocket_manager):
         self.server = server
@@ -258,17 +292,16 @@ class LanguageServerReader(LanguageServerInteractor):
 
             method = method if method else self.msg_id_to_metadata[id]["method"]
             if method == "textDocument/completion":
-                content = [
-                    {"label": x["label"], "type": type_mapping[x["kind"]]}
-                    for x in response["result"]["items"]
-                    if x["label"]
-                    not in self.msg_id_to_metadata[id]["generated_var_names"]
-                ]
-                referencable_var_names = [
-                    {"label": x, "type": "variable"}
-                    for x in self.msg_id_to_metadata[id]["referencable_var_names"]
-                ]
-                content = [*referencable_var_names, *content]
+                content = []
+                if response["result"] and response["result"]["items"]:
+                    uri = self.msg_id_to_metadata[id]["uri"]
+                    code = self.get_version(uri)["code"]
+                    content = process_completion(
+                        code,
+                        response["result"]["items"],
+                        self.msg_id_to_metadata[id]["generated_var_names"],
+                        self.msg_id_to_metadata[id]["referencable_var_names"],
+                    )
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
                 if response["result"]:

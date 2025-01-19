@@ -73,6 +73,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             "referencable_var_names"
         ] = referencable_var_names
         self.msg_id_to_metadata[request_id]["generated_var_names"] = generated_var_names
+        self.msg_id_to_metadata[request_id]["uri"] = uri
         await self.send_request(
             "textDocument/completion",
             params=params,
