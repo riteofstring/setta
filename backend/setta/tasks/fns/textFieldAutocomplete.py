@@ -30,7 +30,7 @@ class CodeCompletionContent(BaseModel):
     cached: Optional[Any] = None
 
 
-def get_code_and_cursor_position(
+async def get_code_and_cursor_position(
     message,
     gen_code_dict,
     var_name,
@@ -90,7 +90,7 @@ def get_code_and_cursor_position(
         _,
         var_name_to_decl_rel_position_dict,
         ref_template_var_positions,
-    ) = generate_final_code_for_section(
+    ) = await generate_final_code_for_section(
         code=gen_code_section_variant[
             "code"
         ],  # this is the code with the template vars still in place
@@ -98,6 +98,7 @@ def get_code_and_cursor_position(
         evRefs=gen_code_section_variant["evRefs"],
         templateVars=gen_code_section_variant["templateVars"],
         exporter_obj=exporter_obj,
+        lsp_writer=lsp_writers["full"],
         folder_path=lsp_writers["full"].project_code_folder(message.projectConfigName),
         template_var_replacement_values=template_var_replacement_values,
         var_name_to_decl_rel_position_dict=var_name_to_decl_rel_position_dict,
@@ -131,7 +132,7 @@ async def _textFieldCompletion(message, lsp_writers):
         exporter_obj,
     ) = cached
 
-    code, cursor_position = get_code_and_cursor_position(
+    code, cursor_position = await get_code_and_cursor_position(
         message,
         gen_code_dict,
         var_name,
