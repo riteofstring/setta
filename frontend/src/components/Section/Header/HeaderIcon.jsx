@@ -37,9 +37,7 @@ export function HeaderIcon({
         />
       );
     case C.TERMINAL:
-      return (
-        <FaTerminal className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
-      );
+      return <TerminalIcon sectionId={sectionId} />;
     case C.GLOBAL_PARAM_SWEEP:
     case C.GLOBAL_VARIABLES:
       return (
@@ -153,4 +151,16 @@ function InfoIcon({ sectionId }) {
     <PiTextTFill className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
   );
   // <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
+}
+
+function TerminalIcon({ sectionId }) {
+  const isReadOnlyTerminal = useSectionInfos(
+    (x) => x.x[sectionId].isReadOnlyTerminal,
+  );
+
+  return isReadOnlyTerminal ? (
+    <FaTerminal className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+  ) : (
+    <FaTerminal className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+  );
 }
