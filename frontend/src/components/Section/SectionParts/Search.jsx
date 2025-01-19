@@ -135,7 +135,7 @@ function SectionSearchCore({
   }, _.isEqual);
 
   const [value, setValue] = useState(codeInfoName);
-  const shouldResetValueOnBlur = useRef(true);
+  const shouldResetValueOnBlur = useRef(false);
 
   useEffect(() => {
     setValue(codeInfoName);
@@ -151,7 +151,7 @@ function SectionSearchCore({
     if (shouldResetValueOnBlur.current) {
       setValue(codeInfoName);
     }
-    shouldResetValueOnBlur.current = true;
+    shouldResetValueOnBlur.current = false;
   }
 
   function onEscape(completionResult) {
@@ -186,6 +186,9 @@ function SectionSearchCore({
     "Alt-Enter": _onShiftEnter,
   };
 
+  const valueNameInconsistentStyle =
+    value !== codeInfoName ? "outline outline-red-500" : "";
+
   return (
     <search
       className="section-search single-cell-container w-full"
@@ -199,8 +202,8 @@ function SectionSearchCore({
         value={value}
         onBlur={onBlur}
         onChange={onChange}
-        dummyCodeClassName={dummyCodeClassName}
-        realCodeClassName={realCodeClassName}
+        dummyCodeClassName={`${dummyCodeClassName} ${valueNameInconsistentStyle}`}
+        realCodeClassName={`${realCodeClassName} ${valueNameInconsistentStyle}`}
         singleLine={true}
         keyComboActions={keyComboActions}
         onTab={onTab}
