@@ -55,6 +55,7 @@ export function SliderInput({
   value,
   defaultVal,
   onChange,
+  onEscape,
   onCommit,
   min,
   max,
@@ -88,6 +89,7 @@ export function SliderInput({
         value={value}
         onChange={onChange}
         onCommit={onCommit}
+        onEscape={onEscape}
         min={min}
         max={max}
       />
@@ -100,6 +102,7 @@ function SliderTextField({
   value,
   onChange,
   onCommit,
+  onEscape,
   min,
   max,
   step,
@@ -131,6 +134,11 @@ function SliderTextField({
       value={tempValue}
       onChange={localOnChange}
       onBlur={onBlur}
+      onKeyDown={(e) => {
+        if (e.code === "Escape") {
+          onEscape?.();
+        }
+      }}
     />
   );
 }
