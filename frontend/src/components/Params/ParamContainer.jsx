@@ -6,13 +6,7 @@ import _ from "lodash";
 import React, { useEffect, useRef } from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import {
-  useProjectSearch,
-  useSectionColumnWidth,
-  useSectionInfos,
-  useTypeErrors,
-} from "state/definitions";
-import { createProjectSearchLookupKey } from "state/hooks/search";
+import { useSectionColumnWidth, useSectionInfos } from "state/definitions";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
 
@@ -26,33 +20,10 @@ function _ParamContainer({
   isTopLevelWithPad,
   paramChildren,
   onMouseDown,
+  maybeErrorMessage,
+  border,
   bg,
 }) {
-  const maybeErrorMessage = useTypeErrors(
-    (x) => x.errors[sectionId]?.[paramInfoId],
-  );
-
-  // const maybeErrorMessage = useTypeErrors((x) => "error");
-  const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
-    return {
-      isFocusedSearchResult:
-        x.focused.sectionId === sectionId &&
-        x.focused.paramInfoId === paramInfoId,
-      isSearchResult: x.lookup.has(
-        createProjectSearchLookupKey(sectionId, paramInfoId),
-      ),
-    };
-  }, _.isEqual);
-
-  // warnings should be AMBER
-  const border = maybeErrorMessage
-    ? "bg-red-200 dark:bg-red-800/30"
-    : isFocusedSearchResult
-      ? "outline outline-4 outline-green-500 dark:outline-green-500/80"
-      : isSearchResult
-        ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
-        : "";
-
   const { description: paramDescription, name: paramName } = useSectionInfos(
     (x) => {
       return {
@@ -98,7 +69,7 @@ function _ParamContainer({
   ) : (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${border} [&>p]:section-key-value ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`}
+      className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`}
       {...getFloatingBoxHandlers(paramDescription, paramName)}
       ref={parentRef}
     >
