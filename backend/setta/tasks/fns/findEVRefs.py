@@ -111,7 +111,15 @@ def generateCodeForReferenceFinding(
 
     output = []
     var_name_mapping = {}
+    visited_keywords = set()
     for keyword, _ in candidateEVRefs:
+        # candidateEVRefs might contain multiple suggestions to the same keyword
+        # like in the case of fn(a=a), it'll suggest "a" in two positions
+        # but we only need to write the a=None declaration once
+        # so we keep track of keywords we've already visited
+        if keyword in visited_keywords:
+            continue
+        visited_keywords.add(keyword)
         # Replace reference names like
         # list_of_models[0]
         # with a random valid variable name of the same length.
