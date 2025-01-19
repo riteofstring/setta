@@ -114,21 +114,12 @@ async def main():
     await lsp_writer.send_document_open_request(code_id, code, codeJson)
     # await lsp_writer.send_document_open_request(code_id2, code2, codeJson)
     id = str(uuid4())
-    col = len(code.split("\n")[0])-1
-    await lsp_writer.send_definition_request(0,col,code_id,id)
-    id = str(uuid4())
-    col = len(code.split("\n")[1])-1
-    await lsp_writer.send_definition_request(1,col,code_id,id)
-    id = str(uuid4())
-    col = len(code.split("\n")[2])-1
-    await lsp_writer.send_definition_request(1,col,code_id,id)
+    # await lsp_writer.send_document_highlight_request(0,10,code_id,"1234")
     # await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)
     # await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)
     # await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)
     # await lsp_writer.send_reference_request(-9, 0, 0, code_id, id, id)
-    col = len(code.split("\n")[-1])-1
-    print("col", col)
-    await lsp_writer.send_autocomplete_request(3, col, code_id, "1234", [], [], 0)
+    await lsp_writer.send_autocomplete_request(1, 2, code_id, "1234", [], [])
 
     
     # await lsp_writer.send_document_update("test", "import math\nmath.sqrt(5)")
