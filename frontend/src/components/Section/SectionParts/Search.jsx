@@ -3,6 +3,7 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { getEVRefs } from "requests/sections";
+import { openRenameSelectedItemCodeInfoModal } from "state/actions/modal";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
 import { useSectionInfos } from "state/definitions";
@@ -135,7 +136,7 @@ function SectionSearchCore({
   }, _.isEqual);
 
   const [value, setValue] = useState(codeInfoName);
-  const shouldResetValueOnBlur = useRef(true);
+  const onBlurToDo = useRef("rename");
 
   useEffect(() => {
     setValue(codeInfoName);
@@ -148,22 +149,36 @@ function SectionSearchCore({
   const [localEVRefs, setLocalEVRefs] = useState(evRefs);
 
   function onBlur() {
-    if (shouldResetValueOnBlur.current) {
-      setValue(codeInfoName);
+    console.log("onBlur");
+    if (onBlurToDo.current === "rename" && selectedItem) {
+      openRenameSelectedItemCodeInfoModal(
+        dataSectionId,
+        selectedItem,
+        codeInfoName,
+        value,
+      );
+      // useSectionInfos.setState((state) => {
+      //   state.codeInfo[selectedItem].name = value;
+      // });
+    } else if (onBlurToDo.current === "reset") {
+      // to prevent onBlur from being triggered twice
+      requestAnimationFrame(() => {
+        setValue(codeInfoName);
+      });
     }
-    shouldResetValueOnBlur.current = true;
+    onBlurToDo.current = "rename";
   }
 
   function onEscape(completionResult) {
     if (!completionResult) {
-      shouldResetValueOnBlur.current = true;
+      onBlurToDo.current = "reset";
       focusOnSection(null, visualSectionId, false);
     }
   }
 
   function onTab(completionResult) {
     if (!completionResult && value) {
-      shouldResetValueOnBlur.current = false;
+      onBlurToDo.current = "rename";
       onEnter(value);
     }
   }
