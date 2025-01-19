@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
     app.state.settings_file = SettingsFile()
     app.state.lsps = create_lsps(
         workspace_folder=Path(os.getcwd()),
-        code_folder=Path(os.getcwd()) / CODE_FOLDER / "timestamped_folder",
+        code_folder=Path(os.getcwd()) / CODE_FOLDER / "temp_folder",
         settings=USER_SETTINGS["languageServer"],
     )
     app.state.lsp_writers = create_lsp_writers(app.state.lsps)
