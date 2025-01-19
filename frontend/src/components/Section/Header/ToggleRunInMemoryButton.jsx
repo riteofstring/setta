@@ -1,4 +1,5 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { MdMemory } from "react-icons/md";
 import { useSectionInfos } from "state/definitions";
 
@@ -19,6 +20,7 @@ export function ToggleRunInMemoryButton({ sectionId }) {
       size="w-4 h-4"
       padding="p-0 mr-1"
       onClick={onClick}
+      {...getFloatingBoxHandlers(null, "Toggle In-Memory Code")}
     />
   );
 }
