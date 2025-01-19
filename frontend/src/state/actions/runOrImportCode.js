@@ -55,7 +55,14 @@ export async function runCodeBlocks(sectionIds) {
 export async function runOrImportAllCode() {
   const { inMemory, asSubprocess } = getInMemoryAndAsSubprocessCodeBlocks();
 
-  if (asSubprocess.length > 0) {
+  // The legnth === 0 condition is for when there are no code blocks.
+  // In that case we still want to run the sections, and assume that
+  // the imaginary code block just contains $SETTA_GENERATED_PYTHON
+  if (
+    asSubprocess.length > 0 ||
+    (inMemory.length === 0 && asSubprocess.length === 0)
+  ) {
+    console.log("sending run code message");
     const project = getProjectDataToGenerateCode({
       includeInfoToFullName: false,
     });
