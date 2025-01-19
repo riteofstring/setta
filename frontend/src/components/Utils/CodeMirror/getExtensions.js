@@ -21,7 +21,6 @@ export function getExtensions({
   singleLine,
   tabToAutocomplete,
   indentWithTab,
-  escapeToBlur,
   onTab,
   onEscape,
   onModEnterDoNothing,
@@ -88,11 +87,8 @@ export function getExtensions({
         {
           key: "Escape",
           run: (view) => {
-            const expectingCompletions = completionStatus(view.state);
-            if (escapeToBlur && !expectingCompletions) {
-              view.contentDOM.blur();
-            }
             if (onEscape) {
+              const expectingCompletions = completionStatus(view.state);
               onEscape(expectingCompletions);
             }
           },

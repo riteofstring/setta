@@ -46,7 +46,6 @@ export function YamlView({ sectionId, isDisabled, onChange }) {
     sectionId,
     language: "yaml",
     indentWithTab: true,
-    escapeToBlur: true,
     onEscape: onEscapeFocusOnArticleDiv,
     isDisabled,
   });

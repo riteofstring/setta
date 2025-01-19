@@ -172,7 +172,6 @@ function CoreCodeMirror({
     keywordStylizer,
     singleLine,
     tabToAutocomplete: true,
-    escapeToBlur: true,
     keyComboActions,
     onTab,
     onEscape,

@@ -1,7 +1,7 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getEVRefs } from "requests/sections";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
@@ -135,6 +135,7 @@ function SectionSearchCore({
   }, _.isEqual);
 
   const [value, setValue] = useState(codeInfoName);
+  const shouldResetValueOnBlur = useRef(true);
 
   useEffect(() => {
     setValue(codeInfoName);
@@ -146,15 +147,23 @@ function SectionSearchCore({
 
   const [localEVRefs, setLocalEVRefs] = useState(evRefs);
 
-  function onEscape(expectingCompletions) {
-    if (!expectingCompletions) {
+  function onBlur() {
+    if (shouldResetValueOnBlur.current) {
       setValue(codeInfoName);
     }
-    focusOnSection(null, visualSectionId, false);
+    shouldResetValueOnBlur.current = true;
+  }
+
+  function onEscape(completionResult) {
+    if (!completionResult) {
+      shouldResetValueOnBlur.current = true;
+      focusOnSection(null, visualSectionId, false);
+    }
   }
 
   function onTab(completionResult) {
     if (!completionResult && value) {
+      shouldResetValueOnBlur.current = false;
       onEnter(value);
     }
   }
@@ -174,7 +183,7 @@ function SectionSearchCore({
 
   const keyComboActions = {
     Enter: _onEnter,
-    "Shift-Enter": _onShiftEnter,
+    "Alt-Enter": _onShiftEnter,
   };
 
   return (
@@ -188,6 +197,7 @@ function SectionSearchCore({
         visualSectionId={visualSectionId}
         paramInfoId={null}
         value={value}
+        onBlur={onBlur}
         onChange={onChange}
         dummyCodeClassName={dummyCodeClassName}
         realCodeClassName={realCodeClassName}

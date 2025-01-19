@@ -120,7 +120,6 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     keywordStylizer,
     onModEnterDoNothing: true,
     onEscape: onEscapeFocusOnArticleDiv,
-    escapeToBlur: true,
     tabToAutocomplete: true,
     indentWithTab: true,
     isDisabled: variantIsFrozen,
@@ -263,14 +262,16 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
     }
   }
 
-  function onEscapeFocusOnArticleDiv() {
-    // Need the requestAnimationFrame to prevent scroll
-    // in certain cases. Specifically, if you zoom in so that the code area
-    // doesn't fit on screen, and then select some code and then press escape,
-    // it'll scroll if you don't have the requestAnimationFrame
-    requestAnimationFrame(() => {
-      wrapperRef.current.focus({ preventScroll: true });
-    });
+  function onEscapeFocusOnArticleDiv(completionResult) {
+    if (!completionResult) {
+      // Need the requestAnimationFrame to prevent scroll
+      // in certain cases. Specifically, if you zoom in so that the code area
+      // doesn't fit on screen, and then select some code and then press escape,
+      // it'll scroll if you don't have the requestAnimationFrame
+      requestAnimationFrame(() => {
+        wrapperRef.current.focus({ preventScroll: true });
+      });
+    }
   }
 
   return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
