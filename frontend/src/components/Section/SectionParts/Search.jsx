@@ -186,8 +186,9 @@ function SectionSearchCore({
     "Alt-Enter": _onShiftEnter,
   };
 
+  // Shouldn't use important for this, but ok for now. FIX.
   const valueNameInconsistentStyle =
-    value !== codeInfoName ? "!border-red-500" : "";
+    value !== codeInfoName ? "!border-red-500 dark:!border-red-800" : "";
 
   return (
     <search
