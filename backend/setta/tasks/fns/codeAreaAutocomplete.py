@@ -25,7 +25,6 @@ class CodeAreaAutocompleteContent(BaseModel):
     codeLanguage: str
     sectionId: str
     sectionName: str
-    beforeText: str
     fullText: str
     position: int
     evRefs: list

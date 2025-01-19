@@ -107,7 +107,6 @@ export function getCompletionsFn(
         sectionId,
         paramInfoId,
         fullText,
-        beforeText: before.text,
         position: context.pos,
         setEVRefs,
         codeLanguage: language,

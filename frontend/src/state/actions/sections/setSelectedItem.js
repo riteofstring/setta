@@ -48,7 +48,6 @@ export async function setSelectedItem(
   const paramRes = await dbParametersRequest({
     sectionId: dataSectionId,
     fullText: selectedItemName,
-    beforeText: "",
     position: selectedItemName.length,
     evRefs,
   });

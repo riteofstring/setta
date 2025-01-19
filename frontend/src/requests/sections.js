@@ -32,7 +32,6 @@ export const debouncedTypeCheckRequest = _.debounce(dbRequestTypeCheck, 500);
 export async function dbParametersRequest({
   sectionId,
   fullText,
-  beforeText,
   position,
   evRefs,
 }) {
@@ -47,7 +46,6 @@ export async function dbParametersRequest({
       sectionId,
       paramInfoId: null,
       fullText,
-      beforeText,
       position,
       evRefs,
     },
@@ -75,7 +73,6 @@ export async function dbCodeAreaInitializeCode(sectionId) {
 export async function dbCodeAreaCompletion({
   sectionId,
   fullText,
-  beforeText,
   position,
   setEVRefs,
   codeLanguage,
@@ -101,7 +98,6 @@ export async function dbCodeAreaCompletion({
       sectionId,
       sectionName,
       fullText,
-      beforeText,
       position,
       evRefs,
       templateVars,
@@ -126,7 +122,6 @@ export async function dbTextFieldCompletion({
   sectionId,
   paramInfoId,
   fullText,
-  beforeText,
   position,
   setEVRefs,
 }) {
@@ -149,7 +144,6 @@ export async function dbTextFieldCompletion({
       sectionId,
       paramInfoId,
       fullText,
-      beforeText,
       position,
       evRefs,
     },
