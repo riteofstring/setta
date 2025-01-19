@@ -35,6 +35,9 @@ function Items() {
       redoShortcut: shortcutPrettified(x.shortcuts.redoShortcut),
       undoShortcut: shortcutPrettified(x.shortcuts.undoShortcut),
       groupShortcut: shortcutPrettified(x.shortcuts.groupShortcut),
+      restartLanguageServerShortcut: shortcutPrettified(
+        x.shortcuts.restartLanguageServerShortcut,
+      ),
     };
   }, _.isEqual);
 
@@ -60,7 +63,10 @@ function Items() {
       >
         Type Check
       </MenuItem>
-      <MenuItem onClick={dbRestartLanguageServer}>
+      <MenuItem
+        onClick={dbRestartLanguageServer}
+        shortcut={shortcuts.restartLanguageServerShortcut}
+      >
         Restart Language Server
       </MenuItem>
       <MenuItem onClick={autoLayout}>Auto Layout</MenuItem>

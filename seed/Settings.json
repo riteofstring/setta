@@ -43,7 +43,8 @@
     "panActivationKeyCode": "Space",
     "zoomActivationKeyCode": "Mod",
     "zoomInShortcut": "Equal",
-    "zoomOutShortcut": "Minus"
+    "zoomOutShortcut": "Minus",
+    "restartLanguageServerShortcut": "Alt + Shift + R"
   },
   "gui": {
     "snapGrid": [15, 15],

@@ -20,6 +20,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { onFitViewHandler } from "forks/xyflow/core/store/utils";
 import { zoomToMouseLocation } from "forks/xyflow/core/utils/mouseLocation";
 import _ from "lodash";
+import { dbRestartLanguageServer } from "requests/lsp";
 import {
   activateParamSelect,
   deactivateParamSelect,
@@ -418,6 +419,7 @@ export function attachKeyEventListeners() {
     [shortcuts.showProjectOverviewTabShortcut, showProjectOverviewTab],
     [shortcuts.zoomInShortcut, _.throttle(zoomIn, 50), null, true],
     [shortcuts.zoomOutShortcut, _.throttle(zoomOut, 50), null, true],
+    [shortcuts.restartLanguageServerShortcut, dbRestartLanguageServer],
     [
       shortcuts.selectionKeyCode,
       activateSelectionKeyPressed,
