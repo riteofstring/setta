@@ -167,22 +167,6 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
-    async def send_definition_request(
-        self, line, character, code_id, request_id, local=False,
-    ):
-        uri = self.get_virtual_uri(code_id)
-        params = {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": character},
-        }
-        await self.send_request(
-            "textDocument/definition",
-            params=params,
-            id=request_id,
-            local=local
-        )
-
-
     def get_workspace_uri(self):
         return f"file://{self.workspace_folder}".lower()
 
