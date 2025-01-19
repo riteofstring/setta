@@ -183,6 +183,7 @@ class LanguageServerReader(LanguageServerInteractor):
         self.stop_event = asyncio.Event()
 
     async def start_listener(self):
+        self.stop_event.clear()  # Reset the stop event
         asyncio.get_running_loop().create_task(self.read_response())
 
     async def read_response(self):

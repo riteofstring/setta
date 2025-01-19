@@ -31,3 +31,11 @@ def get_websocket_manager(request: Request):
 
 def get_websocket_manager_from_websocket(websocket: WebSocket):
     return websocket.app.state.websocket_manager
+
+
+def get_lsps(request: Request):
+    return [
+        request.app.state.lsps,
+        request.app.state.lsp_readers,
+        request.app.state.lsp_writers,
+    ]

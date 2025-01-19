@@ -5,6 +5,7 @@ import _ from "lodash";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
 import { Link } from "react-router-dom";
+import { dbRestartLanguageServer } from "requests/lsp";
 import { dbRequestTypeCheck } from "requests/sections";
 import { resetAllSectionsToDefaultVersions } from "state/actions/sectionInfos";
 import {
@@ -58,6 +59,9 @@ function Items() {
         shortcut={shortcuts.typeCheckShortcut}
       >
         Type Check
+      </MenuItem>
+      <MenuItem onClick={dbRestartLanguageServer}>
+        Restart Language Server
       </MenuItem>
       <MenuItem onClick={autoLayout}>Auto Layout</MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />

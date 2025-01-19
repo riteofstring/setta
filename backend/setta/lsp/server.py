@@ -21,9 +21,6 @@ class LanguageServer:
     async def start_server(self):
         print("starting server")
         self.server = await asyncio.create_subprocess_shell(
-            # "pylyzer --server D:\\Documents\\App Development\\setta\\setta_code\\test.py",
-            # "pyright-langserver --stdio",
-            # "pylsp",
             "basedpyright-langserver --stdio",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,

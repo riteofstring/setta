@@ -39,3 +39,8 @@ def kill_lsps(lsps, lsp_readers):
     for k, v in lsps.items():
         lsp_readers[k].stop_event.set()
         v.kill_server()
+
+
+async def restart_lsps(lsps, lsp_readers, lsp_writers):
+    kill_lsps(lsps, lsp_readers)
+    await start_lsps(lsps, lsp_readers, lsp_writers)
