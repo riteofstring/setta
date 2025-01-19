@@ -48,17 +48,3 @@ export function openDeleteJSONSourceFileModal(filepath) {
 export function openAddArtifactByFilepathModal(sectionId) {
   openModal(MODAL_TYPE.ADD_ARTIFACT_BY_FILEPATH, sectionId);
 }
-
-export function openRenameSelectedItemCodeInfoModal(
-  sectionId,
-  selectedItem,
-  oldName,
-  newName,
-) {
-  openModal(MODAL_TYPE.RENAME_SELECTED_ITEM_CODE_INFO, {
-    sectionId,
-    selectedItem,
-    oldName,
-    newName,
-  });
-}

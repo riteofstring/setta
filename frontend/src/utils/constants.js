@@ -119,10 +119,7 @@ export const MODAL_TYPE = {
   ADD_ARTIFACT_BY_FILEPATH: {
     purpose: null,
     title: "Add Artifact By Filepath",
-  },
-  RENAME_SELECTED_ITEM_CODE_INFO: {
-    purpose: null,
-    title: "Rename Selected Item Code Info",
+    buttonText: "Delete",
   },
 };
 
