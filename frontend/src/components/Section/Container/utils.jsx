@@ -13,9 +13,6 @@ import { useMisc, useSectionInfos } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import "./dndline.css";
 
-const CSS_ACTIVE_CONDITION =
-  "[&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]";
-
 export function getBgColor(sectionTypeName) {
   switch (sectionTypeName) {
     case C.CODE:
@@ -49,14 +46,14 @@ export function getOutlineColor({
     if (isActiveSection) {
       return "outline-purple-600 dark:outline-purple-700";
     }
-    return `outline-transparent ${CSS_ACTIVE_CONDITION}:outline-fuchsia-400`;
+    return "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-fuchsia-400";
   }
 
   if (isActiveSection) {
     return "outline-blue-600 dark:outline-blue-700";
   }
 
-  return `outline-transparent ${CSS_ACTIVE_CONDITION}:outline-cyan-300`;
+  return "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-cyan-300";
 }
 
 export function getOnSectionClick(sectionId, isActiveSection) {
