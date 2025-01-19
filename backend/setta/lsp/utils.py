@@ -14,9 +14,9 @@ def create_lsps(
             code_folder=code_folder,
             settings=settings,
         ),
-        # "basic": LanguageServer(
-        #     workspace_folder=code_folder, code_folder=code_folder, settings={}
-        # ),
+        "basic": LanguageServer(
+            workspace_folder=code_folder, code_folder=code_folder, settings={}
+        ),
     }
 
 

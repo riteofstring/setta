@@ -7,8 +7,6 @@ class LanguageServer:
     def __init__(self, workspace_folder, code_folder, settings):
         self.workspace_folder = workspace_folder
         self.code_folder = code_folder
-        print("self.workspace_folder", self.workspace_folder, flush=True)
-        print("self.code_folder", self.code_folder, flush=True)
         self.msg_id_to_metadata = defaultdict(dict)
         self.versions = {}
         self.initialization_request_id = None

@@ -38,7 +38,6 @@ class LanguageServerWriter(LanguageServerInteractor):
     ):
         uri = self.get_virtual_uri(code_id)
         print("uri", uri, flush=True)
-        print("code", code, flush=True)
         if uri not in self.versions:
             print("send_document_open_request", code_id, flush=True)
             params = {
@@ -117,7 +116,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         # hardcoded_settings = {
         #     "basedpyright": {"analysis": {"exclude": ["setta_code"]}}
         # }
-        # hardcoded_settings = {"languageServerSettings": {"watchForSourceChanges": True}}
         hardcoded_settings = {}
         settings = recursive_dict_merge(hardcoded_settings, self.settings)
 
