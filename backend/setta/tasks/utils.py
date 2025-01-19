@@ -73,7 +73,6 @@ class SettaInMemoryFnSubprocess:
 
             try:
                 if msg_type == "import":
-                    # Handle module import
                     code = msg["code"]
                     module_name = msg["module_name"]
                     # Import and store module
@@ -92,7 +91,6 @@ class SettaInMemoryFnSubprocess:
                     )
 
                 elif msg_type == "call":
-                    # Handle function call
                     fn_name = msg["fn_name"]
                     message = self.process_message(fn_name, msg["message"], cache)
                     fn = fns_dict[fn_name]
@@ -109,13 +107,13 @@ class SettaInMemoryFnSubprocess:
 
             except Exception as e:
                 traceback.print_exc()
-                # self.child_conn.send(
-                #     {
-                #         "status": "error",
-                #         "error": str(e),
-                #         "messageType": return_message_type,
-                #     }
-                # )
+                self.child_conn.send(
+                    {
+                        "status": "error",
+                        "error": str(e),
+                        "messageType": return_message_type,
+                    }
+                )
 
     def close(self):
         try:
