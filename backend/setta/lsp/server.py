@@ -8,6 +8,7 @@ class LanguageServer:
         self.workspace_folder = workspace_folder
         self.code_folder = code_folder
         self.msg_id_to_metadata = defaultdict(dict)
+        self.pending_requests = {}
         self.versions = {}
         self.initialization_request_id = None
         self.is_initialized = False
@@ -62,6 +63,16 @@ class LanguageServerInteractor:
     @property
     def code_folder(self):
         return self.server.code_folder
+
+    @property
+    def pending_requests(self):
+        return self.server.pending_requests
+
+    async def wait_for_response(self, id, timeout=None):
+        future = self.pending_requests.get(id)
+        if future:
+            return await asyncio.wait_for(future, timeout=timeout)
+        return None
 
     def project_code_folder(self, projectConfigName):
         return self.code_folder / projectConfigName

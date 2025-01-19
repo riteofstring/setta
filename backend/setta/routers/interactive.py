@@ -17,7 +17,7 @@ from setta.tasks.fns.utils import replace_template_vars_with_random_names
 from setta.utils.constants import C
 from setta.utils.utils import multireplace
 
-from .dependencies import get_tasks
+from .dependencies import get_lsp_writers, get_tasks
 
 router = APIRouter()
 
@@ -33,7 +33,9 @@ class FormatCodeRequest(BaseModel):
 
 @router.post(C.ROUTE_UPDATE_INTERACTIVE_CODE)
 async def route_update_interactive_code(
-    x: UpdateInteractiveCodeRequest, tasks=Depends(get_tasks)
+    x: UpdateInteractiveCodeRequest,
+    tasks=Depends(get_tasks),
+    lsp_writers=Depends(get_lsp_writers),
 ):
     p = x.project
     exporter_obj = export_selected(
@@ -50,10 +52,11 @@ async def route_update_interactive_code(
                 t["keyword"]
             ] = create_in_memory_module_name(p, t["sectionId"])
 
-    code_dict = generate_final_code_for_sections(
+    code_dict = await generate_final_code_for_sections(
         p,
         exporter_obj,
-        "",
+        lsp_writers=lsp_writers,
+        folder_path="",
         do_prepend_with_setup_code=True,
         do_convert_var_names_to_readable_form=True,
         template_var_replacement_values=template_var_replacement_values,
