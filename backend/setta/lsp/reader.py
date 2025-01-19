@@ -176,7 +176,9 @@ def extract_parameters(error_string):
     return parameters
 
 
-def process_completion(code, items, generated_var_names, referencable_var_names):
+def process_completion(
+    code, items, generated_var_names, referencable_var_names, cursor_offset
+):
     content = []
     line_cols = []
     content_idx_with_text_edit = {}
@@ -198,11 +200,14 @@ def process_completion(code, items, generated_var_names, referencable_var_names)
         content.append(c)
 
     if len(line_cols) > 0:
+        # use the raw line/character values because the code
+        # contains generated code
         positions = line_col_to_position_batch(code, line_cols)
-
         for i, j in content_idx_with_text_edit.items():
-            content[i]["from"] = positions[j]
-            content[i]["to"] = positions[j + 1]
+            # shift it back by cursor_offset so that it's ready
+            # for the frontend
+            content[i]["from"] = positions[j] - cursor_offset
+            content[i]["to"] = positions[j + 1] - cursor_offset
 
     for x in referencable_var_names:
         content.append({"label": x, "type": "variable"})
@@ -301,6 +306,7 @@ class LanguageServerReader(LanguageServerInteractor):
                         response["result"]["items"],
                         self.msg_id_to_metadata[id]["generated_var_names"],
                         self.msg_id_to_metadata[id]["referencable_var_names"],
+                        self.msg_id_to_metadata[id]["cursor_offset"],
                     )
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":

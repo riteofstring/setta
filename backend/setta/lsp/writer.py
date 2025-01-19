@@ -63,6 +63,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         request_id,
         referencable_var_names,
         generated_var_names,
+        cursor_offset,
     ):
         uri = self.get_virtual_uri(code_id)
         params = {
@@ -74,6 +75,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         ] = referencable_var_names
         self.msg_id_to_metadata[request_id]["generated_var_names"] = generated_var_names
         self.msg_id_to_metadata[request_id]["uri"] = uri
+        self.msg_id_to_metadata[request_id]["cursor_offset"] = cursor_offset
         await self.send_request(
             "textDocument/completion",
             params=params,

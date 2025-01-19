@@ -94,6 +94,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         request_id=request_id,
         referencable_var_names=referencable_var_names,
         generated_var_names=generated_var_names,
+        cursor_offset=cursor_position - message.position,
     )
 
     return None

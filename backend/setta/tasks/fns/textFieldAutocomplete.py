@@ -155,6 +155,7 @@ async def _textFieldCompletion(message, lsp_writers):
         request_id,
         referencable_var_names,
         generated_var_names,
+        cursor_offset=cursor_position - message.position,
     )
 
     return None
