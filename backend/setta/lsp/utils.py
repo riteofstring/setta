@@ -13,6 +13,7 @@ def create_lsps(
             workspace_folder=workspace_folder,
             code_folder=code_folder,
             settings=settings,
+            watch_files=True
         ),
         "basic": LanguageServer(
             workspace_folder=code_folder, code_folder=code_folder, settings={}

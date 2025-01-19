@@ -101,19 +101,3 @@ class LSPFileWatcher:
         """Stop the file watcher."""
         self.observer.stop()
         self.observer.join()
-
-    def is_watching(self, path: str) -> bool:
-        """
-        Check if a path is being watched.
-
-        Args:
-            path: Path to check
-
-        Returns:
-            bool: True if the path is being watched
-        """
-        absolute_path = os.path.abspath(path)
-        return any(
-            absolute_path.startswith(watched_path)
-            for watched_path in self.watched_paths
-        )

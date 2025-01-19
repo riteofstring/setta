@@ -8,7 +8,6 @@ class LanguageServer:
         self.workspace_folder = workspace_folder
         self.code_folder = code_folder
         self.init_properties()
-        self.server = None
         if not isinstance(settings, dict):
             print(
                 "warning: your language server settings is not an object, so it will have no effect"
