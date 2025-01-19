@@ -10,7 +10,6 @@ from setta.utils.constants import (
     CODE_FOLDER_ENV_VARIABLE,
     HOST_ENV_VARIABLE,
     PORT_ENV_VARIABLE,
-    SEND_ARTIFACT_TO_ENV_VARIABLE,
     C,
     load_constants,
     set_constants,
@@ -18,7 +17,7 @@ from setta.utils.constants import (
 
 
 class Setta:
-    def __init__(self, root_path=None, send_data_to=None, host=None, port=None):
+    def __init__(self, root_path=None, host=None, port=None):
         load_constants()
         set_constants(
             host=host or os.environ.get(HOST_ENV_VARIABLE, C.DEFAULT_HOST),
@@ -30,11 +29,6 @@ class Setta:
             self.root_path = Path(
                 os.environ.get(CODE_FOLDER_ENV_VARIABLE, os.path.relpath(os.getcwd()))
             )
-
-        if send_data_to:
-            self.send_data_to = send_data_to
-        else:
-            self.send_data_to = os.environ.get(SEND_ARTIFACT_TO_ENV_VARIABLE)
 
         self.name_path_type_to_id = {}
 
@@ -66,7 +60,6 @@ class Setta:
             json={
                 "data": data_to_send,
                 "saveTo": save_to,
-                "sendDataTo": self.send_data_to,
                 "messageType": C.WS_ARTIFACT,
             },
             headers={"Content-Type": "application/json"},

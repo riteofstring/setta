@@ -3,7 +3,6 @@ import queue
 import threading
 from typing import Dict
 
-from setta.cli.logger import default_section_type
 from setta.database.utils import create_new_id
 
 from . import fns
@@ -106,10 +105,10 @@ class Tasks:
         result = await self.task_runner.run(
             self.in_memory_subprocess.parent_conn.recv, [], RunType.THREAD
         )
-        if result["status"] == "success":
-            for x in result["content"]:
-                x.setdefault("sectionType", default_section_type(x["type"]))
-        else:
+        # if result["status"] == "success":
+        # for x in result["content"]:
+        # x.setdefault("sectionType", default_section_type(x["type"]))
+        if result["status"] != "success":
             result["content"] = {}
 
         return {"content": result["content"], "messageType": result["messageType"]}

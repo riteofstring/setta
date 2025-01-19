@@ -20,7 +20,6 @@ from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
     CODE_FOLDER,
     CODE_FOLDER_ENV_VARIABLE,
-    SEND_ARTIFACT_TO_ENV_VARIABLE,
     USER_SETTINGS,
     C,
 )
@@ -420,12 +419,10 @@ def write_string_to_file(folder, filename, content):
 def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name):
     setup_code = ""
     if codeLanguage == "python":
-        location = f"/{project_config_name}"
         setup_code = (
             "import sys\n"
             "import os\n"
             "sys.path.append(os.getcwd())\n"
-            f"os.environ['{SEND_ARTIFACT_TO_ENV_VARIABLE}'] = '{location}'\n"
             f"os.environ['{CODE_FOLDER_ENV_VARIABLE}'] = '{folder_path}'\n"
         )
         code = setup_code + code

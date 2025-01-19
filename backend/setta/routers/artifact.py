@@ -24,7 +24,6 @@ router = APIRouter()
 class SendArtifactRequest(BaseModel):
     data: List[dict]
     saveTo: str
-    sendDataTo: str
     messageType: str
 
 
@@ -65,9 +64,7 @@ async def route_send_artifact(
     for idx, d in enumerate(x.data):
         d["id"] = artifact_ids[idx]
 
-    await websocket_manager.send_message_to_location(
-        x.data, x.messageType, x.sendDataTo
-    )
+    await websocket_manager.broadcast({"content": x.data, "messageType": x.messageType})
     return artifact_ids
 
 
