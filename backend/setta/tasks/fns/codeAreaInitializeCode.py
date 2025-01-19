@@ -2,6 +2,7 @@ import json
 
 from pydantic import BaseModel
 
+from regex import P
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
 from setta.code_gen.find_placeholders import tp
@@ -32,6 +33,9 @@ async def _codeAreaInitializeCode(message, lsp_writers):
     send_document_open_request_with_code_dict(
         lsp_writers, code_dict, exporter_obj, projectConfigName
     )
+
+    print("_codeAreaInitializeCode")
+    print("exporter_obj.code_gen_template_var_section_details", exporter_obj.code_gen_template_var_section_details["section"].get("id"), flush=True)
 
     referencable_var_names = []
     generated_var_names = []

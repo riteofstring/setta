@@ -105,9 +105,12 @@ export async function dbCodeAreaCompletion({
   };
 
   const res = await sendMessageAndWait(autoCompleteProps);
+  console.log("first autocomplete attempt", res)
 
   if (res === C.CODE_AREA_GEN_CODE_NOT_INITIALIZED) {
+    console.log('sending initialize request')
     const initialized = await dbCodeAreaInitializeCode(sectionId);
+    console.log("initialized response", initialized)
     if (initialized) {
       return await sendMessageAndWait(autoCompleteProps);
     } else {

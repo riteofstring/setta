@@ -44,6 +44,8 @@ async def _codeAreaAutocomplete(message, lsp_writers):
     ) = message.cached
     code = message.fullText
     gen_code_template_var = get_gen_code_template_var(message.templateVars)
+    # print("exporter_obj.code_gen_template_var_section_details", exporter_obj.code_gen_template_var_section_details["section"].get("id"), flush=True)
+    # print('message.sectionId', message.sectionId, flush=True)
     if (
         gen_code_template_var
         and exporter_obj.code_gen_template_var_section_details["section"].get("id")
@@ -169,7 +171,7 @@ def special_keywords_for_autocomplete(gen_code_template_var):
 
 
 def read_cache(cache, message):
-    print("reading cache", cache)
+    # print("reading cache", cache)
     message = message.content
     message["cached"] = cache.get(
         get_cache_key(message["projectConfigId"], message["sectionId"])
