@@ -114,6 +114,20 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
+    async def send_definition_request(
+        self, line, character, code_id, request_id
+    ):
+        uri = self.get_virtual_uri(code_id)
+        params = {
+            "textDocument": {"uri": uri},
+            "position": {"line": line, "character": character},
+        }
+        await self.send_request(
+            "textDocument/definition",
+            params=params,
+            id=request_id,
+        )
+
     async def send_didChangeConfiguration(self):
         # THIS FORMAT WORKS
         # hardcoded_settings = {

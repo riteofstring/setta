@@ -1,19 +1,19 @@
-from setta.cli import Setta
-import time
+# from setta.cli import Setta
+# import time
 
-from setta.cli.logger import SettaImg, SettaList, pil_to_setta_img
+# from setta.cli.logger import SettaImg, SettaList, pil_to_setta_img
 
-logger = Setta()
+# logger = Setta()
 
-print("logger.root_path", logger.root_path)
+# print("logger.root_path", logger.root_path)
 
-all_data = {"size": [], "elephant": []}
+# all_data = {"size": [], "elephant": []}
 
-for i in range(100):
-    all_data["size"].append(i)
-    all_data["elephant"].append(i*3)
-    logger.log({"frogdog": SettaList(all_data)}, save_to="db")
-    time.sleep(1)
+# for i in range(100):
+#     all_data["size"].append(i)
+#     all_data["elephant"].append(i*3)
+#     logger.log({"frogdog": SettaList(all_data)}, save_to="db")
+#     time.sleep(1)
 
 
 # # Test the fix with different parameter names
@@ -211,3 +211,8 @@ for i in range(100):
 # """
 # correct = set(["numpy", "torch", "cv2", "PIL", "PIL.Image"])
 # print(find_missing_imports(test_code) == correct) 
+
+import transformers
+import transformers.AutoTokenizer
+
+print(transformers.AutoTokenizer.from_pretrained)
