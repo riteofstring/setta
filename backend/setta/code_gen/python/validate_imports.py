@@ -78,7 +78,7 @@ async def validate_imports(sectionId, generated_imports, lsp_writers):
     # Use line_indices to map responses back to correct lines
     for response_idx, response in enumerate(responses):
         original_idx = line_indices[response_idx]
-        if not response:
+        if not response["data"]:
             # replace with equal length comment so that we don't have
             # to change any position information
             lines[original_idx] = "#" * len(lines[original_idx])
