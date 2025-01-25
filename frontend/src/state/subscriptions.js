@@ -167,7 +167,11 @@ function singletonSectionsSubscriptionFn(state) {
 function regexSubscriptionFn(x) {
   const output = {
     details: {},
-    codeInfo: _.mapValues(x.codeInfo, (c) => ({ id: c.id, name: c.name })),
+    codeInfo: _.mapValues(x.codeInfo, (c) => ({
+      id: c.id,
+      name: c.name,
+      rcType: c.rcType,
+    })),
     globalVariableId: x.singletonSections[C.GLOBAL_VARIABLES],
     templateVarEligibleSections: [],
   };

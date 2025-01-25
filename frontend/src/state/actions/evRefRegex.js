@@ -111,7 +111,7 @@ function setFullParamRegex(
   );
 
   for (const p of childParamInfos) {
-    if (!p.name) {
+    if (!p.name || p.rcType !== C.PARAMETER) {
       continue;
     }
     const fullName = isGlobalVar ? p.name : `${parentName}["${p.name}"]`;
