@@ -54,7 +54,6 @@ export function ParamNameInput({
         color="green"
         language={configLanguage}
         evRefs={[]}
-        setEVRefs={() => {}}
         initializeGenCode={false}
         autocomplete={false}
         isKeyName={true}

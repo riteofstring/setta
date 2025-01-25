@@ -61,7 +61,6 @@ export async function dbCodeAreaCompletion({
   sectionId,
   fullText,
   position,
-  setEVRefs,
   codeLanguage,
 }) {
   const { id: projectConfigId, name: projectConfigName } =
@@ -76,13 +75,6 @@ export async function dbCodeAreaCompletion({
   });
 
   const candidateTemplateVars = findCandidateTemplateVars(sectionId, fullText);
-
-  // const { evRefs, templateVars } = await getEVRefsAndTemplateVarsForCodeArea(
-  //   sectionId,
-  //   fullText,
-  // );
-
-  // setEVRefs(evRefs);
 
   const autoCompleteProps = {
     id: createNewId(),
@@ -119,18 +111,10 @@ export async function dbTextFieldCompletion({
   paramInfoId,
   fullText,
   position,
-  setEVRefs,
   messageType = "textFieldCompletion",
 }) {
   const { id: projectConfigId, name: projectConfigName } =
     useProjectConfig.getState();
-  // const evRefs = await getEVRefs({
-  //   sectionId,
-  //   paramInfoId,
-  //   fullText,
-  // });
-
-  // setEVRefs(evRefs);
 
   const candidateEVRefs = findCandidateEVRefs({
     sectionId,

@@ -182,7 +182,6 @@ async def _textFieldCompletion(message, lsp_writers):
         generated_var_names,
         cursor_offset=cursor_position - message.position,
         virtual=False,
-        otherData={"evRefs": evRefs},
     )
 
     return None

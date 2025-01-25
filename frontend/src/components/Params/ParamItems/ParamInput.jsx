@@ -8,7 +8,6 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { useGetParamEnteredValueAndEVRefs } from "state/hooks/sectionVariants";
 import { getParamUIType } from "state/hooks/uiTypes";
-import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
@@ -18,7 +17,6 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     paramInfoId,
   );
   const [value, setValue] = useState(enteredValue);
-  const [localEVRefs, setLocalEVRefs] = useState(evRefs);
 
   // value and enteredValue should always be string
   function onChange(v) {
@@ -35,10 +33,6 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     }
   }, [enteredValue]);
 
-  useDeepCompareEffect(() => {
-    setLocalEVRefs(evRefs);
-  }, [evRefs]);
-
   return (
     <ParamUI
       sectionId={sectionId}
@@ -46,8 +40,7 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       value={value}
       onChange={onChange}
       maybeErrorMessage={maybeErrorMessage}
-      evRefs={localEVRefs}
-      setEVRefs={setLocalEVRefs}
+      evRefs={evRefs}
     />
   );
 }

@@ -29,7 +29,6 @@ export function TextInputCodeMirror({
   color,
   language,
   evRefs,
-  setEVRefs,
   dummyDivId,
   autocomplete = true,
   initializeGenCode = true,
@@ -112,7 +111,6 @@ export function TextInputCodeMirror({
           setRealIsInitialized={setRealIsInitialized}
           theme={theme}
           evRefs={evRefs}
-          setEVRefs={setEVRefs}
           language={language}
           autocomplete={autocomplete}
           isKeyName={isKeyName}
@@ -140,7 +138,6 @@ function CoreCodeMirror({
   setRealIsInitialized,
   theme,
   evRefs,
-  setEVRefs,
   language,
   autocomplete,
   isKeyName,
@@ -158,7 +155,6 @@ function CoreCodeMirror({
           dataSectionId,
           paramInfoId,
           dbTextFieldCompletion,
-          setEVRefs,
           language,
         )
       : () => null,

@@ -211,7 +211,6 @@ function SectionSearchCore({
         onEscape={onEscape}
         language={configLanguage}
         evRefs={localEVRefs}
-        setEVRefs={setLocalEVRefs}
         isDisabled={isDisabled}
       />
       <LoadingSpinner sectionId={dataSectionId} />

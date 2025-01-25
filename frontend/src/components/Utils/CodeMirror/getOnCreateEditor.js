@@ -91,7 +91,6 @@ export function getCompletionsFn(
   sectionId,
   paramInfoId,
   dbCompletionFn,
-  setEVRefs,
   language,
 ) {
   if (language === "python") {
@@ -108,7 +107,6 @@ export function getCompletionsFn(
         paramInfoId,
         fullText,
         position: context.pos,
-        setEVRefs,
         codeLanguage: language,
       });
       setToNotWaiting();
