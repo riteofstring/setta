@@ -16,7 +16,7 @@ def send_document_open_request_with_diagnostics_with_code_dict(
     exporter_obj,
     projectConfigName,
 ):
-    for details in code_dict.values():
+    for codeSectionId, details in code_dict.items():
         asyncio.create_task(
             send_document_open_request_with_diagnostics(
                 lsp_writer,
@@ -25,6 +25,7 @@ def send_document_open_request_with_diagnostics_with_code_dict(
                 details["ref_template_var_positions"],
                 projectConfigName,
                 details["sanitized_full_name"],
+                codeSectionId,
             )
         )
 
@@ -36,6 +37,7 @@ async def send_document_open_request_with_diagnostics(
     ref_template_var_positions,
     projectConfigName,
     sectionName,
+    codeSectionId,
 ):
     code_id = lsp_writer.construct_code_id(
         projectConfigName,
@@ -48,7 +50,7 @@ async def send_document_open_request_with_diagnostics(
         ref_template_var_positions=ref_template_var_positions,
         needsDiagnostics=True,
         projectConfigId=exporter_obj.p["projectConfig"]["id"],
-        sectionId=exporter_obj.code_gen_template_var_section_details["section"]["id"],
+        sectionId=codeSectionId,
     )
 
     return code_id

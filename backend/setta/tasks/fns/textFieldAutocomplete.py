@@ -176,6 +176,7 @@ async def _textFieldCompletion(message, lsp_writers):
         ref_template_var_positions,
         message.projectConfigName,
         gen_code_dict["sanitized_full_name"],
+        exporter_obj.code_gen_template_var_section_details["section"]["id"],
     )
     await lsp_writers["full"].send_autocomplete_request(
         line,

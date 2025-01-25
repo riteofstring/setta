@@ -32,11 +32,12 @@ def process_diagnostics(diagnostics, code_split, codeJson, ref_template_var_posi
     gen_code_template_var = get_gen_code_template_var(
         ref_template_var_positions["templateVars"]
     )
-    gen_code_start = gen_code_template_var["startPos"]
-    gen_code_end = gen_code_start + len(gen_code_template_var["value"])
+    if gen_code_template_var:
+        gen_code_start = gen_code_template_var["startPos"]
+        gen_code_end = gen_code_start + len(gen_code_template_var["value"])
     for d in diagnostics:
         start, end = d["range"]["start"], d["range"]["end"]
-        if gen_code_start <= start["position"] < gen_code_end:
+        if gen_code_template_var and gen_code_start <= start["position"] < gen_code_end:
             result = process_gen_code_diagnostic(d, code_split, codeJson, start, end)
             output.extend(result)
         # TODO: process diagnostics for non-generated code:

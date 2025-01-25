@@ -86,7 +86,6 @@ def write_cache(cache, message, result):
     cache[
         get_cache_key(message.project["projectConfig"]["id"], message.sectionId)
     ] = result["cache"]
-    print("cache", cache)
 
 
 codeAreaInitializeCode = TaskDefinition(

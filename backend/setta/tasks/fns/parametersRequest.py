@@ -49,6 +49,7 @@ async def _parametersRequest(message, lsp_writers):
         ref_template_var_positions,
         message.projectConfigName,
         gen_code_dict["sanitized_full_name"],
+        exporter_obj.code_gen_template_var_section_details["section"]["id"],
     )
     await lsp_writers["full"].send_signature_help_request(
         line,

@@ -110,6 +110,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         ref_template_var_positions,
         message.projectConfigName,
         message.sectionName,
+        message.sectionId,
     )
 
     await lsp_writers["full"].send_autocomplete_request(
@@ -192,7 +193,6 @@ def special_keywords_for_autocomplete(gen_code_template_var):
 
 
 def read_cache(cache, message):
-    print("reading cache", cache)
     message = message.content
     message["cached"] = cache.get(
         get_cache_key(message["projectConfigId"], message["sectionId"])
