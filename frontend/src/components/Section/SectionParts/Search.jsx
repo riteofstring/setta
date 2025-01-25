@@ -1,7 +1,7 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getEVRefs } from "requests/sections";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
@@ -136,10 +136,23 @@ function SectionSearchCore({
 
   const [value, setValue] = useState(codeInfoName);
   const [localEVRefs, setLocalEVRefs] = useState(evRefs);
+  const [valueNameInconsistent, setValueNameInconsistent] = useState(false);
   const shouldResetValueOnBlur = useRef(false);
 
+  const debouncedSetValueNameInconsistent = useCallback(
+    _.debounce((x) => {
+      setValueNameInconsistent(x);
+    }, 1000),
+    [setValueNameInconsistent],
+  );
+
+  function setValueAndCheckConsistency(value) {
+    setValue(value);
+    debouncedSetValueNameInconsistent(value !== codeInfoName);
+  }
+
   useEffect(() => {
-    setValue(codeInfoName);
+    setValueAndCheckConsistency(codeInfoName);
   }, [codeInfoName]);
 
   useDeepCompareEffect(() => {
@@ -148,7 +161,7 @@ function SectionSearchCore({
 
   function onBlur() {
     if (shouldResetValueOnBlur.current) {
-      setValue(codeInfoName);
+      setValueAndCheckConsistency(codeInfoName);
     }
     shouldResetValueOnBlur.current = false;
   }
@@ -168,7 +181,7 @@ function SectionSearchCore({
   }
 
   function onChange(value) {
-    setValue(value);
+    setValueAndCheckConsistency(value);
     debouncedSetEVRefs(dataSectionId, value, setLocalEVRefs);
   }
 
@@ -185,9 +198,10 @@ function SectionSearchCore({
     "Alt-Enter": _onShiftEnter,
   };
 
-  // Shouldn't use important for this, but ok for now. FIX.
-  const valueNameInconsistentStyle =
-    value !== codeInfoName ? "!border-red-500 dark:!border-red-800" : "";
+  // TODO: Shouldn't use important for this, but ok for now. FIX.
+  const valueNameInconsistentStyle = valueNameInconsistent
+    ? "!border-amber-500 dark:!border-amber-800"
+    : "";
 
   return (
     <search
