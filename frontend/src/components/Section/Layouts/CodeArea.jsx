@@ -54,13 +54,7 @@ function PythonCodeArea({ sectionId, language }) {
     [JSON.stringify(localEVRefs)],
   );
   const completionsFn = useCallback(
-    getCompletionsFn(
-      sectionId,
-      null,
-      dbCodeAreaCompletion,
-      setLocalEVRefs,
-      language,
-    ),
+    getCompletionsFn(sectionId, null, dbCodeAreaCompletion, language),
     [sectionId],
   );
 
@@ -290,4 +284,4 @@ const debouncedSetEVRefs = asyncDebounce(async (sectionId, value) => {
   });
 
   maybeIncrementProjectStateVersion(true);
-}, 500);
+}, 50);
