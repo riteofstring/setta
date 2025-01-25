@@ -42,9 +42,10 @@ async def _parametersRequest(message, lsp_writers):
         message.projectConfigName,
         gen_code_dict["sanitized_full_name"],
         is_gen_code=True,
+        virtual=False,
     )
     await lsp_writers["full"].send_signature_help_request(
-        line, column, code_id, request_id
+        line, column, code_id, request_id, virtual=False
     )
     return None
 

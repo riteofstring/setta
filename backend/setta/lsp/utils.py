@@ -35,12 +35,12 @@ async def start_lsps(lsps, lsp_readers, lsp_writers):
         await lsp_writers[k].send_initialize_request()
 
 
-def kill_lsps(lsps, lsp_readers):
+async def kill_lsps(lsps, lsp_readers):
     for k, v in lsps.items():
-        lsp_readers[k].stop_event.set()
+        await lsp_readers[k].stop()  # Wait for reader to finish
         v.kill_server()
 
 
 async def restart_lsps(lsps, lsp_readers, lsp_writers):
-    kill_lsps(lsps, lsp_readers)
+    await kill_lsps(lsps, lsp_readers)
     await start_lsps(lsps, lsp_readers, lsp_writers)

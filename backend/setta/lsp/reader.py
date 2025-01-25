@@ -220,10 +220,20 @@ class LanguageServerReader(LanguageServerInteractor):
         self.server = server
         self.websocket_manager = websocket_manager
         self.stop_event = asyncio.Event()
+        self.reader_task = None
 
     async def start_listener(self):
         self.stop_event.clear()  # Reset the stop event
-        asyncio.get_running_loop().create_task(self.read_response())
+        self.reader_task = asyncio.create_task(self.read_response())
+
+    async def stop(self):
+        self.stop_event.set()
+        if self.reader_task:
+            self.reader_task.cancel()
+            try:
+                await self.reader_task
+            except asyncio.CancelledError:
+                pass
 
     async def read_response(self):
         while not self.stop_event.is_set():

@@ -87,6 +87,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         message.projectConfigName,
         message.sectionName,
         bool(gen_code_template_var),
+        virtual=False,
     )
 
     await lsp_writers["full"].send_autocomplete_request(
@@ -97,6 +98,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         referencable_var_names=referencable_var_names,
         generated_var_names=generated_var_names,
         cursor_offset=cursor_position - message.position,
+        virtual=False,
     )
 
     return None
