@@ -4,8 +4,8 @@
     "name": "header_ambient_video",
     "previewImgColor": "bg-indigo-500/60 dark:bg-indigo-600/30",
     "viewport": {
-      "x": -309.78931950389415,
-      "y": -53.8817016680689,
+      "x": -413.38931950389383,
+      "y": -115.89531955972933,
       "zoom": 1.3935073738635468
     },
     "children": {
@@ -34,42 +34,12 @@
       "name": "distinct_chocolate",
       "values": {
         "04ecf904-c90c-4d8a-8713-111d9c06a00a": {
-          "value": "28"
-        },
-        "61c34869-8193-4f08-acaf-271856f631ce": {
-          "value": "4 if cuda else 1"
+          "value": "17"
         },
         "784ced68-6a69-4835-903c-40b06c16a8ec": {
-          "value": "true"
-        },
-        "91aa861c-9a53-4bc4-babe-cb4ff1707c29": {
-          "value": "\"llm_finetuning\""
-        },
-        "a8de2b46-bd53-406f-8ff7-6f3cf60aab46": {
-          "value": "\"steps\""
-        },
-        "253cf075-f92b-49b0-981d-7e32a8a807c2": {
-          "value": "1e-4"
-        },
-        "855b0307-c71b-4d5a-93d8-66d559f7380f": {
-          "value": "np.ceil(N/16)",
-          "evRefs": [
-            {
-              "sectionId": "9ac37eae-c465-413f-99b1-c96eb4bb7c5a",
-              "paramInfoId": "f57e4b80-5b4c-4efd-bdfa-faade43c0c16",
-              "startPos": 8,
-              "keyword": "N"
-            }
-          ]
-        },
-        "90f9cb33-9dca-4409-aa60-ef8024e11c25": {
-          "value": "True"
-        },
-        "e5c3bcea-327d-4845-bef7-a95ecc21e7bb": {
-          "value": "32"
+          "value": "false"
         }
       },
-      "selectedItem": "6830bb9c-b2b3-4abe-810f-263503aa303a",
       "codeInfoColId": "c3056bce-e13d-46ad-a164-6e0896426aa2"
     }
   },
