@@ -3,14 +3,15 @@ import re
 
 def process_diagnostics_response(response, get_code_metadata):
     params = response["params"]
-    diagnostics = params["diagnostics"]
     uri = params["uri"]
-    version = params.get("version")
-    if get_code_metadata(uri)["version"] != version:
+    version = params["version"]
+    metadata = get_code_metadata(uri)
+    if not metadata["needsDiagnostics"] or metadata["version"] != version:
         return None, False
     # needsDiagnostics = version_info["needsDiagnostics"]
 
     print(response, flush=True)
+    # diagnostics = params["diagnostics"]
 
     return None, False
     # if not needsDiagnostics:

@@ -36,7 +36,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_didChangeConfiguration()  # pyright requires this step
 
     async def send_document_open_request(
-        self, code_id, code, codeJson=None, virtual=None
+        self, code_id, code, codeJson=None, needsDiagnostics=False, virtual=None
     ):
         virtual = self.get_is_virtual(virtual)
         uri = self.get_uri(code_id, virtual)
@@ -47,7 +47,9 @@ class LanguageServerWriter(LanguageServerInteractor):
                 "textDocument": {
                     "uri": uri,
                     "languageId": "python",
-                    "version": self.get_new_version_number(uri, code, codeJson),
+                    "version": self.get_new_version_number(
+                        uri, code, codeJson, needsDiagnostics
+                    ),
                     "text": code,
                 }
             }
@@ -55,7 +57,13 @@ class LanguageServerWriter(LanguageServerInteractor):
             await self.send_request("textDocument/didOpen", params=params)
         else:
             print("document already open, updating it", uri, flush=True)
-            await self.send_document_update(code_id, code, codeJson, virtual)
+            await self.send_document_update(
+                code_id=code_id,
+                code=code,
+                codeJson=codeJson,
+                needsDiagnostics=needsDiagnostics,
+                virtual=virtual,
+            )
 
     async def send_autocomplete_request(
         self,
@@ -152,6 +160,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         code_id,
         code,
         codeJson,
+        needsDiagnostics=False,
         virtual=None,
     ):
         virtual = self.get_is_virtual(virtual)
@@ -161,7 +170,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         params = {
             "textDocument": {
                 "uri": uri,
-                "version": self.get_new_version_number(uri, code, codeJson),
+                "version": self.get_new_version_number(
+                    uri, code, codeJson, needsDiagnostics
+                ),
             },
             "contentChanges": [{"text": code}],
         }

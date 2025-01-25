@@ -17,7 +17,7 @@ from .codeAreaInitializeCode import get_cache_key
 from .utils import (
     TaskDefinition,
     prepare_code_for_scope_checking,
-    send_document_open_request,
+    send_document_open_request_with_diagnostics,
 )
 
 
@@ -103,13 +103,12 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         referencable_var_names,
     )
 
-    code_id = await send_document_open_request(
+    code_id = await send_document_open_request_with_diagnostics(
         lsp_writers["full"],
         code,
         exporter_obj,
         message.projectConfigName,
         message.sectionName,
-        bool(gen_code_template_var),
     )
 
     await lsp_writers["full"].send_autocomplete_request(

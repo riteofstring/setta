@@ -113,8 +113,8 @@ class LanguageServerInteractor:
     def code_metadata(self):
         return self.server.code_metadata
 
-    def get_new_version_number(self, uri, code, codeJson):
-        obj = {"code": code, "codeJson": codeJson}
+    def get_new_version_number(self, uri, code, codeJson, needsDiagnostics):
+        obj = {"code": code, "codeJson": codeJson, "needsDiagnostics": needsDiagnostics}
         if uri not in self.code_metadata:
             obj["version"] = 0
         else:

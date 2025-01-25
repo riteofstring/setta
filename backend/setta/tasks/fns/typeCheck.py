@@ -2,7 +2,10 @@ from setta.code_gen.create_runnable_scripts import generate_final_code_for_secti
 from setta.code_gen.export_selected import export_selected
 from setta.tasks.task_runner import RunType
 
-from .utils import TaskDefinition, send_document_open_request_with_code_dict
+from .utils import (
+    TaskDefinition,
+    send_document_open_request_with_diagnostics_with_code_dict,
+)
 
 
 # this just initializes a document which gets the lsp to send back diagnostics
@@ -18,7 +21,7 @@ async def _typeCheck(message, lsp_writers):
         lsp_writers=lsp_writers,
         folder_path=lsp_writers["full"].project_code_folder(projectConfigName),
     )
-    send_document_open_request_with_code_dict(
+    send_document_open_request_with_diagnostics_with_code_dict(
         lsp_writers["full"],
         code_dict,
         exporter_obj,

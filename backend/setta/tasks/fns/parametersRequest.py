@@ -6,7 +6,7 @@ from .textFieldAutocomplete import (
     get_code_and_cursor_position,
     read_cache,
 )
-from .utils import TaskDefinition, send_document_open_request
+from .utils import TaskDefinition, send_document_open_request_with_diagnostics
 
 
 async def _parametersRequest(message, lsp_writers):
@@ -37,7 +37,7 @@ async def _parametersRequest(message, lsp_writers):
     # move cursor into parentheses
     cursor_position += 1
     line, column = position_to_line_col(code, cursor_position)
-    code_id = await send_document_open_request(
+    code_id = await send_document_open_request_with_diagnostics(
         lsp_writers["full"],
         code,
         exporter_obj,

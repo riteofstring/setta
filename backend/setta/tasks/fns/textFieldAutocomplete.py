@@ -17,7 +17,7 @@ from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
 from .findEVRefs import findEVRefsLocally
-from .utils import TaskDefinition, send_document_open_request
+from .utils import TaskDefinition, send_document_open_request_with_diagnostics
 
 
 class CodeCompletionContent(BaseModel):
@@ -154,7 +154,7 @@ async def _textFieldCompletion(message, lsp_writers):
         fullNameToInfo,
     ) = cached
 
-    evRefs, code, cursor_position = await get_code_and_cursor_position(
+    _, code, cursor_position = await get_code_and_cursor_position(
         message,
         fullNameToInfo,
         gen_code_dict,
@@ -164,7 +164,7 @@ async def _textFieldCompletion(message, lsp_writers):
     )
     line, column = position_to_line_col(code, cursor_position)
 
-    code_id = await send_document_open_request(
+    code_id = await send_document_open_request_with_diagnostics(
         lsp_writers["full"],
         code,
         exporter_obj,

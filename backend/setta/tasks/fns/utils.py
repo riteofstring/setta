@@ -10,7 +10,7 @@ from setta.utils.constants import C
 from setta.utils.utils import multireplace
 
 
-def send_document_open_request_with_code_dict(
+def send_document_open_request_with_diagnostics_with_code_dict(
     lsp_writer,
     code_dict,
     exporter_obj,
@@ -18,7 +18,7 @@ def send_document_open_request_with_code_dict(
 ):
     for details in code_dict.values():
         asyncio.create_task(
-            send_document_open_request(
+            send_document_open_request_with_diagnostics(
                 lsp_writer,
                 details["code"],
                 exporter_obj,
@@ -28,7 +28,7 @@ def send_document_open_request_with_code_dict(
         )
 
 
-async def send_document_open_request(
+async def send_document_open_request_with_diagnostics(
     lsp_writer,
     code,
     exporter_obj,
@@ -43,6 +43,7 @@ async def send_document_open_request(
         code_id=code_id,
         code=code,
         codeJson=exporter_obj.output if exporter_obj else None,
+        needsDiagnostics=True,
     )
 
     return code_id
