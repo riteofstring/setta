@@ -86,8 +86,8 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
-
   const [localValue, setLocalValue] = useState(value);
+  const debouncedSetCodeAbortController = useRef();
 
   useEffect(() => {
     if (value !== localValue) {
@@ -96,8 +96,10 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   }, [value]);
 
   function onChange(v) {
+    debouncedSetCodeAbortController.current?.abort();
     setLocalValue(v);
-    debouncedSetCode(sectionId, v);
+
+    debouncedSetCode(sectionId, v, debouncedSetCodeAbortController);
   }
 
   function onMouseDown() {
@@ -270,18 +272,30 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
   return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
 }
 
-const debouncedSetCode = asyncDebounce(async (sectionId, value) => {
-  const { templateVars, evRefs } = await getEVRefsAndTemplateVarsForCodeArea(
-    sectionId,
-    value,
-  );
+const debouncedSetCode = asyncDebounce(
+  async (sectionId, value, abortControllerRef) => {
+    const ac = new AbortController();
+    abortControllerRef.current = ac;
 
-  useSectionInfos.setState((x) => {
-    const sectionVariant = getSectionVariant(sectionId, x);
-    sectionVariant.code = value;
-    sectionVariant.evRefs = evRefs;
-    sectionVariant.templateVars = templateVars;
-  });
+    if (ac.signal?.aborted) {
+      return;
+    }
 
-  maybeIncrementProjectStateVersion(true);
-}, 50);
+    const { templateVars, evRefs } = await getEVRefsAndTemplateVarsForCodeArea(
+      sectionId,
+      value,
+    );
+    if (ac.signal?.aborted) {
+      return;
+    }
+    useSectionInfos.setState((x) => {
+      const sectionVariant = getSectionVariant(sectionId, x);
+      sectionVariant.code = value;
+      sectionVariant.evRefs = evRefs;
+      sectionVariant.templateVars = templateVars;
+    });
+
+    maybeIncrementProjectStateVersion(true);
+  },
+  50,
+);

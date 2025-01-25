@@ -187,7 +187,7 @@ function SectionSearchCore({
 
   function onChange(value) {
     setValueAndCheckConsistency(value);
-    debouncedSetEVRefs(dataSectionId, value, setLocalEVRefs);
+    debouncedSetLocalEVRefs(dataSectionId, value, setLocalEVRefs);
   }
 
   function _onEnter() {
@@ -249,7 +249,7 @@ function LoadingSpinner({ sectionId }) {
   );
 }
 
-const debouncedSetEVRefs = asyncDebounce(
+const debouncedSetLocalEVRefs = asyncDebounce(
   async (sectionId, value, setLocalEVRefs) => {
     const evRefs = await getEVRefs({
       sectionId,
