@@ -66,7 +66,11 @@ async def lifespan(app: FastAPI):
     )
 
     app.state.dbq.connect()
-    await start_lsps(app.state.lsps, app.state.lsp_readers, app.state.lsp_writers)
+    await start_lsps(
+        app.state.lsps,
+        app.state.lsp_readers,
+        app.state.lsp_writers,
+    )
 
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
