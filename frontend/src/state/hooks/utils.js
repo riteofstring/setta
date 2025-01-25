@@ -50,8 +50,3 @@ export function useWindowSize() {
 
   return windowSize;
 }
-
-
-export function useLocalValue(value){
-  const [localValue, setLocalValue] = useState(value)
-}

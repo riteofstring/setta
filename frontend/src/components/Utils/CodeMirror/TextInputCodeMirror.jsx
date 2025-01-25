@@ -164,7 +164,7 @@ function CoreCodeMirror({
   const extensions = getExtensions({
     sectionId: visualSectionId,
     language,
-    completionsFn,
+    // completionsFn,
     keywordStylizer,
     singleLine,
     tabToAutocomplete: true,

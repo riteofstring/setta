@@ -37,21 +37,21 @@ const _NodeWrapper = ({
   const hasPointerEvents = isSelectable || isDraggable;
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (isInputDOMNode(event)) {
-      return;
-    }
+    // if (isInputDOMNode(event)) {
+    //   return;
+    // }
 
-    if (
-      isDraggable &&
-      selected &&
-      Object.prototype.hasOwnProperty.call(arrowKeyDiffs, event.key)
-    ) {
-      updatePositions({
-        x: arrowKeyDiffs[event.key].x,
-        y: arrowKeyDiffs[event.key].y,
-        isShiftPressed: event.shiftKey,
-      });
-    }
+    // if (
+    //   isDraggable &&
+    //   selected &&
+    //   Object.prototype.hasOwnProperty.call(arrowKeyDiffs, event.key)
+    // ) {
+    //   updatePositions({
+    //     x: arrowKeyDiffs[event.key].x,
+    //     y: arrowKeyDiffs[event.key].y,
+    //     isShiftPressed: event.shiftKey,
+    //   });
+    // }
   };
 
   useEffect(() => {
