@@ -44,6 +44,8 @@ async def send_document_open_request_with_diagnostics(
         code=code,
         codeJson=exporter_obj.output if exporter_obj else None,
         needsDiagnostics=True,
+        projectConfigId=exporter_obj.p["projectConfig"]["id"],
+        sectionId=exporter_obj.code_gen_template_var_section_details["section"]["id"],
     )
 
     return code_id

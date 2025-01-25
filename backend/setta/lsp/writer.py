@@ -36,7 +36,14 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_didChangeConfiguration()  # pyright requires this step
 
     async def send_document_open_request(
-        self, code_id, code, codeJson=None, needsDiagnostics=False, virtual=None
+        self,
+        code_id,
+        code,
+        codeJson=None,
+        needsDiagnostics=False,
+        projectConfigId=None,
+        sectionId=None,
+        virtual=None,
     ):
         virtual = self.get_is_virtual(virtual)
         uri = self.get_uri(code_id, virtual)
@@ -48,7 +55,12 @@ class LanguageServerWriter(LanguageServerInteractor):
                     "uri": uri,
                     "languageId": "python",
                     "version": self.get_new_version_number(
-                        uri, code, codeJson, needsDiagnostics
+                        uri,
+                        code,
+                        codeJson,
+                        needsDiagnostics,
+                        projectConfigId,
+                        sectionId,
                     ),
                     "text": code,
                 }
@@ -62,6 +74,8 @@ class LanguageServerWriter(LanguageServerInteractor):
                 code=code,
                 codeJson=codeJson,
                 needsDiagnostics=needsDiagnostics,
+                projectConfigId=projectConfigId,
+                sectionId=sectionId,
                 virtual=virtual,
             )
 
@@ -161,6 +175,8 @@ class LanguageServerWriter(LanguageServerInteractor):
         code,
         codeJson,
         needsDiagnostics=False,
+        projectConfigId=None,
+        sectionId=None,
         virtual=None,
     ):
         virtual = self.get_is_virtual(virtual)
@@ -171,7 +187,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             "textDocument": {
                 "uri": uri,
                 "version": self.get_new_version_number(
-                    uri, code, codeJson, needsDiagnostics
+                    uri, code, codeJson, needsDiagnostics, projectConfigId, sectionId
                 ),
             },
             "contentChanges": [{"text": code}],

@@ -1,8 +1,13 @@
 import _ from "lodash";
-import { useTypeErrors } from "state/definitions";
+import { useProjectConfig, useTypeErrors } from "state/definitions";
 import { setNotificationMessage } from "./notification";
 
 export function processTypeErrors(content) {
+  const { projectConfigId, sectionId, typeErrors } = content;
+  if (projectConfigId !== useProjectConfig.getState().id) {
+    return;
+  }
+
   if (useTypeErrors.getState().userRequested) {
     setNotificationMessage(
       _.size(content) === 0

@@ -11,11 +11,10 @@ def process_diagnostics_response(response, get_code_metadata):
     # needsDiagnostics = version_info["needsDiagnostics"]
 
     print(response, flush=True)
+    print(metadata["projectConfigId"], metadata["sectionId"], flush=True)
     # diagnostics = params["diagnostics"]
 
     return None, False
-    # if not needsDiagnostics:
-    #     return None, needsDiagnostics
 
     # sectionId = version_info["sectionId"]
     # code = version_info["code"]
