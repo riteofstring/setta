@@ -3,8 +3,8 @@ import json
 import re
 from pprint import pprint
 
-from setta.code_gen.python.position_line_col import line_col_to_position_batch
 from setta.lsp.reader_fns.completion import process_completion_result
+from setta.lsp.reader_fns.documentHighlight import process_document_highlight_result
 from setta.lsp.reader_fns.references import process_references_result
 from setta.lsp.reader_fns.signatureHelp import process_signature_help_result
 from setta.utils.constants import C
@@ -170,30 +170,11 @@ class LanguageServerReader(LanguageServerInteractor):
                         return_id, content
                     )
             elif method == "textDocument/documentHighlight":
-                content = []
-                # if it's not None, then it's a variable or import or something like that
-                if response["result"]:
-                    # the response doesn't include uri for some reason,
-                    # so we keep track of it manually
-                    uri = metadata["uri"]
-                    code = self.get_version(uri)["code"]
-
-                    for x in response["result"]:
-                        r = x["range"]
-                        positions = line_col_to_position_batch(
-                            code,
-                            [
-                                (r["start"]["line"], r["start"]["character"]),
-                                (r["end"]["line"], r["end"]["character"]),
-                            ],
-                        )
-                        content.append(
-                            {"startPos": positions[0], "endPos": positions[1]}
-                        )
-                return_id = metadata["return_id"]
-                num_messages = metadata["num_messages"]
+                content, return_id = process_document_highlight_result(
+                    response, metadata, self.get_version
+                )
                 await self.websocket_manager.send_message_to_requester(
-                    return_id, {"positions": content, "numMessages": num_messages}
+                    return_id, content
                 )
             elif method == "textDocument/definition":
                 is_valid = bool(response["result"])
