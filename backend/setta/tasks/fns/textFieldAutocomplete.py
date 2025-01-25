@@ -143,7 +143,7 @@ async def _textFieldCompletion(message, lsp_writers):
     message = CodeCompletionContent.parse_obj(message.content)
     cached = message.cached
     if cached is None:
-        return {"content": []}
+        return {"content": {"data": []}}
 
     (
         gen_code_dict,
