@@ -121,7 +121,7 @@ class LanguageServerInteractor:
         ref_template_var_positions,
         needsDiagnostics,
         projectConfigId,
-        sectionId,
+        codeSectionId,
     ):
         obj = {
             "code": code,
@@ -129,7 +129,7 @@ class LanguageServerInteractor:
             "ref_template_var_positions": ref_template_var_positions,
             "needsDiagnostics": needsDiagnostics,
             "projectConfigId": projectConfigId,
-            "sectionId": sectionId,
+            "codeSectionId": codeSectionId,
         }
         if uri not in self.code_metadata:
             obj["version"] = 0

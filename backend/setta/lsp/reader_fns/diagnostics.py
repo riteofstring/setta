@@ -22,7 +22,7 @@ def process_diagnostics_response(response, get_code_metadata):
 
     return {
         "projectConfigId": metadata["projectConfigId"],
-        "sectionId": metadata["sectionId"],
+        "codeSectionId": metadata["codeSectionId"],
         "diagnostics": diagnostics,
     }, True
 

@@ -43,7 +43,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         ref_template_var_positions=None,
         needsDiagnostics=False,
         projectConfigId=None,
-        sectionId=None,
+        codeSectionId=None,
         virtual=None,
     ):
         virtual = self.get_is_virtual(virtual)
@@ -62,7 +62,7 @@ class LanguageServerWriter(LanguageServerInteractor):
                         ref_template_var_positions,
                         needsDiagnostics,
                         projectConfigId,
-                        sectionId,
+                        codeSectionId,
                     ),
                     "text": code,
                 }
@@ -78,7 +78,7 @@ class LanguageServerWriter(LanguageServerInteractor):
                 ref_template_var_positions=ref_template_var_positions,
                 needsDiagnostics=needsDiagnostics,
                 projectConfigId=projectConfigId,
-                sectionId=sectionId,
+                codeSectionId=codeSectionId,
                 virtual=virtual,
             )
 
@@ -180,7 +180,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         ref_template_var_positions=None,
         needsDiagnostics=False,
         projectConfigId=None,
-        sectionId=None,
+        codeSectionId=None,
         virtual=None,
     ):
         virtual = self.get_is_virtual(virtual)
@@ -197,7 +197,7 @@ class LanguageServerWriter(LanguageServerInteractor):
                     ref_template_var_positions,
                     needsDiagnostics,
                     projectConfigId,
-                    sectionId,
+                    codeSectionId,
                 ),
             },
             "contentChanges": [{"text": code}],

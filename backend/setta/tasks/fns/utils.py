@@ -50,7 +50,7 @@ async def send_document_open_request_with_diagnostics(
         ref_template_var_positions=ref_template_var_positions,
         needsDiagnostics=True,
         projectConfigId=exporter_obj.p["projectConfig"]["id"],
-        sectionId=codeSectionId,
+        codeSectionId=codeSectionId,
     )
 
     return code_id
