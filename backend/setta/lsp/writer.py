@@ -36,15 +36,12 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_didChangeConfiguration()  # pyright requires this step
 
     async def send_document_open_request(
-        self,
-        code_id,
-        code,
-        codeJson=None,
-        is_gen_code=False,
+        self, code_id, code, codeJson=None, is_gen_code=False, virtual=None
     ):
-        uri = self.get_uri(code_id)
+        virtual = self.get_is_virtual(virtual)
+        uri = self.get_uri(code_id, virtual)
         if uri not in self.versions:
-            if not self.use_virtual_files:
+            if not virtual:
                 self.create_or_update_temp_file(code_id, code)
             params = {
                 "textDocument": {
@@ -56,11 +53,13 @@ class LanguageServerWriter(LanguageServerInteractor):
                     "text": code,
                 }
             }
-            print("send_document_open_request", code_id, flush=True)
+            print("send_document_open_request", uri, flush=True)
             await self.send_request("textDocument/didOpen", params=params)
         else:
-            print("document already open, updating it", code_id, flush=True)
-            await self.send_document_update(code_id, code, codeJson, is_gen_code)
+            print("document already open, updating it", uri, flush=True)
+            await self.send_document_update(
+                code_id, code, codeJson, is_gen_code, virtual
+            )
 
     async def send_autocomplete_request(
         self,
@@ -72,8 +71,10 @@ class LanguageServerWriter(LanguageServerInteractor):
         generated_var_names,
         cursor_offset,
         otherData=None,
+        virtual=None,
     ):
-        uri = self.get_uri(code_id)
+        virtual = self.get_is_virtual(virtual)
+        uri = self.get_uri(code_id, virtual)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -92,14 +93,10 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_signature_help_request(
-        self,
-        line,
-        character,
-        code_id,
-        request_id,
-        otherData=None,
+        self, line, character, code_id, request_id, otherData=None, virtual=None
     ):
-        uri = self.get_uri(code_id)
+        virtual = self.get_is_virtual(virtual)
+        uri = self.get_uri(code_id, virtual)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -113,9 +110,17 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_document_highlight_request(
-        self, line, character, code_id, request_id, return_id, num_messages
+        self,
+        line,
+        character,
+        code_id,
+        request_id,
+        return_id,
+        num_messages,
+        virtual=None,
     ):
-        uri = self.get_uri(code_id)
+        virtual = self.get_is_virtual(virtual)
+        uri = self.get_uri(code_id, virtual)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -150,10 +155,12 @@ class LanguageServerWriter(LanguageServerInteractor):
         code,
         codeJson,
         is_gen_code,
+        virtual=None,
     ):
-        if not self.use_virtual_files:
+        virtual = self.get_is_virtual(virtual)
+        if not virtual:
             self.create_or_update_temp_file(code_id, code)
-        uri = self.get_uri(code_id)
+        uri = self.get_uri(code_id, virtual)
         params = {
             "textDocument": {
                 "uri": uri,
@@ -174,8 +181,10 @@ class LanguageServerWriter(LanguageServerInteractor):
         request_id,
         return_id,
         num_messages,
+        virtual=None,
     ):
-        uri = self.get_uri(code_id)
+        virtual = self.get_is_virtual(virtual)
+        uri = self.get_uri(code_id, virtual)
         params = {
             "textDocument": {
                 "uri": uri,
@@ -194,8 +203,10 @@ class LanguageServerWriter(LanguageServerInteractor):
         character,
         code_id,
         request_id,
+        virtual=None,
     ):
-        uri = self.get_uri(code_id)
+        virtual = self.get_is_virtual(virtual)
+        uri = self.get_uri(code_id, virtual)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -218,13 +229,16 @@ class LanguageServerWriter(LanguageServerInteractor):
         return self.code_folder / f"{code_id}.py"
 
     # https://github.com/microsoft/language-server-protocol/issues/1676
-    def get_uri(self, code_id):
+    def get_uri(self, code_id, virtual):
         base_uri = self.get_base_uri(code_id)
-        prefix = "untitled:" if self.use_virtual_files else "file://"
+        prefix = "untitled:" if virtual else "file://"
         uri = f"{prefix}{base_uri}".lower()
         if platform.system() == "Windows":
             uri += "/"  # need trailing slash on Windows for some reason
         return uri
+
+    def get_is_virtual(self, virtual):
+        return virtual if virtual is not None else self.use_virtual_files
 
     def create_temp_file(self, code_id, code):
         """Create a temporary file for the given code and return its path."""

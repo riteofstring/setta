@@ -41,8 +41,7 @@ async def validate_imports(sectionId, generated_imports, lsp_writers):
 
     code_id = f"{sectionId}-validate-imports"
     await lsp_writers["full"].send_document_open_request(
-        code_id=code_id,
-        code=generated_imports,
+        code_id=code_id, code=generated_imports, virtual=True
     )
 
     lines = generated_imports.split("\n")
@@ -58,10 +57,7 @@ async def validate_imports(sectionId, generated_imports, lsp_writers):
         # Send request without awaiting
         lsp_writers["full"].create_asyncio_task(
             lsp_writers["full"].send_definition_request(
-                idx,
-                len(line) - 1,
-                code_id,
-                request_id,
+                idx, len(line) - 1, code_id, request_id, virtual=True
             ),
             request_id,
             local=True,
