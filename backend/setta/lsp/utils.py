@@ -1,4 +1,4 @@
-from .reader.reader import LanguageServerReader
+from .reader import LanguageServerReader
 from .server import LanguageServer
 from .writer import LanguageServerWriter
 

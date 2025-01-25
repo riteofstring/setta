@@ -1,7 +1,7 @@
 import asyncio
 
 
-from setta.lsp.reader.reader import LanguageServerReader
+from setta.lsp.reader import LanguageServerReader
 from setta.lsp.server import LanguageServer
 from setta.lsp.writer import LanguageServerWriter
 from pathlib import Path

@@ -4,12 +4,12 @@ import re
 from pprint import pprint
 
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
-from setta.lsp.reader.completion import process_completion_result
-from setta.lsp.reader.references import process_references_result
-from setta.lsp.reader.signatureHelp import process_signature_help_result
+from setta.lsp.reader_fns.completion import process_completion_result
+from setta.lsp.reader_fns.references import process_references_result
+from setta.lsp.reader_fns.signatureHelp import process_signature_help_result
 from setta.utils.constants import C
 
-from ..server import LanguageServerInteractor
+from .server import LanguageServerInteractor
 
 
 def process_diagnostics(diagnostics, code_split, codeJson):
