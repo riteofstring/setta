@@ -6,38 +6,10 @@ from pprint import pprint
 import docstring_parser
 
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
+from setta.lsp.reader.completion import process_completion_result
 from setta.utils.constants import C
 
 from ..server import LanguageServerInteractor
-
-type_mapping = {
-    1: "File",
-    2: "Module",
-    3: "Namespace",
-    4: "Package",
-    5: "Class",
-    6: "Method",
-    7: "Property",
-    8: "Field",
-    9: "Constructor",
-    10: "Enum",
-    11: "Interface",
-    12: "Function",
-    13: "Variable",
-    14: "Constant",
-    15: "String",
-    16: "Number",
-    17: "Boolean",
-    18: "Array",
-    19: "Object",
-    20: "Key",
-    21: "Null",
-    22: "EnumMember",
-    23: "Struct",
-    24: "Event",
-    25: "Operator",
-    26: "TypeParameter",
-}
 
 
 def extract_variable_name(code_string):
@@ -176,45 +148,6 @@ def extract_parameters(error_string):
     return parameters
 
 
-def process_completion(
-    code, items, generated_var_names, referencable_var_names, cursor_offset
-):
-    content = []
-    line_cols = []
-    content_idx_with_text_edit = {}
-    for x in items:
-        if x["label"] in generated_var_names:
-            continue
-        c = {"label": x["label"], "type": type_mapping[x["kind"]]}
-        if "textEdit" in x:
-            content_idx_with_text_edit[len(content)] = len(line_cols)
-            r = x["textEdit"]["range"]
-            line_cols.append(
-                (
-                    r["start"]["line"],
-                    r["start"]["character"],
-                )
-            )
-            line_cols.append((r["end"]["line"], r["end"]["character"]))
-
-        content.append(c)
-
-    if len(line_cols) > 0:
-        # use the raw line/character values because the code
-        # contains generated code
-        positions = line_col_to_position_batch(code, line_cols)
-        for i, j in content_idx_with_text_edit.items():
-            # shift it back by cursor_offset so that it's ready
-            # for the frontend
-            content[i]["from"] = positions[j] - cursor_offset
-            content[i]["to"] = positions[j + 1] - cursor_offset
-
-    for x in referencable_var_names:
-        content.append({"label": x, "type": "variable"})
-
-    return content
-
-
 class LanguageServerReader(LanguageServerInteractor):
     def __init__(self, server, websocket_manager):
         self.server = server
@@ -308,17 +241,9 @@ class LanguageServerReader(LanguageServerInteractor):
 
             method = method if method else metadata["method"]
             if method == "textDocument/completion":
-                content = []
-                if response["result"] and response["result"]["items"]:
-                    uri = metadata["uri"]
-                    code = self.get_version(uri)["code"]
-                    content = process_completion(
-                        code,
-                        response["result"]["items"],
-                        metadata["generated_var_names"],
-                        metadata["referencable_var_names"],
-                        metadata["cursor_offset"],
-                    )
+                content = process_completion_result(
+                    response, metadata, self.get_version
+                )
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
                 if response["result"]:
