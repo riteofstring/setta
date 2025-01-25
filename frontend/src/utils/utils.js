@@ -70,6 +70,19 @@ export function shortcutPrettified(shortcut) {
   return shortcut.replace(modRegex, isMacOs() ? macSymbol : windowsText);
 }
 
+export function shortcutCodemirrorFormat(shortcut) {
+  // Remove all spaces and split by '+'
+  const parts = shortcut.replace(/\s+/g, "").split("+");
+
+  // Convert single-character parts to lowercase, leave others unchanged
+  const convertedParts = parts.map((part) =>
+    part.length === 1 ? part.toLowerCase() : part,
+  );
+
+  // Join back with '-'
+  return convertedParts.join("-");
+}
+
 export function dummyRegExpObject() {
   return {
     exec: function () {

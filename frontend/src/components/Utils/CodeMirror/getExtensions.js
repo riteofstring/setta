@@ -13,6 +13,7 @@ import { EditorState, Prec } from "@codemirror/state";
 import { keymap, tooltips } from "@codemirror/view";
 import { EditorView } from "@uiw/react-codemirror";
 import { useSettings } from "state/definitions";
+import { shortcutCodemirrorFormat } from "utils/utils";
 
 export function getExtensions({
   sectionId,
@@ -24,7 +25,6 @@ export function getExtensions({
   indentWithTab,
   onTab,
   onEscape,
-  onModEnterDoNothing,
   keyComboActions,
   isDisabled,
 }) {
@@ -75,7 +75,6 @@ export function getExtensions({
     Prec.highest(
       keymap.of(
         getKeyMapArray({
-          onModEnterDoNothing,
           indentWithTab,
           tabToAutocomplete,
           onTab,
@@ -90,7 +89,6 @@ export function getExtensions({
 }
 
 function getKeyMapArray({
-  onModEnterDoNothing,
   indentWithTab,
   tabToAutocomplete,
   onTab,
@@ -100,11 +98,19 @@ function getKeyMapArray({
   const settings = useSettings.getState();
   const keymapArray = [
     {
-      key: settings.shortcuts.undo,
+      key: shortcutCodemirrorFormat(settings.shortcuts.undoShortcut),
       run: () => true,
     },
     {
-      key: settings.shortcuts.redo,
+      key: shortcutCodemirrorFormat(settings.shortcuts.redoShortcut),
+      run: () => true,
+    },
+    {
+      key: shortcutCodemirrorFormat(settings.shortcuts.runCodeShortcut),
+      run: () => true,
+    },
+    {
+      key: shortcutCodemirrorFormat(settings.shortcuts.runAllCodeShortcut),
       run: () => true,
     },
     {
@@ -117,13 +123,6 @@ function getKeyMapArray({
       },
     },
   ];
-
-  if (onModEnterDoNothing) {
-    keymapArray.push({
-      key: "Mod-Enter",
-      run: () => true,
-    });
-  }
 
   if (indentWithTab) {
     keymapArray.push({
