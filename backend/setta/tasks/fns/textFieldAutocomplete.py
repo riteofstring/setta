@@ -16,6 +16,7 @@ from setta.tasks.fns.textFieldInitializeCode import get_cache_key
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
+from .findEVRefs import findEVRefsLocally
 from .utils import TaskDefinition, send_document_open_request
 
 
@@ -26,23 +27,40 @@ class CodeCompletionContent(BaseModel):
     paramInfoId: str | None
     fullText: str
     position: int
-    evRefs: list
+    candidateEVRefs: list
     cached: Optional[Any] = None
+
+
+async def getEVRefsAndProcessThem(message, fullNameToInfo, exporter_obj, lsp_writers):
+    evRefs = await findEVRefsLocally(
+        message.sectionId,
+        message.paramInfoId,
+        message.candidateEVRefs,
+        message.fullText,
+        fullNameToInfo,
+        lsp_writers,
+    )
+
+    # 1. Create new variable declaration with new value
+    var_value, new_positions = process_refs(
+        message.fullText,
+        evRefs,
+        exporter_obj.get_ref_var_name,
+        cursor_position=message.position,
+    )
+    return var_value, new_positions
 
 
 async def get_code_and_cursor_position(
     message,
+    fullNameToInfo,
     gen_code_dict,
     var_name,
     exporter_obj,
     lsp_writers,
 ):
-    # 1. Create new variable declaration with new value
-    var_value, new_positions = process_refs(
-        message.fullText,
-        message.evRefs,
-        exporter_obj.get_ref_var_name,
-        cursor_position=message.position,
+    var_value, new_positions = await getEVRefsAndProcessThem(
+        message, fullNameToInfo, exporter_obj, lsp_writers
     )
     new_var_decl = var_declaration(var_name, var_value)
 
@@ -131,10 +149,12 @@ async def _textFieldCompletion(message, lsp_writers):
         referencable_var_names,
         generated_var_names,
         exporter_obj,
+        fullNameToInfo,
     ) = cached
 
     code, cursor_position = await get_code_and_cursor_position(
         message,
+        fullNameToInfo,
         gen_code_dict,
         var_name,
         exporter_obj,

@@ -64,6 +64,7 @@ async def _textFieldInitializeCode(message, lsp_writers):
             referencable_var_names,
             generated_var_names,
             exporter_obj,
+            project["fullNameToInfo"],
         ],
     }
 

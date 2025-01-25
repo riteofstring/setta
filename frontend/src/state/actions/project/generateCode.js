@@ -8,7 +8,11 @@ import {
   getSectionInfo,
   getSectionPathFullName,
 } from "state/actions/sectionInfos";
-import { useSectionInfos, useWebsocketConnectionList } from "state/definitions";
+import {
+  useEVRefRegex,
+  useSectionInfos,
+  useWebsocketConnectionList,
+} from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import {
   addTerminalInitialMessage,
@@ -22,10 +26,14 @@ import { generateSectionParamSweepVersionCombinations } from "./generateSectionP
 import { getProjectData } from "./saveProject";
 
 export function getProjectDataToGenerateCode({
+  includeFullNameToInfo = true,
   includeInfoToFullName = true,
   includeSectionPathFullNames = true,
 }) {
   const project = getProjectData({});
+  if (includeFullNameToInfo) {
+    project.fullNameToInfo = useEVRefRegex.getState().fullNameToInfo;
+  }
   if (includeInfoToFullName) {
     project.infoToFullName = computeInfoToFullName(project);
   }

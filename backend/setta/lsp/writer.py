@@ -168,6 +168,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         request_id,
         return_id,
         num_messages,
+        local,
     ):
         uri = self.get_uri(code_id)
         params = {
@@ -181,9 +182,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         self.msg_id_to_metadata[request_id]["return_id"] = return_id
         self.msg_id_to_metadata[request_id]["num_messages"] = num_messages
         await self.send_request(
-            "textDocument/references",
-            params=params,
-            id=request_id,
+            "textDocument/references", params=params, id=request_id, local=local
         )
 
     async def send_definition_request(
@@ -192,7 +191,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         character,
         code_id,
         request_id,
-        local=False,
+        local,
     ):
         uri = self.get_uri(code_id)
         params = {

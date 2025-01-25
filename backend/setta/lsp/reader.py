@@ -355,13 +355,16 @@ class LanguageServerReader(LanguageServerInteractor):
                             }
                         )
 
-                # print(content, flush=True)
                 return_id = metadata["return_id"]
                 num_messages = metadata["num_messages"]
-                # print('returning reference request', content, flush=True)
-                await self.websocket_manager.send_message_to_requester(
-                    return_id, {"positions": content, "numMessages": num_messages}
-                )
+                content = {"positions": content, "numMessages": num_messages}
+
+                if id in self.pending_requests:
+                    self.pending_requests[id].set_result(content)
+                else:
+                    await self.websocket_manager.send_message_to_requester(
+                        return_id, content
+                    )
             elif method == "textDocument/documentHighlight":
                 content = []
                 # if it's not None, then it's a variable or import or something like that

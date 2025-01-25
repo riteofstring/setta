@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { dbParametersRequest, getEVRefs } from "requests/sections";
+import { dbParametersRequest } from "requests/sections";
 import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
@@ -37,11 +37,11 @@ export async function setSelectedItem(
     return;
   }
 
-  const evRefs = await getEVRefs({
-    sectionId: dataSectionId,
-    paramInfoId: null,
-    fullText: selectedItemName,
-  });
+  // const evRefs = await getEVRefs({
+  //   sectionId: dataSectionId,
+  //   paramInfoId: null,
+  //   fullText: selectedItemName,
+  // });
 
   const setToNotWaiting = setParametersRequestWaitingForLSP(visualSectionId);
 
@@ -49,7 +49,6 @@ export async function setSelectedItem(
     sectionId: dataSectionId,
     fullText: selectedItemName,
     position: selectedItemName.length,
-    evRefs,
   });
 
   useSectionInfos.setState((state) => {
@@ -59,7 +58,7 @@ export async function setSelectedItem(
         name: selectedItemName,
         editable: false,
         rcType: C.CALLABLE,
-        evRefs,
+        // evRefs,
       });
       addCodeInfo({ sectionId: dataSectionId, info, parent: null, state });
     } else {

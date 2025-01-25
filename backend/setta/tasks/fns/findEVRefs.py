@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.code_gen.python.check_scope import are_positions_in_scope_with_variable
+from setta.database.utils import create_new_id
 from setta.tasks.task_runner import RunType
 from setta.utils.utils import multireplace
 
@@ -33,28 +34,59 @@ class TextFieldFindReferencesContent(BaseModel):
 async def _findEVRefs(message, lsp_writers):
     message_id = message.id
     message = TextFieldFindReferencesContent.parse_obj(message.content)
-    candidateEVRefs = filterCandidatesByScope(
+    request_ids = await sendEVRefRequests(
+        message_id,
+        message.sectionId,
+        message.paramInfoId,
         message.candidateEVRefs,
-        message.fullText,
-        message.onlyAfterGenCodeTemplateVar,
         message.templateVars,
+        message.onlyAfterGenCodeTemplateVar,
+        message.fullText,
+        lsp_writers,
+        local=False,
+    )
+
+    if len(request_ids) == 0:
+        return {"content": {"positions": [], "numMessages": 1}}
+
+    return None
+
+
+async def sendEVRefRequests(
+    message_id,
+    sectionId,
+    paramInfoId,
+    candidateEVRefs,
+    templateVars,
+    onlyAfterGenCodeTemplateVar,
+    fullText,
+    lsp_writers,
+    local,
+):
+    candidateEVRefs = filterCandidatesByScope(
+        candidateEVRefs,
+        fullText,
+        onlyAfterGenCodeTemplateVar,
+        templateVars,
     )
 
     if len(candidateEVRefs) == 0:
-        return {"content": {"positions": [], "numMessages": 1}}
+        return []
 
     code, position_offset = generateCodeForReferenceFinding(
         candidateEVRefs,
-        message.fullText,
-        message.onlyAfterGenCodeTemplateVar,
-        message.templateVars,
+        fullText,
+        onlyAfterGenCodeTemplateVar,
+        templateVars,
     )
-    code_id = f"{message.sectionId}-{message.paramInfoId}-find-references"
+    code_id = f"{sectionId}-{paramInfoId}-find-references"
 
     await lsp_writers["basic"].send_document_open_request(code_id, code)
     num_messages = len(candidateEVRefs)
+    request_ids = []
     for idx in range(num_messages):
         request_id = f"{message_id}-{idx}"
+        request_ids.append(request_id)
         asyncio.create_task(
             lsp_writers["basic"].send_reference_request(
                 position_offset=position_offset,
@@ -64,10 +96,64 @@ async def _findEVRefs(message, lsp_writers):
                 request_id=request_id,
                 return_id=message_id,
                 num_messages=num_messages,
+                local=local,
             )
         )
 
-    return None
+    return request_ids
+
+
+async def findEVRefsLocally(
+    sectionId, paramInfoId, candidateEVRefs, fullText, fullNameToInfo, lsp_writers
+):
+    evRefRequestId = create_new_id()
+    request_ids = await sendEVRefRequests(
+        evRefRequestId,
+        sectionId,
+        paramInfoId,
+        candidateEVRefs,
+        [],
+        False,
+        fullText,
+        lsp_writers,
+        local=True,
+    )
+
+    if len(request_ids) == 0:
+        return []
+
+    responses = await waitForEVRefResponses(request_ids, lsp_writers)
+    positions = []
+    for r in responses:
+        positions.extend(r["positions"])
+    return construct_ev_refs(positions, fullNameToInfo, fullText)
+
+
+def construct_ev_refs(keyword_positions, fullNameToInfo, fullText):
+    output = []
+    for k in keyword_positions:
+        keyword = fullText[k["startPos"] : k["endPos"]]
+        if keyword in fullNameToInfo:
+            info = fullNameToInfo[keyword]
+            output.append(
+                {
+                    "sectionId": info["sectionId"],
+                    "paramInfoId": info["paramInfoId"],
+                    "isArgsObj": info["isArgsObj"],
+                    "startPos": k["startPos"],
+                    "keyword": keyword,
+                }
+            )
+    return output
+
+
+async def waitForEVRefResponses(request_ids, lsp_writers):
+    request_futures = []
+    for r in request_ids:
+        future = lsp_writers["full"].wait_for_response(r)
+        request_futures.append(future)
+
+    return await asyncio.gather(*request_futures)
 
 
 def filterCandidatesByScope(

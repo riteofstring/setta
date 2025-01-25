@@ -29,26 +29,13 @@ export function dbRequestTypeCheck(userRequested = false) {
 
 export const debouncedTypeCheckRequest = _.debounce(dbRequestTypeCheck, 500);
 
-export async function dbParametersRequest({
-  sectionId,
-  fullText,
-  position,
-  evRefs,
-}) {
-  const { id: projectConfigId, name: projectConfigName } =
-    useProjectConfig.getState();
-  return await sendMessageAndWait({
-    id: createNewId(),
+export async function dbParametersRequest({ sectionId, fullText, position }) {
+  return await dbTextFieldCompletion({
+    sectionId,
+    paramInfoId: null,
+    fullText,
+    position,
     messageType: "parametersRequest",
-    content: {
-      projectConfigId,
-      projectConfigName,
-      sectionId,
-      paramInfoId: null,
-      fullText,
-      position,
-      evRefs,
-    },
   });
 }
 
@@ -124,20 +111,28 @@ export async function dbTextFieldCompletion({
   fullText,
   position,
   setEVRefs,
+  messageType = "textFieldCompletion",
 }) {
   const { id: projectConfigId, name: projectConfigName } =
     useProjectConfig.getState();
-  const evRefs = await getEVRefs({
+  // const evRefs = await getEVRefs({
+  //   sectionId,
+  //   paramInfoId,
+  //   fullText,
+  // });
+
+  // setEVRefs(evRefs);
+
+  const candidateEVRefs = findCandidateEVRefs({
     sectionId,
     paramInfoId,
-    fullText,
+    value: fullText,
+    regexPatternKey: "pattern",
   });
-
-  setEVRefs(evRefs);
 
   return await sendMessageAndWait({
     id: createNewId(),
-    messageType: "textFieldCompletion",
+    messageType,
     content: {
       projectConfigId,
       projectConfigName,
@@ -145,7 +140,7 @@ export async function dbTextFieldCompletion({
       paramInfoId,
       fullText,
       position,
-      evRefs,
+      candidateEVRefs,
     },
   });
 }

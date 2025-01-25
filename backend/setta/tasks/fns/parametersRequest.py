@@ -22,10 +22,12 @@ async def _parametersRequest(message, lsp_writers):
         _,
         _,
         exporter_obj,
+        fullNameToInfo,
     ) = cached
 
     code, cursor_position = await get_code_and_cursor_position(
         message,
+        fullNameToInfo,
         gen_code_dict,
         var_name,
         exporter_obj,
