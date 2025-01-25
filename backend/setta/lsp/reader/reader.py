@@ -8,7 +8,7 @@ import docstring_parser
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 from setta.utils.constants import C
 
-from .server import LanguageServerInteractor
+from ..server import LanguageServerInteractor
 
 type_mapping = {
     1: "File",
