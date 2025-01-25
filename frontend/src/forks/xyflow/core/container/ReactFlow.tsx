@@ -30,6 +30,9 @@ const ReactFlow = () => {
     setInitialized(true);
   }, []);
 
+  const readyToRender =
+    wrapperDimensions.height > 0 && wrapperDimensions.width > 0;
+
   return (
     <div
       style={wrapperStyle}
@@ -51,9 +54,7 @@ const ReactFlow = () => {
         }}
       >
         <FlowRenderer wrapperDimensions={wrapperDimensions}>
-          <ViewportWrapper>
-            <NodeRenderer />
-          </ViewportWrapper>
+          <ViewportWrapper>{readyToRender && <NodeRenderer />}</ViewportWrapper>
         </FlowRenderer>
         {snapToGrid && showGridLines && <Background />}
       </div>
