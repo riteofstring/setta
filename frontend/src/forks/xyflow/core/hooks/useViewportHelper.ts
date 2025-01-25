@@ -1,4 +1,5 @@
 import { zoomIdentity } from "d3-zoom";
+import _ from "lodash";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useReactFlow } from "../store";
@@ -10,15 +11,15 @@ import {
   rendererPointToPoint,
 } from "../utils/graph";
 
-export function zoomIn(options) {
+export const zoomIn = _.throttle((options) => {
   const { d3Zoom, d3Selection } = useReactFlow.getState();
   d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1.2);
-}
+}, 50);
 
-export function zoomOut(options) {
+export const zoomOut = _.throttle((options) => {
   const { d3Zoom, d3Selection } = useReactFlow.getState();
   d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1 / 1.2);
-}
+}, 50);
 
 export function zoomTo(zoomLevel, options) {
   const { d3Zoom, d3Selection } = useReactFlow.getState();

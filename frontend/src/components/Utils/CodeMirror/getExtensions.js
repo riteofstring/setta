@@ -12,6 +12,7 @@ import { yaml } from "@codemirror/lang-yaml";
 import { EditorState, Prec } from "@codemirror/state";
 import { keymap, tooltips } from "@codemirror/view";
 import { EditorView } from "@uiw/react-codemirror";
+import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { shortcutCodemirrorFormat } from "utils/utils";
 
@@ -96,14 +97,24 @@ function getKeyMapArray({
   keyComboActions,
 }) {
   const settings = useSettings.getState();
+
+  // we call undo and redo here because in keyActivations,
+  // undo/redo are disabled in input fields.
+  // But at the same time, we want to override codemirror's undo/redo
   const keymapArray = [
     {
       key: shortcutCodemirrorFormat(settings.shortcuts.undoShortcut),
-      run: () => true,
+      run: () => {
+        undoProjectState();
+        return true;
+      },
     },
     {
       key: shortcutCodemirrorFormat(settings.shortcuts.redoShortcut),
-      run: () => true,
+      run: () => {
+        redoProjectState();
+        return true;
+      },
     },
     {
       key: shortcutCodemirrorFormat(settings.shortcuts.runCodeShortcut),

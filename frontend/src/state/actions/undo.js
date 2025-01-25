@@ -3,7 +3,7 @@ import { useMisc, useSettings, useStateVersion } from "state/definitions";
 import { stateDict, STATE_TYPES } from "state/utils";
 import { saveProject } from "./project/saveProject";
 
-export function undoProjectState() {
+export const undoProjectState = _.throttle(() => {
   const pastStates = useStateVersion.temporal.getState().pastStates;
   if (pastStates.length <= 1) {
     return;
@@ -18,7 +18,7 @@ export function undoProjectState() {
   }
   autoSave();
   useMisc.setState({ undoOrRedoWasTriggered: true });
-}
+}, 100);
 
 function undoSetPastAndFutureStates(s) {
   s.temporal.setState((state) => ({
@@ -39,7 +39,7 @@ function filterPastOrFutureStates(states) {
   return output;
 }
 
-export function redoProjectState() {
+export const redoProjectState = _.throttle(() => {
   const version = useStateVersion.getState().version;
   for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
     if (s.temporal && version === s.getState().version) {
@@ -49,7 +49,7 @@ export function redoProjectState() {
   }
   autoSave();
   useMisc.setState({ undoOrRedoWasTriggered: true });
-}
+}, 100);
 
 function redoSetPastAndFutureStates(s) {
   s.temporal.setState((state) => ({
