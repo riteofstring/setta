@@ -24,11 +24,11 @@ export function SectionSearch({ sectionId, selectedItem }) {
 
   function onEnter(value) {
     // gets called inside useSectionInfos.setState
-    setSelectedItem(sectionId, sectionId, value, true, callbackSetAttr);
+    setSelectedItem(sectionId, sectionId, value, callbackSetAttr);
   }
 
   function onShiftEnter(value) {
-    setSelectedItem(sectionId, sectionId, value, true, callbackSetAttr, true);
+    setSelectedItem(sectionId, sectionId, value, callbackSetAttr, true);
   }
 
   return (
@@ -70,7 +70,7 @@ export function ParamSweepSectionSearch({
         selectedItem;
     }
 
-    setSelectedItem(forSectionId, sectionId, value, true, callbackSetAttr);
+    setSelectedItem(forSectionId, sectionId, value, callbackSetAttr);
   }
 
   function onShiftEnter(value) {}

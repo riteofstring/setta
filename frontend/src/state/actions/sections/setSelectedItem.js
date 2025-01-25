@@ -12,7 +12,6 @@ export async function setSelectedItem(
   dataSectionId,
   visualSectionId,
   selectedItemName,
-  changedByUser,
   callbackSetAttr,
   refetchParams = false,
 ) {
@@ -74,7 +73,7 @@ export async function setSelectedItem(
     callbackSetAttr(info.id, state);
   });
 
-  maybeIncrementProjectStateVersion(changedByUser);
+  maybeIncrementProjectStateVersion(true);
 }
 
 function createChildrenCodeInfo(sectionId, parent, params, state) {
