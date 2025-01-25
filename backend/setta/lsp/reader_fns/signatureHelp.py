@@ -3,7 +3,7 @@ import re
 import docstring_parser
 
 
-def process_signature_help_result(response):
+def process_signature_help_response(response):
     content = None
     if response["result"]:
         content = parse_signature(response["result"]["signatures"][0])

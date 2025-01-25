@@ -1,7 +1,7 @@
 import re
 
 
-def process_diagnostics_result(response, get_version):
+def process_diagnostics_response(response, get_version):
     # print(response, flush=True)
     params = response["params"]
     diagnostics = params["diagnostics"]

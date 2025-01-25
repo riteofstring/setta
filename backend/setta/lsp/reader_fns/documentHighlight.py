@@ -1,7 +1,7 @@
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 
 
-def process_document_highlight_result(response, metadata, get_version):
+def process_document_highlight_response(response, metadata, get_version):
     content = []
     # if it's not None, then it's a variable or import or something like that
     if response["result"]:

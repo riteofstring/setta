@@ -2,12 +2,12 @@ import asyncio
 import json
 from pprint import pprint
 
-from setta.lsp.reader_fns.completion import process_completion_result
-from setta.lsp.reader_fns.definition import process_definition_result
-from setta.lsp.reader_fns.diagnostics import process_diagnostics_result
-from setta.lsp.reader_fns.documentHighlight import process_document_highlight_result
-from setta.lsp.reader_fns.references import process_references_result
-from setta.lsp.reader_fns.signatureHelp import process_signature_help_result
+from setta.lsp.reader_fns.completion import process_completion_response
+from setta.lsp.reader_fns.definition import process_definition_response
+from setta.lsp.reader_fns.diagnostics import process_diagnostics_response
+from setta.lsp.reader_fns.documentHighlight import process_document_highlight_response
+from setta.lsp.reader_fns.references import process_references_response
+from setta.lsp.reader_fns.signatureHelp import process_signature_help_response
 from setta.utils.constants import C
 
 from .server import LanguageServerInteractor
@@ -106,15 +106,15 @@ class LanguageServerReader(LanguageServerInteractor):
 
             method = method if method else metadata["method"]
             if method == "textDocument/completion":
-                content = process_completion_result(
+                content = process_completion_response(
                     response, metadata, self.get_version
                 )
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
-                content = process_signature_help_result(response)
+                content = process_signature_help_response(response)
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/references":
-                content, return_id = process_references_result(
+                content, return_id = process_references_response(
                     response, metadata, self.get_version
                 )
                 if id in self.pending_requests:
@@ -124,20 +124,20 @@ class LanguageServerReader(LanguageServerInteractor):
                         return_id, content
                     )
             elif method == "textDocument/documentHighlight":
-                content, return_id = process_document_highlight_result(
+                content, return_id = process_document_highlight_response(
                     response, metadata, self.get_version
                 )
                 await self.websocket_manager.send_message_to_requester(
                     return_id, content
                 )
             elif method == "textDocument/definition":
-                content = process_definition_result(response)
+                content = process_definition_response(response)
                 if id in self.pending_requests:
                     self.pending_requests[id].set_result(content)
                 else:
                     await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
-            content, action = process_diagnostics_result(response, self.get_version)
+            content, action = process_diagnostics_response(response, self.get_version)
             if action == "broadcast":
                 await self.websocket_manager.broadcast(
                     {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}

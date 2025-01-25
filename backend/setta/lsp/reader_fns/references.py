@@ -1,7 +1,7 @@
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 
 
-def process_references_result(response, metadata, get_version):
+def process_references_response(response, metadata, get_version):
     print("textDocument/references response", response, flush=True)
     content = []
     if response["result"] and len(response["result"]) > 0:
