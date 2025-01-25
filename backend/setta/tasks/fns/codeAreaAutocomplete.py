@@ -8,6 +8,8 @@ from setta.code_gen.find_placeholders import tp
 from setta.code_gen.python.check_scope import are_positions_in_scope_with_variable
 from setta.code_gen.python.generate_code import get_chars_in_line_before_position
 from setta.code_gen.python.position_line_col import position_to_line_col
+from setta.tasks.fns.codeAreaFindTemplateVars import findTemplateVarsLocally
+from setta.tasks.fns.findEVRefs import findEVRefsLocally
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
@@ -27,8 +29,8 @@ class CodeAreaAutocompleteContent(BaseModel):
     sectionName: str
     fullText: str
     position: int
-    evRefs: list
-    templateVars: list
+    candidateEVRefs: list
+    candidateTemplateVars: list
     cached: Optional[Any] = None
 
 
@@ -41,15 +43,36 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         generated_var_names,
         referencable_var_names,
         exporter_obj,
+        fullNameToInfo,
+        fullNameToSectionId,
     ) = message.cached
-    code = message.fullText
-    gen_code_template_var = get_gen_code_template_var(message.templateVars)
+
+    templateVars = await findTemplateVarsLocally(
+        message.sectionId,
+        message.candidateTemplateVars,
+        message.fullText,
+        fullNameToSectionId,
+        lsp_writers,
+    )
+
+    gen_code_template_var = get_gen_code_template_var(templateVars)
     if (
         gen_code_template_var
         and exporter_obj.code_gen_template_var_section_details["section"].get("id")
         != message.sectionId
     ):
         return {"content": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
+
+    evRefs = await findEVRefsLocally(
+        message.sectionId,
+        None,
+        message.candidateEVRefs,
+        templateVars,
+        True,
+        message.fullText,
+        fullNameToInfo,
+        lsp_writers,
+    )
 
     (
         code,
@@ -58,10 +81,10 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         ref_template_var_positions,
     ) = await generate_final_code_for_section(
         sectionId=message.sectionId,
-        code=code,
+        code=message.fullText,
         codeLanguage=message.codeLanguage,
-        evRefs=message.evRefs,
-        templateVars=message.templateVars,
+        evRefs=evRefs,
+        templateVars=templateVars,
         exporter_obj=exporter_obj,
         lsp_writers=lsp_writers,
         folder_path=lsp_writers["full"].project_code_folder(message.projectConfigName),
@@ -74,7 +97,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
 
     generated_var_names, referencable_var_names = calculate_referencable_var_names(
         message.fullText,  # use original code
-        message.templateVars,  # use original template vars
+        templateVars,  # use original template vars
         message.position,  # use original cursor position
         generated_var_names,
         referencable_var_names,

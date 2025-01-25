@@ -105,7 +105,14 @@ async def sendEVRefRequests(
 
 
 async def findEVRefsLocally(
-    sectionId, paramInfoId, candidateEVRefs, fullText, fullNameToInfo, lsp_writers
+    sectionId,
+    paramInfoId,
+    candidateEVRefs,
+    templateVars,
+    onlyAfterGenCodeTemplateVar,
+    fullText,
+    fullNameToInfo,
+    lsp_writers,
 ):
     evRefRequestId = create_new_id()
     request_ids = await sendEVRefRequests(
@@ -113,8 +120,8 @@ async def findEVRefsLocally(
         sectionId,
         paramInfoId,
         candidateEVRefs,
-        [],
-        False,
+        templateVars,
+        onlyAfterGenCodeTemplateVar,
         fullText,
         lsp_writers,
         local=True,

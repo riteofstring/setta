@@ -63,6 +63,8 @@ async def _codeAreaInitializeCode(message, lsp_writers):
             generated_var_names,
             referencable_var_names,
             exporter_obj,
+            project["fullNameToInfo"],
+            project["fullNameToSectionId"],
         ],
     }
 

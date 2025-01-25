@@ -36,6 +36,8 @@ async def getEVRefsAndProcessThem(message, fullNameToInfo, exporter_obj, lsp_wri
         message.sectionId,
         message.paramInfoId,
         message.candidateEVRefs,
+        [],
+        False,
         message.fullText,
         fullNameToInfo,
         lsp_writers,

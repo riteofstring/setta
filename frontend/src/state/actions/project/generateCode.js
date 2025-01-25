@@ -11,6 +11,7 @@ import {
 import {
   useEVRefRegex,
   useSectionInfos,
+  useTemplateVarRegex,
   useWebsocketConnectionList,
 } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
@@ -28,6 +29,7 @@ import { getProjectData } from "./saveProject";
 export function getProjectDataToGenerateCode({
   includeFullNameToInfo = true,
   includeInfoToFullName = true,
+  includeFullNameToSectionId = true,
   includeSectionPathFullNames = true,
 }) {
   const project = getProjectData({});
@@ -36,6 +38,10 @@ export function getProjectDataToGenerateCode({
   }
   if (includeInfoToFullName) {
     project.infoToFullName = computeInfoToFullName(project);
+  }
+  if (includeFullNameToSectionId) {
+    project.fullNameToSectionId =
+      useTemplateVarRegex.getState().fullNameToSectionId;
   }
   if (includeSectionPathFullNames) {
     project.sectionPathFullNames = {};
