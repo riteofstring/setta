@@ -28,7 +28,7 @@ async def _codeAreaFindTemplateVars(message, lsp_writers):
         local=False,
     )
     if len(request_ids) == 0:
-        return {"content": {"data": {"positions": [], "numMessages": 1}}}
+        return {"content": {"positions": [], "numMessages": 1}}
 
     return None
 

@@ -47,7 +47,7 @@ async def _findEVRefs(message, lsp_writers):
     )
 
     if len(request_ids) == 0:
-        return {"content": {"data": {"positions": [], "numMessages": 1}}}
+        return {"content": {"positions": [], "numMessages": 1}}
 
     return None
 

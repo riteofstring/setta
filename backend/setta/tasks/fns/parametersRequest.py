@@ -14,7 +14,7 @@ async def _parametersRequest(message, lsp_writers):
     message = CodeCompletionContent.parse_obj(message.content)
     cached = message.cached
     if cached is None:
-        return {"content": {"data": None}}
+        return {"content": []}
 
     (
         gen_code_dict,

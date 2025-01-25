@@ -4,6 +4,7 @@ import {
   findCandidateEVRefs,
   findCandidateTemplateVars,
 } from "components/Utils/CodeMirror/utils";
+import C from "constants/constants.json";
 import _ from "lodash";
 import { setNotificationMessage } from "state/actions/notification";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
@@ -83,7 +84,7 @@ export async function dbCodeAreaCompletion({
 
   // setEVRefs(evRefs);
 
-  return await sendMessageAndWait({
+  const autoCompleteProps = {
     id: createNewId(),
     messageType: "codeAreaAutocomplete",
     content: {
@@ -97,7 +98,20 @@ export async function dbCodeAreaCompletion({
       candidateEVRefs,
       candidateTemplateVars,
     },
-  });
+  };
+
+  const res = await sendMessageAndWait(autoCompleteProps);
+
+  if (res.data === C.CODE_AREA_GEN_CODE_NOT_INITIALIZED) {
+    const res2 = await dbCodeAreaInitializeCode(sectionId);
+    if (res2.data) {
+      return await sendMessageAndWait(autoCompleteProps);
+    } else {
+      console.log("dbCodeAreaCompletion initialization failed!");
+      return [];
+    }
+  }
+  return res;
 }
 
 export async function dbTextFieldCompletion({
