@@ -147,6 +147,8 @@ class LanguageServerReader(LanguageServerInteractor):
             content = process_definition_response(response)
             websocket_method = "return_to_requester"
 
+        content = {"data": content, "otherData": metadata.get("otherData")}
+
         return {
             "content": content,
             "websocket_return_id": websocket_return_id,

@@ -93,9 +93,9 @@ export async function dbCodeAreaCompletion({
 
   const res = await sendMessageAndWait(autoCompleteProps);
 
-  if (res === C.CODE_AREA_GEN_CODE_NOT_INITIALIZED) {
-    const initialized = await dbCodeAreaInitializeCode(sectionId);
-    if (initialized) {
+  if (res.data === C.CODE_AREA_GEN_CODE_NOT_INITIALIZED) {
+    const res2 = await dbCodeAreaInitializeCode(sectionId);
+    if (res2.data) {
       return await sendMessageAndWait(autoCompleteProps);
     } else {
       console.log("dbCodeAreaCompletion initialization failed!");
@@ -176,7 +176,7 @@ export async function getEVRefs({
         templateVars,
         onlyAfterGenCodeTemplateVar,
       },
-      condition: ({ positions, numMessages }) => {
+      condition: ({ data: { positions, numMessages } }) => {
         keywordPositions.push(...positions);
         count += 1;
         return count === numMessages;
@@ -206,7 +206,7 @@ async function getTemplateVars(sectionId, fullText) {
       id: createNewId(),
       messageType: "codeAreaFindTemplateVars",
       content: { sectionId, candidateTemplateVars, fullText },
-      condition: ({ positions, numMessages }) => {
+      condition: ({ data: { positions, numMessages } }) => {
         if (positions !== null) {
           keywordPositions.push(...positions);
         }

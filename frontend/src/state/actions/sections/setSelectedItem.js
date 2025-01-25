@@ -58,15 +58,15 @@ export async function setSelectedItem(
         name: selectedItemName,
         editable: false,
         rcType: C.CALLABLE,
-        // evRefs,
+        evRefs: paramRes.otherData.evRefs,
       });
       addCodeInfo({ sectionId: dataSectionId, info, parent: null, state });
     } else {
       info = state.codeInfo[prevSelected];
     }
 
-    if (paramRes) {
-      const [documentation, params] = paramRes;
+    if (paramRes.data) {
+      const [documentation, params] = paramRes.data;
       if (params) {
         createChildrenCodeInfo(dataSectionId, info.id, params, state);
       } else {

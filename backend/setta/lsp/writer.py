@@ -12,13 +12,11 @@ class LanguageServerWriter(LanguageServerInteractor):
     def __init__(self, server):
         self.server = server
 
-    async def send_request(self, method, params, id=None, local=False):
+    async def send_request(self, method, params, id=None):
         request_dict = {"jsonrpc": "2.0", "method": method, "params": params}
         if id:
             request_dict["id"] = id
             self.msg_id_to_metadata[id]["method"] = method
-            if local:
-                self.pending_requests[id] = asyncio.Future()
 
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
@@ -77,6 +75,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         generated_var_names,
         cursor_offset,
         virtual=True,
+        otherData=None,
     ):
         uri = self.get_uri(code_id, virtual)
         params = {
@@ -89,6 +88,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         self.msg_id_to_metadata[request_id]["generated_var_names"] = generated_var_names
         self.msg_id_to_metadata[request_id]["uri"] = uri
         self.msg_id_to_metadata[request_id]["cursor_offset"] = cursor_offset
+        self.msg_id_to_metadata[request_id]["otherData"] = otherData
         await self.send_request(
             "textDocument/completion",
             params=params,
@@ -96,7 +96,13 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_signature_help_request(
-        self, line, character, code_id, request_id, virtual=True
+        self,
+        line,
+        character,
+        code_id,
+        request_id,
+        virtual=True,
+        otherData=None,
     ):
         uri = self.get_uri(code_id, virtual)
         params = {
@@ -104,6 +110,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             "position": {"line": line, "character": character},
             "context": {"triggerKind": 2, "triggerCharacter": "("},
         }
+        self.msg_id_to_metadata[request_id]["otherData"] = otherData
         await self.send_request(
             "textDocument/signatureHelp",
             params=params,
@@ -168,7 +175,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         request_id,
         return_id,
         num_messages,
-        local,
     ):
         uri = self.get_uri(code_id)
         params = {
@@ -181,9 +187,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         self.msg_id_to_metadata[request_id]["position_offset"] = position_offset
         self.msg_id_to_metadata[request_id]["return_id"] = return_id
         self.msg_id_to_metadata[request_id]["num_messages"] = num_messages
-        await self.send_request(
-            "textDocument/references", params=params, id=request_id, local=local
-        )
+        await self.send_request("textDocument/references", params=params, id=request_id)
 
     async def send_definition_request(
         self,
@@ -191,7 +195,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         character,
         code_id,
         request_id,
-        local,
     ):
         uri = self.get_uri(code_id)
         params = {
@@ -199,8 +202,15 @@ class LanguageServerWriter(LanguageServerInteractor):
             "position": {"line": line, "character": character},
         }
         await self.send_request(
-            "textDocument/definition", params=params, id=request_id, local=local
+            "textDocument/definition",
+            params=params,
+            id=request_id,
         )
+
+    def create_asyncio_task(self, async_task, request_id, local=False):
+        if local:
+            self.pending_requests[request_id] = asyncio.Future()
+        asyncio.create_task(async_task)
 
     def get_workspace_uri(self):
         return f"file://{self.workspace_folder}".lower()

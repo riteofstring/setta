@@ -56,14 +56,15 @@ async def validate_imports(sectionId, generated_imports, lsp_writers):
             continue
         request_id = f"{message_id}-{idx}"
         # Send request without awaiting
-        asyncio.create_task(
+        lsp_writers["full"].create_asyncio_task(
             lsp_writers["full"].send_definition_request(
                 idx,
                 len(line) - 1,
                 code_id,
                 request_id,
-                local=True,
-            )
+            ),
+            request_id,
+            local=True,
         )
         # Store the future for waiting later
         future = lsp_writers["full"].wait_for_response(request_id)

@@ -25,7 +25,7 @@ async def _parametersRequest(message, lsp_writers):
         fullNameToInfo,
     ) = cached
 
-    code, cursor_position = await get_code_and_cursor_position(
+    evRefs, code, cursor_position = await get_code_and_cursor_position(
         message,
         fullNameToInfo,
         gen_code_dict,
@@ -47,7 +47,12 @@ async def _parametersRequest(message, lsp_writers):
         virtual=False,
     )
     await lsp_writers["full"].send_signature_help_request(
-        line, column, code_id, request_id, virtual=False
+        line,
+        column,
+        code_id,
+        request_id,
+        virtual=False,
+        otherData={"evRefs": evRefs},
     )
     return None
 

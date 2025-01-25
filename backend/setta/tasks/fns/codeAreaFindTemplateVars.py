@@ -34,7 +34,7 @@ async def _codeAreaFindTemplateVars(message, lsp_writers):
         startPos = positions_to_test[idx]
         line, col = position_to_line_col(code, startPos)
         request_id = f"{message_id}-{idx}"
-        asyncio.create_task(
+        lsp_writers["basic"].create_asyncio_task(
             lsp_writers["basic"].send_document_highlight_request(
                 line=line,
                 character=col,
@@ -42,7 +42,8 @@ async def _codeAreaFindTemplateVars(message, lsp_writers):
                 request_id=request_id,
                 return_id=message_id,
                 num_messages=num_messages,
-            )
+            ),
+            request_id,
         )
 
     return None

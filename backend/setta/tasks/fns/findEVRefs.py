@@ -87,7 +87,7 @@ async def sendEVRefRequests(
     for idx in range(num_messages):
         request_id = f"{message_id}-{idx}"
         request_ids.append(request_id)
-        asyncio.create_task(
+        lsp_writers["basic"].create_asyncio_task(
             lsp_writers["basic"].send_reference_request(
                 position_offset=position_offset,
                 line=idx,
@@ -96,8 +96,9 @@ async def sendEVRefRequests(
                 request_id=request_id,
                 return_id=message_id,
                 num_messages=num_messages,
-                local=local,
-            )
+            ),
+            request_id,
+            local=local,
         )
 
     return request_ids
@@ -125,7 +126,7 @@ async def findEVRefsLocally(
     responses = await waitForEVRefResponses(request_ids, lsp_writers)
     positions = []
     for r in responses:
-        positions.extend(r["positions"])
+        positions.extend(r["data"]["positions"])
     return construct_ev_refs(positions, fullNameToInfo, fullText)
 
 
@@ -150,7 +151,7 @@ def construct_ev_refs(keyword_positions, fullNameToInfo, fullText):
 async def waitForEVRefResponses(request_ids, lsp_writers):
     request_futures = []
     for r in request_ids:
-        future = lsp_writers["full"].wait_for_response(r)
+        future = lsp_writers["basic"].wait_for_response(r)
         request_futures.append(future)
 
     return await asyncio.gather(*request_futures)

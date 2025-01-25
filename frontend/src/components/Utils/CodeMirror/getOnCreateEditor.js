@@ -113,11 +113,11 @@ export function getCompletionsFn(
       });
       setToNotWaiting();
       console.log("res", res);
-      if (res) {
+      if (res.data) {
         return {
           filter: true,
-          ...getFromTo(res, before, context),
-          options: res,
+          ...getFromTo(res.data, before, context),
+          options: res.data,
           // validFor: /([^.=\\(]*)$/,
         };
       }

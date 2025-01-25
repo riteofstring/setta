@@ -48,7 +48,7 @@ async def getEVRefsAndProcessThem(message, fullNameToInfo, exporter_obj, lsp_wri
         exporter_obj.get_ref_var_name,
         cursor_position=message.position,
     )
-    return var_value, new_positions
+    return evRefs, var_value, new_positions
 
 
 async def get_code_and_cursor_position(
@@ -59,7 +59,7 @@ async def get_code_and_cursor_position(
     exporter_obj,
     lsp_writers,
 ):
-    var_value, new_positions = await getEVRefsAndProcessThem(
+    evRefs, var_value, new_positions = await getEVRefsAndProcessThem(
         message, fullNameToInfo, exporter_obj, lsp_writers
     )
     new_var_decl = var_declaration(var_name, var_value)
@@ -133,7 +133,7 @@ async def get_code_and_cursor_position(
     )["startPos"]
     cursor_position += var_decl_rel_position + gen_code_position
 
-    return code, cursor_position
+    return evRefs, code, cursor_position
 
 
 async def _textFieldCompletion(message, lsp_writers):
@@ -152,7 +152,7 @@ async def _textFieldCompletion(message, lsp_writers):
         fullNameToInfo,
     ) = cached
 
-    code, cursor_position = await get_code_and_cursor_position(
+    evRefs, code, cursor_position = await get_code_and_cursor_position(
         message,
         fullNameToInfo,
         gen_code_dict,
@@ -180,6 +180,7 @@ async def _textFieldCompletion(message, lsp_writers):
         generated_var_names,
         cursor_offset=cursor_position - message.position,
         virtual=False,
+        otherData={"evRefs": evRefs},
     )
 
     return None
