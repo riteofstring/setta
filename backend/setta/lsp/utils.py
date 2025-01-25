@@ -21,7 +21,10 @@ def create_lsps(
 
 
 def create_lsp_writers(lsps):
-    return {k: LanguageServerWriter(v) for k, v in lsps.items()}
+    return {
+        k: LanguageServerWriter(v, use_virtual_files=k == "basic")
+        for k, v in lsps.items()
+    }
 
 
 def create_lsp_readers(lsps, websocket_manager):

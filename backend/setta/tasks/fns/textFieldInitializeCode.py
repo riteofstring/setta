@@ -36,7 +36,10 @@ async def _textFieldInitializeCode(message, lsp_writers):
         push_var_name=var_name,
     )
     send_document_open_request_with_code_dict(
-        lsp_writers, code_dict, exporter_obj, projectConfigName, virtual=False
+        lsp_writers,
+        code_dict,
+        exporter_obj,
+        projectConfigName,
     )
 
     gen_code_section_details = exporter_obj.code_gen_template_var_section_details[

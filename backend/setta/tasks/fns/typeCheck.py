@@ -19,7 +19,10 @@ async def _typeCheck(message, lsp_writers):
         folder_path=lsp_writers["full"].project_code_folder(projectConfigName),
     )
     send_document_open_request_with_code_dict(
-        lsp_writers, code_dict, exporter_obj, projectConfigName
+        lsp_writers,
+        code_dict,
+        exporter_obj,
+        projectConfigName,
     )
 
     return None

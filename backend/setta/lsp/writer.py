@@ -9,8 +9,9 @@ from .server import LanguageServerInteractor
 
 
 class LanguageServerWriter(LanguageServerInteractor):
-    def __init__(self, server):
+    def __init__(self, server, use_virtual_files):
         self.server = server
+        self.use_virtual_files = use_virtual_files
 
     async def send_request(self, method, params, id=None):
         request_dict = {"jsonrpc": "2.0", "method": method, "params": params}
@@ -40,12 +41,10 @@ class LanguageServerWriter(LanguageServerInteractor):
         code,
         codeJson=None,
         is_gen_code=False,
-        virtual=True,
     ):
-        uri = self.get_uri(code_id, virtual)
-        print("uri", uri, flush=True)
+        uri = self.get_uri(code_id)
         if uri not in self.versions:
-            if not virtual:
+            if not self.use_virtual_files:
                 self.create_or_update_temp_file(code_id, code)
             params = {
                 "textDocument": {
@@ -61,9 +60,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             await self.send_request("textDocument/didOpen", params=params)
         else:
             print("document already open, updating it", code_id, flush=True)
-            await self.send_document_update(
-                code_id, code, codeJson, is_gen_code, virtual
-            )
+            await self.send_document_update(code_id, code, codeJson, is_gen_code)
 
     async def send_autocomplete_request(
         self,
@@ -74,10 +71,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         referencable_var_names,
         generated_var_names,
         cursor_offset,
-        virtual=True,
         otherData=None,
     ):
-        uri = self.get_uri(code_id, virtual)
+        uri = self.get_uri(code_id)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -101,10 +97,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         character,
         code_id,
         request_id,
-        virtual=True,
         otherData=None,
     ):
-        uri = self.get_uri(code_id, virtual)
+        uri = self.get_uri(code_id)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -150,11 +145,15 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_document_update(
-        self, code_id, code, codeJson, is_gen_code, virtual=True
+        self,
+        code_id,
+        code,
+        codeJson,
+        is_gen_code,
     ):
-        if not virtual:
+        if not self.use_virtual_files:
             self.create_or_update_temp_file(code_id, code)
-        uri = self.get_uri(code_id, virtual)
+        uri = self.get_uri(code_id)
         params = {
             "textDocument": {
                 "uri": uri,
@@ -219,9 +218,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         return self.code_folder / f"{code_id}.py"
 
     # https://github.com/microsoft/language-server-protocol/issues/1676
-    def get_uri(self, code_id, virtual=True):
+    def get_uri(self, code_id):
         base_uri = self.get_base_uri(code_id)
-        prefix = "untitled:" if virtual else "file://"
+        prefix = "untitled:" if self.use_virtual_files else "file://"
         uri = f"{prefix}{base_uri}".lower()
         if platform.system() == "Windows":
             uri += "/"  # need trailing slash on Windows for some reason
