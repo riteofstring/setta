@@ -42,7 +42,7 @@ function receiveMessage(message) {
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
     updateConnectedTo(m);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
-    processTypeErrors(m.content);
+    // processTypeErrors(m.content);
   } else if (m.messageType === C.WS_LSP_STATUS) {
     setNotificationMessage(`Language Server ${m.content}`);
   } else if (

@@ -7,7 +7,7 @@ import { indentLess, indentMore } from "@codemirror/commands";
 import { javascript } from "@codemirror/lang-javascript";
 import { json } from "@codemirror/lang-json";
 import { markdown } from "@codemirror/lang-markdown";
-import { python } from "@codemirror/lang-python";
+import { python, pythonLanguage } from "@codemirror/lang-python";
 import { yaml } from "@codemirror/lang-yaml";
 import { EditorState, Prec } from "@codemirror/state";
 import { keymap, tooltips } from "@codemirror/view";
@@ -29,13 +29,13 @@ export function getExtensions({
 }) {
   const extensions = [
     EditorView.lineWrapping,
-    tooltips({
-      parent: document.getElementById(`${sectionId}-CustomResizable`),
-    }),
+    // tooltips({
+    //   parent: document.getElementById(`${sectionId}-CustomResizable`),
+    // }),
   ];
 
   if (language === "python") {
-    extensions.push(python());
+    extensions.push(pythonLanguage);
   } else if (language === "javascript") {
     extensions.push(javascript());
   } else if (language === "yaml") {
