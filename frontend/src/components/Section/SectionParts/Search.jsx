@@ -186,7 +186,8 @@ function SectionSearchCore({
   };
 
   // Shouldn't use important for this, but ok for now. FIX.
-  const valueNameInconsistentStyle = "";
+  const valueNameInconsistentStyle =
+    value !== codeInfoName ? "!border-red-500 dark:!border-red-800" : "";
 
   return (
     <search

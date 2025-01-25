@@ -87,11 +87,17 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
 
   const theme = useCodeMirrorStyle();
 
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    if (value !== localValue) {
+      setLocalValue(value);
+    }
+  }, [value]);
+
   function onChange(v) {
-    useSectionInfos.setState((x) => {
-      getSectionVariant(sectionId, x).code = v;
-    });
-    debouncedSetEVRefs(sectionId, v);
+    setLocalValue(v);
+    debouncedSetCode(sectionId, v);
   }
 
   function onMouseDown() {
@@ -122,7 +128,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     >
       <CodeMirror
         maxHeight={maxHeight}
-        value={value}
+        value={localValue}
         theme={theme}
         extensions={extensions}
         onMouseDown={onMouseDown}
@@ -265,7 +271,7 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
   return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
 }
 
-const debouncedSetEVRefs = asyncDebounce(async (sectionId, value) => {
+const debouncedSetCode = asyncDebounce(async (sectionId, value) => {
   const { templateVars, evRefs } = await getEVRefsAndTemplateVarsForCodeArea(
     sectionId,
     value,
@@ -273,6 +279,7 @@ const debouncedSetEVRefs = asyncDebounce(async (sectionId, value) => {
 
   useSectionInfos.setState((x) => {
     const sectionVariant = getSectionVariant(sectionId, x);
+    sectionVariant.code = value;
     sectionVariant.evRefs = evRefs;
     sectionVariant.templateVars = templateVars;
   });
