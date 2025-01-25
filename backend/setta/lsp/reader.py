@@ -94,51 +94,81 @@ class LanguageServerReader(LanguageServerInteractor):
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
-            metadata = self.msg_id_to_metadata.pop(id, {})
-            if (
-                not self.server.is_initialized
-                and id == self.server.initialization_request_id
-            ):
-                self.server.is_initialized = True
-                await self.websocket_manager.broadcast(
-                    {"messageType": C.WS_LSP_STATUS, "content": "Initialized"}
-                )
+            output = self.process_response_with_id(id, method, response)
+        else:
+            output = self.process_response_without_id(method, response)
 
-            method = method if method else metadata["method"]
-            if method == "textDocument/completion":
-                content = process_completion_response(
-                    response, metadata, self.get_version
-                )
-                await self.websocket_manager.send_message_to_requester(id, content)
-            elif method == "textDocument/signatureHelp":
-                content = process_signature_help_response(response)
-                await self.websocket_manager.send_message_to_requester(id, content)
-            elif method == "textDocument/references":
-                content, return_id = process_references_response(
-                    response, metadata, self.get_version
-                )
-                if id in self.pending_requests:
-                    self.pending_requests[id].set_result(content)
-                else:
-                    await self.websocket_manager.send_message_to_requester(
-                        return_id, content
-                    )
-            elif method == "textDocument/documentHighlight":
-                content, return_id = process_document_highlight_response(
-                    response, metadata, self.get_version
-                )
-                await self.websocket_manager.send_message_to_requester(
-                    return_id, content
-                )
-            elif method == "textDocument/definition":
-                content = process_definition_response(response)
-                if id in self.pending_requests:
-                    self.pending_requests[id].set_result(content)
-                else:
-                    await self.websocket_manager.send_message_to_requester(id, content)
-        elif method == "textDocument/publishDiagnostics":
-            content, action = process_diagnostics_response(response, self.get_version)
-            if action == "broadcast":
-                await self.websocket_manager.broadcast(
-                    {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
-                )
+        if id in self.pending_requests:
+            self.pending_requests[id].set_result(output["content"])
+        elif output["websocket_method"] == "return_to_requester":
+            await self.websocket_manager.send_message_to_requester(
+                output["websocket_return_id"], output["content"]
+            )
+        elif output["websocket_method"] == "broadcast":
+            await self.websocket_manager.broadcast(
+                {
+                    "messageType": output["websocket_message_type"],
+                    "content": output["content"],
+                }
+            )
+
+    def process_response_with_id(self, id, method, response):
+        metadata = self.msg_id_to_metadata.pop(id, {})
+        method = method if method else metadata["method"]
+        content = None
+        websocket_return_id = id
+        websocket_method = None
+        websocket_message_type = None
+        if (
+            not self.server.is_initialized
+            and id == self.server.initialization_request_id
+        ):
+            self.server.is_initialized = True
+            content = "Initialized"
+            websocket_method = "broadcast"
+            websocket_message_type = C.WS_LSP_STATUS
+        elif method == "textDocument/completion":
+            content = process_completion_response(response, metadata, self.get_version)
+            websocket_method = "return_to_requester"
+        elif method == "textDocument/signatureHelp":
+            content = process_signature_help_response(response)
+            websocket_method = "return_to_requester"
+        elif method == "textDocument/references":
+            content, websocket_return_id = process_references_response(
+                response, metadata, self.get_version
+            )
+            websocket_method = "return_to_requester"
+        elif method == "textDocument/documentHighlight":
+            content, websocket_return_id = process_document_highlight_response(
+                response, metadata, self.get_version
+            )
+            websocket_method = "return_to_requester"
+        elif method == "textDocument/definition":
+            content = process_definition_response(response)
+            websocket_method = "return_to_requester"
+
+        return {
+            "content": content,
+            "websocket_return_id": websocket_return_id,
+            "websocket_method": websocket_method,
+            "websocket_message_type": websocket_message_type,
+        }
+
+    def process_response_without_id(self, method, response):
+        content = None
+        websocket_return_id = None
+        websocket_method = None
+        websocket_message_type = None
+
+        if method == "textDocument/publishDiagnostics":
+            content = process_diagnostics_response(response, self.get_version)
+            if content is not None:
+                websocket_method = "broadcast"
+                websocket_message_type = C.WS_LSP_DIAGNOSTICS
+
+        return {
+            "content": content,
+            "websocket_return_id": websocket_return_id,
+            "websocket_method": websocket_method,
+            "websocket_message_type": websocket_message_type,
+        }

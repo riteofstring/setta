@@ -8,16 +8,14 @@ def process_diagnostics_response(response, get_version):
     uri = params["uri"]
     version_info = get_version(uri, params.get("version"))
     content = None
-    action = None
     # TODO, remove this condition
     if version_info["is_gen_code"]:
         code = version_info["code"]
         codeJson = version_info["codeJson"]
         code_split = code.split("\n")
         content = process_diagnostics(diagnostics, code_split, codeJson)
-        action = "broadcast"
         # print("content", content, flush=True)
-    return content, action
+    return content
 
 
 def process_diagnostics(diagnostics, code_split, codeJson):
