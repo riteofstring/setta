@@ -128,19 +128,19 @@ class LanguageServerReader(LanguageServerInteractor):
             websocket_method = "broadcast"
             websocket_message_type = C.WS_LSP_STATUS
         elif method == "textDocument/completion":
-            content = process_completion_response(response, metadata, self.get_version)
+            content = process_completion_response(response, metadata)
             websocket_method = "return_to_requester"
         elif method == "textDocument/signatureHelp":
             content = process_signature_help_response(response)
             websocket_method = "return_to_requester"
         elif method == "textDocument/references":
             content, websocket_return_id = process_references_response(
-                response, metadata, self.get_version
+                response, metadata
             )
             websocket_method = "return_to_requester"
         elif method == "textDocument/documentHighlight":
             content, websocket_return_id = process_document_highlight_response(
-                response, metadata, self.get_version
+                response, metadata
             )
             websocket_method = "return_to_requester"
         elif method == "textDocument/definition":
@@ -163,8 +163,10 @@ class LanguageServerReader(LanguageServerInteractor):
         websocket_message_type = None
 
         if method == "textDocument/publishDiagnostics":
-            content = process_diagnostics_response(response, self.get_version)
-            if content is not None:
+            content, needsDiagnostics = process_diagnostics_response(
+                response, self.get_code_metadata
+            )
+            if needsDiagnostics:
                 websocket_method = "broadcast"
                 websocket_message_type = C.WS_LSP_DIAGNOSTICS
 

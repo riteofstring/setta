@@ -1,14 +1,13 @@
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 
 
-def process_document_highlight_response(response, metadata, get_version):
+def process_document_highlight_response(response, metadata):
     content = []
     # if it's not None, then it's a variable or import or something like that
     if response["result"]:
         # the response doesn't include uri for some reason,
         # so we keep track of it manually
-        uri = metadata["uri"]
-        code = get_version(uri)["code"]
+        code = metadata["code"]
 
         for x in response["result"]:
             r = x["range"]

@@ -134,7 +134,6 @@ async def generate_final_code_for_sections(
             push_var_name=push_var_name,
         )
 
-        is_gen_code = bool(get_gen_code_template_var(section_variant["templateVars"]))
         sanitized_full_name = sanitize_section_path_full_name(
             p["sectionPathFullNames"][s["id"]]
         )
@@ -146,7 +145,6 @@ async def generate_final_code_for_sections(
             "var_name_to_decl_rel_position_dict": curr_var_name_to_decl_rel_position_dict,
             "ref_template_var_positions": curr_ref_template_var_positions,
             "section_dependencies": curr_section_dependencies,
-            "is_gen_code": is_gen_code,
         }
 
     return code_dict

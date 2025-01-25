@@ -1,11 +1,10 @@
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 
 
-def process_completion_response(response, metadata, get_version):
+def process_completion_response(response, metadata):
     content = []
     if response["result"] and response["result"]["items"]:
-        uri = metadata["uri"]
-        code = get_version(uri)["code"]
+        code = metadata["code"]
         content = process_completion(
             code,
             response["result"]["items"],

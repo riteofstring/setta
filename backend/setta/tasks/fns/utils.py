@@ -24,7 +24,6 @@ def send_document_open_request_with_code_dict(
                 exporter_obj,
                 projectConfigName,
                 details["sanitized_full_name"],
-                details["is_gen_code"],
             )
         )
 
@@ -35,7 +34,6 @@ async def send_document_open_request(
     exporter_obj,
     projectConfigName,
     sectionName,
-    is_gen_code,
 ):
     code_id = lsp_writer.construct_code_id(
         projectConfigName,
@@ -45,7 +43,6 @@ async def send_document_open_request(
         code_id=code_id,
         code=code,
         codeJson=exporter_obj.output if exporter_obj else None,
-        is_gen_code=is_gen_code,
     )
 
     return code_id

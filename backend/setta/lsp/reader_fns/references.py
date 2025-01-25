@@ -1,11 +1,11 @@
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 
 
-def process_references_response(response, metadata, get_version):
+def process_references_response(response, metadata):
     print("textDocument/references response", response, flush=True)
     content = []
     if response["result"] and len(response["result"]) > 0:
-        code = get_version(response["result"][0]["uri"])["code"]
+        code = metadata["code"]
         line_cols = []
         for x in response["result"]:
             line_cols.append(

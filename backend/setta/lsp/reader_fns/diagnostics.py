@@ -1,21 +1,33 @@
 import re
 
 
-def process_diagnostics_response(response, get_version):
-    # print(response, flush=True)
+def process_diagnostics_response(response, get_code_metadata):
     params = response["params"]
     diagnostics = params["diagnostics"]
     uri = params["uri"]
-    version_info = get_version(uri, params.get("version"))
-    content = None
-    # TODO, remove this condition
-    if version_info["is_gen_code"]:
-        code = version_info["code"]
-        codeJson = version_info["codeJson"]
-        code_split = code.split("\n")
-        content = process_diagnostics(diagnostics, code_split, codeJson)
-        # print("content", content, flush=True)
-    return content
+    version = params.get("version")
+    if get_code_metadata(uri)["version"] != version:
+        return None, False
+    # needsDiagnostics = version_info["needsDiagnostics"]
+
+    print(response, flush=True)
+
+    return None, False
+    # if not needsDiagnostics:
+    #     return None, needsDiagnostics
+
+    # sectionId = version_info["sectionId"]
+    # code = version_info["code"]
+    # codeJson = version_info["codeJson"]
+
+    # print("process_diagnostics_response uri", uri, flush=True)
+
+    # print("process_diagnostics_response code", code, flush=True)
+
+    # code_split = code.split("\n")
+    # content = process_diagnostics(diagnostics, code_split, codeJson)
+    # # print("content", content, flush=True)
+    # return content
 
 
 def process_diagnostics(diagnostics, code_split, codeJson):

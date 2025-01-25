@@ -36,20 +36,18 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_didChangeConfiguration()  # pyright requires this step
 
     async def send_document_open_request(
-        self, code_id, code, codeJson=None, is_gen_code=False, virtual=None
+        self, code_id, code, codeJson=None, virtual=None
     ):
         virtual = self.get_is_virtual(virtual)
         uri = self.get_uri(code_id, virtual)
-        if uri not in self.versions:
+        if uri not in self.code_metadata:
             if not virtual:
                 self.create_or_update_temp_file(code_id, code)
             params = {
                 "textDocument": {
                     "uri": uri,
                     "languageId": "python",
-                    "version": self.get_new_version_number(
-                        uri, code, codeJson, is_gen_code
-                    ),
+                    "version": self.get_new_version_number(uri, code, codeJson),
                     "text": code,
                 }
             }
@@ -57,9 +55,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             await self.send_request("textDocument/didOpen", params=params)
         else:
             print("document already open, updating it", uri, flush=True)
-            await self.send_document_update(
-                code_id, code, codeJson, is_gen_code, virtual
-            )
+            await self.send_document_update(code_id, code, codeJson, virtual)
 
     async def send_autocomplete_request(
         self,
@@ -83,9 +79,11 @@ class LanguageServerWriter(LanguageServerInteractor):
             "referencable_var_names"
         ] = referencable_var_names
         self.msg_id_to_metadata[request_id]["generated_var_names"] = generated_var_names
-        self.msg_id_to_metadata[request_id]["uri"] = uri
         self.msg_id_to_metadata[request_id]["cursor_offset"] = cursor_offset
         self.msg_id_to_metadata[request_id]["otherData"] = otherData
+        self.msg_id_to_metadata[request_id]["code"] = self.get_code_metadata(uri)[
+            "code"
+        ]
         await self.send_request(
             "textDocument/completion",
             params=params,
@@ -127,9 +125,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         }
         self.msg_id_to_metadata[request_id]["return_id"] = return_id
         self.msg_id_to_metadata[request_id]["num_messages"] = num_messages
-        # the response doesn't include uri for some reason,
-        # so we keep track of it manually
-        self.msg_id_to_metadata[request_id]["uri"] = uri
+        self.msg_id_to_metadata[request_id]["code"] = self.get_code_metadata(uri)[
+            "code"
+        ]
         await self.send_request(
             "textDocument/documentHighlight",
             params=params,
@@ -154,7 +152,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         code_id,
         code,
         codeJson,
-        is_gen_code,
         virtual=None,
     ):
         virtual = self.get_is_virtual(virtual)
@@ -164,9 +161,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         params = {
             "textDocument": {
                 "uri": uri,
-                "version": self.get_new_version_number(
-                    uri, code, codeJson, is_gen_code
-                ),
+                "version": self.get_new_version_number(uri, code, codeJson),
             },
             "contentChanges": [{"text": code}],
         }
@@ -195,6 +190,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         self.msg_id_to_metadata[request_id]["position_offset"] = position_offset
         self.msg_id_to_metadata[request_id]["return_id"] = return_id
         self.msg_id_to_metadata[request_id]["num_messages"] = num_messages
+        self.msg_id_to_metadata[request_id]["code"] = self.get_code_metadata(uri)[
+            "code"
+        ]
         await self.send_request("textDocument/references", params=params, id=request_id)
 
     async def send_definition_request(

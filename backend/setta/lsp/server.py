@@ -31,7 +31,7 @@ class LanguageServer:
         self.cleanup_pending_requests()
         self.pending_requests = {}
         self.msg_id_to_metadata = defaultdict(dict)
-        self.versions = {}
+        self.code_metadata = {}
         self.initialization_request_id = None
         self.is_initialized = False
         self.temp_files = {}
@@ -110,22 +110,17 @@ class LanguageServerInteractor:
         return str(Path(projectConfigName) / sectionName)
 
     @property
-    def versions(self):
-        return self.server.versions
+    def code_metadata(self):
+        return self.server.code_metadata
 
-    def get_new_version_number(self, uri, code, codeJson, is_gen_code):
-        obj = {"code": code, "codeJson": codeJson, "is_gen_code": is_gen_code}
-        if uri not in self.versions:
-            self.versions[uri] = {0: obj}
-            new_version = 0
+    def get_new_version_number(self, uri, code, codeJson):
+        obj = {"code": code, "codeJson": codeJson}
+        if uri not in self.code_metadata:
+            obj["version"] = 0
         else:
-            new_version = max(self.versions[uri].keys()) + 1
-            self.versions[uri][new_version] = obj
-        return new_version
+            obj["version"] = self.code_metadata[uri]["version"] + 1
+        self.code_metadata[uri] = obj
+        return obj["version"]
 
-    def get_version(self, uri, version_num=None):
-        uri = uri.lower()
-        version_num = (
-            max(self.versions[uri].keys()) if version_num is None else version_num
-        )
-        return self.versions[uri][version_num]
+    def get_code_metadata(self, uri):
+        return self.code_metadata[uri.lower()]
