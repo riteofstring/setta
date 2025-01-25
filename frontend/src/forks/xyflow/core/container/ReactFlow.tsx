@@ -36,7 +36,7 @@ const ReactFlow = () => {
       className="react-flow setta-light dark:setta-dark"
       data-testid="rf__wrapper"
       ref={ref}
-      // onScroll={(e) => cancelOutScrolling(e, initialized)}
+      onScroll={(e) => cancelOutScrolling(e, initialized)}
     >
       {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
       {/* so that onScroll can be triggered in any direction. */}
@@ -65,7 +65,6 @@ function cancelOutScrolling(e, initialized) {
   if (!initialized) {
     return;
   }
-  console.log("cancelOutScrolling")
   const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
   d3Zoom.translateBy(
     d3Selection,

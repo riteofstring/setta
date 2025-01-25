@@ -19,7 +19,6 @@ function Background() {
 
   const isDots = variant === BackgroundVariant.Dots;
   const isCross = variant === BackgroundVariant.Cross;
-  const transform = useReactFlow((x) => x.transform, shallow);
 
   return (
     <svg
@@ -41,7 +40,6 @@ function Background() {
         patternSize={patternSize}
         isCross={isCross}
         isDots={isDots}
-        transform={transform}
       />
       <rect
         x="0"
@@ -59,17 +57,13 @@ Background.displayName = "Background";
 export default memo(Background);
 
 const BackgroundCore = memo(
-  ({ offset, gapXY, patternColor, patternSize, isCross, isDots, transform }) => {
-    
-    console.log("backgroundcore", transform)
+  ({ offset, gapXY, patternColor, patternSize, isCross, isDots }) => {
+    const transform = useReactFlow((x) => x.transform, shallow);
     const scaledGap: [number, number] = [
       gapXY[0] * transform[2] || 1,
       gapXY[1] * transform[2] || 1,
     ];
     const scaledSize = patternSize * transform[2];
-
-    console.log("scaledGap", scaledGap)
-    console.log("transform[1] % scaledGap[1]", transform[1] % scaledGap[1])
 
     const patternDimensions: [number, number] = isCross
       ? [scaledSize, scaledSize]
@@ -78,8 +72,6 @@ const BackgroundCore = memo(
     const patternOffset = isDots
       ? [scaledSize / offset, scaledSize / offset]
       : [patternDimensions[0] / offset, patternDimensions[1] / offset];
-
-    console.log("patternOffset", patternOffset)
 
     return (
       <pattern

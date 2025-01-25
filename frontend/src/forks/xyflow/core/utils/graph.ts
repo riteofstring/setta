@@ -233,12 +233,10 @@ export function movePaneToIncludeElement(element) {
     useReactFlow.getState(),
     localStorageFns.overviewTrueWidth.state()[0],
   );
-  const { x, y, isInside } = getRectTranslation(point, paneRect, 50);
+  const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
   if (!isInside) {
-    console.log("moving pane by", x, y);
     const { d3Zoom, d3Selection } = useReactFlow.getState();
-    d3Zoom.translateBy(d3Selection, -x, -(39));
-    console.log("transform", useReactFlow.getState().transform);
+    d3Zoom.translateBy(d3Selection, -x, -y);
   }
 }
 
