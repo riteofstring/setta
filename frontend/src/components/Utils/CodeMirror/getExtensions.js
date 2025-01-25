@@ -12,6 +12,7 @@ import { yaml } from "@codemirror/lang-yaml";
 import { EditorState, Prec } from "@codemirror/state";
 import { keymap, tooltips } from "@codemirror/view";
 import { EditorView } from "@uiw/react-codemirror";
+import { useSettings } from "state/definitions";
 
 export function getExtensions({
   sectionId,
@@ -66,101 +67,107 @@ export function getExtensions({
     );
   }
 
-  if (keyComboActions) {
-    for (const [combo, action] of Object.entries(keyComboActions)) {
-      extensions.push(
-        Prec.highest(
-          keymap.of([
-            {
-              key: combo,
-              run: action,
-            },
-          ]),
-        ),
-      );
-    }
-  }
-
-  extensions.push(
-    Prec.highest(
-      keymap.of([
-        {
-          key: "Escape",
-          run: (view) => {
-            if (onEscape) {
-              const expectingCompletions = completionStatus(view.state);
-              onEscape(expectingCompletions);
-            }
-          },
-        },
-      ]),
-    ),
-  );
-
-  if (tabToAutocomplete || indentWithTab) {
-    extensions.push(
-      keymap.of([
-        {
-          key: "Tab",
-          preventDefault: false, // we want to control when preventDefault (and therefore also stopPropagation) is called
-          stopPropagation: true,
-          run: (view) => {
-            let completionResult = false;
-            if (
-              tabToAutocomplete &&
-              completionStatus(view.state) === "active"
-            ) {
-              // trigger preventDefault & stopPropagation based on completion
-              completionResult = acceptCompletion(view);
-            } else if (indentWithTab) {
-              indentMore(view);
-            }
-            if (onTab) {
-              onTab(completionResult);
-            }
-            // if tab controls indent, then we never want to propagate the keystroke, so return true
-            // otherwise it depends on the completion result
-            return indentWithTab || completionResult;
-          },
-        },
-      ]),
-    );
-  }
-
-  if (indentWithTab) {
-    extensions.push(
-      keymap.of([
-        {
-          key: "Shift-Tab",
-          // if tab controls indent, then always prevent default and stop propagation
-          preventDefault: true,
-          stopPropagation: true,
-          run: (view) => {
-            indentLess(view);
-          },
-        },
-      ]),
-    );
-  }
-
-  if (onModEnterDoNothing) {
-    extensions.push(
-      Prec.highest(
-        keymap.of([
-          {
-            key: "Mod-Enter",
-            run: () => {
-              return true; // important to return true
-            },
-          },
-        ]),
-      ),
-    );
-  }
-
   if (isDisabled) {
     extensions.push(EditorState.readOnly.of(true));
   }
 
+  extensions.push(
+    Prec.highest(
+      keymap.of(
+        getKeyMapArray({
+          onModEnterDoNothing,
+          indentWithTab,
+          tabToAutocomplete,
+          onTab,
+          onEscape,
+          keyComboActions,
+        }),
+      ),
+    ),
+  );
+
   return extensions;
+}
+
+function getKeyMapArray({
+  onModEnterDoNothing,
+  indentWithTab,
+  tabToAutocomplete,
+  onTab,
+  onEscape,
+  keyComboActions,
+}) {
+  const settings = useSettings.getState();
+  const keymapArray = [
+    {
+      key: settings.shortcuts.undo,
+      run: () => true,
+    },
+    {
+      key: settings.shortcuts.redo,
+      run: () => true,
+    },
+    {
+      key: "Escape",
+      run: (view) => {
+        if (onEscape) {
+          const expectingCompletions = completionStatus(view.state);
+          onEscape(expectingCompletions);
+        }
+      },
+    },
+  ];
+
+  if (onModEnterDoNothing) {
+    keymapArray.push({
+      key: "Mod-Enter",
+      run: () => true,
+    });
+  }
+
+  if (indentWithTab) {
+    keymapArray.push({
+      key: "Shift-Tab",
+      // if tab controls indent, then always prevent default and stop propagation
+      preventDefault: true,
+      stopPropagation: true,
+      run: (view) => {
+        indentLess(view);
+      },
+    });
+  }
+
+  if (tabToAutocomplete || indentWithTab) {
+    keymapArray.push({
+      key: "Tab",
+      preventDefault: false, // we want to control when preventDefault (and therefore also stopPropagation) is called
+      stopPropagation: true,
+      run: (view) => {
+        let completionResult = false;
+        if (tabToAutocomplete && completionStatus(view.state) === "active") {
+          // trigger preventDefault & stopPropagation based on completion
+          completionResult = acceptCompletion(view);
+        } else if (indentWithTab) {
+          indentMore(view);
+        }
+        if (onTab) {
+          onTab(completionResult);
+        }
+        // if tab controls indent, then we never want to propagate the keystroke, so return true
+        // otherwise it depends on the completion result
+        return indentWithTab || completionResult;
+      },
+    });
+  }
+
+  if (keyComboActions) {
+    for (const [combo, action] of Object.entries(keyComboActions)) {
+      keymapArray.push({
+        key: combo,
+        run: action,
+      });
+    }
+  }
+
+  return keymapArray;
 }

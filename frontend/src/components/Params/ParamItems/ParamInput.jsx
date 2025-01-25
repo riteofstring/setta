@@ -50,7 +50,7 @@ function sendParamValueToInteractiveTasks(sectionId, paramInfoId, v) {
 }
 
 const debouncedSetParamEnteredValue = asyncDebounce(
-  async (sectionId, paramInfoId, vStr, enteredValue, changedByUser = true) => {
+  async (sectionId, paramInfoId, vStr, enteredValue) => {
     if (vStr !== enteredValue) {
       useSectionInfos.setState((state) => {
         setParamEnteredValue(sectionId, paramInfoId, vStr, state);
@@ -62,7 +62,6 @@ const debouncedSetParamEnteredValue = asyncDebounce(
           paramInfoId,
           fullText: vStr,
         });
-        console.log("debouncedSetParamEnteredValue", evRefs);
 
         useSectionInfos.setState((state) => {
           const { variantId } = state.x[sectionId];

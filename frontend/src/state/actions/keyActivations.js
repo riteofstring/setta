@@ -266,8 +266,8 @@ function getMacosIgnoreWhenInInputField(parsedShortcut) {
     isModPlus(parsedShortcut, ["KeyC"]) || // Copy selected text.
     isModPlus(parsedShortcut, ["KeyV"]) || // Paste text from the clipboard.
     isModPlus(parsedShortcut, ["KeyX"]) || // Cut selected text.
-    isModPlus(parsedShortcut, ["KeyZ"]) || // Undo the last action.
-    isModShiftPlus(parsedShortcut, ["KeyZ"]) || // Redo the last undone action.
+    // isModPlus(parsedShortcut, ["KeyZ"]) || // Undo the last action.
+    // isModShiftPlus(parsedShortcut, ["KeyZ"]) || // Redo the last undone action.
     isModPlus(parsedShortcut, ["KeyA"]) || // Select all text in the field.
     isModPlus(parsedShortcut, ["ArrowLeft"]) || // Move cursor to the beginning of the line.
     isModPlus(parsedShortcut, ["ArrowRight"]) || // Move cursor to the end of the line.
@@ -314,7 +314,7 @@ function getWindowsIgnoreWhenInInputField(parsedShortcut) {
     isModOrCtrlPlus(parsedShortcut, ["KeyC"]) || // Copy selected text
     isModOrCtrlPlus(parsedShortcut, ["KeyV"]) || // Paste text from the clipboard
     isModOrCtrlPlus(parsedShortcut, ["KeyX"]) || // Cut selected text
-    isModOrCtrlPlus(parsedShortcut, ["KeyZ"]) || // Undo the last action
+    // isModOrCtrlPlus(parsedShortcut, ["KeyZ"]) || // Undo the last action
     isModOrCtrlPlus(parsedShortcut, ["KeyY"]) || // Redo the last undone action
     isModOrCtrlPlus(parsedShortcut, ["ArrowLeft"]) || // Move the cursor to the beginning of the previous word
     isModOrCtrlPlus(parsedShortcut, ["ArrowRight"]) || // Move the cursor to the beginning of the next word
