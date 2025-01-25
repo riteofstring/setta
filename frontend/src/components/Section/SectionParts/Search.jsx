@@ -146,13 +146,18 @@ function SectionSearchCore({
     [setValueNameInconsistent],
   );
 
-  function setValueAndCheckConsistency(value) {
+  function setValueAndCheckConsistency(value, cancelDebounced = false) {
     setValue(value);
-    debouncedSetValueNameInconsistent(value !== codeInfoName);
+    if (cancelDebounced) {
+      debouncedSetValueNameInconsistent.cancel();
+      setValueNameInconsistent(false);
+    } else {
+      debouncedSetValueNameInconsistent(value !== codeInfoName);
+    }
   }
 
   useEffect(() => {
-    setValueAndCheckConsistency(codeInfoName);
+    setValueAndCheckConsistency(codeInfoName, true);
   }, [codeInfoName]);
 
   useDeepCompareEffect(() => {
@@ -161,7 +166,7 @@ function SectionSearchCore({
 
   function onBlur() {
     if (shouldResetValueOnBlur.current) {
-      setValueAndCheckConsistency(codeInfoName);
+      setValueAndCheckConsistency(codeInfoName, true);
     }
     shouldResetValueOnBlur.current = false;
   }
