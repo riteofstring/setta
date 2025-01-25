@@ -4,6 +4,7 @@ import re
 from pprint import pprint
 
 from setta.lsp.reader_fns.completion import process_completion_result
+from setta.lsp.reader_fns.definition import process_definition_result
 from setta.lsp.reader_fns.documentHighlight import process_document_highlight_result
 from setta.lsp.reader_fns.references import process_references_result
 from setta.lsp.reader_fns.signatureHelp import process_signature_help_result
@@ -177,11 +178,11 @@ class LanguageServerReader(LanguageServerInteractor):
                     return_id, content
                 )
             elif method == "textDocument/definition":
-                is_valid = bool(response["result"])
+                content = process_definition_result(response)
                 if id in self.pending_requests:
-                    self.pending_requests[id].set_result(is_valid)
+                    self.pending_requests[id].set_result(content)
                 else:
-                    await self.websocket_manager.send_message_to_requester(id, is_valid)
+                    await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
             # print(response, flush=True)
             params = response["params"]
