@@ -38,7 +38,6 @@ def get_lsps(request: Request):
         request.app.state.lsps,
         request.app.state.lsp_readers,
         request.app.state.lsp_writers,
-        request.app.state.file_watcher,
     ]
 
 

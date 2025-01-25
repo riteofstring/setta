@@ -36,21 +36,19 @@ def create_file_watcher(lsps, lsp_writers):
     return file_watcher
 
 
-async def start_lsps(lsps, lsp_readers, lsp_writers, file_watcher):
+async def start_lsps(lsps, lsp_readers, lsp_writers):
     for k, v in lsps.items():
         await v.start_server()
         await lsp_readers[k].start_listener()
         await lsp_writers[k].send_initialize_request()
-    file_watcher.start()
 
 
-def kill_lsps(lsps, lsp_readers, file_watcher):
-    file_watcher.stop()
+def kill_lsps(lsps, lsp_readers):
     for k, v in lsps.items():
         lsp_readers[k].stop_event.set()
         v.kill_server()
 
 
-async def restart_lsps(lsps, lsp_readers, lsp_writers, file_watcher):
-    kill_lsps(lsps, lsp_readers, file_watcher)
-    await start_lsps(lsps, lsp_readers, lsp_writers, file_watcher)
+async def restart_lsps(lsps, lsp_readers, lsp_writers):
+    kill_lsps(lsps, lsp_readers)
+    await start_lsps(lsps, lsp_readers, lsp_writers)
