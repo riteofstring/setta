@@ -1,0 +1,1052 @@
+{
+  "projectConfig": {
+    "id": "c6ad15c6-0a53-4c07-bae0-0becde663ce8",
+    "name": "header_ambient_video",
+    "previewImgColor": "bg-indigo-500/60 dark:bg-indigo-600/30",
+    "viewport": {
+      "x": -309.78931950389415,
+      "y": -53.8817016680689,
+      "zoom": 1.3935073738635468
+    },
+    "children": {
+      "851767fd-5332-4204-bd84-822999f93102": {
+        "x": 495,
+        "y": 99,
+        "zIndex": 2,
+        "w": 290,
+        "h": 387
+      },
+      "9ac37eae-c465-413f-99b1-c96eb4bb7c5a": {
+        "x": -166.0059544928117,
+        "y": 92.8619879388849,
+        "zIndex": 0,
+        "w": 202,
+        "h": 97
+      }
+    }
+  },
+  "sectionVariants": {
+    "3c32cc90-2167-4180-b84e-0aec76a31607": {
+      "name": "random_coffee",
+      "codeInfoColId": "d9c6e1e5-1df4-40d6-a819-c55d80f10df7"
+    },
+    "5d9a421f-132b-493f-9d11-7f9c5c8ed65b": {
+      "name": "distinct_chocolate",
+      "values": {
+        "04ecf904-c90c-4d8a-8713-111d9c06a00a": {
+          "value": "28"
+        },
+        "61c34869-8193-4f08-acaf-271856f631ce": {
+          "value": "4 if cuda else 1"
+        },
+        "784ced68-6a69-4835-903c-40b06c16a8ec": {
+          "value": "true"
+        },
+        "91aa861c-9a53-4bc4-babe-cb4ff1707c29": {
+          "value": "\"llm_finetuning\""
+        },
+        "a8de2b46-bd53-406f-8ff7-6f3cf60aab46": {
+          "value": "\"steps\""
+        },
+        "253cf075-f92b-49b0-981d-7e32a8a807c2": {
+          "value": "1e-4"
+        },
+        "855b0307-c71b-4d5a-93d8-66d559f7380f": {
+          "value": "np.ceil(N/16)",
+          "evRefs": [
+            {
+              "sectionId": "9ac37eae-c465-413f-99b1-c96eb4bb7c5a",
+              "paramInfoId": "f57e4b80-5b4c-4efd-bdfa-faade43c0c16",
+              "startPos": 8,
+              "keyword": "N"
+            }
+          ]
+        },
+        "90f9cb33-9dca-4409-aa60-ef8024e11c25": {
+          "value": "True"
+        },
+        "e5c3bcea-327d-4845-bef7-a95ecc21e7bb": {
+          "value": "32"
+        }
+      },
+      "selectedItem": "6830bb9c-b2b3-4abe-810f-263503aa303a",
+      "codeInfoColId": "c3056bce-e13d-46ad-a164-6e0896426aa2"
+    }
+  },
+  "artifacts": {},
+  "artifactGroups": {},
+  "uiTypes": {
+    "36869925-013a-47d7-a518-50a2ed7f894a": {
+      "id": "36869925-013a-47d7-a518-50a2ed7f894a",
+      "type": "DROPDOWN",
+      "name": "eval_strategy",
+      "presetType": null,
+      "config": {
+        "choices": [
+          {
+            "id": "\"no\"",
+            "name": "\"no\""
+          },
+          {
+            "id": "\"steps\"",
+            "name": "\"steps\""
+          },
+          {
+            "id": "\"epoch\"",
+            "name": "\"epoch\""
+          }
+        ]
+      }
+    },
+    "b8217b55-4baf-46b7-a069-be48d9721691": {
+      "id": "b8217b55-4baf-46b7-a069-be48d9721691",
+      "type": "SLIDER",
+      "name": "gradient_accumulation_steps",
+      "presetType": null,
+      "config": {
+        "min": 0,
+        "max": 100,
+        "step": 1
+      }
+    }
+  },
+  "uiTypeCols": {
+    "6e37bb01-cb05-470b-929d-62efc806ca5d": {
+      "04ecf904-c90c-4d8a-8713-111d9c06a00a": {
+        "uiTypeId": "b8217b55-4baf-46b7-a069-be48d9721691",
+        "nonPresetUITypeIds": ["b8217b55-4baf-46b7-a069-be48d9721691"]
+      },
+      "784ced68-6a69-4835-903c-40b06c16a8ec": {
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
+      },
+      "a8de2b46-bd53-406f-8ff7-6f3cf60aab46": {
+        "uiTypeId": "36869925-013a-47d7-a518-50a2ed7f894a",
+        "nonPresetUITypeIds": ["36869925-013a-47d7-a518-50a2ed7f894a"]
+      }
+    }
+  },
+  "sections": {
+    "851767fd-5332-4204-bd84-822999f93102": {
+      "id": "851767fd-5332-4204-bd84-822999f93102",
+      "name": "training_args",
+      "size": {
+        "width": 288,
+        "height": 385
+      },
+      "variantId": "5d9a421f-132b-493f-9d11-7f9c5c8ed65b",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "6e37bb01-cb05-470b-929d-62efc806ca5d",
+      "defaultVariantId": "5d9a421f-132b-493f-9d11-7f9c5c8ed65b",
+      "variantIds": ["5d9a421f-132b-493f-9d11-7f9c5c8ed65b"],
+      "columnWidth": 126
+    },
+    "9ac37eae-c465-413f-99b1-c96eb4bb7c5a": {
+      "id": "9ac37eae-c465-413f-99b1-c96eb4bb7c5a",
+      "name": "Global Variables",
+      "variantId": "3c32cc90-2167-4180-b84e-0aec76a31607",
+      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
+      "defaultVariantId": "3c32cc90-2167-4180-b84e-0aec76a31607",
+      "variantIds": ["3c32cc90-2167-4180-b84e-0aec76a31607"],
+      "columnWidth": 82
+    }
+  },
+  "codeInfo": {
+    "00f1aaa4-7ad5-40b0-8cc7-0d6796098e7f": {
+      "id": "00f1aaa4-7ad5-40b0-8cc7-0d6796098e7f",
+      "name": "logging_first_step",
+      "defaultVal": "False"
+    },
+    "033646ea-56bb-416a-8533-20ffe0937f91": {
+      "id": "033646ea-56bb-416a-8533-20ffe0937f91",
+      "name": "max_grad_norm",
+      "defaultVal": "1"
+    },
+    "04ecf904-c90c-4d8a-8713-111d9c06a00a": {
+      "id": "04ecf904-c90c-4d8a-8713-111d9c06a00a",
+      "name": "gradient_accumulation_steps",
+      "defaultVal": "1"
+    },
+    "088925a3-dc6c-4141-9df3-02cbbdc7636f": {
+      "id": "088925a3-dc6c-4141-9df3-02cbbdc7636f",
+      "name": "include_num_input_tokens_seen",
+      "defaultVal": "False"
+    },
+    "0a4e49d6-f50d-422a-92a6-4dff2522271b": {
+      "id": "0a4e49d6-f50d-422a-92a6-4dff2522271b",
+      "name": "optim",
+      "defaultVal": "default_optim"
+    },
+    "0c9f0ffa-e58f-4123-bcb7-d9d6d845e3c2": {
+      "id": "0c9f0ffa-e58f-4123-bcb7-d9d6d845e3c2",
+      "name": "warmup_steps",
+      "defaultVal": "0"
+    },
+    "0e43ff31-0fbc-4f11-88e6-59d505e1d120": {
+      "id": "0e43ff31-0fbc-4f11-88e6-59d505e1d120",
+      "name": "overwrite_output_dir",
+      "defaultVal": "False"
+    },
+    "0e6c7da1-bdbb-4e2d-a014-df62ae26c009": {
+      "id": "0e6c7da1-bdbb-4e2d-a014-df62ae26c009",
+      "name": "dataloader_pin_memory",
+      "defaultVal": "True"
+    },
+    "0e7eef4a-5b69-425b-b0e8-ef3e3c3eb217": {
+      "id": "0e7eef4a-5b69-425b-b0e8-ef3e3c3eb217",
+      "name": "no_cuda",
+      "defaultVal": "False"
+    },
+    "0ea09415-4836-46e2-99f5-75ecaf2f8e43": {
+      "id": "0ea09415-4836-46e2-99f5-75ecaf2f8e43",
+      "name": "fp16_full_eval",
+      "defaultVal": "False"
+    },
+    "0f4ffcea-36b3-49c0-ab12-559e79882fe1": {
+      "id": "0f4ffcea-36b3-49c0-ab12-559e79882fe1",
+      "name": "fsdp",
+      "defaultVal": "\"\""
+    },
+    "108277cd-4975-42c9-ab6c-03e73577cd4e": {
+      "id": "108277cd-4975-42c9-ab6c-03e73577cd4e",
+      "name": "resume_from_checkpoint",
+      "defaultVal": "None"
+    },
+    "136ba22e-aa41-4057-84b9-05eb72e9a943": {
+      "id": "136ba22e-aa41-4057-84b9-05eb72e9a943",
+      "name": "hub_strategy",
+      "defaultVal": "\"every_save\""
+    },
+    "15099942-0a9c-4c42-965f-5104901fb25f": {
+      "id": "15099942-0a9c-4c42-965f-5104901fb25f",
+      "name": "log_level",
+      "defaultVal": "\"passive\""
+    },
+    "160cc454-4c27-453c-88a5-4838303f9621": {
+      "id": "160cc454-4c27-453c-88a5-4838303f9621",
+      "name": "optim_target_modules",
+      "defaultVal": "None"
+    },
+    "184d0f2f-5e5e-424f-bc6a-b86a3d8fe6de": {
+      "id": "184d0f2f-5e5e-424f-bc6a-b86a3d8fe6de",
+      "name": "label_smoothing_factor",
+      "defaultVal": "0"
+    },
+    "193d8d56-f67a-42d3-83e8-b2fcb535ed62": {
+      "id": "193d8d56-f67a-42d3-83e8-b2fcb535ed62",
+      "name": "disable_tqdm",
+      "defaultVal": "None"
+    },
+    "19976d51-f7ff-4bc8-a9ad-68f85c24a03e": {
+      "id": "19976d51-f7ff-4bc8-a9ad-68f85c24a03e",
+      "name": "auto_find_batch_size",
+      "defaultVal": "False"
+    },
+    "1aa90a4c-7b91-4b56-af2a-d3955e599ba5": {
+      "id": "1aa90a4c-7b91-4b56-af2a-d3955e599ba5",
+      "name": "eval_accumulation_steps",
+      "defaultVal": "None"
+    },
+    "1bdcc3e1-960f-4f4a-8630-49b44285e305": {
+      "id": "1bdcc3e1-960f-4f4a-8630-49b44285e305",
+      "name": "split_batches",
+      "defaultVal": "None"
+    },
+    "1db0609c-fc5a-4435-93be-40691ea4f77e": {
+      "id": "1db0609c-fc5a-4435-93be-40691ea4f77e",
+      "name": "eval_use_gather_object",
+      "defaultVal": "False"
+    },
+    "2209742e-bf2f-4fc9-902a-fffc14aec8d3": {
+      "id": "2209742e-bf2f-4fc9-902a-fffc14aec8d3",
+      "name": "hub_always_push",
+      "defaultVal": "False"
+    },
+    "239e6be8-953e-47b0-855e-94a30137bb84": {
+      "id": "239e6be8-953e-47b0-855e-94a30137bb84",
+      "name": "dataloader_drop_last",
+      "defaultVal": "False"
+    },
+    "253cf075-f92b-49b0-981d-7e32a8a807c2": {
+      "id": "253cf075-f92b-49b0-981d-7e32a8a807c2",
+      "name": "learning_rate",
+      "defaultVal": "0.00005",
+      "isPinned": true
+    },
+    "268dc253-4811-4149-ab93-a4256d64001f": {
+      "id": "268dc253-4811-4149-ab93-a4256d64001f",
+      "name": "logging_strategy",
+      "defaultVal": "\"steps\""
+    },
+    "3252b937-dacb-4651-a7c8-911f69507d87": {
+      "id": "3252b937-dacb-4651-a7c8-911f69507d87",
+      "name": "ignore_data_skip",
+      "defaultVal": "False"
+    },
+    "32a5ed91-132c-4132-8dcf-30caebb6bc99": {
+      "id": "32a5ed91-132c-4132-8dcf-30caebb6bc99",
+      "name": "push_to_hub_token",
+      "defaultVal": "None"
+    },
+    "35ca9d51-dd5e-475c-8e86-244b1ddf7ece": {
+      "id": "35ca9d51-dd5e-475c-8e86-244b1ddf7ece",
+      "name": "torchdynamo",
+      "defaultVal": "None"
+    },
+    "38f9bced-52ca-4e13-bade-06fc1eb9e7fd": {
+      "id": "38f9bced-52ca-4e13-bade-06fc1eb9e7fd",
+      "name": "bf16",
+      "defaultVal": "False"
+    },
+    "3bb59c0e-a66c-4896-849e-de101501bea7": {
+      "id": "3bb59c0e-a66c-4896-849e-de101501bea7",
+      "name": "ddp_bucket_cap_mb",
+      "defaultVal": "None"
+    },
+    "3cedc00d-bc88-4031-b36e-6e3102aa1135": {
+      "id": "3cedc00d-bc88-4031-b36e-6e3102aa1135",
+      "name": "hub_private_repo",
+      "defaultVal": "False"
+    },
+    "3d078b28-7e71-4b83-8d15-10e6d6edcf5e": {
+      "id": "3d078b28-7e71-4b83-8d15-10e6d6edcf5e",
+      "name": "gradient_checkpointing",
+      "defaultVal": "False"
+    },
+    "3e91ee00-7860-47ba-b705-12167ad1f86e": {
+      "id": "3e91ee00-7860-47ba-b705-12167ad1f86e",
+      "name": "data_seed",
+      "defaultVal": "None"
+    },
+    "3ea662a8-3b0e-43e0-b938-0447adbef70c": {
+      "id": "3ea662a8-3b0e-43e0-b938-0447adbef70c",
+      "name": "dataloader_num_workers",
+      "defaultVal": "0"
+    },
+    "3f0cb840-d115-461d-b9ff-c1e86d7fab6f": {
+      "id": "3f0cb840-d115-461d-b9ff-c1e86d7fab6f",
+      "name": "torch_compile_mode",
+      "defaultVal": "None"
+    },
+    "40781cb1-ff9e-4f5e-b39b-c6a1f9992382": {
+      "id": "40781cb1-ff9e-4f5e-b39b-c6a1f9992382",
+      "name": "fsdp_min_num_params",
+      "defaultVal": "0"
+    },
+    "4166d115-5bf8-4ece-9927-e5c736f9ac5b": {
+      "id": "4166d115-5bf8-4ece-9927-e5c736f9ac5b",
+      "name": "log_on_each_node",
+      "defaultVal": "True"
+    },
+    "42a0a9b0-50ce-48f4-8a2c-a90fd94676a3": {
+      "id": "42a0a9b0-50ce-48f4-8a2c-a90fd94676a3",
+      "name": "adam_epsilon",
+      "defaultVal": "1e-8"
+    },
+    "43c44a1d-90c8-4e46-b136-ee332758e928": {
+      "id": "43c44a1d-90c8-4e46-b136-ee332758e928",
+      "name": "warmup_ratio",
+      "defaultVal": "0"
+    },
+    "4628903d-44be-406f-a394-2dafeccdddd8": {
+      "id": "4628903d-44be-406f-a394-2dafeccdddd8",
+      "name": "ddp_timeout",
+      "defaultVal": "1800"
+    },
+    "46fcd278-dd84-424e-97ee-7839778e2394": {
+      "id": "46fcd278-dd84-424e-97ee-7839778e2394",
+      "name": "mp_parameters",
+      "defaultVal": "\"\""
+    },
+    "49f8d465-eb8c-4133-80dc-3ec8db7d5827": {
+      "id": "49f8d465-eb8c-4133-80dc-3ec8db7d5827",
+      "name": "ddp_broadcast_buffers",
+      "defaultVal": "None"
+    },
+    "4d48620e-1f2e-4a3d-9846-e14187a52076": {
+      "id": "4d48620e-1f2e-4a3d-9846-e14187a52076",
+      "name": "ray_scope",
+      "defaultVal": "\"last\""
+    },
+    "4f8b8020-eb5f-47e7-b372-83ffbef4c802": {
+      "id": "4f8b8020-eb5f-47e7-b372-83ffbef4c802",
+      "name": "seed",
+      "defaultVal": "42"
+    },
+    "50d86ab3-c547-43c2-b204-dab1af5fbd23": {
+      "id": "50d86ab3-c547-43c2-b204-dab1af5fbd23",
+      "name": "logging_nan_inf_filter",
+      "defaultVal": "True"
+    },
+    "5277ad89-6abf-4e36-bac1-4e010e531b6a": {
+      "id": "5277ad89-6abf-4e36-bac1-4e010e531b6a",
+      "name": "full_determinism",
+      "defaultVal": "False"
+    },
+    "56f9494a-8472-465e-b8da-9d3ca74e1360": {
+      "id": "56f9494a-8472-465e-b8da-9d3ca74e1360",
+      "name": "include_tokens_per_second",
+      "defaultVal": "False"
+    },
+    "57198323-93ce-42a1-8fd9-bf52ac64a688": {
+      "id": "57198323-93ce-42a1-8fd9-bf52ac64a688",
+      "name": "batch_eval_metrics",
+      "defaultVal": "False"
+    },
+    "5c4fb66f-3573-4653-a93f-d08e41f772bd": {
+      "id": "5c4fb66f-3573-4653-a93f-d08e41f772bd",
+      "name": "num_train_epochs",
+      "defaultVal": "3"
+    },
+    "5e7ceac9-3276-49af-989d-8fd9f4383e28": {
+      "id": "5e7ceac9-3276-49af-989d-8fd9f4383e28",
+      "name": "half_precision_backend",
+      "defaultVal": "\"auto\""
+    },
+    "61273bec-3af9-4184-a703-637c5b54298c": {
+      "id": "61273bec-3af9-4184-a703-637c5b54298c",
+      "name": "deepspeed",
+      "defaultVal": "None"
+    },
+    "61c34869-8193-4f08-acaf-271856f631ce": {
+      "id": "61c34869-8193-4f08-acaf-271856f631ce",
+      "name": "per_device_train_batch_size",
+      "defaultVal": "8"
+    },
+    "62d3ae2c-101a-4b12-8710-024ce3efd9cf": {
+      "id": "62d3ae2c-101a-4b12-8710-024ce3efd9cf",
+      "name": "save_safetensors",
+      "defaultVal": "True"
+    },
+    "63cde0a3-febf-4525-bc3b-a221429b5e55": {
+      "id": "63cde0a3-febf-4525-bc3b-a221429b5e55",
+      "name": "greater_is_better",
+      "defaultVal": "None"
+    },
+    "6830bb9c-b2b3-4abe-810f-263503aa303a": {
+      "id": "6830bb9c-b2b3-4abe-810f-263503aa303a",
+      "name": "transformers.TrainingArguments",
+      "rcType": "callable",
+      "description": "TrainingArguments is the subset of the arguments we use in our example scripts **which relate to the training loop\nitself**.\n\nUsing [`HfArgumentParser`] we can turn this class into\n[argparse](https://docs.python.org/3/library/argparse#module-argparse) arguments that can be specified on the\ncommand line.\n\nParameters:\n    output_dir (`str`):\n        The output directory where the model predictions and checkpoints will be written.\n    overwrite_output_dir (`bool`, *optional*, defaults to `False`):\n        If `True`, overwrite the content of the output directory. Use this to continue training if `output_dir`\n        points to a checkpoint directory.\n    do_train (`bool`, *optional*, defaults to `False`):\n        Whether to run training or not. This argument is not directly used by [`Trainer`], it's intended to be used\n        by your training/evaluation scripts instead. See the [example\n        scripts](https://github.com/huggingface/transformers/tree/main/examples) for more details.\n    do_eval (`bool`, *optional*):\n        Whether to run evaluation on the validation set or not. Will be set to `True` if `eval_strategy` is\n        different from `\"no\"`. This argument is not directly used by [`Trainer`], it's intended to be used by your\n        training/evaluation scripts instead. See the [example\n        scripts](https://github.com/huggingface/transformers/tree/main/examples) for more details.\n    do_predict (`bool`, *optional*, defaults to `False`):\n        Whether to run predictions on the test set or not. This argument is not directly used by [`Trainer`], it's\n        intended to be used by your training/evaluation scripts instead. See the [example\n        scripts](https://github.com/huggingface/transformers/tree/main/examples) for more details.\n    eval_strategy (`str` or [`~trainer_utils.IntervalStrategy`], *optional*, defaults to `\"no\"`):\n        The evaluation strategy to adopt during training. Possible values are:\n\n            - `\"no\"`: No evaluation is done during training.\n            - `\"steps\"`: Evaluation is done (and logged) every `eval_steps`.\n            - `\"epoch\"`: Evaluation is done at the end of each epoch.\n\n    prediction_loss_only (`bool`, *optional*, defaults to `False`):\n        When performing evaluation and generating predictions, only returns the loss.\n    per_device_train_batch_size (`int`, *optional*, defaults to 8):\n        The batch size per GPU/XPU/TPU/MPS/NPU core/CPU for training.\n    per_device_eval_batch_size (`int`, *optional*, defaults to 8):\n        The batch size per GPU/XPU/TPU/MPS/NPU core/CPU for evaluation.\n    gradient_accumulation_steps (`int`, *optional*, defaults to 1):\n        Number of updates steps to accumulate the gradients for, before performing a backward/update pass.\n\n        <Tip warning={true}>\n\n        When using gradient accumulation, one step is counted as one step with backward pass. Therefore, logging,\n        evaluation, save will be conducted every `gradient_accumulation_steps * xxx_step` training examples.\n\n        </Tip>\n\n    eval_accumulation_steps (`int`, *optional*):\n        Number of predictions steps to accumulate the output tensors for, before moving the results to the CPU. If\n        left unset, the whole predictions are accumulated on GPU/NPU/TPU before being moved to the CPU (faster but\n        requires more memory).\n    eval_delay (`float`, *optional*):\n        Number of epochs or steps to wait for before the first evaluation can be performed, depending on the\n        eval_strategy.\n    torch_empty_cache_steps (`int`, *optional*):\n        Number of steps to wait before calling `torch.<device>.empty_cache()`. If left unset or set to None, cache will not be emptied.\n\n        <Tip>\n\n        This can help avoid CUDA out-of-memory errors by lowering peak VRAM usage at a cost of about [10% slower performance](https://github.com/huggingface/transformers/issues/31372).\n\n        </Tip>\n\n    learning_rate (`float`, *optional*, defaults to 5e-5):\n        The initial learning rate for [`AdamW`] optimizer.\n    weight_decay (`float`, *optional*, defaults to 0):\n        The weight decay to apply (if not zero) to all layers except all bias and LayerNorm weights in [`AdamW`]\n        optimizer.\n    adam_beta1 (`float`, *optional*, defaults to 0.9):\n        The beta1 hyperparameter for the [`AdamW`] optimizer.\n    adam_beta2 (`float`, *optional*, defaults to 0.999):\n        The beta2 hyperparameter for the [`AdamW`] optimizer.\n    adam_epsilon (`float`, *optional*, defaults to 1e-8):\n        The epsilon hyperparameter for the [`AdamW`] optimizer.\n    max_grad_norm (`float`, *optional*, defaults to 1.0):\n        Maximum gradient norm (for gradient clipping).\n    num_train_epochs(`float`, *optional*, defaults to 3.0):\n        Total number of training epochs to perform (if not an integer, will perform the decimal part percents of\n        the last epoch before stopping training).\n    max_steps (`int`, *optional*, defaults to -1):\n        If set to a positive number, the total number of training steps to perform. Overrides `num_train_epochs`.\n        For a finite dataset, training is reiterated through the dataset (if all data is exhausted) until\n        `max_steps` is reached.\n    lr_scheduler_type (`str` or [`SchedulerType`], *optional*, defaults to `\"linear\"`):\n        The scheduler type to use. See the documentation of [`SchedulerType`] for all possible values.\n    lr_scheduler_kwargs ('dict', *optional*, defaults to {}):\n        The extra arguments for the lr_scheduler. See the documentation of each scheduler for possible values.\n    warmup_ratio (`float`, *optional*, defaults to 0.0):\n        Ratio of total training steps used for a linear warmup from 0 to `learning_rate`.\n    warmup_steps (`int`, *optional*, defaults to 0):\n        Number of steps used for a linear warmup from 0 to `learning_rate`. Overrides any effect of `warmup_ratio`.\n    log_level (`str`, *optional*, defaults to `passive`):\n        Logger log level to use on the main process. Possible choices are the log levels as strings: 'debug',\n        'info', 'warning', 'error' and 'critical', plus a 'passive' level which doesn't set anything and keeps the\n        current log level for the Transformers library (which will be `\"warning\"` by default).\n    log_level_replica (`str`, *optional*, defaults to `\"warning\"`):\n        Logger log level to use on replicas. Same choices as `log_level`\"\n    log_on_each_node (`bool`, *optional*, defaults to `True`):\n        In multinode distributed training, whether to log using `log_level` once per node, or only on the main\n        node.\n    logging_dir (`str`, *optional*):\n        [TensorBoard](https://www.tensorflow.org/tensorboard) log directory. Will default to\n        *output_dir/runs/**CURRENT_DATETIME_HOSTNAME***.\n    logging_strategy (`str` or [`~trainer_utils.IntervalStrategy`], *optional*, defaults to `\"steps\"`):\n        The logging strategy to adopt during training. Possible values are:\n\n            - `\"no\"`: No logging is done during training.\n            - `\"epoch\"`: Logging is done at the end of each epoch.\n            - `\"steps\"`: Logging is done every `logging_steps`.\n\n    logging_first_step (`bool`, *optional*, defaults to `False`):\n        Whether to log the first `global_step` or not.\n    logging_steps (`int` or `float`, *optional*, defaults to 500):\n        Number of update steps between two logs if `logging_strategy=\"steps\"`. Should be an integer or a float in\n        range `[0,1)`. If smaller than 1, will be interpreted as ratio of total training steps.\n    logging_nan_inf_filter (`bool`, *optional*, defaults to `True`):\n        Whether to filter `nan` and `inf` losses for logging. If set to `True` the loss of every step that is `nan`\n        or `inf` is filtered and the average loss of the current logging window is taken instead.\n\n        <Tip>\n\n        `logging_nan_inf_filter` only influences the logging of loss values, it does not change the behavior the\n        gradient is computed or applied to the model.\n\n        </Tip>\n\n    save_strategy (`str` or [`~trainer_utils.IntervalStrategy`], *optional*, defaults to `\"steps\"`):\n        The checkpoint save strategy to adopt during training. Possible values are:\n\n            - `\"no\"`: No save is done during training.\n            - `\"epoch\"`: Save is done at the end of each epoch.\n            - `\"steps\"`: Save is done every `save_steps`.\n\n            If `\"epoch\"` or `\"steps\"` is chosen, saving will also be performed at the\n            very end of training, always.\n    save_steps (`int` or `float`, *optional*, defaults to 500):\n        Number of updates steps before two checkpoint saves if `save_strategy=\"steps\"`. Should be an integer or a\n        float in range `[0,1)`. If smaller than 1, will be interpreted as ratio of total training steps.\n    save_total_limit (`int`, *optional*):\n        If a value is passed, will limit the total amount of checkpoints. Deletes the older checkpoints in\n        `output_dir`. When `load_best_model_at_end` is enabled, the \"best\" checkpoint according to\n        `metric_for_best_model` will always be retained in addition to the most recent ones. For example, for\n        `save_total_limit=5` and `load_best_model_at_end`, the four last checkpoints will always be retained\n        alongside the best model. When `save_total_limit=1` and `load_best_model_at_end`, it is possible that two\n        checkpoints are saved: the last one and the best one (if they are different).\n    save_safetensors (`bool`, *optional*, defaults to `True`):\n        Use [safetensors](https://huggingface.co/docs/safetensors) saving and loading for state dicts instead of\n        default `torch.load` and `torch.save`.\n    save_on_each_node (`bool`, *optional*, defaults to `False`):\n        When doing multi-node distributed training, whether to save models and checkpoints on each node, or only on\n        the main one.\n\n        This should not be activated when the different nodes use the same storage as the files will be saved with\n        the same names for each node.\n    save_only_model (`bool`, *optional*, defaults to `False`):\n        When checkpointing, whether to only save the model, or also the optimizer, scheduler & rng state.\n        Note that when this is true, you won't be able to resume training from checkpoint.\n        This enables you to save storage by not storing the optimizer, scheduler & rng state.\n        You can only load the model using `from_pretrained` with this option set to `True`.\n    restore_callback_states_from_checkpoint (`bool`, *optional*, defaults to `False`):\n        Whether to restore the callback states from the checkpoint. If `True`, will override\n        callbacks passed to the `Trainer` if they exist in the checkpoint.\"\n    use_cpu (`bool`, *optional*, defaults to `False`):\n        Whether or not to use cpu. If set to False, we will use cuda or mps device if available.\n    seed (`int`, *optional*, defaults to 42):\n        Random seed that will be set at the beginning of training. To ensure reproducibility across runs, use the\n        [`~Trainer.model_init`] function to instantiate the model if it has some randomly initialized parameters.\n    data_seed (`int`, *optional*):\n        Random seed to be used with data samplers. If not set, random generators for data sampling will use the\n        same seed as `seed`. This can be used to ensure reproducibility of data sampling, independent of the model\n        seed.\n    jit_mode_eval (`bool`, *optional*, defaults to `False`):\n        Whether or not to use PyTorch jit trace for inference.\n    use_ipex (`bool`, *optional*, defaults to `False`):\n        Use Intel extension for PyTorch when it is available. [IPEX\n        installation](https://github.com/intel/intel-extension-for-pytorch).\n    bf16 (`bool`, *optional*, defaults to `False`):\n        Whether to use bf16 16-bit (mixed) precision training instead of 32-bit training. Requires Ampere or higher\n        NVIDIA architecture or using CPU (use_cpu) or Ascend NPU. This is an experimental API and it may change.\n    fp16 (`bool`, *optional*, defaults to `False`):\n        Whether to use fp16 16-bit (mixed) precision training instead of 32-bit training.\n    fp16_opt_level (`str`, *optional*, defaults to 'O1'):\n        For `fp16` training, Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']. See details on\n        the [Apex documentation](https://nvidia.github.io/apex/amp).\n    fp16_backend (`str`, *optional*, defaults to `\"auto\"`):\n        This argument is deprecated. Use `half_precision_backend` instead.\n    half_precision_backend (`str`, *optional*, defaults to `\"auto\"`):\n        The backend to use for mixed precision training. Must be one of `\"auto\", \"apex\", \"cpu_amp\"`. `\"auto\"` will\n        use CPU/CUDA AMP or APEX depending on the PyTorch version detected, while the other choices will force the\n        requested backend.\n    bf16_full_eval (`bool`, *optional*, defaults to `False`):\n        Whether to use full bfloat16 evaluation instead of 32-bit. This will be faster and save memory but can harm\n        metric values. This is an experimental API and it may change.\n    fp16_full_eval (`bool`, *optional*, defaults to `False`):\n        Whether to use full float16 evaluation instead of 32-bit. This will be faster and save memory but can harm\n        metric values.\n    tf32 (`bool`, *optional*):\n        Whether to enable the TF32 mode, available in Ampere and newer GPU architectures. The default value depends\n        on PyTorch's version default of `torch.backends.cuda.matmul.allow_tf32`. For more details please refer to\n        the [TF32](https://huggingface.co/docs/transformers/performance#tf32) documentation. This is an\n        experimental API and it may change.\n    local_rank (`int`, *optional*, defaults to -1):\n        Rank of the process during distributed training.\n    ddp_backend (`str`, *optional*):\n        The backend to use for distributed training. Must be one of `\"nccl\"`, `\"mpi\"`, `\"ccl\"`, `\"gloo\"`, `\"hccl\"`.\n    tpu_num_cores (`int`, *optional*):\n        When training on TPU, the number of TPU cores (automatically passed by launcher script).\n    dataloader_drop_last (`bool`, *optional*, defaults to `False`):\n        Whether to drop the last incomplete batch (if the length of the dataset is not divisible by the batch size)\n        or not.\n    eval_steps (`int` or `float`, *optional*):\n        Number of update steps between two evaluations if `eval_strategy=\"steps\"`. Will default to the same\n        value as `logging_steps` if not set. Should be an integer or a float in range `[0,1)`. If smaller than 1,\n        will be interpreted as ratio of total training steps.\n    dataloader_num_workers (`int`, *optional*, defaults to 0):\n        Number of subprocesses to use for data loading (PyTorch only). 0 means that the data will be loaded in the\n        main process.\n    past_index (`int`, *optional*, defaults to -1):\n        Some models like [TransformerXL](../model_doc/transformerxl) or [XLNet](../model_doc/xlnet) can make use of\n        the past hidden states for their predictions. If this argument is set to a positive int, the `Trainer` will\n        use the corresponding output (usually index 2) as the past state and feed it to the model at the next\n        training step under the keyword argument `mems`.\n    run_name (`str`, *optional*, defaults to `output_dir`):\n        A descriptor for the run. Typically used for [wandb](https://www.wandb.com/),\n        [mlflow](https://www.mlflow.org/) and [comet](https://www.comet.com/site) logging. If not specified, will\n        be the same as `output_dir`.\n    disable_tqdm (`bool`, *optional*):\n        Whether or not to disable the tqdm progress bars and table of metrics produced by\n        [`~notebook.NotebookTrainingTracker`] in Jupyter Notebooks. Will default to `True` if the logging level is\n        set to warn or lower (default), `False` otherwise.\n    remove_unused_columns (`bool`, *optional*, defaults to `True`):\n        Whether or not to automatically remove the columns unused by the model forward method.\n    label_names (`List[str]`, *optional*):\n        The list of keys in your dictionary of inputs that correspond to the labels.\n\n        Will eventually default to the list of argument names accepted by the model that contain the word \"label\",\n        except if the model used is one of the `XxxForQuestionAnswering` in which case it will also include the\n        `[\"start_positions\", \"end_positions\"]` keys.\n    load_best_model_at_end (`bool`, *optional*, defaults to `False`):\n        Whether or not to load the best model found during training at the end of training. When this option is\n        enabled, the best checkpoint will always be saved. See\n        [`save_total_limit`](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments.save_total_limit)\n        for more.\n\n        <Tip>\n\n        When set to `True`, the parameters `save_strategy` needs to be the same as `eval_strategy`, and in\n        the case it is \"steps\", `save_steps` must be a round multiple of `eval_steps`.\n\n        </Tip>\n\n    metric_for_best_model (`str`, *optional*):\n        Use in conjunction with `load_best_model_at_end` to specify the metric to use to compare two different\n        models. Must be the name of a metric returned by the evaluation with or without the prefix `\"eval_\"`. Will\n        default to `\"loss\"` if unspecified and `load_best_model_at_end=True` (to use the evaluation loss).\n\n        If you set this value, `greater_is_better` will default to `True`. Don't forget to set it to `False` if\n        your metric is better when lower.\n    greater_is_better (`bool`, *optional*):\n        Use in conjunction with `load_best_model_at_end` and `metric_for_best_model` to specify if better models\n        should have a greater metric or not. Will default to:\n\n        - `True` if `metric_for_best_model` is set to a value that doesn't end in `\"loss\"`.\n        - `False` if `metric_for_best_model` is not set, or set to a value that ends in `\"loss\"`.\n    ignore_data_skip (`bool`, *optional*, defaults to `False`):\n        When resuming training, whether or not to skip the epochs and batches to get the data loading at the same\n        stage as in the previous training. If set to `True`, the training will begin faster (as that skipping step\n        can take a long time) but will not yield the same results as the interrupted training would have.\n    fsdp (`bool`, `str` or list of [`~trainer_utils.FSDPOption`], *optional*, defaults to `''`):\n        Use PyTorch Distributed Parallel Training (in distributed training only).\n\n        A list of options along the following:\n\n        - `\"full_shard\"`: Shard parameters, gradients and optimizer states.\n        - `\"shard_grad_op\"`: Shard optimizer states and gradients.\n        - `\"hybrid_shard\"`: Apply `FULL_SHARD` within a node, and replicate parameters across nodes.\n        - `\"hybrid_shard_zero2\"`: Apply `SHARD_GRAD_OP` within a node, and replicate parameters across nodes.\n        - `\"offload\"`: Offload parameters and gradients to CPUs (only compatible with `\"full_shard\"` and\n          `\"shard_grad_op\"`).\n        - `\"auto_wrap\"`: Automatically recursively wrap layers with FSDP using `default_auto_wrap_policy`.\n    fsdp_config (`str` or `dict`, *optional*):\n        Config to be used with fsdp (Pytorch Distributed Parallel Training). The value is either a location of\n        fsdp json config file (e.g., `fsdp_config.json`) or an already loaded json file as `dict`.\n\n        A List of config and its options:\n            - min_num_params (`int`, *optional*, defaults to `0`):\n                FSDP's minimum number of parameters for Default Auto Wrapping. (useful only when `fsdp` field is\n                passed).\n            - transformer_layer_cls_to_wrap (`List[str]`, *optional*):\n                List of transformer layer class names (case-sensitive) to wrap, e.g, `BertLayer`, `GPTJBlock`,\n                `T5Block` .... (useful only when `fsdp` flag is passed).\n            - backward_prefetch (`str`, *optional*)\n                FSDP's backward prefetch mode. Controls when to prefetch next set of parameters (useful only when\n                `fsdp` field is passed).\n\n                A list of options along the following:\n\n                - `\"backward_pre\"` : Prefetches the next set of parameters before the current set of parameter's\n                  gradient\n                    computation.\n                - `\"backward_post\"` : This prefetches the next set of parameters after the current set of\n                  parameter’s\n                    gradient computation.\n            - forward_prefetch (`bool`, *optional*, defaults to `False`)\n                FSDP's forward prefetch mode (useful only when `fsdp` field is passed).\n                 If `\"True\"`, then FSDP explicitly prefetches the next upcoming all-gather while executing in the\n                 forward pass.\n            - limit_all_gathers (`bool`, *optional*, defaults to `False`)\n                FSDP's limit_all_gathers (useful only when `fsdp` field is passed).\n                 If `\"True\"`, FSDP explicitly synchronizes the CPU thread to prevent too many in-flight\n                 all-gathers.\n            - use_orig_params (`bool`, *optional*, defaults to `True`)\n                If `\"True\"`, allows non-uniform `requires_grad` during init, which means support for interspersed\n                frozen and trainable paramteres. Useful in cases such as parameter-efficient fine-tuning. Please\n                refer this\n                [blog](https://dev-discuss.pytorch.org/t/rethinking-pytorch-fully-sharded-data-parallel-fsdp-from-first-principles/1019\n            - sync_module_states (`bool`, *optional*, defaults to `True`)\n                If `\"True\"`, each individually wrapped FSDP unit will broadcast module parameters from rank 0 to\n                ensure they are the same across all ranks after initialization\n            - cpu_ram_efficient_loading (`bool`, *optional*, defaults to `False`)\n                If `\"True\"`, only the first process loads the pretrained model checkpoint while all other processes\n                have empty weights.  When this setting as `\"True\"`, `sync_module_states` also must to be `\"True\"`,\n                otherwise all the processes except the main process would have random weights leading to unexpected\n                behaviour during training.\n            - activation_checkpointing (`bool`, *optional*, defaults to `False`):\n                If `\"True\"`, activation checkpointing is a technique to reduce memory usage by clearing activations of\n                certain layers and recomputing them during a backward pass. Effectively, this trades extra\n                computation time for reduced memory usage.\n            - xla (`bool`, *optional*, defaults to `False`):\n                Whether to use PyTorch/XLA Fully Sharded Data Parallel Training. This is an experimental feature\n                and its API may evolve in the future.\n            - xla_fsdp_settings (`dict`, *optional*)\n                The value is a dictionary which stores the XLA FSDP wrapping parameters.\n\n                For a complete list of options, please see [here](\n                https://github.com/pytorch/xla/blob/master/torch_xla/distributed/fsdp/xla_fully_sharded_data_parallel.py).\n            - xla_fsdp_grad_ckpt (`bool`, *optional*, defaults to `False`):\n                Will use gradient checkpointing over each nested XLA FSDP wrapped layer. This setting can only be\n                used when the xla flag is set to true, and an auto wrapping policy is specified through\n                fsdp_min_num_params or fsdp_transformer_layer_cls_to_wrap.\n\n    deepspeed (`str` or `dict`, *optional*):\n        Use [Deepspeed](https://github.com/microsoft/deepspeed). This is an experimental feature and its API may\n        evolve in the future. The value is either the location of DeepSpeed json config file (e.g.,\n        `ds_config.json`) or an already loaded json file as a `dict`\"\n\n        <Tip warning={true}>\n            If enabling any Zero-init, make sure that your model is not initialized until\n            *after* initializing the `TrainingArguments`, else it will not be applied.\n        </Tip>\n\n    accelerator_config (`str`, `dict`, or `AcceleratorConfig`, *optional*):\n        Config to be used with the internal `Accelerator` implementation. The value is either a location of\n        accelerator json config file (e.g., `accelerator_config.json`), an already loaded json file as `dict`,\n        or an instance of [`~trainer_pt_utils.AcceleratorConfig`].\n\n        A list of config and its options:\n            - split_batches (`bool`, *optional*, defaults to `False`):\n                Whether or not the accelerator should split the batches yielded by the dataloaders across the devices. If\n                `True` the actual batch size used will be the same on any kind of distributed processes, but it must be a\n                round multiple of the `num_processes` you are using. If `False`, actual batch size used will be the one set\n                in your script multiplied by the number of processes.\n            - dispatch_batches (`bool`, *optional*):\n                If set to `True`, the dataloader prepared by the Accelerator is only iterated through on the main process\n                and then the batches are split and broadcast to each process. Will default to `True` for `DataLoader` whose\n                underlying dataset is an `IterableDataset`, `False` otherwise.\n            - even_batches (`bool`, *optional*, defaults to `True`):\n                If set to `True`, in cases where the total batch size across all processes does not exactly divide the\n                dataset, samples at the start of the dataset will be duplicated so the batch can be divided equally among\n                all workers.\n            - use_seedable_sampler (`bool`, *optional*, defaults to `True`):\n                Whether or not use a fully seedable random sampler ([`accelerate.data_loader.SeedableRandomSampler`]). Ensures\n                training results are fully reproducable using a different sampling technique. While seed-to-seed results\n                may differ, on average the differences are neglible when using multiple different seeds to compare. Should\n                also be ran with [`~utils.set_seed`] for the best results.\n            - use_configured_state (`bool`, *optional*, defaults to `False`):\n                Whether or not to use a pre-configured `AcceleratorState` or `PartialState` defined before calling `TrainingArguments`.\n                If `True`, an `Accelerator` or `PartialState` must be initialized. Note that by doing so, this could lead to issues\n                with hyperparameter tuning.\n\n    label_smoothing_factor (`float`, *optional*, defaults to 0.0):\n        The label smoothing factor to use. Zero means no label smoothing, otherwise the underlying onehot-encoded\n        labels are changed from 0s and 1s to `label_smoothing_factor/num_labels` and `1 - label_smoothing_factor +\n        label_smoothing_factor/num_labels` respectively.\n    debug (`str` or list of [`~debug_utils.DebugOption`], *optional*, defaults to `\"\"`):\n        Enable one or more debug features. This is an experimental feature.\n\n        Possible options are:\n\n        - `\"underflow_overflow\"`: detects overflow in model's input/outputs and reports the last frames that led to\n          the event\n        - `\"tpu_metrics_debug\"`: print debug metrics on TPU\n\n        The options should be separated by whitespaces.\n    optim (`str` or [`training_args.OptimizerNames`], *optional*, defaults to `\"adamw_torch\"`):\n        The optimizer to use: adamw_hf, adamw_torch, adamw_torch_fused, adamw_apex_fused, adamw_anyprecision or\n        adafactor.\n    optim_args (`str`, *optional*):\n        Optional arguments that are supplied to AnyPrecisionAdamW.\n    group_by_length (`bool`, *optional*, defaults to `False`):\n        Whether or not to group together samples of roughly the same length in the training dataset (to minimize\n        padding applied and be more efficient). Only useful if applying dynamic padding.\n    length_column_name (`str`, *optional*, defaults to `\"length\"`):\n        Column name for precomputed lengths. If the column exists, grouping by length will use these values rather\n        than computing them on train startup. Ignored unless `group_by_length` is `True` and the dataset is an\n        instance of `Dataset`.\n    report_to (`str` or `List[str]`, *optional*, defaults to `\"all\"`):\n        The list of integrations to report the results and logs to. Supported platforms are `\"azure_ml\"`,\n        `\"clearml\"`, `\"codecarbon\"`, `\"comet_ml\"`, `\"dagshub\"`, `\"dvclive\"`, `\"flyte\"`, `\"mlflow\"`, `\"neptune\"`,\n        `\"tensorboard\"`, and `\"wandb\"`. Use `\"all\"` to report to all integrations installed, `\"none\"` for no\n        integrations.\n    ddp_find_unused_parameters (`bool`, *optional*):\n        When using distributed training, the value of the flag `find_unused_parameters` passed to\n        `DistributedDataParallel`. Will default to `False` if gradient checkpointing is used, `True` otherwise.\n    ddp_bucket_cap_mb (`int`, *optional*):\n        When using distributed training, the value of the flag `bucket_cap_mb` passed to `DistributedDataParallel`.\n    ddp_broadcast_buffers (`bool`, *optional*):\n        When using distributed training, the value of the flag `broadcast_buffers` passed to\n        `DistributedDataParallel`. Will default to `False` if gradient checkpointing is used, `True` otherwise.\n    dataloader_pin_memory (`bool`, *optional*, defaults to `True`):\n        Whether you want to pin memory in data loaders or not. Will default to `True`.\n    dataloader_persistent_workers (`bool`, *optional*, defaults to `False`):\n        If True, the data loader will not shut down the worker processes after a dataset has been consumed once.\n        This allows to maintain the workers Dataset instances alive. Can potentially speed up training, but will\n        increase RAM usage. Will default to `False`.\n    dataloader_prefetch_factor (`int`, *optional*):\n        Number of batches loaded in advance by each worker.\n        2 means there will be a total of 2 * num_workers batches prefetched across all workers.\n    skip_memory_metrics (`bool`, *optional*, defaults to `True`):\n        Whether to skip adding of memory profiler reports to metrics. This is skipped by default because it slows\n        down the training and evaluation speed.\n    push_to_hub (`bool`, *optional*, defaults to `False`):\n        Whether or not to push the model to the Hub every time the model is saved. If this is activated,\n        `output_dir` will begin a git directory synced with the repo (determined by `hub_model_id`) and the content\n        will be pushed each time a save is triggered (depending on your `save_strategy`). Calling\n        [`~Trainer.save_model`] will also trigger a push.\n\n        <Tip warning={true}>\n\n        If `output_dir` exists, it needs to be a local clone of the repository to which the [`Trainer`] will be\n        pushed.\n\n        </Tip>\n\n    resume_from_checkpoint (`str`, *optional*):\n        The path to a folder with a valid checkpoint for your model. This argument is not directly used by\n        [`Trainer`], it's intended to be used by your training/evaluation scripts instead. See the [example\n        scripts](https://github.com/huggingface/transformers/tree/main/examples) for more details.\n    hub_model_id (`str`, *optional*):\n        The name of the repository to keep in sync with the local *output_dir*. It can be a simple model ID in\n        which case the model will be pushed in your namespace. Otherwise it should be the whole repository name,\n        for instance `\"user_name/model\"`, which allows you to push to an organization you are a member of with\n        `\"organization_name/model\"`. Will default to `user_name/output_dir_name` with *output_dir_name* being the\n        name of `output_dir`.\n\n        Will default to the name of `output_dir`.\n    hub_strategy (`str` or [`~trainer_utils.HubStrategy`], *optional*, defaults to `\"every_save\"`):\n        Defines the scope of what is pushed to the Hub and when. Possible values are:\n\n        - `\"end\"`: push the model, its configuration, the tokenizer (if passed along to the [`Trainer`]) and a\n          draft of a model card when the [`~Trainer.save_model`] method is called.\n        - `\"every_save\"`: push the model, its configuration, the tokenizer (if passed along to the [`Trainer`]) and\n          a draft of a model card each time there is a model save. The pushes are asynchronous to not block\n          training, and in case the save are very frequent, a new push is only attempted if the previous one is\n          finished. A last push is made with the final model at the end of training.\n        - `\"checkpoint\"`: like `\"every_save\"` but the latest checkpoint is also pushed in a subfolder named\n          last-checkpoint, allowing you to resume training easily with\n          `trainer.train(resume_from_checkpoint=\"last-checkpoint\")`.\n        - `\"all_checkpoints\"`: like `\"checkpoint\"` but all checkpoints are pushed like they appear in the output\n          folder (so you will get one checkpoint folder per folder in your final repository)\n\n    hub_token (`str`, *optional*):\n        The token to use to push the model to the Hub. Will default to the token in the cache folder obtained with\n        `huggingface-cli login`.\n    hub_private_repo (`bool`, *optional*, defaults to `False`):\n        If True, the Hub repo will be set to private.\n    hub_always_push (`bool`, *optional*, defaults to `False`):\n        Unless this is `True`, the `Trainer` will skip pushing a checkpoint when the previous push is not finished.\n    gradient_checkpointing (`bool`, *optional*, defaults to `False`):\n        If True, use gradient checkpointing to save memory at the expense of slower backward pass.\n    gradient_checkpointing_kwargs (`dict`, *optional*, defaults to `None`):\n        Key word arguments to be passed to the `gradient_checkpointing_enable` method.\n    include_inputs_for_metrics (`bool`, *optional*, defaults to `False`):\n        Whether or not the inputs will be passed to the `compute_metrics` function. This is intended for metrics\n        that need inputs, predictions and references for scoring calculation in Metric class.\n    eval_do_concat_batches (`bool`, *optional*, defaults to `True`):\n        Whether to recursively concat inputs/losses/labels/predictions across batches. If `False`,\n        will instead store them as lists, with each batch kept separate.\n    auto_find_batch_size (`bool`, *optional*, defaults to `False`)\n        Whether to find a batch size that will fit into memory automatically through exponential decay, avoiding\n        CUDA Out-of-Memory errors. Requires accelerate to be installed (`pip install accelerate`)\n    full_determinism (`bool`, *optional*, defaults to `False`)\n        If `True`, [`enable_full_determinism`] is called instead of [`set_seed`] to ensure reproducible results in\n        distributed training. Important: this will negatively impact the performance, so only use it for debugging.\n    torchdynamo (`str`, *optional*):\n        If set, the backend compiler for TorchDynamo. Possible choices are `\"eager\"`, `\"aot_eager\"`, `\"inductor\"`,\n        `\"nvfuser\"`, `\"aot_nvfuser\"`, `\"aot_cudagraphs\"`, `\"ofi\"`, `\"fx2trt\"`, `\"onnxrt\"` and `\"ipex\"`.\n    ray_scope (`str`, *optional*, defaults to `\"last\"`):\n        The scope to use when doing hyperparameter search with Ray. By default, `\"last\"` will be used. Ray will\n        then use the last checkpoint of all trials, compare those, and select the best one. However, other options\n        are also available. See the [Ray documentation](\n        https://docs.ray.io/en/latest/tune/api_docs/analysis.html#ray.tune.ExperimentAnalysis.get_best_trial) for\n        more options.\n    ddp_timeout (`int`, *optional*, defaults to 1800):\n        The timeout for `torch.distributed.init_process_group` calls, used to avoid GPU socket timeouts when\n        performing slow operations in distributed runnings. Please refer the [PyTorch documentation]\n        (https://pytorch.org/docs/stable/distributed.html#torch.distributed.init_process_group) for more\n        information.\n    use_mps_device (`bool`, *optional*, defaults to `False`):\n        This argument is deprecated.`mps` device will be used if it is available similar to `cuda` device.\n    torch_compile (`bool`, *optional*, defaults to `False`):\n        Whether or not to compile the model using PyTorch 2.0\n        [`torch.compile`](https://pytorch.org/get-started/pytorch-2.0/).\n\n        This will use the best defaults for the [`torch.compile`\n        API](https://pytorch.org/docs/stable/generated/torch.compile.html?highlight=torch+compile#torch.compile).\n        You can customize the defaults with the argument `torch_compile_backend` and `torch_compile_mode` but we\n        don't guarantee any of them will work as the support is progressively rolled in in PyTorch.\n\n        This flag and the whole compile API is experimental and subject to change in future releases.\n    torch_compile_backend (`str`, *optional*):\n        The backend to use in `torch.compile`. If set to any value, `torch_compile` will be set to `True`.\n\n        Refer to the PyTorch doc for possible values and note that they may change across PyTorch versions.\n\n        This flag is experimental and subject to change in future releases.\n    torch_compile_mode (`str`, *optional*):\n        The mode to use in `torch.compile`. If set to any value, `torch_compile` will be set to `True`.\n\n        Refer to the PyTorch doc for possible values and note that they may change across PyTorch versions.\n\n        This flag is experimental and subject to change in future releases.\n    split_batches (`bool`, *optional*):\n        Whether or not the accelerator should split the batches yielded by the dataloaders across the devices\n        during distributed training. If\n\n        set to `True`, the actual batch size used will be the same on any kind of distributed processes, but it\n        must be a\n\n        round multiple of the number of processes you are using (such as GPUs).\n    include_tokens_per_second (`bool`, *optional*):\n        Whether or not to compute the number of tokens per second per device for training speed metrics.\n\n        This will iterate over the entire training dataloader once beforehand,\n\n        and will slow down the entire process.\n\n    include_num_input_tokens_seen (`bool`, *optional*):\n        Whether or not to track the number of input tokens seen throughout training.\n\n        May be slower in distributed training as gather operations must be called.\n\n    neftune_noise_alpha (`Optional[float]`):\n        If not `None`, this will activate NEFTune noise embeddings. This can drastically improve model performance\n        for instruction fine-tuning. Check out the [original paper](https://arxiv.org/abs/2310.05914) and the\n        [original code](https://github.com/neelsjain/NEFTune). Support transformers `PreTrainedModel` and also\n        `PeftModel` from peft. The original paper used values in the range [5.0, 15.0].\n    optim_target_modules (`Union[str, List[str]]`, *optional*):\n        The target modules to optimize, i.e. the module names that you would like to train, right now this is used only for GaLore algorithm\n        https://arxiv.org/abs/2403.03507\n        See: https://github.com/jiaweizzhao/GaLore for more details. You need to make sure to pass a valid GaloRe\n        optimizer, e.g. one of: \"galore_adamw\", \"galore_adamw_8bit\", \"galore_adafactor\" and make sure that the target modules are `nn.Linear` modules\n        only.\n\n    batch_eval_metrics (`Optional[bool]`, defaults to `False`):\n        If set to `True`, evaluation will call compute_metrics at the end of each batch to accumulate statistics\n        rather than saving all eval logits in memory. When set to `True`, you must pass a compute_metrics function\n        that takes a boolean argument `compute_result`, which when passed `True`, will trigger the final global\n        summary statistics from the batch-level summary statistics you've accumulated over the evaluation set.\n\n    eval_on_start (`bool`, *optional*, defaults to `False`):\n        Whether to perform a evaluation step (sanity check) before the training to ensure the validation steps works correctly.\n\n    eval_use_gather_object (`bool`, *optional*, defaults to `False`):\n        Whether to run recursively gather object in a nested list/tuple/dictionary of objects from all devices. This should only be enabled if users are not just returning tensors, and this is actively discouraged by PyTorch."
+    },
+    "6b3fdccd-8b27-4ad1-8a20-0056d77c357b": {
+      "id": "6b3fdccd-8b27-4ad1-8a20-0056d77c357b",
+      "name": "torch_empty_cache_steps",
+      "defaultVal": "None"
+    },
+    "6bbf35fc-3172-4359-babe-b3faf90f0ff6": {
+      "id": "6bbf35fc-3172-4359-babe-b3faf90f0ff6",
+      "name": "fp16_backend",
+      "defaultVal": "\"auto\""
+    },
+    "6c6597f0-6b4e-449a-af30-4fb48f3e7bd6": {
+      "id": "6c6597f0-6b4e-449a-af30-4fb48f3e7bd6",
+      "name": "torch_compile",
+      "defaultVal": "False"
+    },
+    "723d84ed-9d47-4aa4-9f6e-7dfad1e276f1": {
+      "id": "723d84ed-9d47-4aa4-9f6e-7dfad1e276f1",
+      "name": "label_names",
+      "defaultVal": "None"
+    },
+    "7242673e-eee8-4f12-a7cf-c2ec2579cd0f": {
+      "id": "7242673e-eee8-4f12-a7cf-c2ec2579cd0f",
+      "name": "use_legacy_prediction_loop",
+      "defaultVal": "False"
+    },
+    "750afaec-0260-40dd-9806-e02172321a57": {
+      "id": "750afaec-0260-40dd-9806-e02172321a57",
+      "name": "fp16",
+      "defaultVal": "False"
+    },
+    "784ced68-6a69-4835-903c-40b06c16a8ec": {
+      "id": "784ced68-6a69-4835-903c-40b06c16a8ec",
+      "name": "prediction_loss_only",
+      "defaultVal": "False"
+    },
+    "7948de5a-8cb4-4d4d-b81b-c2af9935d028": {
+      "id": "7948de5a-8cb4-4d4d-b81b-c2af9935d028",
+      "name": "fsdp_transformer_layer_cls_to_wrap",
+      "defaultVal": "None"
+    },
+    "7f64b65d-36d4-4cc6-9bd6-13d78226aa89": {
+      "id": "7f64b65d-36d4-4cc6-9bd6-13d78226aa89",
+      "name": "save_on_each_node",
+      "defaultVal": "False"
+    },
+    "7fd84609-2582-4809-8ca6-2ef62186d558": {
+      "id": "7fd84609-2582-4809-8ca6-2ef62186d558",
+      "name": "dataloader_persistent_workers",
+      "defaultVal": "False"
+    },
+    "815bb07a-b671-4854-85f4-a80f37ac2407": {
+      "id": "815bb07a-b671-4854-85f4-a80f37ac2407",
+      "name": "evaluation_strategy",
+      "defaultVal": "None"
+    },
+    "81a92a1a-a779-419e-8eda-394d967307ae": {
+      "id": "81a92a1a-a779-419e-8eda-394d967307ae",
+      "name": "past_index",
+      "defaultVal": "-1"
+    },
+    "855b0307-c71b-4d5a-93d8-66d559f7380f": {
+      "id": "855b0307-c71b-4d5a-93d8-66d559f7380f",
+      "name": "max_steps",
+      "defaultVal": "-1",
+      "isPinned": true
+    },
+    "86c75987-334b-45d3-8c84-5cb99d00be1d": {
+      "id": "86c75987-334b-45d3-8c84-5cb99d00be1d",
+      "name": "use_cpu",
+      "defaultVal": "False"
+    },
+    "86c90f76-f0dc-42b2-8ce4-b4ab7732b7b2": {
+      "id": "86c90f76-f0dc-42b2-8ce4-b4ab7732b7b2",
+      "name": "eval_on_start",
+      "defaultVal": "False"
+    },
+    "8b53b6d4-8fba-4498-bc25-75b27a6685f4": {
+      "id": "8b53b6d4-8fba-4498-bc25-75b27a6685f4",
+      "name": "hub_model_id",
+      "defaultVal": "None"
+    },
+    "8b7f0300-bbc1-4fed-84cd-7600d70c50f4": {
+      "id": "8b7f0300-bbc1-4fed-84cd-7600d70c50f4",
+      "name": "push_to_hub_organization",
+      "defaultVal": "None"
+    },
+    "8ccfdccb-022b-4058-86f7-6b91c0a2af65": {
+      "id": "8ccfdccb-022b-4058-86f7-6b91c0a2af65",
+      "name": "run_name",
+      "defaultVal": "None"
+    },
+    "8d80b90e-c2b9-4f3f-ad55-85569c5f0de6": {
+      "id": "8d80b90e-c2b9-4f3f-ad55-85569c5f0de6",
+      "name": "include_inputs_for_metrics",
+      "defaultVal": "False"
+    },
+    "8e23cae5-dff0-486d-a8b5-f7dc3f5c5382": {
+      "id": "8e23cae5-dff0-486d-a8b5-f7dc3f5c5382",
+      "name": "weight_decay",
+      "defaultVal": "0"
+    },
+    "90f9cb33-9dca-4409-aa60-ef8024e11c25": {
+      "id": "90f9cb33-9dca-4409-aa60-ef8024e11c25",
+      "name": "do_train",
+      "defaultVal": "False"
+    },
+    "91aa861c-9a53-4bc4-babe-cb4ff1707c29": {
+      "id": "91aa861c-9a53-4bc4-babe-cb4ff1707c29",
+      "name": "output_dir",
+      "description": "output_dir (`str`):",
+      "isPinned": true
+    },
+    "95a01884-211a-42a9-98d4-1bb8fec2f796": {
+      "id": "95a01884-211a-42a9-98d4-1bb8fec2f796",
+      "name": "gradient_checkpointing_kwargs",
+      "defaultVal": "None"
+    },
+    "9b5e402d-30ad-4452-964b-dbae8cd9a236": {
+      "id": "9b5e402d-30ad-4452-964b-dbae8cd9a236",
+      "name": "report_to",
+      "defaultVal": "None"
+    },
+    "9df56295-2286-48e2-893d-10ea455c5818": {
+      "id": "9df56295-2286-48e2-893d-10ea455c5818",
+      "name": "tf32",
+      "defaultVal": "None"
+    },
+    "9f402daa-e258-4432-9275-c27f625f4eca": {
+      "id": "9f402daa-e258-4432-9275-c27f625f4eca",
+      "name": "remove_unused_columns",
+      "defaultVal": "True"
+    },
+    "a110ed47-b85b-488e-b174-a3f19ce88ced": {
+      "id": "a110ed47-b85b-488e-b174-a3f19ce88ced",
+      "name": "skip_memory_metrics",
+      "defaultVal": "True"
+    },
+    "a12093ee-a0ab-49dd-ba85-11f10789f5e6": {
+      "id": "a12093ee-a0ab-49dd-ba85-11f10789f5e6",
+      "name": "push_to_hub",
+      "defaultVal": "False"
+    },
+    "a3bc2576-87b1-4ea7-8fca-9698ccc999f3": {
+      "id": "a3bc2576-87b1-4ea7-8fca-9698ccc999f3",
+      "name": "lr_scheduler_kwargs",
+      "defaultVal": "dict"
+    },
+    "a41266f6-8ef3-4097-af22-aa4e29e4f98e": {
+      "id": "a41266f6-8ef3-4097-af22-aa4e29e4f98e",
+      "name": "hub_token",
+      "defaultVal": "None"
+    },
+    "a86e2f26-6376-4dc5-8d9a-adbf07bdcb5b": {
+      "id": "a86e2f26-6376-4dc5-8d9a-adbf07bdcb5b",
+      "name": "adafactor",
+      "defaultVal": "False"
+    },
+    "a8de2b46-bd53-406f-8ff7-6f3cf60aab46": {
+      "id": "a8de2b46-bd53-406f-8ff7-6f3cf60aab46",
+      "name": "eval_strategy",
+      "defaultVal": "\"no\""
+    },
+    "aab4a0c5-9f0d-450a-b76e-42377ddbb929": {
+      "id": "aab4a0c5-9f0d-450a-b76e-42377ddbb929",
+      "name": "ddp_backend",
+      "defaultVal": "None"
+    },
+    "ab9e7e21-77df-4559-a076-dfb77c53f526": {
+      "id": "ab9e7e21-77df-4559-a076-dfb77c53f526",
+      "name": "group_by_length",
+      "defaultVal": "False"
+    },
+    "ad45cf2f-4034-486b-9a71-d8b588cad7e5": {
+      "id": "ad45cf2f-4034-486b-9a71-d8b588cad7e5",
+      "name": "fsdp_config",
+      "defaultVal": "None"
+    },
+    "ae0b5500-8205-4511-99e6-81f9e3018ac2": {
+      "id": "ae0b5500-8205-4511-99e6-81f9e3018ac2",
+      "name": "dataloader_prefetch_factor",
+      "defaultVal": "None if not is_torch_available() or is_torch_greater_or_equal_than_2_0 else 2"
+    },
+    "ae43d199-33d4-4bca-b1d9-9904927d450d": {
+      "id": "ae43d199-33d4-4bca-b1d9-9904927d450d",
+      "name": "logging_dir",
+      "defaultVal": "None"
+    },
+    "aeb303eb-a453-400c-8533-20f8a923d6c0": {
+      "id": "aeb303eb-a453-400c-8533-20f8a923d6c0",
+      "name": "tpu_num_cores",
+      "defaultVal": "None"
+    },
+    "af3d8c9d-a3b3-42b4-b9f9-5b745fb77ab1": {
+      "id": "af3d8c9d-a3b3-42b4-b9f9-5b745fb77ab1",
+      "name": "use_ipex",
+      "defaultVal": "False"
+    },
+    "afbe16f3-7452-4ae0-8f4c-f2a7d0e71b60": {
+      "id": "afbe16f3-7452-4ae0-8f4c-f2a7d0e71b60",
+      "name": "jit_mode_eval",
+      "defaultVal": "False"
+    },
+    "b0cd2213-1404-421d-8e6f-3edb2017a044": {
+      "id": "b0cd2213-1404-421d-8e6f-3edb2017a044",
+      "name": "metric_for_best_model",
+      "defaultVal": "None"
+    },
+    "b2950d1b-e3d9-4da1-a098-966dc1dfdc62": {
+      "id": "b2950d1b-e3d9-4da1-a098-966dc1dfdc62",
+      "name": "dispatch_batches",
+      "defaultVal": "None"
+    },
+    "b57e3c9e-cb38-4c91-85e8-bd54eabec61f": {
+      "id": "b57e3c9e-cb38-4c91-85e8-bd54eabec61f",
+      "name": "eval_steps",
+      "defaultVal": "None"
+    },
+    "b83f14dd-ce34-4f9d-ae72-0f2944e44420": {
+      "id": "b83f14dd-ce34-4f9d-ae72-0f2944e44420",
+      "name": "save_only_model",
+      "defaultVal": "False"
+    },
+    "bb1b60ab-0d29-404f-9915-a3c4d63ad02c": {
+      "id": "bb1b60ab-0d29-404f-9915-a3c4d63ad02c",
+      "name": "save_strategy",
+      "defaultVal": "\"steps\""
+    },
+    "bcc344d1-0854-42b9-8501-d772c1888cd9": {
+      "id": "bcc344d1-0854-42b9-8501-d772c1888cd9",
+      "name": "save_total_limit",
+      "defaultVal": "None"
+    },
+    "c2678e65-a3f9-4bd1-9632-bb7d7cb16f15": {
+      "id": "c2678e65-a3f9-4bd1-9632-bb7d7cb16f15",
+      "name": "eval_delay",
+      "defaultVal": "0"
+    },
+    "c590fdf8-38ec-48ef-9ae2-a22b7efd3191": {
+      "id": "c590fdf8-38ec-48ef-9ae2-a22b7efd3191",
+      "name": "neftune_noise_alpha",
+      "defaultVal": "None"
+    },
+    "c9299f4f-93b8-4efa-babc-1a2a8ae9edb3": {
+      "id": "c9299f4f-93b8-4efa-babc-1a2a8ae9edb3",
+      "name": "restore_callback_states_from_checkpoint",
+      "defaultVal": "False"
+    },
+    "c9ad1f7b-9659-4170-8c33-68996080443d": {
+      "id": "c9ad1f7b-9659-4170-8c33-68996080443d",
+      "name": "save_steps",
+      "defaultVal": "500"
+    },
+    "d1082d51-b014-4c39-90ae-d224da94e9f0": {
+      "id": "d1082d51-b014-4c39-90ae-d224da94e9f0",
+      "name": "debug",
+      "defaultVal": "\"\""
+    },
+    "d207be73-cc8c-4e82-ad41-23cc39dc0b2c": {
+      "id": "d207be73-cc8c-4e82-ad41-23cc39dc0b2c",
+      "name": "length_column_name",
+      "defaultVal": "\"length\""
+    },
+    "d40dab9e-7f18-4e7e-9eb2-b7229150999f": {
+      "id": "d40dab9e-7f18-4e7e-9eb2-b7229150999f",
+      "name": "tpu_metrics_debug",
+      "defaultVal": "False"
+    },
+    "d68cbfc1-391c-4688-b6dc-56b6d73d53e6": {
+      "id": "d68cbfc1-391c-4688-b6dc-56b6d73d53e6",
+      "name": "torch_compile_backend",
+      "defaultVal": "None"
+    },
+    "d7f390ed-9a4d-4ca7-b022-569e8b3a81af": {
+      "id": "d7f390ed-9a4d-4ca7-b022-569e8b3a81af",
+      "name": "use_mps_device",
+      "defaultVal": "False"
+    },
+    "d9e00e14-e628-405c-83c5-36870e5408ad": {
+      "id": "d9e00e14-e628-405c-83c5-36870e5408ad",
+      "name": "eval_do_concat_batches",
+      "defaultVal": "True"
+    },
+    "dc007260-0535-4910-83b2-b91cd646336a": {
+      "id": "dc007260-0535-4910-83b2-b91cd646336a",
+      "name": "fp16_opt_level",
+      "defaultVal": "\"O1\""
+    },
+    "dc2784a2-3ea1-4dd9-b1d6-a408de8d2516": {
+      "id": "dc2784a2-3ea1-4dd9-b1d6-a408de8d2516",
+      "name": "lr_scheduler_type",
+      "defaultVal": "\"linear\""
+    },
+    "dcb36209-ee93-4d78-a55d-156655429b70": {
+      "id": "dcb36209-ee93-4d78-a55d-156655429b70",
+      "name": "adam_beta1",
+      "defaultVal": "0.9"
+    },
+    "dd43ec6a-8af9-42ae-b9c3-82182ad3b891": {
+      "id": "dd43ec6a-8af9-42ae-b9c3-82182ad3b891",
+      "name": "load_best_model_at_end",
+      "defaultVal": "False"
+    },
+    "def8789d-bb91-4f7f-a60b-48e753fca522": {
+      "id": "def8789d-bb91-4f7f-a60b-48e753fca522",
+      "name": "log_level_replica",
+      "defaultVal": "\"warning\""
+    },
+    "df910c95-d377-4d15-b9a6-e5e6626203d5": {
+      "id": "df910c95-d377-4d15-b9a6-e5e6626203d5",
+      "name": "adam_beta2",
+      "defaultVal": "0.999"
+    },
+    "e13cba65-2567-4b80-81e6-538795d475a9": {
+      "id": "e13cba65-2567-4b80-81e6-538795d475a9",
+      "name": "push_to_hub_model_id",
+      "defaultVal": "None"
+    },
+    "e4d41433-d641-425e-bf4b-329dab11bd2b": {
+      "id": "e4d41433-d641-425e-bf4b-329dab11bd2b",
+      "name": "accelerator_config",
+      "defaultVal": "None"
+    },
+    "e5c3bcea-327d-4845-bef7-a95ecc21e7bb": {
+      "id": "e5c3bcea-327d-4845-bef7-a95ecc21e7bb",
+      "name": "per_device_eval_batch_size",
+      "defaultVal": "8"
+    },
+    "e6cd448a-1533-428e-8118-b185eb22a30d": {
+      "id": "e6cd448a-1533-428e-8118-b185eb22a30d",
+      "name": "ddp_find_unused_parameters",
+      "defaultVal": "None"
+    },
+    "f2ae5b5a-9749-4096-af72-4072ca1c28ad": {
+      "id": "f2ae5b5a-9749-4096-af72-4072ca1c28ad",
+      "name": "logging_steps",
+      "defaultVal": "500"
+    },
+    "f57e4b80-5b4c-4efd-bdfa-faade43c0c16": {
+      "id": "f57e4b80-5b4c-4efd-bdfa-faade43c0c16",
+      "name": "N",
+      "editable": true
+    },
+    "f838c6ea-25f2-43b6-874e-ff28a383956e": {
+      "id": "f838c6ea-25f2-43b6-874e-ff28a383956e",
+      "name": "optim_args",
+      "defaultVal": "None"
+    },
+    "fc78c88f-285a-4bdf-8b89-e9929bb8f298": {
+      "id": "fc78c88f-285a-4bdf-8b89-e9929bb8f298",
+      "name": "bf16_full_eval",
+      "defaultVal": "False"
+    },
+    "ffe2b99d-6b97-48f2-8d63-081532adf029": {
+      "id": "ffe2b99d-6b97-48f2-8d63-081532adf029",
+      "name": "local_rank",
+      "defaultVal": "-1"
+    }
+  },
+  "codeInfoCols": {
+    "d9c6e1e5-1df4-40d6-a819-c55d80f10df7": {
+      "children": {
+        "null": ["f57e4b80-5b4c-4efd-bdfa-faade43c0c16"],
+        "f57e4b80-5b4c-4efd-bdfa-faade43c0c16": []
+      }
+    },
+    "c3056bce-e13d-46ad-a164-6e0896426aa2": {
+      "children": {
+        "null": ["6830bb9c-b2b3-4abe-810f-263503aa303a"],
+        "6830bb9c-b2b3-4abe-810f-263503aa303a": [
+          "91aa861c-9a53-4bc4-babe-cb4ff1707c29",
+          "0e43ff31-0fbc-4f11-88e6-59d505e1d120",
+          "90f9cb33-9dca-4409-aa60-ef8024e11c25",
+          "a8de2b46-bd53-406f-8ff7-6f3cf60aab46",
+          "784ced68-6a69-4835-903c-40b06c16a8ec",
+          "61c34869-8193-4f08-acaf-271856f631ce",
+          "e5c3bcea-327d-4845-bef7-a95ecc21e7bb",
+          "04ecf904-c90c-4d8a-8713-111d9c06a00a",
+          "1aa90a4c-7b91-4b56-af2a-d3955e599ba5",
+          "c2678e65-a3f9-4bd1-9632-bb7d7cb16f15",
+          "6b3fdccd-8b27-4ad1-8a20-0056d77c357b",
+          "253cf075-f92b-49b0-981d-7e32a8a807c2",
+          "8e23cae5-dff0-486d-a8b5-f7dc3f5c5382",
+          "dcb36209-ee93-4d78-a55d-156655429b70",
+          "df910c95-d377-4d15-b9a6-e5e6626203d5",
+          "42a0a9b0-50ce-48f4-8a2c-a90fd94676a3",
+          "033646ea-56bb-416a-8533-20ffe0937f91",
+          "5c4fb66f-3573-4653-a93f-d08e41f772bd",
+          "855b0307-c71b-4d5a-93d8-66d559f7380f",
+          "dc2784a2-3ea1-4dd9-b1d6-a408de8d2516",
+          "a3bc2576-87b1-4ea7-8fca-9698ccc999f3",
+          "43c44a1d-90c8-4e46-b136-ee332758e928",
+          "0c9f0ffa-e58f-4123-bcb7-d9d6d845e3c2",
+          "15099942-0a9c-4c42-965f-5104901fb25f",
+          "def8789d-bb91-4f7f-a60b-48e753fca522",
+          "4166d115-5bf8-4ece-9927-e5c736f9ac5b",
+          "ae43d199-33d4-4bca-b1d9-9904927d450d",
+          "268dc253-4811-4149-ab93-a4256d64001f",
+          "00f1aaa4-7ad5-40b0-8cc7-0d6796098e7f",
+          "f2ae5b5a-9749-4096-af72-4072ca1c28ad",
+          "50d86ab3-c547-43c2-b204-dab1af5fbd23",
+          "bb1b60ab-0d29-404f-9915-a3c4d63ad02c",
+          "c9ad1f7b-9659-4170-8c33-68996080443d",
+          "bcc344d1-0854-42b9-8501-d772c1888cd9",
+          "62d3ae2c-101a-4b12-8710-024ce3efd9cf",
+          "7f64b65d-36d4-4cc6-9bd6-13d78226aa89",
+          "b83f14dd-ce34-4f9d-ae72-0f2944e44420",
+          "c9299f4f-93b8-4efa-babc-1a2a8ae9edb3",
+          "0e7eef4a-5b69-425b-b0e8-ef3e3c3eb217",
+          "86c75987-334b-45d3-8c84-5cb99d00be1d",
+          "d7f390ed-9a4d-4ca7-b022-569e8b3a81af",
+          "4f8b8020-eb5f-47e7-b372-83ffbef4c802",
+          "3e91ee00-7860-47ba-b705-12167ad1f86e",
+          "afbe16f3-7452-4ae0-8f4c-f2a7d0e71b60",
+          "af3d8c9d-a3b3-42b4-b9f9-5b745fb77ab1",
+          "38f9bced-52ca-4e13-bade-06fc1eb9e7fd",
+          "750afaec-0260-40dd-9806-e02172321a57",
+          "dc007260-0535-4910-83b2-b91cd646336a",
+          "5e7ceac9-3276-49af-989d-8fd9f4383e28",
+          "fc78c88f-285a-4bdf-8b89-e9929bb8f298",
+          "0ea09415-4836-46e2-99f5-75ecaf2f8e43",
+          "9df56295-2286-48e2-893d-10ea455c5818",
+          "ffe2b99d-6b97-48f2-8d63-081532adf029",
+          "aab4a0c5-9f0d-450a-b76e-42377ddbb929",
+          "aeb303eb-a453-400c-8533-20f8a923d6c0",
+          "d40dab9e-7f18-4e7e-9eb2-b7229150999f",
+          "d1082d51-b014-4c39-90ae-d224da94e9f0",
+          "239e6be8-953e-47b0-855e-94a30137bb84",
+          "b57e3c9e-cb38-4c91-85e8-bd54eabec61f",
+          "3ea662a8-3b0e-43e0-b938-0447adbef70c",
+          "ae0b5500-8205-4511-99e6-81f9e3018ac2",
+          "81a92a1a-a779-419e-8eda-394d967307ae",
+          "8ccfdccb-022b-4058-86f7-6b91c0a2af65",
+          "193d8d56-f67a-42d3-83e8-b2fcb535ed62",
+          "9f402daa-e258-4432-9275-c27f625f4eca",
+          "723d84ed-9d47-4aa4-9f6e-7dfad1e276f1",
+          "dd43ec6a-8af9-42ae-b9c3-82182ad3b891",
+          "b0cd2213-1404-421d-8e6f-3edb2017a044",
+          "63cde0a3-febf-4525-bc3b-a221429b5e55",
+          "3252b937-dacb-4651-a7c8-911f69507d87",
+          "0f4ffcea-36b3-49c0-ab12-559e79882fe1",
+          "40781cb1-ff9e-4f5e-b39b-c6a1f9992382",
+          "ad45cf2f-4034-486b-9a71-d8b588cad7e5",
+          "7948de5a-8cb4-4d4d-b81b-c2af9935d028",
+          "e4d41433-d641-425e-bf4b-329dab11bd2b",
+          "61273bec-3af9-4184-a703-637c5b54298c",
+          "184d0f2f-5e5e-424f-bc6a-b86a3d8fe6de",
+          "0a4e49d6-f50d-422a-92a6-4dff2522271b",
+          "f838c6ea-25f2-43b6-874e-ff28a383956e",
+          "a86e2f26-6376-4dc5-8d9a-adbf07bdcb5b",
+          "ab9e7e21-77df-4559-a076-dfb77c53f526",
+          "d207be73-cc8c-4e82-ad41-23cc39dc0b2c",
+          "9b5e402d-30ad-4452-964b-dbae8cd9a236",
+          "e6cd448a-1533-428e-8118-b185eb22a30d",
+          "3bb59c0e-a66c-4896-849e-de101501bea7",
+          "49f8d465-eb8c-4133-80dc-3ec8db7d5827",
+          "0e6c7da1-bdbb-4e2d-a014-df62ae26c009",
+          "7fd84609-2582-4809-8ca6-2ef62186d558",
+          "a110ed47-b85b-488e-b174-a3f19ce88ced",
+          "7242673e-eee8-4f12-a7cf-c2ec2579cd0f",
+          "a12093ee-a0ab-49dd-ba85-11f10789f5e6",
+          "108277cd-4975-42c9-ab6c-03e73577cd4e",
+          "8b53b6d4-8fba-4498-bc25-75b27a6685f4",
+          "136ba22e-aa41-4057-84b9-05eb72e9a943",
+          "a41266f6-8ef3-4097-af22-aa4e29e4f98e",
+          "3cedc00d-bc88-4031-b36e-6e3102aa1135",
+          "2209742e-bf2f-4fc9-902a-fffc14aec8d3",
+          "3d078b28-7e71-4b83-8d15-10e6d6edcf5e",
+          "95a01884-211a-42a9-98d4-1bb8fec2f796",
+          "8d80b90e-c2b9-4f3f-ad55-85569c5f0de6",
+          "d9e00e14-e628-405c-83c5-36870e5408ad",
+          "6bbf35fc-3172-4359-babe-b3faf90f0ff6",
+          "815bb07a-b671-4854-85f4-a80f37ac2407",
+          "e13cba65-2567-4b80-81e6-538795d475a9",
+          "8b7f0300-bbc1-4fed-84cd-7600d70c50f4",
+          "32a5ed91-132c-4132-8dcf-30caebb6bc99",
+          "46fcd278-dd84-424e-97ee-7839778e2394",
+          "19976d51-f7ff-4bc8-a9ad-68f85c24a03e",
+          "5277ad89-6abf-4e36-bac1-4e010e531b6a",
+          "35ca9d51-dd5e-475c-8e86-244b1ddf7ece",
+          "4d48620e-1f2e-4a3d-9846-e14187a52076",
+          "4628903d-44be-406f-a394-2dafeccdddd8",
+          "6c6597f0-6b4e-449a-af30-4fb48f3e7bd6",
+          "d68cbfc1-391c-4688-b6dc-56b6d73d53e6",
+          "3f0cb840-d115-461d-b9ff-c1e86d7fab6f",
+          "b2950d1b-e3d9-4da1-a098-966dc1dfdc62",
+          "1bdcc3e1-960f-4f4a-8630-49b44285e305",
+          "56f9494a-8472-465e-b8da-9d3ca74e1360",
+          "088925a3-dc6c-4141-9df3-02cbbdc7636f",
+          "c590fdf8-38ec-48ef-9ae2-a22b7efd3191",
+          "160cc454-4c27-453c-88a5-4838303f9621",
+          "57198323-93ce-42a1-8fd9-bf52ac64a688",
+          "86c90f76-f0dc-42b2-8ce4-b4ab7732b7b2",
+          "1db0609c-fc5a-4435-93be-40691ea4f77e"
+        ],
+        "91aa861c-9a53-4bc4-babe-cb4ff1707c29": [],
+        "0e43ff31-0fbc-4f11-88e6-59d505e1d120": [],
+        "90f9cb33-9dca-4409-aa60-ef8024e11c25": [],
+        "a8de2b46-bd53-406f-8ff7-6f3cf60aab46": [],
+        "784ced68-6a69-4835-903c-40b06c16a8ec": [],
+        "61c34869-8193-4f08-acaf-271856f631ce": [],
+        "e5c3bcea-327d-4845-bef7-a95ecc21e7bb": [],
+        "04ecf904-c90c-4d8a-8713-111d9c06a00a": [],
+        "1aa90a4c-7b91-4b56-af2a-d3955e599ba5": [],
+        "c2678e65-a3f9-4bd1-9632-bb7d7cb16f15": [],
+        "6b3fdccd-8b27-4ad1-8a20-0056d77c357b": [],
+        "253cf075-f92b-49b0-981d-7e32a8a807c2": [],
+        "8e23cae5-dff0-486d-a8b5-f7dc3f5c5382": [],
+        "dcb36209-ee93-4d78-a55d-156655429b70": [],
+        "df910c95-d377-4d15-b9a6-e5e6626203d5": [],
+        "42a0a9b0-50ce-48f4-8a2c-a90fd94676a3": [],
+        "033646ea-56bb-416a-8533-20ffe0937f91": [],
+        "5c4fb66f-3573-4653-a93f-d08e41f772bd": [],
+        "855b0307-c71b-4d5a-93d8-66d559f7380f": [],
+        "dc2784a2-3ea1-4dd9-b1d6-a408de8d2516": [],
+        "a3bc2576-87b1-4ea7-8fca-9698ccc999f3": [],
+        "43c44a1d-90c8-4e46-b136-ee332758e928": [],
+        "0c9f0ffa-e58f-4123-bcb7-d9d6d845e3c2": [],
+        "15099942-0a9c-4c42-965f-5104901fb25f": [],
+        "def8789d-bb91-4f7f-a60b-48e753fca522": [],
+        "4166d115-5bf8-4ece-9927-e5c736f9ac5b": [],
+        "ae43d199-33d4-4bca-b1d9-9904927d450d": [],
+        "268dc253-4811-4149-ab93-a4256d64001f": [],
+        "00f1aaa4-7ad5-40b0-8cc7-0d6796098e7f": [],
+        "f2ae5b5a-9749-4096-af72-4072ca1c28ad": [],
+        "50d86ab3-c547-43c2-b204-dab1af5fbd23": [],
+        "bb1b60ab-0d29-404f-9915-a3c4d63ad02c": [],
+        "c9ad1f7b-9659-4170-8c33-68996080443d": [],
+        "bcc344d1-0854-42b9-8501-d772c1888cd9": [],
+        "62d3ae2c-101a-4b12-8710-024ce3efd9cf": [],
+        "7f64b65d-36d4-4cc6-9bd6-13d78226aa89": [],
+        "b83f14dd-ce34-4f9d-ae72-0f2944e44420": [],
+        "c9299f4f-93b8-4efa-babc-1a2a8ae9edb3": [],
+        "0e7eef4a-5b69-425b-b0e8-ef3e3c3eb217": [],
+        "86c75987-334b-45d3-8c84-5cb99d00be1d": [],
+        "d7f390ed-9a4d-4ca7-b022-569e8b3a81af": [],
+        "4f8b8020-eb5f-47e7-b372-83ffbef4c802": [],
+        "3e91ee00-7860-47ba-b705-12167ad1f86e": [],
+        "afbe16f3-7452-4ae0-8f4c-f2a7d0e71b60": [],
+        "af3d8c9d-a3b3-42b4-b9f9-5b745fb77ab1": [],
+        "38f9bced-52ca-4e13-bade-06fc1eb9e7fd": [],
+        "750afaec-0260-40dd-9806-e02172321a57": [],
+        "dc007260-0535-4910-83b2-b91cd646336a": [],
+        "5e7ceac9-3276-49af-989d-8fd9f4383e28": [],
+        "fc78c88f-285a-4bdf-8b89-e9929bb8f298": [],
+        "0ea09415-4836-46e2-99f5-75ecaf2f8e43": [],
+        "9df56295-2286-48e2-893d-10ea455c5818": [],
+        "ffe2b99d-6b97-48f2-8d63-081532adf029": [],
+        "aab4a0c5-9f0d-450a-b76e-42377ddbb929": [],
+        "aeb303eb-a453-400c-8533-20f8a923d6c0": [],
+        "d40dab9e-7f18-4e7e-9eb2-b7229150999f": [],
+        "d1082d51-b014-4c39-90ae-d224da94e9f0": [],
+        "239e6be8-953e-47b0-855e-94a30137bb84": [],
+        "b57e3c9e-cb38-4c91-85e8-bd54eabec61f": [],
+        "3ea662a8-3b0e-43e0-b938-0447adbef70c": [],
+        "ae0b5500-8205-4511-99e6-81f9e3018ac2": [],
+        "81a92a1a-a779-419e-8eda-394d967307ae": [],
+        "8ccfdccb-022b-4058-86f7-6b91c0a2af65": [],
+        "193d8d56-f67a-42d3-83e8-b2fcb535ed62": [],
+        "9f402daa-e258-4432-9275-c27f625f4eca": [],
+        "723d84ed-9d47-4aa4-9f6e-7dfad1e276f1": [],
+        "dd43ec6a-8af9-42ae-b9c3-82182ad3b891": [],
+        "b0cd2213-1404-421d-8e6f-3edb2017a044": [],
+        "63cde0a3-febf-4525-bc3b-a221429b5e55": [],
+        "3252b937-dacb-4651-a7c8-911f69507d87": [],
+        "0f4ffcea-36b3-49c0-ab12-559e79882fe1": [],
+        "40781cb1-ff9e-4f5e-b39b-c6a1f9992382": [],
+        "ad45cf2f-4034-486b-9a71-d8b588cad7e5": [],
+        "7948de5a-8cb4-4d4d-b81b-c2af9935d028": [],
+        "e4d41433-d641-425e-bf4b-329dab11bd2b": [],
+        "61273bec-3af9-4184-a703-637c5b54298c": [],
+        "184d0f2f-5e5e-424f-bc6a-b86a3d8fe6de": [],
+        "0a4e49d6-f50d-422a-92a6-4dff2522271b": [],
+        "f838c6ea-25f2-43b6-874e-ff28a383956e": [],
+        "a86e2f26-6376-4dc5-8d9a-adbf07bdcb5b": [],
+        "ab9e7e21-77df-4559-a076-dfb77c53f526": [],
+        "d207be73-cc8c-4e82-ad41-23cc39dc0b2c": [],
+        "9b5e402d-30ad-4452-964b-dbae8cd9a236": [],
+        "e6cd448a-1533-428e-8118-b185eb22a30d": [],
+        "3bb59c0e-a66c-4896-849e-de101501bea7": [],
+        "49f8d465-eb8c-4133-80dc-3ec8db7d5827": [],
+        "0e6c7da1-bdbb-4e2d-a014-df62ae26c009": [],
+        "7fd84609-2582-4809-8ca6-2ef62186d558": [],
+        "a110ed47-b85b-488e-b174-a3f19ce88ced": [],
+        "7242673e-eee8-4f12-a7cf-c2ec2579cd0f": [],
+        "a12093ee-a0ab-49dd-ba85-11f10789f5e6": [],
+        "108277cd-4975-42c9-ab6c-03e73577cd4e": [],
+        "8b53b6d4-8fba-4498-bc25-75b27a6685f4": [],
+        "136ba22e-aa41-4057-84b9-05eb72e9a943": [],
+        "a41266f6-8ef3-4097-af22-aa4e29e4f98e": [],
+        "3cedc00d-bc88-4031-b36e-6e3102aa1135": [],
+        "2209742e-bf2f-4fc9-902a-fffc14aec8d3": [],
+        "3d078b28-7e71-4b83-8d15-10e6d6edcf5e": [],
+        "95a01884-211a-42a9-98d4-1bb8fec2f796": [],
+        "8d80b90e-c2b9-4f3f-ad55-85569c5f0de6": [],
+        "d9e00e14-e628-405c-83c5-36870e5408ad": [],
+        "6bbf35fc-3172-4359-babe-b3faf90f0ff6": [],
+        "815bb07a-b671-4854-85f4-a80f37ac2407": [],
+        "e13cba65-2567-4b80-81e6-538795d475a9": [],
+        "8b7f0300-bbc1-4fed-84cd-7600d70c50f4": [],
+        "32a5ed91-132c-4132-8dcf-30caebb6bc99": [],
+        "46fcd278-dd84-424e-97ee-7839778e2394": [],
+        "19976d51-f7ff-4bc8-a9ad-68f85c24a03e": [],
+        "5277ad89-6abf-4e36-bac1-4e010e531b6a": [],
+        "35ca9d51-dd5e-475c-8e86-244b1ddf7ece": [],
+        "4d48620e-1f2e-4a3d-9846-e14187a52076": [],
+        "4628903d-44be-406f-a394-2dafeccdddd8": [],
+        "6c6597f0-6b4e-449a-af30-4fb48f3e7bd6": [],
+        "d68cbfc1-391c-4688-b6dc-56b6d73d53e6": [],
+        "3f0cb840-d115-461d-b9ff-c1e86d7fab6f": [],
+        "b2950d1b-e3d9-4da1-a098-966dc1dfdc62": [],
+        "1bdcc3e1-960f-4f4a-8630-49b44285e305": [],
+        "56f9494a-8472-465e-b8da-9d3ca74e1360": [],
+        "088925a3-dc6c-4141-9df3-02cbbdc7636f": [],
+        "c590fdf8-38ec-48ef-9ae2-a22b7efd3191": [],
+        "160cc454-4c27-453c-88a5-4838303f9621": [],
+        "57198323-93ce-42a1-8fd9-bf52ac64a688": [],
+        "86c90f76-f0dc-42b2-8ce4-b4ab7732b7b2": [],
+        "1db0609c-fc5a-4435-93be-40691ea4f77e": []
+      }
+    }
+  }
+}
