@@ -135,6 +135,7 @@ function SectionSearchCore({
   }, _.isEqual);
 
   const [value, setValue] = useState(codeInfoName);
+  const [localEVRefs, setLocalEVRefs] = useState(evRefs);
   const shouldResetValueOnBlur = useRef(false);
 
   useEffect(() => {
@@ -144,8 +145,6 @@ function SectionSearchCore({
   useDeepCompareEffect(() => {
     setLocalEVRefs(evRefs);
   }, [evRefs]);
-
-  const [localEVRefs, setLocalEVRefs] = useState(evRefs);
 
   function onBlur() {
     if (shouldResetValueOnBlur.current) {
@@ -240,5 +239,5 @@ const debouncedSetEVRefs = asyncDebounce(
     });
     setLocalEVRefs(evRefs);
   },
-  500,
+  50,
 );
