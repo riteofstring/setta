@@ -5,6 +5,7 @@ from pprint import pprint
 
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 from setta.lsp.reader.completion import process_completion_result
+from setta.lsp.reader.references import process_references_result
 from setta.lsp.reader.signatureHelp import process_signature_help_result
 from setta.utils.constants import C
 
@@ -159,37 +160,9 @@ class LanguageServerReader(LanguageServerInteractor):
                 content = process_signature_help_result(response)
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/references":
-                print("textDocument/references response", response, flush=True)
-                content = []
-                if response["result"] and len(response["result"]) > 0:
-                    code = self.get_version(response["result"][0]["uri"])["code"]
-                    line_cols = []
-                    for x in response["result"]:
-                        line_cols.append(
-                            (
-                                x["range"]["start"]["line"],
-                                x["range"]["start"]["character"],
-                            )
-                        )
-                        line_cols.append(
-                            (x["range"]["end"]["line"], x["range"]["end"]["character"])
-                        )
-                    positions = line_col_to_position_batch(code, line_cols)
-                    position_offset = metadata["position_offset"]
-                    for idx in range(0, len(positions), 2):
-                        startPos = positions[idx] - position_offset
-                        endPos = positions[idx + 1] - position_offset
-                        content.append(
-                            {
-                                "startPos": startPos,
-                                "endPos": endPos,
-                            }
-                        )
-
-                return_id = metadata["return_id"]
-                num_messages = metadata["num_messages"]
-                content = {"positions": content, "numMessages": num_messages}
-
+                content, return_id = process_references_result(
+                    response, metadata, self.get_version
+                )
                 if id in self.pending_requests:
                     self.pending_requests[id].set_result(content)
                 else:
