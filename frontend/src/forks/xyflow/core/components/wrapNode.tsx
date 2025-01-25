@@ -3,7 +3,10 @@ import { SectionContainer } from "components/Section/Container/SectionContainer"
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import { useSectionInfos } from "state/definitions";
-import { NO_PAN_CLASS_NAME } from "utils/constants";
+import {
+  NO_PAN_CLASS_NAME,
+  SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
+} from "utils/constants";
 import useDrag from "../hooks/useDrag";
 import { updatePositions } from "../hooks/useUpdateNodePositions";
 import type { WrapNodeProps, XYPosition } from "../types";
@@ -38,6 +41,12 @@ const _NodeWrapper = ({
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (isInputDOMNode(event)) {
+      return;
+    }
+
+    // Early return if target element has the prevent class
+    const target = event.target as HTMLElement;
+    if (target.classList.contains(SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION)) {
       return;
     }
 

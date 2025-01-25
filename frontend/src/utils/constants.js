@@ -135,6 +135,8 @@ export const SETTA_PREVENT_SECTION_ACTIVE_CSS =
   "setta-prevent-section-active-css";
 export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
   "setta-prevent-section-on-click-trigger";
+export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
+  "setta-prevent-arrow-keys-moving-section";
 
 export const SECTION_DISPLAY_MODES = {
   RENDER: "RENDER",
