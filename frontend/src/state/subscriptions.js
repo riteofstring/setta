@@ -94,6 +94,7 @@ export function subscribe() {
     updateNodeDimensionsSubscriptionFn,
     (shouldUpdate) => {
       if (shouldUpdate) {
+        console.log("updateNodeDimensionsSubscriptionFn")
         updateNodeDimensions(
           getNodeUpdateInformation(useNodeInternals.getState().x.keys(), false),
         );

@@ -43,6 +43,7 @@ const NodeRenderer = ({}) => {
 
     const observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
       const updates = getNodeUpdateInformation(entries, true);
+      console.log("resize observer", updates)
       updateNodeDimensions(updates);
     });
 
