@@ -24,7 +24,6 @@ import {
 } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useMisc, useSectionInfos } from "state/definitions";
-import useDeepCompareEffect from "use-deep-compare-effect";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import { asyncDebounce } from "utils/utils";
 
@@ -48,19 +47,14 @@ function PythonCodeArea({ sectionId, language }) {
     (x) => getDisplayedSectionVariant(sectionId, x).evRefs,
     _.isEqual,
   );
-  const [localEVRefs, setLocalEVRefs] = useState(evRefs);
   const keywordStylizer = useMemo(
-    () => getKeywordStylizer(localEVRefs),
-    [JSON.stringify(localEVRefs)],
+    () => getKeywordStylizer(evRefs),
+    [JSON.stringify(evRefs)],
   );
   const completionsFn = useCallback(
     getCompletionsFn(sectionId, null, dbCodeAreaCompletion, language),
     [sectionId],
   );
-
-  useDeepCompareEffect(() => {
-    setLocalEVRefs(evRefs);
-  }, [evRefs]);
 
   return (
     <CoreCodeArea
