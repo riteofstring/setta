@@ -28,9 +28,7 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_initialize_request(self):
         params = {
-            "capabilities": {
-                "workspace": {"didChangeWatchedFiles": {"dynamicRegistration": True}}
-            },
+            "capabilities": {},
             "workspaceFolders": [{"uri": self.get_workspace_uri()}],
         }
         request_id = str(uuid.uuid4())
@@ -188,10 +186,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_request(
             "textDocument/definition", params=params, id=request_id, local=local
         )
-
-    async def send_did_change_watched_files(self, changes):
-        params = {"changes": changes}
-        await self.send_request("workspace/didChangeWatchedFiles", params=params)
 
     def get_workspace_uri(self):
         return f"file://{self.workspace_folder}".lower()
