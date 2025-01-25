@@ -11,7 +11,7 @@ from setta.utils.utils import multireplace
 
 
 def send_document_open_request_with_code_dict(
-    lsp_writers,
+    lsp_writer,
     code_dict,
     exporter_obj,
     projectConfigName,
@@ -19,7 +19,7 @@ def send_document_open_request_with_code_dict(
     for details in code_dict.values():
         asyncio.create_task(
             send_document_open_request(
-                lsp_writers,
+                lsp_writer,
                 details["code"],
                 exporter_obj,
                 projectConfigName,
@@ -30,18 +30,18 @@ def send_document_open_request_with_code_dict(
 
 
 async def send_document_open_request(
-    lsp_writers,
+    lsp_writer,
     code,
     exporter_obj,
     projectConfigName,
     sectionName,
     is_gen_code,
 ):
-    code_id = lsp_writers["full"].construct_code_id(
+    code_id = lsp_writer.construct_code_id(
         projectConfigName,
         sectionName,
     )
-    await lsp_writers["full"].send_document_open_request(
+    await lsp_writer.send_document_open_request(
         code_id=code_id,
         code=code,
         codeJson=exporter_obj.output if exporter_obj else None,

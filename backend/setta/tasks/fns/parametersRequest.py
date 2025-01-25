@@ -38,7 +38,7 @@ async def _parametersRequest(message, lsp_writers):
     cursor_position += 1
     line, column = position_to_line_col(code, cursor_position)
     code_id = await send_document_open_request(
-        lsp_writers,
+        lsp_writers["full"],
         code,
         exporter_obj,
         message.projectConfigName,
