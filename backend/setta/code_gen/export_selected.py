@@ -78,7 +78,8 @@ def get_section_code_info_children(p, section_id):
 
 def get_top_level_param_ids(p, id):
     selected_item_id = get_selected_item_id(p, id)
-    return get_code_info_children(p, id, selected_item_id)
+    children = get_code_info_children(p, id, selected_item_id)
+    return [c for c in children if p["codeInfo"][c]["rcType"] == C.PARAMETER]
 
 
 def get_param_ui_type(p, section_id, id):
