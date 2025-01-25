@@ -374,8 +374,6 @@ const ZoomPane = ({
     zoomActivationKeyPressed,
   ]);
 
-  useEffect(()=>{useMisc.setState({})},[JSON.stringify(wrapperDimensions)])
-
   return (
     <div
       className="react-flow__renderer"

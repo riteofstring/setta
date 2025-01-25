@@ -24,7 +24,6 @@ export function fitView(options: InternalFitViewOptions = {}) {
     fitViewOnInit,
   } = useReactFlow.getState();
 
-  console.log("calling fitview")
   const { minZoom, maxZoom } = useSettings.getState().gui;
 
   const isInitialFitView =
@@ -53,8 +52,6 @@ export function fitView(options: InternalFitViewOptions = {}) {
         options.maxZoom ?? maxZoom,
         options.padding ?? 0.1,
       );
-
-      console.log("x,y,zoom",x,y,zoom)
 
       const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
 

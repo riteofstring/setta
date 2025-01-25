@@ -25,7 +25,6 @@ export function deleteNodes(nodeIds) {
 }
 
 export function updateNodeDimensions(updates) {
-  console.log("updateNodeDimensions");
   const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions, domNode } =
     useReactFlow.getState();
 
@@ -58,16 +57,11 @@ export function updateNodeDimensions(updates) {
     }
   }
 
-  console.log("newNodes", newNodes);
-
   useNodeInternals.setState({ x: newNodes });
 
   const miscState = useMisc.getState();
   // don't do fitView until all code areas are done rendering
-  if (
-    miscState.numInitializedCodeAreas !== miscState.numDisplayedCodeAreas ||
-    !miscState.reactFlowWrapperDivDimensionsCalculated
-  ) {
+  if (miscState.numInitializedCodeAreas !== miscState.numDisplayedCodeAreas) {
     return;
   }
 

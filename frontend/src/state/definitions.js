@@ -234,7 +234,6 @@ export const useMisc = withProjectState(
         numInitializedCodeAreas: 0,
         requestUpdateNodeDimensions: false,
         updateDrawAreas: 0, // increments every time we want to update
-        zoomPaneHasDimensions: false
       })),
     ),
   ),
