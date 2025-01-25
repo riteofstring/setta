@@ -50,7 +50,7 @@ export function getOutlineColor({
   }
 
   if (isActiveSection) {
-    return "outline-transparent";
+    return "outline-blue-600 dark:outline-blue-700";
   }
 
   return "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-cyan-300";
