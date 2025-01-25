@@ -22,6 +22,7 @@ def send_document_open_request_with_diagnostics_with_code_dict(
                 lsp_writer,
                 details["code"],
                 exporter_obj,
+                details["ref_template_var_positions"],
                 projectConfigName,
                 details["sanitized_full_name"],
             )
@@ -32,6 +33,7 @@ async def send_document_open_request_with_diagnostics(
     lsp_writer,
     code,
     exporter_obj,
+    ref_template_var_positions,
     projectConfigName,
     sectionName,
 ):
@@ -43,6 +45,7 @@ async def send_document_open_request_with_diagnostics(
         code_id=code_id,
         code=code,
         codeJson=exporter_obj.output if exporter_obj else None,
+        ref_template_var_positions=ref_template_var_positions,
         needsDiagnostics=True,
         projectConfigId=exporter_obj.p["projectConfig"]["id"],
         sectionId=exporter_obj.code_gen_template_var_section_details["section"]["id"],

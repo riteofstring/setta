@@ -25,7 +25,12 @@ async def _parametersRequest(message, lsp_writers):
         fullNameToInfo,
     ) = cached
 
-    evRefs, code, cursor_position = await get_code_and_cursor_position(
+    (
+        evRefs,
+        code,
+        cursor_position,
+        ref_template_var_positions,
+    ) = await get_code_and_cursor_position(
         message,
         fullNameToInfo,
         gen_code_dict,
@@ -41,6 +46,7 @@ async def _parametersRequest(message, lsp_writers):
         lsp_writers["full"],
         code,
         exporter_obj,
+        ref_template_var_positions,
         message.projectConfigName,
         gen_code_dict["sanitized_full_name"],
     )

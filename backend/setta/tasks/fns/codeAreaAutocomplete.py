@@ -107,6 +107,7 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         lsp_writers["full"],
         code,
         exporter_obj,
+        ref_template_var_positions,
         message.projectConfigName,
         message.sectionName,
     )

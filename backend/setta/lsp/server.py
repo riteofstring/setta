@@ -118,6 +118,7 @@ class LanguageServerInteractor:
         uri,
         code,
         codeJson,
+        ref_template_var_positions,
         needsDiagnostics,
         projectConfigId,
         sectionId,
@@ -125,6 +126,7 @@ class LanguageServerInteractor:
         obj = {
             "code": code,
             "codeJson": codeJson,
+            "ref_template_var_positions": ref_template_var_positions,
             "needsDiagnostics": needsDiagnostics,
             "projectConfigId": projectConfigId,
             "sectionId": sectionId,
