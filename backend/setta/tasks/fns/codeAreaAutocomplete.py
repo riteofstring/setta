@@ -3,7 +3,7 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_section
-from setta.code_gen.export_selected import get_gen_code_template_var
+from setta.code_gen.export_selected import get_gen_code_template_var, get_selected_section_variant
 from setta.code_gen.find_placeholders import tp
 from setta.code_gen.python.check_scope import are_positions_in_scope_with_variable
 from setta.code_gen.python.generate_code import get_chars_in_line_before_position
@@ -13,7 +13,7 @@ from setta.tasks.fns.findEVRefs import findEVRefsLocally
 from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
-from .codeAreaInitializeCode import get_cache_key
+from .codeAreaInitializeCode import codeAreaInitializeCodeCoreLogic, get_cache_key
 from .utils import (
     TaskDefinition,
     prepare_code_for_scope_checking,
@@ -34,9 +34,8 @@ class CodeAreaAutocompleteContent(BaseModel):
     cached: Optional[Any] = None
 
 
-async def _codeAreaAutocomplete(message, lsp_writers):
-    request_id = message.id
-    message = CodeAreaAutocompleteContent.parse_obj(message.content)
+async def getGetTemplateVarsAndMaybeInitializeCode(message, lsp_writers):
+    should_cache_again = False
 
     (
         template_var_replacement_values,
@@ -61,7 +60,49 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         and exporter_obj.code_gen_template_var_section_details["section"].get("id")
         != message.sectionId
     ):
-        return {"content": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
+        # This if statement will only be entered if the code gen template var was added,
+        # while editing the code area. So the rest of the project should be unchanged.
+        # We just have to update the 
+        (
+            template_var_replacement_values,
+            generated_var_names,
+            referencable_var_names,
+            exporter_obj,
+            fullNameToInfo,
+            fullNameToSectionId,
+        ) = codeAreaInitializeCodeCoreLogic(
+            message.project, message.sectionId, lsp_writers
+        )
+        should_cache_again = True
+
+    return (
+        template_var_replacement_values,
+        generated_var_names,
+        referencable_var_names,
+        exporter_obj,
+        fullNameToInfo,
+        fullNameToSectionId,
+        gen_code_template_var,
+        templateVars,
+        should_cache_again,
+    )
+
+
+async def _codeAreaAutocomplete(message, lsp_writers):
+    request_id = message.id
+    message = CodeAreaAutocompleteContent.parse_obj(message.content)
+
+    (
+        template_var_replacement_values,
+        generated_var_names,
+        referencable_var_names,
+        exporter_obj,
+        fullNameToInfo,
+        fullNameToSectionId,
+        gen_code_template_var,
+        templateVars,
+        should_cache_again,
+    ) = await getGetTemplateVarsAndMaybeInitializeCode(message, lsp_writers)
 
     evRefs = await findEVRefsLocally(
         message.sectionId,
@@ -124,6 +165,17 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         virtual=False,
     )
 
+    if should_cache_again:
+        return {
+            "cache": [
+                template_var_replacement_values,
+                generated_var_names,
+                referencable_var_names,
+                exporter_obj,
+                fullNameToInfo,
+                fullNameToSectionId,
+            ]
+        }
     return None
 
 

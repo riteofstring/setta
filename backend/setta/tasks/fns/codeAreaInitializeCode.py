@@ -18,7 +18,13 @@ class CodeAreaInitializeCodeContent(BaseModel):
 
 async def _codeAreaInitializeCode(message, lsp_writers):
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
-    project = message.project
+    to_cache = codeAreaInitializeCodeCoreLogic(
+        message.project, message.sectionId, lsp_writers
+    )
+    return {"cache": to_cache}
+
+
+async def codeAreaInitializeCodeCoreLogic(project, sectionId, lsp_writers):
     exporter_obj = export_selected(
         project, always_export_args_objs=True, force_include_template_var=False
     )
@@ -37,10 +43,10 @@ async def _codeAreaInitializeCode(message, lsp_writers):
     generated_var_names = []
     if (
         exporter_obj.code_gen_template_var_section_details["section"].get("id")
-        == message.sectionId
+        == sectionId
     ):
         generated_var_names = list(
-            code_dict[message.sectionId]["var_name_to_decl_rel_position_dict"][
+            code_dict[sectionId]["var_name_to_decl_rel_position_dict"][
                 tp(C.SETTA_GENERATED_PYTHON)
             ].keys()
         )
@@ -53,20 +59,17 @@ async def _codeAreaInitializeCode(message, lsp_writers):
         ]
 
     template_var_replacement_values = {}
-    for r in code_dict[message.sectionId]["ref_template_var_positions"]["templateVars"]:
+    for r in code_dict[sectionId]["ref_template_var_positions"]["templateVars"]:
         template_var_replacement_values[r["keyword"]] = r["value"]
 
-    return {
-        "content": True,
-        "cache": [
-            template_var_replacement_values,
-            generated_var_names,
-            referencable_var_names,
-            exporter_obj,
-            project["fullNameToInfo"],
-            project["fullNameToSectionId"],
-        ],
-    }
+    return [
+        template_var_replacement_values,
+        generated_var_names,
+        referencable_var_names,
+        exporter_obj,
+        project["fullNameToInfo"],
+        project["fullNameToSectionId"],
+    ]
 
 
 def get_cache_key(projectConfigId, sectionId):
