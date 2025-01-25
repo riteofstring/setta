@@ -1,3 +1,5 @@
+from setta.lsp.file_watcher import LSPFileWatcher
+
 from .reader import LanguageServerReader
 from .server import LanguageServer
 from .writer import LanguageServerWriter
@@ -28,19 +30,27 @@ def create_lsp_readers(lsps, websocket_manager):
     return {k: LanguageServerReader(v, websocket_manager) for k, v in lsps.items()}
 
 
-async def start_lsps(lsps, lsp_readers, lsp_writers):
+def create_file_watcher(lsps, lsp_writers):
+    file_watcher = LSPFileWatcher(lsp_writers["full"].send_did_change_watched_files)
+    file_watcher.add_workspace_folder(lsps["full"].workspace_folder)
+    return file_watcher
+
+
+async def start_lsps(lsps, lsp_readers, lsp_writers, file_watcher):
     for k, v in lsps.items():
         await v.start_server()
         await lsp_readers[k].start_listener()
         await lsp_writers[k].send_initialize_request()
+    file_watcher.start()
 
 
-def kill_lsps(lsps, lsp_readers):
+def kill_lsps(lsps, lsp_readers, file_watcher):
+    file_watcher.stop()
     for k, v in lsps.items():
         lsp_readers[k].stop_event.set()
         v.kill_server()
 
 
-async def restart_lsps(lsps, lsp_readers, lsp_writers):
-    kill_lsps(lsps, lsp_readers)
-    await start_lsps(lsps, lsp_readers, lsp_writers)
+async def restart_lsps(lsps, lsp_readers, lsp_writers, file_watcher):
+    kill_lsps(lsps, lsp_readers, file_watcher)
+    await start_lsps(lsps, lsp_readers, lsp_writers, file_watcher)

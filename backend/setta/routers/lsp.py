@@ -10,5 +10,5 @@ router = APIRouter()
 
 @router.post(C.ROUTE_RESTART_LANGUAGE_SERVER)
 async def route_restart_language_server(lsps=Depends(get_lsps)):
-    lsps, lsp_readers, lsp_writers = lsps
-    await restart_lsps(lsps, lsp_readers, lsp_writers)
+    lsps, lsp_readers, lsp_writers, file_watcher = lsps
+    await restart_lsps(lsps, lsp_readers, lsp_writers, file_watcher)

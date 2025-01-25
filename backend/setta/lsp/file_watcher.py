@@ -1,3 +1,4 @@
+import asyncio
 import os
 import site
 from pathlib import Path
@@ -18,57 +19,7 @@ class LSPFileWatcher:
         """
         self.observer = Observer()
         self.watched_paths: Set[str] = set()
-        self.notify_callback = notify_callback
-        self.handler = self._create_event_handler()
-
-    def _create_event_handler(self) -> FileSystemEventHandler:
-        """Create and return a file system event handler."""
-
-        class LSPEventHandler(FileSystemEventHandler):
-            def __init__(self, callback):
-                self.callback = callback
-
-            def on_any_event(self, event: FileSystemEvent):
-                if event.is_directory:
-                    return
-
-                # Convert the event to LSP notification format
-                changes = [
-                    {
-                        "uri": self._path_to_uri(event.src_path),
-                        "type": self._get_change_type(event),
-                    }
-                ]
-
-                # Call the notification callback
-                self.callback(
-                    {
-                        "jsonrpc": "2.0",
-                        "method": "workspace/didChangeWatchedFiles",
-                        "params": {"changes": changes},
-                    }
-                )
-
-            def _path_to_uri(self, path: str) -> str:
-                """Convert file path to URI format."""
-                return Path(path).as_uri()
-
-            def _get_change_type(self, event: FileSystemEvent) -> int:
-                """
-                Convert watchdog event type to LSP change type.
-                1: Created
-                2: Changed
-                3: Deleted
-                """
-                if event.event_type == "created":
-                    return 1
-                elif event.event_type == "modified":
-                    return 2
-                elif event.event_type == "deleted":
-                    return 3
-                return 2  # Default to changed
-
-        return LSPEventHandler(self.notify_callback)
+        self.handler = LSPEventHandler(notify_callback, asyncio.get_event_loop())
 
     def add_workspace_folder(self, path: str) -> None:
         """
@@ -117,3 +68,46 @@ class LSPFileWatcher:
             absolute_path.startswith(watched_path)
             for watched_path in self.watched_paths
         )
+
+
+class LSPEventHandler(FileSystemEventHandler):
+    def __init__(self, callback, loop):
+        self.callback = callback
+        self.loop = loop
+
+    def on_any_event(self, event: FileSystemEvent):
+        if event.is_directory:
+            return
+
+        changes = [
+            {
+                "uri": self._path_to_uri(event.src_path),
+                "type": self._get_change_type(event),
+            }
+        ]
+
+        if asyncio.iscoroutinefunction(self.callback):
+            self.loop.call_soon_threadsafe(
+                lambda: self.loop.create_task(self.callback(changes))
+            )
+        else:
+            self.callback(changes)
+
+    def _path_to_uri(self, path: str) -> str:
+        """Convert file path to URI format."""
+        return Path(path).as_uri()
+
+    def _get_change_type(self, event: FileSystemEvent) -> int:
+        """
+        Convert watchdog event type to LSP change type.
+        1: Created
+        2: Changed
+        3: Deleted
+        """
+        if event.event_type == "created":
+            return 1
+        elif event.event_type == "modified":
+            return 2
+        elif event.event_type == "deleted":
+            return 3
+        return 2  # Default to changed

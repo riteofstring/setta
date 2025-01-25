@@ -189,6 +189,10 @@ class LanguageServerWriter(LanguageServerInteractor):
             "textDocument/definition", params=params, id=request_id, local=local
         )
 
+    async def send_did_change_watched_files(self, changes):
+        params = {"changes": changes}
+        await self.send_request("workspace/didChangeWatchedFiles", params=params)
+
     def get_workspace_uri(self):
         return f"file://{self.workspace_folder}".lower()
 
