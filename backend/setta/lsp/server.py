@@ -52,6 +52,9 @@ class LanguageServer:
             self.server.terminate()
         except ProcessLookupError:
             pass
+        for path in self.temp_files.values():
+            if path.exists():
+                path.unlink()
 
     @property
     def stdin(self):

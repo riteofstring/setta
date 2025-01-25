@@ -90,8 +90,6 @@ async def _codeAreaAutocomplete(message, lsp_writers):
         virtual=False,
     )
 
-    print("referencable_var_names", referencable_var_names, flush=True)
-
     await lsp_writers["full"].send_autocomplete_request(
         line,
         column,

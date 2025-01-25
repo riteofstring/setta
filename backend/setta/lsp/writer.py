@@ -95,8 +95,10 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
-    async def send_signature_help_request(self, line, character, code_id, request_id, virtual=True):
-        uri = self.get_uri(code_id,virtual)
+    async def send_signature_help_request(
+        self, line, character, code_id, request_id, virtual=True
+    ):
+        uri = self.get_uri(code_id, virtual)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
