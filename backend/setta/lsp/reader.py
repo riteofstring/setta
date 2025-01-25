@@ -1,63 +1,16 @@
 import asyncio
 import json
-import re
 from pprint import pprint
 
 from setta.lsp.reader_fns.completion import process_completion_result
 from setta.lsp.reader_fns.definition import process_definition_result
+from setta.lsp.reader_fns.diagnostics import process_diagnostics_result
 from setta.lsp.reader_fns.documentHighlight import process_document_highlight_result
 from setta.lsp.reader_fns.references import process_references_result
 from setta.lsp.reader_fns.signatureHelp import process_signature_help_result
 from setta.utils.constants import C
 
 from .server import LanguageServerInteractor
-
-
-def process_diagnostics(diagnostics, code_split, codeJson):
-    output = {}
-    for d in diagnostics:
-        r = d["range"]
-        start, end = r["start"], r["end"]
-        if "code" not in d:
-            continue
-        if d["code"] == "reportArgumentType":
-            problem_var = code_split[start["line"]][
-                start["character"] : end["character"]
-            ].strip()
-            if codeJson:
-                set_message(codeJson, problem_var, output, d["message"])
-        elif d["code"] == "reportCallIssue":
-            if "missing" not in d["message"]:
-                continue
-            missing_params = extract_parameters(d["message"])
-            # get variable to the left of the equal sign
-            assigned_to = code_split[start["line"]].split("=")[0].strip()
-            unusedParams = codeJson[assigned_to]["value"]["unusedParams"]
-            for potential_problem_var in unusedParams:
-                if codeJson[potential_problem_var]["name"] in missing_params:
-                    set_message(codeJson, potential_problem_var, output, d["message"])
-    return output
-
-
-def set_message(code_json, problem_var, output, message):
-    print("set_message", problem_var)
-    section_id, param_info_id = (
-        code_json[problem_var]["sectionId"],
-        code_json[problem_var]["paramInfoId"],
-    )
-
-    if section_id not in output:
-        output[section_id] = {}
-    if param_info_id not in output[section_id]:
-        output[section_id][param_info_id] = []
-
-    output[section_id][param_info_id].append(message)
-
-
-def extract_parameters(error_string):
-    pattern = r'"([^"]+)"'
-    parameters = re.findall(pattern, error_string)
-    return parameters
 
 
 class LanguageServerReader(LanguageServerInteractor):
@@ -184,18 +137,8 @@ class LanguageServerReader(LanguageServerInteractor):
                 else:
                     await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
-            # print(response, flush=True)
-            params = response["params"]
-            diagnostics = params["diagnostics"]
-            uri = params["uri"]
-            version_info = self.get_version(uri, params.get("version"))
-            # TODO, remove this condition
-            if version_info["is_gen_code"]:
-                code = version_info["code"]
-                codeJson = version_info["codeJson"]
-                code_split = code.split("\n")
-                content = process_diagnostics(diagnostics, code_split, codeJson)
-                # print("content", content, flush=True)
+            content, action = process_diagnostics_result(response, self.get_version)
+            if action == "broadcast":
                 await self.websocket_manager.broadcast(
                     {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
                 )
