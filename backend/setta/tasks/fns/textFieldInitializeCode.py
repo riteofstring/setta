@@ -36,7 +36,7 @@ async def _textFieldInitializeCode(message, lsp_writers):
         push_var_name=var_name,
     )
     send_document_open_request_with_code_dict(
-        lsp_writers,
+        lsp_writers["full"],
         code_dict,
         exporter_obj,
         projectConfigName,
