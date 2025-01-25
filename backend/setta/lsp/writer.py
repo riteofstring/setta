@@ -37,18 +37,12 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_didChangeConfiguration()  # pyright requires this step
 
     async def send_document_open_request(
-        self,
-        code_id,
-        code,
-        codeJson=None,
-        is_gen_code=False,
-        virtual=True,
+        self, code_id, code, codeJson=None, is_gen_code=False
     ):
-        uri = self.get_uri(code_id, virtual)
+        uri = self.get_virtual_uri(code_id)
         print("uri", uri, flush=True)
         if uri not in self.versions:
-            if not virtual:
-                self.create_or_update_temp_file(code_id, code)
+            print("send_document_open_request", code_id, flush=True)
             params = {
                 "textDocument": {
                     "uri": uri,
@@ -59,13 +53,10 @@ class LanguageServerWriter(LanguageServerInteractor):
                     "text": code,
                 }
             }
-            print("send_document_open_request", code_id, flush=True)
             await self.send_request("textDocument/didOpen", params=params)
         else:
             print("document already open, updating it", code_id, flush=True)
-            await self.send_document_update(
-                code_id, code, codeJson, is_gen_code, virtual
-            )
+            await self.send_document_update(code_id, code, codeJson, is_gen_code)
 
     async def send_autocomplete_request(
         self,
@@ -76,9 +67,8 @@ class LanguageServerWriter(LanguageServerInteractor):
         referencable_var_names,
         generated_var_names,
         cursor_offset,
-        virtual=True,
     ):
-        uri = self.get_uri(code_id, virtual)
+        uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -95,10 +85,8 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
-    async def send_signature_help_request(
-        self, line, character, code_id, request_id, virtual=True
-    ):
-        uri = self.get_uri(code_id, virtual)
+    async def send_signature_help_request(self, line, character, code_id, request_id):
+        uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -113,7 +101,7 @@ class LanguageServerWriter(LanguageServerInteractor):
     async def send_document_highlight_request(
         self, line, character, code_id, request_id, return_id, num_messages
     ):
-        uri = self.get_uri(code_id)
+        uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -142,12 +130,8 @@ class LanguageServerWriter(LanguageServerInteractor):
             params={"settings": settings},
         )
 
-    async def send_document_update(
-        self, code_id, code, codeJson, is_gen_code, virtual=True
-    ):
-        if not virtual:
-            self.create_or_update_temp_file(code_id, code)
-        uri = self.get_uri(code_id, virtual)
+    async def send_document_update(self, code_id, code, codeJson, is_gen_code):
+        uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {
                 "uri": uri,
@@ -169,7 +153,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         return_id,
         num_messages,
     ):
-        uri = self.get_uri(code_id)
+        uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {
                 "uri": uri,
@@ -194,7 +178,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         request_id,
         local=False,
     ):
-        uri = self.get_uri(code_id)
+        uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -206,33 +190,9 @@ class LanguageServerWriter(LanguageServerInteractor):
     def get_workspace_uri(self):
         return f"file://{self.workspace_folder}".lower()
 
-    def get_base_uri(self, code_id):
-        return self.code_folder / f"{code_id}.py"
-
     # https://github.com/microsoft/language-server-protocol/issues/1676
-    def get_uri(self, code_id, virtual=True):
-        base_uri = self.get_base_uri(code_id)
-        prefix = "untitled:" if virtual else "file://"
-        uri = f"{prefix}{base_uri}".lower()
+    def get_virtual_uri(self, code_id):
+        uri = f"untitled:{self.code_folder / code_id}.py".lower()
         if platform.system() == "Windows":
             uri += "/"  # need trailing slash on Windows for some reason
         return uri
-
-    def create_temp_file(self, code_id, code):
-        """Create a temporary file for the given code and return its path."""
-        # Create all necessary parent directories
-        file_path = self.get_base_uri(code_id)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Write the code to the file
-        file_path.write_text(code)
-
-        # Store the path for later cleanup
-        self.temp_files[code_id] = file_path
-        return file_path
-
-    def create_or_update_temp_file(self, code_id, code):
-        if code_id in self.temp_files:
-            self.temp_files[code_id].write_text(code)
-        else:
-            self.create_temp_file(code_id, code)

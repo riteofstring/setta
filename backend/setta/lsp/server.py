@@ -34,7 +34,6 @@ class LanguageServer:
         self.versions = {}
         self.initialization_request_id = None
         self.is_initialized = False
-        self.temp_files = {}
 
     def cleanup_pending_requests(self):
         if not hasattr(self, "pending_requests"):
@@ -52,9 +51,6 @@ class LanguageServer:
             self.server.terminate()
         except ProcessLookupError:
             pass
-        for path in self.temp_files.values():
-            if path.exists():
-                path.unlink()
 
     @property
     def stdin(self):
@@ -85,10 +81,6 @@ class LanguageServerInteractor:
     @property
     def pending_requests(self):
         return self.server.pending_requests
-
-    @property
-    def temp_files(self):
-        return self.server.temp_files
 
     async def wait_for_response(self, id, timeout=None):
         future = self.pending_requests.get(id)
