@@ -37,12 +37,6 @@ export async function setSelectedItem(
     return;
   }
 
-  // const evRefs = await getEVRefs({
-  //   sectionId: dataSectionId,
-  //   paramInfoId: null,
-  //   fullText: selectedItemName,
-  // });
-
   const setToNotWaiting = setParametersRequestWaitingForLSP(visualSectionId);
 
   const paramRes = await dbParametersRequest({
