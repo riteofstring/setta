@@ -163,10 +163,8 @@ class LanguageServerReader(LanguageServerInteractor):
         websocket_message_type = None
 
         if method == "textDocument/publishDiagnostics":
-            content, needsDiagnostics = process_diagnostics_response(
-                response, self.get_version
-            )
-            if needsDiagnostics:
+            content = process_diagnostics_response(response, self.get_version)
+            if content is not None:
                 websocket_method = "broadcast"
                 websocket_message_type = C.WS_LSP_DIAGNOSTICS
 

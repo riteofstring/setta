@@ -255,10 +255,9 @@ class Exporter:
             taken_names = [s["name"] for s in p["sections"].values()]
             section_details = {
                 "id": None,
-                "name": "setta_python_script",
+                "name": generate_memorable_available_string(taken_names),
                 "codeLanguage": "python",
             }
-            print("created fake section with name", section_details["name"])
             _, section_variant = new_section_variant(
                 code=tp(C.SETTA_GENERATED_PYTHON),
                 templateVars=[
