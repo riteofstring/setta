@@ -3,32 +3,32 @@ import { useCallback, useEffect, useRef } from "react";
 import { useResizerStore, useSectionColumnWidth } from "state/definitions";
 import { clamp } from "utils/utils";
 
-export const CENTER_OFFSET = 18;
+const CENTER_OFFSET = 18;
 
-export function getMarginPx(maxNestedDepth) {
+function getMarginPx(maxNestedDepth) {
   return 72 + Math.max(0, 12 * (maxNestedDepth - 1));
 }
 
-export function calculateBoundedWidth(width, containerWidth, maxNestedDepth) {
+function calculateBoundedWidth(width, containerWidth, maxNestedDepth) {
   const marginPx = getMarginPx(maxNestedDepth);
   return clamp(width, marginPx, containerWidth - marginPx);
 }
 
-export function setSectionWidth(sectionId, rawWidth) {
+function setSectionWidth(sectionId, rawWidth) {
   useSectionColumnWidth.setState({
     [sectionId]: rawWidth - CENTER_OFFSET,
   });
 }
 
-export function setActiveResizer(resizerData) {
+function setActiveResizer(resizerData) {
   useResizerStore.setState({ activeResizer: resizerData });
 }
 
-export function clearActiveResizer() {
+function clearActiveResizer() {
   useResizerStore.setState({ activeResizer: null });
 }
 
-export function handleGlobalMouseMove(e) {
+function handleGlobalMouseMove(e) {
   const activeResizer = useResizerStore.getState().activeResizer;
   if (!activeResizer) return;
 
@@ -64,7 +64,7 @@ export function handleGlobalMouseMove(e) {
   });
 }
 
-export function handleGlobalMouseUp() {
+function handleGlobalMouseUp() {
   const activeResizer = useResizerStore.getState().activeResizer;
   if (activeResizer?.widthRef) {
     const finalWidth =

@@ -21,6 +21,6 @@ export function setWebsocketConnectedTo(connectedTo) {
   useWebsocketConnectionList.setState({ connectedTo });
 }
 
-export function setWebsocketConnections(connections) {
+function setWebsocketConnections(connections) {
   useWebsocketConnectionList.setState({ connections });
 }

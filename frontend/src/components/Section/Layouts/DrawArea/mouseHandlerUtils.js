@@ -181,7 +181,7 @@ export function preventExactZero(scale) {
   return scale;
 }
 
-export function imageTopLeftHandleBehavior(
+function imageTopLeftHandleBehavior(
   transform,
   scaledWidth,
   scaledHeight,
@@ -195,7 +195,7 @@ export function imageTopLeftHandleBehavior(
   transform[5] += dy;
 }
 
-export function imageTopRightHandleBehavior(
+function imageTopRightHandleBehavior(
   transform,
   scaledWidth,
   scaledHeight,
@@ -208,7 +208,7 @@ export function imageTopRightHandleBehavior(
   transform[5] += dy;
 }
 
-export function imageBottomLeftHandleBehavior(
+function imageBottomLeftHandleBehavior(
   transform,
   scaledWidth,
   scaledHeight,
@@ -221,7 +221,7 @@ export function imageBottomLeftHandleBehavior(
   transform[4] += dx;
 }
 
-export function imageBottomRightHandleBehavior(
+function imageBottomRightHandleBehavior(
   transform,
   scaledWidth,
   scaledHeight,

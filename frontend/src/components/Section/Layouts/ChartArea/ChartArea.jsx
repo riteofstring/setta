@@ -169,7 +169,7 @@ function getUpdaterFn(type) {
   }
 }
 
-export function getAxisType(isLog, sampleData) {
+function getAxisType(isLog, sampleData) {
   if (typeof sampleData === "string") {
     return "category";
   }

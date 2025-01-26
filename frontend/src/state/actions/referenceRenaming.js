@@ -9,7 +9,7 @@ import { templatePrefix } from "utils/utils";
 import { openRenameReferencesModal } from "./modal";
 import { getSectionPathFullName } from "./sectionInfos";
 
-export function getRequiredReplacements() {
+function getRequiredReplacements() {
   const codeAreaReplacements = {};
   const codeInfoReplacements = {};
   const paramEVReplacements = {};

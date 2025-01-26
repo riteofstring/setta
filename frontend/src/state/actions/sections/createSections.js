@@ -134,7 +134,7 @@ export function addChild({ id, parentId, type, sectionProps }) {
   });
 }
 
-export function createSectionInfo({
+function createSectionInfo({
   sectionProps = {},
   sectionVariantProps = {},
   numSections = 1,

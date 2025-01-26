@@ -27,11 +27,7 @@ export function createNewVersion(sectionId, newVersionName, state) {
   return { newVariantId, oldVariantId: currVariantId };
 }
 
-export async function maybeSaveNewJSONVersion(
-  sectionId,
-  jsonSource,
-  oldVariantId,
-) {
+async function maybeSaveNewJSONVersion(sectionId, jsonSource, oldVariantId) {
   if (jsonSource) {
     const { name: oldVariantName } =
       useSectionInfos.getState().variants[oldVariantId];
@@ -40,7 +36,7 @@ export async function maybeSaveNewJSONVersion(
   setNotificationMessage("New Version Created");
 }
 
-export async function createNewVersionName(jsonSource) {
+async function createNewVersionName(jsonSource) {
   if (jsonSource) {
     const res = await dbNewVersionFilename(jsonSource);
     if (res.status === 200) {

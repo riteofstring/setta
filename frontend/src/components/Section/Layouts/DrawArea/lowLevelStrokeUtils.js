@@ -8,11 +8,11 @@ export function getTransformedPoints(points, transform) {
   ]);
 }
 
-export function getSegmentAngle(p1, p2) {
+function getSegmentAngle(p1, p2) {
   return Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
 }
 
-export function getTransformedWidth(width, angle, scaleX, scaleY) {
+function getTransformedWidth(width, angle, scaleX, scaleY) {
   // Get the direction perpendicular to the line
   const perpAngle = angle + Math.PI / 2;
 
@@ -30,7 +30,7 @@ export function getTransformedWidth(width, angle, scaleX, scaleY) {
   );
 }
 
-export function getSamplePoints(points, minDistance) {
+function getSamplePoints(points, minDistance) {
   if (points.length <= 2) return points;
 
   const samples = [points[0]];

@@ -6,7 +6,7 @@ import {
 } from "state/hooks/artifacts";
 import { useImgArtifactAreaSize } from "state/hooks/sectionSizes";
 
-export function _ImageArea({ sectionId }) {
+function _ImageArea({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, (x) =>
     _.pick(x, ["value"]),
   );

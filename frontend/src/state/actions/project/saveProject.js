@@ -160,7 +160,7 @@ export async function getProjectDataForSaving() {
   return project;
 }
 
-export async function updateSectionsWithRenderedValues(sections) {
+async function updateSectionsWithRenderedValues(sections) {
   for (const sectionId of Object.keys(sections)) {
     if ([C.DRAW, C.CHART].includes(getSectionType(sectionId))) {
       sections[sectionId].renderedValue =

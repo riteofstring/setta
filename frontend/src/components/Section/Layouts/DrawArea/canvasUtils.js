@@ -111,12 +111,12 @@ export function getXY(e) {
   return [offsetX, offsetY];
 }
 
-export function clearCanvas(canvas) {
+function clearCanvas(canvas) {
   const ctx = getCtx(canvas);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-export function getCtx(canvas) {
+function getCtx(canvas) {
   return canvas.getContext("2d");
 }
 
@@ -299,7 +299,7 @@ export function startNewEraserStroke(
   });
 }
 
-export function drawStrokesOntoTempCanvas(
+function drawStrokesOntoTempCanvas(
   ctx,
   strokes,
   artifactTransform = null,
@@ -320,7 +320,7 @@ export function drawStrokesOntoTempCanvas(
   }
 }
 
-export function drawStrokeOntoTempCanvas(ctx, stroke, artifactTransform) {
+function drawStrokeOntoTempCanvas(ctx, stroke, artifactTransform) {
   const transform = getCombinedTransformForStroke(
     artifactTransform,
     stroke.transform,
@@ -403,7 +403,7 @@ export function getInverseTransform(transform) {
   ];
 }
 
-export function hexToRGBA(_hex, opacity) {
+function hexToRGBA(_hex, opacity) {
   // Remove # if present
   const hex = _hex.replace("#", "");
 
@@ -415,7 +415,7 @@ export function hexToRGBA(_hex, opacity) {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
-export function maybeGetImgSizeFromArtifact(artifact) {
+function maybeGetImgSizeFromArtifact(artifact) {
   if (artifact?.type === "img" && artifact?.value?.complete) {
     const image = artifact.value;
     return { width: image.width, height: image.height };

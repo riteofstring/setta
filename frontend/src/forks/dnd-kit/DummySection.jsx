@@ -29,7 +29,7 @@ export const TempDNDSection = React.forwardRef(({}, ref) => {
   );
 });
 
-export const DummySection = React.forwardRef(({}, ref) => {
+const DummySection = React.forwardRef(({}, ref) => {
   const zoom = useReactFlow((x) => x.transform[2]);
   const { width, height } = useDndState(
     (x) => ({

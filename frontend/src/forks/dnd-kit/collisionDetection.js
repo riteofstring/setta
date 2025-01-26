@@ -56,7 +56,7 @@ function compareCollisions(a, b) {
   return rb - ra > 0 ? b : a;
 }
 
-export function getIntersectionRatio(entry, target) {
+function getIntersectionRatio(entry, target) {
   const top = Math.max(target.top, entry.top);
   const left = Math.max(target.left, entry.left);
   const right = Math.min(target.left + target.width, entry.left + entry.width);

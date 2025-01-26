@@ -33,12 +33,7 @@ function convertValue(sectionId, paramInfoId, uiTypeId, state) {
   convertParamSweepValues({ sectionId, paramInfoId, uiType, state });
 }
 
-export function convertParamSweepValues({
-  sectionId,
-  paramInfoId,
-  uiType,
-  state,
-}) {
+function convertParamSweepValues({ sectionId, paramInfoId, uiType, state }) {
   const { paramSweepSectionId } = state.x[sectionId];
   if (!paramSweepSectionId) {
     return;

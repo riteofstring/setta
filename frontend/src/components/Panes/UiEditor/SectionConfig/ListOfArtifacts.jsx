@@ -118,7 +118,7 @@ const LayersList = ({
   );
 };
 
-export function ListOfArtifacts({
+function ListOfArtifacts({
   availableArtifacts,
   onDragStart,
   onDragEnd,

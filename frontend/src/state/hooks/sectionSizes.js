@@ -17,7 +17,7 @@ export const PINNED_PARAMS_AREA_MIN_HEIGHT = 64;
 const ROOT_SECTION_HEIGHT = 50;
 const MINIMIZE_SECTION_HEIGHT = 32;
 
-export function getMinSectionHeight({
+function getMinSectionHeight({
   sectionType,
   hideSearch,
   hideParams,
@@ -58,7 +58,7 @@ export function getMinSectionHeight({
   }
 }
 
-export function getMaxSectionHeight({ sectionType, isMinimized }) {
+function getMaxSectionHeight({ sectionType, isMinimized }) {
   if (isMinimized) {
     return MINIMIZE_SECTION_HEIGHT;
   }
@@ -68,7 +68,7 @@ export function getMaxSectionHeight({ sectionType, isMinimized }) {
   return INFINITE_MAX_HEIGHT;
 }
 
-export function getMinSectionWidth({ sectionType, isTwitter }) {
+function getMinSectionWidth({ sectionType, isTwitter }) {
   if (isTwitter) {
     return 370;
   }
@@ -81,14 +81,14 @@ export function getMinSectionWidth({ sectionType, isTwitter }) {
   return 200;
 }
 
-export function getMaxSectionWidth({ isTwitter }) {
+function getMaxSectionWidth({ isTwitter }) {
   if (isTwitter) {
     return 574;
   }
   return INFINITE_MAX_WIDTH;
 }
 
-export function getSizeMode({ sectionType, hideParams, isTwitter }) {
+function getSizeMode({ sectionType, hideParams, isTwitter }) {
   if (sectionType === C.SECTION) {
     if (hideParams) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
@@ -178,10 +178,7 @@ export function useIsScrollable() {
   return { ref: elementRef, isScrollable };
 }
 
-export async function setSectionToHaveAspectRatioAndMinSize(
-  sectionId,
-  imgSize,
-) {
+async function setSectionToHaveAspectRatioAndMinSize(sectionId, imgSize) {
   const sectionType = getSectionType(sectionId);
   const minHeight = getMinSectionHeight({ sectionType });
   const minWidth = getMinSectionWidth({ sectionType });

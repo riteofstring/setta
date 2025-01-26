@@ -76,7 +76,7 @@ function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
   );
 }
 
-export function getMenuItems(uiTypeName) {
+function getMenuItems(uiTypeName) {
   switch (uiTypeName) {
     case C.INFO:
       return [

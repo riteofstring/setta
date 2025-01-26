@@ -25,8 +25,8 @@ import {
 // But in case of double renders (basically just StrictMode),
 // this keeps a list of websockets, so we can add the new websocket
 // while the old one gets deleted.
-export const TERMINAL_WEBSOCKETS = {};
-export const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
+const TERMINAL_WEBSOCKETS = {};
+const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
 
 export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
   const terminalRef = useRef(null); // Ref for the terminal container

@@ -52,7 +52,7 @@ export async function requestBase64FromCanvas(sectionId) {
   return await callFnAndWait({ id, condition, fn });
 }
 
-export function base64RequestId(sectionId) {
+function base64RequestId(sectionId) {
   return `${sectionId}-base64-request`;
 }
 

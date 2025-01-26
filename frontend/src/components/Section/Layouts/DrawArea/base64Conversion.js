@@ -50,7 +50,7 @@ export async function base64ToImageObj(input_value) {
 //   return base64;
 // }
 
-export function base64StrToImgSrc(base64Str) {
+function base64StrToImgSrc(base64Str) {
   return base64Str.startsWith("data:image/")
     ? base64Str
     : `data:image/png;base64,${base64Str}`;

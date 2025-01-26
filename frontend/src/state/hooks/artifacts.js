@@ -9,7 +9,7 @@ import {
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
-export function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
+function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
   const loadedArtifacts = useArtifacts((x) => {
     const output = {};
     for (const id of artifactIds) {

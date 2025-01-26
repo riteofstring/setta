@@ -93,7 +93,7 @@ function _ParamSweepAreaGUI({ sectionId }) {
   );
 }
 
-export const ParamSweepAreaGUI = React.memo(_ParamSweepAreaGUI);
+const ParamSweepAreaGUI = React.memo(_ParamSweepAreaGUI);
 
 function ParamSweepForOneSelectedItem({
   sectionId,
