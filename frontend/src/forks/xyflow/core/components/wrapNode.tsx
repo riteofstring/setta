@@ -1,5 +1,6 @@
 import cc from "classcat";
 import { SectionContainer } from "components/Section/Container/SectionContainer";
+import { useFloatingBox } from "components/Utils/FloatingBox";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import { useSectionInfos } from "state/definitions";
@@ -40,7 +41,7 @@ const _NodeWrapper = ({
   const hasPointerEvents = isSelectable || isDraggable;
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (isInputDOMNode(event)) {
+    if (isInputDOMNode(event) || useFloatingBox.getState().isEnabled) {
       return;
     }
 
