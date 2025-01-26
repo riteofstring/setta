@@ -72,11 +72,14 @@ def get_value(x, selected):
     if type_value == C.TEXT:
         output = str(x["value"])
         relative_positions = []
-    elif type_value == C.SLIDER:
+    elif type_value == C.SLIDER or type_value == C.DROPDOWN:
         output = str(x["value"])
         relative_positions = []
     elif type_value == C.SWITCH:
         output = str(get_boolean(x["value"]))
+        relative_positions = []
+    elif type_value == C.COLOR_PICKER or type_value == C.PASSWORD:
+        output = f'"{x["value"]}"'
         relative_positions = []
     elif type_value == C.SECTION:
         if not x["value"]["callable"]:
