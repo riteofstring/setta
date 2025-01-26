@@ -17,6 +17,8 @@ def send_document_open_request_with_diagnostics_with_code_dict(
     projectConfigName,
 ):
     for codeSectionId, details in code_dict.items():
+        if details["codeLanguage"] != "python":
+            continue
         asyncio.create_task(
             send_document_open_request_with_diagnostics(
                 lsp_writer,
