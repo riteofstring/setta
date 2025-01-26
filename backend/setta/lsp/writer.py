@@ -31,7 +31,9 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_initialize_request(self):
         params = {
-            "capabilities": {},
+            "capabilities": {
+                "workspace": {"didChangeWatchedFiles": {"dynamicRegistration": True}}
+            },
             "workspaceFolders": [{"uri": self.get_workspace_uri()}],
         }
         request_id = str(uuid.uuid4())
@@ -255,6 +257,10 @@ class LanguageServerWriter(LanguageServerInteractor):
             params=params,
             id=request_id,
         )
+
+    async def send_did_change_watched_files(self, changes):
+        params = {"changes": changes}
+        await self.send_request("workspace/didChangeWatchedFiles", params=params)
 
     def create_asyncio_task(self, async_task, request_id, local=False):
         if local:

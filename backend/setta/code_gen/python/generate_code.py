@@ -67,20 +67,16 @@ def var_declaration(
 
 
 # returns the value and a relative_positions array (for populating some ref_var_name_positions) or None if not applicable
-# TODO: remove str(x["value"]). I don't think it's necessary since x["value"] should always be a string already.
 def get_value(x, selected):
     type_value = x["type"]
     if type_value == C.TEXT:
         output = str(x["value"])
         relative_positions = []
-    elif type_value == C.SLIDER or type_value == C.DROPDOWN:
+    elif type_value == C.SLIDER:
         output = str(x["value"])
         relative_positions = []
     elif type_value == C.SWITCH:
         output = str(get_boolean(x["value"]))
-        relative_positions = []
-    elif type_value == C.COLOR_PICKER or type_value == C.PASSWORD:
-        output = f'"{x["value"]}"'
         relative_positions = []
     elif type_value == C.SECTION:
         if not x["value"]["callable"]:

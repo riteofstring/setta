@@ -5,15 +5,12 @@ import {
 } from "components/Panes/paneFns";
 import {
   copyFloatingBoxContent,
-  copyFrozenFloatingBoxContent,
   decrementFloatingBoxIdx,
-  decrementFrozenFloatingBoxIdx,
   disableFloatingBox,
   enableFloatingBox,
   freezeFloatingBox,
   getConvertFloatingBoxToSectionFn,
   incrementFloatingBoxIdx,
-  incrementFrozenFloatingBoxIdx,
   removeFrozenFloatingBox,
 } from "components/Utils/FloatingBox";
 import { useDndState } from "forks/dnd-kit/dndState";
@@ -455,9 +452,6 @@ export function attachKeyEventListeners() {
       "copyTooltipTextShortcut",
       copyFloatingBoxContent,
     ),
-    [shortcuts.frozenTooltipIncrementShortcut, incrementFrozenFloatingBoxIdx],
-    [shortcuts.frozenTooltipDecrementShortcut, decrementFrozenFloatingBoxIdx],
-    [shortcuts.frozenTooltipCopyShortcut, copyFrozenFloatingBoxContent],
     [shortcuts.undoShortcut, undoProjectState, null, true],
     [shortcuts.redoShortcut, redoProjectState, null, true],
     [shortcuts.groupShortcut, groupSections],
