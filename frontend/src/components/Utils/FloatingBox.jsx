@@ -16,6 +16,7 @@ export const useFloatingBox = create(() => ({
 }));
 
 let mouseMoved = false;
+const TOOLTIP_DIV_ID = "setta-tooltip-floating-box";
 
 export const FloatingBox = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -64,11 +65,13 @@ export const FloatingBox = () => {
 
   return (
     <div
+      id={TOOLTIP_DIV_ID}
       ref={boxRef}
       className={`fixed left-0 top-0 z-50 flex max-h-96 w-64 flex-col rounded-2xl border border-setta-200 bg-white p-4 shadow-lg dark:border-setta-700 dark:bg-setta-950 ${contentArray[idx].wrapperClassName}`}
       style={{
         transform: `translate(${position.x}px, ${position.y}px)`,
       }}
+      tabIndex="0"
     >
       <TooltipCopyButton item={contentArray[idx]} copied={copied} />
       <TooltipPage item={contentArray[idx]} isFrozen={isFrozen} />
@@ -277,6 +280,7 @@ export function getConvertFloatingBoxToSectionFn(renderMarkdown) {
 
 export function freezeFloatingBox() {
   useFloatingBox.setState({ isEnabled: true, isFrozen: true });
+  document.getElementById(TOOLTIP_DIV_ID)?.focus({ preventScroll: true });
 }
 
 export function removeFrozenFloatingBox() {
@@ -306,4 +310,27 @@ export async function copyFloatingBoxContent() {
     return;
   }
   useFloatingBox.setState({ copied: true });
+}
+
+export function incrementFrozenFloatingBoxIdx() {
+  if (tooltipOrChildrenFocused()) {
+    incrementFloatingBoxIdx();
+  }
+}
+
+export function decrementFrozenFloatingBoxIdx() {
+  if (tooltipOrChildrenFocused()) {
+    decrementFloatingBoxIdx();
+  }
+}
+
+export function copyFrozenFloatingBoxContent() {
+  if (tooltipOrChildrenFocused()) {
+    copyFloatingBoxContent();
+  }
+}
+
+function tooltipOrChildrenFocused() {
+  const tooltipDiv = document.getElementById(TOOLTIP_DIV_ID);
+  return tooltipDiv.contains(document.activeElement);
 }
