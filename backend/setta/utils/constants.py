@@ -1,7 +1,10 @@
 import json
+import logging
 from pathlib import Path
 
 from .utils import get_absolute_path, is_dev_mode
+
+logger = logging.getLogger(__name__)
 
 CONSTANTS_FOLDER = (
     Path("../../../constants") if is_dev_mode() else Path("../static/constants")
@@ -64,6 +67,7 @@ def set_constants(**kwargs):
 
 
 def load_constants():
+    logger.debug("Loading constants")
     with open(
         get_absolute_path(__file__, CONSTANTS_FOLDER / "constants.json"), "r"
     ) as f:

@@ -1,10 +1,13 @@
 import asyncio
+import logging
 from collections import defaultdict
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 
 class LanguageServer:
-    def __init__(self, workspace_folder, code_folder, settings):
+    def __init__(self, workspace_folder, code_folder, settings, name):
         self.workspace_folder = workspace_folder
         self.code_folder = code_folder
         self.init_properties()
@@ -16,8 +19,10 @@ class LanguageServer:
             self.settings = {}
         else:
             self.settings = settings
+        self.name = name
 
     async def start_server(self):
+        logger.debug(f"Starting {self.name} language server")
         self.init_properties()
         self.server = await asyncio.create_subprocess_shell(
             "basedpyright-langserver --stdio",
@@ -48,6 +53,7 @@ class LanguageServer:
 
     def kill_server(self):
         try:
+            logger.debug(f"Stopping {self.name} language server")
             self.server.terminate()
         except ProcessLookupError:
             pass

@@ -1,11 +1,14 @@
 import asyncio
 import json
+import logging
 import platform
 import uuid
 
 from setta.utils.utils import recursive_dict_merge
 
 from .server import LanguageServerInteractor
+
+logger = logging.getLogger(__name__)
 
 
 class LanguageServerWriter(LanguageServerInteractor):
@@ -24,6 +27,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
         self.server.stdin.write(header + request)
         await self.server.stdin.drain()
+        logger.debug(f"Sent {method} with params: {params}")
 
     async def send_initialize_request(self):
         params = {
@@ -279,6 +283,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         """Create a temporary file for the given code and return its path."""
         # Create all necessary parent directories
         file_path = self.get_base_uri(code_id)
+        logger.debug(f"Creating temporary file {file_path}")
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Write the code to the file

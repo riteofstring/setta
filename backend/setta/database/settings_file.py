@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 from setta.code_gen.export_selected import get_selected_section_variant
@@ -13,6 +14,8 @@ from setta.database.db.sections.jsonSource import (
 from setta.utils.constants import CONSTANTS_FOLDER, SEED_FOLDER, USER_SETTINGS
 from setta.utils.utils import get_absolute_path, save_json_to_file
 
+logger = logging.getLogger(__name__)
+
 
 class SettingsFile:
     def __init__(self):
@@ -20,6 +23,7 @@ class SettingsFile:
         self.load_settings()
 
     def save_settings(self, settings):
+        logger.debug("Saving settings")
         paths = self.meta_settings_file.get_settings_paths()
         to_be_saved = {}
         for settings_slice, path in paths.items():
@@ -33,6 +37,7 @@ class SettingsFile:
         USER_SETTINGS.update(settings)
 
     def load_settings(self):
+        logger.debug("Loading settings")
         paths = self.meta_settings_file.get_settings_paths()
         output = {}
         for settings_slice, path in paths.items():
@@ -90,6 +95,7 @@ class MetaSettingsFile:
             save_json_to_file(self.path_meta_settings, self.obj_seed_meta_settings)
 
     def load_meta_settings(self):
+        logger.debug("Loading meta settings")
         self.seed_meta_settings()
         with open(self.path_meta_settings, "r") as f:
             return json.load(f)

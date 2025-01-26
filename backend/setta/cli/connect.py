@@ -1,4 +1,5 @@
 import json
+import logging
 import subprocess
 
 import websockets
@@ -6,8 +7,6 @@ import websockets
 from setta.code_gen.create_runnable_scripts import runCode
 
 from ..utils.constants import C
-
-import logging
 
 logger = logging.getLogger(__name__)
 

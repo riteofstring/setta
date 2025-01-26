@@ -1,6 +1,6 @@
 import asyncio
 import json
-from pprint import pprint
+import logging
 
 from setta.lsp.reader_fns.completion import process_completion_response
 from setta.lsp.reader_fns.definition import process_definition_response
@@ -12,6 +12,8 @@ from setta.utils.constants import C
 
 from .server import LanguageServerInteractor
 
+logger = logging.getLogger(__name__)
+
 
 class LanguageServerReader(LanguageServerInteractor):
     def __init__(self, server, websocket_manager):
@@ -21,10 +23,12 @@ class LanguageServerReader(LanguageServerInteractor):
         self.reader_task = None
 
     async def start_listener(self):
+        logger.debug(f"Starting {self.server.name} language server reader")
         self.stop_event.clear()  # Reset the stop event
         self.reader_task = asyncio.create_task(self.read_response())
 
     async def stop(self):
+        logger.debug(f"Stopping {self.server.name} language server reader")
         self.stop_event.set()
         if self.reader_task:
             self.reader_task.cancel()
@@ -88,9 +92,7 @@ class LanguageServerReader(LanguageServerInteractor):
             return
 
     async def process_response(self, response):
-        # from pprint import pprint
-
-        # pprint(response)
+        logger.debug(f"Processing response: {response}")
         id = response.get("id", None)
         method = response.get("method", None)
         if id:

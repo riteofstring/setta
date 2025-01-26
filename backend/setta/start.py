@@ -91,7 +91,7 @@ def cli(ctx, reload, with_examples, db, host, port, log_level):
 
         logging.basicConfig(
             level=getattr(logging, log_level.upper()),
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            format="%(levelname)s - %(asctime)s - %(name)s - %(message)s",
         )
 
         config = uvicorn.Config(
