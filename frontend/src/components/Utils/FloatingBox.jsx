@@ -228,16 +228,28 @@ function Footer({ className }) {
   );
 }
 
-export function getFloatingBoxHandlers(...contentArray) {
+export function getFloatingBoxHandlers(id, ...contentArray) {
+  // Update if content changed and this component is the active one
+  // so that onMouseEnter is not needed to refresh the contents
+  const s = useFloatingBox.getState();
+  if (s.activeId === id && !_.isEqual(s.contentArray, contentArray)) {
+    useFloatingBox.setState({ contentArray });
+  }
+
   function onMouseEnter() {
     if (contentArray && !useFloatingBox.getState().isFrozen) {
-      useFloatingBox.setState({ contentArray });
+      useFloatingBox.setState({ contentArray, activeId: id });
     }
   }
 
   function onMouseLeave() {
     if (!useFloatingBox.getState().isFrozen) {
-      useFloatingBox.setState({ contentArray: null, idx: 0, copied: false });
+      useFloatingBox.setState({
+        contentArray: null,
+        idx: 0,
+        copied: false,
+        activeId: null,
+      });
     }
   }
 
