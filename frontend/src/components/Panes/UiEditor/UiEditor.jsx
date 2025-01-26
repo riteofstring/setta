@@ -57,28 +57,28 @@ export function UiEditor() {
         <TabButton
           tabName={SECTION_CONFIG_TAB}
           {...commonProps}
-          {...getFloatingBoxHandlers("Section Config")}
+          {...getFloatingBoxHandlers({ content: "Section Config" })}
         >
           <MdOutlineSettingsApplications />
         </TabButton>
         <TabButton
           tabName={UI_CONFIG_TAB}
           {...commonProps}
-          {...getFloatingBoxHandlers("Parameter UI Config")}
+          {...getFloatingBoxHandlers({ content: "Parameter UI Config" })}
         >
           <BsCardChecklist />
         </TabButton>
         <TabButton
           tabName={QUICKINFO_CONFIG_TAB}
           {...commonProps}
-          {...getFloatingBoxHandlers("Parameter Info Editing")}
+          {...getFloatingBoxHandlers({ content: "Parameter Info Editing" })}
         >
           <TbEdit />
         </TabButton>
         <TabButton
           tabName={INFO_CONFIG_TAB}
           {...commonProps}
-          {...getFloatingBoxHandlers(infoTabTooltip)}
+          {...getFloatingBoxHandlers({ content: infoTabTooltip })}
         >
           {/* <FaMarkdown /> */}
           <PiCursorTextFill />
@@ -86,7 +86,7 @@ export function UiEditor() {
         <TabButton
           tabName={SECTION_VARIANTS_TAB}
           {...commonProps}
-          {...getFloatingBoxHandlers("Section Variants")}
+          {...getFloatingBoxHandlers({ content: "Section Variants" })}
         >
           <TbVersions />
         </TabButton>

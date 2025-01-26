@@ -20,7 +20,7 @@ export function ToggleRunInMemoryButton({ sectionId }) {
       size="w-4 h-4"
       padding="p-0 mr-1"
       onClick={onClick}
-      {...getFloatingBoxHandlers(null, "Toggle In-Memory Code")}
+      {...getFloatingBoxHandlers({ title: "Toggle In-Memory Code" })}
     />
   );
 }

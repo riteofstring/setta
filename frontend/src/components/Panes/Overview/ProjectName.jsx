@@ -16,9 +16,10 @@ export function ProjectName() {
   return (
     <header
       className="mb-2 flex w-full flex-col flex-wrap   tracking-tight "
-      {...getFloatingBoxHandlers(
-        "Your Project's Name and Config Name, editable all in one spot!",
-      )}
+      {...getFloatingBoxHandlers({
+        content:
+          "Your Project's Name and Config Name, editable all in one spot!",
+      })}
     >
       <ProjectNameOnly />
     </header>

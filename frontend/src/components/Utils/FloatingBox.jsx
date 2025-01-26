@@ -9,15 +9,15 @@ import { create } from "zustand";
 export const useFloatingBox = create(() => ({
   isFrozen: false,
   isEnabled: false,
-  content: null,
-  title: null,
+  contentArray: null,
+  idx: 0,
 }));
 
 let mouseMoved = false;
 
 export const FloatingBox = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const { isEnabled, content, title, isFrozen } = useFloatingBox();
+  const { isEnabled, contentArray, isFrozen, idx } = useFloatingBox();
   const boxRef = useRef(null);
 
   useEffect(() => {
@@ -57,7 +57,8 @@ export const FloatingBox = () => {
     box.style.transform = `translate(${x}px, ${y}px)`;
   }, [isEnabled, position]);
 
-  if (!isEnabled || !(content || title) || !mouseMoved) return null;
+  if (!isEnabled || !contentArray || contentArray.length === 0 || !mouseMoved)
+    return null;
 
   return (
     <div
@@ -67,18 +68,31 @@ export const FloatingBox = () => {
         transform: `translate(${position.x}px, ${position.y}px)`,
       }}
     >
-      {title && (
-        <h3 className="break-words pb-1 text-xs font-black uppercase text-setta-500 dark:text-setta-600">
-          {title}
-        </h3>
-      )}
-      <article className="flex-1 overflow-y-auto break-words text-sm text-setta-700 dark:text-setta-300">
-        {content}
-      </article>
-      {!!content && <FooterSwitch isFrozen={isFrozen} />}
+      <TooltipPage item={contentArray[idx]} isFrozen={isFrozen} />
+      <TooltipPageCountIndicator numPages={contentArray.length} idx={idx} />
     </div>
   );
 };
+
+function TooltipPage({ item, isFrozen }) {
+  return (
+    <>
+      {item.title && (
+        <h3 className="break-words pb-1 text-xs font-black uppercase text-setta-500 dark:text-setta-600">
+          {item.title}
+        </h3>
+      )}
+      <article className="flex-1 overflow-y-auto break-words text-sm text-setta-700 dark:text-setta-300">
+        {item.content}
+      </article>
+      {Boolean(item.content) && <FooterSwitch isFrozen={isFrozen} />}
+    </>
+  );
+}
+
+function TooltipPageCountIndicator({ numPages, idx }) {
+  return null;
+}
 
 function FooterSwitch({ isFrozen }) {
   const className =
@@ -157,20 +171,20 @@ function Footer({ className }) {
   );
 }
 
-export function getFloatingBoxHandlers(content, title) {
-  function onMouseOver() {
-    if ((content || title) && !useFloatingBox.getState().isFrozen) {
-      useFloatingBox.setState({ content, title });
+export function getFloatingBoxHandlers(...contentArray) {
+  function onMouseEnter() {
+    if (contentArray && !useFloatingBox.getState().isFrozen) {
+      useFloatingBox.setState({ contentArray });
     }
   }
 
   function onMouseLeave() {
     if (!useFloatingBox.getState().isFrozen) {
-      useFloatingBox.setState({ content: null, title: null });
+      useFloatingBox.setState({ contentArray: null, idx: 0 });
     }
   }
 
-  return { onMouseOver, onMouseLeave };
+  return { onMouseEnter, onMouseLeave };
 }
 
 export function enableFloatingBox() {
@@ -178,14 +192,17 @@ export function enableFloatingBox() {
 }
 
 export function disableFloatingBox() {
-  useFloatingBox.setState({ isEnabled: false });
+  useFloatingBox.setState({ isEnabled: false, idx: 0 });
 }
 
 export function getConvertFloatingBoxToSectionFn(renderMarkdown) {
   return async () => {
     const s = useFloatingBox.getState();
-    if (s.content) {
-      const content = s.title ? `## ${s.title}\n\n${s.content}` : s.content;
+    if (s.contentArray) {
+      const item = s.contentArray[s.idx];
+      const content = item.title
+        ? `## ${item.title}\n\n${item.content}`
+        : item.content;
       addSectionInEmptySpace({
         type: C.INFO,
         sectionProps: {
@@ -207,4 +224,22 @@ export function freezeFloatingBox() {
 
 export function removeFrozenFloatingBox() {
   useFloatingBox.setState({ isEnabled: false, isFrozen: false });
+}
+
+export function incrementFloatingBoxIdx() {
+  if (!useFloatingBox.getState().contentArray) {
+    return;
+  }
+  useFloatingBox.setState((state) => ({
+    idx: (state.idx + 1) % state.contentArray.length,
+  }));
+}
+
+export function decrementFloatingBoxIdx() {
+  if (!useFloatingBox.getState().contentArray) {
+    return;
+  }
+  useFloatingBox.setState((state) => ({
+    idx: (state.idx - 1) % state.contentArray.length,
+  }));
 }

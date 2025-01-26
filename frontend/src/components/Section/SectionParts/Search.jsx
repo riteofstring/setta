@@ -213,7 +213,7 @@ function SectionSearchCore({
   return (
     <search
       className="section-search single-cell-container w-full"
-      {...getFloatingBoxHandlers(description, codeInfoName)}
+      {...getFloatingBoxHandlers({ title: codeInfoName, content: description })}
     >
       <TextInputCodeMirror
         dummyDivId={divId}

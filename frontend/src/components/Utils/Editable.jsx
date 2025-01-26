@@ -6,7 +6,7 @@ export function Editable({
   onBlur,
   onKeyDown,
   titleProps,
-  onMouseOver,
+  onMouseEnter,
   onMouseLeave,
   doubleClickToEdit = false,
   blurTriggeredByEscapeKey,
@@ -50,7 +50,7 @@ export function Editable({
       value={value}
       onClick={onClick}
       titleProps={titleProps["notEditing"]}
-      onMouseOver={onMouseOver}
+      onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       paragraphRef={paragraphRef}
     />
@@ -83,7 +83,7 @@ function InNonEditMode({
   value,
   onClick,
   titleProps,
-  onMouseOver,
+  onMouseEnter,
   onMouseLeave,
   paragraphRef,
 }) {
@@ -100,7 +100,7 @@ function InNonEditMode({
       className={titleProps}
       tabIndex="0"
       onKeyDown={onKeyDown}
-      onMouseOver={onMouseOver}
+      onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       ref={paragraphRef}
     >

@@ -27,13 +27,17 @@ function ProjectOverviewCore({ sectionList }) {
           <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
         }
         onChange={(e) => setFilter(e.target.value)}
-        {...getFloatingBoxHandlers("Search through your project's cards.")}
+        {...getFloatingBoxHandlers({
+          content: "Search through your project's cards.",
+        })}
       />
 
       <div className="min-h-0 flex-grow overflow-y-scroll">
         <ul
           className="min-h-0 flex-grow"
-          {...getFloatingBoxHandlers("Click on a section name to pan to it.")}
+          {...getFloatingBoxHandlers({
+            content: "Click on a section name to pan to it.",
+          })}
         >
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>

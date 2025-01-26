@@ -25,6 +25,8 @@
     "freezeTooltipShortcut": "Q + F",
     "frozenTooltipToPlaintextShortcut": "S",
     "frozenTooltipToMarkdownShortcut": "W",
+    "incrementTooltipPageShortcut": "Q + ArrowRight",
+    "decrementTooltipPageShortcut": "Q + ArrowLeft",
     "newTerminalShortcut": "Ctrl + `",
     "fitViewShortcut": "F",
     "zoomToMouseShortcut": "Z",

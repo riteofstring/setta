@@ -4,10 +4,12 @@ import {
   showVersionsTab,
 } from "components/Panes/paneFns";
 import {
+  decrementFloatingBoxIdx,
   disableFloatingBox,
   enableFloatingBox,
   freezeFloatingBox,
   getConvertFloatingBoxToSectionFn,
+  incrementFloatingBoxIdx,
   removeFrozenFloatingBox,
 } from "components/Utils/FloatingBox";
 import { useDndState } from "forks/dnd-kit/dndState";
@@ -112,6 +114,11 @@ const specialEventKeyToEventCode = {
   "-": "Minus",
   "=": "Equal",
   "`": "Backquote",
+  // Adding case-sensitive keys
+  arrowright: "ArrowRight",
+  arrowleft: "ArrowLeft",
+  arrowup: "ArrowUp",
+  arrowdown: "ArrowDown",
 };
 
 const modifierKeyCodes = new Set([
@@ -389,6 +396,8 @@ export function attachKeyEventListeners() {
       shortcuts.frozenTooltipToMarkdownShortcut,
       getConvertFloatingBoxToSectionFn(true),
     ],
+    [shortcuts.incrementTooltipPageShortcut, incrementFloatingBoxIdx],
+    [shortcuts.decrementTooltipPageShortcut, decrementFloatingBoxIdx],
     [shortcuts.undoShortcut, undoProjectState, null, true],
     [shortcuts.redoShortcut, redoProjectState, null, true],
     [shortcuts.groupShortcut, groupSections],

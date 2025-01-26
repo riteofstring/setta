@@ -22,7 +22,7 @@ export function RunButton({ sectionId }) {
       size="w-4 h-4"
       padding="p-0 mr-1"
       onClick={onClick}
-      {...getFloatingBoxHandlers(null, "Run this code block")}
+      {...getFloatingBoxHandlers({ title: "Run this code block" })}
     />
   );
 }

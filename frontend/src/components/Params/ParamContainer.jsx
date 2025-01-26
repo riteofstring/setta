@@ -39,12 +39,22 @@ function _ParamContainer({
     paramChildren,
   );
 
+  const tooltipContentArray = maybeErrorMessage
+    ? [
+        { content: maybeErrorMessage },
+        {
+          title: paramName,
+          content: paramDescription,
+        },
+      ]
+    : [{ title: paramName, content: paramDescription }];
+
   return paramChildren.length === 0 ? (
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
         className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
-        {...getFloatingBoxHandlers(paramDescription, paramName)}
+        {...getFloatingBoxHandlers(...tooltipContentArray)}
         onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
         ref={childlessRef}
       >
@@ -70,7 +80,7 @@ function _ParamContainer({
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
       className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`}
-      {...getFloatingBoxHandlers(paramDescription, paramName)}
+      {...getFloatingBoxHandlers(...tooltipContentArray)}
       ref={parentRef}
     >
       {children}

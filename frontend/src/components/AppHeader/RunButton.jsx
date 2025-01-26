@@ -7,7 +7,7 @@ export function RunButton() {
   return (
     <MenuBarButton
       onClick={runOrImportAllCode}
-      {...getFloatingBoxHandlers("Run your code.")}
+      {...getFloatingBoxHandlers({ content: "Run your code." })}
     >
       <RiPlayMiniFill />
       Run

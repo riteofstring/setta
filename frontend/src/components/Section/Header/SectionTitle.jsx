@@ -17,7 +17,7 @@ export function SectionTitle({ sectionId, titleProps }) {
         sectionId={sectionId}
         sectionName={sectionName}
         titleProps={titleProps}
-        {...getFloatingBoxHandlers(null, sectionName)}
+        {...getFloatingBoxHandlers({ title: sectionName })}
       />
     );
   }
@@ -25,16 +25,16 @@ export function SectionTitle({ sectionId, titleProps }) {
     <FixedTitle
       sectionName={sectionName}
       className={titleProps.fixed}
-      {...getFloatingBoxHandlers(null, sectionName)}
+      {...getFloatingBoxHandlers({ title: sectionName })}
     />
   );
 }
 
-function FixedTitle({ sectionName, className, onMouseOver, onMouseLeave }) {
+function FixedTitle({ sectionName, className, onMouseEnter, onMouseLeave }) {
   return (
     <h2
       className={className}
-      onMouseOver={onMouseOver}
+      onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
       {sectionName}
@@ -46,7 +46,7 @@ function EditableTitle({
   sectionId,
   sectionName,
   titleProps,
-  onMouseOver,
+  onMouseEnter,
   onMouseLeave,
 }) {
   function onTitleInputChange(value) {
@@ -68,7 +68,7 @@ function EditableTitle({
       onKeyDown={onKeyDown}
       titleProps={titleProps}
       doubleClickToEdit={true}
-      onMouseOver={onMouseOver}
+      onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
     />

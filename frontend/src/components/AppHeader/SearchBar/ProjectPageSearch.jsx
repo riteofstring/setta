@@ -38,9 +38,9 @@ const ProjectPageSearchInput = React.forwardRef((props, ref) => {
       placeholder="Search Project"
       {...props}
       ref={ref}
-      {...getFloatingBoxHandlers(
-        "Search your entire project from one location.",
-      )}
+      {...getFloatingBoxHandlers({
+        content: "Search your entire project from one location.",
+      })}
       id="ProjectPageSearchBar"
     />
   );

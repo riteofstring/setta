@@ -37,14 +37,14 @@ export function Overview() {
         <TabButton
           tabName="tab1"
           {...commonProps}
-          {...getFloatingBoxHandlers("Project Overview")}
+          {...getFloatingBoxHandlers({ content: "Project Overview" })}
         >
           <i className="gg-list  !scale-100" />
         </TabButton>
         <TabButton
           tabName="tab2"
           {...commonProps}
-          {...getFloatingBoxHandlers("Config Preview")}
+          {...getFloatingBoxHandlers({ content: "Config Preview" })}
         >
           <i className="gg-git-branch !scale-100" />
         </TabButton>
