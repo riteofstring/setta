@@ -4,8 +4,8 @@
     "name": "img_to_img",
     "previewImgColor": "bg-orange-500/60 dark:bg-orange-600/30",
     "viewport": {
-      "x": -245.45104882964657,
-      "y": 64.25388030277131,
+      "x": 81.74895117035263,
+      "y": 45.05388030277135,
       "zoom": 0.542726012286885
     },
     "children": {
@@ -17,25 +17,25 @@
         "h": 302
       },
       "521ca3bc-acd2-49b7-8608-3a1024eb2e9b": {
-        "x": 1110,
-        "y": -15,
+        "x": 90,
+        "y": 645,
         "zIndex": 4,
         "w": 272,
         "h": 113
       },
       "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d": {
-        "x": 795,
-        "y": 135,
-        "zIndex": 6,
+        "x": 1290,
+        "y": 675,
+        "zIndex": 3,
         "w": 872,
-        "h": 1004
+        "h": 34
       },
       "9b219263-3d97-493d-8add-f54b5142a500": {
-        "x": 780,
-        "y": -90,
-        "zIndex": 1,
-        "w": 202,
-        "h": 102
+        "x": 630,
+        "y": -15,
+        "zIndex": 6,
+        "w": 572,
+        "h": 617
       },
       "a7ed7b7d-5708-434a-87f7-7857511efc73": {
         "x": 90,
@@ -45,9 +45,9 @@
         "h": 622
       },
       "f0073274-bd12-41f4-a213-80032a10b7bb": {
-        "x": 1440,
-        "y": -75,
-        "zIndex": 3,
+        "x": 390,
+        "y": 645,
+        "zIndex": 5,
         "w": 422,
         "h": 307
       }
@@ -206,11 +206,16 @@
       "variantId": "b86565ba-e641-45ef-986c-0a85d1c14629",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
       "variantIds": ["b86565ba-e641-45ef-986c-0a85d1c14629"],
-      "runInMemory": true
+      "runInMemory": true,
+      "isMinimized": true
     },
     "9b219263-3d97-493d-8add-f54b5142a500": {
       "id": "9b219263-3d97-493d-8add-f54b5142a500",
       "name": "output_image",
+      "size": {
+        "width": 570,
+        "height": 615
+      },
       "variantId": "08eb54f9-8e51-4081-a74b-645acd89151f",
       "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
       "variantIds": ["08eb54f9-8e51-4081-a74b-645acd89151f"]
