@@ -14,7 +14,6 @@ export async function copy() {
   const activeSectionIds = useActiveSection.getState().ids;
   if (activeSectionIds.length > 0 && window.getSelection().toString() === "") {
     const data = copySections(activeSectionIds);
-    console.log("copied data", data);
     await navigator.clipboard.writeText(
       JSON.stringify({
         data,

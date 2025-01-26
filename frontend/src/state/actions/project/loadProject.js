@@ -21,7 +21,6 @@ import { maybeIncrementProjectStateVersion } from "../undo";
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await dbLoadProjectConfig(projectConfigName);
   if (res.status === 200) {
-    console.log(res.data);
     return await loadProjectState(res.data);
   } else {
     return false;
@@ -31,7 +30,6 @@ export async function loadProjectConfig({ projectConfigName }) {
 export async function loadSettingsProjectConfig() {
   const res = await dbLoadSettingsProject();
   if (res.status === 200) {
-    console.log(res.data);
     return await loadProjectState(res.data);
   } else {
     return false;

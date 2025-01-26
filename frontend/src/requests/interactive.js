@@ -8,7 +8,6 @@ import { post } from "./utils";
 export async function dbImportCodeBlocks(sectionIds) {
   const project = await getProjectDataForInteractive();
   project.importCodeBlocks = sectionIds;
-  console.log("dbImportCodeBlocks", project);
   return await post({
     body: { project },
     address: C.ROUTE_UPDATE_INTERACTIVE_CODE,

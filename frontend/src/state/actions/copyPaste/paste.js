@@ -24,7 +24,6 @@ async function pasteSections({ data, asRef = false }) {
     dataToPaste = data;
   } else {
     const res = await dbCreateCopyOfSections(data);
-    console.log("res.data", res.data);
     if (res.status === 200) {
       dataToPaste = res.data;
     }

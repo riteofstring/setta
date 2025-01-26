@@ -62,7 +62,6 @@ export async function runOrImportAllCode() {
     asSubprocess.length > 0 ||
     (inMemory.length === 0 && asSubprocess.length === 0)
   ) {
-    console.log("sending run code message");
     const project = getProjectDataToGenerateCode({
       includeInfoToFullName: false,
     });

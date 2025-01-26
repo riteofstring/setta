@@ -63,7 +63,6 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
   const parsedDocs = documents.map((doc) =>
     doc.trim() ? parseRawDump(doc) : {},
   );
-  console.log(parsedDocs);
   const codeInfoChildren = getCodeInfoCol(forSectionId, state).children;
   const codeInfoChildrenKeys = Object.keys(codeInfoChildren);
   const newParamSweep = [];
@@ -178,7 +177,6 @@ function recursiveHelper(
     if (!(match in newRunGroupSections)) {
       newRunGroupSections[match] = {};
     }
-    console.log("section match", name, match, parentVariantId);
     newRunGroupSections[match][parentVariantId] = {
       selected: true,
       versions: {},
@@ -188,9 +186,7 @@ function recursiveHelper(
   } else if (type === "sectionVariant") {
     newRunGroupSections[forSectionId][parentVariantId].versions[match] = true;
     nextParentVariantId = match;
-    console.log("sectionvariant match", name, match, parentVariantId);
   } else if (type === "paramSweep") {
-    console.log("paramSweep", name, forSectionId, parentVariantId, match);
     newRunGroupSections[forSectionId][parentVariantId].paramSweeps[match] =
       true;
   }
@@ -579,7 +575,6 @@ function updateIdsToChildren({
 }
 
 export async function maybeRunGuiToYaml(sectionId, variantId) {
-  console.log("maybeRunGuiToYaml");
   if (getSectionInfo(sectionId).displayMode === SECTION_DISPLAY_MODES.YAML) {
     await guiToYaml(sectionId, variantId);
   }

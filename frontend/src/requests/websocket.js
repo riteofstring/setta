@@ -13,10 +13,8 @@ let wss;
 export const openWebSocket = _.debounce(
   (pathname) => {
     if (!wssReady()) {
-      console.log("new Websocket");
       wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_MANAGER}`);
       wss.addEventListener("open", () => {
-        console.log("open websocket");
         sendLocation(pathname);
       });
 
@@ -27,7 +25,6 @@ export const openWebSocket = _.debounce(
       wss.addEventListener("error", closeWebSocket);
 
       wss.addEventListener("close", () => {
-        console.log("websocket closed");
         wss = null;
         // Attempt to reconnect
         setTimeout(() => {

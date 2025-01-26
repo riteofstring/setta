@@ -52,7 +52,6 @@ export function getProjectDataToGenerateCode({
       );
     }
   }
-  // console.log(project);
   return project;
 }
 
@@ -118,7 +117,6 @@ export function* getProjectRuns(project) {
       for (const combo of generateSectionParamSweepVersionCombinations(
         sectionParamSweepsAndVersions,
       )) {
-        console.log("combo", combo);
         const variant = _.cloneDeep(project);
         // filter top-level sections
         variant.projectConfig.children = _.pick(
@@ -226,10 +224,6 @@ function* getProjectVariants(project, paramSweepSectionVariantIds) {
     }
   }
 
-  console.log("allSweeps", allSweeps);
-  console.log("generateParamSweepCombinations(allSweeps)", [
-    ...generateParamSweepCombinations(allSweeps),
-  ]);
 
   if (allSweeps.length > 0) {
     for (const combo of generateParamSweepCombinations(allSweeps)) {

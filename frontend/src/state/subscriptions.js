@@ -41,7 +41,6 @@ export function subscribe() {
   useSectionInfos.subscribe(
     regexSubscriptionFn,
     (x) => {
-      console.log("evRefRegexSubscription triggered");
       useEVRefRegex.setState(getEVRefRegexAndColorMap(x));
       useTemplateVarRegex.setState(getTemplateVarsRegexAndColorMap(x));
       if (useSectionInfos.getState().shouldRenameReferences) {

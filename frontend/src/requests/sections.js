@@ -99,7 +99,6 @@ export async function dbCodeAreaCompletion({
     if (res2.data) {
       return await sendMessageAndWait(autoCompleteProps);
     } else {
-      console.log("dbCodeAreaCompletion initialization failed!");
       return [];
     }
   }
@@ -180,7 +179,6 @@ export async function getEVRefs({
 
     evRefs = constructEVRefs(keywordPositions, fullText);
 
-    console.log("evRefs", evRefs);
   }
 
   return evRefs;
@@ -211,7 +209,6 @@ async function getTemplateVars(sectionId, fullText) {
 
     templateVars = constructTemplateVars(keywordPositions, fullText);
 
-    console.log("templateVars", templateVars);
   }
 
   return templateVars;

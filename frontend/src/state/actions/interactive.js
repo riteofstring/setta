@@ -76,7 +76,6 @@ export async function updateInteractiveArtifacts(artifacts) {
   for (const a of artifacts) {
     if (!("path" in a)) a.path = "";
     if (a.type === "img") {
-      // console.log("a.value", a.value)
       a.value = await base64ToImageObj(a.value);
     }
 

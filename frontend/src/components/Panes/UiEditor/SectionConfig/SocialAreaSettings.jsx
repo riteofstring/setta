@@ -4,7 +4,6 @@ import { useSectionInfos } from "state/definitions";
 export function SocialAreaSettings({ sectionId }) {
   const url = useSectionInfos((x) => x.x[sectionId].social);
 
-  console.log("url", url);
   const [value, setValue] = useState(url ?? "");
   function onBlur(e) {
     const blurValue = e.target.value;

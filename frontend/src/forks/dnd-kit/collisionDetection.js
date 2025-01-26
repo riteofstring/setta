@@ -35,7 +35,6 @@ function compareCollisions(a, b) {
     const rawLb = b.data.triggerDist;
     // if left-aligned, return rect with larger intersection
     if (la - lb === 0) {
-      // console.log('returning largest intersection')
       return rb - ra > 0 ? b : a;
     }
     // if the active rect is to the right of both rects, then return the one that has the closest left edge
@@ -114,7 +113,6 @@ export function customCollisionDetection({
       ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
         if (prevCollisionId === id) {
-          // console.log("prevCollisionId === id")
           ratio *= 1.1;
         }
         containerIsHorizontal = getSectionInfo(

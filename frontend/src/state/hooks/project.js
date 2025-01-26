@@ -68,7 +68,6 @@ export function useLoadProjectConfig() {
   const isHotReload = useHotReload();
 
   async function loadFn() {
-    console.log("LOADING ************");
     resetProjectStores();
     setDoneLoading(false);
     const res = await loadProjectConfig({ projectConfigName });
@@ -77,7 +76,6 @@ export function useLoadProjectConfig() {
   }
 
   async function loadSettingsProject() {
-    console.log("LOADING ************");
     resetProjectStores();
     setDoneLoading(false);
     const res = await loadSettingsProjectConfig();
@@ -86,7 +84,6 @@ export function useLoadProjectConfig() {
   }
 
   function changeFn() {
-    console.log("CHANGING CONFIG NAME********");
     useProjectConfig.setState({ name: projectConfigName });
     useProjectLoading.setState({
       projectIsLoading: false,

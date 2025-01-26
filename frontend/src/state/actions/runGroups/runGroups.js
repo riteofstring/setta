@@ -222,13 +222,10 @@ export function toggleRunGroupSectionVersion({
 //     };
 //   }
 
-//   console.log("stateFormt", stateFormat);
 
 //   setAllRunGroups(stateFormat);
 //   if (!useSectionInfos.getState().singletonSections[C.GLOBAL_PARAM_SWEEP]) {
-//     console.log("will create section");
 //   } else {
-//     console.log("section already exists");
 //   }
 // }
 

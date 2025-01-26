@@ -43,8 +43,6 @@ export function getProjectData({
 
   const artifacts = withArtifacts ? getArtifactStateForSaving() : {};
 
-  console.log("saveProject artifacts", artifacts);
-
   const sectionVariants = _.mapValues(
     useSectionInfos.getState().variants,
     (x) => ({
@@ -90,8 +88,6 @@ export function getProjectData({
     codeInfo,
     codeInfoCols,
   };
-
-  console.log(output);
 
   return output;
 }
