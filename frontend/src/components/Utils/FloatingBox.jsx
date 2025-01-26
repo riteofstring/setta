@@ -123,7 +123,7 @@ const TooltipCopyButton = React.memo(({ item, copied }) => {
   return (
     <button
       onClick={onClick}
-      className="tooltip-copy absolute right-2 top-2 rounded-lg p-1.5 text-setta-500 hover:bg-setta-100 dark:text-setta-400 dark:hover:bg-setta-800"
+      className="tooltip-copy absolute right-2 top-2 cursor-pointer rounded-lg p-1.5 text-setta-500 hover:bg-setta-100 dark:text-setta-400 dark:hover:bg-setta-800"
       aria-label={copied ? "Copied!" : "Copy to clipboard"}
     >
       {copied ? (
