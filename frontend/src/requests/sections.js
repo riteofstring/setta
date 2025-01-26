@@ -154,7 +154,6 @@ export async function getEVRefs({
     value: fullText,
     regexPatternKey,
   });
-  console.log("candidateEVRefs", candidateEVRefs);
   if (candidateEVRefs.length > 0) {
     let count = 0;
     keywordPositions = [];
@@ -191,7 +190,6 @@ async function getTemplateVars(sectionId, fullText) {
   let templateVars = [];
   let keywordPositions = [];
   const candidateTemplateVars = findCandidateTemplateVars(sectionId, fullText);
-  console.log("candidateTemplateVars", candidateTemplateVars);
   if (candidateTemplateVars.length > 0) {
     let count = 0;
     keywordPositions = [];

@@ -110,7 +110,6 @@ export function getCompletionsFn(
         codeLanguage: language,
       });
       setToNotWaiting();
-      console.log("res", res);
       if (res.data) {
         return {
           filter: true,
