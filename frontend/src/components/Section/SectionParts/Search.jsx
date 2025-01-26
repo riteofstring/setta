@@ -2,7 +2,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getEVRefs } from "requests/sections";
+import { debouncedTypeCheckRequest, getEVRefs } from "requests/sections";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
 import { useSectionInfos } from "state/definitions";
@@ -25,10 +25,12 @@ export function SectionSearch({ sectionId, selectedItem }) {
   function onEnter(value) {
     // gets called inside useSectionInfos.setState
     setSelectedItem(sectionId, sectionId, value, callbackSetAttr);
+    debouncedTypeCheckRequest();
   }
 
   function onShiftEnter(value) {
     setSelectedItem(sectionId, sectionId, value, callbackSetAttr, true);
+    debouncedTypeCheckRequest();
   }
 
   return (
