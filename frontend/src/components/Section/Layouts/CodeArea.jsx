@@ -87,7 +87,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
 
   const theme = useCodeMirrorStyle();
   const [localValue, setLocalValue] = useState(value);
-  const debouncedSetCodeAbortController = useRef();
+  const abortController = useRef();
 
   useEffect(() => {
     if (value !== localValue) {
@@ -96,10 +96,9 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   }, [value]);
 
   function onChange(v) {
-    debouncedSetCodeAbortController.current?.abort();
+    abortController.current?.abort();
     setLocalValue(v);
-
-    debouncedSetCode(sectionId, v, debouncedSetCodeAbortController);
+    debouncedSetCode(sectionId, v, abortController);
   }
 
   function onMouseDown() {
@@ -277,7 +276,7 @@ const debouncedSetCode = asyncDebounce(
     const ac = new AbortController();
     abortControllerRef.current = ac;
 
-    if (ac.signal?.aborted) {
+    if (ac.signal.aborted) {
       return;
     }
 
@@ -285,7 +284,7 @@ const debouncedSetCode = asyncDebounce(
       sectionId,
       value,
     );
-    if (ac.signal?.aborted) {
+    if (ac.signal.aborted) {
       return;
     }
     useSectionInfos.setState((x) => {

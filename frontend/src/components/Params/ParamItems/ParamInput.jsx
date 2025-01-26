@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { debouncedTypeCheckRequest, getEVRefs } from "requests/sections";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setParamEnteredValue } from "state/actions/sectionInfos";
@@ -17,12 +17,19 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     paramInfoId,
   );
   const [value, setValue] = useState(enteredValue);
+  const abortController = useRef();
 
   // value and enteredValue should always be string
   function onChange(v) {
     const vStr = _.toString(v);
     setValue(vStr);
-    debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr, enteredValue);
+    abortController.current?.abort();
+    debouncedSetParamEnteredValue(
+      sectionId,
+      paramInfoId,
+      vStr,
+      abortController,
+    );
     debouncedTypeCheckRequest();
     sendParamValueToInteractiveTasks(sectionId, paramInfoId, vStr);
   }
@@ -50,27 +57,31 @@ function sendParamValueToInteractiveTasks(sectionId, paramInfoId, v) {
 }
 
 const debouncedSetParamEnteredValue = asyncDebounce(
-  async (sectionId, paramInfoId, vStr, enteredValue) => {
-    if (vStr !== enteredValue) {
+  async (sectionId, paramInfoId, vStr, abortControllerRef) => {
+    const ac = new AbortController();
+    abortControllerRef.current = ac;
+
+    if (getParamUIType(sectionId, paramInfoId).type === C.TEXT) {
+      if (ac.signal.aborted) return;
+      const evRefs = await getEVRefs({
+        sectionId,
+        paramInfoId,
+        fullText: vStr,
+      });
+      if (ac.signal.aborted) return;
+      useSectionInfos.setState((state) => {
+        setParamEnteredValue(sectionId, paramInfoId, vStr, state);
+        const { variantId } = state.x[sectionId];
+        state.variants[variantId].values[paramInfoId].evRefs = evRefs;
+      });
+    } else {
+      if (ac.signal.aborted) return;
       useSectionInfos.setState((state) => {
         setParamEnteredValue(sectionId, paramInfoId, vStr, state);
       });
-
-      if (getParamUIType(sectionId, paramInfoId).type === C.TEXT) {
-        const evRefs = await getEVRefs({
-          sectionId,
-          paramInfoId,
-          fullText: vStr,
-        });
-
-        useSectionInfos.setState((state) => {
-          const { variantId } = state.x[sectionId];
-          state.variants[variantId].values[paramInfoId].evRefs = evRefs;
-        });
-      }
-
-      maybeIncrementProjectStateVersion(true);
     }
+
+    maybeIncrementProjectStateVersion(true);
   },
   50,
 );
