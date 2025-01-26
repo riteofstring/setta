@@ -42,8 +42,6 @@ from setta.utils.websocket_manager import WebsocketManager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Starting Setta 🚀", flush=True)
-
     # startup
     app.state.settings_file = SettingsFile()
     app.state.lsps = create_lsps(

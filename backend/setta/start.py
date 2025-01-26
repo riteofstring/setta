@@ -79,6 +79,8 @@ def import_db(yaml_path, output_path):
 @click.pass_context
 def cli(ctx, reload, with_examples, db, host, port, log_level):
     if ctx.invoked_subcommand is None:
+        print("Starting Setta 🚀", flush=True)
+
         set_constants(
             with_examples=with_examples,
             db_path=db,
