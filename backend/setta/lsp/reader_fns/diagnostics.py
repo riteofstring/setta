@@ -4,18 +4,12 @@ from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 
 
-# TODO:
-# 1) need to close documents that are no longer used
-# 2) on the frontend, need to determined which diagnostics belong to the generated code.
-
-
 def process_diagnostics_response(response, get_code_metadata):
     params = response["params"]
     metadata = get_code_metadata(params["uri"])
     if not metadata["needsDiagnostics"] or metadata["version"] != params["version"]:
         return None, False
 
-    print(response, flush=True)
     convert_diagnostic_line_cols_to_positions(metadata["code"], params["diagnostics"])
 
     code_split = metadata["code"].split("\n")
