@@ -10,31 +10,35 @@ import { URLS } from "utils/constants";
 
 let wss;
 
-export const openWebSocket = _.debounce((pathname) => {
-  if (!wssReady()) {
-    console.log("new Websocket");
-    wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_MANAGER}`);
-    wss.addEventListener("open", () => {
-      console.log("open websocket");
-      sendLocation(pathname);
-    });
+export const openWebSocket = _.debounce(
+  (pathname) => {
+    if (!wssReady()) {
+      console.log("new Websocket");
+      wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_MANAGER}`);
+      wss.addEventListener("open", () => {
+        console.log("open websocket");
+        sendLocation(pathname);
+      });
 
-    wss.addEventListener("message", (event) => {
-      receiveMessage(event.data);
-    });
+      wss.addEventListener("message", (event) => {
+        receiveMessage(event.data);
+      });
 
-    wss.addEventListener("error", closeWebSocket);
+      wss.addEventListener("error", closeWebSocket);
 
-    wss.addEventListener("close", () => {
-      console.log("websocket closed");
-      wss = null;
-      // Attempt to reconnect
-      setTimeout(() => {
-        openWebSocket(pathname);
-      }, 3000);
-    });
-  }
-}, 1000);
+      wss.addEventListener("close", () => {
+        console.log("websocket closed");
+        wss = null;
+        // Attempt to reconnect
+        setTimeout(() => {
+          openWebSocket(pathname);
+        }, 3000);
+      });
+    }
+  },
+  1000,
+  { leading: true },
+);
 
 function closeWebSocket() {
   if (wss) {
