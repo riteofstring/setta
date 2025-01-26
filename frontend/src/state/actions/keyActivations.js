@@ -4,6 +4,7 @@ import {
   showVersionsTab,
 } from "components/Panes/paneFns";
 import {
+  copyFloatingBoxContent,
   decrementFloatingBoxIdx,
   disableFloatingBox,
   enableFloatingBox,
@@ -369,31 +370,47 @@ function keyUpLoop(e, shortcutInfo) {
   }
 }
 
-function addKeepKeyDownConditions(floatingBoxShortcutInfo, _isMacOs) {
+function addKeepKeyDownConditions(sInfo, _isMacOs) {
   // post processing that depends on parsed shortcuts
-  floatingBoxShortcutInfo.enable.keepKeyDownCondition = (e) => {
-    return (
-      isShortcutPressed(
-        e,
-        floatingBoxShortcutInfo.enable.parsedShortcut,
-        _isMacOs,
-      ) ||
-      isShortcutPressed(
-        e,
-        floatingBoxShortcutInfo.increment.parsedShortcut,
-        _isMacOs,
-      ) ||
-      isShortcutPressed(
-        e,
-        floatingBoxShortcutInfo.decrement.parsedShortcut,
-        _isMacOs,
-      )
+  sInfo.showTooltipShortcut.keepKeyDownCondition = (e) =>
+    isShortcutPressed(e, sInfo.showTooltipShortcut.parsedShortcut, _isMacOs) ||
+    isShortcutPressed(
+      e,
+      sInfo.incrementTooltipPageShortcut.parsedShortcut,
+      _isMacOs,
+    ) ||
+    isShortcutPressed(
+      e,
+      sInfo.decrementTooltipPageShortcut.parsedShortcut,
+      _isMacOs,
+    ) ||
+    isShortcutPressed(
+      e,
+      sInfo.copyTooltipTextShortcut.parsedShortcut,
+      _isMacOs,
     );
-  };
 }
 
 export function attachKeyEventListeners() {
   const shortcuts = useSettings.getState().shortcuts;
+  const shortcutsNeededForExtraProcessing = {};
+
+  function addToShortcutsNeededForExtraProcessing(
+    name,
+    keyDownAction,
+    keyUpAction = null,
+    allowRepeat = false,
+  ) {
+    const output = [
+      shortcuts[name],
+      keyDownAction,
+      keyUpAction,
+      allowRepeat,
+      name,
+    ];
+    shortcutsNeededForExtraProcessing[name] = output;
+    return output;
+  }
 
   const conditionAndAction = [
     ["tab", tabFromDocumentBody],
@@ -401,7 +418,11 @@ export function attachKeyEventListeners() {
     [shortcuts.newCardShortcut, addRegularSectionInEmptySpace],
     [shortcuts.newGroupShortcut, addGroupInEmptySpace],
     [shortcuts.newTerminalShortcut, addTerminalInEmptySpace],
-    [shortcuts.showTooltipShortcut, enableFloatingBox, disableFloatingBox],
+    addToShortcutsNeededForExtraProcessing(
+      "showTooltipShortcut",
+      enableFloatingBox,
+      disableFloatingBox,
+    ),
     [
       shortcuts.tooltipToPlaintextShortcut,
       getConvertFloatingBoxToSectionFn(false),
@@ -419,8 +440,18 @@ export function attachKeyEventListeners() {
       shortcuts.frozenTooltipToMarkdownShortcut,
       getConvertFloatingBoxToSectionFn(true),
     ],
-    [shortcuts.incrementTooltipPageShortcut, incrementFloatingBoxIdx],
-    [shortcuts.decrementTooltipPageShortcut, decrementFloatingBoxIdx],
+    addToShortcutsNeededForExtraProcessing(
+      "incrementTooltipPageShortcut",
+      incrementFloatingBoxIdx,
+    ),
+    addToShortcutsNeededForExtraProcessing(
+      "decrementTooltipPageShortcut",
+      decrementFloatingBoxIdx,
+    ),
+    addToShortcutsNeededForExtraProcessing(
+      "copyTooltipTextShortcut",
+      copyFloatingBoxContent,
+    ),
     [shortcuts.undoShortcut, undoProjectState, null, true],
     [shortcuts.redoShortcut, redoProjectState, null, true],
     [shortcuts.groupShortcut, groupSections],
@@ -485,18 +516,12 @@ export function attachKeyEventListeners() {
   const cleanup_functions = [];
   const shortcutInfo = [];
   const _isMacOs = isMacOs();
-  const floatingBoxShortcutInfo = {
-    enable: null,
-    increment: null,
-    decrement: null,
-  };
-  let idx = 0;
   for (const [
     keyCombo,
     keyDownAction,
     keyUpAction,
     allowRepeat,
-    keepKeyDownCondition,
+    nameForExtraProcessing,
   ] of conditionAndAction) {
     if (!keyCombo) {
       continue;
@@ -511,26 +536,18 @@ export function attachKeyEventListeners() {
       keyDownAction,
       keyUpAction,
       allowRepeat,
-      keepKeyDownCondition,
       ignoreWhenInInputField: getIgnoreWhenInInputField(
         parsedShortcut,
         _isMacOs,
       ),
     };
     shortcutInfo.push(info);
-
-    if (keyCombo === shortcuts.showTooltipShortcut) {
-      floatingBoxShortcutInfo.enable = info;
-    } else if (keyCombo === shortcuts.incrementTooltipPageShortcut) {
-      floatingBoxShortcutInfo.increment = info;
-    } else if (keyCombo === shortcuts.decrementTooltipPageShortcut) {
-      floatingBoxShortcutInfo.decrement = info;
+    if (shortcutsNeededForExtraProcessing[nameForExtraProcessing]) {
+      shortcutsNeededForExtraProcessing[nameForExtraProcessing] = info;
     }
-
-    idx += 1;
   }
 
-  addKeepKeyDownConditions(floatingBoxShortcutInfo, _isMacOs);
+  addKeepKeyDownConditions(shortcutsNeededForExtraProcessing, _isMacOs);
 
   let cleanup = attachKeyDownListener((e) => {
     // need to clear keys by timestamp because keyup does not trigger on mac when cmd key is held down

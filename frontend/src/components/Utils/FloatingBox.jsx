@@ -259,3 +259,12 @@ export function decrementFloatingBoxIdx() {
     idx: positiveMod(state.idx - 1, state.contentArray.length),
   }));
 }
+
+export async function copyFloatingBoxContent() {
+  const s = useFloatingBox.getState();
+  if (!s.contentArray) {
+    return;
+  }
+  const toCopy = s.contentArray[s.idx].content ?? s.contentArray[s.idx].title;
+  await navigator.clipboard.writeText(toCopy);
+}
