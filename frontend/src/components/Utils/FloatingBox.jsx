@@ -102,23 +102,27 @@ const TooltipCopyButton = React.memo(({ item, copied }) => {
     try {
       const content = item.content ?? item.title;
       await navigator.clipboard.writeText(content);
-      useFloatingBox.setState({ copied: true });
+      setTimeout(() => {
+        useFloatingBox.setState({ copied: false });
+      }, 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
     }
   };
 
+  function onClick() {
+    useFloatingBox.setState({ copied: true });
+  }
+
   useEffect(() => {
     if (copied) {
-      setTimeout(() => {
-        useFloatingBox.setState({ copied: false });
-      }, 2000);
+      handleCopy();
     }
   }, [copied]);
 
   return (
     <button
-      onClick={handleCopy}
+      onClick={onClick}
       className="absolute right-2 top-2 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
       aria-label={copied ? "Copied!" : "Copy to clipboard"}
     >
