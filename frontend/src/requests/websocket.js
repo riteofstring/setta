@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import _ from "lodash";
 import { updateInteractiveArtifacts } from "state/actions/interactive";
 import { setNotificationMessage } from "state/actions/notification";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
@@ -9,8 +10,8 @@ import { URLS } from "utils/constants";
 
 let wss;
 
-export function openWebSocket(pathname) {
-  if (!wss) {
+export const openWebSocket = _.debounce((pathname) => {
+  if (!wssReady()) {
     console.log("new Websocket");
     wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_MANAGER}`);
     wss.addEventListener("open", () => {
@@ -23,8 +24,17 @@ export function openWebSocket(pathname) {
     });
 
     wss.addEventListener("error", closeWebSocket);
+
+    wss.addEventListener("close", () => {
+      console.log("websocket closed");
+      wss = null;
+      // Attempt to reconnect
+      setTimeout(() => {
+        openWebSocket(pathname);
+      }, 3000);
+    });
   }
-}
+}, 1000);
 
 function closeWebSocket() {
   if (wss) {
@@ -44,7 +54,7 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     processTypeErrors(m.content);
   } else if (m.messageType === C.WS_LSP_STATUS) {
-    setNotificationMessage(`Language Server ${m.content}`);
+    setNotificationMessage(`Language Server ${m.content.data}`);
   } else if (
     m.messageType === C.WS_ARTIFACT ||
     m.messageType === C.WS_IN_MEMORY_FN_RETURN

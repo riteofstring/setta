@@ -51,9 +51,6 @@ function useOpenCloseWebsocket() {
 
   useEffect(() => {
     openWebSocket(location.pathname);
-  }, []);
-
-  useEffect(() => {
     sendLocation(location.pathname);
   }, [location.pathname]);
 }

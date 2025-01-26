@@ -8,6 +8,9 @@ logger = logging.getLogger(__name__)
 
 class LanguageServer:
     def __init__(self, workspace_folder, code_folder, settings, name):
+        # Create folders if they don't exist
+        workspace_folder.mkdir(parents=True, exist_ok=True)
+        code_folder.mkdir(parents=True, exist_ok=True)
         self.workspace_folder = workspace_folder
         self.code_folder = code_folder
         self.init_properties()

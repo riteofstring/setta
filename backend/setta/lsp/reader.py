@@ -20,16 +20,19 @@ class LanguageServerReader(LanguageServerInteractor):
         self.server = server
         self.websocket_manager = websocket_manager
         self.stop_event = asyncio.Event()
+        self.started = asyncio.Event()
         self.reader_task = None
 
     async def start_listener(self):
         logger.debug(f"Starting {self.server.name} language server reader")
         self.stop_event.clear()  # Reset the stop event
         self.reader_task = asyncio.create_task(self.read_response())
+        await self.started.wait()
 
     async def stop(self):
         logger.debug(f"Stopping {self.server.name} language server reader")
         self.stop_event.set()
+        self.started.clear()
         if self.reader_task:
             self.reader_task.cancel()
             try:
@@ -38,11 +41,12 @@ class LanguageServerReader(LanguageServerInteractor):
                 pass
 
     async def read_response(self):
+        self.started.set()
         while not self.stop_event.is_set():
             try:
                 await self.read_and_process_message()
             except Exception as e:
-                print(f"Error reading from language server: {e}", flush=True)
+                logging.error(f"Error reading from language server: {e}")
                 # Optional: add a small delay to prevent tight loop if there's a persistent error
                 await asyncio.sleep(0.1)
 
