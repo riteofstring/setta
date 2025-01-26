@@ -210,8 +210,6 @@ async function getTemplateVars(sectionId, fullText) {
     keywordPositions.sort((a, b) => a.startPos - b.startPos);
 
     templateVars = constructTemplateVars(keywordPositions, fullText);
-
-    console.log("templateVars", templateVars);
   }
 
   return templateVars;
