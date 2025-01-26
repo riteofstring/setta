@@ -1,6 +1,7 @@
 import asyncio
 import errno
 import json
+import logging
 import platform
 import select
 import time
@@ -14,6 +15,9 @@ from websockets.exceptions import ConnectionClosedOK
 
 from setta.code_gen.create_runnable_scripts import runCode
 from setta.utils.constants import USER_SETTINGS, C
+
+logger = logging.getLogger(__name__)
+
 
 SETTA_CLEAR_CMD = "SETTA_CLEAR_CMD"
 IS_WINDOWS = platform.system() == "Windows"
@@ -77,7 +81,7 @@ class TerminalWebsockets:
             ):
                 pty_info["terminalPromptIsReady"].set()
 
-            print("created new pty_process", sectionId, flush=True)
+            logger.debug(f"created new pty_process {sectionId}")
             if not pty_info["terminalPromptIsReady"].is_set():
                 pty_process.write(
                     f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
@@ -96,7 +100,7 @@ class TerminalWebsockets:
         await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
 
     def disconnect(self, sectionId, id):
-        print("disconnecting", id, flush=True)
+        logger.debug(f"disconnecting {id}")
         try:
             del self.sockets[id]
         except KeyError:
@@ -104,7 +108,7 @@ class TerminalWebsockets:
         self.section_to_socket_ids[sectionId].discard(id)
 
     async def delete_terminal(self, sectionId):
-        print("delete terminal", sectionId, flush=True)
+        logger.debug(f"delete terminal {sectionId}")
         if sectionId in self.PTY_PIDS:
             try:
                 await asyncio.to_thread(
@@ -132,7 +136,6 @@ class TerminalWebsockets:
         history = pty_info["history"]
         initial_buffer = ""
         while True:
-            # print("read_from_terminal while loop", flush=True)
             try:
                 output, _, _ = await asyncio.get_running_loop().run_in_executor(
                     None,
@@ -168,19 +171,17 @@ class TerminalWebsockets:
                 if e.errno == errno.EIO:  # Input/output error
                     break
             except Exception as e:
-                print(f"Exception details:\n{traceback.format_exc()}")
-                print(e, flush=True)
-                print("read_from_terminal caught the exception!", flush=True)
+                logger.debug(f"Exception details:\n{traceback.format_exc()}")
+                logger.debug(e)
+                logger.debug("read_from_terminal caught the exception!")
 
     # Function to write to the terminal
     async def write_to_terminal(self, websocket, lsp_writers, sectionId):
         pty_info = self.PTY_PIDS[sectionId]
         pty_process = pty_info["process"]
         while True:
-            # print("write_to_terminal while loop", flush=True)
             try:
                 input_data = await websocket.receive_text()
-                # print("input_data", input_data, flush=True)
                 try:
                     json_val = json.loads(input_data)
                 except json.decoder.JSONDecodeError:
@@ -206,9 +207,9 @@ class TerminalWebsockets:
                 if e.errno == errno.EIO:  # Input/output error
                     break
             except Exception as e:
-                print(f"Exception details:\n{traceback.format_exc()}")
-                print(e, flush=True)
-                print("write_to_terminal caught the exception!", flush=True)
+                logger.debug(f"Exception details:\n{traceback.format_exc()}")
+                logger.debug(e)
+                logger.debug("write_to_terminal caught the exception!")
 
     def set_terminal_start_time(self, id):
         self.PTY_PIDS[id]["start"] = time.time()

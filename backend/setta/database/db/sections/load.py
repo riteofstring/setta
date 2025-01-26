@@ -2,6 +2,7 @@ import copy
 import glob
 import itertools
 import json
+import logging
 from collections import defaultdict
 
 from setta.database.db.artifacts.load import load_artifact_groups
@@ -13,6 +14,8 @@ from setta.utils.constants import C
 
 from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes
+
+logger = logging.getLogger(__name__)
 
 
 def load_sections(db, ids):
@@ -266,7 +269,7 @@ def load_json_source(filename_glob, jsonSourceKeys):
             with open(filename, "r") as f:
                 jsonSourceData = json.load(f)
         except:
-            print("couldn't find", filename)
+            logger.debug(f"couldn't find: {filename}")
             continue
 
         new_data[filename] = {

@@ -1,4 +1,5 @@
 import json
+import logging
 import traceback
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
@@ -6,6 +7,8 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from setta.utils.constants import C
 
 from .dependencies import get_tasks_from_websocket, get_websocket_manager_from_websocket
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -24,10 +27,10 @@ async def websocket_endpoint(
                 json.loads(data), fromWebsocketId=id, tasks=tasks
             )
         except WebSocketDisconnect:
-            print("WebSocketDisconnect!", flush=True)
+            logger.debug("WebSocketDisconnect!")
             await websocket_manager.disconnect(id)
             break
         except Exception as e:
-            print(f"Exception details:\n{traceback.format_exc()}")
-            print(e, flush=True)
-            print("caught the exception!", flush=True)
+            logger.debug(f"Exception details:\n{traceback.format_exc()}")
+            logger.debug(e)
+            logger.debug("caught the exception!")

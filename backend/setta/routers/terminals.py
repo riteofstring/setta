@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, WebSocket
@@ -11,6 +12,9 @@ from .dependencies import (
     get_terminal_websockets,
     get_terminal_websockets_from_websocket,
 )
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter()
 
@@ -54,7 +58,7 @@ async def terminal_websocket_endpoint(
         pass
     finally:
         # Cleanup
-        print("terminal_websocket_endpoint disconnect", id, flush=True)
+        logger.debug(f"terminal_websocket_endpoint disconnect: {id}")
         terminal_websockets.disconnect(sectionId, id)
 
 

@@ -50,7 +50,6 @@ async def runCode(message, lsp_writers):
             exporter_obj.code_gen_template_var_section_details["section"]["id"]
         ]
 
-    print("runCodeBlocks", p["runCodeBlocks"], flush=True)
     to_write, section_dependencies = prune_and_topological_sort(
         code_dict, p["runCodeBlocks"]
     )

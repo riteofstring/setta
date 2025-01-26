@@ -16,7 +16,7 @@ class LanguageServer:
         self.init_properties()
         self.server = None
         if not isinstance(settings, dict):
-            print(
+            logger.warning(
                 "warning: your language server settings is not an object, so it will have no effect"
             )
             self.settings = {}

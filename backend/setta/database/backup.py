@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import time
@@ -6,6 +7,8 @@ from pathlib import Path
 from typing import List, Optional
 
 from setta.utils.constants import DB_BACKUP_FOLDER, USER_SETTINGS
+
+logger = logging.getLogger(__name__)
 
 
 def ensure_backup_dir_exists():
@@ -52,7 +55,7 @@ def create_backup(db_path):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_filename = f"backup_{timestamp}.db"
     backup_path = os.path.join(DB_BACKUP_FOLDER, backup_filename)
-    print("creating backup", backup_path)
+    logger.debug(f"creating backup: {backup_path}")
 
     shutil.copy2(db_path, backup_path)
     cleanup_old_backups()
@@ -63,12 +66,11 @@ def should_create_backup() -> bool:
     if not USER_SETTINGS["backend"]["autobackup"]:
         return False
     last_backup_time = get_last_backup_time()
-    print("last_backup_time", last_backup_time)
+    logger.debug(f"last_backup_time: {last_backup_time}")
     if last_backup_time is None:
         return True
 
     current_time = time.time()
-    print("current_time", current_time)
     time_since_last_backup = current_time - last_backup_time
     return time_since_last_backup >= USER_SETTINGS["backend"]["autobackupFreq"]
 

@@ -73,10 +73,10 @@ class LanguageServerWriter(LanguageServerInteractor):
                     "text": code,
                 }
             }
-            # print("send_document_open_request", uri, flush=True)
+            logger.debug(f"send_document_open_request {uri}")
             await self.send_request("textDocument/didOpen", params=params)
         else:
-            # print("document already open, updating it", uri, flush=True)
+            logger.debug(f"document already open, updating it {uri}")
             await self.send_document_update(
                 code_id=code_id,
                 code=code,

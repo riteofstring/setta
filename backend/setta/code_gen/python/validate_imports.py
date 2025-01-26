@@ -1,10 +1,13 @@
 import asyncio
 import copy
+import logging
 
 from setta.code_gen.export_selected import get_specific_template_var
 from setta.code_gen.find_placeholders import tp
 from setta.database.utils import create_new_id
 from setta.utils.constants import C
+
+logger = logging.getLogger(__name__)
 
 
 async def maybe_validate_imports_and_update_code(
@@ -23,7 +26,7 @@ async def maybe_validate_imports_and_update_code(
 
     # this shouldn't happen
     if len(new_value) != len(old_value):
-        print("new imports have different length from old imports", flush=True)
+        logger.debug("new imports have different length from old imports")
         return code, templateVars
 
     templateVars = copy.deepcopy(ref_template_var_positions["templateVars"])

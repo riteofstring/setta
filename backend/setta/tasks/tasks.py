@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import queue
 import threading
 from typing import Dict
@@ -9,6 +10,8 @@ from . import fns
 from .fns.utils import TaskDefinition, TaskMessage
 from .task_runner import RunType, TaskRunner
 from .utils import SettaInMemoryFnSubprocess, add_fns_from_module
+
+logger = logging.getLogger(__name__)
 
 
 class Tasks:
@@ -60,7 +63,7 @@ class Tasks:
             except Exception as e:
                 if self._stop_event.is_set():
                     break
-                print(f"Error in stdout listener: {e}", flush=True)
+                logger.debug(f"Error in stdout listener: {e}")
 
     async def _process_stdout_queue(self):
         while not self._stop_event.is_set():
@@ -80,7 +83,7 @@ class Tasks:
             except Exception as e:
                 if self._stop_event.is_set():
                     break
-                print(f"Error processing stdout: {e}", flush=True)
+                logger.debug(f"Error processing stdout: {e}")
 
     async def __call__(self, fn_name, message: TaskMessage):
         if fn_name in self.fns:

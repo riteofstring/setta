@@ -1,7 +1,10 @@
+import logging
 import os
 from pathlib import Path
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 def export_raw(db, filename):
@@ -24,7 +27,7 @@ def export_raw(db, filename):
 
     # For YAML export, PyYAML is used; ensure it's installed
     filepath = Path(os.getcwd()) / f"{filename}_export.yaml"
-    print("saving raw to", filepath)
+    logger.debug(f"saving raw db to {filepath}")
     with open(filepath, "w") as file:
         yaml.dump(database_export, file, allow_unicode=True, sort_keys=False)
 

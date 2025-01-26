@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 from pathlib import Path
@@ -30,18 +31,20 @@ from setta.utils.section_contents import getParamIdsToShowInArea
 
 from .utils import get_configs_and_root_folder
 
+logger = logging.getLogger(__name__)
+
 
 def export_readable(db, filename, with_variants):
     configs, root_folder = get_configs_and_root_folder(db, filename)
     subfolder_name = "with_variants" if with_variants else "clean"
     root_folder = root_folder / subfolder_name
     try:
-        print("try deleting:", root_folder)
+        logger.debug(f"try deleting: {root_folder}")
         shutil.rmtree(root_folder)
     except:
         pass
 
-    print("exporting readable to", root_folder)
+    logger.debug(f"exporting readable to {root_folder}")
 
     artifactIds = set()
     for c in configs:

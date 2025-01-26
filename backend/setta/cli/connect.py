@@ -22,9 +22,9 @@ async def connect(websocket_id):
         ) as websocket:
             await consumer_handler(websocket)
     except websockets.ConnectionClosedError:
-        logger.error("Connection closed unexpectedly")
+        logger.debug("Connection closed unexpectedly")
     except ConnectionRefusedError:
-        logger.error("Connection refused")
+        logger.debug("Connection refused")
 
 
 async def consumer_handler(websocket):
