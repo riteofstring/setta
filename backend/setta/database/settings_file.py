@@ -58,7 +58,7 @@ class SettingsFile:
 class MetaSettingsFile:
     def __init__(self):
         self.path_seed_settings = get_absolute_path(
-            __file__, SEED_FOLDER / "Settings.json"
+            __file__, CONSTANTS_FOLDER / "Settings.json"
         )
         self.path_seed_meta_settings = get_absolute_path(
             __file__, CONSTANTS_FOLDER / "settingsProject.json"
