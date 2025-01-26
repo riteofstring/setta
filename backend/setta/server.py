@@ -92,7 +92,7 @@ async def lifespan(app: FastAPI):
                 content = f.read()
             return content
 
-    print("Ready")
+    print(f"Ready: {C.BACKEND}")
     try:
         yield
     finally:
