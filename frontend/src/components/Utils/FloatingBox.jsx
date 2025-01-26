@@ -63,7 +63,7 @@ export const FloatingBox = () => {
   return (
     <div
       ref={boxRef}
-      className="fixed left-0 top-0 z-50 flex max-h-96 w-64 flex-col rounded-2xl border border-setta-200 bg-white p-4 shadow-lg dark:border-setta-700 dark:bg-setta-950"
+      className={`fixed left-0 top-0 z-50 flex max-h-96 w-64 flex-col rounded-2xl border border-setta-200 bg-white p-4 shadow-lg dark:border-setta-700 dark:bg-setta-950 ${contentArray[idx].wrapperClassName}`}
       style={{
         transform: `translate(${position.x}px, ${position.y}px)`,
       }}
@@ -78,11 +78,15 @@ function TooltipPage({ item, isFrozen }) {
   return (
     <>
       {item.title && (
-        <h3 className="break-words pb-1 text-xs font-black uppercase text-setta-500 dark:text-setta-600">
+        <h3
+          className={`break-words pb-1 text-xs font-black uppercase text-setta-500 dark:text-setta-600 ${item.titleClassName}`}
+        >
           {item.title}
         </h3>
       )}
-      <article className="flex-1 overflow-y-auto break-words text-sm text-setta-700 dark:text-setta-300">
+      <article
+        className={`flex-1 overflow-y-auto break-words text-sm text-setta-700 dark:text-setta-300 ${item.contentClassName}`}
+      >
         {item.content}
       </article>
       {Boolean(item.content) && <FooterSwitch isFrozen={isFrozen} />}
@@ -91,7 +95,19 @@ function TooltipPage({ item, isFrozen }) {
 }
 
 function TooltipPageCountIndicator({ numPages, idx }) {
-  return null;
+  return numPages > 1 ? (
+    <div className="mt-4 flex items-center justify-center gap-2">
+      {Array.from({ length: numPages }).map((_, i) => (
+        <div
+          key={i}
+          className={`h-2 w-2 rounded-full ${
+            i === idx ? "bg-blue-500" : "bg-gray-300 dark:bg-gray-600"
+          }`}
+          aria-label={`Page ${i + 1} of ${numPages}${i === idx ? " (current)" : ""}`}
+        />
+      ))}
+    </div>
+  ) : null;
 }
 
 function FooterSwitch({ isFrozen }) {
