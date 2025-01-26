@@ -15,12 +15,6 @@ from .utils import (
     prepare_code_for_scope_checking,
 )
 
-# TODO: for each candidate evRef, check if it's in the same scope as $SETTA_GENERATED_PYTHON
-# Replace $SETTA_GENERATED_PYTHON with random characters so that it's a valid python value
-# and declare it equal to something, like dlkfslkdjf=None.
-# Then use the ast-based function that claude wrote to check if each position in the candidate evRefs
-# is in the same scope as the randomly-named variable.
-
 
 class TextFieldFindReferencesContent(BaseModel):
     sectionId: str
@@ -73,7 +67,7 @@ async def sendEVRefRequests(
     if len(candidateEVRefs) == 0:
         return []
 
-    code, position_offset = generateCodeForReferenceFinding(
+    code, position_offset, num_keywords = generateCodeForReferenceFinding(
         candidateEVRefs,
         fullText,
         onlyAfterGenCodeTemplateVar,
@@ -82,9 +76,8 @@ async def sendEVRefRequests(
     code_id = f"{sectionId}-{paramInfoId}-find-references"
 
     await lsp_writers["basic"].send_document_open_request(code_id, code)
-    num_messages = len(candidateEVRefs)
     request_ids = []
-    for idx in range(num_messages):
+    for idx in range(num_keywords):
         request_id = f"{message_id}-{idx}"
         request_ids.append(request_id)
         lsp_writers["basic"].create_asyncio_task(
@@ -95,7 +88,7 @@ async def sendEVRefRequests(
                 code_id=code_id,
                 request_id=request_id,
                 return_id=message_id,
-                num_messages=num_messages,
+                num_messages=num_keywords,
             ),
             request_id,
             local=local,
@@ -192,7 +185,7 @@ def generateCodeForReferenceFinding(
     if onlyAfterGenCodeTemplateVar:
         matching_template_var = get_gen_code_template_var(templateVars)
         if matching_template_var is None:
-            return "", position_offset
+            return "", position_offset, 0
         # If SETTA_GENERATED_PYTHON is present, we only want to consider
         # code that comes after it.
         startPos = matching_template_var["startPos"]
@@ -231,7 +224,7 @@ def generateCodeForReferenceFinding(
     position_offset += len(output) + 1
     if len(var_name_mapping) > 0:
         fullText = multireplace(fullText, var_name_mapping)
-    return f"{output}\n{fullText}", position_offset
+    return f"{output}\n{fullText}", position_offset, len(visited_keywords)
 
 
 findEVRefs = TaskDefinition(

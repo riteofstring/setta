@@ -4,9 +4,9 @@
     "name": "img_to_img",
     "previewImgColor": "bg-orange-500/60 dark:bg-orange-600/30",
     "viewport": {
-      "x": 325.3031725086588,
-      "y": 91.24213702257214,
-      "zoom": 0.3128827804863356
+      "x": -245.45104882964657,
+      "y": 64.25388030277131,
+      "zoom": 0.542726012286885
     },
     "children": {
       "4bb4c596-a4f6-43a1-90f8-2e173547b0cc": {
@@ -19,30 +19,37 @@
       "521ca3bc-acd2-49b7-8608-3a1024eb2e9b": {
         "x": 1110,
         "y": -15,
-        "zIndex": 1,
-        "w": 202,
-        "h": 80
+        "zIndex": 4,
+        "w": 272,
+        "h": 113
       },
       "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d": {
-        "x": 885,
-        "y": 225,
-        "zIndex": 5,
-        "w": 617,
-        "h": 1259
+        "x": 795,
+        "y": 135,
+        "zIndex": 6,
+        "w": 872,
+        "h": 1004
       },
       "9b219263-3d97-493d-8add-f54b5142a500": {
         "x": 780,
         "y": -90,
-        "zIndex": 2,
+        "zIndex": 1,
         "w": 202,
         "h": 102
       },
       "a7ed7b7d-5708-434a-87f7-7857511efc73": {
         "x": 90,
         "y": -15,
-        "zIndex": 3,
+        "zIndex": 2,
         "w": 526,
         "h": 622
+      },
+      "f0073274-bd12-41f4-a213-80032a10b7bb": {
+        "x": 1440,
+        "y": -75,
+        "zIndex": 3,
+        "w": 422,
+        "h": 307
       }
     }
   },
@@ -54,15 +61,85 @@
       "name": "steady_pink"
     },
     "1ada1c52-cc01-4ddd-9f40-3b5408a96141": {
-      "name": "protective_amethyst"
+      "name": "protective_amethyst",
+      "values": {
+        "e04f542a-9248-4317-93f2-dfc44ee58552": {
+          "value": "\"dog playing the guitar\""
+        }
+      },
+      "codeInfoColId": "60470135-b115-42e8-8e90-0afdd58637a2"
+    },
+    "44ce9196-212c-4056-b686-423bf028db24": {
+      "name": "crowded_plum",
+      "values": {
+        "07799813-e9ad-4480-bb89-e728aa71f0d0": {
+          "value": "[22, 32, 45]"
+        },
+        "12f45d1b-15a7-4dc8-8928-1b6cd43c0299": {
+          "value": "\"xformers\""
+        },
+        "5ba24804-0b8c-4f5c-956c-51759892133e": {
+          "value": "\"self\""
+        },
+        "65a5b2e5-24df-4b68-aea8-d0706163003b": {
+          "value": "True"
+        },
+        "7eda39f1-3ee0-4248-99b7-50c4247c798e": {
+          "value": "\"SG161222/Realistic_Vision_V2.0\""
+        },
+        "b41a941c-9821-4083-8fa8-b3986274363a": {
+          "value": "\"img2img\""
+        },
+        "dcddb23c-aa51-4f6c-9271-6a2d52666326": {
+          "value": "1"
+        },
+        "fbd0d6bd-c5bf-48ea-9615-5c12716eb268": {
+          "value": "10"
+        }
+      },
+      "selectedItem": "ddbec1eb-6f6a-461a-83a2-fc1f875ee78a",
+      "codeInfoColId": "ad77b0c0-94b6-48fc-9b8d-c73b1a3ec9e3"
     },
     "b86565ba-e641-45ef-986c-0a85d1c14629": {
       "name": "racial_ivory",
-      "code": "from setta.tasks.fns import SettaInMemoryFn\nimport base64\nimport io\nfrom PIL import Image\nimport sys\n\nsys.path.insert(0, \"/home/paperspace/Documents/StreamDiffusion\")\nfrom utils.wrapper import StreamDiffusionWrapper\n\n$SETTA_GENERATED_PYTHON\n\n\nstream = StreamDiffusionWrapper(\n    model_id_or_path=\"SG161222/Realistic_Vision_V2.0\",\n    t_index_list=[22, 32, 45],\n    frame_buffer_size=1,\n    warmup=10,\n    acceleration=\"xformers\",\n    mode=\"img2img\",\n    use_denoising_batch=True,\n    cfg_type=\"self\",\n)\n\nstream.prepare(\n    prompt=\"alligator in space\",\n    negative_prompt=\"low quality, bad quality, blurry, low resolution\",\n    num_inference_steps=50,\n    guidance_scale=1.2,\n    delta=0.5,\n)\n\n\ndef base64_to_pil(base64_string: str) -> Image.Image:\n    # Remove data URL prefix if present\n    if \"base64,\" in base64_string:\n        base64_string = base64_string.split(\"base64,\")[1]\n\n    # Convert base64 to PIL Image\n    img_bytes = base64.b64decode(base64_string)\n    image = Image.open(io.BytesIO(img_bytes))\n\n    return image\n\n\ndef pil_to_base64(pil_image: Image.Image, format=\"PNG\") -> str:\n    buffered = io.BytesIO()\n    pil_image.save(buffered, format=format)\n    return base64.b64encode(buffered.getvalue()).decode()\n\n\ndef drawing_to_img(project):\n    x = base64_to_pil(project[\"input_image\"][\"drawing\"])\n\n    image_tensor = stream.preprocess_image(x)\n\n    for _ in range(stream.batch_size - 1):\n        stream(image=image_tensor)\n\n    output_image = stream(image=image_tensor)\n\n    output = pil_to_base64(output_image)\n    return [{\"name\": \"stream_diffusion_output\", \"type\": \"img\", \"value\": output}]\n\n\nfn = SettaInMemoryFn(fn=drawing_to_img)\n",
+      "code": "from setta.tasks.fns import SettaInMemoryFn\nimport base64\nimport io\nfrom PIL import Image\nimport sys\nfrom utils.wrapper import StreamDiffusionWrapper\n\n$SETTA_GENERATED_PYTHON\n\n\nstream.prepare(\n    prompt=prompt,\n    negative_prompt=\"low quality, bad quality, blurry, low resolution\",\n    num_inference_steps=50,\n    guidance_scale=1.2,\n    delta=0.5,\n)\n\n\ndef base64_to_pil(base64_string: str) -> Image.Image:\n    # Remove data URL prefix if present\n    if \"base64,\" in base64_string:\n        base64_string = base64_string.split(\"base64,\")[1]\n\n    # Convert base64 to PIL Image\n    img_bytes = base64.b64decode(base64_string)\n    image = Image.open(io.BytesIO(img_bytes))\n\n    return image\n\n\ndef pil_to_base64(pil_image: Image.Image, format=\"PNG\") -> str:\n    buffered = io.BytesIO()\n    pil_image.save(buffered, format=format)\n    return base64.b64encode(buffered.getvalue()).decode()\n\n\ndef drawing_to_img(project):\n    x = base64_to_pil(project[\"input_image\"][\"drawing\"])\n\n    image_tensor = stream.preprocess_image(x)\n\n    for _ in range(stream.batch_size - 1):\n        stream(image=image_tensor)\n\n    output_image = stream(image=image_tensor)\n\n    output = pil_to_base64(output_image)\n    return [{\"name\": \"stream_diffusion_output\", \"type\": \"img\", \"value\": output}]\n\n\nfn = SettaInMemoryFn(fn=drawing_to_img)\n",
+      "evRefs": [
+        {
+          "sectionId": "f0073274-bd12-41f4-a213-80032a10b7bb",
+          "startPos": 177,
+          "keyword": "stream"
+        },
+        {
+          "sectionId": "521ca3bc-acd2-49b7-8608-3a1024eb2e9b",
+          "paramInfoId": "e04f542a-9248-4317-93f2-dfc44ee58552",
+          "startPos": 204,
+          "keyword": "prompt"
+        },
+        {
+          "sectionId": "f0073274-bd12-41f4-a213-80032a10b7bb",
+          "startPos": 993,
+          "keyword": "stream"
+        },
+        {
+          "sectionId": "f0073274-bd12-41f4-a213-80032a10b7bb",
+          "startPos": 1040,
+          "keyword": "stream"
+        },
+        {
+          "sectionId": "f0073274-bd12-41f4-a213-80032a10b7bb",
+          "startPos": 1072,
+          "keyword": "stream"
+        },
+        {
+          "sectionId": "f0073274-bd12-41f4-a213-80032a10b7bb",
+          "startPos": 1119,
+          "keyword": "stream"
+        }
+      ],
       "templateVars": [
         {
           "sectionId": null,
-          "startPos": 217,
+          "startPos": 151,
           "keyword": "$SETTA_GENERATED_PYTHON"
         }
       ]
@@ -112,16 +189,19 @@
     "521ca3bc-acd2-49b7-8608-3a1024eb2e9b": {
       "id": "521ca3bc-acd2-49b7-8608-3a1024eb2e9b",
       "name": "Global Variables",
+      "size": {
+        "width": 270
+      },
       "variantId": "1ada1c52-cc01-4ddd-9f40-3b5408a96141",
       "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
       "variantIds": ["1ada1c52-cc01-4ddd-9f40-3b5408a96141"],
-      "columnWidth": 82
+      "columnWidth": 117
     },
     "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d": {
       "id": "7e42e172-ee4d-4ee4-979b-a22b1ee7ae5d",
       "name": "code",
       "size": {
-        "width": 615
+        "width": 870
       },
       "variantId": "b86565ba-e641-45ef-986c-0a85d1c14629",
       "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
@@ -149,8 +229,101 @@
       "canvasSettings": {
         "activeLayerId": "00dd4f58-01ab-44f3-b884-cc1e9a397f5f"
       }
+    },
+    "f0073274-bd12-41f4-a213-80032a10b7bb": {
+      "id": "f0073274-bd12-41f4-a213-80032a10b7bb",
+      "name": "stream",
+      "size": {
+        "width": 420
+      },
+      "variantId": "44ce9196-212c-4056-b686-423bf028db24",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "defaultVariantId": "44ce9196-212c-4056-b686-423bf028db24",
+      "variantIds": ["44ce9196-212c-4056-b686-423bf028db24"],
+      "columnWidth": 192
     }
   },
-  "codeInfo": {},
-  "codeInfoCols": {}
+  "codeInfo": {
+    "07799813-e9ad-4480-bb89-e728aa71f0d0": {
+      "id": "07799813-e9ad-4480-bb89-e728aa71f0d0",
+      "name": "t_index_list",
+      "editable": true
+    },
+    "12f45d1b-15a7-4dc8-8928-1b6cd43c0299": {
+      "id": "12f45d1b-15a7-4dc8-8928-1b6cd43c0299",
+      "name": "acceleration",
+      "editable": true
+    },
+    "5ba24804-0b8c-4f5c-956c-51759892133e": {
+      "id": "5ba24804-0b8c-4f5c-956c-51759892133e",
+      "name": "cfg_type",
+      "editable": true
+    },
+    "65a5b2e5-24df-4b68-aea8-d0706163003b": {
+      "id": "65a5b2e5-24df-4b68-aea8-d0706163003b",
+      "name": "use_denoising_batch",
+      "editable": true
+    },
+    "7eda39f1-3ee0-4248-99b7-50c4247c798e": {
+      "id": "7eda39f1-3ee0-4248-99b7-50c4247c798e",
+      "name": "model_id_or_path",
+      "editable": true
+    },
+    "b41a941c-9821-4083-8fa8-b3986274363a": {
+      "id": "b41a941c-9821-4083-8fa8-b3986274363a",
+      "name": "mode",
+      "editable": true
+    },
+    "dcddb23c-aa51-4f6c-9271-6a2d52666326": {
+      "id": "dcddb23c-aa51-4f6c-9271-6a2d52666326",
+      "name": "frame_buffer_size",
+      "editable": true
+    },
+    "ddbec1eb-6f6a-461a-83a2-fc1f875ee78a": {
+      "id": "ddbec1eb-6f6a-461a-83a2-fc1f875ee78a",
+      "name": "StreamDiffusionWrapper",
+      "rcType": "callable"
+    },
+    "e04f542a-9248-4317-93f2-dfc44ee58552": {
+      "id": "e04f542a-9248-4317-93f2-dfc44ee58552",
+      "name": "prompt",
+      "editable": true
+    },
+    "fbd0d6bd-c5bf-48ea-9615-5c12716eb268": {
+      "id": "fbd0d6bd-c5bf-48ea-9615-5c12716eb268",
+      "name": "warmup",
+      "editable": true
+    }
+  },
+  "codeInfoCols": {
+    "60470135-b115-42e8-8e90-0afdd58637a2": {
+      "children": {
+        "null": ["e04f542a-9248-4317-93f2-dfc44ee58552"],
+        "e04f542a-9248-4317-93f2-dfc44ee58552": []
+      }
+    },
+    "ad77b0c0-94b6-48fc-9b8d-c73b1a3ec9e3": {
+      "children": {
+        "null": ["ddbec1eb-6f6a-461a-83a2-fc1f875ee78a"],
+        "ddbec1eb-6f6a-461a-83a2-fc1f875ee78a": [
+          "7eda39f1-3ee0-4248-99b7-50c4247c798e",
+          "07799813-e9ad-4480-bb89-e728aa71f0d0",
+          "dcddb23c-aa51-4f6c-9271-6a2d52666326",
+          "fbd0d6bd-c5bf-48ea-9615-5c12716eb268",
+          "12f45d1b-15a7-4dc8-8928-1b6cd43c0299",
+          "b41a941c-9821-4083-8fa8-b3986274363a",
+          "65a5b2e5-24df-4b68-aea8-d0706163003b",
+          "5ba24804-0b8c-4f5c-956c-51759892133e"
+        ],
+        "7eda39f1-3ee0-4248-99b7-50c4247c798e": [],
+        "07799813-e9ad-4480-bb89-e728aa71f0d0": [],
+        "dcddb23c-aa51-4f6c-9271-6a2d52666326": [],
+        "fbd0d6bd-c5bf-48ea-9615-5c12716eb268": [],
+        "12f45d1b-15a7-4dc8-8928-1b6cd43c0299": [],
+        "b41a941c-9821-4083-8fa8-b3986274363a": [],
+        "65a5b2e5-24df-4b68-aea8-d0706163003b": [],
+        "5ba24804-0b8c-4f5c-956c-51759892133e": []
+      }
+    }
+  }
 }
