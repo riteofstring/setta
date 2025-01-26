@@ -4,50 +4,50 @@
     "name": "working_finetune",
     "previewImgColor": "bg-pink-500/60 dark:bg-pink-600/30",
     "viewport": {
-      "x": 164.24757181445008,
-      "y": 213.28323236601767,
-      "zoom": 0.3660260860177172
+      "x": 71.36303511688051,
+      "y": 196.4968111775635,
+      "zoom": 0.30179242284034524
     },
     "children": {
       "4adad04e-a6d8-44e8-abe8-6571ea67513d": {
         "x": 660,
         "y": 360,
-        "zIndex": 2,
+        "zIndex": 1,
         "w": 827,
         "h": 617
       },
       "b80e7d87-29de-4f22-b4ce-442257c8b54d": {
         "x": 1500,
         "y": 360,
-        "zIndex": 5,
-        "w": 362,
-        "h": 161
+        "zIndex": 6,
+        "w": 411,
+        "h": 145
       },
       "d721eba8-6fe3-4459-b4c0-efcac870c3f4": {
         "x": 1500,
         "y": 585,
-        "zIndex": 4,
+        "zIndex": 2,
         "w": 362,
         "h": 392
       },
       "e6b535aa-30ba-4a99-8f47-98212619eac8": {
         "x": 645,
         "y": -450,
-        "zIndex": 6,
+        "zIndex": 3,
         "w": 530,
         "h": 796
       },
       "ec20c6de-f8b4-4176-a7db-fded6c68878e": {
         "x": 1185,
         "y": -45,
-        "zIndex": 0,
+        "zIndex": 4,
         "w": 1168,
         "h": 382
       },
       "f8c4f6c0-71b0-4f2a-94f3-e868cbd2f8f3": {
         "x": 1185,
         "y": -450,
-        "zIndex": 1,
+        "zIndex": 0,
         "w": 1158,
         "h": 397
       }
@@ -126,7 +126,7 @@
       "name": "ordinary_turquoise",
       "values": {
         "21df4aae-ae10-458e-99d2-91675a651e07": {
-          "value": "1000"
+          "value": "2000"
         },
         "587a1f25-c561-4425-8ab6-086a71d21e1b": {
           "value": "\"google-bert/bert-base-cased\""
@@ -569,8 +569,53 @@
       "brushOpacity": 1
     }
   },
-  "uiTypes": {},
-  "uiTypeCols": {},
+  "uiTypes": {
+    "57262d0c-b30d-4fd4-8b3f-a21ad0539ebe": {
+      "id": "57262d0c-b30d-4fd4-8b3f-a21ad0539ebe",
+      "type": "DROPDOWN",
+      "name": "model_name",
+      "presetType": null,
+      "config": {
+        "choices": [
+          {
+            "id": "\"google-bert/bert-base-cased\"",
+            "name": "\"google-bert/bert-base-cased\""
+          },
+          {
+            "id": "\"distilbert-base-uncased\"",
+            "name": "\"distilbert-base-uncased\""
+          },
+          {
+            "id": "\"roberta-base",
+            "name": "\"roberta-base"
+          }
+        ]
+      }
+    },
+    "793afb6d-5f6f-4362-8a4a-994934a87875": {
+      "id": "793afb6d-5f6f-4362-8a4a-994934a87875",
+      "type": "SLIDER",
+      "name": "dataset_size",
+      "presetType": null,
+      "config": {
+        "min": 1000,
+        "max": 10000,
+        "step": 500
+      }
+    }
+  },
+  "uiTypeCols": {
+    "71b8803c-67e1-4edc-9de4-fd0c85274aba": {
+      "587a1f25-c561-4425-8ab6-086a71d21e1b": {
+        "uiTypeId": "57262d0c-b30d-4fd4-8b3f-a21ad0539ebe",
+        "nonPresetUITypeIds": ["57262d0c-b30d-4fd4-8b3f-a21ad0539ebe"]
+      },
+      "21df4aae-ae10-458e-99d2-91675a651e07": {
+        "uiTypeId": "793afb6d-5f6f-4362-8a4a-994934a87875",
+        "nonPresetUITypeIds": ["793afb6d-5f6f-4362-8a4a-994934a87875"]
+      }
+    }
+  },
   "sections": {
     "2e9f9965-f40d-46d5-98ac-f43938d9b9ea": {
       "id": "2e9f9965-f40d-46d5-98ac-f43938d9b9ea",
@@ -645,12 +690,13 @@
       "id": "b80e7d87-29de-4f22-b4ce-442257c8b54d",
       "name": "Global Variables",
       "size": {
-        "width": 360
+        "width": 409
       },
       "variantId": "30d80dbd-b0f7-4a24-9245-72209479c263",
       "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
+      "uiTypeColId": "71b8803c-67e1-4edc-9de4-fd0c85274aba",
       "variantIds": ["30d80dbd-b0f7-4a24-9245-72209479c263"],
-      "columnWidth": 115.0481102912619
+      "columnWidth": 110.74041940408327
     },
     "c8fae06c-1370-4e6b-95f8-3d036def5e6a": {
       "id": "c8fae06c-1370-4e6b-95f8-3d036def5e6a",
