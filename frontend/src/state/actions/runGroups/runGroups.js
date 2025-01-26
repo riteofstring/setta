@@ -222,7 +222,6 @@ export function toggleRunGroupSectionVersion({
 //     };
 //   }
 
-
 //   setAllRunGroups(stateFormat);
 //   if (!useSectionInfos.getState().singletonSections[C.GLOBAL_PARAM_SWEEP]) {
 //   } else {

@@ -224,7 +224,6 @@ function* getProjectVariants(project, paramSweepSectionVariantIds) {
     }
   }
 
-
   if (allSweeps.length > 0) {
     for (const combo of generateParamSweepCombinations(allSweeps)) {
       const variant = _.cloneDeep(project);

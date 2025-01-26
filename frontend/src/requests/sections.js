@@ -178,7 +178,6 @@ export async function getEVRefs({
     keywordPositions.sort((a, b) => a.startPos - b.startPos);
 
     evRefs = constructEVRefs(keywordPositions, fullText);
-
   }
 
   return evRefs;
@@ -208,7 +207,6 @@ async function getTemplateVars(sectionId, fullText) {
     keywordPositions.sort((a, b) => a.startPos - b.startPos);
 
     templateVars = constructTemplateVars(keywordPositions, fullText);
-
   }
 
   return templateVars;
