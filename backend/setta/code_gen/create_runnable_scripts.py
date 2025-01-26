@@ -367,7 +367,9 @@ def create_wrapper_bash_script(folder_path, run_order, code_dict):
             folder_path, curr_code["name"], curr_code["codeLanguage"]
         )
         bash_script += f'{codeCallStr(codePath, curr_code["codeLanguage"])}\n'
-    return write_code_to_file(folder_path, "SETTA_ENTRY", bash_script, "bash")
+    return write_code_to_file(
+        folder_path, C.DEFAULT_BASH_SCRIPT_NAME, bash_script, "bash"
+    )
 
 
 def prune_and_topological_sort(code_dict, to_keep):

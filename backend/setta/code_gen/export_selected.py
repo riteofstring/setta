@@ -252,10 +252,9 @@ class Exporter:
             "sectionVariant": {},
         }
         if force_include_template_var:
-            taken_names = [s["name"] for s in p["sections"].values()]
             section_details = {
                 "id": None,
-                "name": generate_memorable_available_string(taken_names),
+                "name": C.DEFAULT_PYTHON_SCRIPT_NAME,
                 "codeLanguage": "python",
             }
             _, section_variant = new_section_variant(
