@@ -9,7 +9,7 @@ fi
 . ./activate.sh
 
 if [[ "$1" == "dev" && "$CONDA_DEFAULT_ENV" == "abcde_env" ]]; then
-    pip install -e ".[dev,test]"
+    pip install -e ".[dev]"
 elif [[ "$1" == "test" && "$CONDA_DEFAULT_ENV" == "abcde_env" ]]; then
     pip install -e ".[dev]"
 fi
