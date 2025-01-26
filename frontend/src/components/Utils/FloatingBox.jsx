@@ -123,7 +123,7 @@ const TooltipCopyButton = React.memo(({ item, copied }) => {
   return (
     <button
       onClick={onClick}
-      className="absolute right-2 top-2 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+      className="tooltip-copy absolute right-2 top-2 cursor-pointer rounded-lg p-1.5 text-setta-500 hover:bg-setta-100 dark:text-setta-400 dark:hover:bg-setta-800"
       aria-label={copied ? "Copied!" : "Copy to clipboard"}
     >
       {copied ? (
@@ -137,12 +137,12 @@ const TooltipCopyButton = React.memo(({ item, copied }) => {
 
 const TooltipPageCountIndicator = React.memo(({ numPages, idx }) => {
   return numPages > 1 ? (
-    <div className="mt-4 flex items-center justify-center gap-2">
+    <div className="tooltip-page mt-4 flex items-center justify-center gap-2">
       {Array.from({ length: numPages }).map((_, i) => (
         <div
           key={i}
           className={`h-2 w-2 rounded-full ${
-            i === idx ? "bg-blue-500" : "bg-gray-300 dark:bg-gray-600"
+            i === idx ? "bg-blue-500" : "bg-setta-300 dark:bg-setta-600"
           }`}
           aria-label={`Page ${i + 1} of ${numPages}${i === idx ? " (current)" : ""}`}
         />
@@ -153,7 +153,7 @@ const TooltipPageCountIndicator = React.memo(({ numPages, idx }) => {
 
 function FooterSwitch({ isFrozen }) {
   const className =
-    "mt-4 border-t border-solid border-setta-100 pt-1 text-[10px] text-setta-500 dark:border-setta-700 dark:text-setta-600";
+    "tooltip-footer mt-4 border-t border-solid border-setta-100 pt-1 text-[10px] text-setta-500 dark:border-setta-700 dark:text-setta-600";
 
   return isFrozen ? (
     <FrozenFooter className={className} />

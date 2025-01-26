@@ -13,7 +13,6 @@ from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
 from setta.database.settings_file import SettingsFile
 from setta.lsp.utils import (
-    create_file_watcher,
     create_lsp_readers,
     create_lsp_writers,
     create_lsps,
@@ -52,7 +51,6 @@ async def lifespan(app: FastAPI):
         settings=USER_SETTINGS["languageServer"],
     )
     app.state.lsp_writers = create_lsp_writers(app.state.lsps)
-    app.state.file_watcher = create_file_watcher(app.state.lsps, app.state.lsp_writers)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager()
     app.state.tasks = Tasks(app.state.lsp_writers)
@@ -75,7 +73,6 @@ async def lifespan(app: FastAPI):
         app.state.lsp_readers,
         app.state.lsp_writers,
     )
-    app.state.file_watcher.start()
 
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
@@ -100,7 +97,6 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         app.state.tasks.close()
-        app.state.file_watcher.stop()
         await kill_lsps(app.state.lsps, app.state.lsp_readers)
 
 

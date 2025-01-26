@@ -39,11 +39,14 @@ function _ParamContainer({
     paramChildren,
   );
 
+  // TODO: fix quick hacky solution below. shouldn't use !important everywhere.
   const tooltipContentArray = maybeErrorMessage
     ? [
         {
           content: maybeErrorMessage,
-          contentClassName: "!bg-red-500/80 !dark:bg-red-700/80",
+          wrapperClassName:
+            "!border-red-300 dark:!border-red-900 [&_.tooltip-footer]:!text-red-500 dark:[&_.tooltip-footer]:!text-red-800 dark:[&_.tooltip-footer]:!border-red-950 !bg-red-50/90 dark:!bg-[#120000]/90 [&_.tooltip-copy]:!text-red-400 dark:[&_.tooltip-copy]:!text-red-300 [&>.tooltip-copy]:hover:!bg-transparent",
+          contentClassName: "!text-red-700 dark:!text-red-300 font-mono",
         },
         {
           title: paramName,
@@ -128,7 +131,7 @@ function useColumnWidth(sectionId, paramChildren) {
 
 function ErrorSection() {
   return (
-    <BiError className="section-key-value grid-row-start-1 group/ w-45overflow-y-clip ml-auto aspect-square  cursor-help rounded-full bg-red-500/80 px-0.5 pb-0.5 pt-[1px] text-white  peer-focus-within/textinput:text-red-400 peer-focus-within/textinput:!opacity-20 dark:bg-red-700/80" />
+    <BiError className="section-key-value grid-row-start-1 group/ w-45overflow-y-clip ml-auto aspect-square  cursor-help rounded-full bg-red-500/80 px-0.5 pb-0.5 pt-[1px] text-white  peer-focus-within/textinput:text-red-100 peer-focus-within/textinput:!opacity-20 dark:bg-red-700/80 dark:peer-focus-within/textinput:text-red-400" />
   );
 }
 
