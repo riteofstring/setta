@@ -39,7 +39,7 @@ function _ParamContainer({
     paramChildren,
   );
 
-  // fix quick hacky solution below. shouldn't use !important everywhere.
+  // TODO: fix quick hacky solution below. shouldn't use !important everywhere.
   const tooltipContentArray = maybeErrorMessage
     ? [
         {
