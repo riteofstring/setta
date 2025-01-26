@@ -43,7 +43,7 @@ export function homePageProjectItemOnKeyDown(e, navigate, projectConfigName) {
 
 function withinSectionTabbingHelper(focusEl) {
   focusEl.focus({ preventScroll: true });
-  // movePaneToIncludeElement(focusEl);
+  movePaneToIncludeElement(focusEl);
 }
 
 export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
