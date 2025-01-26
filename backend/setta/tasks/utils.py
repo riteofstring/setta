@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import multiprocessing
+import os
 import sys
 import traceback
 import uuid
@@ -14,7 +15,11 @@ def import_code_from_string(code_string, module_name=None, add_to_sys_modules=Tr
     if module_name is None:
         module_name = f"setta_dynamic_module_{uuid.uuid4().hex}"
 
-    # Create a new module spec
+    # Add current directory to sys.path if it's not already there
+    current_dir = os.getcwd()
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+
     spec = importlib.util.spec_from_loader(module_name, loader=None)
 
     # Create a new module based on the spec
