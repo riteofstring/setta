@@ -41,7 +41,7 @@ from setta.utils.websocket_manager import WebsocketManager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Starting Setta 🚀")
+    print("Starting Setta 🚀", flush=True)
 
     # startup
     app.state.settings_file = SettingsFile()
@@ -92,7 +92,7 @@ async def lifespan(app: FastAPI):
                 content = f.read()
             return content
 
-    print(f"Ready: {C.BACKEND}")
+    print(f"Ready: {C.BACKEND}", flush=True)
     try:
         yield
     finally:
