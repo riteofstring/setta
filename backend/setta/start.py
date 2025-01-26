@@ -6,8 +6,6 @@ from pathlib import Path
 import click
 import uvicorn
 
-from setta.utils.utils import is_dev_mode
-
 from . import __version__
 from .cli.connect import connect as _connect
 from .database.db_init import maybe_create_tables_and_seed

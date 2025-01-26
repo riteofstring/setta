@@ -160,17 +160,12 @@ class TerminalWebsockets:
                     history.append(output)
                 pty_info["wasJustResized"] = False
                 await self.send_output_to_sectionId(sectionId, output)
-            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK) as e:
-                # print(e, flush=True)
+            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
                 break
             except EOFError:
-                # print(f"Terminal EOF for section {sectionId}", flush=True)
                 break
             except OSError as e:
                 if e.errno == errno.EIO:  # Input/output error
-                    # print(
-                    #     f"Terminal I/O error for section {sectionId}: {e}", flush=True
-                    # )
                     break
             except Exception as e:
                 print(f"Exception details:\n{traceback.format_exc()}")
@@ -203,17 +198,12 @@ class TerminalWebsockets:
                 elif input_data:
                     pty_process.write(input_data)
                     self.set_terminal_start_time(sectionId)
-            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK) as e:
-                # print(e, flush=True)
+            except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
                 break
             except EOFError:
-                # print(f"Terminal EOF for section {sectionId}", flush=True)
                 break
             except OSError as e:
                 if e.errno == errno.EIO:  # Input/output error
-                    # print(
-                    #     f"Terminal I/O error for section {sectionId}: {e}", flush=True
-                    # )
                     break
             except Exception as e:
                 print(f"Exception details:\n{traceback.format_exc()}")

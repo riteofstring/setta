@@ -104,7 +104,7 @@ class LanguageServerInteractor:
             try:
                 result = await asyncio.wait_for(future, timeout=timeout)
                 return result
-            except ConnectionResetError as e:
+            except ConnectionResetError:
                 # Handle the error case
                 pass
             finally:

@@ -11,7 +11,7 @@ from setta.database.db.sections.jsonSource import (
     remove_json_source_data,
     save_json_source_data,
 )
-from setta.utils.constants import CONSTANTS_FOLDER, SEED_FOLDER, USER_SETTINGS
+from setta.utils.constants import CONSTANTS_FOLDER, USER_SETTINGS
 from setta.utils.utils import get_absolute_path, save_json_to_file
 
 logger = logging.getLogger(__name__)

@@ -13,6 +13,8 @@ extend-ignore =
     E741 
     # block comment should start with #
     E265 
+    # bare except
+    E722
 
 per-file-ignores =
     __init__.py:F401
