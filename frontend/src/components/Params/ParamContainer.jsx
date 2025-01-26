@@ -131,7 +131,7 @@ function useColumnWidth(sectionId, paramChildren) {
 
 function ErrorSection() {
   return (
-    <BiError className="section-key-value grid-row-start-1 group/ w-45overflow-y-clip ml-auto aspect-square  cursor-help rounded-full bg-red-500/80 px-0.5 pb-0.5 pt-[1px] text-white  peer-focus-within/textinput:text-red-400 peer-focus-within/textinput:!opacity-20 dark:bg-red-700/80" />
+    <BiError className="section-key-value grid-row-start-1 group/ w-45overflow-y-clip ml-auto aspect-square  cursor-help rounded-full bg-red-500/80 px-0.5 pb-0.5 pt-[1px] text-white  peer-focus-within/textinput:text-red-100 peer-focus-within/textinput:!opacity-20 dark:bg-red-700/80 dark:peer-focus-within/textinput:text-red-400" />
   );
 }
 
