@@ -1,6 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { useSettings } from "state/definitions";
 import { positiveMod, shortcutPrettified } from "utils/utils";
@@ -11,13 +12,14 @@ export const useFloatingBox = create(() => ({
   isEnabled: false,
   contentArray: null,
   idx: 0,
+  copied: false,
 }));
 
 let mouseMoved = false;
 
 export const FloatingBox = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const { isEnabled, contentArray, isFrozen, idx } = useFloatingBox();
+  const { isEnabled, contentArray, isFrozen, idx, copied } = useFloatingBox();
   const boxRef = useRef(null);
 
   useEffect(() => {
@@ -68,13 +70,14 @@ export const FloatingBox = () => {
         transform: `translate(${position.x}px, ${position.y}px)`,
       }}
     >
+      <TooltipCopyButton item={contentArray[idx]} copied={copied} />
       <TooltipPage item={contentArray[idx]} isFrozen={isFrozen} />
       <TooltipPageCountIndicator numPages={contentArray.length} idx={idx} />
     </div>
   );
 };
 
-function TooltipPage({ item, isFrozen }) {
+const TooltipPage = React.memo(({ item, isFrozen }) => {
   return (
     <>
       {item.title && (
@@ -92,9 +95,43 @@ function TooltipPage({ item, isFrozen }) {
       {Boolean(item.content) && <FooterSwitch isFrozen={isFrozen} />}
     </>
   );
-}
+}, _.isEqual);
 
-function TooltipPageCountIndicator({ numPages, idx }) {
+const TooltipCopyButton = React.memo(({ item, copied }) => {
+  const handleCopy = async () => {
+    try {
+      const content = item.content ?? item.title;
+      await navigator.clipboard.writeText(content);
+      useFloatingBox.setState({ copied: true });
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (copied) {
+      setTimeout(() => {
+        useFloatingBox.setState({ copied: false });
+      }, 2000);
+    }
+  }, [copied]);
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="absolute right-2 top-2 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+      aria-label={copied ? "Copied!" : "Copy to clipboard"}
+    >
+      {copied ? (
+        <HiCheck className="h-4 w-4" />
+      ) : (
+        <HiOutlineDuplicate className="h-4 w-4" />
+      )}
+    </button>
+  );
+}, _.isEqual);
+
+const TooltipPageCountIndicator = React.memo(({ numPages, idx }) => {
   return numPages > 1 ? (
     <div className="mt-4 flex items-center justify-center gap-2">
       {Array.from({ length: numPages }).map((_, i) => (
@@ -108,7 +145,7 @@ function TooltipPageCountIndicator({ numPages, idx }) {
       ))}
     </div>
   ) : null;
-}
+});
 
 function FooterSwitch({ isFrozen }) {
   const className =
@@ -196,7 +233,7 @@ export function getFloatingBoxHandlers(...contentArray) {
 
   function onMouseLeave() {
     if (!useFloatingBox.getState().isFrozen) {
-      useFloatingBox.setState({ contentArray: null, idx: 0 });
+      useFloatingBox.setState({ contentArray: null, idx: 0, copied: false });
     }
   }
 
@@ -261,10 +298,8 @@ export function decrementFloatingBoxIdx() {
 }
 
 export async function copyFloatingBoxContent() {
-  const s = useFloatingBox.getState();
-  if (!s.contentArray) {
+  if (!useFloatingBox.getState().contentArray) {
     return;
   }
-  const toCopy = s.contentArray[s.idx].content ?? s.contentArray[s.idx].title;
-  await navigator.clipboard.writeText(toCopy);
+  useFloatingBox.setState({ copied: true });
 }
