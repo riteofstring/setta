@@ -4,7 +4,7 @@ import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React, { useEffect, useRef } from "react";
-import { BiChevronUp, BiError } from "react-icons/bi";
+import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { useSectionColumnWidth, useSectionInfos } from "state/definitions";
 import { ParamInput } from "./ParamItems/ParamInput";
@@ -117,7 +117,18 @@ function useColumnWidth(sectionId, paramChildren) {
 
 function ErrorSection({ maybeErrorMessage }) {
   return (
-    <BiError className="section-key-value grid-row-start-1 group/ w-45overflow-y-clip ml-auto aspect-square  cursor-help rounded-full bg-red-500/80 px-0.5 pb-0.5 pt-[1px] text-white  peer-focus-within/textinput:!opacity-20 dark:bg-red-700/80" />
+    <Accordion.Root
+      className="section-key-value group/arg-group mb-[2px] overflow-y-clip rounded-b-sm"
+      type="single"
+      // defaultValue="item-1"
+      collapsible
+      asChild
+    >
+      <AccordionItem value="item-1">
+        <AccordionTrigger>{maybeErrorMessage}</AccordionTrigger>
+        <AccordionContent>{maybeErrorMessage}</AccordionContent>
+      </AccordionItem>
+    </Accordion.Root>
   );
 }
 
@@ -137,11 +148,14 @@ const AccordionItem = React.forwardRef(
 const AccordionTrigger = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Header className="flex">
-      <Accordion.Trigger {...props} ref={forwardedRef} asChild>
-        {/* <p className="w-[calc(100%-1rem)] truncate">{children}</p> */}
-        <i className="group ml-auto flex h-4 cursor-default items-center overflow-hidden rounded-full bg-red-500 pl-[2px] pr-1 font-mono text-xs font-bold text-red-50 outline-none transition-all hover:cursor-help dark:bg-red-800">
-          <BiChevronUp className="ease-[cubic-bezier(0.87, 0, 0.13, 1)] ml-auto transition-transform duration-300 group-data-[state=closed]:rotate-180" />
-        </i>
+      <Accordion.Trigger
+        className="group -mx-[2px] mt-1 flex h-6 flex-1 cursor-default items-center justify-between overflow-hidden rounded-sm bg-red-500 pl-[2px] pr-1 font-mono text-xs font-bold text-red-50 outline-none transition-all hover:cursor-pointer dark:bg-red-800"
+        {...props}
+        ref={forwardedRef}
+      >
+        <p className="w-[calc(100%-1rem)] truncate">{children}</p>
+
+        <BiChevronUp className="ease-[cubic-bezier(0.87, 0, 0.13, 1)] transition-transform duration-300 group-data-[state=closed]:rotate-180" />
       </Accordion.Trigger>
     </Accordion.Header>
   ),
@@ -150,7 +164,7 @@ const AccordionTrigger = React.forwardRef(
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
-      className="grid-row-start-2 nowheel nodrag relative -mb-1 overflow-hidden rounded-b-sm bg-white px-1 text-xs dark:bg-setta-950"
+      className="nowheel nodrag relative -mb-1 overflow-hidden rounded-b-sm bg-white px-1 text-xs dark:bg-setta-950"
       {...props}
       ref={forwardedRef}
     >
