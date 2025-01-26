@@ -7,6 +7,10 @@ from setta.code_gen.create_runnable_scripts import runCode
 
 from ..utils.constants import C
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 async def connect(websocket_id):
     try:
@@ -19,9 +23,9 @@ async def connect(websocket_id):
         ) as websocket:
             await consumer_handler(websocket)
     except websockets.ConnectionClosedError:
-        print("Connection closed unexpectedly")
+        logger.error("Connection closed unexpectedly")
     except ConnectionRefusedError:
-        print("Connection refused")
+        logger.error("Connection refused")
 
 
 async def consumer_handler(websocket):

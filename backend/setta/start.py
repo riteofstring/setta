@@ -1,9 +1,12 @@
 import asyncio
+import logging
 import sys
 from pathlib import Path
 
 import click
 import uvicorn
+
+from setta.utils.utils import is_dev_mode
 
 from . import __version__
 from .cli.connect import connect as _connect
@@ -61,12 +64,20 @@ def import_db(yaml_path, output_path):
     ),
 )
 @click.option("--reload", is_flag=True)
-@click.option("--with_examples", is_flag=True)
+@click.option("--with-examples", is_flag=True)
 @click.option("--db", "-d", type=str, default=get_default_db_path())
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
+@click.option(
+    "--log-level",
+    type=click.Choice(
+        ["critical", "error", "warning", "info", "debug"], case_sensitive=False
+    ),
+    default="critical",
+    help="Set the logging level",
+)
 @click.pass_context
-def cli(ctx, reload, with_examples, db, host, port):
+def cli(ctx, reload, with_examples, db, host, port, log_level):
     if ctx.invoked_subcommand is None:
         set_constants(
             with_examples=with_examples,
@@ -75,13 +86,19 @@ def cli(ctx, reload, with_examples, db, host, port):
             port=port,
         )
 
-        sys.path.append(str(Path(__file__).resolve().parent))
+        if is_dev_mode():
+            sys.path.append(str(Path(__file__).resolve().parent))
+
+        logging.basicConfig(
+            level=getattr(logging, log_level.upper()),
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
 
         config = uvicorn.Config(
             "server:app",
             host=host,
             port=port,
-            log_level="critical",
+            log_level=log_level,
             reload=reload,
         )
         server = uvicorn.Server(config)
