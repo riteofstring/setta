@@ -198,9 +198,9 @@ export function DrawArea({ sectionId }) {
   if (mode === "edit") {
     cursorIcon = "cursor-pointer";
   } else if (isEraser) {
-    cursorIcon = "cursor-[url(../../../erase.svg)_0_24,_pointer]";
+    cursorIcon = "cursor-[url(./src/assets/cursor/erase.svg)_0_24,_pointer]";
   } else {
-    cursorIcon = "cursor-[url(../../../pen.svg)_0_24,_pointer]";
+    cursorIcon = "cursor-[url(./src/assets/cursor/pen.svg)_0_24,_pointer]";
   }
 
   return (
