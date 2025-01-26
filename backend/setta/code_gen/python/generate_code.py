@@ -67,6 +67,7 @@ def var_declaration(
 
 
 # returns the value and a relative_positions array (for populating some ref_var_name_positions) or None if not applicable
+# TODO: remove str(x["value"]). I don't think it's necessary since x["value"] should always be a string already.
 def get_value(x, selected):
     type_value = x["type"]
     if type_value == C.TEXT:
