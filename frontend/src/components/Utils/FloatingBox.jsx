@@ -3,7 +3,7 @@ import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { useSettings } from "state/definitions";
-import { shortcutPrettified } from "utils/utils";
+import { positiveMod, shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
 
 export const useFloatingBox = create(() => ({
@@ -231,7 +231,7 @@ export function incrementFloatingBoxIdx() {
     return;
   }
   useFloatingBox.setState((state) => ({
-    idx: (state.idx + 1) % state.contentArray.length,
+    idx: positiveMod(state.idx + 1, state.contentArray.length),
   }));
 }
 
@@ -240,6 +240,6 @@ export function decrementFloatingBoxIdx() {
     return;
   }
   useFloatingBox.setState((state) => ({
-    idx: (state.idx - 1) % state.contentArray.length,
+    idx: positiveMod(state.idx - 1, state.contentArray.length),
   }));
 }

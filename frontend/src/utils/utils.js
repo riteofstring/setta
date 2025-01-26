@@ -98,3 +98,7 @@ export function templatePrefix(x) {
 export function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+export function positiveMod(n, m) {
+  return ((n % m) + m) % m;
+}

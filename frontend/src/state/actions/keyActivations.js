@@ -362,11 +362,34 @@ function getIgnoreWhenInInputField(parsedShortcut, _isMacOs) {
 
 function keyUpLoop(e, shortcutInfo) {
   for (const x of shortcutInfo) {
-    if (x.wasPressed) {
+    if (x.wasPressed && !x.keepKeyDownCondition?.(e)) {
       x.wasPressed = false;
       x.keyUpAction?.(e);
     }
   }
+}
+
+function addKeepKeyDownConditions(floatingBoxShortcutInfo, _isMacOs) {
+  // post processing that depends on parsed shortcuts
+  floatingBoxShortcutInfo.enable.keepKeyDownCondition = (e) => {
+    return (
+      isShortcutPressed(
+        e,
+        floatingBoxShortcutInfo.enable.parsedShortcut,
+        _isMacOs,
+      ) ||
+      isShortcutPressed(
+        e,
+        floatingBoxShortcutInfo.increment.parsedShortcut,
+        _isMacOs,
+      ) ||
+      isShortcutPressed(
+        e,
+        floatingBoxShortcutInfo.decrement.parsedShortcut,
+        _isMacOs,
+      )
+    );
+  };
 }
 
 export function attachKeyEventListeners() {
@@ -462,33 +485,58 @@ export function attachKeyEventListeners() {
   const cleanup_functions = [];
   const shortcutInfo = [];
   const _isMacOs = isMacOs();
+  const floatingBoxShortcutInfo = {
+    enable: null,
+    increment: null,
+    decrement: null,
+  };
+  let idx = 0;
   for (const [
     keyCombo,
     keyDownAction,
     keyUpAction,
     allowRepeat,
+    keepKeyDownCondition,
   ] of conditionAndAction) {
     if (!keyCombo) {
       continue;
     }
+
     const lowercaseKeyCombo = keyCombo.toLowerCase();
     const parsedShortcut = parseShortcut(lowercaseKeyCombo);
-    shortcutInfo.push({
+    const info = {
       parsedShortcut,
       wasPressed: false,
       shouldPreventDefault: getShouldPreventDefault(parsedShortcut),
       keyDownAction,
       keyUpAction,
       allowRepeat,
+      keepKeyDownCondition,
       ignoreWhenInInputField: getIgnoreWhenInInputField(
         parsedShortcut,
         _isMacOs,
       ),
-    });
+    };
+    shortcutInfo.push(info);
+
+    if (keyCombo === shortcuts.showTooltipShortcut) {
+      floatingBoxShortcutInfo.enable = info;
+    } else if (keyCombo === shortcuts.incrementTooltipPageShortcut) {
+      floatingBoxShortcutInfo.increment = info;
+    } else if (keyCombo === shortcuts.decrementTooltipPageShortcut) {
+      floatingBoxShortcutInfo.decrement = info;
+    }
+
+    idx += 1;
   }
+
+  addKeepKeyDownConditions(floatingBoxShortcutInfo, _isMacOs);
+
   let cleanup = attachKeyDownListener((e) => {
     // need to clear keys by timestamp because keyup does not trigger on mac when cmd key is held down
-    clearStaleKeys();
+    if (aModShortcutWasPressed) {
+      clearStaleKeys();
+    }
     aModShortcutWasPressed = false;
     if (!modifierKeyCodes.has(e.code)) {
       addKeyPressed(e.code);
@@ -511,7 +559,7 @@ export function attachKeyEventListeners() {
         if (x.parsedShortcut.mod) {
           aModShortcutWasPressed = true;
         }
-      } else if (x.wasPressed) {
+      } else if (x.wasPressed && !x.keepKeyDownCondition?.(e)) {
         x.keyUpAction?.(e);
         x.wasPressed = false;
       }
