@@ -18,7 +18,6 @@ class LanguageServer:
             self.settings = settings
 
     async def start_server(self):
-        print("starting server")
         self.init_properties()
         self.server = await asyncio.create_subprocess_shell(
             "basedpyright-langserver --stdio",

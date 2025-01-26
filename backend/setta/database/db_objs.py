@@ -10,7 +10,6 @@ class DB:
 
     def connect(self):
         if not self.conn:
-            print("connect to", self.path, flush=True)
             self.conn = sqlite3.connect(
                 self.path,
                 check_same_thread=False,

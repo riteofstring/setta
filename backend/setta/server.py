@@ -41,6 +41,8 @@ from setta.utils.websocket_manager import WebsocketManager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    print("Starting Setta 🚀")
+
     # startup
     app.state.settings_file = SettingsFile()
     app.state.lsps = create_lsps(
@@ -85,18 +87,17 @@ async def lifespan(app: FastAPI):
         # {full_path:path} is to catch all paths not explicitly covered here
         @app.get("/{full_path:path}", response_class=HTMLResponse)
         async def read_root(full_path: str):
-            print("full_path", full_path)
             # Adjust the path to match the location of your 'index.html'
             with open(dist_path / "index.html") as f:
                 content = f.read()
             return content
 
+    print("Ready")
     try:
         yield
     finally:
         app.state.tasks.close()
         await kill_lsps(app.state.lsps, app.state.lsp_readers)
-        print("******FINISHED CLEANUP*******")
 
 
 app = FastAPI(

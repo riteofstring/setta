@@ -1,5 +1,4 @@
 import asyncio
-import signal
 import sys
 from pathlib import Path
 
@@ -82,16 +81,11 @@ def cli(ctx, reload, with_examples, db, host, port):
             "server:app",
             host=host,
             port=port,
-            log_level="info",
+            log_level="critical",
             reload=reload,
         )
         server = uvicorn.Server(config)
 
-        # Just for signal visibility
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            signal.signal(sig, lambda s, _: print(f"Received signal {s}"))
-
-        print("Starting uvicorn server...")
         server.run()
 
 

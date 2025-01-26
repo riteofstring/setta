@@ -16,12 +16,10 @@ async def websocket_endpoint(
     websocket_manager=Depends(get_websocket_manager_from_websocket),
     tasks=Depends(get_tasks_from_websocket),
 ):
-    print("regular websocket", websocket)
     id = await websocket_manager.connect(websocket)
     while True:
         try:
             data = await websocket.receive_text()
-            print("received message", flush=True)
             await websocket_manager.send_message(
                 json.loads(data), fromWebsocketId=id, tasks=tasks
             )
