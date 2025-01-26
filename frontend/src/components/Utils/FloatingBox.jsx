@@ -228,28 +228,16 @@ function Footer({ className }) {
   );
 }
 
-export function getFloatingBoxHandlers(id, ...contentArray) {
-  // Update if content changed and this component is the active one
-  // so that onMouseEnter is not needed to refresh the contents
-  const s = useFloatingBox.getState();
-  if (s.activeId === id && !_.isEqual(s.contentArray, contentArray)) {
-    useFloatingBox.setState({ contentArray });
-  }
-
+export function getFloatingBoxHandlers(...contentArray) {
   function onMouseEnter() {
     if (contentArray && !useFloatingBox.getState().isFrozen) {
-      useFloatingBox.setState({ contentArray, activeId: id });
+      useFloatingBox.setState({ contentArray });
     }
   }
 
   function onMouseLeave() {
     if (!useFloatingBox.getState().isFrozen) {
-      useFloatingBox.setState({
-        contentArray: null,
-        idx: 0,
-        copied: false,
-        activeId: null,
-      });
+      useFloatingBox.setState({ contentArray: null, idx: 0, copied: false });
     }
   }
 
