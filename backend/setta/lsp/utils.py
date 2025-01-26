@@ -1,7 +1,7 @@
 from .reader import LanguageServerReader
 from .server import LanguageServer
 from .writer import LanguageServerWriter
-
+from .file_watcher import LSPFileWatcher
 
 def create_lsps(
     workspace_folder,
@@ -34,6 +34,10 @@ def create_lsp_writers(lsps):
 def create_lsp_readers(lsps, websocket_manager):
     return {k: LanguageServerReader(v, websocket_manager) for k, v in lsps.items()}
 
+def create_file_watcher(lsps, lsp_writers):
+    file_watcher = LSPFileWatcher(lsp_writers["full"].send_did_change_watched_files)
+    file_watcher.add_workspace_folder(lsps["full"].workspace_folder)
+    return file_watcher
 
 async def start_lsps(lsps, lsp_readers, lsp_writers):
     for k, v in lsps.items():
