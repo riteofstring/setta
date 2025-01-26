@@ -287,17 +287,6 @@ export function getCodeChildrenAndParentCodeInfoId(
   return { codeInfoChildren, parentCodeInfoId };
 }
 
-export function getTotalNumberOfIds(idToChildren) {
-  const allIds = new Set();
-
-  for (const [id, children] of Object.entries(idToChildren)) {
-    allIds.add(id);
-    children.forEach((childId) => allIds.add(childId));
-  }
-
-  return allIds.size;
-}
-
 export async function deleteSectionVariantAndMaybeJsonFile(
   sectionId,
   variantId,

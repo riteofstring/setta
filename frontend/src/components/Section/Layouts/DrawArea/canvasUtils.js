@@ -120,13 +120,6 @@ export function getCtx(canvas) {
   return canvas.getContext("2d");
 }
 
-export function getCtxForTempRefs(tempCanvasRefs) {
-  return {
-    layer: tempCanvasRefs.current.layer.getContext("2d"),
-    artifact: tempRefs.current.artifact.getContext("2d"),
-  };
-}
-
 export function setGlobalBrushStrokesAndDrawAllLayers(
   sectionId,
   currBrushStrokeArtifactId,

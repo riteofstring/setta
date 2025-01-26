@@ -145,20 +145,3 @@ export function getAllSelectedParamIds(sectionId, state) {
   });
   return { ids, pathMap };
 }
-
-export function getHighestContiguousSelectedAncestor(
-  allCodeInfo,
-  pathMap,
-  paramInfoId,
-) {
-  const currPathMap = pathMap[paramInfoId];
-  let highest = paramInfoId;
-  for (let i = currPathMap.length - 2; i >= 0; i--) {
-    if (allCodeInfo[currPathMap[i]].isSelected) {
-      highest = currPathMap[i];
-    } else {
-      break;
-    }
-  }
-  return highest;
-}

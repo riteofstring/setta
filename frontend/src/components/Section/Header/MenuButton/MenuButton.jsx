@@ -87,7 +87,6 @@ export function getMenuItems(uiTypeName) {
       ];
     case C.SECTION:
       return [
-        // SaveCustomArgumentsButton,
         CreateNewVersionButton,
         MultirunButton,
         HideShowSearchButton,
@@ -99,7 +98,6 @@ export function getMenuItems(uiTypeName) {
       ];
     case C.GLOBAL_VARIABLES:
       return [
-        // SaveCustomArgumentsButton,
         CreateNewVersionButton,
         MultirunButton,
         HideShowUnpinnedParamsButton,

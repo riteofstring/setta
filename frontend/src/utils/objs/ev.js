@@ -21,11 +21,6 @@ export function getValueForUIType({ uiType, currValue }) {
   }
 }
 
-// Entered Value
-export function newEV(uiType) {
-  return getValueForUIType({ uiType });
-}
-
 function convertValueForText({ currValue }) {
   if (!_.isNil(currValue)) {
     return currValue;

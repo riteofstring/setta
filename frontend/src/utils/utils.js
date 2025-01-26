@@ -46,10 +46,6 @@ export function asyncDebounce(func, wait) {
     });
 }
 
-export function isFromJSONSource(id) {
-  return id.startsWith(C.JSON_SOURCE_PREFIX);
-}
-
 export function tryParseJSON(x) {
   try {
     return JSON.parse(x);

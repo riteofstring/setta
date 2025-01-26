@@ -331,6 +331,12 @@ export function copyFrozenFloatingBoxContent() {
 }
 
 function tooltipOrChildrenFocused() {
-  const tooltipDiv = document.getElementById(TOOLTIP_DIV_ID);
-  return tooltipDiv.contains(document.activeElement);
+  if (
+    useFloatingBox.getState().isEnabled &&
+    useFloatingBox.getState().isFrozen
+  ) {
+    const tooltipDiv = document.getElementById(TOOLTIP_DIV_ID);
+    return tooltipDiv?.contains(document.activeElement);
+  }
+  return false;
 }
