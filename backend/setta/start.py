@@ -86,8 +86,7 @@ def cli(ctx, reload, with_examples, db, host, port, log_level):
             port=port,
         )
 
-        if is_dev_mode():
-            sys.path.append(str(Path(__file__).resolve().parent))
+        sys.path.append(str(Path(__file__).resolve().parent))
 
         logging.basicConfig(
             level=getattr(logging, log_level.upper()),
