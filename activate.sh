@@ -1,3 +1,3 @@
 #!/bin/sh
-source activate abcde_env
-conda activate abcde_env
+source activate setta_env
+conda activate setta_env

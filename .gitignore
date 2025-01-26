@@ -36,7 +36,6 @@ dist/
 site/
 venv/
 setta_code/
-abcde_env
 .DS_Store
 .mypy_cache/
 .dmypy.json
