@@ -39,11 +39,14 @@ function _ParamContainer({
     paramChildren,
   );
 
+  // fix quick hacky solution below. shouldn't use !important everywhere.
   const tooltipContentArray = maybeErrorMessage
     ? [
         {
           content: maybeErrorMessage,
-          contentClassName: "!bg-red-500/80 !dark:bg-red-700/80",
+          wrapperClassName:
+            "!border-red-300 dark:!border-red-900 [&_.tooltip-footer]:!text-red-500 dark:[&_.tooltip-footer]:!text-red-800 dark:[&_.tooltip-footer]:!border-red-950 !bg-red-50/90 dark:!bg-[#120000]/90 [&_.tooltip-copy]:!text-red-400 dark:[&_.tooltip-copy]:!text-red-300 [&_.tooltip-page]:",
+          contentClassName: "!text-red-700 dark:!text-red-300 font-mono",
         },
         {
           title: paramName,
