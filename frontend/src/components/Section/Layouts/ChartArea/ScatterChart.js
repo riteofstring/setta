@@ -1,5 +1,4 @@
 import { Tooltip } from "chart.js";
-import { processChartArtifacts } from "state/actions/artifacts";
 
 Tooltip.positioners.scatterChartTooltipMousePosition = function (
   elements,
@@ -40,49 +39,33 @@ export function getScatterChartOptionsAndPlugins() {
 
 export function updateScatterChartWithNewData({
   chartRef,
-  artifacts,
+  artifactData,
   datasetHidden,
   darkMode,
   chartSettings,
 }) {
-  const artifactValue = processChartArtifacts(artifacts, "scatter");
-
   let categoryValue = "No Category";
-  const firstColumnLength = Object.values(artifactValue)[0]?.length;
-
-  // artifactValue might be an empty object if no artifacts are selected
-  if (!firstColumnLength) {
-    return { datasets: [] };
-  }
-
+  const firstColumnLength = Object.values(artifactData)[0].length;
   const categoryColumn = chartSettings.categoryColumn;
-  let xAxisColumn = Object.keys(artifactValue)[0];
+  let xAxisColumn = Object.keys(artifactData)[0];
   if (chartSettings.xAxisColumn) {
     xAxisColumn = chartSettings.xAxisColumn;
   }
-  const yAxisColumn = Object.keys(artifactValue).find(
+  let yAxisColumn = Object.keys(artifactData).find(
     (a) => ![categoryColumn, xAxisColumn].includes(a),
   );
-
-  // yAxisColumn might be undefined if categoryColumn and xAxisColumn
-  // are using the only available columns
-  // TODO: maybe this should be guaranteed to be avoided by 
-  // updating axis column names in processChartArtifacts
-  if (!yAxisColumn) {
-    return { datasets: [] };
-  }
 
   const groupedData = {};
   for (let i = 0; i < firstColumnLength; i++) {
     if (categoryColumn) {
-      categoryValue = artifactValue[categoryColumn][i];
+      categoryValue = artifactData[categoryColumn][i];
     }
     if (!(categoryValue in groupedData)) {
       groupedData[categoryValue] = [];
     }
     groupedData[categoryValue].push({
-      x: artifactValue[xAxisColumn][i],
-      y: artifactValue[yAxisColumn][i],
+      x: artifactData[xAxisColumn][i],
+      y: artifactData[yAxisColumn][i],
       columnName: yAxisColumn,
     });
   }

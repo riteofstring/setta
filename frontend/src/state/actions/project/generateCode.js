@@ -57,6 +57,7 @@ export function getProjectDataToGenerateCode({
 
 export async function sendRunCodeMessage(project, messageIdx = 0) {
   const codeRunId = createNewId();
+  project.infoToFullName = computeInfoToFullName(project);
   let message = {
     id: codeRunId,
     messageType: C.WS_RUN_CODE,
@@ -145,6 +146,7 @@ export function* getProjectRuns(project) {
             paramSweepSectionVariantIds[paramSweepSectionId] = c.paramSweepId;
           }
         }
+
         variant.runCodeBlocks = getRunCodeBlocks(project, true);
         yield* getProjectVariants(variant, paramSweepSectionVariantIds);
       }
@@ -257,9 +259,7 @@ function getRunCodeBlocks(project, isRunGroup) {
         ids.push(s.id);
       }
     }
-    if (ids.length > 0) {
-      return ids;
-    }
+    return ids;
   } else {
     // use only the section with the gen code template var
     for (const s of Object.values(project.sections)) {
