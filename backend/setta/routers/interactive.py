@@ -4,8 +4,7 @@ from pydantic import BaseModel
 
 from setta.code_gen.create_runnable_scripts import (
     generate_final_code_for_sections,
-    get_import_order_for_top_node,
-    prune_and_find_top_nodes,
+    prune_and_topological_sort,
     sanitize_section_path_full_name,
 )
 from setta.code_gen.export_selected import (
@@ -24,7 +23,7 @@ router = APIRouter()
 
 
 class UpdateInteractiveCodeRequest(BaseModel):
-    projects: list
+    project: dict
 
 
 class FormatCodeRequest(BaseModel):
@@ -38,11 +37,7 @@ async def route_update_interactive_code(
     tasks=Depends(get_tasks),
     lsp_writers=Depends(get_lsp_writers),
 ):
-    for p in x.projects:
-        await update_interactive_code(p, tasks, lsp_writers)
-
-
-async def update_interactive_code(p, tasks, lsp_writers):
+    p = x.project
     exporter_obj = export_selected(
         p, always_export_args_objs=False, force_include_template_var=True
     )
@@ -67,24 +62,21 @@ async def update_interactive_code(p, tasks, lsp_writers):
         template_var_replacement_values=template_var_replacement_values,
     )
 
-    top_node_ids, dependencies = prune_and_find_top_nodes(
-        code_dict, p["runCodeBlocks"]
-    )
-    code_graph = []
-    project_config_id = p["projectConfig"]["id"]
-    for section_id in top_node_ids:
-        code_graph.append(
+    to_import, _ = prune_and_topological_sort(code_dict, p["importCodeBlocks"])
+    to_import = to_import[::-1]  # we want to import the dependencies first
+    code_list = []
+    for section_id in to_import:
+        v = code_dict[section_id]
+        task_name = create_in_memory_module_name(p, section_id)
+        code_list.append(
             {
-                "project_config_id": project_config_id,
-                "section_id": section_id,
-                "code": code_dict[section_id]["code"],
-                "imports": get_import_order_for_top_node(section_id, dependencies),
-                "module_name": create_in_memory_module_name(p, section_id),
+                "code": v["code"],
+                "module_name": task_name,
             }
         )
 
     metadata, error_msgs, content = await tasks.add_custom_fns(
-        code_graph,
+        code_list,
         to_cache=exporter_obj_in_memory,
     )
     return {"metadata": metadata, "errorMsgs": error_msgs, "content": content}

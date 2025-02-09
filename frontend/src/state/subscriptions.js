@@ -142,8 +142,7 @@ function singletonSectionsSubscriptionFn(state) {
     if (
       output[C.GLOBAL_VARIABLES] &&
       output[C.GLOBAL_PARAM_SWEEP] &&
-      output.inMemoryFnStdoutTerminal &&
-      output.temporaryTerminalGroup
+      output.inMemoryFnStdoutTerminal
     ) {
       break;
     }
@@ -160,10 +159,6 @@ function singletonSectionsSubscriptionFn(state) {
     ) {
       output.inMemoryFnStdoutTerminal = s.id;
     }
-    // TODO: need better way of knowing if it's the temporaryTerminalGroup
-    if (!output.temporaryTerminalGroup && uiType === C.GROUP && s.isTemporary) {
-      output.temporaryTerminalGroup = s.id;
-    }
   }
   return output;
 }
@@ -177,7 +172,7 @@ function regexSubscriptionFn(x) {
       rcType: c.rcType,
     })),
     globalVariableId: x.singletonSections[C.GLOBAL_VARIABLES],
-    templateVarEligibleSections: {},
+    templateVarEligibleSections: [],
   };
 
   let sectionVariant, sectionTypeName;
@@ -202,13 +197,7 @@ function regexSubscriptionFn(x) {
     };
 
     if (sectionTypeName === C.CODE) {
-      output.templateVarEligibleSections[id] = [
-        C.TEMPLATE_VAR_VERSION_SUFFIX,
-        C.TEMPLATE_VAR_IMPORT_PATH_SUFFIX,
-        C.TEMPLATE_VAR_FILE_PATH_SUFFIX,
-      ];
-    } else {
-      output.templateVarEligibleSections[id] = [C.TEMPLATE_VAR_VERSION_SUFFIX];
+      output.templateVarEligibleSections.push(id);
     }
   }
 
