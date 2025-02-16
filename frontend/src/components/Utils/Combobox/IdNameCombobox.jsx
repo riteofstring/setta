@@ -13,7 +13,6 @@ export function IdNameCombobox({
   bg,
   isDisabled,
   inputDivId,
-  selectedItemCanBeNull,
 }) {
   const inputRef = useRef();
 
@@ -31,7 +30,6 @@ export function IdNameCombobox({
     allItems,
     onSelectedItemChange,
     value,
-    selectedItemCanBeNull,
   });
 
   return (

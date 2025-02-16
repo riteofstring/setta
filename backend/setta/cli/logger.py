@@ -26,7 +26,9 @@ class Setta:
         if root_path:
             self.root_path = Path(root_path)
         else:
-            self.root_path = Path(os.environ.get(CODE_FOLDER_ENV_VARIABLE, "."))
+            self.root_path = Path(
+                os.environ.get(CODE_FOLDER_ENV_VARIABLE, os.path.relpath(os.getcwd()))
+            )
 
         self.name_path_type_to_id = {}
 

@@ -57,11 +57,8 @@ def load_sections(db, ids):
                 SELECT
                     originSectionId,
                     GROUP_CONCAT(id) AS artifactGroupIds
-                FROM (
-                    SELECT id, originSectionId
-                    FROM ArtifactGroupId
-                    ORDER BY "order"
-                )
+                FROM
+                    ArtifactGroupId
                 GROUP BY
                     originSectionId
             ) AS A ON S.id = A.originSectionId
