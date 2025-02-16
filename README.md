@@ -2,9 +2,9 @@
 ![Setta Logo](images/setta-github-dark.png#gh-dark-mode-only)
 
 
-# Python Without The Grind
+# Python Without The Donkeywork
 
-https://github.com/user-attachments/assets/58b9b29b-8131-4dc9-8d08-0bbf5d1b9356
+https://github.com/user-attachments/assets/82669be0-3e29-409d-ac91-fd6a1ec1bd9a
 
 ## What does Setta do?
 Setta enables you to:

@@ -1,3 +1,4 @@
+#!/bin/sh
 conda list --name setta_env
 exit_code=$?
 

@@ -10,7 +10,6 @@ const RUNNABLE_SECTION_TYPES = [
   C.GROUP,
   C.GLOBAL_VARIABLES,
   C.CODE,
-  C.DRAW,
 ];
 
 // use inside of setState

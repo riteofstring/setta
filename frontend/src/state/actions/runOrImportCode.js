@@ -1,9 +1,12 @@
 import C from "constants/constants.json";
 import { dbImportCodeBlocks } from "requests/interactive";
-import { useActiveSection, useSectionInfos } from "state/definitions";
+import {
+  useActiveSection,
+  useInMemoryFn,
+  useSectionInfos,
+} from "state/definitions";
 import {
   maybeGetNewArtifactIds,
-  updateInMemorySubprocessInfo,
   updateInteractiveArtifacts,
 } from "./interactive";
 import { setNotificationMessage } from "./notification";
@@ -14,37 +17,39 @@ import {
 } from "./project/generateCode";
 import { getSectionInfo, getSectionType } from "./sectionInfos";
 
-export async function importCodeBlocks(sectionIds, withSweep = false) {
-  setNotificationMessage("Importing your code...");
-  const project = await getProjectDataToGenerateCode({ includeDrawings: true });
-  let projects = [];
-  if (withSweep) {
-    projects.push(...getProjectRuns(project));
-  } else {
-    project.runCodeBlocks = sectionIds;
-    projects.push(project);
+export async function importCodeBlocks(sectionIds) {
+  if (sectionIds.length === 0) {
+    return;
   }
-  const res = await dbImportCodeBlocks(projects);
+
+  setNotificationMessage("Importing your code...");
+  const res = await dbImportCodeBlocks(sectionIds);
   if (res.status === 200) {
-    updateInMemorySubprocessInfo(res.data.inMemorySubprocessInfo);
+    for (const metadata of Object.values(res.data.metadata)) {
+      if (metadata.dependencies !== null) {
+        metadata.dependencies = new Set(
+          metadata.dependencies.map((d) => JSON.stringify(d)),
+        );
+      }
+    }
+    useInMemoryFn.setState((state) => ({
+      metadata: { ...state.metadata, ...res.data.metadata },
+    }));
     await maybeGetNewArtifactIds(res.data.content);
     await updateInteractiveArtifacts(res.data.content);
     setNotificationMessage("Done importing");
   }
 }
 
-export async function runCodeBlocks(sectionIds, withSweep = false) {
-  const project = await getProjectDataToGenerateCode({});
-  if (withSweep) {
-    let count = 0;
-    for (const projectVariant of getProjectRuns(project)) {
-      await sendRunCodeMessage(projectVariant, count);
-      count += 1;
-    }
-  } else {
-    project.runCodeBlocks = sectionIds;
-    await sendRunCodeMessage(project);
+export async function runCodeBlocks(sectionIds) {
+  if (sectionIds.length === 0) {
+    return;
   }
+  const project = getProjectDataToGenerateCode({
+    includeInfoToFullName: false,
+  });
+  project.runCodeBlocks = sectionIds;
+  await sendRunCodeMessage(project);
 }
 
 export async function runOrImportAllCode() {
@@ -57,22 +62,23 @@ export async function runOrImportAllCode() {
     asSubprocess.length > 0 ||
     (inMemory.length === 0 && asSubprocess.length === 0)
   ) {
-    runCodeBlocks(asSubprocess, true);
+    const project = getProjectDataToGenerateCode({
+      includeInfoToFullName: false,
+    });
+    let count = 0;
+    for (const projectVariant of getProjectRuns(project)) {
+      await sendRunCodeMessage(projectVariant, count);
+      count += 1;
+    }
   }
 
-  if (inMemory.length > 0) {
-    importCodeBlocks(inMemory, true);
-  }
+  importCodeBlocks(inMemory);
 }
 
 export function runOrImportActiveCode() {
   const { inMemory, asSubprocess } = getInMemoryAndAsSubprocessCodeBlocks(true);
-  if (inMemory.length > 0) {
-    importCodeBlocks(inMemory);
-  }
-  if (asSubprocess.length > 0) {
-    runCodeBlocks(asSubprocess);
-  }
+  importCodeBlocks(inMemory);
+  runCodeBlocks(asSubprocess);
 }
 
 function getInMemoryAndAsSubprocessCodeBlocks(onlyActiveSections = false) {
