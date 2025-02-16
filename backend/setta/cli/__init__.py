@@ -1,1 +1,1 @@
-from .logger import Setta, SettaImg, SettaList
+from .logger import Setta

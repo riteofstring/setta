@@ -26,8 +26,8 @@ export const useContextMenus = withProjectState(
   create(
     withResetFn(() => ({
       pane: { isOpen: false, x: 0, y: 0 },
+      group: { isOpen: false, x: 0, y: 0, sectionId: null },
       selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
-      typeError: { isOpen: false, x: 0, y: 0, paramInfoId: null },
     })),
   ),
 );
@@ -50,7 +50,6 @@ export const useSectionInfos = withProjectState(
                 [C.GLOBAL_VARIABLES]: null,
                 [C.GLOBAL_PARAM_SWEEP]: null,
                 inMemoryFnStdoutTerminal: null,
-                temporaryTerminalGroup: null,
               },
               shouldRenameReferences: false,
             }),
@@ -69,8 +68,7 @@ export const useHomePageSearch = create(
 
 export const useInMemoryFn = create(
   withResetFn(() => ({
-    inMemorySubprocessInfo: {},
-    throttledSendFns: {},
+    metadata: {},
   })),
 );
 
@@ -236,7 +234,6 @@ export const useMisc = withProjectState(
         numInitializedCodeAreas: 0,
         requestUpdateNodeDimensions: false,
         updateDrawAreas: 0, // increments every time we want to update
-        chartDisplayedSeriesNames: {}, //sectionId to series names
       })),
     ),
   ),

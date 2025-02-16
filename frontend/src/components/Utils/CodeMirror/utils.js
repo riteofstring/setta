@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { useEVRefRegex, useTemplateVarRegex } from "state/definitions";
 
 export function roundUpIdx(numList, x) {
@@ -128,12 +127,4 @@ export function findCandidateTemplateVars(sectionId, value) {
     }
   }
   return output;
-}
-
-export function extractTemplateVarSuffix(str) {
-  const suffixIdx = str.indexOf(
-    C.TEMPLATE_PREFIX,
-    str.indexOf(C.TEMPLATE_PREFIX) + 1,
-  );
-  return str.substring(suffixIdx);
 }

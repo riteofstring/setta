@@ -1,6 +1,5 @@
 import { PaneContextMenu } from "components/Utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "components/Utils/ContextMenus/SelectionContextMenu";
-import { TypeErrorContextMenu } from "components/Utils/ContextMenus/TypeErrorContextMenu";
 import { GlobalDndContext } from "forks/dnd-kit/GlobalDndContext";
 import { Controls } from "forks/xyflow/controls";
 import ReactFlow from "forks/xyflow/core/container/ReactFlow";
@@ -22,7 +21,6 @@ export function UIPage() {
       <ReactFlow />
       <PaneContextMenu />
       <SelectionContextMenu />
-      <TypeErrorContextMenu />
       {showMiniMap && <ResponsiveMiniMap />}
       <Controls />
     </GlobalDndContext>
