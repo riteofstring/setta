@@ -2,13 +2,9 @@
 ![Setta Logo](images/setta-github-dark.png#gh-dark-mode-only)
 
 
-# Python Without The Donkeywork
+# Python Without The Grind
 
-https://github.com/user-attachments/assets/0599b754-1fbc-470b-ad6f-ac44b01da761
-
-[![PyPI version](https://badge.fury.io/py/setta.svg)](https://badge.fury.io/py/setta)
-[![License](https://img.shields.io/pypi/l/setta)](https://github.com/settadev/setta/blob/main/LICENSE)
-[![Discord](https://img.shields.io/badge/Discord-Join-7389D8?logo=discord&logoColor=white)](https://discord.gg/MmHJz75bZ5)
+https://github.com/user-attachments/assets/58b9b29b-8131-4dc9-8d08-0bbf5d1b9356
 
 ## What does Setta do?
 Setta enables you to:
