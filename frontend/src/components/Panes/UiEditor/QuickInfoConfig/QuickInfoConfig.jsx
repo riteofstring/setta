@@ -1,7 +1,6 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import React from "react";
-import { useSectionInfos } from "state/definitions";
 import { useParamInfosForSidePane } from "state/hooks/sectionContents";
 import { useMatchSorterFilter } from "state/hooks/utils";
 
@@ -50,8 +49,7 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
 export const QuickInfoConfig = React.memo(_QuickInfoConfig);
 
 function _UIElement({ paramInfo }) {
-  const { id, name } = paramInfo;
-  const description = useSectionInfos((x) => x.codeInfo[id].description);
+  const { id, name, description } = paramInfo;
 
   return (
     <div className="flex flex-col gap-2 self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-setta-200">
@@ -62,9 +60,7 @@ function _UIElement({ paramInfo }) {
         className="mx-[2px] mb-4 h-12 min-w-0 flex-grow cursor-auto rounded-lg border border-solid border-setta-100 bg-white px-2 py-1 font-mono text-xs font-medium text-setta-600 outline-0 placeholder:text-setta-200 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300 dark:placeholder:text-setta-700 dark:focus-visible:border-setta-900"
         value={description}
         onChange={(e) => {
-          useSectionInfos.setState((state) => {
-            state.codeInfo[id].description = e.target.value;
-          });
+          state.codeInfo[id].description = e.target.value;
         }}
       />
     </div>

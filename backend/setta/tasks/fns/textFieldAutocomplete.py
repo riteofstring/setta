@@ -24,7 +24,7 @@ class CodeCompletionContent(BaseModel):
     projectConfigId: str
     projectConfigName: str
     sectionId: str
-    paramInfoId: Optional[str]
+    paramInfoId: str | None
     fullText: str
     position: int
     candidateEVRefs: list
