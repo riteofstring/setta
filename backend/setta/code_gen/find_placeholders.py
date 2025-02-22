@@ -9,7 +9,7 @@ def remove_tp(x):
     return x.lstrip(C.TEMPLATE_PREFIX)
 
 
-def parse_template_var(template_str: str):
+def parse_template_var(template_str: str) -> tuple[str, str | None]:
     suffixes = [
         f"{tp(C.TEMPLATE_VAR_IMPORT_PATH_SUFFIX)}",
         f"{tp(C.TEMPLATE_VAR_VERSION_SUFFIX)}",
