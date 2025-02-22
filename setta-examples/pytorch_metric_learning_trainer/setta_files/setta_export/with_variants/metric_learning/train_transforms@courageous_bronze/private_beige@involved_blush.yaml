@@ -1,8 +1,0 @@
-torchvision.transforms.ColorJitter
----
-
----
-brightness: 
-contrast: 
-saturation: 
-hue: 
