@@ -64,8 +64,7 @@
     "aspectRatioExtraHeight": 0,
     "aspectRatioExtraWidth": 0,
     "columnWidth": null,
-    "renderedValue": null,
-    "subprocessStartMethod": "fork"
+    "renderedValue": null
   },
   "sectionVariant": {
     "name": "",

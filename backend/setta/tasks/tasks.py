@@ -134,12 +134,12 @@ class Tasks:
     async def add_custom_fns(self, code_graph, to_cache):
         for c in code_graph:
             subprocess_key = c["subprocess_key"]
+            module_name = c["module_name"]
             sp = self.in_memory_subprocesses.get(subprocess_key, {}).get("subprocess")
             if sp:
                 sp.close()
-            sp = SettaInMemoryFnSubprocess(
-                self.stop_event, self.websockets, c["subprocessStartMethod"]
-            )
+            logger.debug(f"Creating new subprocess for {module_name}")
+            sp = SettaInMemoryFnSubprocess(self.stop_event, self.websockets)
             self.in_memory_subprocesses[subprocess_key] = {
                 "subprocess": sp,
                 "fnInfo": {},
@@ -148,7 +148,8 @@ class Tasks:
             sp.parent_conn.send(
                 {
                     "type": "import",
-                    "imports": c["imports"],
+                    "code": c["code"],
+                    "module_name": module_name,
                     "to_cache": to_cache,
                 }
             )
