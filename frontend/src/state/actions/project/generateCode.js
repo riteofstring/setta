@@ -27,6 +27,7 @@ import { newEVEntry } from "utils/objs/ev";
 import { templatePrefix } from "utils/utils";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { generateParamSweepCombinations } from "./generateParamSweepCombinations";
+import { generateSectionParamSweepVersionCombinations } from "./generateSectionParamSweepVersionCombinations";
 import { getProjectData } from "./saveProject";
 
 export async function getProjectDataToGenerateCode({
@@ -121,44 +122,48 @@ export function* getProjectRuns(project) {
   } else {
     for (const runGroupId of Object.keys(selectedRunGroupIds)) {
       const runGroup = useSectionInfos.getState().variants[runGroupId].runGroup;
-      const combo = getSectionsParamSweepsAndVersions(
+      const sectionParamSweepsAndVersions = getSectionsParamSweepsAndVersions(
         project,
         runGroup,
         Object.keys(project.projectConfig.children),
         null,
       );
 
-      const variant = _.cloneDeep(project);
-      // filter top-level sections
-      variant.projectConfig.children = _.pick(
-        variant.projectConfig.children,
-        combo.map((x) => x.sectionId),
-      );
-      // filter all sections
-      variant.sections = _.pick(
-        variant.sections,
-        combo.map((x) => x.sectionId),
-      );
-      // filter children list in every variant
-      for (const sv of Object.values(variant.sectionVariants)) {
-        sv.children = sv.children.filter((x) => x in variant.sections);
-      }
-      // set every selected section's variantId
-      for (const c of combo) {
-        if (c.versionId) {
-          variant.sections[c.sectionId].variantId = c.versionId;
+      for (const combo of generateSectionParamSweepVersionCombinations(
+        sectionParamSweepsAndVersions,
+      )) {
+        const variant = _.cloneDeep(project);
+        // filter top-level sections
+        variant.projectConfig.children = _.pick(
+          variant.projectConfig.children,
+          combo.map((x) => x.sectionId),
+        );
+        // filter all sections
+        variant.sections = _.pick(
+          variant.sections,
+          combo.map((x) => x.sectionId),
+        );
+        // filter children list in every variant
+        for (const sv of Object.values(variant.sectionVariants)) {
+          sv.children = sv.children.filter((x) => x in variant.sections);
         }
-      }
+        // set every selected section's variantId
+        for (const c of combo) {
+          if (c.versionId) {
+            variant.sections[c.sectionId].variantId = c.versionId;
+          }
+        }
 
-      const paramSweepSectionVariantIds = {};
-      for (const c of combo) {
-        if (c.paramSweepId) {
-          const { paramSweepSectionId } = variant.sections[c.sectionId];
-          paramSweepSectionVariantIds[paramSweepSectionId] = c.paramSweepId;
+        const paramSweepSectionVariantIds = {};
+        for (const c of combo) {
+          if (c.paramSweepId) {
+            const { paramSweepSectionId } = variant.sections[c.sectionId];
+            paramSweepSectionVariantIds[paramSweepSectionId] = c.paramSweepId;
+          }
         }
+        variant.runCodeBlocks = getRunCodeBlocks(project, true);
+        yield* getProjectVariants(variant, paramSweepSectionVariantIds);
       }
-      variant.runCodeBlocks = getRunCodeBlocks(project, true);
-      yield* getProjectVariants(variant, paramSweepSectionVariantIds);
     }
   }
 }
@@ -177,22 +182,46 @@ function getSectionsParamSweepsAndVersions(
       continue;
     }
 
-    const versionId = sectionDetails.version;
-    sectionParamSweepsAndVersions.push({
-      sectionId,
-      paramSweepId: sectionDetails.paramSweep,
-      versionId,
-    });
+    let paramSweepWasAdded = false;
+    const currentlySelectedVariantId = project.sections[sectionId].variantId;
+    for (const [paramSweepId, selected] of Object.entries(
+      sectionDetails.paramSweeps,
+    )) {
+      if (selected) {
+        sectionParamSweepsAndVersions.push({
+          sectionId,
+          paramSweepId,
+          versionId: currentlySelectedVariantId,
+          parentVersionId: variantId,
+        });
+        paramSweepWasAdded = true;
+      }
+    }
 
-    const childSectionIds = project.sectionVariants[versionId].children;
-    sectionParamSweepsAndVersions.push(
-      ...getSectionsParamSweepsAndVersions(
-        project,
-        runGroupSections,
-        childSectionIds,
-        versionId,
-      ),
-    );
+    for (const [versionId, selected] of Object.entries(
+      sectionDetails.versions,
+    )) {
+      if (selected) {
+        // add the currently selected version if a param sweep wasn't added
+        if (versionId !== currentlySelectedVariantId || !paramSweepWasAdded) {
+          sectionParamSweepsAndVersions.push({
+            sectionId,
+            paramSweepId: null,
+            versionId,
+            parentVersionId: variantId,
+          });
+        }
+        const childSectionIds = project.sectionVariants[versionId].children;
+        sectionParamSweepsAndVersions.push(
+          ...getSectionsParamSweepsAndVersions(
+            project,
+            runGroupSections,
+            childSectionIds,
+            versionId,
+          ),
+        );
+      }
+    }
   }
 
   return sectionParamSweepsAndVersions;

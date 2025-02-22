@@ -302,15 +302,33 @@ function VersionsList({
   allVersions,
   parentVariantId,
 }) {
+  const atLeastOneVersionSelected = useSectionInfos((x) => {
+    const versionsObj =
+      x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]?.versions;
+    if (!versionsObj) {
+      return false;
+    }
+    for (const value of Object.values(versionsObj)) {
+      if (value) return true;
+    }
+    return false;
+  });
+
+  const accordionRootStyles =
+    atLeastOneVersionSelected || !isSelected
+      ? undefined
+      : "bg-red-100 dark:bg-red-950/20 hover:bg-red-500/20 border-red-300 hover:dark:bg-red-950/50 dark:border-red-700/80 hover:dark:border-red-700 [&_ul]:!bg-transparent";
+
   return (
     <GenericList
       inputList={allVersions}
-      heading="Versions"
+      heading={"Versions"}
       isSelected={isSelected}
       sectionId={sectionId}
       runGroupId={runGroupId}
       ancestors={ancestors}
       parentVariantId={parentVariantId}
+      accordionRootStyles={accordionRootStyles}
       ChildComponent={VersionItemComponent}
     />
   );
@@ -351,13 +369,12 @@ function _GenericList({
   runGroupId,
   ancestors,
   parentVariantId,
+  accordionRootStyles,
   ChildComponent,
 }) {
   return (
     <StandardAccordion
-      rootStyles={
-        "hover:bg-white hover:dark:bg-setta-700/10 hover:border-setta-50 dark:hover:border-setta-700 border border-transparent rounded-lg px-2 ml-7 -mr-2 -mt-0.5"
-      }
+      rootStyles={`${accordionRootStyles ?? "hover:bg-white hover:dark:bg-setta-700/10 hover:border-setta-50 dark:hover:border-setta-700"} border border-transparent rounded-lg px-2 ml-7 -mr-2 -mt-0.5`}
       itemStyles="focus-within:relative focus-within:z-10"
       headerStyles="flex flex-1 cursor-default items-center justify-between my-0.5 ml-1"
       triggerStyles="flex justify-between px-2 -mx-2 w-full items-center hover:cursor-pointer rounded-md italic text-xs font-semibold opacity-60 group-hover:opacity-100 text-setta-500 dark:text-setta-300 focus-visible:outline outline-blue-500"
@@ -402,7 +419,6 @@ function VersionItemComponent({
   parentVariantId,
 }) {
   function onChange() {
-    console.log("onChange", id);
     toggleRunGroupSectionVersion({
       id: runGroupId,
       sectionId,
@@ -415,16 +431,17 @@ function VersionItemComponent({
   const isSelected = useSectionInfos(
     (x) =>
       parentIsSelected &&
-      x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId].version ===
-        id,
+      !!x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId].versions[
+        id
+      ],
   );
 
   return (
     <>
       <div className="flex items-center gap-2 truncate">
-        <RadioGroup checked={isSelected} onChange={onChange}>
+        <CheckboxGroup checked={isSelected} onChange={onChange}>
           {name}
-        </RadioGroup>
+        </CheckboxGroup>
       </div>
       <div className="pl-4">
         <SectionList
@@ -458,32 +475,14 @@ function ParamSweepItemComponent({
 
   const isSelected = useSectionInfos(
     (x) =>
-      x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]
-        .paramSweeps === id,
+      !!x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]
+        .paramSweeps[id],
   );
 
   return (
-    <RadioGroup checked={parentIsSelected && isSelected} onChange={onChange}>
+    <CheckboxGroup checked={parentIsSelected && isSelected} onChange={onChange}>
       {name}
-    </RadioGroup>
-  );
-}
-
-function RadioGroup({ children, checked, onChange }) {
-  return (
-    <label
-      className={
-        "flex min-h-6 cursor-pointer items-center gap-2 text-xs text-setta-700 dark:text-setta-300"
-      }
-    >
-      <input
-        type="radio"
-        className="h-4 w-4 min-w-4 rounded-full bg-setta-500/10 outline-offset-2 outline-blue-500 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500 focus-visible:outline"
-        checked={checked}
-        onChange={onChange}
-      />
-      <p className="truncate">{children}</p>
-    </label>
+    </CheckboxGroup>
   );
 }
 
