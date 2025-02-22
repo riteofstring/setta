@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import platform
 import uuid
 
 from setta.utils.utils import recursive_dict_merge
@@ -267,19 +268,18 @@ class LanguageServerWriter(LanguageServerInteractor):
         asyncio.create_task(async_task)
 
     def get_workspace_uri(self):
-        return self.workspace_folder.as_uri()
-
-    def get_code_id_path(self, code_id):
-        return self.code_folder / f"{code_id}.py"
+        return f"file://{self.workspace_folder}"
 
     def get_base_uri(self, code_id):
-        return self.get_code_id_path(code_id).as_uri()
+        return self.code_folder / f"{code_id}.py"
 
     # https://github.com/microsoft/language-server-protocol/issues/1676
     def get_uri(self, code_id, virtual):
-        uri = self.get_base_uri(code_id)
-        if virtual:
-            uri = uri.replace("file://", "untitled:", 1)
+        base_uri = self.get_base_uri(code_id)
+        prefix = "untitled:" if virtual else "file://"
+        uri = f"{prefix}{base_uri}"
+        if platform.system() == "Windows":
+            uri += "/"  # need trailing slash on Windows for some reason
         return uri
 
     def get_is_virtual(self, virtual):
@@ -288,7 +288,7 @@ class LanguageServerWriter(LanguageServerInteractor):
     def create_temp_file(self, code_id, code):
         """Create a temporary file for the given code and return its path."""
         # Create all necessary parent directories
-        file_path = self.get_code_id_path(code_id)
+        file_path = self.get_base_uri(code_id)
         logger.debug(f"Creating temporary file {file_path}")
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
