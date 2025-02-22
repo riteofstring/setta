@@ -1,5 +1,4 @@
 import json
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -18,7 +17,7 @@ from .utils import (
 class TextFieldInitializeCodeContent(BaseModel):
     project: dict
     sectionId: str
-    paramInfoId: Optional[str]
+    paramInfoId: str | None
 
 
 async def _textFieldInitializeCode(message, lsp_writers):
