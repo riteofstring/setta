@@ -86,7 +86,7 @@ my_project/
 │       └── temp_folder/
 ```
 
-### Create and run your first Setta project
+## Create and run your first Setta project
 
 On the home page click `New Config`. This will load a brand new, empty project. 
 
@@ -127,21 +127,6 @@ Click Run in the nav bar. A terminal will appear and it should print 3.162277660
 </p>
 
 Congratulations! You've successfully run your first Setta project!
-
-### What happens under the hood
-
-When you click the Run button,  Setta replaces `$SETTA_GENERATED_PYTHON` with:
-
-```python
-import math
-
-x = 10
-special_val = math.sqrt(x)
-```
-
-Notice how it:
-- Imports the Python `math` library.
-- Converts your `special_val` section into a variable, equal to `math.sqrt(10)`.
 
 
 ## Documentation
