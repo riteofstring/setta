@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { getSectionVariant } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 export function IframeSettings({ sectionId }) {
-  const [code, setCode] = useState("");
+  const [iframeCode, setIframeCode] = useState("");
   const [error, setError] = useState("");
 
   const validateIframeCode = (code) => {
@@ -15,7 +14,7 @@ export function IframeSettings({ sectionId }) {
 
   const handleCodeChange = (e) => {
     const newCode = e.target.value;
-    setCode(newCode);
+    setIframeCode(newCode);
 
     const validationError = validateIframeCode(newCode);
     setError(validationError);
@@ -23,8 +22,7 @@ export function IframeSettings({ sectionId }) {
     // Only pass valid code to parent
     if (!validationError) {
       useSectionInfos.setState((x) => {
-        const sectionVariant = getSectionVariant(sectionId, x);
-        sectionVariant.code = newCode;
+        x.x[sectionId].iframeCode = newCode;
       });
     }
   };
@@ -44,7 +42,7 @@ export function IframeSettings({ sectionId }) {
       {/* Main content area with scroll */}
       <section className="flex-1 overflow-y-auto">
         <textarea
-          value={code}
+          value={iframeCode}
           onChange={handleCodeChange}
           className="h-48 w-full resize-y rounded-md border border-solid border-setta-200 bg-white/80 p-3 font-mono text-sm text-setta-800 placeholder-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:placeholder-setta-600"
           placeholder="<iframe src='...'></iframe>"

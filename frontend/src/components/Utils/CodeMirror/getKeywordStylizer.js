@@ -1,20 +1,19 @@
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, ViewPlugin } from "@codemirror/view";
-import { useMemo } from "React";
 
 const italicStyle = Decoration.mark({ class: "italic" });
 
-function getKeywordStylizer(evRefs) {
+export function getKeywordStylizer(evRefs) {
   const keywordStylizer = ViewPlugin.fromClass(
     class {
       decorations;
       // Track positions separately from decorations so we can update them as the document changes
       positions;
 
-      constructor(view) {
+      constructor() {
         // Make a copy of the initial positions to avoid modifying the original array
         this.positions = [...evRefs];
-        this.decorations = this.buildDecorations(view);
+        this.decorations = this.buildDecorations();
       }
 
       update(update) {
@@ -38,17 +37,14 @@ function getKeywordStylizer(evRefs) {
           });
 
           // Rebuild decorations with the updated positions
-          this.decorations = this.buildDecorations(update.view);
+          this.decorations = this.buildDecorations();
         }
       }
 
-      buildDecorations(view) {
-        const docLength = view.state.doc.length;
+      buildDecorations() {
         const builder = new RangeSetBuilder();
         // Create a decoration for each tracked position
         for (const pos of this.positions) {
-          // Skip if position would be out of range
-          if (pos.startPos < 0 || pos.startPos >= docLength) continue;
           builder.add(
             pos.startPos,
             pos.startPos + pos.keyword.length,
@@ -64,8 +60,4 @@ function getKeywordStylizer(evRefs) {
   );
 
   return keywordStylizer;
-}
-
-export function useKeywordStylizer(evRefs) {
-  return useMemo(() => getKeywordStylizer(evRefs), [JSON.stringify(evRefs)]);
 }
