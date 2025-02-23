@@ -18,7 +18,7 @@ export const uiTypesToPretty = {
   [C.IMAGE]: "Image",
   [C.CHART]: "Chart",
   [C.DRAW]: "Drawing Area",
-  [C.TEXT_BLOCK]: "Text Block",
+  [C.INFO]: "Info",
   [C.SOCIAL]: "Social",
   [C.GLOBAL_VARIABLES]: "Global Variables",
   [C.CODE]: "Code",

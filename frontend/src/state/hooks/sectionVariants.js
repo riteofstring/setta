@@ -43,19 +43,18 @@ export function useSectionVariantIsFrozen(sectionId) {
   return useSectionInfos((x) => getSectionVariant(sectionId, x).isFrozen);
 }
 
-export function useTextBlockDescriptionAndEditability(sectionId) {
+export function useInfoAreaDescriptionAndEditability(sectionId) {
   return useSectionInfos((x) => {
     return {
-      ...getTextBlockDescription(sectionId, x),
+      ...getInfoAreaDescription(sectionId, x),
       variantIsFrozen: getSectionVariant(sectionId, x).isFrozen,
     };
   }, _.isEqual);
 }
 
-export function getTextBlockDescription(sectionId, state) {
+export function getInfoAreaDescription(sectionId, state) {
   return {
     renderMarkdown: state.x[sectionId].renderMarkdown,
-    headingAsSectionName: state.x[sectionId].headingAsSectionName,
     description: getDisplayedSectionVariant(sectionId, state).description,
   };
 }

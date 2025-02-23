@@ -266,7 +266,7 @@ export function getConvertFloatingBoxToSectionFn(renderMarkdown) {
         : item.content;
       useSectionInfos.setState((state) => {
         addSectionInEmptySpace({
-          type: C.TEXT_BLOCK,
+          type: C.INFO,
           sectionProps: {
             name: s.title,
             size: { width: 300, height: 300 },

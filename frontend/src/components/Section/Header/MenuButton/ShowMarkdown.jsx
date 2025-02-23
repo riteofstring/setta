@@ -4,7 +4,7 @@ import { getSectionVariant } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
-export function RenderTextBlock({ sectionId }) {
+export function RenderInfo({ sectionId }) {
   const { displayMode, renderMarkdown, variantIsFrozen } = useSectionInfos(
     (x) => {
       return {

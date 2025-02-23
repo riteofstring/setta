@@ -13,7 +13,7 @@ import { HideShowSearchButton } from "./HideShowSearchButton";
 import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
 import { MultirunButton } from "./MultiRunButton";
 import { ResetToDefaultVersion } from "./ResetToDefaultVersion";
-import { ConvertFormat, RenderTextBlock } from "./ShowMarkdown";
+import { ConvertFormat, RenderInfo } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
 import { UngroupButton } from "./UngroupButton";
 
@@ -78,9 +78,9 @@ function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
 
 function getMenuItems(uiTypeName) {
   switch (uiTypeName) {
-    case C.TEXT_BLOCK:
+    case C.INFO:
       return [
-        RenderTextBlock,
+        RenderInfo,
         ConvertFormat,
         CreateNewVersionButton,
         ResetToDefaultVersion,

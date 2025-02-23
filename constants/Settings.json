@@ -68,7 +68,7 @@
     "panOnScrollMode": "free",
     "zoomOnScroll": true,
     "zoomOnPinch": true,
-    "zoomOnDoubleClick": false,
+    "zoomOnDoubleClick": true,
     "selectionMode": "partial",
     "leftSidePaneShiftsMap": true,
     "transitionDuration": 50
@@ -105,11 +105,9 @@
     "GLOBAL_PARAM_SWEEP": {
       "name": "Global Param Sweep"
     },
-    "TEXT_BLOCK": {
+    "INFO": {
+      "name": "Empty Info Section",
       "displayMode": "RENDER"
-    },
-    "CHAT": {
-      "size": { "width": 405, "height": 405 }
     }
   }
 }

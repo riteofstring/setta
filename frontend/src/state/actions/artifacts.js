@@ -43,7 +43,6 @@ export async function prepareArtifactForRendering(type, value) {
       return await base64ToImageObj(value);
     case "list":
     case "brushStrokes":
-    case "chatHistory":
       return value;
   }
 }
@@ -78,13 +77,9 @@ export function getArtifactStateForSaving() {
   return result;
 }
 
-function addArtifactUponSectionCreation({
-  sectionId,
-  sectionTypeName,
-  artifactType,
-  state,
-}) {
+export function addDrawAreaLayer(sectionId, state) {
   const artifactId = createNewId();
+  const artifactType = "brushStrokes";
   useArtifacts.setState((state) => ({
     x: {
       ...state.x,
@@ -95,33 +90,12 @@ function addArtifactUponSectionCreation({
   const artifactGroupId = createNewId();
   state.artifactGroups[artifactGroupId] = newLayer({
     artifactTransforms: [
-      newArtifactTransform(artifactId, sectionTypeName, artifactType),
+      newArtifactTransform(artifactId, C.DRAW, artifactType),
     ],
   });
 
   state.x[sectionId].artifactGroupIds.push(artifactGroupId);
-
-  return artifactGroupId;
-}
-
-export function addDrawAreaLayer(sectionId, state) {
-  const artifactGroupId = addArtifactUponSectionCreation({
-    sectionId,
-    artifactType: "brushStrokes",
-    sectionTypeName: C.DRAW,
-    state,
-  });
-
   state.x[sectionId].canvasSettings.activeLayerId = artifactGroupId;
-}
-
-export function addChatHistoryArtifact(sectionId, state) {
-  addArtifactUponSectionCreation({
-    sectionId,
-    artifactType: "chatHistory",
-    sectionTypeName: C.CHAT,
-    state,
-  });
 }
 
 export function updateArtifactGroupAndSetArtifactId({

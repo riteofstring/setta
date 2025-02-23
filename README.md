@@ -12,14 +12,14 @@
 
 ## News
 
-**February 23**: [v0.0.7](https://github.com/settadev/setta/releases/tag/v0.0.7)
-- New `CHAT` section type, and some bug fixes.
-
 **February 22**: [v0.0.6](https://github.com/settadev/setta/releases/tag/v0.0.6)
 - Fixed bug where the language server URIs weren't created properly on Windows.
 
 **February 21**: [v0.0.5](https://github.com/settadev/setta/releases/tag/v0.0.5)
 - Mostly styling updates.
+
+**February 20**: [v0.0.4](https://github.com/settadev/setta/releases/tag/v0.0.4)
+- Improvements to subprocesses and param sweeps.
 
 ## What does Setta do?
 
@@ -86,7 +86,7 @@ my_project/
 │       └── temp_folder/
 ```
 
-## Create and run your first Setta project
+### Create and run your first Setta project
 
 On the home page click `New Config`. This will load a brand new, empty project. 
 
@@ -127,6 +127,21 @@ Click Run in the nav bar. A terminal will appear and it should print 3.162277660
 </p>
 
 Congratulations! You've successfully run your first Setta project!
+
+### What happens under the hood
+
+When you click the Run button,  Setta replaces `$SETTA_GENERATED_PYTHON` with:
+
+```python
+import math
+
+x = 10
+special_val = math.sqrt(x)
+```
+
+Notice how it:
+- Imports the Python `math` library.
+- Converts your `special_val` section into a variable, equal to `math.sqrt(10)`.
 
 
 ## Documentation

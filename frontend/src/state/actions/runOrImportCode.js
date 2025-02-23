@@ -16,11 +16,7 @@ import { getSectionInfo, getSectionType } from "./sectionInfos";
 
 export async function importCodeBlocks(sectionIds, withSweep = false) {
   setNotificationMessage("Importing your code...");
-  const project = await getProjectDataToGenerateCode({
-    withArtifacts: true,
-    includeDrawings: true,
-    includeLatestChatMessages: true,
-  });
+  const project = await getProjectDataToGenerateCode({ includeDrawings: true });
   let projects = [];
   if (withSweep) {
     projects.push(...getProjectRuns(project));

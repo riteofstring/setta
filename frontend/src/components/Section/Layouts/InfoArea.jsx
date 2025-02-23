@@ -9,13 +9,13 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { useSectionInfos } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
-import { getTextBlockDescription } from "state/hooks/sectionVariants";
+import { getInfoAreaDescription } from "state/hooks/sectionVariants";
 import {
   SECTION_DISPLAY_MODES,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 
-function _TextBlock({ sectionId }) {
+function _InfoArea({ sectionId }) {
   const displayMode = useSectionInfos((x) => x.x[sectionId].displayMode);
 
   return displayMode === SECTION_DISPLAY_MODES.RENDER ? (
@@ -27,7 +27,7 @@ function _TextBlock({ sectionId }) {
 
 function _Markdown({ sectionId }) {
   const { renderMarkdown, description } = useSectionInfos(
-    (x) => getTextBlockDescription(sectionId, x),
+    (x) => getInfoAreaDescription(sectionId, x),
     _.isEqual,
   );
 
@@ -60,10 +60,10 @@ function _Markdown({ sectionId }) {
   );
 }
 
-export const TextBlock = React.memo(_TextBlock);
+export const InfoArea = React.memo(_InfoArea);
 const Markdown = React.memo(_Markdown);
 
-export const CodeBlock = ({ node, inline, className, children, ...props }) => {
+const CodeBlock = ({ node, inline, className, children, ...props }) => {
   const [copied, setCopied] = React.useState(false);
   const codeRef = React.useRef(null);
 
@@ -97,7 +97,7 @@ export const CodeBlock = ({ node, inline, className, children, ...props }) => {
     <span className="group relative block">
       <button
         onClick={handleCopy}
-        className="absolute right-0 top-0.5 cursor-pointer rounded bg-transparent text-setta-300 opacity-0 transition-opacity 
+        className="absolute bottom-0 right-0 top-0 cursor-pointer rounded bg-transparent text-setta-300 opacity-0 transition-opacity 
                    duration-200 hover:text-setta-600 focus:outline-none
                    focus:ring-2 focus-visible:ring-blue-500 group-hover:opacity-100 dark:hover:text-white"
         aria-label="Copy code"

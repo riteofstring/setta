@@ -41,12 +41,17 @@ function _SectionHeader({
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
       />
-      <MaybeCardTitle
-        sectionId={sectionId}
-        isActiveSection={isActiveSection}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-        sectionTypeName={sectionTypeName}
-      />
+      {sectionTypeName !== C.INFO && (
+        <>
+          <CardTitle
+            sectionId={sectionId}
+            isActiveSection={isActiveSection}
+            isInOtherProjectConfigs={isInOtherProjectConfigs}
+            sectionTypeName={sectionTypeName}
+          />
+        </>
+      )}
+
       <div className="z-10 ml-auto flex items-center">
         {isSeriesElement && (
           <StandardPopover
@@ -78,22 +83,18 @@ function _SectionHeader({
   );
 }
 
-export const SectionHeader = React.memo(_SectionHeader);
-
-function MaybeCardTitle({
+function CardTitle({
   sectionId,
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
 }) {
-  return sectionTypeName === C.TEXT_BLOCK ? (
-    <TextBlockCardTitle
-      sectionId={sectionId}
-      isActiveSection={isActiveSection}
-      isInOtherProjectConfigs={isInOtherProjectConfigs}
-      sectionTypeName={sectionTypeName}
-    />
-  ) : (
+  // const isSearchResult = useProjectSearch((x) =>
+  //   x.sections.includes(sectionId)
+  // );
+
+  return (
+    // <div className={`${isSearchResult ? "outline outline-green-400" : ""}`}>
     <SectionTitle
       sectionId={sectionId}
       titleProps={getTitleStyles({
@@ -102,32 +103,11 @@ function MaybeCardTitle({
         sectionTypeName,
       })}
     />
+    // </div>
   );
 }
 
-function TextBlockCardTitle({
-  sectionId,
-  isActiveSection,
-  isInOtherProjectConfigs,
-  sectionTypeName,
-}) {
-  const headingAsSectionName = useSectionInfos(
-    (x) => x.x[sectionId].headingAsSectionName,
-  );
-
-  return (
-    !headingAsSectionName && (
-      <SectionTitle
-        sectionId={sectionId}
-        titleProps={getTitleStyles({
-          isActiveSection,
-          isInOtherProjectConfigs,
-          sectionTypeName,
-        })}
-      />
-    )
-  );
-}
+export const SectionHeader = React.memo(_SectionHeader);
 
 function getTitleStyles({
   isActiveSection,

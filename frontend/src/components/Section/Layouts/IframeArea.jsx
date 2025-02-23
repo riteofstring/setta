@@ -1,11 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import { getDisplayedSectionVariant } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 function _IframeArea({ sectionId }) {
-  const code = useSectionInfos(
-    (x) => getDisplayedSectionVariant(sectionId, x).code,
-  );
+  const iframeCode = useSectionInfos((x) => x.x[sectionId].iframeCode);
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -28,14 +25,14 @@ function _IframeArea({ sectionId }) {
     return () => {
       resizeObserver.disconnect();
     };
-  }, [code]);
+  }, [iframeCode]);
 
-  return !code || validateIframeCode(code) ? null : (
+  return !iframeCode || validateIframeCode(iframeCode) ? null : (
     <div
       className="section-main mb-2 mt-1.5 overflow-clip rounded-md"
       ref={containerRef}
     >
-      <div dangerouslySetInnerHTML={{ __html: code }} />
+      <div dangerouslySetInnerHTML={{ __html: iframeCode }} />
     </div>
   );
 }
