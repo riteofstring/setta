@@ -7,7 +7,10 @@ from setta.database.db.projects.utils import (
     add_defaults_to_project_and_load_json_sources,
     filter_data_for_json_export,
 )
-from setta.database.db.sections.jsonSource import save_json_source_data
+from setta.database.db.sections.jsonSource import (
+    remove_json_source_data,
+    save_json_source_data,
+)
 from setta.utils.constants import CONSTANTS_FOLDER, SETTA_FILES_FOLDER, USER_SETTINGS
 from setta.utils.utils import get_absolute_path, save_json_to_file
 
@@ -110,5 +113,6 @@ class MetaSettingsFile:
 
     def save_settings_project(self, p):
         save_json_source_data(p)
-        filter_data_for_json_export(p, keepCodeInfoThatHaveUITypes=False)
+        remove_json_source_data(p, keepCodeInfoThatHaveUITypes=False)
+        filter_data_for_json_export(p)
         save_json_to_file(self.path_meta_settings, p)

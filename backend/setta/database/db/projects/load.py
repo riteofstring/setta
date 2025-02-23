@@ -113,7 +113,7 @@ def load_project_config_metadata(db, config_name):
     return list(output.values())[0]
 
 
-def load_project_config(db, project_config_name, do_load_json_sources=True):
+def load_project_config(db, project_config_name):
     projectConfig = load_project_config_metadata(db, project_config_name)
     sections_data = load_sections(db, list(projectConfig["children"].keys()))
     sectionConfigs = load_section_configs(db, projectConfig["id"])
@@ -127,10 +127,9 @@ def load_project_config(db, project_config_name, do_load_json_sources=True):
     codeInfo, codeInfoCols = load_code_info_cols(db, sectionVariants)
     load_ev_refs_into_data_structures(db, sectionVariants, codeInfo)
     load_template_vars_into_data_structures(db, sectionVariants)
-    if do_load_json_sources:
-        load_json_sources_into_data_structures(
-            sections, codeInfo, codeInfoCols, sectionVariants
-        )
+    load_json_sources_into_data_structures(
+        sections, codeInfo, codeInfoCols, sectionVariants
+    )
 
     return {
         "projectConfig": projectConfig,
@@ -160,11 +159,11 @@ def load_project_config_names(db, excludeProjectConfigName=None):
     return [r[0] for r in db.fetchall()]
 
 
-def load_full_project(db, excludeProjectConfigName=None, do_load_json_sources=True):
+def load_full_project(db, excludeProjectConfigName=None):
     config_names = load_project_config_names(db, excludeProjectConfigName)
     configs = []
     for c in config_names:
-        p = load_project_config(db, c, do_load_json_sources)
+        p = load_project_config(db, c)
         configs.append(p)
 
     return configs
