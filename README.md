@@ -13,11 +13,7 @@
 ## News
 
 **February 23**: [v0.0.7](https://github.com/settadev/setta/releases/tag/v0.0.7)
-- Added a new "Chat" section type for sending chats and displaying chat history. Here's what it looks like:
-<p align="center">
-<img width="350" src="https://github.com/user-attachments/assets/65fd504e-4dcb-42db-b32e-d21c540354ee" />
-
-</p>
+- New `CHAT` section type, and some bug fixes.
 
 **February 22**: [v0.0.6](https://github.com/settadev/setta/releases/tag/v0.0.6)
 - Fixed bug where the language server URIs weren't created properly on Windows.
