@@ -748,22 +748,25 @@ class SingleRunGroupToDict:
         section_name = section_info["name"]
         output = {section_name: {}}
 
-        variantId = details["version"]
-        variant = self.sectionVariants[variantId]
-        variant_name = f'@{variant["name"]}'
-        children = variant["children"]
-        child_dict = {}
-        for c in children:
-            child_result = self.export_section_details(c, variantId)
-            if child_result:
-                child_dict.update(child_result)
-        output[section_name][variant_name] = child_dict
+        for variantId, selected in details["versions"].items():
+            if not selected:
+                continue
+            variant = self.sectionVariants[variantId]
+            variant_name = f'@{variant["name"]}'
+            children = variant["children"]
+            child_dict = {}
+            for c in children:
+                child_result = self.export_section_details(c, variantId)
+                if child_result:
+                    child_dict.update(child_result)
+            output[section_name][variant_name] = child_dict
 
         if len(section_info["variantIds"]) == 1:
             output[section_name] = output[section_name][variant_name]
 
-        paramSweepSectionVariantId = details["paramSweep"]
-        if paramSweepSectionVariantId:
+        for paramSweepSectionVariantId, selected in details["paramSweeps"].items():
+            if not selected:
+                continue
             param_sweep_name = (
                 f'~{self.sectionVariants[paramSweepSectionVariantId]["name"]}'
             )
