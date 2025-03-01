@@ -98,6 +98,7 @@ CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
         "isPinned",
         "isFrozen",
         "ignoreTypeErrors",
+        "jsonSource",
     )
 )
 
@@ -105,8 +106,10 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
     (
         "social",
         "codeLanguage",
+        "configLanguage",
         "runInMemory",
         "isFrozen",
+        "jsonSource",
         "hideParams",
         "hideSearch",
         "hideUnpinnedParams",
@@ -133,16 +136,7 @@ SECTION_CONFIG_TABLE_DATA_JSON_FIELDS = set(
     )
 )
 
-SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS = set(
-    [
-        "code",
-        "description",
-        "isFrozen",
-        "configLanguage",
-        "isJsonSource",
-        "jsonSourceKeys",
-    ]
-)
+SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS = set(["code", "description", "isFrozen"])
 
 SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS = set(["value"])
 

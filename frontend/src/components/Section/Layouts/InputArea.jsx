@@ -9,24 +9,22 @@ import { KwargsControls } from "../SectionParts/KwargsControls";
 import { SectionSearch } from "../SectionParts/Search";
 
 function _InputArea({ sectionId, bgColor }) {
-  const { selectedItem, hideSearch, hideParams, isJsonSource } =
-    useSectionInfos((x) => {
-      const { selectedItem, isJsonSource } = getDisplayedSectionVariant(
-        sectionId,
-        x,
-      );
+  const { selectedItem, hideSearch, hideParams, jsonSource } = useSectionInfos(
+    (x) => {
       return {
-        selectedItem,
+        selectedItem: getDisplayedSectionVariant(sectionId, x).selectedItem,
         hideSearch: x.x[sectionId].hideSearch,
         hideParams: x.x[sectionId].hideParams,
-        isJsonSource,
+        jsonSource: x.x[sectionId].jsonSource,
       };
-    }, _.isEqual);
+    },
+    _.isEqual,
+  );
   const showYaml = useShowYaml(sectionId);
 
   return (
     <>
-      {!showYaml && !hideSearch && !isJsonSource && (
+      {!showYaml && !hideSearch && !jsonSource && (
         <SectionSearch sectionId={sectionId} selectedItem={selectedItem} />
       )}
       {!showYaml && !hideParams && (

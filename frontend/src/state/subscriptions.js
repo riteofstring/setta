@@ -70,7 +70,7 @@ export function subscribe() {
   );
 
   useSectionInfos.subscribe(
-    filenameSubscriptionFn,
+    jsonSourceSubscriptionFn,
     (newVal) => {
       dbFilesWatchList([...newVal]);
     },
@@ -247,12 +247,12 @@ function artifactNamePathTypeToIdSubscriptionFn(state) {
   return output;
 }
 
-function filenameSubscriptionFn(state) {
-  const filenameSet = new Set();
-  for (const v of Object.values(state.variants)) {
-    if (v.isJsonSource) {
-      filenameSet.add(v.name);
+function jsonSourceSubscriptionFn(state) {
+  const jsonSourceSet = new Set();
+  for (const s of Object.values(state.x)) {
+    if (s.jsonSource) {
+      jsonSourceSet.add(s.jsonSource);
     }
   }
-  return filenameSet;
+  return jsonSourceSet;
 }

@@ -1,7 +1,10 @@
 import { dbSaveSectionJSONSource } from "requests/jsonSource";
 import { dbNewVersionFilename } from "requests/sectionVariants";
 import { setNotificationMessage } from "state/actions/notification";
-import { duplicateCodeInfoCol } from "state/actions/sectionInfos";
+import {
+  duplicateCodeInfoCol,
+  getSectionInfo,
+} from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { createRandomName } from "utils/idNameCreation";
 import { maybeRunGuiToYaml } from "./guiToYaml";
@@ -24,16 +27,18 @@ export function createNewVersion(sectionId, newVersionName, state) {
   return { newVariantId, oldVariantId: currVariantId };
 }
 
-async function maybeSaveNewJSONVersion(newVariantId, isJsonSource) {
-  if (isJsonSource) {
-    await dbSaveSectionJSONSource(newVariantId);
+async function maybeSaveNewJSONVersion(sectionId, jsonSource, oldVariantId) {
+  if (jsonSource) {
+    const { name: oldVariantName } =
+      useSectionInfos.getState().variants[oldVariantId];
+    await dbSaveSectionJSONSource(sectionId, oldVariantName);
   }
   setNotificationMessage("New Version Created");
 }
 
-async function createNewVersionName(currName, isJsonSource) {
-  if (isJsonSource) {
-    const res = await dbNewVersionFilename(currName);
+async function createNewVersionName(jsonSource) {
+  if (jsonSource) {
+    const res = await dbNewVersionFilename(jsonSource);
     if (res.status === 200) {
       return res.data;
     }
@@ -42,12 +47,16 @@ async function createNewVersionName(currName, isJsonSource) {
 }
 
 export async function createNewVersionMaybeWithJSON(sectionId) {
-  const { name, isJsonSource } = getSectionVariant(sectionId);
-  const newVersionName = await createNewVersionName(name, isJsonSource);
-  let newVariantId;
+  const { jsonSource } = getSectionInfo(sectionId);
+  const newVersionName = await createNewVersionName(jsonSource);
+  let newVariantId, oldVariantId;
   useSectionInfos.setState((state) => {
-    ({ newVariantId } = createNewVersion(sectionId, newVersionName, state));
+    ({ newVariantId, oldVariantId } = createNewVersion(
+      sectionId,
+      newVersionName,
+      state,
+    ));
   });
   maybeRunGuiToYaml(sectionId, newVariantId);
-  maybeSaveNewJSONVersion(newVariantId, isJsonSource);
+  maybeSaveNewJSONVersion(sectionId, jsonSource, oldVariantId);
 }

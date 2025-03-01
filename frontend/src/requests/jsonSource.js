@@ -2,21 +2,22 @@ import C from "constants/constants.json";
 import { useSectionInfos } from "state/definitions";
 import { post } from "./utils";
 
-export async function dbLoadSectionJSONSource(variantIdsToLoad) {
+export async function dbLoadSectionJSONSource(sectionIdToJSONSource) {
   return await post({
     body: {
       project: dataForRequest(),
-      variantIdsToLoad,
+      sectionIdToJSONSource,
     },
     address: C.ROUTE_LOAD_SECTION_JSON_SOURCE,
   });
 }
 
-export async function dbSaveSectionJSONSource(variantId) {
+export async function dbSaveSectionJSONSource(sectionId, oldVariantName) {
   return await post({
     body: {
       project: dataForRequest(),
-      variantId,
+      sectionId,
+      forking_from: oldVariantName,
     },
     address: C.ROUTE_SAVE_SECTION_JSON_SOURCE,
   });

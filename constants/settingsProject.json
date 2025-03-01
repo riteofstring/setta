@@ -43,38 +43,23 @@
   "sectionVariants": {
     "19f203aa-cae6-4ccc-928c-dab0194ade77": {
       "name": "setta_files/setta-settings.json",
-      "codeInfoColId": "088e4b38-c05d-4b28-ab20-18763c0ac73d",
-      "isJsonSource": true,
-      "jsonSourceKeys": ["shortcuts"],
-      "configLanguage": "json"
+      "codeInfoColId": "088e4b38-c05d-4b28-ab20-18763c0ac73d"
     },
     "f3cb4189-2692-4e75-b58f-76d632f44205": {
       "name": "setta_files/setta-settings.json",
-      "codeInfoColId": "5f3093c9-2baa-4a46-b5ae-a36a7c1f17f2",
-      "isJsonSource": true,
-      "jsonSourceKeys": ["gui"],
-      "configLanguage": "json"
+      "codeInfoColId": "5f3093c9-2baa-4a46-b5ae-a36a7c1f17f2"
     },
     "36d29a06-7971-48d1-a1d2-23480f770d74": {
       "name": "setta_files/setta-settings.json",
-      "codeInfoColId": "c88201be-0ff6-4f54-be88-6d2e448dcee8",
-      "isJsonSource": true,
-      "jsonSourceKeys": ["backend"],
-      "configLanguage": "json"
+      "codeInfoColId": "c88201be-0ff6-4f54-be88-6d2e448dcee8"
     },
     "4490975a-8d8d-4f02-8ed4-f48f8258f1ec": {
       "name": "setta_files/setta-settings.json",
-      "codeInfoColId": "ed42bd5c-edfb-4620-8477-58bbb84ee69b",
-      "isJsonSource": true,
-      "jsonSourceKeys": ["languageServer"],
-      "configLanguage": "json"
+      "codeInfoColId": "ed42bd5c-edfb-4620-8477-58bbb84ee69b"
     },
     "d2c7059a-8e28-488a-aa33-056476652d5e": {
       "name": "setta_files/setta-settings.json",
-      "codeInfoColId": "baa5c9db-c2db-42c7-9cab-fda5cadf861c",
-      "isJsonSource": true,
-      "jsonSourceKeys": ["sections"],
-      "configLanguage": "json"
+      "codeInfoColId": "baa5c9db-c2db-42c7-9cab-fda5cadf861c"
     }
   },
   "artifacts": {},
@@ -220,7 +205,11 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
       "defaultVariantId": "19f203aa-cae6-4ccc-928c-dab0194ade77",
-      "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"]
+      "variantIds": ["19f203aa-cae6-4ccc-928c-dab0194ade77"],
+      "configLanguage": "json",
+      "hideSearch": true,
+      "jsonSource": "setta_files/setta-settings*.json",
+      "jsonSourceKeys": ["shortcuts"]
     },
     "6b264a9a-0f87-4288-80aa-45cc6b16db96": {
       "id": "6b264a9a-0f87-4288-80aa-45cc6b16db96",
@@ -232,7 +221,11 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
       "defaultVariantId": "f3cb4189-2692-4e75-b58f-76d632f44205",
-      "variantIds": ["f3cb4189-2692-4e75-b58f-76d632f44205"]
+      "variantIds": ["f3cb4189-2692-4e75-b58f-76d632f44205"],
+      "configLanguage": "json",
+      "hideSearch": true,
+      "jsonSource": "setta_files/setta-settings*.json",
+      "jsonSourceKeys": ["gui"]
     },
     "f74b5aaf-d11d-4153-b55b-9c18e11e3a73": {
       "id": "f74b5aaf-d11d-4153-b55b-9c18e11e3a73",
@@ -244,7 +237,11 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
       "defaultVariantId": "36d29a06-7971-48d1-a1d2-23480f770d74",
-      "variantIds": ["36d29a06-7971-48d1-a1d2-23480f770d74"]
+      "variantIds": ["36d29a06-7971-48d1-a1d2-23480f770d74"],
+      "configLanguage": "json",
+      "hideSearch": true,
+      "jsonSource": "setta_files/setta-settings*.json",
+      "jsonSourceKeys": ["backend"]
     },
     "8389d4b3-0a1e-4c44-819b-7c745d6c3f1b": {
       "id": "8389d4b3-0a1e-4c44-819b-7c745d6c3f1b",
@@ -256,7 +253,11 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
       "defaultVariantId": "4490975a-8d8d-4f02-8ed4-f48f8258f1ec",
-      "variantIds": ["4490975a-8d8d-4f02-8ed4-f48f8258f1ec"]
+      "variantIds": ["4490975a-8d8d-4f02-8ed4-f48f8258f1ec"],
+      "configLanguage": "json",
+      "hideSearch": true,
+      "jsonSource": "setta_files/setta-settings*.json",
+      "jsonSourceKeys": ["languageServer"]
     },
     "514c2046-25de-4b0a-b6f9-fca1dd14ad8e": {
       "id": "514c2046-25de-4b0a-b6f9-fca1dd14ad8e",
@@ -268,114 +269,139 @@
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
       "defaultVariantId": "d2c7059a-8e28-488a-aa33-056476652d5e",
-      "variantIds": ["d2c7059a-8e28-488a-aa33-056476652d5e"]
+      "variantIds": ["d2c7059a-8e28-488a-aa33-056476652d5e"],
+      "configLanguage": "json",
+      "hideSearch": true,
+      "jsonSource": "setta_files/setta-settings*.json",
+      "jsonSourceKeys": ["sections"]
     }
   },
   "codeInfo": {
     "db7b5f4e-ee15-4f9a-9bab-fa84de3f5c00": {
       "id": "db7b5f4e-ee15-4f9a-9bab-fa84de3f5c00",
       "name": "panOnScrollMode",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "5ec98205-d06c-4f13-9115-1d5eec76555b": {
       "id": "5ec98205-d06c-4f13-9115-1d5eec76555b",
       "name": "selectionMode",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "b4b236b6-ec70-40cc-8765-8d1a30c1e572": {
       "id": "b4b236b6-ec70-40cc-8765-8d1a30c1e572",
       "name": "showGridLines",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "a2b36afb-f5ae-427b-ad8f-be12da5e2ec4": {
       "id": "a2b36afb-f5ae-427b-ad8f-be12da5e2ec4",
       "name": "gridColor",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "7ae66c69-3261-4882-a983-26b9bcf35063": {
       "id": "7ae66c69-3261-4882-a983-26b9bcf35063",
       "name": "gridColorDarkMode",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "d20faabd-e69e-40e6-bc6a-6ac29d7afbf0": {
       "id": "d20faabd-e69e-40e6-bc6a-6ac29d7afbf0",
       "name": "gridPattern",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "b387688a-a761-4396-b99a-b60945d2db0a": {
       "id": "b387688a-a761-4396-b99a-b60945d2db0a",
       "name": "showDefaultConfigOnLoad",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "03b2da1e-f288-40fa-ad3c-881a6a4f186f": {
       "id": "03b2da1e-f288-40fa-ad3c-881a6a4f186f",
       "name": "inferImports",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "7f9492a2-ce79-43ea-8778-49e256e3efaa": {
       "id": "7f9492a2-ce79-43ea-8778-49e256e3efaa",
       "name": "autosave",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "b50f0c10-0115-4619-92e9-cc955539b72c": {
       "id": "b50f0c10-0115-4619-92e9-cc955539b72c",
       "name": "autobackup",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "15e8e73b-69ed-42cb-8970-06f09617d0b2": {
       "id": "15e8e73b-69ed-42cb-8970-06f09617d0b2",
       "name": "leftSidePaneShiftsMap",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "581e7d04-9e4c-4f63-bec9-7f7d809e7f8e": {
       "id": "581e7d04-9e4c-4f63-bec9-7f7d809e7f8e",
       "name": "panOnDrag",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "f7ffcc87-4649-4f8b-9d4b-8276f0ed3af7": {
       "id": "f7ffcc87-4649-4f8b-9d4b-8276f0ed3af7",
       "name": "panOnScroll",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "fbeb8bd7-dfe7-497a-9920-83450e875501": {
       "id": "fbeb8bd7-dfe7-497a-9920-83450e875501",
       "name": "zoomOnScroll",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "fc1c467d-b745-46b6-8f8b-94f239e0abd8": {
       "id": "fc1c467d-b745-46b6-8f8b-94f239e0abd8",
       "name": "zoomOnPinch",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "17466622-a5fb-4be8-8525-f06c88daae82": {
       "id": "17466622-a5fb-4be8-8525-f06c88daae82",
       "name": "zoomOnDoubleClick",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "85dafdca-efa6-43bc-9421-b65dd9614862": {
       "id": "85dafdca-efa6-43bc-9421-b65dd9614862",
       "name": "clearTerminalBeforeMarkingAsReady",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "df31626d-bb5c-44db-a72e-ea1ed9ddc57c": {
       "id": "df31626d-bb5c-44db-a72e-ea1ed9ddc57c",
       "name": "exportDbRawOnSave",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "60185329-1eeb-439c-8830-e7fb77f44568": {
       "id": "60185329-1eeb-439c-8830-e7fb77f44568",
       "name": "exportDbReadableOnSave",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "69b37725-50e6-4ddb-bd6c-f804f79e7c5a": {
       "id": "69b37725-50e6-4ddb-bd6c-f804f79e7c5a",
       "name": "exportDbReadableWithVariantsOnSave",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     },
     "24a214fd-f10b-44f6-a6f4-0693538ee08d": {
       "id": "24a214fd-f10b-44f6-a6f4-0693538ee08d",
       "name": "saveRenderedValues",
-      "editable": true
+      "editable": true,
+      "jsonSource": "setta_files/setta-settings.json"
     }
   },
   "codeInfoCols": {
@@ -384,20 +410,6 @@
     },
     "5f3093c9-2baa-4a46-b5ae-a36a7c1f17f2": {
       "children": {
-        "null": [
-          "b4b236b6-ec70-40cc-8765-8d1a30c1e572",
-          "d20faabd-e69e-40e6-bc6a-6ac29d7afbf0",
-          "a2b36afb-f5ae-427b-ad8f-be12da5e2ec4",
-          "7ae66c69-3261-4882-a983-26b9bcf35063",
-          "581e7d04-9e4c-4f63-bec9-7f7d809e7f8e",
-          "f7ffcc87-4649-4f8b-9d4b-8276f0ed3af7",
-          "db7b5f4e-ee15-4f9a-9bab-fa84de3f5c00",
-          "fbeb8bd7-dfe7-497a-9920-83450e875501",
-          "fc1c467d-b745-46b6-8f8b-94f239e0abd8",
-          "17466622-a5fb-4be8-8525-f06c88daae82",
-          "5ec98205-d06c-4f13-9115-1d5eec76555b",
-          "15e8e73b-69ed-42cb-8970-06f09617d0b2"
-        ],
         "b4b236b6-ec70-40cc-8765-8d1a30c1e572": [],
         "d20faabd-e69e-40e6-bc6a-6ac29d7afbf0": [],
         "a2b36afb-f5ae-427b-ad8f-be12da5e2ec4": [],
@@ -414,17 +426,6 @@
     },
     "c88201be-0ff6-4f54-be88-6d2e448dcee8": {
       "children": {
-        "null": [
-          "b387688a-a761-4396-b99a-b60945d2db0a",
-          "03b2da1e-f288-40fa-ad3c-881a6a4f186f",
-          "7f9492a2-ce79-43ea-8778-49e256e3efaa",
-          "b50f0c10-0115-4619-92e9-cc955539b72c",
-          "85dafdca-efa6-43bc-9421-b65dd9614862",
-          "df31626d-bb5c-44db-a72e-ea1ed9ddc57c",
-          "60185329-1eeb-439c-8830-e7fb77f44568",
-          "69b37725-50e6-4ddb-bd6c-f804f79e7c5a",
-          "24a214fd-f10b-44f6-a6f4-0693538ee08d"
-        ],
         "b387688a-a761-4396-b99a-b60945d2db0a": [],
         "03b2da1e-f288-40fa-ad3c-881a6a4f186f": [],
         "7f9492a2-ce79-43ea-8778-49e256e3efaa": [],

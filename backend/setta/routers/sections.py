@@ -54,16 +54,17 @@ class GlobalParamSweepSectionToYamlRequest(BaseModel):
 
 class LoadSectionJSONSourceRequest(BaseModel):
     project: dict
-    variantIdsToLoad: List[str]
+    sectionIdToJSONSource: Dict[str, str]
 
 
 class SaveSectionJSONSourceRequest(BaseModel):
     project: dict
-    variantId: str
+    sectionId: str
+    forking_from: str
 
 
 class NewJSONVersionNameRequest(BaseModel):
-    filename: str
+    filenameGlob: str
 
 
 class CreateFileRequest(BaseModel):
@@ -133,18 +134,21 @@ def route_global_param_sweep_section_to_yaml(x: GlobalParamSweepSectionToYamlReq
 @router.post(C.ROUTE_LOAD_SECTION_JSON_SOURCE)
 def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
     p = x.project
+    for k, v in x.sectionIdToJSONSource.items():
+        p["sections"][k]["jsonSource"] = v
     load_json_sources_into_data_structures(
+        p["sections"],
         p["codeInfo"],
         p["codeInfoCols"],
         p["sectionVariants"],
-        variant_ids=x.variantIdsToLoad,
+        section_ids=list(x.sectionIdToJSONSource.keys()),
     )
     return {"project": p}
 
 
 @router.post(C.ROUTE_NEW_JSON_VERSION_NAME)
 def route_new_json_version_name(x: NewJSONVersionNameRequest):
-    new_filename = generate_new_filename(x.filename)
+    new_filename = generate_new_filename(x.filenameGlob)
     Path(new_filename).parent.mkdir(parents=True, exist_ok=True)
     Path(new_filename).touch()
     return new_filename
@@ -158,7 +162,7 @@ def route_create_file(x: CreateFileRequest):
 
 @router.post(C.ROUTE_SAVE_SECTION_JSON_SOURCE)
 def route_save_section_json_source(x: SaveSectionJSONSourceRequest):
-    save_json_source_data(x.project, [x.variantId])
+    save_json_source_data(x.project, [x.sectionId], x.forking_from)
 
 
 @router.post(C.ROUTE_GET_JSON_SOURCE_PATH_TO_BE_DELETED)
