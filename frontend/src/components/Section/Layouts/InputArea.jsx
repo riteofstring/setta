@@ -8,7 +8,7 @@ import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 import { SectionSearch } from "../SectionParts/Search";
 
-function _InputArea({ sectionId, bgColor, isUserView }) {
+function _InputArea({ sectionId, bgColor }) {
   const { selectedItem, hideSearch, hideParams, isJsonSource } =
     useSectionInfos((x) => {
       const { selectedItem, isJsonSource } = getDisplayedSectionVariant(
@@ -31,13 +31,11 @@ function _InputArea({ sectionId, bgColor, isUserView }) {
       )}
       {!showYaml && !hideParams && (
         <>
-          {!isUserView && (
-            <KwargsControls
-              sectionId={sectionId}
-              objInfoId={selectedItem}
-              bgColor={bgColor}
-            />
-          )}
+          <KwargsControls
+            sectionId={sectionId}
+            objInfoId={selectedItem}
+            bgColor={bgColor}
+          />
           <ParamGroupContainer sectionId={sectionId} />
         </>
       )}

@@ -317,10 +317,6 @@ function deleteSectionVariant(sectionId, variantId, isCurr) {
   });
 }
 
-export function getSectionShouldRender(visibility, viewingEditingMode) {
-  return visibility || viewingEditingMode !== VIEWING_EDITING_MODE.USER;
-}
-
 export function getSectionViewingEditingModeVisibility(sectionId, state) {
   const { viewingEditingMode } = state.projectConfig;
   return {
@@ -355,8 +351,4 @@ export function getAncestorSameVisibility(sectionId, state) {
   }
 
   return false;
-}
-
-export function getIsUserView(viewingEditingMode) {
-  return viewingEditingMode === VIEWING_EDITING_MODE.USER;
 }

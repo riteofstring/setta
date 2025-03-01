@@ -16,7 +16,6 @@ import { getEVRefRegexAndColorMap } from "./actions/evRefRegex";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
-  updateNodeVisibility,
 } from "./actions/nodeInternals";
 import { maybeOpenRenameReferencesModal } from "./actions/referenceRenaming";
 import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
@@ -24,10 +23,8 @@ import {
   getCodeInfoCol,
   getDisplayedSectionIdToChildren,
   getSectionIdToParentId,
-  getSectionShouldRender,
   getSectionType,
   getSectionVariant,
-  getSectionViewingEditingModeVisibility,
 } from "./actions/sectionInfos";
 import { getTemplateVarsRegexAndColorMap } from "./actions/templateVarsRegex";
 
@@ -80,14 +77,6 @@ export function subscribe() {
     {
       equalityFn: _.isEqual,
     },
-  );
-
-  useSectionInfos.subscribe(
-    topLevelSectionVisibilitySubscriptionFn,
-    (newVal) => {
-      updateNodeVisibility(newVal);
-    },
-    { equalityFn: _.isEqual },
   );
 
   useReactFlow.subscribe(
@@ -266,17 +255,4 @@ function filenameSubscriptionFn(state) {
     }
   }
   return filenameSet;
-}
-
-function topLevelSectionVisibilitySubscriptionFn(state) {
-  const output = {};
-  for (const [id, section] of Object.entries(state.x)) {
-    if (!section.parentId) {
-      const { visibility, viewingEditingMode } =
-        getSectionViewingEditingModeVisibility(id, state);
-
-      output[id] = getSectionShouldRender(visibility, viewingEditingMode);
-    }
-  }
-  return output;
 }

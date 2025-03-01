@@ -4,18 +4,16 @@ import { useShowYaml } from "../../../state/hooks/toYaml";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 
-function _GlobalVariablesArea({ sectionId, bgColor, isUserView }) {
+function _GlobalVariablesArea({ sectionId, bgColor }) {
   const showYaml = useShowYaml(sectionId);
 
   return !showYaml ? (
     <>
-      {!isUserView && (
-        <KwargsControls
-          sectionId={sectionId}
-          objInfoId={null}
-          bgColor={bgColor}
-        />
-      )}
+      <KwargsControls
+        sectionId={sectionId}
+        objInfoId={null}
+        bgColor={bgColor}
+      />
       <ParamGroupContainer sectionId={sectionId} />
     </>
   ) : (
