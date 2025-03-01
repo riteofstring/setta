@@ -1,6 +1,11 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { createNewId } from "utils/idNameCreation";
+import {
+  createNewId,
+  createNewParamId,
+  isFromJsonSource,
+} from "utils/idNameCreation";
+import { newCodeInfo } from "utils/objs/codeInfo";
 import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
 
@@ -55,7 +60,26 @@ export function getOrCreateCodeInfoCol(variant, state) {
 }
 
 export function changeCodeInfoName(sectionId, paramInfoId, newName, state) {
-  state.codeInfo[paramInfoId].name = newName;
+  if (isFromJsonSource(paramInfoId)) {
+    const { jsonSource, jsonSourceKeys } = state.x[sectionId];
+    const parentId = getCodeInfoParentId(sectionId, paramInfoId, state);
+    const paramPath = getParamPath(sectionId, newName, parentId, state);
+    const newInfo = newCodeInfo({
+      id: createNewParamId(paramPath, jsonSource, jsonSourceKeys),
+      name: newName,
+      rcType: C.PARAMETER,
+      editable: true,
+    });
+    deleteCodeInfo(sectionId, [paramInfoId], state);
+    addCodeInfo({
+      sectionId,
+      info: newInfo,
+      parent: parentId,
+      state,
+    });
+  } else {
+    state.codeInfo[paramInfoId].name = newName;
+  }
 }
 
 export function getParamPath(sectionId, paramName, parentId, state) {

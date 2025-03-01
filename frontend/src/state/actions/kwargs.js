@@ -1,8 +1,9 @@
 import C from "constants/constants.json";
 import { useSectionInfos } from "state/definitions";
 import { findAllParametersAndPathMaps } from "utils/getDescendants";
+import { createNewParamId, createRandomName } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
+import { addCodeInfo, deleteCodeInfo, getParamPath } from "./codeInfo";
 import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
 
 export function addKwarg({
@@ -11,15 +12,18 @@ export function addKwarg({
   insertIdx = null,
   state,
 }) {
-  const { jsonSource } = state.x[sectionId];
+  const { jsonSource, jsonSourceKeys } = state.x[sectionId];
   let actualName = name;
-  // if (jsonSource) {
-  //   if (!actualName) {
-  //     actualName = createRandomName();
-  //   }
-  // }
+  let paramPath = null;
+  if (jsonSource) {
+    if (!actualName) {
+      actualName = createRandomName();
+    }
+    paramPath = getParamPath(sectionId, actualName, parentId, state);
+  }
   const kwargInfo = newCodeInfo({
-    id: createNewId(),
+    id: createNewParamId(paramPath, jsonSource, jsonSourceKeys),
+    name: actualName,
     rcType: C.PARAMETER,
     editable: true,
   });

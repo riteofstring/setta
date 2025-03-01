@@ -10,6 +10,7 @@ from setta.database.db.codeInfo.utils import new_code_info_col, with_code_info_d
 from setta.database.db.sections.utils import with_section_defaults
 from setta.database.db.sectionVariants.utils import new_ev_entry, new_section_variant
 from setta.database.utils import create_new_id
+from setta.utils.constants import C
 
 from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes
@@ -314,14 +315,13 @@ def process_json_object(jsonSourceData, filename, filename_glob, jsonSourceKeys)
         # TODO print warning or something
         pass
 
-    metadataToId = {}
-
-    highest_key = process_json_object_helper(
-        new_data, jsonSourceData, filename, filename_glob, jsonSourceKeys, metadataToId
+    process_json_object_helper(
+        new_data, jsonSourceData, filename, filename_glob, jsonSourceKeys
     )
 
     if len(jsonSourceKeys) > 0:
         # point directly from None (the root) to the children
+        highest_key = create_json_code_info_key(filename_glob, jsonSourceKeys)
         codeInfoChildren = new_data["codeInfoColChildren"]
         codeInfoChildren[None] = codeInfoChildren[highest_key]
         del codeInfoChildren[highest_key]
@@ -329,62 +329,46 @@ def process_json_object(jsonSourceData, filename, filename_glob, jsonSourceKeys)
     return new_data
 
 
-def process_json_object_helper(
-    output, obj, filename, filename_glob, current_path, metadataToId
-):
+def process_json_object_helper(output, obj, filename, filename_glob, current_path):
     if not isinstance(obj, dict):
         return
 
     children_keys = []
     for k, v in obj.items():
         path = current_path + [k]
-        paramInfoId, is_dict, code_info = create_json_code_info(
-            filename_glob, path, k, v, output
-        )
-        metadataToId[json.dumps(code_info["jsonSourceMetadata"])] = paramInfoId
-        children_keys.append(paramInfoId)
+        full_key, is_dict = create_json_code_info(filename_glob, path, k, v, output)
+        children_keys.append(full_key)
         if is_dict:
-            process_json_object_helper(
-                output, v, filename, filename_glob, path, metadataToId
-            )
+            process_json_object_helper(output, v, filename, filename_glob, path)
 
     parent_id = None
     if len(current_path) > 0:
-        metadata = json.dumps(createMetadataObj(filename_glob, current_path))
-        parent_id = metadataToId.get(metadata)
-        if not parent_id:
-            parent_id = create_new_id()
-            metadataToId[metadata] = parent_id
+        parent_id = create_json_code_info_key(filename_glob, current_path)
 
     output["codeInfoColChildren"][parent_id] = children_keys
-    return parent_id
 
 
 def create_json_code_info(filename_glob, path, key, value, output):
-    paramInfoId = create_new_id()
+    full_key = create_json_code_info_key(filename_glob, path)
     # Create code info entry
-    output["codeInfo"][paramInfoId] = with_code_info_defaults(
-        id=paramInfoId,
-        name=key,
-        editable=True,
-        jsonSourceMetadata=createMetadataObj(filename_glob, path),
-        separators=(",", ":"),
-    )
-    output["codeInfoColChildren"][paramInfoId] = []
+    output["codeInfo"][full_key] = with_code_info_defaults(id=full_key, name=key, editable=True)
+    output["codeInfoColChildren"][full_key] = []
 
     is_dict = isinstance(value, dict)
     # Create variant value entry
     if is_dict:
         # For objects, store empty value and process children
-        output["sectionVariantValues"][paramInfoId] = new_ev_entry()
+        output["sectionVariantValues"][full_key] = new_ev_entry()
     else:
         # For non-objects, store the value directly
-        output["sectionVariantValues"][paramInfoId] = new_ev_entry(
-            value=json.dumps(value)
-        )
+        output["sectionVariantValues"][full_key] = new_ev_entry(value=json.dumps(value))
 
-    return paramInfoId, is_dict, output["codeInfo"][paramInfoId]
+    return full_key, is_dict
 
 
-def createMetadataObj(filename_glob, path):
-    return {"filenameGlob": filename_glob, "key": path}
+def create_json_code_info_key(filename_glob, path):
+    # specify separators to make json.dumps equivalent to JSON.stringify
+    key = json.dumps(
+        {"filenameGlob": filename_glob, "key": path}, separators=(",", ":")
+    )
+    return f"{C.JSON_SOURCE_PREFIX}{key}"

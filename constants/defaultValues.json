@@ -94,8 +94,7 @@
     "isFrozen": false,
     "isSelected": false,
     "evRefs": [],
-    "ignoreTypeErrors": false,
-    "jsonSourceMetadata": {}
+    "ignoreTypeErrors": false
   },
   "codeInfoCol": {
     "children": { "null": [] }
