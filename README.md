@@ -12,8 +12,6 @@
 
 ## News
 
-**February 27**: [v0.0.9](https://github.com/settadev/setta/releases/tag/v0.0.9)
-
 **February 24**: [v0.0.8](https://github.com/settadev/setta/releases/tag/v0.0.8)
 - Added options to the `export-db` cli command. 
 - Allow artifacts to be renamed directly in the side pane.
@@ -25,6 +23,8 @@
 
 </p>
 
+**February 22**: [v0.0.6](https://github.com/settadev/setta/releases/tag/v0.0.6)
+- Fixed bug where the language server URIs weren't created properly on Windows.
 
 ## What does Setta do?
 

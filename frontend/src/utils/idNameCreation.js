@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import {
   adjectives,
   colors,
@@ -11,6 +12,24 @@ export function createNewId() {
 
 export function maybeNewId(x) {
   return x ? x : createNewId();
+}
+
+function createJSONSourceParamId(paramPath, jsonSource) {
+  const metadata = JSON.stringify({
+    filenameGlob: jsonSource,
+    key: paramPath,
+  });
+  return `${C.JSON_SOURCE_PREFIX}${metadata}`;
+}
+
+export function createNewParamId(paramPath, jsonSource, jsonSourceKeys) {
+  if (jsonSource) {
+    return createJSONSourceParamId(
+      [...jsonSourceKeys, ...paramPath],
+      jsonSource,
+    );
+  }
+  return createNewId();
 }
 
 export function createVarName(existingVarNames) {

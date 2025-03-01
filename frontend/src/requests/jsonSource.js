@@ -2,11 +2,12 @@ import C from "constants/constants.json";
 import { useSectionInfos } from "state/definitions";
 import { post } from "./utils";
 
-export async function dbLoadSectionJSONSource(sectionIdToJSONSource) {
+export async function dbLoadSectionJSONSource(sectionId, jsonSource) {
   return await post({
     body: {
       project: dataForRequest(),
-      sectionIdToJSONSource,
+      sectionId,
+      jsonSource,
     },
     address: C.ROUTE_LOAD_SECTION_JSON_SOURCE,
   });
@@ -42,29 +43,11 @@ export async function dbGetJSONSourcePathToBeDeleted(variantName) {
   });
 }
 
-export async function dbCreateFile(filepath) {
-  return await post({
-    body: {
-      filepath,
-    },
-    address: C.ROUTE_CREATE_FILE,
-  });
-}
-
 export async function dbDeleteFile(filepath) {
   return await post({
     body: {
       filepath,
     },
     address: C.ROUTE_DELETE_FILE,
-  });
-}
-
-export async function dbFilesWatchList(filepaths) {
-  return await post({
-    body: {
-      filepaths,
-    },
-    address: C.ROUTE_FILE_WATCH_LIST,
   });
 }

@@ -1,5 +1,4 @@
 import json
-import logging
 
 from fastapi import WebSocket
 from websockets.exceptions import ConnectionClosedError
@@ -7,8 +6,6 @@ from websockets.exceptions import ConnectionClosedError
 from setta.tasks.fns.utils import TaskMessage
 from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
-
-logger = logging.getLogger(__name__)
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -86,9 +83,7 @@ class WebsocketManager:
                 )
 
     async def broadcast(self, message):
-        logger.debug(f"broadcasting message {message}")
         for s in self.sockets.values():
-            logger.debug(f"sending to {s}")
             await s["websocket"].send_text(json.dumps(message))
 
     async def broadcast_connections(self):
