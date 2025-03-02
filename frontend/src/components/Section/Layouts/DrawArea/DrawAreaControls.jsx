@@ -1,45 +1,110 @@
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
 import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+import { arrayMove } from "forks/dnd-kit/CustomSortable";
+import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiHide, BiPaint, BiShow } from "react-icons/bi";
 import { BsLayers } from "react-icons/bs";
 import { FaPlus } from "react-icons/fa";
 import { IoMove } from "react-icons/io5";
+import { addDrawAreaLayer } from "state/actions/artifacts";
 import { useSectionInfos } from "state/definitions";
+import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 
-export const DrawAreaControls = ({
-  mode,
-  opacity,
-  brushSize,
-  eraserSize,
-  brushColor,
-  layers,
+export function DrawAreaControls({
+  sectionId,
   activeLayerId,
-  onToolChange,
-  onOpacityChange,
-  onBrushSizeChange,
-  onEraserSizeChange,
-  onColorChange,
-  onLayerOpacityChange,
-  onAddLayer,
-  onDeleteLayer,
-  onToggleLayerVisibility,
-  onSelectLayer,
-  onReorderLayers,
+  color,
+  brushOpacity,
+  brushSize,
+  brushShape,
+  eraserBrushSize,
+  isEraser,
+  setIsEraser,
+  layerOpacity,
+  mode,
   clearStrokes,
-}) => {
+}) {
+  function setColor(v) {
+    setCanvasSettings(sectionId, "color", v);
+  }
+  function setBrushOpacity(v) {
+    setLayerSettings(activeLayerId, "brushOpacity", v);
+  }
+  function setBrushSize(v) {
+    setCanvasSettings(sectionId, "brushSize", v);
+  }
+  function setBrushShape(v) {
+    setCanvasSettings(sectionId, "brushShape", v);
+  }
+  function setLayerOpacity(v) {
+    setLayerSettings(activeLayerId, "layerOpacity", v);
+  }
+  function setEraserBrushSize(v) {
+    setCanvasSettings(sectionId, "eraserBrushSize", v);
+  }
+  function setLayerVisibility(layerId, v) {
+    setLayerSettings(layerId, "visible", v);
+  }
+  function setActiveLayerId(v) {
+    setCanvasSettings(sectionId, "activeLayerId", v);
+  }
+  function setToBrushMode() {
+    setIsEraser(false);
+    setCanvasSettings(sectionId, "mode", "draw");
+  }
+  function setToEraserMode() {
+    setIsEraser(true);
+    setCanvasSettings(sectionId, "mode", "draw");
+  }
+  function setToEditMode() {
+    setCanvasSettings(sectionId, "mode", "edit");
+  }
+  function addLayer() {
+    useSectionInfos.setState((state) => {
+      addDrawAreaLayer(sectionId, state);
+    });
+  }
+
+  function deleteLayer(layerId) {
+    useSectionInfos.setState((state) => {
+      delete state.artifactGroups[layerId];
+      const s = state.x[sectionId];
+      const layerIndex = s.artifactGroupIds.findIndex((x) => x === layerId);
+
+      s.artifactGroupIds = s.artifactGroupIds.filter((x) => x !== layerId);
+
+      if (s.artifactGroupIds.length > 0) {
+        s.canvasSettings.activeLayerId =
+          s.artifactGroupIds[layerIndex !== -1 ? layerIndex - 1 : 0];
+      } else {
+        s.canvasSettings.activeLayerId = null;
+      }
+    });
+  }
+
+  function reorderLayers(draggedIdx, targetIdx) {
+    useSectionInfos.setState((state) => {
+      state.x[sectionId].artifactGroupIds = arrayMove(
+        state.x[sectionId].artifactGroupIds,
+        draggedIdx,
+        targetIdx,
+      );
+    });
+  }
+
   return (
     <div className="section-search section-w-full z-10 flex  flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 [&_.colorpicker]:!max-h-6 [&_.colorpicker]:max-w-24 ">
       <DrawAreaColorPicker
-        // sectionId={sectionId}
-        color={brushColor}
-        setColor={onColorChange}
+        sectionId={sectionId}
+        color={color}
+        setColor={setColor}
       />
       <div className="flex self-stretch">
         <button
-          className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${mode === "brush" ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-          onClick={() => onToolChange("brush")}
+          className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${mode === "draw" && !isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+          onClick={setToBrushMode}
         >
           <BiPaint />
         </button>
@@ -54,19 +119,19 @@ export const DrawAreaControls = ({
           header={"Brush Settings"}
         >
           <BrushSettings
-            opacity={opacity}
-            setOpacity={onOpacityChange}
+            opacity={brushOpacity}
+            setOpacity={setBrushOpacity}
             brushSize={brushSize}
-            setBrushSize={onBrushSizeChange}
-            // brushShape={brushShape}
-            // setBrushShape={setBrushShape}
+            setBrushSize={setBrushSize}
+            brushShape={brushShape}
+            setBrushShape={setBrushShape}
           />
         </StandardPopover>
       </div>
       <div className="flex self-stretch">
         <button
-          className={`flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${mode === "eraser" ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-          onClick={() => onToolChange("eraser")}
+          className={`flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${mode === "draw" && isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+          onClick={setToEraserMode}
         >
           <i className="gg-erase" />
         </button>
@@ -81,14 +146,14 @@ export const DrawAreaControls = ({
           header={"Brush Settings"}
         >
           <EraserSettings
-            brushSize={eraserSize}
-            setBrushSize={onEraserSizeChange}
+            brushSize={eraserBrushSize}
+            setBrushSize={setEraserBrushSize}
           />
         </StandardPopover>
       </div>
       <button
         className={`flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs ${mode === "edit" ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-        onClick={() => onToolChange("edit")}
+        onClick={setToEditMode}
       >
         <IoMove />
       </button>
@@ -104,10 +169,7 @@ export const DrawAreaControls = ({
         }
         header={"Layer Opacity"}
       >
-        <LayerSettings
-          opacity={layers.find((l) => l.id === activeLayerId)?.opacity}
-          setOpacity={(v) => onLayerOpacityChange(activeLayerId, v)}
-        />
+        <LayerSettings opacity={layerOpacity} setOpacity={setLayerOpacity} />
       </StandardPopover>
 
       <StandardPopover
@@ -122,14 +184,13 @@ export const DrawAreaControls = ({
         header={"Layer Selection"}
       >
         <LayerList
-          // sectionId={sectionId}
-          layers={layers}
+          sectionId={sectionId}
           activeLayerId={activeLayerId}
-          setActiveLayerId={onSelectLayer}
-          setLayerVisibility={onToggleLayerVisibility}
-          addLayer={onAddLayer}
-          reorderLayers={onReorderLayers}
-          deleteLayer={onDeleteLayer}
+          setActiveLayerId={setActiveLayerId}
+          setLayerVisibility={setLayerVisibility}
+          addLayer={addLayer}
+          reorderLayers={reorderLayers}
+          deleteLayer={deleteLayer}
         />
       </StandardPopover>
 
@@ -141,13 +202,13 @@ export const DrawAreaControls = ({
       </button>
     </div>
   );
-};
+}
 
-function DrawAreaColorPicker({ sectionId, colorChoices, color, setColor }) {
-  // const colorChoices = useSectionInfos(
-  //   (x) => x.x[sectionId].canvasSettings?.colorChoices,
-  //   _.isEqual,
-  // );
+function DrawAreaColorPicker({ sectionId, color, setColor }) {
+  const colorChoices = useSectionInfos(
+    (x) => x.x[sectionId].canvasSettings?.colorChoices,
+    _.isEqual,
+  );
 
   return (
     <ColorPickerInput
@@ -324,8 +385,7 @@ function LayerSettings({ opacity, setOpacity }) {
 }
 
 function LayerList({
-  // sectionId,
-  layers,
+  sectionId,
   activeLayerId,
   setActiveLayerId,
   setLayerVisibility,
@@ -333,10 +393,10 @@ function LayerList({
   reorderLayers,
   deleteLayer,
 }) {
-  // const layers = useSectionInfos(
-  //   (x) => getSectionArtifactGroupMetadata(sectionId, x),
-  //   _.isEqual,
-  // );
+  const layers = useSectionInfos(
+    (x) => getSectionArtifactGroupMetadata(sectionId, x),
+    _.isEqual,
+  );
   const reversedLayers = layers.toReversed();
 
   const [draggedOverIdx, setDraggedOverIdx] = useState(null);
@@ -385,7 +445,7 @@ function LayerList({
             onClick={() => setActiveLayerId(layer.id)}
           >
             <button
-              onClick={() => setLayerVisibility(layer.id)}
+              onClick={() => setLayerVisibility(layer.id, !layer.visible)}
               className="cursor-pointer"
             >
               {layer.visible ? (

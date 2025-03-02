@@ -1,265 +1,244 @@
-// DrawArea.jsx - Updated for dual-layer approach
-
+import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
+import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
+import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
+import {
+  useDrawAreaActiveLayerAndLoadedArtifacts,
+  useLoadArtifactViaDropzone,
+} from "state/hooks/artifacts";
+import useDeepCompareEffect, {
+  useDeepCompareEffectNoCheck,
+} from "use-deep-compare-effect";
+import {
+  drawAllLayers,
+  setCanvasSize,
+  setDraftCanvasProperties,
+  setGlobalBrushStrokesAndDrawAllLayers,
+} from "./canvasUtils";
 import { DrawAreaControls } from "./DrawAreaControls";
-import { useMouseHandlers } from "./mouseHandlers";
-import { useKonvaStage } from "./useKonvaStage";
-import { useEditModeEffects, useKonvaTransformer } from "./useKonvaTransformer";
-import {
-  getLayerManagementFns,
-  useLayerCache,
-  useLayerCacheEffects,
-  useMergeActiveToResult,
-  useUpdateKonvaLayers,
-} from "./useUpdateKonvaLayers";
-import {
-  createClearStrokes,
-  createDeleteSelectedObjects,
-  createPrepareLineForTransform,
-} from "./utils";
+import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
 
-export const DrawArea = () => {
-  const containerRef = useRef(null);
-  const [mode, setMode] = useState("brush"); // Can be "brush", "eraser", or "edit"
-  const [opacity, setOpacity] = useState(1);
-  const [brushSize, setBrushSize] = useState(5);
-  const [eraserSize, setEraserSize] = useState(20);
-  const [brushColor, setBrushColor] = useState("#df4b26"); // Default red color
-  const [layers, setLayers] = useState([
-    { id: 1, name: "Layer 1", visible: true, opacity: 1 },
+export function DrawArea({ sectionId }) {
+  const {
+    activeLayer,
+    allLayersMetadata,
+    size: { width, height },
+    canvasSettings: {
+      activeLayerId,
+      color,
+      brushSize,
+      brushShape,
+      eraserBrushSize,
+      drawThrottleDelay,
+      canvasTransferQueueLength,
+      mode,
+      artifactIdUsedToSetCanvasSize,
+    },
+    loadedArtifacts,
+    loadedArtifactIdsWithDuplicates,
+  } = useDrawAreaActiveLayerAndLoadedArtifacts(sectionId);
+
+  const canvasRef = useRef(null);
+  const draftCanvasRef = useRef(null);
+  const tempCanvasRefs = useRef({ layer: null, artifact: null });
+  const strokesRef = useRef([]);
+  const eraserStrokesRef = useRef([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
+  const localArtifactTransformsRef = useRef([]);
+  const prevPointRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [isEraser, setIsEraser] = useState(false);
+  const isDragging = useRef(false);
+  const draggedIdx = useRef(null);
+  const lastPos = useRef({ x: 0, y: 0 });
+  const selectedIdx = useRef(null);
+  const resizeHandle = useRef(null);
+  const resizeHandleCorners = useRef(null);
+
+  const layerOpacity = activeLayer?.layerOpacity ?? 1;
+  const brushOpacity = activeLayer?.brushOpacity ?? 1;
+  const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
+    (a) => loadedArtifacts[a.artifactId]?.type === "brushStrokes",
+  )?.artifactId;
+
+  const updateDrawAreas = useMisc((x) => x.updateDrawAreas);
+
+  useEffect(() => {
+    tempCanvasRefs.current.layer = document.createElement("canvas");
+    tempCanvasRefs.current.artifact = document.createElement("canvas");
+
+    const unsub = listenForCanvasToBase64Requests(sectionId, canvasRef);
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    useSectionInfos.setState((state) => {
+      setCanvasSize({
+        sectionId,
+        canvasRef,
+        tempCanvasRefs,
+        draftCanvasRef,
+        height,
+        width,
+        artifactIdUsedToSetCanvasSize,
+        state,
+      });
+    });
+    drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
+  }, [
+    height,
+    width,
+    Boolean(loadedArtifacts[artifactIdUsedToSetCanvasSize]),
+    updateDrawAreas,
   ]);
-  const [activeLayerId, setActiveLayerId] = useState(1);
+  // the Boolean dependency is checking whether or not the artifactIdUsedToSetCanvasSize has been loaded or not
 
-  const stageRef = useRef(null);
-  // Modified to store both active and result layers
-  const konvaLayersRef = useRef({});
-  const isPaintRef = useRef(false);
-  const lastLineRef = useRef(null);
-  // Modified to store active and result lines separately
-  const layerLinesRef = useRef({});
-  // Reference for transformer
-  const transformerRef = useRef(null);
-  // Selected nodes reference
-  const selectedNodesRef = useRef([]);
+  useEffect(() => {
+    setDraftCanvasProperties({
+      draftCanvasRef,
+      color,
+      brushSize,
+      brushShape,
+      brushOpacity,
+      layerOpacity,
+    });
+  }, [
+    color,
+    brushSize,
+    brushShape,
+    brushOpacity,
+    layerOpacity,
+    updateDrawAreas,
+  ]);
 
-  // Selection rectangle related refs
-  const selectionRectangleRef = useRef(null);
-  const selectionStartRef = useRef({ x: 0, y: 0 });
-  const isSelectingRef = useRef(false);
-
-  // Use refs to track current values during events
-  const modeRef = useRef(mode);
-  const opacityRef = useRef(opacity);
-  const brushSizeRef = useRef(brushSize);
-  const eraserSizeRef = useRef(eraserSize);
-  const brushColorRef = useRef(brushColor);
-  const activeLayerIdRef = useRef(activeLayerId);
-  const layersRef = useRef(layers);
-
-  // Update the refs whenever values change
-  useEffect(() => {
-    modeRef.current = mode;
-  }, [mode]);
-  useEffect(() => {
-    opacityRef.current = opacity;
-  }, [opacity]);
-  useEffect(() => {
-    brushSizeRef.current = brushSize;
-  }, [brushSize]);
-  useEffect(() => {
-    eraserSizeRef.current = eraserSize;
-  }, [eraserSize]);
-  useEffect(() => {
-    brushColorRef.current = brushColor;
-  }, [brushColor]);
-  useEffect(() => {
-    activeLayerIdRef.current = activeLayerId;
-  }, [activeLayerId]);
-  useEffect(() => {
-    layersRef.current = layers;
-  }, [layers]);
-
-  // Function to update layer's cache and opacity
-  const updateLayerCache = useLayerCache({
-    konvaLayersRef,
-    layersRef,
-    layerLinesRef,
-    modeRef,
-    stageRef,
-  });
-
-  // New function to merge from active to result layer
-  const mergeActiveToResult = useMergeActiveToResult({
-    konvaLayersRef,
-    layerLinesRef,
-    layersRef, // Pass layersRef to access layer opacity
-    updateLayerCache,
-  });
-
-  useKonvaTransformer({
-    stageRef,
+  useDeepCompareEffect(() => {
+    if (mode === "draw") {
+      selectedIdx.current = null;
+      resizeHandleCorners.current = null;
+    }
+    drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
+  }, [
     mode,
-    konvaLayersRef,
-    transformerRef,
-    selectedNodesRef,
-    selectionRectangleRef,
-    activeLayerId,
-    activeLayerIdRef,
-    updateLayerCache,
-  });
+    layerOpacity,
+    allLayersMetadata,
+    loadedArtifactIdsWithDuplicates,
+    updateDrawAreas,
+  ]);
+  // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
+  // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
 
-  useLayerCacheEffects({ mode, layers, konvaLayersRef, updateLayerCache });
+  useEffect(() => {
+    if (!currBrushStrokeArtifactId) {
+      strokesRef.current = [];
+    } else {
+      strokesRef.current = _.cloneDeep(
+        useArtifacts.getState().x[currBrushStrokeArtifactId].value,
+      );
+    }
+  }, [currBrushStrokeArtifactId, updateDrawAreas]);
 
-  useEditModeEffects({
-    mode,
-    transformerRef,
-    selectedNodesRef,
-    konvaLayersRef,
-  });
+  useDeepCompareEffectNoCheck(() => {
+    if (!activeLayer?.artifactTransforms) {
+      localArtifactTransformsRef.current = [];
+    } else {
+      localArtifactTransformsRef.current = _.cloneDeep(
+        activeLayer.artifactTransforms,
+      );
+    }
+  }, [activeLayer?.artifactTransforms, updateDrawAreas]);
 
-  const prepareLineForTransform = createPrepareLineForTransform(
-    activeLayerIdRef,
-    konvaLayersRef,
-    transformerRef,
-    updateLayerCache,
+  const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
+    useDrawModeMouseHandlers({
+      sectionId,
+      isEraser,
+      strokesRef,
+      eraserStrokesRef,
+      prevPointRef,
+      eraserBrushSize,
+      brushShape,
+      isDrawing,
+      setIsDrawing,
+      isDragging,
+      draggedIdx,
+      lastPos,
+      selectedIdx,
+      resizeHandle,
+      resizeHandleCorners,
+      drawThrottleDelay,
+      canvasRef,
+      tempCanvasRefs,
+      draftCanvasRef,
+      canvasTransferQueueLength,
+      currBrushStrokeArtifactId,
+      activeLayerId,
+      localArtifactTransformsRef,
+      mode,
+    });
+
+  function clearStrokes() {
+    strokesRef.current = [];
+    setGlobalBrushStrokesAndDrawAllLayers(
+      sectionId,
+      currBrushStrokeArtifactId,
+      strokesRef,
+      canvasRef,
+      tempCanvasRefs,
+      draftCanvasRef,
+    );
+  }
+
+  const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
+    sectionId,
+    true,
+    "img",
   );
 
-  const { handleMouseDown, handleMouseMove, handleMouseUp } = useMouseHandlers({
-    stageRef,
-    modeRef,
-    activeLayerIdRef,
-    konvaLayersRef,
-    isSelectingRef,
-    selectionStartRef,
-    selectionRectangleRef,
-    transformerRef,
-    selectedNodesRef,
-    isPaintRef,
-    opacityRef,
-    brushSizeRef,
-    eraserSizeRef,
-    brushColorRef,
-    lastLineRef,
-    layerLinesRef,
-    layersRef,
-    updateLayerCache,
-    prepareLineForTransform,
-    mergeActiveToResult, // Pass the new function
-  });
+  const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
 
-  useKonvaStage({
-    containerRef,
-    stageRef,
-    modeRef,
-    activeLayerIdRef,
-    konvaLayersRef,
-    layerLinesRef,
-    transformerRef,
-    selectedNodesRef,
-    handleMouseDown,
-    handleMouseUp,
-    handleMouseMove,
-    updateLayerCache,
-    mergeActiveToResult, // Pass the new function
-  });
-
-  useUpdateKonvaLayers({
-    stageRef,
-    layers,
-    konvaLayersRef,
-    layerLinesRef,
-    updateLayerCache,
-  });
-
-  // Control handlers
-  const handleToolChange = (value) => {
-    setMode(value);
-  };
-
-  const handleOpacityChange = (value) => {
-    setOpacity(value);
-  };
-
-  const handleBrushSizeChange = (value) => {
-    setBrushSize(value);
-  };
-
-  const handleEraserSizeChange = (value) => {
-    setEraserSize(value);
-  };
-
-  const handleColorChange = (value) => {
-    setBrushColor(value);
-  };
-
-  const {
-    addLayer,
-    deleteLayer,
-    toggleLayerVisibility,
-    reorderLayers,
-    handleLayerOpacityChange,
-  } = getLayerManagementFns({
-    layers,
-    setLayers,
-    activeLayerId,
-    setActiveLayerId,
-    updateLayerCache,
-  });
-
-  const deleteSelectedObjects = createDeleteSelectedObjects({
-    selectedNodesRef,
-    activeLayerIdRef,
-    layerLinesRef,
-    transformerRef,
-    konvaLayersRef,
-    updateLayerCache,
-  });
-
-  const clearStrokes = createClearStrokes({
-    activeLayerIdRef,
-    konvaLayersRef,
-    layerLinesRef,
-    modeRef,
-    transformerRef,
-    selectionRectangleRef,
-    lastLineRef,
-    selectedNodesRef,
-  });
+  let cursorIcon;
+  if (mode === "edit") {
+    cursorIcon = "cursor-pointer";
+  } else if (isEraser) {
+    cursorIcon = "cursor-[url(./src/assets/cursor/erase.svg)_0_24,_pointer]";
+  } else {
+    cursorIcon = "cursor-[url(./src/assets/cursor/pen.svg)_0_24,_pointer]";
+  }
 
   return (
     <>
-      {/* Pass all control-related props to the DrawControls component */}
       <DrawAreaControls
-        mode={mode}
-        opacity={opacity}
-        brushSize={brushSize}
-        eraserSize={eraserSize}
-        brushColor={brushColor}
-        layers={layers}
+        sectionId={sectionId}
         activeLayerId={activeLayerId}
-        onToolChange={handleToolChange}
-        onOpacityChange={handleOpacityChange}
-        onBrushSizeChange={handleBrushSizeChange}
-        onEraserSizeChange={handleEraserSizeChange}
-        onColorChange={handleColorChange}
-        onLayerOpacityChange={handleLayerOpacityChange}
-        onAddLayer={addLayer}
-        onDeleteLayer={deleteLayer}
-        onToggleLayerVisibility={toggleLayerVisibility}
-        onSelectLayer={setActiveLayerId}
-        onReorderLayers={reorderLayers}
+        color={color}
+        brushOpacity={brushOpacity}
+        brushSize={brushSize}
+        brushShape={brushShape}
+        eraserBrushSize={eraserBrushSize}
+        isEraser={isEraser}
+        setIsEraser={setIsEraser}
+        layerOpacity={layerOpacity}
+        mode={mode}
         clearStrokes={clearStrokes}
-        onDeleteSelected={deleteSelectedObjects} // For edit mode
       />
-      <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
+      <section
+        className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0"
+        {...getRootProps()}
+      >
         <div className="single-cell-child single-cell-container">
-          <div
-            ref={containerRef}
-            className="single-cell-child max-w-full place-self-center"
-            style={{ touchAction: mode === "edit" ? "auto" : "none" }}
+          <canvas
+            ref={canvasRef}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            onMouseEnter={onMouseEnter}
+            className={`${cursorIcon} ${canvasClassName}`}
+          />
+          <canvas
+            ref={draftCanvasRef}
+            className={`pointer-events-none ${canvasClassName}`}
           />
         </div>
       </section>
     </>
   );
-};
+}
