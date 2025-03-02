@@ -1,369 +1,242 @@
+import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
-import { Group, Image, Layer, Line, Stage } from "react-konva";
-import { useSectionInfos } from "state/definitions";
-import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
-import { KonvaDrawAreaControls } from "./KonvaDrawAreaControls";
+import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
+import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
+import {
+  useDrawAreaActiveLayerAndLoadedArtifacts,
+  useLoadArtifactViaDropzone,
+} from "state/hooks/artifacts";
+import useDeepCompareEffect, {
+  useDeepCompareEffectNoCheck,
+} from "use-deep-compare-effect";
+import {
+  drawAllLayers,
+  setCanvasSize,
+  setDraftCanvasProperties,
+  setGlobalBrushStrokesAndDrawAllLayers,
+} from "./canvasUtils";
+import { DrawAreaControls } from "./DrawAreaControls";
+import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
 
 export function DrawArea({ sectionId }) {
-  const stageRef = useRef(null);
+  const {
+    activeLayer,
+    allLayersMetadata,
+    size: { width, height },
+    canvasSettings: {
+      activeLayerId,
+      color,
+      brushSize,
+      brushShape,
+      eraserBrushSize,
+      drawThrottleDelay,
+      canvasTransferQueueLength,
+      mode,
+      artifactIdUsedToSetCanvasSize,
+    },
+    loadedArtifacts,
+    loadedArtifactIdsWithDuplicates,
+  } = useDrawAreaActiveLayerAndLoadedArtifacts(sectionId);
 
-  // Local state for drawing settings
-  const [color, setColor] = useState("#000000");
-  const [brushSize, setBrushSize] = useState(5);
-  const [eraserBrushSize, setEraserBrushSize] = useState(20);
+  const canvasRef = useRef(null);
+  const draftCanvasRef = useRef(null);
+  const tempCanvasRefs = useRef({ layer: null, artifact: null });
+  const strokesRef = useRef([]);
+  const eraserStrokesRef = useRef([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
+  const localArtifactTransformsRef = useRef([]);
+  const prevPointRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
-  const [brushOpacity, setBrushOpacity] = useState(1.0);
-  const [mode, setMode] = useState("draw"); // "draw" or "select"
+  const isDragging = useRef(false);
+  const draggedIdx = useRef(null);
+  const lastPos = useRef({ x: 0, y: 0 });
+  const selectedIdx = useRef(null);
+  const resizeHandle = useRef(null);
+  const resizeHandleCorners = useRef(null);
 
-  // Local state for layers
-  const [layers, setLayers] = useState([]);
-  const [activeLayerId, setActiveLayerId] = useState(null);
-  const [activeLayer, setActiveLayer] = useState({
-    id: "default-layer",
-    layerOpacity: 1.0,
-    brushOpacity: 1.0,
-  });
+  const layerOpacity = activeLayer?.layerOpacity ?? 1;
+  const brushOpacity = activeLayer?.brushOpacity ?? 1;
+  const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
+    (a) => loadedArtifacts[a.artifactId]?.type === "brushStrokes",
+  )?.artifactId;
 
-  const isDrawing = useRef(false);
+  const updateDrawAreas = useMisc((x) => x.updateDrawAreas);
 
-  // For size calculations
-  const { width, height } = { width: 800, height: 600 }; // Default size
-
-  // Initialize default layer if no layers exist
   useEffect(() => {
-    if (layers.length === 0) {
-      // Create a default drawing layer
-      const defaultLayer = {
-        id: activeLayer.id,
-        type: "drawing",
-        lines: [],
-        opacity: activeLayer.layerOpacity ?? 1.0,
-      };
+    tempCanvasRefs.current.layer = document.createElement("canvas");
+    tempCanvasRefs.current.artifact = document.createElement("canvas");
 
-      setLayers([defaultLayer]);
-      setActiveLayerId(defaultLayer.id);
-    }
+    const unsub = listenForCanvasToBase64Requests(sectionId, canvasRef);
+    return unsub;
   }, []);
-
-  // Update active layer opacity when activeLayerId changes
-  useEffect(() => {
-    if (activeLayerId) {
-      const selectedLayer = layers.find((layer) => layer.id === activeLayerId);
-      if (selectedLayer) {
-        setActiveLayer((prev) => ({
-          ...prev,
-          id: activeLayerId,
-          layerOpacity: selectedLayer.opacity,
-        }));
-      }
-    }
-  }, [activeLayerId, layers]);
-
-  // Handle drawing mode
-  useEffect(() => {
-    if (!stageRef.current) return;
-
-    const stage = stageRef.current;
-    if (mode === "draw") {
-      stage.container().style.cursor = "crosshair";
-    } else {
-      stage.container().style.cursor = "default";
-    }
-  }, [mode]);
-
-  // Set initial default sizes to avoid "auto" errors with Konva
-  const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
 
   useEffect(() => {
     useSectionInfos.setState((state) => {
-      const canvasSize = setDrawAreaSectionSize({
+      setCanvasSize({
         sectionId,
-        sectionHeight: height,
-        sectionWidth: width,
+        canvasRef,
+        tempCanvasRefs,
+        draftCanvasRef,
+        height,
+        width,
+        artifactIdUsedToSetCanvasSize,
         state,
       });
-
-      if (
-        typeof canvasSize.width === "number" &&
-        typeof canvasSize.height === "number"
-      ) {
-        setStageSize({
-          width: canvasSize.width,
-          height: canvasSize.height,
-        });
-      }
-
-      return state;
     });
-  }, [width, height, sectionId]);
+    drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
+  }, [
+    height,
+    width,
+    Boolean(loadedArtifacts[artifactIdUsedToSetCanvasSize]),
+    updateDrawAreas,
+  ]);
+  // the Boolean dependency is checking whether or not the artifactIdUsedToSetCanvasSize has been loaded or not
 
-  const handleMouseDown = (e) => {
-    if (mode !== "draw" || !activeLayerId) return;
-
-    isDrawing.current = true;
-    const pos = e.target.getStage().getPointerPosition();
-
-    const activeLayerIndex = layers.findIndex(
-      (layer) => layer.id === activeLayerId,
-    );
-    if (activeLayerIndex === -1 || layers[activeLayerIndex].type !== "drawing")
-      return;
-
-    // Add new line to the active layer
-    const newLine = {
-      points: [pos.x, pos.y],
-      color: isEraser ? "#FFFFFF" : color,
-      strokeWidth: isEraser ? eraserBrushSize : brushSize,
-      opacity: activeLayer.brushOpacity ?? 1,
-      globalCompositeOperation: isEraser ? "destination-out" : "source-over",
-      isEraser: isEraser,
-    };
-
-    setLayers((prevLayers) => {
-      const updatedLayers = [...prevLayers];
-      updatedLayers[activeLayerIndex] = {
-        ...updatedLayers[activeLayerIndex],
-        lines: [...updatedLayers[activeLayerIndex].lines, newLine],
-      };
-      return updatedLayers;
+  useEffect(() => {
+    setDraftCanvasProperties({
+      draftCanvasRef,
+      color,
+      brushSize,
+      brushShape,
+      brushOpacity,
+      layerOpacity,
     });
-  };
+  }, [
+    color,
+    brushSize,
+    brushShape,
+    brushOpacity,
+    layerOpacity,
+    updateDrawAreas,
+  ]);
 
-  const handleMouseMove = (e) => {
-    if (!isDrawing.current || mode !== "draw" || !activeLayerId) return;
-
-    const activeLayerIndex = layers.findIndex(
-      (layer) => layer.id === activeLayerId,
-    );
-    if (activeLayerIndex === -1 || layers[activeLayerIndex].type !== "drawing")
-      return;
-
-    const stage = e.target.getStage();
-    const point = stage.getPointerPosition();
-
-    setLayers((prevLayers) => {
-      const updatedLayers = [...prevLayers];
-      const layerLines = [...updatedLayers[activeLayerIndex].lines];
-      const lastLineIndex = layerLines.length - 1;
-
-      // Update the last line's points
-      layerLines[lastLineIndex] = {
-        ...layerLines[lastLineIndex],
-        points: [...layerLines[lastLineIndex].points, point.x, point.y],
-      };
-
-      updatedLayers[activeLayerIndex] = {
-        ...updatedLayers[activeLayerIndex],
-        lines: layerLines,
-      };
-
-      return updatedLayers;
-    });
-  };
-
-  const handleMouseUp = () => {
-    isDrawing.current = false;
-  };
-
-  // This function loads an image into a layer
-  const loadImageToLayer = (layerId, imageUrl) => {
-    // Create an image object
-    const imageObj = new window.Image();
-    imageObj.src = imageUrl;
-    imageObj.onload = () => {
-      setLayers((prevLayers) =>
-        prevLayers.map((layer) =>
-          layer.id === layerId ? { ...layer, imageObj: imageObj } : layer,
-        ),
-      );
-    };
-  };
-
-  // Add a new layer
-  const addLayer = (layerType = "drawing", opacity = 1.0) => {
-    const newLayerId = `layer-${Date.now()}`;
-    const newLayer = {
-      id: newLayerId,
-      type: layerType,
-      lines: [],
-      opacity: opacity,
-      imageObj: null,
-    };
-
-    setLayers((prevLayers) => [...prevLayers, newLayer]);
-
-    // Set this as the active layer
-    setActiveLayerId(newLayerId);
-    setActiveLayer((prev) => ({
-      ...prev,
-      id: newLayerId,
-      layerOpacity: opacity,
-    }));
-
-    return newLayerId;
-  };
-
-  // Handle layer opacity change
-  const handleLayerOpacityChange = (layerId, opacity) => {
-    console.log(`Changing opacity of layer ${layerId} to ${opacity}`);
-
-    // Update the specific layer's opacity in the layers array
-    setLayers((prevLayers) => {
-      return prevLayers.map((layer) => {
-        if (layer.id === layerId) {
-          console.log(
-            `Found layer ${layerId}, updating opacity from ${layer.opacity} to ${opacity}`,
-          );
-          return { ...layer, opacity: opacity };
-        }
-        return layer;
-      });
-    });
-
-    // If this is the active layer, also update the activeLayer state
-    if (layerId === activeLayerId) {
-      setActiveLayer((prev) => ({
-        ...prev,
-        layerOpacity: opacity,
-      }));
+  useDeepCompareEffect(() => {
+    if (mode === "draw") {
+      selectedIdx.current = null;
+      resizeHandleCorners.current = null;
     }
-  };
+    drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
+  }, [
+    mode,
+    layerOpacity,
+    allLayersMetadata,
+    loadedArtifactIdsWithDuplicates,
+    updateDrawAreas,
+  ]);
+  // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
+  // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
 
-  // Clear all strokes in the active layer
-  const clearStrokes = () => {
-    if (!activeLayerId) return;
+  useEffect(() => {
+    if (!currBrushStrokeArtifactId) {
+      strokesRef.current = [];
+    } else {
+      strokesRef.current = _.cloneDeep(
+        useArtifacts.getState().x[currBrushStrokeArtifactId].value,
+      );
+    }
+  }, [currBrushStrokeArtifactId, updateDrawAreas]);
 
-    setLayers((prevLayers) =>
-      prevLayers.map((layer) =>
-        layer.id === activeLayerId ? { ...layer, lines: [] } : layer,
-      ),
-    );
-  };
+  useDeepCompareEffectNoCheck(() => {
+    if (!activeLayer?.artifactTransforms) {
+      localArtifactTransformsRef.current = [];
+    } else {
+      localArtifactTransformsRef.current = _.cloneDeep(
+        activeLayer.artifactTransforms,
+      );
+    }
+  }, [activeLayer?.artifactTransforms, updateDrawAreas]);
 
-  // Delete a layer
-  const deleteLayer = (layerId) => {
-    if (layers.length <= 1) return; // Prevent deleting the last layer
-
-    setLayers((prevLayers) => {
-      const filteredLayers = prevLayers.filter((layer) => layer.id !== layerId);
-
-      // If we deleted the active layer, set another layer as active
-      if (layerId === activeLayerId && filteredLayers.length > 0) {
-        const newActiveLayer = filteredLayers[0];
-        setActiveLayerId(newActiveLayer.id);
-        setActiveLayer((prev) => ({
-          ...prev,
-          id: newActiveLayer.id,
-          layerOpacity: newActiveLayer.opacity,
-        }));
-      }
-
-      return filteredLayers;
+  const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
+    useDrawModeMouseHandlers({
+      sectionId,
+      isEraser,
+      strokesRef,
+      eraserStrokesRef,
+      prevPointRef,
+      eraserBrushSize,
+      brushShape,
+      isDrawing,
+      setIsDrawing,
+      isDragging,
+      draggedIdx,
+      lastPos,
+      selectedIdx,
+      resizeHandle,
+      resizeHandleCorners,
+      drawThrottleDelay,
+      canvasRef,
+      tempCanvasRefs,
+      draftCanvasRef,
+      canvasTransferQueueLength,
+      currBrushStrokeArtifactId,
+      activeLayerId,
+      localArtifactTransformsRef,
+      mode,
     });
-  };
 
-  // Render the stage with all layers
+  function clearStrokes() {
+    strokesRef.current = [];
+    setGlobalBrushStrokesAndDrawAllLayers(
+      sectionId,
+      currBrushStrokeArtifactId,
+      strokesRef,
+      canvasRef,
+      tempCanvasRefs,
+      draftCanvasRef,
+    );
+  }
+
+  const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
+    sectionId,
+    true,
+    "img",
+  );
+
+  const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
+
+  let cursorIcon;
+  if (mode === "edit") {
+    cursorIcon = "cursor-pointer";
+  } else if (isEraser) {
+    cursorIcon = "cursor-[url(./src/assets/cursor/erase.svg)_0_24,_pointer]";
+  } else {
+    cursorIcon = "cursor-[url(./src/assets/cursor/pen.svg)_0_24,_pointer]";
+  }
+
   return (
     <>
-      <KonvaDrawAreaControls
+      <DrawAreaControls
+        sectionId={sectionId}
         activeLayerId={activeLayerId}
         color={color}
         brushOpacity={brushOpacity}
         brushSize={brushSize}
+        brushShape={brushShape}
         eraserBrushSize={eraserBrushSize}
         isEraser={isEraser}
-        layerOpacity={activeLayer.layerOpacity}
-        layers={layers}
+        setIsEraser={setIsEraser}
+        layerOpacity={layerOpacity}
         mode={mode}
-        onLayerSelect={(id) => {
-          setActiveLayerId(id);
-          const layer = layers.find((l) => l.id === id);
-          if (layer) {
-            setActiveLayer((prev) => ({
-              ...prev,
-              id: id,
-              layerOpacity: layer.opacity,
-            }));
-          }
-        }}
-        onAddLayer={addLayer}
-        onDeleteLayer={deleteLayer}
-        onClearStrokes={clearStrokes}
-        onLayerOpacityChange={handleLayerOpacityChange}
-        onBrushOpacityChange={(opacity) => {
-          setBrushOpacity(opacity);
-          setActiveLayer((prev) => ({
-            ...prev,
-            brushOpacity: opacity,
-          }));
-        }}
-        onBrushSizeChange={setBrushSize}
-        onEraserSizeChange={setEraserBrushSize}
-        onColorChange={setColor}
-        onToggleEraser={setIsEraser}
+        clearStrokes={clearStrokes}
       />
-      <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
+      <section
+        className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0"
+        {...getRootProps()}
+      >
         <div className="single-cell-child single-cell-container">
-          <Stage
-            width={stageSize.width}
-            height={stageSize.height}
-            ref={stageRef}
-            onMouseDown={handleMouseDown}
-            onMousemove={handleMouseMove}
-            onMouseup={handleMouseUp}
-            onMouseleave={handleMouseUp}
-          >
-            <Layer>
-              {/* Render each layer as a separate Group with its own opacity */}
-              {layers.map((layer) => (
-                <Group key={layer.id} opacity={layer.opacity}>
-                  {/* For image layers */}
-                  {layer.type === "image" && layer.imageObj && (
-                    <Image image={layer.imageObj} />
-                  )}
-
-                  {/* For drawing layers - only render non-eraser strokes here */}
-                  {layer.type === "drawing" &&
-                    layer.lines
-                      .filter((line) => !line.isEraser)
-                      .map((line, i) => (
-                        <Line
-                          key={`${layer.id}-drawing-${i}`}
-                          points={line.points}
-                          stroke={line.color}
-                          strokeWidth={line.strokeWidth}
-                          tension={0.5}
-                          lineCap="round"
-                          lineJoin="round"
-                          opacity={line.opacity}
-                          globalCompositeOperation="source-over"
-                        />
-                      ))}
-                </Group>
-              ))}
-
-              {/* Render eraser strokes for each layer */}
-              {layers.map(
-                (layer) =>
-                  layer.type === "drawing" &&
-                  layer.lines
-                    .filter((line) => line.isEraser)
-                    .map((line, i) => (
-                      <Line
-                        key={`${layer.id}-eraser-${i}`}
-                        points={line.points}
-                        stroke={line.color}
-                        strokeWidth={line.strokeWidth}
-                        tension={0.5}
-                        lineCap="round"
-                        lineJoin="round"
-                        opacity={1} // Always full opacity for erasers
-                        globalCompositeOperation="destination-out"
-                      />
-                    )),
-              )}
-            </Layer>
-          </Stage>
+          <canvas
+            ref={canvasRef}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            onMouseEnter={onMouseEnter}
+            className={`${cursorIcon} ${canvasClassName}`}
+          />
+          <canvas
+            ref={draftCanvasRef}
+            className={`pointer-events-none ${canvasClassName}`}
+          />
         </div>
       </section>
     </>
