@@ -3,7 +3,6 @@ import copy
 import json
 import logging
 import time
-import traceback
 from typing import Dict
 
 from setta.database.utils import create_new_id
@@ -88,25 +87,15 @@ class Tasks:
                     or None in fnInfo["dependencies"]
                     or any(k in fnInfo["dependencies"] for k in message.content.keys())
                 ):
-                    logger.debug(
-                        f"Sending message to subprocess {sp_key}, function {fn_name}, message type: {call_type}"
+                    # Send message to subprocess
+                    sp_info["subprocess"].parent_conn.send(
+                        {
+                            "type": call_type,
+                            "fn_name": fn_name,
+                            "message": message,
+                            "other_data": other_data,
+                        }
                     )
-                    try:
-                        # Send message to subprocess
-                        sp_info["subprocess"].parent_conn.send(
-                            {
-                                "type": call_type,
-                                "fn_name": fn_name,
-                                "message": message,
-                                "other_data": other_data,
-                            }
-                        )
-                    except Exception as e:
-                        logger.error(
-                            f"Error sending message to subprocess {sp_key}: {str(e)}"
-                        )
-                        traceback.print_exc()
-                        continue  # Skip to next function if we can't send
 
                     # Create task for receiving response
                     task = asyncio.create_task(
@@ -138,43 +127,23 @@ class Tasks:
         self, subprocess_key, fn_name, msg_id, recv_fn, websocket_manager, results
     ):
         # Run the receive function in a thread
-        logger.debug(
-            f"Waiting for response from subprocess {subprocess_key}, function {fn_name}"
-        )
         start_time = time.perf_counter()
-        try:
-            result = await self.task_runner.run(recv_fn, [], RunType.THREAD)
-            logger.debug(
-                f"Received response from subprocess {subprocess_key}, function {fn_name}: status={result.get('status', 'unknown')}"
+        result = await self.task_runner.run(recv_fn, [], RunType.THREAD)
+        elapsed_time = time.perf_counter() - start_time
+        if result["status"] == "success":
+            self.update_average_subprocess_fn_time(
+                subprocess_key, fn_name, elapsed_time
             )
-
-            elapsed_time = time.perf_counter() - start_time
-            if result["status"] == "success":
-                self.update_average_subprocess_fn_time(
-                    subprocess_key, fn_name, elapsed_time
-                )
-                if websocket_manager is not None:
-                    if result["content"]:
-                        await websocket_manager.send_message_to_requester(
-                            msg_id, result["content"], result["messageType"]
-                        )
-                    await self.maybe_send_latest_run_time_info(
-                        subprocess_key, fn_name, msg_id, websocket_manager
+            if websocket_manager is not None:
+                if result["content"]:
+                    await websocket_manager.send_message_to_requester(
+                        msg_id, result["content"], result["messageType"]
                     )
-                else:
-                    results.append(result)
-        except EOFError:
-            logger.error(
-                f"EOF error when receiving response from subprocess {subprocess_key}, function {fn_name}"
-            )
-            # Add stack trace to see where exactly the error occurs
-            traceback.print_exc()
-            # Consider adding a placeholder result or raising to caller
-        except Exception as e:
-            logger.error(
-                f"Error receiving response from subprocess {subprocess_key}, function {fn_name}: {str(e)}"
-            )
-            traceback.print_exc()
+                await self.maybe_send_latest_run_time_info(
+                    subprocess_key, fn_name, msg_id, websocket_manager
+                )
+            else:
+                results.append(result)
 
     async def add_custom_fns(self, code_graph, exporter_obj):
         for c in code_graph:
@@ -182,8 +151,6 @@ class Tasks:
             sp = self.in_memory_subprocesses.get(subprocess_key, {}).get("subprocess")
             if sp:
                 sp.close()
-                del self.in_memory_subprocesses[subprocess_key]
-
             sp = SettaInMemoryFnSubprocess(
                 self.stop_event, self.websockets, c["subprocessStartMethod"]
             )
