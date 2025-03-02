@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import json
 import logging
 import time
 from typing import Dict
@@ -64,13 +65,21 @@ class Tasks:
         websocket_manager=None,
         call_all=False,
         subprocess_key=None,
+        project_config_id=None,
+        section_id=None,
+        idx=None,
+        call_type="call",
+        other_data=None,
     ):
         # Create a list of tasks to run concurrently
         tasks = []
         results = []
+        message.content = {tuple(json.loads(k)): v for k, v in message.content.items()}
 
         for sp_key, sp_info in self.in_memory_subprocesses.items():
-            if subprocess_key and sp_key != subprocess_key:
+            if (subprocess_key and sp_key != subprocess_key) or (
+                not match_subprocess_key(sp_key, project_config_id, section_id, idx)
+            ):
                 continue
             for fn_name, fnInfo in sp_info["fnInfo"].items():
                 if (
@@ -80,7 +89,12 @@ class Tasks:
                 ):
                     # Send message to subprocess
                     sp_info["subprocess"].parent_conn.send(
-                        {"type": "call", "fn_name": fn_name, "message": message}
+                        {
+                            "type": call_type,
+                            "fn_name": fn_name,
+                            "message": message,
+                            "other_data": other_data,
+                        }
                     )
 
                     # Create task for receiving response
@@ -131,12 +145,14 @@ class Tasks:
             else:
                 results.append(result)
 
-    async def add_custom_fns(self, code_graph, to_cache):
+    async def add_custom_fns(self, code_graph, exporter_obj):
         for c in code_graph:
             subprocess_key = c["subprocess_key"]
             sp = self.in_memory_subprocesses.get(subprocess_key, {}).get("subprocess")
             if sp:
                 sp.close()
+                del self.in_memory_subprocesses[subprocess_key]
+
             sp = SettaInMemoryFnSubprocess(
                 self.stop_event, self.websockets, c["subprocessStartMethod"]
             )
@@ -149,7 +165,7 @@ class Tasks:
                 {
                     "type": "import",
                     "imports": c["imports"],
-                    "to_cache": to_cache,
+                    "exporter_obj": exporter_obj,
                 }
             )
             result = await self.task_runner.run(sp.parent_conn.recv, [], RunType.THREAD)
@@ -177,6 +193,20 @@ class Tasks:
 
         logger.debug(
             f"self.in_memory_subprocesses keys: {self.in_memory_subprocesses.keys()}"
+        )
+
+        return initial_result["content"]
+
+    async def call_in_memory_subprocess_fn_with_new_exporter_obj(
+        self, project_config_id, idx, exporter_obj
+    ):
+        initial_result = await self.call_in_memory_subprocess_fn(
+            TaskMessage(id=create_new_id(), content={}),
+            call_all=True,
+            project_config_id=project_config_id,
+            idx=idx,
+            call_type="call_with_new_exporter_obj",
+            other_data={"exporter_obj": exporter_obj},
         )
 
         return initial_result["content"]
@@ -217,3 +247,32 @@ class Tasks:
             for fnInfo in output[sp_key]["fnInfo"].values():
                 fnInfo["dependencies"] = list(fnInfo["dependencies"])
         return output
+
+
+def construct_subprocess_key(project_config_id, section_id, idx):
+    return f"{project_config_id}_{section_id}_{idx}"
+
+
+def match_subprocess_key(
+    subprocess_key, project_config_id=None, section_id=None, idx=None
+):
+    # If no filters are provided, return True
+    if project_config_id is None and section_id is None and idx is None:
+        return True
+
+    # Split the key into its components
+    parts = subprocess_key.split("_")
+    if len(parts) != 3:
+        return False
+
+    key_project_config_id, key_section_id, key_idx_str = parts
+
+    # Check if the extracted values match the provided filters
+    if project_config_id is not None and key_project_config_id != project_config_id:
+        return False
+    if section_id is not None and key_section_id != section_id:
+        return False
+    if idx is not None and key_idx_str != str(idx):
+        return False
+
+    return True
