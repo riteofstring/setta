@@ -9,7 +9,6 @@ import {
 } from "state/hooks/artifacts";
 import { localStorageFns } from "state/hooks/localStorage";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { canvasToBase64 } from "../DrawArea/base64Conversion";
 import {
   getLineChartOptionsAndPlugins,
   updateLineChartWithNewData,
@@ -104,9 +103,7 @@ function _ChartAreaCore({ sectionId }) {
 
     chartRef.current.resize(size.width - 25, size.height - 50);
 
-    const unsub = listenForCanvasToBase64Requests(sectionId, () =>
-      canvasToBase64(canvasRef.current),
-    );
+    const unsub = listenForCanvasToBase64Requests(sectionId, canvasRef);
 
     return () => {
       if (chartRef.current) {
