@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
 import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
 import {
@@ -9,7 +9,6 @@ import {
 import useDeepCompareEffect, {
   useDeepCompareEffectNoCheck,
 } from "use-deep-compare-effect";
-import { combinedAndSeparateLayersToBase64 } from "./base64Conversion";
 import {
   drawAllLayers,
   setCanvasSize,
@@ -33,12 +32,13 @@ export function DrawArea({ sectionId }) {
       drawThrottleDelay,
       canvasTransferQueueLength,
       mode,
+      artifactIdUsedToSetCanvasSize,
     },
     loadedArtifacts,
     loadedArtifactIdsWithDuplicates,
   } = useDrawAreaActiveLayerAndLoadedArtifacts(sectionId);
 
-  const layerCanvasRefs = useRef({});
+  const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
   const tempCanvasRefs = useRef({ layer: null, artifact: null });
   const strokesRef = useRef([]);
@@ -61,37 +61,36 @@ export function DrawArea({ sectionId }) {
   )?.artifactId;
 
   const updateDrawAreas = useMisc((x) => x.updateDrawAreas);
-  const layerIds = allLayersMetadata.map((x) => x.id);
 
   useEffect(() => {
     tempCanvasRefs.current.layer = document.createElement("canvas");
     tempCanvasRefs.current.artifact = document.createElement("canvas");
-  }, []);
 
-  const fnCanvasToBase64 = useCallback(
-    () => combinedAndSeparateLayersToBase64(layerCanvasRefs.current, layerIds),
-    [JSON.stringify(layerIds)],
-  );
-
-  useDeepCompareEffect(() => {
-    const unsub = listenForCanvasToBase64Requests(sectionId, fnCanvasToBase64);
+    const unsub = listenForCanvasToBase64Requests(sectionId, canvasRef);
     return unsub;
-  }, [sectionId, fnCanvasToBase64]);
+  }, []);
 
   useEffect(() => {
     useSectionInfos.setState((state) => {
       setCanvasSize({
         sectionId,
-        layerCanvasRefs,
+        canvasRef,
         tempCanvasRefs,
         draftCanvasRef,
         height,
         width,
+        artifactIdUsedToSetCanvasSize,
         state,
       });
     });
-    drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs);
-  }, [height, width, JSON.stringify(layerIds), updateDrawAreas]);
+    drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
+  }, [
+    height,
+    width,
+    Boolean(loadedArtifacts[artifactIdUsedToSetCanvasSize]),
+    updateDrawAreas,
+  ]);
+  // the Boolean dependency is checking whether or not the artifactIdUsedToSetCanvasSize has been loaded or not
 
   useEffect(() => {
     setDraftCanvasProperties({
@@ -116,7 +115,7 @@ export function DrawArea({ sectionId }) {
       selectedIdx.current = null;
       resizeHandleCorners.current = null;
     }
-    drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs);
+    drawAllLayers(sectionId, canvasRef, tempCanvasRefs);
   }, [
     mode,
     layerOpacity,
@@ -165,7 +164,7 @@ export function DrawArea({ sectionId }) {
       resizeHandle,
       resizeHandleCorners,
       drawThrottleDelay,
-      layerCanvasRefs,
+      canvasRef,
       tempCanvasRefs,
       draftCanvasRef,
       canvasTransferQueueLength,
@@ -173,7 +172,6 @@ export function DrawArea({ sectionId }) {
       activeLayerId,
       localArtifactTransformsRef,
       mode,
-      fnCanvasToBase64,
     });
 
   function clearStrokes() {
@@ -182,7 +180,7 @@ export function DrawArea({ sectionId }) {
       sectionId,
       currBrushStrokeArtifactId,
       strokesRef,
-      layerCanvasRefs,
+      canvasRef,
       tempCanvasRefs,
       draftCanvasRef,
     );
@@ -226,16 +224,14 @@ export function DrawArea({ sectionId }) {
         {...getRootProps()}
       >
         <div className="single-cell-child single-cell-container">
-          <LayerCanvases
-            layerIds={layerIds}
-            activeLayerId={activeLayerId}
-            layerCanvasRefs={layerCanvasRefs}
-            cursorIcon={cursorIcon}
-            canvasClassName={canvasClassName}
+          <canvas
+            ref={canvasRef}
             onMouseDown={onMouseDown}
             onMouseMove={onMouseMove}
             onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
             onMouseEnter={onMouseEnter}
+            className={`${cursorIcon} ${canvasClassName}`}
           />
           <canvas
             ref={draftCanvasRef}
@@ -245,31 +241,4 @@ export function DrawArea({ sectionId }) {
       </section>
     </>
   );
-}
-
-function LayerCanvases({
-  layerIds,
-  activeLayerId,
-  layerCanvasRefs,
-  cursorIcon,
-  canvasClassName,
-  onMouseDown,
-  onMouseMove,
-  onMouseUp,
-  onMouseEnter,
-}) {
-  return layerIds.map((id) => (
-    <canvas
-      key={id}
-      ref={(el) => {
-        layerCanvasRefs.current[id] = el;
-      }}
-      className={`${cursorIcon} ${canvasClassName} ${id !== activeLayerId ? "pointer-events-none" : ""}`}
-      onMouseDown={id === activeLayerId ? onMouseDown : undefined}
-      onMouseMove={id === activeLayerId ? onMouseMove : undefined}
-      onMouseUp={id === activeLayerId ? onMouseUp : undefined}
-      onMouseLeave={id === activeLayerId ? onMouseUp : undefined}
-      onMouseEnter={id === activeLayerId ? onMouseEnter : undefined}
-    />
-  ));
 }
