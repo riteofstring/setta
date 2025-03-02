@@ -1,8 +1,5 @@
-import containerQueries from "@tailwindcss/container-queries";
-import typography from "@tailwindcss/typography";
-
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   darkMode: "class",
   theme: {
@@ -47,11 +44,14 @@ export default {
         },
       },
       animation: {
-        "slow-dash": "dash 40s linear infinite",
+        "slow-dash": "animation: dash 40s linear infinite",
         slideDown: "slideDown 200ms cubic-bezier(0.87, 0, 0.13, 1)",
         slideUp: "slideUp 200ms cubic-bezier(0.87, 0, 0.13, 1)",
       },
     },
   },
-  plugins: [typography, containerQueries],
+  plugins: [
+    require("@tailwindcss/typography"),
+    require("@tailwindcss/container-queries"),
+  ],
 };
