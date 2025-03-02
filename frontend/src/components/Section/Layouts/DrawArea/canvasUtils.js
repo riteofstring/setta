@@ -187,54 +187,31 @@ export function drawAllLayers(
   realTimeResizeHandles = {}, // layerId -> array of corner coordinates
   realTimeEraserStrokes = {}, // layerId -> eraserStrokes array
 ) {
-  if (!canvasRef.current) return;
-
   const ctx = getCtx(canvasRef.current);
   const layerTempCanvas = tempCanvasRefs.current.layer;
-  const layerTempCtx = getCtx(layerTempCanvas);
+  const layerTempCtx = getCtx(tempCanvasRefs.current.layer);
   const artifactTempCanvas = tempCanvasRefs.current.artifact;
-  const artifactTempCtx = getCtx(artifactTempCanvas);
+  const artifactTempCtx = getCtx(tempCanvasRefs.current.artifact);
   clearCanvas(canvasRef.current);
 
   const sectionState = useSectionInfos.getState();
   const artifactState = useArtifacts.getState().x;
-
-  const layerIds = sectionState.x[sectionId]?.artifactGroupIds || [];
-  if (layerIds.length === 0) return;
-
-  for (const layerId of layerIds) {
+  for (const layerId of sectionState.x[sectionId].artifactGroupIds) {
     const layer = sectionState.artifactGroups[layerId];
-    if (!layer || !layer.visible) {
+    if (!layer.visible) {
       continue;
     }
     const { layerOpacity } = layer;
 
-    // Clear temporary canvases at the start of each layer
-    clearCanvas(layerTempCanvas);
-    clearCanvas(artifactTempCanvas);
-
-    const transforms = layer.artifactTransforms || [];
-    let layerHasContent = false;
-
-    // First pass: Draw all artifacts for this layer
-    for (const [idx, t] of transforms.entries()) {
+    for (const [idx, t] of layer.artifactTransforms.entries()) {
       const id = t.artifactId;
       if (!(id in artifactState)) {
-        continue;
+        return;
       }
       const artifact = artifactState[id];
-      if (!artifact) continue;
 
       artifactTempCtx.globalAlpha = 1;
       artifactTempCtx.globalCompositeOperation = "source-over";
-
-      // Skip empty brush strokes to avoid unnecessary operations
-      if (
-        artifact.type === "brushStrokes" &&
-        (!artifact.value || artifact.value.length === 0)
-      ) {
-        continue;
-      }
 
       if (
         artifact.type === "img" &&
@@ -245,80 +222,47 @@ export function drawAllLayers(
         const transformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
         artifactTempCtx.setTransform(...transformInfo.transform);
         artifactTempCtx.drawImage(image, 0, 0, image.width, image.height);
-
-        // Only draw strokes if they exist
-        if (
-          transformInfo.eraserStrokes &&
-          Object.keys(transformInfo.eraserStrokes).length > 0
-        ) {
-          drawStrokesOntoTempCanvas(
-            artifactTempCtx,
-            transformInfo.eraserStrokes,
-            transformInfo.transform,
-          );
-        }
-        layerHasContent = true;
+        drawStrokesOntoTempCanvas(
+          artifactTempCtx,
+          transformInfo.eraserStrokes,
+          transformInfo.transform,
+        );
       } else if (
         artifact.type === "brushStrokes" &&
         artifact.value.length > 0
       ) {
         const strokes = realTimeValues[layerId]?.[id] ?? artifact.value;
         const artifactTransformInfo = realTimeTransforms[layerId]?.[idx] ?? t;
-
-        // Only proceed if we have actual strokes to draw
-        if (strokes && strokes.length > 0) {
-          drawStrokesOntoTempCanvas(
-            artifactTempCtx,
-            strokes,
-            artifactTransformInfo.transform,
-            artifactTransformInfo.eraserStrokes,
-          );
-          layerHasContent = true;
-        }
+        drawStrokesOntoTempCanvas(
+          artifactTempCtx,
+          strokes,
+          artifactTransformInfo.transform,
+          artifactTransformInfo.eraserStrokes,
+        );
       }
 
-      artifactTempCtx.resetTransform(); // Reset transform to prevent smudging
+      artifactTempCtx.resetTransform(); // MUST reset, otherwise get smudging when moving images around. No idea why
 
-      // After each artifact, copy to layer canvas
       layerTempCtx.globalAlpha = 1;
       layerTempCtx.globalCompositeOperation = "source-over";
       layerTempCtx.drawImage(artifactTempCanvas, 0, 0);
-      clearCanvas(artifactTempCanvas);
+
+      clearCanvas(tempCanvasRefs.current.artifact);
     }
 
-    // Apply real-time eraser strokes if any
     if (realTimeEraserStrokes[layerId]) {
-      layerTempCtx.globalAlpha = 1;
-      layerTempCtx.globalCompositeOperation = "destination-out"; // This is key for eraser effect
-
-      for (const stroke of realTimeEraserStrokes[layerId]) {
-        layerTempCtx.beginPath();
-        layerTempCtx.lineWidth = stroke.lineWidth;
-        layerTempCtx.lineCap = stroke.lineCap;
-
-        let prevPoint = stroke.points[0];
-        for (const point of stroke.points) {
-          layerTempCtx.moveTo(prevPoint[0], prevPoint[1]);
-          layerTempCtx.lineTo(point[0], point[1]);
-          prevPoint = point;
-        }
-        layerTempCtx.stroke();
-      }
-
-      layerHasContent = true;
+      drawStrokesOntoTempCanvas(layerTempCtx, realTimeEraserStrokes[layerId]);
     }
 
-    // Draw the layer to the main canvas if it has content
-    if (layerHasContent) {
-      ctx.globalCompositeOperation = "source-over";
-      ctx.globalAlpha = layerOpacity;
-      ctx.drawImage(layerTempCanvas, 0, 0);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = layerOpacity;
+    ctx.drawImage(layerTempCanvas, 0, 0);
 
-      // Draw resize handles if needed
-      if (realTimeResizeHandles[layerId]) {
-        drawResizeHandles(ctx, realTimeResizeHandles[layerId]);
-      }
+    if (realTimeResizeHandles[layerId]) {
+      drawResizeHandles(ctx, realTimeResizeHandles[layerId]);
     }
+
+    clearCanvas(tempCanvasRefs.current.layer);
   }
 }
 
