@@ -109,7 +109,7 @@ class SettaInMemoryFnSubprocess:
                             fns_dict, module, module_name
                         )
                         for k in added_fn_names:
-                            cache[k] = msg["exporter_obj"]
+                            cache[k] = msg["to_cache"]
                             dependencies[k] = get_task_metadata(fns_dict[k], cache[k])
 
                     self.child_conn.send(
@@ -120,23 +120,12 @@ class SettaInMemoryFnSubprocess:
                     )
 
                 elif msg_type == "call":
-                    result, return_message_type = self.call_imported_fn(
-                        msg, fns_dict, cache
-                    )
-                    self.child_conn.send(
-                        {
-                            "status": "success",
-                            "content": result,
-                            "messageType": return_message_type,
-                        }
-                    )
+                    fn_name = msg["fn_name"]
+                    message = self.process_message(fn_name, msg["message"], cache)
+                    fn = fns_dict[fn_name]
+                    result = fn.fn(message)
+                    return_message_type = fn.return_message_type
 
-                elif msg_type == "call_with_new_exporter_obj":
-                    # replace old exporter_obj
-                    cache[msg["fn_name"]] = msg["other_data"]["exporter_obj"]
-                    result, return_message_type = self.call_imported_fn(
-                        msg, fns_dict, cache
-                    )
                     self.child_conn.send(
                         {
                             "status": "success",
@@ -154,14 +143,6 @@ class SettaInMemoryFnSubprocess:
                         "messageType": return_message_type,
                     }
                 )
-
-    def call_imported_fn(self, msg, fns_dict, cache):
-        fn_name = msg["fn_name"]
-        message = self.process_message(fn_name, msg["message"], cache)
-        fn = fns_dict[fn_name]
-        result = fn.fn(message)
-        return_message_type = fn.return_message_type
-        return result, return_message_type
 
     def close(self):
         try:
@@ -200,9 +181,7 @@ class SettaInMemoryFnSubprocess:
         if fn_name in cache:
             exporter_obj = cache[fn_name]
             for k, v in message.content.items():
-                nice_str = exporter_obj.var_name_mapping.get(tuple(json.loads(k)))
-                if not nice_str:
-                    continue
+                nice_str = exporter_obj.var_name_mapping[tuple(json.loads(k))]
                 p_dict, key = nested_access(exporter_obj.output, nice_str)
                 p_dict[key] = v
             message.content = exporter_obj.output

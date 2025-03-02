@@ -42,7 +42,6 @@
     "showProjectOverviewTabShortcut": "O",
     "runCodeShortcut": "Mod + Enter",
     "runAllCodeShortcut": "Mod + Shift + Enter",
-    "sendProjectToAllInteractiveCode": "Alt + I",
     "paramSelect": "Mod + Shift",
     "formatCode": "Shift + Alt + F",
     "selectionKeyCode": "Shift",
