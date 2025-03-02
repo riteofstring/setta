@@ -13,8 +13,8 @@ import {
 import { getProjectDataForSaving } from "state/actions/project/saveProject";
 import {
   useAllProjectConfigs,
+  useProjectConfig,
   useProjectLoading,
-  useSectionInfos,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
@@ -84,9 +84,7 @@ export function useLoadProjectConfig() {
   }
 
   function changeFn() {
-    useSectionInfos.setState((state) => {
-      state.projectConfig.name = projectConfigName;
-    });
+    useProjectConfig.setState({ name: projectConfigName });
     useProjectLoading.setState({
       projectIsLoading: false,
       projectIs404: false,

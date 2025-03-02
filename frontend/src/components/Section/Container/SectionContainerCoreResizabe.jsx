@@ -1,7 +1,6 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import C from "constants/constants.json";
 import _ from "lodash";
-import { getIsUserView } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useSectionInfos } from "state/definitions";
 import { getIsYouTubeSection } from "state/hooks/social";
@@ -28,7 +27,6 @@ export function SectionContainerCoreResizable({
   sectionTypeName,
   isActiveSection,
   isInOtherProjectConfigs,
-  viewingEditingMode,
   positionAndSizeLocked,
 }) {
   const { isMinimized, isYouTube } = useSectionInfos((x) => {
@@ -40,7 +38,6 @@ export function SectionContainerCoreResizable({
 
   const isRoot = getIsRoot(sectionTypeName);
   const bgColor = getBgColor(sectionTypeName);
-  const isUserView = getIsUserView(viewingEditingMode);
 
   return (
     <CustomResizable
@@ -55,8 +52,6 @@ export function SectionContainerCoreResizable({
         isActiveSection={isActiveSection}
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
-        viewingEditingMode={viewingEditingMode}
-        isUserView={isUserView}
         isRoot={isRoot}
       />
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
@@ -65,23 +60,16 @@ export function SectionContainerCoreResizable({
           sectionId={sectionId}
           sectionTypeName={sectionTypeName}
           bgColor={bgColor}
-          isUserView={isUserView}
         />
       )}
     </CustomResizable>
   );
 }
 
-function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
+function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
   switch (sectionTypeName) {
     case C.SECTION:
-      return (
-        <InputArea
-          sectionId={sectionId}
-          bgColor={bgColor}
-          isUserView={isUserView}
-        />
-      );
+      return <InputArea sectionId={sectionId} bgColor={bgColor} />;
     case C.IMAGE:
       return <ImageArea sectionId={sectionId} />;
     case C.CHART:
@@ -93,13 +81,7 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
     case C.TEXT_BLOCK:
       return <TextBlock sectionId={sectionId} />;
     case C.GLOBAL_VARIABLES:
-      return (
-        <GlobalVariablesArea
-          sectionId={sectionId}
-          bgColor={bgColor}
-          isUserView={isUserView}
-        />
-      );
+      return <GlobalVariablesArea sectionId={sectionId} bgColor={bgColor} />;
     case C.CODE:
       return <CodeArea sectionId={sectionId} />;
     case C.PARAM_SWEEP:

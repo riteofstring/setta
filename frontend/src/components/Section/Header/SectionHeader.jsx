@@ -3,10 +3,12 @@ import { StandardPopover } from "components/Utils/atoms/popover/standardpopover"
 import C from "constants/constants.json";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
+import { deleteSections } from "state/actions/sections/deleteSections";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
-import { DeleteOrHideButton } from "./DeleteOrHideButton";
+import { CustomCloseButton } from "./CustomCloseButton";
 import { LockPositionButton } from "./LockPositionButton";
 import MenuButton from "./MenuButton/MenuButton";
 import { MinimizeButton } from "./MinimizeButton";
@@ -19,10 +21,15 @@ function _SectionHeader({
   isActiveSection,
   sectionTypeName,
   isInOtherProjectConfigs,
-  viewingEditingMode,
-  isUserView,
   isRoot,
 }) {
+  const onCustomCloseButtonClick = () => {
+    useSectionInfos.setState((state) => {
+      deleteSections([sectionId], state);
+    });
+    maybeIncrementProjectStateVersion(true);
+  };
+
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
 
   // DOM: maybe get rid of the extra div under header?
@@ -63,14 +70,9 @@ function _SectionHeader({
             <ToggleRunInMemoryButton sectionId={sectionId} />{" "}
           </>
         )}
-        {!isUserView && <LockPositionButton sectionId={sectionId} />}
-        {!isUserView && !isRoot && <MinimizeButton sectionId={sectionId} />}
-        {!isUserView && (
-          <DeleteOrHideButton
-            sectionId={sectionId}
-            viewingEditingMode={viewingEditingMode}
-          />
-        )}
+        <LockPositionButton sectionId={sectionId} />
+        {!isRoot && <MinimizeButton sectionId={sectionId} />}
+        <CustomCloseButton onClick={onCustomCloseButtonClick} />
       </div>
     </header>
   );

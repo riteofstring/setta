@@ -39,7 +39,6 @@ export const useSectionInfos = withProjectState(
         immer(
           withResetFn(() =>
             withVersion({
-              projectConfig: { id: "", name: "" },
               x: {},
               variants: {},
               uiTypeCols: {},
@@ -145,6 +144,21 @@ export const useArtifacts = withProjectState(
     subscribeWithSelector(
       withTemporal(
         withResetFn(() => withVersion({ x: {}, namePathTypeToId: {} })),
+      ),
+    ),
+  ),
+);
+
+export const useProjectConfig = withProjectState(
+  create(
+    withTemporal(
+      immer(
+        withResetFn(() =>
+          withVersion({
+            id: "",
+            name: "",
+          }),
+        ),
       ),
     ),
   ),

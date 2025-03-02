@@ -7,16 +7,9 @@ export function ContainerSwitch({
   dragListeners,
   children,
   isTopLevel,
-  visibility,
-  viewingEditingMode,
 }) {
   return isTopLevel ? (
-    <TopLevelContainer
-      isGroup={isGroup}
-      sectionId={sectionId}
-      visibility={visibility}
-      viewingEditingMode={viewingEditingMode}
-    >
+    <TopLevelContainer isGroup={isGroup} sectionId={sectionId}>
       {children}
     </TopLevelContainer>
   ) : (
@@ -25,8 +18,6 @@ export function ContainerSwitch({
       sectionId={sectionId}
       isTopLevel={isTopLevel}
       dragListeners={dragListeners}
-      visibility={visibility}
-      viewingEditingMode={viewingEditingMode}
     >
       {children}
     </DndSlotAndDndWatcher>

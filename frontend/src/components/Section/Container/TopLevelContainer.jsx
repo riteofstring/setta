@@ -3,13 +3,7 @@ import { useDndState } from "forks/dnd-kit/dndState";
 import { useDndProps } from "forks/dnd-kit/useDndUtils";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 
-export function TopLevelContainer({
-  isGroup,
-  sectionId,
-  visibility,
-  viewingEditingMode,
-  children,
-}) {
+export function TopLevelContainer({ isGroup, sectionId, children }) {
   const activeIsSelf = useDndState((x) => x.activeId === sectionId);
   const dndProps = useDndProps({ sectionId, isTopLevel: true });
   const { setNodeRef: droppableRef } = useDroppable({
@@ -27,8 +21,6 @@ export function TopLevelContainer({
       droppableRef={droppableRef}
       draggableRef={draggableRef}
       dragListeners={dragListeners}
-      visibility={visibility}
-      viewingEditingMode={viewingEditingMode}
     >
       {children}
     </DndSlotAndDndWatcher>

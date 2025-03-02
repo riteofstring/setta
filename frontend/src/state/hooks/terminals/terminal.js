@@ -9,7 +9,7 @@ import {
   createSectionInfo,
 } from "state/actions/sections/createSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { useProjectConfig, useSectionInfos } from "state/definitions";
 import { BASE_UI_TYPE_IDS, URLS } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
@@ -87,7 +87,7 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
 }
 
 function newTerminalWebsocket(sectionId) {
-  const projectConfigId = useSectionInfos.getState().projectConfig.id;
+  const projectConfigId = useProjectConfig.getState().id;
   const id = createNewId();
   const isTemporary = !!useSectionInfos.getState().x[sectionId].isTemporary;
   const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, sectionId, id, isTemporary })}`;
@@ -159,9 +159,7 @@ function removeWsFromArray(x, ws) {
 }
 
 export async function restoreTerminals() {
-  const res = await dbGetExistingTerminals(
-    useSectionInfos.getState().projectConfig.id,
-  );
+  const res = await dbGetExistingTerminals(useProjectConfig.getState().id);
   if (res.status === 200) {
     const existingTerminalInfo = res.data;
     const terminalsWithoutSections = existingTerminalInfo.filter(
