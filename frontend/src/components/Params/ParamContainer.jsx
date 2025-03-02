@@ -60,37 +60,36 @@ function _ParamContainer({
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`group/arg-group relative flex flex-1 rounded-sm px-[2px] hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
+        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
         {...getFloatingBoxHandlers(...tooltipContentArray)}
         onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
-        // ref={childlessRef}
+        ref={childlessRef}
       >
         {!isKwarg ? (
-          <div className="overflow-hidden" ref={childlessNameRef}>
+          <div className="section-key overflow-hidden" ref={childlessNameRef}>
             {children}
           </div>
         ) : (
           <>{children}</>
         )}
-        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-        {!!maybeErrorMessage && <ErrorSection paramInfoId={paramInfoId} />}
-
         <ParamInput
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           maybeErrorMessage={maybeErrorMessage}
         />
+        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
+        {!!maybeErrorMessage && <ErrorSection paramInfoId={paramInfoId} />}
       </article>
     </>
   ) : (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`group/arg-group items-center  justify-between gap-y-1 rounded-sm ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`}
+      className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`}
       {...getFloatingBoxHandlers(...tooltipContentArray)}
       ref={parentRef}
     >
       {children}
-      <div className="relative gap-y-1">
+      <div className="section-args-nested section-key-value relative grid gap-y-1">
         <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
         <GetParamSwitch
           sectionId={sectionId}
@@ -115,10 +114,10 @@ function useColumnWidth(sectionId, paramChildren) {
       (columnWidth) => {
         if (childlessRef.current) {
           // Use a CSS calc() function to provide a fallback
-          childlessRef.current.style.width = `${columnWidth}px`;
+          childlessRef.current.style.gridTemplateColumns = `minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
         }
         if (parentRef.current) {
-          parentRef.current.style.width = `${columnWidth}px`;
+          parentRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
         }
         if (childlessNameRef.current) {
           childlessNameRef.current.style.width = `${columnWidth}px`;
@@ -138,7 +137,7 @@ function ErrorSection({ paramInfoId }) {
 
   return (
     <BiError
-      className="group/arg-group absolute right-0 ml-auto aspect-square cursor-help  overflow-y-clip rounded-full bg-red-500/80 px-0.5 pb-0.5 pt-[1px] text-white  peer-focus-within/textinput:text-red-100 peer-focus-within/textinput:!opacity-20 dark:bg-red-700/80 dark:peer-focus-within/textinput:text-red-400"
+      className="section-key-value grid-row-start-1 group/ w-45overflow-y-clip ml-auto aspect-square  cursor-help rounded-full bg-red-500/80 px-0.5 pb-0.5 pt-[1px] text-white  peer-focus-within/textinput:text-red-100 peer-focus-within/textinput:!opacity-20 dark:bg-red-700/80 dark:peer-focus-within/textinput:text-red-400"
       onContextMenu={onContextMenu}
     />
   );
