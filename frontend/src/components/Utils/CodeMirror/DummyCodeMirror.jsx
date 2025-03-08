@@ -61,7 +61,7 @@ function PlaceholderCode({
   return (
     <span
       id={divId}
-      className={`${className} text-gray-600 outline-hidden`}
+      className={`${className} text-gray-600 outline-none`}
       style={lineWrapStyle}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
@@ -197,7 +197,7 @@ function HighlightedCode({
   return (
     <div
       id={divId}
-      className={`${className} ${scopeClassName} outline-hidden`}
+      className={`${className} ${scopeClassName} outline-none`}
       style={lineWrapStyle}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}

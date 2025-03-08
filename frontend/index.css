@@ -1,230 +1,124 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@plugin '@tailwindcss/typography';
-
-@custom-variant dark (&:is(.dark *));
-/* @custom-variant dark (&:where(.dark, .dark *)); */
-/* @custom-variant hover (&:hover); */
-
-@layer base {
-  button:not(:disabled),
-  [role="button"]:not(:disabled) {
-    cursor: pointer;
+@layer utilities {
+  .section-title {
+    grid-area: title;
+    /* grid-column: key / value; */
   }
-}
 
-@theme {
-  --color-test: #ff0000;
-  --color-setta-50: oklch(95.74% 0.0071 267.38);
-  --color-setta-100: oklch(90.85% 0.013 263.02);
-  --color-setta-200: oklch(80.57% 0.0292 262.95);
-  --color-setta-300: oklch(71.67% 0.0439 264.25);
-  --color-setta-400: oklch(62.55% 0.0618 263.97);
-  --color-setta-500: oklch(52.16% 0.0651 263.76);
-  --color-setta-600: oklch(43.11% 0.0508 262.49);
-  --color-setta-700: oklch(33.24% 0.0381 262.51);
-  --color-setta-800: oklch(24.58% 0.0254 263.94);
-  --color-setta-850: oklch(21.62% 0.0198 264.03);
-  --color-setta-860: oklch(19.03% 0.0158 264.09);
-  --color-setta-875: oklch(17.97% 0.0141 264.13);
-  --color-setta-900: oklch(16.31% 0.0125 264.14);
-  --color-setta-925: oklch(14.71% 0.0086 263.76);
-  --color-setta-950: oklch(12.81% 0.007 261.32);
-  --color-setta-975: oklch(6.97% 0.0051 260.18);
-  --color-setta-light: oklch(71.07% 0.0351 256.79);
-  --color-setta-dark: oklch(25.52% 0.028 263.88);
-
-  --colors-setta-50: var(--color-setta-50);
-  --colors-setta-100: var(--color-setta-100);
-  --colors-setta-200: var(--color-setta-200);
-  --colors-setta-300: var(--color-setta-300);
-  --colors-setta-400: var(--color-setta-400);
-  --colors-setta-500: var(--color-setta-500);
-  --colors-setta-600: var(--color-setta-600);
-  --colors-setta-700: var(--color-setta-700);
-  --colors-setta-800: var(--color-setta-800);
-  --colors-setta-850: var(--color-setta-850);
-  --colors-setta-860: var(--color-setta-860);
-  --colors-setta-875: var(--color-setta-875);
-  --colors-setta-900: var(--color-setta-900);
-  --colors-setta-925: var(--color-setta-925);
-  --colors-setta-950: var(--color-setta-950);
-  --colors-setta-975: var(--color-setta-975);
-  --colors-setta-light: var(--color-setta-light);
-  --colors-setta-dark: var(--color-setta-dark);
-
-  --animate-slow-dash: dash 40s linear infinite;
-  --animate-slide-down: slideDown 200ms cubic-bezier(0.87, 0, 0.13, 1);
-  --animate-slide-up: slideUp 200ms cubic-bezier(0.87, 0, 0.13, 1);
-
-  @keyframes dash {
-    to {
-      background-position:
-        100% 0%,
-        0% 100%,
-        0% 0%,
-        100% 100%;
-    }
+  .section-center {
+    grid-area: center-gutter;
   }
-  @keyframes slideDown {
-    from {
-      height: 0;
-    }
-    to {
-      height: var(--radix-accordion-content-height);
-    }
+
+  .section-search {
+    grid-area: search;
   }
-  @keyframes slideUp {
-    from {
-      height: var(--radix-accordion-content-height);
-    }
-    to {
-      height: 0;
-    }
+  .section-args {
+    grid-area: args;
   }
-}
-/*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
-@layer base {
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentColor);
+  .section-key {
+    grid-column: key / key;
+    grid-row: 1 / 2;
   }
-}
+  .section-value {
+    grid-column: value / value;
+    grid-row: 1 / 2;
+  }
+  .section-key-value {
+    grid-column: key / value;
+  }
 
-@utility section-title {
-  grid-area: title;
-  /* grid-column: key / value; */
-}
+  .section-key-right-gutter {
+    grid-column: key / right-gutter;
+  }
+  .section-w-full {
+    grid-column: left-gutter / right-gutter;
+  }
 
-@utility section-center {
-  grid-area: center-gutter;
-}
+  .section-lg-value {
+    grid-column: left-gutter / value;
+  }
 
-@utility section-search {
-  grid-area: search;
-}
+  .section-row-search-gutter {
+    grid-row: search / left-gutter;
+  }
 
-@utility section-args {
-  grid-area: args;
-}
+  .section-full {
+    grid-row: title / left-gutter;
+    grid-column: left-gutter / right-gutter;
+  }
+  .section-full-no-title {
+    grid-row: search / left-gutter;
+    grid-column: left-gutter / right-gutter;
+  }
 
-@utility section-key {
-  grid-column: key / key;
-  grid-row: 1 / 2;
-}
+  .section-min-rows {
+    grid-auto-rows: min-content;
+  }
 
-@utility section-value {
-  grid-column: value / value;
-  grid-row: 1 / 2;
-}
+  .section-main {
+    grid-row: search / left-gutter;
+    grid-column: key / value;
+  }
+  .section-main-full-w {
+    grid-row: search / left-gutter;
+    grid-column: left-gutter / right-gutter;
+  }
+  .section-row-main {
+    grid-row: left-gutter;
+  }
 
-@utility section-key-value {
-  grid-column: key / value;
-}
+  .section-row-left-bottom {
+    grid-row: left-gutter / bottom-gutter;
+  }
 
-@utility section-key-right-gutter {
-  grid-column: key / right-gutter;
-}
+  .section-row-pin {
+    grid-row: pin-lg;
+  }
 
-@utility section-w-full {
-  grid-column: left-gutter / right-gutter;
-}
+  .section-row-pin-main {
+    grid-row: pin-lg / left-gutter;
+  }
 
-@utility section-lg-value {
-  grid-column: left-gutter / value;
-}
+  .section-left-gutter {
+    grid-column: left-gutter / span 1;
+  }
 
-@utility section-row-search-gutter {
-  grid-row: search / left-gutter;
-}
+  .section-right-gutter {
+    grid-column: right-gutter / span 1;
+  }
 
-@utility section-full {
-  grid-row: title / left-gutter;
-  grid-column: left-gutter / right-gutter;
-}
+  .section-bottom-gutter {
+    grid-row: bottom-gutter;
+  }
 
-@utility section-full-no-title {
-  grid-row: search / left-gutter;
-  grid-column: left-gutter / right-gutter;
-}
+  .grid-row-reset {
+    grid-row-start: -1;
+  }
 
-@utility section-min-rows {
-  grid-auto-rows: min-content;
-}
+  .grid-row-start-1 {
+    grid-row-start: 1;
+  }
 
-@utility section-main {
-  grid-row: search / left-gutter;
-  grid-column: key / value;
-}
+  .single-row {
+    grid-template-rows: 1fr;
+  }
+  .single-row-area {
+    grid-row: 1 / 2;
+  }
 
-@utility section-main-full-w {
-  grid-row: search / left-gutter;
-  grid-column: left-gutter / right-gutter;
-}
+  .single-cell-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+  }
 
-@utility section-row-main {
-  grid-row: left-gutter;
-}
-
-@utility section-row-left-bottom {
-  grid-row: left-gutter / bottom-gutter;
-}
-
-@utility section-row-pin {
-  grid-row: pin-lg;
-}
-
-@utility section-row-pin-main {
-  grid-row: pin-lg / left-gutter;
-}
-
-@utility section-left-gutter {
-  grid-column: left-gutter / span 1;
-}
-
-@utility section-right-gutter {
-  grid-column: right-gutter / span 1;
-}
-
-@utility section-bottom-gutter {
-  grid-row: bottom-gutter;
-}
-
-@utility grid-row-reset {
-  grid-row-start: -1;
-}
-
-@utility grid-row-start-1 {
-  grid-row-start: 1;
-}
-
-@utility single-row {
-  grid-template-rows: 1fr;
-}
-
-@utility single-row-area {
-  grid-row: 1 / 2;
-}
-
-@utility single-cell-container {
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: 1fr;
-}
-
-@utility single-cell-child {
-  grid-column: 1 / 2;
-  grid-row: 1 / 2;
+  .single-cell-child {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+  }
 }
 
 button,
