@@ -12,7 +12,6 @@ import {
   useTemplateVarRegex,
 } from "state/definitions";
 import { getNamePathTypeKey } from "./actions/artifacts";
-import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
 import { getEVRefRegexAndColorMap } from "./actions/evRefRegex";
 import {
   getNodeUpdateInformation,
@@ -132,7 +131,7 @@ export function subscribe() {
     (undoOrRedoWasTriggered) => {
       if (undoOrRedoWasTriggered) {
         useMisc.setState((state) => ({
-          updateAllDrawAreas: state.updateAllDrawAreas + 1,
+          updateDrawAreas: state.updateDrawAreas + 1,
           undoOrRedoWasTriggered: false,
         }));
       }
@@ -151,14 +150,6 @@ export function subscribe() {
       });
     },
     { equalityFn: _.isEqual },
-  );
-
-  useArtifacts.subscribe(
-    artifactWhoModifiedSubscriptionFn,
-    maybeRequestDrawAreaUpdate,
-    {
-      equalityFn: _.isEqual,
-    },
   );
 }
 
@@ -263,16 +254,6 @@ function artifactNamePathTypeToIdSubscriptionFn(state) {
   const output = {};
   for (const [id, a] of Object.entries(state.x)) {
     output[id] = { name: a["name"], path: a["path"], type: a["type"] };
-  }
-  return output;
-}
-
-function artifactWhoModifiedSubscriptionFn(state) {
-  const output = {};
-  for (const [id, a] of Object.entries(state.x)) {
-    if (a.modifiedByInfo) {
-      output[id] = a.modifiedByInfo;
-    }
   }
   return output;
 }
