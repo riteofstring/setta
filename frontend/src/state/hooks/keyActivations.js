@@ -8,7 +8,7 @@ export function useShouldDisablePointerEvents() {
   const otherSpecialKeysPressed = useReactFlow(
     (x) =>
       x.moveSectionActivationKeyPressed ||
-      (x.selectionKeyPressed && Boolean(x.userSelectionRect)) ||
+      x.selectionKeyPressed ||
       x.multiSelectionActive ||
       x.zoomActivationKeyPressed,
   );

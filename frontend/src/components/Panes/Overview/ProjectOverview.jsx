@@ -2,7 +2,7 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
-import { getSectionVisibilityKeyForDisplay } from "state/actions/sectionInfos";
+import { getSectionVisibilityKey } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import { ProjectName } from "./ProjectName";
@@ -63,7 +63,7 @@ function getDepthListingHelper(sectionId, depth, x, outputList) {
   const section = x.x[sectionId];
   if (
     section.visibility[
-      getSectionVisibilityKeyForDisplay(x.projectConfig.viewingEditingMode)
+      getSectionVisibilityKey(x.projectConfig.viewingEditingMode)
     ]
   )
     outputList.push({

@@ -95,7 +95,6 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
   layerCanvasRefs,
   tempCanvasRefs,
   draftCanvasRef,
-  fnCanvasToBase64,
   incrementVersion = true,
 ) {
   useArtifacts.setState((state) => ({
@@ -104,14 +103,10 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
       [currBrushStrokeArtifactId]: {
         ...state.x[currBrushStrokeArtifactId],
         value: _.cloneDeep(strokesRef.current),
-        modifiedByInfo: {
-          modifiedBy: sectionId,
-          timestamp: Date.now().toString(),
-        },
       },
     },
   }));
-  drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs, fnCanvasToBase64);
+  drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs);
   clearCanvas(draftCanvasRef.current);
   maybeIncrementProjectStateVersion(incrementVersion);
 }
@@ -123,7 +118,6 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
   resizeHandleCorners,
   layerCanvasRefs,
   tempCanvasRefs,
-  fnCanvasToBase64,
 ) {
   useSectionInfos.setState((state) => {
     for (const [idx, t] of state.artifactGroups[
@@ -140,7 +134,6 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
     sectionId,
     layerCanvasRefs,
     tempCanvasRefs,
-    fnCanvasToBase64,
     {},
     {},
     { [activeLayerId]: resizeHandleCorners.current },
@@ -153,7 +146,6 @@ export function drawAllLayers(
   sectionId,
   layerCanvasRefs,
   tempCanvasRefs,
-  fnCanvasToBase64,
   realTimeValues = {}, // layerId -> artifactId -> value
   realTimeTransforms = {}, // layerId -> idx -> {transform, eraserStrokes}
   realTimeResizeHandles = {}, // layerId -> array of corner coordinates
@@ -174,7 +166,6 @@ export function drawAllLayers(
       realTimeEraserStrokes[layerId],
     );
   }
-  sendDrawingToInteractiveTasks(sectionId, fnCanvasToBase64);
 }
 
 export function drawOneLayer(
@@ -427,5 +418,4 @@ export const sendDrawingToInteractiveTasks = _.throttle(
     sendToInteractiveTasks([sectionId, "drawing"], null, fnToBase64);
   },
   200,
-  { leading: false },
 );
