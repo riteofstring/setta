@@ -6,7 +6,7 @@ from setta.database.db.uiTypes.utils import new_ui_type_col_entry
 from setta.utils.section_contents import findAllParametersAndPathMaps
 from setta.utils.utils import QuoteInsensitiveDict, replace_null_keys_with_none
 
-from ..utils.constants import BASE_UI_TYPES, C, ParameterPassingStyle
+from ..utils.constants import BASE_UI_TYPES, C
 from .find_placeholders import tp
 from .utils import process_refs
 
@@ -432,10 +432,10 @@ class Exporter:
                 used_params.append(v)
 
             curr_param_info_id = self.output[v]["paramInfoId"]
-            passingStyle = self.p["codeInfo"][curr_param_info_id].get(
-                "passingStyle", None
+            positionalOnly = self.p["codeInfo"][curr_param_info_id].get(
+                "positionalOnly", False
             )
-            if passingStyle == ParameterPassingStyle.POSITIONAL_ONLY:
+            if positionalOnly:
                 positionalOnlyParams.add(v)
         return used_params, unused_params, positionalOnlyParams
 
