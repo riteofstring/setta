@@ -24,9 +24,8 @@ function ProjectNavSwitch() {
           <FileMenu />
           <EditMenu />
           <WebsocketConnections />
-          <RunButton />
         </Menubar.Root>
-
+        <RunButton />
         <StopButton />
       </div>
     )

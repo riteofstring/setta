@@ -1,6 +1,5 @@
 import { Button } from "components/Utils/atoms/buttons/Button";
-import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
-import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useState } from "react";
 import { RiArrowDownSLine, RiPlayMiniFill } from "react-icons/ri";
@@ -8,8 +7,6 @@ import {
   runOrImportAllCode,
   sendProjectToAllInteractiveCode,
 } from "state/actions/runOrImportCode";
-import { useSettings } from "state/definitions";
-import { shortcutPrettified } from "utils/utils";
 
 export function RunButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -33,10 +30,6 @@ export function RunButton() {
     },
   ];
 
-  const sendProjectToAllInteractiveCodeShortcut = useSettings((x) =>
-    shortcutPrettified(x.shortcuts.sendProjectToAllInteractiveCode),
-  );
-
   return (
     <div className="flex justify-stretch">
       <Button
@@ -47,23 +40,30 @@ export function RunButton() {
         <RiPlayMiniFill />
         Run
       </Button>
-      <NavbarMenuDropdown
-        triggerClassName="nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-r-md py-1 px-1 text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800"
-        trigger={<RiArrowDownSLine />}
+
+      <StandardPopover
+        trigger={
+          <Button twClasses={`${baseClasses} px-1 rounded-l-none`}>
+            <RiArrowDownSLine />
+          </Button>
+        }
+        contentClasses="flex flex-col bg-white dark:bg-setta-850 py-1 rounded-md shadow-lg z-50 min-w-36 w-48 border border-setta-100 dark:border-setta-700/50 overflow-hidden"
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        arrowClasses="hidden"
       >
         {runActions.map((action, index) => (
-          <MenuItem
+          <button
             key={index}
             className={menuItemClasses}
             onClick={action.action}
-            shortcut={sendProjectToAllInteractiveCodeShortcut}
           >
             <i className="w-2 opacity-50">{action.icon}</i>
 
             <span className="ml-0.5">{action.label}</span>
-          </MenuItem>
+          </button>
         ))}
-      </NavbarMenuDropdown>
+      </StandardPopover>
     </div>
   );
 }
