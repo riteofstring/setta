@@ -7,12 +7,9 @@ from $base64_utils$import_path import (
 
 $SETTA_GENERATED_PYTHON
 
-inpainter["model"].to("cuda")
-inpainter["model"].enable_model_cpu_offload()
-redux["adapter"].to("cuda")
-redux["adapter"].enable_model_cpu_offload()
-redux["model"].to("cuda")
-redux["model"].enable_model_cpu_offload()
+inpainter["model"] = inpainter["model"].to("cuda")
+redux["adapter"] = redux["adapter"].to("cuda")
+redux["model"] = redux["model"].to("cuda")
 
 
 def inpaint_fn(p):
@@ -52,7 +49,7 @@ def redux_fn(p):
     prev_inpainted_image = image
     image = base64_to_pil(image)
     width, height = image.size
-    adapter_output = redux["adapter"](image, prompt=p["redux_prompt"]["text"])
+    adapter_output = redux["adapter"](image)
     image = redux["model"](
         **redux["args"], **adapter_output, width=width, height=height
     ).images[0]
