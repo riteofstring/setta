@@ -609,7 +609,7 @@ export function attachKeyEventListeners() {
   });
   cleanup_functions.push(cleanup);
 
-  cleanup = attachEventListenerAndReturnCleanup(window, "blur-sm", (e) => {
+  cleanup = attachEventListenerAndReturnCleanup(window, "blur", (e) => {
     resetKeysPressed();
     keyUpLoop(e, shortcutInfo);
   });

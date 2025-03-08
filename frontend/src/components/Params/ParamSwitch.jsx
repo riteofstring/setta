@@ -56,8 +56,8 @@ function _ParamSwitch(props) {
   const onMouseDownAlways = handleParamSelection;
 
   const bg = paramIsSelected
-    ? "transition-colors active:bg-cyan-300! bg-blue-700! **:text-white! rounded-xs"
-    : "transition-colors rounded-xs";
+    ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white rounded-sm"
+    : "transition-colors rounded-sm";
 
   // warnings should be AMBER
   const border = maybeErrorMessage
