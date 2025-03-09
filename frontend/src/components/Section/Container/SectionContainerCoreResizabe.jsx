@@ -6,7 +6,6 @@ import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useSectionInfos } from "state/definitions";
 import { getIsYouTubeSection } from "state/hooks/social";
 import { SectionHeader } from "../Header/SectionHeader";
-import { APIArea } from "../Layouts/APIArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
 import { ChatArea } from "../Layouts/ChatArea";
 import { CodeArea } from "../Layouts/CodeArea";
@@ -113,8 +112,6 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
       return <IframeArea sectionId={sectionId} />;
     case C.CHAT:
       return <ChatArea sectionId={sectionId} />;
-    case C.API:
-      return <APIArea sectionId={sectionId} />;
     default:
       return null;
   }

@@ -25,7 +25,6 @@
   "SOCIAL": "SOCIAL",
   "IFRAME": "IFRAME",
   "CHAT": "CHAT",
-  "API": "API",
   "NON_SECTION_TYPES": [
     "TEXT",
     "SLIDER",
