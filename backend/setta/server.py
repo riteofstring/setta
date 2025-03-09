@@ -21,7 +21,6 @@ from setta.lsp.utils import (
     start_lsps,
 )
 from setta.routers import (
-    api_specs_router,
     artifact_router,
     code_info_router,
     in_memory_fn_stdout_router,
@@ -64,7 +63,6 @@ async def lifespan(app: FastAPI):
     app.state.dbq = DBQueue(
         C.DB_PATH,
     )
-    app.state.api_specs_in_memory = {}
 
     maybe_create_tables_and_seed(
         app.state.dbq,
@@ -135,7 +133,6 @@ app.include_router(artifact_router, **kwargs)
 app.include_router(reference_renaming_router, **kwargs)
 app.include_router(in_memory_fn_stdout_router, **kwargs)
 app.include_router(lsp_router, **kwargs)
-app.include_router(api_specs_router, **kwargs)
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988

@@ -1,16 +1,11 @@
 import C from "constants/constants.json";
-import { dbGetEndpointParameters } from "requests/apiSpecs";
 import { dbParametersRequest } from "requests/sections";
 import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { setNotificationMessage } from "../notification";
-import {
-  getCodeInfoCol,
-  getSectionType,
-  getSectionVariant,
-} from "../sectionInfos";
+import { getCodeInfoCol, getSectionVariant } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export async function setSelectedItem(
@@ -43,34 +38,20 @@ export async function setSelectedItem(
 
   const setToNotWaiting = setParametersRequestWaitingForLSP(visualSectionId);
 
-  const isAPISection = getSectionType(dataSectionId) === C.API;
-
-  let paramRes;
-  if (isAPISection) {
-    const res = await dbGetEndpointParameters(dataSectionId, selectedItemName);
-    paramRes = { data: ["", res.data], otherData: { evRefs: [] } };
-  } else {
-    paramRes = await dbParametersRequest({
-      sectionId: dataSectionId,
-      fullText: selectedItemName,
-      position: selectedItemName.length,
-    });
-  }
+  const paramRes = await dbParametersRequest({
+    sectionId: dataSectionId,
+    fullText: selectedItemName,
+    position: selectedItemName.length,
+  });
 
   useSectionInfos.setState((state) => {
     let info;
     if (!prevSelected) {
-      const apiRequestInfo = isAPISection
-        ? paramRes.data[1].apiRequestInfo
-        : null;
-      console.log("apiRequestInfo", apiRequestInfo)
-
       info = newCodeInfo({
         name: selectedItemName,
         editable: false,
         rcType: C.CALLABLE,
         evRefs: paramRes.otherData.evRefs,
-        apiRequestInfo,
       });
       addCodeInfo({ sectionId: dataSectionId, info, parent: null, state });
     } else {
@@ -80,28 +61,7 @@ export async function setSelectedItem(
     if (paramRes.data) {
       const [documentation, params] = paramRes.data;
       if (params) {
-        if (isAPISection) {
-          const parentIds = createChildrenCodeInfo(
-            dataSectionId,
-            info.id,
-            [{ name: "headers" }, { name: "json" }],
-            state,
-          );
-          createChildrenCodeInfo(
-            dataSectionId,
-            parentIds[0],
-            params.headers,
-            state,
-          );
-          createChildrenCodeInfo(
-            dataSectionId,
-            parentIds[1],
-            params.json,
-            state,
-          );
-        } else {
-          createChildrenCodeInfo(dataSectionId, info.id, params, state);
-        }
+        createChildrenCodeInfo(dataSectionId, info.id, params, state);
       } else {
         setNotificationMessage("No parameters found");
       }
@@ -147,8 +107,6 @@ function createChildrenCodeInfo(sectionId, parent, params, state) {
   // ensures the params are in the right order, regardless of whether we are
   // creating new children, or updating existing ones.
   getCodeInfoCol(sectionId, state).children[parent] = paramIdsInOrder;
-
-  return paramIdsInOrder;
 }
 
 function itemHasBeenSelectedBefore(sectionId, selectedItemName) {

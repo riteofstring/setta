@@ -11,7 +11,7 @@ import { IoChatbox } from "react-icons/io5";
 import { PiTextTFill } from "react-icons/pi";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
-import { TbApi, TbArrowIteration } from "react-icons/tb";
+import { TbArrowIteration } from "react-icons/tb";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useListElementIdx } from "state/hooks/sectionVariants";
@@ -88,13 +88,6 @@ export function HeaderIcon({
       return (
         <IoChatbox
           className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]
-          "
-        />
-      );
-    case C.API:
-      return (
-        <TbApi
-          className="scale-125 text-setta-300 transition-colors  group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]
           "
         />
       );

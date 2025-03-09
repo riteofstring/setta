@@ -14,7 +14,6 @@ CWD = Path.cwd()
 SETTA_FILES_FOLDER = CWD / "setta_files"
 CODE_FOLDER = SETTA_FILES_FOLDER / "code"
 DB_BACKUP_FOLDER = SETTA_FILES_FOLDER / "backups"
-API_SPECS_FOLDER = SETTA_FILES_FOLDER / "api_specs"
 CODE_FOLDER_ENV_VARIABLE = "SETTA_CODE_FOLDER"
 HOST_ENV_VARIABLE = "SETTA_HOST"
 PORT_ENV_VARIABLE = "SETTA_PORT"
@@ -99,7 +98,6 @@ CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
         "isPinned",
         "isFrozen",
         "ignoreTypeErrors",
-        "apiRequestInfo",
     )
 )
 
@@ -123,7 +121,6 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
         "isReadOnlyTerminal",
         "subprocessStartMethod",
         "headingAsSectionName",
-        "apiSpecsURL",
     )
 )
 

@@ -51,7 +51,3 @@ def get_lsp_writers_from_websocket(websocket: WebSocket):
 
 def get_specific_file_watcher(request: Request):
     return request.app.state.specific_file_watcher
-
-
-def get_api_specs_in_memory(request: Request):
-    return request.app.state.api_specs_in_memory

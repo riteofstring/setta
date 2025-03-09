@@ -103,40 +103,29 @@ function ProjectPageAdvanced({ children }) {
 }
 
 function ProjectPageCommandPalette({ children }) {
-  const allItems = useCreateSectionsList();
-  // adds id to each item
-  // TODO: make this less bad
+  // const allSections = useOverviewListing();
+
+  function getOnClickFn(specificProps) {
+    return () => {
+      useSectionInfos.setState((state) => {
+        addSectionInEmptySpace({
+          state,
+          ...specificProps,
+        });
+      });
+      maybeIncrementProjectStateVersion(true);
+    };
+  }
+
+  const allItems = useCreateSectionsList(getOnClickFn);
   for (const g of allItems) {
     for (const item of g.items) {
       item.id = item.name;
     }
   }
-
   function onSelectedItemChange(id) {
-    // finds matching item, and then uses its specificProps
-    // TODO: make this less bad
-    let match = null;
-    for (const g of allItems) {
-      for (const item of g.items) {
-        if (item.id === id) {
-          match = item;
-          break;
-        }
-      }
-    }
-
-    if (!match) {
-      return;
-    }
-
-    // get corresponding item and its section props
-    useSectionInfos.setState((state) => {
-      addSectionInEmptySpace({
-        state,
-        ...match.specificProps,
-      });
-    });
-    maybeIncrementProjectStateVersion(true);
+    // goToSection(id);
+    // focusOnSection(null, id, false);
   }
 
   return (
@@ -163,7 +152,6 @@ function ProjectPageAdvancedCore({ allItems, onSelectedItemChange, children }) {
   } = useIdNameCombobox({
     allItems,
     onSelectedItemChange,
-    clearInputAfterSelection: true,
   });
 
   const inputRef = useRef();

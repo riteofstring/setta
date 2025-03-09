@@ -63,8 +63,7 @@
     "columnWidth": null,
     "renderedValue": null,
     "subprocessStartMethod": "spawn",
-    "headingAsSectionName": false,
-    "apiSpecsURL": null
+    "headingAsSectionName": false
   },
   "sectionVariant": {
     "name": "",
@@ -96,8 +95,7 @@
     "isFrozen": false,
     "isSelected": false,
     "evRefs": [],
-    "ignoreTypeErrors": false,
-    "apiRequestInfo": null
+    "ignoreTypeErrors": false
   },
   "codeInfoCol": {
     "children": { "null": [] }

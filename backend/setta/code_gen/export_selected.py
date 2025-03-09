@@ -283,7 +283,6 @@ class Exporter:
             C.CODE,
             C.GLOBAL_VARIABLES,
             C.TEXT_BLOCK,
-            C.API,
         ]
 
     def export(self):
@@ -382,33 +381,6 @@ class Exporter:
                 variant = get_selected_section_variant(self.p, id)
                 info["value"] = variant["description"]
                 info["dependencies"] = []
-                info["ref_var_name_positions"] = []
-                self.output[var_name] = info
-            elif type == C.API:
-                (
-                    used_params,
-                    unused_params,
-                    positionalOnlyParams,
-                ) = self.export_section_params(id)
-                url_info = get_selected_item(self.p, id)
-                if url_info:
-                    url = url_info["apiRequestInfo"]["baseUrl"] + url_info["name"]
-                    url = f'"{url}"'
-                    callable = (
-                        "requests.get"
-                        if url_info["apiRequestInfo"]["requestType"] == "get"
-                        else "requests.post"
-                    )
-                else:
-                    url, callable = None, None
-                info["value"] = {
-                    "url": url,
-                    "callable": callable,
-                    "usedParams": used_params,
-                    "unusedParams": unused_params,
-                    "positionalOnlyParams": positionalOnlyParams,
-                }
-                info["dependencies"] = used_params
                 info["ref_var_name_positions"] = []
                 self.output[var_name] = info
             else:
@@ -583,7 +555,6 @@ class ExporterForInMemoryFn:
                 C.CHAT,
                 C.GLOBAL_VARIABLES,
                 C.TEXT_BLOCK,
-                C.API,
             ],
         )
         for id in list(self.p["projectConfig"]["children"].keys()):
@@ -597,7 +568,7 @@ class ExporterForInMemoryFn:
         self.create_var_mapping((id,), name)
         value = None
         value_is_returned = True
-        if type == C.SECTION or type == C.API:
+        if type == C.SECTION:
             selectedItem = get_selected_item_name(self.p, id)
             params = self.export_section_params(
                 id, f'{name}["params"]', is_global=False
