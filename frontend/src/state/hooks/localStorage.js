@@ -19,7 +19,6 @@ export const localStorageFns = {
   uiEditorTrueWidth: { init: CLOSED_PANE_WIDTH },
   uiEditorTab: { init: {} },
   showNavBarHelpMessage: { init: true },
-  tooltipWidth: { init: 256 },
 };
 
 for (const [k, v] of Object.entries(localStorageFns)) {
