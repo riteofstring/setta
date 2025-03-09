@@ -313,7 +313,7 @@ class Exporter:
                 (
                     used_params,
                     unused_params,
-                    passingStyles,
+                    positionalOnlyParams,
                 ) = self.export_section_params(id)
 
                 selected_item_ev_refs = get_selected_item_ev_refs(self.p, id)
@@ -334,7 +334,7 @@ class Exporter:
                     "callable": callable,
                     "usedParams": used_params,
                     "unusedParams": unused_params,
-                    "passingStyles": passingStyles,
+                    "positionalOnlyParams": positionalOnlyParams,
                 }
                 info["dependencies"] = [*used_params, *used_ref_var_names]
                 info["ref_var_name_positions"] = ref_var_name_positions
@@ -397,7 +397,7 @@ class Exporter:
             (
                 used_params,
                 unused_params,
-                passingStyles,
+                positionalOnlyParams,
             ) = self.export_section_params(id)
             info = {
                 "sectionId": id,
@@ -407,7 +407,7 @@ class Exporter:
                     "callable": None,
                     "usedParams": used_params,
                     "unusedParams": unused_params,
-                    "passingStyles": passingStyles,
+                    "positionalOnlyParams": positionalOnlyParams,
                 },
                 "dependencies": used_params,
                 "ref_var_name_positions": [],  # has to be populated when the code is generated
@@ -424,7 +424,7 @@ class Exporter:
         var_names = [x for x in var_names if x]
         used_params = []
         unused_params = []
-        passingStyles = {}
+        positionalOnlyParams = set()
         for v in var_names:
             if no_entered_value(self.output[v]["value"]):
                 unused_params.append(v)
@@ -432,10 +432,12 @@ class Exporter:
                 used_params.append(v)
 
             curr_param_info_id = self.output[v]["paramInfoId"]
-            passingStyles[v] = self.p["codeInfo"][curr_param_info_id].get(
-                "passingStyle", None
+            positionalOnly = self.p["codeInfo"][curr_param_info_id].get(
+                "positionalOnly", False
             )
-        return used_params, unused_params, passingStyles
+            if positionalOnly:
+                positionalOnlyParams.add(v)
+        return used_params, unused_params, positionalOnlyParams
 
     def export_param(self, section_id, id):
         codeInfo = self.p["codeInfo"][id]

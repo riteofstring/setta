@@ -90,7 +90,7 @@
     "rcType": "parameter",
     "defaultVal": "",
     "description": "",
-    "passingStyle": "DEFAULT",
+    "positionalOnly": false,
     "isPinned": false,
     "isFrozen": false,
     "isSelected": false,
