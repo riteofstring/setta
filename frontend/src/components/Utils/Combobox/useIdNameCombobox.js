@@ -7,7 +7,6 @@ export function useIdNameCombobox({
   onSelectedItemChange,
   value,
   selectedItemCanBeNull,
-  clearInputAfterSelection,
 }) {
   function onKeyDown(e) {
     if (e.code === "Escape") {
@@ -24,7 +23,6 @@ export function useIdNameCombobox({
       value,
       onSelectedItemChange,
       selectedItemCanBeNull,
-      clearInputAfterSelection,
     );
 
   const localOnSelectedItemChange = ({ selectedItem }) => {

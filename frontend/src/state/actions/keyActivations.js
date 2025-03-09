@@ -59,7 +59,6 @@ import { deleteAllActiveSections } from "./sections/deleteSections";
 import { groupSections, ungroupActiveGroup } from "./sections/groupSections";
 import {
   focusOnAdvancedSearch,
-  focusOnCommandPalette,
   focusOnSearch,
 } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
@@ -472,7 +471,6 @@ export function attachKeyEventListeners() {
     [shortcuts.saveAsShortcut, openSaveAsModal],
     [shortcuts.searchShortcut, focusOnSearch],
     [shortcuts.advancedSearchShortcut, focusOnAdvancedSearch],
-    [shortcuts.commandPaletteShortcut, focusOnCommandPalette],
     [shortcuts.resetZoomShortcut, resetZoom],
     [shortcuts.copyShortcut, copy],
     [shortcuts.pasteShortcut, paste],
