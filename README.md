@@ -16,7 +16,7 @@
 - Added the Notifications view.
 
 <div align="center">
-  <img width="441" src="https://github.com/user-attachments/assets/568f82c7-4944-44c8-a7c5-20008f09f97e" />
+  <img width="441" src="https://github.com/user-attachments/assets/1140ad66-311c-4713-8fbf-596b959a15c5" />
 </div>
 
 **March 10**: [v0.0.16](https://github.com/settadev/setta/releases/tag/v0.0.16)
