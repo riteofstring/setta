@@ -121,6 +121,11 @@ export const MODAL_TYPE = {
     title: "Add Artifact By Filepath",
     buttonText: "Delete",
   },
+  LLM_SETTINGS: {
+    purpose: null,
+    title: "LLM Settings",
+    buttonText: "Save",
+  },
 };
 
 export const PAGE_LOAD_TYPES = {

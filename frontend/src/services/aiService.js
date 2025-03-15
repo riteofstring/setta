@@ -1,6 +1,25 @@
 import { fetchEventSource } from "@microsoft/fetch-event-source";
 
 /**
+ * Get API key for the specified LLM service
+ *
+ * @param {string} serviceId - The ID of the service
+ * @returns {string|null} - The API key or null if not found
+ */
+function getApiKey(serviceId) {
+  try {
+    const keys = localStorage.getItem("llm_service_keys");
+    if (!keys) return null;
+
+    const keysObj = JSON.parse(keys);
+    return keysObj[serviceId] || null;
+  } catch (error) {
+    console.error("Error retrieving API key:", error);
+    return null;
+  }
+}
+
+/**
  * Sends a message to the LLM and streams the response
  *
  * @param {Object} config - Configuration for the message
@@ -28,12 +47,33 @@ export async function sendMessage({
   // Flag to track if error was already handled
   let errorHandled = false;
 
+  // Get the API key for the selected model/service
+  const modelServiceId = model.split("-")[0]; // Extract service ID from model (e.g., "gpt" from "gpt-4")
+  const apiKey = getApiKey(modelServiceId) || getApiKey(model);
+
+  // If no API key is found and it's not a local model, show an error
+  if (!apiKey && !model.includes("local")) {
+    if (onError && !errorHandled) {
+      errorHandled = true;
+      onError(
+        new Error(`No API key found for ${model}. Please add it in Settings.`),
+      );
+    }
+
+    if (onComplete) {
+      onComplete(null);
+    }
+
+    return controller;
+  }
+
   try {
     // Start the stream
     await fetchEventSource("/api/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(apiKey && { Authorization: `Bearer ${apiKey}` }),
       },
       body: JSON.stringify({
         message,
@@ -125,13 +165,95 @@ export async function sendMessage({
  * @returns {Promise<Array>} - A promise that resolves to an array of models
  */
 export async function getAvailableModels() {
-  const response = await fetch("/api/models");
+  // Get API keys from localStorage to determine available models
+  let apiKeys = {};
+  let providerModels = {};
+  try {
+    const keys = localStorage.getItem("llm_service_keys");
+    if (keys) {
+      apiKeys = JSON.parse(keys);
+    }
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch models: ${response.status}`);
+    // Also get preferred models per provider
+    const models = localStorage.getItem("llm_provider_models");
+    if (models) {
+      providerModels = JSON.parse(models);
+    }
+  } catch (error) {
+    console.error("Error loading API keys or provider models:", error);
   }
 
-  return response.json();
+  // Default models that are always available or require no API key
+  const defaultModels = [
+    { id: "gpt-4", name: "GPT-4", serviceId: "openai" },
+    { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo", serviceId: "openai" },
+    { id: "claude-3-opus", name: "Claude 3 Opus", serviceId: "anthropic" },
+    { id: "claude-3-sonnet", name: "Claude 3 Sonnet", serviceId: "anthropic" },
+    { id: "claude-3-haiku", name: "Claude 3 Haiku", serviceId: "anthropic" },
+  ];
+
+  // Filter models based on available API keys
+  let availableModels = defaultModels.filter((model) => {
+    // If model has a serviceId and that service has an API key, include it
+    return model.serviceId ? !!apiKeys[model.serviceId] : true;
+  });
+
+  // Mark preferred models for each provider
+  availableModels = availableModels.map((model) => {
+    if (model.serviceId && providerModels[model.serviceId] === model.id) {
+      return {
+        ...model,
+        isDefault: true,
+      };
+    }
+    return model;
+  });
+
+  // Ensure we always have at least one model available
+  if (availableModels.length === 0) {
+    console.warn(
+      "No models with valid API keys found. Adding default models as fallback.",
+    );
+    availableModels = [
+      { id: "gpt-4", name: "GPT-4 (API key required)", serviceId: "openai" },
+      {
+        id: "claude-3-opus",
+        name: "Claude 3 Opus (API key required)",
+        serviceId: "anthropic",
+      },
+    ];
+  }
+
+  // Try to fetch models from backend, fall back to local list if that fails
+  try {
+    const response = await fetch("/api/models");
+
+    if (response.ok) {
+      const backendModels = await response.json();
+
+      if (
+        backendModels &&
+        Array.isArray(backendModels) &&
+        backendModels.length > 0
+      ) {
+        // Combine backend models with our filtered models, preferring backend data if available
+        const combinedModels = [
+          ...availableModels,
+          ...backendModels.filter(
+            (backendModel) =>
+              !availableModels.some((m) => m.id === backendModel.id),
+          ),
+        ];
+
+        return combinedModels;
+      }
+    }
+  } catch (error) {
+    console.warn("Failed to fetch models from backend:", error);
+    // Fall back to filtered client-side models
+  }
+
+  return availableModels;
 }
 
 /**

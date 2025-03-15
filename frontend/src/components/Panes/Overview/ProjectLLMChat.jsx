@@ -3,6 +3,7 @@ import { CgSpinner } from "react-icons/cg";
 import {
   HiChevronDown,
   HiOutlineCode,
+  HiOutlineCog,
   HiOutlineEye,
   HiOutlineTrash,
   HiOutlineUpload,
@@ -15,7 +16,9 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { getAvailableModels, sendMessage } from "services/aiService";
+import { setModalOpen, setModalType } from "state/actions/modal";
 import { useIsScrollable } from "state/hooks/sectionSizes";
+import { MODAL_TYPE } from "utils/constants";
 import { CodeBlockDisplay } from "./ChatComponents/CodeBlockDisplay";
 import { FileDragDrop } from "./ChatComponents/FileDragDrop";
 import { ReasoningAccordion } from "./ChatComponents/ReasoningAccordion";
@@ -44,12 +47,40 @@ export function ProjectLLMChat() {
     const fetchModels = async () => {
       try {
         const models = await getAvailableModels();
-        setAvailableModels(
-          models.map((model) => ({
+        if (models && models.length > 0) {
+          // Get unique providers with models
+          const uniqueProviders = [
+            ...new Set(
+              models.filter((m) => m.serviceId).map((m) => m.serviceId),
+            ),
+          ].filter((provider) => {
+            // Only include providers that have API keys (at least one model)
+            return models.some((m) => m.serviceId === provider);
+          });
+
+          // Format models for the dropdown
+          const formattedModels = models.map((model) => ({
             value: model.id,
             label: model.name,
-          })),
-        );
+            provider: model.serviceId,
+            isDefault: model.isDefault,
+          }));
+
+          setAvailableModels(formattedModels);
+
+          // Find any default model from localStorage
+          const defaultModel = formattedModels.find((m) => m.isDefault);
+
+          // If we have a default model, use it
+          if (defaultModel) {
+            setModel(defaultModel.value);
+          }
+          // Otherwise, check if the currently selected model exists in the new list
+          else if (!formattedModels.some((m) => m.value === model)) {
+            // If not, select the first available model
+            setModel(formattedModels[0].value);
+          }
+        }
       } catch (error) {
         console.error("Failed to fetch models:", error);
         // Keep the default models if fetching fails
@@ -57,7 +88,7 @@ export function ProjectLLMChat() {
     };
 
     fetchModels();
-  }, []);
+  }, []); // Remove the model dependency to avoid infinite loops
 
   // Scroll to bottom when messages change or when streaming
   useEffect(() => {
@@ -202,6 +233,18 @@ export function ProjectLLMChat() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setModalType(MODAL_TYPE.LLM_SETTINGS);
+              setModalOpen(true);
+            }}
+            className="rounded p-1 text-setta-500 hover:bg-setta-100 hover:text-blue-500 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-blue-400"
+            title="LLM Settings"
+            data-testid="llm-settings-button"
+          >
+            <HiOutlineCog size={16} />
+          </button>
+
           <ModelSelector
             model={model}
             setModel={setModel}
@@ -459,9 +502,27 @@ function ModelSelector({ model, setModel, availableModels }) {
     };
   }, []);
 
-  // Get current model label
+  // Make sure availableModels is not empty
+  if (!availableModels || availableModels.length === 0) {
+    return null; // Don't render anything if no models are available
+  }
+
+  // Get current model label with fallback
   const currentModel =
     availableModels.find((m) => m.value === model) || availableModels[0];
+
+  // Fallback label in case currentModel is somehow still undefined
+  const displayLabel = currentModel ? currentModel.label : "Select Model";
+
+  // Group models by provider
+  const modelsByProvider = availableModels.reduce((acc, model) => {
+    const provider = model.provider || "Other";
+    if (!acc[provider]) {
+      acc[provider] = [];
+    }
+    acc[provider].push(model);
+    return acc;
+  }, {});
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -471,28 +532,37 @@ function ModelSelector({ model, setModel, availableModels }) {
         onClick={() => setIsOpen(!isOpen)}
         data-testid="model-selector"
       >
-        <span>{currentModel.label}</span>
+        <span>{displayLabel}</span>
         <HiChevronDown size={14} />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full z-10 mt-1 w-32 overflow-hidden rounded-md border border-setta-200 bg-white shadow-md dark:border-setta-700 dark:bg-setta-900">
+        <div className="absolute right-0 top-full z-10 mt-1 max-h-60 w-48 overflow-auto rounded-md border border-setta-200 bg-white shadow-md dark:border-setta-700 dark:bg-setta-900">
           <div className="p-1">
-            {availableModels.map((item) => (
-              <button
-                key={item.value}
-                className={`w-full rounded px-3 py-1.5 text-left text-xs ${
-                  item.value === model
-                    ? "bg-blue-50 font-medium text-blue-900 dark:bg-blue-900/20 dark:text-blue-100"
-                    : "text-setta-700 hover:bg-setta-100 dark:text-setta-100 dark:hover:bg-setta-800"
-                }`}
-                onClick={() => {
-                  setModel(item.value);
-                  setIsOpen(false);
-                }}
-              >
-                {item.label}
-              </button>
+            {Object.entries(modelsByProvider).map(([provider, models]) => (
+              <div key={provider} className="mb-1">
+                {models.length > 0 && (
+                  <div className="mb-1 px-2 pt-1 text-[10px] font-semibold uppercase text-setta-400 dark:text-setta-500">
+                    {provider}
+                  </div>
+                )}
+                {models.map((item) => (
+                  <button
+                    key={item.value}
+                    className={`w-full rounded px-3 py-1.5 text-left text-xs ${
+                      item.value === model
+                        ? "bg-blue-50 font-medium text-blue-900 dark:bg-blue-900/20 dark:text-blue-100"
+                        : "text-setta-700 hover:bg-setta-100 dark:text-setta-100 dark:hover:bg-setta-800"
+                    }`}
+                    onClick={() => {
+                      setModel(item.value);
+                      setIsOpen(false);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         </div>
