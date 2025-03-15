@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { CgSpinner } from "react-icons/cg";
 import {
   HiChevronDown,
+  HiOutlineArrowLeft,
+  HiOutlineClock,
   HiOutlineCode,
   HiOutlineCog,
   HiOutlineEye,
@@ -41,6 +43,78 @@ export function ProjectLLMChat() {
     { value: "mixtral", label: "Mixtral" },
     { value: "llama-3", label: "Llama 3" },
   ]);
+
+  // Chat history state
+  const [showHistory, setShowHistory] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [currentChatId, setCurrentChatId] = useState(null);
+
+  // Load chat history on initial mount
+  useEffect(() => {
+    const loadChatHistory = () => {
+      try {
+        const savedHistory = localStorage.getItem("chat_history");
+        if (savedHistory) {
+          const parsedHistory = JSON.parse(savedHistory);
+          setChatHistory(parsedHistory);
+        }
+      } catch (error) {
+        console.error("Error loading chat history:", error);
+      }
+    };
+
+    loadChatHistory();
+  }, []);
+
+  // Save current chat to history when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      const saveChat = () => {
+        try {
+          // Only save if we have messages
+          if (messages.length === 0) return;
+
+          // Generate an ID for this chat if we don't have one
+          let chatId = currentChatId;
+          if (!chatId) {
+            chatId = Date.now().toString();
+            setCurrentChatId(chatId);
+          }
+
+          // Create a preview from the first message
+          const firstUserMsg = messages.find((m) => m.role === "user");
+          const preview = firstUserMsg
+            ? firstUserMsg.content.substring(0, 60) +
+              (firstUserMsg.content.length > 60 ? "..." : "")
+            : "New conversation";
+
+          // Update or add this chat to history
+          const updatedHistory = [
+            ...chatHistory.filter((chat) => chat.id !== chatId),
+          ];
+          updatedHistory.unshift({
+            id: chatId,
+            preview,
+            lastUpdated: Date.now(),
+            messages: [...messages],
+          });
+
+          // Limit history to 20 recent chats
+          const limitedHistory = updatedHistory.slice(0, 20);
+
+          // Save to state and localStorage
+          setChatHistory(limitedHistory);
+          localStorage.setItem("chat_history", JSON.stringify(limitedHistory));
+        } catch (error) {
+          console.error("Error saving chat history:", error);
+        }
+      };
+
+      // Debounce the save to avoid excessive localStorage operations
+      const timeoutId = setTimeout(saveChat, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [messages, chatHistory, currentChatId]);
 
   // Fetch available models on initial load
   useEffect(() => {
@@ -112,6 +186,61 @@ export function ProjectLLMChat() {
       }
     };
   }, []);
+
+  // Function to load a specific chat from history
+  const loadChatFromHistory = (chatId) => {
+    const chatToLoad = chatHistory.find((chat) => chat.id === chatId);
+    if (chatToLoad) {
+      // Set current messages to the saved ones
+      setMessages(chatToLoad.messages);
+      setCurrentChatId(chatId);
+      setShowHistory(false);
+    }
+  };
+
+  // Function to start a new chat
+  const startNewChat = () => {
+    setMessages([]);
+    setCurrentChatId(null);
+    setShowHistory(false);
+  };
+
+  // Function to delete a chat from history
+  const deleteChatFromHistory = (chatId, event) => {
+    // Prevent the click from bubbling up to the parent
+    event.stopPropagation();
+
+    const updatedHistory = chatHistory.filter((chat) => chat.id !== chatId);
+    setChatHistory(updatedHistory);
+    localStorage.setItem("chat_history", JSON.stringify(updatedHistory));
+
+    // If we're deleting the current chat, clear the messages
+    if (chatId === currentChatId) {
+      setMessages([]);
+      setCurrentChatId(null);
+    }
+  };
+
+  // Format the timestamp for display
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return `Today at ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return `Yesterday at ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    } else {
+      return date.toLocaleDateString([], {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+  };
 
   const handleSubmit = async (e) => {
     if (e) {
@@ -205,10 +334,8 @@ export function ProjectLLMChat() {
       abortControllerRef.current = null;
     }
 
-    setMessages([]);
-    setCurrentStreamedMessage("");
-    setIsThinking(false);
-    setSelectedFiles([]);
+    // Start a new chat
+    startNewChat();
   };
 
   const handleFileSelect = (files) => {
@@ -223,13 +350,37 @@ export function ProjectLLMChat() {
       {/* Header with settings */}
       <div className="flex items-center justify-between border-b border-setta-200 px-3 py-2 dark:border-setta-800">
         <div className="flex items-center gap-1.5">
-          <LuBrainCircuit
-            className="text-blue-500 dark:text-blue-400"
-            size={18}
-          />
-          <span className="text-sm font-medium text-setta-700 dark:text-setta-200">
-            Project Assistant
-          </span>
+          {showHistory ? (
+            <>
+              <button
+                onClick={() => setShowHistory(false)}
+                className="mr-1 rounded p-1 text-setta-500 hover:bg-setta-100 hover:text-blue-500 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-blue-400"
+                title="Back to chat"
+              >
+                <HiOutlineArrowLeft size={16} />
+              </button>
+              <span className="text-sm font-medium text-setta-700 dark:text-setta-200">
+                Chat History
+              </span>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowHistory(true)}
+                className="mr-1 rounded p-1 text-setta-500 hover:bg-setta-100 hover:text-blue-500 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-blue-400"
+                title="Chat History"
+              >
+                <HiOutlineClock size={16} />
+              </button>
+              <LuBrainCircuit
+                className="text-blue-500 dark:text-blue-400"
+                size={18}
+              />
+              <span className="text-sm font-medium text-setta-700 dark:text-setta-200">
+                Project Assistant
+              </span>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -261,225 +412,284 @@ export function ProjectLLMChat() {
         </div>
       </div>
 
-      {/* Chat messages */}
-      <div
-        className="flex flex-1 flex-col-reverse overflow-y-auto overflow-x-hidden p-3"
-        ref={ref}
-      >
-        <div className="w-full">
-          {messages.length === 0 ? (
-            <div className="flex h-32 flex-col items-center justify-center text-center text-setta-400 dark:text-setta-500">
-              <SiOpenai className="mb-2" size={24} />
-              <p className="text-sm">Ask me anything about this project</p>
-              <p className="mt-1 text-xs">
-                I can help with layout, configurations, and code.
-              </p>
+      {/* History View or Chat messages */}
+      {showHistory ? (
+        <div className="flex-1 overflow-y-auto p-3">
+          <div className="mb-4">
+            <button
+              onClick={startNewChat}
+              className="flex w-full items-center justify-center rounded-md border border-setta-200 bg-white px-4 py-2 text-sm font-medium text-setta-800 hover:bg-setta-50 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-200 dark:hover:bg-setta-700"
+            >
+              Start a new chat
+            </button>
+          </div>
+
+          {chatHistory.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center text-setta-400 dark:text-setta-500">
+              <HiOutlineClock className="mb-2" size={24} />
+              <p className="text-sm">No conversation history yet</p>
+              <p className="mt-1 text-xs">Your chats will appear here</p>
             </div>
           ) : (
-            <>
-              {messages.map((message, idx) => (
+            <div className="space-y-2">
+              {chatHistory.map((chat) => (
                 <div
-                  key={idx}
-                  className={`my-4 flex ${
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
+                  key={chat.id}
+                  onClick={() => loadChatFromHistory(chat.id)}
+                  className="cursor-pointer rounded-md border border-setta-200 p-3 hover:border-blue-300 hover:bg-blue-50 dark:border-setta-700 dark:hover:border-blue-700 dark:hover:bg-setta-800/50"
                 >
-                  <div className="flex max-w-[85%] flex-col">
-                    {/* Display file attachments if any */}
-                    {message.files && message.files.length > 0 && (
-                      <div className="mb-1 flex flex-wrap gap-1">
-                        {message.files.map((file, fileIndex) => (
-                          <div key={fileIndex} className="relative">
-                            {file.objectURL && (
-                              <img
-                                src={file.objectURL}
-                                alt={file.name}
-                                className="h-16 w-16 rounded-md object-cover"
-                              />
-                            )}
-                          </div>
-                        ))}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 text-sm">
+                      <div className="font-medium text-setta-800 dark:text-setta-200">
+                        {chat.preview}
                       </div>
-                    )}
-
-                    {/* Message content */}
-                    <div
-                      className={`prose prose-sm w-fit max-w-full flex-shrink cursor-text px-4 py-2.5 ${
-                        message.role === "user"
-                          ? "rounded-t-lg rounded-bl-lg bg-blue-500 text-white prose-headings:text-blue-200 dark:bg-blue-700"
-                          : "rounded-b-lg rounded-tr-lg bg-setta-100 text-setta-800 prose-headings:text-setta-600 dark:bg-setta-700/50 dark:text-setta-50 dark:prose-headings:text-setta-300"
-                      } dark:prose-invert prose-headings:tracking-tighter prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-words`}
-                    >
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm, remarkMath]}
-                        rehypePlugins={[rehypeKatex]}
-                        components={{
-                          code({
-                            node,
-                            inline,
-                            className,
-                            children,
-                            ...props
-                          }) {
-                            const match = /language-(\w+)/.exec(
-                              className || "",
-                            );
-                            return !inline && match ? (
-                              <CodeBlockDisplay language={match[1]} {...props}>
-                                {children}
-                              </CodeBlockDisplay>
-                            ) : (
-                              <code
-                                className="rounded-sm bg-blue-100/70 px-1.5 py-0.5 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                                {...props}
-                              >
-                                {children}
-                              </code>
-                            );
-                          },
-                        }}
-                      >
-                        {message.content}
-                      </ReactMarkdown>
+                      <div className="mt-1 text-xs text-setta-500 dark:text-setta-400">
+                        {formatTimestamp(chat.lastUpdated)}
+                      </div>
                     </div>
-
-                    {/* Display reasoning if available */}
-                    {message.reasoning && (
-                      <ReasoningAccordion reasoning={message.reasoning} />
-                    )}
+                    <button
+                      onClick={(e) => deleteChatFromHistory(chat.id, e)}
+                      className="ml-2 rounded p-1 text-setta-400 hover:bg-red-100 hover:text-red-600 dark:text-setta-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                      title="Delete conversation"
+                    >
+                      <HiOutlineTrash size={16} />
+                    </button>
                   </div>
                 </div>
               ))}
-              {/* Streaming message or thinking indicator */}
-              {isThinking && (
-                <div
-                  className="my-4 flex justify-start"
-                  data-testid="thinking-indicator"
-                >
-                  <div
-                    className={`prose prose-sm w-fit max-w-[85%] flex-shrink rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-2.5 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50 dark:prose-headings:text-setta-300 ${
-                      currentStreamedMessage
-                        ? "dark:prose-invert prose-headings:tracking-tighter prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm"
-                        : ""
-                    }`}
-                  >
-                    {currentStreamedMessage ? (
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm, remarkMath]}
-                        rehypePlugins={[rehypeKatex]}
-                        components={{
-                          code({
-                            node,
-                            inline,
-                            className,
-                            children,
-                            ...props
-                          }) {
-                            const match = /language-(\w+)/.exec(
-                              className || "",
-                            );
-                            return !inline && match ? (
-                              <CodeBlockDisplay language={match[1]} {...props}>
-                                {children}
-                              </CodeBlockDisplay>
-                            ) : (
-                              <code
-                                className="rounded-sm bg-blue-100/70 px-1.5 py-0.5 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                                {...props}
-                              >
-                                {children}
-                              </code>
-                            );
-                          },
-                        }}
-                      >
-                        {currentStreamedMessage}
-                      </ReactMarkdown>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <CgSpinner className="animate-spin" size={16} />
-                        <span className="text-sm">Thinking...</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} /> {/* Anchor for auto-scrolling */}
-            </>
+            </div>
           )}
         </div>
-      </div>
-
-      {/* Message input */}
-      <div className="border-t border-setta-200 dark:border-setta-800">
-        {/* File drag & drop area */}
-        {selectedFiles.length > 0 && (
-          <div className="px-3 pt-2">
-            <FileDragDrop
-              onFileSelect={handleFileSelect}
-              acceptedTypes="image/*"
-            />
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="p-3">
-          <div className="flex items-end gap-2">
-            <div className="flex w-full flex-col gap-2">
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  className="rounded p-1 text-setta-500 hover:bg-setta-100 hover:text-blue-500 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-blue-400"
-                  title="Attach code"
-                >
-                  <HiOutlineCode size={16} />
-                </button>
-                <button
-                  type="button"
-                  className="rounded p-1 text-setta-500 hover:bg-setta-100 hover:text-blue-500 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-blue-400"
-                  title="Attach image"
-                  onClick={() => {
-                    if (selectedFiles.length === 0) {
-                      setSelectedFiles([
-                        new File(["dummy"], "dummy.png", { type: "image/png" }),
-                      ]);
-                    }
-                  }}
-                >
-                  <HiOutlineUpload size={16} />
-                </button>
-                <button
-                  type="button"
-                  className="rounded p-1 text-setta-500 hover:bg-setta-100 hover:text-blue-500 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-blue-400"
-                  title="View current project"
-                >
-                  <HiOutlineEye size={16} />
-                </button>
+      ) : (
+        <div
+          className="flex flex-1 flex-col-reverse overflow-y-auto overflow-x-hidden p-3"
+          ref={ref}
+        >
+          <div className="w-full">
+            {messages.length === 0 ? (
+              <div className="flex h-32 flex-col items-center justify-center text-center text-setta-400 dark:text-setta-500">
+                <SiOpenai className="mb-2" size={24} />
+                <p className="text-sm">Ask me anything about this project</p>
+                <p className="mt-1 text-xs">
+                  I can help with layout, configurations, and code.
+                </p>
               </div>
+            ) : (
+              <>
+                {messages.map((message, idx) => (
+                  <div
+                    key={idx}
+                    className={`my-4 flex ${
+                      message.role === "user" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    <div className="flex max-w-[85%] flex-col">
+                      {/* Display file attachments if any */}
+                      {message.files && message.files.length > 0 && (
+                        <div className="mb-1 flex flex-wrap gap-1">
+                          {message.files.map((file, fileIndex) => (
+                            <div key={fileIndex} className="relative">
+                              {file.objectURL && (
+                                <img
+                                  src={file.objectURL}
+                                  alt={file.name}
+                                  className="h-16 w-16 rounded-md object-cover"
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
-              <textarea
-                ref={inputRef}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type a message..."
-                rows={1}
-                className={`${isScrollable ? "no-wheel" : ""} w-full resize-none rounded-lg border border-setta-200 bg-transparent px-3 py-2 text-sm text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 dark:border-setta-700 dark:text-setta-100 dark:hover:bg-setta-800/50 dark:focus:border-blue-600`}
-                disabled={isThinking}
+                      {/* Message content */}
+                      <div
+                        className={`prose prose-sm w-fit max-w-full flex-shrink cursor-text px-4 py-2.5 ${
+                          message.role === "user"
+                            ? "rounded-t-lg rounded-bl-lg bg-blue-500 text-white prose-headings:text-blue-200 dark:bg-blue-700"
+                            : "rounded-b-lg rounded-tr-lg bg-setta-100 text-setta-800 prose-headings:text-setta-600 dark:bg-setta-700/50 dark:text-setta-50 dark:prose-headings:text-setta-300"
+                        } dark:prose-invert prose-headings:tracking-tighter prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-words`}
+                      >
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                          components={{
+                            code({
+                              node,
+                              inline,
+                              className,
+                              children,
+                              ...props
+                            }) {
+                              const match = /language-(\w+)/.exec(
+                                className || "",
+                              );
+                              return !inline && match ? (
+                                <CodeBlockDisplay
+                                  language={match[1]}
+                                  {...props}
+                                >
+                                  {children}
+                                </CodeBlockDisplay>
+                              ) : (
+                                <code
+                                  className="rounded-sm bg-blue-100/70 px-1.5 py-0.5 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                  {...props}
+                                >
+                                  {children}
+                                </code>
+                              );
+                            },
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+
+                      {/* Display reasoning if available */}
+                      {message.reasoning && (
+                        <ReasoningAccordion reasoning={message.reasoning} />
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {/* Streaming message or thinking indicator */}
+                {isThinking && (
+                  <div
+                    className="my-4 flex justify-start"
+                    data-testid="thinking-indicator"
+                  >
+                    <div
+                      className={`prose prose-sm w-fit max-w-[85%] flex-shrink rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-2.5 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50 dark:prose-headings:text-setta-300 ${
+                        currentStreamedMessage
+                          ? "dark:prose-invert prose-headings:tracking-tighter prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm"
+                          : ""
+                      }`}
+                    >
+                      {currentStreamedMessage ? (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                          components={{
+                            code({
+                              node,
+                              inline,
+                              className,
+                              children,
+                              ...props
+                            }) {
+                              const match = /language-(\w+)/.exec(
+                                className || "",
+                              );
+                              return !inline && match ? (
+                                <CodeBlockDisplay
+                                  language={match[1]}
+                                  {...props}
+                                >
+                                  {children}
+                                </CodeBlockDisplay>
+                              ) : (
+                                <code
+                                  className="rounded-sm bg-blue-100/70 px-1.5 py-0.5 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                  {...props}
+                                >
+                                  {children}
+                                </code>
+                              );
+                            },
+                          }}
+                        >
+                          {currentStreamedMessage}
+                        </ReactMarkdown>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <CgSpinner className="animate-spin" size={16} />
+                          <span className="text-sm">Thinking...</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} /> {/* Anchor for auto-scrolling */}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Message input - only show in chat view, not history view */}
+      {!showHistory && (
+        <div className="border-t border-setta-200 dark:border-setta-800">
+          {/* File drag & drop area */}
+          {selectedFiles.length > 0 && (
+            <div className="px-3 pt-2">
+              <FileDragDrop
+                onFileSelect={handleFileSelect}
+                acceptedTypes="image/*"
               />
             </div>
+          )}
 
-            <button
-              type="submit"
-              disabled={inputValue.trim() === "" || isThinking}
-              className="mb-0 rounded p-1.5 text-blue-500 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:bg-setta-800 dark:focus:ring-blue-600"
-              data-testid="send-button"
-              title="Send message"
-            >
-              <IoSend size={16} />
-            </button>
-          </div>
-        </form>
-      </div>
+          <form onSubmit={handleSubmit} className="p-3">
+            <div className="flex items-end gap-2">
+              <div className="flex w-full flex-col gap-2">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    className="rounded p-1 text-setta-500 hover:bg-setta-100 hover:text-blue-500 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-blue-400"
+                    title="Attach code"
+                  >
+                    <HiOutlineCode size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded p-1 text-setta-500 hover:bg-setta-100 hover:text-blue-500 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-blue-400"
+                    title="Attach image"
+                    onClick={() => {
+                      if (selectedFiles.length === 0) {
+                        setSelectedFiles([
+                          new File(["dummy"], "dummy.png", {
+                            type: "image/png",
+                          }),
+                        ]);
+                      }
+                    }}
+                  >
+                    <HiOutlineUpload size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded p-1 text-setta-500 hover:bg-setta-100 hover:text-blue-500 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-blue-400"
+                    title="View current project"
+                  >
+                    <HiOutlineEye size={16} />
+                  </button>
+                </div>
+
+                <textarea
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type a message..."
+                  rows={1}
+                  className={`${isScrollable ? "no-wheel" : ""} w-full resize-none rounded-lg border border-setta-200 bg-transparent px-3 py-2 text-sm text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 dark:border-setta-700 dark:text-setta-100 dark:hover:bg-setta-800/50 dark:focus:border-blue-600`}
+                  disabled={isThinking}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={inputValue.trim() === "" || isThinking}
+                className="mb-0 rounded p-1.5 text-blue-500 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:bg-setta-800 dark:focus:ring-blue-600"
+                data-testid="send-button"
+                title="Send message"
+              >
+                <IoSend size={16} />
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
@@ -537,7 +747,7 @@ function ModelSelector({ model, setModel, availableModels }) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full z-10 mt-1 max-h-60 w-48 overflow-auto rounded-md border border-setta-200 bg-white shadow-md dark:border-setta-700 dark:bg-setta-900">
+        <div className="absolute right-0 top-full z-10 mt-1 max-h-60 w-48 overflow-y-auto overflow-x-hidden rounded-md border border-setta-200 bg-white shadow-md dark:border-setta-700 dark:bg-setta-900">
           <div className="p-1">
             {Object.entries(modelsByProvider).map(([provider, models]) => (
               <div key={provider} className="mb-1">
