@@ -14,8 +14,9 @@ export default defineConfig({
       state: resolve(__dirname, "./src/state"),
       services: resolve(__dirname, "./src/services"),
       utils: resolve(__dirname, "./src/utils"),
-      constants: resolve(__dirname, "./src/constants"),
+      constants: resolve(__dirname, "../constants"),
       forks: resolve(__dirname, "./src/forks"),
+      requests: resolve(__dirname, "./src/requests"),
     },
   },
   build: {
