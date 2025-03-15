@@ -12,6 +12,9 @@
 
 ## News
 
+**March 13**: [v0.0.17](https://github.com/settadev/setta/releases/tag/v0.0.17)
+- Added the Notifications view. It looks like this:
+
 **March 10**: [v0.0.16](https://github.com/settadev/setta/releases/tag/v0.0.16)
 - Made tooltips resizable and draggable.
 - Added command palette.
@@ -22,9 +25,6 @@
 - Added ability to change size of artifacts while preserving aspect ratio.
 - Added Stop button for stopping subprocesses.
 
-**March 5**: [v0.0.14](https://github.com/settadev/setta/releases/tag/v0.0.14)
-- Allow access to individual layers of Drawing sections, as well as the combined output.
-- Added button + shortcut for sending current full project state to in-memory functions.
 
 ## What does Setta do?
 
