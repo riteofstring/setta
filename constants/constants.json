@@ -97,8 +97,6 @@
   "ROUTE_LOAD_ARTIFACT_FROM_DISK": "/loadArtifactFromDisk",
   "ROUTE_RESTART_LANGUAGE_SERVER": "/restartLanguageServer",
   "ROUTE_FILE_WATCH_LIST": "/fileWatchList",
-  "ROUTE_GET_NOTIFICATIONS": "/getNotifications",
-  "ROUTE_DELETE_NOTIFICATION": "/deleteNotification",
   "NESTED_PARAM": "NESTED_PARAM",
   "ARGS_PREFIX": "__",
   "TEMPLATE_PREFIX": "$",
@@ -125,10 +123,5 @@
     "IMAGE": ["img"],
     "CHART": ["list"],
     "CHAT": ["chatHistory"]
-  },
-  "NOTIFICATION_TYPE_SUCCESS": "success",
-  "NOTIFICATION_TYPE_ERROR": "error",
-  "NOTIFICATION_TYPE_WARNING": "warning",
-  "NOTIFICATION_TYPE_INFO": "info",
-  "NOTIFICATION_TYPE_SAVE": "save"
+  }
 }

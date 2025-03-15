@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useSectionInfos, useTypeErrors } from "state/definitions";
-import { addTemporaryNotification } from "./notifications";
+import { setNotificationMessage } from "./notification";
 
 export function processTypeErrors(content) {
   const { projectConfigId, codeSectionId, diagnostics } = content;
@@ -25,7 +25,7 @@ export function processTypeErrors(content) {
   }
 
   if (useTypeErrors.getState().userRequested) {
-    addTemporaryNotification(
+    setNotificationMessage(
       _.size(typeErrors) === 0
         ? "No type errors"
         : `Found ${_.size(typeErrors)} type errors`,

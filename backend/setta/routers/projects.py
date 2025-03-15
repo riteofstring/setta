@@ -5,11 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from setta.database.backup import maybe_create_backup
-from setta.database.db.notifications.delete import delete_notification
-from setta.database.db.notifications.load import (
-    create_notification_dict,
-    load_project_notifications,
-)
 from setta.database.db.projects.delete import delete_project_configs
 from setta.database.db.projects.load import (
     ProjectNotFound,
@@ -90,14 +85,6 @@ class AddDefaultDataForJSONImportRequest(BaseModel):
     project: dict
 
 
-class GetNotificationsRequest(BaseModel):
-    projectConfigId: str
-
-
-class DeleteNotificationRequest(BaseModel):
-    notificationId: str
-
-
 @router.post(C.ROUTE_ALL_PROJECT_CONFIG_METADATA)
 def route_all_project_config_metadata(dbq=Depends(get_dbq)):
     with dbq as db:
@@ -133,21 +120,9 @@ def route_load_full_project(x: ProjectLoadFullRequest, dbq=Depends(get_dbq)):
 @router.post(C.ROUTE_SAVE_PROJECT)
 def route_save_project(x: ProjectSaveRequest, dbq=Depends(get_dbq)):
     with dbq as db:
-        notification = None
-        try:
-            # Perform existing save operations
-            maybe_create_backup(db.path)
-            save_project_details(db, x.project)
-            maybe_export_database(db, db.path)
-            # Return success response with notification
-            notification = create_notification_dict(message="Saved!", temporary=True)
-
-        except Exception as e:
-            notification = create_notification_dict(
-                message="Failed to save", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
-            )
-
-        return {"notification": notification}
+        maybe_create_backup(db.path)
+        save_project_details(db, x.project)
+        maybe_export_database(db, db.path)
 
 
 @router.post(C.ROUTE_CREATE_PROJECT_CONFIG)
@@ -211,17 +186,3 @@ def router_filter_data_for_json_export(x: FilterDataForJSONExportRequest):
 def router_add_default_data_for_json_import(x: FilterDataForJSONExportRequest):
     add_defaults_to_project_and_load_json_sources(x.project)
     return x.project
-
-
-@router.post(C.ROUTE_GET_NOTIFICATIONS)
-def route_get_notifications(x: GetNotificationsRequest, dbq=Depends(get_dbq)):
-    with dbq as db:
-        notifications = load_project_notifications(db, x.projectConfigId)
-        return notifications
-
-
-@router.post(C.ROUTE_DELETE_NOTIFICATION)
-def route_delete_notification(x: DeleteNotificationRequest, dbq=Depends(get_dbq)):
-    with dbq as db:
-        success = delete_notification(db, x.notificationId)
-        return {"success": success}

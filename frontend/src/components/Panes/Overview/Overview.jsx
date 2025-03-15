@@ -3,7 +3,6 @@ import { PaneContainer } from "components/Utils/PaneContainer";
 import { Controls } from "forks/xyflow/controls";
 import { BiHelpCircle } from "react-icons/bi";
 import { HiOutlineEye } from "react-icons/hi";
-import { MdNotificationsNone } from "react-icons/md";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
 import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
@@ -12,7 +11,6 @@ import {
   onOverviewTabClick,
   TabButton,
 } from "../paneFns";
-import { NotificationsArea } from "./NotificationsArea";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
 import { ViewingEditingMode } from "./ViewingEditingMode";
@@ -60,14 +58,6 @@ export function Overview() {
         >
           <HiOutlineEye size={20} />
         </TabButton>
-
-        <TabButton
-          tabName="tab4"
-          {...commonProps}
-          {...getFloatingBoxHandlers({ content: "Notifications" })}
-        >
-          <MdNotificationsNone size={20} />
-        </TabButton>
         <Controls />
         <a
           href="https://docs.setta.dev"
@@ -98,7 +88,6 @@ function TabsVisible({ tab }) {
     tab1: "Overview",
     tab2: "Project Configs",
     tab3: "View Modes",
-    tab4: "Notifications",
   }[tab];
   return (
     <div
@@ -121,7 +110,5 @@ function TabContent({ tab }) {
       return <ProjectConfigs />;
     case "tab3":
       return <ViewingEditingMode />;
-    case "tab4":
-      return <NotificationsArea />;
   }
 }

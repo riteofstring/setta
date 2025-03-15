@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from setta.database.db.notifications.load import create_notification_dict
 from setta.utils.constants import C
 
 from .dependencies import get_settings_file
@@ -33,16 +32,7 @@ def route_load_settings(settings_file=Depends(get_settings_file)):
 def route_save_settings_project(
     x: SaveSettingsProjectRequest, settings_file=Depends(get_settings_file)
 ):
-    notification = None
-    try:
-        settings_file.save_settings_project(x.settingsProject)
-        notification = create_notification_dict(message="Saved!", temporary=True)
-    except Exception as e:
-        notification = create_notification_dict(
-            message="Failed to save", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
-        )
-
-    return {"notification": notification}
+    return settings_file.save_settings_project(x.settingsProject)
 
 
 @router.post(C.ROUTE_LOAD_SETTINGS_PROJECT)

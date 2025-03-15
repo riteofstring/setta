@@ -1,7 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { dbDeleteFile } from "requests/jsonSource";
 import { setModalOpen } from "state/actions/modal";
-import { addTemporaryNotification } from "state/actions/notifications";
+import { setNotificationMessage } from "state/actions/notification";
 import {
   fileDeletionRequestId,
   setTemporaryMiscState,
@@ -20,10 +20,10 @@ export function DeleteFileModal() {
     if (res.status == 200) {
       // allows function that opened modal to find out if file was deleted
       setTemporaryMiscState(fileDeletionRequestId(filepath), true);
-      addTemporaryNotification("Deleted file");
+      setNotificationMessage("Deleted file");
     } else {
       setTemporaryMiscState(fileDeletionRequestId(filepath), false);
-      addTemporaryNotification("File deletion failed");
+      setNotificationMessage("File deletion failed");
     }
     setModalOpen(false);
   };

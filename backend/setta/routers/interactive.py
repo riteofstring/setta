@@ -17,17 +17,12 @@ from setta.code_gen.export_selected import (
     get_section_type,
 )
 from setta.code_gen.find_placeholders import parse_template_var
-from setta.database.db.notifications.load import (
-    create_notification_dict,
-    load_notification,
-)
-from setta.database.db.notifications.save import save_notification
 from setta.tasks.fns.utils import replace_template_vars_with_random_names
 from setta.tasks.tasks import construct_subprocess_key
 from setta.utils.constants import C
 from setta.utils.utils import multireplace
 
-from .dependencies import get_dbq, get_lsp_writers, get_tasks
+from .dependencies import get_lsp_writers, get_tasks
 
 router = APIRouter()
 
@@ -39,10 +34,6 @@ class UpdateInteractiveCodeRequest(BaseModel):
 class FormatCodeRequest(BaseModel):
     project: dict
     candidateTemplateVars: dict
-
-
-class KillInMemorySubprocessesRequest(BaseModel):
-    projectConfigId: str
 
 
 @router.post(C.ROUTE_SEND_PROJECT_TO_INTERACTIVE_CODE)
@@ -160,36 +151,8 @@ async def update_interactive_code(p, tasks, lsp_writers, idx):
 
 
 @router.post(C.ROUTE_KILL_IN_MEMORY_SUBPROCESSES)
-async def route_kill_in_memory_subprocesses(
-    x: KillInMemorySubprocessesRequest, tasks=Depends(get_tasks), dbq=Depends(get_dbq)
-):
-    notification = None
-    try:
-        num_killed = tasks.kill_in_memory_subprocesses()
-        if num_killed == 0:
-            notification = create_notification_dict(
-                message="No subprocesses to kill",
-                type=C.NOTIFICATION_TYPE_INFO,
-                temporary=True,
-            )
-        else:
-            with dbq as db:
-                notification_id = save_notification(
-                    db,
-                    x.projectConfigId,
-                    C.NOTIFICATION_TYPE_INFO,
-                    f"Killed {num_killed} subprocesses",
-                )
-                notification = load_notification(db, notification_id)
-
-    except Exception as e:
-        notification = create_notification_dict(
-            message="Failed to kill subprocesses",
-            type=C.NOTIFICATION_TYPE_ERROR,
-            temporary=True,
-        )
-
-    return {"notification": notification}
+async def route_kill_in_memory_subprocesses(tasks=Depends(get_tasks)):
+    tasks.kill_in_memory_subprocesses()
 
 
 @router.post(C.ROUTE_FORMAT_CODE)
