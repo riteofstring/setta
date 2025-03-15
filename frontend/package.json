@@ -2,7 +2,7 @@
   "name": "setta-frontend",
   "version": "0.1.0",
   "private": true,
-  "type":"module",
+  "type": "module",
   "dependencies": {
     "@codemirror/autocomplete": "6.15.0",
     "@codemirror/commands": "6.7.1",
@@ -37,7 +37,6 @@
     "@uiw/codemirror-theme-github": "4.21.21",
     "@uiw/codemirror-themes": "4.23.0",
     "@uiw/react-codemirror": "4.21.21",
-    "@vitejs/plugin-react": "4.0.0",
     "autoprefixer": "10.4.12",
     "axios": "1.8.1",
     "chart.js": "4.4.7",
@@ -91,7 +90,9 @@
     "ncmr": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh --reload\"",
     "reset": "cd .. && rm -rf setta_files && cd frontend && pnpm start",
     "build": "vite build --base=/static/",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
     "serve": "vite preview",
     "l": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
     "f": "prettier src --write",
@@ -119,20 +120,25 @@
     ]
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
     "@types/babel__generator": "7.6.4",
     "@types/uuid": "9.0.0",
     "@typescript-eslint/eslint-plugin": "8.26.0",
     "@typescript-eslint/parser": "8.26.0",
+    "@vitejs/plugin-react": "4.3.4",
     "concurrently": "8.2.0",
     "eslint": "9.21.0",
     "eslint-import-resolver-custom-alias": "1.3.2",
     "eslint-plugin-import": "2.31.0",
     "eslint-plugin-react": "7.37.4",
     "eslint-plugin-unused-imports": "4.1.4",
+    "jsdom": "^26.0.0",
     "prettier": "3.2.4 ",
     "prettier-plugin-organize-imports": "3.2.4",
     "prettier-plugin-tailwindcss": "0.5.11",
     "ts-prune": "0.10.3",
-    "typescript": "4.7.4"
+    "typescript": "4.7.4",
+    "vitest": "^3.0.8"
   }
 }
