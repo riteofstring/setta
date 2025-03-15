@@ -14,7 +14,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { mockStreamResponse } from "services/projectLLMService";
+import { getAvailableModels, sendMessage } from "services/aiService";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { CodeBlockDisplay } from "./ChatComponents/CodeBlockDisplay";
 import { FileDragDrop } from "./ChatComponents/FileDragDrop";
@@ -31,6 +31,33 @@ export function ProjectLLMChat() {
   const inputRef = useRef(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const streamingMessageRef = useRef(null);
+  const abortControllerRef = useRef(null);
+  const [availableModels, setAvailableModels] = useState([
+    { value: "gpt-4", label: "GPT-4" },
+    { value: "claude-3", label: "Claude 3" },
+    { value: "mixtral", label: "Mixtral" },
+    { value: "llama-3", label: "Llama 3" },
+  ]);
+
+  // Fetch available models on initial load
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const models = await getAvailableModels();
+        setAvailableModels(
+          models.map((model) => ({
+            value: model.id,
+            label: model.name,
+          })),
+        );
+      } catch (error) {
+        console.error("Failed to fetch models:", error);
+        // Keep the default models if fetching fails
+      }
+    };
+
+    fetchModels();
+  }, []);
 
   // Scroll to bottom when messages change or when streaming
   useEffect(() => {
@@ -46,7 +73,16 @@ export function ProjectLLMChat() {
     }
   }, [isThinking]);
 
-  const handleSubmit = (e) => {
+  // Cleanup function for when component unmounts during streaming
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  const handleSubmit = async (e) => {
     if (e) {
       e.preventDefault();
     }
@@ -59,52 +95,69 @@ export function ProjectLLMChat() {
       files: [...selectedFiles], // Include any attached files
     };
 
-    // Important: Reset streamingMessageRef before adding a new message
+    // Reset streaming state
+    setCurrentStreamedMessage("");
     streamingMessageRef.current = null;
 
+    // Add user message to chat
     setMessages((prevMessages) => [...prevMessages, newMessage]);
     setInputValue("");
-    setSelectedFiles([]); // Clear selected files after sending
-
-    // Simulate LLM thinking and response
+    setSelectedFiles([]);
     setIsThinking(true);
-    setCurrentStreamedMessage("");
 
-    // Create an accumulator for the chunks
-    let accumulatedMessage = "";
-
-    // Use the mock streaming function
-    const cleanupFn = mockStreamResponse(
-      inputValue,
-      (chunk) => {
-        // Accumulate chunks to avoid state synchronization issues
-        accumulatedMessage += chunk;
-        setCurrentStreamedMessage(accumulatedMessage);
-      },
-      (reasoning) => {
-        // When streaming is complete, add the final message with reasoning
-        const finalContent =
-          process.env.NODE_ENV === "test"
-            ? "This is a test streamed message"
-            : accumulatedMessage;
-
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          {
-            role: "assistant",
-            content: finalContent,
-            reasoning: reasoning,
-          },
-        ]);
-        setIsThinking(false);
-        setCurrentStreamedMessage("");
-        // Reset accumulator
-        accumulatedMessage = "";
-      },
-    );
-
-    // Cleanup function for when component unmounts during streaming
-    return () => cleanupFn();
+    try {
+      // Send message to AI service
+      abortControllerRef.current = await sendMessage({
+        message: inputValue,
+        model: model,
+        onStart: () => {
+          // Initialize streaming state
+          setCurrentStreamedMessage("");
+        },
+        onMessage: (content) => {
+          // Update streaming message with new content
+          setCurrentStreamedMessage((prev) => prev + content);
+        },
+        onError: (error) => {
+          console.error("Error in LLM response:", error);
+          setIsThinking(false);
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            {
+              role: "assistant",
+              content:
+                "Sorry, there was an error processing your request. Please try again.",
+              error: true,
+            },
+          ]);
+        },
+        onComplete: (reasoning) => {
+          // Add final message to chat history
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            {
+              role: "assistant",
+              content: currentStreamedMessage, // Use the current streamed message value
+              reasoning: reasoning,
+            },
+          ]);
+          setIsThinking(false);
+          setCurrentStreamedMessage("");
+        },
+      });
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      setIsThinking(false);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          role: "assistant",
+          content:
+            "Sorry, there was an error sending your message. Please try again.",
+          error: true,
+        },
+      ]);
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -115,6 +168,12 @@ export function ProjectLLMChat() {
   };
 
   const clearMessages = () => {
+    // Abort any in-progress streaming
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
     setMessages([]);
     setCurrentStreamedMessage("");
     setIsThinking(false);
@@ -143,7 +202,11 @@ export function ProjectLLMChat() {
         </div>
 
         <div className="flex items-center gap-2">
-          <ModelSelector model={model} setModel={setModel} />
+          <ModelSelector
+            model={model}
+            setModel={setModel}
+            availableModels={availableModels}
+          />
 
           <button
             onClick={clearMessages}
@@ -378,16 +441,9 @@ export function ProjectLLMChat() {
   );
 }
 
-function ModelSelector({ model, setModel }) {
+function ModelSelector({ model, setModel, availableModels }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
-
-  const models = [
-    { value: "gpt-4", label: "GPT-4" },
-    { value: "claude-3", label: "Claude 3" },
-    { value: "mixtral", label: "Mixtral" },
-    { value: "llama-3", label: "Llama 3" },
-  ];
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -404,7 +460,8 @@ function ModelSelector({ model, setModel }) {
   }, []);
 
   // Get current model label
-  const currentModel = models.find((m) => m.value === model) || models[0];
+  const currentModel =
+    availableModels.find((m) => m.value === model) || availableModels[0];
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -421,7 +478,7 @@ function ModelSelector({ model, setModel }) {
       {isOpen && (
         <div className="absolute right-0 top-full z-10 mt-1 w-32 overflow-hidden rounded-md border border-setta-200 bg-white shadow-md dark:border-setta-700 dark:bg-setta-900">
           <div className="p-1">
-            {models.map((item) => (
+            {availableModels.map((item) => (
               <button
                 key={item.value}
                 className={`w-full rounded px-3 py-1.5 text-left text-xs ${
