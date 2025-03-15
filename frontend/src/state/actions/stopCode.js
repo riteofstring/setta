@@ -1,10 +1,10 @@
 import { dbKillInMemorySubprocesses } from "requests/interactive";
-import { setNotificationMessage } from "./notification";
+import {
+  addNotificationFromRes,
+  addTemporaryNotification,
+} from "./notifications";
 
 export async function stopCode() {
-  setNotificationMessage("Stopping subprocesses");
-  const res = await dbKillInMemorySubprocesses();
-  if (res.status === 200) {
-    setNotificationMessage("Subprocesses stopped!");
-  }
+  addTemporaryNotification("Stopping subprocesses");
+  addNotificationFromRes(await dbKillInMemorySubprocesses());
 }
