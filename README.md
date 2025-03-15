@@ -13,7 +13,11 @@
 ## News
 
 **March 13**: [v0.0.17](https://github.com/settadev/setta/releases/tag/v0.0.17)
-- Added the Notifications view. It looks like this:
+- Added the Notifications view.
+
+<div align="center">
+  <img width="441" src="https://github.com/user-attachments/assets/568f82c7-4944-44c8-a7c5-20008f09f97e" />
+</div>
 
 **March 10**: [v0.0.16](https://github.com/settadev/setta/releases/tag/v0.0.16)
 - Made tooltips resizable and draggable.
