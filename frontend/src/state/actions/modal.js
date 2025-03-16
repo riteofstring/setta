@@ -9,10 +9,6 @@ export function setModalOpen(open) {
   }
 }
 
-export function setModalType(modalType) {
-  useModal.setState({ modalType });
-}
-
 function openModal(modalType, modalData) {
   useModal.setState({ modalType, modalData, open: true });
 }

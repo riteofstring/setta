@@ -11,7 +11,6 @@ import {
   ExportJSONModal,
   ImportJSONModal,
 } from "./ImportExportModal/ImportExportModal";
-import { LLMSettingsModal } from "./LLMSettingsModal";
 import { RenameReferencesModal } from "./RenameReferencesModal/RenameReferencesModal";
 import { SaveUITypeConfigModal } from "./SaveUITypeConfigModal/SaveUITypeConfigModal";
 import { SaveCustomArgumentsModal } from "./SectionSaveButtonModal/SaveCustomArgumentsModal";
@@ -24,8 +23,8 @@ export function ModalContainer({ children }) {
     <Dialog.Root open={open} onOpenChange={setModalOpen}>
       {children}
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[1000] max-h-[85vh] w-[90vw] max-w-[500px] -translate-x-1/2 -translate-y-1/2 animate-[contentShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] overflow-hidden rounded-lg bg-white p-6 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800">
+        <Dialog.Overlay className="fixed inset-0 z-20 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm " />
+        <Dialog.Content className="animate-[contentShow_150ms_cubic-bezier(0.16,_1,_ 0.3,_ 1) fixed left-1/2 top-1/2 z-[100] flex h-min max-h-[clamp(10rem,85vh,30rem)] min-h-0 w-[90vw] max-w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white px-7 pb-3 pt-7 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800">
           <ModalContent open={open} />
         </Dialog.Content>
       </Dialog.Portal>
@@ -40,7 +39,6 @@ function ModalContent({ open }) {
     return null;
   }
 
-  // Return the appropriate modal component based on type
   switch (modalType.title) {
     case MODAL_TYPE.LOAD_PROJECT_CONFIG.title:
       return <FileMenuLoadModal open={open} modalType={modalType} />;
@@ -63,10 +61,6 @@ function ModalContent({ open }) {
       return <DeleteFileModal open={open} />;
     case MODAL_TYPE.ADD_ARTIFACT_BY_FILEPATH.title:
       return <AddArtifactByFilepathModal open={open} />;
-    case MODAL_TYPE.LLM_SETTINGS.title:
-      return (
-        <LLMSettingsModal open={open} onClose={() => setModalOpen(false)} />
-      );
     default:
       return null;
   }
