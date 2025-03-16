@@ -63,6 +63,7 @@ export function DropdownInput({
   onChange,
   outerDivClasses,
   isDisabled,
+  placeholder,
 }) {
   const allItems = [
     {
@@ -79,6 +80,7 @@ export function DropdownInput({
       onSelectedItemChange={onChange}
       small={true}
       isDisabled={isDisabled}
+      placeholder={placeholder}
     />
   );
 }
