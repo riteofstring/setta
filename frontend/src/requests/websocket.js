@@ -5,10 +5,7 @@ import {
   updateInteractiveArtifacts,
 } from "state/actions/interactive";
 import { updateJSONSourceContents } from "state/actions/jsonSource";
-import {
-  addNotificationFromWebsocketMsg,
-  addTemporaryNotification,
-} from "state/actions/notifications";
+import { addNotificationFromWebsocketMsg } from "state/actions/notifications";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeErrors";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";

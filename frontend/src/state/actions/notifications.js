@@ -3,7 +3,7 @@ import { useNotifications, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
 // Standalone notification actions as separate functions
-export const addNotification = (notification) => {
+const addNotification = (notification) => {
   useNotifications.setState((state) => ({
     notifications: [notification, ...state.notifications],
   }));
