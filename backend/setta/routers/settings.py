@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
 from setta.database.db.notifications.load import create_notification_dict
@@ -32,6 +32,7 @@ def route_load_settings(settings_file=Depends(get_settings_file)):
 @router.post(C.ROUTE_SAVE_SETTINGS_PROJECT)
 async def route_save_settings_project(
     x: SaveSettingsProjectRequest,
+    background_tasks: BackgroundTasks,
     settings_file=Depends(get_settings_file),
     websocket_manager=Depends(get_websocket_manager),
 ):
@@ -45,8 +46,10 @@ async def route_save_settings_project(
             message="Failed to save", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
         )
 
-    await websocket_manager.broadcast_notification(
-        notification, x.settingsProject["projectConfig"]["id"]
+    background_tasks.add_task(
+        websocket_manager.broadcast_notification,
+        notification,
+        x.settingsProject["projectConfig"]["id"],
     )
 
     return output
