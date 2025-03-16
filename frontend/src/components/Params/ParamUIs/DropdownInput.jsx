@@ -45,7 +45,7 @@ export function DropdownInputConfig({ onChange, config }) {
             </div>
             <button
               onClick={() => removeChoice(idx)}
-              className="flex cursor-pointer items-center rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              className="flex cursor-pointer items-center rounded-full p-1 text-setta-400 hover:bg-setta-100 hover:text-setta-700"
               aria-label="Remove choice"
             >
               <i className="gg-close !scale-75" />

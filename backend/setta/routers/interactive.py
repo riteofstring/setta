@@ -1,7 +1,7 @@
 import asyncio
 
 import black
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from setta.code_gen.create_runnable_scripts import (
@@ -27,7 +27,7 @@ from setta.tasks.tasks import construct_subprocess_key
 from setta.utils.constants import C
 from setta.utils.utils import multireplace
 
-from .dependencies import get_dbq, get_lsp_writers, get_tasks, get_websocket_manager
+from .dependencies import get_dbq, get_lsp_writers, get_tasks
 
 router = APIRouter()
 
@@ -161,11 +161,7 @@ async def update_interactive_code(p, tasks, lsp_writers, idx):
 
 @router.post(C.ROUTE_KILL_IN_MEMORY_SUBPROCESSES)
 async def route_kill_in_memory_subprocesses(
-    x: KillInMemorySubprocessesRequest,
-    background_tasks: BackgroundTasks,
-    tasks=Depends(get_tasks),
-    dbq=Depends(get_dbq),
-    websocket_manager=Depends(get_websocket_manager),
+    x: KillInMemorySubprocessesRequest, tasks=Depends(get_tasks), dbq=Depends(get_dbq)
 ):
     notification = None
     try:
@@ -193,9 +189,7 @@ async def route_kill_in_memory_subprocesses(
             temporary=True,
         )
 
-    background_tasks.add_task(
-        websocket_manager.broadcast_notification, notification, x.projectConfigId
-    )
+    return {"notification": notification}
 
 
 @router.post(C.ROUTE_FORMAT_CODE)
