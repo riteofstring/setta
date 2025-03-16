@@ -156,3 +156,7 @@ function ProjectAIChatCore({ chatId, messages }) {
     </div>
   );
 }
+
+function ProjectChatHistory() {
+  return <div className="flex h-full min-h-0 flex-col ">History</div>;
+}

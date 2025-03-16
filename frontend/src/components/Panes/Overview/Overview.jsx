@@ -4,7 +4,7 @@ import { Controls } from "forks/xyflow/controls";
 import { BiHelpCircle } from "react-icons/bi";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
-import { MdNotificationsNone } from "react-icons/md";
+import { MdNotificationsNone, MdOutlineSmartToy } from "react-icons/md";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
 import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
@@ -16,6 +16,7 @@ import {
 import { NotificationsArea } from "./NotificationsArea";
 import { ProjectAIChat } from "./ProjectAIChat";
 import { ProjectConfigs } from "./ProjectConfigs";
+import { ProjectLLMSettings } from "./ProjectLLMSettings";
 import { ProjectOverview } from "./ProjectOverview";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 const paneName = OVERVIEW;
@@ -76,6 +77,13 @@ export function Overview() {
         >
           <IoChatbox size={20} />
         </TabButton>
+        <TabButton
+          tabName="tab6"
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
+        >
+          <MdOutlineSmartToy size={20} />
+        </TabButton>
         <Controls />
         <a
           href="https://docs.setta.dev"
@@ -108,6 +116,7 @@ function TabsVisible({ tab }) {
     tab3: "View Modes",
     tab4: "Notifications",
     tab5: "AI Chat",
+    tab6: "AI Settings",
   }[tab];
   return (
     <div
@@ -134,5 +143,7 @@ function TabContent({ tab }) {
       return <NotificationsArea />;
     case "tab5":
       return <ProjectAIChat />;
+    case "tab6":
+      return <ProjectLLMSettings />;
   }
 }
