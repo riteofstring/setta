@@ -10,7 +10,7 @@ export function ProjectLLMSettings() {
       <ModelItem />
       <ModelItem />
       <ModelItem />
-      <button className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500/30 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  focus-visible:border-blue-500 dark:text-setta-400 dark:hover:bg-setta-900">
+      <button className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500/30 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-white  focus-visible:border-blue-500 dark:text-setta-400 dark:hover:bg-setta-800">
         <i className="gg-play-list-add !scale-75" />
         <p>Add an LLM</p>
       </button>
@@ -24,6 +24,15 @@ function ModelItem() {
   return (
     <form className="mr-0.5 flex flex-col gap-2 rounded-lg  p-3 text-xs transition-colors hover:bg-white/50  hover:dark:bg-setta-800/50 ">
       <div className="flex items-center gap-2">
+        <p className="-ml-2.5 w-full">
+          <DropdownInput
+            options={["GPT-4", "Claude 3.7", "Mixtral"]}
+            onChange={() => {}}
+            value={""}
+            placeholder="Select an LLM model."
+            small={false}
+          />
+        </p>
         <p>Local</p>
         <Toggle
           onClick={() => {
@@ -36,18 +45,10 @@ function ModelItem() {
           bg="bg-transparent hover:bg-red-500"
           size="min-w-4 h-4"
           padding="p-1"
-          twClasses="ml-auto"
+          twClasses=""
         />
       </div>
-      <p className="-mx-2.5">
-        <DropdownInput
-          options={["GPT-4", "Claude 3.7", "Mixtral"]}
-          onChange={() => {}}
-          value={""}
-          placeholder="Select an LLM model."
-          small={false}
-        />
-      </p>
+
       {isLocal ? (
         <p className="flex flex-col gap-0.5">
           <label htmlFor="Model Location">Path</label>

@@ -2,6 +2,7 @@ import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import _ from "lodash";
 import { useState } from "react";
+import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSend } from "react-icons/io5";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
@@ -50,31 +51,47 @@ export function ProjectAIChat() {
   // Generate a temporary ID if we don't have a real one
   const chatId = chatArtifacts.id || "project_chat";
 
-  return <ProjectAIChatCore chatId={chatId} messages={messages} />;
+  return <ProjectAIChatContainer chatId={chatId} messages={messages} />;
 }
 
-function ProjectAIChatCore({ chatId, messages }) {
+function ProjectAIChatContainer({ chatId, messages }) {
   const [viewHistory, setViewHistory] = useState(false);
   return (
     <div className="flex h-full min-h-0 flex-col ">
-      <nav className="flex items-center gap-2 border-b border-setta-100 py-4 dark:border-setta-800">
-        <button className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950">
+      <nav className="flex min-h-[60px] items-center gap-2 border-b border-setta-100 py-4 dark:border-setta-800">
+        <button
+          className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950"
+          onClick={() => {
+            setViewHistory(false);
+          }}
+        >
           <MdAdd size={15} />
         </button>
-        <button className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950">
-          <RiChatHistoryLine size={15} />
+        <button
+          className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950"
+          onClick={() => {
+            setViewHistory(!viewHistory);
+          }}
+        >
+          {viewHistory ? (
+            <>
+              <IoMdArrowRoundBack />
+              <p>Return to chat</p>
+            </>
+          ) : (
+            <RiChatHistoryLine size={15} />
+          )}
         </button>
 
-        <DropdownInput
-          options={["GPT-4", "Claude 3.7", "Mixtral"]}
-          onChange={() => {}}
-          value={""}
-          placeholder="Select an LLM model."
-          outerDivClasses="max-w-64 justify-center ml-auto"
-        />
-        {/* <button className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950">
-          <IoSettingsOutline size={15} />
-        </button> */}
+        {viewHistory ? null : (
+          <DropdownInput
+            options={["GPT-4", "Claude 3.7", "Mixtral"]}
+            onChange={() => {}}
+            value={""}
+            placeholder="Select an LLM model."
+            outerDivClasses="max-w-64 justify-center ml-auto"
+          />
+        )}
       </nav>
       {viewHistory ? (
         <ProjectChatHistory />
@@ -171,5 +188,29 @@ function ProjectChatCore({ messages }) {
 }
 
 function ProjectChatHistory() {
-  return <div className="flex h-full min-h-0 flex-col ">History</div>;
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-4 pt-2">
+      <ChatHistoryItem />
+      <ChatHistoryItem />
+      <ChatHistoryItem />
+      <ChatHistoryItem />
+      <ChatHistoryItem />
+    </div>
+  );
+}
+
+function ChatHistoryItem() {
+  return (
+    <button
+      className="flex cursor-pointer flex-col gap-1 rounded-md border border-transparent px-2 py-1 transition-colors hover:bg-white focus-visible:border-blue-500 hover:dark:bg-setta-800"
+      tabIndex="1"
+    >
+      <h3 className="truncate font-semibold text-setta-500 dark:text-setta-300">
+        My Previous Chat Had A Long Title
+      </h3>
+      <p className="truncate text-xs text-setta-800 dark:text-setta-200">
+        Let's put in a brief snippet here that is truncated visually with css.
+      </p>
+    </button>
+  );
 }
