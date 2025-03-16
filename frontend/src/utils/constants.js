@@ -121,6 +121,11 @@ export const MODAL_TYPE = {
     title: "Add Artifact By Filepath",
     buttonText: "Delete",
   },
+  ADD_AI_MODEL: {
+    purpose: null,
+    title: "Add AI Model",
+    buttonText: "Add",
+  },
 };
 
 export const PAGE_LOAD_TYPES = {

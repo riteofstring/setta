@@ -48,3 +48,7 @@ export function openDeleteJSONSourceFileModal(filepath) {
 export function openAddArtifactByFilepathModal(sectionId) {
   openModal(MODAL_TYPE.ADD_ARTIFACT_BY_FILEPATH, sectionId);
 }
+
+export function openAddAIModelModal() {
+  openModal(MODAL_TYPE.ADD_AI_MODEL);
+}
