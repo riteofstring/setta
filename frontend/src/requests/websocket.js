@@ -63,8 +63,6 @@ function receiveMessage(message) {
     processTypeErrors(m.content);
   } else if (m.messageType === C.WS_NOTIFICATION) {
     addNotificationFromWebsocketMsg(m.content);
-  } else if (m.messageType === C.WS_LSP_STATUS) {
-    addTemporaryNotification(`Language Server ${m.content.data}`);
   } else if (
     m.messageType === C.WS_ARTIFACT ||
     m.messageType === C.WS_IN_MEMORY_FN_RETURN

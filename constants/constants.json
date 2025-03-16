@@ -108,7 +108,6 @@
   "WS_ARTIFACT": "artifact",
   "WS_IN_MEMORY_FN_RETURN": "inMemoryFnReturn",
   "WS_TERMINAL_RESIZE": "terminalResize",
-  "WS_LSP_STATUS": "lspStatus",
   "WS_IN_MEMORY_FN_AVG_RUN_TIME": "inMemoryFnAvgRunTime",
   "WS_SPECIFIC_FILE_WATCHER_UPDATE": "specificFileWatcherUpdate",
   "WS_NOTIFICATION": "notification",
@@ -131,5 +130,6 @@
   "NOTIFICATION_TYPE_ERROR": "error",
   "NOTIFICATION_TYPE_WARNING": "warning",
   "NOTIFICATION_TYPE_INFO": "info",
-  "NOTIFICATION_TYPE_SAVE": "save"
+  "NOTIFICATION_TYPE_SAVE": "save",
+  "NOTIFICATION_IS_FOR_ALL_PROJECTS": "NOTIFICATION_IS_FOR_ALL_PROJECTS"
 }

@@ -40,7 +40,9 @@ export const setNotifications = (notifications) => {
 export function addNotificationFromWebsocketMsg(notification) {
   if (
     !notification ||
-    notification.projectConfigId !== useSectionInfos.getState().projectConfig.id
+    (notification.projectConfigId !==
+      useSectionInfos.getState().projectConfig.id &&
+      notification.projectConfigId !== C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
   ) {
     return;
   }
