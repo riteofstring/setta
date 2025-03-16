@@ -135,7 +135,9 @@ class LanguageServerReader(LanguageServerInteractor):
             and id == self.server.initialization_request_id
         ):
             self.server.is_initialized = True
-            content = create_notification_dict("Language Server Started", temporary=True)
+            content = create_notification_dict(
+                "Language Server Started", temporary=True
+            )
             websocket_method = "broadcast_notification"
         elif method == "textDocument/completion":
             content = process_completion_response(response, metadata)
