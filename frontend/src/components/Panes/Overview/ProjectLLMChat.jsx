@@ -17,7 +17,10 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { getAvailableModels, sendMessage } from "services/aiService";
+import {
+  getAvailableModels,
+  sendMessageWithVercel,
+} from "services/vercelAIService";
 import { setModalOpen, setModalType } from "state/actions/modal";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { MODAL_TYPE } from "utils/constants";
@@ -266,8 +269,8 @@ export function ProjectLLMChat() {
     setIsThinking(true);
 
     try {
-      // Send message to AI service
-      abortControllerRef.current = await sendMessage({
+      // Send message to AI service using the Vercel AI SDK
+      abortControllerRef.current = await sendMessageWithVercel({
         message: inputValue,
         model: model,
         onStart: () => {
@@ -276,47 +279,72 @@ export function ProjectLLMChat() {
         },
         onMessage: (content) => {
           // Update streaming message with new content
-          setCurrentStreamedMessage((prev) => prev + content);
+          setCurrentStreamedMessage(content);
         },
         onError: (error) => {
           console.error("Error in LLM response:", error);
           setIsThinking(false);
+
+          // Add error message to chat with detailed information
           setMessages((prevMessages) => [
             ...prevMessages,
             {
               role: "assistant",
-              content:
-                "Sorry, there was an error processing your request. Please try again.",
+              content: `Sorry, there was an error processing your request: ${error.message || "Unknown error"}. Please check your API key in Settings and try again.`,
               error: true,
             },
           ]);
+
+          // Clear the streaming message to avoid empty bubbles
+          setCurrentStreamedMessage("");
         },
-        onComplete: (reasoning) => {
-          // Add final message to chat history
-          setMessages((prevMessages) => [
-            ...prevMessages,
-            {
-              role: "assistant",
-              content: currentStreamedMessage, // Use the current streamed message value
-              reasoning: reasoning,
-            },
-          ]);
+        onFinish: (finalContent) => {
           setIsThinking(false);
+
+          // If finalContent is provided directly (by mock response or otherwise)
+          if (finalContent && finalContent.trim() !== "") {
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              {
+                role: "assistant",
+                content: finalContent,
+              },
+            ]);
+            setCurrentStreamedMessage("");
+            return;
+          }
+
+          // Otherwise use the currentStreamedMessage from state
+          // Only add the message if there's actual content from streaming
+          if (currentStreamedMessage && currentStreamedMessage.trim() !== "") {
+            // Add final message to chat history
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              {
+                role: "assistant",
+                content: currentStreamedMessage,
+              },
+            ]);
+          }
           setCurrentStreamedMessage("");
         },
       });
     } catch (error) {
       console.error("Failed to send message:", error);
       setIsThinking(false);
+
+      // Add detailed error message to chat
       setMessages((prevMessages) => [
         ...prevMessages,
         {
           role: "assistant",
-          content:
-            "Sorry, there was an error sending your message. Please try again.",
+          content: `Sorry, there was an error sending your message: ${error.message || "Unknown error"}. Please try again.`,
           error: true,
         },
       ]);
+
+      // Clear any partial streamed message
+      setCurrentStreamedMessage("");
     }
   };
 

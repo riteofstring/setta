@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>API Debug Page</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      h1 {
+        color: #333;
+      }
+      button {
+        margin: 10px 0;
+        padding: 8px 16px;
+        background: #0070f3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #0051a8;
+      }
+      pre {
+        background: #f1f1f1;
+        padding: 10px;
+        border-radius: 4px;
+        overflow: auto;
+        max-height: 300px;
+      }
+      .error {
+        color: #d32f2f;
+      }
+      .success {
+        color: #2e7d32;
+      }
+      .panel {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+        background: #f9f9f9;
+      }
+      .hidden {
+        display: none;
+      }
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 16px;
+      }
+      .tab {
+        padding: 8px 16px;
+        cursor: pointer;
+        border: 1px solid transparent;
+      }
+      .tab.active {
+        border: 1px solid #ddd;
+        border-bottom-color: white;
+        border-radius: 4px 4px 0 0;
+        margin-bottom: -1px;
+        background: white;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>API Debug Page</h1>
+
+    <div class="panel">
+      <h2>API Status</h2>
+      <button id="testApiStatus">Check API Status</button>
+      <pre id="apiStatusResult">Click to check API status...</pre>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="models">Models API</div>
+      <div class="tab" data-tab="chat">Chat API</div>
+      <div class="tab" data-tab="anthropic">Anthropic Specific</div>
+      <div class="tab" data-tab="keys">API Keys</div>
+    </div>
+
+    <div id="modelsPanel" class="panel">
+      <h2>Test /api/models Endpoint</h2>
+      <button id="testModels">Test Models API</button>
+      <pre id="modelsResult">Results will appear here...</pre>
+    </div>
+
+    <div id="chatPanel" class="panel hidden">
+      <h2>Test /api/chat Endpoint</h2>
+      <div>
+        <label for="message">Message:</label>
+        <input
+          type="text"
+          id="message"
+          value="Hello, this is a test message"
+          style="width: 300px; padding: 5px"
+        />
+      </div>
+      <div>
+        <label for="model">Model:</label>
+        <input
+          type="text"
+          id="model"
+          value="claude-3-sonnet-20240229"
+          style="width: 300px; padding: 5px"
+        />
+      </div>
+      <div>
+        <label for="apiKey">API Key:</label>
+        <input
+          type="text"
+          id="apiKey"
+          value=""
+          style="width: 300px; padding: 5px"
+        />
+      </div>
+      <button id="testChat">Test Chat API</button>
+      <pre id="chatResult">Results will appear here...</pre>
+    </div>
+
+    <div id="anthropicPanel" class="panel hidden">
+      <h2>Test Anthropic API Specifically</h2>
+      <p>
+        Use this section to test Claude 3.5 Sonnet and other Anthropic models
+      </p>
+      <div>
+        <label for="anthropicMessage">Message:</label>
+        <input
+          type="text"
+          id="anthropicMessage"
+          value="What new capabilities do you have in Claude 3.5?"
+          style="width: 300px; padding: 5px"
+        />
+      </div>
+      <div>
+        <label for="anthropicModel">Model:</label>
+        <select id="anthropicModel" style="width: 300px; padding: 5px">
+          <option value="claude-3-5-sonnet-20240620">Claude 3.5 Sonnet</option>
+          <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+          <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+          <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+        </select>
+      </div>
+      <div>
+        <label for="anthropicApiKey">Anthropic API Key:</label>
+        <input
+          type="text"
+          id="anthropicApiKey"
+          value=""
+          style="width: 300px; padding: 5px"
+        />
+      </div>
+      <div>
+        <label>
+          <input type="checkbox" id="anthropicVerbose" />
+          Verbose mode (log headers and request details)
+        </label>
+      </div>
+      <button id="testAnthropic">Test Anthropic API</button>
+      <button id="validateAnthropicKey">Validate API Key Only</button>
+      <pre id="anthropicResult">Results will appear here...</pre>
+    </div>
+
+    <div id="keysPanel" class="panel hidden">
+      <h2>Test API Keys</h2>
+      <div>
+        <label for="testProvider">Provider:</label>
+        <select id="testProvider" style="width: 300px; padding: 5px">
+          <option value="anthropic">Anthropic</option>
+          <option value="openai">OpenAI</option>
+          <option value="together">Together AI</option>
+        </select>
+      </div>
+      <div>
+        <label for="testApiKey">API Key:</label>
+        <input
+          type="text"
+          id="testApiKey"
+          value=""
+          style="width: 300px; padding: 5px"
+        />
+      </div>
+      <button id="testKey">Test API Key</button>
+      <pre id="keyResult">Results will appear here...</pre>
+    </div>
+
+    <script>
+      // Tab switching functionality
+      document.querySelectorAll(".tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          // Update active tab
+          document
+            .querySelectorAll(".tab")
+            .forEach((t) => t.classList.remove("active"));
+          tab.classList.add("active");
+
+          // Hide all panels
+          document.querySelectorAll(".panel").forEach((panel) => {
+            if (panel.id !== "apiStatusResult") {
+              panel.classList.add("hidden");
+            }
+          });
+
+          // Show selected panel
+          const panelId = tab.getAttribute("data-tab") + "Panel";
+          document.getElementById(panelId).classList.remove("hidden");
+        });
+      });
+
+      // Test API Status
+      document
+        .getElementById("testApiStatus")
+        .addEventListener("click", async () => {
+          const resultEl = document.getElementById("apiStatusResult");
+          resultEl.textContent = "Checking API status...";
+          resultEl.classList.remove("error", "success");
+
+          try {
+            const response = await fetch("/api/debug");
+            resultEl.textContent = `Status: ${response.status}\n`;
+
+            if (response.ok) {
+              const data = await response.json();
+              resultEl.textContent += JSON.stringify(data, null, 2);
+              resultEl.classList.add("success");
+            } else {
+              const text = await response.text();
+              resultEl.textContent += `Error: ${text}`;
+              resultEl.classList.add("error");
+            }
+          } catch (error) {
+            resultEl.textContent = `Error: ${error.message}`;
+            resultEl.classList.add("error");
+          }
+        });
+
+      // Test the models API
+      document
+        .getElementById("testModels")
+        .addEventListener("click", async () => {
+          const resultEl = document.getElementById("modelsResult");
+          resultEl.textContent = "Fetching models...";
+          resultEl.classList.remove("error", "success");
+
+          try {
+            const response = await fetch("/api/models");
+            const contentType = response.headers.get("content-type");
+
+            resultEl.textContent = `Status: ${response.status}\nContent-Type: ${contentType}\n\n`;
+
+            if (response.ok) {
+              if (contentType && contentType.includes("application/json")) {
+                const data = await response.json();
+                resultEl.textContent += JSON.stringify(data, null, 2);
+                resultEl.classList.add("success");
+              } else {
+                const text = await response.text();
+                resultEl.textContent += `Non-JSON response: ${text.substring(0, 200)}...`;
+                resultEl.classList.add("error");
+              }
+            } else {
+              const text = await response.text();
+              resultEl.textContent += `Error: ${text}`;
+              resultEl.classList.add("error");
+            }
+          } catch (error) {
+            resultEl.textContent = `Error: ${error.message}`;
+            resultEl.classList.add("error");
+            console.error("API request failed:", error);
+          }
+        });
+
+      // Test the chat API
+      document
+        .getElementById("testChat")
+        .addEventListener("click", async () => {
+          const resultEl = document.getElementById("chatResult");
+          const message = document.getElementById("message").value;
+          const model = document.getElementById("model").value;
+          const apiKey = document.getElementById("apiKey").value;
+
+          resultEl.textContent = "Sending message...";
+          resultEl.classList.remove("error", "success");
+
+          try {
+            const headers = {
+              "Content-Type": "application/json",
+            };
+
+            if (apiKey) {
+              headers["Authorization"] = `Bearer ${apiKey}`;
+            }
+
+            const response = await fetch("/api/chat", {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                messages: [{ role: "user", content: message }],
+                model,
+              }),
+            });
+
+            const contentType = response.headers.get("content-type");
+            resultEl.textContent = `Status: ${response.status}\nContent-Type: ${contentType}\n\n`;
+
+            if (response.ok) {
+              if (contentType && contentType.includes("text/event-stream")) {
+                resultEl.textContent += "Streaming response started...\n\n";
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = "";
+
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+
+                  const chunk = decoder.decode(value, { stream: true });
+                  fullText += chunk;
+                  resultEl.textContent = `Streaming response:\n\n${fullText}`;
+                }
+                resultEl.classList.add("success");
+              } else {
+                const text = await response.text();
+                resultEl.textContent += text;
+                resultEl.classList.add("success");
+              }
+            } else {
+              const text = await response.text();
+              resultEl.textContent += `Error: ${text}`;
+              resultEl.classList.add("error");
+            }
+          } catch (error) {
+            resultEl.textContent = `Error: ${error.message}`;
+            resultEl.classList.add("error");
+            console.error("API request failed:", error);
+          }
+        });
+
+      // Test Anthropic API specifically
+      document
+        .getElementById("testAnthropic")
+        .addEventListener("click", async () => {
+          const resultEl = document.getElementById("anthropicResult");
+          const message = document.getElementById("anthropicMessage").value;
+          const model = document.getElementById("anthropicModel").value;
+          const apiKey = document.getElementById("anthropicApiKey").value;
+          const verbose = document.getElementById("anthropicVerbose").checked;
+
+          resultEl.textContent = "Sending message to Anthropic API...";
+          resultEl.classList.remove("error", "success");
+
+          try {
+            const headers = {
+              "Content-Type": "application/json",
+            };
+
+            if (apiKey) {
+              headers["Authorization"] = `Bearer ${apiKey}`;
+            }
+
+            if (verbose) {
+              resultEl.textContent += `\nRequest details:\nModel: ${model}\nHeaders: ${JSON.stringify(headers, null, 2)}\n`;
+            }
+
+            const response = await fetch("/api/chat", {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                messages: [{ role: "user", content: message }],
+                model,
+              }),
+            });
+
+            const contentType = response.headers.get("content-type");
+            resultEl.textContent += `\nStatus: ${response.status}\nContent-Type: ${contentType}\n\n`;
+
+            if (response.ok) {
+              if (contentType && contentType.includes("text/event-stream")) {
+                resultEl.textContent += "Streaming response started...\n\n";
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = "";
+
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+
+                  const chunk = decoder.decode(value, { stream: true });
+                  fullText += chunk;
+                  resultEl.textContent = `Anthropic API response:\n\n${fullText}`;
+                }
+                resultEl.classList.add("success");
+              } else {
+                const text = await response.text();
+                resultEl.textContent += text;
+                resultEl.classList.add("success");
+              }
+            } else {
+              const text = await response.text();
+              resultEl.textContent += `Error: ${text}`;
+              resultEl.classList.add("error");
+            }
+          } catch (error) {
+            resultEl.textContent = `Error: ${error.message}`;
+            resultEl.classList.add("error");
+            console.error("API request failed:", error);
+          }
+        });
+
+      // Validate Anthropic key only
+      document
+        .getElementById("validateAnthropicKey")
+        .addEventListener("click", async () => {
+          const resultEl = document.getElementById("anthropicResult");
+          const apiKey = document.getElementById("anthropicApiKey").value;
+
+          if (!apiKey) {
+            resultEl.textContent = "Error: API key is required";
+            resultEl.classList.add("error");
+            return;
+          }
+
+          resultEl.textContent = "Validating Anthropic API key...";
+          resultEl.classList.remove("error", "success");
+
+          try {
+            const response = await fetch("/api/debug/test-key", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                apiKey,
+                provider: "anthropic",
+              }),
+            });
+
+            const data = await response.json();
+            resultEl.textContent = `API Key Test Result:\n${JSON.stringify(data, null, 2)}`;
+
+            if (response.ok) {
+              resultEl.classList.add("success");
+            } else {
+              resultEl.classList.add("error");
+            }
+          } catch (error) {
+            resultEl.textContent = `Error: ${error.message}`;
+            resultEl.classList.add("error");
+          }
+        });
+
+      // Test API key
+      document.getElementById("testKey").addEventListener("click", async () => {
+        const resultEl = document.getElementById("keyResult");
+        const provider = document.getElementById("testProvider").value;
+        const apiKey = document.getElementById("testApiKey").value;
+
+        if (!apiKey) {
+          resultEl.textContent = "Error: API key is required";
+          resultEl.classList.add("error");
+          return;
+        }
+
+        resultEl.textContent = `Testing ${provider} API key...`;
+        resultEl.classList.remove("error", "success");
+
+        try {
+          const response = await fetch("/api/debug/test-key", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              apiKey,
+              provider,
+            }),
+          });
+
+          const data = await response.json();
+          resultEl.textContent = `API Key Test Result:\n${JSON.stringify(data, null, 2)}`;
+
+          if (response.ok) {
+            resultEl.classList.add("success");
+          } else {
+            resultEl.classList.add("error");
+          }
+        } catch (error) {
+          resultEl.textContent = `Error: ${error.message}`;
+          resultEl.classList.add("error");
+        }
+      });
+    </script>
+  </body>
+</html>

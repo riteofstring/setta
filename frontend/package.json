@@ -38,6 +38,7 @@
     "@uiw/codemirror-theme-github": "4.21.21",
     "@uiw/codemirror-themes": "4.23.0",
     "@uiw/react-codemirror": "4.21.21",
+    "ai": "^2.2.37",
     "autoprefixer": "10.4.12",
     "axios": "1.8.1",
     "chart.js": "4.4.7",
@@ -86,6 +87,7 @@
   },
   "scripts": {
     "start": "concurrently --kill-others \"vite\" \"bash ./backendStart.sh\"",
+    "vite-only": "vite",
     "startr": "concurrently --kill-others \"vite\" \"bash ./backendStart.sh --reload\"",
     "ncm": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh\"",
     "ncmr": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh --reload\"",

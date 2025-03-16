@@ -1,12 +1,16 @@
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 import { defineConfig } from "vite";
+import svgr from "vite-plugin-svgr";
+import apiMiddlewarePlugin from "./src/api/vitePlugin";
 
 export default defineConfig({
   plugins: [
     react({
       jsxRuntime: "automatic",
     }),
+    svgr(),
+    apiMiddlewarePlugin(),
   ],
   resolve: {
     alias: {
@@ -17,6 +21,7 @@ export default defineConfig({
       constants: resolve(__dirname, "../constants"),
       forks: resolve(__dirname, "./src/forks"),
       requests: resolve(__dirname, "./src/requests"),
+      api: resolve(__dirname, "./src/api"),
     },
   },
   build: {

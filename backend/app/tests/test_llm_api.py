@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock, MagicMock
 
-# Import our router and dependencies
+# Import our router
 from app.routers.llm import router as llm_router
 from app.services.llm_service import LLMService
 
@@ -15,33 +15,53 @@ app.include_router(llm_router, prefix="/api")
 client = TestClient(app)
 
 
+class AsyncMockLLMService(MagicMock):
+    """Mock LLM service with async methods for testing."""
+
+    async def __call__(self, *args, **kwargs):
+        return self
+
+    async def generate_stream(self, message, model, request_headers=None):
+        # Mock async generator
+        async def mock_generator():
+            yield {"role": "assistant", "content": "Test response"}
+
+        return mock_generator()
+
+
 @pytest.fixture
 def mock_llm_service():
     """Create a mock LLM service for testing."""
-    with patch("app.routers.llm.get_llm_service") as mock_get_service:
-        mock_service = MagicMock(spec=LLMService)
+    # Create a mock for the async dependency
+    mock_service = AsyncMockLLMService(spec=LLMService)
+    mock_service.get_available_models.return_value = [
+        {"id": "test-model", "name": "Test Model"}
+    ]
+
+    # Patch the get_llm_service function
+    with patch(
+        "app.routers.llm.get_llm_service", new_callable=AsyncMock
+    ) as mock_get_service:
         mock_get_service.return_value = mock_service
         yield mock_service
 
 
 def test_get_models(mock_llm_service):
     """Test the /api/models endpoint."""
-    # Setup mock response
-    mock_llm_service.get_available_models.return_value = [
-        {"id": "gpt-3.5-turbo", "name": "GPT-3.5"},
-        {"id": "gpt-4", "name": "GPT-4"},
-    ]
-
-    # Make request
     response = client.get("/api/models")
-
-    # Check response
     assert response.status_code == 200
-    assert response.json() == [
-        {"id": "gpt-3.5-turbo", "name": "GPT-3.5"},
-        {"id": "gpt-4", "name": "GPT-4"},
-    ]
-    mock_llm_service.get_available_models.assert_called_once()
+    assert len(response.json()) == 1
+    assert response.json()[0]["id"] == "test-model"
+
+
+def test_chat_endpoint(mock_llm_service):
+    """Test the /api/chat endpoint."""
+    response = client.post(
+        "/api/chat",
+        json={"message": "Hello, AI!", "model": "test-model"},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "text/event-stream"
 
 
 @pytest.mark.asyncio

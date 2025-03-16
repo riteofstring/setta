@@ -4,6 +4,7 @@ import aiohttp
 from typing import List, Dict, Optional, Any, AsyncGenerator
 from abc import ABC, abstractmethod
 import logging
+from fastapi import Request
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -154,12 +155,49 @@ class HuggingFaceInferenceService(LLMService):
 
 
 # Factory function to get the LLM service
-def get_llm_service() -> LLMService:
-    """Get the configured LLM service."""
+async def get_llm_service(request: Optional[Request] = None) -> LLMService:
+    """Get the configured LLM service.
+
+    Args:
+        request: Optional FastAPI request object to extract headers
+
+    Returns:
+        An instance of the configured LLM service
+    """
+    # Check if we should use the Anthropic service based on model name from path
+    if (
+        request
+        and hasattr(request, "path_params")
+        and request.path_params.get("model", "").startswith("claude")
+    ):
+        # Import here to avoid circular imports
+        from app.services.anthropic_service import AnthropicService
+
+        return AnthropicService()
+
+    # Check for chat requests from JSON body
+    if request and request.method == "POST" and request.url.path.endswith("/chat"):
+        try:
+            # Try to access the request body if it's available
+            if hasattr(request, "json"):
+                body = await request.json()
+                model = body.get("model", "")
+                if model and model.startswith("claude"):
+                    from app.services.anthropic_service import AnthropicService
+
+                    return AnthropicService()
+        except Exception as e:
+            logger.warning(f"Error checking request body: {str(e)}")
+
     # Check environment variables for service configuration
     service_type = os.environ.get("LLM_SERVICE_TYPE", "huggingface")
 
-    if service_type.lower() == "huggingface":
+    if service_type.lower() == "anthropic":
+        # Import here to avoid circular imports
+        from app.services.anthropic_service import AnthropicService
+
+        return AnthropicService()
+    elif service_type.lower() == "huggingface":
         return HuggingFaceInferenceService()
     else:
         # Default to HuggingFace

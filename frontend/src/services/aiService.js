@@ -51,6 +51,9 @@ export async function sendMessage({
   const modelServiceId = model.split("-")[0]; // Extract service ID from model (e.g., "gpt" from "gpt-4")
   const apiKey = getApiKey(modelServiceId) || getApiKey(model);
 
+  console.log(`Using model: ${model}, Model service ID: ${modelServiceId}`);
+  console.log(`API Key available: ${Boolean(apiKey)}`);
+
   // If no API key is found and it's not a local model, show an error
   if (!apiKey && !model.includes("local")) {
     if (onError && !errorHandled) {
@@ -68,6 +71,8 @@ export async function sendMessage({
   }
 
   try {
+    console.log(`Sending request to API with model: ${model}`);
+
     // Start the stream
     await fetchEventSource("/api/chat", {
       method: "POST",
@@ -84,6 +89,7 @@ export async function sendMessage({
       onOpen(response) {
         // Check if the connection was successful
         if (response.ok && response.status === 200) {
+          console.log("Successfully connected to API stream");
           // Call the onStart callback if provided
           if (onStart) {
             onStart();
@@ -93,6 +99,7 @@ export async function sendMessage({
           const error = new Error(
             `Failed to connect to API: ${response.status}`,
           );
+          console.error("Connection failed:", error);
           if (onError && !errorHandled) {
             errorHandled = true;
             onError(error);
@@ -104,10 +111,28 @@ export async function sendMessage({
       onMessage(msg) {
         try {
           // Parse the message data
+          console.log(`Received message: ${msg.data.substring(0, 100)}...`);
+
+          // Check if this is the special [DONE] message
+          if (msg.data === "[DONE]") {
+            console.log("Received [DONE] message");
+            return;
+          }
+
           const data = JSON.parse(msg.data);
 
+          // Check for error responses from the backend
+          if (data.error) {
+            console.error("Error from backend:", data.error);
+            if (onError && !errorHandled) {
+              errorHandled = true;
+              onError(new Error(data.error));
+            }
+            return;
+          }
+
           // Extract content and reasoning
-          const { content, reasoning } = data;
+          const { content, reasoning, role } = data;
 
           // Update last reasoning if provided
           if (reasoning) {
@@ -128,6 +153,7 @@ export async function sendMessage({
       },
 
       onClose() {
+        console.log("API stream closed");
         // Call the onComplete callback with the last reasoning
         if (onComplete) {
           onComplete(lastReasoning);
@@ -152,7 +178,10 @@ export async function sendMessage({
       errorHandled = true;
       onError(error);
     }
-    throw error;
+    // Ensure we always call onComplete even if the fetchEventSource call itself fails
+    if (onComplete) {
+      onComplete(lastReasoning);
+    }
   }
 
   // Return the abort controller to allow cancellation
