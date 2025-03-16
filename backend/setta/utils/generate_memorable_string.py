@@ -87,7 +87,7 @@ def generate_memorable_string(num_words=2, separator="_"):
         "green",
         "gold",
         "pink",
-        "setta",
+        "gray",
         "tiny",
         "huge",
         "broad",
