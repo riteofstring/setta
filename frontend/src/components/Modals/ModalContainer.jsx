@@ -3,7 +3,6 @@ import { setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
 import { AddArtifactByFilepathModal } from "./AddArtifactByFilepathModal/AddArtifactByFilepathModal";
-import { AddModelModal } from "./AddModelModal/AddModelModal";
 import { DeleteFileModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
@@ -62,8 +61,6 @@ function ModalContent({ open }) {
       return <DeleteFileModal open={open} />;
     case MODAL_TYPE.ADD_ARTIFACT_BY_FILEPATH.title:
       return <AddArtifactByFilepathModal open={open} />;
-    case MODAL_TYPE.ADD_AI_MODEL.title:
-      return <AddModelModal open={open} />;
     default:
       return null;
   }
