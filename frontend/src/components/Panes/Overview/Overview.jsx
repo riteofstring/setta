@@ -115,8 +115,8 @@ function TabsVisible({ tab }) {
     tab2: "Project Configs",
     tab3: "View Modes",
     tab4: "Notifications",
-    tab5: "AI Chat",
-    tab6: "AI Settings",
+    tab5: "Project AI Chat",
+    tab6: "Project AI Settings",
   }[tab];
   return (
     <div

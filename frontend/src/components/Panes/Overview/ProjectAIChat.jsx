@@ -2,7 +2,7 @@ import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import _ from "lodash";
 import { useState } from "react";
-import { IoSend, IoSettingsOutline } from "react-icons/io5";
+import { IoSend } from "react-icons/io5";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
 import ReactMarkdown from "react-markdown";
@@ -54,8 +54,41 @@ export function ProjectAIChat() {
 }
 
 function ProjectAIChatCore({ chatId, messages }) {
-  const [newMessage, setNewMessage] = useState("");
+  const [viewHistory, setViewHistory] = useState(false);
+  return (
+    <div className="flex h-full min-h-0 flex-col ">
+      <nav className="flex items-center gap-2 border-b border-setta-100 py-4 dark:border-setta-800">
+        <button className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950">
+          <MdAdd size={15} />
+        </button>
+        <button className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950">
+          <RiChatHistoryLine size={15} />
+        </button>
+
+        <DropdownInput
+          options={["GPT-4", "Claude 3.7", "Mixtral"]}
+          onChange={() => {}}
+          value={""}
+          placeholder="Select an LLM model."
+          outerDivClasses="max-w-64 justify-center ml-auto"
+        />
+        {/* <button className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950">
+          <IoSettingsOutline size={15} />
+        </button> */}
+      </nav>
+      {viewHistory ? (
+        <ProjectChatHistory />
+      ) : (
+        <ProjectChatCore messages={messages} />
+      )}
+    </div>
+  );
+}
+
+function ProjectChatCore({ messages }) {
   const [pendingUserMessages, setPendingUserMessages] = useState([]);
+
+  const [newMessage, setNewMessage] = useState("");
 
   const handleSubmit = (e) => {
     if (e) {
@@ -84,28 +117,8 @@ function ProjectAIChatCore({ chatId, messages }) {
   useDeepCompareEffect(() => {
     setPendingUserMessages([]);
   }, [messages]);
-
   return (
-    <div className="flex h-full min-h-0 flex-col ">
-      <nav className="flex items-center gap-2 border-b border-setta-100 py-4 dark:border-setta-800">
-        <button className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950">
-          <MdAdd size={15} />
-        </button>
-        <button className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950">
-          <RiChatHistoryLine size={15} />
-        </button>
-
-        <DropdownInput
-          options={["GPT-4", "Claude 3.7", "Mixtral"]}
-          onChange={() => {}}
-          value={""}
-          placeholder="Select an LLM model."
-          outerDivClasses="max-w-64 justify-center ml-auto"
-        />
-        <button className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950">
-          <IoSettingsOutline size={15} />
-        </button>
-      </nav>
+    <>
       <div className="flex h-full min-h-0 flex-col-reverse overflow-y-auto">
         <div>
           {[...messages, ...pendingUserMessages].map((message, idx) => (
@@ -153,7 +166,7 @@ function ProjectAIChatCore({ chatId, messages }) {
           </button>
         </div>
       </form>
-    </div>
+    </>
   );
 }
 
