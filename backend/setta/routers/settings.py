@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from setta.database.db.notifications.load import create_notification_dict
 from setta.utils.constants import C
 
-from .dependencies import get_settings_file
+from .dependencies import get_settings_file, get_websocket_manager
 
 router = APIRouter()
 
@@ -30,19 +30,26 @@ def route_load_settings(settings_file=Depends(get_settings_file)):
 
 
 @router.post(C.ROUTE_SAVE_SETTINGS_PROJECT)
-def route_save_settings_project(
-    x: SaveSettingsProjectRequest, settings_file=Depends(get_settings_file)
+async def route_save_settings_project(
+    x: SaveSettingsProjectRequest,
+    settings_file=Depends(get_settings_file),
+    websocket_manager=Depends(get_websocket_manager),
 ):
     notification = None
+    output = None
     try:
-        settings_file.save_settings_project(x.settingsProject)
+        output = settings_file.save_settings_project(x.settingsProject)
         notification = create_notification_dict(message="Saved!", temporary=True)
     except Exception as e:
         notification = create_notification_dict(
             message="Failed to save", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
         )
 
-    return {"notification": notification}
+    await websocket_manager.broadcast_notification(
+        notification, x.settingsProject["projectConfig"]["id"]
+    )
+
+    return output
 
 
 @router.post(C.ROUTE_LOAD_SETTINGS_PROJECT)

@@ -5,7 +5,10 @@ import {
   updateInteractiveArtifacts,
 } from "state/actions/interactive";
 import { updateJSONSourceContents } from "state/actions/jsonSource";
-import { addTemporaryNotification } from "state/actions/notifications";
+import {
+  addNotificationFromWebsocketMsg,
+  addTemporaryNotification,
+} from "state/actions/notifications";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeErrors";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";
@@ -58,6 +61,8 @@ function receiveMessage(message) {
     updateConnectedTo(m);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     processTypeErrors(m.content);
+  } else if (m.messageType === C.WS_NOTIFICATION) {
+    addNotificationFromWebsocketMsg(m.content);
   } else if (m.messageType === C.WS_LSP_STATUS) {
     addTemporaryNotification(`Language Server ${m.content.data}`);
   } else if (

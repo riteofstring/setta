@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useNotifications } from "state/definitions";
+import { useNotifications, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
 // Standalone notification actions as separate functions
@@ -37,9 +37,11 @@ export const setNotifications = (notifications) => {
   useNotifications.setState({ notifications });
 };
 
-export function addNotificationFromRes(res) {
-  const notification = res.data.notification;
-  if (!notification) {
+export function addNotificationFromWebsocketMsg(notification) {
+  if (
+    !notification ||
+    notification.projectConfigId !== useSectionInfos.getState().projectConfig.id
+  ) {
     return;
   }
   if (!notification.timestamp) {

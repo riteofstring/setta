@@ -27,7 +27,7 @@ from setta.tasks.tasks import construct_subprocess_key
 from setta.utils.constants import C
 from setta.utils.utils import multireplace
 
-from .dependencies import get_dbq, get_lsp_writers, get_tasks
+from .dependencies import get_dbq, get_lsp_writers, get_tasks, get_websocket_manager
 
 router = APIRouter()
 
@@ -161,7 +161,10 @@ async def update_interactive_code(p, tasks, lsp_writers, idx):
 
 @router.post(C.ROUTE_KILL_IN_MEMORY_SUBPROCESSES)
 async def route_kill_in_memory_subprocesses(
-    x: KillInMemorySubprocessesRequest, tasks=Depends(get_tasks), dbq=Depends(get_dbq)
+    x: KillInMemorySubprocessesRequest,
+    tasks=Depends(get_tasks),
+    dbq=Depends(get_dbq),
+    websocket_manager=Depends(get_websocket_manager),
 ):
     notification = None
     try:
@@ -189,7 +192,7 @@ async def route_kill_in_memory_subprocesses(
             temporary=True,
         )
 
-    return {"notification": notification}
+    await websocket_manager.broadcast_notification(notification, x.projectConfigId)
 
 
 @router.post(C.ROUTE_FORMAT_CODE)
