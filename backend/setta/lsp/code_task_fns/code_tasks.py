@@ -1,7 +1,8 @@
-from setta.lsp.code_task_fns.codeAreaFindTemplateVars import CodeAreaFindTemplateVars
 from setta.utils.constants import C
 
 from .codeAreaAutocomplete import CodeAreaAutocomplete
+from .codeAreaFindTemplateVars import CodeAreaFindTemplateVars
+from .typeCheck import TypeCheck
 
 
 class CodeTasks:
@@ -9,6 +10,7 @@ class CodeTasks:
         self.cache = {}
         self.code_area_autocomplete = CodeAreaAutocomplete(lsp_writers, self.cache)
         self.code_area_find_template_vars = CodeAreaFindTemplateVars(lsp_writers)
+        self.type_check = TypeCheck(lsp_writers)
 
     async def process_message(self, message):
         messageType = message["messageType"]
@@ -17,6 +19,8 @@ class CodeTasks:
             obj = self.code_area_autocomplete
         elif messageType == C.WS_CODE_AREA_FIND_TEMPLATE_VARS:
             obj = self.code_area_find_template_vars
+        elif messageType == C.WS_TYPE_CHECK:
+            obj = self.type_check
 
         result = await obj.process_message(message)
         return result

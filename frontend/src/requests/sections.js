@@ -23,7 +23,7 @@ export async function dbRequestTypeCheck(userRequested = false) {
   sendMessage({
     content: project,
     id: createNewId(),
-    messageType: "typeCheck",
+    messageType: C.WS_TYPE_CHECK,
   });
 }
 
