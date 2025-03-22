@@ -6,26 +6,26 @@ import traceback
 import websockets
 
 
-def expose(func):
-    func._setta_exposed = True
+def interactive(func):
+    func._setta_interactive = True
     return func
 
 
-def get_exposed_functions():
+def get_interactive_functions():
     # Get the module that called this function
     frame = inspect.currentframe().f_back
     caller_module = inspect.getmodule(frame)
 
-    # Find all exposed functions in the module
-    exposed_functions = {}
+    # Find all interactive functions in the module
+    interactive_functions = {}
     for name, obj in inspect.getmembers(caller_module):
-        if inspect.isfunction(obj) and getattr(obj, "_setta_exposed", False):
-            exposed_functions[name] = obj
+        if inspect.isfunction(obj) and getattr(obj, "_setta_interactive", False):
+            interactive_functions[name] = obj
 
-    return exposed_functions
+    return interactive_functions
 
 
-async def _handle_websocket(websocket, exposed_functions):
+async def _handle_websocket(websocket, interactive_functions):
     """Internal function to handle the WebSocket connection and message processing."""
     try:
         # Send registration message
@@ -34,7 +34,7 @@ async def _handle_websocket(websocket, exposed_functions):
                 {
                     "type": "registration",
                     "status": "ready",
-                    "functions": list(exposed_functions.keys()),
+                    "functions": list(interactive_functions.keys()),
                 }
             )
         )
@@ -50,16 +50,16 @@ async def _handle_websocket(websocket, exposed_functions):
                 if data.get("type") == "call":
                     fn_name = data.get("fn_name")
 
-                    if fn_name in exposed_functions:
+                    if fn_name in interactive_functions:
                         args = data.get("args", [])
                         kwargs = data.get("kwargs", {})
 
                         try:
                             # Call the function
                             if isinstance(args, list):
-                                result = exposed_functions[fn_name](*args, **kwargs)
+                                result = interactive_functions[fn_name](*args, **kwargs)
                             else:
-                                result = exposed_functions[fn_name](args, **kwargs)
+                                result = interactive_functions[fn_name](args, **kwargs)
 
                             # Send successful result
                             await websocket.send(
@@ -115,7 +115,7 @@ async def _handle_websocket(websocket, exposed_functions):
         traceback.print_exc()
 
 
-async def _connect_to_server(server_url, script_id, exposed_functions):
+async def _connect_to_server(server_url, script_id, interactive_functions):
     """Internal function to connect to the server and handle reconnection."""
     uri = f"ws://{server_url}/script-socket/{script_id}"
 
@@ -124,7 +124,7 @@ async def _connect_to_server(server_url, script_id, exposed_functions):
             print(f"Connecting to {uri}...", flush=True)
             async with websockets.connect(uri) as websocket:
                 print(f"Connected to WebSocket server", flush=True)
-                await _handle_websocket(websocket, exposed_functions)
+                await _handle_websocket(websocket, interactive_functions)
 
                 # If we get here, it was a clean shutdown, so break the loop
                 break
@@ -140,8 +140,8 @@ async def _connect_to_server(server_url, script_id, exposed_functions):
 
 def start_listener(script_id=None, server_url="localhost:8000"):
     """
-    Start the WebSocket listener to expose decorated functions.
-    This function will automatically find all functions decorated with @expose
+    Start the WebSocket listener to interactive decorated functions.
+    This function will automatically find all functions decorated with @interactive
     in the calling module and make them available via WebSocket.
 
     Args:
@@ -151,7 +151,7 @@ def start_listener(script_id=None, server_url="localhost:8000"):
                                    Defaults to "localhost:8000".
 
     Example:
-        @expose
+        @interactive
         def my_function(arg1, arg2):
             return arg1 + arg2
 
@@ -162,24 +162,25 @@ def start_listener(script_id=None, server_url="localhost:8000"):
     if script_id is None:
         script_id = "script_default"
 
-    # Find all exposed functions
-    exposed_functions = get_exposed_functions()
+    # Find all interactive functions
+    interactive_functions = get_interactive_functions()
 
     # Print available functions for debugging
-    if exposed_functions:
+    if interactive_functions:
         print(
-            f"Starting WebSocket listener with {len(exposed_functions)} exposed functions:"
+            f"Starting WebSocket listener with {len(interactive_functions)} interactive functions:"
         )
-        for name in exposed_functions:
+        for name in interactive_functions:
             print(f" - {name}", flush=True)
     else:
         print(
-            "Warning: No functions have been exposed with @expose decorator", flush=True
+            "Warning: No functions have been interactive with @interactive decorator",
+            flush=True,
         )
 
     # Start the event loop
     try:
-        asyncio.run(_connect_to_server(server_url, script_id, exposed_functions))
+        asyncio.run(_connect_to_server(server_url, script_id, interactive_functions))
     except KeyboardInterrupt:
         print("Listener stopped by user", flush=True)
     except Exception as e:
