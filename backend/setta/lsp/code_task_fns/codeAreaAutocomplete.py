@@ -10,7 +10,7 @@ from setta.lsp.code_task_fns.codeAreaFindTemplateVars import findTemplateVarsLoc
 from setta.lsp.code_task_fns.findEVRefs import findEVRefsLocally
 from setta.utils.constants import C
 
-from .codeAreaInitializeCode import get_cache_key
+from .codeAreaInitializeCode import CodeAreaInitializeCode
 from .utils import (
     prepare_code_for_scope_checking,
     send_document_open_request_with_diagnostics,
@@ -193,7 +193,8 @@ class CodeAreaAutocomplete:
         return []
 
     def read_cache(self, message):
-        message = message.content
-        return self.cache.get(
-            get_cache_key(message["projectConfigId"], message["sectionId"])
-        )
+        return self.cache[
+            CodeAreaInitializeCode.get_cache_key(
+                message["projectConfigId"], message["sectionId"]
+            )
+        ]

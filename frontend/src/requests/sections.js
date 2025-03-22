@@ -52,7 +52,7 @@ export async function dbCodeAreaInitializeCode(sectionId) {
   const project = await getProjectDataToGenerateCode({});
   return await sendMessageAndWait({
     id: createNewId(),
-    messageType: "codeAreaInitializeCode",
+    messageType: C.WS_CODE_AREA_INITIALIZE_CODE,
     content: { project, sectionId },
   });
 }

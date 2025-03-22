@@ -1,3 +1,4 @@
+from setta.lsp.code_task_fns.codeAreaInitializeCode import CodeAreaInitializeCode
 from setta.utils.constants import C
 
 from .codeAreaAutocomplete import CodeAreaAutocomplete
@@ -10,6 +11,7 @@ class CodeTasks:
         self.cache = {}
         self.code_area_autocomplete = CodeAreaAutocomplete(lsp_writers, self.cache)
         self.code_area_find_template_vars = CodeAreaFindTemplateVars(lsp_writers)
+        self.code_area_initialize_code = CodeAreaInitializeCode(lsp_writers, self.cache)
         self.type_check = TypeCheck(lsp_writers)
 
     async def process_message(self, message):
@@ -19,6 +21,8 @@ class CodeTasks:
             obj = self.code_area_autocomplete
         elif messageType == C.WS_CODE_AREA_FIND_TEMPLATE_VARS:
             obj = self.code_area_find_template_vars
+        elif messageType == C.WS_CODE_AREA_INITIALIZE_CODE:
+            obj = self.code_area_initialize_code
         elif messageType == C.WS_TYPE_CHECK:
             obj = self.type_check
 
