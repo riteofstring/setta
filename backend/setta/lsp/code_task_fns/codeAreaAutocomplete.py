@@ -1,5 +1,3 @@
-from typing import Any, Optional
-
 from pydantic import BaseModel
 
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_section
@@ -32,13 +30,13 @@ class CodeAreaAutocompleteContent(BaseModel):
 
 
 class CodeAreaAutocomplete:
-    def __init__(self, lsp_writers):
+    def __init__(self, lsp_writers, cache):
         self.lsp_writers = lsp_writers
-        self.cache = {}
+        self.cache = cache
 
     async def process_message(self, message):
-        request_id = message.id
-        message = CodeAreaAutocompleteContent.parse_obj(message.content)
+        request_id = message["id"]
+        message = CodeAreaAutocompleteContent.parse_obj(message["content"])
 
         (
             template_var_replacement_values,
@@ -129,8 +127,6 @@ class CodeAreaAutocomplete:
             generated_var_names=generated_var_names,
             cursor_offset=cursor_position - message.position,
         )
-
-        return None
 
     def calculate_referencable_var_names(
         self,

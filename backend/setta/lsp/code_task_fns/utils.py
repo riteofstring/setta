@@ -2,8 +2,6 @@ import asyncio
 import random
 import string
 
-from pydantic import BaseModel
-
 from setta.utils.utils import multireplace
 
 

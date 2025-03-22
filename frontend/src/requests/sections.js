@@ -78,7 +78,7 @@ export async function dbCodeAreaCompletion({
 
   const autoCompleteProps = {
     id: createNewId(),
-    messageType: "codeAreaAutocomplete",
+    messageType: C.WS_CODE_AREA_AUTOCOMPLETE,
     content: {
       projectConfigId,
       projectConfigName,
@@ -192,7 +192,7 @@ async function getTemplateVars(sectionId, fullText) {
     keywordPositions = [];
     await sendMessageAndWait({
       id: createNewId(),
-      messageType: "codeAreaFindTemplateVars",
+      messageType: C.WS_CODE_AREA_FIND_TEMPLATE_VARS,
       content: { sectionId, candidateTemplateVars, fullText },
       condition: ({ data: { positions, numMessages } }) => {
         if (positions !== null) {
