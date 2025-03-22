@@ -17,14 +17,16 @@ router = APIRouter()
 async def websocket_endpoint(
     websocket: WebSocket,
     websocket_manager=Depends(get_websocket_manager_from_websocket),
-    tasks=Depends(get_tasks_from_websocket),
+    websocket_msg_handlers=Depends(get_tasks_from_websocket),
 ):
     id = await websocket_manager.connect(websocket)
     while True:
         try:
             data = await websocket.receive_text()
-            await websocket_manager.send_message(
-                json.loads(data), fromWebsocketId=id, tasks=tasks
+            await websocket_manager.process_message(
+                json.loads(data),
+                fromWebsocketId=id,
+                message_handler=websocket_msg_handlers,
             )
         except WebSocketDisconnect:
             logger.debug("WebSocketDisconnect!")

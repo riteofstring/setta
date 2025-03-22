@@ -37,6 +37,7 @@ from setta.terminals.terminals import TerminalWebsockets
 from setta.utils.constants import CODE_FOLDER, CWD, USER_SETTINGS, C
 from setta.utils.utils import get_absolute_path, is_dev_mode
 from setta.websockets.websocket_manager import WebsocketManager
+from setta.websockets.websocket_msg_handlers import WebsocketMsgHandlers
 
 
 @asynccontextmanager
@@ -52,12 +53,13 @@ async def lifespan(app: FastAPI):
     app.state.file_watcher = create_file_watcher(app.state.lsps, app.state.lsp_writers)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager()
+    app.state.websocket_msg_handlers = WebsocketMsgHandlers(app.state.websocket_manager)
     app.state.specific_file_watcher = create_specific_file_watcher(
-        app.state.websocket_manager
+        app.state.websocket_msg_handlers.specific_file_watcher
     )
     app.state.tasks = Tasks(app.state.lsp_writers)
     app.state.lsp_readers = create_lsp_readers(
-        app.state.lsps, app.state.websocket_manager
+        app.state.lsps, app.state.websocket_msg_handlers.lsp_reader
     )
     app.state.dbq = DBQueue(
         C.DB_PATH,

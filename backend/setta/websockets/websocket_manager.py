@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class WebsocketManager:
     def __init__(self):
         self.sockets = {}
-        self.server_cli_id = "main"
+        self.self_id = "main"
         self.message_id_to_sender_id = {}
 
     async def connect(self, websocket: WebSocket):
@@ -40,37 +40,21 @@ class WebsocketManager:
         except ConnectionClosedError:
             pass
 
-    async def send_message(self, message, fromWebsocketId, tasks):
-        if "toWebsocketId" in message:
-            if "id" in message:
-                self.message_id_to_sender_id[message["id"]] = fromWebsocketId
-            wid = message["toWebsocketId"]
-            if wid == self.server_cli_id:
-                # process task and send any results back to requester
-                result = await tasks(
-                    message["messageType"],
-                    TaskMessage.parse_obj(message),
-                )
-                if "content" in result:
-                    websocket = self.sockets[fromWebsocketId]["websocket"]
-                    await websocket.send_text(
-                        json.dumps(
-                            {
-                                "id": message["id"],
-                                "content": result["content"],
-                                "messageType": result["messageType"],
-                            }
-                        )
-                    )
-            else:
-                # just send data to target websocket
-                websocket = self.sockets[wid]["websocket"]
-                await websocket.send_text(json.dumps(message))
+    async def process_message(self, message, fromWebsocketId, message_handler):
+        wid = message.get("toWebsocketId", None)
+        if not wid:
+            return
+
+        if "id" in message:
+            self.message_id_to_sender_id[message["id"]] = fromWebsocketId
 
         if "location" in message:
             self.sockets[fromWebsocketId]["location"] = message["location"]
 
-    async def send_message_to_requester(self, id, content, messageType=None):
+        # process task and send any results back to requester
+        await message_handler(message)
+
+    async def return_to_requester(self, id, content, messageType=None):
         # just send data to target websocket
         websocket = self.sockets[self.message_id_to_sender_id[id]]["websocket"]
         return_val = {"id": id, "content": content}
@@ -95,14 +79,15 @@ class WebsocketManager:
     async def broadcast_connections(self):
         connections = []
         for id, s in self.sockets.items():
-            connections.append({"websocketId": id, "connectionType": s["connectionType"]})
-        connections.append({"websocketId": self.server_cli_id, "connectionType": C.WEBSOCKET_CONNECTION_TYPE_SERVER})
+            connections.append(
+                {"websocketId": id, "connectionType": s["connectionType"]}
+            )
+        connections.append(
+            {
+                "websocketId": self.self_id,
+                "connectionType": C.WEBSOCKET_CONNECTION_TYPE_SERVER,
+            }
+        )
         await self.broadcast(
             {"messageType": C.WS_ALL_CONNECTIONS, "connections": connections}
-        )
-
-    async def broadcast_notification(self, notification, project_config_id):
-        notification["projectConfigId"] = project_config_id
-        await self.broadcast(
-            {"messageType": C.WS_NOTIFICATION, "content": notification}
         )

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from setta.database.db.notifications.load import create_notification_dict
 from setta.utils.constants import C
 
-from .dependencies import get_settings_file, get_websocket_manager
+from .dependencies import get_settings_file, get_wmh_database
 
 router = APIRouter()
 
@@ -34,7 +34,7 @@ async def route_save_settings_project(
     x: SaveSettingsProjectRequest,
     background_tasks: BackgroundTasks,
     settings_file=Depends(get_settings_file),
-    websocket_manager=Depends(get_websocket_manager),
+    websocket_msg_handler=Depends(get_wmh_database),
 ):
     notification = None
     output = None
@@ -47,7 +47,7 @@ async def route_save_settings_project(
         )
 
     background_tasks.add_task(
-        websocket_manager.broadcast_notification,
+        websocket_msg_handler.broadcast_notification,
         notification,
         x.settingsProject["projectConfig"]["id"],
     )

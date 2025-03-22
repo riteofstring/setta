@@ -25,12 +25,16 @@ def get_terminal_websockets_from_websocket(websocket: WebSocket):
     return websocket.app.state.terminal_websockets
 
 
-def get_websocket_manager(request: Request):
-    return request.app.state.websocket_manager
-
-
 def get_websocket_manager_from_websocket(websocket: WebSocket):
     return websocket.app.state.websocket_manager
+
+
+def get_wmh_artifact(request: Request):
+    return request.app.state.websocket_msg_handlers.artifact
+
+
+def get_wmh_database(request: Request):
+    return request.app.state.websocket_msg_handlers.database
 
 
 def get_lsps(request: Request):

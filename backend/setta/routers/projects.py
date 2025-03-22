@@ -36,7 +36,7 @@ from setta.database.db.projects.utils import (
 from setta.database.export_db.export_db import maybe_export_database
 from setta.utils.constants import C
 
-from .dependencies import get_dbq, get_websocket_manager
+from .dependencies import get_dbq, get_wmh_database
 
 router = APIRouter()
 
@@ -135,7 +135,7 @@ async def route_save_project(
     x: ProjectSaveRequest,
     background_tasks: BackgroundTasks,
     dbq=Depends(get_dbq),
-    websocket_manager=Depends(get_websocket_manager),
+    websocket_msg_handler=Depends(get_wmh_database),
 ):
     with dbq as db:
         notification = None
@@ -153,7 +153,7 @@ async def route_save_project(
             )
 
         background_tasks.add_task(
-            websocket_manager.broadcast_notification,
+            websocket_msg_handler.broadcast_notification,
             notification,
             x.project["projectConfig"]["id"],
         )
