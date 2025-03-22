@@ -20,12 +20,11 @@ def interactive(func):
     return func
 
 
-def get_interactive_functions():
-    # Get the module that called this function
-    frame = inspect.currentframe().f_back
-    caller_module = inspect.getmodule(frame)
+def get_interactive_functions(caller_frame):
+    # Get the module from the caller's frame
+    caller_module = inspect.getmodule(caller_frame)
 
-    # Find all interactive functions in the module
+    # Find all exposed functions in that module
     interactive_functions = {}
     for name, obj in inspect.getmembers(caller_module):
         if inspect.isfunction(obj) and getattr(obj, "_setta_interactive", False):
@@ -150,8 +149,9 @@ def start_listener(host=None, port=None):
         port=port or os.environ.get(PORT_ENV_VARIABLE, C.DEFAULT_PORT),
     )
 
+    caller_frame = inspect.currentframe().f_back
     # Find all interactive functions
-    interactive_functions = get_interactive_functions()
+    interactive_functions = get_interactive_functions(caller_frame)
 
     # Print available functions for debugging
     if interactive_functions:
