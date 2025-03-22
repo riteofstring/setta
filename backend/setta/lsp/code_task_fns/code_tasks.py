@@ -1,30 +1,23 @@
-from setta.lsp.code_task_fns.codeAreaInitializeCode import CodeAreaInitializeCode
 from setta.utils.constants import C
 
-from .codeAreaAutocomplete import CodeAreaAutocomplete
-from .codeAreaFindTemplateVars import CodeAreaFindTemplateVars
-from .typeCheck import TypeCheck
+from .codeAreaAutocomplete import codeAreaAutocomplete
+from .codeAreaFindTemplateVars import codeAreaFindTemplateVars
+from .codeAreaInitializeCode import codeAreaInitializeCode
+from .typeCheck import typeCheck
 
 
 class CodeTasks:
     def __init__(self, lsp_writers):
+        self.lsp_writers = lsp_writers
         self.cache = {}
-        self.code_area_autocomplete = CodeAreaAutocomplete(lsp_writers, self.cache)
-        self.code_area_find_template_vars = CodeAreaFindTemplateVars(lsp_writers)
-        self.code_area_initialize_code = CodeAreaInitializeCode(lsp_writers, self.cache)
-        self.type_check = TypeCheck(lsp_writers)
 
     async def process_message(self, message):
         messageType = message["messageType"]
-        obj = None
         if messageType == C.WS_CODE_AREA_AUTOCOMPLETE:
-            obj = self.code_area_autocomplete
+            return await codeAreaAutocomplete(message, self.lsp_writers, self.cache)
         elif messageType == C.WS_CODE_AREA_FIND_TEMPLATE_VARS:
-            obj = self.code_area_find_template_vars
+            return await codeAreaFindTemplateVars(message, self.lsp_writers)
         elif messageType == C.WS_CODE_AREA_INITIALIZE_CODE:
-            obj = self.code_area_initialize_code
+            return await codeAreaInitializeCode(message, self.lsp_writers, self.cache)
         elif messageType == C.WS_TYPE_CHECK:
-            obj = self.type_check
-
-        result = await obj.process_message(message)
-        return result
+            return await typeCheck(message, self.lsp_writers)

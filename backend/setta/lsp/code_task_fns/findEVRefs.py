@@ -8,11 +8,7 @@ from setta.code_gen.python.check_scope import are_positions_in_scope_with_variab
 from setta.database.utils import create_new_id
 from setta.utils.utils import multireplace
 
-from .utils import (
-    TaskDefinition,
-    generate_unique_variable,
-    prepare_code_for_scope_checking,
-)
+from .utils import generate_unique_variable, prepare_code_for_scope_checking
 
 
 class TextFieldFindReferencesContent(BaseModel):
@@ -224,9 +220,3 @@ def generateCodeForReferenceFinding(
     if len(var_name_mapping) > 0:
         fullText = multireplace(fullText, var_name_mapping)
     return f"{output}\n{fullText}", position_offset, len(visited_keywords)
-
-
-findEVRefs = TaskDefinition(
-    fn=_findEVRefs,
-    server_dependencies=["lsp_writers"],
-)
