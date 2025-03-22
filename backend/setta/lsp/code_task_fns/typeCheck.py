@@ -31,8 +31,6 @@ async def _typeCheck(message, lsp_writers):
 
 
 typeCheck = TaskDefinition(
-    name="typeCheck",
-    return_message_type="typeCheckReturn",
     fn=_typeCheck,
     server_dependencies=["lsp_writers"],
 )

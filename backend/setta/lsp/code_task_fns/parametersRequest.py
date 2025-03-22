@@ -61,8 +61,6 @@ async def _parametersRequest(message, lsp_writers):
 
 
 parametersRequest = TaskDefinition(
-    name="parametersRequest",
-    return_message_type="parametersRequestReturn",
     fn=_parametersRequest,
     read_cache=read_cache,
     server_dependencies=["lsp_writers"],

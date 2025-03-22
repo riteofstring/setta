@@ -200,8 +200,6 @@ def read_cache(cache, message):
 
 
 textFieldCompletion = TaskDefinition(
-    name="textFieldCompletion",
-    return_message_type="textFieldCompletionReturn",
     fn=_textFieldCompletion,
     read_cache=read_cache,
     server_dependencies=["lsp_writers"],

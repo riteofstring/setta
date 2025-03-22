@@ -227,8 +227,6 @@ def generateCodeForReferenceFinding(
 
 
 findEVRefs = TaskDefinition(
-    name="findEVRefs",
-    return_message_type="findEVRefsReturn",
     fn=_findEVRefs,
     server_dependencies=["lsp_writers"],
 )

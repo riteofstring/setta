@@ -16,18 +16,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-async def websocket_route_loop(websocket, websocket_manager, callback):
-    id = await websocket_manager.connect(websocket)
+async def websocket_route_loop(websocket, websocket_manager, websocket_msg_handler):
+    fromWebsocketId = await websocket_manager.connect(websocket)
     while True:
         try:
             data = await websocket.receive_text()
-            await callback(
-                json.loads(data),
-                id,
-            )
+            message = json.loads(data)
+            websocket_manager.process_message(message, fromWebsocketId)
+            await websocket_msg_handler.process_message(message, fromWebsocketId)
         except WebSocketDisconnect:
             logger.debug("WebSocketDisconnect!")
-            await websocket_manager.disconnect(id)
+            await websocket_manager.disconnect(fromWebsocketId)
             break
         except Exception as e:
             logger.debug(f"Exception details:\n{traceback.format_exc()}")
@@ -41,7 +40,4 @@ async def route_websocket_frontend(
     websocket_manager=Depends(get_websocket_manager_from_websocket),
     websocket_msg_handler=Depends(get_wmh_frontend_from_websocket),
 ):
-    def callback(message, fromWebsocketId):
-        websocket_msg_handler
-
-    await websocket_route_loop(websocket, websocket_manager, callback)
+    await websocket_route_loop(websocket, websocket_manager, websocket_msg_handler)

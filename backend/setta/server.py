@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
 from setta.database.settings_file import SettingsFile
+from setta.lsp.code_task_fns.code_tasks import CodeTasks
 from setta.lsp.utils import (
     create_file_watcher,
     create_lsp_readers,
@@ -52,7 +53,10 @@ async def lifespan(app: FastAPI):
     app.state.file_watcher = create_file_watcher(app.state.lsps, app.state.lsp_writers)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager()
-    app.state.websocket_msg_handlers = WebsocketMsgHandlers(app.state.websocket_manager)
+    app.state.code_tasks = CodeTasks()
+    app.state.websocket_msg_handlers = WebsocketMsgHandlers(
+        app.state.websocket_manager, app.state.code_tasks
+    )
     app.state.specific_file_watcher = create_specific_file_watcher(
         app.state.websocket_msg_handlers.specific_file_watcher
     )

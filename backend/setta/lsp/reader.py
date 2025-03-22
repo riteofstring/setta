@@ -139,7 +139,7 @@ class LanguageServerReader(LanguageServerInteractor):
             if id in self.pending_requests:
                 self.pending_requests[id].set_result(content)
             else:
-                await self.websocket_msg_handler.return_to_requester(returnId, content)
+                await self.websocket_msg_handler.return_to_requester(content, returnId)
 
     async def process_response_without_id(self, method, response):
         if method == "textDocument/publishDiagnostics":

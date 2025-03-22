@@ -55,7 +55,7 @@ function wssReady() {
 function receiveMessage(message) {
   const m = JSON.parse(message);
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
-    updateConnectedTo(m);
+    updateConnectedTo(m.content);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     processTypeErrors(m.content);
   } else if (m.messageType === C.WS_NOTIFICATION) {

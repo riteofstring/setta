@@ -1,8 +1,7 @@
 import C from "constants/constants.json";
 import { useWebsocketConnectionList } from "state/definitions";
 
-export function updateConnectedTo(message) {
-  const { connections } = message;
+export function updateConnectedTo(connections) {
   const cliConnections = connections.filter(
     (x) =>
       x.connectionType === C.WEBSOCKET_CONNECTION_TYPE_CLI ||

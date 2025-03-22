@@ -90,8 +90,6 @@ def write_cache(cache, message, result):
 
 
 textFieldInitializeCode = TaskDefinition(
-    name="textFieldInitializeCode",
-    return_message_type="textFieldInitializeCodeReturn",
     fn=_textFieldInitializeCode,
     write_cache=write_cache,
     server_dependencies=["lsp_writers"],

@@ -119,8 +119,6 @@ async def waitForTemplateVarResponses(request_ids, lsp_writers):
 
 
 codeAreaFindTemplateVars = TaskDefinition(
-    name="codeAreaFindTemplateVars",
-    return_message_type="codeAreaFindTemplateVarsReturn",
     fn=_codeAreaFindTemplateVars,
     server_dependencies=["lsp_writers"],
 )
