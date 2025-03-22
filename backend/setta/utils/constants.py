@@ -118,7 +118,6 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
         "paramFilter",
         "columnWidth",
         "renderedValue",
-        "subprocessStartMethod",
         "headingAsSectionName",
     )
 )
