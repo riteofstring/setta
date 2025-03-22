@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { MdAdd } from "react-icons/md";
-import ModelItem from "./ModelItem"; // Import the Radix-enhanced ModelItem
+import ModelItem from "./ModelItem"; // Import the ModelItem
 
 // Define a unique key for localStorage
 const STORAGE_KEY = "project_llm_settings";
@@ -15,8 +15,8 @@ export function ProjectLLMSettings() {
     if (savedSettings) {
       try {
         const parsedSettings = JSON.parse(savedSettings);
-        // Ensure we always have at least one item
-        if (parsedSettings && parsedSettings.length > 0) {
+        // Ensure we have valid settings
+        if (Array.isArray(parsedSettings) && parsedSettings.length > 0) {
           setModelItems(parsedSettings);
         } else {
           setModelItems([createDefaultModelItem()]);
@@ -34,9 +34,7 @@ export function ProjectLLMSettings() {
 
   // Save settings to localStorage whenever they change
   useEffect(() => {
-    if (modelItems.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(modelItems));
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(modelItems));
   }, [modelItems]);
 
   // Create a default model item with all possible fields initialized
@@ -44,6 +42,7 @@ export function ProjectLLMSettings() {
     return {
       id: Date.now().toString(), // Generate a unique ID
       model: "",
+      provider: "",
       isLocal: false,
       apiKey: "",
       localPath: "",
@@ -101,7 +100,6 @@ export function ProjectLLMSettings() {
           item={item}
           onUpdate={(field, value) => updateModelItem(item.id, field, value)}
           onRemove={(e) => removeModelItem(item.id, e)}
-          allowCustomModel={true}
         />
       ))}
 
