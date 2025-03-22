@@ -2,7 +2,6 @@ import asyncio
 import json
 import logging
 
-from setta.database.db.notifications.load import create_notification_dict
 from setta.lsp.reader_fns.completion import process_completion_response
 from setta.lsp.reader_fns.definition import process_definition_response
 from setta.lsp.reader_fns.diagnostics import process_diagnostics_response
@@ -118,10 +117,6 @@ class LanguageServerReader(LanguageServerInteractor):
                     "content": output["content"],
                 }
             )
-        elif output["websocket_method"] == "broadcast_notification":
-            await self.websocket_manager.broadcast_notification(
-                output["content"]["data"], C.NOTIFICATION_IS_FOR_ALL_PROJECTS
-            )
 
     def process_response_with_id(self, id, method, response):
         metadata = self.msg_id_to_metadata.pop(id, {})
@@ -135,10 +130,9 @@ class LanguageServerReader(LanguageServerInteractor):
             and id == self.server.initialization_request_id
         ):
             self.server.is_initialized = True
-            content = create_notification_dict(
-                "Language Server Started", temporary=True
-            )
-            websocket_method = "broadcast_notification"
+            content = "Initialized"
+            websocket_method = "broadcast"
+            websocket_message_type = C.WS_LSP_STATUS
         elif method == "textDocument/completion":
             content = process_completion_response(response, metadata)
             websocket_method = "return_to_requester"

@@ -1,7 +1,7 @@
 import sqlite3
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from setta.database.backup import maybe_create_backup
@@ -36,7 +36,7 @@ from setta.database.db.projects.utils import (
 from setta.database.export_db.export_db import maybe_export_database
 from setta.utils.constants import C
 
-from .dependencies import get_dbq, get_websocket_manager
+from .dependencies import get_dbq
 
 router = APIRouter()
 
@@ -131,12 +131,7 @@ def route_load_full_project(x: ProjectLoadFullRequest, dbq=Depends(get_dbq)):
 
 
 @router.post(C.ROUTE_SAVE_PROJECT)
-async def route_save_project(
-    x: ProjectSaveRequest,
-    background_tasks: BackgroundTasks,
-    dbq=Depends(get_dbq),
-    websocket_manager=Depends(get_websocket_manager),
-):
+def route_save_project(x: ProjectSaveRequest, dbq=Depends(get_dbq)):
     with dbq as db:
         notification = None
         try:
@@ -152,11 +147,7 @@ async def route_save_project(
                 message="Failed to save", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
             )
 
-        background_tasks.add_task(
-            websocket_manager.broadcast_notification,
-            notification,
-            x.project["projectConfig"]["id"],
-        )
+        return {"notification": notification}
 
 
 @router.post(C.ROUTE_CREATE_PROJECT_CONFIG)
