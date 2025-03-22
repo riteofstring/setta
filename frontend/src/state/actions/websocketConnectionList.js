@@ -1,8 +1,13 @@
+import C from "constants/constants.json";
 import { useWebsocketConnectionList } from "state/definitions";
 
 export function updateConnectedTo(message) {
   const { connections } = message;
-  const cliConnections = connections.filter((x) => x.isCLI);
+  const cliConnections = connections.filter(
+    (x) =>
+      x.connectionType === C.WEBSOCKET_CONNECTION_TYPE_CLI ||
+      x.connectionType === C.WEBSOCKET_CONNECTION_TYPE_SERVER,
+  );
   if (
     !cliConnections
       .map((x) => x.websocketId)

@@ -25,7 +25,9 @@ class WebsocketManager:
             id = generate_memorable_string()
         self.sockets[id] = {
             "websocket": websocket,
-            "isCLI": websocket.headers.get("isCLI", False),
+            "connectionType": websocket.headers.get(
+                "connectionType", C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
+            ),
             "location": None,
         }
         await self.broadcast_connections()
@@ -93,8 +95,8 @@ class WebsocketManager:
     async def broadcast_connections(self):
         connections = []
         for id, s in self.sockets.items():
-            connections.append({"websocketId": id, "isCLI": s["isCLI"]})
-        connections.append({"websocketId": self.server_cli_id, "isCLI": True})
+            connections.append({"websocketId": id, "connectionType": s["connectionType"]})
+        connections.append({"websocketId": self.server_cli_id, "connectionType": C.WEBSOCKET_CONNECTION_TYPE_SERVER})
         await self.broadcast(
             {"messageType": C.WS_ALL_CONNECTIONS, "connections": connections}
         )
