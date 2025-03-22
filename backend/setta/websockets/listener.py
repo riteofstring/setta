@@ -1,9 +1,18 @@
 import asyncio
 import inspect
 import json
+import os
 import traceback
 
 import websockets
+
+from setta.utils.constants import (
+    HOST_ENV_VARIABLE,
+    PORT_ENV_VARIABLE,
+    C,
+    load_constants,
+    set_constants,
+)
 
 
 def interactive(func):
@@ -26,7 +35,6 @@ def get_interactive_functions():
 
 
 async def _handle_websocket(websocket, interactive_functions):
-    """Internal function to handle the WebSocket connection and message processing."""
     try:
         # Send registration message
         await websocket.send(
@@ -115,21 +123,18 @@ async def _handle_websocket(websocket, interactive_functions):
         traceback.print_exc()
 
 
-async def _connect_to_server(server_url, script_id, interactive_functions):
-    """Internal function to connect to the server and handle reconnection."""
-    uri = f"ws://{server_url}/script-socket/{script_id}"
-
+async def _connect_to_server(interactive_functions):
     while True:
         try:
-            print(f"Connecting to {uri}...", flush=True)
-            async with websockets.connect(uri) as websocket:
+            print(f"Connecting to {C.WEBSOCKET}...", flush=True)
+            async with websockets.connect(C.WEBSOCKET) as websocket:
                 print(f"Connected to WebSocket server", flush=True)
                 await _handle_websocket(websocket, interactive_functions)
 
                 # If we get here, it was a clean shutdown, so break the loop
                 break
 
-        except (websockets.exceptions.ConnectionClosed, ConnectionRefusedError):
+        except websockets.ConnectionClosedError:
             print(f"Connection failed, retrying in 3 seconds...", flush=True)
             await asyncio.sleep(3)
         except Exception as e:
@@ -138,29 +143,12 @@ async def _connect_to_server(server_url, script_id, interactive_functions):
             await asyncio.sleep(3)
 
 
-def start_listener(script_id=None, server_url="localhost:8000"):
-    """
-    Start the WebSocket listener to interactive decorated functions.
-    This function will automatically find all functions decorated with @interactive
-    in the calling module and make them available via WebSocket.
-
-    Args:
-        script_id (str, optional): Unique identifier for this script.
-                                  If None, a default ID will be used.
-        server_url (str, optional): URL of the WebSocket server.
-                                   Defaults to "localhost:8000".
-
-    Example:
-        @interactive
-        def my_function(arg1, arg2):
-            return arg1 + arg2
-
-        if __name__ == "__main__":
-            start_listener("my_script_123")
-    """
-    # Use a default script_id if none is provided
-    if script_id is None:
-        script_id = "script_default"
+def start_listener(host=None, port=None):
+    load_constants()
+    set_constants(
+        host=host or os.environ.get(HOST_ENV_VARIABLE, C.DEFAULT_HOST),
+        port=port or os.environ.get(PORT_ENV_VARIABLE, C.DEFAULT_PORT),
+    )
 
     # Find all interactive functions
     interactive_functions = get_interactive_functions()
@@ -180,7 +168,7 @@ def start_listener(script_id=None, server_url="localhost:8000"):
 
     # Start the event loop
     try:
-        asyncio.run(_connect_to_server(server_url, script_id, interactive_functions))
+        asyncio.run(_connect_to_server(interactive_functions))
     except KeyboardInterrupt:
         print("Listener stopped by user", flush=True)
     except Exception as e:
