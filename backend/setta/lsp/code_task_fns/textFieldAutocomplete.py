@@ -1,5 +1,5 @@
 import copy
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -12,11 +12,11 @@ from setta.code_gen.python.generate_code import (
 )
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.utils import process_refs
-from setta.tasks.fns.textFieldInitializeCode import get_cache_key
 from setta.utils.constants import C
 
 from .findEVRefs import findEVRefsLocally
-from .utils import TaskDefinition, send_document_open_request_with_diagnostics
+from .textFieldInitializeCode import get_cache_key
+from .utils import send_document_open_request_with_diagnostics
 
 
 class CodeCompletionContent(BaseModel):
@@ -27,7 +27,6 @@ class CodeCompletionContent(BaseModel):
     fullText: str
     position: int
     candidateEVRefs: list
-    cached: Optional[Any] = None
 
 
 async def getEVRefsAndProcessThem(message, fullNameToInfo, exporter_obj, lsp_writers):
@@ -137,10 +136,10 @@ async def get_code_and_cursor_position(
     return evRefs, code, cursor_position, ref_template_var_positions
 
 
-async def _textFieldCompletion(message, lsp_writers):
-    request_id = message.id
-    message = CodeCompletionContent.parse_obj(message.content)
-    cached = message.cached
+async def textFieldAutocomplete(message, lsp_writers, cache):
+    request_id = message["id"]
+    message = CodeCompletionContent.parse_obj(message["content"])
+    cached = read_cache(cache, message)
     if cached is None:
         return {"content": {"data": []}}
 
@@ -191,16 +190,6 @@ async def _textFieldCompletion(message, lsp_writers):
 
 
 def read_cache(cache, message):
-    message = message.content
-    message["cached"] = cache.get(
-        get_cache_key(
-            message["projectConfigId"], message["sectionId"], message["paramInfoId"]
-        )
+    return cache.get(
+        get_cache_key(message.projectConfigId, message.sectionId, message.paramInfoId)
     )
-
-
-textFieldCompletion = TaskDefinition(
-    fn=_textFieldCompletion,
-    read_cache=read_cache,
-    server_dependencies=["lsp_writers"],
-)

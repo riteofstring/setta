@@ -5,15 +5,15 @@ from .textFieldAutocomplete import (
     get_code_and_cursor_position,
     read_cache,
 )
-from .utils import TaskDefinition, send_document_open_request_with_diagnostics
+from .utils import send_document_open_request_with_diagnostics
 
 
-async def _parametersRequest(message, lsp_writers):
-    request_id = message.id
-    message = CodeCompletionContent.parse_obj(message.content)
-    cached = message.cached
+async def parametersRequest(message, lsp_writers, cache):
+    request_id = message["id"]
+    message = CodeCompletionContent.parse_obj(message["content"])
+    cached = read_cache(cache, message)
     if cached is None:
-        return {"content": {"data": None}}
+        return {"data": None}
 
     (
         gen_code_dict,
@@ -57,11 +57,3 @@ async def _parametersRequest(message, lsp_writers):
         request_id,
         otherData={"evRefs": evRefs},
     )
-    return None
-
-
-parametersRequest = TaskDefinition(
-    fn=_parametersRequest,
-    read_cache=read_cache,
-    server_dependencies=["lsp_writers"],
-)

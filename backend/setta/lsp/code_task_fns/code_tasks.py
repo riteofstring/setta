@@ -1,8 +1,12 @@
+from setta.lsp.code_task_fns.parametersRequest import parametersRequest
+from setta.lsp.code_task_fns.textFieldAutocomplete import textFieldAutocomplete
+from setta.lsp.code_task_fns.textFieldInitializeCode import textFieldInitializeCode
 from setta.utils.constants import C
 
 from .codeAreaAutocomplete import codeAreaAutocomplete
 from .codeAreaFindTemplateVars import codeAreaFindTemplateVars
 from .codeAreaInitializeCode import codeAreaInitializeCode
+from .findEVRefs import findEVRefs
 from .typeCheck import typeCheck
 
 
@@ -19,5 +23,13 @@ class CodeTasks:
             return await codeAreaFindTemplateVars(message, self.lsp_writers)
         elif messageType == C.WS_CODE_AREA_INITIALIZE_CODE:
             return await codeAreaInitializeCode(message, self.lsp_writers, self.cache)
+        elif messageType == C.WS_FIND_EV_REFS:
+            return await findEVRefs(message, self.lsp_writers)
+        elif messageType == C.WS_PARAMETERS_REQUEST:
+            return await parametersRequest(message, self.lsp_writers)
+        elif messageType == C.WS_TEXT_FIELD_AUTOCOMPLETE:
+            return await textFieldAutocomplete(message, self.lsp_writers)
+        elif messageType == C.WS_TEXT_FIELD_INITIALIZE_CODE:
+            return await textFieldInitializeCode(message, self.lsp_writers)
         elif messageType == C.WS_TYPE_CHECK:
             return await typeCheck(message, self.lsp_writers)

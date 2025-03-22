@@ -20,9 +20,9 @@ class TextFieldFindReferencesContent(BaseModel):
     fullText: str
 
 
-async def _findEVRefs(message, lsp_writers):
-    message_id = message.id
-    message = TextFieldFindReferencesContent.parse_obj(message.content)
+async def findEVRefs(message, lsp_writers):
+    message_id = message["id"]
+    message = TextFieldFindReferencesContent.parse_obj(message["content"])
     request_ids = await sendEVRefRequests(
         message_id,
         message.sectionId,

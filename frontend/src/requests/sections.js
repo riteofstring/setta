@@ -35,7 +35,7 @@ export async function dbParametersRequest({ sectionId, fullText, position }) {
     paramInfoId: null,
     fullText,
     position,
-    messageType: "parametersRequest",
+    messageType: C.WS_PARAMETERS_REQUEST,
   });
 }
 
@@ -43,7 +43,7 @@ export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
   const project = await getProjectDataToGenerateCode({});
   await sendMessage({
     id: createNewId(),
-    messageType: "textFieldInitializeCode",
+    messageType: C.WS_TEXT_FIELD_INITIALIZE_CODE,
     content: { project, sectionId, paramInfoId },
   });
 }
@@ -110,7 +110,7 @@ export async function dbTextFieldCompletion({
   paramInfoId,
   fullText,
   position,
-  messageType = "textFieldCompletion",
+  messageType = C.WS_TEXT_FIELD_AUTOCOMPLETE,
 }) {
   const { id: projectConfigId, name: projectConfigName } =
     useSectionInfos.getState().projectConfig;
@@ -158,7 +158,7 @@ export async function getEVRefs({
     keywordPositions = [];
     await sendMessageAndWait({
       id: createNewId(),
-      messageType: "findEVRefs",
+      messageType: C.WS_FIND_EV_REFS,
       content: {
         sectionId,
         paramInfoId,
