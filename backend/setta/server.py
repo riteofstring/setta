@@ -23,7 +23,6 @@ from setta.lsp.utils import (
 from setta.routers import (
     artifact_router,
     code_info_router,
-    in_memory_fn_stdout_router,
     interactive_code_router,
     lsp_router,
     projects_router,
@@ -131,7 +130,6 @@ app.include_router(settings_router, **kwargs)
 app.include_router(interactive_code_router, **kwargs)
 app.include_router(artifact_router, **kwargs)
 app.include_router(reference_renaming_router, **kwargs)
-app.include_router(in_memory_fn_stdout_router, **kwargs)
 app.include_router(lsp_router, **kwargs)
 
 
