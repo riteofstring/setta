@@ -41,7 +41,7 @@ async def route_save_settings_project(
     try:
         output = settings_file.save_settings_project(x.settingsProject)
         notification = create_notification_dict(message="Saved!", temporary=True)
-    except Exception as e:
+    except Exception:
         notification = create_notification_dict(
             message="Failed to save", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
         )

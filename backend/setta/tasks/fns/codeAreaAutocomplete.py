@@ -10,7 +10,6 @@ from setta.code_gen.python.generate_code import get_chars_in_line_before_positio
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.tasks.fns.codeAreaFindTemplateVars import findTemplateVarsLocally
 from setta.tasks.fns.findEVRefs import findEVRefsLocally
-from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
 from .codeAreaInitializeCode import get_cache_key
@@ -204,6 +203,5 @@ codeAreaAutocomplete = TaskDefinition(
     return_message_type="codeAreaAutocompleteReturn",
     fn=_codeAreaAutocomplete,
     read_cache=read_cache,
-    run_as=RunType.NONE,
     server_dependencies=["lsp_writers"],
 )

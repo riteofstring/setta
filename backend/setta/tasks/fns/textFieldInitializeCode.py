@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
 from setta.code_gen.find_placeholders import tp
-from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
 from .utils import (
@@ -95,6 +94,5 @@ textFieldInitializeCode = TaskDefinition(
     return_message_type="textFieldInitializeCodeReturn",
     fn=_textFieldInitializeCode,
     write_cache=write_cache,
-    run_as=RunType.NONE,
     server_dependencies=["lsp_writers"],
 )

@@ -17,7 +17,7 @@ let wss;
 export const openWebSocket = _.debounce(
   (pathname) => {
     if (!wssReady()) {
-      wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_MANAGER}`);
+      wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_FRONTEND}`);
       wss.addEventListener("open", () => {
         sendLocation(pathname);
       });

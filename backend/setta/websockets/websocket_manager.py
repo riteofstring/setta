@@ -4,7 +4,6 @@ import logging
 from fastapi import WebSocket
 from websockets.exceptions import ConnectionClosedError
 
-from setta.tasks.fns.utils import TaskMessage
 from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
 

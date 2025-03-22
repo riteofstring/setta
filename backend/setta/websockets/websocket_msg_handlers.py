@@ -1,3 +1,5 @@
+import json
+
 from setta.utils.constants import C
 
 
@@ -7,6 +9,7 @@ class WebsocketMsgHandlers:
         self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
         self.artifact = WMHArtifact(websocket_manager)
         self.database = WMHDatabase(websocket_manager)
+        self.frontend = WMHFrontend(websocket_manager)
 
 
 class WMHLSPReader:
@@ -62,11 +65,11 @@ class WMHDatabase:
         )
 
 
-class WMHTasks:
+class WMHFrontend:
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
-    async def broadcast_notification(self, message, fromWebsocketId):
+    async def process_message(self, message, fromWebsocketId):
         result = await tasks(
             message["messageType"],
             TaskMessage.parse_obj(message),

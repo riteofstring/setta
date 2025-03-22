@@ -13,7 +13,6 @@ from setta.code_gen.python.generate_code import (
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.utils import process_refs
 from setta.tasks.fns.textFieldInitializeCode import get_cache_key
-from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
 from .findEVRefs import findEVRefsLocally
@@ -205,6 +204,5 @@ textFieldCompletion = TaskDefinition(
     return_message_type="textFieldCompletionReturn",
     fn=_textFieldCompletion,
     read_cache=read_cache,
-    run_as=RunType.NONE,
     server_dependencies=["lsp_writers"],
 )

@@ -158,14 +158,14 @@ async def _connect_to_server(interactive_functions):
         try:
             print(f"Connecting to {C.WEBSOCKET}...", flush=True)
             async with websockets.connect(C.WEBSOCKET) as websocket:
-                print(f"Connected to WebSocket server", flush=True)
+                print("Connected to WebSocket server", flush=True)
                 await _handle_websocket(websocket, interactive_functions)
 
                 # If we get here, it was a clean shutdown, so break the loop
                 break
 
         except websockets.ConnectionClosedError:
-            print(f"Connection failed, retrying in 3 seconds...", flush=True)
+            print("Connection failed, retrying in 3 seconds...", flush=True)
             await asyncio.sleep(3)
         except Exception as e:
             print(f"Unexpected error: {e}", flush=True)

@@ -5,8 +5,6 @@ from typing import Any, Callable, List, Optional
 
 from pydantic import BaseModel
 
-from setta.tasks.task_runner import RunType
-from setta.utils.constants import C
 from setta.utils.utils import multireplace
 
 
@@ -120,7 +118,6 @@ class TaskDefinition(BaseModel):
     fn: Callable
     read_cache: Optional[Callable] = do_nothing
     write_cache: Optional[Callable] = do_nothing
-    run_as: Optional[RunType] = RunType.NONE
     dependencies: Optional[List[str]] = None
     server_dependencies: Optional[List[str]] = []
 
@@ -128,7 +125,3 @@ class TaskDefinition(BaseModel):
 class TaskMessage(BaseModel):
     id: str
     content: Any
-
-
-class SettaInMemoryFn(TaskDefinition):
-    return_message_type: str = C.WS_IN_MEMORY_FN_RETURN

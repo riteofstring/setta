@@ -5,14 +5,6 @@ def get_dbq(request: Request):
     return request.app.state.dbq
 
 
-def get_tasks(request: Request):
-    return request.app.state.tasks
-
-
-def get_tasks_from_websocket(websocket: WebSocket):
-    return websocket.app.state.tasks
-
-
 def get_settings_file(request: Request):
     return request.app.state.settings_file
 
@@ -37,16 +29,16 @@ def get_wmh_database(request: Request):
     return request.app.state.websocket_msg_handlers.database
 
 
+def get_wmh_frontend_from_websocket(websocket: WebSocket):
+    return websocket.app.state.websocket_msg_handlers.frontend
+
+
 def get_lsps(request: Request):
     return [
         request.app.state.lsps,
         request.app.state.lsp_readers,
         request.app.state.lsp_writers,
     ]
-
-
-def get_lsp_writers(request: Request):
-    return request.app.state.lsp_writers
 
 
 def get_lsp_writers_from_websocket(websocket: WebSocket):

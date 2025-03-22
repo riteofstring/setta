@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.code_gen.python.check_scope import are_positions_in_scope_with_variable
 from setta.database.utils import create_new_id
-from setta.tasks.task_runner import RunType
 from setta.utils.utils import multireplace
 
 from .utils import (
@@ -231,6 +230,5 @@ findEVRefs = TaskDefinition(
     name="findEVRefs",
     return_message_type="findEVRefsReturn",
     fn=_findEVRefs,
-    run_as=RunType.NONE,
     server_dependencies=["lsp_writers"],
 )

@@ -1,5 +1,4 @@
 from setta.code_gen.python.position_line_col import position_to_line_col
-from setta.tasks.task_runner import RunType
 
 from .textFieldAutocomplete import (
     CodeCompletionContent,
@@ -66,6 +65,5 @@ parametersRequest = TaskDefinition(
     return_message_type="parametersRequestReturn",
     fn=_parametersRequest,
     read_cache=read_cache,
-    run_as=RunType.NONE,
     server_dependencies=["lsp_writers"],
 )

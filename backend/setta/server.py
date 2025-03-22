@@ -32,7 +32,6 @@ from setta.routers import (
     terminals_router,
     websocket_router,
 )
-from setta.tasks.tasks import Tasks
 from setta.terminals.terminals import TerminalWebsockets
 from setta.utils.constants import CODE_FOLDER, CWD, USER_SETTINGS, C
 from setta.utils.utils import get_absolute_path, is_dev_mode
@@ -57,7 +56,6 @@ async def lifespan(app: FastAPI):
     app.state.specific_file_watcher = create_specific_file_watcher(
         app.state.websocket_msg_handlers.specific_file_watcher
     )
-    app.state.tasks = Tasks(app.state.lsp_writers)
     app.state.lsp_readers = create_lsp_readers(
         app.state.lsps, app.state.websocket_msg_handlers.lsp_reader
     )
@@ -102,7 +100,6 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        app.state.tasks.close()
         app.state.file_watcher.stop()
         app.state.specific_file_watcher.stop()
         await kill_lsps(app.state.lsps, app.state.lsp_readers)

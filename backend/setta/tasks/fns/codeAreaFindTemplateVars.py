@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.database.utils import create_new_id
-from setta.tasks.task_runner import RunType
 
 from .utils import TaskDefinition, replace_template_vars_with_random_names
 
@@ -123,6 +122,5 @@ codeAreaFindTemplateVars = TaskDefinition(
     name="codeAreaFindTemplateVars",
     return_message_type="codeAreaFindTemplateVarsReturn",
     fn=_codeAreaFindTemplateVars,
-    run_as=RunType.NONE,
     server_dependencies=["lsp_writers"],
 )

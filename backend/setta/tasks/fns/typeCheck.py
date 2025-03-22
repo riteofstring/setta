@@ -1,6 +1,5 @@
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
-from setta.tasks.task_runner import RunType
 
 from .utils import (
     TaskDefinition,
@@ -35,6 +34,5 @@ typeCheck = TaskDefinition(
     name="typeCheck",
     return_message_type="typeCheckReturn",
     fn=_typeCheck,
-    run_as=RunType.NONE,
     server_dependencies=["lsp_writers"],
 )

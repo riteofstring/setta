@@ -147,7 +147,7 @@ async def route_save_project(
             # Return success response with notification
             notification = create_notification_dict(message="Saved!", temporary=True)
 
-        except Exception as e:
+        except Exception:
             notification = create_notification_dict(
                 message="Failed to save", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
             )
