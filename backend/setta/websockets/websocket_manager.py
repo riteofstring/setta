@@ -48,7 +48,6 @@ class WebsocketManager:
                 result = await tasks(
                     message["messageType"],
                     TaskMessage.parse_obj(message),
-                    websocket_manager=self,
                 )
                 if "content" in result:
                     websocket = self.sockets[fromWebsocketId]["websocket"]
