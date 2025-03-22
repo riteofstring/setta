@@ -99,3 +99,9 @@ class WebsocketManager:
         await self.broadcast(
             {"messageType": C.WS_ALL_CONNECTIONS, "connections": connections}
         )
+
+    async def broadcast_notification(self, notification, project_config_id):
+        notification["projectConfigId"] = project_config_id
+        await self.broadcast(
+            {"messageType": C.WS_NOTIFICATION, "content": notification}
+        )

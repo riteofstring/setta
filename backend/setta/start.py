@@ -7,12 +7,12 @@ import click
 import uvicorn
 
 from . import __version__
-from .cli.connect import connect as _connect
 from .database.db_init import maybe_create_tables_and_seed
 from .database.db_objs import DBQueue, get_default_db_path
 from .database.export_db.export_db import export_database
 from .database.import_db import import_database
 from .utils.constants import SETTA_FILES_FOLDER, C, set_constants
+from .websockets.connect import connect as _connect
 
 
 @click.command()

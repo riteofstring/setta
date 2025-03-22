@@ -37,7 +37,7 @@ from setta.tasks.tasks import Tasks
 from setta.terminals.terminals import TerminalWebsockets
 from setta.utils.constants import CODE_FOLDER, CWD, USER_SETTINGS, C
 from setta.utils.utils import get_absolute_path, is_dev_mode
-from setta.utils.websocket_manager import WebsocketManager
+from setta.websockets.websocket_manager import WebsocketManager
 
 
 @asynccontextmanager
