@@ -65,8 +65,9 @@ export function DropdownInput({
   isDisabled,
   placeholder,
   small = true,
+  allItems: providedAllItems,
 }) {
-  const allItems = [
+  const effectiveAllItems = providedAllItems || [
     {
       group: "Choices",
       items: choices ? choices.filter((c) => c.id) : [],
@@ -76,7 +77,7 @@ export function DropdownInput({
   return (
     <IdNameCombobox
       outerDivClasses={outerDivClasses}
-      allItems={allItems}
+      allItems={effectiveAllItems}
       value={value ? value : null}
       onSelectedItemChange={onChange}
       small={small}

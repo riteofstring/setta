@@ -3,6 +3,9 @@ import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 import { useState } from "react";
+import { MODEL_GROUPS } from "utils/constants";
+// import { MODEL_GROUPS } from "utils/constants";
+// import { DEFAULT_ENDPOINTS } from "utils/constants";
 
 export function ProjectLLMSettings() {
   return (
@@ -26,7 +29,7 @@ function ModelItem() {
       <div className="flex items-center gap-2">
         <p className="-ml-2.5 w-full">
           <DropdownInput
-            options={["GPT-4", "Claude 3.7", "Mixtral"]}
+            choices={MODEL_GROUPS}
             onChange={() => {}}
             value={""}
             placeholder="Select an LLM model."
@@ -79,3 +82,5 @@ function ModelItem() {
     </form>
   );
 }
+
+// function ModelItem() {}
