@@ -1,14 +1,14 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { RiPlayMiniFill } from "react-icons/ri";
-import { importCodeBlocks, runCodeBlocks } from "state/actions/runOrImportCode";
+import { runCodeBlocks } from "state/actions/runOrImportCode";
 import { getSectionInfo } from "state/actions/sectionInfos";
 
 export function RunButton({ sectionId }) {
   function onClick() {
     const { runInMemory } = getSectionInfo(sectionId);
     if (runInMemory) {
-      importCodeBlocks([sectionId]);
+      // importCodeBlocks([sectionId]);
     } else {
       runCodeBlocks([sectionId]);
     }
