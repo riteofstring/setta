@@ -15,9 +15,31 @@ from setta.utils.constants import (
 )
 
 
-def interactive(func):
-    func._setta_interactive = True
-    return func
+def interactive(dependencies=None):
+    """
+    Decorator to mark functions as interactive for WebSocket communication.
+
+    Args:
+        dependencies (list, optional): List of dependency names required by this function.
+                                      Default is None (no dependencies).
+
+    Returns:
+        function: Decorated function with _setta_interactive attribute set to True and
+                 _setta_dependencies attribute set to the provided dependencies.
+    """
+
+    def decorator(func):
+        func._setta_interactive = True
+        func._setta_dependencies = dependencies or []
+        return func
+
+    # Handle the case when decorator is used without parentheses
+    if callable(dependencies):
+        func = dependencies
+        dependencies = None
+        return decorator(func)
+
+    return decorator
 
 
 def get_interactive_functions(caller_frame):
@@ -28,23 +50,28 @@ def get_interactive_functions(caller_frame):
     interactive_functions = {}
     for name, obj in inspect.getmembers(caller_module):
         if inspect.isfunction(obj) and getattr(obj, "_setta_interactive", False):
-            interactive_functions[name] = obj
+            # Include function dependencies in the metadata
+            interactive_functions[name] = {
+                "function": obj,
+                "dependencies": getattr(obj, "_setta_dependencies", []),
+            }
 
     return interactive_functions
 
 
 async def _handle_websocket(websocket, interactive_functions):
     try:
-        # Send registration message
-        await websocket.send(
-            json.dumps(
-                {
-                    "type": "registration",
-                    "status": "ready",
-                    "functions": list(interactive_functions.keys()),
-                }
-            )
-        )
+        # Send registration message with function info including dependencies
+        registration_info = {
+            "type": "registration",
+            "status": "ready",
+            "functions": {
+                name: {"dependencies": info["dependencies"]}
+                for name, info in interactive_functions.items()
+            },
+        }
+
+        await websocket.send(json.dumps(registration_info))
 
         # Process incoming messages
         while True:
@@ -64,9 +91,13 @@ async def _handle_websocket(websocket, interactive_functions):
                         try:
                             # Call the function
                             if isinstance(args, list):
-                                result = interactive_functions[fn_name](*args, **kwargs)
+                                result = interactive_functions[fn_name]["function"](
+                                    *args, **kwargs
+                                )
                             else:
-                                result = interactive_functions[fn_name](args, **kwargs)
+                                result = interactive_functions[fn_name]["function"](
+                                    args, **kwargs
+                                )
 
                             # Send successful result
                             await websocket.send(
@@ -158,11 +189,12 @@ def start_listener(host=None, port=None):
         print(
             f"Starting WebSocket listener with {len(interactive_functions)} interactive functions:"
         )
-        for name in interactive_functions:
-            print(f" - {name}", flush=True)
+        for name, info in interactive_functions.items():
+            deps = ", ".join(info["dependencies"]) if info["dependencies"] else "none"
+            print(f" - {name} (dependencies: {deps})", flush=True)
     else:
         print(
-            "Warning: No functions have been interactive with @interactive decorator",
+            "Warning: No functions have been marked with @interactive decorator",
             flush=True,
         )
 
