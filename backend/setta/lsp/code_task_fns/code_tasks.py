@@ -1,12 +1,12 @@
-from setta.lsp.code_task_fns.parametersRequest import parametersRequest
-from setta.lsp.code_task_fns.textFieldAutocomplete import textFieldAutocomplete
-from setta.lsp.code_task_fns.textFieldInitializeCode import textFieldInitializeCode
 from setta.utils.constants import C
 
 from .codeAreaAutocomplete import codeAreaAutocomplete
 from .codeAreaFindTemplateVars import codeAreaFindTemplateVars
 from .codeAreaInitializeCode import codeAreaInitializeCode
 from .findEVRefs import findEVRefs
+from .parametersRequest import parametersRequest
+from .textFieldAutocomplete import textFieldAutocomplete
+from .textFieldInitializeCode import textFieldInitializeCode
 from .typeCheck import typeCheck
 
 
