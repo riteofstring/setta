@@ -14,7 +14,6 @@ def parse_template_var(template_str: str):
         f"{tp(C.TEMPLATE_VAR_IMPORT_PATH_SUFFIX)}",
         f"{tp(C.TEMPLATE_VAR_VERSION_SUFFIX)}",
         f"{tp(C.TEMPLATE_VAR_FILE_PATH_SUFFIX)}",
-        f"{tp(C.TEMPLATE_VAR_CODE_SUFFIX)}"
     ]
 
     for suffix in suffixes:
