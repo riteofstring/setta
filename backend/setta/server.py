@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager()
     app.state.code_state = CodeState()
-    app.state.code_tasks = CodeTasks(app.state.lsp_writers)
+    app.state.code_tasks = CodeTasks(app.state.code_state, app.state.lsp_writers)
     app.state.script_metadata = ScriptMetadata()
     app.state.websocket_msg_handlers = WebsocketMsgHandlers(
         app.state.websocket_manager, app.state.code_tasks, app.state.script_metadata
