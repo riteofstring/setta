@@ -58,7 +58,9 @@ class WMHFrontend:
         self.code_tasks = code_tasks
 
     async def process_message(self, message, *_):
-        msg_id = message["id"]
+        msg_id = message.get("id")
+        if not msg_id:
+            return
         result = await self.code_tasks.process_message(message)
         if result:
             await self.websocket_manager.return_to_requester(result, msg_id)

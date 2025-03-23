@@ -26,10 +26,10 @@ class CodeTasks:
         elif messageType == C.WS_FIND_EV_REFS:
             return await findEVRefs(message, self.lsp_writers)
         elif messageType == C.WS_PARAMETERS_REQUEST:
-            return await parametersRequest(message, self.lsp_writers)
+            return await parametersRequest(message, self.lsp_writers, self.cache)
         elif messageType == C.WS_TEXT_FIELD_AUTOCOMPLETE:
-            return await textFieldAutocomplete(message, self.lsp_writers)
+            return await textFieldAutocomplete(message, self.lsp_writers, self.cache)
         elif messageType == C.WS_TEXT_FIELD_INITIALIZE_CODE:
-            return await textFieldInitializeCode(message, self.lsp_writers)
+            return await textFieldInitializeCode(message, self.lsp_writers, self.cache)
         elif messageType == C.WS_TYPE_CHECK:
             return await typeCheck(message, self.lsp_writers)

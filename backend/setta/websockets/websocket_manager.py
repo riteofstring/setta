@@ -17,9 +17,9 @@ class WebsocketManager:
         self.self_id = "main"
         self.message_id_to_sender_id = {}
 
-    async def connect(self, id, websocket: WebSocket, connectionType):
+    async def connect(self, websocket: WebSocket, connectionType, id=None):
         await websocket.accept()
-        while id in self.sockets:
+        while not id or id in self.sockets:
             id = generate_memorable_string()
         self.sockets[id] = {
             "websocket": websocket,
@@ -36,7 +36,7 @@ class WebsocketManager:
         except ConnectionClosedError:
             pass
 
-    async def process_message(self, message, fromWebsocketId):
+    def process_message(self, message, fromWebsocketId):
         if "toWebsocketId" not in message:
             return
 

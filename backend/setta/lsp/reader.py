@@ -134,7 +134,7 @@ class LanguageServerReader(LanguageServerInteractor):
             elif method == "textDocument/definition":
                 content = process_definition_response(response)
 
-            content = {"content": content, "otherData": otherData}
+            content = {"data": content, "otherData": otherData}
 
             if id in self.pending_requests:
                 self.pending_requests[id].set_result(content)

@@ -56,8 +56,8 @@ async def codeAreaAutocomplete(message, lsp_writers, cache):
         and exporter_obj.code_gen_template_var_section_details["section"].get("id")
         != message.sectionId
     ):
-        return {"content": {"data": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}}
-
+        return {"data": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
+    
     evRefs = await findEVRefsLocally(
         message.sectionId,
         None,

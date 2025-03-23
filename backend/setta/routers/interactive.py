@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from setta.code_gen.create_runnable_scripts import sanitize_section_path_full_name
 from setta.code_gen.export_selected import get_section_code, get_section_type
-from setta.tasks.fns.utils import replace_template_vars_with_random_names
+from setta.lsp.code_task_fns.utils import replace_template_vars_with_random_names
 from setta.utils.constants import C
 from setta.utils.utils import multireplace
 
