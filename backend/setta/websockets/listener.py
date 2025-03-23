@@ -55,59 +55,7 @@ def get_interactive_functions(caller_frame):
     return interactive_functions
 
 
-async def _execute_function(websocket, fn_name, function, args, kwargs, data):
-    """Execute a function in a separate task and send the result back."""
-    try:
-        # Call the function
-        if inspect.iscoroutinefunction(function):
-            # If the function is already async, await it
-            result = (
-                await function(*args, **kwargs)
-                if isinstance(args, list)
-                else await function(args, **kwargs)
-            )
-        else:
-            # If the function is synchronous, run it in the default executor
-            loop = asyncio.get_running_loop()
-            if isinstance(args, list):
-                result = await loop.run_in_executor(
-                    None, lambda: function(*args, **kwargs)
-                )
-            else:
-                result = await loop.run_in_executor(
-                    None, lambda: function(args, **kwargs)
-                )
-
-        # Send successful result
-        await websocket.send(
-            json.dumps(
-                {
-                    "id": data.get("id"),
-                    "status": "success",
-                    "content": result,
-                    "messageType": data.get("return_message_type"),
-                }
-            )
-        )
-    except Exception as e:
-        print(f"Error in function {fn_name}: {e}", flush=True)
-        traceback.print_exc()
-        await websocket.send(
-            json.dumps(
-                {
-                    "id": data.get("id"),
-                    "status": "error",
-                    "error": f"Error executing {fn_name}: {str(e)}",
-                    "traceback": traceback.format_exc(),
-                }
-            )
-        )
-
-
 async def _handle_websocket(websocket, interactive_functions):
-    # Track running tasks to ensure they complete properly
-    running_tasks = set()
-
     try:
         # Send registration message with function info including dependencies
         registration_info = {
@@ -136,21 +84,41 @@ async def _handle_websocket(websocket, interactive_functions):
                         args = data.get("args", [])
                         kwargs = data.get("kwargs", {})
 
-                        # Create a task for function execution to allow concurrent operations
-                        task = asyncio.create_task(
-                            _execute_function(
-                                websocket,
-                                fn_name,
-                                interactive_functions[fn_name]["function"],
-                                args,
-                                kwargs,
-                                data,
-                            )
-                        )
+                        try:
+                            # Call the function
+                            if isinstance(args, list):
+                                result = interactive_functions[fn_name]["function"](
+                                    *args, **kwargs
+                                )
+                            else:
+                                result = interactive_functions[fn_name]["function"](
+                                    args, **kwargs
+                                )
 
-                        # Add task to the set and set up its cleanup
-                        running_tasks.add(task)
-                        task.add_done_callback(lambda t: running_tasks.remove(t))
+                            # Send successful result
+                            await websocket.send(
+                                json.dumps(
+                                    {
+                                        "id": data.get("id"),
+                                        "status": "success",
+                                        "content": result,
+                                        "messageType": data.get("return_message_type"),
+                                    }
+                                )
+                            )
+                        except Exception as e:
+                            print(f"Error in function {fn_name}: {e}", flush=True)
+                            traceback.print_exc()
+                            await websocket.send(
+                                json.dumps(
+                                    {
+                                        "id": data.get("id"),
+                                        "status": "error",
+                                        "error": f"Error executing {fn_name}: {str(e)}",
+                                        "traceback": traceback.format_exc(),
+                                    }
+                                )
+                            )
                     else:
                         await websocket.send(
                             json.dumps(
@@ -179,14 +147,6 @@ async def _handle_websocket(websocket, interactive_functions):
     except Exception as e:
         print(f"WebSocket handler error: {e}", flush=True)
         traceback.print_exc()
-    finally:
-        # Wait for all pending tasks to complete before exiting
-        if running_tasks:
-            print(
-                f"Waiting for {len(running_tasks)} pending tasks to complete...",
-                flush=True,
-            )
-            await asyncio.gather(*running_tasks, return_exceptions=True)
 
 
 async def _connect_to_server(interactive_functions):
