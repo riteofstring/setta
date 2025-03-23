@@ -1,10 +1,10 @@
 import json
 from collections import defaultdict
 
-from setta.code_gen.export_selected import get_section_variants
 from setta.database.db.artifacts.save import save_artifact_groups, save_artifacts
 from setta.database.db.evRefs.save import save_ev_refs, save_template_vars
 from setta.database.utils import create_new_id
+from setta.gen_code.export_selected import get_section_variants
 from setta.utils.constants import (
     DEFAULT_VALUES,
     PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS,
