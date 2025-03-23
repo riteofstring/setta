@@ -57,7 +57,7 @@ async def codeAreaAutocomplete(message, lsp_writers, cache):
         != message.sectionId
     ):
         return {"data": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
-    
+
     evRefs = await findEVRefsLocally(
         message.sectionId,
         None,
