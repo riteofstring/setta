@@ -75,6 +75,9 @@ class WMHFrontend:
             if result:
                 await self.websocket_manager.return_to_requester(result, msg_id)
 
+    def disconnect(self, websocket_id):
+        pass
+
 
 class WMHCLI:
     def __init__(self, websocket_manager):
@@ -89,13 +92,14 @@ class WMHPythonScript:
         self.websocket_manager = websocket_manager
         self.script_metadata = script_metadata
 
-    async def process_message(self, message, *_):
+    async def process_message(self, message, websocket_id):
         print("WMHPythonScript process_message", message, flush=True)
         msg_type = message["messageType"]
         content = message["content"]
         if msg_type == C.WS_ADD_SCRIPT_METADATA:
-            self.script_metadata.add(content)
-        elif msg_type == C.WS_DELETE_SCRIPT_METADATA:
-            self.script_metadata.delete(content)
+            self.script_metadata.add(websocket_id, content)
 
         # self.websocket_manager.send_message(message, message["toWebsocketId"])
+
+    def disconnect(self, websocket_id):
+        self.script_metadata.delete(websocket_id)

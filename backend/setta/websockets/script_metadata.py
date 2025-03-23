@@ -2,8 +2,8 @@ class ScriptMetadata:
     def __init__(self):
         self.metadata = {}
 
-    def add(self, data):
-        self.metadata.update(data)
+    def add(self, id, data):
+        self.metadata[id] = data
         print("after add ScriptMetadata", self.metadata, flush=True)
 
     def delete(self, id):

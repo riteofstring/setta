@@ -38,6 +38,8 @@ async def websocket_route_loop(
             logger.debug(e)
             logger.debug("caught the exception!")
 
+    websocket_msg_handler.disconnect(fromWebsocketId)
+
 
 @router.websocket(C.ROUTE_WEBSOCKET_FRONTEND)
 async def route_websocket_frontend(

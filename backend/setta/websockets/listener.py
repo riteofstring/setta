@@ -2,7 +2,6 @@ import asyncio
 import inspect
 import json
 import logging
-import os
 import traceback
 
 import websockets
@@ -56,16 +55,14 @@ def get_interactive_functions(caller_frame):
     return interactive_functions
 
 
-async def _handle_websocket(script_id, websocket, interactive_functions):
+async def _handle_websocket(websocket, interactive_functions):
     try:
         # Send registration message with function info including dependencies
         registration_info = {
             "messageType": C.WS_ADD_SCRIPT_METADATA,
             "content": {
-                script_id: {
-                    name: {"dependencies": info["dependencies"]}
-                    for name, info in interactive_functions.items()
-                }
+                name: {"dependencies": info["dependencies"]}
+                for name, info in interactive_functions.items()
             },
         }
 
@@ -151,11 +148,11 @@ async def _handle_websocket(script_id, websocket, interactive_functions):
         traceback.print_exc()
 
 
-async def _connect_to_server(script_id, interactive_functions):
+async def _connect_to_server(interactive_functions):
     try:
         endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}"
         async with websockets.connect(endpoint) as websocket:
-            await _handle_websocket(script_id, websocket, interactive_functions)
+            await _handle_websocket(websocket, interactive_functions)
     except websockets.ConnectionClosedError:
         logger.debug("Connection closed unexpectedly")
     except ConnectionRefusedError:
@@ -168,7 +165,7 @@ def start_listener(host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
     caller_frame = inspect.currentframe().f_back
     # Find all interactive functions
     interactive_functions = get_interactive_functions(caller_frame)
-    script_id = os.path.relpath(caller_frame.f_code.co_filename)
+    # script_id = os.path.relpath(caller_frame.f_code.co_filename)
 
     # Print available functions for debugging
     if interactive_functions:
@@ -186,7 +183,7 @@ def start_listener(host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
 
     # Start the event loop
     try:
-        asyncio.run(_connect_to_server(script_id, interactive_functions))
+        asyncio.run(_connect_to_server(interactive_functions))
     except KeyboardInterrupt:
         print("Listener stopped by user", flush=True)
     except Exception as e:
