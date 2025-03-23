@@ -1,4 +1,4 @@
-from setta.logging.logger import SettaLogger, SettaList
+from setta.api.logger import SettaLogger, SettaList
 import time
 
 

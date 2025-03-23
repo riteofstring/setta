@@ -4,6 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from setta.api.logger import load_from_csv_base64
 from setta.database.db.artifacts.load import (
     load_artifact_from_disk,
     load_artifact_metadata_and_maybe_value_from_disk,
@@ -13,7 +14,6 @@ from setta.database.db.artifacts.save_or_create import (
     get_artifact_ids,
     save_or_create_artifacts,
 )
-from setta.logging.logger import load_from_csv_base64
 from setta.utils.constants import C
 
 from .dependencies import get_dbq, get_wmh_artifact
