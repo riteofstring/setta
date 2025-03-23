@@ -23,22 +23,23 @@ async def websocket_route_loop(
     websocket, websocket_manager, websocket_msg_handler, connectionType, id=None
 ):
     fromWebsocketId = await websocket_manager.connect(websocket, connectionType, id=id)
-    while True:
-        try:
-            data = await websocket.receive_text()
-            message = json.loads(data)
-            websocket_manager.process_message(message, fromWebsocketId)
-            await websocket_msg_handler.process_message(message, fromWebsocketId)
-        except WebSocketDisconnect:
-            logger.debug("WebSocketDisconnect!")
-            await websocket_manager.disconnect(fromWebsocketId)
-            break
-        except Exception as e:
-            logger.debug(f"Exception details:\n{traceback.format_exc()}")
-            logger.debug(e)
-            logger.debug("caught the exception!")
-
-    websocket_msg_handler.disconnect(fromWebsocketId)
+    try:
+        while True:
+            try:
+                data = await websocket.receive_text()
+                message = json.loads(data)
+                websocket_manager.process_message(message, fromWebsocketId)
+                await websocket_msg_handler.process_message(message, fromWebsocketId)
+            except WebSocketDisconnect:
+                logger.debug("WebSocketDisconnect!")
+                break
+            except Exception as e:
+                logger.debug(f"Exception details:\n{traceback.format_exc()}")
+                logger.debug(e)
+                logger.debug("caught the exception!")
+    finally:
+        await websocket_manager.disconnect(fromWebsocketId)
+        websocket_msg_handler.disconnect(fromWebsocketId)
 
 
 @router.websocket(C.ROUTE_WEBSOCKET_FRONTEND)

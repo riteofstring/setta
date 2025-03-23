@@ -68,77 +68,74 @@ async def _handle_websocket(websocket, interactive_functions):
     await websocket.send(json.dumps(registration_info))
 
     # Process incoming messages using async for
-    try:
-        async for message in websocket:
-            try:
-                data = json.loads(message)
+    async for message in websocket:
+        try:
+            data = json.loads(message)
 
-                # Handle function calls
-                if data.get("type") == "call":
-                    fn_name = data.get("fn_name")
+            # Handle function calls
+            if data.get("type") == "call":
+                fn_name = data.get("fn_name")
 
-                    if fn_name in interactive_functions:
-                        args = data.get("args", [])
-                        kwargs = data.get("kwargs", {})
+                if fn_name in interactive_functions:
+                    args = data.get("args", [])
+                    kwargs = data.get("kwargs", {})
 
-                        try:
-                            # Call the function
-                            if isinstance(args, list):
-                                result = interactive_functions[fn_name]["function"](
-                                    *args, **kwargs
-                                )
-                            else:
-                                result = interactive_functions[fn_name]["function"](
-                                    args, **kwargs
-                                )
-
-                            # Send successful result
-                            await websocket.send(
-                                json.dumps(
-                                    {
-                                        "id": data.get("id"),
-                                        "status": "success",
-                                        "content": result,
-                                        "messageType": data.get("return_message_type"),
-                                    }
-                                )
+                    try:
+                        # Call the function
+                        if isinstance(args, list):
+                            result = interactive_functions[fn_name]["function"](
+                                *args, **kwargs
                             )
-                        except Exception as e:
-                            print(f"Error in function {fn_name}: {e}", flush=True)
-                            traceback.print_exc()
-                            await websocket.send(
-                                json.dumps(
-                                    {
-                                        "id": data.get("id"),
-                                        "status": "error",
-                                        "error": f"Error executing {fn_name}: {str(e)}",
-                                        "traceback": traceback.format_exc(),
-                                    }
-                                )
+                        else:
+                            result = interactive_functions[fn_name]["function"](
+                                args, **kwargs
                             )
-                    else:
+
+                        # Send successful result
+                        await websocket.send(
+                            json.dumps(
+                                {
+                                    "id": data.get("id"),
+                                    "status": "success",
+                                    "content": result,
+                                    "messageType": data.get("return_message_type"),
+                                }
+                            )
+                        )
+                    except Exception as e:
+                        print(f"Error in function {fn_name}: {e}", flush=True)
+                        traceback.print_exc()
                         await websocket.send(
                             json.dumps(
                                 {
                                     "id": data.get("id"),
                                     "status": "error",
-                                    "error": f"Function {fn_name} not found",
+                                    "error": f"Error executing {fn_name}: {str(e)}",
+                                    "traceback": traceback.format_exc(),
                                 }
                             )
                         )
+                else:
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "id": data.get("id"),
+                                "status": "error",
+                                "error": f"Function {fn_name} not found",
+                            }
+                        )
+                    )
 
-                # Handle shutdown request
-                elif data.get("type") == "shutdown":
-                    print("Received shutdown command", flush=True)
-                    break
+            # Handle shutdown request
+            elif data.get("type") == "shutdown":
+                print("Received shutdown command", flush=True)
+                break
 
-            except json.JSONDecodeError:
-                print("Received invalid JSON", flush=True)
-            except Exception as e:
-                print(f"Error handling message: {e}", flush=True)
-                traceback.print_exc()
-    except websockets.exceptions.ConnectionClosed:
-        print("Connection closed", flush=True)
+        except json.JSONDecodeError:
+            print("Received invalid JSON", flush=True)
+        except Exception as e:
+            print(f"Error handling message: {e}", flush=True)
+            traceback.print_exc()
 
 
 async def _connect_to_server(interactive_functions):
