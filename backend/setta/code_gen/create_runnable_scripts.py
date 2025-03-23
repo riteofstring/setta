@@ -314,6 +314,8 @@ def process_non_hardcoded_template_var(
         section_dependencies.append(template_var["sectionId"])
         keyword = sanitize_section_path_full_name(keyword)
         return f'"{codePathStr(folder_path, keyword, "python")}"'
+    elif keyword_type == C.TEMPLATE_VAR_CODE_SUFFIX:
+        pass
 
 
 def get_absolute_decl_position_from_rel_position(
