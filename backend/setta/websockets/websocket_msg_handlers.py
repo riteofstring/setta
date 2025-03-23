@@ -60,11 +60,11 @@ class WMHFrontend:
         self.code_tasks = code_tasks
 
     async def process_message(self, message, *_):
-        if (
-            message["messageType"] == C.WS_SEND_TO_SCRIPT
-            or message["toWebsocketId"] != self.websocket_manager.main_id
-        ):
-            self.websocket_manager.send_message(message, message["toWebsocketId"])
+        wid = message.get("toWebsocketId")
+        if wid and wid != self.websocket_manager.main_id:
+            self.websocket_manager.send_message(message, wid)
+        elif message["messageType"] == C.WS_SEND_TO_SCRIPT:
+            pass  # TODO
         else:
             msg_id = message.get("id")
             if not msg_id:

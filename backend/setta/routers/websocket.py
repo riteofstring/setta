@@ -24,15 +24,10 @@ async def websocket_route_loop(
 ):
     fromWebsocketId = await websocket_manager.connect(websocket, connectionType, id=id)
     while True:
-        print(
-            "in while loop for websocket:", connectionType, fromWebsocketId, flush=True
-        )
         try:
             data = await websocket.receive_text()
             message = json.loads(data)
-            success = websocket_manager.process_message(message, fromWebsocketId)
-            if not success:
-                continue
+            websocket_manager.process_message(message, fromWebsocketId)
             await websocket_msg_handler.process_message(message, fromWebsocketId)
         except WebSocketDisconnect:
             logger.debug("WebSocketDisconnect!")

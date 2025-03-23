@@ -36,18 +36,12 @@ class WebsocketManager:
         except ConnectionClosedError:
             pass
 
-    # returns False if the message is invalid
     def process_message(self, message, fromWebsocketId):
-        if "toWebsocketId" not in message:
-            return False
-
         if "id" in message:
             self.message_id_to_sender_id[message["id"]] = fromWebsocketId
 
         if "location" in message:
             self.sockets[fromWebsocketId]["location"] = message["location"]
-
-        return True
 
     async def send_message(self, message, toWebsocketId):
         websocket = self.sockets[toWebsocketId]["websocket"]
