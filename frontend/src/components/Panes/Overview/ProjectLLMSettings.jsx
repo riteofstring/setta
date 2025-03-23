@@ -12,17 +12,21 @@ export function ProjectLLMSettings() {
     setModelItems((prev) => {
       // Create a copy of the current selection
       const newSelected = [...prev];
+      console.log("newSelected", newSelected);
       const existingGroupIndex = newSelected.findIndex(
         (group) => group.group === groupName,
       );
 
+      console.log("existingGroupIndex", existingGroupIndex);
       if (existingGroupIndex >= 0) {
         const existingItemIndex = newSelected[
           existingGroupIndex
         ].items.findIndex((item) => item.id === modelItem.id);
 
+        console.log("first if, existinItemIndex:", existingItemIndex);
         if (existingItemIndex === -1) {
           newSelected[existingGroupIndex].items.push({ ...modelItem });
+          console.log("second if");
         } else {
           return newSelected;
         }
@@ -31,8 +35,9 @@ export function ProjectLLMSettings() {
           group: groupName,
           items: [{ ...modelItem }],
         });
+        console.log("outer Else:", newSelected);
       }
-
+      console.log("outer return", newSelected);
       return newSelected;
     });
   };
@@ -61,12 +66,112 @@ export function ProjectLLMSettings() {
     });
   };
 
+  const handleAddLLM = () => {
+    // Find the Unassigned group in MODEL_GROUPS
+    const unassignedGroup =
+      MODEL_GROUPS.find((g) => g.group === "Unassigned Models")?.group ||
+      "Unassigned Models";
+
+    const defaultModel = {
+      id: crypto.randomUUID(),
+      selectedLLM: null,
+      isLocal: false,
+      apiKey: [],
+      path: "",
+    };
+
+    addModelItem(unassignedGroup, defaultModel);
+  };
+
+  // In ProjectLLMSettings
+  const updateModelItem = (groupName, modelId, updates) => {
+    setModelItems((prevSelected) => {
+      const newSelected = [...prevSelected];
+      const groupIndex = newSelected.findIndex(
+        (group) => group.group === groupName,
+      );
+
+      if (groupIndex >= 0) {
+        const itemIndex = newSelected[groupIndex].items.findIndex(
+          (item) => item.id === modelId,
+        );
+
+        if (itemIndex >= 0) {
+          // Update the existing item
+          newSelected[groupIndex].items[itemIndex] = {
+            ...newSelected[groupIndex].items[itemIndex],
+            ...updates,
+          };
+        }
+      }
+
+      return newSelected;
+    });
+  };
+
+  // Add this function to ProjectLLMSettings component
+  const moveModelItem = (fromGroupName, toGroupName, modelId, updatedModel) => {
+    setModelItems((prevItems) => {
+      // Create a deep copy of the existing items
+      const newItems = JSON.parse(JSON.stringify(prevItems));
+
+      // 1. Find and remove the item from its current group
+      const fromGroupIndex = newItems.findIndex(
+        (group) => group.group === fromGroupName,
+      );
+      let modelToMove = null;
+
+      if (fromGroupIndex >= 0) {
+        const itemIndex = newItems[fromGroupIndex].items.findIndex(
+          (item) => item.id === modelId,
+        );
+
+        if (itemIndex >= 0) {
+          // Extract the item
+          modelToMove = newItems[fromGroupIndex].items[itemIndex];
+          // Remove it from current group
+          newItems[fromGroupIndex].items.splice(itemIndex, 1);
+
+          // Remove empty group if needed
+          if (newItems[fromGroupIndex].items.length === 0) {
+            newItems.splice(fromGroupIndex, 1);
+          }
+        }
+      }
+
+      // 2. Add the item to its new group with updates
+      if (modelToMove) {
+        // Apply updates to the model
+        const updatedModelItem = { ...modelToMove, ...updatedModel };
+
+        // Find or create the target group
+        const toGroupIndex = newItems.findIndex(
+          (group) => group.group === toGroupName,
+        );
+
+        if (toGroupIndex >= 0) {
+          // Add to existing group
+          newItems[toGroupIndex].items.push(updatedModelItem);
+        } else {
+          // Create new group
+          newItems.push({
+            group: toGroupName,
+            items: [updatedModelItem],
+          });
+        }
+      }
+
+      return newItems;
+    });
+  };
+
   // Flatten all items for display while preserving group information
   const allItems = modelItems.flatMap((group) =>
     group.items.map((item) => ({ ...item, groupName: group.group })),
   );
 
   console.log("allItems", allItems);
+  console.log("modelItems", modelItems);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-[30dvh] text-setta-600 dark:text-setta-400">
@@ -74,16 +179,20 @@ export function ProjectLLMSettings() {
         <ModelItem
           key={item.id}
           item={item}
-          onUpdate={() => {}}
+          onUpdate={(updates) =>
+            updateModelItem(item.groupName, item.id, updates)
+          }
           onRemove={() => removeModelItem(item.groupName, item.id)}
-          addModel={(selectedItem) =>
-            addModelItem(item.groupName, selectedItem)
+          addModel={(selectedItem, groupName = item.groupName) =>
+            addModelItem(groupName, selectedItem)
+          }
+          moveModel={(fromGroup, toGroup, modelId, updates) =>
+            moveModelItem(fromGroup, toGroup, modelId, updates)
           }
         />
       ))}
-
       <button
-        onClick={addModelItem}
+        onClick={handleAddLLM}
         className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500/30 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-white focus-visible:border-blue-500 dark:text-setta-400 dark:hover:bg-setta-800"
       >
         <i className="gg-play-list-add !scale-75" />
@@ -93,8 +202,41 @@ export function ProjectLLMSettings() {
   );
 }
 
-function ModelItem({ item, onUpdate, onRemove, addModel }) {
-  const { isLocal, selectedLLM, apiKey = [], path = "" } = item;
+function ModelItem({ item, onUpdate, onRemove, addModel, moveModel }) {
+  const { isLocal, selectedLLM, apiKey = [], path = "", groupName } = item;
+
+  const handleModelSelect = (selectedId) => {
+    if (typeof selectedId === "string") {
+      // Find the model and its correct group
+      let selectedModel = null;
+      let correctGroupName = "";
+
+      for (const group of MODEL_GROUPS) {
+        if (group.items) {
+          const foundModel = group.items.find(
+            (model) => model.id === selectedId,
+          );
+          if (foundModel) {
+            selectedModel = foundModel;
+            correctGroupName = group.group || group.name;
+            break;
+          }
+        }
+      }
+
+      if (selectedModel) {
+        if (groupName !== correctGroupName) {
+          // Move between groups
+          moveModel(groupName, correctGroupName, item.id, {
+            selectedLLM: selectedModel,
+          });
+        } else {
+          // Same group, just update
+          onUpdate({ selectedLLM: selectedModel });
+        }
+      }
+    }
+  };
 
   return (
     <div className="mr-0.5 flex flex-col gap-2 rounded-lg p-3 text-xs transition-colors hover:bg-white/50 hover:dark:bg-setta-800/50">
@@ -102,8 +244,8 @@ function ModelItem({ item, onUpdate, onRemove, addModel }) {
         <div className="-ml-2.5 mr-auto w-full min-w-0 max-w-[300px]">
           <IdNameCombobox
             allItems={MODEL_GROUPS}
-            value={selectedLLM}
-            onSelectedItemChange={addModel}
+            value={selectedLLM ? selectedLLM.id : null}
+            onSelectedItemChange={handleModelSelect}
             placeholder="Select an LLM model."
             small={false}
           />

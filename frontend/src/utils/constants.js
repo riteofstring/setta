@@ -181,6 +181,10 @@ export const MODEL_GROUPS = [
     group: "Custom",
     items: [{ id: "custom", name: "Custom Model..." }],
   },
+  {
+    group: "Unassigned",
+    items: [{ id: "", name: "" }],
+  },
 ];
 
 export const DEFAULT_ENDPOINTS = {
