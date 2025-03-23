@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class WebsocketManager:
     def __init__(self):
         self.sockets = {}
-        self.self_id = "main"
+        self.main_id = "main"
         self.message_id_to_sender_id = {}
 
     async def connect(self, websocket: WebSocket, connectionType, id=None):
@@ -76,7 +76,7 @@ class WebsocketManager:
             )
         connections.append(
             {
-                "websocketId": self.self_id,
+                "websocketId": self.main_id,
                 "connectionType": C.WEBSOCKET_CONNECTION_TYPE_SERVER,
             }
         )

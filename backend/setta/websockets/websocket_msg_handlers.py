@@ -9,6 +9,7 @@ class WebsocketMsgHandlers:
         self.database = WMHDatabase(websocket_manager)
         self.frontend = WMHFrontend(websocket_manager, code_tasks)
         self.cli = WMHCLI(websocket_manager)
+        self.python_script = WMHPythonScript(websocket_manager)
 
 
 class WMHLSPReader:
@@ -59,12 +60,18 @@ class WMHFrontend:
         self.code_tasks = code_tasks
 
     async def process_message(self, message, *_):
-        msg_id = message.get("id")
-        if not msg_id:
-            return
-        result = await self.code_tasks.process_message(message)
-        if result:
-            await self.websocket_manager.return_to_requester(result, msg_id)
+        if (
+            message["messageType"] == C.WS_SEND_TO_SCRIPT
+            or message["toWebsocketId"] != self.websocket_manager.main_id
+        ):
+            self.websocket_manager.send_message(message, message["toWebsocketId"])
+        else:
+            msg_id = message.get("id")
+            if not msg_id:
+                return
+            result = await self.code_tasks.process_message(message)
+            if result:
+                await self.websocket_manager.return_to_requester(result, msg_id)
 
 
 class WMHCLI:
@@ -73,3 +80,12 @@ class WMHCLI:
 
     async def process_message(self, message, *_):
         self.websocket_manager.send_message(message, message["toWebsocketId"])
+
+
+class WMHPythonScript:
+    def __init__(self, websocket_manager):
+        self.websocket_manager = websocket_manager
+
+    async def process_message(self, message, *_):
+        print("WMHPythonScript process_message", message, flush=True)
+        # self.websocket_manager.send_message(message, message["toWebsocketId"])

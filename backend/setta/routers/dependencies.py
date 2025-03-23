@@ -37,6 +37,10 @@ def get_wmh_cli_from_websocket(websocket: WebSocket):
     return websocket.app.state.websocket_msg_handlers.cli
 
 
+def get_wmh_python_script_from_websocket(websocket: WebSocket):
+    return websocket.app.state.websocket_msg_handlers.python_script
+
+
 def get_lsps(request: Request):
     return [
         request.app.state.lsps,
