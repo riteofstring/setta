@@ -53,14 +53,26 @@ class WebsocketManager:
             self.message_id_to_sender_id[request_msg_id],
         )
 
-    async def send_message_to_location(self, message, location):
-        for k, w in self.sockets.items():
-            if w["location"] == location:
+    async def broadcast(
+        self,
+        message=None,
+        content=None,
+        messageType=None,
+        id=None,
+        connectionType=None,
+        location=None,
+    ):
+        if message is None:
+            message = {"content": content, "messageType": messageType}
+            if id:
+                message["id"] = id
+        for k, v in self.sockets.items():
+            if (
+                (not connectionType and not location)
+                or (connectionType and v["connectionType"] == connectionType)
+                or (location and v["location"] == location)
+            ):
                 await self.send_message(message, k)
-
-    async def broadcast(self, content, messageType):
-        for k in self.sockets.keys():
-            await self.send_message({"content": content, "messageType": messageType}, k)
 
     async def broadcast_connections(self):
         connections = []

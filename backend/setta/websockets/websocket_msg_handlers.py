@@ -110,8 +110,11 @@ class WMHPythonLogger:
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
-    async def process_message(self, message, websocket_id):
+    async def process_message(self, message, *_):
         print("WMHPythonLogger process_message", message, flush=True)
+        await self.websocket_manager.broadcast(
+            message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
+        )
 
     def disconnect(self, websocket_id):
         pass

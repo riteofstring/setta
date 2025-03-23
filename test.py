@@ -7,6 +7,6 @@ logger = Setta()
 
 for i in range(1000):
     print("sending", i)
-    time.sleep(0.025)
+    time.sleep(1)
     logger.send(x)
 print('done')
