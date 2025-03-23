@@ -62,7 +62,7 @@ function ProjectAIChatContainer({ chatId, messages }) {
 
   // Use the same hook pattern that's working in ProjectLLMSettings
   const [modelItems] = localStorageFns.modelItems.hook();
-  console.log("modelItems", modelItems);
+  console.log("chat page modelItems", modelItems);
 
   // Find model settings by selectedLLM
   const findModelSettings = (selectedLLM) => {
@@ -106,9 +106,8 @@ function ProjectAIChatContainer({ chatId, messages }) {
           )}
         </button>
 
-        {!viewHistory ? null : (
+        {viewHistory ? null : (
           <>
-            {/* <p>{JSON.stringify(modelItems)}</p> */}
             <IdNameCombobox
               allItems={modelItems}
               onSelectedItemChange={(selectedItem) =>

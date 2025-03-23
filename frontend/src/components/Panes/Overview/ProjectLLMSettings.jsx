@@ -2,31 +2,28 @@ import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import { useState } from "react";
 import { localStorageFns } from "state/hooks/localStorage";
 import { MODEL_GROUPS } from "utils/constants";
 
 export function ProjectLLMSettings() {
   const [modelItems, setModelItems] = localStorageFns.modelItems.hook();
+  const [itemOrder, setItemOrder] = useState({});
 
   const addModelItem = (groupName, modelItem) => {
     setModelItems((prev) => {
-      // Create a copy of the current selection
       const newSelected = [...prev];
-      console.log("newSelected", newSelected);
       const existingGroupIndex = newSelected.findIndex(
         (group) => group.group === groupName,
       );
 
-      console.log("existingGroupIndex", existingGroupIndex);
       if (existingGroupIndex >= 0) {
         const existingItemIndex = newSelected[
           existingGroupIndex
-        ].items.findIndex((item) => item.id === modelItem.id);
+        ].items.findIndex((item) => item.uniqueId === modelItem.uniqueId);
 
-        console.log("first if, existinItemIndex:", existingItemIndex);
         if (existingItemIndex === -1) {
           newSelected[existingGroupIndex].items.push({ ...modelItem });
-          console.log("second if");
         } else {
           return newSelected;
         }
@@ -35,28 +32,23 @@ export function ProjectLLMSettings() {
           group: groupName,
           items: [{ ...modelItem }],
         });
-        console.log("outer Else:", newSelected);
       }
-      console.log("outer return", newSelected);
       return newSelected;
     });
   };
 
-  const removeModelItem = (groupName, modelId) => {
+  const removeModelItem = (groupName, uniqueId) => {
     setModelItems((prevSelected) => {
       const newSelected = [...prevSelected];
 
-      // Find the group
       const groupIndex = newSelected.findIndex(
         (group) => group.group === groupName,
       );
       if (groupIndex >= 0) {
-        // Remove the item
         newSelected[groupIndex].items = newSelected[groupIndex].items.filter(
-          (item) => item.id !== modelId,
+          (item) => item.uniqueId !== uniqueId,
         );
 
-        // If the group is now empty, remove the group
         if (newSelected[groupIndex].items.length === 0) {
           newSelected.splice(groupIndex, 1);
         }
@@ -67,14 +59,22 @@ export function ProjectLLMSettings() {
   };
 
   const handleAddLLM = () => {
-    // Find the Unassigned group in MODEL_GROUPS
     const unassignedGroup =
       MODEL_GROUPS.find((g) => g.group === "Unassigned Models")?.group ||
       "Unassigned Models";
 
+    const newUniqueId = crypto.randomUUID();
+
+    // Update the order tracker
+    setItemOrder((prev) => ({
+      ...prev,
+      [newUniqueId]: Date.now(), // Use timestamp as sort order
+    }));
+
     const defaultModel = {
-      id: crypto.randomUUID(),
-      selectedLLM: null,
+      uniqueId: newUniqueId,
+      id: "",
+      name: "",
       isLocal: false,
       apiKey: [],
       path: "",
@@ -84,7 +84,7 @@ export function ProjectLLMSettings() {
   };
 
   // In ProjectLLMSettings
-  const updateModelItem = (groupName, modelId, updates) => {
+  const updateModelItem = (groupName, uniqueId, updates) => {
     setModelItems((prevSelected) => {
       const newSelected = [...prevSelected];
       const groupIndex = newSelected.findIndex(
@@ -93,11 +93,10 @@ export function ProjectLLMSettings() {
 
       if (groupIndex >= 0) {
         const itemIndex = newSelected[groupIndex].items.findIndex(
-          (item) => item.id === modelId,
+          (item) => item.uniqueId === uniqueId,
         );
 
         if (itemIndex >= 0) {
-          // Update the existing item
           newSelected[groupIndex].items[itemIndex] = {
             ...newSelected[groupIndex].items[itemIndex],
             ...updates,
@@ -109,54 +108,51 @@ export function ProjectLLMSettings() {
     });
   };
 
-  // Add this function to ProjectLLMSettings component
-  const moveModelItem = (fromGroupName, toGroupName, modelId, updatedModel) => {
+  const moveModelItem = (
+    fromGroupName,
+    toGroupName,
+    uniqueId,
+    updatedModel,
+  ) => {
     setModelItems((prevItems) => {
       // Create a deep copy of the existing items
       const newItems = JSON.parse(JSON.stringify(prevItems));
 
-      // 1. Find and remove the item from its current group
       const fromGroupIndex = newItems.findIndex(
         (group) => group.group === fromGroupName,
       );
+
       let modelToMove = null;
 
       if (fromGroupIndex >= 0) {
         const itemIndex = newItems[fromGroupIndex].items.findIndex(
-          (item) => item.id === modelId,
+          (item) => item.uniqueId === uniqueId,
         );
 
         if (itemIndex >= 0) {
-          // Extract the item
-          modelToMove = newItems[fromGroupIndex].items[itemIndex];
-          // Remove it from current group
+          modelToMove = {
+            ...newItems[fromGroupIndex].items[itemIndex],
+            ...updatedModel,
+          };
           newItems[fromGroupIndex].items.splice(itemIndex, 1);
 
-          // Remove empty group if needed
           if (newItems[fromGroupIndex].items.length === 0) {
             newItems.splice(fromGroupIndex, 1);
           }
         }
       }
 
-      // 2. Add the item to its new group with updates
       if (modelToMove) {
-        // Apply updates to the model
-        const updatedModelItem = { ...modelToMove, ...updatedModel };
-
-        // Find or create the target group
         const toGroupIndex = newItems.findIndex(
           (group) => group.group === toGroupName,
         );
 
         if (toGroupIndex >= 0) {
-          // Add to existing group
-          newItems[toGroupIndex].items.push(updatedModelItem);
+          newItems[toGroupIndex].items.push(modelToMove);
         } else {
-          // Create new group
           newItems.push({
             group: toGroupName,
-            items: [updatedModelItem],
+            items: [modelToMove],
           });
         }
       }
@@ -165,56 +161,75 @@ export function ProjectLLMSettings() {
     });
   };
 
-  // Flatten all items for display while preserving group information
-  const allItems = modelItems.flatMap((group) =>
-    group.items.map((item) => ({ ...item, groupName: group.group })),
-  );
+  const allItems = modelItems
+    .flatMap((group) =>
+      group.items.map((item) => ({ ...item, groupName: group.group })),
+    )
+    // Sort by the stored order, falling back to uniqueId if no order exists
+    .sort((a, b) => {
+      const orderA = itemOrder[a.uniqueId] || 0;
+      const orderB = itemOrder[b.uniqueId] || 0;
+      if (orderA === orderB) {
+        // Secondary sort by uniqueId for stability
+        return a.uniqueId.localeCompare(b.uniqueId);
+      }
+      return orderA - orderB;
+    });
 
   console.log("allItems", allItems);
   console.log("modelItems", modelItems);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-[30dvh] text-setta-600 dark:text-setta-400">
-      {allItems.map((item) => (
-        <ModelItem
-          key={item.id}
-          item={item}
-          onUpdate={(updates) =>
-            updateModelItem(item.groupName, item.id, updates)
-          }
-          onRemove={() => removeModelItem(item.groupName, item.id)}
-          addModel={(selectedItem, groupName = item.groupName) =>
-            addModelItem(groupName, selectedItem)
-          }
-          moveModel={(fromGroup, toGroup, modelId, updates) =>
-            moveModelItem(fromGroup, toGroup, modelId, updates)
-          }
-        />
-      ))}
+    <>
       <button
         onClick={handleAddLLM}
-        className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500/30 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-white focus-visible:border-blue-500 dark:text-setta-400 dark:hover:bg-setta-800"
+        className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500/30 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-white focus-visible:border-blue-500 dark:text-setta-400 dark:hover:bg-setta-800"
       >
         <i className="gg-play-list-add !scale-75" />
         <p>Add an LLM</p>
       </button>
-    </div>
+      <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-[30dvh] text-setta-600 dark:text-setta-400">
+        {allItems.map((item) => (
+          <ModelItem
+            key={item.uniqueId}
+            item={item}
+            onUpdate={(updates) =>
+              updateModelItem(item.groupName, item.uniqueId, updates)
+            }
+            onRemove={() => removeModelItem(item.groupName, item.uniqueId)}
+            addModel={(selectedItem, groupName = item.groupName) =>
+              addModelItem(groupName, selectedItem)
+            }
+            moveModel={(fromGroup, toGroup, itemId, updates) =>
+              moveModelItem(fromGroup, toGroup, itemId, updates)
+            }
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
 function ModelItem({ item, onUpdate, onRemove, addModel, moveModel }) {
-  const { isLocal, selectedLLM, apiKey = [], path = "", groupName } = item;
+  const {
+    isLocal,
+    id,
+    name,
+    apiKey = [],
+    path = "",
+    groupName,
+    uniqueId,
+  } = item;
 
-  const handleModelSelect = (selectedId) => {
-    if (typeof selectedId === "string") {
-      // Find the model and its correct group
+  const handleModelSelect = (selectedModelId) => {
+    if (typeof selectedModelId === "string") {
       let selectedModel = null;
       let correctGroupName = "";
 
       for (const group of MODEL_GROUPS) {
         if (group.items) {
           const foundModel = group.items.find(
-            (model) => model.id === selectedId,
+            (model) => model.id === selectedModelId,
           );
           if (foundModel) {
             selectedModel = foundModel;
@@ -225,14 +240,15 @@ function ModelItem({ item, onUpdate, onRemove, addModel, moveModel }) {
       }
 
       if (selectedModel) {
+        onUpdate({
+          id: selectedModelId,
+          name: selectedModel.name,
+        });
         if (groupName !== correctGroupName) {
-          // Move between groups
-          moveModel(groupName, correctGroupName, item.id, {
-            selectedLLM: selectedModel,
+          moveModel(groupName, correctGroupName, uniqueId, {
+            id: selectedModelId,
+            name: selectedModel.name,
           });
-        } else {
-          // Same group, just update
-          onUpdate({ selectedLLM: selectedModel });
         }
       }
     }
@@ -244,7 +260,7 @@ function ModelItem({ item, onUpdate, onRemove, addModel, moveModel }) {
         <div className="-ml-2.5 mr-auto w-full min-w-0 max-w-[300px]">
           <IdNameCombobox
             allItems={MODEL_GROUPS}
-            value={selectedLLM ? selectedLLM.id : null}
+            value={id}
             onSelectedItemChange={handleModelSelect}
             placeholder="Select an LLM model."
             small={false}
