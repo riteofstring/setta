@@ -1,6 +1,7 @@
 import json
 import logging
 import traceback
+from typing import Optional
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
@@ -8,6 +9,7 @@ from setta.utils.constants import C
 
 from .dependencies import (
     get_websocket_manager_from_websocket,
+    get_wmh_cli_from_websocket,
     get_wmh_frontend_from_websocket,
 )
 
@@ -17,14 +19,19 @@ router = APIRouter()
 
 
 async def websocket_route_loop(
-    websocket, websocket_manager, websocket_msg_handler, connectionType
+    websocket, websocket_manager, websocket_msg_handler, connectionType, id=None
 ):
-    fromWebsocketId = await websocket_manager.connect(websocket, connectionType)
+    fromWebsocketId = await websocket_manager.connect(websocket, connectionType, id=id)
     while True:
+        print(
+            "in while loop for websocket:", connectionType, fromWebsocketId, flush=True
+        )
         try:
             data = await websocket.receive_text()
             message = json.loads(data)
-            websocket_manager.process_message(message, fromWebsocketId)
+            success = websocket_manager.process_message(message, fromWebsocketId)
+            if not success:
+                continue
             await websocket_msg_handler.process_message(message, fromWebsocketId)
         except WebSocketDisconnect:
             logger.debug("WebSocketDisconnect!")
@@ -47,4 +54,21 @@ async def route_websocket_frontend(
         websocket_manager,
         websocket_msg_handler,
         C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+    )
+
+
+@router.websocket(C.ROUTE_WEBSOCKET_CLI)
+@router.websocket(C.ROUTE_WEBSOCKET_CLI_WITH_ID)
+async def route_websocket_cli(
+    websocket: WebSocket,
+    id: Optional[str] = None,
+    websocket_manager=Depends(get_websocket_manager_from_websocket),
+    websocket_msg_handler=Depends(get_wmh_cli_from_websocket),
+):
+    await websocket_route_loop(
+        websocket,
+        websocket_manager,
+        websocket_msg_handler,
+        C.WEBSOCKET_CONNECTION_TYPE_CLI,
+        id=id,
     )

@@ -8,6 +8,7 @@ class WebsocketMsgHandlers:
         self.artifact = WMHArtifact(websocket_manager)
         self.database = WMHDatabase(websocket_manager)
         self.frontend = WMHFrontend(websocket_manager, code_tasks)
+        self.cli = WMHCLI(websocket_manager)
 
 
 class WMHLSPReader:
@@ -64,3 +65,11 @@ class WMHFrontend:
         result = await self.code_tasks.process_message(message)
         if result:
             await self.websocket_manager.return_to_requester(result, msg_id)
+
+
+class WMHCLI:
+    def __init__(self, websocket_manager):
+        self.websocket_manager = websocket_manager
+
+    async def process_message(self, message, *_):
+        self.websocket_manager.send_message(message, message["toWebsocketId"])

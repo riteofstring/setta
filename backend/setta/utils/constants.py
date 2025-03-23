@@ -53,7 +53,7 @@ class Constants:
     @property
     def WEBSOCKET(self):
         self._ensure_initialized()
-        return f"ws://{self.HOST}:{self.PORT}{self.ROUTE_PREFIX}{self.ROUTE_WEBSOCKET_MANAGER}"
+        return f"ws://{self.HOST}:{self.PORT}{self.ROUTE_PREFIX}"
 
 
 C = Constants()
