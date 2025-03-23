@@ -1,5 +1,5 @@
-from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
-from setta.code_gen.export_selected import export_selected
+from setta.gen_code.create_runnable_scripts import generate_final_code_for_sections
+from setta.gen_code.export_selected import export_selected
 
 from .utils import send_document_open_request_with_diagnostics_with_code_dict
 

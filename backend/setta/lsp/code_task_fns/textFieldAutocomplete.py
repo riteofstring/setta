@@ -3,15 +3,15 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from setta.code_gen.create_runnable_scripts import generate_final_code_for_section
-from setta.code_gen.export_selected import get_gen_code_template_var
-from setta.code_gen.find_placeholders import tp
-from setta.code_gen.python.generate_code import (
+from setta.gen_code.create_runnable_scripts import generate_final_code_for_section
+from setta.gen_code.export_selected import get_gen_code_template_var
+from setta.gen_code.find_placeholders import tp
+from setta.gen_code.python.generate_code import (
     construct_var_decl_with_trailing_whitespace,
     var_declaration,
 )
-from setta.code_gen.python.position_line_col import position_to_line_col
-from setta.code_gen.utils import process_refs
+from setta.gen_code.python.position_line_col import position_to_line_col
+from setta.gen_code.utils import process_refs
 from setta.utils.constants import C
 
 from .findEVRefs import findEVRefsLocally

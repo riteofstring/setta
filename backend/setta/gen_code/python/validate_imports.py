@@ -2,9 +2,9 @@ import asyncio
 import copy
 import logging
 
-from setta.code_gen.export_selected import get_specific_template_var
-from setta.code_gen.find_placeholders import tp
 from setta.database.utils import create_new_id
+from setta.gen_code.export_selected import get_specific_template_var
+from setta.gen_code.find_placeholders import tp
 from setta.utils.constants import C
 
 logger = logging.getLogger(__name__)

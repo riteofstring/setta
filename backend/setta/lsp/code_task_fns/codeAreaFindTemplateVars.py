@@ -3,8 +3,8 @@ from typing import List
 
 from pydantic import BaseModel
 
-from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.database.utils import create_new_id
+from setta.gen_code.python.position_line_col import position_to_line_col
 
 from .utils import replace_template_vars_with_random_names
 

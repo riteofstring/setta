@@ -1,11 +1,11 @@
 from pydantic import BaseModel
 
-from setta.code_gen.create_runnable_scripts import generate_final_code_for_section
-from setta.code_gen.export_selected import get_gen_code_template_var
-from setta.code_gen.find_placeholders import tp
-from setta.code_gen.python.check_scope import are_positions_in_scope_with_variable
-from setta.code_gen.python.generate_code import get_chars_in_line_before_position
-from setta.code_gen.python.position_line_col import position_to_line_col
+from setta.gen_code.create_runnable_scripts import generate_final_code_for_section
+from setta.gen_code.export_selected import get_gen_code_template_var
+from setta.gen_code.find_placeholders import tp
+from setta.gen_code.python.check_scope import are_positions_in_scope_with_variable
+from setta.gen_code.python.generate_code import get_chars_in_line_before_position
+from setta.gen_code.python.position_line_col import position_to_line_col
 from setta.utils.constants import C
 
 from .codeAreaFindTemplateVars import findTemplateVarsLocally
