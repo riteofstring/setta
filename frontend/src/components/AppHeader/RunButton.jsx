@@ -4,7 +4,10 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useState } from "react";
 import { RiArrowDownSLine, RiPlayMiniFill } from "react-icons/ri";
-import { runAllCode } from "state/actions/runOrImportCode";
+import {
+  runOrImportAllCode,
+  sendProjectToAllInteractiveCode,
+} from "state/actions/runOrImportCode";
 import { useSettings } from "state/definitions";
 import { shortcutPrettified } from "utils/utils";
 
@@ -24,7 +27,7 @@ export function RunButton() {
       label: "Run Interactive Fns",
       icon: <RiPlayMiniFill />,
       action: () => {
-        // sendProjectToAllInteractiveCode();
+        sendProjectToAllInteractiveCode();
         setIsOpen(false);
       },
     },
@@ -37,7 +40,7 @@ export function RunButton() {
   return (
     <div className="flex justify-stretch">
       <Button
-        onClick={runAllCode}
+        onClick={runOrImportAllCode}
         twClasses={`${baseClasses} rounded-r-none px-2`}
         {...getFloatingBoxHandlers({ content: "Run your code." })}
       >

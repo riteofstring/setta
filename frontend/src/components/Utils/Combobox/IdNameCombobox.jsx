@@ -37,7 +37,7 @@ export function IdNameCombobox({
   });
 
   return (
-    <search
+    <div
       className={`flex ${
         small ? "h-[20px]" : "h-8"
       } relative w-full min-w-0 flex-col items-stretch overflow-visible ${outerDivClasses}`}
@@ -67,6 +67,6 @@ export function IdNameCombobox({
           itemToString={itemToString}
         />
       </ComboboxList>
-    </search>
+    </div>
   );
 }

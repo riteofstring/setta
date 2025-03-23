@@ -1,4 +1,4 @@
-from setta.gen_code.python.position_line_col import line_col_to_position_batch
+from setta.code_gen.python.position_line_col import line_col_to_position_batch
 
 
 def process_completion_response(response, metadata):
