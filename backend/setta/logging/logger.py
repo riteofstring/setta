@@ -12,7 +12,7 @@ import websockets
 from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C, set_constants
 
 
-class Setta:
+class SettaLogger:
     def __init__(
         self, root_path=None, host=C.DEFAULT_HOST, port=C.DEFAULT_PORT, websocket=None
     ):
