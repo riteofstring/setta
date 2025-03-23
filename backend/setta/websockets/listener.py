@@ -1,18 +1,11 @@
 import asyncio
 import inspect
 import json
-import os
 import traceback
 
 import websockets
 
-from setta.utils.constants import (
-    HOST_ENV_VARIABLE,
-    PORT_ENV_VARIABLE,
-    C,
-    load_constants,
-    set_constants,
-)
+from setta.utils.constants import C, set_constants
 
 
 def interactive(dependencies=None):
@@ -156,8 +149,9 @@ async def _handle_websocket(websocket, interactive_functions):
 async def _connect_to_server(interactive_functions):
     while True:
         try:
-            print(f"Connecting to {C.WEBSOCKET}...", flush=True)
-            async with websockets.connect(C.WEBSOCKET) as websocket:
+            endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}"
+            print(f"Connecting to {endpoint}...", flush=True)
+            async with websockets.connect(endpoint) as websocket:
                 print("Connected to WebSocket server", flush=True)
                 await _handle_websocket(websocket, interactive_functions)
 
@@ -173,12 +167,8 @@ async def _connect_to_server(interactive_functions):
             await asyncio.sleep(3)
 
 
-def start_listener(host=None, port=None):
-    load_constants()
-    set_constants(
-        host=host or os.environ.get(HOST_ENV_VARIABLE, C.DEFAULT_HOST),
-        port=port or os.environ.get(PORT_ENV_VARIABLE, C.DEFAULT_PORT),
-    )
+def start_listener(host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
+    set_constants(host=host, port=port)
 
     caller_frame = inspect.currentframe().f_back
     # Find all interactive functions

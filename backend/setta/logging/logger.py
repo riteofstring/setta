@@ -6,23 +6,12 @@ from pathlib import Path
 
 import requests
 
-from setta.utils.constants import (
-    CODE_FOLDER_ENV_VARIABLE,
-    HOST_ENV_VARIABLE,
-    PORT_ENV_VARIABLE,
-    C,
-    load_constants,
-    set_constants,
-)
+from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C, set_constants
 
 
 class Setta:
-    def __init__(self, root_path=None, host=None, port=None):
-        load_constants()
-        set_constants(
-            host=host or os.environ.get(HOST_ENV_VARIABLE, C.DEFAULT_HOST),
-            port=port or os.environ.get(PORT_ENV_VARIABLE, C.DEFAULT_PORT),
-        )
+    def __init__(self, root_path=None, host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
+        set_constants(host=host, port=port)
         if root_path:
             self.root_path = Path(root_path)
         else:
