@@ -61,10 +61,11 @@ class WMHFrontend:
         self.script_metadata = script_metadata
 
     async def process_message(self, message, *_):
+        print("WMHFrontend process_message", message, flush=True)
         wid = message.get("toWebsocketId")
         if wid and wid != self.websocket_manager.main_id:
             self.websocket_manager.send_message(message, wid)
-        elif message["messageType"] == C.WS_SEND_TO_SCRIPT:
+        elif message.get("messageType") == C.WS_SEND_TO_SCRIPT:
             pass  # TODO
         else:
             msg_id = message.get("id")
@@ -90,4 +91,11 @@ class WMHPythonScript:
 
     async def process_message(self, message, *_):
         print("WMHPythonScript process_message", message, flush=True)
+        msg_type = message["messageType"]
+        content = message["content"]
+        if msg_type == C.WS_ADD_SCRIPT_METADATA:
+            self.script_metadata.add(content)
+        elif msg_type == C.WS_DELETE_SCRIPT_METADATA:
+            self.script_metadata.delete(content)
+
         # self.websocket_manager.send_message(message, message["toWebsocketId"])

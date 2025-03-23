@@ -106,6 +106,8 @@
   "WS_IN_MEMORY_FN_RETURN": "inMemoryFnReturn",
   "WS_TERMINAL_RESIZE": "terminalResize",
   "WS_IN_MEMORY_FN_AVG_RUN_TIME": "inMemoryFnAvgRunTime",
+  "WS_ADD_SCRIPT_METADATA": "addScriptMetadata",
+  "WS_DELETE_SCRIPT_METADATA": "deleteScriptMetadata",
   "WS_SPECIFIC_FILE_WATCHER_UPDATE": "specificFileWatcherUpdate",
   "WS_NOTIFICATION": "notification",
   "WS_SEND_TO_SCRIPT": "WS_SEND_TO_SCRIPT",
