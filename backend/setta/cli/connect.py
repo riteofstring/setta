@@ -13,12 +13,13 @@ logger = logging.getLogger(__name__)
 
 async def connect(websocket_id):
     try:
+        extra_headers = {"isCLI": True}
         if websocket_id:
-            endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_CLI_WITH_ID}"
-            endpoint = endpoint.format(id=websocket_id)
-        else:
-            endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_CLI}"
-        async with websockets.connect(endpoint) as websocket:
+            extra_headers["websocketId"] = websocket_id
+        async with websockets.connect(
+            C.WEBSOCKET,
+            extra_headers=extra_headers,
+        ) as websocket:
             await consumer_handler(websocket)
     except websockets.ConnectionClosedError:
         logger.debug("Connection closed unexpectedly")

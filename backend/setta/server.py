@@ -11,7 +11,6 @@ from fastapi.staticfiles import StaticFiles
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
 from setta.database.settings_file import SettingsFile
-from setta.lsp.code_task_fns.code_tasks import CodeTasks
 from setta.lsp.utils import (
     create_file_watcher,
     create_lsp_readers,
@@ -24,6 +23,7 @@ from setta.lsp.utils import (
 from setta.routers import (
     artifact_router,
     code_info_router,
+    in_memory_fn_stdout_router,
     interactive_code_router,
     lsp_router,
     projects_router,
@@ -33,12 +33,11 @@ from setta.routers import (
     terminals_router,
     websocket_router,
 )
+from setta.tasks.tasks import Tasks
 from setta.terminals.terminals import TerminalWebsockets
 from setta.utils.constants import CODE_FOLDER, CWD, USER_SETTINGS, C
 from setta.utils.utils import get_absolute_path, is_dev_mode
-from setta.websockets.script_metadata import ScriptMetadata
-from setta.websockets.websocket_manager import WebsocketManager
-from setta.websockets.websocket_msg_handlers import WebsocketMsgHandlers
+from setta.utils.websocket_manager import WebsocketManager
 
 
 @asynccontextmanager
@@ -54,16 +53,12 @@ async def lifespan(app: FastAPI):
     app.state.file_watcher = create_file_watcher(app.state.lsps, app.state.lsp_writers)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager()
-    app.state.code_tasks = CodeTasks(app.state.lsp_writers)
-    app.state.script_metadata = ScriptMetadata()
-    app.state.websocket_msg_handlers = WebsocketMsgHandlers(
-        app.state.websocket_manager, app.state.code_tasks, app.state.script_metadata
-    )
     app.state.specific_file_watcher = create_specific_file_watcher(
-        app.state.websocket_msg_handlers.specific_file_watcher
+        app.state.websocket_manager
     )
+    app.state.tasks = Tasks(app.state.lsp_writers)
     app.state.lsp_readers = create_lsp_readers(
-        app.state.lsps, app.state.websocket_msg_handlers.lsp_reader
+        app.state.lsps, app.state.websocket_manager
     )
     app.state.dbq = DBQueue(
         C.DB_PATH,
@@ -106,6 +101,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        app.state.tasks.close()
         app.state.file_watcher.stop()
         app.state.specific_file_watcher.stop()
         await kill_lsps(app.state.lsps, app.state.lsp_readers)
@@ -135,6 +131,7 @@ app.include_router(settings_router, **kwargs)
 app.include_router(interactive_code_router, **kwargs)
 app.include_router(artifact_router, **kwargs)
 app.include_router(reference_renaming_router, **kwargs)
+app.include_router(in_memory_fn_stdout_router, **kwargs)
 app.include_router(lsp_router, **kwargs)
 
 

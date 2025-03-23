@@ -5,9 +5,13 @@ from pydantic import BaseModel
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
 from setta.code_gen.find_placeholders import tp
+from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
-from .utils import send_document_open_request_with_diagnostics_with_code_dict
+from .utils import (
+    TaskDefinition,
+    send_document_open_request_with_diagnostics_with_code_dict,
+)
 
 
 class CodeAreaInitializeCodeContent(BaseModel):
@@ -15,8 +19,8 @@ class CodeAreaInitializeCodeContent(BaseModel):
     sectionId: str
 
 
-async def codeAreaInitializeCode(message, lsp_writers, cache):
-    message = CodeAreaInitializeCodeContent.parse_obj(message["content"])
+async def _codeAreaInitializeCode(message, lsp_writers):
+    message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     project = message.project
     exporter_obj = export_selected(
         project, always_export_args_objs=True, force_include_template_var=False
@@ -58,10 +62,9 @@ async def codeAreaInitializeCode(message, lsp_writers, cache):
     for r in code_dict[message.sectionId]["ref_template_var_positions"]["templateVars"]:
         template_var_replacement_values[r["keyword"]] = r["value"]
 
-    write_cache(
-        cache,
-        message,
-        [
+    return {
+        "content": True,
+        "cache": [
             template_var_replacement_values,
             generated_var_names,
             referencable_var_names,
@@ -69,16 +72,27 @@ async def codeAreaInitializeCode(message, lsp_writers, cache):
             project["fullNameToInfo"],
             project["fullNameToSectionId"],
         ],
-    )
-
-    return True
+    }
 
 
 def get_cache_key(projectConfigId, sectionId):
     return f"codeAreaInitializeCode-{projectConfigId}-{sectionId}"
 
 
-def write_cache(cache, message, to_cache):
+def write_cache(cache, message, result):
+    if result.get("cache") is None:
+        return
+    message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     cache[
         get_cache_key(message.project["projectConfig"]["id"], message.sectionId)
-    ] = to_cache
+    ] = result["cache"]
+
+
+codeAreaInitializeCode = TaskDefinition(
+    name="codeAreaInitializeCode",
+    return_message_type="codeAreaInitializeCodeReturn",
+    fn=_codeAreaInitializeCode,
+    write_cache=write_cache,
+    run_as=RunType.NONE,
+    server_dependencies=["lsp_writers"],
+)
