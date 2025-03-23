@@ -1,11 +1,14 @@
 import asyncio
 import inspect
 import json
+import logging
 import traceback
 
 import websockets
 
 from setta.utils.constants import C, set_constants
+
+logger = logging.getLogger(__name__)
 
 
 def interactive(dependencies=None):
@@ -147,24 +150,14 @@ async def _handle_websocket(websocket, interactive_functions):
 
 
 async def _connect_to_server(interactive_functions):
-    while True:
-        try:
-            endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}"
-            print(f"Connecting to {endpoint}...", flush=True)
-            async with websockets.connect(endpoint) as websocket:
-                print("Connected to WebSocket server", flush=True)
-                await _handle_websocket(websocket, interactive_functions)
-
-                # If we get here, it was a clean shutdown, so break the loop
-                break
-
-        except websockets.ConnectionClosedError:
-            print("Connection failed, retrying in 3 seconds...", flush=True)
-            await asyncio.sleep(3)
-        except Exception as e:
-            print(f"Unexpected error: {e}", flush=True)
-            traceback.print_exc()
-            await asyncio.sleep(3)
+    try:
+        endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}"
+        async with websockets.connect(endpoint) as websocket:
+            await _handle_websocket(websocket, interactive_functions)
+    except websockets.ConnectionClosedError:
+        logger.debug("Connection closed unexpectedly")
+    except ConnectionRefusedError:
+        logger.debug("Connection refused")
 
 
 def start_listener(host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
