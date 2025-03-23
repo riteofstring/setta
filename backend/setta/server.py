@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from setta.code_state.code_state import CodeState
 from setta.code_state.code_tasks import CodeTasks
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
@@ -54,6 +55,7 @@ async def lifespan(app: FastAPI):
     app.state.file_watcher = create_file_watcher(app.state.lsps, app.state.lsp_writers)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager()
+    app.state.code_state = CodeState()
     app.state.code_tasks = CodeTasks(app.state.lsp_writers)
     app.state.script_metadata = ScriptMetadata()
     app.state.websocket_msg_handlers = WebsocketMsgHandlers(
