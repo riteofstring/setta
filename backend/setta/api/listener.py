@@ -72,46 +72,22 @@ async def _handle_websocket(websocket, interactive_functions):
         try:
             data = json.loads(message)
             fn_name = data.get("fn_name")
+            if fn_name not in interactive_functions:
+                continue
 
-            if fn_name in interactive_functions:
-                args = data.get("args", [])
-                kwargs = data.get("kwargs", {})
+            args = data.get("args", [])
+            kwargs = data.get("kwargs", {})
 
-                try:
-                    # Call the function
-                    if isinstance(args, list):
-                        result = interactive_functions[fn_name]["function"](
-                            *args, **kwargs
-                        )
-                    else:
-                        result = interactive_functions[fn_name]["function"](
-                            args, **kwargs
-                        )
+            try:
+                # Call the function
+                if isinstance(args, list):
+                    interactive_functions[fn_name]["function"](*args, **kwargs)
+                else:
+                    interactive_functions[fn_name]["function"](args, **kwargs)
 
-                    # Send successful result
-                    await websocket.send(
-                        json.dumps(
-                            {
-                                "id": data.get("id"),
-                                "status": "success",
-                                "content": result,
-                                "messageType": data.get("return_message_type"),
-                            }
-                        )
-                    )
-                except Exception as e:
-                    print(f"Error in function {fn_name}: {e}", flush=True)
-                    traceback.print_exc()
-                    await websocket.send(
-                        json.dumps(
-                            {
-                                "id": data.get("id"),
-                                "status": "error",
-                                "error": f"Error executing {fn_name}: {str(e)}",
-                                "traceback": traceback.format_exc(),
-                            }
-                        )
-                    )
+            except Exception as e:
+                print(f"Error in function {fn_name}: {e}", flush=True)
+                traceback.print_exc()
 
         except json.JSONDecodeError:
             print("Received invalid JSON", flush=True)
