@@ -67,11 +67,7 @@ def find_missing_imports(code: str) -> Set[str]:
     defined_names = set()
     missing_imports = set()
 
-    # Parse the code into an AST
-    try:
-        tree = ast.parse(code)
-    except SyntaxError as e:
-        raise ValueError(f"Invalid Python code: {str(e)}")
+    tree = ast.parse(code)
 
     # Add parent references to make context checking easier
     for parent in ast.walk(tree):
