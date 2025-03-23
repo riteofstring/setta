@@ -21,6 +21,7 @@ export const localStorageFns = {
   showNavBarHelpMessage: { init: true },
   tooltipWidth: { init: 256 },
   apiKeys: { init: [] },
+  userSelectedLLM: { init: "" },
 };
 
 for (const [k, v] of Object.entries(localStorageFns)) {

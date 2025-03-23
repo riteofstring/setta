@@ -1,6 +1,6 @@
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSend } from "react-icons/io5";
 import { MdAdd } from "react-icons/md";
@@ -37,6 +37,9 @@ export function ProjectAIChat() {
 function ProjectAIChatContainer({ messages }) {
   const [viewHistory, setViewHistory] = useState(false);
   const [apiKeys] = localStorageFns.apiKeys.hook();
+  const [userSelectedLLM, setUserSelectedLLM] =
+    localStorageFns.userSelectedLLM.hook();
+
   const availableProviders = apiKeys.map((key) => key.modelId);
   const filteredModelGroups = MODEL_GROUPS.filter((group) =>
     availableProviders.some(
@@ -46,14 +49,24 @@ function ProjectAIChatContainer({ messages }) {
     ),
   );
 
-  // Select first available model id or empty string if none
-  const firstModelId =
-    filteredModelGroups.length > 0 && filteredModelGroups[0].items.length > 0
-      ? filteredModelGroups[0].items[0].id
-      : "";
+  // Flatten all model items for easier selection
+  const allModelItems = filteredModelGroups.flatMap((group) => group.items);
 
-  const [selectedModel, setSelectedModel] = useState(firstModelId);
+  // Initialize selectedModel with userSelectedLLM or first available model
+  useEffect(() => {
+    if (!userSelectedLLM && allModelItems.length > 0) {
+      setUserSelectedLLM(allModelItems[0].id);
+    }
+  }, [userSelectedLLM, allModelItems, setUserSelectedLLM]);
+
   const placeholderText = "Type a message...";
+
+  const handleSubmit = (e) => {
+    if (e) {
+      e.preventDefault();
+    }
+    // Handle submission logic here
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -82,9 +95,9 @@ function ProjectAIChatContainer({ messages }) {
           <div className="ml-auto max-w-64">
             <IdNameCombobox
               allItems={filteredModelGroups}
-              value={selectedModel}
+              value={userSelectedLLM}
               small={false}
-              onChange={(value) => setSelectedModel(value)}
+              onSelectedItemChange={(value) => setUserSelectedLLM(value)}
               placeholder="Select an LLM model"
               outerDivClasses="max-w-64 justify-center"
             />
@@ -96,16 +109,37 @@ function ProjectAIChatContainer({ messages }) {
       ) : (
         <ProjectChatCore
           messages={messages}
-          selectedModel={selectedModel}
+          selectedModel={userSelectedLLM}
           placeholderText={placeholderText}
+          handleSubmit={handleSubmit}
         />
       )}
     </div>
   );
 }
 
-function ProjectChatCore({ messages, selectedModel, placeholderText }) {
+function ProjectChatCore({
+  messages,
+  selectedModel,
+  placeholderText,
+  handleSubmit,
+}) {
   const [newMessage, setNewMessage] = useState("");
+
+  const onSubmit = (e) => {
+    e.preventDefault();
+    if (newMessage.trim() === "") return;
+    handleSubmit(e);
+    setNewMessage("");
+  };
+
+  // Add an onKeyDown handler
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault(); // Prevent default to avoid new line
+      onSubmit(e);
+    }
+  };
 
   return (
     <>
@@ -138,12 +172,13 @@ function ProjectChatCore({ messages, selectedModel, placeholderText }) {
       </div>
 
       {/* Message input */}
-      <form className="min-h-[58px] pb-2 pt-2">
+      <form onSubmit={onSubmit} className="min-h-[58px] pb-2 pt-2">
         <div className="flex space-x-2">
           <textarea
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={placeholderText}
             className="nodrag max-h-48 flex-1 resize-none overflow-y-auto rounded-lg border border-setta-100 bg-transparent px-4 py-2 text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700"
           />

@@ -3,15 +3,11 @@ import { useState } from "react";
 import { localStorageFns } from "state/hooks/localStorage";
 import { MODEL_GROUPS } from "utils/constants";
 
-// Isolated functional component for each password field
-const IsolatedInput = ({ modelId, modelName, initialValue, onChange }) => {
-  // Each instance has its own state
+const IsolatedInput = ({ modelId, providerName, initialValue, onChange }) => {
   const [value, setValue] = useState(initialValue || "");
-
-  // Handle change locally first, then propagate up
   const handleChange = (newValue) => {
     setValue(newValue);
-    onChange(modelId, modelName, newValue);
+    onChange(modelId, providerName, newValue);
   };
 
   return (
@@ -27,18 +23,13 @@ const IsolatedInput = ({ modelId, modelName, initialValue, onChange }) => {
 };
 
 export function ProjectLLMSettings() {
-  // Use your existing local storage hook
   const [apiKeys, setApiKeys] = localStorageFns.apiKeys.hook();
-
-  // Get a specific API key
   const getApiKey = (modelId) => {
     const entry = apiKeys.find((key) => key.modelId === modelId);
     return entry ? entry.apiKey : "";
   };
 
-  // Handle input change
-  const handleApiKeyChange = (modelId, modelName, value) => {
-    // If the value is empty, remove the entry completely
+  const handleApiKeyChange = (modelId, providerName, value) => {
     if (!value || value.trim() === "") {
       const filteredKeys = apiKeys.filter((key) => key.modelId !== modelId);
       setApiKeys(filteredKeys);
@@ -48,7 +39,6 @@ export function ProjectLLMSettings() {
     const existingIndex = apiKeys.findIndex((key) => key.modelId === modelId);
 
     if (existingIndex >= 0) {
-      // Update existing key
       const updatedKeys = [...apiKeys];
       updatedKeys[existingIndex] = {
         ...updatedKeys[existingIndex],
@@ -56,8 +46,7 @@ export function ProjectLLMSettings() {
       };
       setApiKeys(updatedKeys);
     } else {
-      // Add new key
-      setApiKeys([...apiKeys, { modelId, modelName, apiKey: value }]);
+      setApiKeys([...apiKeys, { modelId, providerName, apiKey: value }]);
     }
   };
 
@@ -68,16 +57,14 @@ export function ProjectLLMSettings() {
           key={group.group}
           className="mr-0.5 flex flex-col gap-2 rounded-lg p-3 text-xs transition-colors hover:bg-white/50 hover:dark:bg-setta-800/50"
         >
-          <div className="flex items-center gap-2">
-            <p className="-ml-2.5 mr-auto w-full min-w-0">{group.group}</p>
-          </div>
+          <p className="text-base font-bold">{group.group}</p>
 
           <div className="flex flex-col gap-0.5">
             <label htmlFor={`api-key-${group.group}`}>API Key</label>
             <div className="single-cell-container grid min-h-[19px] grid-cols-[1fr,auto]">
               <IsolatedInput
                 modelId={group.group.toLowerCase().replace(/\s+/g, "-")}
-                modelName={group.group}
+                providerName={group.group}
                 initialValue={getApiKey(
                   group.group.toLowerCase().replace(/\s+/g, "-"),
                 )}
