@@ -17,7 +17,7 @@ class TextFieldInitializeCodeContent(BaseModel):
     paramInfoId: Optional[str]
 
 
-async def textFieldInitializeCode(message, lsp_writers, cache):
+async def textFieldInitializeCode(message, lsp_writers, code_state):
     message = TextFieldInitializeCodeContent.parse_obj(message["content"])
     project = message.project
     exporter_obj = export_selected(
@@ -60,9 +60,10 @@ async def textFieldInitializeCode(message, lsp_writers, cache):
         if startPos < pushed_var_name_position[0]
     ]
 
-    write_cache(
-        cache,
-        message,
+    code_state.set_state(
+        message.project["projectConfig"]["id"],
+        message.sectionId,
+        message.paramInfoId,
         [
             gen_code_dict,
             var_name,
@@ -72,14 +73,3 @@ async def textFieldInitializeCode(message, lsp_writers, cache):
             project["fullNameToInfo"],
         ],
     )
-
-
-def get_cache_key(projectConfigId, sectionId, paramInfoId):
-    return f"textFieldInitializeCode-{projectConfigId}-{sectionId}-{paramInfoId}"
-
-
-def write_cache(cache, message, to_cache):
-    key = get_cache_key(
-        message.project["projectConfig"]["id"], message.sectionId, message.paramInfoId
-    )
-    cache[key] = to_cache

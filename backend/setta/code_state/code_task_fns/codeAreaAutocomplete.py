@@ -9,7 +9,6 @@ from setta.gen_code.python.position_line_col import position_to_line_col
 from setta.utils.constants import C
 
 from .codeAreaFindTemplateVars import findTemplateVarsLocally
-from .codeAreaInitializeCode import get_cache_key
 from .findEVRefs import findEVRefsLocally
 from .utils import (
     prepare_code_for_scope_checking,
@@ -29,9 +28,11 @@ class CodeAreaAutocompleteContent(BaseModel):
     candidateTemplateVars: list
 
 
-async def codeAreaAutocomplete(message, lsp_writers, cache):
+async def codeAreaAutocomplete(message, lsp_writers, code_state):
     request_id = message["id"]
     message = CodeAreaAutocompleteContent.parse_obj(message["content"])
+
+    cache = code_state.get_state(message.projectConfigId, message.sectionId, None)
 
     (
         template_var_replacement_values,
@@ -40,7 +41,7 @@ async def codeAreaAutocomplete(message, lsp_writers, cache):
         exporter_obj,
         fullNameToInfo,
         fullNameToSectionId,
-    ) = read_cache(cache, message)
+    ) = cache
 
     templateVars = await findTemplateVarsLocally(
         message.sectionId,
@@ -183,7 +184,3 @@ def special_keywords_for_autocomplete(gen_code_template_var):
     if not gen_code_template_var:
         return [tp(C.SETTA_GENERATED_PYTHON)]
     return []
-
-
-def read_cache(cache, message):
-    return cache.get(get_cache_key(message.projectConfigId, message.sectionId))

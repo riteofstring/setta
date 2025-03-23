@@ -1,17 +1,15 @@
 from setta.gen_code.python.position_line_col import position_to_line_col
 
-from .textFieldAutocomplete import (
-    CodeCompletionContent,
-    get_code_and_cursor_position,
-    read_cache,
-)
+from .textFieldAutocomplete import CodeCompletionContent, get_code_and_cursor_position
 from .utils import send_document_open_request_with_diagnostics
 
 
-async def parametersRequest(message, lsp_writers, cache):
+async def parametersRequest(message, lsp_writers, code_state):
     request_id = message["id"]
     message = CodeCompletionContent.parse_obj(message["content"])
-    cached = read_cache(cache, message)
+    cached = code_state.get_state(
+        message.projectConfigId, message.sectionId, message.paramInfoId
+    )
     if cached is None:
         return {"data": None}
 

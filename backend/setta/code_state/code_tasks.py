@@ -19,27 +19,25 @@ class CodeTasks:
         messageType = message["messageType"]
         if messageType == C.WS_CODE_AREA_AUTOCOMPLETE:
             return await codeAreaAutocomplete(
-                message, self.lsp_writers, self.code_state.cache
+                message, self.lsp_writers, self.code_state
             )
         elif messageType == C.WS_CODE_AREA_FIND_TEMPLATE_VARS:
             return await codeAreaFindTemplateVars(message, self.lsp_writers)
         elif messageType == C.WS_CODE_AREA_INITIALIZE_CODE:
             return await codeAreaInitializeCode(
-                message, self.lsp_writers, self.code_state.cache
+                message, self.lsp_writers, self.code_state
             )
         elif messageType == C.WS_FIND_EV_REFS:
             return await findEVRefs(message, self.lsp_writers)
         elif messageType == C.WS_PARAMETERS_REQUEST:
-            return await parametersRequest(
-                message, self.lsp_writers, self.code_state.cache
-            )
+            return await parametersRequest(message, self.lsp_writers, self.code_state)
         elif messageType == C.WS_TEXT_FIELD_AUTOCOMPLETE:
             return await textFieldAutocomplete(
-                message, self.lsp_writers, self.code_state.cache
+                message, self.lsp_writers, self.code_state
             )
         elif messageType == C.WS_TEXT_FIELD_INITIALIZE_CODE:
             return await textFieldInitializeCode(
-                message, self.lsp_writers, self.code_state.cache
+                message, self.lsp_writers, self.code_state
             )
         elif messageType == C.WS_TYPE_CHECK:
             return await typeCheck(message, self.lsp_writers)

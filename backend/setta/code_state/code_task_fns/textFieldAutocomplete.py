@@ -15,7 +15,6 @@ from setta.gen_code.utils import process_refs
 from setta.utils.constants import C
 
 from .findEVRefs import findEVRefsLocally
-from .textFieldInitializeCode import get_cache_key
 from .utils import send_document_open_request_with_diagnostics
 
 
@@ -136,10 +135,12 @@ async def get_code_and_cursor_position(
     return evRefs, code, cursor_position, ref_template_var_positions
 
 
-async def textFieldAutocomplete(message, lsp_writers, cache):
+async def textFieldAutocomplete(message, lsp_writers, code_state):
     request_id = message["id"]
     message = CodeCompletionContent.parse_obj(message["content"])
-    cached = read_cache(cache, message)
+    cached = code_state.get_state(
+        message.projectConfigId, message.sectionId, message.paramInfoId
+    )
     if cached is None:
         return {"data": []}
 
@@ -187,9 +188,3 @@ async def textFieldAutocomplete(message, lsp_writers, cache):
     )
 
     return None
-
-
-def read_cache(cache, message):
-    return cache.get(
-        get_cache_key(message.projectConfigId, message.sectionId, message.paramInfoId)
-    )

@@ -15,7 +15,7 @@ class CodeAreaInitializeCodeContent(BaseModel):
     sectionId: str
 
 
-async def codeAreaInitializeCode(message, lsp_writers, cache):
+async def codeAreaInitializeCode(message, lsp_writers, code_state):
     message = CodeAreaInitializeCodeContent.parse_obj(message["content"])
     project = message.project
     exporter_obj = export_selected(
@@ -58,9 +58,10 @@ async def codeAreaInitializeCode(message, lsp_writers, cache):
     for r in code_dict[message.sectionId]["ref_template_var_positions"]["templateVars"]:
         template_var_replacement_values[r["keyword"]] = r["value"]
 
-    write_cache(
-        cache,
-        message,
+    code_state.set_state(
+        message.project["projectConfig"]["id"],
+        message.sectionId,
+        None,
         [
             template_var_replacement_values,
             generated_var_names,
@@ -72,13 +73,3 @@ async def codeAreaInitializeCode(message, lsp_writers, cache):
     )
 
     return True
-
-
-def get_cache_key(projectConfigId, sectionId):
-    return f"codeAreaInitializeCode-{projectConfigId}-{sectionId}"
-
-
-def write_cache(cache, message, to_cache):
-    cache[
-        get_cache_key(message.project["projectConfig"]["id"], message.sectionId)
-    ] = to_cache
