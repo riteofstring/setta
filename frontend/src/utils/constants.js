@@ -177,10 +177,6 @@ export const MODEL_GROUPS = [
       { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
     ],
   },
-  {
-    group: "Custom",
-    items: [{ id: "custom", name: "Custom Model..." }],
-  },
 ];
 
 export const DEFAULT_ENDPOINTS = {
