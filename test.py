@@ -1,9 +1,12 @@
-from setta.api import SettaDeps
+from setta.api.logger import SettaLogger, SettaList
 import time
 
 
-x = 1
-y = 2
+x = {"something": SettaList({"x":[1,2,3], "y":[4,5,6]})}
+logger = SettaLogger()
 
-
-SettaDeps([x,y])
+for i in range(1000):
+    print("sending", i)
+    time.sleep(1)
+    logger.send(x)
+print('done')
