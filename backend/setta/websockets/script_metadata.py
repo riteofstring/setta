@@ -1,11 +1,28 @@
+import json
+
+from setta.utils.utils import remove_empty
+
+
 class ScriptMetadata:
     def __init__(self):
-        self.metadata = {}
+        self.deps_to_websocket_ids = {}
 
-    def add(self, id, data):
-        self.metadata[id] = data
-        print("after add ScriptMetadata", self.metadata, flush=True)
+    def add(self, websocket_id, data):
+        for _, metadata in data.items():
+            deps = metadata["dependencies"]
+            for d in deps:
+                if d not in self.deps_to_websocket_ids:
+                    self.deps_to_websocket_ids[d] = set()
+                self.deps_to_websocket_ids[d].add(websocket_id)
 
-    def delete(self, id):
-        del self.metadata[id]
-        print("after delete ScriptMetadata", self.metadata, flush=True)
+        print("after add ScriptMetadata", self.deps_to_websocket_ids, flush=True)
+
+    def delete(self, websocket_id):
+        for _, wids in self.deps_to_websocket_ids.items():
+            wids.discard(websocket_id)
+
+        self.deps_to_websocket_ids = remove_empty(self.deps_to_websocket_ids)
+        print("after delete ScriptMetadata", self.deps_to_websocket_ids, flush=True)
+
+    def get_websocket_ids_listening_to_data(self, data):
+        data = {tuple(json.loads(k)): v for k, v in data.items()}

@@ -55,10 +55,10 @@ class WebsocketManager:
 
     async def broadcast(
         self,
-        message=None,
         content=None,
         messageType=None,
         id=None,
+        message=None,
         connectionType=None,
         location=None,
     ):

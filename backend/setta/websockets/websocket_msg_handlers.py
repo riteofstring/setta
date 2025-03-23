@@ -66,8 +66,8 @@ class WMHFrontend:
         wid = message.get("toWebsocketId")
         if wid and wid != self.websocket_manager.main_id:
             self.websocket_manager.send_message(message, wid)
-        elif message.get("messageType") == C.WS_SEND_TO_SCRIPT:
-            pass  # TODO
+        # elif message.get("messageType") == C.WS_SEND_TO_SCRIPTS:
+        # websocket_ids =
         else:
             msg_id = message.get("id")
             if not msg_id:
