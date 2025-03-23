@@ -1,5 +1,5 @@
-import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
+import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import { useState } from "react";
 import { IoMdArrowRoundBack } from "react-icons/io";
@@ -12,6 +12,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import { useArtifacts } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
 // Global project chat that doesn't require a specific section
@@ -35,7 +36,7 @@ export function ProjectAIChat() {
     return { id: null, messages: [] };
   }, _.isEqual);
 
-  console.log("ProjectAIChat found chat artifact:", chatArtifacts);
+  // console.log("ProjectAIChat found chat artifact:", chatArtifacts);
 
   // Use found messages or default welcome message
   const messages =
@@ -56,6 +57,28 @@ export function ProjectAIChat() {
 
 function ProjectAIChatContainer({ chatId, messages }) {
   const [viewHistory, setViewHistory] = useState(false);
+  const [selectedModel, setSelectedModel] = useState(null);
+  const [availableModels, setAvailableModels] = useState([]);
+
+  // Use the same hook pattern that's working in ProjectLLMSettings
+  const [modelItems] = localStorageFns.modelItems.hook();
+  console.log("modelItems", modelItems);
+
+  // Find model settings by selectedLLM
+  const findModelSettings = (selectedLLM) => {
+    if (!selectedLLM) return null;
+
+    // Look through all groups and their items
+    for (const group of modelItems || []) {
+      for (const item of group.items || []) {
+        if (item.selectedLLM?.id === selectedLLM?.id) {
+          return item;
+        }
+      }
+    }
+    return null;
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col ">
       <nav className="flex min-h-[60px] items-center gap-2 border-b border-setta-100 py-4 dark:border-setta-800">
@@ -83,28 +106,38 @@ function ProjectAIChatContainer({ chatId, messages }) {
           )}
         </button>
 
-        {viewHistory ? null : (
-          <DropdownInput
-            options={["GPT-4", "Claude 3.7", "Mixtral"]}
-            onChange={() => {}}
-            value={""}
-            placeholder="Select an LLM model."
-            outerDivClasses="max-w-64 justify-center ml-auto"
-          />
+        {!viewHistory ? null : (
+          <>
+            {/* <p>{JSON.stringify(modelItems)}</p> */}
+            <IdNameCombobox
+              allItems={modelItems}
+              onSelectedItemChange={(selectedItem) =>
+                setSelectedModel(selectedItem)
+              }
+              value={selectedModel}
+              placeholder="Select an LLM model."
+              small={false}
+              outerDivClasses="max-w-64 justify-center ml-auto"
+              selectedItemCanBeNull={true}
+            />
+          </>
         )}
       </nav>
       {viewHistory ? (
         <ProjectChatHistory />
       ) : (
-        <ProjectChatCore messages={messages} />
+        <ProjectChatCore
+          messages={messages}
+          selectedModel={selectedModel}
+          modelSettings={findModelSettings(selectedModel)}
+        />
       )}
     </div>
   );
 }
 
-function ProjectChatCore({ messages }) {
+function ProjectChatCore({ messages, selectedModel, modelSettings }) {
   const [pendingUserMessages, setPendingUserMessages] = useState([]);
-
   const [newMessage, setNewMessage] = useState("");
 
   const handleSubmit = (e) => {
@@ -113,8 +146,17 @@ function ProjectChatCore({ messages }) {
     }
     if (newMessage.trim() === "") return;
 
+    const apiKey = modelSettings?.apiKey;
+    const isLocal = modelSettings?.isLocal;
+    const path = modelSettings?.path;
+
     // Send to a project-level chat handler
-    sendToInteractiveTasks(["project", "chatMessage"], newMessage);
+    sendToInteractiveTasks(["project", "chatMessage"], newMessage, {
+      model: selectedModel,
+      apiKey,
+      isLocal,
+      path,
+    });
 
     setPendingUserMessages((x) => [
       ...x,
