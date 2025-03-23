@@ -13,10 +13,6 @@ import { localStorageFns } from "state/hooks/localStorage";
 import { MODEL_GROUPS } from "utils/constants";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 
-// Global variable to maintain structure
-let didInitialize = false;
-
-// Global project chat component
 export function ProjectAIChat() {
   // Sample static messages
   const messages = [
@@ -39,14 +35,9 @@ export function ProjectAIChat() {
 }
 
 function ProjectAIChatContainer({ messages }) {
-  // Using useState for minimal toggling functionality
   const [viewHistory, setViewHistory] = useState(false);
   const [apiKeys] = localStorageFns.apiKeys.hook();
-
-  // Filter MODEL_GROUPS based on available provider keys
   const availableProviders = apiKeys.map((key) => key.modelId);
-
-  // Filter MODEL_GROUPS to only include groups that match available providers (case-insensitive)
   const filteredModelGroups = MODEL_GROUPS.filter((group) =>
     availableProviders.some(
       (provider) =>
@@ -54,10 +45,6 @@ function ProjectAIChatContainer({ messages }) {
         provider.toLowerCase(),
     ),
   );
-
-  // For demo/display purposes
-  console.log("Available providers:", availableProviders);
-  console.log("Filtered model groups:", filteredModelGroups);
 
   // Select first available model id or empty string if none
   const firstModelId =
@@ -118,7 +105,6 @@ function ProjectAIChatContainer({ messages }) {
 }
 
 function ProjectChatCore({ messages, selectedModel, placeholderText }) {
-  // Using minimal state for the input field
   const [newMessage, setNewMessage] = useState("");
 
   return (
