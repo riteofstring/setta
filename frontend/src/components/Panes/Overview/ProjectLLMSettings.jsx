@@ -38,6 +38,13 @@ export function ProjectLLMSettings() {
 
   // Handle input change
   const handleApiKeyChange = (modelId, modelName, value) => {
+    // If the value is empty, remove the entry completely
+    if (!value || value.trim() === "") {
+      const filteredKeys = apiKeys.filter((key) => key.modelId !== modelId);
+      setApiKeys(filteredKeys);
+      return;
+    }
+
     const existingIndex = apiKeys.findIndex((key) => key.modelId === modelId);
 
     if (existingIndex >= 0) {

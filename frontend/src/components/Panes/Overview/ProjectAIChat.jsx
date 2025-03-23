@@ -1,5 +1,5 @@
-import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
+import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import { useState } from "react";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSend } from "react-icons/io5";
@@ -9,6 +9,8 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { localStorageFns } from "state/hooks/localStorage";
+import { MODEL_GROUPS } from "utils/constants";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 
 // Global variable to maintain structure
@@ -39,15 +41,31 @@ export function ProjectAIChat() {
 function ProjectAIChatContainer({ messages }) {
   // Using useState for minimal toggling functionality
   const [viewHistory, setViewHistory] = useState(false);
+  const [apiKeys] = localStorageFns.apiKeys.hook();
 
-  // Hardcoded values
-  const selectedModel = "Claude 3.7 Sonnet";
-  const modelOptions = [
-    "Claude 3 Opus",
-    "Claude 3 Sonnet",
-    "Claude 3.7 Sonnet",
-    "GPT-4o",
-  ];
+  // Filter MODEL_GROUPS based on available provider keys
+  const availableProviders = apiKeys.map((key) => key.modelId);
+
+  // Filter MODEL_GROUPS to only include groups that match available providers (case-insensitive)
+  const filteredModelGroups = MODEL_GROUPS.filter((group) =>
+    availableProviders.some(
+      (provider) =>
+        group.group.toLowerCase().replace(/\s+/g, "-") ===
+        provider.toLowerCase(),
+    ),
+  );
+
+  // For demo/display purposes
+  console.log("Available providers:", availableProviders);
+  console.log("Filtered model groups:", filteredModelGroups);
+
+  // Select first available model id or empty string if none
+  const firstModelId =
+    filteredModelGroups.length > 0 && filteredModelGroups[0].items.length > 0
+      ? filteredModelGroups[0].items[0].id
+      : "";
+
+  const [selectedModel, setSelectedModel] = useState(firstModelId);
   const placeholderText = "Type a message...";
 
   return (
@@ -75,10 +93,11 @@ function ProjectAIChatContainer({ messages }) {
 
         {viewHistory ? null : (
           <div className="ml-auto max-w-64">
-            <DropdownInput
-              options={modelOptions}
-              onChange={() => {}}
+            <IdNameCombobox
+              allItems={filteredModelGroups}
               value={selectedModel}
+              small={false}
+              onChange={(value) => setSelectedModel(value)}
               placeholder="Select an LLM model"
               outerDivClasses="max-w-64 justify-center"
             />
@@ -133,22 +152,23 @@ function ProjectChatCore({ messages, selectedModel, placeholderText }) {
       </div>
 
       {/* Message input */}
-
-      <div className="relative flex min-h-[58px] items-center gap-2 ">
-        <textarea
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder={placeholderText}
-          className="nodrag h-min max-h-48 flex-1 resize-none overflow-y-auto rounded-lg border border-setta-100 bg-transparent px-4 py-2 text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700"
-        />
-        <button
-          type="submit"
-          className="cursor-pointer px-2 py-0.5 text-setta-500 hover:text-blue-500 focus:text-blue-500 focus:outline-none focus:ring-0 dark:hover:text-blue-700"
-        >
-          <IoSend />
-        </button>
-      </div>
+      <form className="min-h-[58px] pb-2 pt-2">
+        <div className="flex space-x-2">
+          <textarea
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder={placeholderText}
+            className="nodrag max-h-48 flex-1 resize-none overflow-y-auto rounded-lg border border-setta-100 bg-transparent px-4 py-2 text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700"
+          />
+          <button
+            type="submit"
+            className="mb-3 cursor-pointer self-end px-2 py-0.5 text-setta-500 hover:text-blue-500 focus:text-blue-500 focus:outline-none focus:ring-0 dark:hover:text-blue-700"
+          >
+            <IoSend />
+          </button>
+        </div>
+      </form>
     </>
   );
 }
