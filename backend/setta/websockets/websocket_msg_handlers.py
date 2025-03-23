@@ -2,14 +2,14 @@ from setta.utils.constants import C
 
 
 class WebsocketMsgHandlers:
-    def __init__(self, websocket_manager, code_tasks):
+    def __init__(self, websocket_manager, code_tasks, script_metadata):
         self.lsp_reader = WMHLSPReader(websocket_manager)
         self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
         self.artifact = WMHArtifact(websocket_manager)
         self.database = WMHDatabase(websocket_manager)
-        self.frontend = WMHFrontend(websocket_manager, code_tasks)
+        self.frontend = WMHFrontend(websocket_manager, code_tasks, script_metadata)
         self.cli = WMHCLI(websocket_manager)
-        self.python_script = WMHPythonScript(websocket_manager)
+        self.python_script = WMHPythonScript(websocket_manager, script_metadata)
 
 
 class WMHLSPReader:
@@ -55,9 +55,10 @@ class WMHDatabase:
 
 
 class WMHFrontend:
-    def __init__(self, websocket_manager, code_tasks):
+    def __init__(self, websocket_manager, code_tasks, script_metadata):
         self.websocket_manager = websocket_manager
         self.code_tasks = code_tasks
+        self.script_metadata = script_metadata
 
     async def process_message(self, message, *_):
         wid = message.get("toWebsocketId")
@@ -83,8 +84,9 @@ class WMHCLI:
 
 
 class WMHPythonScript:
-    def __init__(self, websocket_manager):
+    def __init__(self, websocket_manager, script_metadata):
         self.websocket_manager = websocket_manager
+        self.script_metadata = script_metadata
 
     async def process_message(self, message, *_):
         print("WMHPythonScript process_message", message, flush=True)
