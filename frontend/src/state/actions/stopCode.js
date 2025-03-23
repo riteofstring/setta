@@ -1,7 +1,10 @@
 import { dbKillInMemorySubprocesses } from "requests/interactive";
-import { addTemporaryNotification } from "./notifications";
+import {
+  addNotificationFromRes,
+  addTemporaryNotification,
+} from "./notifications";
 
 export async function stopCode() {
   addTemporaryNotification("Stopping subprocesses");
-  dbKillInMemorySubprocesses();
+  addNotificationFromRes(await dbKillInMemorySubprocesses());
 }

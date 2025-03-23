@@ -20,6 +20,7 @@ export const localStorageFns = {
   uiEditorTab: { init: {} },
   showNavBarHelpMessage: { init: true },
   tooltipWidth: { init: 256 },
+  apiKeys: { init: [] },
 };
 
 for (const [k, v] of Object.entries(localStorageFns)) {

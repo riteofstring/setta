@@ -2,15 +2,29 @@ import _ from "lodash";
 import React, { useState } from "react";
 import { useSectionInfos } from "state/definitions";
 import { useTerminal } from "state/hooks/terminals/terminal";
+import { useTerminalReadOnly } from "state/hooks/terminals/terminalReadOnly";
 
 function _TerminalArea({ sectionId }) {
-  const { width, height } = useSectionInfos(
-    (x) => x.x[sectionId].size,
+  const {
+    size: { width, height },
+    isReadOnlyTerminal,
+  } = useSectionInfos(
+    (x) => ({
+      size: x.x[sectionId].size,
+      isReadOnlyTerminal: x.x[sectionId].isReadOnlyTerminal,
+    }),
     _.isEqual,
   );
   const [hasScrollbar, setHasScrollbar] = useState(false);
 
-  return (
+  return isReadOnlyTerminal ? (
+    <TerminalAreaRead
+      width={width}
+      height={height}
+      hasScrollbar={hasScrollbar}
+      setHasScrollbar={setHasScrollbar}
+    />
+  ) : (
     <TerminalAreaReadWrite
       sectionId={sectionId}
       width={width}
@@ -22,6 +36,23 @@ function _TerminalArea({ sectionId }) {
 }
 
 export const TerminalArea = React.memo(_TerminalArea);
+
+function TerminalAreaRead({ width, height, hasScrollbar, setHasScrollbar }) {
+  const terminalRef = useTerminalReadOnly({
+    width,
+    height,
+    setHasScrollbar,
+  });
+
+  return (
+    <TerminalAreaCore
+      width={width}
+      height={height}
+      hasScrollbar={hasScrollbar}
+      terminalRef={terminalRef}
+    />
+  );
+}
 
 function TerminalAreaReadWrite({
   sectionId,

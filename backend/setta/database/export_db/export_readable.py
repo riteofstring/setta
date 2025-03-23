@@ -3,11 +3,8 @@ import os
 import shutil
 from pathlib import Path
 
-from setta.api.logger import save_base64_to_png
-from setta.database.db.artifacts.load import (
-    load_artifact_metadata_and_maybe_value_from_disk,
-)
-from setta.gen_code.export_selected import (
+from setta.cli.logger import save_base64_to_png
+from setta.code_gen.export_selected import (
     export_param_sweep_section_to_dict,
     export_section_to_dict,
     export_single_run_group_to_dict,
@@ -21,10 +18,13 @@ from setta.gen_code.export_selected import (
     get_variant_code,
     get_variant_name,
 )
-from setta.gen_code.yaml.section_dict import (
+from setta.code_gen.yaml.section_dict import (
     param_sweep_dict_to_yaml,
     run_group_dict_to_yaml,
     section_dict_to_yaml,
+)
+from setta.database.db.artifacts.load import (
+    load_artifact_metadata_and_maybe_value_from_disk,
 )
 from setta.utils.constants import C
 from setta.utils.section_contents import getParamIdsToShowInArea
