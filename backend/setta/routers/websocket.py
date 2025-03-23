@@ -11,6 +11,7 @@ from .dependencies import (
     get_websocket_manager_from_websocket,
     get_wmh_cli_from_websocket,
     get_wmh_frontend_from_websocket,
+    get_wmh_python_logger_from_websocket,
     get_wmh_python_script_from_websocket,
 )
 
@@ -84,4 +85,18 @@ async def route_websocket_python_script(
         websocket_manager,
         websocket_msg_handler,
         C.WEBSOCKET_CONNECTION_TYPE_PYTHON_SCRIPT,
+    )
+
+
+@router.websocket(C.ROUTE_WEBSOCKET_PYTHON_LOGGER)
+async def route_websocket_python_logger(
+    websocket: WebSocket,
+    websocket_manager=Depends(get_websocket_manager_from_websocket),
+    websocket_msg_handler=Depends(get_wmh_python_logger_from_websocket),
+):
+    await websocket_route_loop(
+        websocket,
+        websocket_manager,
+        websocket_msg_handler,
+        C.WEBSOCKET_CONNECTION_TYPE_PYTHON_LOGGER,
     )

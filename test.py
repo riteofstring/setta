@@ -1,14 +1,12 @@
-from setta.websockets.listener import expose, get_exposed_functions, start_listener
-
-@expose
-def fn():
-    pass
+from setta.logging.logger import Setta, SettaList
+import time
 
 
-def fn2():
-    pass
+x = {"something": SettaList({"x":[1,2,3], "y":[4,5,6]})}
+logger = Setta()
 
-
-print(get_exposed_functions())
-
-start_listener("test")
+for i in range(1000):
+    print("sending", i)
+    time.sleep(0.025)
+    logger.send(x)
+print('done')

@@ -1,25 +1,68 @@
+import asyncio
 import base64
+import json
 import os
 from abc import ABC, abstractmethod
 from io import BytesIO
 from pathlib import Path
 
 import requests
+import websockets
 
 from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C, set_constants
 
 
 class Setta:
-    def __init__(self, root_path=None, host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
+    def __init__(
+        self, root_path=None, host=C.DEFAULT_HOST, port=C.DEFAULT_PORT, websocket=None
+    ):
         set_constants(host=host, port=port)
-        if root_path:
-            self.root_path = Path(root_path)
-        else:
-            self.root_path = Path(os.environ.get(CODE_FOLDER_ENV_VARIABLE, "."))
-
+        self.root_path = Path(
+            root_path or os.environ.get(CODE_FOLDER_ENV_VARIABLE, ".")
+        )
         self.name_path_type_to_id = {}
+        self.websocket = websocket
+        self.endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_LOGGER}"
 
     def log(self, obj, save_to="db"):
+        data = self.prepare_data(obj, save_to)
+
+        res = requests.post(
+            f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_ARTIFACT}",
+            json=data,
+            headers={"Content-Type": "application/json"},
+        )
+
+        if res.status_code == 200:
+            artifact_ids = res.json()
+            for idx, id in enumerate(artifact_ids):
+                sent_data = data["data"][idx]
+                self.name_path_type_to_id[self.get_name_path_type_key(sent_data)] = id
+
+    async def send_async(self, obj):
+        data = self.prepare_data(obj)
+        if not self.websocket:
+            self.websocket = await websockets.connect(self.endpoint)
+        await self.websocket.send(
+            json.dumps({"content": data, "messageType": C.WS_ARTIFACT})
+        )
+
+    def send(self, obj):
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're in an async context, schedule the task
+                asyncio.create_task(self.send_async(obj))
+            else:
+                # We're not in an async context, run until complete
+                loop.run_until_complete(self.send_async(obj))
+        except RuntimeError:
+            # No event loop in thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.send_async(obj))
+
+    def prepare_data(self, obj, save_to=None):
         data_to_send = []
         for name, data in obj.items():
             artifact_path = ""
@@ -42,20 +85,7 @@ class Setta:
             curr_data["id"] = self.maybe_get_artifact_id(curr_data)
             data_to_send.append(curr_data)
 
-        res = requests.post(
-            f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_ARTIFACT}",
-            json={
-                "data": data_to_send,
-                "saveTo": save_to,
-            },
-            headers={"Content-Type": "application/json"},
-        )
-
-        if res.status_code == 200:
-            artifact_ids = res.json()
-            for idx, id in enumerate(artifact_ids):
-                sent_data = data_to_send[idx]
-                self.name_path_type_to_id[self.get_name_path_type_key(sent_data)] = id
+        return {"data": data_to_send, "saveTo": save_to}
 
     def maybe_get_artifact_id(self, data_to_send):
         return self.name_path_type_to_id.get(self.get_name_path_type_key(data_to_send))

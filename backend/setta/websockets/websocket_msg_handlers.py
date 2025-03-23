@@ -10,6 +10,7 @@ class WebsocketMsgHandlers:
         self.frontend = WMHFrontend(websocket_manager, code_tasks, script_metadata)
         self.cli = WMHCLI(websocket_manager)
         self.python_script = WMHPythonScript(websocket_manager, script_metadata)
+        self.python_logger = WMHPythonLogger(websocket_manager)
 
 
 class WMHLSPReader:
@@ -103,3 +104,14 @@ class WMHPythonScript:
 
     def disconnect(self, websocket_id):
         self.script_metadata.delete(websocket_id)
+
+
+class WMHPythonLogger:
+    def __init__(self, websocket_manager):
+        self.websocket_manager = websocket_manager
+
+    async def process_message(self, message, websocket_id):
+        print("WMHPythonLogger process_message", message, flush=True)
+
+    def disconnect(self, websocket_id):
+        pass
