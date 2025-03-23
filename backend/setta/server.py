@@ -8,10 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from setta.code_state.code_task_fns.code_tasks import CodeTasks
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
 from setta.database.settings_file import SettingsFile
-from setta.lsp.code_task_fns.code_tasks import CodeTasks
 from setta.lsp.utils import (
     create_file_watcher,
     create_lsp_readers,
