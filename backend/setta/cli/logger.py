@@ -58,6 +58,7 @@ class Setta:
             json={
                 "data": data_to_send,
                 "saveTo": save_to,
+                "messageType": C.WS_ARTIFACT,
             },
             headers={"Content-Type": "application/json"},
         )

@@ -6,9 +6,13 @@ from pydantic import BaseModel
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
 from setta.code_gen.find_placeholders import tp
+from setta.tasks.task_runner import RunType
 from setta.utils.constants import C
 
-from .utils import send_document_open_request_with_diagnostics_with_code_dict
+from .utils import (
+    TaskDefinition,
+    send_document_open_request_with_diagnostics_with_code_dict,
+)
 
 
 class TextFieldInitializeCodeContent(BaseModel):
@@ -17,8 +21,8 @@ class TextFieldInitializeCodeContent(BaseModel):
     paramInfoId: Optional[str]
 
 
-async def textFieldInitializeCode(message, lsp_writers, cache):
-    message = TextFieldInitializeCodeContent.parse_obj(message["content"])
+async def _textFieldInitializeCode(message, lsp_writers):
+    message = TextFieldInitializeCodeContent.parse_obj(message.content)
     project = message.project
     exporter_obj = export_selected(
         project, always_export_args_objs=True, force_include_template_var=True
@@ -60,10 +64,8 @@ async def textFieldInitializeCode(message, lsp_writers, cache):
         if startPos < pushed_var_name_position[0]
     ]
 
-    write_cache(
-        cache,
-        message,
-        [
+    return {
+        "cache": [
             gen_code_dict,
             var_name,
             referencable_var_names,
@@ -71,15 +73,28 @@ async def textFieldInitializeCode(message, lsp_writers, cache):
             exporter_obj,
             project["fullNameToInfo"],
         ],
-    )
+    }
 
 
 def get_cache_key(projectConfigId, sectionId, paramInfoId):
     return f"textFieldInitializeCode-{projectConfigId}-{sectionId}-{paramInfoId}"
 
 
-def write_cache(cache, message, to_cache):
+def write_cache(cache, message, result):
+    if result.get("cache") is None:
+        return
+    message = TextFieldInitializeCodeContent.parse_obj(message.content)
     key = get_cache_key(
         message.project["projectConfig"]["id"], message.sectionId, message.paramInfoId
     )
-    cache[key] = to_cache
+    cache[key] = result["cache"]
+
+
+textFieldInitializeCode = TaskDefinition(
+    name="textFieldInitializeCode",
+    return_message_type="textFieldInitializeCodeReturn",
+    fn=_textFieldInitializeCode,
+    write_cache=write_cache,
+    run_as=RunType.NONE,
+    server_dependencies=["lsp_writers"],
+)

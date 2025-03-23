@@ -6,9 +6,14 @@ from pydantic import BaseModel
 from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.code_gen.python.check_scope import are_positions_in_scope_with_variable
 from setta.database.utils import create_new_id
+from setta.tasks.task_runner import RunType
 from setta.utils.utils import multireplace
 
-from .utils import generate_unique_variable, prepare_code_for_scope_checking
+from .utils import (
+    TaskDefinition,
+    generate_unique_variable,
+    prepare_code_for_scope_checking,
+)
 
 
 class TextFieldFindReferencesContent(BaseModel):
@@ -20,9 +25,9 @@ class TextFieldFindReferencesContent(BaseModel):
     fullText: str
 
 
-async def findEVRefs(message, lsp_writers):
-    message_id = message["id"]
-    message = TextFieldFindReferencesContent.parse_obj(message["content"])
+async def _findEVRefs(message, lsp_writers):
+    message_id = message.id
+    message = TextFieldFindReferencesContent.parse_obj(message.content)
     request_ids = await sendEVRefRequests(
         message_id,
         message.sectionId,
@@ -36,7 +41,7 @@ async def findEVRefs(message, lsp_writers):
     )
 
     if len(request_ids) == 0:
-        return {"data": {"positions": [], "numMessages": 1}}
+        return {"content": {"data": {"positions": [], "numMessages": 1}}}
 
     return None
 
@@ -220,3 +225,12 @@ def generateCodeForReferenceFinding(
     if len(var_name_mapping) > 0:
         fullText = multireplace(fullText, var_name_mapping)
     return f"{output}\n{fullText}", position_offset, len(visited_keywords)
+
+
+findEVRefs = TaskDefinition(
+    name="findEVRefs",
+    return_message_type="findEVRefsReturn",
+    fn=_findEVRefs,
+    run_as=RunType.NONE,
+    server_dependencies=["lsp_writers"],
+)

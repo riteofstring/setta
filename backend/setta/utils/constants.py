@@ -105,7 +105,7 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
     (
         "social",
         "codeLanguage",
-        "runAsInteractive",
+        "runInMemory",
         "isFrozen",
         "hideParams",
         "hideSearch",
@@ -118,6 +118,8 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
         "paramFilter",
         "columnWidth",
         "renderedValue",
+        "isReadOnlyTerminal",
+        "subprocessStartMethod",
         "headingAsSectionName",
     )
 )

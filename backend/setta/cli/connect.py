@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 async def connect(websocket_id):
     try:
-        extra_headers = {"connectionType": C.WEBSOCKET_CONNECTION_TYPE_CLI}
+        extra_headers = {"isCLI": True}
         if websocket_id:
             extra_headers["websocketId"] = websocket_id
         async with websockets.connect(
