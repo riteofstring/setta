@@ -5,9 +5,8 @@ from pydantic import BaseModel
 
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.database.utils import create_new_id
-from setta.tasks.task_runner import RunType
 
-from .utils import TaskDefinition, replace_template_vars_with_random_names
+from .utils import replace_template_vars_with_random_names
 
 
 class CodeAreaFindTemplateVarsContent(BaseModel):
@@ -16,9 +15,9 @@ class CodeAreaFindTemplateVarsContent(BaseModel):
     fullText: str
 
 
-async def _codeAreaFindTemplateVars(message, lsp_writers):
-    message_id = message.id
-    message = CodeAreaFindTemplateVarsContent.parse_obj(message.content)
+async def codeAreaFindTemplateVars(message, lsp_writers):
+    message_id = message["id"]
+    message = CodeAreaFindTemplateVarsContent.parse_obj(message["content"])
     request_ids = await sendTemplateVarRequests(
         message_id,
         message.sectionId,
@@ -28,9 +27,7 @@ async def _codeAreaFindTemplateVars(message, lsp_writers):
         local=False,
     )
     if len(request_ids) == 0:
-        return {"content": {"data": {"positions": [], "numMessages": 1}}}
-
-    return None
+        return {"data": {"positions": [], "numMessages": 1}}
 
 
 async def sendTemplateVarRequests(
@@ -117,12 +114,3 @@ async def waitForTemplateVarResponses(request_ids, lsp_writers):
         request_futures.append(future)
 
     return await asyncio.gather(*request_futures)
-
-
-codeAreaFindTemplateVars = TaskDefinition(
-    name="codeAreaFindTemplateVars",
-    return_message_type="codeAreaFindTemplateVarsReturn",
-    fn=_codeAreaFindTemplateVars,
-    run_as=RunType.NONE,
-    server_dependencies=["lsp_writers"],
-)

@@ -5,7 +5,7 @@ import {
   updateInteractiveArtifacts,
 } from "state/actions/interactive";
 import { updateJSONSourceContents } from "state/actions/jsonSource";
-import { addTemporaryNotification } from "state/actions/notifications";
+import { addNotificationFromWebsocketMsg } from "state/actions/notifications";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeErrors";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";
@@ -17,7 +17,7 @@ let wss;
 export const openWebSocket = _.debounce(
   (pathname) => {
     if (!wssReady()) {
-      wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_MANAGER}`);
+      wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_FRONTEND}`);
       wss.addEventListener("open", () => {
         sendLocation(pathname);
       });
@@ -55,11 +55,11 @@ function wssReady() {
 function receiveMessage(message) {
   const m = JSON.parse(message);
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
-    updateConnectedTo(m);
+    updateConnectedTo(m.content);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     processTypeErrors(m.content);
-  } else if (m.messageType === C.WS_LSP_STATUS) {
-    addTemporaryNotification(`Language Server ${m.content.data}`);
+  } else if (m.messageType === C.WS_NOTIFICATION) {
+    addNotificationFromWebsocketMsg(m.content);
   } else if (
     m.messageType === C.WS_ARTIFACT ||
     m.messageType === C.WS_IN_MEMORY_FN_RETURN

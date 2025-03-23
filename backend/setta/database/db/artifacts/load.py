@@ -1,6 +1,6 @@
 import json
 
-from setta.cli.logger import get_wrapper_for_loading
+from setta.logging.logger import get_wrapper_for_loading
 from setta.utils.constants import C
 from setta.utils.utils import try_json
 
