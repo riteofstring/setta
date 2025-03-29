@@ -1,28 +1,14 @@
 class CodeState:
     def __init__(self):
-        # maps from project
-        self.states = {}
+        self.cache = {}
 
-    def get_state(self, projectConfigId):
-        return self.states.get(projectConfigId)
-    
+    def get_state(self, projectConfigId, sectionId, paramInfoId):
+        return self.cache.get(
+            self.get_state_key(projectConfigId, sectionId, paramInfoId)
+        )
 
+    def set_state(self, projectConfigId, sectionId, paramInfoId, data):
+        self.cache[self.get_state_key(projectConfigId, sectionId, paramInfoId)] = data
 
-class ProjectCodeState:
-    def __init__(self):
-        self.states = {}
-        self.exporter_obj = None
-        self.fullNameToInfo = None
-        self.fullNameToSectionId = None
-
-
-
-class CodeBlockState:
-    def __init__(self):
-        self.version = 0
-        self.template_var_replacement_values = None
-        self.generated_var_names = None
-        
-       
-
-
+    def get_state_key(self, projectConfigId, sectionId, paramInfoId):
+        return f"{projectConfigId}-{sectionId}-{paramInfoId}"

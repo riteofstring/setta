@@ -28,96 +28,96 @@ class CodeAreaAutocompleteContent(BaseModel):
     candidateTemplateVars: list
 
 
+async def codeAreaAutocomplete(message, lsp_writers, code_state):
+    request_id = message["id"]
+    message = CodeAreaAutocompleteContent.parse_obj(message["content"])
 
-class CodeAreaAutocompleter:
-    def __init__(self, projectConfigId, sectionId, lsp_writers, code_state):
-        self.projectConfigId = projectConfigId
-        self.sectionId = sectionId
-        self.lsp_writers = lsp_writers
-        self.code_state = code_state
-        self.templateVarFinder = None
-        self.evRefFinder = None
+    cache = code_state.get_state(message.projectConfigId, message.sectionId, None)
 
+    (
+        template_var_replacement_values,
+        generated_var_names,
+        referencable_var_names,
+        exporter_obj,
+        fullNameToInfo,
+        fullNameToSectionId,
+    ) = cache
 
-    async def autocomplete(self, message):
-        pass
-        request_id = message["id"]
-        message = CodeAreaAutocompleteContent.model_validate(message["content"])
+    templateVars = await findTemplateVarsLocally(
+        message.sectionId,
+        message.candidateTemplateVars,
+        message.fullText,
+        fullNameToSectionId,
+        lsp_writers,
+    )
 
-        (
-            generated_var_names,
-            referencable_var_names,
-            exporter_obj,
-        ) = cache
+    gen_code_template_var = get_gen_code_template_var(templateVars)
+    if (
+        gen_code_template_var
+        and exporter_obj.code_gen_template_var_section_details["section"].get("id")
+        != message.sectionId
+    ):
+        return {"data": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
 
-        templateVars = await self.templateVarFinder.findTemplateVarsLocally(
-            message.candidateTemplateVars,
-            message.fullText,
-        )
+    evRefs = await findEVRefsLocally(
+        message.sectionId,
+        None,
+        message.candidateEVRefs,
+        templateVars,
+        True,
+        message.fullText,
+        fullNameToInfo,
+        lsp_writers,
+    )
 
-        gen_code_template_var = get_gen_code_template_var(templateVars)
-        if (
-            gen_code_template_var
-            and self.code_state.exporter_obj.code_gen_template_var_section_details["section"].get("id")
-            != self.sectionId
-        ):
-            return {"data": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
+    (
+        code,
+        _,
+        _,
+        ref_template_var_positions,
+    ) = await generate_final_code_for_section(
+        sectionId=message.sectionId,
+        code=message.fullText,
+        codeLanguage=message.codeLanguage,
+        evRefs=evRefs,
+        templateVars=templateVars,
+        exporter_obj=exporter_obj,
+        lsp_writers=lsp_writers,
+        folder_path=lsp_writers["full"].project_code_folder(message.projectConfigName),
+        cursor_position=message.position,
+        template_var_replacement_values=template_var_replacement_values,
+    )
 
-        evRefs = await self.evRefFinder.findEVRefsLocally(
-            message.candidateEVRefs,
-            templateVars,
-            True,
-            message.fullText,
-        )
+    cursor_position = ref_template_var_positions["cursor"]
+    line, column = position_to_line_col(code, cursor_position)
 
-        (
-            code,
-            _,
-            _,
-            ref_template_var_positions,
-        ) = await generate_final_code_for_section(
-            sectionId=message.sectionId,
-            code=message.fullText,
-            codeLanguage=message.codeLanguage,
-            evRefs=evRefs,
-            templateVars=templateVars,
-            exporter_obj=exporter_obj,
-            lsp_writers=self.lsp_writers,
-            folder_path=self.lsp_writers["full"].project_code_folder(message.projectConfigName),
-            cursor_position=message.position,
-            template_var_replacement_values=self.code_state.template_var_replacement_values,
-        )
+    generated_var_names, referencable_var_names = calculate_referencable_var_names(
+        message.fullText,  # use original code
+        templateVars,  # use original template vars
+        message.position,  # use original cursor position
+        generated_var_names,
+        referencable_var_names,
+    )
 
-        cursor_position = ref_template_var_positions["cursor"]
-        line, column = position_to_line_col(code, cursor_position)
+    code_id = await send_document_open_request_with_diagnostics(
+        lsp_writers["full"],
+        code,
+        exporter_obj,
+        ref_template_var_positions,
+        message.projectConfigName,
+        message.sectionName,
+        message.sectionId,
+    )
 
-        generated_var_names, referencable_var_names = calculate_referencable_var_names(
-            message.fullText,  # use original code
-            templateVars,  # use original template vars
-            message.position,  # use original cursor position
-            self.code_state.generated_var_names,
-            self.code_state.referencable_var_names,
-        )
-
-        code_id = await send_document_open_request_with_diagnostics(
-            self.lsp_writers["full"],
-            code,
-            exporter_obj,
-            ref_template_var_positions,
-            message.projectConfigName,
-            message.sectionName,
-            message.sectionId,
-        )
-
-        await self.lsp_writers["full"].send_autocomplete_request(
-            line,
-            column,
-            code_id=code_id,
-            request_id=request_id,
-            referencable_var_names=referencable_var_names,
-            generated_var_names=generated_var_names,
-            cursor_offset=cursor_position - message.position,
-        )
+    await lsp_writers["full"].send_autocomplete_request(
+        line,
+        column,
+        code_id=code_id,
+        request_id=request_id,
+        referencable_var_names=referencable_var_names,
+        generated_var_names=generated_var_names,
+        cursor_offset=cursor_position - message.position,
+    )
 
 
 def calculate_referencable_var_names(
