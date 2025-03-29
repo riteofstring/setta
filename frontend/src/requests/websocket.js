@@ -1,9 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import {
-  updateInteractiveArtifacts,
-  updateInteractiveSubprocessInfo,
-} from "state/actions/interactive";
+import { updateInteractiveArtifacts } from "state/actions/interactive";
 import { updateJSONSourceContents } from "state/actions/jsonSource";
 import { addNotificationFromWebsocketMsg } from "state/actions/notifications";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
@@ -65,8 +62,6 @@ function receiveMessage(message) {
     m.messageType === C.WS_INTERACTIVE_FN_RETURN
   ) {
     updateInteractiveArtifacts(m.content);
-  } else if (m.messageType === C.WS_INTERACTIVE_FN_AVG_RUN_TIME) {
-    updateInteractiveSubprocessInfo(m.content);
   } else if (m.messageType === C.WS_SPECIFIC_FILE_WATCHER_UPDATE) {
     updateJSONSourceContents(m.content);
   } else if (m.id) {

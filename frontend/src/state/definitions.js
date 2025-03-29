@@ -67,13 +67,6 @@ export const useHomePageSearch = create(
   })),
 );
 
-export const useInteractiveFn = create(
-  withResetFn(() => ({
-    interactiveSubprocessInfo: {},
-    throttledSendFns: {},
-  })),
-);
-
 export const useEVRefRegex = create(
   withResetFn(() => ({
     pattern: dummyRegExpObject(),
