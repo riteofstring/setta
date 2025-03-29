@@ -2,14 +2,16 @@ from setta.utils.constants import C
 
 
 class WebsocketMsgHandlers:
-    def __init__(self, websocket_manager, code_tasks, script_metadata):
+    def __init__(self, websocket_manager, code_tasks, script_metadata, code_state):
         self.lsp_reader = WMHLSPReader(websocket_manager)
         self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
         self.artifact = WMHArtifact(websocket_manager)
         self.database = WMHDatabase(websocket_manager)
         self.frontend = WMHFrontend(websocket_manager, code_tasks, script_metadata)
         self.cli = WMHCLI(websocket_manager)
-        self.python_script = WMHPythonScript(websocket_manager, script_metadata)
+        self.python_script = WMHPythonScript(
+            websocket_manager, script_metadata, code_state
+        )
         self.python_logger = WMHPythonLogger(websocket_manager)
 
 
@@ -89,16 +91,21 @@ class WMHCLI:
 
 
 class WMHPythonScript:
-    def __init__(self, websocket_manager, script_metadata):
+    def __init__(self, websocket_manager, script_metadata, code_state):
         self.websocket_manager = websocket_manager
         self.script_metadata = script_metadata
+        self.code_state = code_state
 
     async def process_message(self, message, websocket_id):
-        print("WMHPythonScript process_message", message, flush=True)
+        print("WMHPythonScript process_message", message, websocket_id, flush=True)
         msg_type = message["messageType"]
         content = message["content"]
-        if msg_type == C.WS_ADD_SCRIPT_METADATA:
-            self.script_metadata.add(websocket_id, content)
+        # if msg_type == C.WS_SCRIPT_READY:
+        # exporter_obj = self.code_state.get_exporter_obj_interactive(websocket_id)
+        # message = {"content": exporter_obj, "messageType": C.WS_EXPORTER_OBJ}
+        # await self.websocket_manager.send_message(message, websocket_id)
+        # elif msg_type == C.WS_ADD_SCRIPT_METADATA:
+        #     self.script_metadata.add(websocket_id, content)
 
         # self.websocket_manager.send_message(message, message["toWebsocketId"])
 

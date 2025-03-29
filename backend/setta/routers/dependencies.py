@@ -57,5 +57,9 @@ def get_lsp_writers_from_websocket(websocket: WebSocket):
     return websocket.app.state.lsp_writers
 
 
+def get_code_state_from_websocket(websocket: WebSocket):
+    return websocket.app.state.code_state
+
+
 def get_specific_file_watcher(request: Request):
     return request.app.state.specific_file_watcher

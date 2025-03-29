@@ -77,6 +77,7 @@ async def route_websocket_cli(
 @router.websocket(C.ROUTE_WEBSOCKET_PYTHON_SCRIPT)
 async def route_websocket_python_script(
     websocket: WebSocket,
+    id: str,
     websocket_manager=Depends(get_websocket_manager_from_websocket),
     websocket_msg_handler=Depends(get_wmh_python_script_from_websocket),
 ):
@@ -85,6 +86,7 @@ async def route_websocket_python_script(
         websocket_manager,
         websocket_msg_handler,
         C.WEBSOCKET_CONNECTION_TYPE_PYTHON_SCRIPT,
+        id=id,
     )
 
 

@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 from setta.gen_code.export_selected import (
+    export_for_interactive_fn,
     export_selected,
     get_gen_code_template_var,
     get_section_name,
@@ -20,21 +21,16 @@ from setta.gen_code.python.validate_imports import (
     maybe_validate_imports_and_update_code,
 )
 from setta.gen_code.utils import process_refs
-from setta.utils.constants import (
-    CODE_FOLDER,
-    CODE_FOLDER_ENV_VARIABLE,
-    CWD,
-    USER_SETTINGS,
-    C,
-)
+from setta.utils.constants import CODE_FOLDER, CWD, USER_SETTINGS, C
 from setta.utils.utils import prune_dict
 
 
-async def runCode(message, lsp_writers):
+async def runCode(message, lsp_writers, code_state):
     p = message["content"]
     exporter_obj = export_selected(
         p, always_export_args_objs=False, force_include_template_var=True
     )
+    exporter_obj_interactive = export_for_interactive_fn(p)
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
     code_dict = await generate_final_code_for_sections(
@@ -64,6 +60,10 @@ async def runCode(message, lsp_writers):
             curr_code["codeLanguage"],
         )
         id_to_relpath[sid] = rel_path_str
+        code_state.set_exporter_obj_interactive(
+            convert_folder_path_to_module_path(Path(rel_path_str)),
+            exporter_obj_interactive,
+        )
 
     # Only run code that isn't referenced by other code
     run_order = [
@@ -362,7 +362,7 @@ def preprocess_template_vars(code, evRefs, templateVars, cursor_position):
 
 
 def convert_folder_path_to_module_path(folder_path):
-    return folder_path.relative_to(CWD).as_posix().replace("/", ".").replace("\\", ".")
+    return folder_path.as_posix().replace("/", ".").replace("\\", ".")
 
 
 def languageToExtension(x):
@@ -488,20 +488,25 @@ def write_string_to_file(folder, filename, content):
 def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name):
     setup_code = ""
     if codeLanguage == "python":
-        setup_code = (
-            "import sys\n"
-            "import os\n"
-            "sys.path.append(os.getcwd())\n"
-            f"os.environ['{CODE_FOLDER_ENV_VARIABLE}'] = '{folder_path}'\n"
-        )
+        # setup_code = (
+        #     "import sys\n"
+        #     "import os\n"
+        #     "sys.path.append(os.getcwd())\n"
+        #     f"os.environ['{CODE_FOLDER_ENV_VARIABLE}'] = '{folder_path}'\n"
+        # )
+        setup_code = ""
         code = setup_code + code
     return code, setup_code
 
 
 def construct_module_path(folder_path, section_path_full_name):
-    module_path = convert_folder_path_to_module_path(folder_path)
+    module_path = convert_folder_path_to_module_path(relative_to_cwd(folder_path))
     filename = sanitize_section_path_full_name(section_path_full_name)
     return f"{module_path}.{filename}"
+
+
+def relative_to_cwd(folder_path):
+    return Path(folder_path).relative_to(CWD)
 
 
 def sanitize_section_path_full_name(name):

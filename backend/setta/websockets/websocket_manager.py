@@ -19,6 +19,8 @@ class WebsocketManager:
 
     async def connect(self, websocket: WebSocket, connectionType, id=None):
         await websocket.accept()
+        if id and id in self.sockets:
+            raise ValueError(f"websocket id already taken: {id}")
         while not id or id in self.sockets:
             id = generate_memorable_string()
         self.sockets[id] = {
