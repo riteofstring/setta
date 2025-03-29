@@ -93,6 +93,7 @@ class SettaListener:
         endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}"
         endpoint = endpoint.format(id=self.script_id)
         async with websockets.connect(endpoint) as websocket:
+            self.logger.websocket = websocket
             await self._handle_websocket(websocket, interactive_functions)
 
     async def _handle_websocket(self, websocket, interactive_functions):
@@ -119,6 +120,8 @@ class SettaListener:
             if messageType == C.WS_PROJECT_DATA:
                 exporter_obj = export_for_interactive_fn(message["content"])
                 run_interactive_functions(interactive_functions, exporter_obj.output)
+            elif messageType == C.WS_CALL_INTERACTIVE_FNS:
+                print("received!", message["content"])
 
 
 def get_interactive_functions(caller_frame):

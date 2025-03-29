@@ -25,4 +25,8 @@ class ScriptMetadata:
         print("after delete ScriptMetadata", self.deps_to_websocket_ids, flush=True)
 
     def get_websocket_ids_listening_to_data(self, data):
-        data = {tuple(json.loads(k)): v for k, v in data.items()}
+        ids = self.deps_to_websocket_ids.get(None, set())
+        # for k,v in data.items():
+        # ids.update(self.deps_to_websocket_ids.get(tuple(json.loads(k))))
+        # data = {: v for k, v in data.items()}
+        return ids

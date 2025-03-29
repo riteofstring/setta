@@ -27,7 +27,7 @@ export function sendToInteractiveTasks(sourceInfo, value, valueCallback) {
   sendMessage({
     id: createNewId(),
     content: { [key]: valueCallback ? valueCallback() : value },
-    messageType: C.WS_SEND_TO_SCRIPTS,
+    messageType: C.WS_CALL_INTERACTIVE_FNS,
   });
 }
 

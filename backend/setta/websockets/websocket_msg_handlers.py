@@ -68,8 +68,12 @@ class WMHFrontend:
         wid = message.get("toWebsocketId")
         if wid and wid != self.websocket_manager.main_id:
             self.websocket_manager.send_message(message, wid)
-        elif message.get("messageType") == C.WS_SEND_TO_SCRIPTS:
-            pass
+        elif message.get("messageType") == C.WS_CALL_INTERACTIVE_FNS:
+            wids = self.script_metadata.get_websocket_ids_listening_to_data(
+                message["content"]
+            )
+            for wid in wids:
+                await self.websocket_manager.send_message(message, wid)
         else:
             msg_id = message.get("id")
             if not msg_id:
@@ -105,6 +109,8 @@ class WMHPythonScript:
             project = self.code_state.get_project_from_rel_path(content["relPath"])
             message = {"content": project, "messageType": C.WS_PROJECT_DATA}
             await self.websocket_manager.send_message(message, websocket_id)
+        elif msg_type == C.WS_FUNCTION_FINISHED:
+            print("FINISHED**********************************", flush=True)
 
         # self.websocket_manager.send_message(message, message["toWebsocketId"])
 
