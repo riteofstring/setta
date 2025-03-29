@@ -3,7 +3,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from setta.code_state.code_task_fns.utils import replace_template_vars_with_random_names
-from setta.gen_code.create_runnable_scripts import sanitize_section_path_full_name
 from setta.gen_code.export_selected import get_section_code, get_section_type
 from setta.utils.constants import C
 from setta.utils.utils import multireplace
@@ -11,17 +10,9 @@ from setta.utils.utils import multireplace
 router = APIRouter()
 
 
-class UpdateInteractiveCodeRequest(BaseModel):
-    projects: list
-
-
 class FormatCodeRequest(BaseModel):
     project: dict
     candidateTemplateVars: dict
-
-
-class KillInMemorySubprocessesRequest(BaseModel):
-    projectConfigId: str
 
 
 @router.post(C.ROUTE_FORMAT_CODE)
@@ -51,11 +42,3 @@ def format_python_code(code: str) -> str:
         return black.format_str(code, mode=black.Mode())
     except black.InvalidInput:
         pass
-
-
-def create_in_memory_module_name(p, sectionId):
-    projectConfigName = p["projectConfig"]["name"]
-    sanitized_full_name = sanitize_section_path_full_name(
-        p["sectionPathFullNames"][sectionId]
-    )
-    return f"setta_in_memory_{projectConfigName}_{sanitized_full_name}"

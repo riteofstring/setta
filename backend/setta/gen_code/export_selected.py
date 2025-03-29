@@ -183,9 +183,9 @@ def export_selected(p, always_export_args_objs, force_include_template_var):
     return e
 
 
-def export_for_in_memory_fn(p):
+def export_for_interactive_fn(p):
     p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
-    e = ExporterForInMemoryFn(p)
+    e = ExporterForInteractiveFn(p)
     e.export()
     return e
 
@@ -532,7 +532,7 @@ class Exporter:
         return var_name
 
 
-class ExporterForInMemoryFn:
+class ExporterForInteractiveFn:
     def __init__(self, p):
         self.output = {}
         self.p = copy.deepcopy(p)

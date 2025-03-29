@@ -67,9 +67,9 @@ export const useHomePageSearch = create(
   })),
 );
 
-export const useInMemoryFn = create(
+export const useInteractiveFn = create(
   withResetFn(() => ({
-    inMemorySubprocessInfo: {},
+    interactiveSubprocessInfo: {},
     throttledSendFns: {},
   })),
 );
