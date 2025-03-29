@@ -38,7 +38,6 @@ async def runCode(message, lsp_writers, code_state):
         exporter_obj,
         lsp_writers,
         folder_path,
-        do_prepend_with_setup_code=True,
         do_convert_var_names_to_readable_form=True,
     )
 
@@ -86,7 +85,6 @@ async def generate_final_code_for_sections(
     exporter_obj,
     lsp_writers,
     folder_path,
-    do_prepend_with_setup_code=False,
     do_convert_var_names_to_readable_form=False,
     push_var_name=None,
     template_var_replacement_values=None,
@@ -128,7 +126,6 @@ async def generate_final_code_for_sections(
             lsp_writers=lsp_writers,
             folder_path=folder_path,
             projectConfigName=p["projectConfig"]["name"],
-            do_prepend_with_setup_code=do_prepend_with_setup_code,
             do_convert_var_names_to_readable_form=do_convert_var_names_to_readable_form,
             template_var_replacement_values=template_var_replacement_values,
             push_var_name=push_var_name,
@@ -160,14 +157,12 @@ async def generate_final_code_for_section(
     lsp_writers,
     folder_path,
     projectConfigName=None,
-    do_prepend_with_setup_code=False,
     do_convert_var_names_to_readable_form=False,
     cursor_position=None,
     template_var_replacement_values=None,
     var_name_to_decl_rel_position_dict=None,
     push_var_name=None,
 ):
-    setup_code = ""
     section_dependencies = []
     if var_name_to_decl_rel_position_dict is None:
         var_name_to_decl_rel_position_dict = {}
@@ -204,14 +199,6 @@ async def generate_final_code_for_section(
         )
 
     if codeLanguage == "python":
-        if do_prepend_with_setup_code:
-            code, setup_code = prepend_with_setup_code(
-                code,
-                codeLanguage,
-                folder_path,
-                projectConfigName,
-            )
-
         if do_convert_var_names_to_readable_form:
             code = convert_var_names_to_readable_form(
                 code,
@@ -220,7 +207,6 @@ async def generate_final_code_for_section(
                 ),
                 exporter_obj,
                 ref_template_var_positions,
-                setup_code,
             )
 
     return (
@@ -483,20 +469,6 @@ def write_string_to_file(folder, filename, content):
     file_path = Path(folder) / filename
     file_path.write_text(content)
     return file_path
-
-
-def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name):
-    setup_code = ""
-    if codeLanguage == "python":
-        # setup_code = (
-        #     "import sys\n"
-        #     "import os\n"
-        #     "sys.path.append(os.getcwd())\n"
-        #     f"os.environ['{CODE_FOLDER_ENV_VARIABLE}'] = '{folder_path}'\n"
-        # )
-        setup_code = ""
-        code = setup_code + code
-    return code, setup_code
 
 
 def construct_module_path(folder_path, section_path_full_name):

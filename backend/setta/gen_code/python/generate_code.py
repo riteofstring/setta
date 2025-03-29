@@ -231,16 +231,9 @@ def convert_var_names_to_readable_form(
     var_name_to_decl_rel_position,
     exporter_obj,
     ref_template_var_positions,
-    setup_code,
 ):
-    # need to adjust line numbers and positions with prepended setup code length
-    # because the setup code has been prepended to the generated code
-    # after the line numbers and positions are calculated.
-    setup_code_len = len(setup_code)
-
     all_ref_var_name_positions = [
-        (r["startPos"] + setup_code_len, r["value"])
-        for r in ref_template_var_positions["refs"]
+        (r["startPos"], r["value"]) for r in ref_template_var_positions["refs"]
     ]
 
     gen_code_template_var = get_gen_code_template_var(
@@ -249,12 +242,11 @@ def convert_var_names_to_readable_form(
 
     # convert to global positions
     for var_name, (startPos, _, _) in var_name_to_decl_rel_position.items():
-        newStartPos = startPos + setup_code_len
         if gen_code_template_var:
-            newStartPos += gen_code_template_var["startPos"]
-        all_ref_var_name_positions.append((newStartPos, var_name))
+            startPos += gen_code_template_var["startPos"]
+        all_ref_var_name_positions.append((startPos, var_name))
         for r in exporter_obj.output[var_name]["ref_var_name_positions"]:
-            all_ref_var_name_positions.append((newStartPos + r["startPos"], r["value"]))
+            all_ref_var_name_positions.append((startPos + r["startPos"], r["value"]))
 
     # create nice var names for references
     top_level_symbols = find_top_level_symbols(generated_code)
