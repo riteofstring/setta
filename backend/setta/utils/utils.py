@@ -269,7 +269,3 @@ def prune_dict(id_to_children: dict, keep_ids: list) -> dict:
 
     # Create new dict with only the ids we want to keep
     return {id: children for id, children in id_to_children.items() if id in to_keep}
-
-
-def remove_empty(x):
-    return {k: v for k, v in x.items() if len(v) > 0}

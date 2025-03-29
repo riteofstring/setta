@@ -50,6 +50,7 @@ export const useSectionInfos = withProjectState(
               singletonSections: {
                 [C.GLOBAL_VARIABLES]: null,
                 [C.GLOBAL_PARAM_SWEEP]: null,
+                inMemoryFnStdoutTerminal: null,
                 temporaryTerminalGroup: null,
               },
               shouldRenameReferences: false,
@@ -67,9 +68,9 @@ export const useHomePageSearch = create(
   })),
 );
 
-export const useInteractiveFn = create(
+export const useInMemoryFn = create(
   withResetFn(() => ({
-    interactiveSubprocessInfo: {},
+    inMemorySubprocessInfo: {},
     throttledSendFns: {},
   })),
 );

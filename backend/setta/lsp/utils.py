@@ -1,5 +1,7 @@
 import logging
 
+from setta.utils.constants import C
+
 from .file_watcher import LSPFileWatcher
 from .reader import LanguageServerReader
 from .server import LanguageServer
@@ -37,10 +39,8 @@ def create_lsp_writers(lsps):
     }
 
 
-def create_lsp_readers(lsps, websocket_message_handler):
-    return {
-        k: LanguageServerReader(v, websocket_message_handler) for k, v in lsps.items()
-    }
+def create_lsp_readers(lsps, websocket_manager):
+    return {k: LanguageServerReader(v, websocket_manager) for k, v in lsps.items()}
 
 
 def create_file_watcher(lsps, lsp_writers):
@@ -49,10 +49,15 @@ def create_file_watcher(lsps, lsp_writers):
     return file_watcher
 
 
-def create_specific_file_watcher(websocket_message_handler):
+def create_specific_file_watcher(websocket_manager):
     async def callback(event_info):
         logger.debug(f"callback {event_info}")
-        await websocket_message_handler.broadcast_file_updates(event_info)
+        await websocket_manager.broadcast(
+            {
+                "content": event_info,
+                "messageType": C.WS_SPECIFIC_FILE_WATCHER_UPDATE,
+            }
+        )
 
     return SpecificFileWatcher(callback)
 
