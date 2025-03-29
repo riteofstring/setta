@@ -1,21 +1,30 @@
 import C from "constants/constants.json";
-import { dummyRegExpObject, escapeRegExp } from "utils/utils";
+import { escapeRegExp } from "utils/utils";
 
 // input is state computed by keyword regex subscription
 export function getEVRefRegexAndColorMap(state) {
-  const names = [];
+  const namesForRegex = [];
   const fullNameToInfo = {};
   for (const sid of Object.keys(state.details)) {
     if (!state.details[sid].isTopLevelAndCanBeReferredTo) {
       continue;
     }
     if (state.globalVariableId === sid) {
-      setFullParamRegex(state, sid, null, names, fullNameToInfo, "", [], true);
+      setFullParamRegex(
+        state,
+        sid,
+        null,
+        namesForRegex,
+        fullNameToInfo,
+        "",
+        [],
+        true,
+      );
     } else {
       const currName = state.details[sid].name;
       setFullChildrenNamesForRegex(
         state,
-        names,
+        namesForRegex,
         fullNameToInfo,
         sid,
         currName,
@@ -24,22 +33,7 @@ export function getEVRefRegexAndColorMap(state) {
     }
   }
 
-  if (names.length === 0) {
-    return {
-      pattern: dummyRegExpObject(),
-      codeAreaPattern: dummyRegExpObject(),
-      fullNameToInfo,
-    };
-  }
-
-  const patternStr = `(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`;
-  const pattern = new RegExp(patternStr, "g");
-  const codeAreaPattern = new RegExp(
-    `(?<=.*?\\${C.TEMPLATE_PREFIX}${C.SETTA_GENERATED_PYTHON}.*?)${patternStr}`,
-    "gs",
-  );
-
-  return { pattern, codeAreaPattern, fullNameToInfo };
+  return { namesForRegex, fullNameToInfo };
 }
 
 function setFullChildrenNamesForRegex(
