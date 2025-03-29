@@ -101,11 +101,10 @@ class WMHPythonScript:
         msg_type = message["messageType"]
         content = message["content"]
         if msg_type == C.WS_SCRIPT_READY:
-            project = self.code_state.get_project_from_rel_path(content)
+            self.script_metadata.add(websocket_id, content["scriptMetadata"])
+            project = self.code_state.get_project_from_rel_path(content["relPath"])
             message = {"content": project, "messageType": C.WS_PROJECT_DATA}
             await self.websocket_manager.send_message(message, websocket_id)
-        # elif msg_type == C.WS_ADD_SCRIPT_METADATA:
-        #     self.script_metadata.add(websocket_id, content)
 
         # self.websocket_manager.send_message(message, message["toWebsocketId"])
 
@@ -119,9 +118,9 @@ class WMHPythonLogger:
 
     async def process_message(self, message, *_):
         print("WMHPythonLogger process_message", message, flush=True)
-        await self.websocket_manager.broadcast(
-            message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
-        )
+        # await self.websocket_manager.broadcast(
+        #     message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
+        # )
 
     def disconnect(self, websocket_id):
         pass

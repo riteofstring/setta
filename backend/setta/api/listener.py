@@ -1,9 +1,8 @@
 import asyncio
+import functools
 import inspect
 import json
 import logging
-import os
-import traceback
 
 import websockets
 
@@ -12,36 +11,114 @@ from setta.gen_code.create_runnable_scripts import (
     relative_to_cwd,
 )
 from setta.gen_code.export_selected import export_for_interactive_fn
-from setta.utils.constants import C, set_constants
+from setta.utils.constants import C
+
+from .logger import SettaLogger
 
 logger = logging.getLogger(__name__)
 
 
-def interactive(dependencies=None):
-    """
-    Decorator to mark functions as interactive for WebSocket communication.
+class SettaListener:
+    def __init__(self, host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
+        self.logger = SettaLogger(host=host, port=port)
+        self.caller_frame = inspect.currentframe().f_back
+        self.rel_path = relative_to_cwd(self.caller_frame.f_code.co_filename)
+        self.script_id = convert_folder_path_to_module_path(self.rel_path)
 
-    Args:
-        dependencies (list, optional): List of dependency names required by this function.
-                                      Default is None, which means run on every change
+    def interactive(self, dependencies=None):
+        """
+        Decorator to mark functions as interactive for WebSocket communication.
 
-    Returns:
-        function: Decorated function with _setta_interactive attribute set to True and
-                 _setta_dependencies attribute set to the provided dependencies.
-    """
+        Args:
+            dependencies (list, optional): List of dependency names required by this function.
+                                        Default is None, which means run on every change
 
-    def decorator(func):
-        func._setta_interactive = True
-        func._setta_dependencies = [None] if dependencies is None else dependencies
-        return func
+        Returns:
+            function: Decorated function with _setta_interactive attribute set to True and
+                    _setta_dependencies attribute set to the provided dependencies.
+        """
 
-    # Handle the case when decorator is used without parentheses
-    if callable(dependencies):
-        func = dependencies
-        dependencies = None
-        return decorator(func)
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                # Call the original function
+                result = func(*args, **kwargs)
 
-    return decorator
+                # After execution, call the logger's send method
+                self.logger.send(True, C.WS_FUNCTION_FINISHED)
+
+                # Return the original result
+                return result
+
+            # Set the original metadata
+            wrapper._setta_interactive = True
+            wrapper._setta_dependencies = (
+                [None] if dependencies is None else dependencies
+            )
+            return wrapper
+
+        # Handle the case when decorator is used without parentheses
+        if callable(dependencies):
+            func = dependencies
+            dependencies = None
+            return decorator(func)
+
+        return decorator
+
+    def start(self):
+        # Find all interactive functions
+        interactive_functions = get_interactive_functions(self.caller_frame)
+
+        # Print available functions for debugging
+        if interactive_functions:
+            print(
+                f"Starting WebSocket listener with {len(interactive_functions)} interactive functions:"
+            )
+            for name, info in interactive_functions.items():
+                deps = ", ".join([str(x) for x in info["dependencies"]])
+                print(f" - {name} (dependencies: {deps})", flush=True)
+        else:
+            print(
+                "Warning: No functions have been marked with @interactive decorator",
+                flush=True,
+            )
+
+        # Start the event loop
+        try:
+            asyncio.run(self._connect_to_server(interactive_functions))
+        except KeyboardInterrupt:
+            print("Listener stopped by user", flush=True)
+
+    async def _connect_to_server(self, interactive_functions):
+        endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}"
+        endpoint = endpoint.format(id=self.script_id)
+        async with websockets.connect(endpoint) as websocket:
+            await self._handle_websocket(websocket, interactive_functions)
+
+    async def _handle_websocket(self, websocket, interactive_functions):
+        # Send registration message with function info including dependencies
+        registration_info = {
+            "messageType": C.WS_SCRIPT_READY,
+            "content": {
+                "relPath": str(self.rel_path),
+                "scriptMetadata": {
+                    name: {"dependencies": info["dependencies"]}
+                    for name, info in interactive_functions.items()
+                },
+            },
+        }
+
+        await websocket.send(json.dumps(registration_info))
+
+        exporter_obj = None
+
+        # Process incoming messages using async for
+        async for message in websocket:
+            message = json.loads(message)
+            messageType = message["messageType"]
+            if messageType == C.WS_PROJECT_DATA:
+                exporter_obj = export_for_interactive_fn(message["content"])
+                run_interactive_functions(interactive_functions, exporter_obj.output)
 
 
 def get_interactive_functions(caller_frame):
@@ -64,96 +141,3 @@ def get_interactive_functions(caller_frame):
 def run_interactive_functions(interactive_functions, p):
     for v in interactive_functions.values():
         v["function"](p)
-
-
-async def _handle_websocket(websocket, rel_path, interactive_functions):
-    registration_info = {
-        "messageType": C.WS_SCRIPT_READY,
-        "content": str(rel_path),
-    }
-
-    await websocket.send(json.dumps(registration_info))
-
-    exporter_obj = None
-
-    # Send registration message with function info including dependencies
-    # registration_info = {
-    #     "messageType": C.WS_ADD_SCRIPT_METADATA,
-    #     "content": {
-    #         name: {"dependencies": info["dependencies"]}
-    #         for name, info in interactive_functions.items()
-    #     },
-    # }
-
-    # await websocket.send(json.dumps(registration_info))
-
-    # Process incoming messages using async for
-    async for message in websocket:
-        message = json.loads(message)
-        messageType = message["messageType"]
-        if messageType == C.WS_PROJECT_DATA:
-            exporter_obj = export_for_interactive_fn(message["content"])
-            run_interactive_functions(interactive_functions, exporter_obj.output)
-
-        # try:
-        #     data = json.loads(message)
-        #     fn_name = data.get("fn_name")
-        #     if fn_name not in interactive_functions:
-        #         continue
-
-        #     args = data.get("args", [])
-        #     kwargs = data.get("kwargs", {})
-
-        #     try:
-        #         # Call the function
-        #         if isinstance(args, list):
-        #             interactive_functions[fn_name]["function"](*args, **kwargs)
-        #         else:
-        #             interactive_functions[fn_name]["function"](args, **kwargs)
-
-        #     except Exception as e:
-        #         print(f"Error in function {fn_name}: {e}", flush=True)
-        #         traceback.print_exc()
-
-        # except json.JSONDecodeError:
-        #     print("Received invalid JSON", flush=True)
-        # except Exception as e:
-        #     print(f"Error handling message: {e}", flush=True)
-        #     traceback.print_exc()
-
-
-async def _connect_to_server(rel_path, interactive_functions):
-    script_id = convert_folder_path_to_module_path(rel_path)
-    endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}"
-    endpoint = endpoint.format(id=script_id)
-    async with websockets.connect(endpoint) as websocket:
-        await _handle_websocket(websocket, rel_path, interactive_functions)
-
-
-def start_listener(host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
-    set_constants(host=host, port=port)
-
-    caller_frame = inspect.currentframe().f_back
-    # Find all interactive functions
-    interactive_functions = get_interactive_functions(caller_frame)
-    rel_path = relative_to_cwd(caller_frame.f_code.co_filename)
-
-    # Print available functions for debugging
-    if interactive_functions:
-        print(
-            f"Starting WebSocket listener with {len(interactive_functions)} interactive functions:"
-        )
-        for name, info in interactive_functions.items():
-            deps = ", ".join([str(x) for x in info["dependencies"]])
-            print(f" - {name} (dependencies: {deps})", flush=True)
-    else:
-        print(
-            "Warning: No functions have been marked with @interactive decorator",
-            flush=True,
-        )
-
-    # Start the event loop
-    try:
-        asyncio.run(_connect_to_server(rel_path, interactive_functions))
-    except KeyboardInterrupt:
-        print("Listener stopped by user", flush=True)

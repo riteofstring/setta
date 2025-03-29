@@ -39,28 +39,31 @@ class SettaLogger:
                 sent_data = data["data"][idx]
                 self.name_path_type_to_id[self.get_name_path_type_key(sent_data)] = id
 
-    async def send_async(self, obj):
-        data = self.prepare_data(obj)
+    async def send_async(self, obj, messageType=None):
+        if messageType is None:
+            messageType == C.WS_ARTIFACT
+        if messageType == C.WS_ARTIFACT:
+            obj = self.prepare_data(obj)
         if not self.websocket:
             self.websocket = await websockets.connect(self.endpoint)
         await self.websocket.send(
-            json.dumps({"content": data, "messageType": C.WS_ARTIFACT})
+            json.dumps({"content": obj, "messageType": messageType})
         )
 
-    def send(self, obj):
+    def send(self, obj, messageType=None):
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 # We're in an async context, schedule the task
-                asyncio.create_task(self.send_async(obj))
+                asyncio.create_task(self.send_async(obj, messageType))
             else:
                 # We're not in an async context, run until complete
-                loop.run_until_complete(self.send_async(obj))
+                loop.run_until_complete(self.send_async(obj, messageType))
         except RuntimeError:
             # No event loop in thread
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(self.send_async(obj))
+            loop.run_until_complete(self.send_async(obj, messageType))
 
     def prepare_data(self, obj, save_to=None):
         data_to_send = []

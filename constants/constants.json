@@ -108,6 +108,7 @@
   "WS_TERMINAL_RESIZE": "terminalResize",
   "WS_INTERACTIVE_FN_AVG_RUN_TIME": "interactiveFnAvgRunTime",
   "WS_SCRIPT_READY": "scriptReady",
+  "WS_FUNCTION_FINISHED": "functionFinished",
   "WS_PROJECT_DATA": "projectData",
   "WS_ADD_SCRIPT_METADATA": "addScriptMetadata",
   "WS_SPECIFIC_FILE_WATCHER_UPDATE": "specificFileWatcherUpdate",
