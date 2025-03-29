@@ -21,13 +21,13 @@ class WMHLSPReader:
 
     async def broadcast_notification(self, content):
         content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
-        await self.websocket_manager.broadcast(content, C.WS_NOTIFICATION, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND)
+        await self.websocket_manager.broadcast(content, C.WS_NOTIFICATION)
 
     async def return_to_requester(self, content, returnId):
         await self.websocket_manager.return_to_requester(content, returnId)
 
     async def broadcast_lsp_diagnostics(self, content):
-        await self.websocket_manager.broadcast(content, C.WS_LSP_DIAGNOSTICS, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND)
+        await self.websocket_manager.broadcast(content, C.WS_LSP_DIAGNOSTICS)
 
 
 class WMHSpecificFileWatcher:
@@ -36,7 +36,7 @@ class WMHSpecificFileWatcher:
 
     async def broadcast_file_updates(self, content):
         await self.websocket_manager.broadcast(
-            content, C.WS_SPECIFIC_FILE_WATCHER_UPDATE, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
+            content, C.WS_SPECIFIC_FILE_WATCHER_UPDATE
         )
 
 
@@ -45,7 +45,7 @@ class WMHArtifact:
         self.websocket_manager = websocket_manager
 
     async def broadcast_artifact(self, content):
-        await self.websocket_manager.broadcast(content, C.WS_ARTIFACT, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND)
+        await self.websocket_manager.broadcast(content, C.WS_ARTIFACT)
 
 
 class WMHDatabase:
@@ -54,7 +54,7 @@ class WMHDatabase:
 
     async def broadcast_notification(self, content, projectConfigId):
         content["projectConfigId"] = projectConfigId
-        await self.websocket_manager.broadcast(content, C.WS_NOTIFICATION, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND)
+        await self.websocket_manager.broadcast(content, C.WS_NOTIFICATION)
 
 
 class WMHFrontend:
