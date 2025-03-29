@@ -3,7 +3,6 @@ from datetime import datetime
 from pathlib import Path
 
 from setta.gen_code.export_selected import (
-    export_for_interactive_fn,
     export_selected,
     get_gen_code_template_var,
     get_section_name,
@@ -30,7 +29,6 @@ async def runCode(message, lsp_writers, code_state):
     exporter_obj = export_selected(
         p, always_export_args_objs=False, force_include_template_var=True
     )
-    exporter_obj_interactive = export_for_interactive_fn(p)
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
     code_dict = await generate_final_code_for_sections(
@@ -49,6 +47,10 @@ async def runCode(message, lsp_writers, code_state):
     to_write, section_dependencies = prune_and_topological_sort(
         code_dict, p["runCodeBlocks"]
     )
+
+    projectConfigId = p["projectConfig"]["id"]
+    code_state.projects[projectConfigId] = p
+
     id_to_relpath = {}
     for sid in to_write:
         curr_code = code_dict[sid]
@@ -59,10 +61,7 @@ async def runCode(message, lsp_writers, code_state):
             curr_code["codeLanguage"],
         )
         id_to_relpath[sid] = rel_path_str
-        code_state.set_exporter_obj_interactive(
-            convert_folder_path_to_module_path(Path(rel_path_str)),
-            exporter_obj_interactive,
-        )
+        code_state.rel_path_to_project_id[rel_path_str] = projectConfigId
 
     # Only run code that isn't referenced by other code
     run_order = [

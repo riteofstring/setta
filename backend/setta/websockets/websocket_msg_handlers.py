@@ -100,10 +100,10 @@ class WMHPythonScript:
         print("WMHPythonScript process_message", message, websocket_id, flush=True)
         msg_type = message["messageType"]
         content = message["content"]
-        # if msg_type == C.WS_SCRIPT_READY:
-        # exporter_obj = self.code_state.get_exporter_obj_interactive(websocket_id)
-        # message = {"content": exporter_obj, "messageType": C.WS_EXPORTER_OBJ}
-        # await self.websocket_manager.send_message(message, websocket_id)
+        if msg_type == C.WS_SCRIPT_READY:
+            project = self.code_state.get_project_from_rel_path(content)
+            message = {"content": project, "messageType": C.WS_PROJECT_DATA}
+            await self.websocket_manager.send_message(message, websocket_id)
         # elif msg_type == C.WS_ADD_SCRIPT_METADATA:
         #     self.script_metadata.add(websocket_id, content)
 

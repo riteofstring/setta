@@ -60,10 +60,10 @@ def get_interactive_functions(caller_frame):
     return interactive_functions
 
 
-async def _handle_websocket(websocket, interactive_functions):
+async def _handle_websocket(websocket, rel_path, interactive_functions):
     registration_info = {
         "messageType": C.WS_SCRIPT_READY,
-        "content": None,
+        "content": str(rel_path),
     }
 
     await websocket.send(json.dumps(registration_info))
@@ -109,11 +109,12 @@ async def _handle_websocket(websocket, interactive_functions):
         #     traceback.print_exc()
 
 
-async def _connect_to_server(script_id, interactive_functions):
+async def _connect_to_server(rel_path, interactive_functions):
+    script_id = convert_folder_path_to_module_path(rel_path)
     endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}"
     endpoint = endpoint.format(id=script_id)
     async with websockets.connect(endpoint) as websocket:
-        await _handle_websocket(websocket, interactive_functions)
+        await _handle_websocket(websocket, rel_path, interactive_functions)
 
 
 def start_listener(host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
@@ -122,9 +123,7 @@ def start_listener(host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
     caller_frame = inspect.currentframe().f_back
     # Find all interactive functions
     interactive_functions = get_interactive_functions(caller_frame)
-    script_id = convert_folder_path_to_module_path(
-        relative_to_cwd(caller_frame.f_code.co_filename)
-    )
+    rel_path = relative_to_cwd(caller_frame.f_code.co_filename)
 
     # Print available functions for debugging
     if interactive_functions:
@@ -142,6 +141,6 @@ def start_listener(host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
 
     # Start the event loop
     try:
-        asyncio.run(_connect_to_server(script_id, interactive_functions))
+        asyncio.run(_connect_to_server(rel_path, interactive_functions))
     except KeyboardInterrupt:
         print("Listener stopped by user", flush=True)
