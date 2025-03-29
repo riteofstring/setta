@@ -9,6 +9,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { dbGetLLMResponse } from "requests/ai";
 import { localStorageFns } from "state/hooks/localStorage";
 import { MODEL_GROUPS } from "utils/constants";
 import { ProjectChatHistory } from "./ProjectChatHistory";
@@ -24,11 +25,11 @@ export function ProjectAIChat() {
       role: "user",
       content: "Can you help me analyze this data?",
     },
-    {
-      role: "assistant",
-      content:
-        "Of course! I'd be happy to help analyze your data. Could you please upload the file or share more details about what kind of analysis you're looking for?",
-    },
+    // {
+    //   role: "assistant",
+    //   content:
+    //     "Of course! I'd be happy to help analyze your data. Could you please upload the file or share more details about what kind of analysis you're looking for?",
+    // },
   ];
 
   return <ProjectAIChatContainer messages={messages} />;
@@ -61,10 +62,12 @@ function ProjectAIChatContainer({ messages }) {
 
   const placeholderText = "Type a message...";
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     if (e) {
       e.preventDefault();
     }
+    const res = await dbGetLLMResponse(messages);
+    console.log("res", res);
     // Handle submission logic here
   };
 
