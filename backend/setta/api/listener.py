@@ -11,6 +11,7 @@ from setta.gen_code.create_runnable_scripts import (
     convert_folder_path_to_module_path,
     relative_to_cwd,
 )
+from setta.gen_code.export_selected import export_for_interactive_fn
 from setta.utils.constants import C, set_constants
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,11 @@ def get_interactive_functions(caller_frame):
     return interactive_functions
 
 
+def run_interactive_functions(interactive_functions, p):
+    for v in interactive_functions.values():
+        v["function"](p)
+
+
 async def _handle_websocket(websocket, rel_path, interactive_functions):
     registration_info = {
         "messageType": C.WS_SCRIPT_READY,
@@ -67,6 +73,8 @@ async def _handle_websocket(websocket, rel_path, interactive_functions):
     }
 
     await websocket.send(json.dumps(registration_info))
+
+    exporter_obj = None
 
     # Send registration message with function info including dependencies
     # registration_info = {
@@ -81,7 +89,12 @@ async def _handle_websocket(websocket, rel_path, interactive_functions):
 
     # Process incoming messages using async for
     async for message in websocket:
-        print("message", message)
+        message = json.loads(message)
+        messageType = message["messageType"]
+        if messageType == C.WS_PROJECT_DATA:
+            exporter_obj = export_for_interactive_fn(message["content"])
+            run_interactive_functions(interactive_functions, exporter_obj.output)
+
         # try:
         #     data = json.loads(message)
         #     fn_name = data.get("fn_name")
