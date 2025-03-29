@@ -79,6 +79,14 @@ export function shortcutCodemirrorFormat(shortcut) {
   return convertedParts.join("-");
 }
 
+export function dummyRegExpObject() {
+  return {
+    exec: function () {
+      return null;
+    },
+  };
+}
+
 export function templatePrefix(x) {
   return `${C.TEMPLATE_PREFIX}${x}`;
 }

@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import { dummyRegExpObject } from "utils/utils";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import {
@@ -75,14 +76,15 @@ export const useInMemoryFn = create(
 
 export const useEVRefRegex = create(
   withResetFn(() => ({
-    namesForRegex: [],
+    pattern: dummyRegExpObject(),
+    codeAreaPattern: dummyRegExpObject(),
     fullNameToInfo: {},
   })),
 );
 
 export const useTemplateVarRegex = create(
   withResetFn(() => ({
-    namesForRegex: [],
+    pattern: dummyRegExpObject(),
     fullNameToSectionId: {},
   })),
 );

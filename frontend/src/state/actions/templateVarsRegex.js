@@ -1,17 +1,14 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
-import { escapeRegExp, templatePrefix } from "utils/utils";
+import { dummyRegExpObject, escapeRegExp, templatePrefix } from "utils/utils";
 import { getSectionPathFullName } from "./sectionInfos";
 
 // input is state computed by keyword regex subscription
 export function getTemplateVarsRegexAndColorMap(state) {
-  const namesForRegex = [
-    C.SETTA_GENERATED_PYTHON,
-    C.SETTA_GENERATED_PYTHON_IMPORTS,
-  ];
+  const names = [C.SETTA_GENERATED_PYTHON, C.SETTA_GENERATED_PYTHON_IMPORTS];
   const fullRawNameToSectionId = {};
-  for (const n of namesForRegex) {
+  for (const n of names) {
     fullRawNameToSectionId[n] = null;
   }
 
@@ -23,7 +20,7 @@ export function getTemplateVarsRegexAndColorMap(state) {
     const sectionFullName = getSectionPathFullName(sectionId, sectionState);
     for (const suffix of suffixes) {
       const fullName = sectionFullName + `${C.TEMPLATE_PREFIX}${suffix}`;
-      namesForRegex.push(escapeRegExp(fullName));
+      names.push(escapeRegExp(fullName));
       fullRawNameToSectionId[fullName] = sectionId;
     }
   }
@@ -32,5 +29,15 @@ export function getTemplateVarsRegexAndColorMap(state) {
     templatePrefix(k),
   );
 
-  return { namesForRegex, fullNameToSectionId };
+  if (names.length === 0) {
+    return {
+      pattern: dummyRegExpObject(),
+      fullNameToSectionId,
+    };
+  }
+
+  const patternStr = `(?<![A-Za-z."'_])\\${C.TEMPLATE_PREFIX}(${names.join("|")})(?![A-Za-z"'_])`;
+  const pattern = new RegExp(patternStr, "g");
+
+  return { pattern, fullNameToSectionId };
 }
