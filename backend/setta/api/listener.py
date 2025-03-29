@@ -119,9 +119,25 @@ class SettaListener:
             messageType = message["messageType"]
             if messageType == C.WS_PROJECT_DATA:
                 exporter_obj = export_for_interactive_fn(message["content"])
-                run_interactive_functions(interactive_functions, exporter_obj.output)
+                # run all interactive functions when we first receive project data
+                asyncio.create_task(
+                    self._run_functions(interactive_functions, exporter_obj.output)
+                )
             elif messageType == C.WS_CALL_INTERACTIVE_FNS:
-                print("received!", message["content"])
+                asyncio.create_task(
+                    self._run_functions(interactive_functions, exporter_obj.output)
+                )
+
+    # Add this new helper method
+    async def _run_functions(self, interactive_functions, p):
+        # Create a list to store all the function tasks
+        for name, v in interactive_functions.items():
+            try:
+                # Run the function in an executor to avoid blocking the event loop
+                # This handles CPU-bound functions without blocking the websocket
+                await asyncio.get_event_loop().run_in_executor(None, v["function"], p)
+            except Exception as e:
+                print(f"Error running function {name}: {e}")
 
 
 def get_interactive_functions(caller_frame):
