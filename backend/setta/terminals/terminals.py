@@ -232,6 +232,11 @@ class TerminalWebsockets:
                 output.append({"id": k, "isTemporary": v["isTemporary"]})
         return output
 
+    def kill_processes(self, ids):
+        for id in ids:
+            pty_process = self.PTY_PIDS[id]["process"]
+            pty_process.sendintr()
+
     async def send_output_to_sectionId(self, sectionId, output, setSentReadyMsg=False):
         for wsId in self.section_to_socket_ids[sectionId]:
             ws = self.sockets[wsId]["ws"]

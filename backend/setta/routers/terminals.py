@@ -23,6 +23,10 @@ class DeleteTerminalsRequest(BaseModel):
     sectionIds: List[str]
 
 
+class KillSubprocessesRequest(BaseModel):
+    projectConfigId: str
+
+
 @router.websocket(C.ROUTE_TERMINAL)
 async def terminal_websocket_endpoint(
     websocket: WebSocket,
@@ -81,3 +85,12 @@ def route_terminal_get_existing_terminals(
     projectConfigId, terminal_websockets=Depends(get_terminal_websockets)
 ):
     return terminal_websockets.get_existing_terminals(projectConfigId)
+
+
+@router.post(C.ROUTE_KILL_SUBPROCESSES)
+def route_kill_subprocesses(
+    x: KillSubprocessesRequest, terminal_websockets=Depends(get_terminal_websockets)
+):
+    existing = terminal_websockets.get_existing_terminals(x.projectConfigId)
+    ids = [x["id"] for x in existing]
+    terminal_websockets.kill_processes(ids)
