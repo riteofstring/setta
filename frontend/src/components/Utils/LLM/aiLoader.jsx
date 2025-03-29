@@ -1,71 +1,78 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
-import { streamText } from "ai";
+import { generateText, streamText } from "ai";
 
-function openai(apiKey, model) {
-  if (!apiKey) {
-    throw new Error("OpenAI API key is required");
-  }
+const providers = {
+  OpenAI: (apiKey) => createOpenAI({ apiKey }),
+  Anthropic: (apiKey) => createAnthropic({ apiKey }),
+};
 
-  const openai = createOpenAI({
-    apiKey: apiKey,
-  });
+export async function aiLoader({
+  provider,
+  modelName,
+  apiKey,
+  prompt,
+  stream = false,
+  modelOptions = {},
+}) {
+  try {
+    if (!providers[provider]) {
+      throw new Error(
+        `Provider "${provider}" not supported. Available providers: ${Object.keys(providers).join(", ")}`,
+      );
+    }
 
-  return {
-    llmprovider: openai,
-    model: model || "gpt-4o",
-  };
-}
+    const providerInstance = providers[provider](apiKey);
+    const model = providerInstance(modelName, modelOptions);
 
-function anthropic(apiKey, model) {
-  if (!apiKey) {
-    throw new Error("Anthropic API key is required");
-  }
-
-  const anthropic = createAnthropic({
-    apiKey: apiKey,
-  });
-
-  return {
-    llmprovider: anthropic,
-    model: model || "claude-3-7-sonnet-20250219",
-  };
-}
-
-async function callModel({ llmprovider, model, prompt }) {
-  const { textStream } = await streamText({
-    model: model,
-    prompt: prompt,
-    api: llmprovider,
-  });
-
-  let fullResponse = "";
-  for await (const textPart of textStream) {
-    fullResponse += textPart;
-  }
-  return fullResponse;
-}
-
-export async function aiLoader({ vendor, model, prompt, apiKey }) {
-  switch (vendor) {
-    case "OpenAI": {
-      const config = openai(apiKey, model);
-      return await callModel({
-        llmprovider: config.llmprovider,
-        model: config.model,
+    if (stream) {
+      const { textStream } = await streamText({
+        model,
         prompt,
       });
+
+      return textStream;
     }
-    case "Anthropic": {
-      const config = anthropic(apiKey, model);
-      return await callModel({
-        llmprovider: config.llmprovider,
-        model: config.model,
-        prompt,
-      });
-    }
-    default: {
-      throw new Error(`Unsupported vendor: ${vendor}`);
-    }
+
+    const { text } = await generateText({
+      model,
+      prompt,
+    });
+
+    return text;
+  } catch (error) {
+    console.error(`Error in aiLoader: ${error.message}`);
+    throw error;
   }
 }
+
+export async function collectStreamToString(stream) {
+  let fullText = "";
+  for await (const chunk of stream) {
+    fullText += chunk;
+  }
+  return fullText;
+}
+
+// Usage examples:
+
+// Non-streaming example
+// const response = await aiLoader({
+//   provider: 'OpenAI',
+//   modelName: 'gpt-4o',
+//   apiKey: 'your-openai-api-key',
+//   prompt: 'Explain quantum computing in simple terms.'
+// });
+
+// Streaming example
+// const stream = await aiLoader({
+//   provider: 'Anthropic',
+//   modelName: 'claude-3-opus-20240229',
+//   apiKey: 'your-anthropic-api-key',
+//   prompt: 'Write a short story about a robot.',
+//   stream: true
+// });
+//
+// for await (const chunk of stream) {
+//   process.stdout.write(chunk); // Print chunks as they arrive
+// }
