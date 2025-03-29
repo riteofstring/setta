@@ -14,7 +14,7 @@ import psutil
 from fastapi import WebSocketDisconnect
 from websockets.exceptions import ConnectionClosedOK
 
-from setta.code_gen.create_runnable_scripts import runCode
+from setta.gen_code.create_runnable_scripts import runCode
 from setta.utils.constants import USER_SETTINGS, C
 
 logger = logging.getLogger(__name__)

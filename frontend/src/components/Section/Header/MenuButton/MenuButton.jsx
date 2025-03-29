@@ -5,7 +5,6 @@ import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import { HeaderIcon } from "../HeaderIcon";
 import { AddArtifactByFilepath } from "./AddArtifactByFilepath";
-import { AddInMemoryFnStdoutTerminal } from "./AddInMemoryFnStdoutTerminal";
 import { ClearValues } from "./ClearValues";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
 import { HideShowParamsButton } from "./HideShowParamsButton";
@@ -112,11 +111,7 @@ function getMenuItems(uiTypeName) {
     case C.LIST_ROOT:
     case C.DICT_ROOT:
     case C.CODE:
-      return [
-        CreateNewVersionButton,
-        ResetToDefaultVersion,
-        AddInMemoryFnStdoutTerminal,
-      ];
+      return [CreateNewVersionButton, ResetToDefaultVersion];
     case C.GROUP:
       return [UngroupButton];
     case C.DRAW:

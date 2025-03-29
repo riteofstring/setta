@@ -157,7 +157,7 @@ export function ParamUI({
       return (
         <>
           <PasswordInput
-            className={`${!isDisabled ? "cursor-text select-text" : ""} nodrag section-value peer/textinput flex w-full min-w-0 max-w-[calc(100%_-_1.1rem)] self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
+            className={`${!isDisabled ? "cursor-text select-text" : ""} nodrag section-value peer/textinput flex min-w-0 max-w-[calc(100%_-_1.1rem)] self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
             value={value}
             onChange={onChange}
             onEscape={onEscape}
