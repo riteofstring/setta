@@ -15,7 +15,15 @@ class WebsocketMsgHandlers:
         self.python_logger = WMHPythonLogger(websocket_manager)
 
 
-class WMHLSPReader:
+class BaseWebsocketMsgHandler:
+    async def on_connect(self, websocket_id):
+        pass
+
+    async def on_disconnect(self, websocket_id):
+        pass
+
+
+class WMHLSPReader(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
@@ -38,7 +46,7 @@ class WMHLSPReader:
         )
 
 
-class WMHSpecificFileWatcher:
+class WMHSpecificFileWatcher(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
@@ -50,7 +58,7 @@ class WMHSpecificFileWatcher:
         )
 
 
-class WMHArtifact:
+class WMHArtifact(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
@@ -60,7 +68,7 @@ class WMHArtifact:
         )
 
 
-class WMHDatabase:
+class WMHDatabase(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
@@ -73,7 +81,7 @@ class WMHDatabase:
         )
 
 
-class WMHFrontend:
+class WMHFrontend(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager, code_tasks, script_metadata):
         self.websocket_manager = websocket_manager
         self.code_tasks = code_tasks
@@ -84,6 +92,7 @@ class WMHFrontend:
         if wid and wid != self.websocket_manager.main_id:
             self.websocket_manager.send_message(message, wid)
         elif message.get("messageType") == C.WS_CALL_INTERACTIVE_FNS:
+            print("WMHFrontend process_message", message, flush=True)
             wids = self.script_metadata.get_websocket_ids_listening_to_data(
                 message["content"]
             )
@@ -97,11 +106,15 @@ class WMHFrontend:
             if result:
                 await self.websocket_manager.return_to_requester(result, msg_id)
 
-    def disconnect(self, websocket_id):
-        pass
+    async def on_connect(self, websocket_id):
+        content = self.script_metadata.dependencies
+        messageType = C.WS_ALL_DEPENDENCIES
+        await self.websocket_manager.send_message(
+            {"content": content, "messageType": messageType}, websocket_id
+        )
 
 
-class WMHCLI:
+class WMHCLI(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
@@ -109,7 +122,7 @@ class WMHCLI:
         self.websocket_manager.send_message(message, message["toWebsocketId"])
 
 
-class WMHPythonScript:
+class WMHPythonScript(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager, script_metadata, code_state):
         self.websocket_manager = websocket_manager
         self.script_metadata = script_metadata
@@ -125,12 +138,21 @@ class WMHPythonScript:
             await self.websocket_manager.send_message(message, websocket_id)
         elif msg_type == C.WS_SCRIPT_DEPENDENCIES:
             self.script_metadata.add(websocket_id, content)
+            await self.broadcast_all_dependencies()
 
-    def disconnect(self, websocket_id):
+    async def on_disconnect(self, websocket_id):
         self.script_metadata.delete(websocket_id)
+        await self.broadcast_all_dependencies()
+
+    async def broadcast_all_dependencies(self):
+        await self.websocket_manager.broadcast(
+            self.script_metadata.dependencies,
+            C.WS_ALL_DEPENDENCIES,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )
 
 
-class WMHPythonLogger:
+class WMHPythonLogger(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
@@ -139,6 +161,3 @@ class WMHPythonLogger:
         # await self.websocket_manager.broadcast(
         #     message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
         # )
-
-    def disconnect(self, websocket_id):
-        pass

@@ -23,8 +23,11 @@ router = APIRouter()
 async def websocket_route_loop(
     websocket, websocket_manager, websocket_msg_handler, connectionType, id=None
 ):
-    fromWebsocketId = await websocket_manager.connect(websocket, connectionType, id=id)
     try:
+        fromWebsocketId = await websocket_manager.on_connect(
+            websocket, connectionType, id=id
+        )
+        await websocket_msg_handler.on_connect(fromWebsocketId)
         while True:
             try:
                 data = await websocket.receive_text()
@@ -39,8 +42,8 @@ async def websocket_route_loop(
                 logger.debug(e)
                 logger.debug("caught the exception!")
     finally:
-        await websocket_manager.disconnect(fromWebsocketId)
-        websocket_msg_handler.disconnect(fromWebsocketId)
+        await websocket_manager.on_disconnect(fromWebsocketId)
+        await websocket_msg_handler.on_disconnect(fromWebsocketId)
 
 
 @router.websocket(C.ROUTE_WEBSOCKET_FRONTEND)

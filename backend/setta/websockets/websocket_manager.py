@@ -17,7 +17,7 @@ class WebsocketManager:
         self.main_id = "main"
         self.message_id_to_sender_id = {}
 
-    async def connect(self, websocket: WebSocket, connectionType, id=None):
+    async def on_connect(self, websocket: WebSocket, connectionType, id=None):
         await websocket.accept()
         if id and id in self.sockets:
             raise ValueError(f"websocket id already taken: {id}")
@@ -31,7 +31,7 @@ class WebsocketManager:
         await self.broadcast_connections()
         return id
 
-    async def disconnect(self, id):
+    async def on_disconnect(self, id):
         try:
             del self.sockets[id]
             await self.broadcast_connections()

@@ -26,3 +26,7 @@ class ScriptMetadata:
         key, _ = data
         ids.update(self.deps_to_websocket_ids.get(tuple(key), set()))
         return ids
+
+    @property
+    def dependencies(self):
+        return list(self.deps_to_websocket_ids.keys())

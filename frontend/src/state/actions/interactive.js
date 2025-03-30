@@ -4,7 +4,11 @@ import _ from "lodash";
 import { dbGetArtifactIdsFromNamePathType } from "requests/artifacts";
 import { dbFormateCode } from "requests/interactive";
 import { sendMessage } from "requests/websocket";
-import { useArtifacts, useSectionInfos } from "state/definitions";
+import {
+  useArtifacts,
+  useInteractiveDependencies,
+  useSectionInfos,
+} from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { getNamePathTypeKey } from "./artifacts";
 import { getSectionVariant } from "./sectionInfos";
@@ -83,5 +87,11 @@ export async function updateInteractiveArtifacts(artifacts) {
 
   useArtifacts.setState((state) => {
     return { x: { ...state.x, ...newArtifacts } };
+  });
+}
+
+export function updateInteractiveDependencies(dependencies) {
+  useInteractiveDependencies.setState({
+    dependencies: new Set(dependencies.map((d) => JSON.stringify(d))),
   });
 }

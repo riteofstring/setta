@@ -141,6 +141,10 @@ export const useArtifacts = withProjectState(
   ),
 );
 
+export const useInteractiveDependencies = withProjectState(
+  create(withResetFn(() => ({ dependencies: new Set() }))),
+);
+
 export const useProjectSearch = withProjectState(
   create(
     withResetFn(() => ({

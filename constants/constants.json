@@ -108,6 +108,7 @@
   "WS_TERMINAL_RESIZE": "terminalResize",
   "WS_SCRIPT_READY": "scriptReady",
   "WS_SCRIPT_DEPENDENCIES": "scriptDependencies",
+  "WS_ALL_DEPENDENCIES": "allDependencies",
   "WS_PROJECT_DATA": "projectData",
   "WS_SPECIFIC_FILE_WATCHER_UPDATE": "specificFileWatcherUpdate",
   "WS_NOTIFICATION": "notification",

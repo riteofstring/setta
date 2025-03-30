@@ -1,6 +1,9 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { updateInteractiveArtifacts } from "state/actions/interactive";
+import {
+  updateInteractiveArtifacts,
+  updateInteractiveDependencies,
+} from "state/actions/interactive";
 import { updateJSONSourceContents } from "state/actions/jsonSource";
 import { addNotificationFromWebsocketMsg } from "state/actions/notifications";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
@@ -51,6 +54,7 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
+  console.log(m);
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
     updateConnectedTo(m.content);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
@@ -62,6 +66,8 @@ function receiveMessage(message) {
     m.messageType === C.WS_INTERACTIVE_FN_RETURN
   ) {
     updateInteractiveArtifacts(m.content);
+  } else if (m.messageType === C.WS_ALL_DEPENDENCIES) {
+    updateInteractiveDependencies(m.content);
   } else if (m.messageType === C.WS_SPECIFIC_FILE_WATCHER_UPDATE) {
     updateJSONSourceContents(m.content);
   } else if (m.id) {
