@@ -25,6 +25,12 @@ class SettaListener:
         self.caller_frame = inspect.currentframe().f_back
         self.rel_path = relative_to_cwd(self.caller_frame.f_code.co_filename)
         self.script_id = convert_folder_path_to_module_path(self.rel_path)
+        self.endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}".format(
+            id=self.script_id
+        )
+        self.interactive_functions = []
+        self.exporter_obj = None
+        self.dependencies_to_fns = defaultdict(set)
 
     def interactive(self, dependencies=None, run_on_init=True):
         """
@@ -56,14 +62,14 @@ class SettaListener:
 
     def start(self):
         # Find all interactive functions
-        interactive_functions = get_interactive_functions(self.caller_frame)
+        self.interactive_functions = get_interactive_functions(self.caller_frame)
 
         # Print available functions for debugging
-        if interactive_functions:
+        if self.interactive_functions:
             print(
-                f"Starting WebSocket listener with {len(interactive_functions)} interactive functions:"
+                f"Starting WebSocket listener with {len(self.interactive_functions)} interactive functions:"
             )
-            for fn in interactive_functions:
+            for fn in self.interactive_functions:
                 deps = ", ".join([str(x) for x in fn._setta_dependencies])
                 print(f" - {fn.__name__} (dependencies: {deps})", flush=True)
         else:
@@ -74,26 +80,21 @@ class SettaListener:
 
         # Start the event loop
         try:
-            asyncio.run(self._connect_to_server(interactive_functions))
+            asyncio.run(self._connect_to_server())
         except KeyboardInterrupt:
             print("Listener stopped by user", flush=True)
 
-    async def _connect_to_server(self, interactive_functions):
-        endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}"
-        endpoint = endpoint.format(id=self.script_id)
-        async with websockets.connect(endpoint) as websocket:
+    async def _connect_to_server(self):
+        async with websockets.connect(self.endpoint) as websocket:
             self.logger.websocket = websocket
-            await self._handle_websocket(websocket, interactive_functions)
+            await self._handle_websocket(websocket)
 
-    async def _handle_websocket(self, websocket, interactive_functions):
+    async def _handle_websocket(self, websocket):
         await websocket.send(
             json.dumps(
                 {"messageType": C.WS_SCRIPT_READY, "content": str(self.rel_path)}
             )
         )
-
-        exporter_obj = None
-        dependencies_to_fns = None
 
         # Process incoming messages using async for
         async for message in websocket:
@@ -101,56 +102,66 @@ class SettaListener:
             messageType = message["messageType"]
             content = message["content"]
             if messageType == C.WS_PROJECT_DATA:
-                exporter_obj = export_for_interactive_fn(content)
-                dependencies_to_fns = get_mapped_dependencies_to_fns(
-                    interactive_functions, exporter_obj
-                )
+                self.exporter_obj = export_for_interactive_fn(content)
+                self.dependencies_to_fns = self.get_mapped_dependencies_to_fns()
                 await websocket.send(
                     json.dumps(
                         {
                             "messageType": C.WS_SCRIPT_DEPENDENCIES,
-                            "content": list(dependencies_to_fns.keys()),
+                            "content": list(self.dependencies_to_fns.keys()),
                         }
                     )
                 )
 
                 # run all interactive functions when we first receive project data
-                asyncio.create_task(
-                    self._run_functions_on_init(
-                        interactive_functions, exporter_obj.output
-                    )
-                )
+                asyncio.create_task(self._run_functions_on_init())
 
-            if not exporter_obj or not dependencies_to_fns:
+            if not self.exporter_obj:
                 continue
 
             if messageType == C.WS_CALL_INTERACTIVE_FNS:
-                update_exporter_obj(content, exporter_obj)
+                self.update_exporter_obj(content)
                 asyncio.create_task(
                     self._run_functions_with_new_data(
-                        interactive_functions,
-                        exporter_obj.output,
-                        dependencies_to_fns,
                         content,
                     )
                 )
 
     # Add this new helper method
-    async def _run_functions_with_new_data(
-        self, interactive_functions, p, dependencies_to_fns, new_data
-    ):
-        for fn in interactive_functions:
-            if fn.__name__ in dependencies_to_fns.get(None, set()):
+    async def _run_functions_with_new_data(self, new_data):
+        p = self.exporter_obj.output
+        for fn in self.interactive_functions:
+            if fn.__name__ in self.dependencies_to_fns.get(None, set()):
                 await run_function(fn, p)
             else:
                 key, _ = new_data
-                if fn.__name__ in dependencies_to_fns.get(tuple(key), set()):
+                if fn.__name__ in self.dependencies_to_fns.get(tuple(key), set()):
                     await run_function(fn, p)
 
-    async def _run_functions_on_init(self, interactive_functions, p):
-        for fn in interactive_functions:
+    async def _run_functions_on_init(self):
+        for fn in self.interactive_functions:
             if fn._setta_run_on_init:
-                await run_function(fn, p)
+                await run_function(fn, self.exporter_obj.output)
+
+    def get_mapped_dependencies_to_fns(self):
+        output = defaultdict(set)
+        for fn in self.interactive_functions:
+            for d in fn._setta_dependencies:
+                if d is not None:
+                    d = self.exporter_obj.var_name_reverse_mapping.get(d)
+                    if not d:
+                        continue
+                output[d].add(fn.__name__)
+        return output
+
+    # new_data is a list of tuples, where each tuple is [key, value]
+    def update_exporter_obj(self, new_data):
+        key, value = new_data
+        nice_str = self.exporter_obj.var_name_mapping.get(tuple(key))
+        if not nice_str:
+            return
+        p_dict, p_dict_key = nested_access(self.exporter_obj.output, nice_str)
+        p_dict[p_dict_key] = value
 
 
 def get_interactive_functions(caller_frame):
@@ -167,18 +178,6 @@ def get_interactive_functions(caller_frame):
     return interactive_functions
 
 
-def get_mapped_dependencies_to_fns(fns, exporter_obj):
-    output = defaultdict(set)
-    for fn in fns:
-        for d in fn._setta_dependencies:
-            if d is not None:
-                d = exporter_obj.var_name_reverse_mapping.get(d)
-                if not d:
-                    continue
-            output[d].add(fn.__name__)
-    return output
-
-
 async def run_function(fn, p):
     if fn._setta_is_running:
         return
@@ -191,13 +190,3 @@ async def run_function(fn, p):
         print(f"Error running function {fn.__name__}: {e}")
     finally:
         fn._setta_is_running = False
-
-
-# new_data is a list of tuples, where each tuple is [key, value]
-def update_exporter_obj(new_data, exporter_obj):
-    key, value = new_data
-    nice_str = exporter_obj.var_name_mapping.get(tuple(key))
-    if not nice_str:
-        return
-    p_dict, p_dict_key = nested_access(exporter_obj.output, nice_str)
-    p_dict[p_dict_key] = value
