@@ -12,7 +12,7 @@ import remarkMath from "remark-math";
 import { dbGetLLMResponse } from "requests/ai";
 import { localStorageFns } from "state/hooks/localStorage";
 import { MODEL_GROUPS } from "utils/constants";
-import { ProjectChatHistory } from "./ProjectChatHistory";
+// import { ProjectChatHistory } from "./ProjectChatHistory";
 
 export function ProjectAIChat() {
   const [viewHistory, setViewHistory] = useState(false);
@@ -20,10 +20,11 @@ export function ProjectAIChat() {
   const [userSelectedLLM, setUserSelectedLLM] =
     localStorageFns.userSelectedLLM.hook();
   const [messages, setMessages] = localStorageFns.messages.hook([]);
-  const [isLoading, setIsLoading] = useState(false);
+  // Store all chat sessions with their messages
+  const [chatSessions, setChatSessions] = useState([]);
+  // Current active session ID
   const [sessionId, setSessionId] = useState(null);
-
-  // Simple string for the current message input
+  const [isLoading, setIsLoading] = useState(false);
   const [currMessage, setCurrMessage] = useState("");
 
   const availableProviders = apiKeys.map((key) => key.modelId);
@@ -45,7 +46,57 @@ export function ProjectAIChat() {
     }
   }, [userSelectedLLM, allModelItems, setUserSelectedLLM]);
 
+  // Initialize a new chat session if none exists
+  useEffect(() => {
+    if (!sessionId) {
+      createNewChat();
+    }
+  }, []);
+
   const placeholderText = "Type a message...";
+
+  // Function to create a new chat
+  const createNewChat = () => {
+    // Generate a temporary session ID (could be replaced with UUID or server-generated ID)
+    const newSessionId = `session_${Date.now()}`;
+
+    // Save current chat to sessions if it exists and has messages
+    if (sessionId && messages.length > 0) {
+      // First check if we already have this session
+      const existingSessionIndex = chatSessions.findIndex(
+        (session) => session.id === sessionId,
+      );
+
+      if (existingSessionIndex >= 0) {
+        // Update existing session
+        const updatedSessions = [...chatSessions];
+        updatedSessions[existingSessionIndex] = {
+          ...updatedSessions[existingSessionIndex],
+          messages: [...messages],
+          lastUpdated: Date.now(),
+        };
+        setChatSessions(updatedSessions);
+      } else {
+        // Add as new session
+        setChatSessions([
+          ...chatSessions,
+          {
+            id: sessionId,
+            messages: [...messages],
+            lastUpdated: Date.now(),
+            // You could add other metadata like title, creation date, etc.
+            title: messages[0]?.content.substring(0, 30) || "New Chat",
+          },
+        ]);
+      }
+    }
+
+    // Clear current messages and set new session ID
+    setMessages([]);
+    setSessionId(newSessionId);
+    // Make sure we're in chat view, not history view
+    setViewHistory(false);
+  };
 
   const handleSubmit = async (userMessage) => {
     if (!userMessage.trim()) return;
@@ -80,29 +131,81 @@ export function ProjectAIChat() {
       // Add AI response to messages
       if (responseData && responseData.content) {
         const aiMsg = { role: "assistant", content: responseData.content };
-        setMessages([...updatedMessages, aiMsg]);
+        const newMessages = [...updatedMessages, aiMsg];
+        setMessages(newMessages);
+
+        // Update this session in the chat sessions list
+        updateChatSession(sessionId, newMessages);
       } else {
         // Handle missing content
-        setMessages([
-          ...updatedMessages,
-          {
-            role: "assistant",
-            content: "Sorry, I couldn't process your request properly.",
-          },
-        ]);
+        const errorMsg = {
+          role: "assistant",
+          content: "Sorry, I couldn't process your request properly.",
+        };
+        const newMessages = [...updatedMessages, errorMsg];
+        setMessages(newMessages);
+        updateChatSession(sessionId, newMessages);
       }
     } catch (error) {
       console.error("Error getting LLM response:", error);
       // Add an error message to the chat
-      setMessages([
-        ...updatedMessages,
-        {
-          role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
-        },
-      ]);
+      const errorMsg = {
+        role: "assistant",
+        content: "Sorry, I encountered an error. Please try again.",
+      };
+      const newMessages = [...updatedMessages, errorMsg];
+      setMessages(newMessages);
+      updateChatSession(sessionId, newMessages);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Helper function to update a chat session in the sessions list
+  const updateChatSession = (id, newMessages) => {
+    if (!id) return;
+
+    const existingSessionIndex = chatSessions.findIndex(
+      (session) => session.id === id,
+    );
+
+    const sessionUpdate = {
+      id,
+      messages: newMessages,
+      lastUpdated: Date.now(),
+      title: newMessages[0]?.content.substring(0, 30) || "New Chat",
+    };
+
+    if (existingSessionIndex >= 0) {
+      // Update existing session
+      const updatedSessions = [...chatSessions];
+      updatedSessions[existingSessionIndex] = sessionUpdate;
+      setChatSessions(updatedSessions);
+    } else {
+      // Add as new session
+      setChatSessions([...chatSessions, sessionUpdate]);
+    }
+  };
+
+  // Function to switch to an existing chat
+  const switchToChat = (id) => {
+    if (id === sessionId) {
+      // Already on this chat, just switch to chat view
+      setViewHistory(false);
+      return;
+    }
+
+    // Save current chat state if needed
+    if (sessionId && messages.length > 0) {
+      updateChatSession(sessionId, messages);
+    }
+
+    // Find the selected chat
+    const selectedChat = chatSessions.find((session) => session.id === id);
+    if (selectedChat) {
+      setSessionId(id);
+      setMessages(selectedChat.messages);
+      setViewHistory(false);
     }
   };
 
@@ -111,21 +214,25 @@ export function ProjectAIChat() {
       <nav className="flex min-h-[60px] items-center gap-2 border-b border-setta-100 py-4 dark:border-setta-800">
         <button
           className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950"
-          onClick={() => setViewHistory(false)}
+          onClick={createNewChat}
+          aria-label="New Chat"
         >
           <MdAdd size={15} />
         </button>
         <button
           className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950"
           onClick={() => setViewHistory(!viewHistory)}
+          aria-label="View History"
         >
           {viewHistory ? (
             <>
               <IoMdArrowRoundBack />
-              <p>Return to chat</p>
+              <span>Return to chat</span>
             </>
           ) : (
-            <RiChatHistoryLine size={15} />
+            <>
+              <RiChatHistoryLine size={15} />
+            </>
           )}
         </button>
 
@@ -143,7 +250,38 @@ export function ProjectAIChat() {
         )}
       </nav>
       {viewHistory ? (
-        <ProjectChatHistory />
+        <div className="flex flex-col overflow-y-auto p-4">
+          <h2 className="mb-4 text-lg font-semibold">Chat History</h2>
+          {chatSessions.length === 0 ? (
+            <p className="text-center text-setta-400">No chat history yet</p>
+          ) : (
+            chatSessions
+              .sort((a, b) => b.lastUpdated - a.lastUpdated) // Sort by most recent
+              .map((session) => (
+                <div
+                  key={session.id}
+                  className={`mb-2 cursor-pointer rounded-lg p-3 hover:bg-setta-100 dark:hover:bg-setta-800 ${
+                    session.id === sessionId
+                      ? "bg-setta-100 dark:bg-setta-800"
+                      : ""
+                  }`}
+                  onClick={() => switchToChat(session.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">
+                      {session.title || "New Chat"}
+                    </span>
+                    <span className="text-xs text-setta-400">
+                      {new Date(session.lastUpdated).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-sm text-setta-500">
+                    {session.messages.length} messages
+                  </p>
+                </div>
+              ))
+          )}
+        </div>
       ) : (
         <ProjectChatCore
           messages={messages}
