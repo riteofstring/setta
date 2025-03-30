@@ -14,7 +14,7 @@ from setta.database.db.uiTypes.utils import (
     add_defaults_to_ui_types,
 )
 from setta.utils.constants import DEFAULT_VALUES
-from setta.utils.utils import filter_dict, recursive_dict_merge
+from setta.utils.utils import filter_dict, recursive_dict_merge, remove_empty
 
 
 def with_project_config_defaults(**kwargs):
@@ -37,10 +37,6 @@ def add_defaults_to_project_and_load_json_sources(p):
     load_json_sources_into_data_structures(
         p["codeInfo"], p["codeInfoCols"], p["sectionVariants"]
     )
-
-
-def remove_empty(x):
-    return {k: v for k, v in x.items() if len(v) > 0}
 
 
 def filter_data_for_json_export(p):

@@ -6,6 +6,7 @@ import {
   useDrawAreaActiveLayerAndLoadedArtifacts,
   useLoadArtifactViaDropzone,
 } from "state/hooks/artifacts";
+import { useSendToInteractiveTasks } from "state/hooks/interactive";
 import useDeepCompareEffect, {
   useDeepCompareEffectNoCheck,
 } from "use-deep-compare-effect";
@@ -64,6 +65,10 @@ export function DrawArea({ sectionId }) {
     (x) => x.updateAllDrawAreas || x.updateDrawArea[sectionId],
   );
   const layerIds = allLayersMetadata.map((x) => x.id);
+  const sendToInteractiveTasksFn = useSendToInteractiveTasks([
+    sectionId,
+    "drawing",
+  ]);
 
   useEffect(() => {
     tempCanvasRefs.current.layer = document.createElement("canvas");
@@ -92,7 +97,13 @@ export function DrawArea({ sectionId }) {
         state,
       });
     });
-    drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs, fnCanvasToBase64);
+    drawAllLayers(
+      sectionId,
+      layerCanvasRefs,
+      tempCanvasRefs,
+      fnCanvasToBase64,
+      sendToInteractiveTasksFn,
+    );
   }, [height, width, JSON.stringify(layerIds), updateDrawArea]);
 
   useEffect(() => {
@@ -118,7 +129,13 @@ export function DrawArea({ sectionId }) {
       selectedIdx.current = null;
       resizeHandleCorners.current = null;
     }
-    drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs, fnCanvasToBase64);
+    drawAllLayers(
+      sectionId,
+      layerCanvasRefs,
+      tempCanvasRefs,
+      fnCanvasToBase64,
+      sendToInteractiveTasksFn,
+    );
   }, [
     mode,
     layerOpacity,
@@ -188,6 +205,7 @@ export function DrawArea({ sectionId }) {
       tempCanvasRefs,
       draftCanvasRef,
       fnCanvasToBase64,
+      sendToInteractiveTasksFn,
     );
   }
 
