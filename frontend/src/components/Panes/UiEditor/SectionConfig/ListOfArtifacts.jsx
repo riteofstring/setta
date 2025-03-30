@@ -56,9 +56,9 @@ const LayersList = ({
 
   function getArtifactTypeIcon(type) {
     switch (type) {
-      case "img":
+      case C.ARTIFACT_TYPE_IMG:
         return <i className="gg-image text-setta-300 dark:text-setta-600" />;
-      case "brushStrokes":
+      case C.ARTIFACT_TYPE_BRUSH_STROKES:
         return <BiPaint className="text-setta-300 dark:text-setta-600" />;
     }
   }
