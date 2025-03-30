@@ -23,10 +23,9 @@ export async function formatCode() {
 }
 
 export function sendToInteractiveTasks(sourceInfo, value, valueCallback) {
-  const key = JSON.stringify(sourceInfo);
   sendMessage({
     id: createNewId(),
-    content: { [key]: valueCallback ? valueCallback() : value },
+    content: [sourceInfo, valueCallback ? valueCallback() : value],
     messageType: C.WS_CALL_INTERACTIVE_FNS,
   });
 }

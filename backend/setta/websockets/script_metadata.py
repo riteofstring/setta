@@ -1,4 +1,3 @@
-import json
 from collections import defaultdict
 
 from setta.utils.utils import remove_empty
@@ -24,6 +23,6 @@ class ScriptMetadata:
 
     def get_websocket_ids_listening_to_data(self, data):
         ids = self.deps_to_websocket_ids.get(None, set())
-        for k in data.keys():
-            ids.update(self.deps_to_websocket_ids.get(tuple(json.loads(k)), set()))
+        key, _ = data
+        ids.update(self.deps_to_websocket_ids.get(tuple(key), set()))
         return ids

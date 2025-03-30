@@ -12,6 +12,7 @@ from setta.gen_code.create_runnable_scripts import (
 )
 from setta.gen_code.export_selected import export_for_interactive_fn
 from setta.utils.constants import C
+from setta.utils.utils import nested_access
 
 from .logger import SettaLogger
 
@@ -25,7 +26,7 @@ class SettaListener:
         self.rel_path = relative_to_cwd(self.caller_frame.f_code.co_filename)
         self.script_id = convert_folder_path_to_module_path(self.rel_path)
 
-    def interactive(self, dependencies=None):
+    def interactive(self, dependencies=None, run_on_init=True):
         """
         Decorator to mark functions as interactive for WebSocket communication.
 
@@ -41,6 +42,7 @@ class SettaListener:
         def decorator(func):
             func._setta_interactive = True
             func._setta_dependencies = [None] if dependencies is None else dependencies
+            func._setta_run_on_init = run_on_init
             return func
 
         # Handle the case when decorator is used without parentheses
@@ -61,7 +63,7 @@ class SettaListener:
                 f"Starting WebSocket listener with {len(interactive_functions)} interactive functions:"
             )
             for name, info in interactive_functions.items():
-                deps = ", ".join([str(x) for x in info["dependencies"]])
+                deps = ", ".join([str(x) for x in info._setta_dependencies])
                 print(f" - {name} (dependencies: {deps})", flush=True)
         else:
             print(
@@ -96,8 +98,9 @@ class SettaListener:
         async for message in websocket:
             message = json.loads(message)
             messageType = message["messageType"]
+            content = message["content"]
             if messageType == C.WS_PROJECT_DATA:
-                exporter_obj = export_for_interactive_fn(message["content"])
+                exporter_obj = export_for_interactive_fn(content)
                 dependencies_to_fns = get_mapped_dependencies_to_fns(
                     interactive_functions, exporter_obj
                 )
@@ -112,27 +115,41 @@ class SettaListener:
 
                 # run all interactive functions when we first receive project data
                 asyncio.create_task(
-                    self._run_functions(interactive_functions, exporter_obj.output)
+                    self._run_functions_on_init(
+                        interactive_functions, exporter_obj.output
+                    )
                 )
 
-            if not exporter_obj:
+            if not exporter_obj or not dependencies_to_fns:
                 continue
 
             if messageType == C.WS_CALL_INTERACTIVE_FNS:
+                update_exporter_obj(content, exporter_obj)
                 asyncio.create_task(
-                    self._run_functions(interactive_functions, exporter_obj.output)
+                    self._run_functions_with_new_data(
+                        interactive_functions,
+                        exporter_obj.output,
+                        dependencies_to_fns,
+                        content,
+                    )
                 )
 
     # Add this new helper method
-    async def _run_functions(self, interactive_functions, p):
-        # Create a list to store all the function tasks
+    async def _run_functions_with_new_data(
+        self, interactive_functions, p, dependencies_to_fns, new_data
+    ):
         for name, v in interactive_functions.items():
-            try:
-                # Run the function in an executor to avoid blocking the event loop
-                # This handles CPU-bound functions without blocking the websocket
-                await asyncio.get_event_loop().run_in_executor(None, v["function"], p)
-            except Exception as e:
-                print(f"Error running function {name}: {e}")
+            if name in dependencies_to_fns.get(None, set()):
+                await run_function(name, v, p)
+            else:
+                key, _ = new_data
+                if name in dependencies_to_fns.get(tuple(key), set()):
+                    await run_function(name, v, p)
+
+    async def _run_functions_on_init(self, interactive_functions, p):
+        for name, v in interactive_functions.items():
+            if v._setta_run_on_init:
+                await run_function(name, v, p)
 
 
 def get_interactive_functions(caller_frame):
@@ -144,26 +161,37 @@ def get_interactive_functions(caller_frame):
     for name, obj in inspect.getmembers(caller_module):
         if inspect.isfunction(obj) and getattr(obj, "_setta_interactive", False):
             # Include function dependencies in the metadata
-            interactive_functions[name] = {
-                "function": obj,
-                "dependencies": getattr(obj, "_setta_dependencies", []),
-            }
+            interactive_functions[name] = obj
 
     return interactive_functions
 
 
-def run_interactive_functions(interactive_functions, p):
-    for v in interactive_functions.values():
-        v["function"](p)
-
-
 def get_mapped_dependencies_to_fns(fns, exporter_obj):
     output = defaultdict(set)
-    for fn_name, metadata in fns.items():
-        for d in metadata["dependencies"]:
+    for fn_name, fn in fns.items():
+        for d in fn._setta_dependencies:
             if d is not None:
                 d = exporter_obj.var_name_reverse_mapping.get(d)
                 if not d:
                     continue
             output[d].add(fn_name)
     return output
+
+
+async def run_function(name, fn, p):
+    try:
+        # Run the function in an executor to avoid blocking the event loop
+        # This handles CPU-bound functions without blocking the websocket
+        await asyncio.get_event_loop().run_in_executor(None, fn, p)
+    except Exception as e:
+        print(f"Error running function {name}: {e}")
+
+
+# new_data is a list of tuples, where each tuple is [key, value]
+def update_exporter_obj(new_data, exporter_obj):
+    key, value = new_data
+    nice_str = exporter_obj.var_name_mapping.get(tuple(key))
+    if not nice_str:
+        return
+    p_dict, p_dict_key = nested_access(exporter_obj.output, nice_str)
+    p_dict[p_dict_key] = value
