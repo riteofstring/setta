@@ -7,7 +7,6 @@ import select
 import shlex
 import time
 import traceback
-import os
 from asyncio import CancelledError
 from collections import defaultdict, deque
 
@@ -64,17 +63,7 @@ class TerminalWebsockets:
     def new_terminal(self, projectConfigId, sectionId, isTemporary):
         if sectionId not in self.PTY_PIDS:
             terminal_shell = get_terminal_shell()
-            
-            # Create a unique marker
-            ready_marker = f"SETTA_READY"
-            
-            # Create environment with normal settings
-            env = os.environ.copy()
-            
-            # Spawn the process
-            pty_process = PtyProcess.spawn(terminal_shell, env=env)
-            
-            # Store process info
+            pty_process = PtyProcess.spawn(terminal_shell)
             self.PTY_PIDS[sectionId] = {
                 "pid": pty_process.pid,
                 "start": time.time(),
@@ -84,18 +73,19 @@ class TerminalWebsockets:
                 "wasJustResized": False,
                 "terminalPromptIsReady": asyncio.Event(),
                 "isTemporary": isTemporary,
-                "ready_marker": ready_marker,
             }
-            
-            # Set up the prompt command to echo our ready marker
-            # This will run once when the shell is fully initialized and ready
-            if IS_MACOS:  # For zsh
-                pty_process.write(f'precmd() {{ echo "{ready_marker}" }}\n')
-            else:  # For bash
-                pty_process.write(f'PROMPT_COMMAND=\'echo "{ready_marker}"\'\n')
-            
-            # Now create task to read from terminal
+            pty_info = self.PTY_PIDS[sectionId]
+            if (
+                IS_WINDOWS
+                or not USER_SETTINGS["backend"]["clearTerminalBeforeMarkingAsReady"]
+            ):
+                pty_info["terminalPromptIsReady"].set()
+
             logger.debug(f"created new pty_process {sectionId}")
+            if not pty_info["terminalPromptIsReady"].is_set():
+                pty_process.write(
+                    f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
+                )
             asyncio.get_running_loop().create_task(
                 self.start_reading_from_terminal(sectionId)
             )
@@ -147,58 +137,33 @@ class TerminalWebsockets:
         pty_info = self.PTY_PIDS[sectionId]
         pty_process = pty_info["process"]
         history = pty_info["history"]
-        ready_marker = pty_info["ready_marker"]
-        
-        # Flag to track if we've seen our marker
-        marker_found = False
-        cleared_initial_output = False
-        
+        initial_buffer = ""
         while True:
             try:
                 output, _, _ = await asyncio.get_running_loop().run_in_executor(
-                    None, select.select, [pty_process.fd], [], [], None
+                    None,
+                    select.select,
+                    [pty_process.fd],
+                    [],
+                    [],
+                    None,  # timeout of 0 makes this non-blocking
                 )
                 if not output:
                     continue
-                    
                 output = pty_process.read(1024)
-                
-                # Check for marker and handle terminal readiness
-                if not marker_found:
-                    if ready_marker in output:
-                        marker_found = True
-                        
-                        # Clear any existing history before we mark as ready
-                        history.clear()
-                        
-                        # Remove the PROMPT_COMMAND to stop it from showing more markers
-                        if IS_MACOS:
-                            pty_process.write('precmd() { : }\n')  # No-op function
-                        else:
-                            pty_process.write('PROMPT_COMMAND=""\n')
-                        
-                        # Clear the screen for a fresh start
-                        pty_process.write("clear\n")
-                        
-                        # Get rid of marker from current output
-                        output = output.replace(ready_marker, "")
-                        
-                        # Signal that terminal is ready
+                if not pty_info["terminalPromptIsReady"].is_set():
+                    initial_buffer += output
+                    # We wait for the SETTA_CLEAR_CMD string to appear four times
+                    # before we consider the terminal ready.
+                    # This is just to make the terminal look less cluttered and annoying on the frontend.
+                    if initial_buffer.count(SETTA_CLEAR_CMD) >= 4:
                         pty_info["terminalPromptIsReady"].set()
                         await self.send_output_to_sectionId(
                             sectionId, C.SETTA_TERMINAL_READY, setSentReadyMsg=True
                         )
                     continue
-
-                if marker_found and not cleared_initial_output:
-                    cleared_initial_output = True
-                    continue
-                
-                # Always add to history and send to clients
                 if not pty_info["wasJustResized"]:
-                    # Add to history if not a resize event
                     history.append(output)
-                
                 pty_info["wasJustResized"] = False
                 await self.send_output_to_sectionId(sectionId, output)
             except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
