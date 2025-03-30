@@ -3,6 +3,7 @@ import copy
 import inspect
 import json
 import logging
+import time
 from collections import defaultdict
 
 import websockets
@@ -33,13 +34,29 @@ class SettaListener:
         self.exporter_obj = None
         self.dependencies_to_fns = defaultdict(set)
 
-    def interactive(self, dependencies=None, run_on_init=True):
+        # For debouncing/throttling
+        self.pending_tasks = {}
+        self.last_run_times = {}
+
+    def interactive(
+        self,
+        dependencies=None,
+        run_on_init=True,
+        debounce=0,
+        throttle=0,
+        leading_edge=False,
+    ):
         """
         Decorator to mark functions as interactive for WebSocket communication.
 
         Args:
             dependencies (list, optional): List of dependency names required by this function.
                                         Default is None, which means run on every change
+            run_on_init (bool, optional): Whether to run the function when the server first connects
+            debounce (float, optional): Debounce time in seconds. Function won't run until input is stable for this long
+            throttle (float, optional): Throttle time in seconds. Function won't run more than once per this time period
+            leading_edge (bool, optional): For debounce/throttle, whether to run on the first value (True)
+                                         or last value (False)
 
         Returns:
             function: Decorated function with _setta_interactive attribute set to True and
@@ -53,6 +70,9 @@ class SettaListener:
             func._setta_is_running = False
             func._setta_data = None
             func._setta_data_to_be_updated = {}
+            func._setta_debounce = debounce
+            func._setta_throttle = throttle
+            func._setta_leading_edge = leading_edge
             return func
 
         # Handle the case when decorator is used without parentheses
@@ -67,6 +87,10 @@ class SettaListener:
         # Find all interactive functions
         self.fns = get_interactive_functions(self.caller_frame)
 
+        # Initialize tracking for each function
+        for fn in self.fns:
+            self.last_run_times[fn.__name__] = 0
+
         # Print available functions for debugging
         if self.fns:
             print(
@@ -74,7 +98,18 @@ class SettaListener:
             )
             for fn in self.fns:
                 deps = ", ".join([str(x) for x in fn._setta_dependencies])
-                print(f" - {fn.__name__} (dependencies: {deps})", flush=True)
+                timing_info = []
+                if fn._setta_debounce > 0:
+                    timing_info.append(f"debounce={fn._setta_debounce}s")
+                if fn._setta_throttle > 0:
+                    timing_info.append(f"throttle={fn._setta_throttle}s")
+                if timing_info:
+                    timing_str = f" ({', '.join(timing_info)})"
+                else:
+                    timing_str = ""
+                print(
+                    f" - {fn.__name__} (dependencies: {deps}){timing_str}", flush=True
+                )
         else:
             print(
                 "Warning: No functions have been marked with @interactive decorator",
@@ -133,17 +168,84 @@ class SettaListener:
 
     # Add this new helper method
     async def _run_functions_with_new_data(self, new_data):
+        # First update all function data
         for fn in self.fns:
             self.update_stored_data(new_data, fn)
+
+        # Then determine which functions to run
+        key, _ = new_data
+        functions_to_run = []
+
         for fn in self.fns:
             if fn._setta_is_running:
                 continue
+
+            should_run = False
             if fn.__name__ in self.dependencies_to_fns.get(None, set()):
-                await self.run_function(fn)
-            else:
-                key, _ = new_data
-                if fn.__name__ in self.dependencies_to_fns.get(tuple(key), set()):
+                should_run = True
+            elif fn.__name__ in self.dependencies_to_fns.get(tuple(key), set()):
+                should_run = True
+
+            if should_run:
+                functions_to_run.append(fn)
+
+        # Handle each function with debounce/throttle logic
+        for fn in functions_to_run:
+            await self._schedule_function_run(fn)
+
+    async def _schedule_function_run(self, fn):
+        current_time = time.time()
+
+        # Clear any existing pending task for this function
+        if fn.__name__ in self.pending_tasks:
+            self.pending_tasks[fn.__name__].cancel()
+
+        # Throttling: enforce minimum time between executions
+        if fn._setta_throttle > 0:
+            time_since_last_run = current_time - self.last_run_times.get(fn.__name__, 0)
+            if time_since_last_run < fn._setta_throttle:
+                if (
+                    fn._setta_leading_edge
+                    and time_since_last_run > fn._setta_throttle * 0.9
+                ):
+                    # Run immediately for leading edge if we're close to the throttle time
                     await self.run_function(fn)
+                    return
+                else:
+                    # Schedule for later (trailing edge) or skip (if another change comes first)
+                    delay = max(0, fn._setta_throttle - time_since_last_run)
+                    self.pending_tasks[fn.__name__] = asyncio.create_task(
+                        self._delayed_run(fn, delay)
+                    )
+                    return
+
+        # Debouncing: wait for stable input
+        if fn._setta_debounce > 0:
+            if fn._setta_leading_edge:
+                # For leading edge, run immediately and set a cooldown period
+                if (
+                    fn.__name__ not in self.last_run_times
+                    or (current_time - self.last_run_times[fn.__name__])
+                    > fn._setta_debounce
+                ):
+                    await self.run_function(fn)
+                    self.last_run_times[fn.__name__] = current_time
+            else:
+                # For trailing edge, schedule with delay
+                self.pending_tasks[fn.__name__] = asyncio.create_task(
+                    self._delayed_run(fn, fn._setta_debounce)
+                )
+            return
+
+        # Default: run immediately
+        await self.run_function(fn)
+
+    async def _delayed_run(self, fn, delay):
+        await asyncio.sleep(delay)
+        # Only run if this is still the active task
+        if self.pending_tasks.get(fn.__name__) == asyncio.current_task():
+            await self.run_function(fn)
+            self.pending_tasks.pop(fn.__name__, None)
 
     async def _run_functions_on_init(self):
         for fn in self.fns:
@@ -157,11 +259,13 @@ class SettaListener:
             # Run the function in an executor to avoid blocking the event loop
             # This handles CPU-bound functions without blocking the websocket
             fn._setta_is_running = True
+            self.last_run_times[fn.__name__] = time.time()
             await asyncio.get_event_loop().run_in_executor(None, fn, fn._setta_data)
         except Exception as e:
             print(f"Error running function {fn.__name__}: {e}")
         finally:
             fn._setta_is_running = False
+            # Apply any updates that came in while the function was running
             for key, value in fn._setta_data_to_be_updated.items():
                 self.update_stored_data((key, value), fn)
             fn._setta_data_to_be_updated = {}
