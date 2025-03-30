@@ -186,13 +186,9 @@ class SettaListener:
             if fn._setta_is_running:
                 continue
 
-            should_run = False
-            if fn.__name__ in self.dependencies_to_fns.get(None, set()):
-                should_run = True
-            elif fn.__name__ in self.dependencies_to_fns.get(tuple(key), set()):
-                should_run = True
-
-            if should_run:
+            if fn.__name__ in self.dependencies_to_fns.get(
+                None, set()
+            ) or fn.__name__ in self.dependencies_to_fns.get(tuple(key), set()):
                 functions_to_run.append(fn)
 
         # Handle each function with debounce/throttle logic
