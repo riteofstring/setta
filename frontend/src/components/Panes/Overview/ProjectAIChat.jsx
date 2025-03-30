@@ -15,31 +15,16 @@ import { MODEL_GROUPS } from "utils/constants";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 
 export function ProjectAIChat() {
-  // Sample static messages
-  const messages = [
-    {
-      role: "assistant",
-      content: "Welcome to the project chat! How can I help you today?",
-    },
-    {
-      role: "user",
-      content: "Can you help me analyze this data?",
-    },
-    // {
-    //   role: "assistant",
-    //   content:
-    //     "Of course! I'd be happy to help analyze your data. Could you please upload the file or share more details about what kind of analysis you're looking for?",
-    // },
-  ];
-
-  return <ProjectAIChatContainer messages={messages} />;
-}
-
-function ProjectAIChatContainer({ messages }) {
   const [viewHistory, setViewHistory] = useState(false);
   const [apiKeys] = localStorageFns.apiKeys.hook();
   const [userSelectedLLM, setUserSelectedLLM] =
     localStorageFns.userSelectedLLM.hook();
+  const [messages, setMessages] = localStorageFns.messages.hook([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+
+  // Simple string for the current message input
+  const [currMessage, setCurrMessage] = useState("");
 
   const availableProviders = apiKeys.map((key) => key.modelId);
   const filteredModelGroups = MODEL_GROUPS.filter((group) =>
@@ -62,16 +47,38 @@ function ProjectAIChatContainer({ messages }) {
 
   const placeholderText = "Type a message...";
 
-  const handleSubmit = async (e) => {
-    if (e) {
-      e.preventDefault();
+  const handleSubmit = async (userMessage) => {
+    if (!userMessage.trim()) return;
+    setIsLoading(true);
+
+    // Add user message to UI immediately
+    const userMsg = { role: "user", content: userMessage };
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
+
+    try {
+      // Pass session ID to API call
+      const response = await dbGetLLMResponse(
+        userSelectedLLM || "anthropic/claude-3-sonnet-20240229",
+        userMessage,
+        sessionId,
+      );
+
+      // Store the session ID from the first response
+      if (response.session_id && !sessionId) {
+        setSessionId(response.session_id);
+      }
+
+      // Add AI response to messages
+      if (response && response.content) {
+        const aiMsg = { role: "assistant", content: response.content };
+        setMessages([...updatedMessages, aiMsg]);
+      }
+    } catch (error) {
+      console.error("Error getting LLM response:", error);
+    } finally {
+      setIsLoading(false);
     }
-    const res = await dbGetLLMResponse(
-      "anthropic/claude-3-sonnet-20240229",
-      messages,
-    );
-    console.log("res", res);
-    // Handle submission logic here
   };
 
   return (
@@ -118,6 +125,9 @@ function ProjectAIChatContainer({ messages }) {
           selectedModel={userSelectedLLM}
           placeholderText={placeholderText}
           handleSubmit={handleSubmit}
+          currMessage={currMessage}
+          setCurrMessage={setCurrMessage}
+          isLoading={isLoading}
         />
       )}
     </div>
@@ -129,14 +139,20 @@ function ProjectChatCore({
   selectedModel,
   placeholderText,
   handleSubmit,
+  currMessage,
+  setCurrMessage,
+  isLoading,
 }) {
-  const [newMessage, setNewMessage] = useState("");
-
   const onSubmit = (e) => {
     e.preventDefault();
-    if (newMessage.trim() === "") return;
-    handleSubmit(e);
-    setNewMessage("");
+    if (currMessage.trim() === "") return;
+    if (isLoading) return; // Prevent multiple submissions while loading
+
+    // Pass the message to parent component
+    handleSubmit(currMessage);
+
+    // Clear the input field
+    setCurrMessage("");
   };
 
   // Add an onKeyDown handler
@@ -182,15 +198,23 @@ function ProjectChatCore({
         <div className="flex space-x-2">
           <textarea
             type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            value={currMessage}
+            onChange={(e) => setCurrMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={placeholderText}
+            placeholder={
+              isLoading ? "Waiting for response..." : placeholderText
+            }
+            disabled={isLoading}
             className="nodrag max-h-48 flex-1 resize-none overflow-y-auto rounded-lg border border-setta-100 bg-transparent px-4 py-2 text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700"
           />
           <button
             type="submit"
-            className="mb-3 cursor-pointer self-end px-2 py-0.5 text-setta-500 hover:text-blue-500 focus:text-blue-500 focus:outline-none focus:ring-0 dark:hover:text-blue-700"
+            disabled={isLoading}
+            className={`mb-3 cursor-pointer self-end px-2 py-0.5 ${
+              isLoading
+                ? "text-setta-300 dark:text-setta-600"
+                : "text-setta-500 hover:text-blue-500 focus:text-blue-500"
+            } focus:outline-none focus:ring-0 dark:hover:text-blue-700`}
           >
             <IoSend />
           </button>
