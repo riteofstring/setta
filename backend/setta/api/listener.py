@@ -79,10 +79,8 @@ class SettaListener:
             func._setta_debounce = debounce
             func._setta_throttle = throttle
             func._setta_leading_edge = leading_edge
-            func._setta_last_run_time = None
-            func._setta_next_allowed_run_time = (
-                None  # Track earliest time allowed to run next
-            )
+            func._setta_last_run_time = 0
+            func._setta_next_allowed_run_time = 0
             return func
 
         # Handle the case when decorator is used without parentheses
@@ -209,11 +207,6 @@ class SettaListener:
                     task.cancel()
                 # Remove from pending tasks
                 self.pending_tasks.pop(fn.__name__, None)
-
-        # For first run, initialize times
-        if fn._setta_last_run_time is None:
-            fn._setta_last_run_time = 0  # Set to 0 to treat as "long ago"
-            fn._setta_next_allowed_run_time = 0  # No throttling for first run
 
         time_since_last_run = current_time - fn._setta_last_run_time
         is_first_run = fn._setta_last_run_time == 0
