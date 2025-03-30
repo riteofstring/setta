@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import inspect
 import json
 import logging
@@ -28,7 +29,7 @@ class SettaListener:
         self.endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}".format(
             id=self.script_id
         )
-        self.interactive_functions = []
+        self.fns = []
         self.exporter_obj = None
         self.dependencies_to_fns = defaultdict(set)
 
@@ -50,6 +51,8 @@ class SettaListener:
             func._setta_dependencies = [None] if dependencies is None else dependencies
             func._setta_run_on_init = run_on_init
             func._setta_is_running = False
+            func._setta_data = None
+            func._setta_data_to_be_updated = {}
             return func
 
         # Handle the case when decorator is used without parentheses
@@ -62,14 +65,14 @@ class SettaListener:
 
     def start(self):
         # Find all interactive functions
-        self.interactive_functions = get_interactive_functions(self.caller_frame)
+        self.fns = get_interactive_functions(self.caller_frame)
 
         # Print available functions for debugging
-        if self.interactive_functions:
+        if self.fns:
             print(
-                f"Starting WebSocket listener with {len(self.interactive_functions)} interactive functions:"
+                f"Starting WebSocket listener with {len(self.fns)} interactive functions:"
             )
-            for fn in self.interactive_functions:
+            for fn in self.fns:
                 deps = ", ".join([str(x) for x in fn._setta_dependencies])
                 print(f" - {fn.__name__} (dependencies: {deps})", flush=True)
         else:
@@ -103,6 +106,8 @@ class SettaListener:
             content = message["content"]
             if messageType == C.WS_PROJECT_DATA:
                 self.exporter_obj = export_for_interactive_fn(content)
+                for fn in self.fns:
+                    fn._setta_data = copy.deepcopy(self.exporter_obj.output)
                 self.dependencies_to_fns = self.get_mapped_dependencies_to_fns()
                 await websocket.send(
                     json.dumps(
@@ -120,7 +125,6 @@ class SettaListener:
                 continue
 
             if messageType == C.WS_CALL_INTERACTIVE_FNS:
-                self.update_exporter_obj(content)
                 asyncio.create_task(
                     self._run_functions_with_new_data(
                         content,
@@ -129,23 +133,22 @@ class SettaListener:
 
     # Add this new helper method
     async def _run_functions_with_new_data(self, new_data):
-        p = self.exporter_obj.output
-        for fn in self.interactive_functions:
+        for fn in self.fns:
             if fn.__name__ in self.dependencies_to_fns.get(None, set()):
-                await run_function(fn, p)
+                await run_function(fn)
             else:
                 key, _ = new_data
                 if fn.__name__ in self.dependencies_to_fns.get(tuple(key), set()):
-                    await run_function(fn, p)
+                    await run_function(fn)
 
     async def _run_functions_on_init(self):
-        for fn in self.interactive_functions:
+        for fn in self.fns:
             if fn._setta_run_on_init:
-                await run_function(fn, self.exporter_obj.output)
+                await run_function(fn)
 
     def get_mapped_dependencies_to_fns(self):
         output = defaultdict(set)
-        for fn in self.interactive_functions:
+        for fn in self.fns:
             for d in fn._setta_dependencies:
                 if d is not None:
                     d = self.exporter_obj.var_name_reverse_mapping.get(d)
@@ -169,23 +172,23 @@ def get_interactive_functions(caller_frame):
     caller_module = inspect.getmodule(caller_frame)
 
     # Find all exposed functions in that module
-    interactive_functions = []
+    fns = []
     for _, obj in inspect.getmembers(caller_module):
         if inspect.isfunction(obj) and getattr(obj, "_setta_interactive", False):
             # Include function dependencies in the metadata
-            interactive_functions.append(obj)
+            fns.append(obj)
 
-    return interactive_functions
+    return fns
 
 
-async def run_function(fn, p):
+async def run_function(fn):
     if fn._setta_is_running:
         return
     try:
         # Run the function in an executor to avoid blocking the event loop
         # This handles CPU-bound functions without blocking the websocket
         fn._setta_is_running = True
-        await asyncio.get_event_loop().run_in_executor(None, fn, p)
+        await asyncio.get_event_loop().run_in_executor(None, fn, fn._setta_data)
     except Exception as e:
         print(f"Error running function {fn.__name__}: {e}")
     finally:
