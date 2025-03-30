@@ -37,7 +37,7 @@ async def terminal_websocket_endpoint(
 
     try:
         await terminals.connect(websocket, sectionId, id)
-        write_task = asyncio.get_running_loop().create_task(
+        write_task = asyncio.create_task(
             terminals.write_to_terminal(websocket, sectionId)
         )
         await write_task

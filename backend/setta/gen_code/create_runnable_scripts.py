@@ -1,3 +1,4 @@
+import asyncio
 import copy
 from datetime import datetime
 from pathlib import Path
@@ -36,7 +37,7 @@ async def runCode(p, lsp_writers, code_state, terminals):
         terminals.new_terminal(projectConfigId, terminal_id, True)
         new_terminal_created = True
 
-    await terminals.run_command_in_terminal(terminal_id, command)
+    asyncio.create_task(terminals.run_command_in_terminal(terminal_id, command))
 
     return terminal_id, new_terminal_created
 
