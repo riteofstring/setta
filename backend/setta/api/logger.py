@@ -143,9 +143,9 @@ class SettaDataWrapper(ABC):
 
 
 class SettaList(SettaDataWrapper):
-    def __init__(self, data=None):
+    def __init__(self, **columns):
         super().__init__()
-        self.data = data or {}
+        self.create(**columns)
 
     def create(self, **columns):
         self.data = columns
@@ -191,11 +191,10 @@ class SettaList(SettaDataWrapper):
 class SettaImg(SettaDataWrapper):
     def __init__(self, img=None, format="png"):
         super().__init__()
-        self.img = img
-        self.format = format
+        self.create(img, format)
 
-    def create(self, img_data, format="png"):
-        self.img = img_data
+    def create(self, img, format="png"):
+        self.img = img
         self.format = format
         return self
 
