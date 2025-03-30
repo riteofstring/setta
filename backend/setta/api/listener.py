@@ -36,7 +36,6 @@ class SettaListener:
 
         # For debouncing/throttling
         self.pending_tasks = {}
-        self.last_run_times = {}
 
     def interactive(
         self,
@@ -73,6 +72,7 @@ class SettaListener:
             func._setta_debounce = debounce
             func._setta_throttle = throttle
             func._setta_leading_edge = leading_edge
+            func._setta_last_run_time = None
             return func
 
         # Handle the case when decorator is used without parentheses
@@ -86,10 +86,6 @@ class SettaListener:
     def start(self):
         # Find all interactive functions
         self.fns = get_interactive_functions(self.caller_frame)
-
-        # Initialize tracking for each function
-        for fn in self.fns:
-            self.last_run_times[fn.__name__] = 0
 
         # Print available functions for debugging
         if self.fns:
@@ -196,56 +192,77 @@ class SettaListener:
     async def _schedule_function_run(self, fn):
         current_time = time.time()
 
-        # Clear any existing pending task for this function
+        # Cancel any existing pending task
         if fn.__name__ in self.pending_tasks:
             self.pending_tasks[fn.__name__].cancel()
+            self.pending_tasks.pop(fn.__name__, None)  # Explicitly cleanup
 
-        # Throttling: enforce minimum time between executions
-        if fn._setta_throttle > 0:
-            time_since_last_run = current_time - self.last_run_times.get(fn.__name__, 0)
-            if time_since_last_run < fn._setta_throttle:
-                if (
-                    fn._setta_leading_edge
-                    and time_since_last_run > fn._setta_throttle * 0.9
-                ):
-                    # Run immediately for leading edge if we're close to the throttle time
-                    await self.run_function(fn)
-                    return
-                else:
-                    # Schedule for later (trailing edge) or skip (if another change comes first)
-                    delay = max(0, fn._setta_throttle - time_since_last_run)
-                    self.pending_tasks[fn.__name__] = asyncio.create_task(
-                        self._delayed_run(fn, delay)
-                    )
-                    return
+        # Initialize if first run
+        if fn._setta_last_run_time is None:
+            fn._setta_last_run_time = 0  # Set to 0 to treat as "long ago"
 
-        # Debouncing: wait for stable input
+        time_since_last_run = current_time - fn._setta_last_run_time
+
+        # Determine if we should execute now based on debounce/throttle rules
+        throttle_allows_execution = (
+            fn._setta_throttle <= 0 or time_since_last_run >= fn._setta_throttle
+        )
+
+        # Decide execution strategy
         if fn._setta_debounce > 0:
+            # Debounce case
             if fn._setta_leading_edge:
-                # For leading edge, run immediately and set a cooldown period
+                # Leading edge debounce: Execute immediately if throttle allows and cooldown has passed
                 if (
-                    fn.__name__ not in self.last_run_times
-                    or (current_time - self.last_run_times[fn.__name__])
-                    > fn._setta_debounce
+                    throttle_allows_execution
+                    and time_since_last_run >= fn._setta_debounce
                 ):
                     await self.run_function(fn)
-                    self.last_run_times[fn.__name__] = current_time
+                # Otherwise do nothing (ignore this change)
             else:
-                # For trailing edge, schedule with delay
-                self.pending_tasks[fn.__name__] = asyncio.create_task(
-                    self._delayed_run(fn, fn._setta_debounce)
-                )
-            return
+                # Trailing edge debounce: Always schedule (or reschedule) with delay
+                # If throttled, use max of remaining throttle time and debounce time
+                if not throttle_allows_execution:
+                    delay = max(
+                        fn._setta_throttle - time_since_last_run, fn._setta_debounce
+                    )
+                else:
+                    delay = fn._setta_debounce
 
-        # Default: run immediately
-        await self.run_function(fn)
+                self.pending_tasks[fn.__name__] = asyncio.create_task(
+                    self._delayed_run(fn, delay)
+                )
+        elif fn._setta_throttle > 0:
+            # Throttle only case
+            if throttle_allows_execution:
+                # Cooldown passed, execute immediately
+                await self.run_function(fn)
+            elif fn._setta_leading_edge:
+                # Leading edge throttle with active cooldown - ignore
+                pass
+            else:
+                # Trailing edge throttle - schedule for when throttle period ends
+                delay = fn._setta_throttle - time_since_last_run
+                self.pending_tasks[fn.__name__] = asyncio.create_task(
+                    self._delayed_run(fn, delay)
+                )
+        else:
+            # No debounce or throttle - run immediately
+            await self.run_function(fn)
 
     async def _delayed_run(self, fn, delay):
-        await asyncio.sleep(delay)
-        # Only run if this is still the active task
-        if self.pending_tasks.get(fn.__name__) == asyncio.current_task():
-            await self.run_function(fn)
-            self.pending_tasks.pop(fn.__name__, None)
+        try:
+            await asyncio.sleep(delay)
+            # Only run if this is still the active task for this function
+            if self.pending_tasks.get(fn.__name__) == asyncio.current_task():
+                await self.run_function(fn)
+        except asyncio.CancelledError:
+            # Handle cancelled task gracefully
+            pass
+        finally:
+            # Always clean up if this task is still registered as the active one
+            if self.pending_tasks.get(fn.__name__) == asyncio.current_task():
+                self.pending_tasks.pop(fn.__name__, None)
 
     async def _run_functions_on_init(self):
         for fn in self.fns:
@@ -259,7 +276,7 @@ class SettaListener:
             # Run the function in an executor to avoid blocking the event loop
             # This handles CPU-bound functions without blocking the websocket
             fn._setta_is_running = True
-            self.last_run_times[fn.__name__] = time.time()
+            fn._setta_last_run_time = time.time()
             await asyncio.get_event_loop().run_in_executor(None, fn, fn._setta_data)
         except Exception as e:
             print(f"Error running function {fn.__name__}: {e}")
