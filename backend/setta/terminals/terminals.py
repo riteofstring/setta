@@ -179,7 +179,7 @@ class TerminalWebsockets:
                 logger.debug("read_from_terminal caught the exception!")
 
     # Function to write to the terminal
-    async def write_to_terminal(self, websocket, lsp_writers, code_state, sectionId):
+    async def write_to_terminal(self, websocket, sectionId):
         pty_info = self.PTY_PIDS[sectionId]
         pty_process = pty_info["process"]
         while True:
