@@ -90,7 +90,7 @@ class WMHFrontend(BaseWebsocketMsgHandler):
     async def process_message(self, message, *_):
         wid = message.get("toWebsocketId")
         if wid and wid != self.websocket_manager.main_id:
-            self.websocket_manager.send_message(message, wid)
+            await self.websocket_manager.send_message(message, wid)
         elif message.get("messageType") == C.WS_CALL_INTERACTIVE_FNS:
             print("WMHFrontend process_message", message, flush=True)
             wids = self.script_metadata.get_websocket_ids_listening_to_data(
@@ -119,7 +119,7 @@ class WMHCLI(BaseWebsocketMsgHandler):
         self.websocket_manager = websocket_manager
 
     async def process_message(self, message, *_):
-        self.websocket_manager.send_message(message, message["toWebsocketId"])
+        await self.websocket_manager.send_message(message, message["toWebsocketId"])
 
 
 class WMHPythonScript(BaseWebsocketMsgHandler):
