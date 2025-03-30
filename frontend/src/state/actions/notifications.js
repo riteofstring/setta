@@ -2,6 +2,8 @@ import C from "constants/constants.json";
 import { useNotifications, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
+const DEFAULT_TEMP_TIMEOUT = 2000;
+
 // Standalone notification actions as separate functions
 const addNotification = (notification) => {
   useNotifications.setState((state) => ({
@@ -52,7 +54,7 @@ export function addNotificationFromWebsocketMsg(notification) {
 export const addTemporaryNotification = (
   message,
   type = C.NOTIFICATION_TYPE_INFO,
-  timeout = 3000,
+  timeout = DEFAULT_TEMP_TIMEOUT,
 ) => {
   const id = createNewId();
   const notification = {
@@ -82,4 +84,4 @@ export const replaceTemporaryNotification = (tempId, permanentNotification) => {
 };
 
 export const getTimeoutDuration = (notification) =>
-  notification.timeout || 3000;
+  notification.timeout || DEFAULT_TEMP_TIMEOUT;

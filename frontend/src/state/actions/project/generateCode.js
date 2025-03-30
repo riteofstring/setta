@@ -20,6 +20,7 @@ import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { generateParamSweepCombinations } from "./generateParamSweepCombinations";
 import { generateSectionParamSweepVersionCombinations } from "./generateSectionParamSweepVersionCombinations";
 import { getProjectData } from "./saveProject";
+import { addTemporaryNotification } from "../notifications";
 
 export async function getProjectDataToGenerateCode({
   withArtifacts = false,
@@ -71,6 +72,7 @@ export async function getProjectDataToGenerateCode({
 }
 
 export async function sendRunCodeMessage(project, messageIdx = 0) {
+  addTemporaryNotification("Sending Run Request")
   sendMessage({
     id: createNewId(),
     content: project,

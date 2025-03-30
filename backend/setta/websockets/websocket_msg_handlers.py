@@ -1,3 +1,4 @@
+from setta.database.db.notifications.load import create_notification_dict
 from setta.gen_code.create_runnable_scripts import generateRunCodeCommand, runCode
 from setta.utils.constants import C
 
@@ -143,6 +144,17 @@ class WMHFrontend(BaseWebsocketMsgHandler):
                         {"content": content, "messageType": messageType},
                         fromWebsocketId,
                     )
+                notification = create_notification_dict(
+                    message="Started", temporary=True
+                )
+                notification["projectConfigId"] = message["content"]["projectConfig"][
+                    "id"
+                ]
+                await self.websocket_manager.broadcast(
+                    notification,
+                    C.WS_NOTIFICATION,
+                    connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+                )
         else:
             msg_id = message.get("id")
             if not msg_id:
