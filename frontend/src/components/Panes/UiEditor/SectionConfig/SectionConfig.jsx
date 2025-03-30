@@ -4,6 +4,7 @@ import { getSectionType } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
+import { CodeAreaSettings } from "./CodeAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
 import { IframeSettings } from "./IframeSettings";
 import { ImageAreaSettings } from "./ImageAreaSettings";
@@ -32,8 +33,8 @@ function SpecializedConfiguration({ sectionId }) {
     // case C.SECTION:
     // case C.GLOBAL_VARIABLES:
     //   return <InputAreaSettings sectionId={sectionId} />;
-    // case C.CODE:
-    //   return <CodeAreaSettings sectionId={sectionId} />;
+    case C.CODE:
+      return <CodeAreaSettings sectionId={sectionId} />;
     case C.TEXT_BLOCK:
       return <TextBlockSettings sectionId={sectionId} />;
     case C.DRAW:

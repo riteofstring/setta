@@ -2,10 +2,10 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { debouncedTypeCheckRequest, getEVRefs } from "requests/sections";
+import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setParamEnteredValue } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
-import { useSendToInteractiveTasks } from "state/hooks/interactive";
 import { useGetParamEnteredValueAndEVRefs } from "state/hooks/sectionVariants";
 import { getParamUIType } from "state/hooks/uiTypes";
 import { asyncDebounce } from "utils/utils";
@@ -17,10 +17,6 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     paramInfoId,
   );
   const [value, setValue] = useState(enteredValue);
-  const sendToInteractiveTasksFn = useSendToInteractiveTasks([
-    sectionId,
-    paramInfoId,
-  ]);
   const abortController = useRef();
 
   // value and enteredValue should always be string
@@ -35,7 +31,7 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       abortController,
     );
     debouncedTypeCheckRequest();
-    sendToInteractiveTasksFn(vStr);
+    sendParamValueToInteractiveTasks(sectionId, paramInfoId, vStr);
   }
 
   useEffect(() => {
@@ -54,6 +50,10 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       evRefs={evRefs}
     />
   );
+}
+
+function sendParamValueToInteractiveTasks(sectionId, paramInfoId, v) {
+  sendToInteractiveTasks([sectionId, paramInfoId], v);
 }
 
 const debouncedSetParamEnteredValue = asyncDebounce(

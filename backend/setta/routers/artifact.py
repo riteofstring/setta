@@ -4,7 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from setta.api.logger import load_from_csv_base64
+from setta.cli.logger import load_from_csv_base64
 from setta.database.db.artifacts.load import (
     load_artifact_from_disk,
     load_artifact_metadata_and_maybe_value_from_disk,
@@ -16,13 +16,15 @@ from setta.database.db.artifacts.save_or_create import (
 )
 from setta.utils.constants import C
 
-from .dependencies import get_dbq, get_wmh_artifact
+from .dependencies import get_dbq, get_websocket_manager
 
 router = APIRouter()
 
 
 class SendArtifactRequest(BaseModel):
     data: List[dict]
+    saveTo: str
+    messageType: str
 
 
 class LoadArtifactsRequest(BaseModel):
@@ -54,15 +56,15 @@ class GetArtifactIdsFromNamePathType(BaseModel):
 async def route_send_artifact(
     x: SendArtifactRequest,
     dbq=Depends(get_dbq),
-    websocket_msg_handler=Depends(get_wmh_artifact),
+    websocket_manager=Depends(get_websocket_manager),
 ):
     with dbq as db:
-        artifact_ids = save_or_create_artifacts(db, x.data)
+        artifact_ids = save_or_create_artifacts(db, x.data, x.saveTo)
 
     for idx, d in enumerate(x.data):
         d["id"] = artifact_ids[idx]
 
-    await websocket_msg_handler.broadcast_artifact(x.data)
+    await websocket_manager.broadcast({"content": x.data, "messageType": x.messageType})
     return artifact_ids
 
 
