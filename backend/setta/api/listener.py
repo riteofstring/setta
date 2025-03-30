@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class SettaListener:
-    def __init__(self, host=C.DEFAULT_HOST, port=C.DEFAULT_PORT, max_queue_size=100):
+    def __init__(self, host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
         self.logger = SettaLogger(host=host, port=port)
         self.caller_frame = inspect.currentframe().f_back
         self.rel_path = relative_to_cwd(self.caller_frame.f_code.co_filename)
@@ -38,7 +38,6 @@ class SettaListener:
         # For debouncing/throttling
         self.pending_tasks = {}  # {fn_name: (task, token)}
         self.task_lock = asyncio.Lock()
-        self.max_queue_size = max_queue_size
 
     def interactive(
         self,
@@ -353,18 +352,7 @@ class SettaListener:
             print(f"Error running function {fn.__name__}: {e}")
         finally:
             fn._setta_is_running = False
-
-            # Apply any updates that came in while the function was running
-            # Limit queue size to prevent memory issues
-            items = list(fn._setta_data_to_be_updated.items())
-            if len(items) > self.max_queue_size:
-                # If queue is too large, only keep the most recent updates
-                items = items[-self.max_queue_size :]
-                print(
-                    f"Warning: Update queue for {fn.__name__} exceeded max size. Kept only the {self.max_queue_size} most recent updates."
-                )
-
-            for key, value in items:
+            for key, value in fn._setta_data_to_be_updated.items():
                 self.update_stored_data((key, value), fn)
             fn._setta_data_to_be_updated = {}
 
@@ -383,15 +371,6 @@ class SettaListener:
     def update_stored_data(self, new_data, fn):
         key, value = new_data
         if fn._setta_is_running:
-            # Enforce max queue size to prevent memory issues
-            if len(fn._setta_data_to_be_updated) >= self.max_queue_size:
-                # If we're at max capacity, only update existing keys or drop the oldest
-                if tuple(key) not in fn._setta_data_to_be_updated:
-                    # Remove oldest item (implementation-dependent in Python 3.7+)
-                    # Convert to ordered dict to get predictable behavior
-                    ordered_dict = dict(fn._setta_data_to_be_updated)
-                    oldest_key = next(iter(ordered_dict))
-                    fn._setta_data_to_be_updated.pop(oldest_key)
             fn._setta_data_to_be_updated[tuple(key)] = value
         else:
             nice_str = self.exporter_obj.var_name_mapping.get(tuple(key))
