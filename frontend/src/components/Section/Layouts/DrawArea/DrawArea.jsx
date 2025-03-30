@@ -58,7 +58,7 @@ export function DrawArea({ sectionId }) {
   const layerOpacity = activeLayer?.layerOpacity ?? 1;
   const brushOpacity = activeLayer?.brushOpacity ?? 1;
   const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
-    (a) => loadedArtifacts[a.artifactId]?.type === "brushStrokes",
+    (a) => loadedArtifacts[a.artifactId]?.type === C.ARTIFACT_TYPE_BRUSH_STROKES,
   )?.artifactId;
 
   const updateDrawArea = useMisc(
@@ -212,7 +212,7 @@ export function DrawArea({ sectionId }) {
   const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,
     true,
-    "img",
+    C.ARTIFACT_TYPE_IMG,
   );
 
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;

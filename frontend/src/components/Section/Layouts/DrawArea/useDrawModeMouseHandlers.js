@@ -408,7 +408,9 @@ function drawingOnMouseUp({
           const artifact = artifactState[t.artifactId];
           const inverseTransform = getInverseTransform(t.transform);
           const boundsFn =
-            artifact.type === "img" ? getImageBounds : getBrushStrokesBounds;
+            artifact.type === C.ARTIFACT_TYPE_IMG
+              ? getImageBounds
+              : getBrushStrokesBounds;
 
           const intersectingPath = filterEraserPath(
             eraserPath.points,
@@ -417,7 +419,7 @@ function drawingOnMouseUp({
             boundsFn(artifact.value, t.transform),
           );
 
-          if (artifact.type === "img") {
+          if (artifact.type === C.ARTIFACT_TYPE_IMG) {
             if (intersectingPath.length > 0) {
               t.eraserStrokes.push({
                 ...eraserPath,
@@ -519,7 +521,7 @@ function editingOnMouseDown({
     for (let i = localArtifactTransformsRef.current.length - 1; i >= 0; i--) {
       const { transform, artifactId } = localArtifactTransformsRef.current[i];
       const artifact = artifactState[artifactId];
-      if (artifact.type === "img") {
+      if (artifact.type === C.ARTIFACT_TYPE_IMG) {
         const bounds = getImageBounds(artifact.value, transform);
         if (
           x >= bounds.minX &&
@@ -534,7 +536,7 @@ function editingOnMouseDown({
           lastPos.current = { x, y };
           return true;
         }
-      } else if (artifact.type === "brushStrokes") {
+      } else if (artifact.type === C.ARTIFACT_TYPE_BRUSH_STROKES) {
         const hit = detectHit(x, y, artifact, transform);
         if (hit) {
           const bounds = getBrushStrokesBounds(artifact.value, transform);
@@ -594,7 +596,7 @@ function editingOnMouseMove({
         localArtifactTransformsRef.current[selectedIdx.current];
       const artifact = artifactState[artifactId];
 
-      if (artifact.type === "img") {
+      if (artifact.type === C.ARTIFACT_TYPE_IMG) {
         const scaledWidth = getScaledWidth(artifact.value, transform);
         const scaledHeight = getScaledHeight(artifact.value, transform);
         const handleBehaviorFn = getImageHandleBehaviorFn(
@@ -686,7 +688,7 @@ function editingOnMouseMove({
             artifact,
           );
         }
-      } else if (artifact.type === "brushStrokes") {
+      } else if (artifact.type === C.ARTIFACT_TYPE_BRUSH_STROKES) {
         const bounds =
           getPseudoBoundsFromResizeHandleCorners(resizeHandleCorners);
         const width = bounds.maxX - bounds.minX;
@@ -788,7 +790,7 @@ function editingOnMouseMove({
       // the actual transform rather than the mouse movement
       if (preserveAspectRatio && artifact) {
         const bounds =
-          artifact.type === "img"
+          artifact.type === C.ARTIFACT_TYPE_IMG
             ? getImageBounds(artifact.value, transform)
             : getBrushStrokesBounds(artifact.value, transform);
 

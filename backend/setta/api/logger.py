@@ -106,7 +106,7 @@ class SettaLogger:
 
     def chat(self, name):
         """Get a chat object configured for this logger"""
-        return SettaChat().with_context(self, name)
+        return SettaChatHistory().with_context(self, name)
 
 
 class SettaDataWrapper(ABC):
@@ -186,7 +186,7 @@ class SettaList(SettaDataWrapper):
                 f.write(",".join(row_vals) + "\n")
 
     def serialize(self):
-        return {"value": self.data, "type": "list"}
+        return {"value": self.data, "type": C.ARTIFACT_TYPE_LIST}
 
     def load(self, path):
         self.data = load_from_csv_file(path)
@@ -213,14 +213,14 @@ class SettaImg(SettaDataWrapper):
         if self.img is None:
             raise ValueError("No image data to serialize")
         b64_str = base64.b64encode(self.img).decode("utf-8")
-        return {"value": b64_str, "type": "img"}
+        return {"value": b64_str, "type": C.ARTIFACT_TYPE_IMG}
 
     def load(self, path_with_extension):
         with open(path_with_extension, "rb") as f:
             self.img = f.read()
 
 
-class SettaChat(SettaDataWrapper):
+class SettaChatHistory(SettaDataWrapper):
     def __init__(self, messages=None):
         super().__init__()
         self.create(messages or [])
@@ -272,18 +272,18 @@ class SettaChat(SettaDataWrapper):
 
 
 def get_wrapper_for_loading(data_type):
-    if data_type == "list":
+    if data_type == C.ARTIFACT_TYPE_LIST:
         return SettaList()
-    if data_type == "img":
+    if data_type == C.ARTIFACT_TYPE_IMG:
         return SettaImg()
-    if data_type == "chat":
-        return SettaChat()
+    if data_type == C.ARTIFACT_TYPE_CHAT_HISTORY:
+        return SettaChatHistory()
 
 
 def default_section_type(data_type):
-    if data_type == "list":
+    if data_type == C.ARTIFACT_TYPE_LIST:
         return C.CHART
-    if data_type == "img":
+    if data_type == C.ARTIFACT_TYPE_IMG:
         return C.IMAGE
 
 

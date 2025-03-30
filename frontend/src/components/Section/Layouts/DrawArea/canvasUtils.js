@@ -223,7 +223,7 @@ export function drawOneLayer(
     artifactTempCtx.globalCompositeOperation = "source-over";
 
     if (
-      artifact.type === "img" &&
+      artifact.type === C.ARTIFACT_TYPE_IMG &&
       artifact.value instanceof Image &&
       artifact.value.complete
     ) {
@@ -236,7 +236,7 @@ export function drawOneLayer(
         transformInfo.eraserStrokes,
         transformInfo.transform,
       );
-    } else if (artifact.type === "brushStrokes" && artifact.value.length > 0) {
+    } else if (artifact.type === C.ARTIFACT_TYPE_BRUSH_STROKES && artifact.value.length > 0) {
       const strokes = realTimeValues?.[id] ?? artifact.value;
       const artifactTransformInfo = realTimeTransforms?.[idx] ?? t;
       drawStrokesOntoTempCanvas(
@@ -425,7 +425,7 @@ function hexToRGBA(_hex, opacity) {
 }
 
 function maybeGetImgSizeFromArtifact(artifact) {
-  if (artifact?.type === "img" && artifact?.value?.complete) {
+  if (artifact?.type === C.ARTIFACT_TYPE_IMG && artifact?.value?.complete) {
     const image = artifact.value;
     return { width: image.width, height: image.height };
   }

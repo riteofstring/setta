@@ -253,7 +253,7 @@ function updateNodeDimensionsSubscriptionFn(state) {
 function artifactNamePathTypeToIdSubscriptionFn(state) {
   const output = {};
   for (const [id, a] of Object.entries(state.x)) {
-    output[id] = { name: a["name"], path: a["path"], type: a["type"] };
+    output[id] = { name: a.name, path: a.path, type: a.type };
   }
   return output;
 }

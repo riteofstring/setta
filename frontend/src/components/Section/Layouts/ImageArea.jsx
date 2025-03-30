@@ -16,7 +16,7 @@ function _ImageArea({ sectionId }) {
   const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,
     false,
-    "img",
+    C.ARTIFACT_TYPE_IMG,
   );
   return (
     <figure

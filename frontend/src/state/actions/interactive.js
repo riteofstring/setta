@@ -72,7 +72,7 @@ export async function updateInteractiveArtifacts(artifacts) {
   const artifactState = useArtifacts.getState();
   for (const a of artifacts) {
     if (!("path" in a)) a.path = "";
-    if (a.type === "img") {
+    if (a.type === C.ARTIFACT_TYPE_IMG) {
       a.value = await base64ToImageObj(a.value);
       a.modifiedByInfo = {
         modifiedBy: "interactive",
