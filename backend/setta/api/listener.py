@@ -43,6 +43,7 @@ class SettaListener:
             func._setta_interactive = True
             func._setta_dependencies = [None] if dependencies is None else dependencies
             func._setta_run_on_init = run_on_init
+            func._setta_is_running = False
             return func
 
         # Handle the case when decorator is used without parentheses
@@ -62,9 +63,9 @@ class SettaListener:
             print(
                 f"Starting WebSocket listener with {len(interactive_functions)} interactive functions:"
             )
-            for name, info in interactive_functions.items():
-                deps = ", ".join([str(x) for x in info._setta_dependencies])
-                print(f" - {name} (dependencies: {deps})", flush=True)
+            for fn in interactive_functions:
+                deps = ", ".join([str(x) for x in fn._setta_dependencies])
+                print(f" - {fn.__name__} (dependencies: {deps})", flush=True)
         else:
             print(
                 "Warning: No functions have been marked with @interactive decorator",
@@ -138,18 +139,18 @@ class SettaListener:
     async def _run_functions_with_new_data(
         self, interactive_functions, p, dependencies_to_fns, new_data
     ):
-        for name, v in interactive_functions.items():
-            if name in dependencies_to_fns.get(None, set()):
-                await run_function(name, v, p)
+        for fn in interactive_functions:
+            if fn.__name__ in dependencies_to_fns.get(None, set()):
+                await run_function(fn, p)
             else:
                 key, _ = new_data
-                if name in dependencies_to_fns.get(tuple(key), set()):
-                    await run_function(name, v, p)
+                if fn.__name__ in dependencies_to_fns.get(tuple(key), set()):
+                    await run_function(fn, p)
 
     async def _run_functions_on_init(self, interactive_functions, p):
-        for name, v in interactive_functions.items():
-            if v._setta_run_on_init:
-                await run_function(name, v, p)
+        for fn in interactive_functions:
+            if fn._setta_run_on_init:
+                await run_function(fn, p)
 
 
 def get_interactive_functions(caller_frame):
@@ -157,34 +158,34 @@ def get_interactive_functions(caller_frame):
     caller_module = inspect.getmodule(caller_frame)
 
     # Find all exposed functions in that module
-    interactive_functions = {}
+    interactive_functions = []
     for name, obj in inspect.getmembers(caller_module):
         if inspect.isfunction(obj) and getattr(obj, "_setta_interactive", False):
             # Include function dependencies in the metadata
-            interactive_functions[name] = obj
+            interactive_functions.append(obj)
 
     return interactive_functions
 
 
 def get_mapped_dependencies_to_fns(fns, exporter_obj):
     output = defaultdict(set)
-    for fn_name, fn in fns.items():
+    for fn in fns:
         for d in fn._setta_dependencies:
             if d is not None:
                 d = exporter_obj.var_name_reverse_mapping.get(d)
                 if not d:
                     continue
-            output[d].add(fn_name)
+            output[d].add(fn.__name__)
     return output
 
 
-async def run_function(name, fn, p):
+async def run_function(fn, p):
     try:
         # Run the function in an executor to avoid blocking the event loop
         # This handles CPU-bound functions without blocking the websocket
         await asyncio.get_event_loop().run_in_executor(None, fn, p)
     except Exception as e:
-        print(f"Error running function {name}: {e}")
+        print(f"Error running function {fn.__name__}: {e}")
 
 
 # new_data is a list of tuples, where each tuple is [key, value]
