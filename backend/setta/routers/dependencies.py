@@ -53,8 +53,16 @@ def get_lsps(request: Request):
     ]
 
 
+def get_lsp_writers(request: Request):
+    return request.app.state.lsp_writers
+
+
 def get_lsp_writers_from_websocket(websocket: WebSocket):
     return websocket.app.state.lsp_writers
+
+
+def get_code_state(request: Request):
+    return request.app.state.code_state
 
 
 def get_code_state_from_websocket(websocket: WebSocket):

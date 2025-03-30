@@ -24,8 +24,16 @@ from setta.utils.constants import CODE_FOLDER, CWD, USER_SETTINGS, C
 from setta.utils.utils import prune_dict
 
 
-async def runCode(message, lsp_writers, code_state):
-    p = message["content"]
+async def runCode(p, lsp_writers, code_state, terminals):
+    command = await generateRunCodeCommand(p, lsp_writers, code_state)
+    print("command", command, flush=True)
+    # get free terminal
+
+    # pty_process.write(f"\x15{command}\n")
+    # self.set_terminal_start_time(sectionId)
+
+
+async def generateRunCodeCommand(p, lsp_writers, code_state):
     exporter_obj = export_selected(
         p, always_export_args_objs=False, force_include_template_var=True
     )

@@ -136,21 +136,12 @@ function newTerminalWebsocket(sectionId) {
 //     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;',
 // };
 
-export function addTerminalInitialMessage(sectionId, msg) {
+function addTerminalInitialMessage(sectionId, msg) {
   if (!(sectionId in INITIAL_MESSAGES)) {
     INITIAL_MESSAGES[sectionId] = [];
   }
   if (!INITIAL_MESSAGES[sectionId].includes(msg)) {
     INITIAL_MESSAGES[sectionId].push(msg);
-  }
-}
-
-export function sendTerminalMessage(sectionId, msg) {
-  for (const ws of TERMINAL_WEBSOCKETS[sectionId]) {
-    if (ws.readyState === 1) {
-      ws.send(msg);
-      break;
-    }
   }
 }
 

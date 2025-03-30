@@ -14,7 +14,6 @@ import psutil
 from fastapi import WebSocketDisconnect
 from websockets.exceptions import ConnectionClosedOK
 
-from setta.gen_code.create_runnable_scripts import runCode
 from setta.utils.constants import USER_SETTINGS, C
 
 logger = logging.getLogger(__name__)
@@ -191,10 +190,6 @@ class TerminalWebsockets:
                     doResize = json_val["messageType"] == C.WS_TERMINAL_RESIZE
                     if doResize:
                         pty_process.setwinsize(json_val["rows"], json_val["cols"])
-                    elif json_val["messageType"] == C.WS_RUN_CODE:
-                        command = await runCode(json_val, lsp_writers, code_state)
-                        pty_process.write(f"\x15{command}\n")
-                        self.set_terminal_start_time(sectionId)
                     pty_info["wasJustResized"] = doResize
                     continue
                 elif input_data:

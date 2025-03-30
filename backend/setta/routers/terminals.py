@@ -5,10 +5,13 @@ from typing import List
 from fastapi import APIRouter, Depends, WebSocket
 from pydantic import BaseModel
 
+from setta.gen_code.create_runnable_scripts import runCode
 from setta.utils.constants import C
 
 from .dependencies import (
+    get_code_state,
     get_code_state_from_websocket,
+    get_lsp_writers,
     get_lsp_writers_from_websocket,
     get_terminal_websockets,
     get_terminal_websockets_from_websocket,
@@ -26,6 +29,10 @@ class DeleteTerminalsRequest(BaseModel):
 
 class KillSubprocessesRequest(BaseModel):
     projectConfigId: str
+
+
+class RunCodeRequest(BaseModel):
+    project: dict
 
 
 @router.websocket(C.ROUTE_TERMINAL)
@@ -98,3 +105,13 @@ def route_kill_subprocesses(
     existing = terminal_websockets.get_existing_terminals(x.projectConfigId)
     ids = [x["id"] for x in existing]
     terminal_websockets.kill_processes(ids)
+
+
+@router.post(C.ROUTE_RUN_CODE)
+async def route_run_code(
+    x: RunCodeRequest,
+    lsp_writers=Depends(get_lsp_writers),
+    code_state=Depends(get_code_state),
+    terminals=Depends(get_terminal_websockets),
+):
+    await runCode(x.project, lsp_writers, code_state, terminals)
