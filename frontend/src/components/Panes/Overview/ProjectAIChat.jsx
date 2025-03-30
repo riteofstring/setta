@@ -59,7 +59,7 @@ export function ProjectAIChat() {
     try {
       // Pass session ID to API call
       const response = await dbGetLLMResponse(
-        userSelectedLLM || "anthropic/claude-3-sonnet-20240229",
+        userSelectedLLM || "claude-3-sonnet-20240229",
         userMessage,
         sessionId,
       );
