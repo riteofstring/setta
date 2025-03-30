@@ -96,24 +96,35 @@ class SettaLogger:
     def get_name_path_type_key(self, data_to_send):
         return data_to_send["name"], data_to_send["path"], data_to_send["type"]
 
-    def log_list(self, name, **columns):
-        wrapper = SettaList(columns)
-        return self.log({name: wrapper})
+    def list(self, name):
+        """Get a list object configured for this logger"""
+        return SettaList().with_context(self, name)
 
-    def log_image(self, name, image_data, format="png"):
-        wrapper = SettaImg(image_data, format)
-        return self.log({name: wrapper})
-
-    def send_list(self, name, **columns):
-        wrapper = SettaList(columns)
-        return self.send({name: wrapper})
-
-    def send_image(self, name, image_data, format="png"):
-        wrapper = SettaImg(image_data, format)
-        return self.send({name: wrapper})
+    def image(self, name):
+        """Get an image object configured for this logger"""
+        return SettaImg().with_context(self, name)
 
 
 class SettaDataWrapper(ABC):
+    def __init__(self):
+        self._logger = None
+        self._name = None
+
+    def with_context(self, logger, name):
+        self._logger = logger
+        self._name = name
+        return self
+
+    def log(self):
+        if not self._logger or not self._name:
+            raise ValueError("Object must be associated with a logger")
+        return self._logger.log({self._name: self})
+
+    def send(self):
+        if not self._logger or not self._name:
+            raise ValueError("Object must be associated with a logger")
+        return self._logger.send({self._name: self})
+
     @abstractmethod
     def path_with_extension(self, path):
         pass
@@ -133,7 +144,20 @@ class SettaDataWrapper(ABC):
 
 class SettaList(SettaDataWrapper):
     def __init__(self, data=None):
-        self.data = data
+        super().__init__()
+        self.data = data or {}
+
+    def create(self, **columns):
+        self.data = columns
+        return self
+
+    def append(self, **columns):
+        for column, values in columns.items():
+            if column in self.data:
+                self.data[column].extend(values)
+            else:
+                self.data[column] = values
+        return self
 
     def path_with_extension(self, path):
         return path.with_suffix(".csv")
@@ -166,8 +190,14 @@ class SettaList(SettaDataWrapper):
 
 class SettaImg(SettaDataWrapper):
     def __init__(self, img=None, format="png"):
+        super().__init__()
         self.img = img
         self.format = format
+
+    def create(self, img_data, format="png"):
+        self.img = img_data
+        self.format = format
+        return self
 
     def path_with_extension(self, path):
         return path.with_suffix(f".{self.format}")
