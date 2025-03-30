@@ -33,10 +33,6 @@ export const removeNotification = (notificationId) => {
   }));
 };
 
-export const setNotifications = (notifications) => {
-  useNotifications.setState({ notifications });
-};
-
 export function addNotificationFromWebsocketMsg(notification) {
   if (
     !notification ||
@@ -48,6 +44,7 @@ export function addNotificationFromWebsocketMsg(notification) {
   }
   if (!notification.timestamp) {
     notification.timestamp = new Date().toISOString();
+    notification.dateObj = Date.now();
   }
   addNotification(notification);
 }
@@ -61,6 +58,7 @@ export const addTemporaryNotification = (
   const notification = {
     id,
     timestamp: new Date().toISOString(),
+    dateObj: Date.now(),
     type,
     message,
     read_status: false,

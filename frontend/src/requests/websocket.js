@@ -5,7 +5,10 @@ import {
   updateInteractiveDependencies,
 } from "state/actions/interactive";
 import { updateJSONSourceContents } from "state/actions/jsonSource";
-import { addNotificationFromWebsocketMsg } from "state/actions/notifications";
+import {
+  addNotificationFromWebsocketMsg,
+  addTemporaryNotification,
+} from "state/actions/notifications";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeErrors";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";
@@ -16,10 +19,11 @@ let wss;
 
 export const openWebSocket = _.debounce(
   (pathname) => {
-    if (!wssReady()) {
+    if (!wss) {
       wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_FRONTEND}`);
       wss.addEventListener("open", () => {
         sendLocation(pathname);
+        addTemporaryNotification("Websocket connected");
       });
 
       wss.addEventListener("message", (event) => {
