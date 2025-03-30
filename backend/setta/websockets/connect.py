@@ -1,6 +1,6 @@
+import asyncio
 import json
 import logging
-import subprocess
 
 import websockets
 
@@ -9,21 +9,30 @@ from setta.gen_code.create_runnable_scripts import runCode
 from ..utils.constants import C
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=getattr(logging, "DEBUG"),
+    format="%(levelname)s - %(asctime)s - %(name)s - %(message)s",
+)
 
 
 async def connect(websocket_id):
-    try:
-        if websocket_id:
-            endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_CLI_WITH_ID}"
-            endpoint = endpoint.format(id=websocket_id)
-        else:
-            endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_CLI}"
-        async with websockets.connect(endpoint) as websocket:
-            await consumer_handler(websocket)
-    except websockets.ConnectionClosedError:
-        logger.debug("Connection closed unexpectedly")
-    except ConnectionRefusedError:
-        logger.debug("Connection refused")
+    while True:  # Add reconnection loop
+        try:
+            if websocket_id:
+                endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_CLI_WITH_ID}"
+                endpoint = endpoint.format(id=websocket_id)
+            else:
+                endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_CLI}"
+            async with websockets.connect(endpoint) as websocket:
+                logger.debug("Connected to websocket")
+                await consumer_handler(websocket)
+        except websockets.ConnectionClosedError:
+            logger.debug("Connection closed unexpectedly, attempting to reconnect...")
+        except ConnectionRefusedError:
+            logger.debug("Connection refused, attempting to reconnect...")
+
+        # Add delay before reconnection attempt to prevent rapid reconnection cycles
+        await asyncio.sleep(5)
 
 
 async def consumer_handler(websocket):
@@ -34,9 +43,22 @@ async def consumer_handler(websocket):
             # this will have to be changed, probably needs to communicate
             # with host setta process via websocket instead of calling
             # runCode
-            command = await runCode(message)
-            run_code_as_subprocess(command)
+            # command = await runCode(message)
+            command = "python test.py"
+            # Run subprocess in a separate task so it doesn't block the event loop
+            asyncio.create_task(run_code_as_subprocess(command))
 
 
-def run_code_as_subprocess(command):
-    subprocess.run(command, shell=True)
+async def run_code_as_subprocess(command):
+    logger.debug(f"Starting subprocess with command: {command}")
+
+    # Use asyncio subprocess to run the command non-blockingly
+    # Using None for stdout/stderr inherits the parent's stdout/stderr
+    # which will display output directly to the command line
+    proc = await asyncio.create_subprocess_shell(command, stdout=None, stderr=None)
+
+    # Wait for process to complete without blocking the event loop
+    await proc.communicate()
+
+    # Log completion without capturing output
+    logger.debug(f"Subprocess completed with exit code: {proc.returncode}")

@@ -60,9 +60,11 @@ async def lifespan(app: FastAPI):
     app.state.script_metadata = ScriptMetadata()
     app.state.websocket_msg_handlers = WebsocketMsgHandlers(
         app.state.websocket_manager,
+        app.state.lsp_writers,
+        app.state.code_state,
         app.state.code_tasks,
         app.state.script_metadata,
-        app.state.code_state,
+        app.state.terminal_websockets,
     )
     app.state.specific_file_watcher = create_specific_file_watcher(
         app.state.websocket_msg_handlers.specific_file_watcher

@@ -2,7 +2,7 @@ import { computeInfoToFullName } from "components/Utils/CodeMirror/utils";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import C from "constants/constants.json";
 import _ from "lodash";
-import { dbRunCode } from "requests/terminals";
+import { sendMessage } from "requests/websocket";
 import {
   getSectionInfo,
   getSectionPathFullName,
@@ -14,6 +14,7 @@ import {
   useTemplateVarRegex,
 } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
+import { createNewId } from "utils/idNameCreation";
 import { newEVEntry } from "utils/objs/ev";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { generateParamSweepCombinations } from "./generateParamSweepCombinations";
@@ -70,7 +71,11 @@ export async function getProjectDataToGenerateCode({
 }
 
 export async function sendRunCodeMessage(project, messageIdx = 0) {
-  await dbRunCode(project);
+  sendMessage({
+    id: createNewId(),
+    content: project,
+    messageType: C.WS_RUN_CODE,
+  });
   // const res = await dbGetFreeTerminal(project.projectConfig.id);
   // if (res.status === 200) {
   //   const freeTerminalSectionId = res.data;

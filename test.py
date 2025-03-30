@@ -1,12 +1,19 @@
-from setta.api.logger import SettaLogger, SettaList
+# from setta.api.logger import SettaLogger, SettaList
+# import time
+
+
+# x = {"something": SettaList({"x":[1,2,3], "y":[4,5,6]})}
+# logger = SettaLogger()
+
+# for i in range(1000):
+#     print("sending", i)
+#     time.sleep(1)
+#     logger.send(x)
+# print('done')
+
+
 import time
+import tqdm
 
-
-x = {"something": SettaList({"x":[1,2,3], "y":[4,5,6]})}
-logger = SettaLogger()
-
-for i in range(1000):
-    print("sending", i)
-    time.sleep(1)
-    logger.send(x)
-print('done')
+for i in tqdm.tqdm(range(1000)):
+    time.sleep(0.1)

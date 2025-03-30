@@ -23,10 +23,3 @@ export async function dbDeleteTerminals(sectionIds) {
     address: C.ROUTE_DELETE_TERMINALS,
   });
 }
-
-export async function dbRunCode(project) {
-  return await post({
-    address: C.ROUTE_RUN_CODE,
-    body: { project },
-  });
-}

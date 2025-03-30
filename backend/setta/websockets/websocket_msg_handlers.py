@@ -1,13 +1,14 @@
+from setta.gen_code.create_runnable_scripts import runCode
 from setta.utils.constants import C
 
 
 class WebsocketMsgHandlers:
-    def __init__(self, websocket_manager, code_tasks, script_metadata, code_state):
+    def __init__(self, websocket_manager, lsp_writers, code_state, code_tasks, script_metadata, terminals):
         self.lsp_reader = WMHLSPReader(websocket_manager)
         self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
         self.artifact = WMHArtifact(websocket_manager)
         self.database = WMHDatabase(websocket_manager)
-        self.frontend = WMHFrontend(websocket_manager, code_tasks, script_metadata)
+        self.frontend = WMHFrontend(websocket_manager, lsp_writers, code_state, code_tasks, script_metadata, terminals)
         self.cli = WMHCLI(websocket_manager)
         self.python_script = WMHPythonScript(
             websocket_manager, script_metadata, code_state
@@ -82,10 +83,13 @@ class WMHDatabase(BaseWebsocketMsgHandler):
 
 
 class WMHFrontend(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager, code_tasks, script_metadata):
+    def __init__(self, websocket_manager, lsp_writers, code_state, code_tasks, script_metadata, terminals):
         self.websocket_manager = websocket_manager
+        self.lsp_writers = lsp_writers
+        self.code_state = code_state
         self.code_tasks = code_tasks
         self.script_metadata = script_metadata
+        self.terminals = terminals
 
     async def process_message(self, message, *_):
         wid = message.get("toWebsocketId")
@@ -98,6 +102,8 @@ class WMHFrontend(BaseWebsocketMsgHandler):
             )
             for wid in wids:
                 await self.websocket_manager.send_message(message, wid)
+        elif message.get("messageType") == C.WS_RUN_CODE:
+            await runCode(message["content"], self.lsp_writers, self.code_state, self.terminals)
         else:
             msg_id = message.get("id")
             if not msg_id:
