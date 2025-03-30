@@ -23,7 +23,7 @@ export async function dbRequestTypeCheck(userRequested = false) {
   sendMessage({
     content: project,
     id: createNewId(),
-    messageType: C.WS_TYPE_CHECK,
+    messageType: "typeCheck",
   });
 }
 
@@ -35,7 +35,7 @@ export async function dbParametersRequest({ sectionId, fullText, position }) {
     paramInfoId: null,
     fullText,
     position,
-    messageType: C.WS_PARAMETERS_REQUEST,
+    messageType: "parametersRequest",
   });
 }
 
@@ -43,7 +43,7 @@ export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
   const project = await getProjectDataToGenerateCode({});
   await sendMessage({
     id: createNewId(),
-    messageType: C.WS_TEXT_FIELD_INITIALIZE_CODE,
+    messageType: "textFieldInitializeCode",
     content: { project, sectionId, paramInfoId },
   });
 }
@@ -52,7 +52,7 @@ export async function dbCodeAreaInitializeCode(sectionId) {
   const project = await getProjectDataToGenerateCode({});
   return await sendMessageAndWait({
     id: createNewId(),
-    messageType: C.WS_CODE_AREA_INITIALIZE_CODE,
+    messageType: "codeAreaInitializeCode",
     content: { project, sectionId },
   });
 }
@@ -78,7 +78,7 @@ export async function dbCodeAreaCompletion({
 
   const autoCompleteProps = {
     id: createNewId(),
-    messageType: C.WS_CODE_AREA_AUTOCOMPLETE,
+    messageType: "codeAreaAutocomplete",
     content: {
       projectConfigId,
       projectConfigName,
@@ -110,7 +110,7 @@ export async function dbTextFieldCompletion({
   paramInfoId,
   fullText,
   position,
-  messageType = C.WS_TEXT_FIELD_AUTOCOMPLETE,
+  messageType = "textFieldCompletion",
 }) {
   const { id: projectConfigId, name: projectConfigName } =
     useSectionInfos.getState().projectConfig;
@@ -158,7 +158,7 @@ export async function getEVRefs({
     keywordPositions = [];
     await sendMessageAndWait({
       id: createNewId(),
-      messageType: C.WS_FIND_EV_REFS,
+      messageType: "findEVRefs",
       content: {
         sectionId,
         paramInfoId,
@@ -192,7 +192,7 @@ async function getTemplateVars(sectionId, fullText) {
     keywordPositions = [];
     await sendMessageAndWait({
       id: createNewId(),
-      messageType: C.WS_CODE_AREA_FIND_TEMPLATE_VARS,
+      messageType: "codeAreaFindTemplateVars",
       content: { sectionId, candidateTemplateVars, fullText },
       condition: ({ data: { positions, numMessages } }) => {
         if (positions !== null) {
