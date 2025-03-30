@@ -97,14 +97,6 @@ export function getCompletionsFn(
     return async (context) => {
       const fullText = context.state.doc.toString();
       if (!fullText.trim()) return null;
-      // TODO: implement this
-      // context.addEventListener(
-      //   "abort",
-      //   () => {
-      //     console.log("aborted");
-      //   },
-      //   { onDocChange: true },
-      // );
       const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
       const setToNotWaiting = setTextFieldWaitingForLSP({
         sectionId,

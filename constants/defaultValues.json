@@ -22,7 +22,7 @@
     "paramSweepSectionId": null,
     "nonPresetUITypeIds": [],
     "codeLanguage": "python",
-    "runAsInteractive": false,
+    "runInMemory": false,
     "isFrozen": false,
     "isHorizontalOrientation": false,
     "hideParams": false,
@@ -51,6 +51,7 @@
       "y2AxisLog": false
     },
     "isTemporary": false,
+    "isReadOnlyTerminal": false,
     "renderMarkdown": false,
     "positionAndSizeLocked": false,
     "selectedVariantIds": {},
@@ -61,6 +62,7 @@
     "aspectRatioExtraWidth": 0,
     "columnWidth": null,
     "renderedValue": null,
+    "subprocessStartMethod": "spawn",
     "headingAsSectionName": false
   },
   "sectionVariant": {

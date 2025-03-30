@@ -14,6 +14,7 @@ import psutil
 from fastapi import WebSocketDisconnect
 from websockets.exceptions import ConnectionClosedOK
 
+from setta.code_gen.create_runnable_scripts import runCode
 from setta.utils.constants import USER_SETTINGS, C
 
 logger = logging.getLogger(__name__)
@@ -176,7 +177,7 @@ class TerminalWebsockets:
                 logger.debug("read_from_terminal caught the exception!")
 
     # Function to write to the terminal
-    async def write_to_terminal(self, websocket, lsp_writers, code_state, sectionId):
+    async def write_to_terminal(self, websocket, lsp_writers, sectionId):
         pty_info = self.PTY_PIDS[sectionId]
         pty_process = pty_info["process"]
         while True:
@@ -190,6 +191,10 @@ class TerminalWebsockets:
                     doResize = json_val["messageType"] == C.WS_TERMINAL_RESIZE
                     if doResize:
                         pty_process.setwinsize(json_val["rows"], json_val["cols"])
+                    elif json_val["messageType"] == C.WS_RUN_CODE:
+                        command = await runCode(json_val, lsp_writers)
+                        pty_process.write(f"\x15{command}\n")
+                        self.set_terminal_start_time(sectionId)
                     pty_info["wasJustResized"] = doResize
                     continue
                 elif input_data:
@@ -226,16 +231,6 @@ class TerminalWebsockets:
             if v["projectConfigId"] == projectConfigId:
                 output.append({"id": k, "isTemporary": v["isTemporary"]})
         return output
-
-    def run_command_in_terminal(self, terminal_id, command):
-        pty_process = self.PTY_PIDS[terminal_id]["process"]
-        pty_process.write(f"\x15{command}\n")
-        self.set_terminal_start_time(terminal_id)
-
-    def kill_processes(self, ids):
-        for id in ids:
-            pty_process = self.PTY_PIDS[id]["process"]
-            pty_process.sendintr()
 
     async def send_output_to_sectionId(self, sectionId, output, setSentReadyMsg=False):
         for wsId in self.section_to_socket_ids[sectionId]:
