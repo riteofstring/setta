@@ -104,6 +104,10 @@ class SettaLogger:
         """Get an image object configured for this logger"""
         return SettaImg().with_context(self, name)
 
+    def chat(self, name):
+        """Get a chat object configured for this logger"""
+        return SettaChat().with_context(self, name)
+
 
 class SettaDataWrapper(ABC):
     def __init__(self):
@@ -216,11 +220,64 @@ class SettaImg(SettaDataWrapper):
             self.img = f.read()
 
 
+class SettaChat(SettaDataWrapper):
+    def __init__(self, messages=None):
+        super().__init__()
+        self.create(messages or [])
+
+    def create(self, messages):
+        """Initialize chat history with messages."""
+        self.messages = messages if messages else []
+        return self
+
+    def append(self, role, content):
+        """Add a new message to the chat history."""
+        self.messages.append({"role": role, "content": content})
+        return self
+
+    def append_to_last(self, content, role="assistant"):
+        """
+        Append content to the last message or create a new one if needed.
+        Perfect for streaming LLM responses.
+
+        Args:
+            content: The content to append
+            role: Role to use if creating a new message (default: "assistant")
+
+        Returns:
+            self for method chaining
+        """
+        if not self.messages or self.messages[-1]["role"] != role:
+            # No messages or last message has different role - create new
+            self.append(role, content)
+        else:
+            # Append to existing message
+            self.messages[-1]["content"] += content
+
+        return self
+
+    def path_with_extension(self, path):
+        return path.with_suffix(".json")
+
+    def save(self, path):
+        with open(path, "w") as f:
+            json.dump(self.messages, f)
+
+    def serialize(self):
+        return {"value": self.messages, "type": "chat"}
+
+    def load(self, path_with_extension):
+        with open(path_with_extension, "r") as f:
+            self.messages = json.load(f)
+
+
 def get_wrapper_for_loading(data_type):
     if data_type == "list":
         return SettaList()
     if data_type == "img":
         return SettaImg()
+    if data_type == "chat":
+        return SettaChat()
 
 
 def default_section_type(data_type):
