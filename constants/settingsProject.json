@@ -192,6 +192,9 @@
       "17466622-a5fb-4be8-8525-f06c88daae82": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
+      "85dafdca-efa6-43bc-9421-b65dd9614862": {
+        "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
+      },
       "df31626d-bb5c-44db-a72e-ea1ed9ddc57c": {
         "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5"
       },
@@ -349,6 +352,11 @@
       "name": "zoomOnDoubleClick",
       "editable": true
     },
+    "85dafdca-efa6-43bc-9421-b65dd9614862": {
+      "id": "85dafdca-efa6-43bc-9421-b65dd9614862",
+      "name": "clearTerminalBeforeMarkingAsReady",
+      "editable": true
+    },
     "df31626d-bb5c-44db-a72e-ea1ed9ddc57c": {
       "id": "df31626d-bb5c-44db-a72e-ea1ed9ddc57c",
       "name": "exportDbRawOnSave",
@@ -411,6 +419,7 @@
           "03b2da1e-f288-40fa-ad3c-881a6a4f186f",
           "7f9492a2-ce79-43ea-8778-49e256e3efaa",
           "b50f0c10-0115-4619-92e9-cc955539b72c",
+          "85dafdca-efa6-43bc-9421-b65dd9614862",
           "df31626d-bb5c-44db-a72e-ea1ed9ddc57c",
           "60185329-1eeb-439c-8830-e7fb77f44568",
           "69b37725-50e6-4ddb-bd6c-f804f79e7c5a",
@@ -420,6 +429,7 @@
         "03b2da1e-f288-40fa-ad3c-881a6a4f186f": [],
         "7f9492a2-ce79-43ea-8778-49e256e3efaa": [],
         "b50f0c10-0115-4619-92e9-cc955539b72c": [],
+        "85dafdca-efa6-43bc-9421-b65dd9614862": [],
         "df31626d-bb5c-44db-a72e-ea1ed9ddc57c": [],
         "60185329-1eeb-439c-8830-e7fb77f44568": [],
         "69b37725-50e6-4ddb-bd6c-f804f79e7c5a": [],
