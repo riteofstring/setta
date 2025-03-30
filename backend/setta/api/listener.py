@@ -1,8 +1,8 @@
 import asyncio
-import functools
 import inspect
 import json
 import logging
+from collections import defaultdict
 
 import websockets
 
@@ -39,23 +39,9 @@ class SettaListener:
         """
 
         def decorator(func):
-            @functools.wraps(func)
-            def wrapper(*args, **kwargs):
-                # Call the original function
-                result = func(*args, **kwargs)
-
-                # After execution, call the logger's send method
-                self.logger.send(True, C.WS_FUNCTION_FINISHED)
-
-                # Return the original result
-                return result
-
-            # Set the original metadata
-            wrapper._setta_interactive = True
-            wrapper._setta_dependencies = (
-                [None] if dependencies is None else dependencies
-            )
-            return wrapper
+            func._setta_interactive = True
+            func._setta_dependencies = [None] if dependencies is None else dependencies
+            return func
 
         # Handle the case when decorator is used without parentheses
         if callable(dependencies):
@@ -97,21 +83,14 @@ class SettaListener:
             await self._handle_websocket(websocket, interactive_functions)
 
     async def _handle_websocket(self, websocket, interactive_functions):
-        # Send registration message with function info including dependencies
-        registration_info = {
-            "messageType": C.WS_SCRIPT_READY,
-            "content": {
-                "relPath": str(self.rel_path),
-                "scriptMetadata": {
-                    name: {"dependencies": info["dependencies"]}
-                    for name, info in interactive_functions.items()
-                },
-            },
-        }
-
-        await websocket.send(json.dumps(registration_info))
+        await websocket.send(
+            json.dumps(
+                {"messageType": C.WS_SCRIPT_READY, "content": str(self.rel_path)}
+            )
+        )
 
         exporter_obj = None
+        dependencies_to_fns = None
 
         # Process incoming messages using async for
         async for message in websocket:
@@ -119,11 +98,27 @@ class SettaListener:
             messageType = message["messageType"]
             if messageType == C.WS_PROJECT_DATA:
                 exporter_obj = export_for_interactive_fn(message["content"])
+                dependencies_to_fns = get_mapped_dependencies_to_fns(
+                    interactive_functions, exporter_obj
+                )
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "messageType": C.WS_SCRIPT_DEPENDENCIES,
+                            "content": list(dependencies_to_fns.keys()),
+                        }
+                    )
+                )
+
                 # run all interactive functions when we first receive project data
                 asyncio.create_task(
                     self._run_functions(interactive_functions, exporter_obj.output)
                 )
-            elif messageType == C.WS_CALL_INTERACTIVE_FNS:
+
+            if not exporter_obj:
+                continue
+
+            if messageType == C.WS_CALL_INTERACTIVE_FNS:
                 asyncio.create_task(
                     self._run_functions(interactive_functions, exporter_obj.output)
                 )
@@ -160,3 +155,15 @@ def get_interactive_functions(caller_frame):
 def run_interactive_functions(interactive_functions, p):
     for v in interactive_functions.values():
         v["function"](p)
+
+
+def get_mapped_dependencies_to_fns(fns, exporter_obj):
+    output = defaultdict(set)
+    for fn_name, metadata in fns.items():
+        for d in metadata["dependencies"]:
+            if d is not None:
+                d = exporter_obj.var_name_reverse_mapping.get(d)
+                if not d:
+                    continue
+            output[d].add(fn_name)
+    return output

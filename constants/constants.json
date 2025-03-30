@@ -107,7 +107,7 @@
   "WS_INTERACTIVE_FN_RETURN": "interactiveFnReturn",
   "WS_TERMINAL_RESIZE": "terminalResize",
   "WS_SCRIPT_READY": "scriptReady",
-  "WS_FUNCTION_FINISHED": "functionFinished",
+  "WS_SCRIPT_DEPENDENCIES": "scriptDependencies",
   "WS_PROJECT_DATA": "projectData",
   "WS_SPECIFIC_FILE_WATCHER_UPDATE": "specificFileWatcherUpdate",
   "WS_NOTIFICATION": "notification",

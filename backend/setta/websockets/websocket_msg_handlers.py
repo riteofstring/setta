@@ -64,7 +64,7 @@ class WMHFrontend:
         self.script_metadata = script_metadata
 
     async def process_message(self, message, *_):
-        print("WMHFrontend process_message", message, flush=True)
+        # print("WMHFrontend process_message", message, flush=True)
         wid = message.get("toWebsocketId")
         if wid and wid != self.websocket_manager.main_id:
             self.websocket_manager.send_message(message, wid)
@@ -105,14 +105,11 @@ class WMHPythonScript:
         msg_type = message["messageType"]
         content = message["content"]
         if msg_type == C.WS_SCRIPT_READY:
-            self.script_metadata.add(websocket_id, content["scriptMetadata"])
-            project = self.code_state.get_project_from_rel_path(content["relPath"])
+            project = self.code_state.get_project_from_rel_path(content)
             message = {"content": project, "messageType": C.WS_PROJECT_DATA}
             await self.websocket_manager.send_message(message, websocket_id)
-        elif msg_type == C.WS_FUNCTION_FINISHED:
-            print("FINISHED**********************************", flush=True)
-
-        # self.websocket_manager.send_message(message, message["toWebsocketId"])
+        elif msg_type == C.WS_SCRIPT_DEPENDENCIES:
+            self.script_metadata.add(websocket_id, content)
 
     def disconnect(self, websocket_id):
         self.script_metadata.delete(websocket_id)
