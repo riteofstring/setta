@@ -5,6 +5,7 @@ import { BiPaint } from "react-icons/bi";
 import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
 import { FaChartPie, FaLayerGroup, FaSquareXTwitter } from "react-icons/fa6";
 import { GoDotFill } from "react-icons/go";
+import { GrFormView } from "react-icons/gr";
 import { IoLogoJavascript } from "react-icons/io";
 import { IoChatbox } from "react-icons/io5";
 import { PiTextTFill } from "react-icons/pi";
@@ -167,7 +168,16 @@ function TextBlockIcon({ sectionId }) {
 }
 
 function TerminalIcon({ sectionId }) {
-  return (
+  const isReadOnlyTerminal = useSectionInfos(
+    (x) => x.x[sectionId].isReadOnlyTerminal,
+  );
+
+  return isReadOnlyTerminal ? (
+    <GrFormView
+      className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] "
+      {...getFloatingBoxHandlers({ title: "Read-only terminal" })}
+    />
+  ) : (
     <FaTerminal
       className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] "
       {...getFloatingBoxHandlers({ title: "Read/write terminal" })}

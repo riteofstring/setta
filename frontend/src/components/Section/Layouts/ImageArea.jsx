@@ -1,10 +1,10 @@
 import _ from "lodash";
 import React, { useEffect } from "react";
+import { sendToInteractiveTasks } from "state/actions/interactive";
 import {
   useAllSectionArtifacts,
   useLoadArtifactViaDropzone,
 } from "state/hooks/artifacts";
-import { useSendToInteractiveTasks } from "state/hooks/interactive";
 import { useImgArtifactAreaSize } from "state/hooks/sectionSizes";
 import { dataURLToBase64 } from "./DrawArea/base64Conversion";
 
@@ -32,14 +32,10 @@ function _ImageArea({ sectionId }) {
 
 function ImageAreaCore({ sectionId, image }) {
   const imgSizeLoaded = useImgArtifactAreaSize(sectionId, image);
-  const sendToInteractiveTasksFn = useSendToInteractiveTasks([
-    sectionId,
-    "image",
-  ]);
 
   useEffect(() => {
     if (image?.src) {
-      sendToInteractiveTasksFn(dataURLToBase64(image.src));
+      sendToInteractiveTasks([sectionId, "image"], dataURLToBase64(image.src));
     }
   }, [image?.src]);
 

@@ -43,7 +43,7 @@ export const ProjectConfigs = React.forwardRef(() => {
               <Link
                 to={pathRelativeToProject(name)}
                 key={idx}
-                className="grouop flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-xl px-2 py-1 hover:bg-blue-300/40 dark:hover:bg-blue-900/50"
+                className="group flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-md px-2 py-1 hover:bg-white/60 dark:hover:bg-setta-800/50"
                 onMouseEnter={() => {
                   setMousedOverName(name);
                   onMouseEnter({

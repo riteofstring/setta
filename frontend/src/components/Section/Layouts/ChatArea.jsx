@@ -5,8 +5,8 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { sendToInteractiveTasks } from "state/actions/interactive";
 import { useAllSectionArtifacts } from "state/hooks/artifacts";
-import { useSendToInteractiveTasks } from "state/hooks/interactive";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
@@ -29,17 +29,13 @@ function ChatAreaCore({ sectionId, messages }) {
   const [newMessage, setNewMessage] = useState("");
   const [pendingUserMessages, setPendingUserMessages] = useState([]);
   const { ref, isScrollable } = useIsScrollable();
-  const sendToInteractiveTasksFn = useSendToInteractiveTasks([
-    sectionId,
-    "latestChatMessage",
-  ]);
 
   const handleSubmit = (e) => {
     if (e) {
       e.preventDefault();
     }
     if (newMessage.trim() === "") return;
-    sendToInteractiveTasksFn(newMessage);
+    sendToInteractiveTasks([sectionId, "latestChatMessage"], newMessage);
     setPendingUserMessages((x) => [
       ...x,
       { role: "user", content: newMessage },

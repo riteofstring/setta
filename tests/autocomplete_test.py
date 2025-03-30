@@ -10,7 +10,7 @@ import os
 
 
 class FakeWebsocketManager:
-    async def return_to_requester(self, *args, **kwargs):
+    async def send_message_to_requester(self, *args, **kwargs):
         pass
 
     async def broadcast(self, *args, **kwargs):
