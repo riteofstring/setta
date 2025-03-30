@@ -2,10 +2,8 @@ import C from "constants/constants.json";
 import { useWebsocketConnectionList } from "state/definitions";
 
 export function updateConnectedTo(connections) {
-  const cliConnections = connections.filter(
-    (x) =>
-      x.connectionType === C.WEBSOCKET_CONNECTION_TYPE_CLI ||
-      x.connectionType === C.WEBSOCKET_CONNECTION_TYPE_SERVER,
+  const cliConnections = connections.filter((x) =>
+    canReceiveCommands(x.connectionType),
   );
   if (
     !cliConnections
@@ -27,4 +25,11 @@ export function setWebsocketConnectedTo(connectedTo) {
 
 function setWebsocketConnections(connections) {
   useWebsocketConnectionList.setState({ connections });
+}
+
+export function canReceiveCommands(connectionType) {
+  return (
+    connectionType === C.WEBSOCKET_CONNECTION_TYPE_CLI ||
+    connectionType === C.WEBSOCKET_CONNECTION_TYPE_SERVER
+  );
 }
