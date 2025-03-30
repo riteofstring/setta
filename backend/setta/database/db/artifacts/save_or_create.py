@@ -3,20 +3,20 @@ import json
 from setta.database.utils import create_new_id
 
 
-def get_artifact_value_for_db(artifact):
-    if artifact["path"]:
+def get_artifact_value_for_db(artifact, saveTo):
+    if saveTo == "disk":
         return None
     return json.dumps(artifact["value"])
 
 
-def save_or_create_artifacts(db, artifacts):
+def save_or_create_artifacts(db, artifacts, saveTo):
     # Convert to parameters, using new IDs for anything without an ID
     params = [
         (
             art.get("id") or create_new_id(),
             art["name"],
             art["path"],
-            get_artifact_value_for_db(art),
+            get_artifact_value_for_db(art, saveTo),
             art["type"],
         )
         for art in artifacts

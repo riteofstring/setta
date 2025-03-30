@@ -55,7 +55,6 @@ export function useDrawModeMouseHandlers({
   localArtifactTransformsRef,
   mode,
   fnCanvasToBase64,
-  sendToInteractiveTasksFn,
 }) {
   let onMouseDown, onMouseMove, onMouseUp, onMouseEnter;
   let redrawLayers, didChange;
@@ -77,7 +76,6 @@ export function useDrawModeMouseHandlers({
       currBrushStrokeArtifactId,
       localArtifactTransformsRef,
       fnCanvasToBase64,
-      sendToInteractiveTasksFn,
     });
 
     onMouseDown = (...props) => {
@@ -99,7 +97,6 @@ export function useDrawModeMouseHandlers({
       currBrushStrokeArtifactId,
       localArtifactTransformsRef,
       fnCanvasToBase64,
-      sendToInteractiveTasksFn,
     });
 
     onMouseMove = (...props) => {
@@ -119,7 +116,6 @@ export function useDrawModeMouseHandlers({
       tempCanvasRefs,
       draftCanvasRef,
       fnCanvasToBase64,
-      sendToInteractiveTasksFn,
     });
 
     onMouseUp = (...props) => {
@@ -148,7 +144,6 @@ export function useDrawModeMouseHandlers({
           layerCanvasRefs,
           tempCanvasRefs,
           fnCanvasToBase64,
-          sendToInteractiveTasksFn,
           {},
           { [activeLayerId]: localArtifactTransformsRef.current },
           { [activeLayerId]: resizeHandleCorners.current },
@@ -176,7 +171,6 @@ export function useDrawModeMouseHandlers({
           layerCanvasRefs,
           tempCanvasRefs,
           fnCanvasToBase64,
-          sendToInteractiveTasksFn,
           {},
           { [activeLayerId]: localArtifactTransformsRef.current },
           { [activeLayerId]: resizeHandleCorners.current },
@@ -195,7 +189,6 @@ export function useDrawModeMouseHandlers({
       layerCanvasRefs,
       tempCanvasRefs,
       fnCanvasToBase64,
-      sendToInteractiveTasksFn,
     });
 
     onMouseUp = (...props) => {
@@ -237,7 +230,6 @@ function drawingOnMouseDown({
   currBrushStrokeArtifactId,
   localArtifactTransformsRef,
   fnCanvasToBase64,
-  sendToInteractiveTasksFn,
 }) {
   return (e, offsetX, offsetY) => {
     if (useMisc.getState().mouseDownDraggingSection) {
@@ -271,7 +263,6 @@ function drawingOnMouseDown({
         layerCanvasRefs,
         tempCanvasRefs,
         fnCanvasToBase64,
-        sendToInteractiveTasksFn,
         {},
         {},
         {},
@@ -315,7 +306,6 @@ function drawingOnMouseMove({
   currBrushStrokeArtifactId,
   localArtifactTransformsRef,
   fnCanvasToBase64,
-  sendToInteractiveTasksFn,
 }) {
   return (e) => {
     if (!isDrawing) {
@@ -337,7 +327,6 @@ function drawingOnMouseMove({
         layerCanvasRefs,
         tempCanvasRefs,
         fnCanvasToBase64,
-        sendToInteractiveTasksFn,
         {},
         {},
         {},
@@ -352,7 +341,6 @@ function drawingOnMouseMove({
         tempCanvasRefs,
         draftCanvasRef,
         fnCanvasToBase64,
-        sendToInteractiveTasksFn,
         false,
       );
       const currentBrushStrokeTransformInfo =
@@ -391,7 +379,6 @@ function drawingOnMouseUp({
   tempCanvasRefs,
   draftCanvasRef,
   fnCanvasToBase64,
-  sendToInteractiveTasksFn,
 }) {
   return () => {
     if (!isDrawing) {
@@ -408,9 +395,7 @@ function drawingOnMouseUp({
           const artifact = artifactState[t.artifactId];
           const inverseTransform = getInverseTransform(t.transform);
           const boundsFn =
-            artifact.type === C.ARTIFACT_TYPE_IMG
-              ? getImageBounds
-              : getBrushStrokesBounds;
+            artifact.type === "img" ? getImageBounds : getBrushStrokesBounds;
 
           const intersectingPath = filterEraserPath(
             eraserPath.points,
@@ -419,7 +404,7 @@ function drawingOnMouseUp({
             boundsFn(artifact.value, t.transform),
           );
 
-          if (artifact.type === C.ARTIFACT_TYPE_IMG) {
+          if (artifact.type === "img") {
             if (intersectingPath.length > 0) {
               t.eraserStrokes.push({
                 ...eraserPath,
@@ -455,7 +440,6 @@ function drawingOnMouseUp({
       tempCanvasRefs,
       draftCanvasRef,
       fnCanvasToBase64,
-      sendToInteractiveTasksFn,
     );
 
     return true;
@@ -521,7 +505,7 @@ function editingOnMouseDown({
     for (let i = localArtifactTransformsRef.current.length - 1; i >= 0; i--) {
       const { transform, artifactId } = localArtifactTransformsRef.current[i];
       const artifact = artifactState[artifactId];
-      if (artifact.type === C.ARTIFACT_TYPE_IMG) {
+      if (artifact.type === "img") {
         const bounds = getImageBounds(artifact.value, transform);
         if (
           x >= bounds.minX &&
@@ -536,7 +520,7 @@ function editingOnMouseDown({
           lastPos.current = { x, y };
           return true;
         }
-      } else if (artifact.type === C.ARTIFACT_TYPE_BRUSH_STROKES) {
+      } else if (artifact.type === "brushStrokes") {
         const hit = detectHit(x, y, artifact, transform);
         if (hit) {
           const bounds = getBrushStrokesBounds(artifact.value, transform);
@@ -596,7 +580,7 @@ function editingOnMouseMove({
         localArtifactTransformsRef.current[selectedIdx.current];
       const artifact = artifactState[artifactId];
 
-      if (artifact.type === C.ARTIFACT_TYPE_IMG) {
+      if (artifact.type === "img") {
         const scaledWidth = getScaledWidth(artifact.value, transform);
         const scaledHeight = getScaledHeight(artifact.value, transform);
         const handleBehaviorFn = getImageHandleBehaviorFn(
@@ -688,7 +672,7 @@ function editingOnMouseMove({
             artifact,
           );
         }
-      } else if (artifact.type === C.ARTIFACT_TYPE_BRUSH_STROKES) {
+      } else if (artifact.type === "brushStrokes") {
         const bounds =
           getPseudoBoundsFromResizeHandleCorners(resizeHandleCorners);
         const width = bounds.maxX - bounds.minX;
@@ -790,7 +774,7 @@ function editingOnMouseMove({
       // the actual transform rather than the mouse movement
       if (preserveAspectRatio && artifact) {
         const bounds =
-          artifact.type === C.ARTIFACT_TYPE_IMG
+          artifact.type === "img"
             ? getImageBounds(artifact.value, transform)
             : getBrushStrokesBounds(artifact.value, transform);
 
@@ -823,7 +807,6 @@ function editingOnMouseUp({
   layerCanvasRefs,
   tempCanvasRefs,
   fnCanvasToBase64,
-  sendToInteractiveTasksFn,
 }) {
   return () => {
     // have to update the corners
@@ -842,7 +825,6 @@ function editingOnMouseUp({
       layerCanvasRefs,
       tempCanvasRefs,
       fnCanvasToBase64,
-      sendToInteractiveTasksFn,
     );
     isDragging.current = false;
     draggedIdx.current = null;

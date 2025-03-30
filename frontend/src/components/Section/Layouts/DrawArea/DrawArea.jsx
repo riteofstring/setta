@@ -6,7 +6,6 @@ import {
   useDrawAreaActiveLayerAndLoadedArtifacts,
   useLoadArtifactViaDropzone,
 } from "state/hooks/artifacts";
-import { useSendToInteractiveTasks } from "state/hooks/interactive";
 import useDeepCompareEffect, {
   useDeepCompareEffectNoCheck,
 } from "use-deep-compare-effect";
@@ -58,17 +57,13 @@ export function DrawArea({ sectionId }) {
   const layerOpacity = activeLayer?.layerOpacity ?? 1;
   const brushOpacity = activeLayer?.brushOpacity ?? 1;
   const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
-    (a) => loadedArtifacts[a.artifactId]?.type === C.ARTIFACT_TYPE_BRUSH_STROKES,
+    (a) => loadedArtifacts[a.artifactId]?.type === "brushStrokes",
   )?.artifactId;
 
   const updateDrawArea = useMisc(
     (x) => x.updateAllDrawAreas || x.updateDrawArea[sectionId],
   );
   const layerIds = allLayersMetadata.map((x) => x.id);
-  const sendToInteractiveTasksFn = useSendToInteractiveTasks([
-    sectionId,
-    "drawing",
-  ]);
 
   useEffect(() => {
     tempCanvasRefs.current.layer = document.createElement("canvas");
@@ -97,13 +92,7 @@ export function DrawArea({ sectionId }) {
         state,
       });
     });
-    drawAllLayers(
-      sectionId,
-      layerCanvasRefs,
-      tempCanvasRefs,
-      fnCanvasToBase64,
-      sendToInteractiveTasksFn,
-    );
+    drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs, fnCanvasToBase64);
   }, [height, width, JSON.stringify(layerIds), updateDrawArea]);
 
   useEffect(() => {
@@ -129,13 +118,7 @@ export function DrawArea({ sectionId }) {
       selectedIdx.current = null;
       resizeHandleCorners.current = null;
     }
-    drawAllLayers(
-      sectionId,
-      layerCanvasRefs,
-      tempCanvasRefs,
-      fnCanvasToBase64,
-      sendToInteractiveTasksFn,
-    );
+    drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs, fnCanvasToBase64);
   }, [
     mode,
     layerOpacity,
@@ -205,14 +188,13 @@ export function DrawArea({ sectionId }) {
       tempCanvasRefs,
       draftCanvasRef,
       fnCanvasToBase64,
-      sendToInteractiveTasksFn,
     );
   }
 
   const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,
     true,
-    C.ARTIFACT_TYPE_IMG,
+    "img",
   );
 
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;

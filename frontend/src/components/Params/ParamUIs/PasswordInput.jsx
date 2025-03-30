@@ -7,6 +7,7 @@ export function PasswordInput({
   onChange,
   onEscape,
   isDisabled,
+  gridArea = "section-value",
 }) {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -30,7 +31,7 @@ export function PasswordInput({
       <button
         type="button"
         onClick={togglePasswordVisibility}
-        className="section-value grid-row-start-1 cursor-pointer justify-self-end text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300"
+        className={`${gridArea} grid-row-start-1 cursor-pointer justify-self-end text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`}
         tabIndex={-1}
       >
         {!showPassword ? <BiHide /> : <BiShow />}

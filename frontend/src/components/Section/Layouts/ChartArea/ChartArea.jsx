@@ -23,7 +23,7 @@ function _ChartArea({ sectionId }) {
   const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,
     false,
-    C.ARTIFACT_TYPE_LIST,
+    "list",
   );
 
   return (
