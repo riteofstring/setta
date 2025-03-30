@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import traceback
@@ -29,28 +28,12 @@ async def websocket_route_loop(
             websocket, connectionType, id=id
         )
         await websocket_msg_handler.on_connect(fromWebsocketId)
-
-        # Track running tasks for cancellation
-        running_tasks = set()
-
         while True:
             try:
                 data = await websocket.receive_text()
                 message = json.loads(data)
-                print("received data", flush=True)
                 websocket_manager.process_message(message, fromWebsocketId)
-
-                # Create a task for concurrent processing
-                task = asyncio.create_task(
-                    websocket_msg_handler.process_message(message, fromWebsocketId)
-                )
-
-                # Setup automatic removal when done
-                task.add_done_callback(
-                    lambda t: running_tasks.remove(t) if t in running_tasks else None
-                )
-                running_tasks.add(task)
-
+                await websocket_msg_handler.process_message(message, fromWebsocketId)
             except WebSocketDisconnect:
                 logger.debug("WebSocketDisconnect!")
                 break
@@ -59,11 +42,6 @@ async def websocket_route_loop(
                 logger.debug(e)
                 logger.debug("caught the exception!")
     finally:
-        # Cancel all pending tasks
-        for task in running_tasks:
-            if not task.done():
-                task.cancel()
-
         await websocket_manager.on_disconnect(fromWebsocketId)
         await websocket_msg_handler.on_disconnect(fromWebsocketId)
 

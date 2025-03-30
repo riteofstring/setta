@@ -7,12 +7,7 @@ from setta.lsp.writer import LanguageServerWriter
 from pathlib import Path
 from uuid import uuid4
 import os
-import logging
-import time
-logging.basicConfig(
-    level=getattr(logging, "DEBUG"),
-    format="%(levelname)s - %(asctime)s - %(name)s - %(message)s",
-)
+
 
 class FakeWebsocketManager:
     async def return_to_requester(self, *args, **kwargs):
@@ -37,15 +32,13 @@ async def main():
     await lsp_writer.send_initialize_request()
 
     code_id = "referencetest"
-    code = "import transformers\ntransformers.T"
+    code = "import sklearn.model_selection\nsklearn.model_selection.train_test_split()"
     codeJson = {}
 
     await lsp_writer.send_document_open_request(code_id, code, codeJson)
     id = str(uuid4())
     col = len(code.split("\n")[1]) - 1
-    await lsp_writer.send_autocomplete_request(1, col, code_id, id, [], [], 0)
-    time.sleep(0.5)
-    await lsp_writer.send_cancel(id)
+    await lsp_writer.send_signature_help_request(1, col, code_id, id)
     print("\n\n\n***********LISTENING*************")
     await lsp.server.wait()
 
