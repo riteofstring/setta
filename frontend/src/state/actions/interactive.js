@@ -1,7 +1,5 @@
 import { base64ToImageObj } from "components/Section/Layouts/DrawArea/base64Conversion";
 import C from "constants/constants.json";
-import _ from "lodash";
-import { dbGetArtifactIdsFromNamePathType } from "requests/artifacts";
 import { dbFormateCode } from "requests/interactive";
 import { sendMessage } from "requests/websocket";
 import {
@@ -34,37 +32,8 @@ export function sendToInteractiveTasks(sourceInfo, value, valueCallback) {
   });
 }
 
-export async function maybeGetNewArtifactIds(content) {
-  if (content.length === 0) {
-    return;
-  }
-
-  const namePathTypeToId = useArtifacts.getState().namePathTypeToId;
-  const missingIdx = [];
-  const namesPathsTypes = [];
-  for (const [idx, c] of content.entries()) {
-    if (!("path" in c)) c.path = "";
-
-    const match = namePathTypeToId[getNamePathTypeKey(c)];
-
-    if (!match) {
-      missingIdx.push(idx);
-      namesPathsTypes.push(_.pick(c, ["name", "path", "type"]));
-    } else {
-      c.id = match;
-    }
-  }
-
-  const res = await dbGetArtifactIdsFromNamePathType(namesPathsTypes);
-  if (res.status == 200) {
-    for (const [idx, artifactId] of res.data.entries()) {
-      const originalIdx = missingIdx[idx];
-      content[originalIdx].id = artifactId ?? createNewId();
-    }
-  }
-}
-
 export async function updateInteractiveArtifacts(artifacts) {
+  console.log("updateInteractiveArtifacts", artifacts);
   if (artifacts.length === 0) {
     return;
   }
@@ -88,6 +57,8 @@ export async function updateInteractiveArtifacts(artifacts) {
   useArtifacts.setState((state) => {
     return { x: { ...state.x, ...newArtifacts } };
   });
+
+  console.log("useArtifacts.getState().x", useArtifacts.getState().x);
 }
 
 export function updateInteractiveDependencies(dependencies) {

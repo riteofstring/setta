@@ -54,17 +54,13 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
-  console.log(m);
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
     updateConnectedTo(m.content);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     processTypeErrors(m.content);
   } else if (m.messageType === C.WS_NOTIFICATION) {
     addNotificationFromWebsocketMsg(m.content);
-  } else if (
-    m.messageType === C.WS_ARTIFACT ||
-    m.messageType === C.WS_INTERACTIVE_FN_RETURN
-  ) {
+  } else if (m.messageType === C.WS_ARTIFACT) {
     updateInteractiveArtifacts(m.content);
   } else if (m.messageType === C.WS_ALL_DEPENDENCIES) {
     updateInteractiveDependencies(m.content);

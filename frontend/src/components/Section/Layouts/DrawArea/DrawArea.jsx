@@ -58,7 +58,8 @@ export function DrawArea({ sectionId }) {
   const layerOpacity = activeLayer?.layerOpacity ?? 1;
   const brushOpacity = activeLayer?.brushOpacity ?? 1;
   const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
-    (a) => loadedArtifacts[a.artifactId]?.type === C.ARTIFACT_TYPE_BRUSH_STROKES,
+    (a) =>
+      loadedArtifacts[a.artifactId]?.type === C.ARTIFACT_TYPE_BRUSH_STROKES,
   )?.artifactId;
 
   const updateDrawArea = useMisc(

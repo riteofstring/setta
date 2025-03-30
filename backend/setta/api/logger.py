@@ -27,17 +27,11 @@ class SettaLogger:
     def log(self, obj, save_to="db"):
         data = self.prepare_data(obj, save_to)
 
-        res = requests.post(
+        requests.post(
             f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_ARTIFACT}",
-            json=data,
+            json={"data": data},
             headers={"Content-Type": "application/json"},
         )
-
-        if res.status_code == 200:
-            artifact_ids = res.json()
-            for idx, id in enumerate(artifact_ids):
-                sent_data = data[idx]
-                self.name_path_type_to_id[self.get_name_path_type_key(sent_data)] = id
 
     async def send_async(self, obj, messageType=None):
         if messageType is None:
@@ -67,6 +61,7 @@ class SettaLogger:
 
     def prepare_data(self, obj, save_to=None):
         data_to_send = []
+        id_missing = False
         for name, data in obj.items():
             artifact_path = ""
 
@@ -85,16 +80,37 @@ class SettaLogger:
                 "value": serialized["value"],
                 "type": serialized["type"],
             }
-            curr_data["id"] = self.maybe_get_artifact_id(curr_data)
+            id = self.maybe_get_artifact_id(curr_data)
+            curr_data["id"] = id
+            if not id:
+                id_missing = True
             data_to_send.append(curr_data)
+
+        if id_missing:
+            self.fill_in_missing_artifact_ids(data_to_send)
 
         return data_to_send
 
-    def maybe_get_artifact_id(self, data_to_send):
-        return self.name_path_type_to_id.get(self.get_name_path_type_key(data_to_send))
+    def maybe_get_artifact_id(self, artifact):
+        return self.name_path_type_to_id.get(self.get_name_path_type_key(artifact))
 
-    def get_name_path_type_key(self, data_to_send):
-        return data_to_send["name"], data_to_send["path"], data_to_send["type"]
+    def fill_in_missing_artifact_ids(self, data_to_send):
+        res = requests.post(
+            f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_FILL_IN_MISSING_ARTIFACT_IDS}",
+            json={"namesPathsTypes": data_to_send},
+            headers={"Content-Type": "application/json"},
+        )
+
+        if res.status_code == 200:
+            artifact_ids = res.json()
+            for idx, id in enumerate(artifact_ids):
+                self.name_path_type_to_id[
+                    self.get_name_path_type_key(data_to_send[idx])
+                ] = id
+                data_to_send[idx]["id"] = id
+
+    def get_name_path_type_key(self, artifact):
+        return artifact["name"], artifact["path"], artifact["type"]
 
     def list(self, name):
         """Get a list object configured for this logger"""

@@ -11,7 +11,7 @@ from setta.database.db.artifacts.load import (
     load_available_artifacts,
 )
 from setta.database.db.artifacts.save_or_create import (
-    get_artifact_ids,
+    fill_in_missing_artifact_ids,
     save_or_create_artifacts,
 )
 from setta.utils.constants import C
@@ -46,7 +46,7 @@ class ReadCSVBase64Request(BaseModel):
     base64Str: str
 
 
-class GetArtifactIdsFromNamePathType(BaseModel):
+class FillInMissingArtifactIdsRequest(BaseModel):
     namesPathsTypes: list
 
 
@@ -57,13 +57,9 @@ async def route_send_artifact(
     websocket_msg_handler=Depends(get_wmh_artifact),
 ):
     with dbq as db:
-        artifact_ids = save_or_create_artifacts(db, x.data)
-
-    for idx, d in enumerate(x.data):
-        d["id"] = artifact_ids[idx]
+        save_or_create_artifacts(db, x.data)
 
     await websocket_msg_handler.broadcast_artifact(x.data)
-    return artifact_ids
 
 
 @router.post(C.ROUTE_LOAD_ARTIFACTS)
@@ -95,9 +91,9 @@ def route_read_csv_base64(x: ReadCSVBase64Request):
     return load_from_csv_base64(x.base64Str)
 
 
-@router.post(C.ROUTE_GET_ARTIFACT_IDS_FROM_NAME_PATH_TYPE)
+@router.post(C.ROUTE_FILL_IN_MISSING_ARTIFACT_IDS)
 def route_get_artifact_ids_from_name_path_type(
-    x: GetArtifactIdsFromNamePathType, dbq=Depends(get_dbq)
+    x: FillInMissingArtifactIdsRequest, dbq=Depends(get_dbq)
 ):
     with dbq as db:
-        return get_artifact_ids(db, x.namesPathsTypes)
+        return fill_in_missing_artifact_ids(db, x.namesPathsTypes)

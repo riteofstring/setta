@@ -236,7 +236,10 @@ export function drawOneLayer(
         transformInfo.eraserStrokes,
         transformInfo.transform,
       );
-    } else if (artifact.type === C.ARTIFACT_TYPE_BRUSH_STROKES && artifact.value.length > 0) {
+    } else if (
+      artifact.type === C.ARTIFACT_TYPE_BRUSH_STROKES &&
+      artifact.value.length > 0
+    ) {
       const strokes = realTimeValues?.[id] ?? artifact.value;
       const artifactTransformInfo = realTimeTransforms?.[idx] ?? t;
       drawStrokesOntoTempCanvas(
