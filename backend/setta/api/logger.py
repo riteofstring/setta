@@ -96,6 +96,22 @@ class SettaLogger:
     def get_name_path_type_key(self, data_to_send):
         return data_to_send["name"], data_to_send["path"], data_to_send["type"]
 
+    def log_list(self, name, **columns):
+        wrapper = SettaList(columns)
+        return self.log({name: wrapper})
+
+    def log_image(self, name, image_data, format="png"):
+        wrapper = SettaImg(image_data, format)
+        return self.log({name: wrapper})
+
+    def send_list(self, name, **columns):
+        wrapper = SettaList(columns)
+        return self.send({name: wrapper})
+
+    def send_image(self, name, image_data, format="png"):
+        wrapper = SettaImg(image_data, format)
+        return self.send({name: wrapper})
+
 
 class SettaDataWrapper(ABC):
     @abstractmethod
