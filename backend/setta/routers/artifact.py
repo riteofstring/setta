@@ -23,7 +23,6 @@ router = APIRouter()
 
 class SendArtifactRequest(BaseModel):
     data: List[dict]
-    saveTo: str
 
 
 class LoadArtifactsRequest(BaseModel):
@@ -58,7 +57,7 @@ async def route_send_artifact(
     websocket_msg_handler=Depends(get_wmh_artifact),
 ):
     with dbq as db:
-        artifact_ids = save_or_create_artifacts(db, x.data, x.saveTo)
+        artifact_ids = save_or_create_artifacts(db, x.data)
 
     for idx, d in enumerate(x.data):
         d["id"] = artifact_ids[idx]

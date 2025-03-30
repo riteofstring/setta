@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import time
+import traceback
 import uuid
 from collections import defaultdict
 
@@ -349,6 +350,7 @@ class SettaListener:
             # Execute the function
             await asyncio.get_event_loop().run_in_executor(None, fn, fn._setta_data)
         except Exception as e:
+            print(f"Exception details:\n{traceback.format_exc()}")
             print(f"Error running function {fn.__name__}: {e}")
         finally:
             fn._setta_is_running = False

@@ -36,12 +36,12 @@ class SettaLogger:
         if res.status_code == 200:
             artifact_ids = res.json()
             for idx, id in enumerate(artifact_ids):
-                sent_data = data["data"][idx]
+                sent_data = data[idx]
                 self.name_path_type_to_id[self.get_name_path_type_key(sent_data)] = id
 
     async def send_async(self, obj, messageType=None):
         if messageType is None:
-            messageType == C.WS_ARTIFACT
+            messageType = C.WS_ARTIFACT
         if messageType == C.WS_ARTIFACT:
             obj = self.prepare_data(obj)
         if not self.websocket:
@@ -88,7 +88,7 @@ class SettaLogger:
             curr_data["id"] = self.maybe_get_artifact_id(curr_data)
             data_to_send.append(curr_data)
 
-        return {"data": data_to_send, "saveTo": save_to}
+        return data_to_send
 
     def maybe_get_artifact_id(self, data_to_send):
         return self.name_path_type_to_id.get(self.get_name_path_type_key(data_to_send))

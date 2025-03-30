@@ -139,6 +139,10 @@ class WMHPythonScript(BaseWebsocketMsgHandler):
         elif msg_type == C.WS_SCRIPT_DEPENDENCIES:
             self.script_metadata.add(websocket_id, content)
             await self.broadcast_all_dependencies()
+        elif msg_type == C.WS_ARTIFACT:
+            await self.websocket_manager.broadcast(
+                message=message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
+            )
 
     async def on_disconnect(self, websocket_id):
         self.script_metadata.delete(websocket_id)
@@ -157,7 +161,8 @@ class WMHPythonLogger(BaseWebsocketMsgHandler):
         self.websocket_manager = websocket_manager
 
     async def process_message(self, message, *_):
-        print("WMHPythonLogger process_message", message, flush=True)
-        # await self.websocket_manager.broadcast(
-        #     message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
-        # )
+        msg_type = message["messageType"]
+        if msg_type == C.WS_ARTIFACT:
+            await self.websocket_manager.broadcast(
+                message=message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
+            )
