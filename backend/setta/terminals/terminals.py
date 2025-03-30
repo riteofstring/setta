@@ -235,9 +235,13 @@ class TerminalWebsockets:
         self.set_terminal_start_time(terminal_id)
 
     def kill_processes(self, ids):
+        num_killed = 0
         for id in ids:
-            pty_process = self.PTY_PIDS[id]["process"]
-            pty_process.sendintr()
+            info = self.PTY_PIDS[id]
+            if is_command_running_in_pty(info["pid"]):
+                info["process"].sendintr()
+                num_killed += 1
+        return num_killed
 
     async def send_output_to_sectionId(self, sectionId, output, setSentReadyMsg=False):
         for wsId in self.section_to_socket_ids[sectionId]:

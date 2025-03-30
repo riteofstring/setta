@@ -17,6 +17,7 @@ class WebsocketMsgHandlers:
         self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
         self.artifact = WMHArtifact(websocket_manager)
         self.database = WMHDatabase(websocket_manager)
+        self.terminals = WMHTerminals(websocket_manager)
         self.frontend = WMHFrontend(
             websocket_manager,
             lsp_writers,
@@ -86,6 +87,19 @@ class WMHArtifact(BaseWebsocketMsgHandler):
 
 
 class WMHDatabase(BaseWebsocketMsgHandler):
+    def __init__(self, websocket_manager):
+        self.websocket_manager = websocket_manager
+
+    async def broadcast_notification(self, content, projectConfigId):
+        content["projectConfigId"] = projectConfigId
+        await self.websocket_manager.broadcast(
+            content,
+            C.WS_NOTIFICATION,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )
+
+
+class WMHTerminals(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 

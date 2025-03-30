@@ -2,12 +2,13 @@ import asyncio
 import logging
 from typing import List
 
-from fastapi import APIRouter, Depends, WebSocket
+from fastapi import APIRouter, BackgroundTasks, Depends, WebSocket
 from pydantic import BaseModel
 
+from setta.database.db.notifications.load import create_notification_dict
 from setta.utils.constants import C
 
-from .dependencies import get_terminals, get_terminals_from_websocket
+from .dependencies import get_terminals, get_terminals_from_websocket, get_wmh_terminals
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +66,22 @@ def route_terminal_get_existing_terminals(
 
 @router.post(C.ROUTE_KILL_SUBPROCESSES)
 def route_kill_subprocesses(
-    x: KillSubprocessesRequest, terminals=Depends(get_terminals)
+    x: KillSubprocessesRequest,
+    background_tasks: BackgroundTasks,
+    terminals=Depends(get_terminals),
+    websocket_msg_handler=Depends(get_wmh_terminals),
 ):
     existing = terminals.get_existing_terminals(x.projectConfigId)
     ids = [x["id"] for x in existing]
-    terminals.kill_processes(ids)
+    num_killed = terminals.kill_processes(ids)
+    msg = (
+        f"Killed {num_killed} processes"
+        if num_killed > 0
+        else "No subprocesses to kill"
+    )
+    notification = create_notification_dict(message=msg, temporary=True)
+    background_tasks.add_task(
+        websocket_msg_handler.broadcast_notification,
+        notification,
+        x.projectConfigId,
+    )
