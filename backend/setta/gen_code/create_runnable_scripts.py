@@ -2,6 +2,7 @@ import copy
 from datetime import datetime
 from pathlib import Path
 
+from setta.database.utils import create_new_id
 from setta.gen_code.export_selected import (
     export_selected,
     get_gen_code_template_var,
@@ -26,11 +27,18 @@ from setta.utils.utils import prune_dict
 
 async def runCode(p, lsp_writers, code_state, terminals):
     command = await generateRunCodeCommand(p, lsp_writers, code_state)
-    print("command", command, flush=True)
-    # get free terminal
-    free_terminal_id = terminals.get_free_terminal(p["projectConfig"]["id"])
-    if free_terminal_id:
-        terminals.run_command_in_terminal(free_terminal_id, command)
+    projectConfigId = p["projectConfig"]["id"]
+    terminal_id = terminals.get_free_terminal(projectConfigId)
+
+    new_terminal_created = False
+    if not terminal_id:
+        terminal_id = create_new_id()
+        terminals.new_terminal(projectConfigId, terminal_id, True)
+        new_terminal_created = True
+
+    await terminals.run_command_in_terminal(terminal_id, command)
+
+    return terminal_id, new_terminal_created
 
 
 async def generateRunCodeCommand(p, lsp_writers, code_state):

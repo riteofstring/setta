@@ -76,19 +76,6 @@ export async function sendRunCodeMessage(project, messageIdx = 0) {
     content: project,
     messageType: C.WS_RUN_CODE,
   });
-  // if (res.status === 200) {
-  //   const freeTerminalSectionId = res.data;
-  //   message = JSON.stringify(message);
-  //   if (freeTerminalSectionId) {
-  //     sendTerminalMessage(freeTerminalSectionId, message);
-  //   } else {
-  //     const id = createNewId();
-  //     useSectionInfos.setState((state) => {
-  //       const groupId = maybeCreateTemporaryTerminalGroup(state);
-  //       createTemporaryTerminal(id, groupId, state);
-  //     });
-  //   }
-  // }
 }
 
 export function* getProjectRuns(project) {

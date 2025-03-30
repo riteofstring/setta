@@ -7,10 +7,6 @@ import websockets
 from ..utils.constants import C
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=getattr(logging, "DEBUG"),
-    format="%(levelname)s - %(asctime)s - %(name)s - %(message)s",
-)
 
 
 async def connect(websocket_id):

@@ -227,9 +227,10 @@ class TerminalWebsockets:
                 output.append({"id": k, "isTemporary": v["isTemporary"]})
         return output
 
-    def run_command_in_terminal(self, terminal_id, command):
-        pty_process = self.PTY_PIDS[terminal_id]["process"]
-        pty_process.write(f"\x15{command}\n")
+    async def run_command_in_terminal(self, terminal_id, command):
+        info = self.PTY_PIDS[terminal_id]
+        await info["terminalPromptIsReady"].wait()
+        info["process"].write(f"\x15{command}\n")
         self.set_terminal_start_time(terminal_id)
 
     def kill_processes(self, ids):

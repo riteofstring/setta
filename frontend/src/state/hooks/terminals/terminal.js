@@ -210,3 +210,10 @@ function getTemporaryTerminalsGroupName() {
 
   return name;
 }
+
+export function createTemporaryTerminalFromBackend(terminalId) {
+  useSectionInfos.setState((state) => {
+    const groupId = maybeCreateTemporaryTerminalGroup(state);
+    createTemporaryTerminal(terminalId, groupId, state);
+  });
+}

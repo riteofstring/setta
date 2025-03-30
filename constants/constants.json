@@ -102,6 +102,7 @@
   "WS_ALL_CONNECTIONS": "allConnections",
   "WS_LSP_DIAGNOSTICS": "lspDiagnostics",
   "WS_RUN_CODE": "runCode",
+  "WS_CREATE_TEMPORARY_TERMINAL_SECTION": "createTemporaryTerminalSection",
   "WS_ARTIFACT": "artifact",
   "WS_TERMINAL_RESIZE": "terminalResize",
   "WS_SCRIPT_READY": "scriptReady",
