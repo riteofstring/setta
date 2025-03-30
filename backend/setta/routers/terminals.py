@@ -98,6 +98,3 @@ def route_kill_subprocesses(
     existing = terminal_websockets.get_existing_terminals(x.projectConfigId)
     ids = [x["id"] for x in existing]
     terminal_websockets.kill_processes(ids)
-
-
-
