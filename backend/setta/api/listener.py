@@ -134,17 +134,37 @@ class SettaListener:
     # Add this new helper method
     async def _run_functions_with_new_data(self, new_data):
         for fn in self.fns:
+            self.update_stored_data(new_data, fn)
+        for fn in self.fns:
+            if fn._setta_is_running:
+                continue
             if fn.__name__ in self.dependencies_to_fns.get(None, set()):
-                await run_function(fn)
+                await self.run_function(fn)
             else:
                 key, _ = new_data
                 if fn.__name__ in self.dependencies_to_fns.get(tuple(key), set()):
-                    await run_function(fn)
+                    await self.run_function(fn)
 
     async def _run_functions_on_init(self):
         for fn in self.fns:
+            if fn._setta_is_running:
+                continue
             if fn._setta_run_on_init:
-                await run_function(fn)
+                await self.run_function(fn)
+
+    async def run_function(self, fn):
+        try:
+            # Run the function in an executor to avoid blocking the event loop
+            # This handles CPU-bound functions without blocking the websocket
+            fn._setta_is_running = True
+            await asyncio.get_event_loop().run_in_executor(None, fn, fn._setta_data)
+        except Exception as e:
+            print(f"Error running function {fn.__name__}: {e}")
+        finally:
+            fn._setta_is_running = False
+            for key, value in fn._setta_data_to_be_updated.items():
+                self.update_stored_data((key, value), fn)
+            fn._setta_data_to_be_updated = {}
 
     def get_mapped_dependencies_to_fns(self):
         output = defaultdict(set)
@@ -158,13 +178,16 @@ class SettaListener:
         return output
 
     # new_data is a list of tuples, where each tuple is [key, value]
-    def update_exporter_obj(self, new_data):
+    def update_stored_data(self, new_data, fn):
         key, value = new_data
-        nice_str = self.exporter_obj.var_name_mapping.get(tuple(key))
-        if not nice_str:
-            return
-        p_dict, p_dict_key = nested_access(self.exporter_obj.output, nice_str)
-        p_dict[p_dict_key] = value
+        if fn._setta_is_running:
+            fn._setta_data_to_be_updated[tuple(key)] = value
+        else:
+            nice_str = self.exporter_obj.var_name_mapping.get(tuple(key))
+            if not nice_str:
+                return
+            p_dict, p_dict_key = nested_access(fn._setta_data, nice_str)
+            p_dict[p_dict_key] = value
 
 
 def get_interactive_functions(caller_frame):
@@ -179,17 +202,3 @@ def get_interactive_functions(caller_frame):
             fns.append(obj)
 
     return fns
-
-
-async def run_function(fn):
-    if fn._setta_is_running:
-        return
-    try:
-        # Run the function in an executor to avoid blocking the event loop
-        # This handles CPU-bound functions without blocking the websocket
-        fn._setta_is_running = True
-        await asyncio.get_event_loop().run_in_executor(None, fn, fn._setta_data)
-    except Exception as e:
-        print(f"Error running function {fn.__name__}: {e}")
-    finally:
-        fn._setta_is_running = False
