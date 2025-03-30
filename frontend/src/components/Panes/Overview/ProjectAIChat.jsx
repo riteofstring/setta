@@ -207,7 +207,7 @@ export function ProjectAIChat() {
 
   return (
     <div className="flex h-full min-h-0 flex-col @container">
-      <nav className="flex min-h-[60px] flex-col gap-2 border-b border-setta-100 py-4 @[15rem]:flex-row @[15rem]:items-center  dark:border-setta-800">
+      <nav className="flex min-h-16 flex-col gap-2 border-b border-setta-100 py-4 @[15rem]:flex-row @[15rem]:items-center  dark:border-setta-800">
         <div className="flex gap-2">
           <button
             className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950"
@@ -248,7 +248,11 @@ export function ProjectAIChat() {
         )}
       </nav>
       {viewHistory ? (
-        <ProjectChatHistory chatSessions={chatSessions} sessionId={sessionId} />
+        <ProjectChatHistory
+          chatSessions={chatSessions}
+          sessionId={sessionId}
+          switchToChat={switchToChat}
+        />
       ) : (
         <ProjectChatCore
           messages={messages}

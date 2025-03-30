@@ -36,7 +36,7 @@ export function ProjectChatCore({
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col-reverse overflow-y-auto">
+      <div className="flex h-full min-h-0 flex-col-reverse overflow-y-auto pr-2">
         <div>
           {messages.map((message, idx) => (
             <div
@@ -65,8 +65,8 @@ export function ProjectChatCore({
       </div>
 
       {/* Message input */}
-      <form onSubmit={onSubmit} className="min-h-[58px] pb-2 pt-2">
-        <div className="flex space-x-2">
+      <form onSubmit={onSubmit} className="">
+        <div className="flex gap-2">
           <textarea
             type="text"
             value={currMessage}
@@ -76,12 +76,12 @@ export function ProjectChatCore({
               isLoading ? "Waiting for response..." : placeholderText
             }
             disabled={isLoading}
-            className="nodrag max-h-48 flex-1 resize-none overflow-y-auto rounded-lg border border-setta-100 bg-transparent px-4 py-2 text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700"
+            className="nodrag prose prose-sm my-2 max-h-48 flex-1 resize-none overflow-y-auto rounded-lg border border-setta-200 bg-transparent px-4 py-2 text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700"
           />
           <button
             type="submit"
             disabled={isLoading}
-            className={`mb-3 cursor-pointer self-end px-2 py-0.5 ${
+            className={`mb-5 cursor-pointer self-end px-2 py-0.5 ${
               isLoading
                 ? "text-setta-300 dark:text-setta-600"
                 : "text-setta-500 hover:text-blue-500 focus:text-blue-500"
