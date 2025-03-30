@@ -257,6 +257,18 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
+    async def send_cancel(
+        self,
+        id,
+    ):
+        params = {
+            "id": id
+        }
+        await self.send_request(
+            "$/cancelRequest",
+            params=params,
+        )
+
     async def send_did_change_watched_files(self, changes):
         params = {"changes": changes}
         await self.send_request("workspace/didChangeWatchedFiles", params=params)
