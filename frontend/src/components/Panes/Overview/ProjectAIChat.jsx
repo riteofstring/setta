@@ -57,25 +57,50 @@ export function ProjectAIChat() {
     setMessages(updatedMessages);
 
     try {
-      // Pass session ID to API call
-      const response = await dbGetLLMResponse(
+      // Get the Axios response object
+      const axiosResponse = await dbGetLLMResponse(
         userSelectedLLM || "claude-3-sonnet-20240229",
         userMessage,
         sessionId,
       );
 
+      // Check if it's an error response
+      if (axiosResponse.isAxiosError) {
+        throw new Error("Failed to get LLM response");
+      }
+
+      // Extract the actual data from the Axios response
+      const responseData = axiosResponse.data;
+
       // Store the session ID from the first response
-      if (response.session_id && !sessionId) {
-        setSessionId(response.session_id);
+      if (responseData.session_id && !sessionId) {
+        setSessionId(responseData.session_id);
       }
 
       // Add AI response to messages
-      if (response && response.content) {
-        const aiMsg = { role: "assistant", content: response.content };
+      if (responseData && responseData.content) {
+        const aiMsg = { role: "assistant", content: responseData.content };
         setMessages([...updatedMessages, aiMsg]);
+      } else {
+        // Handle missing content
+        setMessages([
+          ...updatedMessages,
+          {
+            role: "assistant",
+            content: "Sorry, I couldn't process your request properly.",
+          },
+        ]);
       }
     } catch (error) {
       console.error("Error getting LLM response:", error);
+      // Add an error message to the chat
+      setMessages([
+        ...updatedMessages,
+        {
+          role: "assistant",
+          content: "Sorry, I encountered an error. Please try again.",
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
