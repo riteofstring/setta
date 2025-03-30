@@ -86,6 +86,9 @@ class TerminalWebsockets:
                 pty_process.write(
                     f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
                 )
+            asyncio.get_running_loop().create_task(
+                self.start_reading_from_terminal(sectionId)
+            )
             return True
         return False
 
@@ -247,3 +250,10 @@ class TerminalWebsockets:
                     self.sockets[wsId]["sentReadyMsg"] = True
             except:
                 continue
+
+    async def start_reading_from_terminal(self, terminalId):
+        read_task = asyncio.get_running_loop().create_task(
+            self.read_from_terminal(terminalId)
+        )
+        await read_task
+        await self.delete_terminal(terminalId)

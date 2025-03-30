@@ -40,19 +40,7 @@ async def terminal_websocket_endpoint(
     code_state=Depends(get_code_state_from_websocket),
 ):
     # First check if terminal exists
-    isNew = terminals.new_terminal(projectConfigId, sectionId, isTemporary)
-
-    # Start the background task for terminal handling
-    async def handle_terminal():
-        read_task = asyncio.get_running_loop().create_task(
-            terminals.read_from_terminal(sectionId)
-        )
-        await read_task
-        await terminals.delete_terminal(sectionId)
-
-    # Create the background task
-    if isNew:
-        asyncio.get_running_loop().create_task(handle_terminal())
+    terminals.new_terminal(projectConfigId, sectionId, isTemporary)
 
     try:
         await terminals.connect(websocket, sectionId, id)
