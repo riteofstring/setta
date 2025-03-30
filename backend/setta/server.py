@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.lsp_writers = create_lsp_writers(app.state.lsps)
     app.state.file_watcher = create_file_watcher(app.state.lsps, app.state.lsp_writers)
-    app.state.terminal_websockets = TerminalWebsockets()
+    app.state.terminals = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager()
     app.state.code_state = CodeState()
     app.state.code_tasks = CodeTasks(app.state.code_state, app.state.lsp_writers)
@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
         app.state.code_state,
         app.state.code_tasks,
         app.state.script_metadata,
-        app.state.terminal_websockets,
+        app.state.terminals,
     )
     app.state.specific_file_watcher = create_specific_file_watcher(
         app.state.websocket_msg_handlers.specific_file_watcher

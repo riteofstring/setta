@@ -9,12 +9,12 @@ def get_settings_file(request: Request):
     return request.app.state.settings_file
 
 
-def get_terminal_websockets(request: Request):
-    return request.app.state.terminal_websockets
+def get_terminals(request: Request):
+    return request.app.state.terminals
 
 
-def get_terminal_websockets_from_websocket(websocket: WebSocket):
-    return websocket.app.state.terminal_websockets
+def get_terminals_from_websocket(websocket: WebSocket):
+    return websocket.app.state.terminals
 
 
 def get_websocket_manager_from_websocket(websocket: WebSocket):
