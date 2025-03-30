@@ -66,7 +66,10 @@ function ProjectAIChatContainer({ messages }) {
     if (e) {
       e.preventDefault();
     }
-    const res = await dbGetLLMResponse(messages);
+    const res = await dbGetLLMResponse(
+      "anthropic/claude-3-sonnet-20240229",
+      messages,
+    );
     console.log("res", res);
     // Handle submission logic here
   };

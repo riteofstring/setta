@@ -99,6 +99,7 @@
   "ROUTE_FILE_WATCH_LIST": "/fileWatchList",
   "ROUTE_GET_NOTIFICATIONS": "/getNotifications",
   "ROUTE_DELETE_NOTIFICATION": "/deleteNotification",
+  "ROUTE_GET_LLM_RESPONSE": "/getLLMResponse",
   "NESTED_PARAM": "NESTED_PARAM",
   "ARGS_PREFIX": "__",
   "TEMPLATE_PREFIX": "$",
