@@ -159,7 +159,7 @@ def get_interactive_functions(caller_frame):
 
     # Find all exposed functions in that module
     interactive_functions = []
-    for name, obj in inspect.getmembers(caller_module):
+    for _, obj in inspect.getmembers(caller_module):
         if inspect.isfunction(obj) and getattr(obj, "_setta_interactive", False):
             # Include function dependencies in the metadata
             interactive_functions.append(obj)
@@ -180,12 +180,17 @@ def get_mapped_dependencies_to_fns(fns, exporter_obj):
 
 
 async def run_function(fn, p):
+    if fn._setta_is_running:
+        return
     try:
         # Run the function in an executor to avoid blocking the event loop
         # This handles CPU-bound functions without blocking the websocket
+        fn._setta_is_running = True
         await asyncio.get_event_loop().run_in_executor(None, fn, p)
     except Exception as e:
         print(f"Error running function {fn.__name__}: {e}")
+    finally:
+        fn._setta_is_running = False
 
 
 # new_data is a list of tuples, where each tuple is [key, value]
