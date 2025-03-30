@@ -104,35 +104,43 @@ export function ProjectAIChat() {
     setMessages(updatedMessages);
 
     try {
-      // Get the Axios response object
-      const axiosResponse = await dbGetLLMResponse(
-        userSelectedLLM || "claude-3-sonnet-20240229",
+      // Get the response from the API
+      const response = await dbGetLLMResponse(
+        userSelectedLLM || "claude-3-opus-20240229",
         userMessage,
         sessionId,
       );
 
-      // Check if it's an error response
-      if (axiosResponse.isAxiosError) {
-        throw new Error("Failed to get LLM response");
+      console.log("API response:", response); // Debug log
+
+      // Store the session ID from the response
+      if (response.data && response.data.session_id && !sessionId) {
+        setSessionId(response.data.session_id);
       }
 
-      // Extract the actual data from the Axios response
-      const responseData = axiosResponse.data;
-
-      // Store the session ID from the first response
-      if (responseData.session_id && !sessionId) {
-        setSessionId(responseData.session_id);
+      // Check for errors in the response
+      if (response.data && response.data.error) {
+        console.error("Error in API response:", response.data.error);
+        const errorMsg = {
+          role: "assistant",
+          content: `Sorry, I encountered an error: ${response.data.error}. Please make sure you've added your API key in settings.`,
+        };
+        const newMessages = [...updatedMessages, errorMsg];
+        setMessages(newMessages);
+        updateChatSession(sessionId || response.data.session_id, newMessages);
+        return;
       }
 
-      // Add AI response to messages
-      if (responseData && responseData.content) {
-        const aiMsg = { role: "assistant", content: responseData.content };
+      // Add AI response to messages - Notice we access response.data.content
+      if (response.data && response.data.content) {
+        const aiMsg = { role: "assistant", content: response.data.content };
         const newMessages = [...updatedMessages, aiMsg];
         setMessages(newMessages);
 
         // Update this session in the chat sessions list
-        updateChatSession(sessionId, newMessages);
+        updateChatSession(sessionId || response.data.session_id, newMessages);
       } else {
+        console.error("Unexpected response structure:", response);
         // Handle missing content
         const errorMsg = {
           role: "assistant",
@@ -140,14 +148,17 @@ export function ProjectAIChat() {
         };
         const newMessages = [...updatedMessages, errorMsg];
         setMessages(newMessages);
-        updateChatSession(sessionId, newMessages);
+        updateChatSession(
+          sessionId || (response.data && response.data.session_id),
+          newMessages,
+        );
       }
     } catch (error) {
       console.error("Error getting LLM response:", error);
       // Add an error message to the chat
       const errorMsg = {
         role: "assistant",
-        content: "Sorry, I encountered an error. Please try again.",
+        content: `Sorry, there was a problem connecting to the API: ${error.message || "Unknown error"}. Please check your network connection and API keys.`,
       };
       const newMessages = [...updatedMessages, errorMsg];
       setMessages(newMessages);

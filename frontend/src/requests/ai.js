@@ -19,3 +19,20 @@ export async function dbGetLLMResponse(model, message, sessionId = null) {
     throw error; // Re-throw to be handled by the caller
   }
 }
+
+export async function dbSetApiKeys(apiKeys) {
+  try {
+    const response = await post({
+      body: {
+        apiKeys,
+      },
+      address: C.ROUTE_SET_API_KEYS,
+    });
+
+    console.log("Response received from API Keys update:", response);
+    return response;
+  } catch (error) {
+    console.error("Error in dbSetApiKeys:", error);
+    throw error;
+  }
+}

@@ -100,6 +100,7 @@
   "ROUTE_GET_NOTIFICATIONS": "/getNotifications",
   "ROUTE_DELETE_NOTIFICATION": "/deleteNotification",
   "ROUTE_GET_LLM_RESPONSE": "/getLLMResponse",
+  "ROUTE_SET_API_KEYS": "/setApiKeys",
   "NESTED_PARAM": "NESTED_PARAM",
   "ARGS_PREFIX": "__",
   "TEMPLATE_PREFIX": "$",
