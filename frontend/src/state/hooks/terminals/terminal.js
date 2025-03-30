@@ -61,15 +61,8 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
       }
     });
 
-    function onInitialMessage(message) {
-      if (message.data === C.SETTA_TERMINAL_READY) {
-        const attachAddon = new AttachAddon(ws);
-        terminal.loadAddon(attachAddon);
-        ws.removeEventListener("message", onInitialMessage);
-      }
-    }
-
-    ws.addEventListener("message", onInitialMessage);
+    const attachAddon = new AttachAddon(ws);
+    terminal.loadAddon(attachAddon);
 
     const unsub = scrollSensitivityUpdater(terminal, setHasScrollbar);
 
