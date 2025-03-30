@@ -68,7 +68,6 @@ class WMHFrontend:
         if wid and wid != self.websocket_manager.main_id:
             self.websocket_manager.send_message(message, wid)
         elif message.get("messageType") == C.WS_CALL_INTERACTIVE_FNS:
-            print("WMHFrontend process_message", message, flush=True)
             wids = self.script_metadata.get_websocket_ids_listening_to_data(
                 message["content"]
             )
