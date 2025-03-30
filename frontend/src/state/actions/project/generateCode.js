@@ -76,7 +76,6 @@ export async function sendRunCodeMessage(project, messageIdx = 0) {
     content: project,
     messageType: C.WS_RUN_CODE,
   });
-  // const res = await dbGetFreeTerminal(project.projectConfig.id);
   // if (res.status === 200) {
   //   const freeTerminalSectionId = res.data;
   //   message = JSON.stringify(message);

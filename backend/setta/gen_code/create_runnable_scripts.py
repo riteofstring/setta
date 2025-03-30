@@ -28,9 +28,9 @@ async def runCode(p, lsp_writers, code_state, terminals):
     command = await generateRunCodeCommand(p, lsp_writers, code_state)
     print("command", command, flush=True)
     # get free terminal
-
-    # pty_process.write(f"\x15{command}\n")
-    # self.set_terminal_start_time(sectionId)
+    free_terminal_id = terminals.get_free_terminal(p["projectConfig"]["id"])
+    if free_terminal_id:
+        terminals.run_command_in_terminal(free_terminal_id, command)
 
 
 async def generateRunCodeCommand(p, lsp_writers, code_state):

@@ -70,13 +70,6 @@ async def terminal_websocket_endpoint(
         terminal_websockets.disconnect(sectionId, id)
 
 
-@router.post(C.ROUTE_GET_FREE_TERMINAL)
-def route_terminal_get_free_terminal(
-    projectConfigId, terminal_websockets=Depends(get_terminal_websockets)
-):
-    return terminal_websockets.get_free_terminal(projectConfigId)
-
-
 @router.post(C.ROUTE_DELETE_TERMINALS)
 async def route_terminal_delete_terminals(
     x: DeleteTerminalsRequest, terminal_websockets=Depends(get_terminal_websockets)

@@ -63,7 +63,6 @@
   "ROUTE_WEBSOCKET_CLI_WITH_ID": "/cli/{id}",
   "ROUTE_WEBSOCKET_PYTHON_SCRIPT": "/pythonScript/{id}",
   "ROUTE_WEBSOCKET_PYTHON_LOGGER": "/pythonLogger",
-  "ROUTE_GET_FREE_TERMINAL": "/terminal/getFreeTerminal/{projectConfigId}",
   "ROUTE_GET_EXISTING_TERMINALS": "/terminal/getExistingTerminals/{projectConfigId}",
   "ROUTE_SAVE_CODE_INFO": "/codeInfo/save",
   "ROUTE_COPY_SECTIONS": "/copySections",
