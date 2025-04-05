@@ -189,7 +189,6 @@ export const useTypeErrors = withProjectState(
 
 export const useWebsocketConnectionList = create(
   withResetFn(() => ({
-    connectedTo: null,
     connections: [],
   })),
 );

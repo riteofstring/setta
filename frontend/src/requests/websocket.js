@@ -11,12 +11,16 @@ import {
 } from "state/actions/notifications";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeErrors";
-import { updateConnectedTo } from "state/actions/websocketConnectionList";
-import { useWebsocketConnectionList } from "state/definitions";
+import {
+  addWebsocketConnection,
+  clearAllWebsocketConnections,
+  setWebsocketConnections,
+} from "state/actions/websocketConnectionList";
 import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
 import { URLS } from "utils/constants";
 
 let wss;
+let wasOpen = false;
 
 export const openWebSocket = _.debounce(
   (pathname) => {
@@ -24,7 +28,12 @@ export const openWebSocket = _.debounce(
       wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_FRONTEND}`);
       wss.addEventListener("open", () => {
         sendLocation(pathname);
-        addTemporaryNotification("Websocket connected");
+        addTemporaryNotification("Connected to server");
+        addWebsocketConnection({
+          websocketId: "main",
+          connectionType: C.WEBSOCKET_CONNECTION_TYPE_SERVER,
+        });
+        wasOpen = true;
       });
 
       wss.addEventListener("message", (event) => {
@@ -35,6 +44,11 @@ export const openWebSocket = _.debounce(
 
       wss.addEventListener("close", () => {
         wss = null;
+        if (wasOpen) {
+          addTemporaryNotification("Server connection lost");
+          wasOpen = false;
+        }
+        clearAllWebsocketConnections();
         // Attempt to reconnect
         setTimeout(() => {
           openWebSocket(pathname);
@@ -60,7 +74,7 @@ function wssReady() {
 function receiveMessage(message) {
   const m = JSON.parse(message);
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
-    updateConnectedTo(m.content);
+    setWebsocketConnections(m.content);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     processTypeErrors(m.content);
   } else if (m.messageType === C.WS_NOTIFICATION) {
@@ -85,13 +99,12 @@ export function sendLocation(pathname) {
 }
 
 export async function sendMessage({ content, id, messageType }) {
-  const connectedTo = useWebsocketConnectionList.getState().connectedTo;
-  if (wssReady() && connectedTo) {
+  if (wssReady()) {
     wss.send(
       JSON.stringify({
         id,
         content,
-        toWebsocketId: connectedTo,
+        toWebsocketId: "main",
         messageType,
       }),
     );

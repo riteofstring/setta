@@ -3,48 +3,47 @@ import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown"
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import C from "constants/constants.json";
 import _ from "lodash";
-import {
-  canReceiveCommands,
-  setWebsocketConnectedTo,
-} from "state/actions/websocketConnectionList";
+import { FaPlug } from "react-icons/fa6";
 import { useWebsocketConnectionList } from "state/definitions";
 
 export function WebsocketConnections() {
+  const connections = useWebsocketConnectionList((x) => {
+    return sortByConnectionType(x.connections);
+  }, _.isEqual);
+
+  const noServerConnections =
+    connections.filter(
+      (x) => x.connectionType === C.WEBSOCKET_CONNECTION_TYPE_SERVER,
+    ).length === 0;
+
+  const triggerClassName = `nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-md py-1 px-2 text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 ${noServerConnections ? "bg-red-800 dark:hover:bg-red-800" : "dark:hover:bg-setta-800"}`;
+
   return (
-    <NavbarMenuDropdown trigger="CLI">
-      <ConnectionList />
+    <NavbarMenuDropdown
+      trigger={<FaPlug />}
+      triggerClassName={triggerClassName}
+    >
+      <ConnectionList connections={connections} />
     </NavbarMenuDropdown>
   );
 }
 
-function ConnectionList() {
-  const { connectedTo, connections } = useWebsocketConnectionList((x) => {
-    return {
-      connectedTo: x.connectedTo,
-      connections: sortByConnectionType(x.connections),
-    };
-  }, _.isEqual);
-
+function ConnectionList({ connections }) {
   return connections.length > 0 ? (
-    connections.map((x) => (
-      <ConnectionItem info={x} key={x.websocketId} connectedTo={connectedTo} />
-    ))
+    connections.map((x) => <ConnectionItem info={x} key={x.websocketId} />)
   ) : (
-    <MenuItem>No CLI connections</MenuItem>
+    <MenuItem>No connections</MenuItem>
   );
 }
 
-function ConnectionItem({ info, connectedTo }) {
+function ConnectionItem({ info }) {
   const twClasses =
-    connectedTo === info.websocketId
+    info.connectionType === C.WEBSOCKET_CONNECTION_TYPE_SERVER
       ? "bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100"
       : "bg-grey-100 dark:bg-grey-800 text-grey-800 dark:text-grey-100";
 
   return (
-    <MenuItem
-      onClick={() => setWebsocketConnectedTo(info.websocketId)}
-      disabled={!canReceiveCommands(info.connectionType)}
-    >
+    <MenuItem>
       <Badge twClasses={twClasses}>
         {prettifiedConnectionType[info.connectionType]}
       </Badge>
