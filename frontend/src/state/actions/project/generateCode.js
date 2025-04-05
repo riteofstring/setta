@@ -1,7 +1,6 @@
 import { computeInfoToFullName } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import _ from "lodash";
-import { sendMessage } from "requests/websocket";
 import {
   getSectionPathFullName,
   getSectionType,
@@ -11,8 +10,6 @@ import {
   useSectionInfos,
   useTemplateVarRegex,
 } from "state/definitions";
-import { createNewId } from "utils/idNameCreation";
-import { addTemporaryNotification } from "../notifications";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { getProjectData } from "./saveProject";
 
@@ -63,13 +60,4 @@ export async function getProjectDataToGenerateCode({
   }
 
   return project;
-}
-
-export async function sendRunCodeMessage(project) {
-  addTemporaryNotification("Sending Run Request");
-  sendMessage({
-    id: createNewId(),
-    content: project,
-    messageType: C.WS_RUN_CODE,
-  });
 }

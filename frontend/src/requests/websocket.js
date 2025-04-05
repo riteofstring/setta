@@ -16,7 +16,6 @@ import {
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
-import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
 import { URLS } from "utils/constants";
 
 let wss;
@@ -85,8 +84,6 @@ function receiveMessage(message) {
     updateInteractiveDependencies(m.content);
   } else if (m.messageType === C.WS_SPECIFIC_FILE_WATCHER_UPDATE) {
     updateJSONSourceContents(m.content);
-  } else if (m.messageType === C.WS_CREATE_TEMPORARY_TERMINAL_SECTION) {
-    createTemporaryTerminalFromBackend(m.content);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);
   }

@@ -1,5 +1,3 @@
-from setta.database.db.notifications.load import create_notification_dict
-from setta.gen_code.create_runnable_scripts import generateRunCodeCommand, runCode
 from setta.utils.constants import C
 
 
@@ -11,7 +9,6 @@ class WebsocketMsgHandlers:
         code_state,
         code_tasks,
         script_metadata,
-        terminals,
     ):
         self.lsp_reader = WMHLSPReader(websocket_manager)
         self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
@@ -24,7 +21,6 @@ class WebsocketMsgHandlers:
             code_state,
             code_tasks,
             script_metadata,
-            terminals,
         )
         self.cli = WMHCLI(websocket_manager)
         self.python_script = WMHPythonScript(
@@ -103,6 +99,10 @@ class WMHTerminals(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
+    async def send_command(self, command, cliId):
+        message = {"content": command, "messageType": C.WS_RUN_CODE}
+        await self.websocket_manager.send_message(message, cliId)
+
     async def broadcast_notification(self, content, projectConfigId):
         content["projectConfigId"] = projectConfigId
         await self.websocket_manager.broadcast(
@@ -120,14 +120,12 @@ class WMHFrontend(BaseWebsocketMsgHandler):
         code_state,
         code_tasks,
         script_metadata,
-        terminals,
     ):
         self.websocket_manager = websocket_manager
         self.lsp_writers = lsp_writers
         self.code_state = code_state
         self.code_tasks = code_tasks
         self.script_metadata = script_metadata
-        self.terminals = terminals
 
     async def process_message(self, message, fromWebsocketId):
         if message.get("messageType") == C.WS_CALL_INTERACTIVE_FNS:
@@ -137,38 +135,6 @@ class WMHFrontend(BaseWebsocketMsgHandler):
             )
             for wid in wids:
                 await self.websocket_manager.send_message(message, wid)
-        elif message.get("messageType") == C.WS_RUN_CODE:
-            wid = message.get("toWebsocketId")
-            if wid and wid != self.websocket_manager.main_id:
-                message["content"] = await generateRunCodeCommand(
-                    message["content"], self.lsp_writers, self.code_state
-                )
-                await self.websocket_manager.send_message(message, wid)
-            else:
-                terminal_id, new_terminal_created = await runCode(
-                    message["content"],
-                    self.lsp_writers,
-                    self.code_state,
-                    self.terminals,
-                )
-                if new_terminal_created:
-                    content = terminal_id
-                    messageType = C.WS_CREATE_TEMPORARY_TERMINAL_SECTION
-                    await self.websocket_manager.send_message(
-                        {"content": content, "messageType": messageType},
-                        fromWebsocketId,
-                    )
-                notification = create_notification_dict(
-                    message="Started", temporary=True
-                )
-                notification["projectConfigId"] = message["content"]["projectConfig"][
-                    "id"
-                ]
-                await self.websocket_manager.broadcast(
-                    notification,
-                    C.WS_NOTIFICATION,
-                    connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-                )
         else:
             msg_id = message.get("id")
             if not msg_id:

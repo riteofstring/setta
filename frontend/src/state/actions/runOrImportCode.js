@@ -1,15 +1,20 @@
 import C from "constants/constants.json";
+import { dbRunCode } from "requests/terminals";
 import { useActiveSection, useSectionInfos } from "state/definitions";
-import {
-  getProjectDataToGenerateCode,
-  sendRunCodeMessage,
-} from "./project/generateCode";
+import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
+import { getProjectDataToGenerateCode } from "./project/generateCode";
 import { getSectionType } from "./sectionInfos";
 
 export async function runCodeBlocks(sectionIds) {
   const project = await getProjectDataToGenerateCode({});
   project.runCodeBlocks = sectionIds;
-  await sendRunCodeMessage(project);
+  const res = await dbRunCode(project);
+  if (res.status == 200) {
+    const { terminalId, newTerminalCreated } = res.data;
+    if (newTerminalCreated) {
+      createTemporaryTerminalFromBackend(terminalId);
+    }
+  }
 }
 
 export function runEntryCodeBlock() {
