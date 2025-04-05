@@ -105,6 +105,7 @@
   "WS_RUN_CODE": "runCode",
   "WS_ARTIFACT": "artifact",
   "WS_TERMINAL_RESIZE": "terminalResize",
+  "WS_TERMINAL_METADATA": "terminalMetadata",
   "WS_SCRIPT_READY": "scriptReady",
   "WS_SCRIPT_DEPENDENCIES": "scriptDependencies",
   "WS_ALL_DEPENDENCIES": "allDependencies",

@@ -111,6 +111,13 @@ class WMHTerminals(BaseWebsocketMsgHandler):
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
 
+    async def broadcast_terminal_metadata(self, terminal_metadata):
+        await self.websocket_manager.broadcast(
+            terminal_metadata,
+            C.WS_TERMINAL_METADATA,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )
+
 
 class WMHFrontend(BaseWebsocketMsgHandler):
     def __init__(

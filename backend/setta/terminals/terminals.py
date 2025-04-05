@@ -49,10 +49,11 @@ def get_terminal_shell():
 
 
 class Terminals:
-    def __init__(self):
+    def __init__(self, websocket_msg_handler_meta):
         self.section_to_socket_ids = defaultdict(set)
         self.sockets = {}
         self.PTY_PIDS = {}
+        self.websocket_msg_handler_meta = websocket_msg_handler_meta
         asyncio.create_task(self.monitor_child_processes())
 
     def new_terminal(self, projectConfigId, sectionId, isTemporary):
@@ -257,15 +258,22 @@ class Terminals:
         """Periodically check and broadcast child process details for all terminals"""
         CHECK_INTERVAL = 2.0  # seconds between checks
         while True:
+            terminal_metadata = []
             try:
                 for section_id in list(self.PTY_PIDS.keys()):
                     # Only check terminals that have connected clients
                     try:
-                        pid = self.PTY_PIDS[section_id]["pid"]
+                        info = self.PTY_PIDS[section_id]
 
                         # Get child process details
-                        children = linux_get_child_process_details(pid)
-                        print(children, flush=True)
+                        children = linux_get_child_process_details(info["pid"])
+                        terminal_metadata.append(
+                            {
+                                "sectionId": section_id,
+                                "projectConfigId": info["projectConfigId"],
+                                "processes": children,
+                            }
+                        )
 
                     except (KeyError, psutil.NoSuchProcess):
                         # Terminal might have been deleted during iteration
@@ -274,5 +282,8 @@ class Terminals:
                 logger.error(f"Error monitoring child processes: {e}")
                 logger.debug(f"Exception details:\n{traceback.format_exc()}")
 
+            await self.websocket_msg_handler_meta.broadcast_terminal_metadata(
+                terminal_metadata
+            )
             # Sleep until next check
             await asyncio.sleep(CHECK_INTERVAL)

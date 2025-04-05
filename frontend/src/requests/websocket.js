@@ -84,6 +84,8 @@ function receiveMessage(message) {
     updateInteractiveDependencies(m.content);
   } else if (m.messageType === C.WS_SPECIFIC_FILE_WATCHER_UPDATE) {
     updateJSONSourceContents(m.content);
+  } else if (m.messageType === C.WS_TERMINAL_METADATA) {
+    console.log(m.content)
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);
   }
