@@ -91,6 +91,22 @@ export function subscribe() {
     { equalityFn: _.isEqual },
   );
 
+  useSectionInfos.subscribe(entryCodeBlockSubscriptionFn, (newVal) => {
+    // newVal is true if there is already an entry code block.
+    // otherwise it's a number indicating the number of code blocks.
+    // if there isn't an entry code block, make an arbitrary code block the entry.
+    if (newVal !== true) {
+      useSectionInfos.setState((state) => {
+        for (const s of Object.values(state.x)) {
+          if (getSectionType(s.id) === C.CODE) {
+            state.x[s.id].isEntryCodeBlock = true;
+            break;
+          }
+        }
+      });
+    }
+  });
+
   useReactFlow.subscribe(
     reactFitViewOnInitSubscriptionFn,
     (newState, prevState) => {
@@ -289,4 +305,17 @@ function topLevelSectionVisibilitySubscriptionFn(state) {
     }
   }
   return output;
+}
+
+function entryCodeBlockSubscriptionFn(state) {
+  let count = 0;
+  for (const s of Object.values(state.x)) {
+    if (getSectionType(s.id) === C.CODE) {
+      count += 1;
+      if (state.x[s.id].isEntryCodeBlock) {
+        return true;
+      }
+    }
+  }
+  return count;
 }
