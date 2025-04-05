@@ -22,7 +22,7 @@
     "paramSweepSectionId": null,
     "nonPresetUITypeIds": [],
     "codeLanguage": "python",
-    "runAsInteractive": false,
+    "isEntryCodeBlock": false,
     "isFrozen": false,
     "isHorizontalOrientation": false,
     "hideParams": false,

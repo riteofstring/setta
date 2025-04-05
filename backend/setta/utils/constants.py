@@ -103,7 +103,7 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
     (
         "social",
         "codeLanguage",
-        "runAsInteractive",
+        "isEntryCodeBlock",
         "isFrozen",
         "hideParams",
         "hideSearch",
