@@ -21,11 +21,21 @@ export async function runCodeBlocks(sectionIds, withSweep = false) {
   }
 }
 
-export function runAllCode() {
-  const codeBlocks = getCodeBlocks(false);
-  if (codeBlocks.length > 0) {
-    runCodeBlocks(codeBlocks);
+export function runEntryCodeBlock() {
+  // ids should be length 0 or 1
+  const ids = getEntryCodeBlock();
+  runCodeBlocks(ids);
+}
+
+function getEntryCodeBlock() {
+  const ids = [];
+  const state = useSectionInfos.getState();
+  for (const s of Object.values(state.x)) {
+    if (getSectionType(s.id) === C.CODE) {
+      ids.push(s.id);
+    }
   }
+  return ids;
 }
 
 export function runActiveCode() {

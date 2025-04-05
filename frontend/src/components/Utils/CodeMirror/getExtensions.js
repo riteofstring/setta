@@ -120,7 +120,9 @@ function getKeyMapArray({
       run: () => true,
     },
     {
-      key: shortcutCodemirrorFormat(settings.shortcuts.runAllCodeShortcut),
+      key: shortcutCodemirrorFormat(
+        settings.shortcuts.runEntryCodeBlockShortcut,
+      ),
       run: () => true,
     },
     {
