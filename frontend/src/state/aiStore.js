@@ -215,6 +215,8 @@ export const useAIStore = create(
         apiKeys: state.apiKeys,
         userSelectedLLM: state.userSelectedLLM,
         chatSessions: state.chatSessions,
+        sessionId: state.sessionId,
+        messages: state.messages,
       }),
     },
   ),

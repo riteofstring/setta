@@ -22,12 +22,31 @@ export function ProjectAIChat() {
     createNewChat,
     submitMessage,
     switchToChat,
+    updateChatSession,
   } = useAIStore();
 
   // Initialize a new chat if none exists
   useEffect(() => {
     if (!sessionId) createNewChat();
   }, [sessionId, createNewChat]);
+
+  // Save chat when the component unmounts or before page refresh
+  useEffect(() => {
+    const saveCurrentChat = () => {
+      if (sessionId && messages.length > 0) {
+        updateChatSession(sessionId, messages);
+      }
+    };
+
+    // Add event listener for beforeunload to save chat before page refresh
+    window.addEventListener("beforeunload", saveCurrentChat);
+
+    // Return cleanup function to save chat when component unmounts
+    return () => {
+      window.removeEventListener("beforeunload", saveCurrentChat);
+      saveCurrentChat();
+    };
+  }, [sessionId, messages, updateChatSession]);
 
   // Memoize available providers
   const availableProviders = useMemo(

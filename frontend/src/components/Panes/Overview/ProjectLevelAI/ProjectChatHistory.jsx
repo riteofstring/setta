@@ -17,36 +17,16 @@ export function ProjectChatHistory({ chatSessions, sessionId, switchToChat }) {
               }`}
               onClick={() => switchToChat(session.id)}
             >
-              <div className="flex items-center justify-between">
-                <h4 className="truncate font-semibold text-setta-500 dark:text-setta-300">
-                  {session.title || "New Chat"}
-                </h4>
-                <span className="text-xs text-setta-800 dark:text-setta-200">
-                  {new Date(session.lastUpdated).toLocaleString()}
-                </span>
-              </div>
+              <h4 className="truncate font-semibold text-setta-500 dark:text-setta-300">
+                {session.title || "New Chat"}
+              </h4>
+
               <p className="truncate text-xs text-setta-800 dark:text-setta-200">
-                {session.messages.length} messages
+                {new Date(session.lastUpdated).toLocaleString()}
               </p>
             </button>
           ))
       )}
     </div>
-  );
-}
-
-function ChatHistoryItem() {
-  return (
-    <button
-      className="flex cursor-pointer flex-col gap-1 rounded-md border border-transparent px-2 py-1 transition-colors hover:bg-white focus-visible:border-blue-500 hover:dark:bg-setta-800"
-      tabIndex="1"
-    >
-      <h3 className="truncate font-semibold text-setta-500 dark:text-setta-300">
-        My Previous Chat Had A Long Title
-      </h3>
-      <p className="truncate text-xs text-setta-800 dark:text-setta-200">
-        Let's put in a brief snippet here that is truncated visually with css.
-      </p>
-    </button>
   );
 }
