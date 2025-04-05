@@ -11,7 +11,7 @@ export async function dbGetLLMResponse(model, message, sessionId = null) {
       },
       address: C.ROUTE_GET_LLM_RESPONSE,
     });
-
+    console.log("model inside dbGetLLM: ", model);
     console.log("Response received from LLM API:", response);
     return response;
   } catch (error) {

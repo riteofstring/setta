@@ -1,14 +1,13 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
 import { dbGetLLMResponse } from "requests/ai";
 import { localStorageFns } from "state/hooks/localStorage";
 import { MODEL_GROUPS } from "utils/constants";
-import { ProjectChatHistory } from "./ProjectLevelAI/ProjectChatHistory";
-// import { ProjectChatHistory } from "./ProjectChatHistory";
 import { ProjectChatCore } from "./ProjectLevelAI/ProjectChatCore";
+import { ProjectChatHistory } from "./ProjectLevelAI/ProjectChatHistory";
 
 export function ProjectAIChat() {
   const [viewHistory, setViewHistory] = useState(false);
@@ -21,67 +20,108 @@ export function ProjectAIChat() {
   // Current active session ID
   const [sessionId, setSessionId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [currMessage, setCurrMessage] = useState("");
 
-  const availableProviders = apiKeys.map((key) => key.modelId);
-  const filteredModelGroups = MODEL_GROUPS.filter((group) =>
-    availableProviders.some(
-      (provider) =>
-        group.group.toLowerCase().replace(/\s+/g, "-") ===
-        provider.toLowerCase(),
-    ),
+  // Use refs to break circular dependencies
+  const chatSessionsRef = useRef(chatSessions);
+  useEffect(() => {
+    chatSessionsRef.current = chatSessions;
+  }, [chatSessions]);
+
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  // Memoize available providers
+  const availableProviders = useMemo(
+    () => apiKeys.map((key) => key.modelId),
+    [apiKeys],
+  );
+
+  // Memoize filtered model groups
+  const filteredModelGroups = useMemo(
+    () =>
+      MODEL_GROUPS.filter((group) =>
+        availableProviders.some(
+          (provider) =>
+            group.group.toLowerCase().replace(/\s+/g, "-") ===
+            provider.toLowerCase(),
+        ),
+      ),
+    [availableProviders],
   );
 
   // Flatten all model items for easier selection
-  const allModelItems = filteredModelGroups.flatMap((group) => group.items);
+  const allModelItems = useMemo(
+    () => filteredModelGroups.flatMap((group) => group.items),
+    [filteredModelGroups],
+  );
 
-  // Initialize selectedModel with userSelectedLLM or first available model
-  useEffect(() => {
-    if (!userSelectedLLM && allModelItems.length > 0) {
-      setUserSelectedLLM(allModelItems[0].id);
-    }
-  }, [userSelectedLLM, allModelItems, setUserSelectedLLM]);
+  // Helper function to update a chat session in the sessions list
+  const updateChatSession = useCallback(
+    (id, newMessages) => {
+      if (!id) return;
 
-  // Initialize a new chat session if none exists
-  useEffect(() => {
-    if (!sessionId) {
-      createNewChat();
-    }
-  }, []);
+      const sessions = chatSessionsRef.current;
+      const existingSessionIndex = sessions.findIndex(
+        (session) => session.id === id,
+      );
 
-  const placeholderText = "Type a message...";
+      const sessionUpdate = {
+        id,
+        messages: newMessages,
+        lastUpdated: Date.now(),
+        title: newMessages[0]?.content.substring(0, 30) || "New Chat",
+      };
+
+      if (existingSessionIndex >= 0) {
+        // Update existing session
+        setChatSessions((prevSessions) => {
+          const updatedSessions = [...prevSessions];
+          updatedSessions[existingSessionIndex] = sessionUpdate;
+          return updatedSessions;
+        });
+      } else {
+        // Add as new session
+        setChatSessions((prevSessions) => [...prevSessions, sessionUpdate]);
+      }
+    },
+    [], // Empty dependency array since we're using refs
+  );
 
   // Function to create a new chat
-  const createNewChat = () => {
-    // Generate a temporary session ID (could be replaced with UUID or server-generated ID)
+  const createNewChat = useCallback(() => {
+    // Generate a temporary session ID
     const newSessionId = `session_${Date.now()}`;
 
     // Save current chat to sessions if it exists and has messages
-    if (sessionId && messages.length > 0) {
+    if (sessionId && messagesRef.current.length > 0) {
       // First check if we already have this session
-      const existingSessionIndex = chatSessions.findIndex(
+      const existingSessionIndex = chatSessionsRef.current.findIndex(
         (session) => session.id === sessionId,
       );
 
       if (existingSessionIndex >= 0) {
         // Update existing session
-        const updatedSessions = [...chatSessions];
-        updatedSessions[existingSessionIndex] = {
-          ...updatedSessions[existingSessionIndex],
-          messages: [...messages],
-          lastUpdated: Date.now(),
-        };
-        setChatSessions(updatedSessions);
+        setChatSessions((prevSessions) => {
+          const updatedSessions = [...prevSessions];
+          updatedSessions[existingSessionIndex] = {
+            ...updatedSessions[existingSessionIndex],
+            messages: [...messagesRef.current],
+            lastUpdated: Date.now(),
+          };
+          return updatedSessions;
+        });
       } else {
         // Add as new session
-        setChatSessions([
-          ...chatSessions,
+        setChatSessions((prevSessions) => [
+          ...prevSessions,
           {
             id: sessionId,
-            messages: [...messages],
+            messages: [...messagesRef.current],
             lastUpdated: Date.now(),
-            // You could add other metadata like title, creation date, etc.
-            title: messages[0]?.content.substring(0, 30) || "New Chat",
+            title:
+              messagesRef.current[0]?.content.substring(0, 30) || "New Chat",
           },
         ]);
       }
@@ -92,133 +132,121 @@ export function ProjectAIChat() {
     setSessionId(newSessionId);
     // Make sure we're in chat view, not history view
     setViewHistory(false);
-  };
+  }, [sessionId, setMessages]);
 
-  const handleSubmit = async (userMessage) => {
-    if (!userMessage.trim()) return;
-    setIsLoading(true);
+  // Initialize a new chat session if none exists
+  useEffect(() => {
+    if (!sessionId) {
+      createNewChat();
+    }
+  }, [sessionId, createNewChat]);
 
-    // Add user message to UI immediately
-    const userMsg = { role: "user", content: userMessage };
-    const updatedMessages = [...messages, userMsg];
-    setMessages(updatedMessages);
+  // Modified to work with the isolated input component
+  const handleSubmit = useCallback(
+    async (userMessage) => {
+      if (!userMessage.trim()) return;
+      setIsLoading(true);
 
-    try {
-      // Get the response from the API
-      const response = await dbGetLLMResponse(
-        userSelectedLLM || "claude-3-opus-20240229",
-        userMessage,
-        sessionId,
-      );
+      // Add user message to UI immediately
+      const userMsg = { role: "user", content: userMessage };
+      const updatedMessages = [...messagesRef.current, userMsg];
+      setMessages(updatedMessages);
 
-      console.log("API response:", response); // Debug log
+      try {
+        const response = await dbGetLLMResponse(
+          userSelectedLLM,
+          userMessage,
+          sessionId,
+        );
 
-      // Store the session ID from the response
-      if (response.data && response.data.session_id && !sessionId) {
-        setSessionId(response.data.session_id);
-      }
-
-      // Check for errors in the response
-      if (response.data && response.data.error) {
-        console.error("Error in API response:", response.data.error);
+        // Handle the response and update messages...
+        if (response.data && response.data.content) {
+          const aiMsg = { role: "assistant", content: response.data.content };
+          const newMessages = [...updatedMessages, aiMsg];
+          setMessages(newMessages);
+          updateChatSession(sessionId || response.data.session_id, newMessages);
+        } else {
+          // Handle error cases...
+          const errorMsg = {
+            role: "assistant",
+            content: "Sorry, I couldn't process your request properly.",
+          };
+          const newMessages = [...updatedMessages, errorMsg];
+          setMessages(newMessages);
+          updateChatSession(
+            sessionId || (response.data && response.data.session_id),
+            newMessages,
+          );
+        }
+      } catch (error) {
+        // Handle API errors...
         const errorMsg = {
           role: "assistant",
-          content: `Sorry, I encountered an error: ${response.data.error}. Please make sure you've added your API key in settings.`,
+          content: `Sorry, there was a problem with the API: ${error.message || "Unknown error"}.`,
         };
         const newMessages = [...updatedMessages, errorMsg];
         setMessages(newMessages);
-        updateChatSession(sessionId || response.data.session_id, newMessages);
+        updateChatSession(sessionId, newMessages);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [sessionId, userSelectedLLM, updateChatSession, setMessages],
+  );
+
+  // Function to switch to an existing chat
+  const switchToChat = useCallback(
+    (id) => {
+      if (id === sessionId) {
+        setViewHistory(false);
         return;
       }
 
-      // Add AI response to messages - Notice we access response.data.content
-      if (response.data && response.data.content) {
-        const aiMsg = { role: "assistant", content: response.data.content };
-        const newMessages = [...updatedMessages, aiMsg];
-        setMessages(newMessages);
-
-        // Update this session in the chat sessions list
-        updateChatSession(sessionId || response.data.session_id, newMessages);
-      } else {
-        console.error("Unexpected response structure:", response);
-        // Handle missing content
-        const errorMsg = {
-          role: "assistant",
-          content: "Sorry, I couldn't process your request properly.",
-        };
-        const newMessages = [...updatedMessages, errorMsg];
-        setMessages(newMessages);
-        updateChatSession(
-          sessionId || (response.data && response.data.session_id),
-          newMessages,
-        );
+      // Save current chat state if needed
+      if (sessionId && messagesRef.current.length > 0) {
+        updateChatSession(sessionId, messagesRef.current);
       }
-    } catch (error) {
-      console.error("Error getting LLM response:", error);
-      // Add an error message to the chat
-      const errorMsg = {
-        role: "assistant",
-        content: `Sorry, there was a problem connecting to the API: ${error.message || "Unknown error"}. Please check your network connection and API keys.`,
-      };
-      const newMessages = [...updatedMessages, errorMsg];
-      setMessages(newMessages);
-      updateChatSession(sessionId, newMessages);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  // Helper function to update a chat session in the sessions list
-  const updateChatSession = (id, newMessages) => {
-    if (!id) return;
+      // Find the selected chat
+      const selectedChat = chatSessionsRef.current.find(
+        (session) => session.id === id,
+      );
+      if (selectedChat) {
+        setSessionId(id);
+        setMessages(selectedChat.messages);
+        setViewHistory(false);
+      }
+    },
+    [sessionId, setMessages, updateChatSession],
+  );
 
-    const existingSessionIndex = chatSessions.findIndex(
-      (session) => session.id === id,
+  // Memoize the chat core component
+  const chatCore = useMemo(() => {
+    return (
+      <ProjectChatCore
+        messages={messages}
+        selectedModel={userSelectedLLM}
+        placeholderText={"Type a message..."}
+        handleSubmit={handleSubmit}
+        isLoading={isLoading}
+      />
     );
+  }, [messages, userSelectedLLM, handleSubmit, isLoading]);
 
-    const sessionUpdate = {
-      id,
-      messages: newMessages,
-      lastUpdated: Date.now(),
-      title: newMessages[0]?.content.substring(0, 30) || "New Chat",
-    };
-
-    if (existingSessionIndex >= 0) {
-      // Update existing session
-      const updatedSessions = [...chatSessions];
-      updatedSessions[existingSessionIndex] = sessionUpdate;
-      setChatSessions(updatedSessions);
-    } else {
-      // Add as new session
-      setChatSessions([...chatSessions, sessionUpdate]);
-    }
-  };
-
-  // Function to switch to an existing chat
-  const switchToChat = (id) => {
-    if (id === sessionId) {
-      // Already on this chat, just switch to chat view
-      setViewHistory(false);
-      return;
-    }
-
-    // Save current chat state if needed
-    if (sessionId && messages.length > 0) {
-      updateChatSession(sessionId, messages);
-    }
-
-    // Find the selected chat
-    const selectedChat = chatSessions.find((session) => session.id === id);
-    if (selectedChat) {
-      setSessionId(id);
-      setMessages(selectedChat.messages);
-      setViewHistory(false);
-    }
-  };
+  // Memoize the chat history component
+  const chatHistory = useMemo(() => {
+    return (
+      <ProjectChatHistory
+        chatSessions={chatSessions}
+        sessionId={sessionId}
+        switchToChat={switchToChat}
+      />
+    );
+  }, [chatSessions, sessionId, switchToChat]);
 
   return (
     <div className="flex h-full min-h-0 flex-col @container">
-      <nav className="flex min-h-16 flex-col gap-2 border-b border-setta-100 py-4 @[15rem]:flex-row @[15rem]:items-center  dark:border-setta-800">
+      <nav className="flex min-h-16 flex-col gap-2 border-b border-setta-100 py-4 @[15rem]:flex-row @[15rem]:items-center dark:border-setta-800">
         <div className="flex gap-2">
           <button
             className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950"
@@ -258,23 +286,7 @@ export function ProjectAIChat() {
           />
         )}
       </nav>
-      {viewHistory ? (
-        <ProjectChatHistory
-          chatSessions={chatSessions}
-          sessionId={sessionId}
-          switchToChat={switchToChat}
-        />
-      ) : (
-        <ProjectChatCore
-          messages={messages}
-          selectedModel={userSelectedLLM}
-          placeholderText={placeholderText}
-          handleSubmit={handleSubmit}
-          currMessage={currMessage}
-          setCurrMessage={setCurrMessage}
-          isLoading={isLoading}
-        />
-      )}
+      {viewHistory ? chatHistory : chatCore}
     </div>
   );
 }
