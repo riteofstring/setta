@@ -1,6 +1,8 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import C from "constants/constants.json";
 import { MdMemory } from "react-icons/md";
+import { getSectionType } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 
 export function ToggleEntryCodeBlockButton({ sectionId }) {
@@ -10,7 +12,11 @@ export function ToggleEntryCodeBlockButton({ sectionId }) {
 
   function onClick() {
     useSectionInfos.setState((state) => {
-      state.x[sectionId].isEntryCodeBlock = !isEntryCodeBlock;
+      for (const s of Object.values(state.x)) {
+        if (getSectionType(s.id) === C.CODE) {
+          state.x[s.id].isEntryCodeBlock = s.id === sectionId;
+        }
+      }
     });
   }
 
@@ -22,7 +28,7 @@ export function ToggleEntryCodeBlockButton({ sectionId }) {
       size="w-4 h-4"
       padding="p-0 mr-1"
       onClick={onClick}
-      {...getFloatingBoxHandlers({ title: "Toggle In-Memory Code" })}
+      {...getFloatingBoxHandlers({ title: "Toggle Entry Code Block" })}
     />
   );
 }
