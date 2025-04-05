@@ -39,6 +39,7 @@ export function ProjectLLMSettings() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-[30dvh] text-setta-600 dark:text-setta-400">
       {saveStatus && (
+        // TODO: this should be in the notifications area.
         <div
           className={`text-center text-sm font-medium ${saveStatus === "Error saving" ? "text-red-500" : "text-green-500"}`}
         >
