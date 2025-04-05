@@ -1,25 +1,30 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import {
-  updateInMemorySubprocessInfo,
   updateInteractiveArtifacts,
+  updateInteractiveDependencies,
 } from "state/actions/interactive";
 import { updateJSONSourceContents } from "state/actions/jsonSource";
-import { addTemporaryNotification } from "state/actions/notifications";
+import {
+  addNotificationFromWebsocketMsg,
+  addTemporaryNotification,
+} from "state/actions/notifications";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeErrors";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";
 import { useWebsocketConnectionList } from "state/definitions";
+import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
 import { URLS } from "utils/constants";
 
 let wss;
 
 export const openWebSocket = _.debounce(
   (pathname) => {
-    if (!wssReady()) {
-      wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_MANAGER}`);
+    if (!wss) {
+      wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_FRONTEND}`);
       wss.addEventListener("open", () => {
         sendLocation(pathname);
+        addTemporaryNotification("Websocket connected");
       });
 
       wss.addEventListener("message", (event) => {
@@ -55,20 +60,19 @@ function wssReady() {
 function receiveMessage(message) {
   const m = JSON.parse(message);
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
-    updateConnectedTo(m);
+    updateConnectedTo(m.content);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     processTypeErrors(m.content);
-  } else if (m.messageType === C.WS_LSP_STATUS) {
-    addTemporaryNotification(`Language Server ${m.content.data}`);
-  } else if (
-    m.messageType === C.WS_ARTIFACT ||
-    m.messageType === C.WS_IN_MEMORY_FN_RETURN
-  ) {
+  } else if (m.messageType === C.WS_NOTIFICATION) {
+    addNotificationFromWebsocketMsg(m.content);
+  } else if (m.messageType === C.WS_ARTIFACT) {
     updateInteractiveArtifacts(m.content);
-  } else if (m.messageType === C.WS_IN_MEMORY_FN_AVG_RUN_TIME) {
-    updateInMemorySubprocessInfo(m.content);
+  } else if (m.messageType === C.WS_ALL_DEPENDENCIES) {
+    updateInteractiveDependencies(m.content);
   } else if (m.messageType === C.WS_SPECIFIC_FILE_WATCHER_UPDATE) {
     updateJSONSourceContents(m.content);
+  } else if (m.messageType === C.WS_CREATE_TEMPORARY_TERMINAL_SECTION) {
+    createTemporaryTerminalFromBackend(m.content);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);
   }
