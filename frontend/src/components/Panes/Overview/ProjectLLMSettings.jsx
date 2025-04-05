@@ -1,13 +1,12 @@
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { useEffect, useState } from "react";
-import { dbSetApiKeys } from "requests/ai";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useAIStore } from "state/aiStore";
 import { MODEL_GROUPS } from "utils/constants";
 
 const IsolatedInput = ({ modelId, providerName, initialValue, onChange }) => {
   const [value, setValue] = useState(initialValue || "");
 
-  // Update value if initialValue changes (e.g. when component remounts)
+  // Update value if initialValue changes
   useEffect(() => {
     setValue(initialValue || "");
   }, [initialValue]);
@@ -30,63 +29,11 @@ const IsolatedInput = ({ modelId, providerName, initialValue, onChange }) => {
 };
 
 export function ProjectLLMSettings() {
-  const [apiKeys, setApiKeys] = localStorageFns.apiKeys.hook();
-  const [saveStatus, setSaveStatus] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+  const { apiKeys, saveStatus, handleApiKeyChange } = useAIStore();
 
   const getApiKey = (modelId) => {
     const entry = apiKeys.find((key) => key.modelId === modelId);
     return entry ? entry.apiKey : "";
-  };
-
-  const handleApiKeyChange = async (modelId, providerName, value) => {
-    let updatedKeys;
-
-    if (!value || value.trim() === "") {
-      updatedKeys = apiKeys.filter((key) => key.modelId !== modelId);
-      setApiKeys(updatedKeys);
-    } else {
-      const existingIndex = apiKeys.findIndex((key) => key.modelId === modelId);
-
-      if (existingIndex >= 0) {
-        updatedKeys = [...apiKeys];
-        updatedKeys[existingIndex] = {
-          ...updatedKeys[existingIndex],
-          apiKey: value,
-        };
-        setApiKeys(updatedKeys);
-      } else {
-        updatedKeys = [...apiKeys, { modelId, providerName, apiKey: value }];
-        setApiKeys(updatedKeys);
-      }
-    }
-
-    // Save API keys to .env file through backend
-    try {
-      // Prevent multiple concurrent save operations
-      if (isSaving) return;
-
-      setIsSaving(true);
-      setSaveStatus("Saving...");
-
-      await dbSetApiKeys(updatedKeys);
-      setSaveStatus("Saved!");
-
-      // Clear saved status after 3 seconds
-      setTimeout(() => {
-        setSaveStatus("");
-      }, 3000);
-    } catch (error) {
-      console.error("Failed to update API keys on the server:", error);
-      setSaveStatus("Error saving");
-
-      // Clear error status after 3 seconds
-      setTimeout(() => {
-        setSaveStatus("");
-      }, 3000);
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   return (

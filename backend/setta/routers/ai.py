@@ -104,7 +104,16 @@ def route_set_api_keys(x: ApiKeysRequest):
                             key, value = line.strip().split("=", 1)
                             env_vars[key] = value
 
-        # Update with new API keys - using exact format that LiteLLM expects
+        # Remove all existing API key variables first
+        # This ensures keys that were deleted on the frontend are also removed here
+        api_key_vars = [
+            key for key in list(env_vars.keys()) if key.endswith("_API_KEY")
+        ]
+        for key in api_key_vars:
+            del env_vars[key]
+            print(f"Removed {key} from .env file")
+
+        # Add back only the API keys that are in the current request
         for key in x.apiKeys:
             if not key.apiKey.strip():
                 continue  # Skip empty keys
@@ -122,7 +131,7 @@ def route_set_api_keys(x: ApiKeysRequest):
             # Ensure there are no spaces or special formatting that might cause issues
             api_key = key.apiKey.strip()
 
-            # Only save if we have a valid key
+            # Save the API key
             env_vars[env_var_name] = api_key
             print(f"Saving {env_var_name} to .env file")
 
