@@ -194,7 +194,7 @@ class SettaListener:
             await self._schedule_function_run(fn)
 
     async def _schedule_function_run(self, fn):
-        current_time = time.time()
+        current_time = time.monotonic()
 
         # Generate a unique token for this scheduling attempt
         task_token = str(uuid.uuid4())
@@ -340,7 +340,7 @@ class SettaListener:
             fn._setta_is_running = True
 
             # Update timing information
-            current_time = time.time()
+            current_time = time.monotonic()
             fn._setta_last_run_time = current_time
 
             # Calculate the earliest time the function can run again (for throttling)
