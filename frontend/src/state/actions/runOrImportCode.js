@@ -2,23 +2,14 @@ import C from "constants/constants.json";
 import { useActiveSection, useSectionInfos } from "state/definitions";
 import {
   getProjectDataToGenerateCode,
-  getProjectRuns,
   sendRunCodeMessage,
 } from "./project/generateCode";
 import { getSectionType } from "./sectionInfos";
 
-export async function runCodeBlocks(sectionIds, withSweep = false) {
+export async function runCodeBlocks(sectionIds) {
   const project = await getProjectDataToGenerateCode({});
-  if (withSweep) {
-    let count = 0;
-    for (const projectVariant of getProjectRuns(project)) {
-      await sendRunCodeMessage(projectVariant, count);
-      count += 1;
-    }
-  } else {
-    project.runCodeBlocks = sectionIds;
-    await sendRunCodeMessage(project);
-  }
+  project.runCodeBlocks = sectionIds;
+  await sendRunCodeMessage(project);
 }
 
 export function runEntryCodeBlock() {

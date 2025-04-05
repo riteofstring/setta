@@ -71,7 +71,7 @@ export async function getProjectDataToGenerateCode({
   return project;
 }
 
-export async function sendRunCodeMessage(project, messageIdx = 0) {
+export async function sendRunCodeMessage(project) {
   addTemporaryNotification("Sending Run Request");
   sendMessage({
     id: createNewId(),
