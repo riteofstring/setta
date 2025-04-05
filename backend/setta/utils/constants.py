@@ -103,7 +103,6 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
     (
         "social",
         "codeLanguage",
-        "isEntryCodeBlock",
         "isFrozen",
         "hideParams",
         "hideSearch",
@@ -127,6 +126,7 @@ SECTION_CONFIG_TABLE_DATA_JSON_FIELDS = set(
         "pinnedAreaHeight",
         "isMinimized",
         "positionAndSizeLocked",
+        "isEntryCodeBlock",
     )
 )
 
