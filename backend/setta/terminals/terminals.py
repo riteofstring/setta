@@ -14,6 +14,7 @@ import psutil
 from fastapi import WebSocketDisconnect
 from websockets.exceptions import ConnectionClosedOK
 
+from setta.code_gen.create_runnable_scripts import runCode
 from setta.utils.constants import USER_SETTINGS, C
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,6 @@ class TerminalWebsockets:
                 pty_process.write(
                     f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
                 )
-            asyncio.create_task(self.start_reading_from_terminal(sectionId))
             return True
         return False
 
@@ -177,7 +177,7 @@ class TerminalWebsockets:
                 logger.debug("read_from_terminal caught the exception!")
 
     # Function to write to the terminal
-    async def write_to_terminal(self, websocket, sectionId):
+    async def write_to_terminal(self, websocket, lsp_writers, sectionId):
         pty_info = self.PTY_PIDS[sectionId]
         pty_process = pty_info["process"]
         while True:
@@ -191,6 +191,10 @@ class TerminalWebsockets:
                     doResize = json_val["messageType"] == C.WS_TERMINAL_RESIZE
                     if doResize:
                         pty_process.setwinsize(json_val["rows"], json_val["cols"])
+                    elif json_val["messageType"] == C.WS_RUN_CODE:
+                        command = await runCode(json_val, lsp_writers)
+                        pty_process.write(f"\x15{command}\n")
+                        self.set_terminal_start_time(sectionId)
                     pty_info["wasJustResized"] = doResize
                     continue
                 elif input_data:
@@ -228,21 +232,6 @@ class TerminalWebsockets:
                 output.append({"id": k, "isTemporary": v["isTemporary"]})
         return output
 
-    async def run_command_in_terminal(self, terminal_id, command):
-        info = self.PTY_PIDS[terminal_id]
-        await info["terminalPromptIsReady"].wait()
-        info["process"].write(f"\x15{command}\n")
-        self.set_terminal_start_time(terminal_id)
-
-    def kill_processes(self, ids):
-        num_killed = 0
-        for id in ids:
-            info = self.PTY_PIDS[id]
-            if is_command_running_in_pty(info["pid"]):
-                info["process"].sendintr()
-                num_killed += 1
-        return num_killed
-
     async def send_output_to_sectionId(self, sectionId, output, setSentReadyMsg=False):
         for wsId in self.section_to_socket_ids[sectionId]:
             ws = self.sockets[wsId]["ws"]
@@ -252,8 +241,3 @@ class TerminalWebsockets:
                     self.sockets[wsId]["sentReadyMsg"] = True
             except:
                 continue
-
-    async def start_reading_from_terminal(self, terminalId):
-        read_task = asyncio.create_task(self.read_from_terminal(terminalId))
-        await read_task
-        await self.delete_terminal(terminalId)
