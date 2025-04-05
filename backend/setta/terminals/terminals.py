@@ -14,6 +14,7 @@ import psutil
 from fastapi import WebSocketDisconnect
 from websockets.exceptions import ConnectionClosedOK
 
+from setta.terminals.utils import linux_get_child_process_details
 from setta.utils.constants import USER_SETTINGS, C
 
 logger = logging.getLogger(__name__)
@@ -35,13 +36,6 @@ else:
     from .utils import linux_has_child_processes as has_child_processes
 
 
-def is_command_running_in_pty(pid):
-    try:
-        return has_child_processes(pid)
-    except psutil.NoSuchProcess:
-        return False
-
-
 def get_terminal_shell():
     if USER_SETTINGS["backend"]["defaultTerminalShell"]:
         return shlex.split(
@@ -59,6 +53,7 @@ class TerminalWebsockets:
         self.section_to_socket_ids = defaultdict(set)
         self.sockets = {}
         self.PTY_PIDS = {}
+        asyncio.create_task(self.monitor_child_processes())
 
     def new_terminal(self, projectConfigId, sectionId, isTemporary):
         if sectionId not in self.PTY_PIDS:
@@ -215,7 +210,7 @@ class TerminalWebsockets:
         for k, v in self.PTY_PIDS.items():
             if (
                 v["projectConfigId"] == projectConfigId
-                and not is_command_running_in_pty(v["pid"])
+                and not has_child_processes(v["pid"])
                 and time.time() - v["start"] > 1
             ):
                 return k
@@ -238,7 +233,7 @@ class TerminalWebsockets:
         num_killed = 0
         for id in ids:
             info = self.PTY_PIDS[id]
-            if is_command_running_in_pty(info["pid"]):
+            if has_child_processes(info["pid"]):
                 info["process"].sendintr()
                 num_killed += 1
         return num_killed
@@ -257,3 +252,27 @@ class TerminalWebsockets:
         read_task = asyncio.create_task(self.read_from_terminal(terminalId))
         await read_task
         await self.delete_terminal(terminalId)
+
+    async def monitor_child_processes(self):
+        """Periodically check and broadcast child process details for all terminals"""
+        CHECK_INTERVAL = 2.0  # seconds between checks
+        while True:
+            try:
+                for section_id in list(self.PTY_PIDS.keys()):
+                    # Only check terminals that have connected clients
+                    try:
+                        pid = self.PTY_PIDS[section_id]["pid"]
+
+                        # Get child process details
+                        children = linux_get_child_process_details(pid)
+                        print(children, flush=True)
+
+                    except (KeyError, psutil.NoSuchProcess):
+                        # Terminal might have been deleted during iteration
+                        continue
+            except Exception as e:
+                logger.error(f"Error monitoring child processes: {e}")
+                logger.debug(f"Exception details:\n{traceback.format_exc()}")
+
+            # Sleep until next check
+            await asyncio.sleep(CHECK_INTERVAL)
