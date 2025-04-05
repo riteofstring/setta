@@ -31,7 +31,7 @@ function getEntryCodeBlock() {
   const ids = [];
   const state = useSectionInfos.getState();
   for (const s of Object.values(state.x)) {
-    if (getSectionType(s.id) === C.CODE) {
+    if (getSectionType(s.id) === C.CODE && s.isEntryCodeBlock) {
       ids.push(s.id);
     }
   }
