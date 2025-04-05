@@ -2,7 +2,6 @@ import { computeInfoToFullName } from "components/Utils/CodeMirror/utils";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import C from "constants/constants.json";
 import _ from "lodash";
-import { dbGetFreeTerminal } from "requests/terminals";
 import { sendMessage } from "requests/websocket";
 import {
   getSectionInfo,
@@ -13,21 +12,15 @@ import {
   useEVRefRegex,
   useSectionInfos,
   useTemplateVarRegex,
-  useWebsocketConnectionList,
 } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
-import {
-  addTerminalInitialMessage,
-  createTemporaryTerminal,
-  maybeCreateTemporaryTerminalGroup,
-  sendTerminalMessage,
-} from "state/hooks/terminals/terminal";
 import { createNewId } from "utils/idNameCreation";
 import { newEVEntry } from "utils/objs/ev";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { generateParamSweepCombinations } from "./generateParamSweepCombinations";
 import { generateSectionParamSweepVersionCombinations } from "./generateSectionParamSweepVersionCombinations";
 import { getProjectData } from "./saveProject";
+import { addTemporaryNotification } from "../notifications";
 
 export async function getProjectDataToGenerateCode({
   withArtifacts = false,
@@ -79,31 +72,12 @@ export async function getProjectDataToGenerateCode({
 }
 
 export async function sendRunCodeMessage(project, messageIdx = 0) {
-  const codeRunId = createNewId();
-  let message = {
-    id: codeRunId,
-    messageType: C.WS_RUN_CODE,
+  addTemporaryNotification("Sending Run Request")
+  sendMessage({
+    id: createNewId(),
     content: project,
-  };
-  if (useWebsocketConnectionList.getState().connectedTo !== "main") {
-    sendMessage(message);
-    return;
-  }
-  const res = await dbGetFreeTerminal(project.projectConfig.id);
-  if (res.status === 200) {
-    const freeTerminalSectionId = res.data;
-    message = JSON.stringify(message);
-    if (freeTerminalSectionId) {
-      sendTerminalMessage(freeTerminalSectionId, message);
-    } else {
-      const id = createNewId();
-      addTerminalInitialMessage(id, message);
-      useSectionInfos.setState((state) => {
-        const groupId = maybeCreateTemporaryTerminalGroup(state);
-        createTemporaryTerminal(id, groupId, state);
-      });
-    }
-  }
+    messageType: C.WS_RUN_CODE,
+  });
 }
 
 export function* getProjectRuns(project) {
