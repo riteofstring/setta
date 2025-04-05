@@ -53,6 +53,7 @@ async def generateRunCodeCommand(p, lsp_writers, code_state):
         exporter_obj,
         lsp_writers,
         folder_path,
+        do_prepend_with_setup_code=True,
         do_convert_var_names_to_readable_form=True,
     )
 
@@ -101,6 +102,7 @@ async def generate_final_code_for_sections(
     exporter_obj,
     lsp_writers,
     folder_path,
+    do_prepend_with_setup_code=False,
     do_convert_var_names_to_readable_form=False,
     push_var_name=None,
     template_var_replacement_values=None,
@@ -142,6 +144,7 @@ async def generate_final_code_for_sections(
             lsp_writers=lsp_writers,
             folder_path=folder_path,
             projectConfigName=p["projectConfig"]["name"],
+            do_prepend_with_setup_code=do_prepend_with_setup_code,
             do_convert_var_names_to_readable_form=do_convert_var_names_to_readable_form,
             template_var_replacement_values=template_var_replacement_values,
             push_var_name=push_var_name,
@@ -173,6 +176,7 @@ async def generate_final_code_for_section(
     lsp_writers,
     folder_path,
     projectConfigName=None,
+    do_prepend_with_setup_code=False,
     do_convert_var_names_to_readable_form=False,
     cursor_position=None,
     template_var_replacement_values=None,
@@ -215,6 +219,14 @@ async def generate_final_code_for_section(
         )
 
     if codeLanguage == "python":
+        if do_prepend_with_setup_code:
+            code, setup_code = prepend_with_setup_code(
+                code,
+                codeLanguage,
+                folder_path,
+                projectConfigName,
+            )
+
         if do_convert_var_names_to_readable_form:
             code = convert_var_names_to_readable_form(
                 code,
@@ -223,6 +235,7 @@ async def generate_final_code_for_section(
                 ),
                 exporter_obj,
                 ref_template_var_positions,
+                setup_code,
             )
 
     return (
@@ -510,3 +523,12 @@ def sanitize_section_path_full_name(name):
     name = name.strip("_")
 
     return name
+
+
+def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name):
+    setup_code = ""
+    if codeLanguage == "python":
+        # necessary to make imports of other python files work
+        setup_code = "import sys, os; sys.path.insert(0, os.getcwd())\n"
+        code = setup_code + code
+    return code, setup_code
