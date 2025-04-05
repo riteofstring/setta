@@ -48,7 +48,7 @@ def get_terminal_shell():
     return ["bash"]
 
 
-class TerminalWebsockets:
+class Terminals:
     def __init__(self):
         self.section_to_socket_ids = defaultdict(set)
         self.sockets = {}

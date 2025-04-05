@@ -34,7 +34,7 @@ from setta.routers import (
     terminals_router,
     websocket_router,
 )
-from setta.terminals.terminals import TerminalWebsockets
+from setta.terminals.terminals import Terminals
 from setta.utils.constants import CODE_FOLDER, CWD, USER_SETTINGS, C
 from setta.utils.utils import get_absolute_path, is_dev_mode
 from setta.websockets.script_metadata import ScriptMetadata
@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.lsp_writers = create_lsp_writers(app.state.lsps)
     app.state.file_watcher = create_file_watcher(app.state.lsps, app.state.lsp_writers)
-    app.state.terminals = TerminalWebsockets()
+    app.state.terminals = Terminals()
     app.state.websocket_manager = WebsocketManager()
     app.state.code_state = CodeState()
     app.state.code_tasks = CodeTasks(app.state.code_state, app.state.lsp_writers)
