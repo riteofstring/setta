@@ -57,7 +57,7 @@ async def generateRunCodeCommand(p, lsp_writers, code_state):
         do_convert_var_names_to_readable_form=True,
     )
 
-    if p["runCodeBlocks"] is None:
+    if len(p["runCodeBlocks"]) == 0:
         p["runCodeBlocks"] = [
             exporter_obj.code_gen_template_var_section_details["section"]["id"]
         ]
