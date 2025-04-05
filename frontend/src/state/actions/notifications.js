@@ -1,11 +1,9 @@
 import C from "constants/constants.json";
-import { useNotifications, useSectionInfos } from "state/definitions";
+import { useNotifications } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
-const DEFAULT_TEMP_TIMEOUT = 2000;
-
 // Standalone notification actions as separate functions
-const addNotification = (notification) => {
+export const addNotification = (notification) => {
   useNotifications.setState((state) => ({
     notifications: [notification, ...state.notifications],
   }));
@@ -35,18 +33,17 @@ export const removeNotification = (notificationId) => {
   }));
 };
 
-export function addNotificationFromWebsocketMsg(notification) {
-  if (
-    !notification ||
-    (notification.projectConfigId !==
-      useSectionInfos.getState().projectConfig.id &&
-      notification.projectConfigId !== C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
-  ) {
+export const setNotifications = (notifications) => {
+  useNotifications.setState({ notifications });
+};
+
+export function addNotificationFromRes(res) {
+  const notification = res.data.notification;
+  if (!notification) {
     return;
   }
   if (!notification.timestamp) {
     notification.timestamp = new Date().toISOString();
-    notification.dateObj = Date.now();
   }
   addNotification(notification);
 }
@@ -54,13 +51,12 @@ export function addNotificationFromWebsocketMsg(notification) {
 export const addTemporaryNotification = (
   message,
   type = C.NOTIFICATION_TYPE_INFO,
-  timeout = DEFAULT_TEMP_TIMEOUT,
+  timeout = 3000,
 ) => {
   const id = createNewId();
   const notification = {
     id,
     timestamp: new Date().toISOString(),
-    dateObj: Date.now(),
     type,
     message,
     read_status: false,
@@ -84,4 +80,4 @@ export const replaceTemporaryNotification = (tempId, permanentNotification) => {
 };
 
 export const getTimeoutDuration = (notification) =>
-  notification.timeout || DEFAULT_TEMP_TIMEOUT;
+  notification.timeout || 3000;

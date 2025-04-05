@@ -38,7 +38,7 @@ function specificArtifactTransformProps(sectionTypeName, artifactType) {
     case C.DRAW:
       return {
         transform: [1, 0, 0, 1, 0, 0],
-        eraserStrokes: artifactType === C.ARTIFACT_TYPE_IMG ? [] : {},
+        eraserStrokes: artifactType === "img" ? [] : {},
       };
     case C.IMAGE:
     case C.CHART:

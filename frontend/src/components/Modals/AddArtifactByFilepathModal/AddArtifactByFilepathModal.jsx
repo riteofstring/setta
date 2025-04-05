@@ -33,9 +33,9 @@ export function AddArtifactByFilepathModal() {
     switch (getSectionType(sectionId)) {
       case C.DRAW:
       case C.IMAGE:
-        return C.ARTIFACT_TYPE_IMG;
+        return "img";
       case C.CHART:
-        return C.ARTIFACT_TYPE_LIST;
+        return "list";
     }
   };
 

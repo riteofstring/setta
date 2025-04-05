@@ -19,11 +19,11 @@ export async function dbSendProjectToInteractiveCode(projects) {
   });
 }
 
-export async function dbKillSubprocesses() {
+export async function dbKillInMemorySubprocesses() {
   const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
   return await post({
     body: { projectConfigId },
-    address: C.ROUTE_KILL_SUBPROCESSES,
+    address: C.ROUTE_KILL_IN_MEMORY_SUBPROCESSES,
   });
 }
 
