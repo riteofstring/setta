@@ -1,11 +1,13 @@
-from fastapi import APIRouter
-from pydantic import BaseModel
-from dotenv import load_dotenv
-from setta.utils.constants import C
-from litellm import completion
-from typing import Optional, List
-import uuid
 import os
+import uuid
+from typing import List, Optional
+
+from dotenv import load_dotenv
+from fastapi import APIRouter
+from litellm import completion
+from pydantic import BaseModel
+
+from setta.utils.constants import C
 
 load_dotenv()
 router = APIRouter()
@@ -143,7 +145,7 @@ def route_set_api_keys(x: ApiKeysRequest):
         # Reload the environment variables
         load_dotenv(override=True)
 
-        print(f"Successfully updated API keys in .env file")
+        print("Successfully updated API keys in .env file")
         return {"status": "success"}
 
     except Exception as e:
