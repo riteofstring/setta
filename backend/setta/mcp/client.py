@@ -89,10 +89,6 @@ class MCPClient:
             await self.session.send_ping()
 
     async def process_query(self, model, messages) -> str:
-        """Process a query using Claude and available tools"""
-        if not self.session:
-            raise RuntimeError("Not connected to MCP server")
-
         response = await self.session.list_tools()
         available_tools = [
             {
@@ -103,41 +99,68 @@ class MCPClient:
             for tool in response.tools
         ]
 
-        # Initial Claude API call
-        response = self.anthropic.messages.create(
-            model=model,
-            max_tokens=1000,
-            messages=messages,
-            tools=available_tools,
-        )
-
-        # Process response and handle tool calls
         final_text = []
 
-        for content in response.content:
-            if content.type == "text":
-                final_text.append(content.text)
-            elif content.type == "tool_use":
-                tool_name = content.name
-                tool_args = content.input
+        # Initial Claude API call
+        response = self.anthropic.messages.create(
+            model=model, max_tokens=1000, messages=messages, tools=available_tools
+        )
 
-                # Execute tool call
-                result = await self.session.call_tool(tool_name, tool_args)
-                final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
+        # Process responses until no more tool calls remain
+        while True:
+            assistant_message_content = []
+            has_tool_call = False
 
-                # Continue conversation with tool results
-                if hasattr(content, "text") and content.text:
-                    messages.append({"role": "assistant", "content": content.text})
-                messages.append({"role": "user", "content": result.content})
+            # Process all content in the current response
+            for content in response.content:
+                if content.type == "text":
+                    final_text.append(content.text)
+                    assistant_message_content.append(content)
+                elif content.type == "tool_use":
+                    has_tool_call = True
+                    tool_name = content.name
+                    tool_args = content.input
 
-                # Get next response from Claude
-                response = self.anthropic.messages.create(
-                    model=model,
-                    max_tokens=1000,
-                    messages=messages,
-                )
+                    # Execute tool call
+                    result = await self.session.call_tool(tool_name, tool_args)
+                    final_text.append(
+                        f"[Calling tool {tool_name} with args {tool_args}]"
+                    )
+                    assistant_message_content.append(content)
 
-                final_text.append(response.content[0].text)
+                    # Update conversation history
+                    messages.append(
+                        {"role": "assistant", "content": assistant_message_content}
+                    )
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "tool_result",
+                                    "tool_use_id": content.id,
+                                    "content": result.content,
+                                }
+                            ],
+                        }
+                    )
+
+                    # Get next response and process it
+                    response = self.anthropic.messages.create(
+                        model=model,
+                        max_tokens=1000,
+                        messages=messages,
+                        tools=available_tools,
+                    )
+                    break  # Process the new response from the beginning
+
+            # If we processed the entire response without finding tool calls, we're done
+            if not has_tool_call:
+                if assistant_message_content:
+                    messages.append(
+                        {"role": "assistant", "content": assistant_message_content}
+                    )
+                break
 
         return "\n".join(final_text)
 

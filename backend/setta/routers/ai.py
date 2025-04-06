@@ -34,7 +34,9 @@ class ApiKeysRequest(BaseModel):
 
 
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
-async def route_get_llm_response(x: GetLLMResponseRequest, mcp_client=Depends(get_mcp_client)):
+async def route_get_llm_response(
+    x: GetLLMResponseRequest, mcp_client=Depends(get_mcp_client)
+):
     try:
         print("========== DEBUGGING INFO ==========")
         print("Received request data:", x)
@@ -60,7 +62,9 @@ async def route_get_llm_response(x: GetLLMResponseRequest, mcp_client=Depends(ge
 
         # Let LiteLLM handle model identification automatically
         # Most standard model names are recognized without provider prefixes
-        ai_content = await mcp_client.process_query(x.model, conversation_histories[session_id])
+        ai_content = await mcp_client.process_query(
+            x.model, conversation_histories[session_id]
+        )
         # print("LiteLLM response received:", response)
 
         # Process and store AI response
