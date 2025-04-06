@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from collections import defaultdict
 from json import JSONDecodeError
 from pathlib import Path
 
@@ -269,3 +270,17 @@ def prune_dict(id_to_children: dict, keep_ids: list) -> dict:
 
     # Create new dict with only the ids we want to keep
     return {id: children for id, children in id_to_children.items() if id in to_keep}
+
+
+def remove_empty(x):
+    if isinstance(x, defaultdict):
+        # Create a new defaultdict with the same default_factory
+        result = defaultdict(x.default_factory)
+        # Add only non-empty items
+        for k, v in x.items():
+            if len(v) > 0:
+                result[k] = v
+        return result
+    else:
+        # Original behavior for regular dictionaries
+        return {k: v for k, v in x.items() if len(v) > 0}

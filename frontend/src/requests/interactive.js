@@ -5,13 +5,6 @@ import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { post } from "./utils";
 
-export async function dbImportCodeBlocks(projects) {
-  return await post({
-    body: { projects },
-    address: C.ROUTE_UPDATE_INTERACTIVE_CODE,
-  });
-}
-
 export async function dbSendProjectToInteractiveCode(projects) {
   return await post({
     body: { projects },
@@ -19,11 +12,11 @@ export async function dbSendProjectToInteractiveCode(projects) {
   });
 }
 
-export async function dbKillInMemorySubprocesses() {
+export async function dbKillSubprocesses() {
   const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
   return await post({
     body: { projectConfigId },
-    address: C.ROUTE_KILL_IN_MEMORY_SUBPROCESSES,
+    address: C.ROUTE_KILL_SUBPROCESSES,
   });
 }
 

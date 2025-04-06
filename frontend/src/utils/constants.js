@@ -156,3 +156,25 @@ export const VIEWING_EDITING_MODE = {
   USER: "USER",
   USER_EDIT: "USER_EDIT",
 };
+
+export const MODEL_GROUPS = [
+  {
+    group: "Anthropic",
+    items: [
+      { id: "claude-3-opus-20240229", name: "Claude 3 Opus" },
+      { id: "claude-3-sonnet-20240229", name: "Claude 3 Sonnet" },
+      { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku" },
+      { id: "claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet" },
+      { id: "claude-3-7-sonnet-20250219", name: "Claude 3.7 Sonnet" },
+    ],
+  },
+  {
+    group: "OpenAI",
+    items: [
+      { id: "gpt-4o", name: "GPT-4o" },
+      { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
+      { id: "gpt-4", name: "GPT-4" },
+      { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
+    ],
+  },
+];

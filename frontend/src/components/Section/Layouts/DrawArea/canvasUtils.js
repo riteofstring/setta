@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { sendToInteractiveTasks } from "state/actions/interactive";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
@@ -96,6 +95,7 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
   tempCanvasRefs,
   draftCanvasRef,
   fnCanvasToBase64,
+  sendToInteractiveTasksFn,
   incrementVersion = true,
 ) {
   useArtifacts.setState((state) => ({
@@ -111,7 +111,13 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
       },
     },
   }));
-  drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs, fnCanvasToBase64);
+  drawAllLayers(
+    sectionId,
+    layerCanvasRefs,
+    tempCanvasRefs,
+    fnCanvasToBase64,
+    sendToInteractiveTasksFn,
+  );
   clearCanvas(draftCanvasRef.current);
   maybeIncrementProjectStateVersion(incrementVersion);
 }
@@ -124,6 +130,7 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
   layerCanvasRefs,
   tempCanvasRefs,
   fnCanvasToBase64,
+  sendToInteractiveTasksFn,
 ) {
   useSectionInfos.setState((state) => {
     for (const [idx, t] of state.artifactGroups[
@@ -141,6 +148,7 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
     layerCanvasRefs,
     tempCanvasRefs,
     fnCanvasToBase64,
+    sendToInteractiveTasksFn,
     {},
     {},
     { [activeLayerId]: resizeHandleCorners.current },
@@ -154,6 +162,7 @@ export function drawAllLayers(
   layerCanvasRefs,
   tempCanvasRefs,
   fnCanvasToBase64,
+  sendToInteractiveTasksFn,
   realTimeValues = {}, // layerId -> artifactId -> value
   realTimeTransforms = {}, // layerId -> idx -> {transform, eraserStrokes}
   realTimeResizeHandles = {}, // layerId -> array of corner coordinates
@@ -174,10 +183,10 @@ export function drawAllLayers(
       realTimeEraserStrokes[layerId],
     );
   }
-  sendDrawingToInteractiveTasks(sectionId, fnCanvasToBase64);
+  sendToInteractiveTasksFn(null, fnCanvasToBase64);
 }
 
-export function drawOneLayer(
+function drawOneLayer(
   layerId,
   layerCanvas,
   tempCanvasRefs,
@@ -213,7 +222,7 @@ export function drawOneLayer(
     artifactTempCtx.globalCompositeOperation = "source-over";
 
     if (
-      artifact.type === "img" &&
+      artifact.type === C.ARTIFACT_TYPE_IMG &&
       artifact.value instanceof Image &&
       artifact.value.complete
     ) {
@@ -226,7 +235,10 @@ export function drawOneLayer(
         transformInfo.eraserStrokes,
         transformInfo.transform,
       );
-    } else if (artifact.type === "brushStrokes" && artifact.value.length > 0) {
+    } else if (
+      artifact.type === C.ARTIFACT_TYPE_BRUSH_STROKES &&
+      artifact.value.length > 0
+    ) {
       const strokes = realTimeValues?.[id] ?? artifact.value;
       const artifactTransformInfo = realTimeTransforms?.[idx] ?? t;
       drawStrokesOntoTempCanvas(
@@ -415,17 +427,9 @@ function hexToRGBA(_hex, opacity) {
 }
 
 function maybeGetImgSizeFromArtifact(artifact) {
-  if (artifact?.type === "img" && artifact?.value?.complete) {
+  if (artifact?.type === C.ARTIFACT_TYPE_IMG && artifact?.value?.complete) {
     const image = artifact.value;
     return { width: image.width, height: image.height };
   }
   return null;
 }
-
-export const sendDrawingToInteractiveTasks = _.throttle(
-  (sectionId, fnToBase64) => {
-    sendToInteractiveTasks([sectionId, "drawing"], null, fnToBase64);
-  },
-  200,
-  { leading: false },
-);

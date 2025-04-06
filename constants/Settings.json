@@ -42,7 +42,7 @@
     "showParamUITypeTabShortcut": "P",
     "showProjectOverviewTabShortcut": "O",
     "runCodeShortcut": "Mod + Enter",
-    "runAllCodeShortcut": "Mod + Shift + Enter",
+    "runEntryCodeBlockShortcut": "Mod + Shift + Enter",
     "sendProjectToAllInteractiveCode": "Alt + I",
     "paramSelect": "Mod + Shift",
     "formatCode": "Shift + Alt + F",
