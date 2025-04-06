@@ -130,6 +130,12 @@ export const useAIStore = create(
         // Add empty assistant message that will be updated
         addMessageToChat(assistantMsg);
 
+        // Track current content block being built
+        let currentBlockType = null;
+        let currentBlockIndex = null;
+        let currentJsonContent = "";
+        let currentToolName = "";
+
         try {
           const response = await dbGetLLMResponse(
             userSelectedLLM,
@@ -167,8 +173,20 @@ export const useAIStore = create(
                 const updatedMessages = [...messages];
                 const currentMsg = { ...updatedMessages[messageIndex] };
 
-                // Handle different chunk types and add to the sequence in order
+                // Handle different chunk types
                 switch (parsed.type) {
+                  case "block_start":
+                    // Track new content block start
+                    currentBlockType = parsed.block_type;
+                    currentBlockIndex = parsed.index;
+
+                    // If it's a tool_use block, prepare for JSON building
+                    if (currentBlockType === "tool_use") {
+                      currentJsonContent = "";
+                      currentToolName = ""; // Will be extracted from JSON
+                    }
+                    break;
+
                   case "text":
                     if (parsed.is_delta) {
                       // For text deltas, either add to existing content or create a new text chunk
@@ -196,14 +214,114 @@ export const useAIStore = create(
                       currentMsg.content += parsed.content;
                     }
                     break;
-                  case "tool_call":
-                    // Add tool call to the sequence
-                    currentMsg.streamSequence.push({
-                      type: "tool_call",
-                      name: parsed.name,
-                      args: parsed.args,
-                    });
+
+                  case "json":
+                    if (parsed.is_delta && currentBlockType === "tool_use") {
+                      // Build up JSON content for the tool call
+                      currentJsonContent += parsed.content;
+
+                      // Try to parse the JSON as it's being built
+                      try {
+                        const jsonObj = JSON.parse(currentJsonContent);
+
+                        // If we have a name field, update the tool name
+                        if (jsonObj && Object.keys(jsonObj).includes("name")) {
+                          currentToolName = jsonObj.name;
+                        }
+
+                        // Find or update the tool call in the sequence
+                        let toolCallIndex = currentMsg.streamSequence.findIndex(
+                          (item) =>
+                            item.type === "tool_call" &&
+                            item.streaming === true,
+                        );
+
+                        if (toolCallIndex === -1) {
+                          // Create a new tool call entry
+                          currentMsg.streamSequence.push({
+                            type: "tool_call",
+                            name: currentToolName || "Loading...",
+                            args: jsonObj,
+                            streaming: true, // Mark as still streaming
+                            jsonSoFar: currentJsonContent,
+                          });
+                        } else {
+                          // Update existing tool call
+                          currentMsg.streamSequence[toolCallIndex] = {
+                            ...currentMsg.streamSequence[toolCallIndex],
+                            name:
+                              currentToolName ||
+                              currentMsg.streamSequence[toolCallIndex].name,
+                            args: jsonObj,
+                            jsonSoFar: currentJsonContent,
+                          };
+                        }
+                      } catch (e) {
+                        // JSON isn't complete yet, just keep building
+                        // Find or update the partial tool call
+                        let toolCallIndex = currentMsg.streamSequence.findIndex(
+                          (item) =>
+                            item.type === "tool_call" &&
+                            item.streaming === true,
+                        );
+
+                        if (toolCallIndex === -1) {
+                          // Create a new tool call with partial JSON
+                          currentMsg.streamSequence.push({
+                            type: "tool_call",
+                            name: currentToolName || "Loading...",
+                            args: {},
+                            streaming: true,
+                            jsonSoFar: currentJsonContent,
+                          });
+                        } else {
+                          // Update the partial JSON
+                          currentMsg.streamSequence[toolCallIndex].jsonSoFar =
+                            currentJsonContent;
+                        }
+                      }
+                    }
                     break;
+
+                  case "block_end":
+                    // Finalize a content block
+                    if (
+                      currentBlockType === "tool_use" &&
+                      parsed.index === currentBlockIndex
+                    ) {
+                      // Finalize the tool call JSON
+                      try {
+                        const jsonObj = JSON.parse(currentJsonContent);
+
+                        // Find the streaming tool call
+                        let toolCallIndex = currentMsg.streamSequence.findIndex(
+                          (item) =>
+                            item.type === "tool_call" &&
+                            item.streaming === true,
+                        );
+
+                        if (toolCallIndex !== -1) {
+                          // Mark as no longer streaming
+                          currentMsg.streamSequence[toolCallIndex] = {
+                            ...currentMsg.streamSequence[toolCallIndex],
+                            streaming: false,
+                            name:
+                              jsonObj.name ||
+                              currentMsg.streamSequence[toolCallIndex].name,
+                            args: jsonObj,
+                            jsonSoFar: null, // Clean up the partial JSON
+                          };
+                        }
+                      } catch (e) {
+                        console.error("Error finalizing tool call JSON:", e);
+                      }
+
+                      // Reset for the next block
+                      currentBlockType = null;
+                      currentJsonContent = "";
+                    }
+                    break;
+
                   case "tool_result":
                     // Add tool result to the sequence
                     currentMsg.streamSequence.push({

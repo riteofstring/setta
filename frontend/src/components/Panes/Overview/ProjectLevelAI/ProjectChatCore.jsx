@@ -8,6 +8,27 @@ import ChatInput from "./ChatInput";
 
 // Create a memoized message component to prevent unnecessary re-renders
 const ChatMessage = memo(({ message }) => {
+  // Helper function to format tool arguments or partial JSON
+  const formatToolArgs = (args, jsonSoFar) => {
+    // If we have partial JSON that's not yet valid, show it directly
+    if (jsonSoFar) {
+      return jsonSoFar;
+    }
+
+    if (!args) return "{}";
+
+    // If it's a simple object with a few properties, format it more readable
+    const keys = Object.keys(args);
+    if (keys.length <= 3) {
+      return keys
+        .map((key) => `${key}: ${JSON.stringify(args[key])}`)
+        .join(", ");
+    }
+
+    // Otherwise return formatted JSON
+    return JSON.stringify(args, null, 2);
+  };
+
   // Handle messages with stream sequence
   if (message.streamSequence && message.streamSequence.length > 0) {
     return (
@@ -29,18 +50,26 @@ const ChatMessage = memo(({ message }) => {
                 </ReactMarkdown>
               );
             } else if (item.type === "tool_call") {
-              // Render tool calls
+              // Render tool calls with streaming indicator if still streaming
               return (
                 <div
                   key={`tool-call-${idx}`}
-                  className="my-2 rounded-md bg-blue-100 p-2 dark:bg-blue-800/30"
+                  className="my-3 rounded-md bg-blue-100 p-2 dark:bg-blue-900/40"
                 >
-                  <div className="text-xs font-semibold text-blue-700 dark:text-blue-400">
-                    Tool Call: {item.name}
+                  <div className="flex items-center gap-1 text-xs font-bold text-blue-700 dark:text-blue-400">
+                    <span>🔧</span>
+                    <span>
+                      Calling: {item.name}
+                      {item.streaming && (
+                        <span className="ml-2 animate-pulse">...</span>
+                      )}
+                    </span>
                   </div>
-                  <pre className="mt-1 overflow-x-auto text-xs text-gray-800 dark:text-gray-200">
-                    {JSON.stringify(item.args, null, 2)}
-                  </pre>
+                  <div className="mt-1 rounded bg-blue-50 p-1.5 dark:bg-blue-950/50">
+                    <pre className="overflow-x-auto text-xs text-gray-800 dark:text-gray-200">
+                      {formatToolArgs(item.args, item.jsonSoFar)}
+                    </pre>
+                  </div>
                 </div>
               );
             } else if (item.type === "tool_result") {
@@ -64,12 +93,13 @@ const ChatMessage = memo(({ message }) => {
               return (
                 <div
                   key={`tool-result-${idx}`}
-                  className="my-2 rounded-md bg-green-100 p-2 dark:bg-green-800/30"
+                  className="my-3 rounded-md bg-green-100 p-2 dark:bg-green-900/40"
                 >
-                  <div className="text-xs font-semibold text-green-700 dark:text-green-400">
-                    Tool Result
+                  <div className="flex items-center gap-1 text-xs font-bold text-green-700 dark:text-green-400">
+                    <span>✓</span>
+                    <span>Result</span>
                   </div>
-                  <div className="mt-1 overflow-x-auto">
+                  <div className="mt-1 rounded bg-green-50 p-1.5 dark:bg-green-950/50">
                     {typeof displayContent === "string" ? (
                       <p className="text-xs text-gray-800 dark:text-gray-200">
                         {displayContent}
