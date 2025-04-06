@@ -93,7 +93,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.file_watcher.start()
     app.state.specific_file_watcher.start()
-    app.state.mcp_client.start()
+    await app.state.mcp_client.start()
 
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'

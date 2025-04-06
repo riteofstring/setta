@@ -2,20 +2,48 @@ import asyncio
 
 from mcp import ClientSession
 from mcp.client.sse import sse_client
+from contextlib import AsyncExitStack
+import traceback
 
-
+# https://modelcontextprotocol.io/quickstart/client
 class MCPClient:
-    def start(self):
-        self.reader_task = asyncio.create_task(self.run())
+    def __init__(self):
+        self.session = None
+        self.read = None
+        self.write = None
+        self.exit_stack = AsyncExitStack()
+
+
+    async def start(self):
+        attempt_delay = 1
+        while True:
+            try:
+                read, write = await self.exit_stack.enter_async_context(sse_client(url="http://127.0.0.1:8000/mcp"))
+                self.session = await self.exit_stack.enter_async_context(ClientSession(read,write))
+
+                await self.session.initialize()
+
+                # List available tools
+                response = await self.session.list_tools()
+                tools = response.tools
+                print("\nConnected to server with tools:", [tool.name for tool in tools])
+                break
+
+            except Exception as e:
+                print(f"Connection attempt failed: {e}", flush=True)
+                print(f"Exception details:\n{traceback.format_exc()}")
+
+            print(f"Retrying in {attempt_delay} seconds...", flush=True)
+            await asyncio.sleep(attempt_delay)
+
 
     async def run(self):
         attempt_delay = 1
-
         while True:
             try:
                 print("Connection attempt...", flush=True)
                 # Note the trailing slash added here
-                async with sse_client(url="http://127.0.0.1:8000/mcp") as (
+                async with sse_client() as (
                     read,
                     write,
                 ):
