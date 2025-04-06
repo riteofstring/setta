@@ -273,7 +273,9 @@ async def stream_responses(stream):
 
         elif event.type == "content_block_stop":
             if llm_msgs[event.index].type == "tool_use":
-                llm_msgs[event.index].input = json.loads(llm_msgs[event.index].text)
+                text = llm_msgs[event.index].text
+                if text:
+                    llm_msgs[event.index].input = json.loads(text)
 
             # Yield the original event
             yield event
