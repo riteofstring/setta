@@ -7,7 +7,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from mcp.server.fastmcp import FastMCP
 
 from setta.code_state.code_state import CodeState
 from setta.code_state.code_tasks import CodeTasks
@@ -23,6 +22,8 @@ from setta.lsp.utils import (
     kill_lsps,
     start_lsps,
 )
+from setta.mcp.client import MCPClient
+from setta.mcp.server import add_mcp_server_to_fastapi_server
 from setta.routers import (
     ai_router,
     artifact_router,
@@ -76,6 +77,7 @@ async def lifespan(app: FastAPI):
     app.state.dbq = DBQueue(
         C.DB_PATH,
     )
+    app.state.mcp_client = MCPClient()
 
     maybe_create_tables_and_seed(
         app.state.dbq,
@@ -91,6 +93,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.file_watcher.start()
     app.state.specific_file_watcher.start()
+    app.state.mcp_client.start()
 
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
@@ -134,9 +137,6 @@ app.add_middleware(
 )
 
 
-mcp_server = FastMCP("Setta MCP Server")
-app.mount("/mcp", mcp_server.sse_app())
-
 kwargs = {"prefix": C.ROUTE_PREFIX}
 app.include_router(projects_router, **kwargs)
 app.include_router(sections_router, **kwargs)
@@ -149,6 +149,7 @@ app.include_router(artifact_router, **kwargs)
 app.include_router(reference_renaming_router, **kwargs)
 app.include_router(lsp_router, **kwargs)
 app.include_router(ai_router, **kwargs)
+add_mcp_server_to_fastapi_server(app, "/mcp")
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988
