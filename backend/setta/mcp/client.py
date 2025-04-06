@@ -84,14 +84,9 @@ class MCPClient:
 
     async def _keep_alive(self):
         """Keep the connection alive"""
-        # This method will block until the connection is broken
-        # We could implement periodic health checks here if needed
-        result = await self.process_query("Can you add 2 and 5?")
-        print("result", result, flush=True)
         while True:
-            await asyncio.sleep(60)  # Check connection every minute
-            # Optional: Perform a lightweight operation to verify connection
-            await self.session.list_tools()
+            await asyncio.sleep(10)
+            await self.session.send_ping()
 
     async def process_query(self, query: str) -> str:
         """Process a query using Claude and available tools"""
@@ -147,29 +142,6 @@ class MCPClient:
                 final_text.append(response.content[0].text)
 
         return "\n".join(final_text)
-
-    async def chat_loop(self):
-        """Run an interactive chat loop"""
-        print("\nMCP Client Started!")
-        print("Type your queries or 'quit' to exit.")
-
-        while True:
-            try:
-                query = input("\nQuery: ").strip()
-
-                if query.lower() == "quit":
-                    break
-
-                if not self.session:
-                    print("Waiting for connection to MCP server...")
-                    await asyncio.sleep(1)
-                    continue
-
-                response = await self.process_query(query)
-                print("\n" + response)
-
-            except Exception as e:
-                print(f"\nError: {str(e)}")
 
     async def cleanup(self):
         """Clean up resources"""
