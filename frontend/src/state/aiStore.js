@@ -124,7 +124,7 @@ export const useAIStore = create(
           role: "assistant",
           content: "",
           id: assistantMsgId,
-          chunks: [], // To store tool calls and results
+          streamSequence: [], // Ordered sequence of content chunks and tool interactions
         };
 
         // Add empty assistant message that will be updated
@@ -167,25 +167,46 @@ export const useAIStore = create(
                 const updatedMessages = [...messages];
                 const currentMsg = { ...updatedMessages[messageIndex] };
 
-                // Handle different chunk types
+                // Handle different chunk types and add to the sequence in order
                 switch (parsed.type) {
                   case "text":
                     if (parsed.is_delta) {
-                      // Append to content for text deltas
+                      // For text deltas, either add to existing content or create a new text chunk
+                      if (
+                        currentMsg.streamSequence.length > 0 &&
+                        currentMsg.streamSequence[
+                          currentMsg.streamSequence.length - 1
+                        ].type === "text"
+                      ) {
+                        // Add to existing text chunk
+                        const lastItem =
+                          currentMsg.streamSequence[
+                            currentMsg.streamSequence.length - 1
+                          ];
+                        lastItem.content += parsed.content;
+                      } else {
+                        // Create a new text chunk
+                        currentMsg.streamSequence.push({
+                          type: "text",
+                          content: parsed.content,
+                        });
+                      }
+
+                      // Also update the main content for backward compatibility
                       currentMsg.content += parsed.content;
                     }
                     break;
                   case "tool_call":
-                    // Add tool call chunk
-                    currentMsg.chunks.push({
+                    // Add tool call to the sequence
+                    currentMsg.streamSequence.push({
                       type: "tool_call",
                       name: parsed.name,
                       args: parsed.args,
                     });
                     break;
                   case "tool_result":
-                    // Add tool result chunk
-                    currentMsg.chunks.push({
+                    // Add tool result to the sequence
+                    currentMsg.streamSequence.push({
                       type: "tool_result",
                       content: parsed.content,
                     });
