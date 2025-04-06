@@ -132,12 +132,23 @@ class MCPClient:
 
                 # For content block start, track the current index and block type
                 if event.type == "content_block_start":
-                    # Inform frontend about the content block type
-                    yield {
-                        "type": "block_start",
-                        "index": event.index,
-                        "block_type": event.content_block.type,
-                    }
+                    if event.content_block.type == "tool_use" and hasattr(
+                        event.content_block, "name"
+                    ):
+                        # Yield the original event with tool name
+                        yield {
+                            "type": "block_start",
+                            "index": event.index,
+                            "block_type": event.content_block.type,
+                            "tool_name": event.content_block.name,
+                        }
+                    else:
+                        # Yield the original event
+                        yield {
+                            "type": "block_start",
+                            "index": event.index,
+                            "block_type": event.content_block.type,
+                        }
 
                 # For deltas, stream them to the frontend with type info
                 elif event.type == "content_block_delta":

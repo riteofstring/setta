@@ -183,7 +183,22 @@ export const useAIStore = create(
                     // If it's a tool_use block, prepare for JSON building
                     if (currentBlockType === "tool_use") {
                       currentJsonContent = "";
-                      currentToolName = ""; // Will be extracted from JSON
+
+                      // Use the tool_name from the event if available
+                      if (parsed.tool_name) {
+                        currentToolName = parsed.tool_name;
+                      } else {
+                        currentToolName = ""; // Fallback to known default
+                      }
+
+                      // Create a tool call entry immediately with the known name
+                      currentMsg.streamSequence.push({
+                        type: "tool_call",
+                        name: currentToolName,
+                        args: {},
+                        streaming: true,
+                        jsonSoFar: "",
+                      });
                     }
                     break;
 
