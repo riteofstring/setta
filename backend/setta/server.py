@@ -7,6 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from mcp.server.fastmcp import FastMCP
 
 from setta.code_state.code_state import CodeState
 from setta.code_state.code_tasks import CodeTasks
@@ -131,6 +132,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+mcp_server = FastMCP("Setta MCP Server")
+app.mount("/mcp", mcp_server.sse_app())
 
 kwargs = {"prefix": C.ROUTE_PREFIX}
 app.include_router(projects_router, **kwargs)
