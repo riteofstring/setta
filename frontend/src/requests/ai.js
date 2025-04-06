@@ -1,22 +1,31 @@
 import C from "constants/constants.json";
 import { post } from "./utils";
+import { URLS } from "utils/constants";
 
 export async function dbGetLLMResponse(model, message, sessionId = null) {
   try {
-    const response = await post({
-      body: {
+    // Use fetch directly for streaming
+    const response = await fetch(`${URLS.BACKEND}${C.ROUTE_GET_LLM_RESPONSE}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
         model,
         message,
         session_id: sessionId,
-      },
-      address: C.ROUTE_GET_LLM_RESPONSE,
+      }),
     });
-    console.log("model inside dbGetLLM: ", model);
-    console.log("Response received from LLM API:", response);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    // Return the response object for streaming
     return response;
   } catch (error) {
     console.error("Error in dbGetLLMResponse:", error);
-    throw error; // Re-throw to be handled by the caller
+    throw error;
   }
 }
 

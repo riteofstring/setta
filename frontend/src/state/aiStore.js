@@ -118,6 +118,18 @@ export const useAIStore = create(
         const updatedMessages = [...messages, userMsg];
         set({ messages: updatedMessages });
 
+        // Create a placeholder for the assistant's message
+        const assistantMsgId = Date.now().toString();
+        const assistantMsg = {
+          role: "assistant",
+          content: "",
+          id: assistantMsgId,
+          chunks: [], // To store tool calls and results
+        };
+
+        // Add empty assistant message that will be updated
+        addMessageToChat(assistantMsg);
+
         try {
           const response = await dbGetLLMResponse(
             userSelectedLLM,
@@ -125,19 +137,72 @@ export const useAIStore = create(
             sessionId,
           );
 
-          // Response handling with guard clause
-          if (!response.data?.content) {
-            const errorMsg = {
-              role: "assistant",
-              content: "Sorry, I couldn't process your request properly.",
-            };
-            addMessageToChat(errorMsg, sessionId || response.data?.session_id);
-            return;
-          }
+          // Get the reader from the response
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
 
-          // Success case
-          const aiMsg = { role: "assistant", content: response.data.content };
-          addMessageToChat(aiMsg, sessionId || response.data.session_id);
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            // Decode and parse the chunk
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk
+              .split("\n")
+              .filter((line) => line.trim() !== "");
+
+            for (const line of lines) {
+              try {
+                const parsed = JSON.parse(line);
+
+                // Get current state
+                const { messages } = get();
+
+                // Find the message we're updating
+                const messageIndex = messages.findIndex(
+                  (m) => m.id === assistantMsgId,
+                );
+                if (messageIndex === -1) continue;
+
+                const updatedMessages = [...messages];
+                const currentMsg = { ...updatedMessages[messageIndex] };
+
+                // Handle different chunk types
+                switch (parsed.type) {
+                  case "text":
+                    if (parsed.is_delta) {
+                      // Append to content for text deltas
+                      currentMsg.content += parsed.content;
+                    }
+                    break;
+                  case "tool_call":
+                    // Add tool call chunk
+                    currentMsg.chunks.push({
+                      type: "tool_call",
+                      name: parsed.name,
+                      args: parsed.args,
+                    });
+                    break;
+                  case "tool_result":
+                    // Add tool result chunk
+                    currentMsg.chunks.push({
+                      type: "tool_result",
+                      content: parsed.content,
+                    });
+                    break;
+                }
+
+                updatedMessages[messageIndex] = currentMsg;
+                set({ messages: updatedMessages });
+
+                // Also update the chat session
+                const { updateChatSession } = get();
+                updateChatSession(sessionId, updatedMessages);
+              } catch (e) {
+                console.error("Error parsing streaming chunk:", e, line);
+              }
+            }
+          }
         } catch (error) {
           // Error handling
           const errorMsg = {
