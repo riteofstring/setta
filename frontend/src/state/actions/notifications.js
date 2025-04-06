@@ -73,15 +73,5 @@ export const addTemporaryNotification = (
   return id;
 };
 
-export const replaceTemporaryNotification = (tempId, permanentNotification) => {
-  useNotifications.setState((state) => ({
-    notifications: state.notifications.map((n) =>
-      n.id === tempId
-        ? { ...permanentNotification, id: permanentNotification.id || n.id }
-        : n,
-    ),
-  }));
-};
-
 export const getTimeoutDuration = (notification) =>
   notification.timeout || DEFAULT_TEMP_TIMEOUT;

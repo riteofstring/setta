@@ -66,7 +66,6 @@
   "ROUTE_GET_EXISTING_TERMINALS": "/terminal/getExistingTerminals/{projectConfigId}",
   "ROUTE_SAVE_CODE_INFO": "/codeInfo/save",
   "ROUTE_COPY_SECTIONS": "/copySections",
-  "ROUTE_UPDATE_INTERACTIVE_CODE": "/updateInteractiveCode",
   "ROUTE_SEND_PROJECT_TO_INTERACTIVE_CODE": "/sendProjectTointeractiveCode",
   "ROUTE_KILL_SUBPROCESSES": "/killSubprocesses",
   "ROUTE_FORMAT_CODE": "/formatCode",

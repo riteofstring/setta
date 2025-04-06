@@ -5,13 +5,6 @@ import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { post } from "./utils";
 
-export async function dbImportCodeBlocks(projects) {
-  return await post({
-    body: { projects },
-    address: C.ROUTE_UPDATE_INTERACTIVE_CODE,
-  });
-}
-
 export async function dbSendProjectToInteractiveCode(projects) {
   return await post({
     body: { projects },

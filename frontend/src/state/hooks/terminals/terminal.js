@@ -171,7 +171,7 @@ export async function restoreTerminals() {
   }
 }
 
-export function createTemporaryTerminal(id, groupId, state) {
+function createTemporaryTerminal(id, groupId, state) {
   createSectionInfo({
     sectionProps: {
       id,
@@ -184,7 +184,7 @@ export function createTemporaryTerminal(id, groupId, state) {
   setSectionVariantChildren(groupId, (x) => [...x, id], state);
 }
 
-export function maybeCreateTemporaryTerminalGroup(state) {
+function maybeCreateTemporaryTerminalGroup(state) {
   let groupId = state.singletonSections.temporaryTerminalGroup;
   if (!groupId) {
     groupId = addSectionInEmptySpace({

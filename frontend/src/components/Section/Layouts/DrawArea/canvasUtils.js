@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { sendToInteractiveTasks } from "state/actions/interactive";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
@@ -187,7 +186,7 @@ export function drawAllLayers(
   sendToInteractiveTasksFn(null, fnCanvasToBase64);
 }
 
-export function drawOneLayer(
+function drawOneLayer(
   layerId,
   layerCanvas,
   tempCanvasRefs,
@@ -434,11 +433,3 @@ function maybeGetImgSizeFromArtifact(artifact) {
   }
   return null;
 }
-
-export const sendDrawingToInteractiveTasks = _.throttle(
-  (sectionId, fnToBase64) => {
-    sendToInteractiveTasks([sectionId, "drawing"], null, fnToBase64);
-  },
-  200,
-  { leading: false },
-);
