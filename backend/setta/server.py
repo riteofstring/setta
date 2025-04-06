@@ -120,6 +120,7 @@ async def lifespan(app: FastAPI):
         app.state.file_watcher.stop()
         app.state.specific_file_watcher.stop()
         await kill_lsps(app.state.lsps, app.state.lsp_readers)
+        await app.state.mcp_client.cleanup()
 
 
 app = FastAPI(
