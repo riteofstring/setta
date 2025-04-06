@@ -1,38 +1,25 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import {
+  updateInMemorySubprocessInfo,
   updateInteractiveArtifacts,
-  updateInteractiveDependencies,
 } from "state/actions/interactive";
 import { updateJSONSourceContents } from "state/actions/jsonSource";
-import {
-  addNotificationFromWebsocketMsg,
-  addTemporaryNotification,
-} from "state/actions/notifications";
+import { addTemporaryNotification } from "state/actions/notifications";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeErrors";
-import {
-  addWebsocketConnection,
-  clearAllWebsocketConnections,
-  setWebsocketConnections,
-} from "state/actions/websocketConnectionList";
+import { updateConnectedTo } from "state/actions/websocketConnectionList";
+import { useWebsocketConnectionList } from "state/definitions";
 import { URLS } from "utils/constants";
 
 let wss;
-let wasOpen = false;
 
 export const openWebSocket = _.debounce(
   (pathname) => {
-    if (!wss) {
-      wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_FRONTEND}`);
+    if (!wssReady()) {
+      wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_MANAGER}`);
       wss.addEventListener("open", () => {
         sendLocation(pathname);
-        addTemporaryNotification("Connected to server");
-        addWebsocketConnection({
-          websocketId: "main",
-          connectionType: C.WEBSOCKET_CONNECTION_TYPE_SERVER,
-        });
-        wasOpen = true;
       });
 
       wss.addEventListener("message", (event) => {
@@ -43,11 +30,6 @@ export const openWebSocket = _.debounce(
 
       wss.addEventListener("close", () => {
         wss = null;
-        if (wasOpen) {
-          addTemporaryNotification("Server connection lost");
-          wasOpen = false;
-        }
-        clearAllWebsocketConnections();
         // Attempt to reconnect
         setTimeout(() => {
           openWebSocket(pathname);
@@ -73,19 +55,20 @@ function wssReady() {
 function receiveMessage(message) {
   const m = JSON.parse(message);
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
-    setWebsocketConnections(m.content);
+    updateConnectedTo(m);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     processTypeErrors(m.content);
-  } else if (m.messageType === C.WS_NOTIFICATION) {
-    addNotificationFromWebsocketMsg(m.content);
-  } else if (m.messageType === C.WS_ARTIFACT) {
+  } else if (m.messageType === C.WS_LSP_STATUS) {
+    addTemporaryNotification(`Language Server ${m.content.data}`);
+  } else if (
+    m.messageType === C.WS_ARTIFACT ||
+    m.messageType === C.WS_IN_MEMORY_FN_RETURN
+  ) {
     updateInteractiveArtifacts(m.content);
-  } else if (m.messageType === C.WS_ALL_DEPENDENCIES) {
-    updateInteractiveDependencies(m.content);
+  } else if (m.messageType === C.WS_IN_MEMORY_FN_AVG_RUN_TIME) {
+    updateInMemorySubprocessInfo(m.content);
   } else if (m.messageType === C.WS_SPECIFIC_FILE_WATCHER_UPDATE) {
     updateJSONSourceContents(m.content);
-  } else if (m.messageType === C.WS_TERMINAL_METADATA) {
-    console.log(m.content);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);
   }
@@ -98,12 +81,13 @@ export function sendLocation(pathname) {
 }
 
 export async function sendMessage({ content, id, messageType }) {
-  if (wssReady()) {
+  const connectedTo = useWebsocketConnectionList.getState().connectedTo;
+  if (wssReady() && connectedTo) {
     wss.send(
       JSON.stringify({
         id,
         content,
-        toWebsocketId: "main",
+        toWebsocketId: connectedTo,
         messageType,
       }),
     );

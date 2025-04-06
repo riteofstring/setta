@@ -50,6 +50,7 @@ export const useSectionInfos = withProjectState(
               singletonSections: {
                 [C.GLOBAL_VARIABLES]: null,
                 [C.GLOBAL_PARAM_SWEEP]: null,
+                inMemoryFnStdoutTerminal: null,
                 temporaryTerminalGroup: null,
               },
               shouldRenameReferences: false,
@@ -64,6 +65,13 @@ export const useSectionInfos = withProjectState(
 export const useHomePageSearch = create(
   withResetFn(() => ({
     value: "",
+  })),
+);
+
+export const useInMemoryFn = create(
+  withResetFn(() => ({
+    inMemorySubprocessInfo: {},
+    throttledSendFns: {},
   })),
 );
 
@@ -141,10 +149,6 @@ export const useArtifacts = withProjectState(
   ),
 );
 
-export const useInteractiveDependencies = withProjectState(
-  create(withResetFn(() => ({ dependencies: new Set() }))),
-);
-
 export const useProjectSearch = withProjectState(
   create(
     withResetFn(() => ({
@@ -189,6 +193,7 @@ export const useTypeErrors = withProjectState(
 
 export const useWebsocketConnectionList = create(
   withResetFn(() => ({
+    connectedTo: null,
     connections: [],
   })),
 );

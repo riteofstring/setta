@@ -15,6 +15,8 @@ SETTA_FILES_FOLDER = CWD / "setta_files"
 CODE_FOLDER = SETTA_FILES_FOLDER / "code"
 DB_BACKUP_FOLDER = SETTA_FILES_FOLDER / "backups"
 CODE_FOLDER_ENV_VARIABLE = "SETTA_CODE_FOLDER"
+HOST_ENV_VARIABLE = "SETTA_HOST"
+PORT_ENV_VARIABLE = "SETTA_PORT"
 
 
 class Constants:
@@ -51,7 +53,7 @@ class Constants:
     @property
     def WEBSOCKET(self):
         self._ensure_initialized()
-        return f"ws://{self.HOST}:{self.PORT}{self.ROUTE_PREFIX}"
+        return f"ws://{self.HOST}:{self.PORT}{self.ROUTE_PREFIX}{self.ROUTE_WEBSOCKET_MANAGER}"
 
 
 C = Constants()
@@ -103,6 +105,7 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
     (
         "social",
         "codeLanguage",
+        "runInMemory",
         "isFrozen",
         "hideParams",
         "hideSearch",
@@ -115,6 +118,8 @@ SECTION_TABLE_DATA_JSON_FIELDS = set(
         "paramFilter",
         "columnWidth",
         "renderedValue",
+        "isReadOnlyTerminal",
+        "subprocessStartMethod",
         "headingAsSectionName",
     )
 )
@@ -126,7 +131,6 @@ SECTION_CONFIG_TABLE_DATA_JSON_FIELDS = set(
         "pinnedAreaHeight",
         "isMinimized",
         "positionAndSizeLocked",
-        "isEntryCodeBlock",
     )
 )
 

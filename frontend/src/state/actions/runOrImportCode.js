@@ -1,48 +1,113 @@
 import C from "constants/constants.json";
-import { dbRunCode } from "requests/terminals";
+import {
+  dbImportCodeBlocks,
+  dbSendProjectToInteractiveCode,
+} from "requests/interactive";
 import { useActiveSection, useSectionInfos } from "state/definitions";
-import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
-import { getProjectDataToGenerateCode } from "./project/generateCode";
-import { getSectionType } from "./sectionInfos";
+import {
+  maybeGetNewArtifactIds,
+  updateInMemorySubprocessInfo,
+  updateInteractiveArtifacts,
+} from "./interactive";
+import { addTemporaryNotification } from "./notifications";
+import {
+  getProjectDataToGenerateCode,
+  getProjectRuns,
+  sendRunCodeMessage,
+} from "./project/generateCode";
+import { getSectionInfo, getSectionType } from "./sectionInfos";
 
-export async function runCodeBlocks(sectionIds) {
+async function maybeGetProjectDataWithSweep(sectionIds, withSweep) {
+  const project = await getProjectDataToGenerateCode({
+    withArtifacts: true,
+    includeDrawings: true,
+    includeLatestChatMessages: true,
+  });
+  let projects = [];
+  if (withSweep) {
+    projects.push(...getProjectRuns(project));
+  } else {
+    project.runCodeBlocks = sectionIds;
+    projects.push(project);
+  }
+  return projects;
+}
+
+export async function importCodeBlocks(sectionIds, withSweep = false) {
+  addTemporaryNotification("Importing your code...");
+  const projects = await maybeGetProjectDataWithSweep(sectionIds, withSweep);
+  const res = await dbImportCodeBlocks(projects);
+  if (res.status === 200) {
+    updateInMemorySubprocessInfo(res.data.inMemorySubprocessInfo);
+    await maybeGetNewArtifactIds(res.data.content);
+    await updateInteractiveArtifacts(res.data.content);
+    // TODO: status should not be 200.
+    // TODO: should say import failed or something
+    if (!res.data.exceptionOccurred) {
+      addTemporaryNotification("Done importing");
+    }
+  }
+}
+
+async function sendProjectToInteractiveCode(sectionIds, withSweep = false) {
+  const projects = await maybeGetProjectDataWithSweep(sectionIds, withSweep);
+  const res = await dbSendProjectToInteractiveCode(projects);
+  if (res.status === 200) {
+    updateInMemorySubprocessInfo(res.data.inMemorySubprocessInfo);
+    await updateInteractiveArtifacts(res.data.content);
+  }
+}
+
+export async function runCodeBlocks(sectionIds, withSweep = false) {
   const project = await getProjectDataToGenerateCode({});
-  project.runCodeBlocks = sectionIds;
-  const res = await dbRunCode(project);
-  if (res.status == 200) {
-    const { terminalId, newTerminalCreated } = res.data;
-    if (newTerminalCreated) {
-      createTemporaryTerminalFromBackend(terminalId);
+  if (withSweep) {
+    let count = 0;
+    for (const projectVariant of getProjectRuns(project)) {
+      await sendRunCodeMessage(projectVariant, count);
+      count += 1;
     }
+  } else {
+    project.runCodeBlocks = sectionIds;
+    await sendRunCodeMessage(project);
   }
 }
 
-export function runEntryCodeBlock() {
-  // ids should be length 0 or 1
-  const ids = getEntryCodeBlock();
-  runCodeBlocks(ids);
-}
+export async function runOrImportAllCode() {
+  const { inMemory, asSubprocess } = getInMemoryAndAsSubprocessCodeBlocks();
 
-function getEntryCodeBlock() {
-  const ids = [];
-  const state = useSectionInfos.getState();
-  for (const s of Object.values(state.x)) {
-    if (getSectionType(s.id) === C.CODE && s.isEntryCodeBlock) {
-      ids.push(s.id);
-    }
+  // The legnth === 0 condition is for when there are no code blocks.
+  // In that case we still want to run the sections, and assume that
+  // the imaginary code block just contains $SETTA_GENERATED_PYTHON
+  if (
+    asSubprocess.length > 0 ||
+    (inMemory.length === 0 && asSubprocess.length === 0)
+  ) {
+    runCodeBlocks(asSubprocess, true);
   }
-  return ids;
-}
 
-export function runActiveCode() {
-  const codeBlocks = getCodeBlocks(true);
-  if (codeBlocks.length > 0) {
-    runCodeBlocks(codeBlocks);
+  if (inMemory.length > 0) {
+    importCodeBlocks(inMemory, true);
   }
 }
 
-function getCodeBlocks(onlyActiveSections = false) {
-  const codeBlocks = [];
+export function runOrImportActiveCode() {
+  const { inMemory, asSubprocess } = getInMemoryAndAsSubprocessCodeBlocks(true);
+  if (inMemory.length > 0) {
+    importCodeBlocks(inMemory);
+  }
+  if (asSubprocess.length > 0) {
+    runCodeBlocks(asSubprocess);
+  }
+}
+
+export function sendProjectToAllInteractiveCode() {
+  const { inMemory } = getInMemoryAndAsSubprocessCodeBlocks();
+  sendProjectToInteractiveCode(inMemory, true);
+}
+
+function getInMemoryAndAsSubprocessCodeBlocks(onlyActiveSections = false) {
+  const inMemory = [];
+  const asSubprocess = [];
   const ids = onlyActiveSections
     ? useActiveSection.getState().ids
     : Object.keys(useSectionInfos.getState().x);
@@ -51,7 +116,11 @@ function getCodeBlocks(onlyActiveSections = false) {
     if (getSectionType(id) !== C.CODE) {
       continue;
     }
-    codeBlocks.push(id);
+    if (getSectionInfo(id).runInMemory) {
+      inMemory.push(id);
+    } else {
+      asSubprocess.push(id);
+    }
   }
-  return codeBlocks;
+  return { inMemory, asSubprocess };
 }

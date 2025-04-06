@@ -4,25 +4,27 @@ from typing import List
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from setta.api.logger import load_from_csv_base64
+from setta.cli.logger import load_from_csv_base64
 from setta.database.db.artifacts.load import (
     load_artifact_from_disk,
     load_artifact_metadata_and_maybe_value_from_disk,
     load_available_artifacts,
 )
 from setta.database.db.artifacts.save_or_create import (
-    fill_in_missing_artifact_ids,
+    get_artifact_ids,
     save_or_create_artifacts,
 )
 from setta.utils.constants import C
 
-from .dependencies import get_dbq, get_wmh_artifact
+from .dependencies import get_dbq, get_websocket_manager
 
 router = APIRouter()
 
 
 class SendArtifactRequest(BaseModel):
     data: List[dict]
+    saveTo: str
+    messageType: str
 
 
 class LoadArtifactsRequest(BaseModel):
@@ -46,7 +48,7 @@ class ReadCSVBase64Request(BaseModel):
     base64Str: str
 
 
-class FillInMissingArtifactIdsRequest(BaseModel):
+class GetArtifactIdsFromNamePathType(BaseModel):
     namesPathsTypes: list
 
 
@@ -54,12 +56,16 @@ class FillInMissingArtifactIdsRequest(BaseModel):
 async def route_send_artifact(
     x: SendArtifactRequest,
     dbq=Depends(get_dbq),
-    websocket_msg_handler=Depends(get_wmh_artifact),
+    websocket_manager=Depends(get_websocket_manager),
 ):
     with dbq as db:
-        save_or_create_artifacts(db, x.data)
+        artifact_ids = save_or_create_artifacts(db, x.data, x.saveTo)
 
-    await websocket_msg_handler.broadcast_artifact(x.data)
+    for idx, d in enumerate(x.data):
+        d["id"] = artifact_ids[idx]
+
+    await websocket_manager.broadcast({"content": x.data, "messageType": x.messageType})
+    return artifact_ids
 
 
 @router.post(C.ROUTE_LOAD_ARTIFACTS)
@@ -91,9 +97,9 @@ def route_read_csv_base64(x: ReadCSVBase64Request):
     return load_from_csv_base64(x.base64Str)
 
 
-@router.post(C.ROUTE_FILL_IN_MISSING_ARTIFACT_IDS)
+@router.post(C.ROUTE_GET_ARTIFACT_IDS_FROM_NAME_PATH_TYPE)
 def route_get_artifact_ids_from_name_path_type(
-    x: FillInMissingArtifactIdsRequest, dbq=Depends(get_dbq)
+    x: GetArtifactIdsFromNamePathType, dbq=Depends(get_dbq)
 ):
     with dbq as db:
-        return fill_in_missing_artifact_ids(db, x.namesPathsTypes)
+        return get_artifact_ids(db, x.namesPathsTypes)
