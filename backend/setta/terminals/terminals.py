@@ -14,7 +14,7 @@ import psutil
 from fastapi import WebSocketDisconnect
 from websockets.exceptions import ConnectionClosedOK
 
-from setta.terminals.utils import linux_get_child_process_details
+from setta.code_gen.create_runnable_scripts import runCode
 from setta.utils.constants import USER_SETTINGS, C
 
 logger = logging.getLogger(__name__)
@@ -36,6 +36,13 @@ else:
     from .utils import linux_has_child_processes as has_child_processes
 
 
+def is_command_running_in_pty(pid):
+    try:
+        return has_child_processes(pid)
+    except psutil.NoSuchProcess:
+        return False
+
+
 def get_terminal_shell():
     if USER_SETTINGS["backend"]["defaultTerminalShell"]:
         return shlex.split(
@@ -48,13 +55,11 @@ def get_terminal_shell():
     return ["bash"]
 
 
-class Terminals:
-    def __init__(self, websocket_msg_handler_meta):
+class TerminalWebsockets:
+    def __init__(self):
         self.section_to_socket_ids = defaultdict(set)
         self.sockets = {}
         self.PTY_PIDS = {}
-        self.websocket_msg_handler_meta = websocket_msg_handler_meta
-        asyncio.create_task(self.monitor_child_processes())
 
     def new_terminal(self, projectConfigId, sectionId, isTemporary):
         if sectionId not in self.PTY_PIDS:
@@ -82,7 +87,6 @@ class Terminals:
                 pty_process.write(
                     f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
                 )
-            asyncio.create_task(self.start_reading_from_terminal(sectionId))
             return True
         return False
 
@@ -173,7 +177,7 @@ class Terminals:
                 logger.debug("read_from_terminal caught the exception!")
 
     # Function to write to the terminal
-    async def write_to_terminal(self, websocket, sectionId):
+    async def write_to_terminal(self, websocket, lsp_writers, sectionId):
         pty_info = self.PTY_PIDS[sectionId]
         pty_process = pty_info["process"]
         while True:
@@ -187,6 +191,10 @@ class Terminals:
                     doResize = json_val["messageType"] == C.WS_TERMINAL_RESIZE
                     if doResize:
                         pty_process.setwinsize(json_val["rows"], json_val["cols"])
+                    elif json_val["messageType"] == C.WS_RUN_CODE:
+                        command = await runCode(json_val, lsp_writers)
+                        pty_process.write(f"\x15{command}\n")
+                        self.set_terminal_start_time(sectionId)
                     pty_info["wasJustResized"] = doResize
                     continue
                 elif input_data:
@@ -211,7 +219,7 @@ class Terminals:
         for k, v in self.PTY_PIDS.items():
             if (
                 v["projectConfigId"] == projectConfigId
-                and not has_child_processes(v["pid"])
+                and not is_command_running_in_pty(v["pid"])
                 and time.time() - v["start"] > 1
             ):
                 return k
@@ -224,21 +232,6 @@ class Terminals:
                 output.append({"id": k, "isTemporary": v["isTemporary"]})
         return output
 
-    async def run_command_in_terminal(self, terminal_id, command):
-        info = self.PTY_PIDS[terminal_id]
-        await info["terminalPromptIsReady"].wait()
-        info["process"].write(f"\x15{command}\n")
-        self.set_terminal_start_time(terminal_id)
-
-    def kill_processes(self, ids):
-        num_killed = 0
-        for id in ids:
-            info = self.PTY_PIDS[id]
-            if has_child_processes(info["pid"]):
-                info["process"].sendintr()
-                num_killed += 1
-        return num_killed
-
     async def send_output_to_sectionId(self, sectionId, output, setSentReadyMsg=False):
         for wsId in self.section_to_socket_ids[sectionId]:
             ws = self.sockets[wsId]["ws"]
@@ -248,42 +241,3 @@ class Terminals:
                     self.sockets[wsId]["sentReadyMsg"] = True
             except:
                 continue
-
-    async def start_reading_from_terminal(self, terminalId):
-        read_task = asyncio.create_task(self.read_from_terminal(terminalId))
-        await read_task
-        await self.delete_terminal(terminalId)
-
-    async def monitor_child_processes(self):
-        """Periodically check and broadcast child process details for all terminals"""
-        CHECK_INTERVAL = 2.0  # seconds between checks
-        while True:
-            terminal_metadata = []
-            try:
-                for section_id in list(self.PTY_PIDS.keys()):
-                    # Only check terminals that have connected clients
-                    try:
-                        info = self.PTY_PIDS[section_id]
-
-                        # Get child process details
-                        children = linux_get_child_process_details(info["pid"])
-                        terminal_metadata.append(
-                            {
-                                "sectionId": section_id,
-                                "projectConfigId": info["projectConfigId"],
-                                "processes": children,
-                            }
-                        )
-
-                    except (KeyError, psutil.NoSuchProcess):
-                        # Terminal might have been deleted during iteration
-                        continue
-            except Exception as e:
-                logger.error(f"Error monitoring child processes: {e}")
-                logger.debug(f"Exception details:\n{traceback.format_exc()}")
-
-            await self.websocket_msg_handler_meta.broadcast_terminal_metadata(
-                terminal_metadata
-            )
-            # Sleep until next check
-            await asyncio.sleep(CHECK_INTERVAL)

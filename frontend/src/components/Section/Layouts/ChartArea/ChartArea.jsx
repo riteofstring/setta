@@ -1,5 +1,4 @@
 import Chart from "chart.js/auto";
-import C from "constants/constants.json";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
@@ -24,7 +23,7 @@ function _ChartArea({ sectionId }) {
   const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,
     false,
-    C.ARTIFACT_TYPE_LIST,
+    "list",
   );
 
   return (

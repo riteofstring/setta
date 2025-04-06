@@ -2,12 +2,12 @@ import json
 import logging
 import os
 
+from setta.code_gen.export_selected import get_selected_section_variant
 from setta.database.db.projects.utils import (
     add_defaults_to_project_and_load_json_sources,
     filter_data_for_json_export,
 )
 from setta.database.db.sections.jsonSource import save_json_source_data
-from setta.gen_code.export_selected import get_selected_section_variant
 from setta.utils.constants import CONSTANTS_FOLDER, SETTA_FILES_FOLDER, USER_SETTINGS
 from setta.utils.utils import get_absolute_path, save_json_to_file
 

@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   IoAlertCircleSharp,
   IoCheckmarkCircle,
@@ -14,16 +14,16 @@ import {
   dbGetNotifications,
 } from "requests/notifications";
 import {
-  getTimeoutDuration,
   markAsRead,
   removeNotification,
+  setNotifications,
 } from "state/actions/notifications"; // Assuming this import path
 import { useNotifications, useSectionInfos } from "state/definitions";
 
 export function NotificationsArea() {
-  // Get all notifications from the store, including temporary ones
+  // Get all non-temporary notifications from the store
   const notifications = useNotifications(
-    (state) => state.notifications,
+    (state) => state.notifications.filter((n) => !n.temporary),
     _.isEqual,
   );
 
@@ -36,12 +36,7 @@ export function NotificationsArea() {
         const response = await dbGetNotifications(projectConfigId);
         if (response.status === 200 && response.data) {
           // Set the notifications in the store
-          useNotifications.setState((state) => ({
-            notifications: [
-              ...state.notifications.filter((n) => n.temporary),
-              ...response.data,
-            ],
-          }));
+          setNotifications(response.data);
         }
       } catch (error) {
         console.error("Failed to fetch notifications:", error);
@@ -66,12 +61,8 @@ export function NotificationsArea() {
     </div>
   );
 }
-
 function NotificationItem({ notification }) {
-  const { id, type, message, timestamp, dateObj, read_status, temporary } =
-    notification;
-  const [isExiting, setIsExiting] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(temporary ? 100 : 0);
+  const { id, type, message, timestamp, read_status } = notification;
 
   // Format timestamp for display - convert UTC to local time
   const formattedTime = new Date(timestamp).toLocaleString(undefined, {
@@ -81,15 +72,8 @@ function NotificationItem({ notification }) {
 
   // Handle removing a notification
   const handleRemove = async () => {
-    if (temporary) {
-      setIsExiting(true);
-      setTimeout(() => {
-        removeNotification(id);
-      }, 300); // Match transition duration
-    } else {
-      removeNotification(id);
-      await dbDeleteNotification(id);
-    }
+    removeNotification(id);
+    await dbDeleteNotification(id);
   };
 
   // Handle marking a notification as read when interacted with
@@ -99,33 +83,9 @@ function NotificationItem({ notification }) {
     }
   };
 
-  // Timer effect for temporary notifications
-  useEffect(() => {
-    if (!temporary) return;
-
-    const timeout = getTimeoutDuration(notification) * 0.95;
-    // Update time remaining every 100ms
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - dateObj;
-      const remaining = Math.max(0, 100 - (elapsed / timeout) * 100);
-      setTimeRemaining(remaining);
-
-      if (remaining <= 0) {
-        clearInterval(interval);
-        setIsExiting(true);
-      }
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [id, temporary, notification.timeout]);
-
   return (
     <section
-      className={`group/notifications overflow-clip rounded-md px-3 py-2 transition-all duration-300 hover:bg-white hover:shadow-md hover:dark:bg-setta-800 hover:dark:shadow-lg ${
-        !read_status ? "bg-blue-50 dark:bg-setta-900/50" : ""
-      } ${temporary ? "border-l-4 border-l-blue-400" : ""} ${
-        isExiting ? "translate-x-full opacity-0" : "opacity-100"
-      }`}
+      className={`group/notifications overflow-clip rounded-md px-3 py-2 transition-all hover:bg-white hover:shadow-md hover:dark:bg-setta-800 hover:dark:shadow-lg ${!read_status ? "bg-blue-50 dark:bg-setta-900/50" : ""}`}
       onClick={handleMarkAsRead}
     >
       <header className="mb-2 flex items-center justify-between gap-2">
@@ -154,15 +114,6 @@ function NotificationItem({ notification }) {
           {formattedTime}
         </span>
       </div>
-
-      {temporary && (
-        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-gray-200">
-          <div
-            className="h-full bg-blue-400 transition-all duration-100 ease-linear"
-            style={{ width: `${timeRemaining}%` }}
-          />
-        </div>
-      )}
     </section>
   );
 }

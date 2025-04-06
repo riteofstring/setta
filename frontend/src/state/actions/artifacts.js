@@ -39,20 +39,20 @@ async function prepareArtifactsForRendering(artifactsFromBackend) {
 
 export async function prepareArtifactForRendering(type, value) {
   switch (type) {
-    case C.ARTIFACT_TYPE_IMG:
+    case "img":
       return await base64ToImageObj(value);
-    case C.ARTIFACT_TYPE_LIST:
-    case C.ARTIFACT_TYPE_BRUSH_STROKES:
-    case C.ARTIFACT_TYPE_CHAT_HISTORY:
+    case "list":
+    case "brushStrokes":
+    case "chatHistory":
       return value;
   }
 }
 
 export async function prepareDataURLForRendering(type, value) {
   switch (type) {
-    case C.ARTIFACT_TYPE_IMG:
+    case "img":
       return await base64ToImageObj(value);
-    case C.ARTIFACT_TYPE_LIST:
+    case "list":
       const res = await dbReadCSVBase64(dataURLToBase64(value));
       if (res.status == 200) {
         return res.data;
@@ -68,10 +68,7 @@ export function getArtifactStateForSaving() {
   for (const [id, artifact] of Object.entries(useArtifacts.getState().x)) {
     if (typeof artifact === "function") {
       continue;
-    } else if (
-      artifact.type === C.ARTIFACT_TYPE_IMG &&
-      artifact.value instanceof Image
-    ) {
+    } else if (artifact.type === "img" && artifact.value instanceof Image) {
       result[id] = { ...artifact, value: dataURLToBase64(artifact.value.src) };
     } else {
       result[id] = artifact;
@@ -110,7 +107,7 @@ function addArtifactUponSectionCreation({
 export function addDrawAreaLayer(sectionId, state) {
   const artifactGroupId = addArtifactUponSectionCreation({
     sectionId,
-    artifactType: C.ARTIFACT_TYPE_BRUSH_STROKES,
+    artifactType: "brushStrokes",
     sectionTypeName: C.DRAW,
     state,
   });
@@ -121,7 +118,7 @@ export function addDrawAreaLayer(sectionId, state) {
 export function addChatHistoryArtifact(sectionId, state) {
   addArtifactUponSectionCreation({
     sectionId,
-    artifactType: C.ARTIFACT_TYPE_CHAT_HISTORY,
+    artifactType: "chatHistory",
     sectionTypeName: C.CHAT,
     state,
   });
@@ -291,5 +288,5 @@ function processScatterChartArtifacts(artifacts) {
 }
 
 export function getNamePathTypeKey(artifact) {
-  return JSON.stringify([artifact.name, artifact.path, artifact.type]);
+  return JSON.stringify([artifact["name"], artifact["path"], artifact["type"]]);
 }
