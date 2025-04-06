@@ -91,6 +91,22 @@ export function subscribe() {
     { equalityFn: _.isEqual },
   );
 
+  useSectionInfos.subscribe(entryCodeBlockSubscriptionFn, (newVal) => {
+    // newVal is true if there is already an entry code block.
+    // otherwise it's a number indicating the number of code blocks.
+    // if there isn't an entry code block, make an arbitrary code block the entry.
+    if (newVal !== true) {
+      useSectionInfos.setState((state) => {
+        for (const s of Object.values(state.x)) {
+          if (getSectionType(s.id) === C.CODE) {
+            state.x[s.id].isEntryCodeBlock = true;
+            break;
+          }
+        }
+      });
+    }
+  });
+
   useReactFlow.subscribe(
     reactFitViewOnInitSubscriptionFn,
     (newState, prevState) => {
@@ -166,14 +182,12 @@ function singletonSectionsSubscriptionFn(state) {
   const output = {
     [C.GLOBAL_VARIABLES]: null,
     [C.GLOBAL_PARAM_SWEEP]: null,
-    inMemoryFnStdoutTerminal: null,
   };
   for (const s of Object.values(state.x)) {
     const uiType = state.uiTypes[s.uiTypeId]?.type;
     if (
       output[C.GLOBAL_VARIABLES] &&
       output[C.GLOBAL_PARAM_SWEEP] &&
-      output.inMemoryFnStdoutTerminal &&
       output.temporaryTerminalGroup
     ) {
       break;
@@ -183,13 +197,6 @@ function singletonSectionsSubscriptionFn(state) {
     }
     if (!output[C.GLOBAL_PARAM_SWEEP] && uiType === C.GLOBAL_PARAM_SWEEP) {
       output[C.GLOBAL_PARAM_SWEEP] = s.id;
-    }
-    if (
-      !output.inMemoryFnStdoutTerminal &&
-      uiType === C.TERMINAL &&
-      s.isReadOnlyTerminal
-    ) {
-      output.inMemoryFnStdoutTerminal = s.id;
     }
     // TODO: need better way of knowing if it's the temporaryTerminalGroup
     if (!output.temporaryTerminalGroup && uiType === C.GROUP && s.isTemporary) {
@@ -262,7 +269,7 @@ function updateNodeDimensionsSubscriptionFn(state) {
 function artifactNamePathTypeToIdSubscriptionFn(state) {
   const output = {};
   for (const [id, a] of Object.entries(state.x)) {
-    output[id] = { name: a["name"], path: a["path"], type: a["type"] };
+    output[id] = { name: a.name, path: a.path, type: a.type };
   }
   return output;
 }
@@ -298,4 +305,17 @@ function topLevelSectionVisibilitySubscriptionFn(state) {
     }
   }
   return output;
+}
+
+function entryCodeBlockSubscriptionFn(state) {
+  let count = 0;
+  for (const s of Object.values(state.x)) {
+    if (getSectionType(s.id) === C.CODE) {
+      count += 1;
+      if (state.x[s.id].isEntryCodeBlock) {
+        return true;
+      }
+    }
+  }
+  return count;
 }

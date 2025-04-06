@@ -12,7 +12,7 @@ import MenuButton from "./MenuButton/MenuButton";
 import { MinimizeButton } from "./MinimizeButton";
 import { RunButton } from "./RunButton";
 import { SectionTitle } from "./SectionTitle";
-import { ToggleRunInMemoryButton } from "./ToggleRunInMemoryButton";
+import { ToggleEntryCodeBlockButton } from "./ToggleEntryCodeBlockButton";
 
 function _SectionHeader({
   sectionId,
@@ -60,7 +60,7 @@ function _SectionHeader({
         {sectionTypeName === C.CODE && (
           <>
             <RunButton sectionId={sectionId} />{" "}
-            <ToggleRunInMemoryButton sectionId={sectionId} />{" "}
+            <ToggleEntryCodeBlockButton sectionId={sectionId} />{" "}
           </>
         )}
         {!isUserView && <LockPositionButton sectionId={sectionId} />}

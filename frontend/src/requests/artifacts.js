@@ -35,10 +35,3 @@ export async function dbReadCSVBase64(base64Str) {
     address: C.ROUTE_READ_CSV_BASE64,
   });
 }
-
-export async function dbGetArtifactIdsFromNamePathType(namesPathsTypes) {
-  return await post({
-    body: { namesPathsTypes },
-    address: C.ROUTE_GET_ARTIFACT_IDS_FROM_NAME_PATH_TYPE,
-  });
-}
