@@ -85,13 +85,6 @@ class MCPClient:
 
     async def _keep_alive(self):
         """Keep the connection alive"""
-        async for chunk in self.process_query(
-            "claude-3-7-sonnet-20250219",
-            [{"role": "user", "content": "add these 4 numbers: 2, 5, 10, 13"}],
-        ):
-            # Convert each chunk to JSON and add newline for streaming
-            print(json.dumps(chunk) + "\n", flush=True)
-
         while True:
             await asyncio.sleep(10)
             await self.session.send_ping()
