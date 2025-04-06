@@ -36,5 +36,5 @@ async def add_regular_section_in_empty_space():
 
 
 @mcp_server.tool()
-def add_two_numbers(a:int, b:int):
+def add_two_numbers(a: int, b: int):
     return a + b

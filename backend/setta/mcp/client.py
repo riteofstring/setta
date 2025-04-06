@@ -85,11 +85,18 @@ class MCPClient:
 
     async def _keep_alive(self):
         """Keep the connection alive"""
+        async for chunk in self.process_query(
+            "claude-3-7-sonnet-20250219",
+            [{"role": "user", "content": "add these 4 numbers: 2, 5, 10, 13"}],
+        ):
+            # Convert each chunk to JSON and add newline for streaming
+            print(json.dumps(chunk) + "\n", flush=True)
+
         while True:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def process_query(self, model, messages) -> str:
+    async def process_query(self, model, messages):
         response = await self.session.list_tools()
         available_tools = [
             {
@@ -100,79 +107,130 @@ class MCPClient:
             for tool in response.tools
         ]
 
-        final_text = []
+        # Process responses until no more tool calls remain
+        while True:
+            assistant_message_content = []
+            has_tool_call = False
+            complete_messages = None
 
-        # Initial Claude API call
-        responses = stream_responses(
-            self.anthropic.messages.create(
+            # Initial Claude API call with streaming
+            stream = self.anthropic.messages.create(
                 model=model,
                 max_tokens=1000,
                 messages=messages,
                 tools=available_tools,
                 stream=True,
             )
-        )
 
-        # Process responses until no more tool calls remain
-        while True:
-            assistant_message_content = []
-            has_tool_call = False
+            # Process streaming events
+            current_index = None
+            current_block_type = None
 
-            # Process all content in the current response
-            for msg in responses:
-                if msg.type == "text":
-                    final_text.append(msg.text)
-                    assistant_message_content.append({"type": "text", "text": msg.text})
-                elif msg.type == "tool_use":
-                    has_tool_call = True
-                    tool_name = msg.name
-                    tool_args = msg.input
+            # Use a regular for loop since stream_responses returns a regular generator
+            stream_gen = stream_responses(stream)
+            async for event_data in stream_gen:
+                # Check for the special complete event
+                if (
+                    isinstance(event_data, dict)
+                    and event_data.get("type") == "content_block_complete"
+                ):
+                    complete_messages = event_data.get("messages")
+                    continue
 
-                    # Execute tool call
-                    result = await self.session.call_tool(tool_name, tool_args)
-                    final_text.append(
-                        f"[Calling tool {tool_name} with args {tool_args}]"
-                    )
+                # Regular event from the stream
+                event = event_data  # The actual event object from the stream
 
-                    # Format the tool_use content block correctly
-                    assistant_message_content.append(
-                        {
-                            "type": "tool_use",
-                            "id": msg.id,
-                            "name": tool_name,
-                            "input": tool_args,
+                # For content block start, track the current index and block type
+                if event.type == "content_block_start":
+                    current_index = event.index
+                    current_block_type = event.content_block.type
+
+                    # Inform frontend about the content block type
+                    yield {
+                        "type": "block_start",
+                        "index": current_index,
+                        "block_type": current_block_type,
+                    }
+
+                # For deltas, stream them to the frontend with type info
+                elif event.type == "content_block_delta":
+                    if event.delta.type == "text_delta":
+                        yield {
+                            "type": "text",
+                            "content": event.delta.text,
+                            "index": event.index,
+                            "is_delta": True,
                         }
-                    )
-
-                    # Update conversation history
-                    messages.append(
-                        {"role": "assistant", "content": assistant_message_content}
-                    )
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "tool_result",
-                                    "tool_use_id": msg.id,
-                                    "content": result.content,
-                                }
-                            ],
+                    elif event.delta.type == "input_json_delta":
+                        yield {
+                            "type": "json",
+                            "content": event.delta.partial_json,
+                            "index": event.index,
+                            "is_delta": True,
                         }
-                    )
 
-                    # Get next response and process it
-                    responses = stream_responses(
-                        self.anthropic.messages.create(
-                            model=model,
-                            max_tokens=1000,
-                            messages=messages,
-                            tools=available_tools,
-                            stream=True,
+                # For content block stop, inform the frontend
+                elif event.type == "content_block_stop":
+                    yield {"type": "block_end", "index": event.index}
+
+            # Process complete messages for tool calls
+            if complete_messages:
+                for msg in complete_messages:
+                    if msg.type == "text":
+                        assistant_message_content.append(
+                            {"type": "text", "text": msg.text}
                         )
-                    )
+                    elif msg.type == "tool_use":
+                        has_tool_call = True
+                        tool_name = msg.name
+                        tool_args = msg.input
 
-                    break  # Process the new response from the beginning
+                        # Yield complete tool call info
+                        yield {
+                            "type": "tool_call",
+                            "name": tool_name,
+                            "args": tool_args,
+                            "is_delta": False,
+                        }
+
+                        # Execute tool call
+                        result = await self.session.call_tool(tool_name, tool_args)
+
+                        # Yield tool result
+                        yield {
+                            "type": "tool_result",
+                            "content": result.content,
+                            "is_delta": False,
+                        }
+
+                        # Format the tool_use content block for history
+                        assistant_message_content.append(
+                            {
+                                "type": "tool_use",
+                                "id": msg.id,
+                                "name": tool_name,
+                                "input": tool_args,
+                            }
+                        )
+
+                        # Update conversation history
+                        messages.append(
+                            {"role": "assistant", "content": assistant_message_content}
+                        )
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "tool_result",
+                                        "tool_use_id": msg.id,
+                                        "content": result.content,
+                                    }
+                                ],
+                            }
+                        )
+
+                        break  # Exit the loop to process a new response
 
             # If we processed the entire response without finding tool calls, we're done
             if not has_tool_call:
@@ -181,8 +239,7 @@ class MCPClient:
                         {"role": "assistant", "content": assistant_message_content}
                     )
                 break
-
-        return "\n".join(final_text)
+            # Otherwise continue the loop to get the next response after tool use
 
     async def cleanup(self):
         """Clean up resources"""
@@ -195,24 +252,41 @@ class MCPClient:
                 pass
 
 
-def stream_responses(stream):
+async def stream_responses(stream):
+    """
+    Process the stream from Claude API, yield each event as it arrives
+    and finally yield a dictionary with the complete messages
+    """
     llm_msgs = []
 
+    # Assuming stream is an iterable, not an async iterable
     for event in stream:
-        print(event, flush=True)
         if event.type == "content_block_start":
             while len(llm_msgs) <= event.index:
                 llm_msgs.append(None)
             llm_msgs[event.index] = event.content_block
             if not hasattr(event.content_block, "text"):
                 event.content_block.text = ""
+
+            # Yield the original event
+            yield event
+
         elif event.type == "content_block_delta":
             if event.delta.type == "text_delta":
+                # Add to the message being built
                 llm_msgs[event.index].text += event.delta.text
             elif event.delta.type == "input_json_delta":
                 llm_msgs[event.index].text += event.delta.partial_json
+
+            # Yield the original event
+            yield event
+
         elif event.type == "content_block_stop":
             if llm_msgs[event.index].type == "tool_use":
                 llm_msgs[event.index].input = json.loads(llm_msgs[event.index].text)
 
-    return llm_msgs
+            # Yield the original event
+            yield event
+
+    # Yield a dictionary with the complete message data
+    yield {"type": "content_block_complete", "messages": llm_msgs}

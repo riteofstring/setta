@@ -1,9 +1,11 @@
+import json
 import os
 import uuid
 from typing import List, Optional
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from litellm import completion
 from pydantic import BaseModel
 
@@ -60,21 +62,28 @@ async def route_get_llm_response(
         print("About to call completion with model:", x.model)
         print("Messages:", conversation_histories[session_id])
 
-        # Let LiteLLM handle model identification automatically
-        # Most standard model names are recognized without provider prefixes
-        ai_content = await mcp_client.process_query(
-            x.model, conversation_histories[session_id]
-        )
-        # print("LiteLLM response received:", response)
+        # Create a streaming response generator
+        async def response_generator():
+            try:
+                async for chunk in mcp_client.process_query(
+                    x.model, conversation_histories[session_id]
+                ):
+                    # Convert each chunk to JSON and add newline for streaming
+                    yield json.dumps(chunk) + "\n"
+            except Exception as e:
+                # Handle any errors during streaming
+                error_chunk = {
+                    "type": "error",
+                    "content": f"Error during streaming: {str(e)}",
+                }
+                yield json.dumps(error_chunk) + "\n"
 
-        # Process and store AI response
-        # ai_content = response.choices[0].message.content
-        conversation_histories[session_id].append(
-            {"role": "assistant", "content": ai_content}
+        # Return a streaming response
+        return StreamingResponse(
+            response_generator(),
+            media_type="application/x-ndjson",
+            headers={"X-Session-ID": session_id},
         )
-
-        # Return response with session ID
-        return {"content": ai_content, "session_id": session_id}
 
     except Exception as e:
         print(f"Error in route_get_llm_response: {str(e)}")
