@@ -23,3 +23,10 @@ def add_mcp_server_to_fastapi_server(app, mount_path):
 
     app.get(mount_path)(handle_mcp_connection)
     app.mount(msg_path, app=sse_transport.handle_post_message)
+
+
+@mcp_server.tool()
+def add(a: int, b: int) -> int:
+    """Add two numbers"""
+    print("using the add function!", flush=True)
+    return a + b

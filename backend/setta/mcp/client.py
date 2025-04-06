@@ -2,7 +2,7 @@ import asyncio
 from contextlib import AsyncExitStack
 from typing import Optional
 
-# from anthropic import Anthropic
+from anthropic import Anthropic
 from dotenv import load_dotenv
 from mcp import ClientSession
 from mcp.client.sse import sse_client
@@ -16,7 +16,7 @@ class MCPClient:
         # Initialize session and client objects
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
-        # self.anthropic = Anthropic()
+        self.anthropic = Anthropic()
         self.reader_task = None
         self.server_url = server_url
 
@@ -86,6 +86,8 @@ class MCPClient:
         """Keep the connection alive"""
         # This method will block until the connection is broken
         # We could implement periodic health checks here if needed
+        result = await self.process_query("Can you add 2 and 5?")
+        print("result", result, flush=True)
         while True:
             await asyncio.sleep(60)  # Check connection every minute
             # Optional: Perform a lightweight operation to verify connection
