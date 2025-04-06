@@ -1,4 +1,5 @@
 import asyncio
+import json
 from contextlib import AsyncExitStack
 from typing import Optional
 
@@ -102,8 +103,14 @@ class MCPClient:
         final_text = []
 
         # Initial Claude API call
-        response = self.anthropic.messages.create(
-            model=model, max_tokens=1000, messages=messages, tools=available_tools
+        responses = stream_responses(
+            self.anthropic.messages.create(
+                model=model,
+                max_tokens=1000,
+                messages=messages,
+                tools=available_tools,
+                stream=True,
+            )
         )
 
         # Process responses until no more tool calls remain
@@ -112,21 +119,30 @@ class MCPClient:
             has_tool_call = False
 
             # Process all content in the current response
-            for content in response.content:
-                if content.type == "text":
-                    final_text.append(content.text)
-                    assistant_message_content.append(content)
-                elif content.type == "tool_use":
+            for msg in responses:
+                if msg.type == "text":
+                    final_text.append(msg.text)
+                    assistant_message_content.append({"type": "text", "text": msg.text})
+                elif msg.type == "tool_use":
                     has_tool_call = True
-                    tool_name = content.name
-                    tool_args = content.input
+                    tool_name = msg.name
+                    tool_args = msg.input
 
                     # Execute tool call
                     result = await self.session.call_tool(tool_name, tool_args)
                     final_text.append(
                         f"[Calling tool {tool_name} with args {tool_args}]"
                     )
-                    assistant_message_content.append(content)
+
+                    # Format the tool_use content block correctly
+                    assistant_message_content.append(
+                        {
+                            "type": "tool_use",
+                            "id": msg.id,
+                            "name": tool_name,
+                            "input": tool_args,
+                        }
+                    )
 
                     # Update conversation history
                     messages.append(
@@ -138,7 +154,7 @@ class MCPClient:
                             "content": [
                                 {
                                     "type": "tool_result",
-                                    "tool_use_id": content.id,
+                                    "tool_use_id": msg.id,
                                     "content": result.content,
                                 }
                             ],
@@ -146,12 +162,16 @@ class MCPClient:
                     )
 
                     # Get next response and process it
-                    response = self.anthropic.messages.create(
-                        model=model,
-                        max_tokens=1000,
-                        messages=messages,
-                        tools=available_tools,
+                    responses = stream_responses(
+                        self.anthropic.messages.create(
+                            model=model,
+                            max_tokens=1000,
+                            messages=messages,
+                            tools=available_tools,
+                            stream=True,
+                        )
                     )
+
                     break  # Process the new response from the beginning
 
             # If we processed the entire response without finding tool calls, we're done
@@ -173,3 +193,26 @@ class MCPClient:
                 await self.reader_task
             except asyncio.CancelledError:
                 pass
+
+
+def stream_responses(stream):
+    llm_msgs = []
+
+    for event in stream:
+        print(event, flush=True)
+        if event.type == "content_block_start":
+            while len(llm_msgs) <= event.index:
+                llm_msgs.append(None)
+            llm_msgs[event.index] = event.content_block
+            if not hasattr(event.content_block, "text"):
+                event.content_block.text = ""
+        elif event.type == "content_block_delta":
+            if event.delta.type == "text_delta":
+                llm_msgs[event.index].text += event.delta.text
+            elif event.delta.type == "input_json_delta":
+                llm_msgs[event.index].text += event.delta.partial_json
+        elif event.type == "content_block_stop":
+            if llm_msgs[event.index].type == "tool_use":
+                llm_msgs[event.index].input = json.loads(llm_msgs[event.index].text)
+
+    return llm_msgs
