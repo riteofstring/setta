@@ -3,10 +3,11 @@ import uuid
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from litellm import completion
 from pydantic import BaseModel
 
+from setta.routers.dependencies import get_mcp_client
 from setta.utils.constants import C
 
 load_dotenv()
@@ -33,7 +34,7 @@ class ApiKeysRequest(BaseModel):
 
 
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
-def route_get_llm_response(x: GetLLMResponseRequest):
+async def route_get_llm_response(x: GetLLMResponseRequest, mcp_client=Depends(get_mcp_client)):
     try:
         print("========== DEBUGGING INFO ==========")
         print("Received request data:", x)
@@ -59,14 +60,11 @@ def route_get_llm_response(x: GetLLMResponseRequest):
 
         # Let LiteLLM handle model identification automatically
         # Most standard model names are recognized without provider prefixes
-        response = completion(
-            model=x.model, messages=conversation_histories[session_id]
-        )
-
-        print("LiteLLM response received:", response)
+        ai_content = await mcp_client.process_query(x.model, conversation_histories[session_id])
+        # print("LiteLLM response received:", response)
 
         # Process and store AI response
-        ai_content = response.choices[0].message.content
+        # ai_content = response.choices[0].message.content
         conversation_histories[session_id].append(
             {"role": "assistant", "content": ai_content}
         )

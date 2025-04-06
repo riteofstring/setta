@@ -88,12 +88,10 @@ class MCPClient:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def process_query(self, query: str) -> str:
+    async def process_query(self, model, messages) -> str:
         """Process a query using Claude and available tools"""
         if not self.session:
             raise RuntimeError("Not connected to MCP server")
-
-        messages = [{"role": "user", "content": query}]
 
         response = await self.session.list_tools()
         available_tools = [
@@ -107,7 +105,7 @@ class MCPClient:
 
         # Initial Claude API call
         response = self.anthropic.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model=model,
             max_tokens=1000,
             messages=messages,
             tools=available_tools,
@@ -134,7 +132,7 @@ class MCPClient:
 
                 # Get next response from Claude
                 response = self.anthropic.messages.create(
-                    model="claude-3-5-sonnet-20241022",
+                    model=model,
                     max_tokens=1000,
                     messages=messages,
                 )
