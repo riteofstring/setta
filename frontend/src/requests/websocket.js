@@ -5,6 +5,7 @@ import {
   updateInteractiveDependencies,
 } from "state/actions/interactive";
 import { updateJSONSourceContents } from "state/actions/jsonSource";
+import { mcpToolUse } from "state/actions/mcpToolUse";
 import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
@@ -86,6 +87,8 @@ function receiveMessage(message) {
     updateJSONSourceContents(m.content);
   } else if (m.messageType === C.WS_TERMINAL_METADATA) {
     console.log(m.content);
+  } else if (m.messageType === C.WS_MCP_TOOL_USE) {
+    mcpToolUse(m.content);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);
   }

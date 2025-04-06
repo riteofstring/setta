@@ -27,6 +27,7 @@ class WebsocketMsgHandlers:
             websocket_manager, script_metadata, code_state
         )
         self.python_logger = WMHPythonLogger(websocket_manager)
+        self.mcp = WMHMCP(websocket_manager)
 
 
 class BaseWebsocketMsgHandler:
@@ -210,3 +211,15 @@ class WMHPythonLogger(BaseWebsocketMsgHandler):
             await self.websocket_manager.broadcast(
                 message=message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
             )
+
+
+class WMHMCP(BaseWebsocketMsgHandler):
+    def __init__(self, websocket_manager):
+        self.websocket_manager = websocket_manager
+
+    async def use_frontend_tool(self, fn_name, **kwargs):
+        await self.websocket_manager.broadcast(
+            {"fnName": fn_name, "args": kwargs},
+            C.WS_MCP_TOOL_USE,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )

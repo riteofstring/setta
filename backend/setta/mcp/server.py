@@ -5,6 +5,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 
 mcp_server = FastMCP("Setta MCP Server")
+mcp_server.setta_websocket = None
 
 
 def add_mcp_server_to_fastapi_server(app, mount_path):
@@ -24,9 +25,11 @@ def add_mcp_server_to_fastapi_server(app, mount_path):
     app.get(mount_path)(handle_mcp_connection)
     app.mount(msg_path, app=sse_transport.handle_post_message)
 
+    mcp_server.setta_websocket = app.state.websocket_msg_handlers.mcp
 
-@mcp_server.tool()
-def add(a: int, b: int) -> int:
-    """Add two numbers"""
-    print("using the add function!", flush=True)
-    return a + b
+
+@mcp_server.tool(
+    description="creates an empty section in a pre-determined location, with a randomly created name"
+)
+async def add_regular_section_in_empty_space():
+    await mcp_server.setta_websocket.use_frontend_tool("addRegularSectionInEmptySpace")

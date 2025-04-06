@@ -77,6 +77,8 @@ async def lifespan(app: FastAPI):
     app.state.dbq = DBQueue(
         C.DB_PATH,
     )
+
+    add_mcp_server_to_fastapi_server(app, "/mcp")
     app.state.mcp_client = MCPClient(f"{C.BACKEND}/mcp")
 
     maybe_create_tables_and_seed(
@@ -150,7 +152,6 @@ app.include_router(artifact_router, **kwargs)
 app.include_router(reference_renaming_router, **kwargs)
 app.include_router(lsp_router, **kwargs)
 app.include_router(ai_router, **kwargs)
-add_mcp_server_to_fastapi_server(app, "/mcp")
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988
