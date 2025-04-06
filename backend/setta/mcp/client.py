@@ -123,9 +123,6 @@ class MCPClient:
             )
 
             # Process streaming events
-            current_index = None
-            current_block_type = None
-
             # Use a regular for loop since stream_responses returns a regular generator
             stream_gen = stream_responses(stream)
             async for event_data in stream_gen:
@@ -142,14 +139,11 @@ class MCPClient:
 
                 # For content block start, track the current index and block type
                 if event.type == "content_block_start":
-                    current_index = event.index
-                    current_block_type = event.content_block.type
-
                     # Inform frontend about the content block type
                     yield {
                         "type": "block_start",
-                        "index": current_index,
-                        "block_type": current_block_type,
+                        "index": event.index,
+                        "block_type": event.content_block.type,
                     }
 
                 # For deltas, stream them to the frontend with type info
@@ -185,21 +179,13 @@ class MCPClient:
                         tool_name = msg.name
                         tool_args = msg.input
 
-                        # Yield complete tool call info
-                        yield {
-                            "type": "tool_call",
-                            "name": tool_name,
-                            "args": tool_args,
-                            "is_delta": False,
-                        }
-
                         # Execute tool call
                         result = await self.session.call_tool(tool_name, tool_args)
 
                         # Yield tool result
                         yield {
                             "type": "tool_result",
-                            "content": result.content,
+                            "content": [c.model_dump() for c in result.content],
                             "is_delta": False,
                         }
 
