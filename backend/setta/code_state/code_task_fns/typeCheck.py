@@ -5,8 +5,7 @@ from .utils import send_document_open_request_with_diagnostics_with_code_dict
 
 
 # this just initializes a document which gets the lsp to send back diagnostics
-async def typeCheck(message, lsp_writers):
-    project = message["content"]
+async def typeCheck(project, lsp_writers):
     exporter_obj = export_selected(
         project, always_export_args_objs=False, force_include_template_var=True
     )

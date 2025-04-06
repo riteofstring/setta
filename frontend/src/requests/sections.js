@@ -12,6 +12,7 @@ import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import { useSectionInfos, useTypeErrors } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { asyncDebounce } from "utils/utils";
+import { post } from "./utils";
 import { sendMessage } from "./websocket";
 
 export async function dbRequestTypeCheck(userRequested = false) {
@@ -20,10 +21,9 @@ export async function dbRequestTypeCheck(userRequested = false) {
     useTypeErrors.setState({ userRequested });
   }
   const project = await getProjectDataToGenerateCode({});
-  sendMessage({
-    content: project,
-    id: createNewId(),
-    messageType: C.WS_TYPE_CHECK,
+  post({
+    body: { project },
+    address: C.ROUTE_TYPE_CHECK,
   });
 }
 

@@ -39,5 +39,7 @@ class CodeTasks:
             return await textFieldInitializeCode(
                 message, self.lsp_writers, self.code_state
             )
-        elif messageType == C.WS_TYPE_CHECK:
+
+    async def process_post_request(self, message, address):
+        if address == C.ROUTE_TYPE_CHECK:
             return await typeCheck(message, self.lsp_writers)
