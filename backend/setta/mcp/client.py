@@ -12,18 +12,19 @@ load_dotenv()  # load environment variables from .env
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
 class MCPClient:
-    def __init__(self):
+    def __init__(self, server_url):
         # Initialize session and client objects
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
         # self.anthropic = Anthropic()
         self.reader_task = None
+        self.server_url = server_url
 
-    def start(self, url="http://127.0.0.1:8000/mcp"):
+    def start(self):
         """Start the connection process in the background"""
-        self.reader_task = asyncio.create_task(self.connect_to_server(url))
+        self.reader_task = asyncio.create_task(self.connect_to_server())
 
-    async def connect_to_server(self, url, retry_delay=1):
+    async def connect_to_server(self, retry_delay=1):
         """Connect to an MCP server over HTTP with retry logic
 
         Args:
@@ -31,6 +32,7 @@ class MCPClient:
             retry_delay: Delay between retry attempts in seconds
         """
         print("Starting MCP client connection...", flush=True)
+        url = self.server_url
 
         while True:
             try:

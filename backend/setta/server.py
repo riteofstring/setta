@@ -77,7 +77,7 @@ async def lifespan(app: FastAPI):
     app.state.dbq = DBQueue(
         C.DB_PATH,
     )
-    app.state.mcp_client = MCPClient()
+    app.state.mcp_client = MCPClient(f"{C.BACKEND}/mcp")
 
     maybe_create_tables_and_seed(
         app.state.dbq,
