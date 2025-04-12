@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import json
 import os
-import sys
+import isort
+import black
 from datetime import datetime
-from pathlib import Path
 
 def generate_mcp_tools(json_path, output_path):
     """Generate MCP tool proxy functions from raw jsdoc output"""
@@ -109,6 +109,18 @@ from setta.mcp.server import mcp_server
             
             output += '\n'
     
+    # Format the code with isort and black
+    try:
+        # Format imports with isort
+        output = isort.code(output, profile="black")
+        
+        # Format code with black
+        output = black.format_str(output, mode=black.Mode())
+        
+        print("Successfully formatted code with isort and black")
+    except Exception as e:
+        print(f"Warning: Could not format code: {e}")
+
     # Write to file
     with open(output_path, 'w') as f:
         f.write(output)
