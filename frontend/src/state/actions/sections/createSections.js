@@ -15,6 +15,10 @@ import { addChatHistoryArtifact, addDrawAreaLayer } from "../artifacts";
 import { initRunGroup } from "../runGroups/runGroups";
 import { setSectionVariantChildren } from "../sectionInfos";
 
+/**
+ * Creates an empty section in a pre-determined location
+ * @SETTA_MCP_TOOL
+ */
 export function addRegularSectionInEmptySpace() {
   let newId;
   useSectionInfos.setState((state) => {
