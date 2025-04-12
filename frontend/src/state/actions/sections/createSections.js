@@ -15,6 +15,10 @@ import { addChatHistoryArtifact, addDrawAreaLayer } from "../artifacts";
 import { initRunGroup } from "../runGroups/runGroups";
 import { setSectionVariantChildren } from "../sectionInfos";
 
+/**
+ * Creates an empty section in a pre-determined location
+ * @SETTA_MCP_TOOL
+ */
 export function addRegularSectionInEmptySpace() {
   let newId;
   useSectionInfos.setState((state) => {
@@ -33,6 +37,10 @@ export function addRegularSectionInEmptySpace() {
   maybeIncrementProjectStateVersion(true);
 }
 
+/**
+ * Creates an empty group in a pre-determined location
+ * @SETTA_MCP_TOOL
+ */
 export function addGroupInEmptySpace() {
   let newId;
   useSectionInfos.setState((state) => {
@@ -42,6 +50,10 @@ export function addGroupInEmptySpace() {
   maybeIncrementProjectStateVersion(true);
 }
 
+/**
+ * Creates a new terminal in a pre-determined location
+ * @SETTA_MCP_TOOL
+ */
 export function addTerminalInEmptySpace() {
   useSectionInfos.setState((state) => {
     addSectionInEmptySpace({ type: C.TERMINAL, state });

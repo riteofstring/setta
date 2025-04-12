@@ -98,7 +98,8 @@
     "lf": "pnpm l && pnpm f",
     "ts-prune": "ts-prune",
     "postinstall": "rm -rf node_modules/.vite && python fix_xterm.py",
-    "cleaninstall": "rm -rf node_modules dist pnpm-lock.yaml && pnpm install"
+    "cleaninstall": "rm -rf node_modules dist pnpm-lock.yaml && pnpm install",
+    "mcpTools": "node extractFrontendMcpTools.js && python writeFrontendMcpTools.py"
   },
   "eslintConfig": {
     "extends": [
@@ -133,6 +134,8 @@
     "prettier-plugin-organize-imports": "3.2.4",
     "prettier-plugin-tailwindcss": "0.5.11",
     "ts-prune": "0.10.3",
-    "typescript": "4.7.4"
+    "typescript": "4.7.4",
+    "jsdoc-api": "9.3.4",
+    "glob": "11.0.1"
   }
 }

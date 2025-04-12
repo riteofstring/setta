@@ -1,8 +1,12 @@
 # some parts borrowed from https://github.com/tadata-org/fastapi_mcp/blob/main/fastapi_mcp/server.py
 
+import asyncio
+
 from fastapi import Request
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
+
+from setta.database.db.notifications.load import create_notification_dict
 
 mcp_server = FastMCP("Setta MCP Server")
 mcp_server.setta_websocket = None
@@ -27,14 +31,5 @@ def add_mcp_server_to_fastapi_server(app, mount_path):
 
     mcp_server.setta_websocket = app.state.websocket_msg_handlers.mcp
 
-
-@mcp_server.tool(
-    description="creates an empty section in a pre-determined location, with a randomly created name"
-)
-async def add_regular_section_in_empty_space():
-    await mcp_server.setta_websocket.use_frontend_tool("addRegularSectionInEmptySpace")
-
-
-@mcp_server.tool()
-def add_two_numbers(a: int, b: int):
-    return a + b
+    content = create_notification_dict("MCP Server Ready", temporary=True)
+    asyncio.create_task(mcp_server.setta_websocket.broadcast_notification(content))

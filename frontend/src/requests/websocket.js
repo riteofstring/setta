@@ -5,7 +5,6 @@ import {
   updateInteractiveDependencies,
 } from "state/actions/interactive";
 import { updateJSONSourceContents } from "state/actions/jsonSource";
-import { mcpToolUse } from "state/actions/mcpToolUse";
 import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
@@ -17,6 +16,7 @@ import {
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
+import { mcpToolUse } from "state/mcpToolRegistry";
 import { URLS } from "utils/constants";
 
 let wss;
