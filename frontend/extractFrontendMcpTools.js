@@ -2,6 +2,8 @@ import fs from "fs";
 import { glob } from "glob";
 import jsdoc from "jsdoc-api";
 import path from "path";
+import prettier from "prettier";
+import prettierPluginOrganizeImports from "prettier-plugin-organize-imports";
 
 // Find all JS/TS files recursively
 function findFiles(sourceDir, extensions) {
@@ -61,7 +63,7 @@ async function main() {
 }
 
 // Generate the JavaScript registry file
-function generateRegistryFile(tools, outputPath) {
+async function generateRegistryFile(tools, outputPath) {
   // Create the imports
   const imports = [];
   const registryEntries = [];
@@ -90,7 +92,7 @@ function generateRegistryFile(tools, outputPath) {
   }
 
   // Generate the file content
-  const fileContent = `// GENERATED FILE - DO NOT EDIT MANUALLY
+  let fileContent = `// GENERATED FILE - DO NOT EDIT MANUALLY
 // Generated on ${new Date().toISOString()}
 import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
@@ -131,6 +133,21 @@ export function mcpToolUse(details) {
   });
 }
 `;
+
+  try {
+    // Format the file content with prettier
+    const prettierConfig = await prettier.resolveConfig(process.cwd());
+    fileContent = await prettier.format(fileContent, {
+      ...prettierConfig,
+      parser: "babel",
+      plugins: [prettierPluginOrganizeImports],
+    });
+    console.log("Successfully formatted code with prettier");
+  } catch (error) {
+    console.warn(
+      `Warning: Could not format code with prettier: ${error.message}`,
+    );
+  }
 
   // Create directory if it doesn't exist
   const dir = path.dirname(outputPath);
