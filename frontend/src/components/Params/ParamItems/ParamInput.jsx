@@ -70,7 +70,7 @@ const debouncedSetParamEnteredValue = asyncDebounce(
  * @SETTA_MCP_TOOL
  * @param {string} sectionId
  * @param {string} paramInfoId
- * @param {string} vStr The string representation of the value of the parameter.
+ * @param {string} vStr A string containing python code that evaluates to whatever you want the parameter's value to be. For example to set the parameter to True, pass in "True". To set the parameter to "dog", pass in '"dog"'. 
  * @param {Object} [ac] An abort controller. Not needed for MCP.
  */
 export async function setParamEnteredValueMcp({
