@@ -1,12 +1,11 @@
 import asyncio
-
+import os
+from pathlib import Path
+from uuid import uuid4
 
 from setta.lsp.reader import LanguageServerReader
 from setta.lsp.server import LanguageServer
 from setta.lsp.writer import LanguageServerWriter
-from pathlib import Path
-from uuid import uuid4
-import os
 
 
 class FakeWebsocketManager:
