@@ -19,9 +19,16 @@ class Position(TypedDict, total=False):
     y: float
 
 
+class SectionSize(TypedDict, total=False):
+    width: float
+    height: float
+
+
 class SectionConfig(TypedDict, total=False):
     # The section title
     name: str
+    # The section dimensions
+    size: SectionSize
 
 
 # From createSections.js
