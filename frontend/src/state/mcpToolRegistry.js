@@ -1,11 +1,12 @@
 // GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on 2025-04-11T01:11:16.269Z
+// Generated on 2025-04-11T22:32:39.689Z
 import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 
 import {
   addGroupInEmptySpace,
   addRegularSectionInEmptySpace,
+  addSectionToPositionMcp,
   addTerminalInEmptySpace,
 } from "./actions/sections/createSections";
 
@@ -14,6 +15,7 @@ const mcpToolRegistry = {
   addRegularSectionInEmptySpace,
   addGroupInEmptySpace,
   addTerminalInEmptySpace,
+  addSectionToPositionMcp,
 };
 
 export function mcpToolUse(details) {
@@ -24,7 +26,7 @@ export function mcpToolUse(details) {
     // Check if the function exists in our registry
     if (fnName in mcpToolRegistry) {
       // Call the function with the provided arguments
-      result = mcpToolRegistry[fnName](...Object.values(args));
+      result = mcpToolRegistry[fnName](args);
     } else {
       throw new Error(`Unknown MCP tool function: ${fnName}`);
     }

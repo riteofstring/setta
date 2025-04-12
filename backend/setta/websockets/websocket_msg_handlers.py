@@ -221,13 +221,13 @@ class WMHMCP(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
-    async def use_frontend_tool(self, fn_name, **kwargs):
+    async def use_frontend_tool(self, fn_name, args):
         # Generate request ID
         request_id = self.websocket_manager.create_pending_request()
 
         # Send request to frontend with the ID
         await self.websocket_manager.broadcast(
-            {"id": request_id, "fnName": fn_name, "args": kwargs},
+            {"id": request_id, "fnName": fn_name, "args": args},
             C.WS_MCP_TOOL_USE,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )

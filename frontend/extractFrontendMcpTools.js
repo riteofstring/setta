@@ -112,7 +112,7 @@ export function mcpToolUse(details) {
     // Check if the function exists in our registry
     if (fnName in mcpToolRegistry) {
       // Call the function with the provided arguments
-      result = mcpToolRegistry[fnName](...Object.values(args));
+      result = mcpToolRegistry[fnName](args);
     } else {
       throw new Error(\`Unknown MCP tool function: \${fnName}\`);
     }
