@@ -1,3 +1,4 @@
+import { parse as commentParser } from "comment-parser";
 import fs from "fs";
 import { glob } from "glob";
 import jsdoc from "jsdoc-api";
@@ -9,6 +10,28 @@ import prettierPluginOrganizeImports from "prettier-plugin-organize-imports";
 function findFiles(sourceDir, extensions) {
   const patterns = extensions.map((ext) => `${sourceDir}/**/*${ext}`);
   return patterns.flatMap((pattern) => glob.sync(pattern));
+}
+
+// Parse JSDoc comment to extract detailed type information
+function parseJSDocComment(comment) {
+  try {
+    const parsed = commentParser(comment);
+    if (!parsed || parsed.length === 0) return {};
+
+    const tags = parsed[0].tags;
+    const paramTypes = {};
+
+    for (const tag of tags) {
+      if (tag.tag === "param") {
+        paramTypes[tag.name] = tag.type;
+      }
+    }
+
+    return paramTypes;
+  } catch (err) {
+    console.warn("Warning: Failed to parse JSDoc comment:", err.message);
+    return {};
+  }
 }
 
 // Main function
@@ -43,6 +66,14 @@ async function main() {
       ) {
         continue;
       }
+
+      // Parse the JSDoc comment to extract detailed type information
+      if (doc.comment) {
+        const detailedParamTypes = parseJSDocComment(doc.comment);
+        // Add the detailed parameter types to the doc object
+        doc.detailedParamTypes = detailedParamTypes;
+      }
+
       allTools.push(doc);
     }
 

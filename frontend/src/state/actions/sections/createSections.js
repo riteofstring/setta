@@ -92,6 +92,7 @@ export function addSectionInEmptySpace({
  * @SETTA_MCP_TOOL
  * @param {('SECTION'|'LIST_ROOT'|'DICT_ROOT'|'GROUP'|'IMAGE'|'CHART'|'DRAW'|'TEXT_BLOCK'|'SOCIAL'|
  * 'GLOBAL_VARIABLES'|'CODE'|'PARAM_SWEEP'|'TERMINAL'|'GLOBAL_PARAM_SWEEP'|'IFRAME'|'CHAT')} type - The type of section to add
+ * @param {{x: number, y: number}} position - The coordinates where the section will be created.
  */
 export function addSectionToPositionMcp({
   type,

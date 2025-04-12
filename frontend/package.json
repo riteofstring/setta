@@ -136,6 +136,7 @@
     "ts-prune": "0.10.3",
     "typescript": "4.7.4",
     "jsdoc-api": "9.3.4",
+    "comment-parser": "1.4.1",
     "glob": "11.0.1"
   }
 }
