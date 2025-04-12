@@ -1,7 +1,8 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import { memo } from "react";
-import { IoMdCheckmark, IoMdClose } from "react-icons/io";
+import { IoMdCheckmark } from "react-icons/io";
+import { MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -52,17 +53,12 @@ const ToolCall = memo(
                 {streaming}
               </div>
 
-              {result && (
-                <div
-                  className={`flex h-5 w-5 items-center justify-center rounded-full ${
-                    success ? "bg-transparent" : "bg-red-500 dark:bg-red-600"
-                  }`}
-                >
-                  <span className="text-xs text-setta-300 dark:text-setta-200">
-                    {success ? <IoMdCheckmark /> : <IoMdClose />}
-                  </span>
-                </div>
-              )}
+              {result &&
+                (success ? (
+                  <IoMdCheckmark className="text-setta-400" />
+                ) : (
+                  <MdErrorOutline className="text-red-500" />
+                ))}
             </div>
           </Accordion.Trigger>
 
