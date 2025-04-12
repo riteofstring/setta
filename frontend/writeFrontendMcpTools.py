@@ -79,6 +79,10 @@ def jsdoc_type_to_python_type(type_str: str, typedefs: Dict[str, Any] = None) ->
     if type_str.startswith("Array<") and type_str.endswith(">"):
         inner_type = type_str[6:-1]
         return f"List[{jsdoc_type_to_python_type(inner_type, typedefs)}]"
+    
+    if type_str.startswith("Array.<") and type_str.endswith(">"):
+        inner_type = type_str[7:-1]
+        return f"List[{jsdoc_type_to_python_type(inner_type, typedefs)}]"
 
     # Handle single string literal
     if type_str.startswith("'") and type_str.endswith("'"):
