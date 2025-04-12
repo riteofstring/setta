@@ -6,10 +6,17 @@ from typing import Any, Dict, List
 from setta.utils.format_code import ruff_format
 
 
-def jsdoc_type_to_python_type(type_str: str) -> str:
+def jsdoc_type_to_python_type(type_str: str, typedefs: Dict[str, Any] = None) -> str:
     """Convert JSDoc type to Python type annotation."""
+    if typedefs is None:
+        typedefs = {}
+
     # Clean up the type string
     type_str = type_str.strip()
+
+    # Check if this is a reference to a typedef
+    if type_str in typedefs:
+        return type_str  # Return the name as-is, it will be defined as a class
 
     # Handle object literals with specific properties like {x: number, y: number}
     if type_str.startswith("{") and type_str.endswith("}"):
@@ -41,7 +48,7 @@ def jsdoc_type_to_python_type(type_str: str) -> str:
                 if ":" in prop:
                     prop_name, prop_type = prop.split(":", 1)
                     prop_type = prop_type.strip()
-                    python_type = jsdoc_type_to_python_type(prop_type)
+                    python_type = jsdoc_type_to_python_type(prop_type, typedefs)
                     prop_types.append(python_type)
 
             if prop_types:
@@ -65,13 +72,13 @@ def jsdoc_type_to_python_type(type_str: str) -> str:
     # Handle other union types
     elif "|" in type_str:
         types = type_str.split("|")
-        python_types = [jsdoc_type_to_python_type(t.strip()) for t in types]
+        python_types = [jsdoc_type_to_python_type(t.strip(), typedefs) for t in types]
         return f"Union[{', '.join(python_types)}]"
 
     # Handle arrays with specific types
     if type_str.startswith("Array<") and type_str.endswith(">"):
         inner_type = type_str[6:-1]
-        return f"List[{jsdoc_type_to_python_type(inner_type)}]"
+        return f"List[{jsdoc_type_to_python_type(inner_type, typedefs)}]"
 
     # Handle single string literal
     if type_str.startswith("'") and type_str.endswith("'"):
@@ -95,14 +102,87 @@ def jsdoc_type_to_python_type(type_str: str) -> str:
     return type_map.get(type_str, type_str)
 
 
+def generate_typedef_classes(typedefs: Dict[str, Any]) -> str:
+    """Generate Python TypedDict classes from JSDoc typedefs."""
+    output = ""
+    processed_typedefs = set()
+
+    # Helper function to process typedefs that might depend on other typedefs
+    def process_typedef(name, typedef_doc, processed):
+        if name in processed:
+            return ""
+
+        typedef_output = ""
+        properties = []
+
+        # Get properties from typedef
+        if typedef_doc.get("properties"):
+            for prop in typedef_doc["properties"]:
+                prop_name = prop.get("name", "unknown")
+
+                # Get type information
+                type_info = prop.get("type", {})
+                type_names = type_info.get("names", []) if type_info else []
+
+                # Check if type references another typedef
+                if (
+                    len(type_names) == 1
+                    and type_names[0] in typedefs
+                    and type_names[0] not in processed
+                ):
+                    # Process the referenced typedef first
+                    typedef_output += process_typedef(
+                        type_names[0], typedefs[type_names[0]], processed
+                    )
+
+                type_str = "|".join(type_names) if type_names else "any"
+                python_type = jsdoc_type_to_python_type(type_str, typedefs)
+
+                description = prop.get("description", "").strip()
+                optional = prop.get("optional", False)
+
+                # Add optional marker if needed
+                type_annotation = (
+                    f"{python_type}" if not optional else f"Optional[{python_type}]"
+                )
+
+                properties.append((prop_name, type_annotation, description))
+
+        # Create TypedDict class
+        typedef_output += f"class {name}(TypedDict, total=False):\n"
+
+        if not properties:
+            typedef_output += "    pass  # Empty TypedDict\n\n"
+        else:
+            for prop_name, type_annotation, description in properties:
+                # Add docstring comment if description is available
+                if description:
+                    typedef_output += f"    # {description}\n"
+                typedef_output += f"    {prop_name}: {type_annotation}\n"
+            typedef_output += "\n"
+
+        processed.add(name)
+        return typedef_output
+
+    # Process all typedefs
+    for name, typedef_doc in typedefs.items():
+        output += process_typedef(name, typedef_doc, processed_typedefs)
+
+    return output
+
+
 def generate_mcp_tools(json_path: str, output_path: str) -> None:
-    """Generate MCP tool proxy functions from raw jsdoc output with detailed type info"""
+    """Generate MCP tool proxy functions from raw jsdoc output with typedef support"""
     # Create directory if it doesn't exist
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    # Load raw jsdoc output
+    # Load raw jsdoc output (now with tools and typedefs)
     with open(json_path, "r") as f:
-        raw_docs = json.load(f)
+        data = json.load(f)
+
+    # Extract tools and typedefs
+    raw_docs = data.get("tools", [])
+    typedefs = data.get("typedefs", {})
 
     # Generate Python code
     output = '''"""
@@ -115,6 +195,12 @@ from typing import Dict, List, Any, Union, Optional, Callable, Literal, TypedDic
 from setta.mcp.server import mcp_server
 
 '''
+
+    # Generate TypedDict classes for all typedefs
+    if typedefs:
+        output += "# TypedDict definitions generated from JSDoc typedefs\n"
+        output += generate_typedef_classes(typedefs)
+        output += "\n"
 
     # Group tools by source file for better organization
     tools_by_file: Dict[str, List[Dict[str, Any]]] = {}
@@ -130,13 +216,6 @@ from setta.mcp.server import mcp_server
         output += f"\n# From {rel_path}\n"
 
         for doc in docs:
-            # Extract function information
-            func_name = doc.get("name", "")
-            func_description = doc.get("description", "")
-
-            # Extract detailed parameter types
-            detailed_param_types = doc.get("detailedParamTypes", {})
-
             # Extract parameters
             params = []
             object_params = {}  # For handling object destructuring
@@ -153,10 +232,13 @@ from setta.mcp.server import mcp_server
                     # Get type information
                     type_info = param.get("type", {})
                     type_names = type_info.get("names", []) if type_info else []
-                    type_str = "|".join(type_names) if type_names else "any"
 
-                    # Use detailed type if available
-                    python_type = jsdoc_type_to_python_type(type_str)
+                    # Check if this param references a typedef
+                    if param.get("typedefRef"):
+                        python_type = param.get("typedefRef")
+                    else:
+                        type_str = "|".join(type_names) if type_names else "any"
+                        python_type = jsdoc_type_to_python_type(type_str, typedefs)
 
                     # Get description
                     description = param.get("description", "").strip()
@@ -181,16 +263,14 @@ from setta.mcp.server import mcp_server
                         .strip()
                     )
 
-                    # Get type information using detailed types if available
-                    if name in detailed_param_types:
-                        python_type = jsdoc_type_to_python_type(
-                            detailed_param_types[name]
-                        )
+                    # Get type information, preferring typedef references
+                    if param.get("typedefRef"):
+                        python_type = param.get("typedefRef")
                     else:
                         type_info = param.get("type", {})
                         type_names = type_info.get("names", []) if type_info else []
                         type_str = "|".join(type_names) if type_names else "any"
-                        python_type = jsdoc_type_to_python_type(type_str)
+                        python_type = jsdoc_type_to_python_type(type_str, typedefs)
 
                     # Get description
                     description = param.get("description", "").strip()
@@ -265,12 +345,16 @@ from setta.mcp.server import mcp_server
                     else ["any"]
                 )
                 return_type_str = "|".join(return_type_names)
-                return_type = jsdoc_type_to_python_type(return_type_str)
+                return_type = jsdoc_type_to_python_type(return_type_str, typedefs)
                 return_description = doc["returns"][0].get("description", "")
+
+            # Extract function information
+            func_name = doc.get("name", "")
+            description = doc.get("description", "")
 
             # Function decorator
             output += "@mcp_server.tool(\n"
-            output += f'    description="{func_description}"\n'
+            output += f'    description="{description}"\n'
             output += ")\n"
 
             # Function signature with type annotations
@@ -290,7 +374,7 @@ from setta.mcp.server import mcp_server
             output += f"async def {func_name}({', '.join(signature_params)}) -> {return_type}:\n"
 
             # Docstring
-            output += f'    """{func_description}\n'
+            output += f'    """{description}\n'
 
             # Include parameter descriptions in the docstring
             params_with_desc = [p for p in params if p.get("description")]

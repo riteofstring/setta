@@ -88,12 +88,24 @@ export function addSectionInEmptySpace({
 }
 
 /**
+ * @typedef {Object} Position
+ * @property {number} x - The x coordinate
+ * @property {number} y - The y coordinate
+ */
+
+/**
+ * @typedef {Object} SectionConfig
+ * @property {string} name - The section title
+ */
+
+/**
  * Adds a new section at a specific location.
  * @SETTA_MCP_TOOL
  * @param {('SECTION'|'LIST_ROOT'|'DICT_ROOT'|'GROUP'|'IMAGE'|'CHART'|'DRAW'|'TEXT_BLOCK'|'SOCIAL'|
- * 'GLOBAL_VARIABLES'|'CODE'|'PARAM_SWEEP'|'TERMINAL'|'GLOBAL_PARAM_SWEEP'|'IFRAME'|'CHAT')} type - The type of section to add
- * @param {{x: number, y: number}} position - The coordinates where the section will be created.
- */
+* 'GLOBAL_VARIABLES'|'CODE'|'PARAM_SWEEP'|'TERMINAL'|'GLOBAL_PARAM_SWEEP'|'IFRAME'|'CHAT')} type - The type of section to add
+* @param {Position} position - The coordinates where the section will be created.
+* @param {SectionConfig} [sectionProps] - Optional configuration for the section
+*/
 export function addSectionToPositionMcp({
   type,
   sectionProps = {},
