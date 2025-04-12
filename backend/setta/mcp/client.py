@@ -8,22 +8,18 @@ from dotenv import load_dotenv
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
-from setta.database.db.notifications.load import create_notification_dict
-
 load_dotenv()  # load environment variables from .env
 
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
 class MCPClient:
-    def __init__(self, server_url, websocket_msg_handler):
+    def __init__(self, server_url):
         # Initialize session and client objects
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
         self.anthropic = Anthropic()
         self.reader_task = None
         self.server_url = server_url
-        # for sending notification to frontend
-        self.websocket_msg_handler = websocket_msg_handler
 
     def start(self):
         """Start the connection process in the background"""
@@ -64,10 +60,6 @@ class MCPClient:
                     "\nConnected to server with tools:",
                     [tool.name for tool in tools],
                     flush=True,
-                )
-                content = create_notification_dict("MCP Client Ready", temporary=True)
-                asyncio.create_task(
-                    self.websocket_msg_handler.broadcast_notification(content)
                 )
 
                 # Keep the connection alive (this will block until an exception occurs)

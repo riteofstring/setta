@@ -143,10 +143,6 @@ class WMHFrontend(BaseWebsocketMsgHandler):
             )
             for wid in wids:
                 await self.websocket_manager.send_message(message, wid)
-        elif message.get("messageType") == C.WS_MCP_TOOL_USE_RETURN:
-            self.websocket_manager.resolve_pending_request(
-                message["id"], message["content"]
-            )
         else:
             msg_id = message.get("id")
             if not msg_id:
@@ -222,23 +218,8 @@ class WMHMCP(BaseWebsocketMsgHandler):
         self.websocket_manager = websocket_manager
 
     async def use_frontend_tool(self, fn_name, **kwargs):
-        # Generate request ID
-        request_id = self.websocket_manager.create_pending_request()
-
-        # Send request to frontend with the ID
         await self.websocket_manager.broadcast(
-            {"id": request_id, "fnName": fn_name, "args": kwargs},
+            {"fnName": fn_name, "args": kwargs},
             C.WS_MCP_TOOL_USE,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-        )
-
-        # Wait for response
-        return await self.websocket_manager.wait_for_pending_request(request_id)
-
-    async def broadcast_notification(self, content):
-        content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
-        await self.websocket_manager.broadcast(
-            content,
-            C.WS_NOTIFICATION,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )

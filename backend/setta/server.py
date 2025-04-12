@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -9,7 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-import setta.mcp.tools  # noqa F401
 from setta.code_state.code_state import CodeState
 from setta.code_state.code_tasks import CodeTasks
 from setta.database.db_init import maybe_create_tables_and_seed
@@ -81,9 +79,7 @@ async def lifespan(app: FastAPI):
     )
 
     add_mcp_server_to_fastapi_server(app, "/mcp")
-    app.state.mcp_client = MCPClient(
-        f"{C.BACKEND}/mcp", app.state.websocket_msg_handlers.mcp
-    )
+    app.state.mcp_client = MCPClient(f"{C.BACKEND}/mcp")
 
     maybe_create_tables_and_seed(
         app.state.dbq,
@@ -92,12 +88,10 @@ async def lifespan(app: FastAPI):
     )
 
     app.state.dbq.connect()
-    asyncio.create_task(
-        start_lsps(
-            app.state.lsps,
-            app.state.lsp_readers,
-            app.state.lsp_writers,
-        )
+    await start_lsps(
+        app.state.lsps,
+        app.state.lsp_readers,
+        app.state.lsp_writers,
     )
     app.state.file_watcher.start()
     app.state.specific_file_watcher.start()
