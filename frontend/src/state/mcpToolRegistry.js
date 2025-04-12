@@ -9,6 +9,7 @@ import {
   addSectionToPositionMcp,
   addTerminalInEmptySpace,
 } from "./actions/sections/createSections";
+import { setSelectedItemMcp } from "./actions/sections/setSelectedItem";
 
 // Registry of all MCP tools
 const mcpToolRegistry = {
@@ -16,6 +17,7 @@ const mcpToolRegistry = {
   addGroupInEmptySpace,
   addTerminalInEmptySpace,
   addSectionToPositionMcp,
+  setSelectedItemMcp,
 };
 
 export function mcpToolUse(details) {

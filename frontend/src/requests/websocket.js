@@ -86,7 +86,7 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_SPECIFIC_FILE_WATCHER_UPDATE) {
     updateJSONSourceContents(m.content);
   } else if (m.messageType === C.WS_TERMINAL_METADATA) {
-    console.log(m.content);
+    // console.log(m.content);
   } else if (m.messageType === C.WS_MCP_TOOL_USE) {
     mcpToolUse(m.content);
   } else if (m.id) {

@@ -102,8 +102,9 @@ export function addSectionToPositionMcp({
   sectionVariantProps = {},
   position,
 }) {
+  let sectionId;
   useSectionInfos.setState((state) => {
-    addSectionAtPosition({
+    sectionId = addSectionAtPosition({
       type,
       sectionProps,
       sectionVariantProps,
@@ -111,6 +112,7 @@ export function addSectionToPositionMcp({
       state,
     });
   });
+  return sectionId;
 }
 
 export function addSectionAtPosition({

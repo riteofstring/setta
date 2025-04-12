@@ -1,5 +1,8 @@
 import C from "constants/constants.json";
-import { dbParametersRequest } from "requests/sections";
+import {
+  dbParametersRequest,
+  dbTextFieldInitializeCode,
+} from "requests/sections";
 import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
@@ -7,6 +10,28 @@ import { setParametersRequestWaitingForLSP } from "../lsp";
 import { addTemporaryNotification } from "../notifications";
 import { getCodeInfoCol, getSectionVariant } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
+
+/**
+ * Sets the selectedItem (i.e. the callable) of a section.
+ * @SETTA_MCP_TOOL
+ * @param {string} sectionId - The id of the section we're setting the selectedItem of.
+ * @param {string} selectedItemName - The selected item name, for example "math.sqrt"
+ */
+export async function setSelectedItemMcp({ sectionId, selectedItemName }) {
+  function callbackSetAttr(id, state) {
+    // for this callback, an undefined id means that the selectedItem is already selected.
+    if (id !== undefined) {
+      getSectionVariant(sectionId, state).selectedItem = id;
+    }
+  }
+  await dbTextFieldInitializeCode({ sectionId, paramInfoId: null });
+  await setSelectedItem(
+    sectionId,
+    sectionId,
+    selectedItemName,
+    callbackSetAttr,
+  );
+}
 
 export async function setSelectedItem(
   dataSectionId,
@@ -43,6 +68,8 @@ export async function setSelectedItem(
     fullText: selectedItemName,
     position: selectedItemName.length,
   });
+
+  console.log("paramRes", paramRes);
 
   useSectionInfos.setState((state) => {
     let info;
