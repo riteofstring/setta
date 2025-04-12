@@ -87,6 +87,29 @@ export function addSectionInEmptySpace({
   });
 }
 
+/**
+ * Adds a new section at a specific location.
+ * @SETTA_MCP_TOOL
+ * @param {('SECTION'|'LIST_ROOT'|'DICT_ROOT'|'GROUP'|'IMAGE'|'CHART'|'DRAW'|'TEXT_BLOCK'|'SOCIAL'|
+ * 'GLOBAL_VARIABLES'|'CODE'|'PARAM_SWEEP'|'TERMINAL'|'GLOBAL_PARAM_SWEEP'|'IFRAME'|'CHAT')} type - The type of section to add
+ */
+export function addSectionToPositionMcp({
+  type,
+  sectionProps = {},
+  sectionVariantProps = {},
+  position,
+}) {
+  useSectionInfos.setState((state) => {
+    addSectionAtPosition({
+      type,
+      sectionProps,
+      sectionVariantProps,
+      position,
+      state,
+    });
+  });
+}
+
 export function addSectionAtPosition({
   type,
   sectionProps = {},
