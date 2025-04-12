@@ -1,7 +1,8 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import { memo } from "react";
-import { FaChevronDown } from "react-icons/fa";
+import { IoMdCheckmark, IoMdClose } from "react-icons/io";
+import { PiWrenchFill } from "react-icons/pi";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -31,95 +32,62 @@ const formatToolArgs = (args, jsonSoFar) => {
     : JSON.stringify(args, null, 2);
 };
 
-// Add CSS animations for the accordion
-const styles = `
-@keyframes slideDown {
-  from { height: 0 }
-  to { height: var(--radix-accordion-content-height) }
-}
-
-@keyframes slideUp {
-  from { height: var(--radix-accordion-content-height) }
-  to { height: 0 }
-}
-
-.animate-slideDown {
-  animation: slideDown 300ms ease-out;
-}
-
-.animate-slideUp {
-  animation: slideUp 300ms ease-out;
-}
-`;
-
 // Component for tool calls with expandable result
 const ToolCall = memo(
   ({ name, args, jsonSoFar, streaming, result, success = true }) => {
     return (
-      <div className="my-3 overflow-hidden rounded-md bg-slate-600 dark:bg-slate-700">
-        <style>{styles}</style>
-
-        <Accordion.Root type="single" collapsible className="w-full">
-          <Accordion.Item value="details">
-            {/* Tool call header - now an accordion trigger */}
-            <Accordion.Trigger className="w-full">
-              <div className="flex w-full items-center justify-between p-2 px-3 text-left">
-                <div className="flex items-center gap-1 text-xs font-bold text-white">
-                  <span>🔧</span>
-                  <div className="break-all">
-                    Calling: {name}
-                    {streaming}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {/* Result indicator if there's a result */}
-                  {result && (
-                    <div
-                      className={`flex h-5 w-5 items-center justify-center rounded-full ${
-                        success
-                          ? "bg-green-500 dark:bg-green-600"
-                          : "bg-red-500 dark:bg-red-600"
-                      }`}
-                    >
-                      <span className="text-xs text-white">
-                        {success ? "✓" : "✗"}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Chevron indicator */}
-                  <FaChevronDown className="ui-state-open:rotate-180 h-4 w-4 text-white transition-transform" />
-                </div>
+      <Accordion.Root type="single" collapsible>
+        <Accordion.Item value="details">
+          <Accordion.Trigger className="w-full cursor-pointer overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
+            <div className="flex w-full items-center justify-between gap-2 px-2 py-2 text-left">
+              <div className="-mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
+                <PiWrenchFill
+                  size={15}
+                  className="min-w-6 text-setta-200 dark:text-setta-400"
+                />
               </div>
-            </Accordion.Trigger>
 
-            <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-              {/* Arguments */}
-              {args && (
-                <div className="bg-slate-800 p-2 px-3 text-xs dark:bg-slate-900">
-                  <pre className="m-0 text-xs text-white">
-                    {formatToolArgs(args, jsonSoFar)}
-                  </pre>
-                </div>
-              )}
+              <div className="break-all px-2 font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
+                {name}
+                {streaming}
+              </div>
 
-              {/* Result details if available */}
               {result && (
-                <div className="bg-white p-3 dark:bg-slate-800">
-                  <p className="m-0 text-xs text-gray-800 dark:text-gray-200">
-                    {typeof result === "string"
-                      ? result
-                      : success
-                        ? "Tool completed successfully"
-                        : "Tool execution failed"}
-                  </p>
+                <div
+                  className={`flex h-5 w-5 items-center justify-center rounded-full ${
+                    success ? "bg-transparent" : "bg-red-500 dark:bg-red-600"
+                  }`}
+                >
+                  <span className="text-xs text-setta-300 dark:text-setta-200">
+                    {success ? <IoMdCheckmark /> : <IoMdClose />}
+                  </span>
                 </div>
               )}
-            </Accordion.Content>
-          </Accordion.Item>
-        </Accordion.Root>
-      </div>
+            </div>
+          </Accordion.Trigger>
+
+          <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+            {args && jsonSoFar && (
+              <div className="bg-setta-800 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-700">
+                <pre className="m-0 font-mono text-xs text-white">
+                  {formatToolArgs(args, jsonSoFar)}
+                </pre>
+              </div>
+            )}
+            {result && (
+              <div className="bg-setta-400 p-3 dark:bg-setta-860/50">
+                <p className="m-0 text-xs text-white dark:text-setta-200">
+                  {typeof result === "string"
+                    ? result
+                    : success
+                      ? "Tool completed successfully"
+                      : "Tool execution failed"}
+                </p>
+              </div>
+            )}
+          </Accordion.Content>
+        </Accordion.Item>
+      </Accordion.Root>
     );
   },
 );
@@ -159,7 +127,6 @@ const StreamItem = ({ item, idx, streamSequence }) => {
         />
       );
     default:
-      // Skip rendering tool_results and handle any other types
       return null;
   }
 };
