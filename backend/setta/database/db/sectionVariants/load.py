@@ -126,14 +126,14 @@ def load_section_variants(db, ids):
 
         # Add version data if present
         if row["versionId"] is not None:
-            curr[sectionId][row["parentVariantId"]]["versions"][
-                row["versionId"]
-            ] = bool(row["version_selected"])
+            curr[sectionId][row["parentVariantId"]]["versions"][row["versionId"]] = (
+                bool(row["version_selected"])
+            )
 
         # Add param sweep data if present
         if row["sweepId"] is not None:
-            curr[sectionId][row["parentVariantId"]]["paramSweeps"][
-                row["sweepId"]
-            ] = bool(row["sweep_selected"])
+            curr[sectionId][row["parentVariantId"]]["paramSweeps"][row["sweepId"]] = (
+                bool(row["sweep_selected"])
+            )
 
     return output

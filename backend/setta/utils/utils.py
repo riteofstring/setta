@@ -213,7 +213,7 @@ def replace_at_positions(input_string, replacements, return_positions=False):
         # Verify the old value matches at the specified position
         if not input_string.startswith(old, pos):
             raise ValueError(
-                f"Expected '{old}' at position {pos}, but found '{input_string[pos:pos+len(old)]}'"
+                f"Expected '{old}' at position {pos}, but found '{input_string[pos : pos + len(old)]}'"
             )
 
         # Calculate the shift this replacement will cause

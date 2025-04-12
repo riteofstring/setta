@@ -785,7 +785,7 @@ class SingleRunGroupToDict:
             if not selected:
                 continue
             variant = self.sectionVariants[variantId]
-            variant_name = f'@{variant["name"]}'
+            variant_name = f"@{variant['name']}"
             children = variant["children"]
             child_dict = {}
             for c in children:
@@ -801,7 +801,7 @@ class SingleRunGroupToDict:
             if not selected:
                 continue
             param_sweep_name = (
-                f'~{self.sectionVariants[paramSweepSectionVariantId]["name"]}'
+                f"~{self.sectionVariants[paramSweepSectionVariantId]['name']}"
             )
             output[section_name][param_sweep_name] = {}
 

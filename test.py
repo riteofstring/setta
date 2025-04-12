@@ -51,7 +51,7 @@ stream = client.messages.create(
     ],
     model="claude-3-5-sonnet-latest",
     tools=available_tools,
-    stream=True
+    stream=True,
 )
 
 llm_msgs = []

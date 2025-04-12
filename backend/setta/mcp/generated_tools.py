@@ -49,7 +49,7 @@ async def addSectionToPositionMcp(
         "GLOBAL_PARAM_SWEEP",
         "IFRAME",
         "CHAT",
-    ]
+    ],
 ) -> Any:
     """The type of section to add
 
