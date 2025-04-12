@@ -5,8 +5,7 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List
 
-import black
-import isort
+from setta.utils.format_code import ruff_format
 
 
 def jsdoc_type_to_python_type(type_str: str) -> str:
@@ -264,15 +263,10 @@ from setta.mcp.server import mcp_server
 
             output += "\n"
 
-    # Format the code with isort and black
     try:
-        # Format imports with isort
-        output = isort.code(output, profile="black")
-
-        # Format code with black
-        output = black.format_str(output, mode=black.Mode())
-
-        print("Successfully formatted code with isort and black")
+        # Format code with ruff (handles both imports and code formatting)
+        output = ruff_format(output)
+        print("Successfully formatted code with ruff")
     except Exception as e:
         print(f"Warning: Could not format code: {e}")
 

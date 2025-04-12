@@ -1,10 +1,10 @@
-import black
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from setta.code_state.code_task_fns.utils import replace_template_vars_with_random_names
 from setta.gen_code.export_selected import get_section_code, get_section_type
 from setta.utils.constants import C
+from setta.utils.format_code import ruff_format
 from setta.utils.utils import multireplace
 
 router = APIRouter()
@@ -39,6 +39,6 @@ async def route_format_code(x: FormatCodeRequest):
 
 def format_python_code(code: str) -> str:
     try:
-        return black.format_str(code, mode=black.Mode())
-    except black.InvalidInput:
+        return ruff_format(code)
+    except Exception:
         pass

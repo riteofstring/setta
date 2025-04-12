@@ -6,7 +6,6 @@ from typing import List, Optional
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from litellm import completion
 from pydantic import BaseModel
 
 from setta.routers.dependencies import get_mcp_client
