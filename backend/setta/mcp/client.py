@@ -9,6 +9,8 @@ from mcp import ClientSession
 from mcp.client.sse import sse_client
 
 from setta.database.db.notifications.load import create_notification_dict
+from setta.utils.constants import CONSTANTS_FOLDER
+from setta.utils.utils import get_absolute_path
 
 load_dotenv()  # load environment variables from .env
 
@@ -24,6 +26,10 @@ class MCPClient:
         self.server_url = server_url
         # for sending notification to frontend
         self.websocket_msg_handler = websocket_msg_handler
+        with open(
+            get_absolute_path(__file__, CONSTANTS_FOLDER / "system_prompt.md"), "r"
+        ) as f:
+            self.system_prompt = f.read()
 
     def start(self):
         """Start the connection process in the background"""
@@ -121,6 +127,7 @@ class MCPClient:
                 messages=messages,
                 tools=available_tools,
                 stream=True,
+                system=self.system_prompt,
             )
 
             # Process streaming events
