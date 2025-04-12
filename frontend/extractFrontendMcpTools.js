@@ -93,7 +93,7 @@ async function generateRegistryFile(tools, outputPath) {
 
   // Generate the file content
   let fileContent = `// GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on ${new Date().toISOString()}
+// Generated automatically
 import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 

@@ -1,5 +1,5 @@
 // GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on 2025-04-11T23:12:49.657Z
+// Generated automatically
 import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 
