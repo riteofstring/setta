@@ -53,6 +53,21 @@ async def setParamEnteredValueMcp(
     )
 
 
+# From ParamNameInput.jsx
+@mcp_server.tool(description="Set the name of a parameter.")
+async def setParamName(paramInfoId: str, name: str) -> Any:
+    """Set the name of a parameter.
+
+    Parameters:
+        paramInfoId: The parameter whose name we want to change.
+        name: The name.
+    """
+    args = {}
+    args["paramInfoId"] = paramInfoId
+    args["name"] = name
+    return await mcp_server.setta_websocket.use_frontend_tool("setParamName", args)
+
+
 # From kwargs.js
 @mcp_server.tool(
     description="Add a parameter to a section. The initialized parameter won't have a name or a value."

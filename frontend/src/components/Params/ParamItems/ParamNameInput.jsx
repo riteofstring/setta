@@ -68,3 +68,15 @@ export function ParamNameInput({
     </>
   );
 }
+
+/**
+ * Set the name of a parameter.
+ * @SETTA_MCP_TOOL
+ * @param {string} paramInfoId The parameter whose name we want to change.
+ * @param {string} name The name.
+ */
+export function setParamName({ paramInfoId, name }) {
+  useSectionInfos.setState((state) => {
+    state.codeInfo[paramInfoId].name = name;
+  });
+}
