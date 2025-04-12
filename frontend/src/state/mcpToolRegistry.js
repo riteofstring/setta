@@ -3,24 +3,20 @@
 import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 
-import {
-  addGroupInEmptySpace,
-  addRegularSectionInEmptySpace,
-  addSectionToPositionMcp,
-  addTerminalInEmptySpace,
-} from "./actions/sections/createSections";
+import { setParamEnteredValueMcp } from "../components/Params/ParamItems/ParamInput";
+import { addSectionToPositionMcp } from "./actions/sections/createSections";
+import { getSectionCurrentCodeInfoMcp } from "./actions/sections/sectionContents";
 import { setSelectedItemMcp } from "./actions/sections/setSelectedItem";
 
 // Registry of all MCP tools
 const mcpToolRegistry = {
-  addRegularSectionInEmptySpace,
-  addGroupInEmptySpace,
-  addTerminalInEmptySpace,
+  setParamEnteredValueMcp,
   addSectionToPositionMcp,
+  getSectionCurrentCodeInfoMcp,
   setSelectedItemMcp,
 };
 
-export function mcpToolUse(details) {
+export async function mcpToolUse(details) {
   const { fnName, args = {}, id } = details;
   let result;
 
@@ -28,7 +24,7 @@ export function mcpToolUse(details) {
     // Check if the function exists in our registry
     if (fnName in mcpToolRegistry) {
       // Call the function with the provided arguments
-      result = mcpToolRegistry[fnName](args);
+      result = await mcpToolRegistry[fnName](args);
     } else {
       throw new Error(`Unknown MCP tool function: ${fnName}`);
     }

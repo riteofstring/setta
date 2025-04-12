@@ -60,28 +60,44 @@ const debouncedSetParamEnteredValue = asyncDebounce(
   async (sectionId, paramInfoId, vStr, abortControllerRef) => {
     const ac = new AbortController();
     abortControllerRef.current = ac;
-
-    if (getParamUIType(sectionId, paramInfoId).type === C.TEXT) {
-      if (ac.signal.aborted) return;
-      const evRefs = await getEVRefs({
-        sectionId,
-        paramInfoId,
-        fullText: vStr,
-      });
-      if (ac.signal.aborted) return;
-      useSectionInfos.setState((state) => {
-        setParamEnteredValue(sectionId, paramInfoId, vStr, state);
-        const { variantId } = state.x[sectionId];
-        state.variants[variantId].values[paramInfoId].evRefs = evRefs;
-      });
-    } else {
-      if (ac.signal.aborted) return;
-      useSectionInfos.setState((state) => {
-        setParamEnteredValue(sectionId, paramInfoId, vStr, state);
-      });
-    }
-
-    maybeIncrementProjectStateVersion(true);
+    await setParamEnteredValueMcp({ sectionId, paramInfoId, vStr, ac });
   },
   50,
 );
+
+/**
+ * Gets the current code info for a section. This means the callable (if there's one), it's documentation, and it's parameters.
+ * @SETTA_MCP_TOOL
+ * @param {string} sectionId
+ * @param {string} paramInfoId
+ * @param {string} vStr The string representation of the value of the parameter.
+ * @param {Object} [ac] An abort controller. Not needed for MCP.
+ */
+export async function setParamEnteredValueMcp({
+  sectionId,
+  paramInfoId,
+  vStr,
+  ac,
+}) {
+  if (getParamUIType(sectionId, paramInfoId).type === C.TEXT) {
+    if (ac?.signal.aborted) return;
+    const evRefs = await getEVRefs({
+      sectionId,
+      paramInfoId,
+      fullText: vStr,
+    });
+    if (ac?.signal.aborted) return;
+    useSectionInfos.setState((state) => {
+      setParamEnteredValue(sectionId, paramInfoId, vStr, state);
+      const { variantId } = state.x[sectionId];
+      state.variants[variantId].values[paramInfoId].evRefs = evRefs;
+    });
+  } else {
+    if (ac?.signal.aborted) return;
+    useSectionInfos.setState((state) => {
+      setParamEnteredValue(sectionId, paramInfoId, vStr, state);
+    });
+  }
+
+  maybeIncrementProjectStateVersion(true);
+}

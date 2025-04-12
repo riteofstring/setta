@@ -138,7 +138,7 @@ const mcpToolRegistry = {
 ${registryEntries.join(",\n")}
 };
 
-export function mcpToolUse(details) {
+export async function mcpToolUse(details) {
   const { fnName, args = {}, id } = details;
   let result;
 
@@ -146,7 +146,7 @@ export function mcpToolUse(details) {
     // Check if the function exists in our registry
     if (fnName in mcpToolRegistry) {
       // Call the function with the provided arguments
-      result = mcpToolRegistry[fnName](args);
+      result = await mcpToolRegistry[fnName](args);
     } else {
       throw new Error(\`Unknown MCP tool function: \${fnName}\`);
     }

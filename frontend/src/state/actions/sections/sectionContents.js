@@ -1,4 +1,6 @@
 import C from "constants/constants.json";
+import _ from "lodash";
+import { useSectionInfos } from "state/definitions";
 import {
   findAllParameters,
   findAllParametersAndPathMaps,
@@ -121,4 +123,29 @@ export function getAllVisibleParamsInSection(sectionId, state) {
   }
 
   return [...pinnedIds, ...unpinnedIds];
+}
+
+/**
+ * Gets the current code info for a section. This means the callable (if there's one), it's documentation, and it's parameters.
+ * @SETTA_MCP_TOOL
+ * @param {string} sectionId
+ */
+export function getSectionCurrentCodeInfoMcp({ sectionId }) {
+  const state = useSectionInfos.getState();
+  const { codeInfoChildren, parentCodeInfoId } =
+    getCodeChildrenAndParentCodeInfoId(sectionId, state);
+
+  let callableInfo = {};
+  if (parentCodeInfoId) {
+    callableInfo = _.pick(state.codeInfo[parentCodeInfoId], [
+      "id",
+      "name",
+      "description",
+    ]);
+  }
+  const paramInfos = codeInfoChildren[parentCodeInfoId].map((x) =>
+    _.pick(state.codeInfo[x], ["id", "name", "description"]),
+  );
+
+  return { callableInfo, paramInfos };
 }
