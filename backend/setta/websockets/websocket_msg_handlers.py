@@ -234,3 +234,11 @@ class WMHMCP(BaseWebsocketMsgHandler):
 
         # Wait for response
         return await self.websocket_manager.wait_for_pending_request(request_id)
+
+    async def broadcast_notification(self, content):
+        content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
+        await self.websocket_manager.broadcast(
+            content,
+            C.WS_NOTIFICATION,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )

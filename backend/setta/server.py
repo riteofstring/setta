@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -80,7 +81,9 @@ async def lifespan(app: FastAPI):
     )
 
     add_mcp_server_to_fastapi_server(app, "/mcp")
-    app.state.mcp_client = MCPClient(f"{C.BACKEND}/mcp")
+    app.state.mcp_client = MCPClient(
+        f"{C.BACKEND}/mcp", app.state.websocket_msg_handlers.mcp
+    )
 
     maybe_create_tables_and_seed(
         app.state.dbq,
@@ -89,10 +92,12 @@ async def lifespan(app: FastAPI):
     )
 
     app.state.dbq.connect()
-    await start_lsps(
-        app.state.lsps,
-        app.state.lsp_readers,
-        app.state.lsp_writers,
+    asyncio.create_task(
+        start_lsps(
+            app.state.lsps,
+            app.state.lsp_readers,
+            app.state.lsp_writers,
+        )
     )
     app.state.file_watcher.start()
     app.state.specific_file_watcher.start()
