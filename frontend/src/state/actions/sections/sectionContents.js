@@ -9,6 +9,7 @@ import { bothTruthyOrFalsey } from "utils/utils";
 import {
   getCodeChildrenAndParentCodeInfoId,
   getCodeInfoCol,
+  getSectionType,
   getSectionVariant,
 } from "../sectionInfos";
 
@@ -148,4 +149,22 @@ export function getSectionCurrentCodeInfoMcp({ sectionId }) {
   );
 
   return { callableInfo, paramInfos };
+}
+
+/**
+ * Gets information about all the sections that currently exist.
+ * @SETTA_MCP_TOOL
+ * @returns {Object} An object that maps from sectionId to that section's information.
+ */
+export function getAllSectionInformationMcp() {
+  const state = useSectionInfos.getState();
+  const output = {};
+  for (const s of Object.values(state.x)) {
+    output[s.id] = {
+      name: s.name,
+      type: getSectionType(s.id, state),
+      ...getSectionCurrentCodeInfoMcp({ sectionId: s.id }),
+    };
+  }
+  return output;
 }

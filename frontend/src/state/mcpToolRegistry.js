@@ -5,7 +5,10 @@ import { sendMessage } from "requests/websocket";
 
 import { setParamEnteredValueMcp } from "../components/Params/ParamItems/ParamInput";
 import { addSectionToPositionMcp } from "./actions/sections/createSections";
-import { getSectionCurrentCodeInfoMcp } from "./actions/sections/sectionContents";
+import {
+  getAllSectionInformationMcp,
+  getSectionCurrentCodeInfoMcp,
+} from "./actions/sections/sectionContents";
 import { setSelectedItemMcp } from "./actions/sections/setSelectedItem";
 
 // Registry of all MCP tools
@@ -13,6 +16,7 @@ const mcpToolRegistry = {
   setParamEnteredValueMcp,
   addSectionToPositionMcp,
   getSectionCurrentCodeInfoMcp,
+  getAllSectionInformationMcp,
   setSelectedItemMcp,
 };
 

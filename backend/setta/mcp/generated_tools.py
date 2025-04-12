@@ -109,6 +109,20 @@ async def getSectionCurrentCodeInfoMcp(sectionId: str) -> Any:
     )
 
 
+@mcp_server.tool(
+    description="Gets information about all the sections that currently exist."
+)
+async def getAllSectionInformationMcp() -> Dict[str, Any]:
+    """Gets information about all the sections that currently exist.
+
+    Returns:
+        An object that maps from sectionId to that section's information.
+    """
+    return await mcp_server.setta_websocket.use_frontend_tool(
+        "getAllSectionInformationMcp"
+    )
+
+
 # From setSelectedItem.js
 @mcp_server.tool(description="Sets the selectedItem (i.e. the callable) of a section.")
 async def setSelectedItemMcp(sectionId: str, selectedItemName: str) -> str:
