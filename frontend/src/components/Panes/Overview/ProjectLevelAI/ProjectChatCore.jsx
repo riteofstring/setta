@@ -8,8 +8,8 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { useTypewriterEffect } from "state/hooks/useTypewriterEffect";
 import ChatInput from "./ChatInput";
+import { useTypewriterEffect } from "./useTypewriterEffect";
 
 function MarkdownContent({ content, className, role, isStreaming }) {
   // Only animate if this is an assistant message that's currently streaming
