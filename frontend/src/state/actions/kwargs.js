@@ -12,9 +12,9 @@ import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
 /**
  * Add parameters to a section.
  * @SETTA_MCP_TOOL
- * @param {string} sectionId The section to add parameters to.
+ * @param {ID} sectionId The section to add parameters to.
  * @param {Array<string>} names The names of the newly created parameters.
- * @returns {Array<string>} The created parameter ids.
+ * @returns {Array<ID>} The created parameter ids.
  */
 export function addParametersMcp({ sectionId, names }) {
   let ids = [];

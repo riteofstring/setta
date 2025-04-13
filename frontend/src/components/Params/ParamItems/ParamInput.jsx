@@ -97,11 +97,19 @@ async function cancelableSetParamEnteredValue({
 /**
  * Set the values of multiple parameters.
  * @SETTA_MCP_TOOL
- * @param {string} sectionId
- * @param {Object<string, string>} paramIdsToValues A mapping from param id to value. Each value is a string that contains python code that evaluates to whatever you want the parameter's value to be. For example to set the parameter to True, pass in "True". To set the parameter to "dog", pass in '"dog"'.
+ * @param {ID} sectionId The id of the section that contains the parameters.
+ * @param {Object<ID, string>} paramIdsToValues A mapping from parameter id to value. Each value is a string that contains python code that evaluates to whatever you want the parameter's value to be. For example to set the parameter to True, pass in "True". To set the parameter to "dog", pass in '"dog"'.
+ * @return {Object<ID, boolean>} maps from parameter id to whether or not the value was successfully set.
  */
 export async function setParamValuesMcp({ sectionId, paramIdsToValues }) {
+  const status = {};
   for (const [paramInfoId, vStr] of Object.entries(paramIdsToValues)) {
-    await cancelableSetParamEnteredValue({ sectionId, paramInfoId, vStr });
+    try {
+      await cancelableSetParamEnteredValue({ sectionId, paramInfoId, vStr });
+      status[paramInfoId] = true;
+    } catch {
+      status[paramInfoId] = false;
+    }
   }
+  return status;
 }
