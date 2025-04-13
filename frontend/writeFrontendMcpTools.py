@@ -472,4 +472,4 @@ from pydantic_core import CoreSchema, core_schema
 
 
 if __name__ == "__main__":
-    generate_mcp_tools("mcp-tools.json", "../backend/setta/mcp/generated_tools.py")
+    generate_mcp_tools("mcp-tools.json", "../backend/setta/mcp/frontend_tools.py")
