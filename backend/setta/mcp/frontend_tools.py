@@ -8,9 +8,8 @@ from typing import Any, Dict, List, Literal
 
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
-from typing_extensions import TypedDict
-
 from setta.mcp.server import mcp_server
+from typing_extensions import TypedDict
 
 
 # TypedDict definitions generated from JSDoc typedefs
@@ -81,18 +80,17 @@ class SimplifiedSectionInfo(TypedDict, total=False):
 
 
 # From ParamInput.jsx
-@mcp_server.tool(description="Set the values of multiple parameters.")
+@mcp_server.tool(
+    description="Set the values of multiple parameters in a particular section. Returns a map from parameter id to whether or not the value was successfully set."
+)
 async def setParamValuesMcp(
     sectionId: ID, paramIdsToValues: Dict[ID, str]
 ) -> Dict[ID, bool]:
-    """Set the values of multiple parameters.
+    """
 
     Args:
         sectionId: The id of the section that contains the parameters.
         paramIdsToValues: A mapping from parameter id to value. Each value is a string that contains python code that evaluates to whatever you want the parameter's value to be. For example to set the parameter to True, pass in "True". To set the parameter to "dog", pass in '"dog"'.
-
-    Returns:
-        maps from parameter id to whether or not the value was successfully set.
     """
     args = {}
     args["sectionId"] = sectionId
@@ -103,16 +101,15 @@ async def setParamValuesMcp(
 
 
 # From kwargs.js
-@mcp_server.tool(description="Add parameters to a section.")
+@mcp_server.tool(
+    description="Add parameters to a section. Returns the created parameter ids."
+)
 async def addParametersMcp(sectionId: ID, names: List[str]) -> List[ID]:
-    """Add parameters to a section.
+    """
 
     Args:
         sectionId: The section to add parameters to.
         names: The names of the newly created parameters.
-
-    Returns:
-        The created parameter ids.
     """
     args = {}
     args["sectionId"] = sectionId
@@ -123,15 +120,14 @@ async def addParametersMcp(sectionId: ID, names: List[str]) -> List[ID]:
 
 
 # From createSections.js
-@mcp_server.tool(description="Adds a new section at a specific location.")
+@mcp_server.tool(
+    description="Adds a new section at a specific location. Returns an array of the ids of the created sections."
+)
 async def addSectionsAtPositionMcp(sections: List[SimplifiedSectionConfig]) -> List[ID]:
-    """Adds a new section at a specific location.
+    """
 
     Args:
-        sections: Details of the sections to be created
-
-    Returns:
-        An array of the ids of the created sections.
+        sections: Details of the sections to be created.
     """
     args = {}
     args["sections"] = sections
@@ -147,7 +143,7 @@ async def addSectionsAtPositionMcp(sections: List[SimplifiedSectionConfig]) -> L
     description="Gets the current code info for a section. This means the callable's id, (if there's one), its name, its documentation, and the same information for its parameters (if it has any)"
 )
 async def getSectionCurrentCodeInfoMcp(sectionId: ID) -> SectionSimplifiedCodeInfo:
-    """Gets the current code info for a section. This means the callable's id, (if there's one), its name, its documentation, and the same information for its parameters (if it has any)"""
+    """ """
     args = {}
     args["sectionId"] = sectionId
     return await mcp_server.setta_websocket.use_frontend_tool(
@@ -158,14 +154,10 @@ async def getSectionCurrentCodeInfoMcp(sectionId: ID) -> SectionSimplifiedCodeIn
 
 
 @mcp_server.tool(
-    description="Gets information about all the sections that currently exist."
+    description="Gets information about all the sections that currently exist. Returns an object that maps from sectionId to that section's information."
 )
 async def getAllSectionInformationMcp() -> Dict[ID, SimplifiedSectionInfo]:
-    """Gets information about all the sections that currently exist.
-
-    Returns:
-        An object that maps from sectionId to that section's information.
-    """
+    """ """
     return await mcp_server.setta_websocket.use_frontend_tool(
         "getAllSectionInformationMcp",
         getAllSectionInformationMcp.__annotations__["return"],
@@ -173,18 +165,17 @@ async def getAllSectionInformationMcp() -> Dict[ID, SimplifiedSectionInfo]:
 
 
 # From setSelectedItem.js
-@mcp_server.tool(description="Sets the selectedItem (i.e. the callable) of a section.")
+@mcp_server.tool(
+    description="Sets the selectedItem (i.e. the callable) of a section. Returns the callable info and info about its parameters."
+)
 async def setSelectedItemMcp(
     sectionId: ID, selectedItemName: str
 ) -> SectionSimplifiedCodeInfo:
-    """Sets the selectedItem (i.e. the callable) of a section.
+    """
 
     Args:
         sectionId: The id of the section we're setting the selectedItem of.
         selectedItemName: The selected item name, for example "math.sqrt"
-
-    Returns:
-        The callable info and info about its parameters.
     """
     args = {}
     args["sectionId"] = sectionId

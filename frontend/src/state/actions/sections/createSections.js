@@ -79,8 +79,8 @@ export function addSectionInEmptySpace({
 /**
  * Adds a new section at a specific location.
  * @SETTA_MCP_TOOL
- * @param {Array<SimplifiedSectionConfig>} sections Details of the sections to be created
- * @returns {Array<ID>} An array of the ids of the created sections.
+ * @param {Array<SimplifiedSectionConfig>} sections Details of the sections to be created.
+ * @returns {Array<ID>} an array of the ids of the created sections.
  */
 export function addSectionsAtPositionMcp({ sections }) {
   let ids = [];

@@ -17,7 +17,7 @@ import { getSectionCurrentCodeInfoMcp } from "./sectionContents";
  * @SETTA_MCP_TOOL
  * @param {ID} sectionId The id of the section we're setting the selectedItem of.
  * @param {string} selectedItemName The selected item name, for example "math.sqrt"
- * @returns {SectionSimplifiedCodeInfo} The callable info and info about its parameters.
+ * @returns {SectionSimplifiedCodeInfo} the callable info and info about its parameters.
  */
 export async function setSelectedItemMcp({ sectionId, selectedItemName }) {
   function callbackSetAttr(id, state) {

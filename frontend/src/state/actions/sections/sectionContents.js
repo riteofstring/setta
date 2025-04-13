@@ -155,7 +155,7 @@ export function getSectionCurrentCodeInfoMcp({ sectionId }) {
 /**
  * Gets information about all the sections that currently exist.
  * @SETTA_MCP_TOOL
- * @returns {Object<ID, SimplifiedSectionInfo>} An object that maps from sectionId to that section's information.
+ * @returns {Object<ID, SimplifiedSectionInfo>} an object that maps from sectionId to that section's information.
  */
 export function getAllSectionInformationMcp() {
   const state = useSectionInfos.getState();
