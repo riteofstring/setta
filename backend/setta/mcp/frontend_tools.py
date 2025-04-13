@@ -104,7 +104,7 @@ async def setParamValuesMcp(
 
 # From aiChat.js
 @mcp_server.tool(
-    description="Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block."
+    description="Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context."
 )
 async def startStreamingInto(sectionId: ID) -> Any:
     """
