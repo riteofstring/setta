@@ -296,20 +296,3 @@ const debouncedSetCode = asyncDebounce(
   },
   50,
 );
-
-export function streamCodeIntoCodeBlockeMcp({ sectionId, codeChunk }) {
-  useSectionInfos.setState((x) => {
-    const sectionVariant = getSectionVariant(sectionId, x);
-
-    // Otherwise append the new chunk to existing code
-    sectionVariant.code += codeChunk;
-  });
-}
-
-/**
- * Start streaming code into a code block. After calling this, all of your output will be rendered in a Setta code block. Think of the code block as being like a code file.
- * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the section (code block)
- * @param {Object<ID, string>} clearExisting
- */
-export function startCodeStream({ sectionId, clearExisting }) {}
