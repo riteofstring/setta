@@ -10,17 +10,17 @@ import {
 import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
 
 /**
- * Add a parameter to a section. The initialized parameter won't have a name or a value.
+ * Add parameters to a section.
  * @SETTA_MCP_TOOL
  * @param {string} sectionId The section to add parameters to.
- * @param {number} numParams The number of parameters.
+ * @param {Array<string>} names The names of the newly created parameters.
  * @returns {Array<string>} The created parameter ids.
  */
-export function addParametersMcp({ sectionId, numParams }) {
+export function addParametersMcp({ sectionId, names }) {
   let ids = [];
   useSectionInfos.setState((state) => {
-    for (let i = 0; i < numParams; i++) {
-      ids.push(addKwarg({ sectionId, state }));
+    for (const name of names) {
+      ids.push(addKwarg({ sectionId, name, state }));
     }
   });
   return ids;
@@ -28,12 +28,13 @@ export function addParametersMcp({ sectionId, numParams }) {
 
 export function addKwarg({
   sectionId,
+  name = "",
   parentId = null,
   insertIdx = null,
   state,
 }) {
   const kwargInfo = newCodeInfoMaybeWithJsonSource(
-    { id: createNewId(), rcType: C.PARAMETER, editable: true },
+    { id: createNewId(), name, rcType: C.PARAMETER, editable: true },
     sectionId,
     state,
   );

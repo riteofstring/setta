@@ -95,7 +95,7 @@ async function cancelableSetParamEnteredValue({
 }
 
 /**
- * Gets the current code info for a section. This means the callable (if there's one), it's documentation, and it's parameters.
+ * Set the values of multiple parameters.
  * @SETTA_MCP_TOOL
  * @param {string} sectionId
  * @param {Object<string, string>} paramIdsToValues A mapping from param id to value. Each value is a string that contains python code that evaluates to whatever you want the parameter's value to be. For example to set the parameter to True, pass in "True". To set the parameter to "dog", pass in '"dog"'.
