@@ -1,3 +1,5 @@
+import { FiTrash2 } from "react-icons/fi";
+
 export function ProjectChatHistory({ chatSessions, sessionId, switchToChat }) {
   return (
     <div className="flex flex-col gap-2 overflow-y-auto p-4">
@@ -10,21 +12,36 @@ export function ProjectChatHistory({ chatSessions, sessionId, switchToChat }) {
         chatSessions
           .sort((a, b) => b.lastUpdated - a.lastUpdated) // Sort by most recent
           .map((session) => (
-            <button
+            <div
               key={session.id}
-              className={` flex cursor-pointer flex-col gap-1 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-white/50 hover:shadow-sm focus-visible:border-blue-500 hover:dark:bg-setta-800 ${
-                session.id === sessionId ? "bg-setta-100 dark:bg-setta-800" : ""
+              className={`group/historyitem flex cursor-pointer flex-row justify-between gap-2 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-white/50 hover:shadow-sm focus-visible:border-blue-500 hover:dark:bg-setta-800 ${
+                session.id === sessionId ? "bg-blue-600 dark:bg-blue-700" : ""
               }`}
               onClick={() => switchToChat(session.id)}
             >
-              <h4 className="truncate font-semibold text-setta-500 dark:text-setta-300">
-                {session.title || "New Chat"}
-              </h4>
+              <div className="flex flex-col gap-1">
+                <h4
+                  className={`truncate font-semibold text-setta-500 dark:text-setta-100 ${
+                    session.id === sessionId ? "text-white dark:text-white" : ""
+                  }`}
+                >
+                  {session.title || "New Chat"}
+                </h4>
 
-              <p className="truncate text-xs text-setta-800 dark:text-setta-200">
-                {new Date(session.lastUpdated).toLocaleString()}
-              </p>
-            </button>
+                <p
+                  className={`truncate text-xs text-setta-800 dark:text-setta-200 ${
+                    session.id === sessionId
+                      ? "text-setta-100 dark:text-setta-100"
+                      : ""
+                  }`}
+                >
+                  {new Date(session.lastUpdated).toLocaleString()}
+                </p>
+              </div>
+              <button className="cursor-pointer p-1  text-transparent transition-colors hover:!text-red-500 group-hover/historyitem:text-setta-300  group-hover:opacity-100 dark:hover:!text-red-600 group-hover/historyitem:dark:text-setta-600">
+                <FiTrash2 />
+              </button>
+            </div>
           ))
       )}
     </div>

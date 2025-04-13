@@ -5,10 +5,12 @@ export const useTypewriterEffect = (
   isStreaming = false,
   typingSpeed = 5,
 ) => {
-  const [displayedText, setDisplayedText] = useState("");
-  const previousTextRef = useRef("");
+  // Initialize state with the full text to avoid empty initial render
+  const [displayedText, setDisplayedText] = useState(fullText || "");
+  const previousTextRef = useRef(fullText || "");
   const animationRef = useRef(null);
-  const indexRef = useRef(0);
+  const indexRef = useRef(fullText ? fullText.length : 0);
+  const firstRenderRef = useRef(true);
 
   // Set up the typewriter effect
   useEffect(() => {
@@ -20,12 +22,25 @@ export const useTypewriterEffect = (
       return;
     }
 
-    // If text changes but not streaming, or on first load, show full text
-    if (!isStreaming || previousTextRef.current === "") {
+    // If not streaming or this is a remount, show full text immediately
+    if (!isStreaming) {
       setDisplayedText(fullText);
       previousTextRef.current = fullText;
       indexRef.current = fullText.length;
       return;
+    }
+
+    // Handle first render - synchronize immediately to avoid flicker
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false;
+
+      // On first render with existing content that's not streaming, show immediately
+      if (!isStreaming) {
+        setDisplayedText(fullText);
+        previousTextRef.current = fullText;
+        indexRef.current = fullText.length;
+        return;
+      }
     }
 
     // If this is new text and we're streaming

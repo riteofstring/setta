@@ -147,7 +147,7 @@ const StreamItem = ({ item, idx, streamSequence, isStreaming }) => {
 function LLMChatBubble({ children }) {
   return (
     <div className="my-4 flex justify-start">
-      <div className="w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
+      <div className="min-h-[25px] w-fit min-w-[25px] max-w-[min(85%,800px)] flex-shrink cursor-text rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
         {children}
       </div>
     </div>
