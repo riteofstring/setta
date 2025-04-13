@@ -8,71 +8,85 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { useTypewriterEffect } from "state/hooks/useTypewriterEffect";
 import ChatInput from "./ChatInput";
 
-// Reusable Markdown component to avoid duplication
-const MarkdownContent = ({ content, className }) => (
-  <ReactMarkdown
-    remarkPlugins={[remarkGfm, remarkMath]}
-    rehypePlugins={[rehypeKatex]}
-    className={className}
-    components={{ code: CodeBlock }}
-  >
-    {content}
-  </ReactMarkdown>
-);
+function MarkdownContent({ content, className, role, isStreaming }) {
+  // Only animate if this is an assistant message that's currently streaming
+  const isAssistant = role === "assistant";
+  const shouldAnimate = isAssistant && isStreaming;
 
-// Utility function to format tool arguments
+  // Use the typewriter effect
+  const displayText = useTypewriterEffect(
+    content,
+    shouldAnimate,
+    5, // typing speed
+  );
+
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+      className={className}
+      components={{ code: CodeBlock }}
+    >
+      {displayText}
+    </ReactMarkdown>
+  );
+}
+
 const formatToolArgs = (args, jsonSoFar) => {
   if (jsonSoFar) return jsonSoFar;
   if (!args) return "{}";
 
-  const keys = Object.keys(args);
-  return keys.length <= 3
-    ? keys.map((key) => `${key}: ${JSON.stringify(args[key])}`).join(", ")
-    : JSON.stringify(args, null, 2);
+  return JSON.stringify(args, null, 2);
 };
 
-// Component for tool calls with expandable result
 const ToolCall = memo(
   ({ name, args, jsonSoFar, streaming, result, success = true }) => {
     return (
       <Accordion.Root type="single" collapsible>
         <Accordion.Item value="details">
-          <Accordion.Trigger className="w-full cursor-pointer overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
-            <div className="flex w-full items-center justify-between gap-2 px-2 py-2 text-left">
-              <div className="-mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
+          <Accordion.Trigger className="my-1 w-full cursor-pointer overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
+            <div className="relative flex w-full items-center justify-center gap-2 px-2 py-2 text-left">
+              <div className="absolute left-2 -mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
                 <PiWrenchFill
                   size={15}
                   className="min-w-6 text-setta-200 dark:text-setta-400"
                 />
               </div>
 
-              <div className="break-all px-2 font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
+              <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
                 {name}
                 {streaming}
               </div>
 
               {result &&
                 (success ? (
-                  <IoMdCheckmark className="text-setta-400" />
+                  <IoMdCheckmark className="absolute right-2 text-setta-400" />
                 ) : (
-                  <MdErrorOutline className="text-red-500" />
+                  <MdErrorOutline className="absolute right-2 text-red-500" />
                 ))}
             </div>
           </Accordion.Trigger>
 
           <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
             {(args || jsonSoFar) && (
-              <div className="bg-setta-800 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-700">
-                <pre className="m-0 font-mono text-xs text-white">
+              <div className="bg-setta-300 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
+                <h3 className="!mt-2.5 text-xs uppercase dark:text-setta-300">
+                  Arguments
+                </h3>
+                <pre className="m-0 cursor-auto font-mono text-xs text-setta-200">
                   {formatToolArgs(args, jsonSoFar)}
                 </pre>
               </div>
             )}
             {result && (
-              <div className="bg-setta-400 p-3 dark:bg-setta-860/50">
-                <pre className="m-0 font-mono text-xs text-white dark:text-setta-200">
+              <div className=" bg-setta-300 p-3  dark:bg-setta-860">
+                <h3 className="!mt-0 text-xs uppercase text-setta-700 dark:text-setta-300">
+                  Result
+                </h3>
+                <pre className="m-0 cursor-auto font-mono text-xs text-setta-200">
                   {typeof result === "string"
                     ? result
                     : typeof result === "object"
@@ -90,15 +104,16 @@ const ToolCall = memo(
   },
 );
 
-// Component to render a stream sequence item based on its type
-const StreamItem = ({ item, idx, streamSequence }) => {
+const StreamItem = ({ item, idx, streamSequence, isStreaming }) => {
   switch (item.type) {
     case "text":
       return (
         <MarkdownContent
           key={`text-${idx}`}
           content={item.content}
-          className="dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&>p]:inline-block [&_*]:break-all"
+          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
+          role="assistant"
+          isStreaming={isStreaming}
         />
       );
     case "tool_call":
@@ -129,60 +144,70 @@ const StreamItem = ({ item, idx, streamSequence }) => {
   }
 };
 
-// Style utility function
-const getMessageClassName = (role) => {
-  const baseClass =
-    "prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text px-4 py-2.5";
-
-  const roleClass =
-    role === "user"
-      ? "rounded-t-lg rounded-bl-lg bg-blue-500 text-white prose-headings:text-blue-200 dark:bg-blue-700"
-      : "rounded-b-lg rounded-tr-lg bg-setta-100 text-setta-800 prose-headings:text-setta-600 dark:bg-setta-700/50 dark:text-setta-50 dark:prose-headings:text-setta-300";
-
-  return `${baseClass} ${roleClass} dark:prose-invert prose-headings:tracking-tighter prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-all`;
-};
-
-// Simplified ChatMessage component
-const ChatMessage = memo(({ message }) => {
-  // Handle streaming message
-  if (message.streamSequence?.length > 0) {
-    return (
-      <div className="my-4 flex justify-start">
-        <div className="prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-2.5 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
-          {message.streamSequence.map((item, idx) => (
-            <StreamItem
-              item={item}
-              idx={idx}
-              key={idx}
-              streamSequence={message.streamSequence}
-            />
-          ))}
-        </div>
+function LLMChatBubble({ children }) {
+  return (
+    <div className="my-4 flex justify-start">
+      <div className="w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
+        {children}
       </div>
+    </div>
+  );
+}
+
+const ChatMessage = memo(({ message, isStreaming }) => {
+  // Handle streaming message with streamSequence
+  if (message.streamSequence) {
+    return (
+      <LLMChatBubble>
+        {message.streamSequence.length === 0 && (
+          <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
+        )}
+        {message.streamSequence.map((item, idx) => (
+          <StreamItem
+            item={item}
+            idx={idx}
+            key={idx}
+            streamSequence={message.streamSequence}
+            isStreaming={isStreaming}
+          />
+        ))}
+      </LLMChatBubble>
     );
   }
 
   // Handle regular message
   return (
-    <div
-      className={`my-4 flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-    >
+    <div className="my-4 flex justify-end">
       <MarkdownContent
         content={message.content}
-        className={getMessageClassName(message.role)}
+        className="prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:bg-blue-700 [&>p]:inline-block [&_*]:break-words"
+        role={message.role}
+        isStreaming={isStreaming}
       />
     </div>
   );
 });
 
 // Message list component
-const MessageList = memo(function MessageList({ messages }) {
+const MessageList = memo(function MessageList({ messages, isLoading }) {
   return (
     <div className="flex h-full min-h-0 flex-col-reverse overflow-y-auto pr-2">
       <div>
-        {messages.map((message, idx) => (
-          <ChatMessage key={idx} message={message} />
-        ))}
+        {messages.map((message, idx) => {
+          // Only the last assistant message should be considered streaming when loading
+          const isLastAssistantMessage =
+            isLoading &&
+            message.role === "assistant" &&
+            idx === messages.length - 1;
+
+          return (
+            <ChatMessage
+              key={idx}
+              message={message}
+              isStreaming={isLastAssistantMessage}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -198,7 +223,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 }) {
   return (
     <>
-      <MessageList messages={messages} />
+      <MessageList messages={messages} isLoading={isLoading} />
       <ChatInput
         onSubmit={handleSubmit}
         placeholderText={placeholderText}
@@ -207,15 +232,3 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     </>
   );
 });
-
-// Loading component
-function LoadingDots() {
-  return (
-    <div className="flex h-screen items-center justify-center space-x-2 bg-white dark:invert">
-      <span className="sr-only">Loading...</span>
-      <div className="h-1 w-1 animate-bounce rounded-full bg-black [animation-delay:-0.3s]"></div>
-      <div className="h-1 w-1 animate-bounce rounded-full bg-black [animation-delay:-0.15s]"></div>
-      <div className="h-1 w-1 animate-bounce rounded-full bg-black"></div>
-    </div>
-  );
-}
