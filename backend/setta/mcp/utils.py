@@ -1,4 +1,4 @@
-from .generated_tools import ID
+from .frontend_tools import ID
 
 
 class IDDoesNotExist(Exception):
