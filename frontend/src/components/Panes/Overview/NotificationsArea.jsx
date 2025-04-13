@@ -52,13 +52,13 @@ export function NotificationsArea() {
   }, [projectConfigId]);
 
   return (
-    <div className="flex w-full flex-col gap-4 overflow-y-auto">
+    <div className="flex h-full w-full flex-col gap-4 overflow-y-auto">
       {notifications.length > 0 ? (
         notifications.map((notification) => (
           <NotificationItem key={notification.id} notification={notification} />
         ))
       ) : (
-        <div className="flex flex-col items-center justify-center py-8 text-setta-400 dark:text-setta-500">
+        <div className="my-auto flex flex-col items-center justify-center py-8 text-setta-400 transition-all dark:text-setta-500">
           <IoInformationCircle size={24} />
           <p className="mt-2 text-sm">No notifications yet</p>
         </div>
@@ -122,19 +122,17 @@ function NotificationItem({ notification }) {
   return (
     <section
       className={`group/notifications overflow-clip rounded-md px-3 py-2 transition-all duration-300 hover:bg-white hover:shadow-md hover:dark:bg-setta-800 hover:dark:shadow-lg ${
-        !read_status ? "bg-blue-50 dark:bg-setta-900/50" : ""
-      } ${temporary ? "border-l-4 border-l-blue-400" : ""} ${
-        isExiting ? "translate-x-full opacity-0" : "opacity-100"
-      }`}
+        !read_status ? "bg-white shadow-md dark:bg-setta-700/30" : ""
+      }  ${isExiting ? "opacity-0" : "opacity-100"}`}
       onClick={handleMarkAsRead}
     >
-      <header className="mb-2 flex items-center justify-between gap-2">
+      <header className="mb-2 flex items-center gap-2">
         <i>{getNotificationIcon(type, "h-4 w-4")}</i>
         <h3 className="truncate font-semibold tracking-tight text-setta-600 group-hover/notifications:text-setta-900 dark:text-setta-300 group-hover/notifications:dark:text-setta-100">
           {message}
         </h3>
         <button
-          className="cursor-pointer text-setta-500 hover:text-blue-600"
+          className="ml-auto cursor-pointer text-setta-500 hover:text-red-600"
           onClick={(e) => {
             e.stopPropagation();
             handleRemove();
@@ -156,7 +154,7 @@ function NotificationItem({ notification }) {
       </div>
 
       {temporary && (
-        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-gray-200">
+        <div className="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-gray-200">
           <div
             className="h-full bg-blue-400 transition-all duration-100 ease-linear"
             style={{ width: `${timeRemaining}%` }}
@@ -189,7 +187,9 @@ export function getNotificationIcon(type, className = "") {
       );
     case C.NOTIFICATION_TYPE_SAVE:
       return (
-        <VscSave className={`${className} text-setta-400 dark:text-setta-50`} />
+        <VscSave
+          className={`${className} text-setta-300 dark:text-setta-400`}
+        />
       );
     case C.NOTIFICATION_TYPE_INFO:
     default:

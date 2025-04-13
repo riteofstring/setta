@@ -104,15 +104,16 @@ export function ProjectAIChat() {
         {viewHistory ? null : (
           <div className="ml-auto flex  w-full items-center justify-end gap-2">
             <button
-              className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${deepThink ? "text-blue-600" : "text-setta-400 dark:text-setta-500"} transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:text-setta-300`}
+              className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${deepThink ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-400 hover:text-setta-900 dark:text-setta-500 dark:hover:text-white"} transition-colors  focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent  active:dark:text-setta-300`}
               aria-label="Extended Thinking"
+              onClick={() => {
+                setDeepThink(!deepThink);
+              }}
             >
-              <BiSolidBrain
-                size={15}
-                onClick={() => {
-                  setDeepThink(!deepThink);
-                }}
-              />
+              <BiSolidBrain size={15} />
+              <span className="@[17.5rem]:hidden @[33.5rem]:block">
+                Deep Thinking
+              </span>
             </button>
 
             <IdNameCombobox
