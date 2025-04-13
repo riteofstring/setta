@@ -1,9 +1,9 @@
 import C from "constants/constants.json";
 import { dummyRegExpObject } from "utils/utils";
-import { subscribeWithSelector } from "zustand/middleware";
+import { create } from "zustand";
+import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import {
-  create,
   withProjectState,
   withResetFn,
   withTemporal,
@@ -241,5 +241,32 @@ export const useResizerStore = withProjectState(
       activeResizer: null, // { sectionId, ref, startX, startWidth, containerWidth, maxNestedDepth }
       globalEventListenersInitialized: false,
     })),
+  ),
+);
+
+export const useAIStore = create(
+  persist(
+    () => ({
+      // State
+      messages: [],
+      chatSessions: [],
+      sessionId: null,
+      isLoading: false,
+      viewHistory: false,
+      apiKeys: [],
+      userSelectedLLM: "",
+      saveStatus: "",
+      isSaving: false,
+    }),
+    {
+      name: "ai-storage",
+      partialize: (state) => ({
+        apiKeys: state.apiKeys,
+        userSelectedLLM: state.userSelectedLLM,
+        chatSessions: state.chatSessions,
+        sessionId: state.sessionId,
+        messages: state.messages,
+      }),
+    },
   ),
 );
