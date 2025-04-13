@@ -5,6 +5,7 @@ import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSectionRefs } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
+import "types/types";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
@@ -82,7 +83,7 @@ export function addSectionInEmptySpace({
  * 'GLOBAL_VARIABLES'|'CODE'|'PARAM_SWEEP'|'TERMINAL'|'GLOBAL_PARAM_SWEEP'|'IFRAME'|'CHAT')} type The type of section to add
  * @param {Position} position The coordinates where the section will be created.
  * @param {SectionConfig} [sectionProps] Optional configuration for the section
- * @returns {ID} The id of the created section
+ * @returns {string} The id of the created section
  */
 export function addSectionToPositionMcp({
   type,
