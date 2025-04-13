@@ -6,7 +6,7 @@ import {
   githubLightInit,
 } from "@uiw/codemirror-theme-github";
 import { createTheme } from "@uiw/codemirror-themes";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage } from "state/definitions";
 
 const commonSettings = {
   background: "#ffffff00",
@@ -55,7 +55,7 @@ const greenDarkTheme = boringTheme(true, "#7ee787");
 const greenLightTheme = boringTheme(false, "hsla(157, 100%, 28%, 1)");
 
 export function useCodeMirrorStyle(color) {
-  const [darkMode] = localStorageFns.darkMode.hook();
+  const darkMode = useLocalStorage((x) => x.darkMode);
   return getCodeMirrorStyle(darkMode, color);
 }
 

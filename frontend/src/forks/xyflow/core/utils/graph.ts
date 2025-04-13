@@ -2,10 +2,10 @@
 import type { Selection as D3Selection } from "d3";
 import {
   useActiveSection,
+  useLocalStorage,
   useSectionInfos,
   useSectionRefs,
 } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
 import { clamp } from "utils/utils";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import { useReactFlow } from "../store";
@@ -144,7 +144,7 @@ export const getViewportForBounds = (
   const x =
     width / 2 -
     boundsCenterX * zoom +
-    localStorageFns.overviewTrueWidth.state()[0];
+    useLocalStorage.getState().overviewTrueWidth;
   const y = height / 2 - boundsCenterY * zoom;
 
   return { x, y, zoom };
@@ -195,7 +195,7 @@ export function getPaneRect(s, overviewWidth) {
 export function isSectionFullyVisible(id) {
   const paneRect = getPaneRect(
     useReactFlow.getState(),
-    localStorageFns.overviewTrueWidth.state()[0],
+    useLocalStorage.getState().overviewTrueWidth,
   );
 
   return isSectionOverlappingWithRect(id, paneRect, false);
@@ -231,7 +231,7 @@ export function movePaneToIncludeElement(element) {
   const point = screenToFlowPosition(element.getBoundingClientRect());
   const paneRect = getPaneRect(
     useReactFlow.getState(),
-    localStorageFns.overviewTrueWidth.state()[0],
+    useLocalStorage.getState().overviewTrueWidth,
   );
   const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
   if (!isInside) {

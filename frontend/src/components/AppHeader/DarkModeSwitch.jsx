@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { HiMoon } from "react-icons/hi";
 import { RiSunFill } from "react-icons/ri";
 import { toggleDarkMode } from "state/actions/localStorage";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage } from "state/definitions";
 import { HelpText } from "./HelpText";
 
 export function DarkModeSwitch() {
@@ -32,7 +32,7 @@ export function DarkModeSwitch() {
 }
 
 function useDarkMode() {
-  const [darkMode] = localStorageFns.darkMode.hook();
+  const darkMode = useLocalStorage((x) => x.darkMode);
 
   useEffect(() => {
     if (darkMode) {

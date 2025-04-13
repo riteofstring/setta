@@ -16,8 +16,7 @@ import { FaMinus, FaPlus } from "react-icons/fa6";
 import { IoMapOutline } from "react-icons/io5";
 import { TbArrowAutofitWidth, TbGridDots, TbZoomReset } from "react-icons/tb";
 import { toggleMiniMap, toggleSnapToGrid } from "state/actions/localStorage";
-import { useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { onFitViewHandler } from "../core/store/utils";
 import type { ControlProps } from "./types";
@@ -49,9 +48,8 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
     shallow,
   );
   const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
-  const [snapToGrid] = localStorageFns.snapToGrid.hook();
-  const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
-  const [showMinimap] = localStorageFns.showMinimap.hook();
+  const snapToGrid = useLocalStorage((x) => x.snapToGrid);
+  const showMinimap = useLocalStorage((x) => x.showMinimap);
   const styleForActive =
     "text-white bg-blue-500 dark:text-blue-600 dark:bg-transparent";
 

@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useSectionInfos } from "state/definitions";
+import { useLocalStorage, useSectionInfos } from "state/definitions";
 import {
   INFO_CONFIG_TAB,
   QUICKINFO_CONFIG_TAB,
@@ -9,7 +9,6 @@ import {
   UI_CONFIG_TAB,
 } from "utils/constants";
 import { newUITypeColEntry } from "utils/objs/uiTypeCol";
-import { localStorageFns } from "./localStorage";
 
 export function getParamUIType(sectionId, paramInfoId, _state) {
   const state = _state ?? useSectionInfos.getState();
@@ -56,7 +55,7 @@ export function useIsListElement(sectionId) {
 }
 
 export function useUIEditorTab(sectionId) {
-  const [_storedTab] = localStorageFns.uiEditorTab.hook();
+  const _storedTab = useLocalStorage((x) => x.uiEditorTab);
   return useSectionInfos((x) => {
     let uiTypeName, renderMarkdown;
     if (sectionId) {

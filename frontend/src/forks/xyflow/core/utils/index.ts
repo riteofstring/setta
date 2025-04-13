@@ -4,7 +4,7 @@ import type {
   TouchEvent as ReactTouchEvent,
 } from "react";
 
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage } from "state/definitions";
 import { clamp } from "utils/utils";
 import type {
   Box,
@@ -45,8 +45,8 @@ const calcAutoPanVelocity = (
 };
 
 export const calcAutoPan = (pos: XYPosition, bounds: Dimensions): number[] => {
-  const [overview] = localStorageFns.overviewTrueWidth.state();
-  const [uiEditor] = localStorageFns.uiEditorTrueWidth.state();
+  const overview = useLocalStorage.getState().overviewTrueWidth;
+  const uiEditor = useLocalStorage.getState().uiEditorTrueWidth;
   const xMovement =
     calcAutoPanVelocity(
       pos.x - overview,

@@ -8,8 +8,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import type { MouseEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import { getNodes } from "state/actions/nodeInternals";
-import { useNodeInternals } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage, useNodeInternals } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import Panel from "../core/components/Panel";
 import { CoordinateExtent, Rect } from "../core/types";
@@ -79,7 +78,7 @@ function MiniMap({
 }: MiniMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const nodes = useNodeInternals(getNodes, shallow);
-  const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
+  const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
   const { boundingRect, viewBB } = useReactFlow(
     getSelector(nodes, overviewWidth),
     shallow,
@@ -178,7 +177,7 @@ function MiniMap({
     ? (event: MouseEvent) => {
         const rfCoord = pointer(event);
         onClick(event, {
-          x: rfCoord[0] - localStorageFns.overviewTrueWidth.state()[0],
+          x: rfCoord[0] - useLocalStorage.getState().overviewTrueWidth,
           y: rfCoord[1],
         });
       }

@@ -2,9 +2,13 @@ import _ from "lodash";
 import { useEffect } from "react";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useMisc, useSectionInfos, useSettings } from "state/definitions";
+import {
+  useLocalStorage,
+  useMisc,
+  useSectionInfos,
+  useSettings,
+} from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
-import { localStorageFns } from "state/hooks/localStorage";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import {
   NO_PAN_CLASS_NAME,
@@ -102,7 +106,7 @@ function CustomResizableCore({
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
   const snapGrid = useSettings((x) => x.gui.snapGrid);
-  const snapToGrid = localStorageFns.snapToGrid.hook()[0];
+  const snapToGrid = useLocalStorage((x) => x.snapToGrid);
 
   return (
     <CustomResizableSuperCore

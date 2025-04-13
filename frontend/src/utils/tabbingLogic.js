@@ -1,8 +1,7 @@
 import C from "constants/constants.json";
 import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { getHighestAncestor, getSectionType } from "state/actions/sectionInfos";
-import { useSectionRefs } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage, useSectionRefs } from "state/definitions";
 import { HOME_ROUTER_PATH, pathRelativeToProject } from "./constants";
 
 export function overviewPaneOnKeyDown(e) {
@@ -133,8 +132,8 @@ function focusOnProjectOverviewButton(e) {
 }
 
 function shiftTabBackToOverviewListItem(e, sectionId) {
-  const [overviewVis] = localStorageFns.overviewVis.state();
-  const [overviewTab] = localStorageFns.overviewTab.state();
+  const overviewVis = useLocalStorage.getState().overviewVis;
+  const overviewTab = useLocalStorage.getState().overviewTab;
   if (overviewVis && overviewTab === "tab1") {
     e.preventDefault();
     const element = document.getElementById(`${sectionId}-OverviewListItem`);

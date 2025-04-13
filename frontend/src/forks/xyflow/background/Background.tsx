@@ -1,6 +1,5 @@
 import { memo, useRef } from "react";
-import { useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { useReactFlow } from "../core/store";
 import { DotPattern, LinePattern } from "./Patterns";
@@ -8,7 +7,7 @@ import { BackgroundVariant } from "./types";
 
 function Background() {
   const offset = 2;
-  const [darkMode] = localStorageFns.darkMode.hook();
+  const darkMode = useLocalStorage((x) => x.darkMode);
   const patternColor = useSettings((x) =>
     darkMode ? x.gui.gridColorDarkMode : x.gui.gridColor,
   );

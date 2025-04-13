@@ -1,9 +1,14 @@
 import C from "constants/constants.json";
+import {
+  CLOSED_PANE_WIDTH,
+  INITIAL_OVERVIEW_WIDTH,
+  INITIAL_UI_EDITOR_WIDTH,
+} from "utils/constants";
 import { dummyRegExpObject } from "utils/utils";
-import { create } from "zustand";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import {
+  create,
   withProjectState,
   withResetFn,
   withTemporal,
@@ -267,6 +272,30 @@ export const useAIStore = create(
         sessionId: state.sessionId,
         messages: state.messages,
       }),
+    },
+  ),
+);
+
+export const useLocalStorage = create(
+  persist(
+    () => ({
+      snapToGrid: true,
+      darkMode: true,
+      showMinimap: true,
+      projectConfigPreviewEnabled: true,
+      overviewVis: true,
+      overviewWidth: INITIAL_OVERVIEW_WIDTH,
+      overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
+      overviewTab: "tab1",
+      uiEditorVis: false,
+      uiEditorWidth: INITIAL_UI_EDITOR_WIDTH,
+      uiEditorTrueWidth: CLOSED_PANE_WIDTH,
+      uiEditorTab: {},
+      showNavBarHelpMessage: true,
+      tooltipWidth: 256,
+    }),
+    {
+      name: "setta_data", // Same prefix as in your custom implementation
     },
   ),
 );

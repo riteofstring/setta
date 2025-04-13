@@ -1,7 +1,6 @@
 import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
-import { useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { useReactFlow } from "../store";
 import type { XYPosition } from "../types";
 import {
@@ -62,7 +61,7 @@ export function setCenter(x, y, options) {
   const nextZoom =
     typeof options?.zoom !== "undefined" ? options.zoom : maxZoom;
   const centerX =
-    width / 2 - x * nextZoom + localStorageFns.overviewTrueWidth.state()[0];
+    width / 2 - x * nextZoom + useLocalStorage.getState().overviewTrueWidth;
   const centerY = height / 2 - y * nextZoom;
   const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
 
@@ -88,7 +87,7 @@ export function fitBounds(bounds, options) {
 export function screenToFlowPosition(position: XYPosition, ignoreGrid = false) {
   const { transform, domNode } = useReactFlow.getState();
   const { snapGrid } = useSettings.getState().gui;
-  const [snapToGrid] = localStorageFns.snapToGrid.state();
+  const snapToGrid = useLocalStorage.getState().snapToGrid;
 
   if (!domNode) {
     return position;

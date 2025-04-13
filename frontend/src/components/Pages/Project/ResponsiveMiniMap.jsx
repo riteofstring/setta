@@ -2,11 +2,11 @@ import { setCenter } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { MiniMap } from "forks/xyflow/minimap";
 import "forks/xyflow/minimap/style.css";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage } from "state/definitions";
 
 export function ResponsiveMiniMap() {
-  const [uiEditorWidth] = localStorageFns.uiEditorTrueWidth.hook();
-  const [darkMode] = localStorageFns.darkMode.hook();
+  const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
+  const darkMode = useLocalStorage((x) => x.darkMode);
 
   return (
     <MiniMap

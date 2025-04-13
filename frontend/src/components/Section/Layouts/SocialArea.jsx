@@ -3,8 +3,7 @@ import _ from "lodash";
 import React, { useState } from "react";
 import { Tweet } from "react-tweet";
 import YouTube from "react-youtube";
-import { useSectionInfos } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage, useSectionInfos } from "state/definitions";
 import {
   useTwitterSectionSize,
   useYouTubeSectionSize,
@@ -70,7 +69,7 @@ function YoutubeEmbed({ sectionId, url }) {
 
 function TwitterEmbed({ sectionId, url }) {
   const id = _.last(url.split("/")).split("?")[0];
-  const [darkMode] = localStorageFns.darkMode.hook();
+  const darkMode = useLocalStorage((x) => x.darkMode);
   useTwitterSectionSize(sectionId);
 
   return (

@@ -1,7 +1,10 @@
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { getSectionType } from "state/actions/sectionInfos";
-import { useActiveSection, useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import {
+  useActiveSection,
+  useLocalStorage,
+  useSettings,
+} from "state/definitions";
 import { getUIEditorTab } from "state/hooks/uiTypes";
 import {
   CLOSED_PANE_WIDTH,
@@ -47,12 +50,13 @@ function getColor({ vis, isCurrSelected, disabled }) {
 }
 
 function visToggle(paneName, onResizeStop) {
-  const [vis, setVis] = localStorageFns[`${paneName}Vis`].state();
-  const [width] = localStorageFns[`${paneName}Width`].state();
-  const setTrueWidth = localStorageFns[`${paneName}TrueWidth`].state()[1];
+  const vis = useLocalStorage.getState()[`${paneName}Vis`];
+  const width = useLocalStorage.getState()[`${paneName}Width`];
   const newVis = !vis;
-  setVis(newVis);
-  setTrueWidth(newVis ? width : CLOSED_PANE_WIDTH);
+  useLocalStorage.setState({
+    [`${paneName}Vis`]: newVis,
+    [`${paneName}TrueWidth`]: newVis ? width : CLOSED_PANE_WIDTH,
+  });
   if (onResizeStop) {
     const widthDiff = width - CLOSED_PANE_WIDTH;
     onResizeStop(newVis ? widthDiff : -widthDiff);
@@ -60,10 +64,10 @@ function visToggle(paneName, onResizeStop) {
 }
 
 export function onOverviewTabClick(tabValue) {
-  const [vis] = localStorageFns.overviewVis.state();
-  const [tab, setTab] = localStorageFns.overviewTab.state();
+  const vis = useLocalStorage.getState().overviewVis;
+  const tab = useLocalStorage.getState().overviewTab;
   if (tab !== tabValue) {
-    setTab(tabValue);
+    useLocalStorage.setState({ overviewTab: tabValue });
     if (!vis) {
       visToggle(OVERVIEW, onOverviewResizeStop);
     }
@@ -80,16 +84,17 @@ export function onOverviewResizeStop(widthDiff) {
 
 export function getOnUIEditorTabClick(uiTypeName) {
   const setTab = (newTabState) => {
-    const setUIEditorTab = localStorageFns.uiEditorTab.state()[1];
-    setUIEditorTab((state) => ({
-      ...state,
-      [uiTypeName]: newTabState,
+    useLocalStorage.setState((state) => ({
+      uiEditorTab: {
+        ...state.uiEditorTab,
+        [uiTypeName]: newTabState,
+      },
     }));
   };
 
   return (tabValue) => {
-    const [vis] = localStorageFns.uiEditorVis.state();
-    const [storedTab] = localStorageFns.uiEditorTab.state();
+    const vis = useLocalStorage.getState().uiEditorVis;
+    const storedTab = useLocalStorage.getState().uiEditorTab;
     const { tab } = getUIEditorTab(uiTypeName, storedTab);
     if (tab !== tabValue) {
       setTab(tabValue);

@@ -5,7 +5,7 @@ import { BiHelpCircle } from "react-icons/bi";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
 import { MdNotificationsNone, MdOutlineSmartToy } from "react-icons/md";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage } from "state/definitions";
 import { OVERVIEW } from "utils/constants";
 import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
 import {
@@ -22,9 +22,9 @@ import { ViewingEditingMode } from "./ViewingEditingMode";
 const paneName = OVERVIEW;
 
 export function Overview() {
-  const [tab] = localStorageFns.overviewTab.hook();
-  const [vis] = localStorageFns.overviewVis.hook();
-  const [width] = localStorageFns.overviewWidth.hook();
+  const tab = useLocalStorage((x) => x.overviewTab);
+  const vis = useLocalStorage((x) => x.overviewVis);
+  const width = useLocalStorage((x) => x.overviewWidth);
   const commonProps = {
     vis,
     tab,

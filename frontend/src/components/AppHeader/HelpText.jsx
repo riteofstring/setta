@@ -1,9 +1,8 @@
-import { useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { shortcutPrettified } from "utils/utils";
 
 export function HelpText() {
-  const [showMessage, setState] = localStorageFns.showNavBarHelpMessage.hook();
+  const showMessage = useLocalStorage((x) => x.showNavBarHelpMessage);
   const shortcut = useSettings((x) =>
     shortcutPrettified(x.shortcuts.showTooltipShortcut),
   );
@@ -17,7 +16,9 @@ export function HelpText() {
           </p>
           <button
             className="flex cursor-pointer items-center text-setta-300 hover:text-setta-700 dark:text-setta-500 dark:hover:text-setta-400"
-            onClick={() => setState(false)}
+            onClick={() =>
+              useLocalStorage.setState({ showNavBarHelpMessage: false })
+            }
           >
             <i className="gg-close" />
           </button>

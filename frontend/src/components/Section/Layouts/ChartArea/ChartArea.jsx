@@ -3,12 +3,11 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
-import { useSectionInfos } from "state/definitions";
+import { useLocalStorage, useSectionInfos } from "state/definitions";
 import {
   useAllSectionArtifacts,
   useLoadArtifactViaDropzone,
 } from "state/hooks/artifacts";
-import { localStorageFns } from "state/hooks/localStorage";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { canvasToBase64 } from "../DrawArea/base64Conversion";
 import {
@@ -41,7 +40,7 @@ function _ChartAreaCore({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, (x) =>
     _.pick(x, ["name", "value"]),
   );
-  const [darkMode] = localStorageFns.darkMode.hook();
+  const darkMode = useLocalStorage((x) => x.darkMode);
   const size = useSectionInfos((x) => x.x[sectionId].size, _.isEqual);
   const chartSettings = useSectionInfos(
     (x) => x.x[sectionId].chartSettings,

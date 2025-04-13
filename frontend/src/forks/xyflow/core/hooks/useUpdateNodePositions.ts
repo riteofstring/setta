@@ -1,6 +1,9 @@
 import { getNodes, updateNodePositions } from "state/actions/nodeInternals";
-import { useActiveSection, useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import {
+  useActiveSection,
+  useLocalStorage,
+  useSettings,
+} from "state/definitions";
 import { useReactFlow } from "../store";
 
 export const updatePositions = (params: {
@@ -11,7 +14,7 @@ export const updatePositions = (params: {
   const { nodesSelectionDims, nodesDraggable, shiftNodesSelection } =
     useReactFlow.getState();
   const { snapGrid } = useSettings.getState().gui;
-  const [snapToGrid] = localStorageFns.snapToGrid.state();
+  const snapToGrid = useLocalStorage.getState().snapToGrid;
   const activeSectionIds = useActiveSection.getState().ids;
   const selectedNodes = getNodes().filter(
     (n) =>

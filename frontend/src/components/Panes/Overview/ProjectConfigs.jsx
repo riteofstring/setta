@@ -4,14 +4,17 @@ import { Link } from "react-router-dom";
 import { maybeRunGuiToYamlOnAllSections } from "state/actions/guiToYaml";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
 import { setAllPreviewVariantIdsToNull } from "state/actions/sectionInfos";
-import { useAllProjectConfigs, useSectionInfos } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import {
+  useAllProjectConfigs,
+  useLocalStorage,
+  useSectionInfos,
+} from "state/definitions";
 import { useLoadFullProject } from "state/hooks/project";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 
 export const ProjectConfigs = React.forwardRef(() => {
   const allConfigNames = useAllProjectConfigs((x) => x.names);
-  const [previewEnabled] = localStorageFns.projectConfigPreviewEnabled.hook();
+  const previewEnabled = useLocalStorage((x) => x.projectConfigPreviewEnabled);
   const { doneLoading, currProjectConfigName } =
     useLoadFullProject(previewEnabled);
   const [mousedOverName, setMousedOverName] = useState(currProjectConfigName);

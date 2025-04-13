@@ -6,8 +6,7 @@ import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
 import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
-import { useActiveSection } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useActiveSection, useLocalStorage } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import {
   INFO_CONFIG_TAB,
@@ -33,8 +32,8 @@ export function UiEditor() {
   const { tab, requiredTabs, uiTypeName, renderMarkdown } = useUIEditorTab(
     sectionIds[0],
   );
-  const [vis] = localStorageFns.uiEditorVis.hook();
-  const [width] = localStorageFns.uiEditorWidth.hook();
+  const vis = useLocalStorage((x) => x.uiEditorVis);
+  const width = useLocalStorage((x) => x.uiEditorWidth);
   const infoTabTooltip = renderMarkdown ? "Markdown Editor" : "Text Editor";
   const inputTitle = tab === INFO_CONFIG_TAB ? infoTabTooltip : null;
 

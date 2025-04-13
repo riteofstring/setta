@@ -5,8 +5,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos, useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import {
+  useLocalStorage,
+  useSectionInfos,
+  useSettings,
+} from "state/definitions";
 import { positiveMod, shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
 
@@ -27,7 +30,7 @@ export function FloatingBox() {
   const boxRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
-  const [tooltipWidth, setTooltipWidth] = localStorageFns.tooltipWidth.hook();
+  const tooltipWidth = useLocalStorage((x) => x.tooltipWidth);
 
   // Store initial position when freezing
   useEffect(() => {
@@ -124,7 +127,9 @@ export function FloatingBox() {
         tabIndex="0"
         tooltipWidth={tooltipWidth}
         onResizeStop={(e, direction, ref, d) => {
-          setTooltipWidth(tooltipWidth + d.width);
+          useLocalStorage.setState((state) => ({
+            tooltipWidth: state.tooltipWidth + d.width,
+          }));
         }}
         width={tooltipWidth}
       >

@@ -6,15 +6,14 @@ import ReactFlow from "forks/xyflow/core/container/ReactFlow";
 import "forks/xyflow/core/styles/style.css";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "state/actions/keyActivations";
-import { useMisc } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage, useMisc } from "state/definitions";
 import "./react-flow-css.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 
 export function UIPage() {
   useInitGlobalKeyEventListeners();
   useLastMouseDownMouseUpLocation();
-  const [showMiniMap] = localStorageFns.showMinimap.hook();
+  const showMiniMap = useLocalStorage((x) => x.showMinimap);
 
   return (
     <GlobalDndContext>

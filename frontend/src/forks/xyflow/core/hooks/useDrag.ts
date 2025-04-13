@@ -10,11 +10,11 @@ import {
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import {
   useActiveSection,
+  useLocalStorage,
   useMisc,
   useNodeInternals,
   useSettings,
 } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
 import { NO_DRAG_CLASS_NAME } from "utils/constants";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../types";
 import { calcAutoPan, getEventPosition } from "../utils";
@@ -60,7 +60,7 @@ function useDrag({
           useReactFlow.getState();
 
         const { snapGrid } = useSettings.getState().gui;
-        const [snapToGrid] = localStorageFns.snapToGrid.state();
+        const snapToGrid = useLocalStorage.getState().snapToGrid;
 
         const delta = { x: x - lastPos.current.x, y: y - lastPos.current.y };
         lastPos.current = { x, y };
@@ -221,7 +221,7 @@ function useDrag({
               return;
             }
 
-            if (localStorageFns.snapToGrid.state()[0]) {
+            if (useLocalStorage.getState().snapToGrid) {
               updateNodes(lastPos.current, true);
             }
 

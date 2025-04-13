@@ -1,22 +1,19 @@
-import { localStorageFns } from "state/hooks/localStorage";
-
-function toggleHelper(state) {
-  const [value, setValue] = state;
-  setValue(!value);
-}
+import { useLocalStorage } from "state/definitions";
 
 export function toggleDarkMode() {
-  toggleHelper(localStorageFns.darkMode.state());
+  useLocalStorage.setState((state) => ({ darkMode: !state.darkMode }));
 }
 
 export function toggleMiniMap() {
-  toggleHelper(localStorageFns.showMinimap.state());
+  useLocalStorage.setState((state) => ({ showMinimap: !state.showMinimap }));
 }
 
 export function toggleProjectConfigPreviewEnabled() {
-  toggleHelper(localStorageFns.projectConfigPreviewEnabled.state());
+  useLocalStorage.setState((state) => ({
+    projectConfigPreviewEnabled: !state.projectConfigPreviewEnabled,
+  }));
 }
 
 export function toggleSnapToGrid() {
-  toggleHelper(localStorageFns.snapToGrid.state());
+  useLocalStorage.setState((state) => ({ snapToGrid: !state.snapToGrid }));
 }

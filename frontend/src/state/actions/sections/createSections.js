@@ -4,8 +4,11 @@ import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos, useSectionRefs } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import {
+  useLocalStorage,
+  useSectionInfos,
+  useSectionRefs,
+} from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
@@ -60,7 +63,7 @@ export function addSectionInEmptySpace({
   const {
     transform: [_x, _y, zoom],
   } = useReactFlow.getState();
-  const [overviewWidth] = localStorageFns.overviewTrueWidth.state();
+  const overviewWidth = useLocalStorage.getState().overviewTrueWidth;
 
   const x = (overviewWidth - _x) / zoom;
   const y = -_y / zoom;

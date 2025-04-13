@@ -1,7 +1,6 @@
 import Background from "forks/xyflow/background/Background";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { useReactFlow } from "../store";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
@@ -18,7 +17,7 @@ const wrapperStyle: CSSProperties = {
 const SCROLL_INIT = 5000;
 
 const ReactFlow = () => {
-  const [snapToGrid] = localStorageFns.snapToGrid.hook();
+  const snapToGrid = useLocalStorage((x) => x.snapToGrid);
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
   const ref = useRef();
   const [initialized, setInitialized] = useState(false);
@@ -77,8 +76,8 @@ function cancelOutScrolling(e, initialized) {
 }
 
 function useWrapperDivDimensions(ref) {
-  const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
-  const [uiEditorWidth] = localStorageFns.uiEditorTrueWidth.hook();
+  const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
+  const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
 
   const [wrapperDimensions, setWrapperDimensions] = useState({
     width: 0,

@@ -1,6 +1,6 @@
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useLocalStorage } from "state/definitions";
 import { useWindowSize } from "state/hooks/utils";
 import { CLOSED_PANE_WIDTH } from "utils/constants";
 import { clamp } from "utils/utils";
@@ -19,10 +19,10 @@ export function PaneContainer({
   const [vMin, setVMin] = useState(minimumWidth);
 
   function setNewWidth(newWidth) {
-    localStorageFns[`${paneName}Width`].state()[1](newWidth);
-    localStorageFns[`${paneName}TrueWidth`].state()[1](
-      vis ? newWidth : CLOSED_PANE_WIDTH,
-    );
+    useLocalStorage.setState({
+      [`${paneName}Width`]: newWidth,
+      [`${paneName}TrueWidth`]: vis ? newWidth : CLOSED_PANE_WIDTH,
+    });
   }
 
   useEffect(() => {
