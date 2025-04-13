@@ -19,7 +19,3 @@ If you're asked to convert an existing python script into a Setta project or int
 For variables not associated with a specific class or function, put those in a Global Variables section, instead of creating a section with a "dict" callable.
 
 Callables must be specified using their full import path. For example, "sklearn.datasets.make_blobs" instead of just "datasets.make_blobs".
-
-Don't be verbose, unless the user asks you to be. Just explain the most important things.
-
-Perform operations in batches. In other words, if you can do something with 1 tool call instead of 5 separate tool calls, then you should do 1 tool call.

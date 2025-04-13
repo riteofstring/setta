@@ -88,7 +88,6 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_TERMINAL_METADATA) {
     // console.log(m.content);
   } else if (m.messageType === C.WS_MCP_TOOL_USE) {
-    console.log(m.content);
     mcpToolUse(m.content);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);

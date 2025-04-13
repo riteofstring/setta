@@ -1,11 +1,11 @@
 import C from "constants/constants.json";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
-import _ from "lodash";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSectionRefs } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
+import "types/types";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
@@ -79,25 +79,29 @@ export function addSectionInEmptySpace({
 /**
  * Adds a new section at a specific location.
  * @SETTA_MCP_TOOL
- * @param {Array<SimplifiedSectionConfig>} sections Details of the sections to be created
- * @returns {Array<ID>} An array of the ids of the created sections.
+ * @param {('SECTION'|'LIST_ROOT'|'DICT_ROOT'|'GROUP'|'IMAGE'|'CHART'|'DRAW'|'TEXT_BLOCK'|'SOCIAL'|
+ * 'GLOBAL_VARIABLES'|'CODE'|'PARAM_SWEEP'|'TERMINAL'|'GLOBAL_PARAM_SWEEP'|'IFRAME'|'CHAT')} type The type of section to add
+ * @param {Position} position The coordinates where the section will be created.
+ * @param {SectionConfig} [sectionProps] Optional configuration for the section
+ * @returns {string} The id of the created section
  */
-export function addSectionsAtPositionMcp({ sections }) {
-  let ids = [];
+export function addSectionToPositionMcp({
+  type,
+  sectionProps = {},
+  sectionVariantProps = {},
+  position,
+}) {
+  let sectionId;
   useSectionInfos.setState((state) => {
-    for (const section of sections) {
-      ids.push(
-        addSectionAtPosition({
-          type: section.type,
-          sectionProps: _.omit(section, ["type", "position"]),
-          sectionVariantProps: {},
-          position: section.position,
-          state,
-        }),
-      );
-    }
+    sectionId = addSectionAtPosition({
+      type,
+      sectionProps,
+      sectionVariantProps,
+      position,
+      state,
+    });
   });
-  return ids;
+  return sectionId;
 }
 
 export function addSectionAtPosition({

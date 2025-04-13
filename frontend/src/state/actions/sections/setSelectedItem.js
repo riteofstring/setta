@@ -10,14 +10,13 @@ import { setParametersRequestWaitingForLSP } from "../lsp";
 import { addTemporaryNotification } from "../notifications";
 import { getCodeInfoCol, getSectionVariant } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
-import { getSectionCurrentCodeInfoMcp } from "./sectionContents";
 
 /**
  * Sets the selectedItem (i.e. the callable) of a section.
  * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the section we're setting the selectedItem of.
+ * @param {string} sectionId The id of the section we're setting the selectedItem of.
  * @param {string} selectedItemName The selected item name, for example "math.sqrt"
- * @returns {SectionSimplifiedCodeInfo} The callable info and info about its parameters.
+ * @returns {string} The codeInfo id of the callable.
  */
 export async function setSelectedItemMcp({ sectionId, selectedItemName }) {
   function callbackSetAttr(id, state) {
@@ -34,7 +33,7 @@ export async function setSelectedItemMcp({ sectionId, selectedItemName }) {
     callbackSetAttr,
   );
 
-  return getSectionCurrentCodeInfoMcp({ sectionId });
+  return getSectionVariant(sectionId).selectedItem;
 }
 
 export async function setSelectedItem(

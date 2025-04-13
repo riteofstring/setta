@@ -201,8 +201,6 @@ class MCPClient:
                         # Execute tool call
                         result = await self.session.call_tool(tool_name, tool_args)
 
-                        print("result", result, flush=True)
-
                         # Yield tool result
                         yield {
                             "type": "tool_result",

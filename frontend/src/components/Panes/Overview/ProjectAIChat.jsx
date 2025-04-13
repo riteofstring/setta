@@ -1,9 +1,10 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
-import { useAIStore } from "state/aiStore";
+import { useAI } from "state/hooks/aiHooks";
 import { MODEL_GROUPS } from "utils/constants";
 import { ProjectChatCore } from "./ProjectLevelAI/ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectLevelAI/ProjectChatHistory";
@@ -23,7 +24,9 @@ export function ProjectAIChat() {
     submitMessage,
     switchToChat,
     updateChatSession,
-  } = useAIStore();
+  } = useAI();
+
+  const [deepThink, setDeepThink] = useState(false);
 
   // Initialize a new chat if none exists
   useEffect(() => {
@@ -69,18 +72,18 @@ export function ProjectAIChat() {
 
   return (
     <div className="flex h-full min-h-0 flex-col @container">
-      <nav className="flex min-h-16 flex-col gap-2 border-b border-setta-100 py-4 @[15rem]:flex-row @[15rem]:items-center dark:border-setta-800">
+      <nav className="flex min-h-16 flex-col gap-2 border-b border-setta-100 pb-8 pt-4 @[17.5rem]:flex-row @[17.5rem]:items-center @[17.5rem]:pb-2 dark:border-setta-800">
         <div className="flex gap-2">
           <button
-            className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950"
+            className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
             onClick={createNewChat}
             aria-label="New Chat"
           >
             <MdAdd size={15} />
-            <span className="@[15rem]:hidden @sm:block">New</span>
+            <span className="@[17.5rem]:hidden @sm:block">New</span>
           </button>
           <button
-            className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-blue-950"
+            className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-400 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
             onClick={() => setViewHistory(!viewHistory)}
             aria-label="View History"
           >
@@ -92,21 +95,35 @@ export function ProjectAIChat() {
             ) : (
               <>
                 <RiChatHistoryLine size={15} />
-                <span className="@[15rem]:hidden @sm:block">History</span>
+                <span className="@[17.5rem]:hidden @sm:block">History</span>
               </>
             )}
           </button>
         </div>
 
         {viewHistory ? null : (
-          <IdNameCombobox
-            allItems={filteredModelGroups}
-            value={userSelectedLLM}
-            small={false}
-            onSelectedItemChange={setUserSelectedLLM}
-            placeholder="Select an LLM model"
-            outerDivClasses="ml-auto flex @[15rem]:max-w-64 justify-center"
-          />
+          <div className="ml-auto flex  w-full items-center justify-end gap-2">
+            <button
+              className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${deepThink ? "text-blue-600" : "text-setta-400 dark:text-setta-500"} transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent dark:hover:text-white active:dark:text-setta-300`}
+              aria-label="Extended Thinking"
+            >
+              <BiSolidBrain
+                size={15}
+                onClick={() => {
+                  setDeepThink(!deepThink);
+                }}
+              />
+            </button>
+
+            <IdNameCombobox
+              allItems={filteredModelGroups}
+              value={userSelectedLLM}
+              small={false}
+              onSelectedItemChange={setUserSelectedLLM}
+              placeholder="Select an LLM model"
+              outerDivClasses="@[17.5rem]:max-w-64 justify-center"
+            />
+          </div>
         )}
       </nav>
 

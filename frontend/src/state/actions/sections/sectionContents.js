@@ -127,10 +127,9 @@ export function getAllVisibleParamsInSection(sectionId, state) {
 }
 
 /**
- * Gets the current code info for a section. This means the callable's id, (if there's one), its name, its documentation, and the same information for its parameters (if it has any)
+ * Gets the current code info for a section. This means the callable (if there's one), it's documentation, and it's parameters.
  * @SETTA_MCP_TOOL
- * @param {ID} sectionId
- * @return {SectionSimplifiedCodeInfo}
+ * @param {string} sectionId
  */
 export function getSectionCurrentCodeInfoMcp({ sectionId }) {
   const state = useSectionInfos.getState();
@@ -155,7 +154,7 @@ export function getSectionCurrentCodeInfoMcp({ sectionId }) {
 /**
  * Gets information about all the sections that currently exist.
  * @SETTA_MCP_TOOL
- * @returns {Object<ID, SimplifiedSectionInfo>} An object that maps from sectionId to that section's information.
+ * @returns {Object} An object that maps from sectionId to that section's information.
  */
 export function getAllSectionInformationMcp() {
   const state = useSectionInfos.getState();
@@ -164,7 +163,7 @@ export function getAllSectionInformationMcp() {
     output[s.id] = {
       name: s.name,
       type: getSectionType(s.id, state),
-      codeInfo: getSectionCurrentCodeInfoMcp({ sectionId: s.id }),
+      ...getSectionCurrentCodeInfoMcp({ sectionId: s.id }),
     };
   }
   return output;

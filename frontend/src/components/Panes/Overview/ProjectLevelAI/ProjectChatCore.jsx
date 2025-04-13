@@ -27,10 +27,8 @@ const formatToolArgs = (args, jsonSoFar) => {
   if (jsonSoFar) return jsonSoFar;
   if (!args) return "{}";
 
-  const keys = Object.keys(args);
-  return keys.length <= 3
-    ? keys.map((key) => `${key}: ${JSON.stringify(args[key])}`).join(", ")
-    : JSON.stringify(args, null, 2);
+  // Always use pretty formatting
+  return JSON.stringify(args, null, 2);
 };
 
 // Component for tool calls with expandable result
@@ -48,7 +46,7 @@ const ToolCall = memo(
                 />
               </div>
 
-              <div className="break-all px-2 font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
+              <div className="truncate break-words px-2 font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
                 {name}
                 {streaming}
               </div>
@@ -64,15 +62,21 @@ const ToolCall = memo(
 
           <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
             {(args || jsonSoFar) && (
-              <div className="bg-setta-800 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-700">
-                <pre className="m-0 font-mono text-xs text-white">
+              <div className="bg-setta-300 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
+                <h3 className="!mt-2.5 text-xs uppercase dark:text-setta-300">
+                  Arguments
+                </h3>
+                <pre className="m-0 cursor-auto font-mono text-xs text-setta-200">
                   {formatToolArgs(args, jsonSoFar)}
                 </pre>
               </div>
             )}
             {result && (
-              <div className="bg-setta-400 p-3 dark:bg-setta-860/50">
-                <pre className="m-0 font-mono text-xs text-white dark:text-setta-200">
+              <div className=" bg-setta-300 p-3  dark:bg-setta-860">
+                <h3 className="!mt-0 text-xs uppercase text-setta-700 dark:text-setta-300">
+                  Result
+                </h3>
+                <pre className="m-0 cursor-auto font-mono text-xs text-setta-200">
                   {typeof result === "string"
                     ? result
                     : typeof result === "object"
@@ -98,7 +102,7 @@ const StreamItem = ({ item, idx, streamSequence }) => {
         <MarkdownContent
           key={`text-${idx}`}
           content={item.content}
-          className="dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&>p]:inline-block [&_*]:break-all"
+          className="dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&>p]:inline-block [&_*]:break-words"
         />
       );
     case "tool_call":
@@ -139,7 +143,7 @@ const getMessageClassName = (role) => {
       ? "rounded-t-lg rounded-bl-lg bg-blue-500 text-white prose-headings:text-blue-200 dark:bg-blue-700"
       : "rounded-b-lg rounded-tr-lg bg-setta-100 text-setta-800 prose-headings:text-setta-600 dark:bg-setta-700/50 dark:text-setta-50 dark:prose-headings:text-setta-300";
 
-  return `${baseClass} ${roleClass} dark:prose-invert prose-headings:tracking-tighter prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-all`;
+  return `${baseClass} ${roleClass} dark:prose-invert prose-headings:tracking-tighter prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-words`;
 };
 
 // Simplified ChatMessage component
