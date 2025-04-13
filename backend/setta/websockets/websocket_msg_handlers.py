@@ -1,3 +1,6 @@
+from pydantic import TypeAdapter
+
+from setta.mcp.utils import replace_ids_with_uuids, replace_uuids_with_ids
 from setta.utils.constants import C
 
 
@@ -220,10 +223,14 @@ class WMHPythonLogger(BaseWebsocketMsgHandler):
 class WMHMCP(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
+        self.id_to_uuid = {}
+        self.uuid_to_id = {}
 
-    async def use_frontend_tool(self, fn_name, args=None):
+    async def use_frontend_tool(self, fn_name, return_type, args=None):
         # Generate request ID
         request_id = self.websocket_manager.create_pending_request()
+
+        args = replace_ids_with_uuids(args, self.id_to_uuid)
 
         if args is None:
             args = {}
@@ -235,7 +242,10 @@ class WMHMCP(BaseWebsocketMsgHandler):
         )
 
         # Wait for response
-        return await self.websocket_manager.wait_for_pending_request(request_id)
+        result = await self.websocket_manager.wait_for_pending_request(request_id)
+        result = TypeAdapter(return_type).validate_python(result)
+        result = replace_uuids_with_ids(result, self.uuid_to_id, self.id_to_uuid)
+        return result
 
     async def broadcast_notification(self, content):
         content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS

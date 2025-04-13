@@ -1,6 +1,6 @@
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { useEffect, useState } from "react";
-import { useAI } from "state/hooks/aiHooks";
+import { useAIStore } from "state/aiStore";
 import { MODEL_GROUPS } from "utils/constants";
 
 const IsolatedInput = ({ modelId, providerName, initialValue, onChange }) => {
@@ -29,7 +29,7 @@ const IsolatedInput = ({ modelId, providerName, initialValue, onChange }) => {
 };
 
 export function ProjectLLMSettings() {
-  const { apiKeys, saveStatus, handleApiKeyChange } = useAI();
+  const { apiKeys, saveStatus, handleApiKeyChange } = useAIStore();
 
   const getApiKey = (modelId) => {
     const entry = apiKeys.find((key) => key.modelId === modelId);
