@@ -79,7 +79,7 @@ class SimplifiedSectionInfo(TypedDict, total=False):
     codeInfo: SectionSimplifiedCodeInfo
 
 
-# From ParamInput.jsx
+# From mcp.js
 @mcp_server.tool(
     description="Set the values of multiple parameters in a particular section. Returns a map from parameter id to whether or not the value was successfully set."
 )
@@ -102,7 +102,6 @@ async def setParamValuesMcp(
     )
 
 
-# From kwargs.js
 @mcp_server.tool(
     description="Add parameters to a section. Returns the created parameter ids."
 )
@@ -123,7 +122,6 @@ async def addParametersMcp(sectionId: ID, names: List[str]) -> List[ID]:
     )
 
 
-# From createSections.js
 @mcp_server.tool(
     description="Adds a new section at a specific location. Returns an array of the ids of the created sections."
 )
@@ -144,7 +142,6 @@ async def addSectionsAtPositionMcp(sections: List[SimplifiedSectionConfig]) -> L
     )
 
 
-# From sectionContents.js
 @mcp_server.tool(
     description="Gets the current code info for a section. This means the callable's id, (if there's one), its name, its documentation, and the same information for its parameters (if it has any)"
 )
@@ -174,7 +171,6 @@ async def getAllSectionInformationMcp() -> Dict[ID, SimplifiedSectionInfo]:
     )
 
 
-# From setSelectedItem.js
 @mcp_server.tool(
     description="Sets the selectedItem (i.e. the callable) of a section. Returns the callable info and info about its parameters."
 )
