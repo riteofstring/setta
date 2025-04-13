@@ -95,8 +95,10 @@ async def setParamValuesMcp(
     args = {}
     args["sectionId"] = sectionId
     args["paramIdsToValues"] = paramIdsToValues
-    return await mcp_server.setta_websocket.use_frontend_tool(
-        "setParamValuesMcp", setParamValuesMcp.__annotations__["return"], args
+    return str(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "setParamValuesMcp", setParamValuesMcp.__annotations__["return"], args
+        )
     )
 
 
@@ -114,8 +116,10 @@ async def addParametersMcp(sectionId: ID, names: List[str]) -> List[ID]:
     args = {}
     args["sectionId"] = sectionId
     args["names"] = names
-    return await mcp_server.setta_websocket.use_frontend_tool(
-        "addParametersMcp", addParametersMcp.__annotations__["return"], args
+    return str(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "addParametersMcp", addParametersMcp.__annotations__["return"], args
+        )
     )
 
 
@@ -131,10 +135,12 @@ async def addSectionsAtPositionMcp(sections: List[SimplifiedSectionConfig]) -> L
     """
     args = {}
     args["sections"] = sections
-    return await mcp_server.setta_websocket.use_frontend_tool(
-        "addSectionsAtPositionMcp",
-        addSectionsAtPositionMcp.__annotations__["return"],
-        args,
+    return str(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "addSectionsAtPositionMcp",
+            addSectionsAtPositionMcp.__annotations__["return"],
+            args,
+        )
     )
 
 
@@ -146,10 +152,12 @@ async def getSectionCurrentCodeInfoMcp(sectionId: ID) -> SectionSimplifiedCodeIn
     """ """
     args = {}
     args["sectionId"] = sectionId
-    return await mcp_server.setta_websocket.use_frontend_tool(
-        "getSectionCurrentCodeInfoMcp",
-        getSectionCurrentCodeInfoMcp.__annotations__["return"],
-        args,
+    return str(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "getSectionCurrentCodeInfoMcp",
+            getSectionCurrentCodeInfoMcp.__annotations__["return"],
+            args,
+        )
     )
 
 
@@ -158,9 +166,11 @@ async def getSectionCurrentCodeInfoMcp(sectionId: ID) -> SectionSimplifiedCodeIn
 )
 async def getAllSectionInformationMcp() -> Dict[ID, SimplifiedSectionInfo]:
     """ """
-    return await mcp_server.setta_websocket.use_frontend_tool(
-        "getAllSectionInformationMcp",
-        getAllSectionInformationMcp.__annotations__["return"],
+    return str(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "getAllSectionInformationMcp",
+            getAllSectionInformationMcp.__annotations__["return"],
+        )
     )
 
 
@@ -180,6 +190,8 @@ async def setSelectedItemMcp(
     args = {}
     args["sectionId"] = sectionId
     args["selectedItemName"] = selectedItemName
-    return await mcp_server.setta_websocket.use_frontend_tool(
-        "setSelectedItemMcp", setSelectedItemMcp.__annotations__["return"], args
+    return str(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "setSelectedItemMcp", setSelectedItemMcp.__annotations__["return"], args
+        )
     )

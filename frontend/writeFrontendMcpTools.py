@@ -432,7 +432,7 @@ from pydantic_core import CoreSchema, core_schema
             output += f"async def {func_name}({', '.join(signature_params)}) -> {return_type}:\n"
 
             # Docstring
-            output += f'    """\n'
+            output += '    """\n'
             # TODO: maybe uncomment this once this is resolved: https://github.com/modelcontextprotocol/python-sdk/issues/226
             # output += f'    """{description}\n'
 
@@ -456,9 +456,9 @@ from pydantic_core import CoreSchema, core_schema
                 output += "    args = {}\n"
                 for param in params:
                     output += f'    args["{param["name"]}"] = {param["name"]}\n'
-                output += f'    return await mcp_server.setta_websocket.use_frontend_tool("{func_name}", {func_name}.__annotations__["return"], args)\n'
+                output += f'    return str(await mcp_server.setta_websocket.use_frontend_tool("{func_name}", {func_name}.__annotations__["return"], args))\n'
             else:
-                output += f'    return await mcp_server.setta_websocket.use_frontend_tool("{func_name}", {func_name}.__annotations__["return"])\n'
+                output += f'    return str(await mcp_server.setta_websocket.use_frontend_tool("{func_name}", {func_name}.__annotations__["return"]))\n'
 
             output += "\n"
 

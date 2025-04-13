@@ -12,6 +12,7 @@ from mcp.types import Tool as MCPTool
 
 from setta.database.db.notifications.load import create_notification_dict
 
+
 # TODO use FastMCP once this is resolved: https://github.com/modelcontextprotocol/python-sdk/issues/226
 class CustomFastMCP(FastMCP):
     def __init__(self, *args, **kwargs):

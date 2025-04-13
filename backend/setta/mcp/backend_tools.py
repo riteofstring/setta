@@ -4,15 +4,8 @@ from setta.mcp.server import mcp_server
 
 
 @mcp_server.tool(
-    description="Get installed python packages in current python environment"
+    description="Returns the available packages and their version numbersin the current python environment."
 )
-def getInstalledPythonPackages() -> str:
-    """
-    Returns:
-        The available packages and their version numbers.
-    """
+def getInstalledPythonPackages():
     installed_packages = importlib.metadata.distributions()
-    output = "Packages:\n"
-    for p in installed_packages:
-        output += f"{p.metadata['Name']}=={p.version}\n"
-    return output
+    return str([(p.metadata["Name"], p.version) for p in installed_packages])

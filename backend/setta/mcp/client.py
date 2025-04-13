@@ -201,12 +201,12 @@ class MCPClient:
                         # Execute tool call
                         result = await self.session.call_tool(tool_name, tool_args)
 
-                        print("result", result, flush=True)
-
                         # Yield tool result
                         yield {
                             "type": "tool_result",
-                            "content": tool_call_result_formatted_for_frontend(result),
+                            "content": self.tool_call_result_formatted_for_frontend(
+                                result
+                            ),
                             "is_delta": False,
                         }
 
@@ -299,12 +299,13 @@ class MCPClient:
         # Yield a dictionary with the complete message data
         yield {"type": "content_block_complete", "messages": llm_msgs}
 
-
-def tool_call_result_formatted_for_frontend(result):
-    output = []
-    for r in result:
-        if isinstance(r, mcp.types.TextContent):
-            output.append(r.text)
-        elif isinstance(r, mcp.types.ImageContent):
-            output.append(r.data)
-    return output
+    def tool_call_result_formatted_for_frontend(self, result):
+        output = []
+        for r in result.content:
+            if isinstance(r, mcp.types.TextContent):
+                output.append(r.text)
+            elif isinstance(r, mcp.types.ImageContent):
+                output.append(r.data)
+        if len(output) == 1:
+            return output[0]
+        return output
