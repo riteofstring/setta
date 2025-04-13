@@ -9,6 +9,23 @@ import {
 } from "./codeInfo";
 import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
 
+/**
+ * Add parameters to a section.
+ * @SETTA_MCP_TOOL
+ * @param {ID} sectionId The section to add parameters to.
+ * @param {Array<string>} names The names of the newly created parameters.
+ * @returns {Array<ID>} the created parameter ids.
+ */
+export function addParametersMcp({ sectionId, names }) {
+  let ids = [];
+  useSectionInfos.setState((state) => {
+    for (const name of names) {
+      ids.push(addKwarg({ sectionId, name, state }));
+    }
+  });
+  return ids;
+}
+
 export function addKwarg({
   sectionId,
   name = "",

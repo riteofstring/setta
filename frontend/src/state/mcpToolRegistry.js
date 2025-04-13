@@ -3,14 +3,14 @@
 import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 
+import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
+import { addParametersMcp } from "./actions/kwargs";
+import { addSectionsAtPositionMcp } from "./actions/sections/createSections";
 import {
-  addParametersMcp,
-  addSectionsAtPositionMcp,
   getAllSectionInformationMcp,
   getSectionCurrentCodeInfoMcp,
-  setParamValuesMcp,
-  setSelectedItemMcp,
-} from "./actions/mcp";
+} from "./actions/sections/sectionContents";
+import { setSelectedItemMcp } from "./actions/sections/setSelectedItem";
 
 // Registry of all MCP tools
 const mcpToolRegistry = {

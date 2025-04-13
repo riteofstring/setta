@@ -2,7 +2,6 @@ import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
-import { getEVRefs } from "requests/sections";
 import { useSectionInfos } from "state/definitions";
 import { VIEWING_EDITING_MODE } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
@@ -132,35 +131,6 @@ export function setEnteredValue(variantId, paramInfoId, value, state) {
 
 export function setParamEnteredValue(sectionId, paramInfoId, value, state) {
   setEnteredValue(state.x[sectionId].variantId, paramInfoId, value, state);
-}
-
-export async function cancelableSetParamEnteredValue({
-  sectionId,
-  paramInfoId,
-  vStr,
-  ac,
-}) {
-  if (getParamUIType(sectionId, paramInfoId).type === C.TEXT) {
-    if (ac?.signal.aborted) return;
-    const evRefs = await getEVRefs({
-      sectionId,
-      paramInfoId,
-      fullText: vStr,
-    });
-    if (ac?.signal.aborted) return;
-    useSectionInfos.setState((state) => {
-      setParamEnteredValue(sectionId, paramInfoId, vStr, state);
-      const { variantId } = state.x[sectionId];
-      state.variants[variantId].values[paramInfoId].evRefs = evRefs;
-    });
-  } else {
-    if (ac?.signal.aborted) return;
-    useSectionInfos.setState((state) => {
-      setParamEnteredValue(sectionId, paramInfoId, vStr, state);
-    });
-  }
-
-  maybeIncrementProjectStateVersion(true);
 }
 
 export function getCodeInfoCol(sectionId, _state) {
