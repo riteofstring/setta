@@ -1,6 +1,7 @@
 import C from "constants/constants.json";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
+import _ from "lodash";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSectionRefs } from "state/definitions";
@@ -78,29 +79,25 @@ export function addSectionInEmptySpace({
 /**
  * Adds a new section at a specific location.
  * @SETTA_MCP_TOOL
- * @param {('SECTION'|'LIST_ROOT'|'DICT_ROOT'|'GROUP'|'IMAGE'|'CHART'|'DRAW'|'TEXT_BLOCK'|'SOCIAL'|
- * 'GLOBAL_VARIABLES'|'CODE'|'PARAM_SWEEP'|'TERMINAL'|'GLOBAL_PARAM_SWEEP'|'IFRAME'|'CHAT')} type The type of section to add
- * @param {Position} position The coordinates where the section will be created.
- * @param {SectionConfig} [sectionProps] Optional configuration for the section
- * @returns {ID} The id of the created section
+ * @param {Array<SimplifiedSectionConfig>} sections Details of the sections to be created
+ * @returns {Array<ID>} An array of the ids of the created sections.
  */
-export function addSectionToPositionMcp({
-  type,
-  sectionProps = {},
-  sectionVariantProps = {},
-  position,
-}) {
-  let sectionId;
+export function addSectionsAtPositionMcp({ sections }) {
+  let ids = [];
   useSectionInfos.setState((state) => {
-    sectionId = addSectionAtPosition({
-      type,
-      sectionProps,
-      sectionVariantProps,
-      position,
-      state,
-    });
+    for (const section of sections) {
+      ids.push(
+        addSectionAtPosition({
+          type: section.type,
+          sectionProps: _.omit(section, ["type", "position"]),
+          sectionVariantProps: {},
+          position: section.position,
+          state,
+        }),
+      );
+    }
   });
-  return sectionId;
+  return ids;
 }
 
 export function addSectionAtPosition({

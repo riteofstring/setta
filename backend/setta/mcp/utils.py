@@ -1,6 +1,10 @@
 from .generated_tools import ID
 
 
+class IDDoesNotExist(Exception):
+    pass
+
+
 def traverse_and_replace(data, replace_func):
     """
     Recursively traverse data structure and apply replace_func to all string values.
@@ -78,6 +82,8 @@ def replace_ids_with_uuids(data, id_to_uuid):
         if isinstance(value, ID):
             if value in id_to_uuid:
                 return id_to_uuid[value]
+            else:
+                raise IDDoesNotExist(f"id does not exist: {value}")
 
         return value  # No mapping found or not an ID, leave unchanged
 

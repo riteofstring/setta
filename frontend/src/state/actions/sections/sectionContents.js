@@ -127,10 +127,10 @@ export function getAllVisibleParamsInSection(sectionId, state) {
 }
 
 /**
- * Gets the current code info for a section. This means the callable (if there's one), it's documentation, and it's parameters.
+ * Gets the current code info for a section. This means the callable's id, (if there's one), its name, its documentation, and the same information for its parameters (if it has any)
  * @SETTA_MCP_TOOL
  * @param {ID} sectionId
- * @return {SimplifiedCodeInfo}
+ * @return {SectionSimplifiedCodeInfo}
  */
 export function getSectionCurrentCodeInfoMcp({ sectionId }) {
   const state = useSectionInfos.getState();

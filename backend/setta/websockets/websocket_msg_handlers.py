@@ -1,6 +1,10 @@
 from pydantic import TypeAdapter
 
-from setta.mcp.utils import replace_ids_with_uuids, replace_uuids_with_ids
+from setta.mcp.utils import (
+    IDDoesNotExist,
+    replace_ids_with_uuids,
+    replace_uuids_with_ids,
+)
 from setta.utils.constants import C
 
 
@@ -230,7 +234,10 @@ class WMHMCP(BaseWebsocketMsgHandler):
         # Generate request ID
         request_id = self.websocket_manager.create_pending_request()
 
-        args = replace_ids_with_uuids(args, self.id_to_uuid)
+        try:
+            args = replace_ids_with_uuids(args, self.id_to_uuid)
+        except IDDoesNotExist as e:
+            return {"error": e}
 
         if args is None:
             args = {}

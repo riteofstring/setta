@@ -151,6 +151,21 @@ def generate_typedef_classes(typedefs: Dict[str, Any]) -> str:
             processed.add(name)
             return ID_class_str
 
+        # Check if this is a string literal union type
+        if typedef_doc.get("type", {}).get("names") and all(
+            isinstance(t, str) and (t.startswith("'") and t.endswith("'"))
+            for t in typedef_doc.get("type", {}).get("names", [])
+        ):
+            # This is a string literal union type
+            literals = [
+                t.strip("'") for t in typedef_doc.get("type", {}).get("names", [])
+            ]
+            typedef_output = (
+                f"{name} = Literal[{', '.join(repr(lit) for lit in literals)}]\n\n"
+            )
+            processed.add(name)
+            return typedef_output
+
         typedef_output = ""
         properties = []
 
