@@ -22,7 +22,9 @@ export function ProjectChatHistory({ chatSessions, sessionId, switchToChat }) {
               <div className="flex flex-col gap-1">
                 <h4
                   className={`truncate font-semibold text-setta-500 dark:text-setta-100 ${
-                    session.id === sessionId ? "text-white dark:text-white" : ""
+                    session.id === sessionId
+                      ? "text-white group-hover/historyitem:text-setta-500 dark:text-white dark:group-hover/historyitem:text-white"
+                      : ""
                   }`}
                 >
                   {session.title || "New Chat"}
@@ -31,7 +33,7 @@ export function ProjectChatHistory({ chatSessions, sessionId, switchToChat }) {
                 <p
                   className={`truncate text-xs text-setta-800 dark:text-setta-200 ${
                     session.id === sessionId
-                      ? "text-setta-100 dark:text-setta-100"
+                      ? "text-setta-100 group-hover/historyitem:text-setta-800 dark:text-setta-100 dark:group-hover/historyitem:text-setta-100"
                       : ""
                   }`}
                 >
