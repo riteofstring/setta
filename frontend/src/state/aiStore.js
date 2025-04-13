@@ -235,65 +235,25 @@ export const useAIStore = create(
                       // Build up JSON content for the tool call
                       currentJsonContent += parsed.content;
 
-                      // Try to parse the JSON as it's being built
-                      try {
-                        const jsonObj = JSON.parse(currentJsonContent);
+                      // Find or update the tool call in the sequence
+                      let toolCallIndex = currentMsg.streamSequence.findIndex(
+                        (item) =>
+                          item.type === "tool_call" && item.streaming === true,
+                      );
 
-                        // If we have a name field, update the tool name
-                        if (jsonObj && Object.keys(jsonObj).includes("name")) {
-                          currentToolName = jsonObj.name;
-                        }
-
-                        // Find or update the tool call in the sequence
-                        let toolCallIndex = currentMsg.streamSequence.findIndex(
-                          (item) =>
-                            item.type === "tool_call" &&
-                            item.streaming === true,
-                        );
-
-                        if (toolCallIndex === -1) {
-                          // Create a new tool call entry
-                          currentMsg.streamSequence.push({
-                            type: "tool_call",
-                            name: currentToolName || "Loading...",
-                            args: jsonObj,
-                            streaming: true, // Mark as still streaming
-                            jsonSoFar: currentJsonContent,
-                          });
-                        } else {
-                          // Update existing tool call
-                          currentMsg.streamSequence[toolCallIndex] = {
-                            ...currentMsg.streamSequence[toolCallIndex],
-                            name:
-                              currentToolName ||
-                              currentMsg.streamSequence[toolCallIndex].name,
-                            args: jsonObj,
-                            jsonSoFar: currentJsonContent,
-                          };
-                        }
-                      } catch (e) {
-                        // JSON isn't complete yet, just keep building
-                        // Find or update the partial tool call
-                        let toolCallIndex = currentMsg.streamSequence.findIndex(
-                          (item) =>
-                            item.type === "tool_call" &&
-                            item.streaming === true,
-                        );
-
-                        if (toolCallIndex === -1) {
-                          // Create a new tool call with partial JSON
-                          currentMsg.streamSequence.push({
-                            type: "tool_call",
-                            name: currentToolName || "Loading...",
-                            args: {},
-                            streaming: true,
-                            jsonSoFar: currentJsonContent,
-                          });
-                        } else {
-                          // Update the partial JSON
-                          currentMsg.streamSequence[toolCallIndex].jsonSoFar =
-                            currentJsonContent;
-                        }
+                      if (toolCallIndex === -1) {
+                        // Create a new tool call entry without trying to parse the JSON yet
+                        currentMsg.streamSequence.push({
+                          type: "tool_call",
+                          name: currentToolName || "Loading...",
+                          args: {}, // Empty args until we have complete JSON
+                          streaming: true,
+                          jsonSoFar: currentJsonContent,
+                        });
+                      } else {
+                        // Update existing tool call - just store the raw JSON content for now
+                        currentMsg.streamSequence[toolCallIndex].jsonSoFar =
+                          currentJsonContent;
                       }
                     }
                     break;
@@ -306,29 +266,70 @@ export const useAIStore = create(
                     ) {
                       // Finalize the tool call JSON
                       try {
-                        const jsonObj = JSON.parse(currentJsonContent);
+                        // Only try to parse the JSON if it's not empty
+                        if (
+                          currentJsonContent &&
+                          currentJsonContent.trim() !== ""
+                        ) {
+                          try {
+                            const jsonObj = JSON.parse(currentJsonContent);
 
-                        // Find the streaming tool call
-                        let toolCallIndex = currentMsg.streamSequence.findIndex(
-                          (item) =>
-                            item.type === "tool_call" &&
-                            item.streaming === true,
-                        );
+                            // Find the streaming tool call
+                            let toolCallIndex =
+                              currentMsg.streamSequence.findIndex(
+                                (item) =>
+                                  item.type === "tool_call" &&
+                                  item.streaming === true,
+                              );
 
-                        if (toolCallIndex !== -1) {
-                          // Mark as no longer streaming
-                          currentMsg.streamSequence[toolCallIndex] = {
-                            ...currentMsg.streamSequence[toolCallIndex],
-                            streaming: false,
-                            name:
-                              jsonObj.name ||
-                              currentMsg.streamSequence[toolCallIndex].name,
-                            args: jsonObj,
-                            jsonSoFar: null, // Clean up the partial JSON
-                          };
+                            if (toolCallIndex !== -1) {
+                              // Mark as no longer streaming and update with parsed JSON
+                              currentMsg.streamSequence[toolCallIndex] = {
+                                ...currentMsg.streamSequence[toolCallIndex],
+                                streaming: false,
+                                name:
+                                  jsonObj.name ||
+                                  currentMsg.streamSequence[toolCallIndex].name,
+                                args: jsonObj,
+                                jsonSoFar: null, // Clean up the partial JSON
+                              };
+                            }
+                          } catch (e) {
+                            console.error(
+                              "Error finalizing tool call JSON:",
+                              e,
+                            );
+
+                            // Even if parsing fails, we should still mark the tool call as complete
+                            let toolCallIndex =
+                              currentMsg.streamSequence.findIndex(
+                                (item) =>
+                                  item.type === "tool_call" &&
+                                  item.streaming === true,
+                              );
+
+                            if (toolCallIndex !== -1) {
+                              currentMsg.streamSequence[
+                                toolCallIndex
+                              ].streaming = false;
+                            }
+                          }
+                        } else {
+                          // For empty JSON, just mark any streaming tool call as complete
+                          let toolCallIndex =
+                            currentMsg.streamSequence.findIndex(
+                              (item) =>
+                                item.type === "tool_call" &&
+                                item.streaming === true,
+                            );
+
+                          if (toolCallIndex !== -1) {
+                            currentMsg.streamSequence[toolCallIndex].streaming =
+                              false;
+                          }
                         }
                       } catch (e) {
-                        console.error("Error finalizing tool call JSON:", e);
+                        console.error("Error in block_end handling:", e);
                       }
 
                       // Reset for the next block
@@ -440,3 +441,16 @@ export const useAIStore = create(
     },
   ),
 );
+
+function catchEmptyJSONParse(jsonString) {
+  if (!jsonString || jsonString.trim() === "") {
+    return {};
+  }
+
+  try {
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.warn("Failed to parse JSON:", e);
+    return {};
+  }
+}
