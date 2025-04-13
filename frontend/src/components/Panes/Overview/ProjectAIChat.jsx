@@ -3,7 +3,7 @@ import { useEffect, useMemo } from "react";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
-import { useAIStore } from "state/aiStore";
+import { useAI } from "state/hooks/aiHooks";
 import { MODEL_GROUPS } from "utils/constants";
 import { ProjectChatCore } from "./ProjectLevelAI/ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectLevelAI/ProjectChatHistory";
@@ -23,7 +23,7 @@ export function ProjectAIChat() {
     submitMessage,
     switchToChat,
     updateChatSession,
-  } = useAIStore();
+  } = useAI();
 
   // Initialize a new chat if none exists
   useEffect(() => {

@@ -135,10 +135,6 @@ def generate_typedef_classes(typedefs: Dict[str, Any]) -> str:
         if name in processed:
             return ""
 
-        if typedef_doc["type"]["names"] == ["string"]:
-            processed.add(name)
-            return f"{name} = str\n"
-
         typedef_output = ""
         properties = []
 
