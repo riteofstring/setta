@@ -152,7 +152,7 @@ class MCPClient:
                     ):
                         # Yield the original event with tool name
                         yield {
-                            "type": "block_start",
+                            "type": event.type,
                             "index": event.index,
                             "block_type": event.content_block.type,
                             "tool_name": event.content_block.name,
@@ -160,7 +160,7 @@ class MCPClient:
                     else:
                         # Yield the original event
                         yield {
-                            "type": "block_start",
+                            "type": event.type,
                             "index": event.index,
                             "block_type": event.content_block.type,
                         }
@@ -184,7 +184,7 @@ class MCPClient:
 
                 # For content block stop, inform the frontend
                 elif event.type == "content_block_stop":
-                    yield {"type": "block_end", "index": event.index}
+                    yield {"type": event.type, "index": event.index}
 
             # Process complete messages for tool calls
             if complete_messages:

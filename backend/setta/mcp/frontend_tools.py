@@ -9,9 +9,8 @@ from typing import Any, Dict, List, Literal
 
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
-from typing_extensions import TypedDict
-
 from setta.mcp.server import mcp_server
+from typing_extensions import TypedDict
 
 
 # TypedDict definitions generated from JSDoc typedefs
@@ -106,16 +105,18 @@ async def setParamValuesMcp(
 
 # From aiChat.js
 @mcp_server.tool(
-    description="Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context."
+    description="Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. Returns a string containing the code in the code block. If clearExisting is true, then this will be an empty string."
 )
-async def startStreamingInto(sectionId: ID) -> Any:
+async def startStreamingInto(sectionId: ID, clearExisting: bool) -> str:
     """
 
     Args:
         sectionId: The id of the code block that you want to start writing code into.
+        clearExisting: If true, then all the existing code in the code block will be deleted.
     """
     args = {}
     args["sectionId"] = sectionId
+    args["clearExisting"] = clearExisting
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
             "startStreamingInto", startStreamingInto.__annotations__["return"], args
@@ -131,6 +132,24 @@ async def stopStreamingInto() -> Any:
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
             "stopStreamingInto", stopStreamingInto.__annotations__["return"]
+        )
+    )
+
+
+@mcp_server.tool(
+    description="Get the current code that's in a code block. Returns a string containing the code in the code block."
+)
+async def getCurrentCode(sectionId: ID) -> str:
+    """
+
+    Args:
+        sectionId: The id of the code block that you want to start writing code into.
+    """
+    args = {}
+    args["sectionId"] = sectionId
+    return json.dumps(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "getCurrentCode", getCurrentCode.__annotations__["return"], args
         )
     )
 

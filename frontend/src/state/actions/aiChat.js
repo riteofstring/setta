@@ -161,7 +161,7 @@ export async function submitMessage(userMessage) {
 
           // Handle different chunk types
           switch (parsed.type) {
-            case "block_start":
+            case "content_block_start":
               // Track new content block start
               currentBlockType = parsed.block_type;
               currentBlockIndex = parsed.index;
@@ -250,7 +250,7 @@ export async function submitMessage(userMessage) {
               }
               break;
 
-            case "block_end":
+            case "content_block_stop":
               // Finalize a content block
               if (
                 currentBlockType === "tool_use" &&
@@ -344,7 +344,7 @@ export async function submitMessage(userMessage) {
     };
     addMessageToChat(errorMsg);
   } finally {
-    useAIStore.setState({ isLoading: false });
+    useAIStore.setState({ isLoading: false, streamTarget: null });
   }
 }
 
@@ -417,9 +417,19 @@ function streamInto(streamTarget, content) {
  * Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context.
  * @SETTA_MCP_TOOL
  * @param {ID} sectionId The id of the code block that you want to start writing code into.
+ * @param {boolean} clearExisting If true, then all the existing code in the code block will be deleted.
+ * @return {str} a string containing the code in the code block. If clearExisting is true, then this will be an empty string.
  */
-export function startStreamingInto({ sectionId }) {
+export function startStreamingInto({ sectionId, clearExisting }) {
   useAIStore.setState({ streamTarget: sectionId });
+  if (clearExisting) {
+    useSectionInfos.setState((x) => {
+      const sectionVariant = getSectionVariant(sectionId, x);
+      // Append the new chunk to existing code
+      sectionVariant.code = "";
+    });
+  }
+  return getCurrentCode({ sectionId });
 }
 
 /**
@@ -428,4 +438,14 @@ export function startStreamingInto({ sectionId }) {
  */
 export function stopStreamingInto() {
   useAIStore.setState({ streamTarget: null });
+}
+
+/**
+ * Get the current code that's in a code block.
+ * @SETTA_MCP_TOOL
+ * @param {ID} sectionId The id of the code block that you want to start writing code into.
+ * @return {str} a string containing the code in the code block.
+ */
+export function getCurrentCode({ sectionId }) {
+  return getSectionVariant(sectionId).code;
 }
