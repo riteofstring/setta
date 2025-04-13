@@ -1,3 +1,5 @@
+from pydantic import TypeAdapter
+
 from setta.mcp.utils import replace_ids_with_uuids, replace_uuids_with_ids
 from setta.utils.constants import C
 
@@ -224,13 +226,11 @@ class WMHMCP(BaseWebsocketMsgHandler):
         self.id_to_uuid = {}
         self.uuid_to_id = {}
 
-    async def use_frontend_tool(self, fn_name, args=None):
+    async def use_frontend_tool(self, fn_name, return_type, args=None):
         # Generate request ID
         request_id = self.websocket_manager.create_pending_request()
 
-        print("raw args", args, flush=True)
         args = replace_ids_with_uuids(args, self.id_to_uuid)
-        print('converted args', args, flush=True)
 
         if args is None:
             args = {}
@@ -243,9 +243,8 @@ class WMHMCP(BaseWebsocketMsgHandler):
 
         # Wait for response
         result = await self.websocket_manager.wait_for_pending_request(request_id)
-        print("raw result", result, flush=True)
+        result = TypeAdapter(return_type).validate_python(result)
         result = replace_uuids_with_ids(result, self.uuid_to_id, self.id_to_uuid)
-        print('converted result', result, flush=True)
         return result
 
     async def broadcast_notification(self, content):

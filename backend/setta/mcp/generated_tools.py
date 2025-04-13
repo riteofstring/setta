@@ -8,10 +8,9 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
-from setta.mcp.server import mcp_server
 from typing_extensions import TypedDict
-from typing import Any
 
+from setta.mcp.server import mcp_server
 
 
 # TypedDict definitions generated from JSDoc typedefs
@@ -34,13 +33,13 @@ class SectionConfig(TypedDict, total=False):
     size: SectionSize
 
 
-
 class ID(str):
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: GetCoreSchemaHandler
     ) -> CoreSchema:
         return core_schema.no_info_after_validator_function(cls, handler(str))
+
 
 class SimplifiedCodeInfo(TypedDict, total=False):
     id: ID
@@ -70,7 +69,9 @@ async def setParamValuesMcp(sectionId: ID, paramIdsToValues: Dict[ID, str]) -> A
     args = {}
     args["sectionId"] = sectionId
     args["paramIdsToValues"] = paramIdsToValues
-    return await mcp_server.setta_websocket.use_frontend_tool("setParamValuesMcp", args)
+    return await mcp_server.setta_websocket.use_frontend_tool(
+        "setParamValuesMcp", setParamValuesMcp.__annotations__["return"], args
+    )
 
 
 # From kwargs.js
@@ -88,7 +89,9 @@ async def addParametersMcp(sectionId: ID, names: List[str]) -> List[ID]:
     args = {}
     args["sectionId"] = sectionId
     args["names"] = names
-    return await mcp_server.setta_websocket.use_frontend_tool("addParametersMcp", args)
+    return await mcp_server.setta_websocket.use_frontend_tool(
+        "addParametersMcp", addParametersMcp.__annotations__["return"], args
+    )
 
 
 # From createSections.js
@@ -130,7 +133,9 @@ async def addSectionToPositionMcp(
     args["position"] = position
     args["sectionProps"] = sectionProps
     return await mcp_server.setta_websocket.use_frontend_tool(
-        "addSectionToPositionMcp", args
+        "addSectionToPositionMcp",
+        addSectionToPositionMcp.__annotations__["return"],
+        args,
     )
 
 
@@ -143,7 +148,9 @@ async def getSectionCurrentCodeInfoMcp(sectionId: ID) -> SimplifiedCodeInfo:
     args = {}
     args["sectionId"] = sectionId
     return await mcp_server.setta_websocket.use_frontend_tool(
-        "getSectionCurrentCodeInfoMcp", args
+        "getSectionCurrentCodeInfoMcp",
+        getSectionCurrentCodeInfoMcp.__annotations__["return"],
+        args,
     )
 
 
@@ -157,7 +164,8 @@ async def getAllSectionInformationMcp() -> Dict[ID, SimplifiedSectionInfo]:
         An object that maps from sectionId to that section's information.
     """
     return await mcp_server.setta_websocket.use_frontend_tool(
-        "getAllSectionInformationMcp"
+        "getAllSectionInformationMcp",
+        getAllSectionInformationMcp.__annotations__["return"],
     )
 
 
@@ -177,5 +185,5 @@ async def setSelectedItemMcp(sectionId: ID, selectedItemName: str) -> ID:
     args["sectionId"] = sectionId
     args["selectedItemName"] = selectedItemName
     return await mcp_server.setta_websocket.use_frontend_tool(
-        "setSelectedItemMcp", args
+        "setSelectedItemMcp", setSelectedItemMcp.__annotations__["return"], args
     )
