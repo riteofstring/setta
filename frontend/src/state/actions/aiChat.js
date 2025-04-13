@@ -344,7 +344,11 @@ export async function submitMessage(userMessage) {
     };
     addMessageToChat(errorMsg);
   } finally {
-    useAIStore.setState({ isLoading: false, streamTarget: null });
+    useAIStore.setState({
+      isLoading: false,
+      streamTarget: null,
+      streamTargetStartIdx: -1,
+    });
   }
 }
 
@@ -406,10 +410,27 @@ export async function handleApiKeyChange(modelId, providerName, value) {
 }
 
 function streamInto(streamTarget, content) {
+  const startIdx = useAIStore.getState().streamTargetStartIdx;
   useSectionInfos.setState((x) => {
     const sectionVariant = getSectionVariant(streamTarget, x);
-    // Append the new chunk to existing code
-    sectionVariant.code += content;
+
+    // Fast path for appending (most common case in streaming)
+    if (startIdx === -1 || startIdx === sectionVariant.code.length) {
+      sectionVariant.code += content;
+    } else {
+      // Only use substring when inserting in the middle
+      sectionVariant.code =
+        sectionVariant.code.substring(0, startIdx) +
+        content +
+        sectionVariant.code.substring(startIdx);
+    }
+
+    // Update startIdx if needed
+    if (startIdx !== -1) {
+      useAIStore.setState({
+        streamTargetStartIdx: startIdx + content.length,
+      });
+    }
   });
 }
 
@@ -418,10 +439,10 @@ function streamInto(streamTarget, content) {
  * @SETTA_MCP_TOOL
  * @param {ID} sectionId The id of the code block that you want to start writing code into.
  * @param {boolean} clearExisting If true, then all the existing code in the code block will be deleted.
+ * @param {integer} startIdx The index at which new code will appear. If -1, then new code will be appended to the end of existing code. Use this when you want to edit existing code, and not just append to it.
  * @return {str} a string containing the code in the code block. If clearExisting is true, then this will be an empty string.
  */
-export function startStreamingInto({ sectionId, clearExisting }) {
-  useAIStore.setState({ streamTarget: sectionId });
+export function startStreamingInto({ sectionId, clearExisting, startIdx }) {
   if (clearExisting) {
     useSectionInfos.setState((x) => {
       const sectionVariant = getSectionVariant(sectionId, x);
@@ -429,7 +450,13 @@ export function startStreamingInto({ sectionId, clearExisting }) {
       sectionVariant.code = "";
     });
   }
-  return getCurrentCode({ sectionId });
+
+  const currCode = getCurrentCode({ sectionId });
+  useAIStore.setState({
+    streamTarget: sectionId,
+    streamTargetStartIdx: startIdx,
+  });
+  return currCode;
 }
 
 /**
@@ -437,7 +464,7 @@ export function startStreamingInto({ sectionId, clearExisting }) {
  * @SETTA_MCP_TOOL
  */
 export function stopStreamingInto() {
-  useAIStore.setState({ streamTarget: null });
+  useAIStore.setState({ streamTarget: null, streamTargetStartIdx: -1 });
 }
 
 /**

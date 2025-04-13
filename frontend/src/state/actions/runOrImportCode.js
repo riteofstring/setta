@@ -17,6 +17,10 @@ export async function runCodeBlocks(sectionIds) {
   }
 }
 
+/**
+ * Runs the main entry code block.
+ * @SETTA_MCP_TOOL
+ */
 export function runEntryCodeBlock() {
   // ids should be length 0 or 1
   const ids = getEntryCodeBlock();

@@ -433,9 +433,7 @@ import json
             output += f"async def {func_name}({', '.join(signature_params)}) -> {return_type}:\n"
 
             # Docstring
-            output += '    """\n'
-            # TODO: maybe uncomment this once this is resolved: https://github.com/modelcontextprotocol/python-sdk/issues/226
-            # output += f'    """{description}\n'
+            output += f'    """{description}\n'
 
             # Include parameter descriptions in the docstring
             params_with_desc = [p for p in params if p.get("description")]
@@ -445,10 +443,9 @@ import json
                     output += f"        {p['name']}: {p['description']}\n"
 
             # Add return description if available
-            # TODO: maybe uncomment this once this is resolved: https://github.com/modelcontextprotocol/python-sdk/issues/226
-            # if return_description:
-            #     output += "\n    Returns:\n"
-            #     output += f"        {return_description}\n"
+            if return_description:
+                output += "\n    Returns:\n"
+                output += f"        {return_description}\n"
 
             output += '    """\n'
 

@@ -10,6 +10,7 @@ import {
   stopStreamingInto,
 } from "./actions/aiChat";
 import { addParametersMcp } from "./actions/kwargs";
+import { runEntryCodeBlock } from "./actions/runOrImportCode";
 import { addSectionsAtPositionMcp } from "./actions/sections/createSections";
 import {
   getAllSectionInformationMcp,
@@ -24,6 +25,7 @@ const mcpToolRegistry = {
   stopStreamingInto,
   getCurrentCode,
   addParametersMcp,
+  runEntryCodeBlock,
   addSectionsAtPositionMcp,
   getSectionCurrentCodeInfoMcp,
   getAllSectionInformationMcp,
