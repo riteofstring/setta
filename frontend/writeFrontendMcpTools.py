@@ -79,10 +79,29 @@ def jsdoc_type_to_python_type(type_str: str, typedefs: Dict[str, Any] = None) ->
     if type_str.startswith("Array<") and type_str.endswith(">"):
         inner_type = type_str[6:-1]
         return f"List[{jsdoc_type_to_python_type(inner_type, typedefs)}]"
-    
+
     if type_str.startswith("Array.<") and type_str.endswith(">"):
         inner_type = type_str[7:-1]
         return f"List[{jsdoc_type_to_python_type(inner_type, typedefs)}]"
+
+    # Helper function to handle Object types with key-value generics
+    def handle_object_generic(inner_type_str: str) -> str:
+        inner_types = inner_type_str.split(",", 1)
+        if len(inner_types) == 2:
+            key_type = inner_types[0].strip()
+            value_type = inner_types[1].strip()
+            python_key_type = jsdoc_type_to_python_type(key_type, typedefs)
+            python_value_type = jsdoc_type_to_python_type(value_type, typedefs)
+            return f"Dict[{python_key_type}, {python_value_type}]"
+        return "Dict[str, Any]"  # Default if format is incorrect
+
+    # Handle Object with key and value types: Object<keyType, valueType>
+    if type_str.startswith("Object<") and type_str.endswith(">"):
+        return handle_object_generic(type_str[7:-1])
+
+    # Handle Object with key and value types: Object.<keyType, valueType>
+    if type_str.startswith("Object.<") and type_str.endswith(">"):
+        return handle_object_generic(type_str[8:-1])
 
     # Handle single string literal
     if type_str.startswith("'") and type_str.endswith("'"):

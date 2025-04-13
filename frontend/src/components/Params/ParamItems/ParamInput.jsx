@@ -60,20 +60,12 @@ const debouncedSetParamEnteredValue = asyncDebounce(
   async (sectionId, paramInfoId, vStr, abortControllerRef) => {
     const ac = new AbortController();
     abortControllerRef.current = ac;
-    await setParamEnteredValueMcp({ sectionId, paramInfoId, vStr, ac });
+    await cancelableSetParamEnteredValue({ sectionId, paramInfoId, vStr, ac });
   },
   50,
 );
 
-/**
- * Gets the current code info for a section. This means the callable (if there's one), it's documentation, and it's parameters.
- * @SETTA_MCP_TOOL
- * @param {string} sectionId
- * @param {string} paramInfoId
- * @param {string} vStr A string containing python code that evaluates to whatever you want the parameter's value to be. For example to set the parameter to True, pass in "True". To set the parameter to "dog", pass in '"dog"'.
- * @param {Object} [ac] An abort controller. Not needed for MCP.
- */
-export async function setParamEnteredValueMcp({
+async function cancelableSetParamEnteredValue({
   sectionId,
   paramInfoId,
   vStr,
@@ -100,4 +92,16 @@ export async function setParamEnteredValueMcp({
   }
 
   maybeIncrementProjectStateVersion(true);
+}
+
+/**
+ * Gets the current code info for a section. This means the callable (if there's one), it's documentation, and it's parameters.
+ * @SETTA_MCP_TOOL
+ * @param {string} sectionId
+ * @param {Object<string, string>} paramIdsToValues A mapping from param id to value. Each value is a string that contains python code that evaluates to whatever you want the parameter's value to be. For example to set the parameter to True, pass in "True". To set the parameter to "dog", pass in '"dog"'.
+ */
+export async function setParamValuesMcp({ sectionId, paramIdsToValues }) {
+  for (const [paramInfoId, vStr] of Object.entries(paramIdsToValues)) {
+    await cancelableSetParamEnteredValue({ sectionId, paramInfoId, vStr });
+  }
 }
