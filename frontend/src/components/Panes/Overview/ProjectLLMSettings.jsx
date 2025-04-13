@@ -1,6 +1,6 @@
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { useEffect, useState } from "react";
-import { useAI } from "state/hooks/aiHooks";
+import { useAI } from "state/hooks/aiChat";
 import { MODEL_GROUPS } from "utils/constants";
 
 const IsolatedInput = ({ modelId, providerName, initialValue, onChange }) => {

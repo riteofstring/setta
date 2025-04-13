@@ -264,7 +264,7 @@ export const useAIStore = create(
       isSaving: false,
     }),
     {
-      name: "ai-storage",
+      name: "setta_ai_data",
       partialize: (state) => ({
         apiKeys: state.apiKeys,
         userSelectedLLM: state.userSelectedLLM,

@@ -4,7 +4,7 @@ import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
-import { useAI } from "state/hooks/aiHooks";
+import { useAI } from "state/hooks/aiChat";
 import { MODEL_GROUPS } from "utils/constants";
 import { ProjectChatCore } from "./ProjectLevelAI/ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectLevelAI/ProjectChatHistory";
