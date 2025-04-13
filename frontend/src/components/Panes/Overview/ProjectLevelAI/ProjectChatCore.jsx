@@ -63,7 +63,7 @@ const ToolCall = memo(
           </Accordion.Trigger>
 
           <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-            {args && jsonSoFar && (
+            {(args || jsonSoFar) && (
               <div className="bg-setta-800 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-700">
                 <pre className="m-0 font-mono text-xs text-white">
                   {formatToolArgs(args, jsonSoFar)}
@@ -72,13 +72,15 @@ const ToolCall = memo(
             )}
             {result && (
               <div className="bg-setta-400 p-3 dark:bg-setta-860/50">
-                <p className="m-0 text-xs text-white dark:text-setta-200">
+                <pre className="m-0 font-mono text-xs text-white dark:text-setta-200">
                   {typeof result === "string"
                     ? result
-                    : success
-                      ? "Tool completed successfully"
-                      : "Tool execution failed"}
-                </p>
+                    : typeof result === "object"
+                      ? JSON.stringify(result, null, 2)
+                      : success
+                        ? "Tool completed successfully"
+                        : "Tool execution failed"}
+                </pre>
               </div>
             )}
           </Accordion.Content>
