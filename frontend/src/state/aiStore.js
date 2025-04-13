@@ -157,8 +157,6 @@ export const useAIStore = create(
               .split("\n")
               .filter((line) => line.trim() !== "");
 
-            console.log(lines)
-
             for (const line of lines) {
               try {
                 const parsed = JSON.parse(line);

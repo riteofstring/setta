@@ -15,3 +15,5 @@ There are many section types:
 
 
 If you're asked to convert an existing python script into a Setta project or into a set of sections, remember that a section is equivalent to a variable in python code. You shouldn't think of a section as just "a dictionary config". Instead, you should think that the section will get directly converted into working python code. So if you have `the_variable = SomeClass(x,y,z)`, then create a section called "the_variable" that has a callable called "SomeClass".
+
+For variables not associated with a specific class or function, put those in a Global Variables section.
