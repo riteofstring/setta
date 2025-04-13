@@ -1,5 +1,6 @@
 import { dbGetLLMResponse, dbSetApiKeys } from "requests/ai";
-import { useAIStore } from "state/definitions";
+import { useAIStore, useSectionInfos } from "state/definitions";
+import { getSectionVariant } from "./sectionInfos";
 
 export function setViewHistory(viewHistory) {
   useAIStore.setState({ viewHistory });
@@ -189,6 +190,12 @@ export async function submitMessage(userMessage) {
 
             case "text":
               if (parsed.is_delta) {
+                const { streamTarget } = useAIStore.getState();
+                if (streamTarget) {
+                  streamInto(streamTarget, parsed.content);
+                  break;
+                }
+
                 // For text deltas, either add to existing content or create a new text chunk
                 if (
                   currentMsg.streamSequence.length > 0 &&
@@ -398,16 +405,27 @@ export async function handleApiKeyChange(modelId, providerName, value) {
   await saveApiKeys(updatedKeys);
 }
 
-// Utility function moved to module level
-function catchEmptyJSONParse(jsonString) {
-  if (!jsonString || jsonString.trim() === "") {
-    return {};
-  }
+function streamInto(streamTarget, content) {
+  useSectionInfos.setState((x) => {
+    const sectionVariant = getSectionVariant(streamTarget, x);
+    // Append the new chunk to existing code
+    sectionVariant.code += content;
+  });
+}
 
-  try {
-    return JSON.parse(jsonString);
-  } catch (e) {
-    console.warn("Failed to parse JSON:", e);
-    return {};
-  }
+/**
+ * Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block.
+ * @SETTA_MCP_TOOL
+ * @param {ID} sectionId The id of the code block that you want to start writing code into.
+ */
+export function startStreamingInto({ sectionId }) {
+  useAIStore.setState({ streamTarget: sectionId });
+}
+
+/**
+ * Stop streaming text into a specific code block. Once you want to start responding in the regular chat area, call this. After you call this tool, everything you respond with will be sent to the regular chat area.
+ * @SETTA_MCP_TOOL
+ */
+export function stopStreamingInto() {
+  useAIStore.setState({ streamTarget: null });
 }

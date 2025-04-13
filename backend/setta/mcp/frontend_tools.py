@@ -102,6 +102,37 @@ async def setParamValuesMcp(
     )
 
 
+# From aiChat.js
+@mcp_server.tool(
+    description="Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block."
+)
+async def startStreamingInto(sectionId: ID) -> Any:
+    """
+
+    Args:
+        sectionId: The id of the code block that you want to start writing code into.
+    """
+    args = {}
+    args["sectionId"] = sectionId
+    return str(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "startStreamingInto", startStreamingInto.__annotations__["return"], args
+        )
+    )
+
+
+@mcp_server.tool(
+    description="Stop streaming text into a specific code block. Once you want to start responding in the regular chat area, call this. After you call this tool, everything you respond with will be sent to the regular chat area."
+)
+async def stopStreamingInto() -> Any:
+    """ """
+    return str(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "stopStreamingInto", stopStreamingInto.__annotations__["return"]
+        )
+    )
+
+
 # From kwargs.js
 @mcp_server.tool(
     description="Add parameters to a section. Returns the created parameter ids."

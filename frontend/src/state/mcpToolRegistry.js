@@ -4,6 +4,7 @@ import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 
 import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
+import { startStreamingInto, stopStreamingInto } from "./actions/aiChat";
 import { addParametersMcp } from "./actions/kwargs";
 import { addSectionsAtPositionMcp } from "./actions/sections/createSections";
 import {
@@ -15,6 +16,8 @@ import { setSelectedItemMcp } from "./actions/sections/setSelectedItem";
 // Registry of all MCP tools
 const mcpToolRegistry = {
   setParamValuesMcp,
+  startStreamingInto,
+  stopStreamingInto,
   addParametersMcp,
   addSectionsAtPositionMcp,
   getSectionCurrentCodeInfoMcp,

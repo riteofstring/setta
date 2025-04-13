@@ -262,6 +262,7 @@ export const useAIStore = create(
       userSelectedLLM: "",
       saveStatus: "",
       isSaving: false,
+      streamTarget: null,
     }),
     {
       name: "setta_ai_data",
