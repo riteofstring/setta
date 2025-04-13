@@ -250,6 +250,7 @@ from typing_extensions import TypedDict
 from setta.mcp.server import mcp_server
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
+import json
 '''
 
     # Generate TypedDict classes for all typedefs
@@ -456,9 +457,9 @@ from pydantic_core import CoreSchema, core_schema
                 output += "    args = {}\n"
                 for param in params:
                     output += f'    args["{param["name"]}"] = {param["name"]}\n'
-                output += f'    return str(await mcp_server.setta_websocket.use_frontend_tool("{func_name}", {func_name}.__annotations__["return"], args))\n'
+                output += f'    return json.dumps(await mcp_server.setta_websocket.use_frontend_tool("{func_name}", {func_name}.__annotations__["return"], args))\n'
             else:
-                output += f'    return str(await mcp_server.setta_websocket.use_frontend_tool("{func_name}", {func_name}.__annotations__["return"]))\n'
+                output += f'    return json.dumps(await mcp_server.setta_websocket.use_frontend_tool("{func_name}", {func_name}.__annotations__["return"]))\n'
 
             output += "\n"
 
