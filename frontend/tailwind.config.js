@@ -45,11 +45,22 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: 0 },
         },
+        textBlurIn: {
+          "0%": {
+            filter: "blur(4px)",
+            opacity: "0",
+          },
+          "100%": {
+            filter: "blur(0px)",
+            opacity: "1",
+          },
+        },
       },
       animation: {
         "slow-dash": "dash 40s linear infinite",
         slideDown: "slideDown 200ms cubic-bezier(0.87, 0, 0.13, 1)",
         slideUp: "slideUp 200ms cubic-bezier(0.87, 0, 0.13, 1)",
+        "text-blur-in": "textBlurIn 0.5s ease-out forwards",
       },
     },
   },

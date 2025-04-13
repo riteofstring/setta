@@ -10,7 +10,6 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import ChatInput from "./ChatInput";
 
-// Reusable Markdown component to avoid duplication
 const MarkdownContent = ({ content, className }) => (
   <ReactMarkdown
     remarkPlugins={[remarkGfm, remarkMath]}
@@ -22,40 +21,37 @@ const MarkdownContent = ({ content, className }) => (
   </ReactMarkdown>
 );
 
-// Utility function to format tool arguments
 const formatToolArgs = (args, jsonSoFar) => {
   if (jsonSoFar) return jsonSoFar;
   if (!args) return "{}";
 
-  // Always use pretty formatting
   return JSON.stringify(args, null, 2);
 };
 
-// Component for tool calls with expandable result
 const ToolCall = memo(
   ({ name, args, jsonSoFar, streaming, result, success = true }) => {
     return (
       <Accordion.Root type="single" collapsible>
         <Accordion.Item value="details">
-          <Accordion.Trigger className="w-full cursor-pointer overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
-            <div className="flex w-full items-center justify-between gap-2 px-2 py-2 text-left">
-              <div className="-mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
+          <Accordion.Trigger className="my-1 w-full cursor-pointer overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
+            <div className="relative flex w-full items-center justify-center gap-2 px-2 py-2 text-left">
+              <div className="absolute left-2 -mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
                 <PiWrenchFill
                   size={15}
                   className="min-w-6 text-setta-200 dark:text-setta-400"
                 />
               </div>
 
-              <div className="truncate break-words px-2 font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
+              <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
                 {name}
                 {streaming}
               </div>
 
               {result &&
                 (success ? (
-                  <IoMdCheckmark className="text-setta-400" />
+                  <IoMdCheckmark className="absolute right-2 text-setta-400" />
                 ) : (
-                  <MdErrorOutline className="text-red-500" />
+                  <MdErrorOutline className="absolute right-2 text-red-500" />
                 ))}
             </div>
           </Accordion.Trigger>
@@ -94,7 +90,6 @@ const ToolCall = memo(
   },
 );
 
-// Component to render a stream sequence item based on its type
 const StreamItem = ({ item, idx, streamSequence }) => {
   switch (item.type) {
     case "text":
@@ -102,7 +97,7 @@ const StreamItem = ({ item, idx, streamSequence }) => {
         <MarkdownContent
           key={`text-${idx}`}
           content={item.content}
-          className="dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&>p]:inline-block [&_*]:break-words"
+          className=" prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
         />
       );
     case "tool_call":
@@ -133,47 +128,42 @@ const StreamItem = ({ item, idx, streamSequence }) => {
   }
 };
 
-// Style utility function
-const getMessageClassName = (role) => {
-  const baseClass =
-    "prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text px-4 py-2.5";
+function LLMChatBubble({ children }) {
+  return (
+    <div className="my-4 flex justify-start">
+      <div className="w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
+        {children}
+      </div>
+    </div>
+  );
+}
 
-  const roleClass =
-    role === "user"
-      ? "rounded-t-lg rounded-bl-lg bg-blue-500 text-white prose-headings:text-blue-200 dark:bg-blue-700"
-      : "rounded-b-lg rounded-tr-lg bg-setta-100 text-setta-800 prose-headings:text-setta-600 dark:bg-setta-700/50 dark:text-setta-50 dark:prose-headings:text-setta-300";
-
-  return `${baseClass} ${roleClass} dark:prose-invert prose-headings:tracking-tighter prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-words`;
-};
-
-// Simplified ChatMessage component
 const ChatMessage = memo(({ message }) => {
   // Handle streaming message
-  if (message.streamSequence?.length > 0) {
+  if (message.streamSequence) {
     return (
-      <div className="my-4 flex justify-start">
-        <div className="prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-2.5 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
-          {message.streamSequence.map((item, idx) => (
-            <StreamItem
-              item={item}
-              idx={idx}
-              key={idx}
-              streamSequence={message.streamSequence}
-            />
-          ))}
-        </div>
-      </div>
+      <LLMChatBubble>
+        {message.streamSequence.length === 0 && (
+          <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
+        )}
+        {message.streamSequence.map((item, idx) => (
+          <StreamItem
+            item={item}
+            idx={idx}
+            key={idx}
+            streamSequence={message.streamSequence}
+          />
+        ))}
+      </LLMChatBubble>
     );
   }
 
   // Handle regular message
   return (
-    <div
-      className={`my-4 flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-    >
+    <div className="my-4 flex justify-end">
       <MarkdownContent
         content={message.content}
-        className={getMessageClassName(message.role)}
+        className="prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:bg-blue-700 [&>p]:inline-block [&_*]:break-words"
       />
     </div>
   );
@@ -211,15 +201,3 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     </>
   );
 });
-
-// Loading component
-function LoadingDots() {
-  return (
-    <div className="flex h-screen items-center justify-center space-x-2 bg-white dark:invert">
-      <span className="sr-only">Loading...</span>
-      <div className="h-1 w-1 animate-bounce rounded-full bg-black [animation-delay:-0.3s]"></div>
-      <div className="h-1 w-1 animate-bounce rounded-full bg-black [animation-delay:-0.15s]"></div>
-      <div className="h-1 w-1 animate-bounce rounded-full bg-black"></div>
-    </div>
-  );
-}
