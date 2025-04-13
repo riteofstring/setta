@@ -435,7 +435,7 @@ from pydantic_core import CoreSchema, core_schema
             # Include parameter descriptions in the docstring
             params_with_desc = [p for p in params if p.get("description")]
             if params_with_desc:
-                output += "\n    Parameters:\n"
+                output += "\n    Args:\n"
                 for p in params_with_desc:
                     output += f"        {p['name']}: {p['description']}\n"
 

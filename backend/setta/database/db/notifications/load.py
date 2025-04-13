@@ -7,13 +7,13 @@ def load_project_notifications(db, project_config_id, limit=20):
     """
     Load the latest notifications for a specific project.
 
-    Parameters:
-    - db: The database connection/cursor object
-    - project_config_id: The ID of the project to get notifications for
-    - limit: Maximum number of notifications to return (default: 20)
+    Args:
+        db: The database connection/cursor object
+        project_config_id: The ID of the project to get notifications for
+        limit: Maximum number of notifications to return (default: 20)
 
     Returns:
-    - A list of notification objects
+        A list of notification objects
     """
     query = """
         SELECT
@@ -48,9 +48,9 @@ def load_notification(db, notification_id):
     """
     Load a single notification by its ID.
 
-    Parameters:
-    - db: The database connection/cursor object
-    - notification_id: The ID of the notification to retrieve
+    Args:
+        db: The database connection/cursor object
+        notification_id: The ID of the notification to retrieve
 
     Returns:
     - A notification object if found, None otherwise

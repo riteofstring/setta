@@ -5,15 +5,15 @@ def save_notification(db, project_config_id, type, message, metadata=None):
     """
     Save a new notification to the database.
 
-    Parameters:
-    - db: The database connection/cursor object
-    - project_config_id: The ID of the project associated with this notification
-    - type: The notification type (e.g., 'error', 'warning', 'info', 'success')
-    - message: The notification message text
-    - metadata: Optional JSON-serializable dict with additional data
+    Args:
+        db: The database connection/cursor object
+        project_config_id: The ID of the project associated with this notification
+        type: The notification type (e.g., 'error', 'warning', 'info', 'success')
+        message: The notification message text
+        metadata: Optional JSON-serializable dict with additional data
 
     Returns:
-    - The ID of the newly created notification
+        The ID of the newly created notification
     """
     query = """
         INSERT INTO Notifications (

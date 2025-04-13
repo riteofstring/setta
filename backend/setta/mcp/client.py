@@ -3,6 +3,7 @@ import json
 from contextlib import AsyncExitStack
 from typing import Optional
 
+import mcp.types
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from mcp import ClientSession
@@ -114,7 +115,6 @@ class MCPClient:
             for tool in response.tools
         ]
 
-        # Process responses until no more tool calls remain
         while True:
             assistant_message_content = []
             has_tool_call = False
@@ -132,7 +132,7 @@ class MCPClient:
 
             # Process streaming events
             # Use a regular for loop since stream_responses returns a regular generator
-            stream_gen = stream_responses(stream)
+            stream_gen = self.stream_responses(stream)
             async for event_data in stream_gen:
                 # Check for the special complete event
                 if (
@@ -206,7 +206,7 @@ class MCPClient:
                         # Yield tool result
                         yield {
                             "type": "tool_result",
-                            "content": [c.model_dump() for c in result.content],
+                            "content": tool_call_result_formatted_for_frontend(result),
                             "is_delta": False,
                         }
 
@@ -258,44 +258,53 @@ class MCPClient:
             except asyncio.CancelledError:
                 pass
 
+    async def stream_responses(self, stream):
+        """
+        Process the stream from Claude API, yield each event as it arrives
+        and finally yield a dictionary with the complete messages
+        """
+        llm_msgs = []
 
-async def stream_responses(stream):
-    """
-    Process the stream from Claude API, yield each event as it arrives
-    and finally yield a dictionary with the complete messages
-    """
-    llm_msgs = []
+        # Assuming stream is an iterable, not an async iterable
+        for event in stream:
+            if event.type == "content_block_start":
+                while len(llm_msgs) <= event.index:
+                    llm_msgs.append(None)
+                llm_msgs[event.index] = event.content_block
+                if not hasattr(event.content_block, "text"):
+                    event.content_block.text = ""
 
-    # Assuming stream is an iterable, not an async iterable
-    for event in stream:
-        if event.type == "content_block_start":
-            while len(llm_msgs) <= event.index:
-                llm_msgs.append(None)
-            llm_msgs[event.index] = event.content_block
-            if not hasattr(event.content_block, "text"):
-                event.content_block.text = ""
+                # Yield the original event
+                yield event
 
-            # Yield the original event
-            yield event
+            elif event.type == "content_block_delta":
+                if event.delta.type == "text_delta":
+                    # Add to the message being built
+                    llm_msgs[event.index].text += event.delta.text
+                elif event.delta.type == "input_json_delta":
+                    llm_msgs[event.index].text += event.delta.partial_json
 
-        elif event.type == "content_block_delta":
-            if event.delta.type == "text_delta":
-                # Add to the message being built
-                llm_msgs[event.index].text += event.delta.text
-            elif event.delta.type == "input_json_delta":
-                llm_msgs[event.index].text += event.delta.partial_json
+                # Yield the original event
+                yield event
 
-            # Yield the original event
-            yield event
+            elif event.type == "content_block_stop":
+                if llm_msgs[event.index].type == "tool_use":
+                    text = llm_msgs[event.index].text
+                    if text:
+                        llm_msgs[event.index].input = json.loads(text)
 
-        elif event.type == "content_block_stop":
-            if llm_msgs[event.index].type == "tool_use":
-                text = llm_msgs[event.index].text
-                if text:
-                    llm_msgs[event.index].input = json.loads(text)
+                # Yield the original event
+                yield event
 
-            # Yield the original event
-            yield event
+        # Yield a dictionary with the complete message data
+        yield {"type": "content_block_complete", "messages": llm_msgs}
 
-    # Yield a dictionary with the complete message data
-    yield {"type": "content_block_complete", "messages": llm_msgs}
+
+def tool_call_result_formatted_for_frontend(result):
+    output = []
+    for r in result:
+        if isinstance(r, mcp.types.TextContent):
+            output.append(r.text)
+        elif isinstance(r, mcp.types.ImageContent):
+            output.append(r.data)
+    return output

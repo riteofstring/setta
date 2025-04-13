@@ -1,14 +1,53 @@
 # some parts borrowed from https://github.com/tadata-org/fastapi_mcp/blob/main/fastapi_mcp/server.py
 
 import asyncio
+import inspect
 
+import docstring_parser
 from fastapi import Request
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
+from mcp.types import AnyFunction
+from mcp.types import Tool as MCPTool
 
 from setta.database.db.notifications.load import create_notification_dict
 
-mcp_server = FastMCP("Setta MCP Server")
+
+class CustomFastMCP(FastMCP):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fn_param_docstrings = {}
+
+    def add_tool(
+        self, fn: AnyFunction, name: str | None = None, description: str | None = None
+    ) -> None:
+        super().add_tool(fn, name, description)
+        self.fn_param_docstrings[fn] = extract_param_docstrings(fn)
+
+    async def list_tools(self) -> list[MCPTool]:
+        """List all available tools."""
+        tools = self._tool_manager.list_tools()
+        output = []
+        for t in tools:
+            mcpt = MCPTool(
+                name=t.name,
+                description=t.description,
+                inputSchema=t.parameters,
+            )
+            schema = mcpt.inputSchema
+            for arg_name, arg_metadata in schema["properties"].items():
+                if "description" in arg_metadata:
+                    continue
+                description = self.fn_param_docstrings.get(t.fn, {}).get(arg_name, None)
+                if description:
+                    arg_metadata["description"] = description
+
+            output.append(mcpt)
+
+        return output
+
+
+mcp_server = CustomFastMCP("Setta MCP Server")
 mcp_server.setta_websocket = None
 
 
@@ -33,3 +72,33 @@ def add_mcp_server_to_fastapi_server(app, mount_path):
 
     content = create_notification_dict("MCP Server Ready", temporary=True)
     asyncio.create_task(mcp_server.setta_websocket.broadcast_notification(content))
+
+
+def extract_param_docstrings(func):
+    """
+    Extract docstring descriptions for each parameter of a function.
+
+    Args:
+        func: A Python function object.
+
+    Returns:
+        dict: A dictionary mapping parameter names to their docstring descriptions.
+    """
+    # Get the function's docstring
+    docstring = inspect.getdoc(func)
+    if not docstring:
+        return {}
+
+    # Parse the docstring using docstring_parser
+    try:
+        parsed = docstring_parser.parse(docstring)
+    except Exception as e:
+        print(f"Failed to parse docstring: {e}")
+        return {}
+
+    # Extract parameter descriptions
+    param_docs = {}
+    for param in parsed.params:
+        param_docs[param.arg_name] = param.description or "No description available"
+
+    return param_docs

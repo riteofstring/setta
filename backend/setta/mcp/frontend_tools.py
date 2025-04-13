@@ -87,7 +87,7 @@ async def setParamValuesMcp(
 ) -> Dict[ID, bool]:
     """Set the values of multiple parameters.
 
-    Parameters:
+    Args:
         sectionId: The id of the section that contains the parameters.
         paramIdsToValues: A mapping from parameter id to value. Each value is a string that contains python code that evaluates to whatever you want the parameter's value to be. For example to set the parameter to True, pass in "True". To set the parameter to "dog", pass in '"dog"'.
 
@@ -107,7 +107,7 @@ async def setParamValuesMcp(
 async def addParametersMcp(sectionId: ID, names: List[str]) -> List[ID]:
     """Add parameters to a section.
 
-    Parameters:
+    Args:
         sectionId: The section to add parameters to.
         names: The names of the newly created parameters.
 
@@ -127,7 +127,7 @@ async def addParametersMcp(sectionId: ID, names: List[str]) -> List[ID]:
 async def addSectionsAtPositionMcp(sections: List[SimplifiedSectionConfig]) -> List[ID]:
     """Adds a new section at a specific location.
 
-    Parameters:
+    Args:
         sections: Details of the sections to be created
 
     Returns:
@@ -179,7 +179,7 @@ async def setSelectedItemMcp(
 ) -> SectionSimplifiedCodeInfo:
     """Sets the selectedItem (i.e. the callable) of a section.
 
-    Parameters:
+    Args:
         sectionId: The id of the section we're setting the selectedItem of.
         selectedItemName: The selected item name, for example "math.sqrt"
 
