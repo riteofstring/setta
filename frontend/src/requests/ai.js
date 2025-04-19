@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import { useAIStore } from "state/definitions";
 import { post } from "./utils";
 
 export async function dbGetLLMResponse(
@@ -11,7 +12,11 @@ export async function dbGetLLMResponse(
     const response = await post({
       body: {
         model,
-        message,
+        // message,
+        conversationHistory: useAIStore
+          .getState()
+          .messages.filter((m) => m.content)
+          .map((m) => ({ role: m.role, content: m.content })),
         deepThink,
         session_id: sessionId,
       },

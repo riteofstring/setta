@@ -247,7 +247,7 @@ class WMHMCPServer(BaseWebsocketMsgHandler):
         try:
             args = replace_ids_with_uuids(args, self.id_to_uuid)
         except IDDoesNotExist as e:
-            return {"error": e}
+            return {"error": str(e)}
 
         if args is None:
             args = {}
