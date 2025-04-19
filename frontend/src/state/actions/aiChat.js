@@ -396,56 +396,7 @@ function streamInto(streamTarget, content) {
 }
 
 /**
- * Insert code into a code block.
- * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the code block.
- * @param {string} code The code to insert
- * @param {integer} [insertAtLine] Optional line number (1-indexed) to insert at. If omitted, appends to the end.
- * @return {string} A string containing the updated code.
- */
-export function insertCode({ sectionId, code, insertAtLine }) {
-  // Get the current code
-  const currCode = getCurrentCode({ sectionId });
-  const lines = currCode.split("\n");
-  const totalLines = lines.length;
-
-  // Initialize streaming state
-  let beforeLines = "";
-  let afterLines = "";
-
-  // Handle insertAtLine if specified
-  if (!_.isNil(insertAtLine)) {
-    // Convert to 0-indexed for array operations
-    const insertIndex = insertAtLine - 1;
-
-    // Validate insertion point
-    if (insertAtLine < 1 || (totalLines > 0 && insertAtLine > totalLines + 1)) {
-      throw new Error(
-        `Invalid insertAtLine: ${insertAtLine}. Valid range is 1 to ${totalLines + 1}.`,
-      );
-    }
-
-    // Split the code at the insertion point
-    beforeLines = lines.slice(0, insertIndex).join("\n");
-    afterLines = lines.slice(insertIndex).join("\n");
-  } else {
-    // If no insertion point, append to the end
-    beforeLines = currCode;
-    afterLines = "";
-  }
-
-  let updatedCode = [beforeLines, code, afterLines].filter(Boolean).join("\n");
-
-  useSectionInfos.setState((x) => {
-    const sectionVariant = getSectionVariant(sectionId, x);
-    sectionVariant.code = updatedCode;
-  });
-
-  return updatedCode;
-}
-
-/**
- * Replace a range of code from a code block. This first calls the deleteCodeRange tool and then the insertCode tool.
+ * Replace a range of code from a code block.
  * @SETTA_MCP_TOOL
  * @param {ID} sectionId The id of the code block.
  * @param {string} code The code to insert
@@ -455,74 +406,24 @@ export function insertCode({ sectionId, code, insertAtLine }) {
  * @throws {Error} If the provided line numbers are invalid or out of range.
  */
 export function replaceCodeRange({ sectionId, startLine, endLine, code }) {
-  deleteCodeRange({ sectionId, startLine, endLine });
-  insertCode({ sectionId, code, insertAtLine: startLine });
-  return getSectionVariant(sectionId).code
-}
-
-/**
- * Delete a range of code from a code block.
- * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the code block.
- * @param {integer} [startLine] Optional starting line number (1-indexed). If omitted, starts from the first line.
- * @param {integer} [endLine] Optional ending line number (1-indexed, inclusive). If omitted, ends at the last line.
- * @return {string} A string containing the code with the specified range deleted.
- * @throws {Error} If the provided line numbers are invalid or out of range.
- */
-export function deleteCodeRange({ sectionId, startLine, endLine }) {
-  // Update the state
-  let updatedCode;
-  useSectionInfos.setState((x) => {
-    const sectionVariant = getSectionVariant(sectionId, x);
-    if (_.isNil(startLine) && _.isNil(endLine)) {
-      updatedCode = "";
-    } else {
-      const lines = sectionVariant.code.split("\n");
-      const totalLines = lines.length;
-      const [start, end] = convertAndValidateLineNumbers(
-        startLine,
-        endLine,
-        totalLines,
-      );
-
-      // Delete the specified range by keeping everything before start and after end
-      const updatedLines = [...lines.slice(0, start), ...lines.slice(end)];
-
-      // Join the lines back together
-      updatedCode = updatedLines.join("\n");
-    }
-    sectionVariant.code = updatedCode;
-  });
-
-  return updatedCode;
-}
-
-/**
- * Get the current code that's in a code block.
- * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the code block that you want to retrieve code from.
- * @param {integer} [startLine] Optional starting line number (1-indexed). If omitted, starts from the first line.
- * @param {integer} [endLine] Optional ending line number (1-indexed, inclusive). If omitted, ends at the last line.
- * @return {string} A string containing the requested code from the code block.
- * @throws {Error} If the provided line numbers are invalid or out of range.
- */
-export function getCurrentCode({ sectionId, startLine, endLine }) {
-  const code = getSectionVariant(sectionId).code;
-
-  // If no line parameters are provided, return the entire code
-  if (_.isNil(startLine) && _.isNil(endLine)) {
-    return code;
-  }
-
-  const lines = code.split("\n");
+  const lines = getSectionVariant(sectionId).code.split("\n");
   const [start, end] = convertAndValidateLineNumbers(
     startLine,
     endLine,
     lines.length,
   );
+  const beforeLines = lines.slice(0, start);
+  const afterLines = lines.slice(end);
 
-  // Extract and return the requested lines
-  return lines.slice(start, end).join("\n");
+  const codeLines = code.split('\n');
+  const newLines = [...beforeLines, ...codeLines, ...afterLines];
+  const updatedCode = newLines.join("\n");
+
+  useSectionInfos.setState((x) => {
+    getSectionVariant(sectionId, x).code = updatedCode;
+  });
+
+  return updatedCode;
 }
 
 // inputs are 1-indexed line numbers
@@ -561,3 +462,15 @@ function convertAndValidateLineNumbers(startLine, endLine, totalLines) {
 
   return [start, end];
 }
+
+/**
+ * Get the current code that's in a code block.
+ * @SETTA_MCP_TOOL
+ * @param {ID} sectionId The id of the code block that you want to retrieve code from.
+ * @return {string} A string containing the requested code from the code block.
+ */
+export function getCurrentCode({ sectionId }) {
+  return getSectionVariant(sectionId).code;
+}
+
+

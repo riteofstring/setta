@@ -4,12 +4,7 @@ import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 
 import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
-import {
-  deleteCodeRange,
-  getCurrentCode,
-  insertCode,
-  replaceCodeRange,
-} from "./actions/aiChat";
+import { getCurrentCode, replaceCodeRange } from "./actions/aiChat";
 import { addParametersMcp } from "./actions/kwargs";
 import { runEntryCodeBlock } from "./actions/runOrImportCode";
 import { addSectionsAtPositionMcp } from "./actions/sections/createSections";
@@ -22,9 +17,7 @@ import { setSelectedItemMcp } from "./actions/sections/setSelectedItem";
 // Registry of all MCP tools
 const mcpToolRegistry = {
   setParamValuesMcp,
-  insertCode,
   replaceCodeRange,
-  deleteCodeRange,
   getCurrentCode,
   addParametersMcp,
   runEntryCodeBlock,
