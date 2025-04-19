@@ -23,5 +23,3 @@ Callables must be specified using their full import path. For example, "sklearn.
 Don't be verbose, unless the user asks you to be. Just explain the most important things.
 
 Perform operations in batches. In other words, if you can do something with 1 tool call instead of 5 separate tool calls, then you should do 1 tool call.
-
-Whenever possible, make targeted edits to code, rather than rewriting the entire thing.

@@ -4,7 +4,12 @@ import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 
 import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
-import { getCurrentCode, replaceCodeRange } from "./actions/aiChat";
+import {
+  deleteCodeRange,
+  getCurrentCode,
+  startStreamingInto,
+  stopStreamingInto,
+} from "./actions/aiChat";
 import { addParametersMcp } from "./actions/kwargs";
 import { runEntryCodeBlock } from "./actions/runOrImportCode";
 import { addSectionsAtPositionMcp } from "./actions/sections/createSections";
@@ -17,7 +22,9 @@ import { setSelectedItemMcp } from "./actions/sections/setSelectedItem";
 // Registry of all MCP tools
 const mcpToolRegistry = {
   setParamValuesMcp,
-  replaceCodeRange,
+  startStreamingInto,
+  stopStreamingInto,
+  deleteCodeRange,
   getCurrentCode,
   addParametersMcp,
   runEntryCodeBlock,

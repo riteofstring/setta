@@ -53,7 +53,7 @@ async def route_get_llm_response(
 
         # Initialize conversation history for new sessions
         # if session_id not in conversation_histories:
-        # conversation_histories[session_id] = x.conversationHistory
+            # conversation_histories[session_id] = x.conversationHistory
         conversation_histories[session_id] = x.conversationHistory
 
         # Add user message to conversation history

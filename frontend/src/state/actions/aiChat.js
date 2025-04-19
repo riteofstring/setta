@@ -396,34 +396,137 @@ function streamInto(streamTarget, content) {
 }
 
 /**
- * Replace a range of code from a code block.
+ * Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear.
+ * @SETTA_MCP_TOOL
+ * @param {ID} sectionId The id of the code block that you want to start writing code into.
+ * @param {integer} [insertAtLine] Optional line number (1-indexed) to insert at. If omitted, appends to the end.
+ * @return {string} A string containing the current code in the code block before modification.
+ */
+export function startStreamingInto({ sectionId, insertAtLine }) {
+  // Get the current code
+  const currCode = getCurrentCode({ sectionId });
+  const lines = currCode.split("\n");
+  const totalLines = lines.length;
+
+  // Initialize streaming state
+  let beforeLines = "";
+  let afterLines = "";
+
+  // Handle insertAtLine if specified
+  if (!_.isNil(insertAtLine)) {
+    // Convert to 0-indexed for array operations
+    const insertIndex = insertAtLine - 1;
+
+    // Validate insertion point
+    if (insertAtLine < 1 || (totalLines > 0 && insertAtLine > totalLines + 1)) {
+      throw new Error(
+        `Invalid insertAtLine: ${insertAtLine}. Valid range is 1 to ${totalLines + 1}.`,
+      );
+    }
+
+    // Split the code at the insertion point
+    beforeLines = lines.slice(0, insertIndex).join("\n");
+    afterLines = lines.slice(insertIndex).join("\n");
+  } else {
+    // If no insertion point, append to the end
+    beforeLines = currCode;
+    afterLines = "";
+  }
+
+  // Set streaming target and store line segments
+  useAIStore.setState({
+    streamTarget: sectionId,
+    streamBeforeLines: beforeLines,
+    streamAfterLines: afterLines,
+    streamedContent: "", // Initialize empty stream content
+  });
+
+  return currCode;
+}
+
+/**
+ * Stop streaming text into the code block.
+ * @SETTA_MCP_TOOL
+ * @returns {string} the code with all the changes applied.
+ */
+export function stopStreamingInto() {
+  const { streamTarget } = useAIStore.getState();
+  const code = getSectionVariant(streamTarget).code;
+
+  // Clear all streaming state
+  useAIStore.setState({
+    streamTarget: null,
+    streamBeforeLines: "",
+    streamAfterLines: "",
+    streamedContent: "",
+  });
+
+  return code;
+}
+
+/**
+ * Delete a range of code from a code block.
  * @SETTA_MCP_TOOL
  * @param {ID} sectionId The id of the code block.
- * @param {string} code The code to insert
- * @param {integer} startLine Starting line number (1-indexed).
- * @param {integer} endLine Ending line number (1-indexed, inclusive).
- * @return {string} the updated code.
+ * @param {integer} [startLine] Optional starting line number (1-indexed). If omitted, starts from the first line.
+ * @param {integer} [endLine] Optional ending line number (1-indexed, inclusive). If omitted, ends at the last line.
+ * @return {string} A string containing the code with the specified range deleted.
  * @throws {Error} If the provided line numbers are invalid or out of range.
  */
-export function replaceCodeRange({ sectionId, startLine, endLine, code }) {
-  const lines = getSectionVariant(sectionId).code.split("\n");
+export function deleteCodeRange({ sectionId, startLine, endLine }) {
+  // Update the state
+  let updatedCode;
+  useSectionInfos.setState((x) => {
+    const sectionVariant = getSectionVariant(sectionId, x);
+    if (_.isNil(startLine) && _.isNil(endLine)) {
+      updatedCode = "";
+    } else {
+      const lines = sectionVariant.code.split("\n");
+      const totalLines = lines.length;
+      const [start, end] = convertAndValidateLineNumbers(
+        startLine,
+        endLine,
+        totalLines,
+      );
+
+      // Delete the specified range by keeping everything before start and after end
+      const updatedLines = [...lines.slice(0, start), ...lines.slice(end)];
+
+      // Join the lines back together
+      updatedCode = updatedLines.join("\n");
+    }
+    sectionVariant.code = updatedCode;
+  });
+
+  return updatedCode;
+}
+
+/**
+ * Get the current code that's in a code block.
+ * @SETTA_MCP_TOOL
+ * @param {ID} sectionId The id of the code block that you want to retrieve code from.
+ * @param {integer} [startLine] Optional starting line number (1-indexed). If omitted, starts from the first line.
+ * @param {integer} [endLine] Optional ending line number (1-indexed, inclusive). If omitted, ends at the last line.
+ * @return {string} A string containing the requested code from the code block.
+ * @throws {Error} If the provided line numbers are invalid or out of range.
+ */
+export function getCurrentCode({ sectionId, startLine, endLine }) {
+  const code = getSectionVariant(sectionId).code;
+
+  // If no line parameters are provided, return the entire code
+  if (_.isNil(startLine) && _.isNil(endLine)) {
+    return code;
+  }
+
+  const lines = code.split("\n");
   const [start, end] = convertAndValidateLineNumbers(
     startLine,
     endLine,
     lines.length,
   );
-  const beforeLines = lines.slice(0, start);
-  const afterLines = lines.slice(end);
 
-  const codeLines = code.split('\n');
-  const newLines = [...beforeLines, ...codeLines, ...afterLines];
-  const updatedCode = newLines.join("\n");
-
-  useSectionInfos.setState((x) => {
-    getSectionVariant(sectionId, x).code = updatedCode;
-  });
-
-  return updatedCode;
+  // Extract and return the requested lines
+  return lines.slice(start, end).join("\n");
 }
 
 // inputs are 1-indexed line numbers
@@ -462,15 +565,3 @@ function convertAndValidateLineNumbers(startLine, endLine, totalLines) {
 
   return [start, end];
 }
-
-/**
- * Get the current code that's in a code block.
- * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the code block that you want to retrieve code from.
- * @return {string} A string containing the requested code from the code block.
- */
-export function getCurrentCode({ sectionId }) {
-  return getSectionVariant(sectionId).code;
-}
-
-
