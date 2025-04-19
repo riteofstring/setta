@@ -137,7 +137,7 @@ export function ProjectAIChat() {
             messages={messages}
             selectedModel={userSelectedLLM}
             placeholderText="Type a message..."
-            handleSubmit={submitMessage}
+            handleSubmit={(m) => submitMessage(m, deepThink)}
             isLoading={isLoading}
           />
         )}

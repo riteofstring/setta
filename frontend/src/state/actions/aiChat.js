@@ -97,7 +97,7 @@ function resetStreamingResponseState() {
   });
 }
 
-export async function submitMessage(userMessage) {
+export async function submitMessage(userMessage, deepThink) {
   // Guard clause: empty message
   if (!userMessage.trim()) return;
 
@@ -125,7 +125,7 @@ export async function submitMessage(userMessage) {
   addMessageToChat(assistantMsg);
 
   try {
-    dbGetLLMResponse(userSelectedLLM, userMessage, sessionId);
+    dbGetLLMResponse(userSelectedLLM, userMessage, deepThink, sessionId);
   } catch (error) {
     // Error handling
     const errorMsg = {

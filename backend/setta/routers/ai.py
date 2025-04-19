@@ -22,6 +22,7 @@ conversation_histories = {}
 class GetLLMResponseRequest(BaseModel):
     model: str  # Model identifier
     message: str  # Single message from user
+    deepThink: bool
     session_id: Optional[str] = None  # Session ID, optional
 
 
@@ -64,7 +65,7 @@ async def route_get_llm_response(
 
         # Add process_query to background tasks
         await websocket_msg_handler.send_message_to_llm(
-            x.model, conversation_histories[session_id]
+            x.model, conversation_histories[session_id], x.deepThink
         )
 
         # Return immediate response with session ID

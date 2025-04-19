@@ -304,9 +304,9 @@ class WMHMCPClient(BaseWebsocketMsgHandler):
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
 
-    async def send_message_to_llm(self, model, messages):
+    async def send_message_to_llm(self, model, messages, deepThink):
         message = {
-            "content": {"model": model, "messages": messages},
+            "content": {"model": model, "messages": messages, "deepThink": deepThink},
             "messageType": C.WS_MESSAGE_TO_LLM,
         }
         await self.websocket_manager.send_message(message, self.mcp_client_websocket_id)

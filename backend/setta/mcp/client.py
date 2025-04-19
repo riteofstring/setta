@@ -96,7 +96,7 @@ class MCPClient:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def process_query(self, model, messages):
+    async def process_query(self, model, messages, deepThink):
         response = await self.session.list_tools()
         available_tools = [
             {
@@ -110,8 +110,12 @@ class MCPClient:
         while True:
             assistant_message_content = []
             has_tool_call = False
+            thinking = (
+                {"type": "enabled", "budget_tokens": 10000}
+                if deepThink
+                else {"type": "disabled"}
+            )
 
-            # Initial Claude API call with streaming
             stream = self.anthropic.messages.create(
                 model=model,
                 max_tokens=20000,
@@ -119,7 +123,7 @@ class MCPClient:
                 tools=available_tools,
                 stream=True,
                 system=self.system_prompt,
-                thinking={"type": "enabled", "budget_tokens": 10000},
+                thinking=thinking,
             )
 
             complete_messages = await self.stream_responses(stream)
