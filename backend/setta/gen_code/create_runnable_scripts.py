@@ -27,7 +27,6 @@ from setta.utils.utils import prune_dict
 
 
 async def runCode(p, lsp_writers, code_state, terminals):
-    print("runCode", flush=True)
     command = await generateRunCodeCommand(p, lsp_writers, code_state)
     projectConfigId = p["projectConfig"]["id"]
     terminal_id = terminals.get_free_terminal(projectConfigId)
@@ -38,14 +37,12 @@ async def runCode(p, lsp_writers, code_state, terminals):
         terminals.new_terminal(projectConfigId, terminal_id, True)
         new_terminal_created = True
 
-    print("creating asyncio task", flush=True)
     asyncio.create_task(terminals.run_command_in_terminal(terminal_id, command))
 
     return terminal_id, new_terminal_created
 
 
 async def generateRunCodeCommand(p, lsp_writers, code_state):
-    print("generateRunCodeCommand", flush=True)
     exporter_obj = export_selected(
         p, always_export_args_objs=False, force_include_template_var=True
     )

@@ -6,7 +6,6 @@ export async function post({ address, body }) {
     .post(`${URLS.BACKEND}${address}`, body, {
       headers: {
         "Content-Type": "application/json",
-        Connection: "close",
       },
     })
     .then((res) => res)

@@ -193,6 +193,7 @@ const MessageList = memo(function MessageList({ messages, isLoading }) {
   return (
     <div className="flex h-full min-h-0 flex-col-reverse overflow-y-auto pr-2">
       <div>
+        {messages.length === 0 && <EmptyChatOptions />}
         {messages.map((message, idx) => {
           // Only the last assistant message should be considered streaming when loading
           const isLastAssistantMessage =
@@ -212,6 +213,15 @@ const MessageList = memo(function MessageList({ messages, isLoading }) {
     </div>
   );
 });
+
+function EmptyChatOptions() {
+  return (
+    <>
+      <button>Create New Project UI</button>
+      <button>Create Project UI & Values</button>
+    </>
+  );
+}
 
 // Main component
 export const ProjectChatCore = memo(function ProjectChatCore({

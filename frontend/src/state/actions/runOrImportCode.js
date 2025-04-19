@@ -7,11 +7,8 @@ import { getSectionType } from "./sectionInfos";
 
 export async function runCodeBlocks(sectionIds) {
   const project = await getProjectDataToGenerateCode({});
-  console.log("project")
   project.runCodeBlocks = sectionIds;
-  console.log("calling dbRunCode")
   const res = await dbRunCode(project);
-  console.log("res", res)
   if (res.status == 200) {
     const { terminalId, newTerminalCreated } = res.data;
     if (newTerminalCreated) {
@@ -25,7 +22,6 @@ export async function runCodeBlocks(sectionIds) {
  * @SETTA_MCP_TOOL
  */
 export function runEntryCodeBlock() {
-  console.log("runEntryCodeBlock")
   // ids should be length 0 or 1
   const ids = getEntryCodeBlock();
   runCodeBlocks(ids);

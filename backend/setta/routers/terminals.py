@@ -108,7 +108,6 @@ async def route_run_code(
     terminals=Depends(get_terminals),
     websocket_msg_handler=Depends(get_wmh_terminals),
 ):
-    print("route_run_code", flush=True)
     terminal_id, new_terminal_created = None, None
 
     if x.cliId:
