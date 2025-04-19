@@ -9,8 +9,7 @@ from dotenv import load_dotenv
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
-from setta.database.db.notifications.load import create_notification_dict
-from setta.utils.constants import CONSTANTS_FOLDER
+from setta.utils.constants import CONSTANTS_FOLDER, C
 from setta.utils.utils import get_absolute_path
 
 load_dotenv()  # load environment variables from .env
@@ -18,15 +17,15 @@ load_dotenv()  # load environment variables from .env
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
 class MCPClient:
-    def __init__(self, server_url, websocket_msg_handler):
+    def __init__(self, server_url):
         # Initialize session and client objects
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
         self.anthropic = Anthropic()
         self.reader_task = None
         self.server_url = server_url
-        # for sending notification to frontend
-        self.websocket_msg_handler = websocket_msg_handler
+        self.websocket = None
+        self.ready = asyncio.Event()
         with open(
             get_absolute_path(__file__, CONSTANTS_FOLDER / "system_prompt.md"), "r"
         ) as f:
@@ -72,10 +71,7 @@ class MCPClient:
                     [tool.name for tool in tools],
                     flush=True,
                 )
-                content = create_notification_dict("MCP Client Ready", temporary=True)
-                asyncio.create_task(
-                    self.websocket_msg_handler.broadcast_notification(content)
-                )
+                self.ready.set()
 
                 # Keep the connection alive (this will block until an exception occurs)
                 await self._keep_alive()
@@ -186,7 +182,7 @@ class MCPClient:
                 elif event.type == "content_block_stop":
                     chunk = {"type": event.type, "index": event.index}
 
-                await self.websocket_msg_handler.send_streaming_response(chunk)
+                await self.send_streaming_response(chunk)
 
             # Process complete messages for tool calls
             if complete_messages:
@@ -212,7 +208,7 @@ class MCPClient:
                             "is_delta": False,
                         }
 
-                        await self.websocket_msg_handler.send_streaming_response(chunk)
+                        await self.send_streaming_response(chunk)
 
                         # Format the tool_use content block for history
                         assistant_message_content.append(
@@ -253,7 +249,7 @@ class MCPClient:
             # Otherwise continue the loop to get the next response after tool use
 
         chunk = {"type": "message_stop"}
-        await self.websocket_msg_handler.send_streaming_response(chunk)
+        await self.send_streaming_response(chunk)
 
     async def cleanup(self):
         """Clean up resources"""
@@ -316,3 +312,8 @@ class MCPClient:
         if len(output) == 1:
             return output[0]
         return output
+
+    async def send_streaming_response(self, chunk):
+        await self.websocket.send(
+            json.dumps({"messageType": C.WS_LLM_STREAMING_RESPONSE, "content": chunk})
+        )
