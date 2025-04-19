@@ -57,13 +57,36 @@ function ViewSelector() {
   );
 }
 
+function ListItem() {
+  return (
+    <div>
+      <input type="checkbox"></input>List Item Type
+    </div>
+  );
+}
+
+function ThumbnailItem({ size = "96px" }) {
+  return (
+    <div
+      className="single-cell-container rounded-md bg-setta-500"
+      style={{ width: size, height: size }}
+    >
+      <input className="single-cell-child" type="checkbox"></input>
+    </div>
+  );
+}
+
 function ViewSwitch({ view, children }) {
   switch (view) {
     case "list":
       return <div className="flex">{children}</div>;
 
     case "thumbnail":
-      return <div className="grid">{children}</div>;
+      return (
+        <div className="grid h-full w-full auto-cols-min grid-flow-col auto-rows-min gap-2 overflow-y-auto overflow-x-clip">
+          {children}
+        </div>
+      );
 
     case "carousel":
       return <div className="flex">{children}</div>;
@@ -87,12 +110,16 @@ function ItemsColumn() {
         </div>
         <ViewSelector />
       </div>
-      <ViewSwitch>
-        <CheckboxNextToLabel>Main</CheckboxNextToLabel>
+      <ViewSwitch view="thumbnail">
+        {/* <CheckboxNextToLabel>Main</CheckboxNextToLabel>
         <CheckboxNextToLabel>OLD</CheckboxNextToLabel>
         <CheckboxNextToLabel>Images</CheckboxNextToLabel>
         <CheckboxNextToLabel>Text</CheckboxNextToLabel>
-        <CheckboxNextToLabel>Video</CheckboxNextToLabel>
+        <CheckboxNextToLabel>Video</CheckboxNextToLabel> */}
+        <ThumbnailItem />
+        <ThumbnailItem />
+        <ThumbnailItem />
+        <ThumbnailItem />
       </ViewSwitch>
     </div>
   );
@@ -116,30 +143,6 @@ function ResizablePane({ width, children }) {
     );
   }
   return <article className="-mr-2 flex flex-col pr-2">{children}</article>;
-}
-
-function ListItem() {
-  return (
-    <div>
-      <input type="checkbox"></input>List Item Type
-    </div>
-  );
-}
-
-function ThumbnailItem() {
-  return <div></div>;
-}
-
-function ListView() {
-  return null;
-}
-
-function ThumbnailView() {
-  return null;
-}
-
-function CarouselView() {
-  return null;
 }
 
 function CheckboxNextToLabel({
