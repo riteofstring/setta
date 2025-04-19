@@ -353,10 +353,6 @@ export function receiveLLMResponseChunk(chunk) {
   }
 }
 
-export function setApiKeys(keys) {
-  useAIStore.setState({ apiKeys: keys });
-}
-
 export async function saveApiKeys(keys) {
   const { isSaving } = useAIStore.getState();
 

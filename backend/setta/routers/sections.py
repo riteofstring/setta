@@ -82,6 +82,11 @@ class FileWatchListRequest(BaseModel):
     filepaths: List[str]
 
 
+class FileWatchReplacePathRequest(BaseModel):
+    newPath: str
+    oldPath: str
+
+
 @router.post(C.ROUTE_COPY_SECTIONS)
 def route_sections_make_copy(x: SectionsMakeCopyRequest):
     output = copy_sections_and_other_info(x.sectionsAndOtherInfo)
@@ -191,3 +196,11 @@ def route_file_watch_list(
 ):
     # x.filepaths is the current list of file paths or glob patterns that should be watched
     specific_file_watcher.update_watch_list(x.filepaths)
+
+
+@router.post(C.ROUTE_FILE_WATCH_REPLACE_PATH)
+def route_file_watch_replace_path(
+    x: FileWatchReplacePathRequest, specific_file_watcher=Depends(get_specific_file_watcher)
+):
+    specific_file_watcher.add_file(x.newPath)
+    specific_file_watcher.remove_file(x.oldPath)
