@@ -256,6 +256,7 @@ export const useAIStore = create(
         // State
         apiKeys: {},
         apiKeysFilepath: ".env",
+        apiKeysInitialLoadComplete: false,
         messages: [],
         chatSessions: [],
         sessionId: null,

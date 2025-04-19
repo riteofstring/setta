@@ -70,6 +70,9 @@ async function updateApiKeyInfo(updatedFileInfo) {
 export async function updateLLMApiKeyInfo(apiKeysFilepath) {
   const res = await dbGetLLMApiKeys(apiKeysFilepath);
   if (res.status == 200) {
-    useAIStore.setState({ apiKeys: res.data });
+    useAIStore.setState({
+      apiKeys: res.data,
+      apiKeysInitialLoadComplete: true,
+    });
   }
 }

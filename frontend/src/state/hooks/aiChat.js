@@ -19,6 +19,7 @@ export function useAI() {
   // Get the current state
   const {
     apiKeys,
+    apiKeysInitialLoadComplete,
     messages,
     chatSessions,
     sessionId,
@@ -32,6 +33,7 @@ export function useAI() {
     () => ({
       // State
       apiKeys,
+      apiKeysInitialLoadComplete,
       messages,
       chatSessions,
       sessionId,
@@ -50,6 +52,7 @@ export function useAI() {
     }),
     [
       apiKeys,
+      apiKeysInitialLoadComplete,
       messages,
       chatSessions,
       sessionId,
