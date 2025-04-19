@@ -29,7 +29,7 @@ const IsolatedInput = ({ modelId, providerName, initialValue, onChange }) => {
 };
 
 export function ProjectLLMSettings() {
-  const [apiKeys, setApiKeys] = useState();
+  const [apiKeys, setApiKeys] = useState([]);
   const { saveStatus, handleApiKeyChange } = useAI();
 
   const getApiKey = (modelId) => {

@@ -55,6 +55,7 @@ export function ProjectAIChat() {
   //   () => .map((key) => key.modelId),
   //   [],
   // );
+  const availableProviders = [];
 
   // Memoize filtered model groups
   const filteredModelGroups = useMemo(

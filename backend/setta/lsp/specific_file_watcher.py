@@ -24,15 +24,17 @@ class SpecificFileWatcher:
         """
         self.observer = Observer()
         self.watched_files: Set[str] = set()
+        self.file_to_metadata = {}
         self.file_to_patterns = {}
         self.handler = SpecificFileEventHandler(
             callback,
             asyncio.get_event_loop(),
             self.watched_files,
+            self.file_to_metadata,
             self.file_to_patterns,
         )
 
-    def add_file(self, file_path: str) -> bool:
+    def add_file(self, file_path: str, metadata=None) -> bool:
         """
         Add a specific file to watch.
 
@@ -51,6 +53,8 @@ class SpecificFileWatcher:
         # Add file to watched files if not already there
         if absolute_path not in self.watched_files:
             self.watched_files.add(absolute_path)
+            if metadata:
+                self.file_to_metadata[absolute_path] = metadata
         else:
             # Already watching this file
             return True
@@ -83,9 +87,10 @@ class SpecificFileWatcher:
 
         if absolute_path in self.watched_files:
             self.watched_files.remove(absolute_path)
+            self.file_to_metadata.pop(absolute_path, None)
 
     def update_watch_list(
-        self, filepaths_and_glob_patterns: List[str]
+        self, filepaths_and_glob_patterns: List[str], metadata=None
     ) -> Dict[str, List[str]]:
         """
         Update the entire list of files being watched with a single function call.
@@ -93,6 +98,7 @@ class SpecificFileWatcher:
 
         Args:
             filepaths_and_glob_patterns: List of file paths that should be watched
+            metadata: optional metadata for all the file paths passed in
 
         Returns:
             Dict containing 'added' and 'removed' lists of file paths
@@ -114,7 +120,7 @@ class SpecificFileWatcher:
 
         # Add new files
         for file_path in files_to_add:
-            success = self.add_file(file_path)
+            success = self.add_file(file_path, metadata)
             if success:
                 added_files.append(file_path)
 
@@ -158,7 +164,9 @@ class SpecificFileWatcher:
 class SpecificFileEventHandler(FileSystemEventHandler):
     """Event handler for specific file events."""
 
-    def __init__(self, callback, loop, watched_files_ref, file_to_patterns):
+    def __init__(
+        self, callback, loop, watched_files_ref, file_to_metadata, file_to_patterns
+    ):
         """
         Initialize the event handler.
 
@@ -170,6 +178,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         self.callback = callback
         self.loop = loop
         self.watched_files_ref = watched_files_ref
+        self.file_to_metadata = file_to_metadata
         self.file_to_patterns = file_to_patterns
 
     def on_created(self, event: FileSystemEvent):
@@ -261,7 +270,8 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             "relPath": rel_path,
             "eventType": event_type,
             "fileContent": file_content,
-            "matchingGlobPatterns": list(self.file_to_patterns[abs_path]),
+            "matchingGlobPatterns": list(self.file_to_patterns.get(abs_path, [])),
+            "metadata": self.file_to_metadata.get(abs_path),
         }
 
         # Add destination paths for moved events

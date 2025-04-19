@@ -2,7 +2,17 @@ import { dbLoadSectionJSONSource } from "requests/jsonSource";
 import { useSectionInfos } from "state/definitions";
 import { updateSectionInfos } from "./sectionInfos";
 
-export async function updateJSONSourceContents(updatedFileInfo) {
+export async function updateWithFileChanges(updatedFileInfo) {
+  const { metadata } = updatedFileInfo;
+
+  if (metadata === "jsonSource") {
+    await updateJSONSourceContents(updatedFileInfo);
+  } else if (metadata === "apiKeysFile") {
+    updateApiKeyInfo(updatedFileInfo);
+  }
+}
+
+async function updateJSONSourceContents(updatedFileInfo) {
   const { absPath, relPath, destAbsPath, destRelPath, matchingGlobPatterns } =
     updatedFileInfo;
 
@@ -49,4 +59,7 @@ export async function loadJsonContents(variantIdsToLoad) {
   }
 
   return { sectionVariants, codeInfo, codeInfoCols };
+}
+
+function updateApiKeyInfo(updatedFileInfo) {
 }

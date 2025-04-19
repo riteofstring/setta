@@ -75,9 +75,9 @@ export function subscribe() {
   );
 
   useSectionInfos.subscribe(
-    filenameSubscriptionFn,
+    jsonFilenameSubscriptionFn,
     (newVal) => {
-      dbFileWatchList([...newVal]);
+      dbFileWatchList([...newVal], "jsonSource");
     },
     {
       equalityFn: _.isEqual,
@@ -178,7 +178,11 @@ export function subscribe() {
     },
   );
 
-  useAIStore.subscribe(apiKeysFilepathSubscriptionFn, dbFileWatchReplacePath);
+  useAIStore.subscribe(
+    apiKeysFilepathSubscriptionFn,
+    (newVal, oldVal) => dbFileWatchReplacePath(newVal, oldVal, "apiKeysFile"),
+    { fireImmediately: true },
+  );
 }
 
 function singletonSectionsSubscriptionFn(state) {
@@ -287,7 +291,7 @@ function artifactWhoModifiedSubscriptionFn(state) {
   return output;
 }
 
-function filenameSubscriptionFn(state) {
+function jsonFilenameSubscriptionFn(state) {
   const filenameSet = new Set();
   for (const v of Object.values(state.variants)) {
     if (v.isJsonSource) {

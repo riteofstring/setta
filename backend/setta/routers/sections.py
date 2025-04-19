@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -80,11 +80,13 @@ class DeleteFileRequest(BaseModel):
 
 class FileWatchListRequest(BaseModel):
     filepaths: List[str]
+    metadata: Any
 
 
 class FileWatchReplacePathRequest(BaseModel):
     newPath: str
     oldPath: str
+    metadata: Any
 
 
 @router.post(C.ROUTE_COPY_SECTIONS)
@@ -195,12 +197,14 @@ def route_file_watch_list(
     x: FileWatchListRequest, specific_file_watcher=Depends(get_specific_file_watcher)
 ):
     # x.filepaths is the current list of file paths or glob patterns that should be watched
-    specific_file_watcher.update_watch_list(x.filepaths)
+    specific_file_watcher.update_watch_list(x.filepaths, x.metadata)
 
 
 @router.post(C.ROUTE_FILE_WATCH_REPLACE_PATH)
 def route_file_watch_replace_path(
-    x: FileWatchReplacePathRequest, specific_file_watcher=Depends(get_specific_file_watcher)
+    x: FileWatchReplacePathRequest,
+    specific_file_watcher=Depends(get_specific_file_watcher),
 ):
-    specific_file_watcher.add_file(x.newPath)
-    specific_file_watcher.remove_file(x.oldPath)
+    specific_file_watcher.add_file(x.newPath, x.metadata)
+    if x.oldPath != x.newPath:
+        specific_file_watcher.remove_file(x.oldPath)
