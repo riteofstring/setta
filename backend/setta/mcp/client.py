@@ -31,10 +31,6 @@ class MCPClient:
         ) as f:
             self.system_prompt = f.read()
 
-    def start(self):
-        """Start the connection process in the background"""
-        self.reader_task = asyncio.create_task(self.connect_to_server())
-
     async def connect_to_server(self, retry_delay=1):
         """Connect to an MCP server over HTTP with retry logic
 

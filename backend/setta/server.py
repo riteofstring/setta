@@ -25,6 +25,7 @@ from setta.lsp.utils import (
     kill_lsps,
     start_lsps,
 )
+from setta.mcp.client_subprocess_manager import MCPSubprocessManager
 from setta.mcp.server import add_mcp_server_to_fastapi_server
 from setta.routers import (
     ai_router,
@@ -79,8 +80,12 @@ async def lifespan(app: FastAPI):
     app.state.dbq = DBQueue(
         C.DB_PATH,
     )
+    app.state.mcpSubprocessManager = MCPSubprocessManager(
+        f"{C.BACKEND}/mcp", f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_MCP_CLIENT}"
+    )
 
     add_mcp_server_to_fastapi_server(app, "/mcp")
+    app.state.mcpSubprocessManager.start()
 
     maybe_create_tables_and_seed(
         app.state.dbq,
@@ -123,6 +128,7 @@ async def lifespan(app: FastAPI):
     finally:
         app.state.file_watcher.stop()
         app.state.specific_file_watcher.stop()
+        app.state.mcpSubprocessManager.stop()
         await kill_lsps(app.state.lsps, app.state.lsp_readers)
 
 
