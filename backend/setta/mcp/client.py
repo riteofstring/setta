@@ -9,8 +9,7 @@ from dotenv import load_dotenv
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
-from setta.database.db.notifications.load import create_notification_dict
-from setta.utils.constants import CONSTANTS_FOLDER
+from setta.utils.constants import CONSTANTS_FOLDER, C
 from setta.utils.utils import get_absolute_path
 
 load_dotenv()  # load environment variables from .env
@@ -18,23 +17,19 @@ load_dotenv()  # load environment variables from .env
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
 class MCPClient:
-    def __init__(self, server_url, websocket_msg_handler):
+    def __init__(self, server_url):
         # Initialize session and client objects
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
         self.anthropic = Anthropic()
         self.reader_task = None
         self.server_url = server_url
-        # for sending notification to frontend
-        self.websocket_msg_handler = websocket_msg_handler
+        self.websocket = None
+        self.ready = asyncio.Event()
         with open(
             get_absolute_path(__file__, CONSTANTS_FOLDER / "system_prompt.md"), "r"
         ) as f:
             self.system_prompt = f.read()
-
-    def start(self):
-        """Start the connection process in the background"""
-        self.reader_task = asyncio.create_task(self.connect_to_server())
 
     async def connect_to_server(self, retry_delay=1):
         """Connect to an MCP server over HTTP with retry logic
@@ -72,10 +67,7 @@ class MCPClient:
                     [tool.name for tool in tools],
                     flush=True,
                 )
-                content = create_notification_dict("MCP Client Ready", temporary=True)
-                asyncio.create_task(
-                    self.websocket_msg_handler.broadcast_notification(content)
-                )
+                self.ready.set()
 
                 # Keep the connection alive (this will block until an exception occurs)
                 await self._keep_alive()
@@ -151,7 +143,7 @@ class MCPClient:
                         event.content_block, "name"
                     ):
                         # Yield the original event with tool name
-                        yield {
+                        chunk = {
                             "type": event.type,
                             "index": event.index,
                             "block_type": event.content_block.type,
@@ -159,7 +151,7 @@ class MCPClient:
                         }
                     else:
                         # Yield the original event
-                        yield {
+                        chunk = {
                             "type": event.type,
                             "index": event.index,
                             "block_type": event.content_block.type,
@@ -168,14 +160,14 @@ class MCPClient:
                 # For deltas, stream them to the frontend with type info
                 elif event.type == "content_block_delta":
                     if event.delta.type == "text_delta":
-                        yield {
+                        chunk = {
                             "type": "text",
                             "content": event.delta.text,
                             "index": event.index,
                             "is_delta": True,
                         }
                     elif event.delta.type == "input_json_delta":
-                        yield {
+                        chunk = {
                             "type": "json",
                             "content": event.delta.partial_json,
                             "index": event.index,
@@ -184,7 +176,9 @@ class MCPClient:
 
                 # For content block stop, inform the frontend
                 elif event.type == "content_block_stop":
-                    yield {"type": event.type, "index": event.index}
+                    chunk = {"type": event.type, "index": event.index}
+
+                await self.send_streaming_response(chunk)
 
             # Process complete messages for tool calls
             if complete_messages:
@@ -202,13 +196,15 @@ class MCPClient:
                         result = await self.session.call_tool(tool_name, tool_args)
 
                         # Yield tool result
-                        yield {
+                        chunk = {
                             "type": "tool_result",
                             "content": self.tool_call_result_formatted_for_frontend(
                                 result
                             ),
                             "is_delta": False,
                         }
+
+                        await self.send_streaming_response(chunk)
 
                         # Format the tool_use content block for history
                         assistant_message_content.append(
@@ -247,6 +243,9 @@ class MCPClient:
                     )
                 break
             # Otherwise continue the loop to get the next response after tool use
+
+        chunk = {"type": "message_stop"}
+        await self.send_streaming_response(chunk)
 
     async def cleanup(self):
         """Clean up resources"""
@@ -309,3 +308,8 @@ class MCPClient:
         if len(output) == 1:
             return output[0]
         return output
+
+    async def send_streaming_response(self, chunk):
+        await self.websocket.send(
+            json.dumps({"messageType": C.WS_LLM_STREAMING_RESPONSE, "content": chunk})
+        )
