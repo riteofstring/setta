@@ -2,14 +2,6 @@ import { dbGetLLMResponse } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { getSectionVariant } from "./sectionInfos";
 
-export function setViewHistory(viewHistory) {
-  useAIStore.setState({ viewHistory });
-}
-
-export function setUserSelectedLLM(model) {
-  useAIStore.setState({ userSelectedLLM: model });
-}
-
 export function updateChatSession(id, newMessages) {
   if (!id) return;
 

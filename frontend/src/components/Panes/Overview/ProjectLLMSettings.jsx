@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { dbSetLLMApiKeys } from "requests/ai";
 import { updateLLMApiKeyInfo } from "state/actions/fileUpdates";
 import { useAIStore } from "state/definitions";
-import { useAI } from "state/hooks/aiChat";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { MODEL_GROUPS } from "utils/constants";
 
@@ -40,7 +39,7 @@ const IsolatedInput = ({ apiKeyName, initialValue }) => {
 };
 
 export function ProjectLLMSettings() {
-  const { apiKeys } = useAI();
+  const apiKeys = useAIStore((x) => x.apiKeys);
 
   useEffect(() => {
     updateLLMApiKeyInfo(useAIStore.getState().apiKeysFilepath);

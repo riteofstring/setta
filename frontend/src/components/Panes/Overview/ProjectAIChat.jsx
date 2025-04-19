@@ -5,9 +5,14 @@ import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
+import {
+  createNewChat,
+  submitMessage,
+  switchToChat,
+  updateChatSession,
+} from "state/actions/aiChat";
 import { updateLLMApiKeyInfo } from "state/actions/fileUpdates";
 import { useAIStore } from "state/definitions";
-import { useAI } from "state/hooks/aiChat";
 import { MODEL_GROUPS } from "utils/constants";
 import { ProjectChatCore } from "./ProjectLevelAI/ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectLevelAI/ProjectChatHistory";
@@ -22,13 +27,7 @@ export function ProjectAIChat() {
     isLoading,
     viewHistory,
     userSelectedLLM,
-    setViewHistory,
-    setUserSelectedLLM,
-    createNewChat,
-    submitMessage,
-    switchToChat,
-    updateChatSession,
-  } = useAI();
+  } = useAIStore();
 
   useEffect(() => {
     updateLLMApiKeyInfo(useAIStore.getState().apiKeysFilepath);
@@ -83,7 +82,7 @@ export function ProjectAIChat() {
             </button>
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              onClick={() => setViewHistory(!viewHistory)}
+              onClick={() => useAIStore.setState({ viewHistory: !viewHistory })}
               aria-label="View History"
             >
               {viewHistory ? (
@@ -117,7 +116,9 @@ export function ProjectAIChat() {
                 allItems={filteredModelGroups}
                 value={userSelectedLLM}
                 small={false}
-                onSelectedItemChange={setUserSelectedLLM}
+                onSelectedItemChange={(model) =>
+                  useAIStore.setState({ userSelectedLLM: model })
+                }
                 placeholder="Select an LLM model"
                 outerDivClasses="@[17.5rem]:max-w-64 justify-center"
               />
