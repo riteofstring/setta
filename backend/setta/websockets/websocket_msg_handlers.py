@@ -1,6 +1,5 @@
 from pydantic import TypeAdapter
 
-from setta.database.db.notifications.load import create_notification_dict
 from setta.mcp.utils import (
     IDDoesNotExist,
     replace_ids_with_uuids,
@@ -35,8 +34,7 @@ class WebsocketMsgHandlers:
             websocket_manager, script_metadata, code_state
         )
         self.python_logger = WMHPythonLogger(websocket_manager)
-        self.mcp_server = WMHMCPServer(websocket_manager)
-        self.mcp_client = WMHMCPClient(websocket_manager)
+        self.mcp = WMHMCP(websocket_manager)
 
 
 class BaseWebsocketMsgHandler:
@@ -226,7 +224,7 @@ class WMHPythonLogger(BaseWebsocketMsgHandler):
             )
 
 
-class WMHMCPServer(BaseWebsocketMsgHandler):
+class WMHMCP(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
         self.id_to_uuid = {}
@@ -263,42 +261,3 @@ class WMHMCPServer(BaseWebsocketMsgHandler):
             C.WS_NOTIFICATION,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
-
-    async def send_streaming_response(self, chunk):
-        await self.websocket_manager.broadcast(
-            chunk,
-            C.WS_LLM_STREAMING_RESPONSE,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-        )
-
-
-class WMHMCPClient(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager):
-        self.websocket_manager = websocket_manager
-        self.mcp_client_websocket_id = None
-
-    async def process_message(self, message, fromWebsocketId):
-        msg_type = message["messageType"]
-        if msg_type == C.WS_LLM_STREAMING_RESPONSE:
-            await self.websocket_manager.broadcast(
-                message=message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
-            )
-        elif msg_type == C.WS_SCRIPT_READY:
-            self.mcp_client_websocket_id = fromWebsocketId
-            await self.broadcast_mcp_client_ready()
-
-    async def broadcast_mcp_client_ready(self):
-        notification = create_notification_dict("MCP Client is ready", temporary=True)
-        notification["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
-        await self.websocket_manager.broadcast(
-            notification,
-            C.WS_NOTIFICATION,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-        )
-
-    async def send_message_to_llm(self, model, messages):
-        message = {
-            "content": {"model": model, "messages": messages},
-            "messageType": C.WS_MESSAGE_TO_LLM,
-        }
-        await self.websocket_manager.send_message(message, self.mcp_client_websocket_id)
