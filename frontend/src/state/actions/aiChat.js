@@ -1,14 +1,6 @@
-import { dbGetLLMResponse, dbSetApiKeys } from "requests/ai";
+import { dbGetLLMResponse } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { getSectionVariant } from "./sectionInfos";
-
-export function setViewHistory(viewHistory) {
-  useAIStore.setState({ viewHistory });
-}
-
-export function setUserSelectedLLM(model) {
-  useAIStore.setState({ userSelectedLLM: model });
-}
 
 export function updateChatSession(id, newMessages) {
   if (!id) return;
@@ -351,63 +343,6 @@ export function receiveLLMResponseChunk(chunk) {
   } catch (e) {
     console.error("Error parsing streaming chunk:", e);
   }
-}
-
-export function setApiKeys(keys) {
-  useAIStore.setState({ apiKeys: keys });
-}
-
-export async function saveApiKeys(keys) {
-  const { isSaving } = useAIStore.getState();
-
-  // Guard: Already saving
-  if (isSaving) return;
-
-  useAIStore.setState({ isSaving: true, saveStatus: "Saving..." });
-
-  try {
-    await dbSetApiKeys(keys);
-    useAIStore.setState({ saveStatus: "Saved!" });
-  } catch (error) {
-    console.error("Failed to update API keys on the server:", error);
-    useAIStore.setState({ saveStatus: "Error saving" });
-  } finally {
-    useAIStore.setState({ isSaving: false });
-
-    // Clear status after delay
-    setTimeout(() => useAIStore.setState({ saveStatus: "" }), 3000);
-  }
-}
-
-export async function handleApiKeyChange(modelId, providerName, value) {
-  const { apiKeys } = useAIStore.getState();
-
-  // Guard: Empty value - remove the key
-  if (!value || value.trim() === "") {
-    const filteredKeys = apiKeys.filter((key) => key.modelId !== modelId);
-    useAIStore.setState({ apiKeys: filteredKeys });
-    await saveApiKeys(filteredKeys);
-    return;
-  }
-
-  // Find or create key
-  const existingIndex = apiKeys.findIndex((key) => key.modelId === modelId);
-  let updatedKeys;
-
-  if (existingIndex >= 0) {
-    // Update existing
-    updatedKeys = [...apiKeys];
-    updatedKeys[existingIndex] = {
-      ...updatedKeys[existingIndex],
-      apiKey: value,
-    };
-  } else {
-    // Add new
-    updatedKeys = [...apiKeys, { modelId, providerName, apiKey: value }];
-  }
-
-  useAIStore.setState({ apiKeys: updatedKeys });
-  await saveApiKeys(updatedKeys);
 }
 
 function streamInto(streamTarget, content) {
