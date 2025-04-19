@@ -396,13 +396,13 @@ function streamInto(streamTarget, content) {
 }
 
 /**
- * Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear.
+ * Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool BEFORE YOU USE THIS TOOL.
  * @SETTA_MCP_TOOL
  * @param {ID} sectionId The id of the code block that you want to start writing code into.
  * @param {integer} [insertAtLine] Optional line number (1-indexed) to insert at. If omitted, appends to the end.
  * @return {string} A string containing the current code in the code block before modification.
  */
-export function startStreamingInto({ sectionId, insertAtLine }) {
+export function startUpdatingCode({ sectionId, insertAtLine }) {
   // Get the current code
   const currCode = getCurrentCode({ sectionId });
   const lines = currCode.split("\n");
@@ -449,7 +449,7 @@ export function startStreamingInto({ sectionId, insertAtLine }) {
  * @SETTA_MCP_TOOL
  * @returns {string} the code with all the changes applied.
  */
-export function stopStreamingInto() {
+export function finishUpdatingCode() {
   const { streamTarget } = useAIStore.getState();
   const code = getSectionVariant(streamTarget).code;
 
@@ -468,8 +468,8 @@ export function stopStreamingInto() {
  * Delete a range of code from a code block.
  * @SETTA_MCP_TOOL
  * @param {ID} sectionId The id of the code block.
- * @param {integer} [startLine] Optional starting line number (1-indexed). If omitted, starts from the first line.
- * @param {integer} [endLine] Optional ending line number (1-indexed, inclusive). If omitted, ends at the last line.
+ * @param {integer} startLine Starting line number (1-indexed).
+ * @param {integer} endLine Ending line number (1-indexed, inclusive).
  * @return {string} A string containing the code with the specified range deleted.
  * @throws {Error} If the provided line numbers are invalid or out of range.
  */

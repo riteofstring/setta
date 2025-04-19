@@ -109,10 +109,10 @@ async def setParamValuesMcp(
 
 # From aiChat.js
 @mcp_server.tool(
-    description="Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear. Returns A string containing the current code in the code block before modification."
+    description="Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool BEFORE YOU USE THIS TOOL. Returns A string containing the current code in the code block before modification."
 )
 async def startStreamingInto(sectionId: ID, insertAtLine: Optional[int] = None) -> str:
-    """Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear. Returns A string containing the current code in the code block before modification.
+    """Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool BEFORE YOU USE THIS TOOL. Returns A string containing the current code in the code block before modification.
 
     Args:
         sectionId: The id of the code block that you want to start writing code into.
@@ -150,15 +150,13 @@ async def stopStreamingInto() -> str:
 @mcp_server.tool(
     description="Delete a range of code from a code block. Returns A string containing the code with the specified range deleted."
 )
-async def deleteCodeRange(
-    sectionId: ID, startLine: Optional[int] = None, endLine: Optional[int] = None
-) -> str:
+async def deleteCodeRange(sectionId: ID, startLine: int, endLine: int) -> str:
     """Delete a range of code from a code block. Returns A string containing the code with the specified range deleted.
 
     Args:
         sectionId: The id of the code block.
-        startLine: Optional starting line number (1-indexed). If omitted, starts from the first line.
-        endLine: Optional ending line number (1-indexed, inclusive). If omitted, ends at the last line.
+        startLine: Starting line number (1-indexed).
+        endLine: Ending line number (1-indexed, inclusive).
 
     Returns:
         A string containing the code with the specified range deleted.
