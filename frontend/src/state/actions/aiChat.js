@@ -221,6 +221,31 @@ export function receiveLLMResponseChunk(chunk) {
         }
         break;
 
+      case "thinking":
+        if (chunk.is_delta) {
+          // For thinking deltas, either add to existing content or create a new text chunk
+          if (
+            currentMsg.streamSequence.length > 0 &&
+            currentMsg.streamSequence[currentMsg.streamSequence.length - 1]
+              .type === "thinking"
+          ) {
+            // Add to existing text chunk
+            const lastItem =
+              currentMsg.streamSequence[currentMsg.streamSequence.length - 1];
+            lastItem.content += chunk.content;
+          } else {
+            // Create a new text chunk
+            currentMsg.streamSequence.push({
+              type: "thinking",
+              content: chunk.content,
+            });
+          }
+
+          // Also update the main content for backward compatibility
+          currentMsg.content += chunk.content;
+        }
+        break;
+
       case "json":
         if (chunk.is_delta && currentBlockType === "tool_use") {
           // Build up JSON content for the tool call

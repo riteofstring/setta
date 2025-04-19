@@ -114,11 +114,12 @@ class MCPClient:
             # Initial Claude API call with streaming
             stream = self.anthropic.messages.create(
                 model=model,
-                max_tokens=1000,
+                max_tokens=20000,
                 messages=messages,
                 tools=available_tools,
                 stream=True,
                 system=self.system_prompt,
+                thinking={"type": "enabled", "budget_tokens": 10000},
             )
 
             complete_messages = await self.stream_responses(stream)
@@ -129,6 +130,14 @@ class MCPClient:
                     if msg.type == "text":
                         assistant_message_content.append(
                             {"type": "text", "text": msg.text}
+                        )
+                    elif msg.type == "thinking":
+                        assistant_message_content.append(
+                            {
+                                "type": "thinking",
+                                "thinking": msg.text,
+                                "signature": msg.signature,
+                            }
                         )
                     elif msg.type == "tool_use":
                         has_tool_call = True
@@ -212,20 +221,24 @@ class MCPClient:
                 llm_msgs[event.index] = event.content_block
                 if not hasattr(event.content_block, "text"):
                     event.content_block.text = ""
-                if event.content_block.type == "tool_use" and hasattr(
-                    event.content_block, "name"
-                ):
+                if event.content_block.type == "text":
+                    chunk = {
+                        "type": event.type,
+                        "index": event.index,
+                        "block_type": event.content_block.type,
+                    }
+                elif event.content_block.type == "thinking":
+                    chunk = {
+                        "type": event.type,
+                        "index": event.index,
+                        "block_type": event.content_block.type,
+                    }
+                elif event.content_block.type == "tool_use":
                     chunk = {
                         "type": event.type,
                         "index": event.index,
                         "block_type": event.content_block.type,
                         "tool_name": event.content_block.name,
-                    }
-                else:
-                    chunk = {
-                        "type": event.type,
-                        "index": event.index,
-                        "block_type": event.content_block.type,
                     }
 
             elif event.type == "content_block_delta":
@@ -237,6 +250,16 @@ class MCPClient:
                         "index": event.index,
                         "is_delta": True,
                     }
+                elif event.delta.type == "thinking_delta":
+                    llm_msgs[event.index].text += event.delta.thinking
+                    chunk = {
+                        "type": "thinking",
+                        "content": event.delta.thinking,
+                        "index": event.index,
+                        "is_delta": True,
+                    }
+                elif event.delta.type == "signature_delta":
+                    llm_msgs[event.index].signature = event.delta.signature
                 elif event.delta.type == "input_json_delta":
                     llm_msgs[event.index].text += event.delta.partial_json
                     chunk = {
