@@ -96,7 +96,7 @@ class MCPClient:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def process_query(self, model, messages):
+    async def process_query(self, model, messages, deepThink):
         response = await self.session.list_tools()
         available_tools = [
             {
@@ -110,75 +110,23 @@ class MCPClient:
         while True:
             assistant_message_content = []
             has_tool_call = False
-            complete_messages = None
+            thinking = (
+                {"type": "enabled", "budget_tokens": 10000}
+                if deepThink
+                else {"type": "disabled"}
+            )
 
-            # Initial Claude API call with streaming
             stream = self.anthropic.messages.create(
                 model=model,
-                max_tokens=1000,
+                max_tokens=20000,
                 messages=messages,
                 tools=available_tools,
                 stream=True,
                 system=self.system_prompt,
+                thinking=thinking,
             )
 
-            # Process streaming events
-            # Use a regular for loop since stream_responses returns a regular generator
-            stream_gen = self.stream_responses(stream)
-            async for event_data in stream_gen:
-                # Check for the special complete event
-                if (
-                    isinstance(event_data, dict)
-                    and event_data.get("type") == "content_block_complete"
-                ):
-                    complete_messages = event_data.get("messages")
-                    continue
-
-                # Regular event from the stream
-                event = event_data  # The actual event object from the stream
-
-                # For content block start, track the current index and block type
-                if event.type == "content_block_start":
-                    if event.content_block.type == "tool_use" and hasattr(
-                        event.content_block, "name"
-                    ):
-                        # Yield the original event with tool name
-                        chunk = {
-                            "type": event.type,
-                            "index": event.index,
-                            "block_type": event.content_block.type,
-                            "tool_name": event.content_block.name,
-                        }
-                    else:
-                        # Yield the original event
-                        chunk = {
-                            "type": event.type,
-                            "index": event.index,
-                            "block_type": event.content_block.type,
-                        }
-
-                # For deltas, stream them to the frontend with type info
-                elif event.type == "content_block_delta":
-                    if event.delta.type == "text_delta":
-                        chunk = {
-                            "type": "text",
-                            "content": event.delta.text,
-                            "index": event.index,
-                            "is_delta": True,
-                        }
-                    elif event.delta.type == "input_json_delta":
-                        chunk = {
-                            "type": "json",
-                            "content": event.delta.partial_json,
-                            "index": event.index,
-                            "is_delta": True,
-                        }
-
-                # For content block stop, inform the frontend
-                elif event.type == "content_block_stop":
-                    chunk = {"type": event.type, "index": event.index}
-
-                await self.send_streaming_response(chunk)
+            complete_messages = await self.stream_responses(stream)
 
             # Process complete messages for tool calls
             if complete_messages:
@@ -186,6 +134,14 @@ class MCPClient:
                     if msg.type == "text":
                         assistant_message_content.append(
                             {"type": "text", "text": msg.text}
+                        )
+                    elif msg.type == "thinking":
+                        assistant_message_content.append(
+                            {
+                                "type": "thinking",
+                                "thinking": msg.text,
+                                "signature": msg.signature,
+                            }
                         )
                     elif msg.type == "tool_use":
                         has_tool_call = True
@@ -195,7 +151,6 @@ class MCPClient:
                         # Execute tool call
                         result = await self.session.call_tool(tool_name, tool_args)
 
-                        # Yield tool result
                         chunk = {
                             "type": "tool_result",
                             "content": self.tool_call_result_formatted_for_frontend(
@@ -258,45 +213,77 @@ class MCPClient:
                 pass
 
     async def stream_responses(self, stream):
-        """
-        Process the stream from Claude API, yield each event as it arrives
-        and finally yield a dictionary with the complete messages
-        """
+        # sends streaming response to frontend
+        # and also constructs the full message for use in process_query
         llm_msgs = []
 
-        # Assuming stream is an iterable, not an async iterable
         for event in stream:
+            chunk = None
             if event.type == "content_block_start":
                 while len(llm_msgs) <= event.index:
                     llm_msgs.append(None)
                 llm_msgs[event.index] = event.content_block
                 if not hasattr(event.content_block, "text"):
                     event.content_block.text = ""
-
-                # Yield the original event
-                yield event
+                if event.content_block.type == "text":
+                    chunk = {
+                        "type": event.type,
+                        "index": event.index,
+                        "block_type": event.content_block.type,
+                    }
+                elif event.content_block.type == "thinking":
+                    chunk = {
+                        "type": event.type,
+                        "index": event.index,
+                        "block_type": event.content_block.type,
+                    }
+                elif event.content_block.type == "tool_use":
+                    chunk = {
+                        "type": event.type,
+                        "index": event.index,
+                        "block_type": event.content_block.type,
+                        "tool_name": event.content_block.name,
+                    }
 
             elif event.type == "content_block_delta":
                 if event.delta.type == "text_delta":
-                    # Add to the message being built
                     llm_msgs[event.index].text += event.delta.text
+                    chunk = {
+                        "type": "text",
+                        "content": event.delta.text,
+                        "index": event.index,
+                        "is_delta": True,
+                    }
+                elif event.delta.type == "thinking_delta":
+                    llm_msgs[event.index].text += event.delta.thinking
+                    chunk = {
+                        "type": "thinking",
+                        "content": event.delta.thinking,
+                        "index": event.index,
+                        "is_delta": True,
+                    }
+                elif event.delta.type == "signature_delta":
+                    llm_msgs[event.index].signature = event.delta.signature
                 elif event.delta.type == "input_json_delta":
                     llm_msgs[event.index].text += event.delta.partial_json
-
-                # Yield the original event
-                yield event
+                    chunk = {
+                        "type": "json",
+                        "content": event.delta.partial_json,
+                        "index": event.index,
+                        "is_delta": True,
+                    }
 
             elif event.type == "content_block_stop":
                 if llm_msgs[event.index].type == "tool_use":
                     text = llm_msgs[event.index].text
                     if text:
                         llm_msgs[event.index].input = json.loads(text)
+                chunk = {"type": event.type, "index": event.index}
 
-                # Yield the original event
-                yield event
+            if chunk is not None:
+                await self.send_streaming_response(chunk)
 
-        # Yield a dictionary with the complete message data
-        yield {"type": "content_block_complete", "messages": llm_msgs}
+        return llm_msgs
 
     def tool_call_result_formatted_for_frontend(self, result):
         output = []

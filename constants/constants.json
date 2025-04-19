@@ -25,7 +25,6 @@
   "SOCIAL": "SOCIAL",
   "IFRAME": "IFRAME",
   "CHAT": "CHAT",
-  "BROWSER": "BROWSER",
   "NON_SECTION_TYPES": [
     "TEXT",
     "SLIDER",
@@ -95,10 +94,12 @@
   "ROUTE_LOAD_ARTIFACT_FROM_DISK": "/loadArtifactFromDisk",
   "ROUTE_RESTART_LANGUAGE_SERVER": "/restartLanguageServer",
   "ROUTE_FILE_WATCH_LIST": "/fileWatchList",
+  "ROUTE_FILE_WATCH_REPLACE_PATH": "/fileWatchReplacePath",
   "ROUTE_GET_NOTIFICATIONS": "/getNotifications",
   "ROUTE_DELETE_NOTIFICATION": "/deleteNotification",
   "ROUTE_GET_LLM_RESPONSE": "/getLLMResponse",
-  "ROUTE_SET_API_KEYS": "/setApiKeys",
+  "ROUTE_SET_LLM_API_KEYS": "/setLLMApiKeys",
+  "ROUTE_GET_LLM_API_KEYS": "/getLLMApiKeys",
   "ROUTE_RUN_CODE": "/runCode",
   "ROUTE_TYPE_CHECK": "/typeCheck",
   "NESTED_PARAM": "NESTED_PARAM",
@@ -158,5 +159,9 @@
   "ARTIFACT_TYPE_IMG": "img",
   "ARTIFACT_TYPE_BRUSH_STROKES": "brushStrokes",
   "ARTIFACT_TYPE_LIST": "list",
-  "ARTIFACT_TYPE_CHAT_HISTORY": "chatHistory"
+  "ARTIFACT_TYPE_CHAT_HISTORY": "chatHistory",
+  "LLM_API_KEY_NAMES": {
+    "Anthropic": "ANTHROPIC_API_KEY",
+    "OpenAI": "OPENAI_API_KEY"
+  }
 }
