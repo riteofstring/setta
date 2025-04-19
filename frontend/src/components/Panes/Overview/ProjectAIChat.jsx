@@ -17,6 +17,7 @@ export function ProjectAIChat() {
     isLoading,
     viewHistory,
     userSelectedLLM,
+    apiKeys,
     setViewHistory,
     setUserSelectedLLM,
     createNewChat,
@@ -51,10 +52,10 @@ export function ProjectAIChat() {
   }, [sessionId, messages, updateChatSession]);
 
   // Memoize available providers
-  // const availableProviders = useMemo(
-  //   () => .map((key) => key.modelId),
-  //   [],
-  // );
+  const availableProviders = useMemo(
+    () => apiKeys.map((key) => key.modelId),
+    [apiKeys],
+  );
 
   // Memoize filtered model groups
   const filteredModelGroups = useMemo(
