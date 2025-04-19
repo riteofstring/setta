@@ -11,6 +11,15 @@ export function BrowserArea({ sectionId }) {
   });
   return (
     <div className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col gap-2 overflow-y-scroll pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible">
+      <GroupColumn width={width} />
+      <ItemsColumn />
+    </div>
+  );
+}
+
+function GroupColumn({ width }) {
+  return (
+    <>
       <ResizablePane width={width}>
         <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
           Groups
@@ -25,14 +34,19 @@ export function BrowserArea({ sectionId }) {
           <CheckboxNextToLabel>Video</CheckboxNextToLabel>
         </div>
       </ResizablePane>
-      <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-clip pb-2 ">
-        <div className="flex items-center gap-1 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-          <span>Artifacts</span>
-          <BiChevronRight />
-          <span>Select</span>
-        </div>
-        <FilterSection />
+    </>
+  );
+}
+
+function ItemsColumn() {
+  return (
+    <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-clip pb-2 ">
+      <div className="flex items-center gap-1 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+        <span>Artifacts</span>
+        <BiChevronRight />
+        <span>Select</span>
       </div>
+      <FilterSection />
     </div>
   );
 }
