@@ -2,6 +2,9 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { BiChevronRight } from "react-icons/bi";
+import { HiOutlineViewGrid } from "react-icons/hi";
+import { MdList } from "react-icons/md";
+import { TbCarouselHorizontal } from "react-icons/tb";
 import { useSectionInfos } from "state/definitions";
 
 export function BrowserArea({ sectionId }) {
@@ -38,15 +41,59 @@ function GroupColumn({ width }) {
   );
 }
 
+function ViewSelector() {
+  return (
+    <div className="flex">
+      <button>
+        <MdList />
+      </button>
+      <button>
+        <HiOutlineViewGrid />
+      </button>
+      <button>
+        <TbCarouselHorizontal />
+      </button>
+    </div>
+  );
+}
+
+function ViewSwitch({ view, children }) {
+  switch (view) {
+    case "list":
+      return <div className="flex">{children}</div>;
+
+    case "thumbnail":
+      return <div className="grid">{children}</div>;
+
+    case "carousel":
+      return <div className="flex">{children}</div>;
+
+    default:
+      return <>{children}</>;
+  }
+}
+
 function ItemsColumn() {
   return (
     <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-clip pb-2 ">
-      <div className="flex items-center gap-1 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-        <span>Artifacts</span>
-        <BiChevronRight />
-        <span>Select</span>
+      <div className="flex flex-row">
+        <div className="flex w-full min-w-0 flex-col">
+          <div className="flex items-center gap-1 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+            <span>Artifacts</span>
+            <BiChevronRight />
+            <span>Select</span>
+          </div>
+          <FilterSection />
+        </div>
+        <ViewSelector />
       </div>
-      <FilterSection />
+      <ViewSwitch>
+        <CheckboxNextToLabel>Main</CheckboxNextToLabel>
+        <CheckboxNextToLabel>OLD</CheckboxNextToLabel>
+        <CheckboxNextToLabel>Images</CheckboxNextToLabel>
+        <CheckboxNextToLabel>Text</CheckboxNextToLabel>
+        <CheckboxNextToLabel>Video</CheckboxNextToLabel>
+      </ViewSwitch>
     </div>
   );
 }
@@ -81,6 +128,18 @@ function ListItem() {
 
 function ThumbnailItem() {
   return <div></div>;
+}
+
+function ListView() {
+  return null;
+}
+
+function ThumbnailView() {
+  return null;
+}
+
+function CarouselView() {
+  return null;
 }
 
 function CheckboxNextToLabel({
