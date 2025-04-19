@@ -37,11 +37,12 @@ export async function dbGetLLMApiKeys(apiKeysFilepath) {
   }
 }
 
-export async function dbSetLLMApiKeys(apiKeys) {
+export async function dbSetLLMApiKeys(apiKeys, apiKeysFilepath) {
   try {
     const response = await post({
       body: {
         apiKeys,
+        apiKeysFilepath,
       },
       address: C.ROUTE_SET_LLM_API_KEYS,
     });

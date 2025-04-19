@@ -5,6 +5,7 @@ export function useEditableOnSubmit(
   onSetTitle,
   condition,
   passEventToOnChange = false,
+  allowEmpty = false,
 ) {
   const [inputValue, setInputValue] = useState(initialValue);
   const blurTriggeredByEscapeKey = useRef(false);
@@ -24,7 +25,7 @@ export function useEditableOnSubmit(
     }
     blurTriggeredByEscapeKey.current = false;
     const v = event.target.value;
-    if (v != "" && v != initialValue && (await condition(v))) {
+    if ((allowEmpty || v != "") && v != initialValue && (await condition(v))) {
       onSetTitle(v);
     } else {
       setInputValue(initialValue);

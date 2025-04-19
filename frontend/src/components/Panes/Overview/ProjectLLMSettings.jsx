@@ -1,5 +1,6 @@
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import C from "constants/constants.json";
+import { dbSetLLMApiKeys } from "requests/ai";
 import { useAIStore } from "state/definitions";
 import { useAI } from "state/hooks/aiChat";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -10,12 +11,16 @@ const IsolatedInput = ({ apiKeyName, initialValue }) => {
     useAIStore.setState((state) => ({
       apiKeys: { ...state.apiKeys, [apiKeyName]: v },
     }));
+
+    const { apiKeys, apiKeysFilepath } = useAIStore.getState();
+    dbSetLLMApiKeys(apiKeys, apiKeysFilepath);
   };
 
   const [inputValue, onChange, onBlur, onKeyDown] = useEditableOnSubmit(
     initialValue,
     onSetValue,
     () => true,
+    true,
     true,
   );
 
@@ -57,7 +62,7 @@ export function ProjectLLMSettings() {
             <label htmlFor={`api-key-${group.group}`}>API Key</label>
             <div className="single-cell-container grid min-h-[19px] grid-cols-[1fr,auto]">
               <IsolatedInput
-                providerName={C.LLM_API_KEY_NAMES[group.group]}
+                apiKeyName={C.LLM_API_KEY_NAMES[group.group]}
                 initialValue={apiKeys[C.LLM_API_KEY_NAMES[group.group]] ?? ""}
               />
               <span className="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />

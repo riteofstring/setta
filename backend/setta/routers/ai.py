@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Optional
+from typing import Dict, Optional
 
 from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, Depends
@@ -21,13 +21,8 @@ class GetLLMResponseRequest(BaseModel):
     session_id: Optional[str] = None  # Session ID, optional
 
 
-class LLMApiKey(BaseModel):
-    apiKeyName: str
-    apiKey: str
-
-
 class SetLLMApiKeysRequest(BaseModel):
-    apiKeys: List[LLMApiKey]
+    apiKeys: Dict[str, str]
     apiKeysFilepath: str
 
 
@@ -100,21 +95,15 @@ def route_set_llm_api_keys(x: SetLLMApiKeysRequest):
         # Remove all existing API key variables first
         # This ensures keys that were deleted on the frontend are also removed here
         api_key_vars = get_llm_api_keys_from_env_vars(env_vars)
-        for key in api_key_vars:
-            del env_vars[key]
-            print(f"Removed {key} from .env file")
+        env_vars = {k: v for k, v in env_vars.items() if k not in api_key_vars}
 
         # Add back only the API keys that are in the current request
-        for key in x.apiKeys:
-            if not key.apiKey.strip():
+        for api_key_name, api_key in x.apiKeys.items():
+            api_key = api_key.strip()
+            if not api_key:
                 continue  # Skip empty keys
-
-            # Ensure there are no spaces or special formatting that might cause issues
-            api_key = key.apiKey.strip()
-
             # Save the API key
-            env_vars[key.apiKeyName] = api_key
-            print(f"Saving {key.apiKeyName} to .env file")
+            env_vars[api_key_name] = api_key
 
         # Write back to .env file
         with open(x.apiKeysFilepath, "w") as env_file:
@@ -124,18 +113,22 @@ def route_set_llm_api_keys(x: SetLLMApiKeysRequest):
         # Reload the environment variables
         load_dotenv(override=True)
 
-        print("Successfully updated API keys in .env file")
+        print("Successfully updated API keys in .env file", flush=True)
         return {"status": "success"}
 
     except Exception as e:
-        print(f"Error updating .env file: {e}")
+        print(f"Error updating .env file: {e}", flush=True)
         return {"status": "error", "message": str(e)}
 
 
 def get_llm_api_keys_from_env_vars(env_vars):
-    return [key for key in env_vars.keys() if key in C.LLM_API_KEY_NAMES.values()]
+    return {
+        key: value
+        for key, value in env_vars.items()
+        if key in C.LLM_API_KEY_NAMES.values()
+    }
 
 
 @router.post(C.ROUTE_GET_LLM_API_KEYS)
 def route_get_llm_api_keys(x: GetLLMApiKeysRequest):
-    return dotenv_values(x.apiKeysFilepath)
+    return get_llm_api_keys_from_env_vars(dotenv_values(x.apiKeysFilepath))
