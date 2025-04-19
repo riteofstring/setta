@@ -2,8 +2,9 @@ import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { dbFilesWatchList } from "requests/jsonSource";
+import { dbFileWatchList, dbFileWatchReplacePath } from "requests/jsonSource";
 import {
+  useAIStore,
   useArtifacts,
   useEVRefRegex,
   useMisc,
@@ -76,7 +77,7 @@ export function subscribe() {
   useSectionInfos.subscribe(
     filenameSubscriptionFn,
     (newVal) => {
-      dbFilesWatchList([...newVal]);
+      dbFileWatchList([...newVal]);
     },
     {
       equalityFn: _.isEqual,
@@ -176,6 +177,8 @@ export function subscribe() {
       equalityFn: _.isEqual,
     },
   );
+
+  useAIStore.subscribe(apiKeysFilepathSubscriptionFn, dbFileWatchReplacePath);
 }
 
 function singletonSectionsSubscriptionFn(state) {
@@ -318,4 +321,8 @@ function entryCodeBlockSubscriptionFn(state) {
     }
   }
   return count;
+}
+
+function apiKeysFilepathSubscriptionFn(state) {
+  return state.apiKeysFilepath;
 }

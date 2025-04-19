@@ -253,12 +253,12 @@ export const useAIStore = create(
   persist(
     () => ({
       // State
+      apiKeysFilepath: ".env",
       messages: [],
       chatSessions: [],
       sessionId: null,
       isLoading: false,
       viewHistory: false,
-      apiKeys: [],
       userSelectedLLM: "",
       saveStatus: "",
       isSaving: false,
@@ -272,7 +272,7 @@ export const useAIStore = create(
     {
       name: "setta_ai_data",
       partialize: (state) => ({
-        apiKeys: state.apiKeys,
+        apiKeysFilepath: state.apiKeysFilepath,
         userSelectedLLM: state.userSelectedLLM,
         chatSessions: state.chatSessions,
         sessionId: state.sessionId,
