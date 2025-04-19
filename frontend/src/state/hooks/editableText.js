@@ -4,17 +4,17 @@ export function useEditableOnSubmit(
   initialValue,
   onSetTitle,
   condition,
-  passEventToOnChange = false,
+  onChangeReceivesValue = false,
   allowEmpty = false,
 ) {
   const [inputValue, setInputValue] = useState(initialValue);
   const blurTriggeredByEscapeKey = useRef(false);
 
-  function onChange(event) {
-    if (passEventToOnChange) {
-      setInputValue(event);
+  function onChange(e) {
+    if (onChangeReceivesValue) {
+      setInputValue(e);
     } else {
-      setInputValue(event.target.value);
+      setInputValue(e.target.value);
     }
   }
 
