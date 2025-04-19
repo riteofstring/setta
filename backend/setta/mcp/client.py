@@ -12,7 +12,7 @@ from mcp.client.sse import sse_client
 from setta.database.db.notifications.load import create_notification_dict
 from setta.utils.constants import CONSTANTS_FOLDER
 from setta.utils.utils import get_absolute_path
-
+import threading
 load_dotenv()  # load environment variables from .env
 
 
@@ -105,6 +105,7 @@ class MCPClient:
             await self.session.send_ping()
 
     async def process_query(self, model, messages):
+        print("num threads", threading.active_count(), flush=True)
         response = await self.session.list_tools()
         available_tools = [
             {
