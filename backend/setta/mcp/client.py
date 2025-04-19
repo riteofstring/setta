@@ -4,6 +4,7 @@ from contextlib import AsyncExitStack
 from typing import Optional
 
 import mcp.types
+import websockets
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from mcp import ClientSession
@@ -32,18 +33,17 @@ class MCPClient:
             self.system_prompt = f.read()
 
     async def connect_to_server(self, retry_delay=1):
-        """Connect to an MCP server over HTTP with retry logic
-
-        Args:
-            url: URL to the MCP server
-            retry_delay: Delay between retry attempts in seconds
-        """
+        """Connect to an MCP server over HTTP with retry logic"""
         print("Starting MCP client connection...", flush=True)
         url = self.server_url
 
         while True:
+            keep_alive_task = None
             try:
                 print(f"Attempting to connect to {url}...", flush=True)
+
+                # Create a new exit stack for each connection attempt
+                self.exit_stack = AsyncExitStack()
 
                 # Create and enter the SSE client context
                 stdio_transport = await self.exit_stack.enter_async_context(
@@ -69,9 +69,15 @@ class MCPClient:
                 )
                 self.ready.set()
 
-                # Keep the connection alive (this will block until an exception occurs)
-                await self._keep_alive()
+                # Create a separate task for keep_alive instead of awaiting it directly
+                keep_alive_task = asyncio.create_task(self._keep_alive())
 
+                # Wait for the keep_alive task to complete or be cancelled
+                await keep_alive_task
+
+            except asyncio.CancelledError:
+                print("Connection task cancelled", flush=True)
+                raise  # Re-raise to propagate cancellation
             except asyncio.TimeoutError:
                 print(
                     f"Connection timed out, retrying in {retry_delay} seconds...",
@@ -80,15 +86,34 @@ class MCPClient:
             except Exception as e:
                 print(f"Connection error: {e}", flush=True)
                 print(f"Retrying in {retry_delay} seconds...", flush=True)
+            finally:
+                # Clean up the keep_alive task if it's still running
+                if keep_alive_task and not keep_alive_task.done():
+                    keep_alive_task.cancel()
+                    try:
+                        await keep_alive_task
+                    except asyncio.CancelledError:
+                        pass
 
-            # Close any open contexts before retrying
-            await self.exit_stack.aclose()
-            self.exit_stack = (
-                AsyncExitStack()
-            )  # Create a new stack for the next attempt
+                # Clear resources before closing exit stack
+                self.read = None
+                self.write = None
+                self.session = None
 
-            # Wait before retrying
-            await asyncio.sleep(retry_delay)
+                # Clear the ready event
+                self.ready.clear()
+
+                # Close the exit stack
+                try:
+                    await self.exit_stack.aclose()
+                except Exception as e:
+                    print(f"Error closing exit stack: {e}", flush=True)
+
+                # Wait before retrying (unless cancelled)
+                try:
+                    await asyncio.sleep(retry_delay)
+                except asyncio.CancelledError:
+                    raise
 
     async def _keep_alive(self):
         """Keep the connection alive"""
@@ -297,6 +322,15 @@ class MCPClient:
         return output
 
     async def send_streaming_response(self, chunk):
-        await self.websocket.send(
-            json.dumps({"messageType": C.WS_LLM_STREAMING_RESPONSE, "content": chunk})
-        )
+        try:
+            await self.websocket.send(
+                json.dumps(
+                    {"messageType": C.WS_LLM_STREAMING_RESPONSE, "content": chunk}
+                )
+            )
+        except websockets.exceptions.ConnectionClosedError as e:
+            print(f"WebSocket connection closed: {e}", flush=True)
+            raise  # Re-raise to ensure proper handling in the calling method
+        except Exception as e:
+            print(f"Error sending streaming response: {e}", flush=True)
+            raise
