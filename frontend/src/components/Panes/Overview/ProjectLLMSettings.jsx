@@ -1,6 +1,5 @@
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import C from "constants/constants.json";
-import _ from "lodash";
 import { useEffect } from "react";
 import { dbSetLLMApiKeys } from "requests/ai";
 import { updateLLMApiKeyInfo } from "state/actions/fileUpdates";
@@ -9,28 +8,14 @@ import { useAI } from "state/hooks/aiChat";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { MODEL_GROUPS } from "utils/constants";
 
-const debouncedSetLLMApiKeys = _.debounce((apiKeyName, v) => {
-  useAIStore.setState((state) => ({
-    apiKeys: { ...state.apiKeys, [apiKeyName]: v },
-  }));
-
-  const { apiKeys, apiKeysFilepath } = useAIStore.getState();
-  dbSetLLMApiKeys(apiKeys, apiKeysFilepath);
-}, 500); // Added explicit delay for clarity
-
 const IsolatedInput = ({ apiKeyName, initialValue }) => {
-  // Separate immediate function for blur events
-  const setLLMApiKeysImmediate = (v) => {
+  const onSetValue = (v) => {
     useAIStore.setState((state) => ({
       apiKeys: { ...state.apiKeys, [apiKeyName]: v },
     }));
 
     const { apiKeys, apiKeysFilepath } = useAIStore.getState();
     dbSetLLMApiKeys(apiKeys, apiKeysFilepath);
-  };
-
-  const onSetValue = (v) => {
-    setLLMApiKeysImmediate(v); // Use immediate function on blur
   };
 
   const [inputValue, onChange, onBlur, onKeyDown] = useEditableOnSubmit(
@@ -41,16 +26,11 @@ const IsolatedInput = ({ apiKeyName, initialValue }) => {
     true,
   );
 
-  const onChangeWithDebouncedSet = (v) => {
-    onChange(v);
-    debouncedSetLLMApiKeys(apiKeyName, v);
-  };
-
   return (
     <PasswordInput
       className="nodrag single-cell-child peer/textinput flex w-full min-w-0 max-w-[calc(100%_-_1.1rem)] self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]"
       value={inputValue}
-      onChange={onChangeWithDebouncedSet}
+      onChange={onChange}
       onBlur={onBlur}
       onKeyDown={onKeyDown}
       isDisabled={false}
