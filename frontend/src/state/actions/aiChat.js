@@ -1,7 +1,14 @@
-import _ from "lodash";
-import { dbGetLLMResponse } from "requests/ai";
+import { dbGetLLMResponse, dbSetApiKeys } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { getSectionVariant } from "./sectionInfos";
+
+export function setViewHistory(viewHistory) {
+  useAIStore.setState({ viewHistory });
+}
+
+export function setUserSelectedLLM(model) {
+  useAIStore.setState({ userSelectedLLM: model });
+}
 
 export function updateChatSession(id, newMessages) {
   if (!id) return;
@@ -98,7 +105,7 @@ function resetStreamingResponseState() {
   });
 }
 
-export async function submitMessage(userMessage, deepThink) {
+export async function submitMessage(userMessage) {
   // Guard clause: empty message
   if (!userMessage.trim()) return;
 
@@ -126,7 +133,7 @@ export async function submitMessage(userMessage, deepThink) {
   addMessageToChat(assistantMsg);
 
   try {
-    dbGetLLMResponse(userSelectedLLM, userMessage, deepThink, sessionId);
+    dbGetLLMResponse(userSelectedLLM, userMessage, sessionId);
   } catch (error) {
     // Error handling
     const errorMsg = {
@@ -213,31 +220,6 @@ export function receiveLLMResponseChunk(chunk) {
             // Create a new text chunk
             currentMsg.streamSequence.push({
               type: "text",
-              content: chunk.content,
-            });
-          }
-
-          // Also update the main content for backward compatibility
-          currentMsg.content += chunk.content;
-        }
-        break;
-
-      case "thinking":
-        if (chunk.is_delta) {
-          // For thinking deltas, either add to existing content or create a new text chunk
-          if (
-            currentMsg.streamSequence.length > 0 &&
-            currentMsg.streamSequence[currentMsg.streamSequence.length - 1]
-              .type === "thinking"
-          ) {
-            // Add to existing text chunk
-            const lastItem =
-              currentMsg.streamSequence[currentMsg.streamSequence.length - 1];
-            lastItem.content += chunk.content;
-          } else {
-            // Create a new text chunk
-            currentMsg.streamSequence.push({
-              type: "thinking",
               content: chunk.content,
             });
           }
@@ -371,197 +353,127 @@ export function receiveLLMResponseChunk(chunk) {
   }
 }
 
-function streamInto(streamTarget, content) {
-  const aiState = useAIStore.getState();
+export function setApiKeys(keys) {
+  useAIStore.setState({ apiKeys: keys });
+}
 
+export async function saveApiKeys(keys) {
+  const { isSaving } = useAIStore.getState();
+
+  // Guard: Already saving
+  if (isSaving) return;
+
+  useAIStore.setState({ isSaving: true, saveStatus: "Saving..." });
+
+  try {
+    await dbSetApiKeys(keys);
+    useAIStore.setState({ saveStatus: "Saved!" });
+  } catch (error) {
+    console.error("Failed to update API keys on the server:", error);
+    useAIStore.setState({ saveStatus: "Error saving" });
+  } finally {
+    useAIStore.setState({ isSaving: false });
+
+    // Clear status after delay
+    setTimeout(() => useAIStore.setState({ saveStatus: "" }), 3000);
+  }
+}
+
+export async function handleApiKeyChange(modelId, providerName, value) {
+  const { apiKeys } = useAIStore.getState();
+
+  // Guard: Empty value - remove the key
+  if (!value || value.trim() === "") {
+    const filteredKeys = apiKeys.filter((key) => key.modelId !== modelId);
+    useAIStore.setState({ apiKeys: filteredKeys });
+    await saveApiKeys(filteredKeys);
+    return;
+  }
+
+  // Find or create key
+  const existingIndex = apiKeys.findIndex((key) => key.modelId === modelId);
+  let updatedKeys;
+
+  if (existingIndex >= 0) {
+    // Update existing
+    updatedKeys = [...apiKeys];
+    updatedKeys[existingIndex] = {
+      ...updatedKeys[existingIndex],
+      apiKey: value,
+    };
+  } else {
+    // Add new
+    updatedKeys = [...apiKeys, { modelId, providerName, apiKey: value }];
+  }
+
+  useAIStore.setState({ apiKeys: updatedKeys });
+  await saveApiKeys(updatedKeys);
+}
+
+function streamInto(streamTarget, content) {
+  const startIdx = useAIStore.getState().streamTargetStartIdx;
   useSectionInfos.setState((x) => {
     const sectionVariant = getSectionVariant(streamTarget, x);
-    // Get our cached line segments and current streamed content
-    const beforeLines = aiState.streamBeforeLines;
-    const afterLines = aiState.streamAfterLines;
 
-    // Update current streamed content
-    const currentStreamedContent = aiState.streamedContent + content;
+    // Fast path for appending (most common case in streaming)
+    if (startIdx === -1 || startIdx === sectionVariant.code.length) {
+      sectionVariant.code += content;
+    } else {
+      // Only use substring when inserting in the middle
+      sectionVariant.code =
+        sectionVariant.code.substring(0, startIdx) +
+        content +
+        sectionVariant.code.substring(startIdx);
+    }
 
-    // Reconstruct the code with the updated streamed content in the middle
-    sectionVariant.code = [beforeLines, currentStreamedContent, afterLines]
-      .filter(Boolean)
-      .join("\n");
-
-    // Store the updated streamed content for next time
-    useAIStore.setState({
-      streamedContent: currentStreamedContent,
-    });
+    // Update startIdx if needed
+    if (startIdx !== -1) {
+      useAIStore.setState({
+        streamTargetStartIdx: startIdx + content.length,
+      });
+    }
   });
 }
 
 /**
- * Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool BEFORE YOU USE THIS TOOL.
+ * Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context.
  * @SETTA_MCP_TOOL
  * @param {ID} sectionId The id of the code block that you want to start writing code into.
- * @param {integer} [insertAtLine] Optional line number (1-indexed) to insert at. If omitted, appends to the end.
- * @return {string} A string containing the current code in the code block before modification.
+ * @param {boolean} clearExisting If true, then all the existing code in the code block will be deleted.
+ * @param {integer} startIdx The index at which new code will appear. If -1, then new code will be appended to the end of existing code. Use this when you want to edit existing code, and not just append to it.
+ * @return {str} a string containing the code in the code block. If clearExisting is true, then this will be an empty string.
  */
-export function startUpdatingCode({ sectionId, insertAtLine }) {
-  // Get the current code
-  const currCode = getCurrentCode({ sectionId });
-  const lines = currCode.split("\n");
-  const totalLines = lines.length;
-
-  // Initialize streaming state
-  let beforeLines = "";
-  let afterLines = "";
-
-  // Handle insertAtLine if specified
-  if (!_.isNil(insertAtLine)) {
-    // Convert to 0-indexed for array operations
-    const insertIndex = insertAtLine - 1;
-
-    // Validate insertion point
-    if (insertAtLine < 1 || (totalLines > 0 && insertAtLine > totalLines + 1)) {
-      throw new Error(
-        `Invalid insertAtLine: ${insertAtLine}. Valid range is 1 to ${totalLines + 1}.`,
-      );
-    }
-
-    // Split the code at the insertion point
-    beforeLines = lines.slice(0, insertIndex).join("\n");
-    afterLines = lines.slice(insertIndex).join("\n");
-  } else {
-    // If no insertion point, append to the end
-    beforeLines = currCode;
-    afterLines = "";
+export function startStreamingInto({ sectionId, clearExisting, startIdx }) {
+  if (clearExisting) {
+    useSectionInfos.setState((x) => {
+      const sectionVariant = getSectionVariant(sectionId, x);
+      // Append the new chunk to existing code
+      sectionVariant.code = "";
+    });
   }
 
-  // Set streaming target and store line segments
+  const currCode = getCurrentCode({ sectionId });
   useAIStore.setState({
     streamTarget: sectionId,
-    streamBeforeLines: beforeLines,
-    streamAfterLines: afterLines,
-    streamedContent: "", // Initialize empty stream content
+    streamTargetStartIdx: startIdx,
   });
-
   return currCode;
 }
 
 /**
- * Stop streaming text into the code block.
+ * Stop streaming text into a specific code block. Once you want to start responding in the regular chat area, call this. After you call this tool, everything you respond with will be sent to the regular chat area.
  * @SETTA_MCP_TOOL
- * @returns {string} the code with all the changes applied.
  */
-export function finishUpdatingCode() {
-  const { streamTarget } = useAIStore.getState();
-  const code = getSectionVariant(streamTarget).code;
-
-  // Clear all streaming state
-  useAIStore.setState({
-    streamTarget: null,
-    streamBeforeLines: "",
-    streamAfterLines: "",
-    streamedContent: "",
-  });
-
-  return code;
-}
-
-/**
- * Delete a range of code from a code block.
- * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the code block.
- * @param {integer} startLine Starting line number (1-indexed).
- * @param {integer} endLine Ending line number (1-indexed, inclusive).
- * @return {string} A string containing the code with the specified range deleted.
- * @throws {Error} If the provided line numbers are invalid or out of range.
- */
-export function deleteCodeRange({ sectionId, startLine, endLine }) {
-  // Update the state
-  let updatedCode;
-  useSectionInfos.setState((x) => {
-    const sectionVariant = getSectionVariant(sectionId, x);
-    if (_.isNil(startLine) && _.isNil(endLine)) {
-      updatedCode = "";
-    } else {
-      const lines = sectionVariant.code.split("\n");
-      const totalLines = lines.length;
-      const [start, end] = convertAndValidateLineNumbers(
-        startLine,
-        endLine,
-        totalLines,
-      );
-
-      // Delete the specified range by keeping everything before start and after end
-      const updatedLines = [...lines.slice(0, start), ...lines.slice(end)];
-
-      // Join the lines back together
-      updatedCode = updatedLines.join("\n");
-    }
-    sectionVariant.code = updatedCode;
-  });
-
-  return updatedCode;
+export function stopStreamingInto() {
+  useAIStore.setState({ streamTarget: null, streamTargetStartIdx: -1 });
 }
 
 /**
  * Get the current code that's in a code block.
  * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the code block that you want to retrieve code from.
- * @param {integer} [startLine] Optional starting line number (1-indexed). If omitted, starts from the first line.
- * @param {integer} [endLine] Optional ending line number (1-indexed, inclusive). If omitted, ends at the last line.
- * @return {string} A string containing the requested code from the code block.
- * @throws {Error} If the provided line numbers are invalid or out of range.
+ * @param {ID} sectionId The id of the code block that you want to start writing code into.
+ * @return {str} a string containing the code in the code block.
  */
-export function getCurrentCode({ sectionId, startLine, endLine }) {
-  const code = getSectionVariant(sectionId).code;
-
-  // If no line parameters are provided, return the entire code
-  if (_.isNil(startLine) && _.isNil(endLine)) {
-    return code;
-  }
-
-  const lines = code.split("\n");
-  const [start, end] = convertAndValidateLineNumbers(
-    startLine,
-    endLine,
-    lines.length,
-  );
-
-  // Extract and return the requested lines
-  return lines.slice(start, end).join("\n");
-}
-
-// inputs are 1-indexed line numbers
-// outputs are standard 0-indexed indices for array operations
-function convertAndValidateLineNumbers(startLine, endLine, totalLines) {
-  // Handle empty code case (totalLines could be 0)
-  if (totalLines === 0) {
-    if (!_.isNil(startLine) || !_.isNil(endLine)) {
-      throw new Error(`Cannot specify line numbers for empty code.`);
-    }
-    return [0, 0]; // Safe values for empty arrays
-  }
-
-  // Convert to 0-indexed for array access, and provide defaults
-  const start = !_.isNil(startLine) ? startLine - 1 : 0;
-  const end = !_.isNil(endLine) ? endLine : totalLines;
-
-  // Validate line numbers
-  if (start < 0 || start >= totalLines) {
-    throw new Error(
-      `Invalid startLine: ${startLine}. Valid range is 1 to ${totalLines}.`,
-    );
-  }
-
-  if (end < 1 || end > totalLines) {
-    throw new Error(
-      `Invalid endLine: ${endLine}. Valid range is 1 to ${totalLines}.`,
-    );
-  }
-
-  if (start > end - 1) {
-    throw new Error(
-      `startLine (${startLine}) must be less than or equal to endLine (${endLine}).`,
-    );
-  }
-
-  return [start, end];
+export function getCurrentCode({ sectionId }) {
+  return getSectionVariant(sectionId).code;
 }
