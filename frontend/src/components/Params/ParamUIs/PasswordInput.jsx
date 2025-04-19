@@ -6,8 +6,6 @@ export function PasswordInput({
   value,
   onChange,
   onEscape,
-  onBlur,
-  onKeyDown,
   isDisabled,
   gridArea = "section-value",
 }) {
@@ -24,11 +22,8 @@ export function PasswordInput({
         onChange={(e) => onChange(e.target.value)}
         disabled={isDisabled}
         type={showPassword ? "text" : "password"}
-        onBlur={onBlur}
         onKeyDown={(e) => {
-          if (onKeyDown) {
-            onKeyDown(e);
-          } else if (e.code === "Escape") {
+          if (e.code === "Escape") {
             onEscape?.();
           }
         }}
