@@ -22,7 +22,7 @@ class GetLLMResponseRequest(BaseModel):
 
 
 class LLMApiKey(BaseModel):
-    providerName: str
+    apiKeyName: str
     apiKey: str
 
 
@@ -109,15 +109,12 @@ def route_set_llm_api_keys(x: SetLLMApiKeysRequest):
             if not key.apiKey.strip():
                 continue  # Skip empty keys
 
-            # Format API key environment variable exactly as LiteLLM expects
-            env_var_name = C.LLM_API_KEY_NAMES[key.providerName]
-
             # Ensure there are no spaces or special formatting that might cause issues
             api_key = key.apiKey.strip()
 
             # Save the API key
-            env_vars[env_var_name] = api_key
-            print(f"Saving {env_var_name} to .env file")
+            env_vars[key.apiKeyName] = api_key
+            print(f"Saving {key.apiKeyName} to .env file")
 
         # Write back to .env file
         with open(x.apiKeysFilepath, "w") as env_file:

@@ -1,28 +1,31 @@
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import C from "constants/constants.json";
-import { useEffect, useState } from "react";
+import { useAIStore } from "state/definitions";
 import { useAI } from "state/hooks/aiChat";
+import { useEditableOnSubmit } from "state/hooks/editableText";
 import { MODEL_GROUPS } from "utils/constants";
 
-const IsolatedInput = ({ providerName, initialValue, onChange }) => {
-  const [value, setValue] = useState(initialValue || "");
-
-  // Update value if initialValue changes
-  useEffect(() => {
-    setValue(initialValue || "");
-  }, [initialValue]);
-
-  const handleChange = (newValue) => {
-    setValue(newValue);
-    onChange(providerName, newValue);
+const IsolatedInput = ({ apiKeyName, initialValue }) => {
+  const onSetValue = (v) => {
+    useAIStore.setState((state) => ({
+      apiKeys: { ...state.apiKeys, [apiKeyName]: v },
+    }));
   };
+
+  const [inputValue, onChange, onBlur, onKeyDown] = useEditableOnSubmit(
+    initialValue,
+    onSetValue,
+    () => true,
+    true,
+  );
 
   return (
     <PasswordInput
       className="nodrag single-cell-child peer/textinput flex w-full min-w-0 max-w-[calc(100%_-_1.1rem)] self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]"
-      value={value}
-      onChange={handleChange}
-      onEscape={() => {}}
+      value={inputValue}
+      onChange={onChange}
+      onBlur={onBlur}
+      onKeyDown={onKeyDown}
       isDisabled={false}
       gridArea="single-cell-child"
     />
@@ -30,9 +33,7 @@ const IsolatedInput = ({ providerName, initialValue, onChange }) => {
 };
 
 export function ProjectLLMSettings() {
-  const { saveStatus, handleApiKeyChange, apiKeys } = useAI();
-
-  console.log("apiKeys", apiKeys, C.LLM_API_KEY_NAMES)
+  const { saveStatus, apiKeys } = useAI();
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-[30dvh] text-setta-600 dark:text-setta-400">
@@ -56,9 +57,8 @@ export function ProjectLLMSettings() {
             <label htmlFor={`api-key-${group.group}`}>API Key</label>
             <div className="single-cell-container grid min-h-[19px] grid-cols-[1fr,auto]">
               <IsolatedInput
-                providerName={group.group}
-                initialValue={apiKeys[C.LLM_API_KEY_NAMES[group.group]]}
-                onChange={handleApiKeyChange}
+                providerName={C.LLM_API_KEY_NAMES[group.group]}
+                initialValue={apiKeys[C.LLM_API_KEY_NAMES[group.group]] ?? ""}
               />
               <span className="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />
             </div>

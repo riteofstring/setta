@@ -2,8 +2,6 @@ import { useMemo } from "react";
 import {
   addMessageToChat,
   createNewChat,
-  handleApiKeyChange,
-  saveApiKeys,
   setUserSelectedLLM,
   setViewHistory,
   submitMessage,
@@ -53,8 +51,6 @@ export function useAI() {
       switchToChat,
       addMessageToChat,
       submitMessage,
-      saveApiKeys,
-      handleApiKeyChange,
     }),
     [
       apiKeys,
