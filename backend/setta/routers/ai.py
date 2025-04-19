@@ -33,7 +33,7 @@ class ApiKeysRequest(BaseModel):
 
 
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
-def route_get_llm_response(
+async def route_get_llm_response(
     x: GetLLMResponseRequest,
     background_tasks: BackgroundTasks,
     mcp_client=Depends(get_mcp_client),
