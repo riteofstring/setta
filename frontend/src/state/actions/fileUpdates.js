@@ -63,7 +63,12 @@ export async function loadJsonContents(variantIdsToLoad) {
 }
 
 async function updateApiKeyInfo(updatedFileInfo) {
-  const res = await dbGetLLMApiKeys(updatedFileInfo.absPath);
+  const { absPath, destAbsPath } = updatedFileInfo;
+  await updateLLMApiKeyInfo(destAbsPath ?? absPath);
+}
+
+export async function updateLLMApiKeyInfo(apiKeysFilepath) {
+  const res = await dbGetLLMApiKeys(apiKeysFilepath);
   if (res.status == 200) {
     useAIStore.setState({ apiKeys: res.data });
   }

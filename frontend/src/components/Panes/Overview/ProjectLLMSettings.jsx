@@ -1,6 +1,8 @@
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import C from "constants/constants.json";
+import { useEffect } from "react";
 import { dbSetLLMApiKeys } from "requests/ai";
+import { updateLLMApiKeyInfo } from "state/actions/fileUpdates";
 import { useAIStore } from "state/definitions";
 import { useAI } from "state/hooks/aiChat";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -38,19 +40,16 @@ const IsolatedInput = ({ apiKeyName, initialValue }) => {
 };
 
 export function ProjectLLMSettings() {
-  const { saveStatus, apiKeys } = useAI();
+  const { apiKeys } = useAI();
+
+  useEffect(() => {
+    updateLLMApiKeyInfo(useAIStore.getState().apiKeysFilepath);
+  }, []);
+
+  console.log();
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-[30dvh] text-setta-600 dark:text-setta-400">
-      {saveStatus && (
-        // TODO: this should be in the notifications area.
-        <div
-          className={`text-center text-sm font-medium ${saveStatus === "Error saving" ? "text-red-500" : "text-green-500"}`}
-        >
-          {saveStatus}
-        </div>
-      )}
-
       {MODEL_GROUPS.map((group) => (
         <div
           key={group.group}

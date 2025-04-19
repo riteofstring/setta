@@ -25,8 +25,6 @@ export function useAI() {
     isLoading,
     viewHistory,
     userSelectedLLM,
-    saveStatus,
-    isSaving,
   } = useAIStore();
 
   // Create a stable reference to the combined state and actions
@@ -40,8 +38,6 @@ export function useAI() {
       isLoading,
       viewHistory,
       userSelectedLLM,
-      saveStatus,
-      isSaving,
 
       // Actions
       setViewHistory,
@@ -60,8 +56,6 @@ export function useAI() {
       isLoading,
       viewHistory,
       userSelectedLLM,
-      saveStatus,
-      isSaving,
     ],
   );
 

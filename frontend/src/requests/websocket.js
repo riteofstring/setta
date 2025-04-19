@@ -1,11 +1,11 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { receiveLLMResponseChunk } from "state/actions/aiChat";
+import { updateWithFileChanges } from "state/actions/fileUpdates";
 import {
   updateInteractiveArtifacts,
   updateInteractiveDependencies,
 } from "state/actions/interactive";
-import { updateWithFileChanges } from "state/actions/jsonSource";
 import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,

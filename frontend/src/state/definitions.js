@@ -262,8 +262,6 @@ export const useAIStore = create(
         isLoading: false,
         viewHistory: false,
         userSelectedLLM: "",
-        saveStatus: "",
-        isSaving: false,
         streamTarget: null,
         currentBlockType: null,
         currentBlockIndex: null,
