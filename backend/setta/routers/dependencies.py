@@ -49,6 +49,10 @@ def get_wmh_python_logger_from_websocket(websocket: WebSocket):
     return websocket.app.state.websocket_msg_handlers.python_logger
 
 
+def get_wmh_mcp_from_websocket(websocket: WebSocket):
+    return websocket.app.state.websocket_msg_handlers.mcp
+
+
 def get_lsps(request: Request):
     return [
         request.app.state.lsps,

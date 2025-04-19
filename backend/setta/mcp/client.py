@@ -211,7 +211,7 @@ class MCPClient:
                             ),
                             "is_delta": False,
                         }
-                        
+
                         await self.websocket_msg_handler.send_streaming_response(chunk)
 
                         # Format the tool_use content block for history
@@ -251,7 +251,7 @@ class MCPClient:
                     )
                 break
             # Otherwise continue the loop to get the next response after tool use
-        
+
         chunk = {"type": "message_stop"}
         await self.websocket_msg_handler.send_streaming_response(chunk)
 
