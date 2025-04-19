@@ -226,9 +226,15 @@ async def addParametersMcp(sectionId: ID, names: List[str]) -> List[ID]:
 
 
 # From runOrImportCode.js
-@mcp_server.tool(description="Runs the main entry code block.")
-async def runEntryCodeBlock() -> Any:
-    """Runs the main entry code block."""
+@mcp_server.tool(
+    description="Runs the main entry code block. Returns the id of the terminal running the code"
+)
+async def runEntryCodeBlock() -> ID:
+    """Runs the main entry code block. Returns the id of the terminal running the code
+
+    Returns:
+        the id of the terminal running the code
+    """
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
             "runEntryCodeBlock", runEntryCodeBlock.__annotations__["return"]
