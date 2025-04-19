@@ -5,7 +5,11 @@ from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from setta.routers.dependencies import get_wmh_mcp_client
+from setta.database.db.notifications.load import create_notification_dict
+from setta.routers.dependencies import (
+    get_wmh_mcp_client,
+    get_wmh_specific_file_watcher,
+)
 from setta.utils.constants import C
 
 load_dotenv()
@@ -82,7 +86,10 @@ async def route_get_llm_response(
 
 
 @router.post(C.ROUTE_SET_LLM_API_KEYS)
-def route_set_llm_api_keys(x: SetLLMApiKeysRequest):
+async def route_set_llm_api_keys(
+    x: SetLLMApiKeysRequest,
+    websocket_msg_handler=Depends(get_wmh_specific_file_watcher),
+):
     """
     Write API keys to .env file to be used by litellm
 
@@ -114,11 +121,14 @@ def route_set_llm_api_keys(x: SetLLMApiKeysRequest):
         load_dotenv(override=True)
 
         print("Successfully updated API keys in .env file", flush=True)
-        return {"status": "success"}
+        notification = create_notification_dict("Saved LLM API keys", temporary=True)
 
-    except Exception as e:
-        print(f"Error updating .env file: {e}", flush=True)
-        return {"status": "error", "message": str(e)}
+    except Exception:
+        notification = create_notification_dict(
+            "Error saving LLM API keys", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
+        )
+
+    await websocket_msg_handler.broadcast_notification(notification)
 
 
 def get_llm_api_keys_from_env_vars(env_vars):
