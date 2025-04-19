@@ -4,7 +4,6 @@ import { memo } from "react";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
-import { TbLayoutDashboard, TbLayoutDashboardFilled } from "react-icons/tb";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -191,19 +190,6 @@ const ChatMessage = memo(({ message, isStreaming }) => {
 
 // Message list component
 const MessageList = memo(function MessageList({ messages, isLoading }) {
-  if (messages.length === 0) {
-    return (
-      <div className="flex h-full min-h-0 items-center justify-center gap-4 overflow-y-auto">
-        <button className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50">
-          <TbLayoutDashboard /> Create Project UI
-        </button>
-        <button className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50">
-          <TbLayoutDashboardFilled />
-          Create Project UI & Values
-        </button>
-      </div>
-    );
-  }
   return (
     <div className="flex h-full min-h-0 flex-col-reverse overflow-y-auto pr-2">
       <div>

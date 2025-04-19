@@ -12,18 +12,6 @@ export async function post({ address, body }) {
     .catch((res) => res);
 }
 
-export async function get({ address, params = {} }) {
-  return axios
-    .get(`${URLS.BACKEND}${address}`, {
-      params,
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-    .then((res) => res.data)
-    .catch((res) => res);
-}
-
 export function pseudoTemplatedStr(inputStr, replacements) {
   let output = inputStr;
   for (const [key, value] of Object.entries(replacements)) {

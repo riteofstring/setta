@@ -1,23 +1,6 @@
-import { dbGetApiKeys, dbGetLLMResponse, dbSetApiKeys } from "requests/ai";
+import { dbGetLLMResponse, dbSetApiKeys } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { getSectionVariant } from "./sectionInfos";
-
-export async function initializeApiKeys() {
-  try {
-    // Only fetch if we don't already have keys in memory
-    const { apiKeys } = useAIStore.getState();
-    if (apiKeys.length === 0) {
-      const keys = await dbGetApiKeys();
-
-      if (keys && Array.isArray(keys)) {
-        // Update state with keys from server
-        useAIStore.setState({ apiKeys: keys });
-      }
-    }
-  } catch (error) {
-    console.error("Failed to initialize API keys from server:", error);
-  }
-}
 
 export function setViewHistory(viewHistory) {
   useAIStore.setState({ viewHistory });
@@ -109,6 +92,19 @@ export function addMessageToChat(message, useSessionId = null) {
   return newMessages;
 }
 
+function resetStreamingResponseState() {
+  useAIStore.setState({
+    isLoading: false,
+    streamTarget: null,
+    streamTargetStartIdx: -1,
+    currentBlockType: null,
+    currentBlockIndex: null,
+    currentJsonContent: "",
+    currentToolName: "",
+    currentAssistantMsgId: null,
+  });
+}
+
 export async function submitMessage(userMessage) {
   // Guard clause: empty message
   if (!userMessage.trim()) return;
@@ -131,228 +127,13 @@ export async function submitMessage(userMessage) {
     streamSequence: [], // Ordered sequence of content chunks and tool interactions
   };
 
+  useAIStore.setState({ currentAssistantMsgId: assistantMsgId });
+
   // Add empty assistant message that will be updated
   addMessageToChat(assistantMsg);
 
-  // Track current content block being built
-  let currentBlockType = null;
-  let currentBlockIndex = null;
-  let currentJsonContent = "";
-  let currentToolName = "";
-
   try {
-    const response = await dbGetLLMResponse(
-      userSelectedLLM,
-      userMessage,
-      sessionId,
-    );
-
-    // Get the reader from the response
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      // Decode and parse the chunk
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split("\n").filter((line) => line.trim() !== "");
-
-      for (const line of lines) {
-        try {
-          const parsed = JSON.parse(line);
-
-          // Get current state
-          const currentState = useAIStore.getState();
-          const currentMessages = currentState.messages;
-
-          // Find the message we're updating
-          const messageIndex = currentMessages.findIndex(
-            (m) => m.id === assistantMsgId,
-          );
-          if (messageIndex === -1) continue;
-
-          const updatedMessages = [...currentMessages];
-          const currentMsg = { ...updatedMessages[messageIndex] };
-
-          // Handle different chunk types
-          switch (parsed.type) {
-            case "content_block_start":
-              // Track new content block start
-              currentBlockType = parsed.block_type;
-              currentBlockIndex = parsed.index;
-
-              // If it's a tool_use block, prepare for JSON building
-              if (currentBlockType === "tool_use") {
-                currentJsonContent = "";
-
-                // Use the tool_name from the event if available
-                if (parsed.tool_name) {
-                  currentToolName = parsed.tool_name;
-                } else {
-                  currentToolName = ""; // Fallback to known default
-                }
-
-                // Create a tool call entry immediately with the known name
-                currentMsg.streamSequence.push({
-                  type: "tool_call",
-                  name: currentToolName,
-                  args: {},
-                  streaming: true,
-                  jsonSoFar: "",
-                });
-              }
-              break;
-
-            case "text":
-              if (parsed.is_delta) {
-                const { streamTarget } = useAIStore.getState();
-                if (streamTarget) {
-                  streamInto(streamTarget, parsed.content);
-                  break;
-                }
-
-                // For text deltas, either add to existing content or create a new text chunk
-                if (
-                  currentMsg.streamSequence.length > 0 &&
-                  currentMsg.streamSequence[
-                    currentMsg.streamSequence.length - 1
-                  ].type === "text"
-                ) {
-                  // Add to existing text chunk
-                  const lastItem =
-                    currentMsg.streamSequence[
-                      currentMsg.streamSequence.length - 1
-                    ];
-                  lastItem.content += parsed.content;
-                } else {
-                  // Create a new text chunk
-                  currentMsg.streamSequence.push({
-                    type: "text",
-                    content: parsed.content,
-                  });
-                }
-
-                // Also update the main content for backward compatibility
-                currentMsg.content += parsed.content;
-              }
-              break;
-
-            case "json":
-              if (parsed.is_delta && currentBlockType === "tool_use") {
-                // Build up JSON content for the tool call
-                currentJsonContent += parsed.content;
-
-                // Find or update the tool call in the sequence
-                let toolCallIndex = currentMsg.streamSequence.findIndex(
-                  (item) =>
-                    item.type === "tool_call" && item.streaming === true,
-                );
-
-                if (toolCallIndex === -1) {
-                  // Create a new tool call entry without trying to parse the JSON yet
-                  currentMsg.streamSequence.push({
-                    type: "tool_call",
-                    name: currentToolName || "Loading...",
-                    args: {}, // Empty args until we have complete JSON
-                    streaming: true,
-                    jsonSoFar: currentJsonContent,
-                  });
-                } else {
-                  // Update existing tool call - just store the raw JSON content for now
-                  currentMsg.streamSequence[toolCallIndex].jsonSoFar =
-                    currentJsonContent;
-                }
-              }
-              break;
-
-            case "content_block_stop":
-              // Finalize a content block
-              if (
-                currentBlockType === "tool_use" &&
-                parsed.index === currentBlockIndex
-              ) {
-                // Finalize the tool call JSON
-                try {
-                  // Only try to parse the JSON if it's not empty
-                  if (currentJsonContent && currentJsonContent.trim() !== "") {
-                    try {
-                      const jsonObj = JSON.parse(currentJsonContent);
-
-                      // Find the streaming tool call
-                      let toolCallIndex = currentMsg.streamSequence.findIndex(
-                        (item) =>
-                          item.type === "tool_call" && item.streaming === true,
-                      );
-
-                      if (toolCallIndex !== -1) {
-                        // Mark as no longer streaming and update with parsed JSON
-                        currentMsg.streamSequence[toolCallIndex] = {
-                          ...currentMsg.streamSequence[toolCallIndex],
-                          streaming: false,
-                          name:
-                            jsonObj.name ||
-                            currentMsg.streamSequence[toolCallIndex].name,
-                          args: jsonObj,
-                          jsonSoFar: null, // Clean up the partial JSON
-                        };
-                      }
-                    } catch (e) {
-                      console.error("Error finalizing tool call JSON:", e);
-
-                      // Even if parsing fails, we should still mark the tool call as complete
-                      let toolCallIndex = currentMsg.streamSequence.findIndex(
-                        (item) =>
-                          item.type === "tool_call" && item.streaming === true,
-                      );
-
-                      if (toolCallIndex !== -1) {
-                        currentMsg.streamSequence[toolCallIndex].streaming =
-                          false;
-                      }
-                    }
-                  } else {
-                    // For empty JSON, just mark any streaming tool call as complete
-                    let toolCallIndex = currentMsg.streamSequence.findIndex(
-                      (item) =>
-                        item.type === "tool_call" && item.streaming === true,
-                    );
-
-                    if (toolCallIndex !== -1) {
-                      currentMsg.streamSequence[toolCallIndex].streaming =
-                        false;
-                    }
-                  }
-                } catch (e) {
-                  console.error("Error in block_end handling:", e);
-                }
-
-                // Reset for the next block
-                currentBlockType = null;
-                currentJsonContent = "";
-              }
-              break;
-
-            case "tool_result":
-              // Add tool result to the sequence
-              currentMsg.streamSequence.push({
-                type: "tool_result",
-                content: parsed.content,
-              });
-              break;
-          }
-
-          updatedMessages[messageIndex] = currentMsg;
-          useAIStore.setState({ messages: updatedMessages });
-
-          // Also update the chat session
-          updateChatSession(sessionId, updatedMessages);
-        } catch (e) {
-          console.error("Error parsing streaming chunk:", e, line);
-        }
-      }
-    }
+    dbGetLLMResponse(userSelectedLLM, userMessage, sessionId);
   } catch (error) {
     // Error handling
     const errorMsg = {
@@ -360,12 +141,215 @@ export async function submitMessage(userMessage) {
       content: `Sorry, there was a problem with the API: ${error.message || "Unknown error"}.`,
     };
     addMessageToChat(errorMsg);
-  } finally {
-    useAIStore.setState({
-      isLoading: false,
-      streamTarget: null,
-      streamTargetStartIdx: -1,
-    });
+    resetStreamingResponseState();
+  }
+}
+
+export function receiveLLMResponseChunk(chunk) {
+  try {
+    // Get current state
+    const currentState = useAIStore.getState();
+    const currentMessages = currentState.messages;
+    let {
+      currentBlockType,
+      currentBlockIndex,
+      currentJsonContent,
+      currentToolName,
+      currentAssistantMsgId,
+      sessionId,
+    } = currentState;
+
+    // Find the message we're updating
+    const messageIndex = currentMessages.findIndex(
+      (m) => m.id === currentAssistantMsgId,
+    );
+    if (messageIndex === -1) return;
+
+    const updatedMessages = [...currentMessages];
+    const currentMsg = { ...updatedMessages[messageIndex] };
+    let endOfMessage = false;
+
+    // Handle different chunk types
+    switch (chunk.type) {
+      case "content_block_start":
+        // Track new content block start
+        currentBlockType = chunk.block_type;
+        currentBlockIndex = chunk.index;
+
+        // If it's a tool_use block, prepare for JSON building
+        if (currentBlockType === "tool_use") {
+          currentJsonContent = "";
+
+          // Use the tool_name from the event if available
+          if (chunk.tool_name) {
+            currentToolName = chunk.tool_name;
+          } else {
+            currentToolName = ""; // Fallback to known default
+          }
+
+          // Create a tool call entry immediately with the known name
+          currentMsg.streamSequence.push({
+            type: "tool_call",
+            name: currentToolName,
+            args: {},
+            streaming: true,
+            jsonSoFar: "",
+          });
+        }
+        break;
+
+      case "text":
+        if (chunk.is_delta) {
+          const { streamTarget } = useAIStore.getState();
+          if (streamTarget) {
+            streamInto(streamTarget, chunk.content);
+            break;
+          }
+
+          // For text deltas, either add to existing content or create a new text chunk
+          if (
+            currentMsg.streamSequence.length > 0 &&
+            currentMsg.streamSequence[currentMsg.streamSequence.length - 1]
+              .type === "text"
+          ) {
+            // Add to existing text chunk
+            const lastItem =
+              currentMsg.streamSequence[currentMsg.streamSequence.length - 1];
+            lastItem.content += chunk.content;
+          } else {
+            // Create a new text chunk
+            currentMsg.streamSequence.push({
+              type: "text",
+              content: chunk.content,
+            });
+          }
+
+          // Also update the main content for backward compatibility
+          currentMsg.content += chunk.content;
+        }
+        break;
+
+      case "json":
+        if (chunk.is_delta && currentBlockType === "tool_use") {
+          // Build up JSON content for the tool call
+          currentJsonContent += chunk.content;
+
+          // Find or update the tool call in the sequence
+          let toolCallIndex = currentMsg.streamSequence.findIndex(
+            (item) => item.type === "tool_call" && item.streaming === true,
+          );
+
+          if (toolCallIndex === -1) {
+            // Create a new tool call entry without trying to parse the JSON yet
+            currentMsg.streamSequence.push({
+              type: "tool_call",
+              name: currentToolName || "Loading...",
+              args: {}, // Empty args until we have complete JSON
+              streaming: true,
+              jsonSoFar: currentJsonContent,
+            });
+          } else {
+            // Update existing tool call - just store the raw JSON content for now
+            currentMsg.streamSequence[toolCallIndex].jsonSoFar =
+              currentJsonContent;
+          }
+        }
+        break;
+
+      case "content_block_stop":
+        // Finalize a content block
+        if (
+          currentBlockType === "tool_use" &&
+          chunk.index === currentBlockIndex
+        ) {
+          // Finalize the tool call JSON
+          try {
+            // Only try to parse the JSON if it's not empty
+            if (currentJsonContent && currentJsonContent.trim() !== "") {
+              try {
+                const jsonObj = JSON.parse(currentJsonContent);
+
+                // Find the streaming tool call
+                let toolCallIndex = currentMsg.streamSequence.findIndex(
+                  (item) =>
+                    item.type === "tool_call" && item.streaming === true,
+                );
+
+                if (toolCallIndex !== -1) {
+                  // Mark as no longer streaming and update with parsed JSON
+                  currentMsg.streamSequence[toolCallIndex] = {
+                    ...currentMsg.streamSequence[toolCallIndex],
+                    streaming: false,
+                    name:
+                      jsonObj.name ||
+                      currentMsg.streamSequence[toolCallIndex].name,
+                    args: jsonObj,
+                    jsonSoFar: null, // Clean up the partial JSON
+                  };
+                }
+              } catch (e) {
+                console.error("Error finalizing tool call JSON:", e);
+
+                // Even if parsing fails, we should still mark the tool call as complete
+                let toolCallIndex = currentMsg.streamSequence.findIndex(
+                  (item) =>
+                    item.type === "tool_call" && item.streaming === true,
+                );
+
+                if (toolCallIndex !== -1) {
+                  currentMsg.streamSequence[toolCallIndex].streaming = false;
+                }
+              }
+            } else {
+              // For empty JSON, just mark any streaming tool call as complete
+              let toolCallIndex = currentMsg.streamSequence.findIndex(
+                (item) => item.type === "tool_call" && item.streaming === true,
+              );
+
+              if (toolCallIndex !== -1) {
+                currentMsg.streamSequence[toolCallIndex].streaming = false;
+              }
+            }
+          } catch (e) {
+            console.error("Error in block_end handling:", e);
+          }
+
+          // Reset for the next block
+          currentBlockType = null;
+          currentJsonContent = "";
+        }
+        break;
+
+      case "tool_result":
+        // Add tool result to the sequence
+        currentMsg.streamSequence.push({
+          type: "tool_result",
+          content: chunk.content,
+        });
+        break;
+
+      case "message_stop":
+        endOfMessage = true;
+        break;
+    }
+
+    if (endOfMessage) {
+      resetStreamingResponseState();
+    } else {
+      updatedMessages[messageIndex] = currentMsg;
+      useAIStore.setState({
+        messages: updatedMessages,
+        currentBlockType,
+        currentBlockIndex,
+        currentJsonContent,
+        currentToolName,
+      });
+
+      // Also update the chat session
+      updateChatSession(sessionId, updatedMessages);
+    }
+  } catch (e) {
+    console.error("Error parsing streaming chunk:", e);
   }
 }
 

@@ -1,44 +1,21 @@
 import C from "constants/constants.json";
-import { URLS } from "utils/constants";
-import { get, post } from "./utils";
+import { post } from "./utils";
 
 export async function dbGetLLMResponse(model, message, sessionId = null) {
   try {
-    // Use fetch directly for streaming
-    const response = await fetch(`${URLS.BACKEND}${C.ROUTE_GET_LLM_RESPONSE}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const response = await post({
+      body: {
         model,
         message,
         session_id: sessionId,
-      }),
+      },
+      address: C.ROUTE_GET_LLM_RESPONSE,
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    // Return the response object for streaming
+    console.log("Response received from LLM query:", response);
     return response;
   } catch (error) {
     console.error("Error in dbGetLLMResponse:", error);
-    throw error;
-  }
-}
-
-export async function dbGetApiKeys() {
-  try {
-    // Using the get utility function
-    const response = await get({
-      address: C.ROUTE_GET_API_KEYS,
-    });
-
-    return response.apiKeys || [];
-  } catch (error) {
-    console.error("Error in dbGetApiKeys:", error);
     throw error;
   }
 }
