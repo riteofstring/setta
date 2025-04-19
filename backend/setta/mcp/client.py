@@ -151,7 +151,7 @@ class MCPClient:
                         event.content_block, "name"
                     ):
                         # Yield the original event with tool name
-                        chunk = {
+                        yield {
                             "type": event.type,
                             "index": event.index,
                             "block_type": event.content_block.type,
@@ -159,7 +159,7 @@ class MCPClient:
                         }
                     else:
                         # Yield the original event
-                        chunk = {
+                        yield {
                             "type": event.type,
                             "index": event.index,
                             "block_type": event.content_block.type,
@@ -168,14 +168,14 @@ class MCPClient:
                 # For deltas, stream them to the frontend with type info
                 elif event.type == "content_block_delta":
                     if event.delta.type == "text_delta":
-                        chunk = {
+                        yield {
                             "type": "text",
                             "content": event.delta.text,
                             "index": event.index,
                             "is_delta": True,
                         }
                     elif event.delta.type == "input_json_delta":
-                        chunk = {
+                        yield {
                             "type": "json",
                             "content": event.delta.partial_json,
                             "index": event.index,
@@ -184,9 +184,7 @@ class MCPClient:
 
                 # For content block stop, inform the frontend
                 elif event.type == "content_block_stop":
-                    chunk = {"type": event.type, "index": event.index}
-
-                await self.websocket_msg_handler.send_streaming_response(chunk)
+                    yield {"type": event.type, "index": event.index}
 
             # Process complete messages for tool calls
             if complete_messages:
@@ -204,15 +202,13 @@ class MCPClient:
                         result = await self.session.call_tool(tool_name, tool_args)
 
                         # Yield tool result
-                        chunk = {
+                        yield {
                             "type": "tool_result",
                             "content": self.tool_call_result_formatted_for_frontend(
                                 result
                             ),
                             "is_delta": False,
                         }
-                        
-                        await self.websocket_msg_handler.send_streaming_response(chunk)
 
                         # Format the tool_use content block for history
                         assistant_message_content.append(
@@ -251,9 +247,6 @@ class MCPClient:
                     )
                 break
             # Otherwise continue the loop to get the next response after tool use
-        
-        chunk = {"type": "message_stop"}
-        await self.websocket_msg_handler.send_streaming_response(chunk)
 
     async def cleanup(self):
         """Clean up resources"""

@@ -1,9 +1,11 @@
+import json
 import os
 import uuid
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from setta.routers.dependencies import get_mcp_client
@@ -34,9 +36,7 @@ class ApiKeysRequest(BaseModel):
 
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
 async def route_get_llm_response(
-    x: GetLLMResponseRequest,
-    background_tasks: BackgroundTasks,
-    mcp_client=Depends(get_mcp_client),
+    x: GetLLMResponseRequest, mcp_client=Depends(get_mcp_client)
 ):
     try:
         print("========== DEBUGGING INFO ==========")
@@ -61,17 +61,28 @@ async def route_get_llm_response(
         print("About to call completion with model:", x.model)
         print("Messages:", conversation_histories[session_id])
 
-        # Add process_query to background tasks
-        background_tasks.add_task(
-            mcp_client.process_query, x.model, conversation_histories[session_id]
-        )
+        # Create a streaming response generator
+        async def response_generator():
+            try:
+                async for chunk in mcp_client.process_query(
+                    x.model, conversation_histories[session_id]
+                ):
+                    # Convert each chunk to JSON and add newline for streaming
+                    yield json.dumps(chunk) + "\n"
+            except Exception as e:
+                # Handle any errors during streaming
+                error_chunk = {
+                    "type": "error",
+                    "content": f"Error during streaming: {str(e)}",
+                }
+                yield json.dumps(error_chunk) + "\n"
 
-        # Return immediate response with session ID
-        return {
-            "status": "processing",
-            "session_id": session_id,
-            "message": "Query is being processed. Connect to websocket for results.",
-        }
+        # Return a streaming response
+        return StreamingResponse(
+            response_generator(),
+            media_type="application/x-ndjson",
+            headers={"X-Session-ID": session_id},
+        )
 
     except Exception as e:
         print(f"Error in route_get_llm_response: {str(e)}")

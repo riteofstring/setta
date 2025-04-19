@@ -261,10 +261,3 @@ class WMHMCP(BaseWebsocketMsgHandler):
             C.WS_NOTIFICATION,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
-
-    async def send_streaming_response(self, chunk):
-        await self.websocket_manager.broadcast(
-            chunk,
-            C.WS_LLM_STREAMING_RESPONSE,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-        )

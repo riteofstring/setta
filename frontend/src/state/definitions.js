@@ -263,11 +263,6 @@ export const useAIStore = create(
       saveStatus: "",
       isSaving: false,
       streamTarget: null,
-      currentBlockType: null,
-      currentBlockIndex: null,
-      currentJsonContent: "",
-      currentToolName: "",
-      currentAssistantMsgId: null,
     }),
     {
       name: "setta_ai_data",

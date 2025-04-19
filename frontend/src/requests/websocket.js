@@ -1,6 +1,5 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { receiveLLMResponseChunk } from "state/actions/aiChat";
 import {
   updateInteractiveArtifacts,
   updateInteractiveDependencies,
@@ -88,10 +87,8 @@ function receiveMessage(message) {
     updateJSONSourceContents(m.content);
   } else if (m.messageType === C.WS_TERMINAL_METADATA) {
     // console.log(m.content);
-  } else if (m.messageType === C.WS_LLM_STREAMING_RESPONSE) {
-    console.log(m.content)
-    receiveLLMResponseChunk(m.content);
   } else if (m.messageType === C.WS_MCP_TOOL_USE) {
+    console.log(m.content);
     mcpToolUse(m.content);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);
