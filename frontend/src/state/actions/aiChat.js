@@ -1,6 +1,23 @@
-import { dbGetLLMResponse, dbSetApiKeys } from "requests/ai";
+import { dbGetApiKeys, dbGetLLMResponse, dbSetApiKeys } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { getSectionVariant } from "./sectionInfos";
+
+export async function initializeApiKeys() {
+  try {
+    // Only fetch if we don't already have keys in memory
+    const { apiKeys } = useAIStore.getState();
+    if (apiKeys.length === 0) {
+      const keys = await dbGetApiKeys();
+
+      if (keys && Array.isArray(keys)) {
+        // Update state with keys from server
+        useAIStore.setState({ apiKeys: keys });
+      }
+    }
+  } catch (error) {
+    console.error("Failed to initialize API keys from server:", error);
+  }
+}
 
 export function setViewHistory(viewHistory) {
   useAIStore.setState({ viewHistory });

@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   addMessageToChat,
   createNewChat,
   handleApiKeyChange,
+  initializeApiKeys,
   saveApiKeys,
   setApiKeys,
   setUserSelectedLLM,
@@ -31,6 +32,14 @@ export function useAI() {
     saveStatus,
     isSaving,
   } = useAIStore();
+
+  // Initialize API keys when the hook is first used
+  useEffect(() => {
+    // Only fetch API keys if we don't have any yet
+    if (apiKeys.length === 0) {
+      initializeApiKeys();
+    }
+  }, [apiKeys.length]);
 
   // Create a stable reference to the combined state and actions
   const aiInterface = useMemo(
