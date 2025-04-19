@@ -1,8 +1,7 @@
-import os
 import uuid
 from typing import List, Optional
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
@@ -22,14 +21,18 @@ class GetLLMResponseRequest(BaseModel):
     session_id: Optional[str] = None  # Session ID, optional
 
 
-class ApiKey(BaseModel):
-    modelId: str
+class LLMApiKey(BaseModel):
     providerName: str
     apiKey: str
 
 
-class ApiKeysRequest(BaseModel):
-    apiKeys: List[ApiKey]
+class SetLLMApiKeysRequest(BaseModel):
+    apiKeys: List[LLMApiKey]
+    apiKeysFilepath: str
+
+
+class GetLLMApiKeysRequest(BaseModel):
+    apiKeysFilepath: str
 
 
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
@@ -83,8 +86,8 @@ async def route_get_llm_response(
         }
 
 
-@router.post(C.ROUTE_SET_API_KEYS)
-def route_set_api_keys(x: ApiKeysRequest):
+@router.post(C.ROUTE_SET_LLM_API_KEYS)
+def route_set_llm_api_keys(x: SetLLMApiKeysRequest):
     """
     Write API keys to .env file to be used by litellm
 
@@ -92,23 +95,11 @@ def route_set_api_keys(x: ApiKeysRequest):
     and provider names, then writes them to the .env file in the correct format.
     """
     try:
-        env_file_path = ".env"
-
-        # Read existing .env file if it exists
-        env_vars = {}
-        if os.path.exists(env_file_path):
-            with open(env_file_path, "r") as env_file:
-                for line in env_file:
-                    if line.strip() and not line.startswith("#"):
-                        if "=" in line:
-                            key, value = line.strip().split("=", 1)
-                            env_vars[key] = value
+        env_vars = dotenv_values(x.apiKeysFilepath)
 
         # Remove all existing API key variables first
         # This ensures keys that were deleted on the frontend are also removed here
-        api_key_vars = [
-            key for key in list(env_vars.keys()) if key.endswith("_API_KEY")
-        ]
+        api_key_vars = get_llm_api_keys_from_env_vars(env_vars)
         for key in api_key_vars:
             del env_vars[key]
             print(f"Removed {key} from .env file")
@@ -119,14 +110,7 @@ def route_set_api_keys(x: ApiKeysRequest):
                 continue  # Skip empty keys
 
             # Format API key environment variable exactly as LiteLLM expects
-            provider_name = key.providerName.lower()
-            if provider_name == "anthropic":
-                env_var_name = "ANTHROPIC_API_KEY"
-            elif provider_name == "openai":
-                env_var_name = "OPENAI_API_KEY"
-            else:
-                # Fallback to generic format
-                env_var_name = f"{provider_name.upper().replace(' ', '_')}_API_KEY"
+            env_var_name = C.LLM_API_KEY_NAMES[key.providerName]
 
             # Ensure there are no spaces or special formatting that might cause issues
             api_key = key.apiKey.strip()
@@ -136,7 +120,7 @@ def route_set_api_keys(x: ApiKeysRequest):
             print(f"Saving {env_var_name} to .env file")
 
         # Write back to .env file
-        with open(env_file_path, "w") as env_file:
+        with open(x.apiKeysFilepath, "w") as env_file:
             for key, value in env_vars.items():
                 env_file.write(f"{key}={value}\n")
 
@@ -149,3 +133,12 @@ def route_set_api_keys(x: ApiKeysRequest):
     except Exception as e:
         print(f"Error updating .env file: {e}")
         return {"status": "error", "message": str(e)}
+
+
+def get_llm_api_keys_from_env_vars(env_vars):
+    return [key for key in env_vars.keys() if key in C.LLM_API_KEY_NAMES.values()]
+
+
+@router.post(C.ROUTE_GET_LLM_API_KEYS)
+def route_get_llm_api_keys(x: GetLLMApiKeysRequest):
+    return dotenv_values(x.apiKeysFilepath)

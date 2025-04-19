@@ -1,9 +1,10 @@
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
+import C from "constants/constants.json";
 import { useEffect, useState } from "react";
 import { useAI } from "state/hooks/aiChat";
 import { MODEL_GROUPS } from "utils/constants";
 
-const IsolatedInput = ({ modelId, providerName, initialValue, onChange }) => {
+const IsolatedInput = ({ providerName, initialValue, onChange }) => {
   const [value, setValue] = useState(initialValue || "");
 
   // Update value if initialValue changes
@@ -13,7 +14,7 @@ const IsolatedInput = ({ modelId, providerName, initialValue, onChange }) => {
 
   const handleChange = (newValue) => {
     setValue(newValue);
-    onChange(modelId, providerName, newValue);
+    onChange(providerName, newValue);
   };
 
   return (
@@ -29,13 +30,9 @@ const IsolatedInput = ({ modelId, providerName, initialValue, onChange }) => {
 };
 
 export function ProjectLLMSettings() {
-  const [apiKeys, setApiKeys] = useState([]);
-  const { saveStatus, handleApiKeyChange } = useAI();
+  const { saveStatus, handleApiKeyChange, apiKeys } = useAI();
 
-  const getApiKey = (modelId) => {
-    const entry = apiKeys.find((key) => key.modelId === modelId);
-    return entry ? entry.apiKey : "";
-  };
+  console.log("apiKeys", apiKeys, C.LLM_API_KEY_NAMES)
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-[30dvh] text-setta-600 dark:text-setta-400">
@@ -59,11 +56,8 @@ export function ProjectLLMSettings() {
             <label htmlFor={`api-key-${group.group}`}>API Key</label>
             <div className="single-cell-container grid min-h-[19px] grid-cols-[1fr,auto]">
               <IsolatedInput
-                modelId={group.group.toLowerCase().replace(/\s+/g, "-")}
                 providerName={group.group}
-                initialValue={getApiKey(
-                  group.group.toLowerCase().replace(/\s+/g, "-"),
-                )}
+                initialValue={apiKeys[C.LLM_API_KEY_NAMES[group.group]]}
                 onChange={handleApiKeyChange}
               />
               <span className="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />

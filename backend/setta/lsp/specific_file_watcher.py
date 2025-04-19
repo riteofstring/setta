@@ -241,15 +241,15 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         # Get relative path to current working directory
         rel_path = os.path.relpath(abs_path)
 
-        # Get file contents for created and modified events
-        file_content = None
-        if event_type in ("created", "modified"):
-            try:
-                with open(abs_path, "r", encoding="utf-8") as f:
-                    file_content = f.read()
-            except Exception as e:
-                logger.debug(f"Error reading file {abs_path}: {e}")
-                file_content = None
+        # # Get file contents for created and modified events
+        # file_content = None
+        # if event_type in ("created", "modified"):
+        #     try:
+        #         with open(abs_path, "r", encoding="utf-8") as f:
+        #             file_content = f.read()
+        #     except Exception as e:
+        #         logger.debug(f"Error reading file {abs_path}: {e}")
+        #         file_content = None
 
         # For moved events, get the content of the destination file
         dest_abs_path = None
@@ -257,19 +257,19 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         if event_type == "moved" and hasattr(event, "dest_path"):
             dest_abs_path = os.path.abspath(event.dest_path)
             dest_rel_path = os.path.relpath(dest_abs_path)
-            try:
-                with open(dest_abs_path, "r", encoding="utf-8") as f:
-                    file_content = f.read()
-            except Exception as e:
-                logger.debug(f"Error reading destination file {dest_abs_path}: {e}")
-                file_content = None
+            # try:
+            #     with open(dest_abs_path, "r", encoding="utf-8") as f:
+            #         file_content = f.read()
+            # except Exception as e:
+            #     logger.debug(f"Error reading destination file {dest_abs_path}: {e}")
+            #     file_content = None
 
         # Prepare event info object
         event_info = {
             "absPath": abs_path,
             "relPath": rel_path,
             "eventType": event_type,
-            "fileContent": file_content,
+            # "fileContent": file_content,
             "matchingGlobPatterns": list(self.file_to_patterns.get(abs_path, [])),
             "metadata": self.file_to_metadata.get(abs_path),
         }

@@ -20,6 +20,7 @@ import { useAIStore } from "state/definitions";
 export function useAI() {
   // Get the current state
   const {
+    apiKeys,
     messages,
     chatSessions,
     sessionId,
@@ -34,6 +35,7 @@ export function useAI() {
   const aiInterface = useMemo(
     () => ({
       // State
+      apiKeys,
       messages,
       chatSessions,
       sessionId,
@@ -55,6 +57,7 @@ export function useAI() {
       handleApiKeyChange,
     }),
     [
+      apiKeys,
       messages,
       chatSessions,
       sessionId,

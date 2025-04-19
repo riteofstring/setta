@@ -1,4 +1,4 @@
-import { dbGetLLMResponse, dbSetApiKeys } from "requests/ai";
+import { dbGetLLMResponse, dbSetLLMApiKeys } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { getSectionVariant } from "./sectionInfos";
 
@@ -362,7 +362,7 @@ export async function saveApiKeys(keys) {
   useAIStore.setState({ isSaving: true, saveStatus: "Saving..." });
 
   try {
-    await dbSetApiKeys(keys);
+    await dbSetLLMApiKeys(keys);
     useAIStore.setState({ saveStatus: "Saved!" });
   } catch (error) {
     console.error("Failed to update API keys on the server:", error);

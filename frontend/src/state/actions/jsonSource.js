@@ -1,5 +1,6 @@
+import { dbGetLLMApiKeys } from "requests/ai";
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
-import { useSectionInfos } from "state/definitions";
+import { useAIStore, useSectionInfos } from "state/definitions";
 import { updateSectionInfos } from "./sectionInfos";
 
 export async function updateWithFileChanges(updatedFileInfo) {
@@ -8,7 +9,7 @@ export async function updateWithFileChanges(updatedFileInfo) {
   if (metadata === "jsonSource") {
     await updateJSONSourceContents(updatedFileInfo);
   } else if (metadata === "apiKeysFile") {
-    updateApiKeyInfo(updatedFileInfo);
+    await updateApiKeyInfo(updatedFileInfo);
   }
 }
 
@@ -61,5 +62,9 @@ export async function loadJsonContents(variantIdsToLoad) {
   return { sectionVariants, codeInfo, codeInfoCols };
 }
 
-function updateApiKeyInfo(updatedFileInfo) {
+async function updateApiKeyInfo(updatedFileInfo) {
+  const res = await dbGetLLMApiKeys(updatedFileInfo.absPath);
+  if (res.status == 200) {
+    useAIStore.setState({ apiKeys: res.data });
+  }
 }
